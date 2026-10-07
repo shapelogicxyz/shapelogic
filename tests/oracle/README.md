@@ -55,16 +55,18 @@ just oracle-roundtrip             # the file round trip (stage 2 onward), see be
 for `R` puzzles, without `-d` for `A` puzzles) on a copy of each corpus file
 and keeps the solved file it writes beside it (`work/old/<path>ttt`).
 `compare-files` does the same with the new core (`bt_solve_file`, which
-follows the solve thread: the matrix, reduce, the saved position,
-initHotspot, the search, each assembly taken apart, solutions sorted by
-moves) into `work/new`, reads both files with the new core (`bt_solutions`)
-and compares problem 0: the state, the assembly and solution counts, and
-the saved solutions. The original keeps the ten best by moves, and which of
-several with the same moves it keeps depends on the order its threads took
-them apart; so the new file keeps every solution, the original's moves must
-be the top of the new list, and each solution the original kept must be in
-the new file with the same assembly, separation tree (every state of every
-node), level text and move counts. `A` puzzles compare the counts only.
+runs a `SolveSession` as burrTxt2 runs its solve thread: the matrix, reduce,
+the saved position, the search, the take-apart queue and its workers,
+solutions sorted by moves) into `work/new`, reads both files with the new
+core (`bt_solutions`) and compares problem 0: the state, the assembly and
+solution counts, and the saved solutions. The original keeps the ten best
+by moves, and which of several with the same moves it keeps depends on the
+order its threads took them apart; so the new file keeps every solution
+(`--limit 0` with `-d`), the original's moves must be the top of the new
+list, and each solution the original kept must be in the new file with the
+same assembly, separation tree (every state of every node), level text and
+move counts. `A` puzzles compare the counts only (their saved assemblies
+keep the solve thread's limit of ten).
 `--solver crowell|bt2` uses `work/old-<solver>` and `work/new-<solver>`.
 
 ## Recorded values for unit tests

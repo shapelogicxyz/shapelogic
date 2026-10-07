@@ -54,12 +54,13 @@ its fraction every 4096 steps and at the end of a run (the original read its
 search stack unsynchronised from the GUI thread).
 
 **Threads** come from one `bt::ThreadPool`, made by whoever owns the solve
-(the CLI now, the solve session in stage 5) with the solve's budget, and
-passed in `SearchOptions`. `run(n, job)` runs the job on the caller and on as
-many lent threads as cores are free; work on threads of its own reports its
-load. There is no process-wide limit and no environment variable: the CLI
-maps `-t`, `0` meaning the hardware's threads. Thread counts are clamped to
-`kMaxThreads` (256) before any thread is made. Shapes are warmed
+(the CLI, the solve session) with the solve's budget, and passed in
+`SearchOptions` (the session keeps the take-apart's pool apart from the
+assembly's: decision 0010). `run(n, job)` runs the job on the caller and on
+as many lent threads as cores are free; work on threads of its own reports
+its load. There is no process-wide limit and no environment variable: the
+CLI maps `-t`, `0` meaning the hardware's threads. Thread counts are clamped
+to `kMaxThreads` (256) before any thread is made. Shapes are warmed
 (`Voxel::warmCaches`) before a search spreads over threads.
 
 **A/B switches** are fields of `SearchOptions`: `vectorSearch`

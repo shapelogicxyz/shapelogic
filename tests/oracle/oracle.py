@@ -336,7 +336,9 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
     new_in.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(args.old_repo / e.rel, new_in)
     new_file = new_in.with_name(new_in.name + "ttt")
-    flags = (["--restart", "--limit", "0"] + ([] if "A" in e.flags else ["-d"])
+    # every solution is kept when taking apart (see compare_solved); saved
+    # assemblies are not compared and keep the solve thread's limit
+    flags = (["--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
              + (["--rotations"] if "R" in e.flags else []) + solver_args(args.solver))
     err = run_tool([str(args.new_tool), *flags, str(new_in), str(new_file)], args.timeout)
     if err:

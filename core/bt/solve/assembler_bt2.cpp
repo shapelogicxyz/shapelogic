@@ -310,6 +310,11 @@ RunEnd AssemblerBt2::assemble(const AssemblyCallback& callback, const SearchOpti
                               const StopToken& stop) {
   BT_ASSERT_MSG(errorsState_ == AssemblerError::None, "assemble() after a failed createMatrix()");
 
+  // a position saved when the search was through: nothing to search
+  if (restoredThrough_.load(std::memory_order_relaxed)) {
+    return RunEnd::Finished;
+  }
+
   SearchRun run(stop, callback);
   const unsigned int workers = effectiveThreads(options.threads, options.pool);
 
@@ -341,10 +346,10 @@ RunEnd AssemblerBt2::assemble(const AssemblyCallback& callback, const SearchOpti
 }
 
 float AssemblerBt2::finished() const {
-  // before the search has run: the position a saved file gave, which is
-  // always the start (see restorePosition)
+  // before the search has run: the position a saved file gave, the start
+  // or the end (see restorePosition)
   if (!searchPublished_.load(std::memory_order_acquire)) {
-    return 0;
+    return restoredThrough_.load(std::memory_order_relaxed) ? 1 : 0;
   }
 
   const std::lock_guard<std::mutex> lock(peerMutex_);
@@ -437,9 +442,17 @@ AssemblerError AssemblerBt2::restorePosition(std::string_view text, std::string_
     }
   }
 
-  // Only a search that has not started can be taken up: the dancing cells
-  // search never moves the position it saves, so anything else is a search
-  // that ran, and where it stood is not known.
+  // A search that is through: the format's position after the last piece,
+  // with no rows (see savePosition).
+  if (pos == matrix_.pieces + 1) {
+    restoredThrough_.store(true, std::memory_order_relaxed);
+    iterations_.store(it, std::memory_order_relaxed);
+    return AssemblerError::None;
+  }
+
+  // Otherwise only a search that has not started can be taken up: the
+  // dancing cells search never moves the position it saves, so anything
+  // else is a search that ran, and where it stood is not known.
   if (pos != 0 || it != 0 || rows.empty() || rows[0] != 0) {
     return AssemblerError::CannotRestoreInterrupted;
   }
@@ -449,9 +462,20 @@ AssemblerError AssemblerBt2::restorePosition(std::string_view text, std::string_
 SavedPosition AssemblerBt2::savePosition() const {
   // The original's dancing links position, at its start: pos 0, the
   // iterations of this search and of the branches that are through (not
-  // those of the branches still going), and the first row entry.
+  // those of the branches still going), and the first row entry. A search
+  // that is through stands after the last piece, as assembler 0's does
+  // (the original wrote the start for it too).
   const std::uint64_t it = iterations_.load(std::memory_order_relaxed) +
                            root_.liveIterations.load(std::memory_order_relaxed);
+  bool through = restoredThrough_.load(std::memory_order_relaxed);
+  if (!through && cellsBuilt_) {
+    const std::lock_guard<std::mutex> lock(peerMutex_);
+    through = root_.cells.finished() && parked_.empty();
+  }
+  if (through) {
+    return SavedPosition{kVersion,
+                         std::to_string(matrix_.pieces + 1) + " " + std::to_string(it) + " "};
+  }
   return SavedPosition{kVersion, "0 " + std::to_string(it) + " (0 0)"};
 }
 

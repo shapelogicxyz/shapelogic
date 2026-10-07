@@ -4,10 +4,10 @@ BurrTools Alpha is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 4 (the assembler run layer and all three
-assemblers; the take-apart with rotation moves, Classic and Crowell; `bt`
-solving and taking apart). `core/bt/base`, `grid`, `model`, `io` and
-`solve` have code; the solve session follows in stage 5.*
+*Current state: stage 5 (the assembler run layer and all three
+assemblers; the take-apart with rotation moves, Classic and Crowell; the
+solve session; `bt` solving and taking apart). `core/bt/base`, `grid`,
+`model`, `io` and `solve` have code; the app layer follows in stage 6.*
 
 ## Big picture
 
@@ -64,7 +64,8 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
   (with `clone()` when T has one), so classes with polymorphic or recursive
   members keep `= default` copies.
 - `thread_pool.h`: `ThreadPool`, the threads of a solve (from the original's
-  `helperPool_c`): made by the owner of the solve with its thread budget,
+  `helperPool_c`): made by the owner of the solve (the solve session, or a
+  tool) with its thread budget,
   `run(n, job)` runs a job on the caller and on lent threads, `addLoad()`
   for work on threads of its own; nesting cannot deadlock. `kMaxThreads`
   (256), `hardwareThreads()`, `splitThreads()` (assembly / take-apart share
@@ -144,8 +145,9 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   `PreservedXml` (file content a model object keeps without modelling it).
 
 The model has no locks and no atomics (the original's problem had both for
-its solver thread); how a running solve hands results over is stage 5's
-design.
+its solver thread). While a `SolveSession` runs, it alone writes its
+problem, under its own lock; others read through `readProblem()` (see
+solve).
 
 ### io (exists)
 `.xmpuzzle` files: gzip-compressed XML, plain XML read too (decision 0008).
@@ -163,7 +165,7 @@ and unknown `<voxel>` attributes, are kept and written back in place;
 stacking rod sets and maps are kept this way until stacking is ported.
 Saves are byte-identical to the original's.
 
-### solve (stages 3 and 4 exist; 5 adds to it)
+### solve (exists: stages 3 to 5)
 The assemblers, on one run layer (decision 0009), and the take-apart. Ported from
 `assembler.cpp`, `assembler_resume.h`, `assembler_0.cpp`, `assembler_1.cpp`,
 `assembler_bt2.cpp`, `bt2_dancingcells.cpp`, `bt2_assemble.cpp`,
@@ -245,7 +247,7 @@ search itself; a stopped split or vector search continues the way it ran.
 A search may hand over assemblies it reaches after the pause was asked for
 (assembler 1's plain search until it stands where it can be saved, BT2's
 other threads): those are not found again. The assembler never writes into
-the `Problem` (results go to the callback; the CLI, later the session, owns
+the `Problem` (results go to the callback; the CLI or the session owns
 the problem).
 
 **The take-apart** (stage 4). Ported from `disassembler*.{h,cpp}`,
@@ -304,8 +306,55 @@ callback without deadlock; the shapes' caches are warmed when the
 disassembler is made. Nothing is printed and nothing read from the
 environment (the original's switches are options).
 
-Planned: `SolveSession` replacing `solveThread_c` (5): the take-apart queue
-and its workers, solution sorting and limits, saving a solve.
+**The solve session** (stage 5, decision 0010). Ported from `solvethread.{h,cpp}`,
+`solveprogress.h` and the parts of the original GUI that drove the solve
+thread (Solve, Prepare, Continue, Abort, the autosave pause,
+recordSearchStats); checked by the harness (`compare-files` solves with it)
+and by pause/continue stress tests.
+- `solve_session.h`: `SolveSession`, the solve of one problem across all
+  its runs: `start()` (from scratch), `prepare()` (matrix, reduce, then
+  Paused), `resume()` (a paused run in memory, the problem's saved
+  position, or an unsolved problem), `pause()`, `pauseAtSavePoint()` (the
+  autosave pause: the assembly stops, the take-aparts finish, Paused with
+  the position in the problem; the owner saves and resumes), `abort()`
+  (stop and drop everything), `wait()`; `state()`, `progress()`, `stats()`,
+  `failure()`, `readProblem(f)` and `setLiveSort()` from any thread.
+  `SolveOptions` (the solve thread's PAR_ flags, `SolutionOrder`, the
+  limit and drop of kept solutions, threads, take-apart workers, the
+  assembly's and take-apart's A/B switches); `SolveFailure` (an
+  `AssemblerError` of the preparation or the saved position, or an
+  internal error with its message, file and line).
+- `solve_progress.h`: `SolveProgress` (stage, counts, the take-aparts under
+  way, the overall estimate that never goes back, time left, `activity()`
+  text) and `SolveStats` (the debug panel's counts and times).
+
+**Inside a run** (one thread of the session's own per run): moved
+hotspots are reset (before the matrix, and on every run); Preparing makes the
+assembler, `createMatrix`, `reduce`, `beginSolving` (start or restore);
+Assembling takes the problem's pending assemblies first, then runs the
+assembler on a pool of its threads; each assembly goes to a bounded queue
+(at least 64) that take-apart workers (one `Disassembler` each, their
+levels spread over a second pool that counts the assembly's and the busy
+workers' load with `addLoad`) empty; an assembly thread waits at a full
+queue and lends its cores meanwhile. Solutions go into the problem sorted
+(by moves, level or turns; equals by assembly number) up to the limit, or
+unsorted and thinned evenly. Draining waits for the queue; the run ends
+Finished (the search said so and all is taken apart), Paused (the position
+written into the problem, queued and stopped take-aparts back in the
+pending list, counted), Idle (aborted: the problem cleared) or Error (the
+results dropped).
+
+**Rules of the session:** the owner's calls (`start`, `prepare`, `resume`,
+`abort`, `wait`, `setOptions`) come one at a time; the first state move of
+a run is made before its thread starts, so an active state is seen at once;
+after that only the run's thread writes the state. One `StopSource` per
+run with a child for the assembly (save points); waits on the queue wake
+on a stop (requested under the queue's mutex). Assemblies handed over after
+a pause are kept as pending, not counted. A paused session carries on with
+the same assembler; a session on a reloaded file restores the position
+(BurrTools 2 cannot, except for a search that is through: Error, then a
+fresh start). Lock order: no lock is held while another is taken, except
+the owner's control lock around the results and run locks.
 
 ### mesh and app (stage 6)
 Drawing meshes for every grid; `Document` with transactional undo/redo;

@@ -50,7 +50,8 @@ failure scenarios.
 - [x] **Stage 3b**: assembler 1 and BurrTools 2 (see docs/handoff/stage-3b.md)
 - [x] Audit of stage 3: six findings fixed (commit 05088fd; see docs/handoff/stage-4.md)
 - [x] **Stage 4**: disassembly (see docs/handoff/stage-4.md)
-- [ ] Stage 5: solve session
+- [x] Audit of stage 4: three findings fixed (commit 60dc717; see docs/handoff/stage-5.md)
+- [x] **Stage 5**: solve session (see docs/handoff/stage-5.md)
 - [ ] Stage 6: app layer
 - [ ] Stage 7: engine
 - [ ] Stage 8: CLI and performance

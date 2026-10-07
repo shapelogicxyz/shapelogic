@@ -25,6 +25,7 @@ add_executable(bt_tests
   unit/solve/test_positions.cpp
   unit/solve/test_rotation_solvers.cpp
   unit/solve/test_simd_exact_cover.cpp
+  unit/solve/test_solve_session.cpp
   unit/solve/test_work_stealing.cpp)
 
 target_link_libraries(bt_tests PRIVATE btcore Catch2::Catch2WithMain)

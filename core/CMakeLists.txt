@@ -49,6 +49,8 @@ add_library(btcore STATIC
   bt/solve/search_run.cpp
   bt/solve/simd_exact_cover.cpp
   bt/solve/simd_huang_cover.cpp
+  bt/solve/solve_progress.cpp
+  bt/solve/solve_session.cpp
   bt/solve/solver_type.cpp)
 
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -339,6 +339,23 @@ TEST_CASE("BurrTools 2: saved positions", "[solve][assembler][resume]") {
     CHECK(b->restorePosition(pos.text, pos.version) == AssemblerError::CannotRestoreInterrupted);
   }
 
+  SECTION("a search that is through") {
+    auto a = made(p);
+    REQUIRE(runOnce(*a, searchOptions(1, nullptr)).end == RunEnd::Finished);
+    const SavedPosition pos = a->savePosition();
+    // the dancing links position after the last piece (assembler 0's form)
+    CHECK(pos.text == std::to_string(p.getProblem(0).getNumberOfPieces() + 1) + " " +
+                          std::to_string(a->iterations()) + " ");
+    auto b = made(p);
+    REQUIRE(b->restorePosition(pos.text, pos.version) == AssemblerError::None);
+    CHECK(b->finished() == 1.0F);
+    CHECK(b->iterations() == a->iterations());
+    const test::RunResult again = runOnce(*b, searchOptions(4, nullptr));
+    CHECK(again.end == RunEnd::Finished);
+    CHECK(again.found.empty());
+    CHECK(b->savePosition().text == pos.text);
+  }
+
   SECTION("other texts") {
     struct Case {
       const char* text;

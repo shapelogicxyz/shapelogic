@@ -40,7 +40,11 @@ namespace bt {
 /// assembler 0's format, which the dancing cells search never moves from its
 /// start ("0 <iterations> (0 0)"). A paused search therefore cannot be
 /// continued from a saved position; restorePosition() accepts only a search
-/// that has not started (see there).
+/// that has not started, or one that is through: that one is saved as the
+/// format's position after the last piece ("<pieces + 1> <iterations> ",
+/// what assembler 0 writes when it is through; the original wrote the start
+/// for it too, so a solve paused while its last assemblies were still being
+/// taken apart lost everything when it was loaded again).
 class AssemblerBt2 final : public Assembler {
  public:
   /// The version string of saved positions.
@@ -67,10 +71,12 @@ class AssemblerBt2 final : public Assembler {
   [[nodiscard]] std::uint64_t iterations() const override;
   [[nodiscard]] SavedPosition savePosition() const override;
   /// Accepts only the position of a search that has not started ("0 0
-  /// (0 0)"). Any other is CannotRestoreInterrupted: where the dancing
-  /// cells search stood is not saved, so it can only start again, and
-  /// beginSolving() then drops what it had found (the original started
-  /// again and kept it, so every assembly found before came twice).
+  /// (0 0)") or of one that is through ("<pieces + 1> <iterations> "; the
+  /// next run finds nothing and is Finished). Any other is
+  /// CannotRestoreInterrupted: where the dancing cells search stood is not
+  /// saved, so it can only start again, and beginSolving() then drops what
+  /// it had found (the original started again and kept it, so every
+  /// assembly found before came twice).
   AssemblerError restorePosition(std::string_view text, std::string_view version) override;
 
   [[nodiscard]] bool piecePlacementSupported() const override { return true; }
@@ -133,6 +139,9 @@ class AssemblerBt2 final : public Assembler {
   bool cellsBuilt_ = false;
   /// The root has published its progress at least once.
   std::atomic<bool> searchPublished_{false};
+  /// Restored from the position of a search that is through: there is
+  /// nothing left to search. Read by finished() from any thread.
+  std::atomic<bool> restoredThrough_{false};
 
   /// Guards everything below: the branches split off the root that are not
   /// through (peers), those a stopped run left (parked; they stay peers),
