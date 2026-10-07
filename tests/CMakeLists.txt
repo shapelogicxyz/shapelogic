@@ -4,7 +4,13 @@
 add_executable(bt_tests
   unit/base/test_error.cpp
   unit/base/test_solve_state.cpp
-  unit/base/test_stop.cpp)
+  unit/base/test_stop.cpp
+  unit/grid/test_grid_dump.cpp
+  unit/grid/test_grid_invariants.cpp
+  unit/grid/test_grid_port.cpp
+  unit/grid/test_symmetries.cpp
+  unit/grid/test_voxel.cpp
+  unit/grid/test_voxel_connect.cpp)
 
 target_link_libraries(bt_tests PRIVATE btcore Catch2::Catch2WithMain)
 bt_set_warnings(bt_tests)

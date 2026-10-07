@@ -36,6 +36,21 @@ just oracle-baseline --tier full  # re-record the original's answers
 python3 tests/oracle/oracle.py baseline-files --tier fast   # solved files from burrTxt2, into work/
 ```
 
+## Recorded values for unit tests
+
+Parts that the CLI cannot reach are compared through recordings: a tool is
+compiled against the original's `build/libburr_core.a`, run once, and its
+output committed under `tests/data/`. The unit tests compare the port with
+it.
+
+```bash
+python3 tests/oracle/oracle.py grid-dump   # tests/data/grid_dump.txt (stage 1)
+```
+
+`grid_dump_old.cpp` and `tests/unit/grid/test_grid_dump.cpp` run the same
+code (`tests/unit/grid/grid_dump.h`) through two small adapters, so the
+recording and the check cannot drift apart.
+
 ## Levels of comparison
 
 1. **Summary** (stage 3 onward): `--json` totals. Assembly and solution counts,

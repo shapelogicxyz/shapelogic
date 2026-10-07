@@ -4,7 +4,7 @@ BurrTools Next is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 0 (bootstrap). Only `core/bt/base` has code.*
+*Current state: stage 1 (grids and symmetry). `core/bt/base` and `core/bt/grid` have code.*
 
 ## Big picture
 
@@ -54,14 +54,50 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 - `error.h`: `Errc`, `Error`, `Result<T>` (`std::expected`), `fail()`.
 - `assert.h`: `BT_ASSERT`, `BT_ASSERT_MSG`, `InternalError`; on in every build.
 - `version.h`: `kVersion`, from CMake.
+- `int_cast.h`: `asInt()` / `asUnsigned()`, the spelled-out int/unsigned
+  conversions that ported code needs under `-Wsign-conversion`.
 - Planned for stage 3: a shared thread pool with a global thread budget
   (replacing the original's `helperpool.cpp` and `BURRTOOLS_THREADS`).
 
-### grid (stage 1)
-Grid types (cubes, triangular prisms, spheres, rhombic tetrahedra,
-tetrahedra-octahedra), voxel spaces with their editing operations, symmetry
-and transformation tables. From the original `voxel*.cpp`,
-`symmetries_*.cpp`, `tabs_*`, `gridtype.cpp`.
+### grid (exists)
+Ported from the original `voxel*.cpp`, `symmetries_*.cpp`, `tabs_*`,
+`gridtype.cpp`, `voxeltable.cpp`; checked value for value against the
+original (`tests/data/grid_dump.txt`, see "Testing against the original").
+- `grid_type.h`: `GridKind` (the numbers are the file format's) and
+  `GridType`, a small value type: capabilities, `getSymmetries()`, and
+  `makeVoxel()`, the factory for voxel spaces. Sliding and stacking grids
+  exist as kinds (cube spaces) so their files load; their solvers are later.
+- `voxel.h`: `Voxel`, the abstract voxel space: cells (state + colour per
+  byte), bounding box, hotspot, name, weight, the per-transformation hotspot
+  and bounding-box queries, comparison, connectivity, and the editing
+  operations (`translate`, `resize`, `minimizePiece`, `fillHoles`,
+  `actionOnSpace`, `scale`, `scaleDown`, `resizeInclude`, `unionintersect`).
+  It also carries the sliding/stacking data (goal marks, disc size, shape
+  colour) so files round-trip. Copy with `clone()`; the grid is stored by
+  value, so a voxel space never dangles.
+- `voxel_bricks`, `voxel_prisms`, `voxel_spheres`, `voxel_rhombic`,
+  `voxel_tetra_octa`: one class per grid (`voxel_0` … `voxel_4` in the
+  original); rhombic and tetra-octa derive from bricks and lay a 5- or
+  6-aligned super-grid over cubes.
+- `symmetries.h`: `Symmetries`, the transformation and symmetry-group tables
+  of a grid (`transAdd`, `minimizeTransformation`, `calculateSymmetry`, …).
+  `symmetries_impl.h` is the one table-driven implementation; `symmetries_0/1/2.cpp`
+  instantiate it over the generated tables in `tabs_0/1/2/` (copied as they
+  are; see `core/bt/grid/TABLES.md`). The instances are immutable statics.
+- `voxel_table.h`: `VoxelTable`, a hash table that finds a shape in any
+  orientation; it takes a callback from index to shape.
+- `bitfield.h`: `Bitfield<N>`, a constexpr bit set (the sphere tables).
+
+**Caches and threads.** `Voxel` computes its symmetry group and the hotspot
+and bounding box of each transformation lazily inside const functions. A
+shape read by several threads must have `warmCaches()` called first (the
+assemblers in stage 3 do this before sharing shapes); editing a shape
+invalidates the caches.
+
+**Differences from the original** (deliberate; listed in
+docs/handoff/stage-1.md): `getHotspot` of a transformation the shape cannot
+take reports failure regardless of call order; the cube transform drops the
+transformation cache; `voxel_c::copy()` (unused) was not ported.
 
 ### model and io (stage 2)
 Value-type puzzle model and the `.xmpuzzle` reader/writer with unknown content
@@ -77,6 +113,15 @@ caches, rotation rules; `SolveSession` replacing `solveThread_c`.
 Drawing meshes for every grid; `Document` with transactional undo/redo;
 editing commands; fit statistics; the playback sampler (meshes plus piece
 poses at any step); explorer data.
+
+## Testing against the original
+
+- `tests/oracle/` runs the original programs (decision 0007): the summary
+  comparison of `bt` with `burrTxt` (from stage 3), and recorders that
+  compile a dump tool against the original's library
+  (`oracle.py grid-dump` writes `tests/data/grid_dump.txt`).
+- The unit tests compare with those recordings
+  (`tests/unit/grid/test_grid_dump.cpp`); they never read the original repo.
 
 ## Rules that hold everywhere
 

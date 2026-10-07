@@ -217,6 +217,38 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
     return 0
 
 
+def build_against_old(old_repo: Path, source: Path, out: Path) -> bool:
+    """Compile a tool from this repo against the original's library (core + manifold)."""
+    lib = old_repo / "build" / "libburr_core.a"
+    manifold = next(iter(sorted((old_repo / "build" / "subprojects").glob("manifold-*/libmanifold.a"))), None)
+    if not lib.exists() or manifold is None:
+        print(f"original library not found under {old_repo / 'build'}; build the old repo first (just build)", file=sys.stderr)
+        return False
+    cxx = os.environ.get("CXX", "c++")
+    cmd = [cxx, "-std=c++20", "-O1", "-w", f"-I{old_repo / 'src'}", f"-I{old_repo / 'src' / 'lib'}",
+           str(source), str(lib), str(manifold), "-lz", "-o", str(out)]
+    if sys.platform == "darwin":
+        cmd.insert(1, "-mmacosx-version-min=11.0")
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        print(proc.stderr, file=sys.stderr)
+        return False
+    return True
+
+
+def cmd_grid_dump(args: argparse.Namespace) -> int:
+    """Record tests/data/grid_dump.txt: the grid dump (tests/unit/grid/grid_dump.h) of the original."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "grid_dump_old"
+    if not build_against_old(args.old_repo, HERE / "grid_dump_old.cpp", exe):
+        return 2
+    out = HERE.parent / "data" / "grid_dump.txt"
+    with open(out, "w") as f:
+        subprocess.run([str(exe)], stdout=f, check=True)
+    print(f"wrote {out}")
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
@@ -229,9 +261,11 @@ def main() -> int:
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
+    sub.add_parser("grid-dump", help="record tests/data/grid_dump.txt from the original's grid code")
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
-    return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files}[args.cmd](args)
+    return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
+            "grid-dump": cmd_grid_dump}[args.cmd](args)
 
 
 if __name__ == "__main__":
