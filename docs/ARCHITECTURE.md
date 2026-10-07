@@ -285,8 +285,13 @@ and all threads; the solved files solution by solution, `compare-files`).
   `rotation_moves.h`: the `RotationMoves` generator interface;
   `RotationMovesClassic` (complete: every group about every pivot, one
   position per arrangement with the anchor) and `RotationMovesCrowell` (the
-  Fortran solver's heuristics; notes in `CROWELL.md`).
-- `grouping.h`: `Grouping`, groups given to sets of pieces.
+  Fortran solver's heuristics; notes in `CROWELL.md`). A position of more
+  than `kMaxTurnPieces` (31) pieces gets no turns (the pieces of a turn
+  are a 32-bit mask; the original overflowed it).
+- `grouping.h`: `Grouping`, groups given to sets of pieces, keyed by part;
+  every take-apart starts with the full counts (the original keyed by
+  shape id but asked by part, and kept the counts used up: stage 4
+  audit).
 - `disasm_to_moves.h`: `DisasmToMoves` (piece positions at any step of a
   tree, turns as angles about a pivot) and `FixedPositions`, behind
   `PiecePositions`; stage 6 builds the playback sampler from it.

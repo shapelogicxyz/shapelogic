@@ -365,7 +365,7 @@ void RotationMovesCrowell::initFind(DisassemblerNode* nd, const std::vector<unsi
   nextsense_ = 0;
   cellsReady_ = false;
   cachedMask_ = 0;
-  active_ = pcs.size() > 1;
+  active_ = pcs.size() > 1 && pcs.size() <= kMaxTurnPieces;
 
   dirCounts_.fill(0);
 

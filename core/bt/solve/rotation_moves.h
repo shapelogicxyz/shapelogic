@@ -16,13 +16,21 @@
 
 namespace bt {
 
+/// The most pieces a position may have for turns to be looked for: the
+/// generators hold the pieces that turn in a 32-bit mask and go through
+/// every group of them. A position of more pieces gets no turns (slides
+/// and removals still); the parts it separates into get them again once
+/// they are small enough. (The original shifted past the mask: undefined
+/// behaviour, and 2^32 groups to try at 32 pieces; stage 4 audit.)
+inline constexpr unsigned int kMaxTurnPieces = 31;
+
 /// A generator of 90 degree turns from one position.
 class RotationMoves {
  public:
   virtual ~RotationMoves() = default;
 
   /// Starts with position `nd` of the pieces `pcs` (both must stay until
-  /// the next initFind).
+  /// the next initFind). More than kMaxTurnPieces pieces give no turns.
   virtual void initFind(DisassemblerNode* nd, const std::vector<unsigned int>& pcs) = 0;
 
   /// The next turn, as a new position; null when there are no more.

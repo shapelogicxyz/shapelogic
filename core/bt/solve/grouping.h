@@ -27,17 +27,23 @@ class Grouping {
   Grouping(const Grouping&) = delete;
   Grouping& operator=(const Grouping&) = delete;
 
-  /// `count` pieces of shape `pc` may be in group `group` (0 is no group and
-  /// adds nothing).
+  /// `count` pieces of part `pc` may be in group `group` (0 is no group and
+  /// adds nothing). The disassembler keys by the part index, as it asks
+  /// (the original registered the shape id and asked with the part index:
+  /// a deliberate difference, stage 4 audit).
   void addPieces(unsigned int pc, unsigned int group, unsigned int count);
 
-  /// Forgets the sets (not what they used of the counts, as the original).
+  /// Forgets the sets and gives back what they took of the counts: the
+  /// next take-apart starts with the counts addPieces registered. (The
+  /// original kept them used up, so every take-apart after the first of a
+  /// disassembler found the groups full; a deliberate difference, stage 4
+  /// audit.)
   void reSet();
 
   /// Starts a new set.
   void newSet();
 
-  /// Adds a piece of shape `pc` to the current set: false when the sets so
+  /// Adds a piece of part `pc` to the current set: false when the sets so
   /// far can no longer all be given a group. After false, stop: later calls
   /// give nothing useful.
   bool addPieceToSet(unsigned int pc);
@@ -51,7 +57,10 @@ class Grouping {
   struct Piece {
     unsigned int piece = 0;
     unsigned int group = 0;
+    /// What is left of the group's count in this take-apart.
     int count = 0;
+    /// The count addPieces registered.
+    int registered = 0;
   };
 
   [[nodiscard]] unsigned int findPiece(unsigned int pc, unsigned int gp) const;

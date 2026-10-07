@@ -585,3 +585,34 @@ TEST_CASE("movement analysator: completeFind and findMatching", "[solve][disasm]
   }
   CHECK(matched > 0);
 }
+
+// The turn generators hold a position's pieces in a 32-bit mask. The
+// original shifted past it on a position of 33 pieces (undefined behaviour,
+// which the sanitizer build stops at) and would go through 2^32 groups at
+// 32; now a position of more than kMaxTurnPieces gets no turns, and the
+// parts it comes apart into get them again (stage 4 audit, finding 3).
+TEST_CASE("rotation take-apart: 33 pieces come apart without overflowing the piece masks",
+          "[solve][rotation]") {
+  const std::string xml =
+      R"(<puzzle version="2"><gridType type="0"/><colors/><shapes>)"
+      R"(<voxel x="33" y="1" z="1" type="0">#################################</voxel>)"
+      R"(<voxel x="1" y="1" z="1" type="0">#</voxel></shapes>)"
+      R"(<problems><problem state="0"><shapes><shape id="1" count="33"/></shapes>)"
+      R"(<result id="0"/><bitmap/></problem></problems></puzzle>)";
+  Result<Puzzle> loaded = io::parsePuzzle(xml);
+  REQUIRE(loaded.has_value());
+  Puzzle& puzzle = *loaded;
+  const std::vector<Assembly> assemblies = allAssemblies(puzzle);
+  REQUIRE(assemblies.size() == 1);
+
+  for (const SolverType solver : {SolverType::Classic, SolverType::Crowell}) {
+    INFO(solverTypeLabel(solver));
+    DisassemblerOptions o;
+    o.rotations = true;
+    o.solver = solver;
+    Disassembler d(puzzle, puzzle.getProblem(0), o);
+    const TakeApartResult r = d.disassemble(assemblies[0]);
+    REQUIRE(r.separation.has_value());
+    CHECK(r.separation->sumMoves() == 32);
+  }
+}

@@ -25,8 +25,9 @@ void Grouping::addPieces(unsigned int pc, unsigned int group, unsigned int count
 
   if (i < pieces_.size()) {
     pieces_[i].count += static_cast<int>(count);
+    pieces_[i].registered += static_cast<int>(count);
   } else {
-    pieces_.push_back(Piece{pc, group, static_cast<int>(count)});
+    pieces_.push_back(Piece{pc, group, static_cast<int>(count), static_cast<int>(count)});
     if (group + 1 > numGroups_) {
       numGroups_ = group + 1;
     }
@@ -36,6 +37,9 @@ void Grouping::addPieces(unsigned int pc, unsigned int group, unsigned int count
 void Grouping::reSet() {
   sets_.clear();
   failed_ = false;
+  for (Piece& p : pieces_) {
+    p.count = p.registered;
+  }
 }
 
 void Grouping::newSet() {

@@ -1,9 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Grouping. Ported from the original's test/test_grouping.cpp; the line
-// numbers its comments cite are those of the original grouping.cpp.
+// numbers its comments cite are those of the original grouping.cpp. The
+// cases at the end (groups in the take-apart) are new, from the stage 4
+// audit.
+#include "bt/base/stop.h"
+#include "bt/grid/voxel.h"
+#include "bt/io/puzzle_file.h"
+#include "bt/model/assembly.h"
+#include "bt/model/problem.h"
+#include "bt/model/puzzle.h"
+#include "bt/solve/assembler.h"
+#include "bt/solve/disassembler.h"
 #include "bt/solve/grouping.h"
+#include "bt/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
+
+#include <string>
+#include <vector>
 
 using bt::Grouping;
 
@@ -73,21 +87,28 @@ TEST_CASE("grouping: capacity is global, so a new set does not replenish it", "[
   REQUIRE_FALSE(g.addPieceToSet(0));
 }
 
-TEST_CASE("grouping: reSet does not restore consumed capacity", "[solve][grouping]") {
+TEST_CASE("grouping: reSet gives the counts back", "[solve][grouping]") {
   Grouping g;
 
   g.addPieces(0, 1, 1);
+  g.addPieces(0, 2, 1);
 
   g.newSet();
   REQUIRE(g.addPieceToSet(0));
-
-  /* reSet clears the sets and the failed flag but leaves pieces[].count
-     depleted, so the object cannot in fact be reused. This pins OBSERVED
-     behaviour and may well be a defect in grouping.cpp — it is recorded
-     here rather than fixed, because this PR changes no production code. */
-  g.reSet();
+  g.newSet();
+  REQUIRE(g.addPieceToSet(0));
   g.newSet();
   REQUIRE_FALSE(g.addPieceToSet(0));
+
+  /* The original's reSet cleared the sets and the failed flag but left
+     the counts used up, so the next take-apart of a disassembler found
+     the groups full (stage 4 audit, finding 2). Now each take-apart
+     starts with the counts registered. */
+  g.reSet();
+  g.newSet();
+  REQUIRE(g.addPieceToSet(0));
+  g.newSet();
+  REQUIRE(g.addPieceToSet(0));
 }
 
 TEST_CASE("grouping: backtracking into a newly-tried group can succeed for the whole set", "[solve][grouping]") {
@@ -200,4 +221,80 @@ TEST_CASE("grouping: undoing a multi-piece placement in a retried group lets a l
      that doesn't assume loop termination (e.g. Clang's
      -fno-finite-loops), not more test engineering against -O2. */
   REQUIRE(g.addPieceToSet(2));
+}
+
+namespace {
+
+// The stage 4 audit's puzzle: two separate 3x3x3 boxes, each a dumbbell
+// (two 3x3 plates on a one-cube stem) with a ring around its stem, which
+// cannot come apart; each shape has one piece in group 1 and one in group
+// 2, so a dumbbell and a ring of one group may stay together. Every
+// assembly's two boxes separate at once, and each box is one group's pair:
+// every assembly is a solution. With `resultFirst` the result is shape 0
+// and part k is shape k + 1 (as in every example), else the result is
+// shape 2 and each part's shape id is its index.
+bt::Puzzle twoBoxes(bool resultFirst) {
+  const std::string box =
+      R"(<voxel x="7" y="3" z="3" name="TwoBoxes" type="0">###_######_######_######_######_######_######_######_######_###</voxel>)";
+  const std::string bell =
+      R"(<voxel x="3" y="3" z="3" name="Dumbbell" type="0">#########____#____#########</voxel>)";
+  const std::string ring = R"(<voxel x="3" y="3" z="1" name="Ring" type="0">####_####</voxel>)";
+  const std::string groups = R"(<group group="1" count="1"/><group group="2" count="1"/>)";
+  const std::string xml =
+      R"(<puzzle version="2"><gridType type="0"/><colors/><shapes>)" +
+      (resultFirst ? box + bell + ring : bell + ring + box) +
+      R"(</shapes><problems><problem name="two boxes" state="0"><shapes>)" +
+      (resultFirst ? R"(<shape id="1" count="2">)" : R"(<shape id="0" count="2">)") + groups +
+      "</shape>" +
+      (resultFirst ? R"(<shape id="2" count="2">)" : R"(<shape id="1" count="2">)") + groups +
+      "</shape></shapes>" +
+      (resultFirst ? R"(<result id="0"/>)" : R"(<result id="2"/>)") +
+      "<bitmap/></problem></problems></puzzle>";
+  bt::Result<bt::Puzzle> p = bt::io::parsePuzzle(xml);
+  REQUIRE(p.has_value());
+  return std::move(*p);
+}
+
+std::vector<bt::Assembly> assembliesOf(const bt::Puzzle& puzzle) {
+  const bt::Problem& pr = puzzle.getProblem(0);
+  std::unique_ptr<bt::Assembler> a = bt::makeAssembler(puzzle, pr, bt::SolverType::Classic);
+  REQUIRE(a->createMatrix({}) == bt::AssemblerError::None);
+  std::vector<bt::Assembly> res;
+  REQUIRE(a->assemble(
+              [&res](bt::Assembly x) {
+                res.push_back(std::move(x));
+                return true;
+              },
+              {}, bt::StopToken{}) == bt::RunEnd::Finished);
+  return res;
+}
+
+}  // namespace
+
+TEST_CASE("grouping: pieces in several groups stay together, whatever the shape order",
+          "[solve][grouping]") {
+  for (const bool resultFirst : {true, false}) {
+    INFO((resultFirst ? "result shape 0" : "result shape 2"));
+    const bt::Puzzle puzzle = twoBoxes(resultFirst);
+    const std::vector<bt::Assembly> assemblies = assembliesOf(puzzle);
+    REQUIRE(assemblies.size() == 4);
+
+    /* The original registered the groups under the shape id and looked
+       them up under the part index: with the result first nothing was
+       found (0 solutions). And its reSet kept the counts used up, so one
+       disassembler gave only its first assembly (1 solution). */
+    bt::Disassembler d(puzzle, puzzle.getProblem(0), {});
+    unsigned int solutions = 0;
+    for (const bt::Assembly& a : assemblies) {
+      solutions += d.disassemble(a).separation ? 1 : 0;
+    }
+    CHECK(solutions == 4);
+
+    /* in the other order on the same disassembler, too */
+    solutions = 0;
+    for (auto it = assemblies.rbegin(); it != assemblies.rend(); ++it) {
+      solutions += d.disassemble(*it).separation ? 1 : 0;
+    }
+    CHECK(solutions == 4);
+  }
 }

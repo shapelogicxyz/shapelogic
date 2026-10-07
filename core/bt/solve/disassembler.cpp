@@ -65,10 +65,10 @@ Disassembler::Disassembler(const Puzzle& puzzle, const Problem& problem,
   // the level threads read the shapes (through their movement caches)
   warmShapeCaches(puzzle, problem);
 
+  // by part, as subProbGrouping asks (the original registered the shape id)
   for (unsigned int i = 0; i < problem.getNumberOfParts(); i++) {
     for (unsigned int j = 0; j < problem.getNumberOfPartGroups(i); j++) {
-      groups_.addPieces(problem.getShapeIdOfPart(i), problem.getPartGroupId(i, j),
-                        problem.getPartGroupCount(i, j));
+      groups_.addPieces(i, problem.getPartGroupId(i, j), problem.getPartGroupCount(i, j));
     }
   }
 

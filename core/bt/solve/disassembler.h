@@ -107,7 +107,10 @@ class Disassembler {
 
   /// A disassembler for `problem` of `puzzle` (both must outlive it); the
   /// grid must have a take-apart (canDisassemble). Reads the shapes from
-  /// several threads: their caches are warmed here.
+  /// several threads: their caches are warmed here. The shapes, their
+  /// hotspots included, must not change while it exists: its movement
+  /// caches keep what they worked out of them (an edited shape needs a new
+  /// disassembler).
   Disassembler(const Puzzle& puzzle, const Problem& problem, DisassemblerOptions options);
   ~Disassembler();
 
@@ -160,7 +163,8 @@ class Disassembler {
 
   /// For pieces that may stay together.
   Grouping groups_;
-  /// The part (shape) of each piece.
+  /// The part of each piece (named as the original's, which held the part
+  /// too).
   std::vector<unsigned short> piece2shape_;
 
   /// The analysator of the calling thread (slot 0), and those of the pool's

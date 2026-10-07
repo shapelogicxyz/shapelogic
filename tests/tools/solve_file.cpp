@@ -154,19 +154,18 @@ int main(int argc, char** argv) {
 
     std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, solver);
     const bt::AssemblerKind kind = bt::chooseAssembler(problem, solver);
-    if (assembler->createMatrix({}) != bt::AssemblerError::None) {
+    bool ok = assembler->createMatrix({}) == bt::AssemblerError::None;
+    if (ok) {
+      (void)assembler->reduce(bt::StopToken{});
+      // a saved position that cannot be restored is dropped with what it
+      // had found, and the solve ends with an error (the solve thread's
+      // ACT_ERROR); the next run starts from scratch
+      ok = bt::beginSolving(problem, *assembler) == bt::AssemblerError::None;
+    }
+    if (!ok) {
       std::puts("error in solver");
       exitCode = 1;
     } else {
-      (void)assembler->reduce(bt::StopToken{});
-      if (bt::beginSolving(problem, *assembler) != bt::AssemblerError::None) {
-        // the saved position was dropped with what it had found; a fresh
-        // assembler takes over
-        assembler = bt::makeAssembler(puzzle, problem, solver);
-        (void)assembler->createMatrix({});
-        (void)assembler->reduce(bt::StopToken{});
-        (void)bt::beginSolving(problem, *assembler);
-      }
 
       // the solve thread, after the matrix
       for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {

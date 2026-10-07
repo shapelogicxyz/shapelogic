@@ -338,7 +338,10 @@ void RotationMovesClassic::initFind(DisassemblerNode* nd, const std::vector<unsi
   nextpivot_ = 0;
   nextaxis_ = 0;
   nextsense_ = 0;
-  active_ = !pcs.empty();
+  active_ = !pcs.empty() && pcs.size() <= kMaxTurnPieces;
+  if (!active_) {
+    return;
+  }
 
   // each piece's cells at this position, once; one that left has none
   pieceCells_.resize(pcs.size());
