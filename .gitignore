@@ -1,0 +1,7 @@
+/build/
+/tests/oracle/work/
+.DS_Store
+.cache/
+compile_commands.json
+__pycache__/
+*.pyc

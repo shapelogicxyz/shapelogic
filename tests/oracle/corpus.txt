@@ -1,0 +1,44 @@
+# The puzzles the comparison harness runs, relative to the original BurrTools
+# checkout (BT_OLD_REPO, default ../burrtools_rotations).
+#
+# Columns: tier  flags  path-or-glob
+#   tier  fast  every run (seconds in total)
+#         full  before finishing a solver stage (minutes)
+#         slow  benchmarks and final checks only (minutes each)
+#   flags "-" none
+#         "R" rotation take-apart (-R)
+#         "A" assemble only: the grid has no take-apart (spheres, rhombic,
+#             tetra-octa). The original burrTxt --json always takes apart and
+#             aborts on these grids, so the harness reads its plain `-q`
+#             summary instead; the new bt --json must report assemblies with
+#             solutions 0 and no level.
+#
+# Sliding (SliderByGiiker) and stacking (PanexLevel3to10) are out of scope
+# until those features are ported; do not add them here yet.
+
+fast  -  examples/AlPackino.xmpuzzle
+fast  -  examples/Bermuda.xmpuzzle
+fast  -  examples/CubeInCage.xmpuzzle
+fast  -  examples/DemoMirrorParadox.xmpuzzle
+fast  -  examples/DemoPieceGenerator.xmpuzzle
+fast  -  examples/DraculasDentalDesaster.xmpuzzle
+fast  -  examples/PelikanBurr.xmpuzzle
+fast  -  examples/Prisgon.xmpuzzle
+fast  -  examples/SolidSixPieceBurrs.xmpuzzle
+fast  R  test/test_rotation_solvers.xmpuzzle
+fast  A  examples/12PieceSeparation.xmpuzzle
+fast  A  examples/AugmentedSecondStellation.xmpuzzle
+fast  A  examples/BallRoom.xmpuzzle
+fast  A  examples/BrokenSticks.xmpuzzle
+fast  A  examples/DiagonalCube.xmpuzzle
+fast  A  examples/FourPieceTetrahedron.xmpuzzle
+fast  A  examples/HexSticks.xmpuzzle
+fast  A  examples/PermutatedThirdStellation.xmpuzzle
+fast  A  examples/PiecesOfEight.xmpuzzle
+
+full  R  tictest/performance/puzzles/**/*.xmpuzzle
+
+# Slow ones from tictest, also excluded from "full" by name (see oracle.py).
+slow  R  tictest/performance/puzzles/**/Climburr_OldVer*.xmpuzzle
+slow  R  tictest/performance/puzzles/**/CoverUp3*.xmpuzzle
+slow  R  tictest/performance/puzzles/**/CornerCube*.xmpuzzle

@@ -1,0 +1,29 @@
+cmake_minimum_required(VERSION 3.28)
+
+project(BurrToolsNext
+  VERSION 0.1.0
+  DESCRIPTION "BurrTools core: puzzle model, solvers and the engine the web front end talks to"
+  LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+option(BT_BUILD_TESTS "Build the test suite" ON)
+option(BT_WERROR "Treat compiler warnings as errors" OFF)
+set(BT_SANITIZE "" CACHE STRING "Sanitizers to build with: address, undefined, thread (comma separated)")
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(Warnings)
+include(Sanitizers)
+include(Dependencies)
+
+add_subdirectory(core)
+add_subdirectory(engine)
+add_subdirectory(cli)
+
+if(BT_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()

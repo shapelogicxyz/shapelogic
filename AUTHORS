@@ -1,0 +1,16 @@
+BurrTools Next is a rebuild of the BurrTools core. The algorithms it ports
+were written by the authors of BurrTools:
+
+Andreas Röver (original author, 2003-2011)
+
+With thanks, from the original AUTHORS file, to Bill Cutler, André van Kamen
+and Don E. Knuth (algorithms), Ronald Kint-Bruynseels (feedback, icons,
+documentation), Dic Sonneveld (burr growing), Derek Bosch (macOS binary, STL
+export), Markus Götz (spheres grid), Lee Krasnow (rhombic grid), Volker
+Grabsch (build system), and the patch contributors Derek Bosch, George Bell
+and Barry Downes.
+
+For later work on BurrTools, see the git history of the original repository.
+
+The web front-end design this project follows is by Girish Sharma
+(https://grssam.github.io/burr-tools/, GPL-3.0).
