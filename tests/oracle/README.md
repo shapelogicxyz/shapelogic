@@ -33,7 +33,8 @@ just oracle                       # compare the fast tier
 just oracle --tier fast full      # several tiers
 just oracle --filter Pelikan -v   # one puzzle, show matches too
 just oracle-baseline --tier full  # re-record the original's answers
-python3 tests/oracle/oracle.py baseline-files --tier fast   # solved files from burrTxt2, into work/
+python3 tests/oracle/oracle.py baseline-files --tier all    # solved files from burrTxt2, into work/
+just oracle-roundtrip             # the file round trip (stage 2 onward), see below
 ```
 
 ## Recorded values for unit tests
@@ -44,12 +45,35 @@ output committed under `tests/data/`. The unit tests compare the port with
 it.
 
 ```bash
-python3 tests/oracle/oracle.py grid-dump   # tests/data/grid_dump.txt (stage 1)
+python3 tests/oracle/oracle.py grid-dump     # tests/data/grid_dump.txt (stage 1)
+python3 tests/oracle/oracle.py model-dump    # tests/data/model_dump.txt (stage 2)
+python3 tests/oracle/oracle.py record-saves  # tests/data/saved_by_original/ (stage 2)
 ```
 
 `grid_dump_old.cpp` and `tests/unit/grid/test_grid_dump.cpp` run the same
 code (`tests/unit/grid/grid_dump.h`) through two small adapters, so the
-recording and the check cannot drift apart.
+recording and the check cannot drift apart. `model_dump_old.cpp` and
+`tests/unit/model/test_model_dump.cpp` are two copies of one dump (the
+model APIs differ too much for adapters): change both together. Both dumps
+and `record-saves` run over the fixtures in `tests/data/puzzles/`.
+
+## File round trip (stage 2 onward)
+
+`just oracle-roundtrip` loads and saves every file with the original
+(`roundtrip_old.cpp`, built against its library) and with the new core
+(`tests/tools/roundtrip.cpp`, `build/release/tests/bt_roundtrip`): all corpus
+tiers, the sliding, stacking and rotation fixtures the corpus leaves out
+(`ROUNDTRIP_EXTRA` in `oracle.py`), and the original's solved files under
+`work/old` (run `baseline-files --tier all` once). For each file:
+
+1. the new save is the same XML as the original's (attribute order and
+   whitespace-only text ignored), and it reports how many are byte-identical;
+2. the new save loads and saves to itself;
+3. the original reads the new save to the same file it wrote itself.
+
+It also counts the files whose saves differ from their input; those are the
+normalisations the original makes too (`timeMs`, default attributes), listed
+with `-v`.
 
 ## Levels of comparison
 

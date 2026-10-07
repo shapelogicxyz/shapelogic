@@ -11,7 +11,11 @@ A ported component counts as done only when the two agree on the corpus
   files    every solution and its disassembly, from the solved puzzle file the
            original's burrTxt2 writes. `baseline-files` produces those files
            under work/ (not committed); the comparison itself arrives with the
-           disassembly port (stage 4), once the new core can read them.
+           disassembly port (stage 4).
+  roundtrip  (stage 2) every corpus file, plus the files that are not solved
+           yet and the solved files under work/old, is loaded and saved by the
+           original and by the new core; the saves must be the same XML
+           (decision 0006).
 
 Run through `just oracle` / `just oracle-baseline`; see README.md.
 """
@@ -21,6 +25,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import glob
+import gzip
 import json
 import os
 import re
@@ -28,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -205,7 +211,8 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
         dst = out_root / e.rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(args.old_repo / e.rel, dst)  # burrTxt2 writes <file>ttt beside its input
-        flags = ["-d"] + (["-R", "--rotations"] if "R" in e.flags else [])
+        # "A" grids have no take-apart; -d makes the original abort on them
+        flags = ([] if "A" in e.flags else ["-d"]) + (["-R", "--rotations"] if "R" in e.flags else [])
         try:
             proc = subprocess.run([str(old_bin), *flags, str(dst)], capture_output=True, text=True,
                                   timeout=args.timeout, check=False)
@@ -249,6 +256,193 @@ def cmd_grid_dump(args: argparse.Namespace) -> int:
     return 0
 
 
+FIXTURES = HERE.parent / "data" / "puzzles"
+
+
+def cmd_model_dump(args: argparse.Namespace) -> int:
+    """Record tests/data/model_dump.txt: the model dump of the original for the fixture puzzles."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "model_dump_old"
+    if not build_against_old(args.old_repo, HERE / "model_dump_old.cpp", exe):
+        return 2
+    files = sorted(FIXTURES.glob("*.xmpuzzle"))
+    out = HERE.parent / "data" / "model_dump.txt"
+    with open(out, "w") as f:
+        subprocess.run([str(exe), *map(str, files)], stdout=f, check=True)
+    print(f"wrote {out}")
+    return 0
+
+
+def cmd_record_saves(args: argparse.Namespace) -> int:
+    """Record tests/data/saved_by_original/: what the original writes for each fixture puzzle."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "roundtrip_old"
+    if not build_against_old(args.old_repo, HERE / "roundtrip_old.cpp", exe):
+        return 2
+    out_dir = HERE.parent / "data" / "saved_by_original"
+    out_dir.mkdir(exist_ok=True)
+    for src in sorted(FIXTURES.glob("*.xmpuzzle")):
+        tmp = WORK_DIR / "record.xmpuzzle"
+        err = run_tool([str(exe), str(src), str(tmp)], 120)
+        if err:
+            print(f"{src.name}: {err}", file=sys.stderr)
+            return 1
+        (out_dir / (src.stem + ".xml")).write_bytes(read_xml_bytes(tmp))
+    print(f"wrote {out_dir}")
+    return 0
+
+
+# Files the round trip checks besides the corpus: features the corpus leaves
+# out (sliding, stacking, rotation solutions). Never add the commercial sliding
+# puzzle "One Way or Another"; test/test_sliding_solver.xmpuzzle stands in.
+ROUNDTRIP_EXTRA = (
+    "examples/SliderByGiiker.xmpuzzle",
+    "examples/PanexLevel3to10.xmpuzzle",
+    "test/test_sliding_solver.xmpuzzle",
+    "test/test_sliding_nested.xmpuzzle",
+    "test/test_stacking_hanoi.xmpuzzle",
+    "test/test_rotation_solvers.xmpuzzle",
+)
+
+
+def read_xml_bytes(path: Path) -> bytes:
+    data = path.read_bytes()
+    return gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
+
+
+def semantic(path: Path):
+    """The XML tree of a puzzle file as nested tuples: names, attributes as a
+    sorted list, and text where it is not only whitespace (leaf elements
+    only, the format has no mixed content). Bytes are read as Latin-1 so that
+    files with stray non-UTF-8 bytes compare too."""
+    parser = ET.XMLParser(encoding="iso-8859-1")
+    root = ET.fromstring(read_xml_bytes(path), parser=parser)
+
+    def walk(e):
+        children = [walk(c) for c in e]
+        text = (e.text or "") if not children else ""
+        if not text.strip():
+            text = ""
+        return (e.tag, tuple(sorted(e.attrib.items())), text, tuple(children))
+
+    return walk(root)
+
+
+def first_difference(a, b, where="") -> str:
+    if a[0] != b[0]:
+        return f"{where}: element {a[0]} != {b[0]}"
+    here = f"{where}/{a[0]}"
+    if a[1] != b[1]:
+        da, db = dict(a[1]), dict(b[1])
+        keys = sorted(set(da) | set(db))
+        diffs = [f"{k}={da.get(k)!r}/{db.get(k)!r}" for k in keys if da.get(k) != db.get(k)]
+        return f"{here}: attributes " + ", ".join(diffs)
+    if a[2] != b[2]:
+        return f"{here}: text {a[2][:40]!r} != {b[2][:40]!r}"
+    for i, (ca, cb) in enumerate(zip(a[3], b[3])):
+        if ca != cb:
+            return first_difference(ca, cb, f"{here}[{i}]")
+    if len(a[3]) != len(b[3]):
+        return f"{here}: {len(a[3])} children != {len(b[3])}"
+    return ""
+
+
+def run_tool(argv: list[str], timeout: float) -> str | None:
+    """None on success, else the error text."""
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        return "timeout"
+    if proc.returncode != 0:
+        lines = (proc.stderr or proc.stdout).strip().splitlines()
+        return lines[-1] if lines else f"exit {proc.returncode}"
+    return None
+
+
+def roundtrip_one(old_tool: Path, new_tool: Path, src: Path, out: Path, timeout: float) -> dict:
+    out.mkdir(parents=True, exist_ok=True)
+    old_out, new_out = out / "old.xmpuzzle", out / "new.xmpuzzle"
+    new2_out, old_of_new = out / "new2.xmpuzzle", out / "old_of_new.xmpuzzle"
+
+    old_err = run_tool([str(old_tool), str(src), str(old_out)], timeout)
+    new_err = run_tool([str(new_tool), str(src), str(new_out)], timeout)
+    if old_err and new_err:
+        return {"status": "both refuse", "detail": f"old: {old_err} | new: {new_err}"}
+    if old_err or new_err:
+        return {"status": "MISMATCH", "detail": f"old: {old_err or 'ok'} | new: {new_err or 'ok'}"}
+
+    sem_old, sem_new = semantic(old_out), semantic(new_out)
+    if sem_old != sem_new:
+        return {"status": "MISMATCH", "detail": "new save != original's save: " + first_difference(sem_new, sem_old)}
+
+    # the new save reloads to itself, and the original reads it to the same file
+    err = run_tool([str(new_tool), str(new_out), str(new2_out)], timeout)
+    if err or semantic(new2_out) != sem_new:
+        return {"status": "MISMATCH", "detail": f"new save is not a fixpoint: {err or first_difference(semantic(new2_out), sem_new)}"}
+    err = run_tool([str(old_tool), str(new_out), str(old_of_new)], timeout)
+    if err or semantic(old_of_new) != sem_old:
+        return {"status": "MISMATCH", "detail": f"original reads the new save differently: {err or first_difference(semantic(old_of_new), sem_old)}"}
+
+    same_bytes = read_xml_bytes(old_out) == read_xml_bytes(new_out)
+    same_as_input = semantic(src) == sem_new
+    return {"status": "ok", "bytes": same_bytes, "input": same_as_input,
+            "detail": "" if same_as_input else "both saves differ from the input: " + first_difference(sem_new, semantic(src))}
+
+
+def cmd_roundtrip(args: argparse.Namespace) -> int:
+    """Load and save every corpus file (and the extras) with both programs."""
+    WORK_DIR.mkdir(exist_ok=True)
+    old_tool = WORK_DIR / "roundtrip_old"
+    if not build_against_old(args.old_repo, HERE / "roundtrip_old.cpp", old_tool):
+        return 2
+    if not args.new_tool.exists():
+        print(f"new bt_roundtrip not found at {args.new_tool}", file=sys.stderr)
+        return 2
+
+    files: list[tuple[str, Path]] = []
+    for e in select(load_corpus(args.old_repo), ["all"], args.filter):
+        files.append((e.rel, args.old_repo / e.rel))
+    for rel in ROUNDTRIP_EXTRA:
+        if not args.filter or args.filter in rel:
+            files.append((rel, args.old_repo / rel))
+    solved = sorted((WORK_DIR / "old").rglob("*ttt"))
+    for p in solved:
+        rel = "solved:" + str(p.relative_to(WORK_DIR / "old"))
+        if not args.filter or args.filter in rel:
+            files.append((rel, p))
+    if not solved:
+        print("note: no solved files under work/old; run `oracle.py baseline-files --tier all` to include them",
+              file=sys.stderr)
+
+    out_root = WORK_DIR / "roundtrip"
+    shutil.rmtree(out_root, ignore_errors=True)
+    results: dict[str, dict] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        futures = {pool.submit(roundtrip_one, old_tool, args.new_tool, src, out_root / f"{n:04d}", args.timeout): rel
+                   for n, (rel, src) in enumerate(files)}
+        for fut in concurrent.futures.as_completed(futures):
+            rel = futures[fut]
+            try:
+                results[rel] = fut.result()
+            except Exception as exc:  # a file Python cannot parse, etc.
+                results[rel] = {"status": "MISMATCH", "detail": f"harness error: {exc}"}
+
+    failures = 0
+    for rel in sorted(results):
+        r = results[rel]
+        if r["status"] == "MISMATCH":
+            failures += 1
+        if r["status"] != "ok" or args.verbose:
+            print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
+    ok = [r for r in results.values() if r["status"] == "ok"]
+    print(f"\n{len(results) - failures}/{len(results)} files: the new core saves what the original saves"
+          + ("" if failures == 0 else f"; {failures} do not"))
+    print(f"  {sum(1 for r in ok if r['bytes'])}/{len(ok)} byte-identical to the original's save")
+    print(f"  {sum(1 for r in ok if r['input'])}/{len(ok)} the same as their input "
+          "(the rest differ in what the original also normalises; -v lists them)")
+    return 1 if failures else 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
@@ -262,10 +456,19 @@ def main() -> int:
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
     sub.add_parser("grid-dump", help="record tests/data/grid_dump.txt from the original's grid code")
+    sub.add_parser("model-dump", help="record tests/data/model_dump.txt from the original's model code")
+    sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
+    s = sub.add_parser("roundtrip", help="load and save every corpus file with both programs and compare")
+    s.add_argument("--new-tool", type=Path, default=HERE.parent.parent / "build" / "release" / "tests" / "bt_roundtrip")
+    s.add_argument("--filter", help="only files whose path contains this text")
+    s.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 4)
+    s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
+    s.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
-            "grid-dump": cmd_grid_dump}[args.cmd](args)
+            "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip,
+            "model-dump": cmd_model_dump, "record-saves": cmd_record_saves}[args.cmd](args)
 
 
 if __name__ == "__main__":

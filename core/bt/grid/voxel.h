@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bt {
@@ -340,6 +341,15 @@ class Voxel {
   [[nodiscard]] int getShapeColor() const { return shapeColor_; }
   void setShapeColor(int c) { shapeColor_ = c; }
 
+  /// Attributes of the shape's file element that this version does not know
+  /// (name, value), written back unchanged (decision 0006).
+  [[nodiscard]] const std::vector<std::pair<std::string, std::string>>& getExtraAttributes() const {
+    return extraAttributes_;
+  }
+  void setExtraAttributes(std::vector<std::pair<std::string, std::string>> a) {
+    extraAttributes_ = std::move(a);
+  }
+
  protected:
   Voxel(unsigned int x, unsigned int y, unsigned int z, GridType gt, VoxelType init);
   Voxel(const Voxel&);
@@ -390,6 +400,7 @@ class Voxel {
   int weight_ = 1;
   unsigned int diskSize_ = 0;
   int shapeColor_ = -1;
+  std::vector<std::pair<std::string, std::string>> extraAttributes_;
 
   mutable Symmetry symmetries_ = kSymmetryInvalid;
 

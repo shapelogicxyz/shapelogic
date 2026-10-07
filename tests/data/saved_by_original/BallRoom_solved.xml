@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="2"/>
+ <colors/>
+ <shapes>
+  <voxel x="5" y="5" z="3" hx="1" hy="1" type="0">__#___#_#_#_#_#_#_#___#_________#___#_#___#___________________#____________</voxel>
+  <voxel x="3" y="3" z="1" type="0">#___#___#</voxel>
+  <voxel x="3" y="2" z="1" type="0">#_#_#_</voxel>
+  <voxel x="3" y="3" z="2" hx="1" hy="1" type="0">__#_#_____#_____#_</voxel>
+  <voxel x="3" y="3" z="2" type="0">#___#___#_______#_</voxel>
+  <voxel x="3" y="3" z="3" type="0">#___#___#_#_#_#_#___#_#_#__</voxel>
+  <voxel x="3" y="3" z="3" type="0">#_#_#_#_#_#_#_#_#_#_#_#_#_#</voxel>
+ </shapes>
+ <problems>
+  <problem state="2" assemblies="2" solutions="0" time="0" timeMs="0">
+   <shapes>
+    <shape id="2" count="1"/>
+    <shape id="1" count="1"/>
+    <shape id="4" count="1"/>
+    <shape id="3" count="1"/>
+   </shapes>
+   <result id="0"/>
+   <bitmap/>
+   <solutions>
+    <solution>
+     <assembly>2 2 0 6 0 2 0 0 2 2 2 9 1 2 1 16</assembly>
+    </solution>
+    <solution asmNum="1">
+     <assembly>1 3 0 0 4 2 0 7 2 0 0 28 2 2 0 0</assembly>
+    </solution>
+   </solutions>
+  </problem>
+  <problem state="2" assemblies="1" solutions="0" time="1" timeMs="1000">
+   <shapes>
+    <shape id="2" count="1"/>
+    <shape id="1" count="1"/>
+    <shape id="4" count="1"/>
+   </shapes>
+   <result id="5"/>
+   <bitmap/>
+   <solutions>
+    <solution>
+     <assembly>2 1 1 4 2 0 2 2 0 0 0 0</assembly>
+    </solution>
+   </solutions>
+  </problem>
+  <problem state="2" assemblies="3" solutions="0" time="0" timeMs="0">
+   <shapes>
+    <shape id="2" count="1"/>
+    <shape id="1" count="1"/>
+    <shape id="4" count="1"/>
+    <shape id="3" count="1"/>
+   </shapes>
+   <result id="6"/>
+   <bitmap/>
+   <solutions>
+    <solution>
+     <assembly>0 0 2 9 2 0 0 5 0 0 0 0 0 1 1 9</assembly>
+    </solution>
+    <solution asmNum="1">
+     <assembly>2 0 2 11 2 0 0 7 0 0 0 0 0 1 1 9</assembly>
+    </solution>
+    <solution asmNum="2">
+     <assembly>2 0 0 7 0 2 0 1 0 0 0 0 1 1 2 18</assembly>
+    </solution>
+   </solutions>
+  </problem>
+ </problems>
+ <comment popup="">Designed by: Stewart Coffin
+This puzzle is an example for the sphere grid. It also
+contains several problems with the same pieces.</comment>
+</puzzle>

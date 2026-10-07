@@ -22,6 +22,7 @@ just test-all           # everything; run before calling a stage done
 just test-asan          # Address + UB sanitizers
 just test-tsan          # ThreadSanitizer on [parallel] cases (from stage 3)
 just oracle [--tier …]  # compare the new bt with the original burrTxt
+just oracle-roundtrip   # load + save every corpus file in both programs, compare
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
 just format             # clang-format
@@ -92,7 +93,9 @@ just format             # clang-format
 
 Every stage ends with, in this order:
 1. `just test-all`, `just test-asan` (and `just test-tsan` from stage 3),
-   `just oracle` for what is ported, `just check` if LLVM is installed.
+   `just oracle` for what is ported, `just oracle-roundtrip` (from stage 2;
+   run `oracle.py baseline-files --tier all` once so the original's solved
+   files are included), `just check` if LLVM is installed.
 2. `docs/ARCHITECTURE.md` updated to describe what now exists.
 3. `docs/handoff/stage-N.md`: what was done, gate results, known issues,
    and the brief for the next stage.

@@ -4,7 +4,8 @@ BurrTools Next is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 1 (grids and symmetry). `core/bt/base` and `core/bt/grid` have code.*
+*Current state: stage 2 (model and file format). `core/bt/base`, `grid`,
+`model` and `io` have code.*
 
 ## Big picture
 
@@ -21,7 +22,7 @@ exists now** and the rules that hold everywhere. Each stage updates it.
    solve   assemblers, disassemblers, rotation rules, SolveSession
    mesh    half-edge meshes and drawing meshes for all grids
    io      XML, gzip, .xmpuzzle reader/writer
-   model   Shape, Colour, Problem, Assembly, Disassembly, Solution, Puzzle
+   model   Puzzle, Problem, Assembly, Disassembly, Solution
    grid    grid types, voxel spaces, symmetry tables
    base    StopToken, SolveState, Result/Error, BT_ASSERT, thread pool
 ```
@@ -40,7 +41,8 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | benchmarks against the original (stage 3 onward) |
-| `tests/data/` | test fixtures (puzzle files copied from the original) |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`) |
+| `tests/tools/` | small programs the harness drives (`bt_roundtrip`) |
 | `docs/` | this file, PLAN.md, decisions/, handoff/, webui-spec.md, core-api.md |
 | `cmake/` | warnings, sanitizers, dependencies |
 
@@ -56,6 +58,9 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 - `version.h`: `kVersion`, from CMake.
 - `int_cast.h`: `asInt()` / `asUnsigned()`, the spelled-out int/unsigned
   conversions that ported code needs under `-Wsign-conversion`.
+- `clone_ptr.h`: `ClonePtr<T>`, an owning pointer that copies its object
+  (with `clone()` when T has one), so classes with polymorphic or recursive
+  members keep `= default` copies.
 - Planned for stage 3: a shared thread pool with a global thread budget
   (replacing the original's `helperpool.cpp` and `BURRTOOLS_THREADS`).
 
@@ -73,8 +78,9 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
   operations (`translate`, `resize`, `minimizePiece`, `fillHoles`,
   `actionOnSpace`, `scale`, `scaleDown`, `resizeInclude`, `unionintersect`).
   It also carries the sliding/stacking data (goal marks, disc size, shape
-  colour) so files round-trip. Copy with `clone()`; the grid is stored by
-  value, so a voxel space never dangles.
+  colour) and the file attributes it does not know, so files round-trip.
+  Copy with `clone()`; the grid is stored by value, so a voxel space never
+  dangles.
 - `voxel_bricks`, `voxel_prisms`, `voxel_spheres`, `voxel_rhombic`,
   `voxel_tetra_octa`: one class per grid (`voxel_0` … `voxel_4` in the
   original); rhombic and tetra-octa derive from bricks and lay a 5- or
@@ -99,10 +105,52 @@ docs/handoff/stage-1.md): `getHotspot` of a transformation the shape cannot
 take reports failure regardless of call order; the cube transform drops the
 transformation cache; `voxel_c::copy()` (unused) was not ported.
 
-### model and io (stage 2)
-Value-type puzzle model and the `.xmpuzzle` reader/writer with unknown content
-preserved (decision 0006). From `puzzle.cpp`, `problem.cpp`, `solution.cpp`,
-`assembly.cpp`, `disassembly.cpp`, `tools/xml.cpp`, `tools/gzstream.cpp`.
+### model (exists)
+Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
+`problem.cpp`, `solution.cpp`, `assembly.cpp` and the data part of
+`disassembly.cpp`; checked value for value against the original
+(`tests/data/model_dump.txt`).
+- `puzzle.h`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint
+  colours, problems, comment. Copying copies everything. Removing or
+  swapping shapes goes through the puzzle, which updates every problem.
+- `problem.h`: `Problem`: parts (`Part`: shape, min, max, groups), result
+  and goal shape, colour rules, max holes, `ProblemState`, counts and time,
+  the saved search position (`getAssemblerState()`/`Version()`, raw text for
+  stage 3), pending assemblies, saved solutions with their sort orders,
+  solver options. A problem holds no reference to its puzzle: what needs
+  shapes or colours takes the `Puzzle` (`resultShape(puzzle)`,
+  `placementAllowed(puzzle, ...)`, `setShapeMaximum(puzzle, ...)`).
+  Pieces are numbered part by part; assemblies and solutions follow that
+  order and are renumbered when parts change.
+- `assembly.h`: `Placement`, `MirrorInfo`, `Assembly` (with `transform`,
+  `smallerRotationExists`, `createSpace`, `sort`, the editing helpers).
+- `disassembly.h`: `Disassembly` (the level and move counts),
+  `State`, `Separation` (the tree, copyable), `SeparationInfo` (the compact
+  pre-order form). `movesText()` keeps the original's 256-byte cut-off.
+- `solution.h`: `Solution`: an assembly with an optional `Separation` or
+  `SeparationInfo`, and its numbers.
+- `xml_element.h`: `XmlElement` (the tree the reader builds) and
+  `PreservedXml` (file content a model object keeps without modelling it).
+
+The model has no locks and no atomics (the original's problem had both for
+its solver thread); how a running solve hands results over is stage 5's
+design.
+
+### io (exists)
+`.xmpuzzle` files: gzip-compressed XML, plain XML read too (decision 0008).
+- `puzzle_file.h`: `loadPuzzle` / `parsePuzzle` / `readPuzzle` and
+  `savePuzzle` / `writePuzzle`. Errors are `Result` values (`ParseError`
+  with the line, `IoError`).
+- `xml_pull_parser.h`: the original's parser (internal; throws
+  `XmlParseError`, which never leaves the module). `xml_document.h`: the
+  tree built from it, and writing a tree back.
+- `xml_writer.h`: `XmlWriter`, the original's output layout.
+- `gzip_file.h`: whole-file reading and writing through zlib (level 9).
+
+Unknown attributes and elements of `<puzzle>`, `<problem>` and `<solution>`,
+and unknown `<voxel>` attributes, are kept and written back in place;
+stacking rod sets and maps are kept this way until stacking is ported.
+Saves are byte-identical to the original's.
 
 ### solve (stages 3 to 5)
 A shared parallel/resume layer and the assemblers (`assembler_0`,
@@ -117,11 +165,15 @@ poses at any step); explorer data.
 ## Testing against the original
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
-  comparison of `bt` with `burrTxt` (from stage 3), and recorders that
-  compile a dump tool against the original's library
-  (`oracle.py grid-dump` writes `tests/data/grid_dump.txt`).
-- The unit tests compare with those recordings
-  (`tests/unit/grid/test_grid_dump.cpp`); they never read the original repo.
+  comparison of `bt` with `burrTxt` (from stage 3), the file round trip
+  (`just oracle-roundtrip`: every corpus file, the sliding/stacking/rotation
+  fixtures and the original's solved files are loaded and saved by both
+  programs; the saves must be the same XML), and recorders that compile a
+  dump tool against the original's library (`oracle.py grid-dump`,
+  `model-dump`, `record-saves`, writing into `tests/data/`).
+- The unit tests compare with those recordings (`test_grid_dump.cpp`,
+  `test_model_dump.cpp`, the byte-for-byte save check in
+  `test_puzzle_file.cpp`); they never read the original repo.
 
 ## Rules that hold everywhere
 
@@ -136,5 +188,7 @@ See AGENTS.md for the full list. The load-bearing ones:
 ## Build and test
 
 `just build` / `just test` / `just test-all` / `just test-asan` /
-`just test-tsan` / `just oracle` / `just check`. Presets in
-`CMakePresets.json`; strict warnings are errors in `dev` and `release`.
+`just test-tsan` / `just oracle` / `just oracle-roundtrip` / `just check`.
+Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
+`release`. zlib comes from the system, or is built from a pinned release
+(`cmake/Dependencies.cmake`).

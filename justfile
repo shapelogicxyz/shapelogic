@@ -33,6 +33,10 @@ test-tsan: (build "tsan")
 oracle *args: (build "release")
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/bt compare {{args}}
 
+# Load and save every corpus file with the original and the new core, compare the XML
+oracle-roundtrip *args: (build "release")
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" roundtrip {{args}}
+
 # Record the original burrTxt's answers for a corpus tier
 oracle-baseline *args:
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}

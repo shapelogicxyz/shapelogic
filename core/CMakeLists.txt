@@ -15,9 +15,20 @@ add_library(btcore STATIC
   bt/grid/voxel_rhombic.cpp
   bt/grid/voxel_spheres.cpp
   bt/grid/voxel_table.cpp
-  bt/grid/voxel_tetra_octa.cpp)
+  bt/grid/voxel_tetra_octa.cpp
+  bt/io/gzip_file.cpp
+  bt/io/puzzle_file.cpp
+  bt/io/xml_document.cpp
+  bt/io/xml_pull_parser.cpp
+  bt/io/xml_writer.cpp
+  bt/model/assembly.cpp
+  bt/model/disassembly.cpp
+  bt/model/problem.cpp
+  bt/model/puzzle.cpp
+  bt/model/solution.cpp)
 
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")
 target_compile_features(btcore PUBLIC cxx_std_23)
+target_link_libraries(btcore PRIVATE ZLIB::ZLIB)
 bt_set_warnings(btcore)

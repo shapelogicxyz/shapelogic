@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="6"/>
+ <colors/>
+ <shapes>
+  <voxel x="7" y="7" z="1" hx="3" hy="3" diskSize="3" type="0">########################_########################</voxel>
+  <voxel x="5" y="5" z="1" hx="2" hy="2" diskSize="2" type="0">############_############</voxel>
+  <voxel x="3" y="3" z="1" hx="1" hy="1" diskSize="1" type="0">####_####</voxel>
+ </shapes>
+ <rodSets>
+  <rodSet name="Hanoi" rods="3" grow="1" height="8" sizeMatters="1" distanceMatters="0" moveOver="0"/>
+ </rodSets>
+ <problems>
+  <problem name="Tower of Hanoi" state="0">
+   <shapes>
+    <shape id="0" count="1"/>
+    <shape id="1" count="1"/>
+    <shape id="2" count="1"/>
+   </shapes>
+   <result id="4294967295"/>
+   <stacking rodSet="0">
+    <start>
+     <rod pieces="0:0,1:0,2:0"/>
+     <rod/>
+     <rod/>
+    </start>
+    <goal>
+     <rod/>
+     <rod/>
+     <rod pieces="0:0,1:0,2:0"/>
+    </goal>
+   </stacking>
+   <bitmap/>
+  </problem>
+ </problems>
+ <comment/>
+</puzzle>

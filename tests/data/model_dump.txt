@@ -1,0 +1,2175 @@
+puzzle BallRoom.xmpuzzle grid 2 shapes 7 problems 3 colors 0
+problem 0 state 2 parts 4 pieces 4 solutions 2
+solution 0 asm 0 sol 0
+ assembly 2,2,0,6 0,2,0,0 2,2,2,9 1,2,1,16
+ valid 1
+ space 5 5 3 origin 0 0 0 cells 0 0 1 0 0 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0
+ transform 0 1 2,2,0,6 0,2,0,0 2,2,2,9 1,2,1,16
+ transform 1 1 0,2,2,8 0,2,0,1 2,2,2,7 1,2,1,4
+ transform 2 1 2,2,0,0 2,0,0,2 2,2,2,11 2,1,1,18
+ transform 3 1 2,0,2,10 2,0,0,3 2,2,2,1 2,1,1,6
+ transform 4 1 2,2,0,2 2,0,0,0 2,2,2,13 3,2,1,20
+ transform 5 1 2,0,2,8 2,2,0,5 0,2,2,3 1,2,1,0
+ transform 6 1 2,2,0,4 4,2,0,2 2,2,2,15 2,3,1,22
+ transform 7 1 4,2,2,10 2,2,0,7 2,0,2,5 2,1,1,2
+ transform 8 1 0,2,0,5 0,0,2,5 2,2,2,2 1,1,2,10
+ transform 9 1 2,0,2,3 2,0,0,7 2,2,2,17 1,1,2,15
+ transform 10 1 2,0,0,7 4,0,2,7 2,2,2,4 3,1,2,12
+ transform 11 1 2,2,2,5 2,2,0,1 0,2,2,19 1,1,2,9
+ transform 12 1 2,2,0,1 2,4,2,1 0,2,2,6 1,3,2,14
+ transform 13 1 2,2,2,7 2,2,0,3 2,0,2,21 3,1,2,11
+ transform 14 1 2,2,0,3 0,2,2,3 2,0,2,0 1,1,2,8
+ transform 15 1 0,2,2,1 0,2,0,5 2,2,2,23 1,3,2,13
+ transform 16 1 0,0,2,11 0,4,2,1 2,2,2,18 1,2,3,21
+ transform 17 1 2,4,2,6 2,0,2,2 2,2,0,14 1,2,1,1
+ transform 18 1 2,0,2,9 0,0,2,3 2,2,2,20 2,1,3,23
+ transform 19 1 0,2,2,0 2,0,2,0 2,2,0,8 2,1,1,3
+ transform 20 1 2,2,2,11 2,0,2,5 0,2,2,22 1,2,3,17
+ transform 21 1 2,0,2,2 4,2,2,2 2,2,0,10 3,2,1,5
+ transform 22 1 0,2,2,9 4,2,2,7 2,0,2,16 2,1,3,19
+ transform 23 1 4,2,2,4 0,2,2,0 2,2,0,12 2,3,1,7
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+solution 1 asm 1 sol 0
+ assembly 1,3,0,0 4,2,0,7 2,0,0,28 2,2,0,0
+ valid 1
+ space 5 5 3 origin 0 0 0 cells 0 0 1 0 0 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0
+ transform 0 1 1,3,0,0 4,2,0,7 2,0,0,28 2,2,0,0
+ transform 1 1 0,1,1,1 2,2,2,7 0,4,2,75 0,2,2,1
+ transform 2 1 1,1,0,2 2,4,0,1 4,2,0,67 2,2,0,2
+ transform 3 1 3,0,1,3 2,2,2,1 0,0,2,70 2,0,2,3
+ transform 4 1 3,1,0,4 0,2,0,3 2,4,0,34 2,2,0,4
+ transform 5 1 2,3,1,5 0,2,2,3 2,0,2,35 2,2,2,5
+ transform 6 1 3,3,0,6 2,0,0,5 0,2,0,40 2,2,0,6
+ transform 7 1 1,2,1,7 2,0,2,5 4,2,2,73 2,2,2,7
+ transform 8 1 0,1,3,8 2,2,2,2 0,2,0,66 0,2,2,8
+ transform 9 1 1,0,1,9 4,0,2,2 2,0,4,79 2,0,2,9
+ transform 10 1 3,0,3,10 0,0,2,0 2,0,0,29 2,0,2,10
+ transform 11 1 2,1,1,11 0,2,2,0 2,2,4,80 2,2,2,11
+ transform 12 1 2,1,3,8 2,0,2,2 2,2,0,68 2,2,2,12
+ transform 13 1 1,2,1,9 2,0,2,2 2,2,4,82 2,2,2,13
+ transform 14 1 3,2,3,10 2,0,2,0 2,2,0,69 2,2,2,14
+ transform 15 1 0,1,1,11 0,0,2,0 0,2,4,77 0,2,2,15
+ transform 16 1 0,3,1,5 0,2,0,3 0,0,2,71 0,2,2,16
+ transform 17 1 3,1,2,4 2,2,0,3 2,4,2,83 2,2,2,17
+ transform 18 1 1,0,1,7 2,0,0,5 4,0,2,72 2,0,2,18
+ transform 19 1 3,3,2,6 2,2,0,5 0,2,2,78 2,2,2,19
+ transform 20 1 2,1,1,1 2,2,0,7 2,4,2,74 2,2,2,20
+ transform 21 1 1,3,2,0 2,2,0,7 2,0,2,41 2,2,2,21
+ transform 22 1 3,2,1,3 2,2,0,1 0,2,2,76 2,2,2,22
+ transform 23 1 1,1,2,2 2,2,0,1 4,2,2,81 2,2,2,23
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 0 0
+sort 0 0/0 1/0
+sort 1 0/0 1/0
+sort 2 0/0 1/0
+sort 3 0/0 1/0
+solver sort 0 1/0 0/0
+solver sort 1 1/0 0/0
+solver sort 2 1/0 0/0
+solver sort 3 1/0 0/0
+problem 1 state 2 parts 3 pieces 3 solutions 1
+solution 0 asm 0 sol 0
+ assembly 2,1,1,4 2,0,2,2 0,0,0,0
+ valid 1
+ space 4 3 3 origin -1 0 0 cells 0 1 0 0 0 0 1 0 0 0 0 1 0 0 1 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0 1 0 0 1 0 0
+ transform 0 1 2,1,1,4 2,0,2,2 0,0,0,0
+ transform 1 1 1,1,0,5 2,0,0,5 0,2,0,1
+ transform 2 1 1,2,1,6 0,0,2,0 2,0,0,2
+ transform 3 1 1,1,0,7 2,2,0,7 0,0,0,3
+ transform 4 1 0,1,1,0 2,0,2,2 2,2,0,4
+ transform 5 1 1,1,0,1 0,2,0,1 2,0,0,5
+ transform 6 1 1,0,1,2 0,0,2,0 0,2,0,6
+ transform 7 1 1,1,0,3 0,0,0,3 2,2,0,7
+ transform 8 1 1,0,1,11 2,2,0,1 0,0,0,8
+ transform 9 1 2,1,1,10 0,2,0,3 0,0,2,9
+ transform 10 1 0,1,1,9 0,2,0,3 2,0,0,10
+ transform 11 1 1,0,1,8 0,0,0,5 2,0,2,11
+ transform 12 1 1,0,1,11 0,0,0,5 2,2,0,12
+ transform 13 1 2,1,1,10 2,0,0,7 2,2,2,13
+ transform 14 1 0,1,1,9 2,0,0,7 0,2,0,14
+ transform 15 1 1,0,1,8 2,2,0,1 0,2,2,15
+ transform 16 1 1,1,0,1 2,0,0,5 0,0,2,16
+ transform 17 1 0,1,1,0 0,0,0,0 0,2,2,17
+ transform 18 1 1,1,0,3 2,2,0,7 2,0,2,18
+ transform 19 1 1,0,1,2 2,0,0,2 0,0,2,19
+ transform 20 1 1,1,0,5 0,2,0,1 2,2,2,20
+ transform 21 1 2,1,1,4 0,0,0,0 2,0,2,21
+ transform 22 1 1,1,0,7 0,0,0,3 0,2,2,22
+ transform 23 1 1,2,1,6 2,0,0,2 2,2,2,23
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+problem 2 state 2 parts 4 pieces 4 solutions 3
+solution 0 asm 0 sol 0
+ assembly 0,0,2,9 2,0,0,5 0,0,0,0 0,1,1,9
+ valid 1
+ space 6 4 3 origin -1 0 0 cells 0 1 0 1 0 0 0 0 1 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0 1 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0
+ transform 0 1 0,0,2,9 2,0,0,5 0,0,0,0 0,1,1,9
+ transform 1 1 2,2,0,7 2,0,2,2 0,2,0,1 1,1,0,7
+ transform 2 1 2,0,2,11 2,2,0,7 2,0,0,2 1,0,1,11
+ transform 3 1 0,2,0,1 0,0,2,0 0,0,0,3 1,1,0,1
+ transform 4 1 0,2,2,9 0,2,0,1 2,2,0,4 2,1,1,13
+ transform 5 1 0,0,0,3 2,0,2,2 2,0,0,5 1,1,0,3
+ transform 6 1 0,0,2,11 0,0,0,3 0,2,0,6 1,2,1,15
+ transform 7 1 2,0,0,5 0,0,2,0 2,2,0,7 1,1,0,5
+ transform 8 1 2,0,0,2 0,2,0,3 0,0,0,8 1,0,1,2
+ transform 9 1 2,2,2,4 2,2,0,1 0,0,2,9 0,1,1,17
+ transform 10 1 2,2,0,4 0,0,0,5 2,0,0,10 2,1,1,4
+ transform 11 1 0,2,2,6 0,2,0,3 2,0,2,11 1,0,1,19
+ transform 12 1 0,2,0,6 2,0,0,7 2,2,0,12 1,2,1,6
+ transform 13 1 0,0,2,0 0,0,0,5 2,2,2,13 2,1,1,21
+ transform 14 1 0,0,0,0 2,2,0,1 0,2,0,14 0,1,1,0
+ transform 15 1 2,0,2,2 2,0,0,7 0,2,2,15 1,2,1,23
+ transform 16 1 2,0,0,7 0,0,0,0 0,0,2,16 1,1,2,18
+ transform 17 1 2,2,0,10 2,0,0,5 0,2,2,17 0,1,1,14
+ transform 18 1 2,2,0,1 2,0,0,2 2,0,2,18 1,1,2,20
+ transform 19 1 0,0,0,8 2,2,0,7 0,0,2,19 1,0,1,8
+ transform 20 1 0,2,0,3 0,0,0,0 2,2,2,20 1,1,2,22
+ transform 21 1 2,0,0,10 0,2,0,1 2,0,2,21 2,1,1,10
+ transform 22 1 0,0,0,5 2,0,0,2 0,2,2,22 1,1,2,16
+ transform 23 1 2,0,0,8 0,0,0,3 2,2,2,23 1,2,1,12
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+solution 1 asm 1 sol 0
+ assembly 2,0,2,11 2,0,0,7 0,0,0,0 0,1,1,9
+ valid 1
+ space 5 4 3 origin -1 0 0 cells 0 1 0 1 0 0 0 1 0 0 0 1 0 1 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 1 0 1 0 0 0 1 0 0 0 1 0 1 0 0 0 0 0 0
+ transform 0 1 2,0,2,11 2,0,0,7 0,0,0,0 0,1,1,9
+ transform 1 1 2,0,2,2 2,2,0,7 0,2,0,1 1,1,0,7
+ transform 2 1 0,2,2,9 2,2,0,1 2,0,0,2 1,0,1,11
+ transform 3 1 2,2,2,4 0,2,0,1 0,0,0,3 1,1,0,1
+ transform 4 1 0,0,2,11 0,2,0,3 2,2,0,4 2,1,1,13
+ transform 5 1 0,2,2,6 0,0,0,3 2,0,0,5 1,1,0,3
+ transform 6 1 0,0,2,9 0,0,0,5 0,2,0,6 1,2,1,15
+ transform 7 1 0,0,2,0 2,0,0,5 2,2,0,7 1,1,0,5
+ transform 8 1 2,2,0,7 2,0,0,2 0,0,0,8 1,0,1,2
+ transform 9 1 2,2,0,1 2,0,2,2 0,0,2,9 0,1,1,17
+ transform 10 1 0,2,0,1 0,0,0,0 2,0,0,10 2,1,1,4
+ transform 11 1 0,2,0,3 0,0,2,0 2,0,2,11 1,0,1,19
+ transform 12 1 0,0,0,3 2,0,0,2 2,2,0,12 1,2,1,6
+ transform 13 1 0,0,0,5 2,0,2,2 2,2,2,13 2,1,1,21
+ transform 14 1 2,0,0,5 0,0,0,0 0,2,0,14 0,1,1,0
+ transform 15 1 2,0,0,7 0,0,2,0 0,2,2,15 1,2,1,23
+ transform 16 1 2,0,0,2 0,0,0,3 0,0,2,16 1,1,2,18
+ transform 17 1 2,0,0,8 0,2,0,3 0,2,2,17 0,1,1,14
+ transform 18 1 2,2,0,4 2,0,0,5 2,0,2,18 1,1,2,20
+ transform 19 1 2,2,0,10 0,0,0,5 0,0,2,19 1,0,1,8
+ transform 20 1 0,2,0,6 2,2,0,7 2,2,2,20 1,1,2,22
+ transform 21 1 0,0,0,8 2,0,0,7 2,0,2,21 2,1,1,10
+ transform 22 1 0,0,0,0 0,2,0,1 0,2,2,22 1,1,2,16
+ transform 23 1 2,0,0,10 2,2,0,1 2,2,2,23 1,2,1,12
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+solution 2 asm 2 sol 0
+ assembly 2,0,0,7 0,2,0,1 0,0,0,0 1,1,2,18
+ valid 1
+ space 3 4 3 origin 0 0 0 cells 1 0 1 0 1 0 1 0 1 0 0 0 0 1 0 1 0 1 0 1 0 0 0 0 1 0 1 0 1 0 1 0 1 0 0 0
+ transform 0 1 2,0,0,7 0,2,0,1 0,0,0,0 1,1,2,18
+ transform 1 1 0,2,2,9 0,0,0,0 0,2,0,1 2,1,1,13
+ transform 2 1 2,2,0,1 0,0,0,3 2,0,0,2 1,1,2,20
+ transform 3 1 0,0,2,11 2,0,0,2 0,0,0,3 1,2,1,15
+ transform 4 1 0,2,0,3 2,0,0,5 2,2,0,4 1,1,2,22
+ transform 5 1 0,0,2,9 0,0,0,0 2,0,0,5 0,1,1,9
+ transform 6 1 0,0,0,5 2,2,0,7 0,2,0,6 1,1,2,16
+ transform 7 1 2,0,2,11 2,0,0,2 2,2,0,7 1,0,1,11
+ transform 8 1 2,2,0,4 2,0,0,7 0,0,0,8 2,1,1,4
+ transform 9 1 2,0,2,2 0,0,0,5 0,0,2,9 1,2,1,23
+ transform 10 1 0,2,0,6 2,2,0,1 2,0,0,10 1,2,1,6
+ transform 11 1 2,2,2,4 2,0,0,7 2,0,2,11 0,1,1,17
+ transform 12 1 0,0,0,0 0,2,0,3 2,2,0,12 0,1,1,0
+ transform 13 1 0,2,2,6 2,2,0,1 2,2,2,13 1,0,1,19
+ transform 14 1 2,0,0,2 0,0,0,5 0,2,0,14 1,0,1,2
+ transform 15 1 0,0,2,0 0,2,0,3 0,2,2,15 2,1,1,21
+ transform 16 1 2,0,0,10 2,0,2,2 0,0,2,16 2,1,1,10
+ transform 17 1 2,2,0,7 0,2,0,1 0,2,2,17 1,1,0,7
+ transform 18 1 2,0,0,8 0,0,2,0 2,0,2,18 1,2,1,12
+ transform 19 1 0,2,0,1 0,0,0,3 0,0,2,19 1,1,0,1
+ transform 20 1 2,2,0,10 2,0,2,2 2,2,2,20 0,1,1,14
+ transform 21 1 0,0,0,3 2,0,0,5 2,0,2,21 1,1,0,3
+ transform 22 1 0,0,0,8 0,0,2,0 0,2,2,22 1,0,1,8
+ transform 23 1 2,0,0,5 2,2,0,7 2,2,2,23 1,1,0,5
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+sort 0 0/0 1/0 2/0
+sort 1 0/0 1/0 2/0
+sort 2 0/0 1/0 2/0
+sort 3 0/0 1/0 2/0
+solver sort 0 2/0 1/0 0/0
+solver sort 1 2/0 1/0 0/0
+solver sort 2 2/0 1/0 0/0
+solver sort 3 2/0 1/0 0/0
+puzzle BallRoom_solved.xmpuzzle grid 2 shapes 7 problems 3 colors 0
+problem 0 state 2 parts 4 pieces 4 solutions 2
+solution 0 asm 0 sol 0
+ assembly 2,2,0,6 0,2,0,0 2,2,2,9 1,2,1,16
+ valid 1
+ space 5 5 3 origin 0 0 0 cells 0 0 1 0 0 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0
+ transform 0 1 2,2,0,6 0,2,0,0 2,2,2,9 1,2,1,16
+ transform 1 1 0,2,2,8 0,2,0,1 2,2,2,7 1,2,1,4
+ transform 2 1 2,2,0,0 2,0,0,2 2,2,2,11 2,1,1,18
+ transform 3 1 2,0,2,10 2,0,0,3 2,2,2,1 2,1,1,6
+ transform 4 1 2,2,0,2 2,0,0,0 2,2,2,13 3,2,1,20
+ transform 5 1 2,0,2,8 2,2,0,5 0,2,2,3 1,2,1,0
+ transform 6 1 2,2,0,4 4,2,0,2 2,2,2,15 2,3,1,22
+ transform 7 1 4,2,2,10 2,2,0,7 2,0,2,5 2,1,1,2
+ transform 8 1 0,2,0,5 0,0,2,5 2,2,2,2 1,1,2,10
+ transform 9 1 2,0,2,3 2,0,0,7 2,2,2,17 1,1,2,15
+ transform 10 1 2,0,0,7 4,0,2,7 2,2,2,4 3,1,2,12
+ transform 11 1 2,2,2,5 2,2,0,1 0,2,2,19 1,1,2,9
+ transform 12 1 2,2,0,1 2,4,2,1 0,2,2,6 1,3,2,14
+ transform 13 1 2,2,2,7 2,2,0,3 2,0,2,21 3,1,2,11
+ transform 14 1 2,2,0,3 0,2,2,3 2,0,2,0 1,1,2,8
+ transform 15 1 0,2,2,1 0,2,0,5 2,2,2,23 1,3,2,13
+ transform 16 1 0,0,2,11 0,4,2,1 2,2,2,18 1,2,3,21
+ transform 17 1 2,4,2,6 2,0,2,2 2,2,0,14 1,2,1,1
+ transform 18 1 2,0,2,9 0,0,2,3 2,2,2,20 2,1,3,23
+ transform 19 1 0,2,2,0 2,0,2,0 2,2,0,8 2,1,1,3
+ transform 20 1 2,2,2,11 2,0,2,5 0,2,2,22 1,2,3,17
+ transform 21 1 2,0,2,2 4,2,2,2 2,2,0,10 3,2,1,5
+ transform 22 1 0,2,2,9 4,2,2,7 2,0,2,16 2,1,3,19
+ transform 23 1 4,2,2,4 0,2,2,0 2,2,0,12 2,3,1,7
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+solution 1 asm 1 sol 0
+ assembly 1,3,0,0 4,2,0,7 2,0,0,28 2,2,0,0
+ valid 1
+ space 5 5 3 origin 0 0 0 cells 0 0 1 0 0 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0
+ transform 0 1 1,3,0,0 4,2,0,7 2,0,0,28 2,2,0,0
+ transform 1 1 0,1,1,1 2,2,2,7 0,4,2,75 0,2,2,1
+ transform 2 1 1,1,0,2 2,4,0,1 4,2,0,67 2,2,0,2
+ transform 3 1 3,0,1,3 2,2,2,1 0,0,2,70 2,0,2,3
+ transform 4 1 3,1,0,4 0,2,0,3 2,4,0,34 2,2,0,4
+ transform 5 1 2,3,1,5 0,2,2,3 2,0,2,35 2,2,2,5
+ transform 6 1 3,3,0,6 2,0,0,5 0,2,0,40 2,2,0,6
+ transform 7 1 1,2,1,7 2,0,2,5 4,2,2,73 2,2,2,7
+ transform 8 1 0,1,3,8 2,2,2,2 0,2,0,66 0,2,2,8
+ transform 9 1 1,0,1,9 4,0,2,2 2,0,4,79 2,0,2,9
+ transform 10 1 3,0,3,10 0,0,2,0 2,0,0,29 2,0,2,10
+ transform 11 1 2,1,1,11 0,2,2,0 2,2,4,80 2,2,2,11
+ transform 12 1 2,1,3,8 2,0,2,2 2,2,0,68 2,2,2,12
+ transform 13 1 1,2,1,9 2,0,2,2 2,2,4,82 2,2,2,13
+ transform 14 1 3,2,3,10 2,0,2,0 2,2,0,69 2,2,2,14
+ transform 15 1 0,1,1,11 0,0,2,0 0,2,4,77 0,2,2,15
+ transform 16 1 0,3,1,5 0,2,0,3 0,0,2,71 0,2,2,16
+ transform 17 1 3,1,2,4 2,2,0,3 2,4,2,83 2,2,2,17
+ transform 18 1 1,0,1,7 2,0,0,5 4,0,2,72 2,0,2,18
+ transform 19 1 3,3,2,6 2,2,0,5 0,2,2,78 2,2,2,19
+ transform 20 1 2,1,1,1 2,2,0,7 2,4,2,74 2,2,2,20
+ transform 21 1 1,3,2,0 2,2,0,7 2,0,2,41 2,2,2,21
+ transform 22 1 3,2,1,3 2,2,0,1 0,2,2,76 2,2,2,22
+ transform 23 1 1,1,2,2 2,2,0,1 4,2,2,81 2,2,2,23
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 0 0
+sort 0 0/0 1/0
+sort 1 0/0 1/0
+sort 2 0/0 1/0
+sort 3 0/0 1/0
+solver sort 0 1/0 0/0
+solver sort 1 1/0 0/0
+solver sort 2 1/0 0/0
+solver sort 3 1/0 0/0
+problem 1 state 2 parts 3 pieces 3 solutions 1
+solution 0 asm 0 sol 0
+ assembly 2,1,1,4 2,0,2,2 0,0,0,0
+ valid 1
+ space 4 3 3 origin -1 0 0 cells 0 1 0 0 0 0 1 0 0 0 0 1 0 0 1 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0 1 0 0 1 0 0
+ transform 0 1 2,1,1,4 2,0,2,2 0,0,0,0
+ transform 1 1 1,1,0,5 2,0,0,5 0,2,0,1
+ transform 2 1 1,2,1,6 0,0,2,0 2,0,0,2
+ transform 3 1 1,1,0,7 2,2,0,7 0,0,0,3
+ transform 4 1 0,1,1,0 2,0,2,2 2,2,0,4
+ transform 5 1 1,1,0,1 0,2,0,1 2,0,0,5
+ transform 6 1 1,0,1,2 0,0,2,0 0,2,0,6
+ transform 7 1 1,1,0,3 0,0,0,3 2,2,0,7
+ transform 8 1 1,0,1,11 2,2,0,1 0,0,0,8
+ transform 9 1 2,1,1,10 0,2,0,3 0,0,2,9
+ transform 10 1 0,1,1,9 0,2,0,3 2,0,0,10
+ transform 11 1 1,0,1,8 0,0,0,5 2,0,2,11
+ transform 12 1 1,0,1,11 0,0,0,5 2,2,0,12
+ transform 13 1 2,1,1,10 2,0,0,7 2,2,2,13
+ transform 14 1 0,1,1,9 2,0,0,7 0,2,0,14
+ transform 15 1 1,0,1,8 2,2,0,1 0,2,2,15
+ transform 16 1 1,1,0,1 2,0,0,5 0,0,2,16
+ transform 17 1 0,1,1,0 0,0,0,0 0,2,2,17
+ transform 18 1 1,1,0,3 2,2,0,7 2,0,2,18
+ transform 19 1 1,0,1,2 2,0,0,2 0,0,2,19
+ transform 20 1 1,1,0,5 0,2,0,1 2,2,2,20
+ transform 21 1 2,1,1,4 0,0,0,0 2,0,2,21
+ transform 22 1 1,1,0,7 0,0,0,3 0,2,2,22
+ transform 23 1 1,2,1,6 2,0,0,2 2,2,2,23
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+problem 2 state 2 parts 4 pieces 4 solutions 3
+solution 0 asm 0 sol 0
+ assembly 0,0,2,9 2,0,0,5 0,0,0,0 0,1,1,9
+ valid 1
+ space 6 4 3 origin -1 0 0 cells 0 1 0 1 0 0 0 0 1 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0 1 0 0 0 0 1 0 1 0 0 0 0 0 0 0 0
+ transform 0 1 0,0,2,9 2,0,0,5 0,0,0,0 0,1,1,9
+ transform 1 1 2,2,0,7 2,0,2,2 0,2,0,1 1,1,0,7
+ transform 2 1 2,0,2,11 2,2,0,7 2,0,0,2 1,0,1,11
+ transform 3 1 0,2,0,1 0,0,2,0 0,0,0,3 1,1,0,1
+ transform 4 1 0,2,2,9 0,2,0,1 2,2,0,4 2,1,1,13
+ transform 5 1 0,0,0,3 2,0,2,2 2,0,0,5 1,1,0,3
+ transform 6 1 0,0,2,11 0,0,0,3 0,2,0,6 1,2,1,15
+ transform 7 1 2,0,0,5 0,0,2,0 2,2,0,7 1,1,0,5
+ transform 8 1 2,0,0,2 0,2,0,3 0,0,0,8 1,0,1,2
+ transform 9 1 2,2,2,4 2,2,0,1 0,0,2,9 0,1,1,17
+ transform 10 1 2,2,0,4 0,0,0,5 2,0,0,10 2,1,1,4
+ transform 11 1 0,2,2,6 0,2,0,3 2,0,2,11 1,0,1,19
+ transform 12 1 0,2,0,6 2,0,0,7 2,2,0,12 1,2,1,6
+ transform 13 1 0,0,2,0 0,0,0,5 2,2,2,13 2,1,1,21
+ transform 14 1 0,0,0,0 2,2,0,1 0,2,0,14 0,1,1,0
+ transform 15 1 2,0,2,2 2,0,0,7 0,2,2,15 1,2,1,23
+ transform 16 1 2,0,0,7 0,0,0,0 0,0,2,16 1,1,2,18
+ transform 17 1 2,2,0,10 2,0,0,5 0,2,2,17 0,1,1,14
+ transform 18 1 2,2,0,1 2,0,0,2 2,0,2,18 1,1,2,20
+ transform 19 1 0,0,0,8 2,2,0,7 0,0,2,19 1,0,1,8
+ transform 20 1 0,2,0,3 0,0,0,0 2,2,2,20 1,1,2,22
+ transform 21 1 2,0,0,10 0,2,0,1 2,0,2,21 2,1,1,10
+ transform 22 1 0,0,0,5 2,0,0,2 0,2,2,22 1,1,2,16
+ transform 23 1 2,0,0,8 0,0,0,3 2,2,2,23 1,2,1,12
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+solution 1 asm 1 sol 0
+ assembly 2,0,2,11 2,0,0,7 0,0,0,0 0,1,1,9
+ valid 1
+ space 5 4 3 origin -1 0 0 cells 0 1 0 1 0 0 0 1 0 0 0 1 0 1 0 0 0 0 0 0 0 0 1 0 0 0 1 0 1 0 0 0 1 0 0 0 0 0 0 0 0 1 0 1 0 0 0 1 0 0 0 1 0 1 0 0 0 0 0 0
+ transform 0 1 2,0,2,11 2,0,0,7 0,0,0,0 0,1,1,9
+ transform 1 1 2,0,2,2 2,2,0,7 0,2,0,1 1,1,0,7
+ transform 2 1 0,2,2,9 2,2,0,1 2,0,0,2 1,0,1,11
+ transform 3 1 2,2,2,4 0,2,0,1 0,0,0,3 1,1,0,1
+ transform 4 1 0,0,2,11 0,2,0,3 2,2,0,4 2,1,1,13
+ transform 5 1 0,2,2,6 0,0,0,3 2,0,0,5 1,1,0,3
+ transform 6 1 0,0,2,9 0,0,0,5 0,2,0,6 1,2,1,15
+ transform 7 1 0,0,2,0 2,0,0,5 2,2,0,7 1,1,0,5
+ transform 8 1 2,2,0,7 2,0,0,2 0,0,0,8 1,0,1,2
+ transform 9 1 2,2,0,1 2,0,2,2 0,0,2,9 0,1,1,17
+ transform 10 1 0,2,0,1 0,0,0,0 2,0,0,10 2,1,1,4
+ transform 11 1 0,2,0,3 0,0,2,0 2,0,2,11 1,0,1,19
+ transform 12 1 0,0,0,3 2,0,0,2 2,2,0,12 1,2,1,6
+ transform 13 1 0,0,0,5 2,0,2,2 2,2,2,13 2,1,1,21
+ transform 14 1 2,0,0,5 0,0,0,0 0,2,0,14 0,1,1,0
+ transform 15 1 2,0,0,7 0,0,2,0 0,2,2,15 1,2,1,23
+ transform 16 1 2,0,0,2 0,0,0,3 0,0,2,16 1,1,2,18
+ transform 17 1 2,0,0,8 0,2,0,3 0,2,2,17 0,1,1,14
+ transform 18 1 2,2,0,4 2,0,0,5 2,0,2,18 1,1,2,20
+ transform 19 1 2,2,0,10 0,0,0,5 0,0,2,19 1,0,1,8
+ transform 20 1 0,2,0,6 2,2,0,7 2,2,2,20 1,1,2,22
+ transform 21 1 0,0,0,8 2,0,0,7 2,0,2,21 2,1,1,10
+ transform 22 1 0,0,0,0 0,2,0,1 0,2,2,22 1,1,2,16
+ transform 23 1 2,0,0,10 2,2,0,1 2,2,2,23 1,2,1,12
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+solution 2 asm 2 sol 0
+ assembly 2,0,0,7 0,2,0,1 0,0,0,0 1,1,2,18
+ valid 1
+ space 3 4 3 origin 0 0 0 cells 1 0 1 0 1 0 1 0 1 0 0 0 0 1 0 1 0 1 0 1 0 0 0 0 1 0 1 0 1 0 1 0 1 0 0 0
+ transform 0 1 2,0,0,7 0,2,0,1 0,0,0,0 1,1,2,18
+ transform 1 1 0,2,2,9 0,0,0,0 0,2,0,1 2,1,1,13
+ transform 2 1 2,2,0,1 0,0,0,3 2,0,0,2 1,1,2,20
+ transform 3 1 0,0,2,11 2,0,0,2 0,0,0,3 1,2,1,15
+ transform 4 1 0,2,0,3 2,0,0,5 2,2,0,4 1,1,2,22
+ transform 5 1 0,0,2,9 0,0,0,0 2,0,0,5 0,1,1,9
+ transform 6 1 0,0,0,5 2,2,0,7 0,2,0,6 1,1,2,16
+ transform 7 1 2,0,2,11 2,0,0,2 2,2,0,7 1,0,1,11
+ transform 8 1 2,2,0,4 2,0,0,7 0,0,0,8 2,1,1,4
+ transform 9 1 2,0,2,2 0,0,0,5 0,0,2,9 1,2,1,23
+ transform 10 1 0,2,0,6 2,2,0,1 2,0,0,10 1,2,1,6
+ transform 11 1 2,2,2,4 2,0,0,7 2,0,2,11 0,1,1,17
+ transform 12 1 0,0,0,0 0,2,0,3 2,2,0,12 0,1,1,0
+ transform 13 1 0,2,2,6 2,2,0,1 2,2,2,13 1,0,1,19
+ transform 14 1 2,0,0,2 0,0,0,5 0,2,0,14 1,0,1,2
+ transform 15 1 0,0,2,0 0,2,0,3 0,2,2,15 2,1,1,21
+ transform 16 1 2,0,0,10 2,0,2,2 0,0,2,16 2,1,1,10
+ transform 17 1 2,2,0,7 0,2,0,1 0,2,2,17 1,1,0,7
+ transform 18 1 2,0,0,8 0,0,2,0 2,0,2,18 1,2,1,12
+ transform 19 1 0,2,0,1 0,0,0,3 0,0,2,19 1,1,0,1
+ transform 20 1 2,2,0,10 2,0,2,2 2,2,2,20 0,1,1,14
+ transform 21 1 0,0,0,3 2,0,0,5 2,0,2,21 1,1,0,3
+ transform 22 1 0,0,0,8 0,0,2,0 0,2,2,22 1,0,1,8
+ transform 23 1 2,0,0,5 2,2,0,7 2,2,2,23 1,1,0,5
+ transform 24 0
+ transform 25 0
+ transform 26 0
+ transform 27 0
+ transform 28 0
+ transform 29 0
+ transform 30 0
+ transform 31 0
+ transform 32 0
+ transform 33 0
+ transform 34 0
+ transform 35 0
+ transform 36 0
+ transform 37 0
+ transform 38 0
+ transform 39 0
+ transform 40 0
+ transform 41 0
+ transform 42 0
+ transform 43 0
+ transform 44 0
+ transform 45 0
+ transform 46 0
+ transform 47 0
+ transform 48 0
+ transform 49 0
+ transform 50 0
+ transform 51 0
+ transform 52 0
+ transform 53 0
+ transform 54 0
+ transform 55 0
+ transform 56 0
+ transform 57 0
+ transform 58 0
+ transform 59 0
+ transform 60 0
+ transform 61 0
+ transform 62 0
+ transform 63 0
+ transform 64 0
+ transform 65 0
+ transform 66 0
+ transform 67 0
+ transform 68 0
+ transform 69 0
+ transform 70 0
+ transform 71 0
+ transform 72 0
+ transform 73 0
+ transform 74 0
+ transform 75 0
+ transform 76 0
+ transform 77 0
+ transform 78 0
+ transform 79 0
+ transform 80 0
+ transform 81 0
+ transform 82 0
+ transform 83 0
+ transform 84 0
+ transform 85 0
+ transform 86 0
+ transform 87 0
+ transform 88 0
+ transform 89 0
+ transform 90 0
+ transform 91 0
+ transform 92 0
+ transform 93 0
+ transform 94 0
+ transform 95 0
+ transform 96 0
+ transform 97 0
+ transform 98 0
+ transform 99 0
+ transform 100 0
+ transform 101 0
+ transform 102 0
+ transform 103 0
+ transform 104 0
+ transform 105 0
+ transform 106 0
+ transform 107 0
+ transform 108 0
+ transform 109 0
+ transform 110 0
+ transform 111 0
+ transform 112 0
+ transform 113 0
+ transform 114 0
+ transform 115 0
+ transform 116 0
+ transform 117 0
+ transform 118 0
+ transform 119 0
+ smaller 1 1
+sort 0 0/0 1/0 2/0
+sort 1 0/0 1/0 2/0
+sort 2 0/0 1/0 2/0
+sort 3 0/0 1/0 2/0
+solver sort 0 2/0 1/0 0/0
+solver sort 1 2/0 1/0 0/0
+solver sort 2 2/0 1/0 0/0
+solver sort 3 2/0 1/0 0/0
+puzzle PelikanBurr.xmpuzzle grid 0 shapes 8 problems 1 colors 0
+problem 0 state 2 parts 7 pieces 7 solutions 1
+solution 0 asm 9 sol 0
+ assembly 0,0,0,0 0,2,2,0 2,5,7,13 2,0,2,17 2,7,5,23 5,5,0,5 7,5,5,9
+ valid 1
+ separation text 99.3.4.2 moves 108 rots 0 seqs 6 len 99 3 5 3 2 2 0
+ info text 99.3.4.2 moves 108 rots 0 seqs 13 len 99 2 0 0 3 2 0 0 5 0 3 0 0 0
+ compare 0
+ space 8 8 8 origin 0 0 0 cells 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 0 1 0 0 0 0 1 1 0 1 1 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 0 1 0 0 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 0 1 1 1 1 1 1 1 1 1 1 0 0 0 1 1 0 0 0 0 0 0 1 1 1 1 0 1 1 0 1 1 0 0 0 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 1 0 1 1 0 0 0 1 1 0 1 1 0 0 1 1 0 0 1 1 1 0 0 1 0 0 1 1 0 0 0 1 1 0 1 1 0 0 0 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 0 0 0 0 1 1 0 0 1 0 0 0 1 1 0 0 1 0 0 0 1 1 1 1 1 1 1 0 1 1 0 1 0 1 1 0 1 1 0 1 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 0 0 0 0 1 1 0 1 1 0 0 0 1 1 0 1 0 0 0 1 1 1 0 1 0 0 1 1 1 1 0 1 0 0 1 0 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 0 0 1 0 1 0 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ transform 0 1 0,0,0,0 0,2,2,0 2,5,7,13 2,0,2,17 2,7,5,23 5,5,0,5 7,5,5,9
+ transform 1 1 0,0,0,0 0,5,2,1 2,0,5,18 2,5,0,6 2,2,7,12 5,7,5,22 7,2,5,8
+ transform 2 1 0,0,0,0 0,5,5,2 2,2,0,7 2,7,5,23 2,0,2,17 5,2,7,15 7,2,2,11
+ transform 3 1 0,0,0,0 0,2,5,3 2,7,2,20 2,2,7,12 2,5,0,6 5,0,2,16 7,5,2,10
+ transform 4 1 0,0,0,0 5,2,0,4 0,5,2,1 5,0,2,16 2,7,2,20 7,5,5,9 2,5,7,13
+ transform 5 1 0,0,0,0 5,5,0,5 2,0,2,17 7,5,2,10 0,2,2,0 2,7,5,23 2,2,7,12
+ transform 6 1 0,0,0,0 2,5,0,6 7,2,2,11 2,7,2,20 5,0,2,16 0,2,5,3 5,2,7,15
+ transform 7 1 0,0,0,0 2,2,0,7 5,7,2,21 0,2,2,0 7,5,2,10 5,0,5,19 5,5,7,14
+ transform 8 1 0,0,0,0 7,2,5,8 5,5,0,5 5,0,5,19 5,7,2,21 2,5,7,13 0,5,2,1
+ transform 9 1 0,0,0,0 7,5,5,9 5,0,2,16 5,5,7,14 5,2,0,4 2,7,2,20 0,2,2,0
+ transform 10 1 0,0,0,0 7,5,2,10 5,2,7,15 5,7,2,21 5,0,5,19 2,2,0,7 0,2,5,3
+ transform 11 1 0,0,0,0 7,2,2,11 5,7,5,22 5,2,0,4 5,5,7,14 2,0,5,18 0,5,5,2
+ transform 12 1 0,0,0,0 2,2,7,12 7,5,5,9 2,0,5,18 5,7,5,22 0,5,2,1 5,5,0,5
+ transform 13 1 0,0,0,0 2,5,7,13 5,0,5,19 0,5,5,2 7,2,5,8 5,7,2,21 5,2,0,4
+ transform 14 1 0,0,0,0 5,5,7,14 0,2,5,3 5,7,5,22 2,0,5,18 7,2,2,11 2,2,0,7
+ transform 15 1 0,0,0,0 5,2,7,15 2,7,5,23 7,2,5,8 0,5,5,2 2,0,2,17 2,5,0,6
+ transform 16 1 0,0,0,0 5,0,2,16 2,2,7,12 7,2,2,11 0,2,5,3 2,5,0,6 2,7,5,23
+ transform 17 1 0,0,0,0 2,0,2,17 7,2,5,8 2,2,0,7 5,2,7,15 0,5,5,2 5,7,5,22
+ transform 18 1 0,0,0,0 2,0,5,18 5,2,0,4 0,2,5,3 7,2,2,11 5,5,7,14 5,7,2,21
+ transform 19 1 0,0,0,0 5,0,5,19 0,2,2,0 5,2,7,15 2,2,0,7 7,5,2,10 2,7,2,20
+ transform 20 1 0,0,0,0 2,7,2,20 5,5,7,14 0,5,2,1 7,5,5,9 5,2,0,4 5,0,5,19
+ transform 21 1 0,0,0,0 5,7,2,21 0,5,5,2 5,5,0,5 2,5,7,13 7,2,5,8 2,0,5,18
+ transform 22 1 0,0,0,0 5,7,5,22 2,5,0,6 7,5,5,9 0,5,2,1 2,2,7,12 2,0,2,17
+ transform 23 1 0,0,0,0 2,7,5,23 7,5,2,10 2,5,7,13 5,5,0,5 0,2,2,0 5,0,2,16
+ smaller 0 0
+sort 0 9/0
+sort 1 9/0
+sort 2 9/0
+sort 3 9/0
+solver sort 0 9/0
+solver sort 1 9/0
+solver sort 2 9/0
+solver sort 3 9/0
+puzzle Prisgon.xmpuzzle grid 1 shapes 12 problems 2 colors 0
+problem 0 state 2 parts 9 pieces 9 solutions 1
+solution 0 asm 0 sol 0
+ assembly 0,0,0,0 3,3,1,0 7,2,1,3 5,1,1,0 7,1,3,6 4,1,2,9 8,4,2,8 5,5,3,8 7,5,3,8
+ valid 1
+ separation text 9.6.4.2.2.2.1.2 moves 28 rots 0 seqs 8 len 10 7 5 3 3 3 2 3 0
+ info text 9.6.4.2.2.2.1.2 moves 28 rots 0 seqs 17 len 10 0 7 0 5 0 3 0 3 0 3 0 2 0 3 0 0 0
+ compare 0
+ space 12 6 5 origin 0 0 0 cells 0 0 0 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 1 1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 0 0 0 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 0 0 1 0 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 1 1 1 1 1 1 0 0 0 1 1 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 0 0 0 1 1 1 0 1 1 1 0 0 0 0 0 0 1 1 0 1 1 0 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 1 1 0 0
+ transform 0 1 0,0,0,0 3,3,1,0 7,2,1,3 5,1,1,0 7,1,3,6 4,1,2,9 8,4,2,8 5,5,3,8 7,5,3,8
+ transform 1 1 7,-2,0,1 4,1,1,1 7,3,1,4 8,1,1,1 9,2,3,7 7,1,2,10 5,4,2,9 2,3,3,9 3,4,3,9
+ transform 2 1 0,0,0,0 7,1,1,2 6,3,1,5 9,3,1,2 8,4,3,8 9,2,2,11 3,3,2,10 3,1,3,10 2,2,3,10
+ transform 3 1 7,-2,0,1 9,2,1,3 5,3,1,0 7,4,1,3 5,4,3,9 8,4,2,6 4,1,2,11 7,0,3,11 5,0,3,11
+ transform 4 1 0,0,0,0 8,4,1,4 5,2,1,1 4,4,1,4 3,3,3,10 5,4,2,7 7,1,2,6 10,2,3,6 9,1,3,6
+ transform 5 1 7,-2,0,1 5,4,1,5 6,2,1,2 3,2,1,5 4,1,3,11 3,3,2,8 9,2,2,7 9,4,3,7 10,3,3,7
+ transform 6 1 0,0,0,0 9,3,3,6 9,2,3,3 7,1,3,6 5,1,1,0 8,1,2,3 4,4,2,4 7,5,1,4 5,5,1,4
+ transform 7 1 7,-2,0,1 7,4,3,7 8,4,3,4 9,2,3,7 8,1,1,1 9,3,2,4 3,2,2,5 3,4,1,5 2,3,1,5
+ transform 8 1 0,0,0,0 4,4,3,8 5,4,3,5 8,4,3,8 9,3,1,2 7,4,2,5 5,1,2,0 2,2,1,0 3,1,1,0
+ transform 9 1 7,-2,0,1 3,2,3,9 3,3,3,0 5,4,3,9 7,4,1,3 4,4,2,0 8,1,2,1 5,0,1,1 7,0,1,1
+ transform 10 1 0,0,0,0 5,1,3,10 4,1,3,1 3,3,3,10 4,4,1,4 3,2,2,1 9,3,2,2 9,1,1,2 10,2,1,2
+ transform 11 1 7,-2,0,1 8,1,3,11 7,1,3,2 4,1,3,11 3,2,1,5 5,1,2,2 7,4,2,3 10,3,1,3 9,4,1,3
+ smaller 0 0
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+problem 1 state 2 parts 9 pieces 9 solutions 1
+solution 0 asm 0 sol 0
+ assembly 0,0,0,0 2,2,1,0 6,1,1,3 4,0,1,0 6,0,3,6 3,0,2,9 7,3,2,8 4,4,3,8 6,4,3,8
+ valid 1
+ separation text 9.5.2.1.2.2.2 moves 23 rots 0 seqs 8 len 10 6 2 2 3 3 3 2 0
+ info text 9.5.2.1.2.2.2 moves 23 rots 0 seqs 17 len 10 0 6 0 2 2 0 0 2 0 3 0 3 0 3 0 0 0
+ compare 0
+ space 10 5 5 origin 0 0 0 cells 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 1 1 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 0 0 0 0 1 1 0 0 1 0 0 0 0 0 0 1 1 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 1 0 0 0 1 1 1 1 1 0 0 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 1 1 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 0 1 1 1 0 0 0 0 1 1 0 1 1 0 0 0 0 0 0 1 1 1 0 0 0 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 0 1 1 1 1 1 1 1 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 1 1 1 0 0 0
+ transform 0 1 0,0,0,0 2,2,1,0 6,1,1,3 4,0,1,0 6,0,3,6 3,0,2,9 7,3,2,8 4,4,3,8 6,4,3,8
+ transform 1 1 5,-1,0,1 3,1,1,1 6,3,1,4 7,1,1,1 8,2,3,7 6,1,2,10 4,4,2,9 1,3,3,9 2,4,3,9
+ transform 2 1 0,0,0,0 6,0,1,2 5,2,1,5 8,2,1,2 7,3,3,8 8,1,2,11 2,2,2,10 2,0,3,10 1,1,3,10
+ transform 3 1 5,-1,0,1 8,2,1,3 4,3,1,0 6,4,1,3 4,4,3,9 7,4,2,6 3,1,2,11 6,0,3,11 4,0,3,11
+ transform 4 1 0,0,0,0 7,3,1,4 4,1,1,1 3,3,1,4 2,2,3,10 4,3,2,7 6,0,2,6 9,1,3,6 8,0,3,6
+ transform 5 1 5,-1,0,1 4,4,1,5 5,2,1,2 2,2,1,5 3,1,3,11 2,3,2,8 8,2,2,7 8,4,3,7 9,3,3,7
+ transform 6 1 0,0,0,0 8,2,3,6 8,1,3,3 6,0,3,6 4,0,1,0 7,0,2,3 3,3,2,4 6,4,1,4 4,4,1,4
+ transform 7 1 5,-1,0,1 6,4,3,7 7,4,3,4 8,2,3,7 7,1,1,1 8,3,2,4 2,2,2,5 2,4,1,5 1,3,1,5
+ transform 8 1 0,0,0,0 3,3,3,8 4,3,3,5 7,3,3,8 8,2,1,2 6,3,2,5 4,0,2,0 1,1,1,0 2,0,1,0
+ transform 9 1 5,-1,0,1 2,2,3,9 2,3,3,0 4,4,3,9 6,4,1,3 3,4,2,0 7,1,2,1 4,0,1,1 6,0,1,1
+ transform 10 1 0,0,0,0 4,0,3,10 3,0,3,1 2,2,3,10 3,3,1,4 2,1,2,1 8,2,2,2 8,0,1,2 9,1,1,2
+ transform 11 1 5,-1,0,1 7,1,3,11 6,1,3,2 3,1,3,11 2,2,1,5 4,1,2,2 6,4,2,3 9,3,1,3 8,4,1,3
+ smaller 0 0
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+puzzle SolidSixPieceBurrs.xmpuzzle grid 0 shapes 26 problems 1 colors 0
+problem 0 state 2 parts 25 pieces 150 solutions 314
+solution 0 asm 222 sol 0
+ assembly x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 2,4,5,13 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 0 0 0 2 2 0 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 2,4,5,13 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x 4,2,0,4 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x 2,1,0,7 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x 4,3,5,14 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x 0,4,2,1 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x 5,2,4,8 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x 5,1,2,11 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x 0,3,4,2 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x 3,4,0,5 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x 1,2,5,12 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x 3,1,5,15 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x 1,3,0,6 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x 5,4,3,9 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x 0,2,1,0 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x 0,1,3,3 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x 5,3,1,10 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x 5,4,3,9 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x 3,4,0,5 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x 0,4,2,1 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 0,2,1,0 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x 0,1,3,3 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x 0,3,4,2 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x 1,3,0,6 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x 5,3,1,10 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x
+ smaller 0 0
+solution 1 asm 223 sol 1
+ assembly x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 2,4,5,13 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 0 0 0 2 2 0 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 2,4,5,13 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x 4,2,0,4 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x 2,1,0,7 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x 4,3,5,14 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x 0,4,2,1 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x 5,2,4,8 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x 5,1,2,11 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x 0,3,4,2 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x 3,4,0,5 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x 1,2,5,12 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x 3,1,5,15 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x 1,3,0,6 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x 5,4,3,9 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x 0,2,1,0 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x 0,1,3,3 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x 5,3,1,10 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x 5,4,3,9 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x 3,4,0,5 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x 0,4,2,1 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 0,2,1,0 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x 0,1,3,3 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x 0,3,4,2 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x 1,3,0,6 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x 5,3,1,10 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x
+ smaller 0 0
+solution 2 asm 224 sol 2
+ assembly x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 2,4,5,13 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 0 0 0 2 2 0 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 2,4,5,13 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x 4,2,0,4 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x 2,1,0,7 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x 4,3,5,14 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x 0,4,2,1 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x 5,2,4,8 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x 5,1,2,11 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x 0,3,4,2 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x 3,4,0,5 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x 1,2,5,12 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x 3,1,5,15 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x 1,3,0,6 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x 5,4,3,9 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x 0,2,1,0 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x 0,1,3,3 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x 5,3,1,10 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x 5,4,3,9 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x 3,4,0,5 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x 0,4,2,1 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 0,2,1,0 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x 0,1,3,3 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x 0,3,4,2 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x 1,3,0,6 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x 5,3,1,10 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x
+ smaller 0 0
+solution 3 asm 386 sol 3
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 2,1,0,7 x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 0 0 0 2 2 0 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 2,1,0,7 x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,2 x x x x x x x x x x x x x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x 2,5,1,20 x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,3 x x x x x x x x x x x x x x x x x x x x x x x 2,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x 2,4,5,13 x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,0 x x x x x x x x x x x x x x x x x x x x x x x 2,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x 2,0,4,18 x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x 5,1,2,11 x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,0,6 x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x 4,5,2,21 x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x 2,0,2,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x 0,4,2,1 x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,0,4 x x x x x x x x x x x x x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x 1,0,2,17 x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,2,9 x x x x x x x x x x x x x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x 3,1,5,15 x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,2,10 x x x x x x x x x x x x x x x x x x x x x x x 3,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x 3,5,4,22 x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,3,11 x x x x x x x x x x x x x x x x x x x x x x x 3,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x 3,4,0,5 x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,3,8 x x x x x x x x x x x x x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x 3,0,1,16 x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,5,13 x x x x x x x x x x x x x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x 0,1,3,3 x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,5,14 x x x x x x x x x x x x x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 1,5,3,23 x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,5,15 x x x x x x x x x x x x x x x x x x x x x x x 3,0,3,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x 5,4,3,9 x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,5,12 x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x 4,0,3,19 x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,3,17 x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x 4,2,0,4 x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x 0,2,1,0 x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,2,19 x x x x x x x x x x x x x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x 1,2,5,12 x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x 5,2,4,8 x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,3,21 x x x x x x x x x x x x x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x 1,3,0,6 x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,3,22 x x x x x x x x x x x x x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x 5,3,1,10 x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,2,23 x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x 4,3,5,14 x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,2,20 x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x 0,3,4,2 x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x
+ smaller 0
+solution 4 asm 391 sol 4
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 1,0,3,18 x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,4,5,13 x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 2 0 0 0 0 2 0 0 0
+ compare 1
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 1,0,3,18 x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,4,5,13 x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,2 1,2,0,7 x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 2,0,4,18 x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,3 2,0,3,19 x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 2,1,0,7 x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,0 2,2,0,4 x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 2,5,1,20 x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,5 2,0,1,17 x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,4,2,1 x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,2 2,2,0,6 x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 1,0,2,17 x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,7 2,0,2,18 x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 5,1,2,11 x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,1,1 3,3,0,4 x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 4,5,2,21 x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 4,0,2,16 x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 3,4,0,5 x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 3,3,0,6 x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 3,0,1,16 x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 3,0,2,17 x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 3,1,5,15 x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 4,3,0,5 x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 3,5,4,22 x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 3,0,4,19 x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 5,4,3,9 x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,4,3 2,1,0,7 x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 4,0,3,19 x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 3,0,3,16 x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,1,3,3 x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,0 3,4,0,5 x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 1,5,3,23 x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,1 2,0,3,17 x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 1,2,5,12 x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,0,4 3,0,3,18 x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 5,2,4,8 x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,2,0 3,0,2,19 x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 4,2,0,4 x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,5 2,0,2,16 x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,2,1,0 x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,3,2 2,0,4,18 x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 4,3,5,14 x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,0,6 1,0,2,17 x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,3,4,2 x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,3 3,0,1,16 x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 1,3,0,6 x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,7 4,0,3,19 x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 5,3,1,10 x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x
+ smaller 0
+solution 5 asm 392 sol 5
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 2 0 0 0 0 2 0 0 0
+ compare 1
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,3,19 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,0,4 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,2 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,2,18 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,0,6 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,2,17 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,3,16 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,0 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,1 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,5 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,3 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,7 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x
+ smaller 0
+solution 6 asm 393 sol 6
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 2 0 0 0 0 2 0 0 0
+ compare 1
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,2 x x x x x x x x x x x x x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,3 x x x x x x x x x x x x x x x x x x x x x x x 2,0,3,19 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,0 x x x x x x x x x x x x x x x x x x x x x x x 2,2,0,4 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,0,6 x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,2 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x 2,0,2,18 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,0,4 x x x x x x x x x x x x x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,2,9 x x x x x x x x x x x x x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,2,10 x x x x x x x x x x x x x x x x x x x x x x x 3,3,0,6 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,3,11 x x x x x x x x x x x x x x x x x x x x x x x 3,0,2,17 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,3,8 x x x x x x x x x x x x x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,5,13 x x x x x x x x x x x x x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,5,14 x x x x x x x x x x x x x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,5,15 x x x x x x x x x x x x x x x x x x x x x x x 3,0,3,16 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,5,12 x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,0 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,3,17 x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,1 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,2,19 x x x x x x x x x x x x x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,5 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,3,21 x x x x x x x x x x x x x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,3,22 x x x x x x x x x x x x x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,2,23 x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,3 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,2,20 x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,7 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x
+ smaller 0
+solution 7 asm 395 sol 7
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,4,5,13 x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 2 0 0 0 0 2 0 0 0
+ compare 1
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,4,5,13 x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 2,0,4,18 x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 2,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 2,1,0,7 x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 2,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 2,5,1,20 x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,4,2,1 x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 0,2,2,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 1,0,2,17 x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 3,0,2,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 5,1,2,11 x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 4,5,2,21 x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 3,4,0,5 x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 3,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 3,0,1,16 x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 3,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 3,1,5,15 x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 3,5,4,22 x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 5,4,3,9 x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 4,0,3,19 x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 2,0,3,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,1,3,3 x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 1,5,3,23 x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 0,2,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 1,2,5,12 x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 5,2,4,8 x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 4,2,0,4 x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,2,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,2,1,0 x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 4,3,5,14 x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,3,4,2 x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 0,3,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 1,3,0,6 x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 3,3,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 5,3,1,10 x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x
+ smaller 0
+solution 8 asm 396 sol 8
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 2,1,0,7 x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 0 0 0 2 2 0 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x 2,1,0,7 x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x 2,5,1,20 x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 2,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x 2,4,5,13 x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 2,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x 2,0,4,18 x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x 5,1,2,11 x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 0,2,2,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x 4,5,2,21 x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 3,0,2,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x 0,4,2,1 x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x 1,0,2,17 x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x 3,1,5,15 x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 3,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x 3,5,4,22 x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 3,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x 3,4,0,5 x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x 3,0,1,16 x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x 0,1,3,3 x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x 1,5,3,23 x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 2,0,3,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x 5,4,3,9 x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x 4,0,3,19 x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 0,2,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x 4,2,0,4 x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x 0,2,1,0 x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x 1,2,5,12 x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,2,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x 5,2,4,8 x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x 1,3,0,6 x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x 5,3,1,10 x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 0,3,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x 4,3,5,14 x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 3,3,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x 0,3,4,2 x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x
+ smaller 0
+solution 9 asm 397 sol 9
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 2 0 0 0 0 2 0 0 0
+ compare 1
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 2,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 2,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 0,2,2,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 3,0,2,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 3,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 3,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 2,0,3,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 0,2,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 2,2,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 0,3,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 3,3,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x
+ smaller 0
+solution 10 asm 398 sol 10
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,3,4,2 1,0,3,18 x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 2 0 0 0 0 2 0 0 0
+ compare 1
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 0,3,4,2 1,0,3,18 x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 0,1,3,3 1,2,0,7 x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 0,2,1,0 2,0,3,19 x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 0,4,2,1 2,2,0,4 x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 1,3,0,6 2,0,1,17 x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 0,3,2,2 2,1,0,7 x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 4,2,0,4 2,0,2,18 x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 0,3,1,1 3,4,0,5 x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 0,2,2,3 4,0,2,16 x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 0,2,3,2 3,3,0,6 x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 0,3,3,1 3,0,2,17 x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 0,3,2,0 4,3,0,5 x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 3,2,0,7 3,0,4,19 x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 0,2,4,3 2,2,0,6 x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 2,3,0,5 3,0,3,16 x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 0,2,3,0 3,3,0,4 x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 0,2,2,1 2,0,4,18 x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 3,1,0,4 4,0,3,19 x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 0,1,2,0 3,0,1,16 x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 3,2,0,5 1,0,2,17 x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 0,4,3,2 2,0,3,17 x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 2,4,0,6 2,0,2,16 x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 0,3,3,3 3,0,2,19 x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 2,3,0,7 3,0,3,18 x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x
+ smaller 0
+solution 11 asm 400 sol 11
+ assembly x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,3,11 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x
+ valid 1
+ info text 2.1.1.1 moves 5 rots 0 seqs 11 len 2 2 2 0 0 0 2 2 0 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+ transform 0 1 x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,3,11 x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 1,0,3,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x
+ transform 1 1 x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,2,10 x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 1,2,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x
+ transform 2 1 x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,2,9 x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x 2,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x
+ transform 3 1 x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,3,8 x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x 2,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x
+ transform 4 1 x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,5,15 x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 2,0,1,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x
+ transform 5 1 x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,5,14 x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 0,3,2,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x
+ transform 6 1 x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,5,13 x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x 2,0,2,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x
+ transform 7 1 x x x x x x x x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,5,12 x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x 0,3,1,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x x x x x x x
+ transform 8 1 x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,2,3 x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 4,0,2,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x
+ transform 9 1 x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,3,2 x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 3,3,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x
+ transform 10 1 x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,3,1 x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x 3,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x
+ transform 11 1 x x x x x x x x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,2,0 x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x 4,3,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x x x x x x x
+ transform 12 1 x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,2,0,7 x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 3,0,4,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x
+ transform 13 1 x x x x x x x x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,2,0,6 x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 0,2,4,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x x x x x x x
+ transform 14 1 x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,3,0,5 x x x x x x x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x 3,0,3,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x
+ transform 15 1 x x x x x x x x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,3,0,4 x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x 0,2,3,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x x x x x x x
+ transform 16 1 x x x x x x x x x x x x x x x x x x 3,0,1,16 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,3,21 x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 0,2,2,1 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 5,4,3,9 x x x x x x x x x x x x x x x x x
+ transform 17 1 x x x x x x x x x x x x x x x x x x 1,0,2,17 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,5,2,20 x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 3,1,0,4 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 3,4,0,5 x x x x x x x x x x x x x x x x x
+ transform 18 1 x x x x x x x x x x x x x x x x x x 2,0,4,18 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,2,23 x x x x x x x x x x x x x x x x x 4,2,0,4 x x x x x x x x x x x 0,1,2,0 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,2,5,12 x x x x x x x x x x x 0,4,2,1 x x x x x x x x x x x x x x x x x
+ transform 19 1 x x x x x x x x x x x x x x x x x x 4,0,3,19 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,5,3,22 x x x x x x x x x x x x x x x x x 0,2,1,0 x x x x x x x x x x x 3,2,0,5 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,2,4,8 x x x x x x x x x x x 2,4,5,13 x x x x x x x x x x x x x x x x x
+ transform 20 1 x x x x x x x x x x x x x x x x x x 2,5,1,20 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,3,17 x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 0,4,3,2 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 0,1,3,3 x x x x x x x x x x x x x x x x x
+ transform 21 1 x x x x x x x x x x x x x x x x x x 4,5,2,21 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 2,0,2,16 x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 2,4,0,6 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 2,1,0,7 x x x x x x x x x x x x x x x x x
+ transform 22 1 x x x x x x x x x x x x x x x x x x 3,5,4,22 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,2,19 x x x x x x x x x x x x x x x x x 1,3,0,6 x x x x x x x x x x x 0,3,3,3 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 4,3,5,14 x x x x x x x x x x x 5,1,2,11 x x x x x x x x x x x x x x x x x
+ transform 23 1 x x x x x x x x x x x x x x x x x x 1,5,3,23 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 3,0,3,18 x x x x x x x x x x x x x x x x x 5,3,1,10 x x x x x x x x x x x 2,3,0,7 x x x x x x x x x x x x x x x x x x x x x x x x x x x x x 0,3,4,2 x x x x x x x x x x x 3,1,5,15 x x x x x x x x x x x x x x x x x
+ smaller 0
+sort 0 222/0 223/1 224/2 386/3 391/4 392/5 393/6 395/7 396/8 397/9 398/10 400/11 401/12 402/13 404/14 405/15 407/16 408/17 409/18 410/19 419/20 421/21 424/22 425/23 429/24 430/25 434/26 445/27 446/28 447/29 448/30 449/31 452/32 454/33 479/34 481/35 482/36 484/37 496/38 497/39 498/40 499/41 500/42 501/43 502/44 503/45 504/46 505/47 506/48 507/49 510/50 511/51 512/52 513/53 514/54 515/55 516/56 517/57 518/58 520/59 521/60 522/61 524/62 525/63 526/64 527/65 528/66 602/67 603/68 604/69 605/70 608/71 609/72 610/73 611/74 612/75 613/76 614/77 615/78 616/79 617/80 618/81 619/82 622/83 625/84 626/85 627/86 629/87 630/88 631/89 633/90 642/91 643/92 644/93 645/94 646/95 647/96 648/97 649/98 650/99 651/100 652/101 653/102 654/103 655/104 656/105 657/106 658/107 659/108 662/109 664/110 665/111 666/112 667/113 668/114 669/115 670/116 674/117 675/118 676/119 677/120 678/121 679/122 680/123 681/124 729/125 732/126 734/127 735/128 736/129 737/130 738/131 739/132 742/133 743/134 744/135 745/136 746/137 747/138 748/139 749/140 750/141 758/142 759/143 764/144 765/145 766/146 767/147 768/148 769/149 772/150 773/151 774/152 775/153 776/154 777/155 901/156 902/157 903/158 904/159 905/160 906/161 907/162 908/163 909/164 910/165 911/166 912/167 913/168 914/169 915/170 916/171 917/172 918/173 919/174 920/175 921/176 922/177 923/178 924/179 925/180 926/181 927/182 928/183 929/184 930/185 931/186 932/187 934/188 935/189 936/190 937/191 938/192 939/193 940/194 941/195 942/196 943/197 944/198 945/199 946/200 947/201 948/202 949/203 950/204 951/205 952/206 953/207 955/208 956/209 957/210 958/211 959/212 960/213 961/214 962/215 963/216 964/217 965/218 966/219 967/220 968/221 969/222 970/223 971/224 972/225 973/226 974/227 975/228 976/229 977/230 978/231 979/232 980/233 981/234 982/235 983/236 984/237 985/238 986/239 987/240 988/241 989/242 990/243 991/244 992/245 993/246 994/247 995/248 996/249 997/250 998/251 999/252 1000/253 1001/254 1002/255 1003/256 1004/257 1005/258 1006/259 1007/260 1008/261 1009/262 1010/263 1011/264 1012/265 1013/266 1014/267 1015/268 1016/269 1017/270 1018/271 1019/272 1020/273 1021/274 1022/275 1023/276 1024/277 1025/278 1026/279 1027/280 1028/281 1029/282 1030/283 1031/284 1032/285 1033/286 1034/287 1035/288 1036/289 1037/290 1038/291 1039/292 1040/293 1041/294 1042/295 1043/296 1044/297 1045/298 1046/299 1047/300 1048/301 1049/302 1050/303 1051/304 1052/305 1053/306 1054/307 1055/308 1056/309 1059/310 1060/311 1061/312 1062/313
+sort 1 222/0 223/1 224/2 386/3 396/8 400/11 402/13 408/17 410/19 424/22 430/25 434/26 445/27 497/39 499/41 507/49 511/51 520/59 525/63 734/127 764/144 391/4 392/5 393/6 395/7 397/9 398/10 401/12 404/14 405/15 407/16 409/18 419/20 421/21 425/23 429/24 446/28 447/29 448/30 449/31 452/32 454/33 479/34 481/35 482/36 484/37 496/38 498/40 500/42 501/43 502/44 503/45 504/46 505/47 506/48 510/50 512/52 513/53 514/54 515/55 516/56 517/57 518/58 521/60 522/61 524/62 526/64 527/65 528/66 602/67 603/68 604/69 605/70 608/71 609/72 610/73 611/74 612/75 613/76 614/77 615/78 616/79 617/80 618/81 619/82 622/83 625/84 626/85 627/86 629/87 630/88 631/89 633/90 642/91 643/92 644/93 645/94 646/95 647/96 648/97 649/98 650/99 651/100 652/101 653/102 654/103 655/104 656/105 657/106 658/107 659/108 662/109 664/110 665/111 666/112 667/113 668/114 669/115 670/116 674/117 675/118 676/119 677/120 678/121 679/122 680/123 681/124 729/125 732/126 735/128 736/129 737/130 738/131 739/132 742/133 743/134 744/135 745/136 746/137 747/138 748/139 749/140 750/141 758/142 759/143 765/145 766/146 767/147 768/148 769/149 772/150 773/151 774/152 775/153 776/154 777/155 905/160 906/161 907/162 910/165 911/166 912/167 931/186 932/187 936/190 945/199 946/200 947/201 948/202 949/203 950/204 953/207 955/208 956/209 957/210 958/211 959/212 960/213 964/217 966/219 967/220 968/221 970/223 972/225 990/243 1004/257 1005/258 1006/259 1007/260 1008/261 1009/262 1025/278 1027/280 1029/282 1030/283 1050/303 919/174 925/180 991/244 997/250 902/157 908/163 914/169 917/172 920/175 921/176 922/177 923/178 924/179 926/181 927/182 928/183 930/185 935/189 938/192 943/197 944/198 952/206 961/214 969/222 971/224 973/226 974/227 992/245 993/246 994/247 995/248 996/249 998/251 999/252 1000/253 1001/254 1002/255 1003/256 1010/263 1012/265 1014/267 1015/268 1016/269 1017/270 1018/271 1028/281 1031/284 1034/287 1038/291 1041/294 1044/297 1047/300 1052/305 1053/306 1054/307 1055/308 1056/309 1059/310 1060/311 1061/312 1062/313 901/156 903/158 904/159 909/164 913/168 915/170 916/171 918/173 929/184 934/188 937/191 939/193 940/194 941/195 942/196 951/205 962/215 963/216 965/218 975/228 976/229 977/230 978/231 979/232 980/233 981/234 982/235 983/236 984/237 985/238 986/239 987/240 988/241 989/242 1011/264 1013/266 1019/272 1020/273 1021/274 1022/275 1023/276 1024/277 1026/279 1032/285 1033/286 1035/288 1036/289 1037/290 1039/292 1040/293 1042/295 1043/296 1045/298 1046/299 1048/301 1049/302 1051/304
+sort 2 222/0 223/1 224/2 386/3 396/8 400/11 402/13 408/17 410/19 424/22 430/25 434/26 445/27 497/39 499/41 507/49 511/51 520/59 525/63 734/127 764/144 391/4 392/5 393/6 395/7 397/9 398/10 401/12 404/14 405/15 407/16 409/18 419/20 421/21 425/23 429/24 446/28 447/29 448/30 449/31 452/32 454/33 479/34 481/35 482/36 484/37 496/38 498/40 500/42 501/43 502/44 503/45 504/46 505/47 506/48 510/50 512/52 513/53 514/54 515/55 516/56 517/57 518/58 521/60 522/61 524/62 526/64 527/65 528/66 602/67 603/68 604/69 605/70 608/71 609/72 610/73 611/74 612/75 613/76 614/77 615/78 616/79 617/80 618/81 619/82 622/83 625/84 626/85 627/86 629/87 630/88 631/89 633/90 642/91 643/92 644/93 645/94 646/95 647/96 648/97 649/98 650/99 651/100 652/101 653/102 654/103 655/104 656/105 657/106 658/107 659/108 662/109 664/110 665/111 666/112 667/113 668/114 669/115 670/116 674/117 675/118 676/119 677/120 678/121 679/122 680/123 681/124 729/125 732/126 735/128 736/129 737/130 738/131 739/132 742/133 743/134 744/135 745/136 746/137 747/138 748/139 749/140 750/141 758/142 759/143 765/145 766/146 767/147 768/148 769/149 772/150 773/151 774/152 775/153 776/154 777/155 905/160 906/161 907/162 910/165 911/166 912/167 931/186 932/187 936/190 945/199 946/200 947/201 948/202 949/203 950/204 953/207 955/208 956/209 957/210 958/211 959/212 960/213 964/217 966/219 967/220 968/221 970/223 972/225 990/243 1004/257 1005/258 1006/259 1007/260 1008/261 1009/262 1025/278 1027/280 1029/282 1030/283 1050/303 919/174 925/180 991/244 997/250 902/157 908/163 914/169 917/172 920/175 921/176 922/177 923/178 924/179 926/181 927/182 928/183 930/185 935/189 938/192 943/197 944/198 952/206 961/214 969/222 971/224 973/226 974/227 992/245 993/246 994/247 995/248 996/249 998/251 999/252 1000/253 1001/254 1002/255 1003/256 1010/263 1012/265 1014/267 1015/268 1016/269 1017/270 1018/271 1028/281 1031/284 1034/287 1038/291 1041/294 1044/297 1047/300 1052/305 1053/306 1054/307 1055/308 1056/309 1059/310 1060/311 1061/312 1062/313 901/156 903/158 904/159 909/164 913/168 915/170 916/171 918/173 929/184 934/188 937/191 939/193 940/194 941/195 942/196 951/205 962/215 963/216 965/218 975/228 976/229 977/230 978/231 979/232 980/233 981/234 982/235 983/236 984/237 985/238 986/239 987/240 988/241 989/242 1011/264 1013/266 1019/272 1020/273 1021/274 1022/275 1023/276 1024/277 1026/279 1032/285 1033/286 1035/288 1036/289 1037/290 1039/292 1040/293 1042/295 1043/296 1045/298 1046/299 1048/301 1049/302 1051/304
+sort 3 1003/256 1055/308 1052/305 1053/306 1054/307 998/251 999/252 1000/253 1002/255 997/250 996/249 1001/254 992/245 993/246 995/248 991/244 994/247 1056/309 969/222 1018/271 1015/268 1016/269 1017/270 926/181 927/182 928/183 944/198 925/180 924/179 943/197 920/175 922/177 923/178 919/174 921/176 990/243 1049/302 1050/303 1048/301 1051/304 989/242 987/240 988/241 985/238 986/239 984/237 977/230 974/227 975/228 976/229 983/236 981/234 982/235 979/232 980/233 978/231 1062/313 1061/312 1060/311 1059/310 1014/267 1044/297 1024/277 1047/300 1012/265 1013/266 1043/296 1042/295 1041/294 1046/299 1010/263 1011/264 1045/298 968/221 967/220 971/224 973/226 972/225 965/218 961/214 962/215 963/216 970/223 966/219 964/217 1023/276 1022/275 1021/274 1020/273 1019/272 1009/262 1008/261 1040/293 1038/291 1039/292 1037/290 1007/260 1034/287 1035/288 1028/281 1031/284 1030/283 1032/285 1027/280 1029/282 1036/289 1033/286 1025/278 1026/279 1006/259 1005/258 1004/257 938/192 917/172 918/173 937/191 942/196 916/171 935/189 934/188 941/195 914/169 915/170 913/168 960/213 958/211 955/208 956/209 959/212 957/210 911/166 912/167 952/206 953/207 908/163 909/164 936/190 910/165 946/200 945/199 932/187 905/160 906/161 907/162 951/205 940/194 903/158 939/193 930/185 929/184 902/157 904/159 901/156 948/202 947/201 949/203 950/204 931/186 750/141 747/138 777/155 681/124 680/123 679/122 655/104 677/120 666/112 749/140 744/135 746/137 745/136 743/134 742/133 774/152 776/154 773/151 775/153 772/150 654/103 675/118 676/119 659/108 670/116 653/102 658/107 667/113 668/114 674/117 651/100 647/96 648/97 649/98 652/101 664/110 665/111 662/109 650/99 656/105 657/106 669/115 678/121 619/82 613/76 618/81 616/79 615/78 612/75 644/93 643/92 645/94 642/91 646/95 738/131 739/132 768/148 769/149 617/80 626/85 622/83 631/89 629/87 611/74 630/88 633/90 609/72 614/77 625/84 627/86 608/71 610/73 605/70 602/67 603/68 604/69 504/46 501/43 502/44 503/45 528/66 516/56 748/139 735/128 737/130 734/127 736/129 765/145 767/147 764/144 766/146 500/42 515/55 527/65 526/64 499/41 513/53 514/54 525/63 498/40 521/60 522/61 506/48 518/58 505/47 497/39 507/49 520/59 524/62 512/52 511/51 510/50 517/57 496/38 479/34 397/9 405/15 404/14 396/8 402/13 392/5 395/7 482/36 481/35 484/37 452/32 454/33 729/125 732/126 758/142 759/143 401/12 400/11 409/18 408/17 407/16 425/23 424/22 421/21 393/6 386/3 434/26 445/27 429/24 446/28 448/30 449/31 430/25 447/29 410/19 419/20 398/10 391/4 222/0 223/1 224/2
+solver sort 0 1062/313 1061/312 1060/311 1059/310 1056/309 1055/308 1054/307 1053/306 1052/305 1051/304 1050/303 1049/302 1048/301 1047/300 1046/299 1045/298 1044/297 1043/296 1042/295 1041/294 1040/293 1039/292 1038/291 1037/290 1036/289 1035/288 1034/287 1033/286 1032/285 1031/284 1030/283 1029/282 1028/281 1027/280 1026/279 1025/278 1024/277 1023/276 1022/275 1021/274 1020/273 1019/272 1018/271 1017/270 1016/269 1015/268 1014/267 1013/266 1012/265 1011/264 1010/263 1009/262 1008/261 1007/260 1006/259 1005/258 1004/257 1003/256 1002/255 1001/254 1000/253 999/252 998/251 997/250 996/249 995/248 994/247 993/246 992/245 991/244 990/243 989/242 988/241 987/240 986/239 985/238 984/237 983/236 982/235 981/234 980/233 979/232 978/231 977/230 976/229 975/228 974/227 973/226 972/225 971/224 970/223 969/222 968/221 967/220 966/219 965/218 964/217 963/216 962/215 961/214 960/213 959/212 958/211 957/210 956/209 955/208 953/207 952/206 951/205 950/204 949/203 948/202 947/201 946/200 945/199 944/198 943/197 942/196 941/195 940/194 939/193 938/192 937/191 936/190 935/189 934/188 932/187 931/186 930/185 929/184 928/183 927/182 926/181 925/180 924/179 923/178 922/177 921/176 920/175 919/174 918/173 917/172 916/171 915/170 914/169 913/168 912/167 911/166 910/165 909/164 908/163 907/162 906/161 905/160 904/159 903/158 902/157 901/156 777/155 776/154 775/153 774/152 773/151 772/150 769/149 768/148 767/147 766/146 765/145 764/144 759/143 758/142 750/141 749/140 748/139 747/138 746/137 745/136 744/135 743/134 742/133 739/132 738/131 737/130 736/129 735/128 734/127 732/126 729/125 681/124 680/123 679/122 678/121 677/120 676/119 675/118 674/117 670/116 669/115 668/114 667/113 666/112 665/111 664/110 662/109 659/108 658/107 657/106 656/105 655/104 654/103 653/102 652/101 651/100 650/99 649/98 648/97 647/96 646/95 645/94 644/93 643/92 642/91 633/90 631/89 630/88 629/87 627/86 626/85 625/84 622/83 619/82 618/81 617/80 616/79 615/78 614/77 613/76 612/75 611/74 610/73 609/72 608/71 605/70 604/69 603/68 602/67 528/66 527/65 526/64 525/63 524/62 522/61 521/60 520/59 518/58 517/57 516/56 515/55 514/54 513/53 512/52 511/51 510/50 507/49 506/48 505/47 504/46 503/45 502/44 501/43 500/42 499/41 498/40 497/39 496/38 484/37 482/36 481/35 479/34 454/33 452/32 449/31 448/30 447/29 446/28 445/27 434/26 430/25 429/24 425/23 424/22 421/21 419/20 410/19 409/18 408/17 407/16 405/15 404/14 402/13 401/12 400/11 398/10 397/9 396/8 395/7 393/6 392/5 391/4 386/3 224/2 223/1 222/0
+solver sort 1 1051/304 1049/302 1048/301 1046/299 1045/298 1043/296 1042/295 1040/293 1039/292 1037/290 1036/289 1035/288 1033/286 1032/285 1026/279 1024/277 1023/276 1022/275 1021/274 1020/273 1019/272 1013/266 1011/264 989/242 988/241 987/240 986/239 985/238 984/237 983/236 982/235 981/234 980/233 979/232 978/231 977/230 976/229 975/228 965/218 963/216 962/215 951/205 942/196 941/195 940/194 939/193 937/191 934/188 929/184 918/173 916/171 915/170 913/168 909/164 904/159 903/158 901/156 1062/313 1061/312 1060/311 1059/310 1056/309 1055/308 1054/307 1053/306 1052/305 1050/303 1047/300 1044/297 1041/294 1038/291 1034/287 1031/284 1030/283 1029/282 1028/281 1027/280 1025/278 1018/271 1017/270 1016/269 1015/268 1014/267 1012/265 1010/263 1009/262 1008/261 1007/260 1006/259 1005/258 1004/257 1003/256 1002/255 1001/254 1000/253 999/252 998/251 997/250 996/249 995/248 994/247 993/246 992/245 991/244 990/243 974/227 973/226 972/225 971/224 970/223 969/222 968/221 967/220 966/219 964/217 961/214 960/213 959/212 958/211 957/210 956/209 955/208 953/207 952/206 950/204 949/203 948/202 947/201 946/200 945/199 944/198 943/197 938/192 936/190 935/189 932/187 931/186 930/185 928/183 927/182 926/181 925/180 924/179 923/178 922/177 921/176 920/175 919/174 917/172 914/169 912/167 911/166 910/165 908/163 907/162 906/161 905/160 902/157 777/155 776/154 775/153 774/152 773/151 772/150 769/149 768/148 767/147 766/146 765/145 764/144 759/143 758/142 750/141 749/140 748/139 747/138 746/137 745/136 744/135 743/134 742/133 739/132 738/131 737/130 736/129 735/128 734/127 732/126 729/125 681/124 680/123 679/122 678/121 677/120 676/119 675/118 674/117 670/116 669/115 668/114 667/113 666/112 665/111 664/110 662/109 659/108 658/107 657/106 656/105 655/104 654/103 653/102 652/101 651/100 650/99 649/98 648/97 647/96 646/95 645/94 644/93 643/92 642/91 633/90 631/89 630/88 629/87 627/86 626/85 625/84 622/83 619/82 618/81 617/80 616/79 615/78 614/77 613/76 612/75 611/74 610/73 609/72 608/71 605/70 604/69 603/68 602/67 528/66 527/65 526/64 525/63 524/62 522/61 521/60 520/59 518/58 517/57 516/56 515/55 514/54 513/53 512/52 511/51 510/50 507/49 506/48 505/47 504/46 503/45 502/44 501/43 500/42 499/41 498/40 497/39 496/38 484/37 482/36 481/35 479/34 454/33 452/32 449/31 448/30 447/29 446/28 445/27 434/26 430/25 429/24 425/23 424/22 421/21 419/20 410/19 409/18 408/17 407/16 405/15 404/14 402/13 401/12 400/11 398/10 397/9 396/8 395/7 393/6 392/5 391/4 386/3 224/2 223/1 222/0
+solver sort 2 1051/304 1049/302 1048/301 1046/299 1045/298 1043/296 1042/295 1040/293 1039/292 1037/290 1036/289 1035/288 1033/286 1032/285 1026/279 1024/277 1023/276 1022/275 1021/274 1020/273 1019/272 1013/266 1011/264 989/242 988/241 987/240 986/239 985/238 984/237 983/236 982/235 981/234 980/233 979/232 978/231 977/230 976/229 975/228 965/218 963/216 962/215 951/205 942/196 941/195 940/194 939/193 937/191 934/188 929/184 918/173 916/171 915/170 913/168 909/164 904/159 903/158 901/156 1062/313 1061/312 1060/311 1059/310 1056/309 1055/308 1054/307 1053/306 1052/305 1047/300 1044/297 1041/294 1038/291 1034/287 1031/284 1028/281 1018/271 1017/270 1016/269 1015/268 1014/267 1012/265 1010/263 1003/256 1002/255 1001/254 1000/253 999/252 998/251 996/249 995/248 994/247 993/246 992/245 974/227 973/226 971/224 969/222 961/214 952/206 944/198 943/197 938/192 935/189 930/185 928/183 927/182 926/181 924/179 923/178 922/177 921/176 920/175 917/172 914/169 908/163 902/157 997/250 991/244 925/180 919/174 1050/303 1030/283 1029/282 1027/280 1025/278 1009/262 1008/261 1007/260 1006/259 1005/258 1004/257 990/243 972/225 970/223 968/221 967/220 966/219 964/217 960/213 959/212 958/211 957/210 956/209 955/208 953/207 950/204 949/203 948/202 947/201 946/200 945/199 936/190 932/187 931/186 912/167 911/166 910/165 907/162 906/161 905/160 777/155 776/154 775/153 774/152 773/151 772/150 769/149 768/148 767/147 766/146 765/145 759/143 758/142 750/141 749/140 748/139 747/138 746/137 745/136 744/135 743/134 742/133 739/132 738/131 737/130 736/129 735/128 732/126 729/125 681/124 680/123 679/122 678/121 677/120 676/119 675/118 674/117 670/116 669/115 668/114 667/113 666/112 665/111 664/110 662/109 659/108 658/107 657/106 656/105 655/104 654/103 653/102 652/101 651/100 650/99 649/98 648/97 647/96 646/95 645/94 644/93 643/92 642/91 633/90 631/89 630/88 629/87 627/86 626/85 625/84 622/83 619/82 618/81 617/80 616/79 615/78 614/77 613/76 612/75 611/74 610/73 609/72 608/71 605/70 604/69 603/68 602/67 528/66 527/65 526/64 524/62 522/61 521/60 518/58 517/57 516/56 515/55 514/54 513/53 512/52 510/50 506/48 505/47 504/46 503/45 502/44 501/43 500/42 498/40 496/38 484/37 482/36 481/35 479/34 454/33 452/32 449/31 448/30 447/29 446/28 429/24 425/23 421/21 419/20 409/18 407/16 405/15 404/14 401/12 398/10 397/9 395/7 393/6 392/5 391/4 764/144 734/127 525/63 520/59 511/51 507/49 499/41 497/39 445/27 434/26 430/25 424/22 410/19 408/17 402/13 400/11 396/8 386/3 224/2 223/1 222/0
+solver sort 3 1062/313 1061/312 1060/311 1059/310 1056/309 1055/308 1054/307 1053/306 1052/305 1051/304 1050/303 1049/302 1048/301 1047/300 1046/299 1045/298 1044/297 1043/296 1042/295 1041/294 1040/293 1039/292 1038/291 1037/290 1036/289 1035/288 1034/287 1033/286 1032/285 1031/284 1030/283 1029/282 1028/281 1027/280 1026/279 1025/278 1024/277 1023/276 1022/275 1021/274 1020/273 1019/272 1018/271 1017/270 1016/269 1015/268 1014/267 1013/266 1012/265 1011/264 1010/263 1009/262 1008/261 1007/260 1006/259 1005/258 1004/257 1003/256 1002/255 1001/254 1000/253 999/252 998/251 997/250 996/249 995/248 994/247 993/246 992/245 991/244 990/243 989/242 988/241 987/240 986/239 985/238 984/237 983/236 982/235 981/234 980/233 979/232 978/231 977/230 976/229 975/228 974/227 973/226 972/225 971/224 970/223 969/222 968/221 967/220 966/219 965/218 964/217 963/216 962/215 961/214 960/213 959/212 958/211 957/210 956/209 955/208 953/207 952/206 951/205 950/204 949/203 948/202 947/201 946/200 945/199 944/198 943/197 942/196 941/195 940/194 939/193 938/192 937/191 936/190 935/189 934/188 932/187 931/186 930/185 929/184 928/183 927/182 926/181 925/180 924/179 923/178 922/177 921/176 920/175 919/174 918/173 917/172 916/171 915/170 914/169 913/168 912/167 911/166 910/165 909/164 908/163 907/162 906/161 905/160 904/159 903/158 902/157 901/156 777/155 776/154 775/153 774/152 773/151 772/150 769/149 768/148 767/147 766/146 765/145 764/144 759/143 758/142 750/141 749/140 748/139 747/138 746/137 745/136 744/135 743/134 742/133 739/132 738/131 737/130 736/129 735/128 734/127 732/126 729/125 681/124 680/123 679/122 678/121 677/120 676/119 675/118 674/117 670/116 669/115 668/114 667/113 666/112 665/111 664/110 662/109 659/108 658/107 657/106 656/105 655/104 654/103 653/102 652/101 651/100 650/99 649/98 648/97 647/96 646/95 645/94 644/93 643/92 642/91 633/90 631/89 630/88 629/87 627/86 626/85 625/84 622/83 619/82 618/81 617/80 616/79 615/78 614/77 613/76 612/75 611/74 610/73 609/72 608/71 605/70 604/69 603/68 602/67 528/66 527/65 526/64 525/63 524/62 522/61 521/60 520/59 518/58 517/57 516/56 515/55 514/54 513/53 512/52 511/51 510/50 507/49 506/48 505/47 504/46 503/45 502/44 501/43 500/42 499/41 498/40 497/39 496/38 484/37 482/36 481/35 479/34 454/33 452/32 449/31 448/30 447/29 446/28 445/27 434/26 430/25 429/24 425/23 424/22 421/21 419/20 410/19 409/18 408/17 407/16 405/15 404/14 402/13 401/12 400/11 398/10 397/9 396/8 395/7 393/6 392/5 391/4 386/3 224/2 223/1 222/0
+puzzle test_rotation_solvers.xmpuzzle grid 0 shapes 7 problems 1 colors 0
+problem 0 state 2 parts 6 pieces 6 solutions 1
+solution 0 asm 0 sol 0
+ assembly 0,0,0,0 0,3,0,20 2,3,0,20 0,3,0,20 0,3,2,20 1,5,0,20
+ valid 1
+ separation text 3R1.1R1.3R0.2R1 moves 9 rots 3 seqs 5 len 2 4 4 4 3 0
+ info text 3R1.1R1.3R0.2R1 moves 9 rots 3 seqs 11 len 2 4 0 3 0 0 4 0 4 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ transform 0 1 0,0,0,0 0,3,0,20 2,3,0,20 0,3,0,20 0,3,2,20 1,5,0,20
+ transform 1 1 0,3,0,1 0,3,3,13 2,3,3,13 0,3,3,13 0,1,3,13 1,3,5,13
+ transform 2 1 0,3,3,2 0,0,3,18 2,0,3,18 0,0,3,18 0,0,1,18 1,-2,3,18
+ transform 3 1 0,0,3,3 0,0,0,7 2,0,0,7 0,0,0,7 0,2,0,7 1,0,-2,7
+ transform 4 1 3,0,0,4 3,3,0,21 3,3,2,21 3,3,0,21 1,3,0,21 3,5,1,21
+ transform 5 1 3,3,0,5 0,3,0,1 0,3,2,1 0,3,0,1 0,1,0,1 -2,3,1,1
+ transform 6 1 0,3,0,6 0,0,0,17 0,0,2,17 0,0,0,17 2,0,0,17 0,-2,1,17
+ transform 7 1 0,0,0,7 3,0,0,11 3,0,2,11 3,0,0,11 3,2,0,11 5,0,1,11
+ transform 8 1 3,0,3,8 3,3,3,22 1,3,3,22 3,3,3,22 3,3,1,22 2,5,3,22
+ transform 9 1 3,3,3,9 3,3,0,5 1,3,0,5 3,3,0,5 3,1,0,5 2,3,-2,5
+ transform 10 1 3,3,0,10 3,0,0,16 1,0,0,16 3,0,0,16 3,0,2,16 2,-2,0,16
+ transform 11 1 3,0,0,11 3,0,3,15 1,0,3,15 3,0,3,15 3,2,3,15 2,0,5,15
+ transform 12 1 0,0,3,12 0,3,3,23 0,3,1,23 0,3,3,23 2,3,3,23 0,5,2,23
+ transform 13 1 0,3,3,13 3,3,3,9 3,3,1,9 3,3,3,9 3,1,3,9 5,3,2,9
+ transform 14 1 3,3,3,14 3,0,3,19 3,0,1,19 3,0,3,19 1,0,3,19 3,-2,2,19
+ transform 15 1 3,0,3,15 0,0,3,3 0,0,1,3 0,0,3,3 0,2,3,3 -2,0,2,3
+ transform 16 1 3,0,0,16 0,0,0,0 0,2,0,0 0,0,0,0 0,0,2,0 -2,1,0,0
+ transform 17 1 0,0,0,17 0,0,3,12 0,2,3,12 0,0,3,12 2,0,3,12 0,1,5,12
+ transform 18 1 0,0,3,18 3,0,3,8 3,2,3,8 3,0,3,8 3,0,1,8 5,1,3,8
+ transform 19 1 3,0,3,19 3,0,0,4 3,2,0,4 3,0,0,4 1,0,0,4 3,1,-2,4
+ transform 20 1 0,3,0,20 3,3,0,10 3,1,0,10 3,3,0,10 3,3,2,10 5,2,0,10
+ transform 21 1 3,3,0,21 3,3,3,14 3,1,3,14 3,3,3,14 1,3,3,14 3,2,5,14
+ transform 22 1 3,3,3,22 0,3,3,2 0,1,3,2 0,3,3,2 0,3,1,2 -2,2,3,2
+ transform 23 1 0,3,3,23 0,3,0,6 0,1,0,6 0,3,0,6 2,3,0,6 0,2,-2,6
+ smaller 0 0
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+puzzle test_rotation_solvers_solved.xmpuzzle grid 0 shapes 7 problems 1 colors 0
+problem 0 state 2 parts 6 pieces 6 solutions 1
+solution 0 asm 0 sol 0
+ assembly 0,0,0,0 0,3,0,20 2,3,0,20 0,3,0,20 0,3,2,20 1,5,0,20
+ valid 1
+ separation text 3R1.1R1.3R0.2R1 moves 9 rots 3 seqs 5 len 2 4 4 4 3 0
+ info text 3R1.1R1.3R0.2R1 moves 9 rots 3 seqs 11 len 2 4 0 3 0 0 4 0 4 0 0 0
+ compare 0
+ space 6 6 6 origin 0 0 0 cells 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ transform 0 1 0,0,0,0 0,3,0,20 2,3,0,20 0,3,0,20 0,3,2,20 1,5,0,20
+ transform 1 1 0,3,0,1 0,3,3,13 2,3,3,13 0,3,3,13 0,1,3,13 1,3,5,13
+ transform 2 1 0,3,3,2 0,0,3,18 2,0,3,18 0,0,3,18 0,0,1,18 1,-2,3,18
+ transform 3 1 0,0,3,3 0,0,0,7 2,0,0,7 0,0,0,7 0,2,0,7 1,0,-2,7
+ transform 4 1 3,0,0,4 3,3,0,21 3,3,2,21 3,3,0,21 1,3,0,21 3,5,1,21
+ transform 5 1 3,3,0,5 0,3,0,1 0,3,2,1 0,3,0,1 0,1,0,1 -2,3,1,1
+ transform 6 1 0,3,0,6 0,0,0,17 0,0,2,17 0,0,0,17 2,0,0,17 0,-2,1,17
+ transform 7 1 0,0,0,7 3,0,0,11 3,0,2,11 3,0,0,11 3,2,0,11 5,0,1,11
+ transform 8 1 3,0,3,8 3,3,3,22 1,3,3,22 3,3,3,22 3,3,1,22 2,5,3,22
+ transform 9 1 3,3,3,9 3,3,0,5 1,3,0,5 3,3,0,5 3,1,0,5 2,3,-2,5
+ transform 10 1 3,3,0,10 3,0,0,16 1,0,0,16 3,0,0,16 3,0,2,16 2,-2,0,16
+ transform 11 1 3,0,0,11 3,0,3,15 1,0,3,15 3,0,3,15 3,2,3,15 2,0,5,15
+ transform 12 1 0,0,3,12 0,3,3,23 0,3,1,23 0,3,3,23 2,3,3,23 0,5,2,23
+ transform 13 1 0,3,3,13 3,3,3,9 3,3,1,9 3,3,3,9 3,1,3,9 5,3,2,9
+ transform 14 1 3,3,3,14 3,0,3,19 3,0,1,19 3,0,3,19 1,0,3,19 3,-2,2,19
+ transform 15 1 3,0,3,15 0,0,3,3 0,0,1,3 0,0,3,3 0,2,3,3 -2,0,2,3
+ transform 16 1 3,0,0,16 0,0,0,0 0,2,0,0 0,0,0,0 0,0,2,0 -2,1,0,0
+ transform 17 1 0,0,0,17 0,0,3,12 0,2,3,12 0,0,3,12 2,0,3,12 0,1,5,12
+ transform 18 1 0,0,3,18 3,0,3,8 3,2,3,8 3,0,3,8 3,0,1,8 5,1,3,8
+ transform 19 1 3,0,3,19 3,0,0,4 3,2,0,4 3,0,0,4 1,0,0,4 3,1,-2,4
+ transform 20 1 0,3,0,20 3,3,0,10 3,1,0,10 3,3,0,10 3,3,2,10 5,2,0,10
+ transform 21 1 3,3,0,21 3,3,3,14 3,1,3,14 3,3,3,14 1,3,3,14 3,2,5,14
+ transform 22 1 3,3,3,22 0,3,3,2 0,1,3,2 0,3,3,2 0,3,1,2 -2,2,3,2
+ transform 23 1 0,3,3,23 0,3,0,6 0,1,0,6 0,3,0,6 2,3,0,6 0,2,-2,6
+ smaller 0 0
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+puzzle test_sliding_solver.xmpuzzle grid 5 shapes 11 problems 1 colors 12
+problem 0 state 2 parts 10 pieces 10 solutions 1
+solution 0 asm 0 sol 0
+ assembly 1,3,0,0 0,-1,0,0 0,-3,0,0 1,-3,0,0 1,-4,0,0 0,-5,0,0 3,-5,0,0 2,-4,0,0 3,-1,0,0 3,-3,0,0
+ valid 1
+ separation text 81 moves 81 rots 0 seqs 1 len 82 0
+ info text 81 moves 81 rots 0 seqs 3 len 82 0 0 0
+ compare 0
+ space 9 10 1 origin 0 -5 0 cells 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 37 0 0 41 0 0 0 0 0 17 33 45 25 0 0 0 0 0 17 29 29 25 0 0 0 0 0 13 9 9 21 0 0 0 0 0 13 9 9 21 0 0 0 0 0
+ transform 0 1 1,3,0,0 0,-1,0,0 0,-3,0,0 1,-3,0,0 1,-4,0,0 0,-5,0,0 3,-5,0,0 2,-4,0,0 3,-1,0,0 3,-3,0,0
+ transform 1 1 1,0,3,1 0,0,-1,1 0,0,-3,1 1,-5,2,0 1,-5,1,0 0,-5,0,0 3,-5,0,0 2,-5,1,0 3,0,-1,1 3,0,-3,1
+ transform 2 1 1,0,0,0 0,-4,0,0 0,-2,0,0 1,-3,0,0 1,-2,0,0 0,-1,0,0 3,-1,0,0 2,-2,0,0 3,-4,0,0 3,-2,0,0
+ transform 3 1 1,0,0,1 0,0,-4,1 0,0,-2,1 1,-5,2,0 1,-5,3,0 0,-5,4,0 3,-5,4,0 2,-5,3,0 3,0,-4,1 3,0,-2,1
+ transform 4 1 0,3,1,4 0,-1,0,0 0,-3,0,0 0,-3,1,4 0,-4,1,0 0,-5,0,0 0,-5,3,0 0,-4,2,0 0,-1,3,0 0,-3,3,0
+ transform 5 1 0,0,1,1 5,0,0,5 7,0,0,5 2,-5,1,4 3,-5,1,0 4,-5,0,0 4,-5,3,0 3,-5,2,0 5,0,3,5 7,0,3,5
+ transform 6 1 0,0,1,4 0,-4,0,0 0,-2,0,0 0,-3,1,4 0,-2,1,0 0,-1,0,0 0,-1,3,0 0,-2,2,0 0,-4,3,0 0,-2,3,0
+ transform 7 1 3,0,1,1 8,0,0,5 6,0,0,5 2,-5,1,4 1,-5,1,0 0,-5,0,0 0,-5,3,0 1,-5,2,0 8,0,3,5 6,0,3,5
+ transform 8 1 1,3,0,0 3,-1,0,0 3,-3,0,0 1,-3,0,0 2,-4,0,0 3,-5,0,0 0,-5,0,0 1,-4,0,0 0,-1,0,0 0,-3,0,0
+ transform 9 1 1,0,0,1 3,0,-4,1 3,0,-2,1 1,-5,2,0 2,-5,3,0 3,-5,4,0 0,-5,4,0 1,-5,3,0 0,0,-4,1 0,0,-2,1
+ transform 10 1 1,0,0,0 3,-4,0,0 3,-2,0,0 1,-3,0,0 2,-2,0,0 3,-1,0,0 0,-1,0,0 1,-2,0,0 0,-4,0,0 0,-2,0,0
+ transform 11 1 1,0,3,1 3,0,-1,1 3,0,-3,1 1,-5,2,0 2,-5,1,0 3,-5,0,0 0,-5,0,0 1,-5,1,0 0,0,-1,1 0,0,-3,1
+ transform 12 1 0,3,1,4 0,-1,3,0 0,-3,3,0 0,-3,1,4 0,-4,2,0 0,-5,3,0 0,-5,0,0 0,-4,1,0 0,-1,0,0 0,-3,0,0
+ transform 13 1 3,0,1,1 8,0,3,5 6,0,3,5 2,-5,1,4 1,-5,2,0 0,-5,3,0 0,-5,0,0 1,-5,1,0 8,0,0,5 6,0,0,5
+ transform 14 1 0,0,1,4 0,-4,3,0 0,-2,3,0 0,-3,1,4 0,-2,2,0 0,-1,3,0 0,-1,0,0 0,-2,1,0 0,-4,0,0 0,-2,0,0
+ transform 15 1 0,0,1,1 5,0,3,5 7,0,3,5 2,-5,1,4 3,-5,2,0 4,-5,3,0 4,-5,0,0 3,-5,1,0 5,0,0,5 7,0,0,5
+ transform 16 1 0,1,0,0 5,0,0,5 7,0,0,5 7,1,0,16 3,-4,0,0 4,-5,0,0 4,-2,0,0 3,-3,0,0 5,3,0,5 7,3,0,5
+ transform 17 1 0,1,3,4 0,0,-1,1 0,0,-3,1 5,1,2,16 0,-4,1,0 0,-5,0,0 0,-2,0,0 0,-3,1,0 0,3,-1,1 0,3,-3,1
+ transform 18 1 3,1,0,0 8,0,0,5 6,0,0,5 7,1,0,16 1,-4,0,0 0,-5,0,0 0,-2,0,0 1,-3,0,0 8,3,0,5 6,3,0,5
+ transform 19 1 0,1,0,4 0,0,-4,1 0,0,-2,1 5,1,2,16 0,-4,3,0 0,-5,4,0 0,-2,4,0 0,-3,3,0 0,3,-4,1 0,3,-2,1
+ transform 20 1 3,1,0,0 8,3,0,5 6,3,0,5 7,1,0,16 1,-3,0,0 0,-2,0,0 0,-5,0,0 1,-4,0,0 8,0,0,5 6,0,0,5
+ transform 21 1 0,1,3,4 0,3,-1,1 0,3,-3,1 5,1,2,16 0,-3,1,0 0,-2,0,0 0,-5,0,0 0,-4,1,0 0,0,-1,1 0,0,-3,1
+ transform 22 1 0,1,0,0 5,3,0,5 7,3,0,5 7,1,0,16 3,-3,0,0 4,-2,0,0 4,-5,0,0 3,-4,0,0 5,0,0,5 7,0,0,5
+ transform 23 1 0,1,0,4 0,3,-4,1 0,3,-2,1 5,1,2,16 0,-3,3,0 0,-2,4,0 0,-5,4,0 0,-4,3,0 0,0,-4,1 0,0,-2,1
+ smaller 0 0
+sort 0 0/0
+sort 1 0/0
+sort 2 0/0
+sort 3 0/0
+solver sort 0 0/0
+solver sort 1 0/0
+solver sort 2 0/0
+solver sort 3 0/0
+puzzle test_stacking_hanoi.xmpuzzle grid 6 shapes 3 problems 1 colors 0
+problem 0 state 0 parts 3 pieces 3 solutions 0
+sort 0
+sort 1
+sort 2
+sort 3
+solver sort 0
+solver sort 1
+solver sort 2
+solver sort 3

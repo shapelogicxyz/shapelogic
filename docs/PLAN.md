@@ -44,7 +44,7 @@ failure scenarios.
 
 - [x] **Stage 0**: bootstrap (see docs/handoff/stage-0.md)
 - [x] **Stage 1**: grids and symmetry (see docs/handoff/stage-1.md)
-- [ ] Stage 2: model and file format
+- [x] **Stage 2**: model and file format (see docs/handoff/stage-2.md)
 - [ ] Stage 3: assemblers
 - [ ] Stage 4: disassembly
 - [ ] Stage 5: solve session
