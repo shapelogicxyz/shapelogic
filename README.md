@@ -1,4 +1,4 @@
-# BurrTools Next
+# BurrTools Alpha
 
 A rebuild of the core of [BurrTools](https://burrtools.sourceforge.net/), the
 designer and solver for interlocking (burr) puzzles: the puzzle model, the

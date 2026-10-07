@@ -1,6 +1,6 @@
-# AGENTS.md: working on BurrTools Next
+# AGENTS.md: working on BurrTools Alpha
 
-BurrTools Next is a rebuild of the BurrTools puzzle solver's core (C++23)
+BurrTools Alpha is a rebuild of the BurrTools puzzle solver's core (C++23)
 with an engine process for a future web front end. The original application
 (`../burrtools_rotations`, override with `BT_OLD_REPO`) is the **reference**:
 ported code must give the same answers on the comparison corpus.

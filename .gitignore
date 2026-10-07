@@ -49,7 +49,7 @@ bench_run.log
 callgrind*.out*
 perf.data*
 
-# BurrTools Next: oracle harness scratch, editor caches, the build's compile database
+# BurrTools Alpha: oracle harness scratch, editor caches, the build's compile database
 /tests/oracle/work/
 .cache/
 compile_commands.json

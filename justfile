@@ -1,4 +1,4 @@
-# BurrTools Next. `just` lists the recipes.
+# BurrTools Alpha. `just` lists the recipes.
 # Builds go to build/<preset> (see CMakePresets.json).
 
 set shell := ["bash", "-uc"]

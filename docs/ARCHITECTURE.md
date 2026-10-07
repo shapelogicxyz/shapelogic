@@ -1,6 +1,6 @@
 # Architecture
 
-BurrTools Next is the core of the BurrTools puzzle designer and solver,
+BurrTools Alpha is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 

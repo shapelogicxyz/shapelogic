@@ -14,7 +14,7 @@ SolverRotate, SolverFull, FreePieceTestFull, MinRotSol).
 
 Ported from `src/lib/crowell_solver.h` of the original (notes only, no code),
 with the names of this codebase. The GUI and CLI references are the
-original's; in BurrTools Next the CLI is `bt --solver crowell -R`.
+original's; in BurrTools Alpha the CLI is `bt --solver crowell -R`.
 
 ## How the engine is selected
 
