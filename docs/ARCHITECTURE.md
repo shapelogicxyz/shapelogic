@@ -4,9 +4,10 @@ BurrTools Next is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 3a (the assembler run layer, assembler 0, the vector
-covers, `bt` solving). `core/bt/base`, `grid`, `model`, `io` and `solve`
-have code; assembler 1 and BT2 follow in stage 3b.*
+*Current state: stage 3 (the assembler run layer and all three assemblers:
+assembler 0, assembler 1, BurrTools 2; the vector covers; `bt` solving).
+`core/bt/base`, `grid`, `model`, `io` and `solve` have code; the
+disassemblers follow in stage 4.*
 
 ## Big picture
 
@@ -161,59 +162,93 @@ and unknown `<voxel>` attributes, are kept and written back in place;
 stacking rod sets and maps are kept this way until stacking is ported.
 Saves are byte-identical to the original's.
 
-### solve (stage 3a exists; 3b, 4 and 5 add to it)
+### solve (stage 3 exists; 4 and 5 add to it)
 The assemblers, on one run layer (decision 0009). Ported from
-`assembler.cpp`, `assembler_resume.h`, `assembler_0.cpp`,
+`assembler.cpp`, `assembler_resume.h`, `assembler_0.cpp`, `assembler_1.cpp`,
+`assembler_bt2.cpp`, `bt2_dancingcells.cpp`, `bt2_assemble.cpp`,
 `simd_exact_cover.cpp`, `simd_huang_cover.cpp`, `solvertype.h` and the
 assembler part of `gridtype.cpp`; checked against the original by the
-harness (assembly counts on every tier, 1 and all threads; iteration counts
-of the deterministic searches equal; saved positions continue in both
-programs).
+harness (assembly counts on every tier, 1 and all threads, Classic and
+BurrTools 2; iteration counts of the deterministic searches equal; saved
+positions continue in both programs).
 - `assembler.h`: `Assembler`, the interface: `createMatrix(MatrixOptions)`,
   `reduce(stop)`, `assemble(callback, SearchOptions, stop) -> RunEnd`,
   `finished()` / `iterations()` (any thread), `savePosition()` /
   `restorePosition()` (the `<assembler>` text and version), the placement
   browser and the debugger (`debugStep`, `currentAssembly`).
-  `AssemblerError` with the original's messages. The problem hooks:
-  `beginSolving(problem, assembler)` starts or restores a solve with the
-  original's failure rule (a position that cannot be restored drops all
-  solutions and the position), `storePosition()` writes a paused one back,
-  `canStartSolving()`. `warmShapeCaches()` before threads.
+  `AssemblerError` with the original's messages. `SearchOptions` carries the
+  threads and pool and the A/B switches (`vectorSearch`, `kernels`,
+  `vectorMemoryBudget`). The problem hooks: `beginSolving(problem,
+  assembler)` starts or restores a solve with the original's failure rule (a
+  position that cannot be restored drops all solutions and the position),
+  `storePosition()` writes a paused one back, `canStartSolving()`.
+  `warmShapeCaches()` before threads.
 - `search_run.h`: the run layer. `SearchRun` (one `assemble()` call: its own
   stop source under the caller's token, the serialised hand-over to the
-  callback, `deliverOnce` with signatures), `TaskProgress` (weighted task
-  units, lock-free), `runTasks()` (unfinished tasks over the pool's
+  callback: `deliver`, `deliverOnce` with signatures, `deliverFound` for
+  searches that never find an assembly twice), `TaskProgress` (weighted
+  task units, lock-free), `runTasks()` (unfinished tasks over the pool's
   threads; completed only when searched to the end without a stop; the
   first exception aborts the rest and comes back), `effectiveThreads()`.
+- `work_stealing.h`: the second driver, `runWorkStealing()` (BurrTools 2's):
+  a search split into branches searched a slice at a time, busy threads
+  splitting off work for waiting ones, unfinished branches parked across a
+  stop. The search provides the `WorkStealingSearch` concept.
 - `resume_state.h`: `SplitSearchState<Task>` (tasks, completion, reported
   signatures, the vector search's skip count) and the saved-position tail
   (`K` / `T C S`), byte-compatible with the original.
+- `rotation_filter.h`: `RotationFilter`, the check every assembler makes on
+  the assemblies it finds (rotated or mirrored copies dropped), with the
+  settings of a solve.
+- `dlx_matrix.h`: `DlxMatrix` (the dancing links matrix of assembler 0 and
+  BurrTools 2, built node for node as the original: `build`, `reduce`,
+  `clumpify`, the placement browser) and `DlxNodes` (the four node arrays
+  with the cover operations, which a thread copies to search on its own).
+  `everyPartOnePiece()`, the problems it can describe.
 - `assembler_0.h`: `Assembler0` (dancing links; every part exactly one
   piece). Three searches: plain on the caller's thread (flag 0 positions),
   split into subtree tasks over threads (flag 2), and the vector search
-  alone or inside each task (flag 3). The matrix (`prepare`, `reduce`,
-  `clumpify`) is the original's node for node.
+  alone or inside each task (flag 3).
+- `assembler_1.h`: `Assembler1` (Wei-Hwa Huang's cover with counts: columns
+  with a minimum and maximum weight; piece counts and ranges, holes; every
+  problem assembler 0 cannot take). The plain search is a state machine
+  over explicit stacks (`SearchStacks`) that stops only at a state it can
+  save (flag 0); split into tasks that are stacks too (flag 4, or 2 for the
+  older signatures by row order); the vector search `SimdHuangCover`, alone
+  or in each task, refused past `vectorMemoryBudget` (flag 3). A saved
+  position is checked against the matrix before it is used. The plain
+  search's progress is published by its thread every 4096 steps.
+- `dancing_cells.h`: `DancingCells`, Knuth's dancing cells (exact cover with
+  secondary items over sparse sets), searched in slices and split.
+- `assembler_bt2.h`: `AssemblerBt2` (BurrTools 2: `DlxMatrix` searched by
+  `DancingCells`; one thread searches the root in slices, more split it
+  through `runWorkStealing`). `bt2Threads()`, its thread count. Its saved
+  position is the original's start position; a started search is refused
+  on restore (decision 0009).
 - `placement_finder.h`: `PlacementFinder`, the placements of a rotated piece
   in the result, in the original's order.
 - `simd_bitset.h`, `simd_exact_cover.h`, `simd_huang_cover.h`: the vector
   covers (assembler 0's exact cover, assembler 1's cover with counts and
-  ranges), 256 to 32768 columns, AVX2/AVX-512/NEON kernels behind runtime
-  checks with a scalar fallback, chosen through `SimdKernels`. Read only
-  during a search; threads search subtrees of one solver.
+  ranges, `makeSimdHuangCover`, `simdHuangMemoryEstimate`), 256 to 32768
+  columns, AVX2/AVX-512/NEON kernels behind runtime checks with a scalar
+  fallback, chosen through `SimdKernels`. Read only during a search; threads
+  search subtrees of one solver.
 - `solver_type.h`: `SolverType` (Classic, Crowell, BT2) and its names,
-  `chooseAssembler()` / `makeAssembler()` (null for assembler 1 and BT2
-  until stage 3b).
+  `chooseAssembler()` / `makeAssembler()` (findAssembler: assembler 0, or
+  BurrTools 2's with BT2, when every part is one piece, else assembler 1).
 
 **Rules of a run** (decision 0009): the search polls only its run's token;
 a callback answering false pauses the run, an exception aborts it; nothing
 is reset, the next `assemble()` carries on; `RunEnd::Finished` only from the
 search itself; a stopped split or vector search continues the way it ran.
-The assembler never writes into the `Problem` (results go to the callback;
-the CLI, later the session, owns the problem).
+A search may hand over assemblies it reaches after the pause was asked for
+(assembler 1's plain search until it stands where it can be saved, BT2's
+other threads): those are not found again. The assembler never writes into
+the `Problem` (results go to the callback; the CLI, later the session, owns
+the problem).
 
-Planned: assembler 1 and BT2 with its work-stealing driver (3b); the
-disassemblers, movement caches and rotation rules (4); `SolveSession`
-replacing `solveThread_c` (5).
+Planned: the disassemblers, movement caches and rotation rules (4);
+`SolveSession` replacing `solveThread_c` (5).
 
 ### mesh and app (stage 6)
 Drawing meshes for every grid; `Document` with transactional undo/redo;
@@ -224,9 +259,11 @@ poses at any step); explorer data.
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
   comparison of `bt` with `burrTxt` (`just oracle`; `--fields`, `--threads`,
-  `--allow-unported` for what is not ported yet), the saved-position check
-  (`just oracle-resume`: searches paused by one program continue in the
-  other; single-thread pauses save the same text), the file round trip
+  `--solver bt2` against the original's own BurrTools 2 baselines), the
+  saved-position check (`just oracle-resume`: assembler 0 and 1 searches
+  paused by one program continue in the other, single-thread pauses save the
+  same text; BurrTools 2 pauses save the same text and are refused), the
+  file round trip
   (`just oracle-roundtrip`: every corpus file, the sliding/stacking/rotation
   fixtures and the original's solved files are loaded and saved by both
   programs; the saves must be the same XML), and recorders that compile a

@@ -641,4 +641,42 @@ template class SimdHuangCover<SimdBitset8192>;
 template class SimdHuangCover<SimdBitset16384>;
 template class SimdHuangCover<SimdBitset32768>;
 
+std::unique_ptr<SimdHuangCoverBase> makeSimdHuangCover(unsigned int numColumns,
+                                                       unsigned int numShapes,
+                                                       SimdKernels kernels) {
+  if (numColumns <= 256) {
+    return std::make_unique<SimdHuangCover256>(numColumns, numShapes, kernels);
+  }
+  if (numColumns <= 512) {
+    return std::make_unique<SimdHuangCover512>(numColumns, numShapes, kernels);
+  }
+  if (numColumns <= 1024) {
+    return std::make_unique<SimdHuangCover1024>(numColumns, numShapes, kernels);
+  }
+  if (numColumns <= 2048) {
+    return std::make_unique<SimdHuangCover2048>(numColumns, numShapes, kernels);
+  }
+  if (numColumns <= 4096) {
+    return std::make_unique<SimdHuangCover4096>(numColumns, numShapes, kernels);
+  }
+  if (numColumns <= 8192) {
+    return std::make_unique<SimdHuangCover8192>(numColumns, numShapes, kernels);
+  }
+  if (numColumns <= 16384) {
+    return std::make_unique<SimdHuangCover16384>(numColumns, numShapes, kernels);
+  }
+  return std::make_unique<SimdHuangCover32768>(numColumns, numShapes, kernels);
+}
+
+std::uint64_t simdHuangMemoryEstimate(unsigned int numColumns, std::uint64_t numRows,
+                                      std::uint64_t numNodes) noexcept {
+  std::uint64_t maskBytes = 32;
+  while (maskBytes * 8 < numColumns && maskBytes < 4096) {
+    maskBytes *= 2;
+  }
+  const std::uint64_t rowFixed = 6 * sizeof(unsigned int) + 2 * sizeof(std::vector<unsigned int>);
+  const std::uint64_t perNode = 2 * sizeof(unsigned int) + 40;
+  return numRows * (maskBytes + rowFixed) + numNodes * perNode;
+}
+
 }  // namespace bt

@@ -2,44 +2,22 @@
 // Ported from src/lib/assembler_0.cpp. The search code is the original's;
 // what changed is around it: the stop is the run's token, the threads come
 // from the pool through runTasks(), the split and vector state is a
-// SplitSearchState, and the saved position is a string (decision 0009).
+// SplitSearchState, the saved position is a string (decision 0009), and the
+// matrix is DlxMatrix (dlx_matrix.cpp), which BurrTools 2 shares.
 #include "bt/solve/assembler_0.h"
 
 #include "bt/base/int_cast.h"
-#include "bt/grid/symmetries.h"
-#include "bt/grid/voxel.h"
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
-#include "bt/solve/placement_finder.h"
 #include "bt/solve/simd_exact_cover.h"
 
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
-#include <limits>
 #include <string>
-#include <unordered_map>
 
 namespace bt {
 
 namespace {
-
-/// Adds `piece` to the cache unless an identical shape is there. Returns it,
-/// or null when it was a duplicate (and is dropped).
-const Voxel* addToCache(std::vector<std::unique_ptr<Voxel>>& cache,
-                        std::unique_ptr<Voxel> piece) {
-  for (const auto& c : cache) {
-    if (c->identicalInBB(*piece)) {
-      return nullptr;
-    }
-  }
-  cache.push_back(std::move(piece));
-  return cache.back().get();
-}
-
-/// A sliding tray need not be filled: its normal cells are optional, like
-/// variable ones (sliding::isSliding in the original).
-bool isSliding(const Puzzle& puzzle) { return puzzle.getGridType().getType() == GridKind::Sliding; }
 
 /// strtol from `s`, cast to unsigned int; returns the characters consumed
 /// (the original's getInt, quirks included: no digits read 0).
@@ -58,802 +36,55 @@ unsigned int getLong(const char* s, std::uint64_t* i) {
 
 }  // namespace
 
-// ---- the matrix ------------------------------------------------------------------
-
-void Assembler0::generateFirstRow() {
-  for (unsigned int i = 0; i < varivoxelStart_; i++) {
-    right_.push_back(i + 1);
-    left_.push_back(i - 1);
-    upDown_.push_back(i);
-    upDown_.push_back(i);
-    colCount_.push_back(0);
-  }
-
-  // make the list cyclic
-  left_[0] = varivoxelStart_ - 1;
-  right_[varivoxelStart_ - 1] = 0;
-
-  // Column nodes for the variable voxels. They are not in the header list,
-  // so they need not be filled, but otherwise behave like normal columns.
-  for (unsigned int j = varivoxelStart_; j <= varivoxelEnd_; j++) {
-    left_.push_back(j - 1);
-    right_.push_back(j + 1);
-    upDown_.push_back(j);
-    upDown_.push_back(j);
-    colCount_.push_back(0);
-  }
-  left_[varivoxelStart_] = varivoxelEnd_;
-  right_[varivoxelEnd_] = varivoxelStart_;
-}
-
-unsigned int Assembler0::addPieceNode(unsigned int piece, unsigned int rot, int x, int y, int z) {
-  const auto piecenode = static_cast<unsigned int>(left_.size());
-
-  left_.push_back(piecenode);
-  right_.push_back(piecenode);
-  upDown_.push_back(up(piece + 1));
-  upDown_.push_back(piece + 1);
-
-  down(up(piece + 1)) = piecenode;
-  up(piece + 1) = piecenode;
-
-  colCount_.push_back(piece + 1);
-  colCount_[piece + 1]++;
-
-  piecePositions_.push_back(
-      PiecePosition{x, y, z, static_cast<unsigned char>(rot), piecenode, piece});
-
-  return piecenode;
-}
-
-void Assembler0::getPieceInformation(unsigned int node, unsigned char* tran, int* x, int* y,
-                                     int* z, unsigned int* piece) const {
-  // piecePositions_ is in row order (addPieceNode appends as the nodes are
-  // made), so the last entry at or before the node is found by halving.
-  std::size_t lo = 0;
-  std::size_t hi = piecePositions_.size();
-  while (lo < hi) {
-    const std::size_t mid = lo + (hi - lo) / 2;
-    if (piecePositions_[mid].row <= node) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-
-  BT_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
-
-  const PiecePosition& pp = piecePositions_[lo - 1];
-  *tran = pp.transformation;
-  *x = pp.x;
-  *y = pp.y;
-  *z = pp.z;
-  *piece = pp.piece;
-}
-
-// Finds identical columns (contained in exactly the same rows) and removes
-// all but one of each group. This saves no iterations but makes them cheaper.
-// Columns are grouped by a hash of their row signature and only compared
-// exactly within a group, which is linear in the number of nodes.
-unsigned int Assembler0::clumpify() {
-  // the columns in header ring order; the first of each group survives
-  std::vector<unsigned int> cols;
-  for (unsigned int c = right_[0]; c; c = right_[c]) {
-    cols.push_back(c);
-  }
-
-  // all signatures back to back, with the start of each
-  std::vector<unsigned long> sigData;
-  std::vector<unsigned long> sigStart;
-  std::vector<unsigned long long> sigHash;
-
-  sigStart.reserve(cols.size() + 1);
-  sigHash.reserve(cols.size());
-
-  for (const unsigned int col : cols) {
-    sigStart.push_back(sigData.size());
-
-    unsigned long long h = 14695981039346656037ULL;
-    std::size_t line = 0;
-
-    for (unsigned int row = down(col); row != col; row = down(row)) {
-      // the placement row of this node; nodes come in increasing order so
-      // the line only ever advances
-      while ((line + 1 < piecePositions_.size()) && (piecePositions_[line + 1].row <= row)) {
-        line++;
-      }
-
-      sigData.push_back(line);
-
-      h = (h ^ line) * 1099511628211ULL;
-    }
-
-    sigHash.push_back(h);
-  }
-
-  sigStart.push_back(sigData.size());
-
-  std::unordered_map<unsigned long long, std::vector<std::size_t>> groups;
-
-  unsigned int removed = 0;
-
-  for (std::size_t i = 0; i < cols.size(); i++) {
-    std::vector<std::size_t>& group = groups[sigHash[i]];
-
-    bool dup = false;
-
-    for (const std::size_t j : group) {
-      const unsigned long leni = sigStart[i + 1] - sigStart[i];
-
-      if (leni != sigStart[j + 1] - sigStart[j]) {
-        continue;
-      }
-
-      if ((leni == 0) || (std::memcmp(&sigData[sigStart[i]], &sigData[sigStart[j]],
-                                      leni * sizeof(unsigned long)) == 0)) {
-        dup = true;
-        break;
-      }
-    }
-
-    if (dup) {
-      removeColumn(cols[i]);
-      removed++;
-    } else {
-      group.push_back(i);
-    }
-  }
-
-  return removed;
-}
-
-void Assembler0::addVoxelNode(unsigned int col, unsigned int piecenode) {
-  const auto newnode = static_cast<unsigned int>(left_.size());
-
-  right_.push_back(piecenode);
-  left_.push_back(left_[piecenode]);
-  right_[left_[piecenode]] = newnode;
-  left_[piecenode] = newnode;
-
-  upDown_.push_back(up(col));
-  upDown_.push_back(col);
-  down(up(col)) = newnode;
-  up(col) = newnode;
-
-  colCount_.push_back(col);
-  colCount_[col]++;
-}
-
 Assembler0::Assembler0(const Puzzle& puzzle, const Problem& problem)
     : puzzle_(puzzle), problem_(problem) {}
 
 Assembler0::~Assembler0() = default;
 
-// Builds the matrix. Additions to Knuth's algorithm: variable voxels (empty
-// spaces in the result) are columns that are not in the header list, so the
-// search never has to fill them but they can be used once at most.
-//
-// Returns 1, or minus the shape id of a part that has no placement.
-int Assembler0::prepare() {
-  const Voxel& result = problem_.resultShape(puzzle_);
-
-  // the matrix column of every result voxel (a lookup, because computing it
-  // from the counts of filled and variable voxels is slow)
-  std::vector<unsigned int> columns(result.getXYZ());
-  const unsigned int piecenumber = problem_.getNumberOfPieces();
-
-  {
-    unsigned int v = 0;
-    unsigned int c = 0;
-
-    // A sliding tray does not have to be filled: normal cells are optional
-    // columns as well, so that empty cells can be the space pieces slide in.
-    const bool optionalFloor = isSliding(puzzle_);
-
-    for (unsigned int i = 0; i < result.getXYZ(); i++) {
-      switch (result.getState(i)) {
-        case Voxel::kVariable:
-          columns[i] = varivoxelStart_ + v++;
-          break;
-        case Voxel::kFilled:
-          if (optionalFloor) {
-            columns[i] = varivoxelStart_ + v++;
-          } else {
-            columns[i] = 1 + piecenumber + c++;
-          }
-          break;
-        default:
-          columns[i] = 0;
-          break;
-      }
-    }
-  }
-
-  // The symmetry breaker. To find few rotated duplicates in the first place,
-  // one piece is not placed in all its orientations: the ones the result's
-  // symmetries would map onto each other are left out. The piece chosen is
-  // the one that shares the fewest symmetries with the result.
-  const Symmetry resultSym = result.selfSymmetries();
-  const GridType& gt = puzzle_.getGridType();
-  const Symmetries& sym = gt.getSymmetries();
-  unsigned int symBreakerShape = 0xFFFFFFFF;
-
-  // with only the identity in the result, everything must be tried
-  if (!unSymmetric(resultSym)) {
-    // FIXME (original): with several suitable pieces, the one with the most
-    // placements would gain more
-    unsigned int bestFound =
-        sym.countSymmetryIntersection(resultSym, problem_.partShape(puzzle_, 0).selfSymmetries());
-    symBreakerShape = 0;
-
-    for (unsigned int i = 1; i < problem_.getNumberOfParts(); i++) {
-      const unsigned int cnt = sym.countSymmetryIntersection(
-          resultSym, problem_.partShape(puzzle_, i).selfSymmetries());
-
-      if (cnt < bestFound) {
-        bestFound = cnt;
-        symBreakerShape = i;
-      }
-    }
-
-    checkForTransformedAssemblies(symBreakerShape, nullptr);
-
-    if (sym.symmetryContainsMirror(resultSym)) {
-      // The mirror check needs the mirror structure. Which case is this?
-      // 1) all pieces have mirror symmetry: check mirrors, no pairs
-      // 2) a piece has none:
-      //   2a) each such piece has a mirror partner: check mirrors, with pairs
-      //   2b) one has no partner: no mirror check
-      struct Mm {
-        unsigned int shape;   // the shape of this piece
-        unsigned int mirror;  // the mirror shape of this piece
-        unsigned int trans;
-      };
-
-      std::vector<Mm> mirror(problem_.getNumberOfPieces());
-
-      for (unsigned int i = 0; i < problem_.getNumberOfParts(); i++) {
-        mirror[i].shape = i;
-        mirror[i].mirror = static_cast<unsigned int>(-1);
-        mirror[i].trans = 255;
-      }
-
-      bool mirrorCheck = true;
-
-      for (unsigned int i = 0; i < problem_.getNumberOfPieces(); i++) {
-        // the mirror of this one was found already
-        if (mirror[i].mirror < problem_.getNumberOfPieces()) {
-          continue;
-        }
-
-        if (!sym.symmetryContainsMirror(
-                problem_.partShape(puzzle_, mirror[i].shape).selfSymmetries())) {
-          // not self-mirroring: look for a shape that is its mirror
-          bool found = false;
-
-          for (unsigned int j = i + 1; j < problem_.getNumberOfPieces(); j++) {
-            if (mirror[j].mirror < problem_.getNumberOfPieces()) {
-              continue;
-            }
-
-            const unsigned int trans =
-                problem_.partShape(puzzle_, mirror[i].shape)
-                    .getMirrorTransform(problem_.partShape(puzzle_, mirror[j].shape));
-
-            if (trans > 0) {
-              mirror[i].mirror = j;
-              mirror[i].trans = trans;
-              mirror[j].mirror = i;
-              mirror[j].trans = problem_.partShape(puzzle_, mirror[j].shape)
-                                    .getMirrorTransform(problem_.partShape(puzzle_, mirror[i].shape));
-
-              found = true;
-              break;
-            }
-          }
-
-          // a piece without mirror symmetry and without a partner: no
-          // mirror check
-          if (!found) {
-            mirrorCheck = false;
-            break;
-          }
-        }
-      }
-
-      if (mirrorCheck) {
-        auto mir = std::make_unique<MirrorInfo>();
-
-        for (unsigned int i = 0; i < problem_.getNumberOfPieces(); i++) {
-          if (mirror[i].trans != 255) {
-            mir->addPieces(i, mirror[i].mirror, static_cast<unsigned char>(mirror[i].trans));
-          }
-        }
-
-        checkForTransformedAssemblies(symBreakerShape, std::move(mir));
-      }
-    }
-  }
-
-  // Node 0 is the start of everything, nodes 1..n are the column headers.
-  // The variable voxels' columns are left out of the header ring so that
-  // the search never chooses them to fill.
-  generateFirstRow();
-
-  std::vector<std::unique_ptr<Voxel>> cache;
-  cache.reserve(sym.getNumTransformationsMirror());
-
-  const PlacementFinder finder(puzzle_, problem_, result, strictColors_);
-  std::vector<long> voxelOffsets;
-  std::vector<int> positions;
-
-  const long rsx = result.getX();
-  const long rsy = result.getY();
-
-  for (unsigned int pc = 0; pc < problem_.getNumberOfParts(); pc++) {
-    reducePiece_.store(pc, std::memory_order_relaxed);
-
-    // the orientations found so far, so that no orientation goes in twice
-    cache.clear();
-    unsigned int placements = 0;
-
-    for (unsigned int rot = 0; rot < sym.getNumTransformations(); rot++) {
-      std::unique_ptr<Voxel> rotated = problem_.partShape(puzzle_, pc).clone();
-      if (!rotated->transform(rot)) {
-        continue;
-      }
-
-      const Voxel* rotation = addToCache(cache, std::move(rotated));
-
-      if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions);
-
-        for (std::size_t p = 0; p < positions.size(); p += 3) {
-          const int x = positions[p];
-          const int y = positions[p + 1];
-          const int z = positions[p + 2];
-
-          const unsigned int piecenode = addPieceNode(
-              pc, rot, x + rotation->getHx(), y + rotation->getHy(), z + rotation->getHz());
-          placements = 1;
-
-          // the voxels the piece fills
-          const long base = x + rsx * (y + rsy * static_cast<long>(z));
-          for (const long off : voxelOffsets) {
-            addVoxelNode(columns[static_cast<std::size_t>(base + off)], piecenode);
-          }
-        }
-
-        // for the symmetry breaker also every symmetry of the result
-        if (pc == symBreakerShape) {
-          for (unsigned int r = 1; r < sym.getNumTransformations(); r++) {
-            if (sym.symmetrieContainsTransformation(resultSym, r)) {
-              std::unique_ptr<Voxel> vx = problem_.partShape(puzzle_, pc).clone();
-
-              if (!vx->transform(rot) || !vx->transform(r)) {
-                continue;
-              }
-
-              (void)addToCache(cache, std::move(vx));
-            }
-          }
-        }
-      }
-    }
-
-    // a piece with no placement at all
-    if (placements == 0) {
-      return -asInt(problem_.getShapeIdOfPart(pc));
-    }
-  }
-
-  return 1;
-}
-
 AssemblerError Assembler0::createMatrix(const MatrixOptions& options) {
   BT_ASSERT(problem_.resultValid());
 
-  complete_ = options.completeRotations;
+  filter_.complete = options.completeRotations;
   strictColors_ = options.strictColors;
 
   if (!canHandle(problem_)) {
     return AssemblerError::PuzzleUnhandable;
   }
 
-  piecenumber_ = problem_.getNumberOfPieces();
-
-  // the filled and variable units
-  int resVari = asInt(problem_.resultShape(puzzle_).countState(Voxel::kVariable));
-  const int resFilled = asInt(problem_.resultShape(puzzle_).countState(Voxel::kFilled)) + resVari;
-
-  // Sliding lets the pieces leave normal cells empty: those cells are
-  // optional, so falling short of the tray is no error.
-  if (isSliding(puzzle_)) {
-    resVari = resFilled;
-  }
-
-  varivoxelStart_ = 1 + piecenumber_ + asUnsigned(resFilled - resVari);
-  varivoxelEnd_ = 1 + piecenumber_ + asUnsigned(resFilled);
-
-  // the pieces may not have more units than the result has voxels, and the
-  // filled voxels of the result must be fillable by them
-  int h = resFilled;
-
-  for (unsigned int j = 0; j < problem_.getNumberOfParts(); j++) {
-    h -= asInt(problem_.partShape(puzzle_, j).countState(Voxel::kFilled));
-  }
-
-  if (h < 0) {
-    errorsState_ = AssemblerError::TooManyUnits;
-    errorsParam_ = -h;
-    return errorsState_;
-  }
-
-  if (h > resVari) {
-    errorsState_ = AssemblerError::TooFewUnits;
-    errorsParam_ = h - resVari;
-    return errorsState_;
-  }
-
-  holes_ = h;
-
   // One more entry than pieces: a search stopped just after placing the last
-  // piece stands at pos == piecenumber, and the position written then
-  // includes that entry (the original read past its arrays there).
-  rows_.assign(piecenumber_ + 1, 0);
-  columns_.assign(piecenumber_ + 1, 0);
+  // piece stands at pos == pieces, and the position written then includes
+  // that entry (the original read past its arrays there).
+  rows_.assign(problem_.getNumberOfPieces() + 1, 0);
+  columns_.assign(problem_.getNumberOfPieces() + 1, 0);
 
-  const int error = prepare();
-
-  // a piece that cannot be placed
-  if (error <= 0) {
-    errorsState_ = AssemblerError::CannotPlace;
-    errorsParam_ = -error;
+  errorsState_ =
+      matrix_.build(puzzle_, problem_, strictColors_, filter_, reducePiece_, errorsParam_);
+  if (errorsState_ != AssemblerError::None) {
     return errorsState_;
   }
+
   pos_ = 0;
   iterations_.store(0, std::memory_order_relaxed);
 
-  if (options.keepMirrors) {
-    avoidTransformedMirror_.reset();
-  }
+  filter_.apply(options.keepMirrors, options.keepRotations, options.completeRotations);
 
-  if (options.keepRotations) {
-    avoidTransformedAssemblies_ = false;
-  }
-
-  errorsState_ = AssemblerError::None;
   publishSerialProgress();
   return errorsState_;
 }
 
 void Assembler0::applySolutionFilterFlags(bool keepMirrors, bool keepRotations, bool complete) {
-  complete_ = complete;
-
-  if (keepMirrors) {
-    avoidTransformedMirror_.reset();
-  }
-
-  if (keepRotations) {
-    avoidTransformedAssemblies_ = false;
-  } else if (rotationFilterActive_) {
-    avoidTransformedAssemblies_ = true;
-  }
+  filter_.apply(keepMirrors, keepRotations, complete);
 }
 
-// Removes the column from the header list, and every row with a 1 in it.
-void Assembler0::cover(unsigned int col) {
-  {
-    const unsigned int l = left_[col];
-    const unsigned int r = right_[col];
-
-    left_[r] = l;
-    right_[l] = r;
-  }
-
-  for (unsigned int i = down(col); i != col; i = down(i)) {
-    for (unsigned int j = right_[i]; j != i; j = right_[j]) {
-      const unsigned int u = up(j);
-      const unsigned int d = down(j);
-
-      up(d) = u;
-      down(u) = d;
-
-      colCount_[colCount_[j]]--;
-    }
-  }
-}
-
-// The exact inverse of cover(): the matrix must be as cover() left it.
-void Assembler0::uncover(unsigned int col) {
-  for (unsigned int i = up(col); i != col; i = up(i)) {
-    for (unsigned int j = left_[i]; j != i; j = left_[j]) {
-      colCount_[colCount_[j]]++;
-
-      up(down(j)) = j;
-      down(up(j)) = j;
-    }
-  }
-
-  left_[right_[col]] = col;
-  right_[left_[col]] = col;
-}
-
-// Covers every column in which row r has a 1.
-void Assembler0::coverRow(unsigned int r) {
-  for (unsigned int j = right_[r]; j != r; j = right_[j]) {
-    cover(colCount_[j]);
-  }
-}
-
-// coverRow(), but gives up (undoing what it did) as soon as a column outside
-// the row is left with no rows.
-bool Assembler0::tryCoverRow(unsigned int r, unsigned int* columns) {
-  std::memset(columns, 0, varivoxelEnd_ * sizeof(unsigned int));
-
-  for (unsigned int j = right_[r]; j != r; j = right_[j]) {
-    columns[colCount_[j]] = 1;
-  }
-
-  for (unsigned int j = right_[r]; j != r; j = right_[j]) {
-    cover(colCount_[j]);
-
-    for (unsigned int k = right_[0]; k; k = right_[k]) {
-      if ((columns[k] == 0) && (colCount_[k] == 0)) {
-        do {
-          uncover(colCount_[j]);
-          j = left_[j];
-        } while (j != r);
-
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-void Assembler0::uncoverRow(unsigned int r) {
-  for (unsigned int j = left_[r]; j != r; j = left_[j]) {
-    uncover(colCount_[j]);
-  }
-}
-
-void Assembler0::removeRow(unsigned int r) {
-  unsigned int j = r;
-  do {
-    colCount_[colCount_[j]]--;
-
-    const unsigned int u = up(j);
-    const unsigned int d = down(j);
-
-    up(d) = u;
-    down(u) = d;
-
-    j = right_[j];
-  } while (j != r);
-}
-
-void Assembler0::removeColumn(unsigned int c) {
-  unsigned int j = c;
-  do {
-    right_[left_[j]] = right_[j];
-    left_[right_[j]] = left_[j];
-
-    j = down(j);
-  } while (j != c);
-}
-
-// True when the position is a dead end: more variable voxels can no longer
-// be filled than there may be holes.
-bool Assembler0::checkmatrix() {
-  auto count = asUnsigned(holes_);
-  for (unsigned int j = right_[varivoxelEnd_]; j != varivoxelEnd_; j = right_[j]) {
-    if (colCount_[j] == 0) {
-      if (!count) {
-        return true;
-      }
-      count--;
-    }
-  }
-
-  return false;
-}
-
-ReduceStats Assembler0::reduce(const StopToken& stop) {
-  // per-column scratch space
-  std::vector<unsigned int> columns(varivoxelEnd_);
-  unsigned int removed = 0;
-  unsigned int remCol = 0;
-  bool remSth = false;
-
-  // the rows to remove are collected first and removed after the check
-  std::vector<unsigned int> rowsToRemove;
-
-  reducePiece_.store(0, std::memory_order_relaxed);
-
-  for (unsigned int col = right_[0]; col; col = right_[col]) {
-    if (stop.stopRequested()) {
-      break;
-    }
-
-    std::fill(columns.begin(), columns.end(), 0U);
-
-    unsigned int placements = 0;
-    for (unsigned int r = down(col); r != col; r = down(r)) {
-      for (unsigned int j = right_[r]; j != r; j = right_[j]) {
-        columns[colCount_[j]]++;
-      }
-      placements++;
-    }
-
-    // A voxel filled by this column's rows in every one of them: no row of
-    // another column can fill it, so those rows can go.
-    for (unsigned int c = right_[0]; c; c = right_[c]) {
-      if (columns[c] == placements) {
-        rowsToRemove.clear();
-
-        for (unsigned int r = down(c); r != c; r = down(r)) {
-          // find the column col in the row
-          unsigned int c2 = right_[r];
-          while ((colCount_[c2] != col) && (c2 != r)) {
-            c2 = right_[c2];
-          }
-
-          if (c2 == r) {
-            rowsToRemove.push_back(r);
-          }
-        }
-
-        for (const unsigned int rem : rowsToRemove) {
-          removeRow(rem);
-        }
-
-        removed += static_cast<unsigned int>(rowsToRemove.size());
-      }
-    }
-  }
-
-  remCol += clumpify();
-
-  do {
-    remSth = false;
-
-    for (unsigned int p = 0; p < piecenumber_; p++) {
-      if (stop.stopRequested()) {
-        break;
-      }
-
-      reducePiece_.store(p, std::memory_order_relaxed);
-
-      // place the piece and see whether that leaves holes that cannot be
-      // filled, pieces that cannot be placed, or other dead ends
-      cover(p + 1);
-
-      rowsToRemove.clear();
-
-      for (unsigned int r = down(p + 1); r != p + 1; r = down(r)) {
-        // a placement that already fails to cover needs no deeper check
-        if (!tryCoverRow(r, columns.data())) {
-          rowsToRemove.push_back(r);
-        } else {
-          if (checkmatrix()) {
-            rowsToRemove.push_back(r);
-          }
-
-          uncoverRow(r);
-        }
-      }
-
-      uncover(p + 1);
-
-      for (const unsigned int rem : rowsToRemove) {
-        removeRow(rem);
-      }
-
-      remSth |= !rowsToRemove.empty();
-      removed += static_cast<unsigned int>(rowsToRemove.size());
-
-      // the voxels this piece fills in all its placements: the other pieces'
-      // placements there can go
-      std::fill(columns.begin(), columns.end(), 0U);
-      unsigned int placements = 0;
-      for (unsigned int r = down(p + 1); r != p + 1; r = down(r)) {
-        for (unsigned int j = right_[r]; j != r; j = right_[j]) {
-          columns[colCount_[j]]++;
-        }
-        placements++;
-      }
-
-      for (unsigned int c = right_[0]; c; c = right_[c]) {
-        if (columns[c] == placements) {
-          rowsToRemove.clear();
-
-          std::size_t i = 0;
-          for (unsigned int r = down(c); r != c; r = down(r)) {
-            // the piece of this row
-            while ((i + 1) < piecePositions_.size() && piecePositions_[i + 1].row <= r) {
-              i++;
-            }
-
-            if (piecePositions_[i].piece != p) {
-              rowsToRemove.push_back(r);
-            }
-          }
-
-          for (const unsigned int rem : rowsToRemove) {
-            removeRow(rem);
-          }
-
-          remSth |= !rowsToRemove.empty();
-          removed += static_cast<unsigned int>(rowsToRemove.size());
-        }
-      }
-    }
-  } while (remSth);
-
-  remCol += clumpify();
-
-  return ReduceStats{removed, remCol};
-}
-
-Assembly Assembler0::assemblyFromRows(const unsigned int* rows, unsigned int count) const {
-  Assembly assembly(puzzle_.getGridType());
-
-  // the order the pieces are in
-  std::vector<unsigned int> pieces(piecenumber_, 0xFFFFFFFF);
-  std::vector<unsigned char> trans(piecenumber_);
-  std::vector<int> xs(piecenumber_);
-  std::vector<int> ys(piecenumber_);
-  std::vector<int> zs(piecenumber_);
-
-  for (unsigned int i = 0; i < count; i++) {
-    unsigned char tran = 0;
-    int x = 0;
-    int y = 0;
-    int z = 0;
-    unsigned int piece = 0;
-
-    getPieceInformation(rows[i], &tran, &x, &y, &z, &piece);
-
-    pieces[piece] = i;
-    trans[piece] = tran;
-    xs[piece] = x;
-    ys[piece] = y;
-    zs[piece] = z;
-  }
-
-  for (unsigned int i = 0; i < piecenumber_; i++) {
-    if (pieces[i] >= count) {
-      assembly.addNonPlacement();
-    } else {
-      assembly.addPlacement(trans[i], xs[i], ys[i], zs[i]);
-    }
-  }
-
-  // no sort needed: there is only one of each piece
-  return assembly;
-}
+ReduceStats Assembler0::reduce(const StopToken& stop) { return matrix_.reduce(stop, reducePiece_); }
 
 Assembly Assembler0::currentAssembly() const {
   // nothing placed, or the search is through: an empty assembly
-  if (pos_ > piecenumber_) {
-    Assembly assembly(puzzle_.getGridType());
-    for (unsigned int i = 0; i < piecenumber_; i++) {
-      assembly.addNonPlacement();
-    }
-    return assembly;
+  if (pos_ > matrix_.pieces) {
+    return matrix_.emptyAssembly(puzzle_.getGridType());
   }
 
-  return assemblyFromRows(rows_.data(), pos_);
-}
-
-void Assembler0::checkForTransformedAssemblies(unsigned int pivot,
-                                               std::unique_ptr<MirrorInfo> mir) {
-  avoidTransformedAssemblies_ = true;
-  rotationFilterActive_ = true;
-  avoidTransformedPivot_ = pivot;
-  avoidTransformedMirror_ = std::move(mir);
+  return matrix_.assemblyFromRows(puzzle_.getGridType(), rows_.data(), pos_);
 }
 
 // An assembly found by the plain or the vector search on the caller's
@@ -862,9 +93,7 @@ void Assembler0::solution(SearchRun& run) {
   if (run.hasCallback()) {
     Assembly assembly = currentAssembly();
 
-    if (avoidTransformedAssemblies_ &&
-        assembly.smallerRotationExists(puzzle_, problem_, avoidTransformedPivot_,
-                                       avoidTransformedMirror_.get(), complete_, strictColors_)) {
+    if (filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
       return;
     }
 
@@ -873,11 +102,12 @@ void Assembler0::solution(SearchRun& run) {
 }
 
 float Assembler0::serialFraction() const {
-  if (rows_.empty() || columns_.empty() || upDown_.empty()) {
+  const DlxNodes& n = matrix_.nodes;
+  if (rows_.empty() || columns_.empty() || n.upDown.empty()) {
     return 0;
   }
 
-  if (pos_ > piecenumber_) {
+  if (pos_ > matrix_.pieces) {
     return 1;
   }
 
@@ -886,15 +116,15 @@ float Assembler0::serialFraction() const {
   for (int i = asInt(pos_) - 1; i >= 0; i--) {
     const auto ui = static_cast<std::size_t>(i);
     unsigned int r = rows_[ui];
-    unsigned int l = colCount_[columns_[ui]];
+    unsigned int l = n.colCount[columns_[ui]];
 
-    while (l && r && (r != down(columns_[ui]))) {
+    while (l && r && (r != n.down(columns_[ui]))) {
       erg += 1;
-      r = up(r);
+      r = n.up(r);
       l--;
     }
 
-    erg /= static_cast<float>(colCount_[columns_[ui]]);
+    erg /= static_cast<float>(n.colCount[columns_[ui]]);
   }
 
   return erg;
@@ -903,17 +133,20 @@ float Assembler0::serialFraction() const {
 // The plain search: dancing links, iteratively. To follow it, know the
 // dancing links algorithm first.
 void Assembler0::iterativeMultiSearch(SearchRun& run) {
+  DlxNodes& n = matrix_.nodes;
+  const unsigned int piecenumber = matrix_.pieces;
+  const unsigned int varivoxelEnd = matrix_.varivoxelEnd;
   bool cont = false;
   unsigned int sincePublished = 0;
 
   while (!run.stopRequested()) {
     // through when pos went below 0 (wrapping past piecenumber)
-    if (pos_ > piecenumber_) {
+    if (pos_ > piecenumber) {
       break;
     }
 
     // all pieces placed and all voxels filled?
-    if (!right_[0]) {
+    if (!n.right[0]) {
       solution(run);
     }
 
@@ -928,11 +161,11 @@ void Assembler0::iterativeMultiSearch(SearchRun& run) {
 
     // with all pieces placed there is nothing more to choose: the remaining
     // columns are empty anyway, so backtrack once
-    if (pos_ == piecenumber_) {
+    if (pos_ == piecenumber) {
       pos_--;
       // a problem without pieces is through here (the original read past
       // its row list)
-      if (pos_ > piecenumber_) {
+      if (pos_ > piecenumber) {
         break;
       }
     }
@@ -947,48 +180,48 @@ void Assembler0::iterativeMultiSearch(SearchRun& run) {
     if (!rows_[pos_]) {
       // a new column: the one with the fewest rows among the piece and
       // filled-voxel columns; a column with none ends this branch
-      unsigned int c = right_[0];
-      unsigned int s = colCount_[c];
+      unsigned int c = n.right[0];
+      unsigned int s = n.colCount[c];
 
       if (s) {
-        unsigned int j = right_[c];
+        unsigned int j = n.right[c];
 
         while (j) {
-          if (colCount_[j] < s) {
+          if (n.colCount[j] < s) {
             c = j;
-            s = colCount_[c];
+            s = n.colCount[c];
 
             if (!s) {
               break;
             }
           }
 
-          j = right_[j];
+          j = n.right[j];
         }
       }
 
       // more variable voxels that can no longer be filled than there may be
       // holes: backtrack as well
       if (s) {
-        auto currentHoles = asUnsigned(holes_);
-        unsigned int j = right_[varivoxelEnd_];
+        auto currentHoles = asUnsigned(matrix_.holes);
+        unsigned int j = n.right[varivoxelEnd];
 
-        while (j != varivoxelEnd_) {
-          if (colCount_[j] == 0) {
+        while (j != varivoxelEnd) {
+          if (n.colCount[j] == 0) {
             if (currentHoles == 0) {
               s = 0;
               break;
             }
             currentHoles--;
           }
-          j = right_[j];
+          j = n.right[j];
         }
       }
 
       if (s) {
         // a column to search
         columns_[pos_] = c;
-        rows_[pos_] = down(columns_[pos_]);
+        rows_[pos_] = n.down(columns_[pos_]);
 
         cont = rows_[pos_] != columns_[pos_];
       }
@@ -1000,14 +233,14 @@ void Assembler0::iterativeMultiSearch(SearchRun& run) {
         continue;
       }
 
-      cover(columns_[pos_]);
+      n.cover(columns_[pos_]);
 
     } else {
       // back from the deeper level: uncover our row and take the next
-      uncoverRow(rows_[pos_]);
+      n.uncoverRow(rows_[pos_]);
       cont = true;
 
-      rows_[pos_] = down(rows_[pos_]);
+      rows_[pos_] = n.down(rows_[pos_]);
 
       if (rows_[pos_] == columns_[pos_]) {
         cont = false;
@@ -1015,13 +248,13 @@ void Assembler0::iterativeMultiSearch(SearchRun& run) {
     }
 
     if (cont) {
-      coverRow(rows_[pos_]);
+      n.coverRow(rows_[pos_]);
 
       pos_++;
 
     } else {
       // this column is done: uncover it and backtrack
-      uncover(columns_[pos_]);
+      n.uncover(columns_[pos_]);
 
       rows_[pos_] = 0;
       pos_--;
@@ -1040,12 +273,9 @@ class Assembler0::Worker {
   Worker(Assembler0& parent, SearchRun& run, unsigned int slot)
       : parent_(parent),
         run_(run),
-        left_(parent.left_),
-        right_(parent.right_),
-        upDown_(parent.upDown_),
-        colCount_(parent.colCount_),
-        rows_(parent.piecenumber_, 0),
-        columns_(parent.piecenumber_, 0),
+        n_(parent.matrix_.nodes),
+        rows_(parent.matrix_.pieces, 0),
+        columns_(parent.matrix_.pieces, 0),
         slot_(slot) {}
 
   /// Searches task `taskIndex` to its end or to a stop.
@@ -1056,9 +286,6 @@ class Assembler0::Worker {
   }
 
  private:
-  unsigned int& up(unsigned int x) { return upDown_[2 * std::size_t{x}]; }
-  unsigned int& down(unsigned int x) { return upDown_[2 * std::size_t{x} + 1]; }
-
   // How far through the task: at each step below the prefix, the choices
   // done out of all of them, every choice taken as alike.
   [[nodiscard]] float taskFraction(unsigned int prefixDepth) {
@@ -1066,63 +293,20 @@ class Assembler0::Worker {
     for (int i = asInt(pos_) - 1; i >= asInt(prefixDepth); i--) {
       const auto ui = static_cast<std::size_t>(i);
       const unsigned int col = columns_[ui];
-      const unsigned int n = colCount_[col];
-      if (!n) {
+      const unsigned int cnt = n_.colCount[col];
+      if (!cnt) {
         continue;
       }
       unsigned int r = rows_[ui];
-      unsigned int l = n;
-      while (l && r && (r != down(col))) {
+      unsigned int l = cnt;
+      while (l && r && (r != n_.down(col))) {
         erg += 1;
-        r = up(r);
+        r = n_.up(r);
         l--;
       }
-      erg /= static_cast<float>(n);
+      erg /= static_cast<float>(cnt);
     }
     return erg;
-  }
-
-  void cover(unsigned int col) {
-    right_[left_[col]] = right_[col];
-    left_[right_[col]] = left_[col];
-
-    for (unsigned int i = down(col); i != col; i = down(i)) {
-      for (unsigned int j = right_[i]; j != i; j = right_[j]) {
-        const unsigned int u = up(j);
-        const unsigned int d = down(j);
-
-        up(d) = u;
-        down(u) = d;
-
-        colCount_[colCount_[j]]--;
-      }
-    }
-  }
-
-  void uncover(unsigned int col) {
-    for (unsigned int i = up(col); i != col; i = up(i)) {
-      for (unsigned int j = left_[i]; j != i; j = left_[j]) {
-        colCount_[colCount_[j]]++;
-
-        up(down(j)) = j;
-        down(up(j)) = j;
-      }
-    }
-
-    left_[right_[col]] = col;
-    right_[left_[col]] = col;
-  }
-
-  void coverRow(unsigned int r) {
-    for (unsigned int j = right_[r]; j != r; j = right_[j]) {
-      cover(colCount_[j]);
-    }
-  }
-
-  void uncoverRow(unsigned int r) {
-    for (unsigned int j = left_[r]; j != r; j = left_[j]) {
-      uncover(colCount_[j]);
-    }
   }
 
   void solution() {
@@ -1132,11 +316,13 @@ class Assembler0::Worker {
 
   void searchSubtree(const SubtreeTask& task) {
     const auto prefixDepth = static_cast<unsigned int>(task.prefix.size());
+    const unsigned int piecenumber = parent_.matrix_.pieces;
+    const unsigned int varivoxelEnd = parent_.matrix_.varivoxelEnd;
 
     // apply the prefix
     for (unsigned int d = 0; d < prefixDepth; d++) {
-      cover(task.prefix[d].col);
-      coverRow(task.prefix[d].row);
+      n_.cover(task.prefix[d].col);
+      n_.coverRow(task.prefix[d].row);
       columns_[d] = task.prefix[d].col;
       rows_[d] = task.prefix[d].row;
     }
@@ -1145,17 +331,17 @@ class Assembler0::Worker {
     bool cont = false;
 
     while (!run_.stopRequested()) {
-      if (pos_ < prefixDepth || pos_ > parent_.piecenumber_) {
+      if (pos_ < prefixDepth || pos_ > piecenumber) {
         break;
       }
 
-      if (!right_[0]) {
+      if (!n_.right[0]) {
         solution();
       }
 
-      if (pos_ == parent_.piecenumber_) {
+      if (pos_ == piecenumber) {
         pos_--;
-        if (pos_ < prefixDepth || pos_ > parent_.piecenumber_) {
+        if (pos_ < prefixDepth || pos_ > piecenumber) {
           break;
         }
       }
@@ -1173,42 +359,42 @@ class Assembler0::Worker {
 
       if (!rows_[pos_]) {
         // the best column
-        unsigned int c = right_[0];
-        unsigned int s = colCount_[c];
+        unsigned int c = n_.right[0];
+        unsigned int s = n_.colCount[c];
 
         if (s) {
-          unsigned int j = right_[c];
+          unsigned int j = n_.right[c];
           while (j) {
-            if (colCount_[j] < s) {
+            if (n_.colCount[j] < s) {
               c = j;
-              s = colCount_[c];
+              s = n_.colCount[c];
               if (!s) {
                 break;
               }
             }
-            j = right_[j];
+            j = n_.right[j];
           }
         }
 
         // holes among the variable voxels
         if (s) {
-          auto currentHoles = asUnsigned(parent_.holes_);
-          unsigned int j = right_[parent_.varivoxelEnd_];
-          while (j != parent_.varivoxelEnd_) {
-            if (colCount_[j] == 0) {
+          auto currentHoles = asUnsigned(parent_.matrix_.holes);
+          unsigned int j = n_.right[varivoxelEnd];
+          while (j != varivoxelEnd) {
+            if (n_.colCount[j] == 0) {
               if (currentHoles == 0) {
                 s = 0;
                 break;
               }
               currentHoles--;
             }
-            j = right_[j];
+            j = n_.right[j];
           }
         }
 
         if (s) {
           columns_[pos_] = c;
-          rows_[pos_] = down(columns_[pos_]);
+          rows_[pos_] = n_.down(columns_[pos_]);
           cont = true;
         }
 
@@ -1221,21 +407,21 @@ class Assembler0::Worker {
           continue;
         }
 
-        cover(columns_[pos_]);
+        n_.cover(columns_[pos_]);
       } else {
-        uncoverRow(rows_[pos_]);
+        n_.uncoverRow(rows_[pos_]);
         cont = true;
-        rows_[pos_] = down(rows_[pos_]);
+        rows_[pos_] = n_.down(rows_[pos_]);
         if (rows_[pos_] == columns_[pos_]) {
           cont = false;
         }
       }
 
       if (cont) {
-        coverRow(rows_[pos_]);
+        n_.coverRow(rows_[pos_]);
         pos_++;
       } else {
-        uncover(columns_[pos_]);
+        n_.uncover(columns_[pos_]);
         rows_[pos_] = 0;
         pos_--;
         if (pos_ < prefixDepth) {
@@ -1249,8 +435,8 @@ class Assembler0::Worker {
     if (!run_.stopRequested()) {
       for (int d = asInt(prefixDepth) - 1; d >= 0; d--) {
         const auto ud = static_cast<std::size_t>(d);
-        uncoverRow(task.prefix[ud].row);
-        uncover(task.prefix[ud].col);
+        n_.uncoverRow(task.prefix[ud].row);
+        n_.uncover(task.prefix[ud].col);
         rows_[ud] = 0;
         columns_[ud] = 0;
       }
@@ -1268,10 +454,8 @@ class Assembler0::Worker {
 
   Assembler0& parent_;
   SearchRun& run_;
-  std::vector<unsigned int> left_;
-  std::vector<unsigned int> right_;
-  std::vector<unsigned int> upDown_;
-  std::vector<unsigned int> colCount_;
+  /// This thread's copy of the matrix.
+  DlxNodes n_;
   std::vector<unsigned int> rows_;
   std::vector<unsigned int> columns_;
   unsigned int pos_ = 0;
@@ -1294,11 +478,9 @@ void Assembler0::reportParallelSolution(SearchRun& run, const unsigned int* solu
     return;
   }
 
-  Assembly assembly = assemblyFromRows(solutionRows, count);
+  Assembly assembly = matrix_.assemblyFromRows(puzzle_.getGridType(), solutionRows, count);
 
-  if (avoidTransformedAssemblies_ &&
-      assembly.smallerRotationExists(puzzle_, problem_, avoidTransformedPivot_,
-                                     avoidTransformedMirror_.get(), complete_, strictColors_)) {
+  if (filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
     return;
   }
 
@@ -1318,11 +500,15 @@ void Assembler0::reportParallelSolution(SearchRun& run, const unsigned int* solu
 
 void Assembler0::generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned int targetTasks,
                                       unsigned int maxDepth) {
+  DlxNodes& n = matrix_.nodes;
+  const unsigned int piecenumber = matrix_.pieces;
+  const unsigned int varivoxelEnd = matrix_.varivoxelEnd;
+
   tasks.clear();
   tasks.emplace_back();
 
   unsigned int currentDepth = 0;
-  const unsigned int maxPrefix = piecenumber_ > 1 ? piecenumber_ - 1 : 1U;
+  const unsigned int maxPrefix = piecenumber > 1 ? piecenumber - 1 : 1U;
 
   while (tasks.size() < targetTasks && currentDepth < maxDepth) {
     std::vector<SubtreeTask> nextTasks;
@@ -1335,54 +521,54 @@ void Assembler0::generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned 
       }
 
       for (const PrefixStep& step : t.prefix) {
-        cover(step.col);
-        coverRow(step.row);
+        n.cover(step.col);
+        n.coverRow(step.row);
       }
 
-      if (!right_[0]) {
+      if (!n.right[0]) {
         nextTasks.push_back(t);
         for (int d = asInt(t.prefix.size()) - 1; d >= 0; d--) {
-          uncoverRow(t.prefix[static_cast<std::size_t>(d)].row);
-          uncover(t.prefix[static_cast<std::size_t>(d)].col);
+          n.uncoverRow(t.prefix[static_cast<std::size_t>(d)].row);
+          n.uncover(t.prefix[static_cast<std::size_t>(d)].col);
         }
         continue;
       }
 
-      unsigned int c = right_[0];
-      unsigned int s = colCount_[c];
+      unsigned int c = n.right[0];
+      unsigned int s = n.colCount[c];
 
       if (s) {
-        unsigned int j = right_[c];
+        unsigned int j = n.right[c];
         while (j) {
-          if (colCount_[j] < s) {
+          if (n.colCount[j] < s) {
             c = j;
-            s = colCount_[c];
+            s = n.colCount[c];
             if (!s) {
               break;
             }
           }
-          j = right_[j];
+          j = n.right[j];
         }
       }
 
       if (s) {
-        auto currentHoles = asUnsigned(holes_);
-        unsigned int j = right_[varivoxelEnd_];
-        while (j != varivoxelEnd_) {
-          if (colCount_[j] == 0) {
+        auto currentHoles = asUnsigned(matrix_.holes);
+        unsigned int j = n.right[varivoxelEnd];
+        while (j != varivoxelEnd) {
+          if (n.colCount[j] == 0) {
             if (currentHoles == 0) {
               s = 0;
               break;
             }
             currentHoles--;
           }
-          j = right_[j];
+          j = n.right[j];
         }
       }
 
       if (s > 0) {
         anyExpanded = true;
-        for (unsigned int r = down(c); r != c; r = down(r)) {
+        for (unsigned int r = n.down(c); r != c; r = n.down(r)) {
           SubtreeTask child = t;
           child.prefix.push_back(PrefixStep{c, r});
           child.weight = t.weight / static_cast<double>(s);
@@ -1391,8 +577,8 @@ void Assembler0::generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned 
       }
 
       for (int d = asInt(t.prefix.size()) - 1; d >= 0; d--) {
-        uncoverRow(t.prefix[static_cast<std::size_t>(d)].row);
-        uncover(t.prefix[static_cast<std::size_t>(d)].col);
+        n.uncoverRow(t.prefix[static_cast<std::size_t>(d)].row);
+        n.uncover(t.prefix[static_cast<std::size_t>(d)].col);
       }
     }
 
@@ -1407,13 +593,15 @@ void Assembler0::generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned 
 
 void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
                                      const SearchOptions& options) {
+  const unsigned int piecenumber = matrix_.pieces;
+
   // the workers read the shapes (smallerRotationExists): their lazy caches
   // must be filled before any worker exists
   warmShapeCaches(puzzle_, problem_);
 
   if (split_.tasks.empty()) {
     const unsigned int targetTasks = std::max(16U, workers * 4);
-    const unsigned int maxDepth = std::min(piecenumber_ > 1 ? piecenumber_ - 1 : 1U, 3U);
+    const unsigned int maxDepth = std::min(piecenumber > 1 ? piecenumber - 1 : 1U, 3U);
     generateSubtreeTasks(split_.tasks, targetTasks, maxDepth);
     split_.completed.assign(split_.tasks.size(), 0);
   }
@@ -1430,7 +618,7 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
 
   if (std::find(split_.completed.begin(), split_.completed.end(), 0) ==
       split_.completed.end()) {
-    pos_ = piecenumber_ + 1;
+    pos_ = piecenumber + 1;
     return;
   }
 
@@ -1497,7 +685,7 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
            });
 
   if (!run.stopRequested()) {
-    pos_ = piecenumber_ + 1;
+    pos_ = piecenumber + 1;
     split_.clearTasks();
     split_.interrupted = false;
   } else {
@@ -1523,7 +711,7 @@ bool Assembler0::simdFits(const SearchOptions& options) const {
   if (debug_) {
     return false;
   }
-  if (varivoxelEnd_ == 0 || varivoxelEnd_ - 1 > 2048) {
+  if (matrix_.varivoxelEnd == 0 || matrix_.varivoxelEnd - 1 > 2048) {
     return false;
   }
   return true;
@@ -1534,14 +722,18 @@ bool Assembler0::canUseSimd(const SearchOptions& options) const {
 }
 
 std::unique_ptr<SimdExactCoverBase> Assembler0::createSimdSolver(SimdKernels kernels) const {
+  const DlxNodes& n = matrix_.nodes;
+  const unsigned int varivoxelEnd = matrix_.varivoxelEnd;
+
   // Matrix column c is solver column c-1. The piece and filled-voxel columns
   // come first (1 .. varivoxelStart-1, the header list), the variable voxels
   // after them up to varivoxelEnd-1.
-  const unsigned int maxCol = varivoxelEnd_ - 1;
+  const unsigned int maxCol = varivoxelEnd - 1;
 
-  std::unique_ptr<SimdExactCoverBase> solver = makeSimdExactCover(maxCol, piecenumber_, kernels);
+  std::unique_ptr<SimdExactCoverBase> solver =
+      makeSimdExactCover(maxCol, matrix_.pieces, kernels);
 
-  for (unsigned int c = right_[0]; c != 0; c = right_[c]) {
+  for (unsigned int c = n.right[0]; c != 0; c = n.right[c]) {
     if (c <= maxCol) {
       solver->setRequiredColumn(c - 1);
     }
@@ -1549,28 +741,28 @@ std::unique_ptr<SimdExactCoverBase> Assembler0::createSimdSolver(SimdKernels ker
 
   // the variable voxels are a list of their own, which the plain search
   // never branches on either
-  for (unsigned int c = right_[varivoxelEnd_]; c != varivoxelEnd_; c = right_[c]) {
+  for (unsigned int c = n.right[varivoxelEnd]; c != varivoxelEnd; c = n.right[c]) {
     solver->setOptionalColumn(c - 1);
   }
-  solver->setHoleBudget(asUnsigned(holes_));
+  solver->setHoleBudget(asUnsigned(matrix_.holes));
 
-  for (unsigned int p = 1; p <= piecenumber_; p++) {
-    for (unsigned int row = down(p); row != p; row = down(row)) {
+  for (unsigned int p = 1; p <= matrix_.pieces; p++) {
+    for (unsigned int row = n.down(p); row != p; row = n.down(row)) {
       std::vector<unsigned int> cols;
       std::vector<unsigned int> nodesInRow;
       unsigned int curr = row;
       do {
         nodesInRow.push_back(curr);
-        const unsigned int col = colCount_[curr];
+        const unsigned int col = n.colCount[curr];
         if (col > 0 && col <= maxCol) {
           cols.push_back(col - 1);
         }
-        curr = right_[curr];
+        curr = n.right[curr];
       } while (curr != row);
 
       const std::uint32_t rowIdx = solver->addRow(row, p - 1, cols);
-      for (const unsigned int n : nodesInRow) {
-        solver->registerNodeAlias(n, rowIdx);
+      for (const unsigned int node : nodesInRow) {
+        solver->registerNodeAlias(node, rowIdx);
       }
     }
   }
@@ -1617,7 +809,7 @@ void Assembler0::simdSearch(SearchRun& run, const SearchOptions& options) {
 
   drain();
   if (!run.stopRequested()) {
-    pos_ = piecenumber_ + 1;
+    pos_ = matrix_.pieces + 1;
     taskProgress_.finish(0, 0);
     split_.vectorSkip = 0;
     split_.interrupted = false;
@@ -1663,7 +855,7 @@ RunEnd Assembler0::assemble(const AssemblyCallback& callback, const SearchOption
     iterativeMultiSearch(run);
   }
 
-  return pos_ > piecenumber_ ? RunEnd::Finished : RunEnd::Stopped;
+  return pos_ > matrix_.pieces ? RunEnd::Finished : RunEnd::Stopped;
 }
 
 float Assembler0::finished() const {
@@ -1683,6 +875,7 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
     return AssemblerError::CannotRestoreVersion;
   }
 
+  const unsigned int piecenumber = matrix_.pieces;
   const std::string str(text);  // NUL-terminated for the number readers
   const char* string = str.c_str();
   const auto len = static_cast<unsigned int>(str.size());
@@ -1716,7 +909,7 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
     return AssemblerError::CannotRestoreSyntax;
   }
 
-  if (pos <= piecenumber_) {
+  if (pos <= piecenumber) {
     for (unsigned int i = 0; i <= pos; i++) {
       while ((spos < len) && (string[spos] != '(')) {
         spos++;
@@ -1748,7 +941,7 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
     // integrity: the rows placed must be nodes (the last entry may only
     // prepare the next step and is not checked)
     for (unsigned int i = 0; i < pos; i++) {
-      if (rows_[i] > left_.size()) {
+      if (rows_[i] > matrix_.nodes.left.size()) {
         return AssemblerError::CannotRestoreSyntax;
       }
     }
@@ -1762,7 +955,7 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
     }
     SplitSearchState<SubtreeTask> tail;
     std::size_t done = 0;
-    const std::size_t rowCount = left_.size();
+    const std::size_t rowCount = matrix_.nodes.left.size();
     const bool ok = readResumeTail(
         string + spos, interrupted, tail, done, [rowCount](ResumeReader& r, SubtreeTask& t) {
           unsigned long long k = 0;
@@ -1798,11 +991,11 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
 
   // bring the matrix into the position: cover the rows and columns in the
   // order the search did
-  if (pos_ <= piecenumber_) {
+  if (pos_ <= piecenumber) {
     for (unsigned int p = 0; p <= pos_; p++) {
-      if ((p < piecenumber_) && rows_[p]) {
-        cover(columns_[p]);
-        coverRow(rows_[p]);
+      if ((p < piecenumber) && rows_[p]) {
+        matrix_.nodes.cover(columns_[p]);
+        matrix_.nodes.coverRow(rows_[p]);
       }
     }
   }
@@ -1812,7 +1005,8 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
 }
 
 SavedPosition Assembler0::savePosition() const {
-  BT_ASSERT_MSG(pos_ > piecenumber_ || pos_ < rows_.size(), "savePosition() before createMatrix()");
+  BT_ASSERT_MSG(pos_ > matrix_.pieces || pos_ < rows_.size(),
+                "savePosition() before createMatrix()");
 
   // the leading flag, see restorePosition()
   const unsigned int flag = !split_.interrupted ? 0 : split_.tasks.empty() ? 3 : 2;
@@ -1821,7 +1015,7 @@ SavedPosition Assembler0::savePosition() const {
   out += std::to_string(pos_) + " " + std::to_string(iterations_.load(std::memory_order_relaxed)) +
          " ";
 
-  if (pos_ <= piecenumber_) {
+  if (pos_ <= matrix_.pieces) {
     for (unsigned int j = 0; j <= pos_; j++) {
       out += "(" + std::to_string(rows_[j]) + " " + std::to_string(columns_[j]) + ")";
 
@@ -1844,31 +1038,11 @@ SavedPosition Assembler0::savePosition() const {
 
 unsigned int Assembler0::piecePlacement(unsigned int node, int delta, unsigned int piece,
                                         unsigned char* tran, int* x, int* y, int* z) const {
-  unsigned int pi = 0;
-
-  if (!node) {
-    node = down(piece + 1);
-  }
-
-  while (delta > 0) {
-    node = down(node);
-    delta--;
-  }
-
-  while (delta < 0) {
-    node = up(node);
-    delta++;
-  }
-
-  getPieceInformation(node, tran, x, y, z, &pi);
-
-  BT_ASSERT(pi == piece);
-
-  return node;
+  return matrix_.piecePlacement(node, delta, piece, tran, x, y, z);
 }
 
 unsigned int Assembler0::piecePlacementCount(unsigned int piece) const {
-  return colCount_[piece + 1];
+  return matrix_.piecePlacementCount(piece);
 }
 
 void Assembler0::debugStep(unsigned long steps) {
@@ -1879,16 +1053,6 @@ void Assembler0::debugStep(unsigned long steps) {
   iterativeMultiSearch(run);
 }
 
-bool Assembler0::canHandle(const Problem& problem) {
-  // every part must be exactly one piece
-  for (unsigned int s = 0; s < problem.getNumberOfParts(); s++) {
-    if ((problem.getPartMaximum(s) > 1) ||
-        (problem.getPartMaximum(s) != problem.getPartMinimum(s))) {
-      return false;
-    }
-  }
-
-  return true;
-}
+bool Assembler0::canHandle(const Problem& problem) { return everyPartOnePiece(problem); }
 
 }  // namespace bt

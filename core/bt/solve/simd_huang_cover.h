@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -242,6 +243,30 @@ using SimdHuangCover4096 = SimdHuangCover<SimdBitset4096>;
 using SimdHuangCover8192 = SimdHuangCover<SimdBitset8192>;
 using SimdHuangCover16384 = SimdHuangCover<SimdBitset16384>;
 using SimdHuangCover32768 = SimdHuangCover<SimdBitset32768>;
+
+/// A Huang cover of the smallest size class that holds `numColumns`
+/// columns (at most 32768).
+[[nodiscard]] std::unique_ptr<SimdHuangCoverBase> makeSimdHuangCover(unsigned int numColumns,
+                                                                    unsigned int numShapes,
+                                                                    SimdKernels kernels = {});
+
+/// The bytes a Huang cover of `numColumns` columns with `numRows` rows and
+/// `numNodes` matrix nodes needs: for each row its mask (as wide as the size
+/// class makeSimdHuangCover() picks) and its fixed part, and for each node
+/// its column and weight in the row's lists and its entry in the table of
+/// node numbers. Ported from simdHuangMemoryEstimate in
+/// src/lib/assembler_1.cpp.
+[[nodiscard]] std::uint64_t simdHuangMemoryEstimate(unsigned int numColumns, std::uint64_t numRows,
+                                                    std::uint64_t numNodes) noexcept;
+
+/// True when the estimate is within `budget` bytes (simdHuangFitsMemory,
+/// whose budget came from BURRTOOLS_HUANG_MEM_MB; see
+/// SearchOptions::vectorMemoryBudget).
+[[nodiscard]] inline bool simdHuangFitsMemory(unsigned int numColumns, std::uint64_t numRows,
+                                              std::uint64_t numNodes,
+                                              std::uint64_t budget) noexcept {
+  return simdHuangMemoryEstimate(numColumns, numRows, numNodes) <= budget;
+}
 
 extern template class SimdHuangCover<SimdBitset256>;
 extern template class SimdHuangCover<SimdBitset512>;

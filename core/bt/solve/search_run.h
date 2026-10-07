@@ -66,6 +66,12 @@ class SearchRun {
   void deliverOnce(Assembly assembly, std::uint64_t signature,
                    std::unordered_set<std::uint64_t>& reported);
 
+  /// Hands an assembly found by one of several threads to the callback when
+  /// the search will not find it again (BurrTools 2's branches never visit
+  /// the same place twice): under the hand-over lock, also after a pause,
+  /// which would otherwise lose it, but not after an abort.
+  void deliverFound(Assembly assembly);
+
  private:
   /// Calls the callback (the lock held) and stops the run as it answers.
   void handOver(Assembly assembly);

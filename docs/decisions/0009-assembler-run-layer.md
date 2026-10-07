@@ -1,6 +1,7 @@
 # 0009: One run layer for the assemblers, one thread pool for a solve
 
-**Status:** accepted (stage 3a); `core/bt/solve/search_run.h`,
+**Status:** accepted (stage 3a), completed in stage 3b;
+`core/bt/solve/search_run.h`, `core/bt/solve/work_stealing.h`,
 `core/bt/solve/resume_state.h`, `core/bt/solve/assembler.h`,
 `core/bt/base/thread_pool.h`
 
@@ -62,15 +63,46 @@ maps `-t`, `0` meaning the hardware's threads. Thread counts are clamped to
 (`Voxel::warmCaches`) before a search spreads over threads.
 
 **A/B switches** are fields of `SearchOptions`: `vectorSearch`
-(`BURRTOOLS_NO_SIMD`) and `SimdKernels` (`NO_AVX2`, `NO_AVX512`, `NO_NEON`);
-in stage 3b also the vector search's memory budget (`BURRTOOLS_HUANG_MEM_MB`).
+(`BURRTOOLS_NO_SIMD`), `SimdKernels` (`NO_AVX2`, `NO_AVX512`, `NO_NEON`) and
+`vectorMemoryBudget`, the memory assembler 1's vector search may take
+(`BURRTOOLS_HUANG_MEM_MB`).
 
-**BT2 (stage 3b)** uses the same run, hand-over and pool. Its work stealing
+**BT2** uses the same run, hand-over and pool. Its work stealing
 (`bt2Assemble`: split a search, run slices, give branches to idle threads,
-park unfinished branches across a pause) becomes a second driver beside
-`runTasks()`, over an interface with `splitSearch`, `searchFinished`,
-`assembleLimited` and the parked branches, replacing `clonePrepared` /
-`addProgressPeer` and the assembler's own stop flag.
+park unfinished branches across a pause) is the run layer's second driver,
+`runWorkStealing()` in `work_stealing.h`, over an interface (a concept) the
+search provides: `searchSlice` (assembleLimited), `branchFinished`
+(searchFinished), `splitBranch` (splitSearch, which also counts the new
+branch in the progress), `retireBranch`, and `takeParked` / `park`. A branch
+is a small object of the assembler (a dancing cells search and its share of
+the progress), not a copy of the assembler as in the original, so
+`clonePrepared`, `addProgressPeer`, the root pointer and the stop flag are
+gone. The caller's thread starts with the root; the threads lent by the
+pool count as taking part once they have started, so one that starts late
+finds the run over and goes (the pool may run two lent jobs one after the
+other on one thread). BurrTools 2's branches never visit a place twice, so
+what a thread finds after another has paused the run is still handed over
+(`SearchRun::deliverFound`; dropped only after an abort): it would
+otherwise be lost. `bt2Threads()` keeps the original's choice of thread
+count (the count asked for, else the hardware's less two, at most 16); the
+CLI applies it.
+
+**Saved positions of BT2.** The original saves BT2's search as assembler
+0's dancing links position, which its dancing cells search never moves:
+always `0 <iterations> (0 0)`. Restored, it starts the search again, while
+the problem keeps what was found, so every assembly found before the pause
+is reported twice. The new core writes the same text, but restores only a
+search that has not started (`0 0 (0 0)`); any other BT2 position is
+`CannotRestoreInterrupted`, so `beginSolving()` drops the partial results
+and the solve starts clean. Pausing and continuing in memory loses
+nothing (the parked branches).
+
+**Saved positions are checked before they are used.** The original
+replayed whatever a position held; a damaged one read and wrote out of
+bounds. Assembler 1 now parses into temporaries and checks that the stacks
+fit the matrix and each other (states, columns, rows, hidden-row batches,
+progress entries, a split or vector search at its start, every task) before
+anything is changed; a bad position is `CannotRestoreSyntax`.
 
 ## Consequences
 - The pause, continue and save rules are implemented once and tested once

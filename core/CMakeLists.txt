@@ -29,6 +29,10 @@ add_library(btcore STATIC
   bt/model/solution.cpp
   bt/solve/assembler.cpp
   bt/solve/assembler_0.cpp
+  bt/solve/assembler_1.cpp
+  bt/solve/assembler_bt2.cpp
+  bt/solve/dancing_cells.cpp
+  bt/solve/dlx_matrix.cpp
   bt/solve/placement_finder.cpp
   bt/solve/search_run.cpp
   bt/solve/simd_exact_cover.cpp

@@ -7,10 +7,12 @@
 /// where every part is exactly one piece; the "BurrTools Classic" and
 /// "Andrew Crowell" solvers assemble with it.
 /// Ported from src/lib/assembler_0.{h,cpp} onto the shared run layer
-/// (decision 0009).
+/// (decision 0009); the matrix is DlxMatrix, which BurrTools 2 shares.
 
 #include "bt/solve/assembler.h"
+#include "bt/solve/dlx_matrix.h"
 #include "bt/solve/resume_state.h"
+#include "bt/solve/rotation_filter.h"
 #include "bt/solve/search_run.h"
 
 #include <atomic>
@@ -84,43 +86,8 @@ class Assembler0 final : public Assembler {
     double weight = 1.0;
   };
 
-  /// The placement a row stands for.
-  struct PiecePosition {
-    int x, y, z;
-    unsigned char transformation;
-    unsigned int row;    ///< first node of the row
-    unsigned int piece;
-  };
-
-  // ---- the matrix ------------------------------------------------------------
-  unsigned int& up(unsigned int x) { return upDown_[2 * std::size_t{x}]; }
-  unsigned int& down(unsigned int x) { return upDown_[2 * std::size_t{x} + 1]; }
-  [[nodiscard]] unsigned int up(unsigned int x) const { return upDown_[2 * std::size_t{x}]; }
-  [[nodiscard]] unsigned int down(unsigned int x) const {
-    return upDown_[2 * std::size_t{x} + 1];
-  }
-
-  void generateFirstRow();
-  unsigned int addPieceNode(unsigned int piece, unsigned int rot, int x, int y, int z);
-  void addVoxelNode(unsigned int col, unsigned int piecenode);
-  void getPieceInformation(unsigned int node, unsigned char* tran, int* x, int* y, int* z,
-                           unsigned int* piece) const;
-  int prepare();
-  unsigned int clumpify();
-  void checkForTransformedAssemblies(unsigned int pivot, std::unique_ptr<MirrorInfo> mir);
-
-  void cover(unsigned int col);
-  void uncover(unsigned int col);
-  void coverRow(unsigned int r);
-  void uncoverRow(unsigned int r);
-  bool tryCoverRow(unsigned int r, unsigned int* columns);
-  void removeRow(unsigned int r);
-  void removeColumn(unsigned int c);
-  bool checkmatrix();
-
   // ---- the searches ----------------------------------------------------------
   void solution(SearchRun& run);
-  [[nodiscard]] Assembly assemblyFromRows(const unsigned int* rows, unsigned int count) const;
   void iterativeMultiSearch(SearchRun& run);
   void generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned int targetTasks,
                             unsigned int maxDepth);
@@ -142,13 +109,10 @@ class Assembler0 final : public Assembler {
   const Puzzle& puzzle_;
   const Problem& problem_;
 
-  // The nodes, one array per member. colCount is a column for normal nodes
-  // and the count for column headers; upDown interleaves up (even) and down
-  // (odd).
-  std::vector<unsigned int> left_;
-  std::vector<unsigned int> right_;
-  std::vector<unsigned int> upDown_;
-  std::vector<unsigned int> colCount_;
+  /// The placement matrix.
+  DlxMatrix matrix_;
+  /// Which assemblies are dropped as rotations of others.
+  RotationFilter filter_;
 
   /// The rows chosen at each depth, the columns covered there, and the
   /// number of pieces placed: the position of the plain search.
@@ -162,27 +126,8 @@ class Assembler0 final : public Assembler {
   /// Search steps; written by the searching threads, read by anyone.
   std::atomic<std::uint64_t> iterations_{0};
 
-  /// The number of variable voxels left empty in every assembly.
-  int holes_ = 0;
-
-  /// First and one past the last column of the variable voxels.
-  unsigned int varivoxelStart_ = 0;
-  unsigned int varivoxelEnd_ = 0;
-
-  unsigned int piecenumber_ = 0;
-
-  /// The piece reduce() is at.
+  /// The piece createMatrix() and reduce() are at.
   std::atomic<unsigned int> reducePiece_{0};
-
-  std::vector<PiecePosition> piecePositions_;
-
-  // rotation rejection
-  bool avoidTransformedAssemblies_ = false;
-  bool rotationFilterActive_ = false;
-  unsigned int avoidTransformedPivot_ = 0;
-  std::unique_ptr<MirrorInfo> avoidTransformedMirror_;
-  /// Complete rotation analysis.
-  bool complete_ = false;
 
   // the assembler debugger
   bool debug_ = false;

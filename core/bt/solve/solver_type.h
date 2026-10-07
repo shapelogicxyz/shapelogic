@@ -42,8 +42,8 @@ inline constexpr unsigned int kSolverTypeCount = 3;
 /// The assemblers.
 enum class AssemblerKind : std::uint8_t {
   Assembler0,  ///< dancing links, every part exactly one piece
-  Assembler1,  ///< Wei-Hwa Huang's cover with piece ranges (stage 3b)
-  Bt2,         ///< dancing cells with work stealing (stage 3b)
+  Assembler1,  ///< Wei-Hwa Huang's cover with piece counts and ranges
+  Bt2,         ///< dancing cells with work stealing
 };
 
 /// "assembler 0", "assembler 1" or "assembler bt2".
@@ -54,9 +54,8 @@ enum class AssemblerKind : std::uint8_t {
 /// else goes to assembler 1.
 [[nodiscard]] AssemblerKind chooseAssembler(const Problem& problem, SolverType solver);
 
-/// A new assembler of the chosen kind for `problem` of `puzzle`, or null
-/// while that kind is not ported yet (assembler 1 and BT2 arrive in stage
-/// 3b).
+/// A new assembler of the chosen kind for `problem` of `puzzle` (gridType_c
+/// ::findAssembler); both must outlive it.
 [[nodiscard]] std::unique_ptr<Assembler> makeAssembler(const Puzzle& puzzle,
                                                        const Problem& problem,
                                                        SolverType solver);

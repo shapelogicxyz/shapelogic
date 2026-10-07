@@ -393,94 +393,18 @@ TEST_CASE("Assembler 0: a stop made before the run starts is not lost",
   }
 }
 
-namespace {
-
-// Pause at random moments, from the callback and from another thread, and
-// continue (in memory or through a saved position) until the search is
-// through: every assembly exactly once, on every path. Only every other run
-// is paused from outside: a stopped vector search starts again from the
-// beginning, so pauses that always come too soon would never let it reach
-// anything new; the runs between are stopped by the callback, after new
-// assemblies.
-void randomPauses(const Puzzle& p, std::size_t expected, unsigned int maxStopAfter,
-                  std::uint32_t seed) {
-  ThreadPool pool(4);
-  std::mt19937 rng(seed);
-
-  struct Path {
-    unsigned int threads;
-    bool vector;
-  };
-  for (const Path path : {Path{1, false}, Path{1, true}, Path{4, true}, Path{4, false}}) {
-    INFO(path.threads << " threads" << (path.vector ? "" : ", plain"));
-    Fingerprints all;
-    {
-      Assembler0 a(p, p.getProblem(0));
-      REQUIRE(a.createMatrix({}) == AssemblerError::None);
-      (void)a.reduce(StopToken{});
-      all = runOnce(a, searchOptions(4, &pool)).found;
-      REQUIRE(all.size() == expected);
-    }
-
-    auto a = std::make_unique<Assembler0>(p, p.getProblem(0));
-    REQUIRE(a->createMatrix({}) == AssemblerError::None);
-    (void)a->reduce(StopToken{});
-
-    Fingerprints found;
-    unsigned int runs = 0;
-    bool viaSave = false;
-    for (;;) {
-      runs++;
-      REQUIRE(runs < 2000);
-      const StopSource stop;
-      const unsigned int stopAfter =
-          std::uniform_int_distribution<unsigned int>(1, maxStopAfter)(rng);
-      const auto delay =
-          std::chrono::microseconds(std::uniform_int_distribution<long>(0, 3000)(rng));
-      std::thread stopper([&stop, delay, outside = runs % 2 == 1] {
-        if (outside) {
-          std::this_thread::sleep_for(delay);
-          stop.request(StopKind::Pause);
-        }
-      });
-      unsigned int thisRun = 0;
-      const RunEnd end = a->assemble(
-          [&found, &thisRun, stopAfter](Assembly asm_) {
-            found.insert(test::fingerprint(asm_));
-            return ++thisRun < stopAfter;
-          },
-          searchOptions(path.threads, &pool, path.vector), stop.token());
-      stopper.join();
-      if (end == RunEnd::Finished) {
-        break;
-      }
-      // every other stop goes through a saved position
-      viaSave = !viaSave;
-      if (viaSave) {
-        const SavedPosition pos = a->savePosition();
-        a = std::make_unique<Assembler0>(p, p.getProblem(0));
-        REQUIRE(a->createMatrix({}) == AssemblerError::None);
-        (void)a->reduce(StopToken{});
-        REQUIRE(a->restorePosition(pos.text, pos.version) == AssemblerError::None);
-      }
-    }
-    CHECK(runs > 2);
-    CHECK(found == all);
-    CHECK(a->finished() >= 1.0F);
-  }
-}
-
-}  // namespace
-
 TEST_CASE("Assembler 0: random pauses lose nothing and repeat nothing",
           "[solve][assembler][parallel][resume]") {
   const Puzzle p = test::loadFixture("DraculasDentalDesaster.xmpuzzle");
-  randomPauses(p, 84, 20, 20261006);
+  test::randomPauses([&p] { return test::prepared<Assembler0>(p); }, 84, 20, 20261006,
+                     test::kAllPaths);
 }
 
 TEST_CASE("Assembler 0: random pauses on the 6 x 10 pentominoes",
           "[solve][assembler][parallel][resume][slow]") {
-  randomPauses(test::pentominoPuzzle(10, 6), 2339, 800, 4711);
+  const Puzzle p = test::pentominoPuzzle(10, 6);
+  test::randomPauses([&p] { return test::prepared<Assembler0>(p); }, 2339, 800, 4711,
+                     test::kAllPaths);
 }
 
 // finished() and iterations() are read by other threads while a run goes
@@ -679,7 +603,7 @@ TEST_CASE("Assembler 0: errors of createMatrix", "[solve][assembler]") {
     Assembler0 a(p, pr);
     CHECK(a.createMatrix({}) == AssemblerError::PuzzleUnhandable);
     CHECK(chooseAssembler(pr, SolverType::Classic) == AssemblerKind::Assembler1);
-    CHECK(makeAssembler(p, pr, SolverType::Classic) == nullptr);
+    CHECK(chooseAssembler(pr, SolverType::Bt2) == AssemblerKind::Assembler1);
   }
   SECTION("too many units") {
     Puzzle p = test::pentominoPuzzle(10, 5);

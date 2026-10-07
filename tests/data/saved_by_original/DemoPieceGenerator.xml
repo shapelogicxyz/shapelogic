@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="0"/>
+ <colors/>
+ <shapes>
+  <voxel x="2" y="6" z="2" type="0">#####_#_######________##</voxel>
+  <voxel x="1" y="1" z="1" type="0">#</voxel>
+  <voxel x="2" y="6" z="2" type="0">#####+#+######++++++++##</voxel>
+ </shapes>
+ <problems>
+  <problem state="0">
+   <shapes>
+    <shape id="0" count="1"/>
+    <shape id="1" min="0" max="10"/>
+   </shapes>
+   <result id="2"/>
+   <bitmap/>
+  </problem>
+ </problems>
+ <comment/>
+</puzzle>

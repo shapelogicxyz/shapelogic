@@ -32,9 +32,12 @@ the original CLI.
 just oracle                       # compare the fast tier
 just oracle --tier fast full      # several tiers
 just oracle --filter Pelikan -v   # one puzzle, show matches too
-just oracle --fields assemblies --allow-unported --threads 1
-                                  # stage 3: assembly counts only, bt -t 1,
-                                  # puzzles needing unported parts listed apart
+just oracle --fields assemblies --threads 1
+                                  # stage 3: assembly counts only, bt -t 1
+just oracle --fields assemblies --solver bt2
+                                  # BurrTools 2 against the original's BT2
+just oracle-baseline --tier fast --solver bt2
+                                  # record those (baseline/<tier>-bt2.json)
 just oracle-resume                # paused searches continue in the other program
 just oracle-baseline --tier full  # re-record the original's answers
 python3 tests/oracle/oracle.py baseline-files --tier all    # solved files from burrTxt2, into work/
@@ -84,23 +87,39 @@ with `-v`.
 
 `just oracle-resume` builds `resume_old.cpp` against the original's library
 and runs it beside `bt_resume` (`tests/tools/resume.cpp`, the same commands
-on the new core). For each puzzle of `RESUME_SET` and each search (plain on
-one thread, vector on one thread, split over 4 threads with and without the
-vector search) it pauses at three points in each program and continues the
-position in the other: what was reported before the pause and after must be
-every assembly exactly once. Single-thread pauses must also save the very
-same text in both programs.
+on the new core; both take the solver: `classic` or `bt2`, the assembler
+being the one `findAssembler` picks). For each puzzle it pauses at three
+points in each program and continues the position in the other: what was
+reported before the pause and after must be every assembly exactly once.
+Single-thread pauses must also save the very same text in both programs.
 
-One case is accounted for explicitly: when the plain search stops right
-after placing the last piece (`pos` equal to the number of pieces), the
-original reads one entry past its row list while saving, and writes past it
-while restoring; its checked build traps. The new core writes `(0 0)` for
-that entry. Such pauses are continued by the new program only and counted
-as known.
+- `RESUME_SET`: assembler 0 puzzles, with the Classic solver on four
+  searches (plain and vector on one thread, split over 4 threads with and
+  without the vector search), and with BurrTools 2 on 1 and 4 threads.
+- `RESUME_SET_ASSEMBLER1`: assembler 1 puzzles (Cube in Cage, Demo Piece
+  Generator, Solid Six Piece Burrs) on the four Classic searches.
 
-`bt` exits with code 3 when a problem needs a part that is not ported yet
-(stage 3a: assembler 1 and BT2); `compare` lists those as UNPORTED, and
-counts them as failures unless `--allow-unported` is given.
+Two cases are accounted for explicitly:
+- when assembler 0's plain search stops right after placing the last piece
+  (`pos` equal to the number of pieces), the original reads one entry past
+  its row list while saving, and writes past it while restoring; its
+  checked build traps. The new core writes `(0 0)` for that entry. Such
+  pauses are continued by the new program only and counted as known;
+- BurrTools 2 saves the original's dancing links position, which its
+  dancing cells search never moves (`0 <iterations> (0 0)`). One thread must
+  save the same text in both programs; the new program must refuse to
+  continue any such position (`CannotRestoreInterrupted`: the original took
+  it up as a fresh search and reported everything again). Counted apart.
+
+`oracle.py record-positions` writes `tests/data/positions_by_original.txt`
+(`POS <fixture> <solver> <threads> <plain> <reduce> <stopAfter>`, the text,
+the assemblies before the pause) for `test_positions.cpp`: assembler 0 and
+BurrTools 2 on Pelikan and Dracula, assembler 1 on Cube in Cage and Demo
+Piece Generator.
+
+`bt` exited with code 3 when a problem needed a part not ported yet (stage
+3a); since stage 3b every problem has its assembler, and `compare` keeps its
+`--allow-unported` for later parts.
 
 ## Levels of comparison
 

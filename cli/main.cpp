@@ -2,8 +2,9 @@
 //
 // bt: batch solving from the command line. Its --json output matches the
 // original burrTxt --json so the comparison harness (tests/oracle) can put
-// the two side by side. Stage 3a: assembly only (assembler 0); taking apart
-// arrives in stage 4, so solutions are reported as 0 and levels as null.
+// the two side by side. Stage 3: assembly only (every assembler); taking
+// apart arrives in stage 4, so solutions are reported as 0 and levels as
+// null.
 // The full CLI is stage 8. Modelled on src/burrTxt.cpp of the original.
 #include "bt/base/stop.h"
 #include "bt/base/thread_pool.h"
@@ -13,9 +14,11 @@
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
 #include "bt/solve/assembler.h"
+#include "bt/solve/assembler_bt2.h"
 #include "bt/solve/solver_type.h"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -27,7 +30,6 @@ namespace {
 constexpr int kExitOk = 0;
 constexpr int kExitError = 1;      // the puzzle cannot be solved (as burrTxt --json)
 constexpr int kExitUsage = 2;      // bad arguments or file
-constexpr int kExitNotPorted = 3;  // the problem needs a part not ported yet
 
 void usage() {
   std::fputs(
@@ -46,9 +48,12 @@ void usage() {
       "  -t n     threads for the assembler (0: all)\n"
       "  --solver TYPE\n"
       "           \"BurrTools Classic\" (classic, default), \"Andrew Crowell\" (crowell),\n"
-      "           \"BurrTools 2\" (bt2; arrives in stage 3b)\n"
+      "           \"BurrTools 2\" (bt2; without -t: the hardware's threads less two, at most 16)\n"
       "  --no-simd\n"
       "           the plain search and scalar loops only (a benchmark switch)\n"
+      "  --vector-memory MB\n"
+      "           the most memory assembler 1's vector search may take (default 256;\n"
+      "           0 turns it off; BURRTOOLS_HUANG_MEM_MB of the original)\n"
       "  --version\n",
       stdout);
 }
@@ -64,6 +69,7 @@ struct Options {
   bool noSimd = false;
   unsigned int problem = 0;
   unsigned int threads = 0;
+  unsigned int vectorMemoryMb = 256;
   bt::SolverType solver = bt::SolverType::Classic;
   const char* file = nullptr;
 };
@@ -113,6 +119,12 @@ int parseArgs(int argc, char** argv, Options& o) {
         return kExitUsage;
       }
       o.solver = *t;
+    } else if (a == "--vector-memory") {
+      if (i + 1 >= argc || !parseCount(argv[i + 1], &o.vectorMemoryMb)) {
+        std::fprintf(stderr, "bt: %s requires a non-negative number\n", argv[i]);
+        return kExitUsage;
+      }
+      i++;
     } else if (a == "-t" || a == "-o") {
       unsigned int v = 0;
       if (i + 1 >= argc || !parseCount(argv[i + 1], &v)) {
@@ -221,11 +233,6 @@ int main(int argc, char** argv) {
 
   const bt::AssemblerKind kind = bt::chooseAssembler(problem, o.solver);
   std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, o.solver);
-  if (!assembler) {
-    std::fprintf(stderr, "bt: this problem needs %.*s, which is not ported yet (stage 3b)\n",
-                 static_cast<int>(bt::assemblerName(kind).size()), bt::assemblerName(kind).data());
-    return kExitNotPorted;
-  }
 
   bt::MatrixOptions matrix;
   matrix.strictColors = o.strictColors;
@@ -246,9 +253,12 @@ int main(int argc, char** argv) {
 
   bt::ThreadPool pool(o.threads > 0 ? o.threads : bt::hardwareThreads());
   bt::SearchOptions search;
-  search.threads = o.threads;
+  // BurrTools 2 picks its own count when none is given (bt2Threads), as
+  // burrTxt's bt2ChooseAssemblerWorkers did
+  search.threads = kind == bt::AssemblerKind::Bt2 ? bt::bt2Threads(o.threads) : o.threads;
   search.pool = &pool;
   search.vectorSearch = !o.noSimd;
+  search.vectorMemoryBudget = std::uint64_t{o.vectorMemoryMb} << 20;
   if (o.noSimd) {
     search.kernels = bt::SimdKernels::none();
   }

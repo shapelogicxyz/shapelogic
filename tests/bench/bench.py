@@ -8,8 +8,8 @@ numbers from one run of this script compare. Each program reports the time
 of its own solve (reduce plus search, without loading), which is what is
 compared.
 
-Stage 3a: assembly only (assembler 0), so both run without -d. The stage 8
-gate (decision 0007) is "within 5% or faster".
+Stage 3: assembly only (assemblers 0 and 1, BurrTools 2), so both run
+without -d. The stage 8 gate (decision 0007) is "within 5% or faster".
 
     python3 tests/bench/bench.py                    # the default set, 1 and all threads
     python3 tests/bench/bench.py --set glar          # Burr-Glar (3.1 million assemblies, slow)
@@ -57,14 +57,18 @@ def pentomino_file(w: int, h: int, path: Path) -> Path:
 
 
 def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, list[str]]]]:
-    """name -> [(label, file, extra args)]. Assembler 0 puzzles only (stage 3a)."""
+    """name -> [(label, file, extra args)]."""
     tic = old_repo / "tictest" / "performance" / "puzzles"
+    pentomino = pentomino_file(10, 6, tmp / "pentomino_6x10.xmpuzzle")
     default = [
-        ("pentomino 6x10 (-r)", pentomino_file(10, 6, tmp / "pentomino_6x10.xmpuzzle"), ["-r"]),
+        ("pentomino 6x10 (-r)", pentomino, ["-r"]),
+        ("pentomino 6x10 (-r, bt2)", pentomino, ["-r", "--solver", "bt2"]),
         ("Climburr_OldVer (-r)", tic / "5x5x5_TICs" / "Crowell_Lohe_Burrs" / "Climburr_OldVer.xmpuzzle", ["-r"]),
         ("CoverUp3 (-r)", tic / "ARCparent_Cubes" / "CoverUp3.xmpuzzle", ["-r"]),
         ("CornerCube (-r)", tic / "ARCparent_Cubes" / "CornerCube.xmpuzzle", ["-r"]),
         ("DraculasDentalDesaster", old_repo / "examples" / "DraculasDentalDesaster.xmpuzzle", []),
+        ("SolidSixPieceBurrs (-r)", old_repo / "examples" / "SolidSixPieceBurrs.xmpuzzle", ["-r"]),
+        ("DemoPieceGenerator", old_repo / "examples" / "DemoPieceGenerator.xmpuzzle", []),
     ]
     glar = Path(os.environ.get("BT_BURR_GLAR", Path.home() / "git/burr-tools/burr-tools-clean/examples/Burr-Glar.xmpuzzle"))
     return {
@@ -126,24 +130,15 @@ def main() -> int:
             for threads in args.threads:
                 best = {"old": None, "new": None}
                 counts = {}
-                unported = False
                 for _ in range(args.repeat):
-                    if unported:
-                        break
                     for who, binary in (("old", old_bin), ("new", args.new_bin)):
                         r = run(binary, puzzle, threads, extra, args.plain, who == "old", args.timeout)
-                        if isinstance(r, str) and r.startswith("exit 3:"):
-                            unported = True  # needs a part the new core does not have yet
-                            break
                         if isinstance(r, str):
                             print(f"{label:28} {threads:7}  {who} failed: {r}")
                             failed = True
                             break
                         best[who] = r[0] if best[who] is None else min(best[who], r[0])
                         counts[who] = r[1]
-                if unported:
-                    print(f"{label:28} {threads:7}  not ported yet (needs assembler 1 or BT2)")
-                    break
                 if best["old"] is None or best["new"] is None:
                     continue
                 ratio = best["new"] / best["old"] if best["old"] > 0 else float("nan")

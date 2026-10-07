@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="0"/>
+ <colors/>
+ <shapes>
+  <voxel x="3" y="3" z="2" type="0">####_####___#_#___</voxel>
+  <voxel x="2" y="3" z="2" type="0">#_#_##__#___</voxel>
+  <voxel x="2" y="3" z="2" type="0">_#_###___#__</voxel>
+  <voxel x="3" y="3" z="3" type="0">###########################</voxel>
+  <voxel x="2" y="3" z="3" type="0">#_####___#_#___#_#</voxel>
+  <voxel x="2" y="3" z="3" type="0">_#####__#_#___#_#_</voxel>
+  <voxel x="2" y="3" z="1" type="0">######</voxel>
+ </shapes>
+ <problems>
+  <problem name="Example From Text" state="0">
+   <shapes>
+    <shape id="1" min="0" max="2"/>
+    <shape id="2" min="0" max="2"/>
+   </shapes>
+   <result id="0"/>
+   <bitmap/>
+  </problem>
+  <problem name="Another Example" state="0">
+   <shapes>
+    <shape id="4" min="0" max="1"/>
+    <shape id="5" min="0" max="1"/>
+    <shape id="6" count="3"/>
+   </shapes>
+   <result id="3"/>
+   <bitmap/>
+  </problem>
+ </problems>
+ <comment popup="">This file contains 2 examples for the mirror paradox. 
+Please read the user manual to understand what
+is going on.
+When solving toggle the checkbox &quot;Keep Mirror
+Solutions&quot; and repeatedly solve and see what happens.</comment>
+</puzzle>

@@ -46,7 +46,10 @@ TEST_CASE("thread pool: a job runs on the caller and on lent threads", "[base][t
   });
   CHECK(ran == 4);
   CHECK(slots == std::set<unsigned int>{0, 1, 2, 3});
-  CHECK(ids.size() == 4);
+  // The lent jobs go to the pool's threads through one queue: a thread done
+  // with a short job may take the next one too, so only the caller and at
+  // least one pool thread are certain.
+  CHECK(ids.size() >= 2);
   CHECK(ids.contains(std::this_thread::get_id()));  // slot 0 is the caller
 
   // never more than asked for, and never more than the pool has

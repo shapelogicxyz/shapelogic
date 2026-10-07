@@ -4,6 +4,8 @@
 #include "bt/solve/solver_type.h"
 
 #include "bt/solve/assembler_0.h"
+#include "bt/solve/assembler_1.h"
+#include "bt/solve/assembler_bt2.h"
 
 #include <string>
 
@@ -82,9 +84,10 @@ std::unique_ptr<Assembler> makeAssembler(const Puzzle& puzzle, const Problem& pr
   switch (chooseAssembler(problem, solver)) {
     case AssemblerKind::Assembler0:
       return std::make_unique<Assembler0>(puzzle, problem);
-    case AssemblerKind::Assembler1:
     case AssemblerKind::Bt2:
-      break;
+      return std::make_unique<AssemblerBt2>(puzzle, problem);
+    case AssemblerKind::Assembler1:
+      return std::make_unique<Assembler1>(puzzle, problem);
   }
   return nullptr;
 }

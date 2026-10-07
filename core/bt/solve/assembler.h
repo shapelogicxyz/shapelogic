@@ -62,6 +62,10 @@ struct SearchOptions {
   bool vectorSearch = true;
   /// The vector instructions the vector searches may use.
   SimdKernels kernels;
+  /// The most memory, in bytes, assembler 1's vector search may take; past
+  /// it the plain search runs (BURRTOOLS_HUANG_MEM_MB in the original, 256
+  /// MB when not given). 0 turns that vector search off.
+  std::uint64_t vectorMemoryBudget = std::uint64_t{256} << 20;
 };
 
 /// How a run ended. Finished only when the search itself is through.

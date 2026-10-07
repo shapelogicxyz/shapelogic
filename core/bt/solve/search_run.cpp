@@ -42,6 +42,17 @@ void SearchRun::deliverOnce(Assembly assembly, std::uint64_t signature,
   handOver(std::move(assembly));
 }
 
+void SearchRun::deliverFound(Assembly assembly) {
+  if (!callback_) {
+    return;
+  }
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (token_.kind() == StopKind::Abort) {
+    return;
+  }
+  handOver(std::move(assembly));
+}
+
 void TaskProgress::begin(const std::vector<double>& weights,
                          const std::vector<std::uint8_t>& completed) {
   const std::size_t n = completed.size();

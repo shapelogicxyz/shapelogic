@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// bt_resume: pause and continue assembler 0 searches with the new core, for
+// bt_resume: pause and continue assembler searches with the new core, for
 // `oracle.py resume-check`. The counterpart of tests/oracle/resume_old.cpp,
 // which does the same with the original's library; see there for the
 // commands and the output. Keep the two in step.
@@ -34,15 +34,21 @@ std::string fingerprint(const bt::Assembly& a) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 6) {
-    std::fputs("usage: bt_resume full|pause|resume <puzzle> <threads> <plain> <reduce> [arg]\n",
-               stderr);
+  if (argc < 7) {
+    std::fputs(
+        "usage: bt_resume full|pause|resume <puzzle> <solver> <threads> <plain> <reduce> [arg]\n",
+        stderr);
     return 2;
   }
   const std::string cmd = argv[1];
-  const auto threads = static_cast<unsigned int>(std::atoi(argv[3]));
-  const bool plain = std::atoi(argv[4]) != 0;
-  const bool reduce = std::atoi(argv[5]) != 0;
+  const auto solver = bt::solverTypeFromName(argv[3]);
+  const auto threads = static_cast<unsigned int>(std::atoi(argv[4]));
+  const bool plain = std::atoi(argv[5]) != 0;
+  const bool reduce = std::atoi(argv[6]) != 0;
+  if (!solver) {
+    std::fprintf(stderr, "unknown solver %s\n", argv[3]);
+    return 2;
+  }
 
   bt::Result<bt::Puzzle> p = bt::io::loadPuzzle(argv[2]);
   if (!p) {
@@ -50,8 +56,8 @@ int main(int argc, char** argv) {
     return 2;
   }
   const bt::Problem& problem = p->getProblem(0);
-  auto assm = bt::makeAssembler(*p, problem, bt::SolverType::Classic);
-  if (!assm || assm->createMatrix({}) != bt::AssemblerError::None) {
+  auto assm = bt::makeAssembler(*p, problem, *solver);
+  if (assm->createMatrix({}) != bt::AssemblerError::None) {
     std::fputs("createMatrix failed\n", stderr);
     return 2;
   }
@@ -60,10 +66,10 @@ int main(int argc, char** argv) {
   }
 
   if (cmd == "resume") {
-    if (argc < 7) {
+    if (argc < 8) {
       return 2;
     }
-    std::ifstream in(argv[6]);
+    std::ifstream in(argv[7]);
     std::string version;
     std::string text;
     std::getline(in, version);
@@ -77,10 +83,10 @@ int main(int argc, char** argv) {
 
   unsigned long stopAfter = 0;
   if (cmd == "pause") {
-    if (argc < 7) {
+    if (argc < 8) {
       return 2;
     }
-    stopAfter = std::strtoul(argv[6], nullptr, 10);
+    stopAfter = std::strtoul(argv[7], nullptr, 10);
   }
 
   bt::ThreadPool pool(threads > 0 ? threads : 1);

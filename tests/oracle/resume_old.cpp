@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// resume_old: pause and continue assembler 0 searches with the original's
+// resume_old: pause and continue assembler searches with the original's
 // library, for `oracle.py resume-check`, which checks that a search paused
 // in one program continues in the other (decision 0006). The counterpart
 // is tests/tools/resume.cpp (bt_resume); keep the two in step.
 //
-//   resume_old full   <puzzle> <threads> <plain> <reduce>
-//   resume_old pause  <puzzle> <threads> <plain> <reduce> <stopAfter>
-//   resume_old resume <puzzle> <threads> <plain> <reduce> <positionFile>
+//   resume_old full   <puzzle> <solver> <threads> <plain> <reduce>
+//   resume_old pause  <puzzle> <solver> <threads> <plain> <reduce> <stopAfter>
+//   resume_old resume <puzzle> <solver> <threads> <plain> <reduce> <positionFile>
 //
-// <plain> 1 runs without the vector search (BURRTOOLS_NO_SIMD). pause
-// prints "VERSION v" and "TEXT t" (the saved position) after the
-// assemblies; a position file holds those two lines. Every assembly found
-// is printed as "A t,x,y,z;...", and a position that cannot be restored as
-// "ERR <code>".
+// <solver> is classic or bt2 (the assembler is the one findAssembler picks
+// for it); <plain> 1 runs without the vector search (BURRTOOLS_NO_SIMD).
+// BurrTools 2 searches over several threads through bt2Assemble, as burrTxt
+// does. pause prints "VERSION v" and "TEXT t" (the saved position) after
+// the assemblies; a position file holds those two lines. Every assembly
+// found is printed as "A t,x,y,z;...", and a position that cannot be
+// restored as "ERR <code>".
 
 #include "lib/assembler.h"
 #include "lib/assembly.h"
+#include "lib/bt2_assemble.h"
 #include "lib/gridtype.h"
 #include "lib/problem.h"
 #include "lib/puzzle.h"
@@ -24,6 +27,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -43,19 +47,32 @@ std::string fingerprint(const assembly_c& a) {
   return s;
 }
 
+/* prints each assembly and asks to stop after stopAfter of them */
+class printer_c : public assembler_cb {
+public:
+  unsigned long stopAfter = 0;
+  unsigned long count = 0;
+  bool assembly(std::unique_ptr<assembly_c> a) override {
+    std::printf("A %s\n", fingerprint(*a).c_str());
+    count++;
+    return stopAfter == 0 || count < stopAfter;
+  }
+};
+
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 6) {
-    std::fputs("usage: resume_old full|pause|resume <puzzle> <threads> <plain> <reduce> [arg]\n",
+  if (argc < 7) {
+    std::fputs("usage: resume_old full|pause|resume <puzzle> <solver> <threads> <plain> <reduce> [arg]\n",
                stderr);
     return 2;
   }
   const std::string cmd = argv[1];
-  const unsigned int threads = (unsigned int)std::atoi(argv[3]);
-  if (std::atoi(argv[4]) != 0)
+  const bool bt2 = std::strcmp(argv[3], "bt2") == 0;
+  const unsigned int threads = (unsigned int)std::atoi(argv[4]);
+  if (std::atoi(argv[5]) != 0)
     setenv("BURRTOOLS_NO_SIMD", "1", 1);
-  const bool reduce = std::atoi(argv[5]) != 0;
+  const bool reduce = std::atoi(argv[6]) != 0;
 
   auto p = puzzle_c::load(argv[2]);
   if (!p) {
@@ -63,7 +80,8 @@ int main(int argc, char** argv) {
     return 2;
   }
   problem_c* problem = p->getProblem(0);
-  std::unique_ptr<assembler_c> assm = p->getGridType()->findAssembler(*problem, true, SOLVER_CLASSIC);
+  std::unique_ptr<assembler_c> assm =
+      p->getGridType()->findAssembler(*problem, true, bt2 ? SOLVER_BT2 : SOLVER_CLASSIC);
   assm->setNumThreads(threads);
   if (assm->createMatrix(false, false, false) != assembler_c::ERR_NONE) {
     std::fputs("createMatrix failed\n", stderr);
@@ -73,9 +91,9 @@ int main(int argc, char** argv) {
     assm->reduce();
 
   if (cmd == "resume") {
-    if (argc < 7)
+    if (argc < 8)
       return 2;
-    std::ifstream in(argv[6]);
+    std::ifstream in(argv[7]);
     std::string version, text;
     std::getline(in, version);
     std::getline(in, text);
@@ -86,19 +104,17 @@ int main(int argc, char** argv) {
     }
   }
 
-  unsigned long stopAfter = 0;
+  printer_c cb;
   if (cmd == "pause") {
-    if (argc < 7)
+    if (argc < 8)
       return 2;
-    stopAfter = std::strtoul(argv[6], nullptr, 10);
+    cb.stopAfter = std::strtoul(argv[7], nullptr, 10);
   }
 
-  unsigned long count = 0;
-  assm->assemble([&count, stopAfter](std::unique_ptr<assembly_c> a) -> bool {
-    std::printf("A %s\n", fingerprint(*a).c_str());
-    count++;
-    return stopAfter == 0 || count < stopAfter;
-  });
+  if (bt2)
+    bt2Assemble(assm.get(), &cb, threads);
+  else
+    assm->assemble(&cb);
 
   if (cmd == "pause") {
     std::ostringstream str;

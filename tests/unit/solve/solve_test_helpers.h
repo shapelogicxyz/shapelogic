@@ -13,8 +13,15 @@
 #include "bt/model/puzzle.h"
 #include "bt/solve/assembler.h"
 
+#include <catch2/catch_test_macros.hpp>
+
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <random>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace bt::test {
@@ -63,6 +70,92 @@ inline RunResult runOnce(Assembler& a, const SearchOptions& o, const StopToken& 
       },
       o, stop);
   return r;
+}
+
+/// An assembler of type A for problem 0 of `p`, its matrix made and reduced.
+template <class A>
+std::unique_ptr<Assembler> prepared(const Puzzle& p) {
+  auto a = std::make_unique<A>(p, p.getProblem(0));
+  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  (void)a->reduce(StopToken{});
+  return a;
+}
+
+/// A way a search runs: its threads, and whether it may take the vector
+/// search.
+struct PausePath {
+  unsigned int threads;
+  bool vector;
+};
+
+/// The plain and the vector search, each on one thread and split over four.
+inline const std::vector<PausePath> kAllPaths = {{1, false}, {1, true}, {4, true}, {4, false}};
+
+/// Pauses a search at random moments, from the callback and from another
+/// thread, and continues it (in memory, or with `throughSaves` every other
+/// time through a saved position) until it is through: every assembly
+/// exactly once, on every path. `make` gives a prepared assembler. Only every
+/// other run is paused from outside: a stopped vector search starts again
+/// from the beginning, so pauses that always come too soon would never let
+/// it reach anything new; the runs between are stopped by the callback,
+/// after new assemblies.
+template <class Make>
+void randomPauses(Make make, std::size_t expected, unsigned int maxStopAfter, std::uint32_t seed,
+                  const std::vector<PausePath>& paths, bool throughSaves = true) {
+  ThreadPool pool(4);
+  std::mt19937 rng(seed);
+
+  for (const PausePath path : paths) {
+    INFO(path.threads << " threads" << (path.vector ? "" : ", plain"));
+    Fingerprints all;
+    {
+      std::unique_ptr<Assembler> a = make();
+      all = runOnce(*a, searchOptions(4, &pool)).found;
+      REQUIRE(all.size() == expected);
+    }
+
+    std::unique_ptr<Assembler> a = make();
+
+    Fingerprints found;
+    unsigned int runs = 0;
+    bool viaSave = false;
+    for (;;) {
+      runs++;
+      REQUIRE(runs < 2000);
+      const StopSource stop;
+      const unsigned int stopAfter =
+          std::uniform_int_distribution<unsigned int>(1, maxStopAfter)(rng);
+      const auto delay =
+          std::chrono::microseconds(std::uniform_int_distribution<long>(0, 3000)(rng));
+      std::thread stopper([&stop, delay, outside = runs % 2 == 1] {
+        if (outside) {
+          std::this_thread::sleep_for(delay);
+          stop.request(StopKind::Pause);
+        }
+      });
+      unsigned int thisRun = 0;
+      const RunEnd end = a->assemble(
+          [&found, &thisRun, stopAfter](Assembly asm_) {
+            found.insert(fingerprint(asm_));
+            return ++thisRun < stopAfter;
+          },
+          searchOptions(path.threads, &pool, path.vector), stop.token());
+      stopper.join();
+      if (end == RunEnd::Finished) {
+        break;
+      }
+      // every other stop goes through a saved position
+      viaSave = throughSaves && !viaSave;
+      if (viaSave) {
+        const SavedPosition pos = a->savePosition();
+        a = make();
+        REQUIRE(a->restorePosition(pos.text, pos.version) == AssemblerError::None);
+      }
+    }
+    CHECK(runs > 2);
+    CHECK(found == all);
+    CHECK(a->finished() >= 1.0F);
+  }
 }
 
 /// The twelve pentominoes in a w x h x 1 tray, built in memory (from the
