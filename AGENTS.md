@@ -22,6 +22,7 @@ just test-all           # everything; run before calling a stage done
 just test-asan          # Address + UB sanitizers
 just test-tsan          # ThreadSanitizer on [parallel] cases (from stage 3)
 just oracle [--tier …]  # compare the new bt with the original burrTxt
+just oracle-resume      # pause searches in one program, continue in the other
 just oracle-roundtrip   # load + save every corpus file in both programs, compare
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
@@ -51,7 +52,9 @@ just format             # clang-format
   invariants use `BT_ASSERT` (base/assert.h), which is on in every build.
   Never put side effects inside `BT_ASSERT`.
 - Cancellation: long work takes a `bt::StopToken` and polls it. No search
-  has a stop flag of its own, and nothing resets a token (decision 0004).
+  has a stop flag of its own, and nothing resets a token (decision 0004). A
+  search that must end its own run makes a `StopSource` from the token it
+  was given, one per run (decision 0009).
 - Solve state: only the run's worker writes a `SolveStateCell`; other threads
   read it and stop runs through a `StopSource`.
 - No global state and no environment-variable switches inside `core/`.
@@ -61,7 +64,9 @@ just format             # clang-format
 - Every public declaration has a short doc comment saying what it is for.
   Comments explain why, not what.
 - Concurrency: shared state is `std::atomic` or guarded by a mutex, always.
-  Prefer handing work to the shared thread pool over raw `std::thread`.
+  Hand work to the solve's `bt::ThreadPool` (passed in, never global) rather
+  than starting raw `std::thread`s; thread counts are clamped to
+  `kMaxThreads`.
 
 ## Tests
 
@@ -93,8 +98,10 @@ just format             # clang-format
 
 Every stage ends with, in this order:
 1. `just test-all`, `just test-asan` (and `just test-tsan` from stage 3),
-   `just oracle` for what is ported, `just oracle-roundtrip` (from stage 2;
-   run `oracle.py baseline-files --tier all` once so the original's solved
+   `just oracle` for what is ported (from stage 3 on the fast, full and slow
+   tiers, with all threads and with `--threads 1`), `just oracle-resume`
+   (from stage 3), `just oracle-roundtrip` (from stage 2; run
+   `oracle.py baseline-files --tier all` once so the original's solved
    files are included), `just check` if LLVM is installed.
 2. `docs/ARCHITECTURE.md` updated to describe what now exists.
 3. `docs/handoff/stage-N.md`: what was done, gate results, known issues,

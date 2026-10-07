@@ -79,7 +79,7 @@ class MirrorInfo {
 class Assembly {
  public:
   /// An empty assembly on grid `gt`.
-  explicit Assembly(GridType gt) : gt_(gt) {}
+  explicit Assembly(GridType gt) : gt_(gt), sym_(&gt.getSymmetries()) {}
 
   /// The grid the transformations belong to.
   [[nodiscard]] GridType getGridType() const { return gt_; }
@@ -163,7 +163,7 @@ class Assembly {
   bool operator==(const Assembly& b) const = default;
 
  private:
-  [[nodiscard]] const Symmetries& sym() const { return gt_.getSymmetries(); }
+  [[nodiscard]] const Symmetries& sym() const { return *sym_; }
   [[nodiscard]] const Placement& placed(unsigned int num) const {
     BT_ASSERT(num < placements_.size());
     BT_ASSERT(placements_[num].transformation != kUnplacedTrans);
@@ -176,6 +176,9 @@ class Assembly {
   [[nodiscard]] bool containsMirroredPieces() const;
 
   GridType gt_;
+  /// The grid's tables, looked up once (as assembly_c kept them): the
+  /// rotation checks of the assemblers call sym() in their inner loops.
+  const Symmetries* sym_;
   std::vector<Placement> placements_;
 };
 

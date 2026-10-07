@@ -49,7 +49,10 @@ class TableSymmetries final : public Symmetries {
   using Tables = SymmetryTableSet<Mask, kNumTrans, kNumTransMirror, kNumGroups, TransMultEntry>;
   using CalcFn = Symmetry (*)(const Voxel&);
 
-  TableSymmetries(Tables tables, CalcFn calc) : t_(tables), calc_(calc) {}
+  // constexpr: the instances are constant-initialized (constinit), so using
+  // them needs no initialization guard (the assemblers' rotation checks call
+  // them in their inner loops)
+  constexpr TableSymmetries(Tables tables, CalcFn calc) : t_(tables), calc_(calc) {}
 
   unsigned int getNumTransformations() const override { return kNumTrans; }
   unsigned int getNumTransformationsMirror() const override { return kNumTransMirror; }

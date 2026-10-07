@@ -93,3 +93,30 @@ TEST_CASE("stop: workers see a request made on another thread", "[base][stop][pa
   }
   CHECK(stopped.load() == 4);
 }
+
+// A search makes its own source from the token it was given (one per run),
+// so it can end its run without touching the caller's source.
+TEST_CASE("stop: a source made from a token stops with it, and alone", "[base][stop]") {
+  const StopSource caller;
+  const StopSource run(caller.token());
+  CHECK_FALSE(run.token().stopRequested());
+
+  run.request(StopKind::Pause);
+  CHECK(run.token().stopRequested());
+  CHECK_FALSE(caller.stopRequested());
+
+  const StopSource run2(caller.token());
+  caller.request(StopKind::Abort);
+  CHECK(run2.token().kind() == StopKind::Abort);
+  CHECK(run.token().kind() == StopKind::Abort);
+
+  // a request made before the run's source exists is seen through it
+  const StopSource late(caller.token());
+  CHECK(late.token().stopRequested());
+
+  // a default token as parent: only the source's own requests count
+  const StopSource free{StopToken{}};
+  CHECK_FALSE(free.stopRequested());
+  free.request(StopKind::Pause);
+  CHECK(free.stopRequested());
+}

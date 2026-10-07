@@ -5,6 +5,7 @@ add_executable(bt_tests
   unit/base/test_error.cpp
   unit/base/test_solve_state.cpp
   unit/base/test_stop.cpp
+  unit/base/test_thread_pool.cpp
   unit/grid/test_grid_dump.cpp
   unit/grid/test_grid_invariants.cpp
   unit/grid/test_grid_port.cpp
@@ -15,7 +16,10 @@ add_executable(bt_tests
   unit/io/test_roundtrip.cpp
   unit/io/test_xml.cpp
   unit/model/test_model_dump.cpp
-  unit/model/test_puzzle_model.cpp)
+  unit/model/test_puzzle_model.cpp
+  unit/solve/test_assembler.cpp
+  unit/solve/test_positions.cpp
+  unit/solve/test_simd_exact_cover.cpp)
 
 target_link_libraries(bt_tests PRIVATE btcore Catch2::Catch2WithMain)
 bt_set_warnings(bt_tests)
@@ -30,3 +34,8 @@ set_tests_properties(unit-slow PROPERTIES LABELS slow)
 add_executable(bt_roundtrip tools/roundtrip.cpp)
 target_link_libraries(bt_roundtrip PRIVATE btcore)
 bt_set_warnings(bt_roundtrip)
+
+# bt_resume: pause and continue assembler 0 searches, for `oracle.py resume-check`.
+add_executable(bt_resume tools/resume.cpp)
+target_link_libraries(bt_resume PRIVATE btcore)
+bt_set_warnings(bt_resume)

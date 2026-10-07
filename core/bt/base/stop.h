@@ -68,6 +68,13 @@ class StopSource {
  public:
   StopSource() : state_(std::make_shared<detail::StopState>()) {}
 
+  /// A source that is stopped whenever `parent` is, and can also be stopped
+  /// on its own. A search makes one per run from the token it was given, so
+  /// that it can end its own run (a callback that wants no more, a worker
+  /// that failed) without a flag of its own and without touching the
+  /// caller's source.
+  explicit StopSource(const StopToken& parent) : StopSource() { state_->parent = parent.state_; }
+
   [[nodiscard]] StopToken token() const { return StopToken(state_); }
 
   /// A source that is stopped whenever this one is, and can be stopped alone.

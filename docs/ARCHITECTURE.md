@@ -4,8 +4,9 @@ BurrTools Next is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 2 (model and file format). `core/bt/base`, `grid`,
-`model` and `io` have code.*
+*Current state: stage 3a (the assembler run layer, assembler 0, the vector
+covers, `bt` solving). `core/bt/base`, `grid`, `model`, `io` and `solve`
+have code; assembler 1 and BT2 follow in stage 3b.*
 
 ## Big picture
 
@@ -36,13 +37,13 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 |---|---|
 | `core/bt/<module>/` | the library, headers and sources together; include as `"bt/<module>/x.h"` |
 | `engine/` | `bt-engine` (stage 7) |
-| `cli/` | `bt` (solving from stage 3, full CLI in stage 8) |
+| `cli/` | `bt`: solves with burrTxt-compatible `--json` (assemblies only until stage 4; full CLI in stage 8) |
 | `api/` | JSON Schema of engine methods and events (stage 7); see `api/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
-| `tests/bench/` | benchmarks against the original (stage 3 onward) |
-| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`) |
-| `tests/tools/` | small programs the harness drives (`bt_roundtrip`) |
+| `tests/bench/` | `bench.py`: solve speed against the original, back to back |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`, `positions_by_original.txt`) |
+| `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`) |
 | `docs/` | this file, PLAN.md, decisions/, handoff/, webui-spec.md, core-api.md |
 | `cmake/` | warnings, sanitizers, dependencies |
 
@@ -61,8 +62,14 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 - `clone_ptr.h`: `ClonePtr<T>`, an owning pointer that copies its object
   (with `clone()` when T has one), so classes with polymorphic or recursive
   members keep `= default` copies.
-- Planned for stage 3: a shared thread pool with a global thread budget
-  (replacing the original's `helperpool.cpp` and `BURRTOOLS_THREADS`).
+- `thread_pool.h`: `ThreadPool`, the threads of a solve (from the original's
+  `helperPool_c`): made by the owner of the solve with its thread budget,
+  `run(n, job)` runs a job on the caller and on lent threads, `addLoad()`
+  for work on threads of its own; nesting cannot deadlock. `kMaxThreads`
+  (256), `hardwareThreads()`, `splitThreads()` (assembly / take-apart share
+  of a budget). No process-wide limit, no `BURRTOOLS_THREADS` (decision 0009).
+- `stop.h` also makes a source from a token (`StopSource(const StopToken&)`):
+  each search run stops itself through one without a flag of its own.
 
 ### grid (exists)
 Ported from the original `voxel*.cpp`, `symmetries_*.cpp`, `tabs_*`,
@@ -89,16 +96,18 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
   of a grid (`transAdd`, `minimizeTransformation`, `calculateSymmetry`, …).
   `symmetries_impl.h` is the one table-driven implementation; `symmetries_0/1/2.cpp`
   instantiate it over the generated tables in `tabs_0/1/2/` (copied as they
-  are; see `core/bt/grid/TABLES.md`). The instances are immutable statics.
+  are; see `core/bt/grid/TABLES.md`). The instances are immutable,
+  constant-initialized statics (`constinit`: no guard on use, which the
+  assemblers' rotation checks call in their inner loops).
 - `voxel_table.h`: `VoxelTable`, a hash table that finds a shape in any
   orientation; it takes a callback from index to shape.
 - `bitfield.h`: `Bitfield<N>`, a constexpr bit set (the sphere tables).
 
 **Caches and threads.** `Voxel` computes its symmetry group and the hotspot
 and bounding box of each transformation lazily inside const functions. A
-shape read by several threads must have `warmCaches()` called first (the
-assemblers in stage 3 do this before sharing shapes); editing a shape
-invalidates the caches.
+shape read by several threads must have `warmCaches()` called first (a
+split search calls `warmShapeCaches()` on the result and the parts before
+its threads start); editing a shape invalidates the caches.
 
 **Differences from the original** (deliberate; listed in
 docs/handoff/stage-1.md): `getHotspot` of a transformation the shape cannot
@@ -115,9 +124,9 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   swapping shapes goes through the puzzle, which updates every problem.
 - `problem.h`: `Problem`: parts (`Part`: shape, min, max, groups), result
   and goal shape, colour rules, max holes, `ProblemState`, counts and time,
-  the saved search position (`getAssemblerState()`/`Version()`, raw text for
-  stage 3), pending assemblies, saved solutions with their sort orders,
-  solver options. A problem holds no reference to its puzzle: what needs
+  the saved search position (`getAssemblerState()`/`Version()`,
+  `setAssemblerState()`: the text an assembler wrote, see `solve`), pending
+  assemblies, saved solutions with their sort orders, solver options. A problem holds no reference to its puzzle: what needs
   shapes or colours takes the `Puzzle` (`resultShape(puzzle)`,
   `placementAllowed(puzzle, ...)`, `setShapeMaximum(puzzle, ...)`).
   Pieces are numbered part by part; assemblies and solutions follow that
@@ -152,10 +161,59 @@ and unknown `<voxel>` attributes, are kept and written back in place;
 stacking rod sets and maps are kept this way until stacking is ported.
 Saves are byte-identical to the original's.
 
-### solve (stages 3 to 5)
-A shared parallel/resume layer and the assemblers (`assembler_0`,
-`assembler_1` with SIMD covers, BT2 dancing cells); disassemblers, movement
-caches, rotation rules; `SolveSession` replacing `solveThread_c`.
+### solve (stage 3a exists; 3b, 4 and 5 add to it)
+The assemblers, on one run layer (decision 0009). Ported from
+`assembler.cpp`, `assembler_resume.h`, `assembler_0.cpp`,
+`simd_exact_cover.cpp`, `simd_huang_cover.cpp`, `solvertype.h` and the
+assembler part of `gridtype.cpp`; checked against the original by the
+harness (assembly counts on every tier, 1 and all threads; iteration counts
+of the deterministic searches equal; saved positions continue in both
+programs).
+- `assembler.h`: `Assembler`, the interface: `createMatrix(MatrixOptions)`,
+  `reduce(stop)`, `assemble(callback, SearchOptions, stop) -> RunEnd`,
+  `finished()` / `iterations()` (any thread), `savePosition()` /
+  `restorePosition()` (the `<assembler>` text and version), the placement
+  browser and the debugger (`debugStep`, `currentAssembly`).
+  `AssemblerError` with the original's messages. The problem hooks:
+  `beginSolving(problem, assembler)` starts or restores a solve with the
+  original's failure rule (a position that cannot be restored drops all
+  solutions and the position), `storePosition()` writes a paused one back,
+  `canStartSolving()`. `warmShapeCaches()` before threads.
+- `search_run.h`: the run layer. `SearchRun` (one `assemble()` call: its own
+  stop source under the caller's token, the serialised hand-over to the
+  callback, `deliverOnce` with signatures), `TaskProgress` (weighted task
+  units, lock-free), `runTasks()` (unfinished tasks over the pool's
+  threads; completed only when searched to the end without a stop; the
+  first exception aborts the rest and comes back), `effectiveThreads()`.
+- `resume_state.h`: `SplitSearchState<Task>` (tasks, completion, reported
+  signatures, the vector search's skip count) and the saved-position tail
+  (`K` / `T C S`), byte-compatible with the original.
+- `assembler_0.h`: `Assembler0` (dancing links; every part exactly one
+  piece). Three searches: plain on the caller's thread (flag 0 positions),
+  split into subtree tasks over threads (flag 2), and the vector search
+  alone or inside each task (flag 3). The matrix (`prepare`, `reduce`,
+  `clumpify`) is the original's node for node.
+- `placement_finder.h`: `PlacementFinder`, the placements of a rotated piece
+  in the result, in the original's order.
+- `simd_bitset.h`, `simd_exact_cover.h`, `simd_huang_cover.h`: the vector
+  covers (assembler 0's exact cover, assembler 1's cover with counts and
+  ranges), 256 to 32768 columns, AVX2/AVX-512/NEON kernels behind runtime
+  checks with a scalar fallback, chosen through `SimdKernels`. Read only
+  during a search; threads search subtrees of one solver.
+- `solver_type.h`: `SolverType` (Classic, Crowell, BT2) and its names,
+  `chooseAssembler()` / `makeAssembler()` (null for assembler 1 and BT2
+  until stage 3b).
+
+**Rules of a run** (decision 0009): the search polls only its run's token;
+a callback answering false pauses the run, an exception aborts it; nothing
+is reset, the next `assemble()` carries on; `RunEnd::Finished` only from the
+search itself; a stopped split or vector search continues the way it ran.
+The assembler never writes into the `Problem` (results go to the callback;
+the CLI, later the session, owns the problem).
+
+Planned: assembler 1 and BT2 with its work-stealing driver (3b); the
+disassemblers, movement caches and rotation rules (4); `SolveSession`
+replacing `solveThread_c` (5).
 
 ### mesh and app (stage 6)
 Drawing meshes for every grid; `Document` with transactional undo/redo;
@@ -165,15 +223,22 @@ poses at any step); explorer data.
 ## Testing against the original
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
-  comparison of `bt` with `burrTxt` (from stage 3), the file round trip
+  comparison of `bt` with `burrTxt` (`just oracle`; `--fields`, `--threads`,
+  `--allow-unported` for what is not ported yet), the saved-position check
+  (`just oracle-resume`: searches paused by one program continue in the
+  other; single-thread pauses save the same text), the file round trip
   (`just oracle-roundtrip`: every corpus file, the sliding/stacking/rotation
   fixtures and the original's solved files are loaded and saved by both
   programs; the saves must be the same XML), and recorders that compile a
   dump tool against the original's library (`oracle.py grid-dump`,
-  `model-dump`, `record-saves`, writing into `tests/data/`).
+  `model-dump`, `record-saves`, `record-positions`, writing into
+  `tests/data/`).
+- `tests/bench/bench.py` times `bt` against the original's `burrTxt`, back
+  to back (decision 0007's speed rule; stage 8 is the gate).
 - The unit tests compare with those recordings (`test_grid_dump.cpp`,
   `test_model_dump.cpp`, the byte-for-byte save check in
-  `test_puzzle_file.cpp`); they never read the original repo.
+  `test_puzzle_file.cpp`, the paused positions in `test_positions.cpp`);
+  they never read the original repo.
 
 ## Rules that hold everywhere
 
@@ -188,7 +253,8 @@ See AGENTS.md for the full list. The load-bearing ones:
 ## Build and test
 
 `just build` / `just test` / `just test-all` / `just test-asan` /
-`just test-tsan` / `just oracle` / `just oracle-roundtrip` / `just check`.
+`just test-tsan` / `just oracle` / `just oracle-resume` /
+`just oracle-roundtrip` / `just check`.
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
 `release`. zlib comes from the system, or is built from a pinned release
 (`cmake/Dependencies.cmake`).

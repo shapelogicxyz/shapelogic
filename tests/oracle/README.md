@@ -32,6 +32,10 @@ the original CLI.
 just oracle                       # compare the fast tier
 just oracle --tier fast full      # several tiers
 just oracle --filter Pelikan -v   # one puzzle, show matches too
+just oracle --fields assemblies --allow-unported --threads 1
+                                  # stage 3: assembly counts only, bt -t 1,
+                                  # puzzles needing unported parts listed apart
+just oracle-resume                # paused searches continue in the other program
 just oracle-baseline --tier full  # re-record the original's answers
 python3 tests/oracle/oracle.py baseline-files --tier all    # solved files from burrTxt2, into work/
 just oracle-roundtrip             # the file round trip (stage 2 onward), see below
@@ -48,6 +52,7 @@ it.
 python3 tests/oracle/oracle.py grid-dump     # tests/data/grid_dump.txt (stage 1)
 python3 tests/oracle/oracle.py model-dump    # tests/data/model_dump.txt (stage 2)
 python3 tests/oracle/oracle.py record-saves  # tests/data/saved_by_original/ (stage 2)
+python3 tests/oracle/oracle.py record-positions  # tests/data/positions_by_original.txt (stage 3)
 ```
 
 `grid_dump_old.cpp` and `tests/unit/grid/test_grid_dump.cpp` run the same
@@ -74,6 +79,28 @@ tiers, the sliding, stacking and rotation fixtures the corpus leaves out
 It also counts the files whose saves differ from their input; those are the
 normalisations the original makes too (`timeMs`, default attributes), listed
 with `-v`.
+
+## Saved search positions (stage 3 onward)
+
+`just oracle-resume` builds `resume_old.cpp` against the original's library
+and runs it beside `bt_resume` (`tests/tools/resume.cpp`, the same commands
+on the new core). For each puzzle of `RESUME_SET` and each search (plain on
+one thread, vector on one thread, split over 4 threads with and without the
+vector search) it pauses at three points in each program and continues the
+position in the other: what was reported before the pause and after must be
+every assembly exactly once. Single-thread pauses must also save the very
+same text in both programs.
+
+One case is accounted for explicitly: when the plain search stops right
+after placing the last piece (`pos` equal to the number of pieces), the
+original reads one entry past its row list while saving, and writes past it
+while restoring; its checked build traps. The new core writes `(0 0)` for
+that entry. Such pauses are continued by the new program only and counted
+as known.
+
+`bt` exits with code 3 when a problem needs a part that is not ported yet
+(stage 3a: assembler 1 and BT2); `compare` lists those as UNPORTED, and
+counts them as failures unless `--allow-unported` is given.
 
 ## Levels of comparison
 

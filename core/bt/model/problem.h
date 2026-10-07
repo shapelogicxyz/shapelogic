@@ -248,6 +248,16 @@ class Problem {
   /// the assembler version it belongs to. Empty when there is none.
   [[nodiscard]] const std::string& getAssemblerState() const { return assemblerState_; }
   [[nodiscard]] const std::string& getAssemblerVersion() const { return assemblerVersion_; }
+  /// Stores a search position to be saved with the puzzle (written only
+  /// while the problem is Solving and both strings are set); empty strings
+  /// drop it.
+  void setAssemblerState(std::string state, std::string version) {
+    assemblerState_ = std::move(state);
+    assemblerVersion_ = std::move(version);
+  }
+  /// Drops the position text once an assembler has taken it over (the
+  /// version stays, as in the original).
+  void clearAssemblerState() { assemblerState_.clear(); }
 
   /// Assemblies a paused solve still has to finish.
   [[nodiscard]] const std::vector<PendingAssembly>& getPending() const { return pending_; }

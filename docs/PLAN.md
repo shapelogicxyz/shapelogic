@@ -32,8 +32,9 @@ handoff note, and ends with the "Finishing a stage" steps in AGENTS.md.
 | 7 | 7 | Engine: JSON-RPC, schema, events, binary frames, paging | extra high (API design), high (implementation) | contract tests drive bt-engine as a subprocess; scripted session passes |
 | 7 | 8 | `bt` CLI, benchmarks, performance pass | high | burrTxt-compatible `--json`; within 5% of the original's speed or faster |
 
-Stage 3 may split into 3a (shared layer, `assembler_0`, `assembler_1`) and
-3b (BT2, SIMD covers) if the session runs long.
+Stage 3 is split in two sessions: 3a (the shared run layer, `assembler_0`,
+the SIMD covers, the `bt` CLI and the harness) and 3b (`assembler_1` and
+BT2).
 
 Recommended audit after each solver stage (3, 4, 5) and after stage 7's API
 design: a separate review at the highest available effort or model, given
@@ -45,7 +46,8 @@ failure scenarios.
 - [x] **Stage 0**: bootstrap (see docs/handoff/stage-0.md)
 - [x] **Stage 1**: grids and symmetry (see docs/handoff/stage-1.md)
 - [x] **Stage 2**: model and file format (see docs/handoff/stage-2.md)
-- [ ] Stage 3: assemblers
+- [x] **Stage 3a**: run layer, assembler 0, SIMD covers, `bt` solving (see docs/handoff/stage-3a.md)
+- [ ] Stage 3b: assembler 1 and BurrTools 2
 - [ ] Stage 4: disassembly
 - [ ] Stage 5: solve session
 - [ ] Stage 6: app layer
@@ -78,7 +80,8 @@ Design the shared parallel/resume layer first (decision 0004), then port
 `simd_huang_cover`, `bt2_*`, `assembler_bt2`. Saved positions stay
 compatible with the original. The `bt` CLI gains enough to solve with
 `--json` (assemblies only until stage 4). Port `test_solver.cpp` assembler
-cases and `test_simd_exact_cover.cpp`.
+cases and `test_simd_exact_cover.cpp`. The design is decision 0009; the
+gate adds `just oracle-resume` (saved positions continue in both programs).
 
 ### Stage 4: disassembly
 Port `disassembler_0`, `disassembler_a`, `disassembler_crowell`,

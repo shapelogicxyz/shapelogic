@@ -49,13 +49,12 @@ Symmetry calculate(const Voxel& pp) {
 using Impl = TableSymmetries<Bitfield<240>, NUM_TRANSFORMATIONS, NUM_TRANSFORMATIONS_MIRROR,
                              NUM_SYMMETRY_GROUPS, unsigned char>;
 
+constinit const Impl kInstance(Impl::Tables{kTransMult, kSymmetries, kUnifiedSymmetries,
+                                            kTransformationMinimizer, kUniqueSymmetries},
+                               &calculate);
+
 }  // namespace
 
-const Symmetries& symmetriesTable2() {
-  static const Impl instance(Impl::Tables{kTransMult, kSymmetries, kUnifiedSymmetries,
-                                          kTransformationMinimizer, kUniqueSymmetries},
-                             &calculate);
-  return instance;
-}
+const Symmetries& symmetriesTable2() { return kInstance; }
 
 }  // namespace bt::detail

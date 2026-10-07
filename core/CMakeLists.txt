@@ -5,6 +5,7 @@ add_library(btcore STATIC
   bt/base/assert.cpp
   bt/base/error.cpp
   bt/base/solve_state.cpp
+  bt/base/thread_pool.cpp
   bt/grid/grid_type.cpp
   bt/grid/symmetries_0.cpp
   bt/grid/symmetries_1.cpp
@@ -25,7 +26,14 @@ add_library(btcore STATIC
   bt/model/disassembly.cpp
   bt/model/problem.cpp
   bt/model/puzzle.cpp
-  bt/model/solution.cpp)
+  bt/model/solution.cpp
+  bt/solve/assembler.cpp
+  bt/solve/assembler_0.cpp
+  bt/solve/placement_finder.cpp
+  bt/solve/search_run.cpp
+  bt/solve/simd_exact_cover.cpp
+  bt/solve/simd_huang_cover.cpp
+  bt/solve/solver_type.cpp)
 
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")

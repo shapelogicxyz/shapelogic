@@ -80,24 +80,32 @@ def select(entries: list[Entry], tiers: list[str], name_filter: str | None) -> l
     return [e for e in entries if e.tier in wanted and (not name_filter or name_filter in e.rel)]
 
 
-def cli_args(entry: Entry) -> list[str]:
+def cli_args(entry: Entry, threads: int | None = None) -> list[str]:
     args = ["--json"]
     if "R" in entry.flags:
         args.append("-R")
+    if threads is not None:
+        args += ["-t", str(threads)]
     return args
+
+
+# Exit code of the new bt for a problem that needs a part not ported yet
+# (stage 3a: assembler 1 and BT2). compare reports those as UNPORTED.
+EXIT_NOT_PORTED = 3
 
 
 SUMMARY_RE = re.compile(r"(\d+) assemblies and (\d+) solutions found with \d+ iterations in ([\d.]+) seconds")
 
 
-def run_json(binary: Path, puzzle: Path, entry: Entry, timeout: float, old: bool) -> dict:
+def run_json(binary: Path, puzzle: Path, entry: Entry, timeout: float, old: bool,
+             threads: int | None = None) -> dict:
     """Run a burrTxt-compatible binary and return its result as a --json-style object.
 
     For assemble-only ("A") puzzles the original burrTxt is run with -q and
     its text summary parsed, because its --json aborts on grids without
     take-apart (see corpus.txt)."""
     text_mode = old and "A" in entry.flags
-    argv = [str(binary), "-q", str(puzzle)] if text_mode else [str(binary), *cli_args(entry), str(puzzle)]
+    argv = [str(binary), "-q", str(puzzle)] if text_mode else [str(binary), *cli_args(entry, threads), str(puzzle)]
     start = time.monotonic()
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
@@ -111,6 +119,9 @@ def run_json(binary: Path, puzzle: Path, entry: Entry, timeout: float, old: bool
         return {"assemblies": int(m.group(1)), "solutions": int(m.group(2)), "dotlevel": None,
                 "level": None, "totalmoves": None, "solvetime": float(m.group(3)), "wall": wall}
     lines = [ln for ln in proc.stdout.splitlines() if ln.startswith("{")]
+    if not old and proc.returncode == EXIT_NOT_PORTED:
+        lines_err = (proc.stderr or "").strip().splitlines()
+        return {"unported": lines_err[-1] if lines_err else "not ported yet"}
     if proc.returncode != 0 or not lines:
         tail = (proc.stderr or proc.stdout).strip().splitlines()[-3:]
         return {"error": f"exit {proc.returncode}: " + " | ".join(tail)}
@@ -123,14 +134,15 @@ def baseline_path(tier: str) -> Path:
     return BASELINE_DIR / f"{tier}.json"
 
 
-def run_many(binary: Path, old_repo: Path, entries: list[Entry], jobs: int, timeout: float, old: bool) -> dict[str, dict]:
+def run_many(binary: Path, old_repo: Path, entries: list[Entry], jobs: int, timeout: float, old: bool,
+             threads: int | None = None) -> dict[str, dict]:
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
-        futures = {pool.submit(run_json, binary, old_repo / e.rel, e, timeout, old): e for e in entries}
+        futures = {pool.submit(run_json, binary, old_repo / e.rel, e, timeout, old, threads): e for e in entries}
         for n, fut in enumerate(concurrent.futures.as_completed(futures), 1):
             e = futures[fut]
             results[e.rel] = fut.result()
-            status = results[e.rel].get("error", "ok")
+            status = results[e.rel].get("error", "unported" if "unported" in results[e.rel] else "ok")
             print(f"[{n}/{len(entries)}] {e.rel}: {status}", file=sys.stderr)
     return results
 
@@ -168,22 +180,34 @@ def cmd_compare(args: argparse.Namespace) -> int:
             print(f"no baseline for tier '{tier}': run `just oracle-baseline --tier {tier}`", file=sys.stderr)
             return 2
         expected.update(json.loads(path.read_text()))
-    results = run_many(args.new_bt, args.old_repo, entries, args.jobs, args.timeout, old=False)
+    fields = COMPARED if args.fields is None else tuple(args.fields)
+    unknown = [f for f in fields if f not in COMPARED]
+    if unknown:
+        print(f"unknown field(s): {', '.join(unknown)}; choose from {', '.join(COMPARED)}", file=sys.stderr)
+        return 2
+    results = run_many(args.new_bt, args.old_repo, entries, args.jobs, args.timeout, old=False,
+                       threads=args.threads)
 
     failures = 0
+    unported = 0
     rows = []
     for e in sorted(entries, key=lambda x: x.rel):
         want, got = expected.get(e.rel), results[e.rel]
         if want is None:
             rows.append((e.rel, "NO BASELINE", ""))
             failures += 1
+        elif "unported" in got:
+            rows.append((e.rel, "UNPORTED", got["unported"]))
+            unported += 1
+            if not args.allow_unported:
+                failures += 1
         elif "error" in got:
             rows.append((e.rel, "NEW FAILED", got["error"]))
             failures += 1
         elif "error" in want:
             rows.append((e.rel, "OLD FAILED", want["error"]))
         else:
-            diffs = [f"{k}: {want.get(k)} != {got.get(k)}" for k in COMPARED if want.get(k) != got.get(k)]
+            diffs = [f"{k}: {want.get(k)} != {got.get(k)}" for k in fields if want.get(k) != got.get(k)]
             if diffs:
                 rows.append((e.rel, "MISMATCH", "; ".join(diffs)))
                 failures += 1
@@ -195,7 +219,14 @@ def cmd_compare(args: argparse.Namespace) -> int:
     for rel, status, detail in rows:
         if status != "ok" or args.verbose:
             print(f"{status:12} {rel}  {detail}")
-    print(f"\n{len(rows) - failures}/{len(rows)} match the original" + ("" if failures == 0 else f", {failures} do not"))
+    compared = len(rows) - (unported if args.allow_unported else 0)
+    what = "all fields" if args.fields is None else ", ".join(fields)
+    threads = "default threads" if args.threads is None else f"{args.threads} thread(s)"
+    print(f"\n{compared - failures}/{compared} match the original ({what}; {threads})"
+          + ("" if failures == 0 else f", {failures} do not"))
+    if unported:
+        print(f"{unported} need a part that is not ported yet"
+              + (" (not counted: --allow-unported)" if args.allow_unported else " (counted as failures)"))
     return 1 if failures else 0
 
 
@@ -443,6 +474,169 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+# Puzzles for resume-check: assembler 0 puzzles with enough assemblies to
+# pause in the middle, solving in well under a second.
+RESUME_SET = (
+    "examples/PelikanBurr.xmpuzzle",
+    "examples/DraculasDentalDesaster.xmpuzzle",
+    "tictest/performance/puzzles/5x5x5_TICs/TIC_Boxes/TIC_Box_IV.xmpuzzle",
+    "tictest/performance/puzzles/ARCparent_Cubes/bACon1.xmpuzzle",
+    "tictest/performance/puzzles/ARCparent_Cubes/AngleCube.xmpuzzle",
+    "tictest/performance/puzzles/ARCparent_Cubes/ACornBox2.xmpuzzle",
+    "tictest/performance/puzzles/RIBs/RIBlet.xmpuzzle",
+)
+
+# (threads, plain): the plain search on one thread (flag 0), the vector search
+# on one thread (flag 3), and the split search with and without it (flag 2).
+RESUME_MODES = ((1, 1), (1, 0), (4, 0), (4, 1))
+
+
+def run_resume_tool(tool: Path, args: list[str], timeout: float) -> dict:
+    """Run resume_old / bt_resume; the assemblies (a sorted list, as a
+    multiset), the saved position, whether it finished, or an error."""
+    try:
+        proc = subprocess.run([str(tool), *args], capture_output=True, text=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        return {"error": "timeout"}
+    if proc.returncode != 0:
+        return {"error": (proc.stderr or proc.stdout).strip()[-200:] or f"exit {proc.returncode}"}
+    out: dict = {"assemblies": []}
+    for line in proc.stdout.splitlines():
+        key, _, rest = line.partition(" ")
+        if key == "A":
+            out["assemblies"].append(rest)
+        elif key in ("VERSION", "TEXT", "ERR", "FINISHED"):
+            out[key.lower()] = rest
+    out["assemblies"].sort()
+    return out
+
+
+def cmd_resume_check(args: argparse.Namespace) -> int:
+    """Pause assembler 0 searches in one program and continue them in the other."""
+    WORK_DIR.mkdir(exist_ok=True)
+    old_tool = WORK_DIR / "resume_old"
+    if not build_against_old(args.old_repo, HERE / "resume_old.cpp", old_tool):
+        return 2
+    if not args.new_tool.exists():
+        print(f"new bt_resume not found at {args.new_tool}", file=sys.stderr)
+        return 2
+    tools = {"old": old_tool, "new": args.new_tool}
+    pos_file = WORK_DIR / "resume_position.txt"
+
+    checks = failures = same_text = known = 0
+    for rel in RESUME_SET:
+        if args.filter and args.filter not in rel:
+            continue
+        puzzle = str(args.old_repo / rel)
+        for threads, plain in RESUME_MODES:
+            mode = f"{threads} thread(s){', plain' if plain else ''}"
+            base = [puzzle, str(threads), str(plain), "1"]
+            full = {k: run_resume_tool(t, ["full", *base], args.timeout) for k, t in tools.items()}
+            if any("error" in r for r in full.values()) or full["old"]["assemblies"] != full["new"]["assemblies"]:
+                print(f"MISMATCH     {rel} [{mode}]: full runs differ or fail")
+                failures += 1
+                continue
+            everything = full["old"]["assemblies"]
+            n = len(everything)
+            for stop_after in sorted({1, max(1, n // 3), max(1, 2 * n // 3)}):
+                if stop_after >= n:
+                    continue
+                paused = {k: run_resume_tool(t, ["pause", *base, str(stop_after)], args.timeout)
+                          for k, t in tools.items()}
+                if "error" in paused["new"] or "text" not in paused["new"]:
+                    print(f"MISMATCH     {rel} [{mode}] stop {stop_after}: the new pause failed")
+                    failures += 1
+                    continue
+                # Known bug of the original: a plain search stopped right after
+                # placing the last piece stands at pos == pieces, and the
+                # original reads (saving) and writes (restoring) one entry past
+                # its row list there; its checked build traps. The new core
+                # writes "(0 0)" for that entry. Such a position is only
+                # continued by the new program.
+                pieces = everything[0].count(";")
+                fields = paused["new"]["text"].split()
+                past_end = fields[0] == "0" and int(fields[1]) == pieces
+                if past_end:
+                    known += 1
+                    if "error" not in paused["old"]:
+                        print(f"NOTE         {rel} [{mode}] stop {stop_after}: the original saved a "
+                              "position after the last piece without failing")
+                    directions = (("new", "new"),)
+                else:
+                    if "error" in paused["old"] or "text" not in paused["old"]:
+                        print(f"MISMATCH     {rel} [{mode}] stop {stop_after}: the original's pause failed")
+                        failures += 1
+                        continue
+                    directions = (("old", "new"), ("new", "old"))
+                    # the deterministic searches save the very same position
+                    if threads == 1:
+                        checks += 1
+                        if paused["old"]["text"] != paused["new"]["text"] or \
+                                paused["old"]["assemblies"] != paused["new"]["assemblies"]:
+                            print(f"MISMATCH     {rel} [{mode}] stop {stop_after}: positions differ\n"
+                                  f"  old: {paused['old']['text'][:120]}\n  new: {paused['new']['text'][:120]}")
+                            failures += 1
+                        else:
+                            same_text += 1
+                for src, dst in directions:
+                    checks += 1
+                    pos_file.write_text(paused[src]["version"] + "\n" + paused[src]["text"] + "\n")
+                    rest = run_resume_tool(tools[dst], ["resume", *base, str(pos_file)], args.timeout)
+                    label = f"{rel} [{mode}] stop {stop_after}: paused by {src}, continued by {dst}"
+                    if "error" in rest or "err" in rest:
+                        print(f"MISMATCH     {label}: {rest.get('error') or 'cannot restore, code ' + rest['err']}")
+                        failures += 1
+                        continue
+                    both = sorted(paused[src]["assemblies"] + rest["assemblies"])
+                    if both != everything or rest.get("finished") != "1":
+                        print(f"MISMATCH     {label}: {len(paused[src]['assemblies'])} + "
+                              f"{len(rest['assemblies'])} assemblies, {n} expected"
+                              + ("" if both != everything else " (not finished)"))
+                        failures += 1
+                    elif args.verbose:
+                        print(f"ok           {label}")
+    print(f"\n{checks - failures}/{checks} resume checks pass; "
+          f"{same_text} single-thread pauses saved the same text in both programs")
+    if known:
+        print(f"{known} pauses stood after the last piece, which the original cannot save "
+              "(a known bug, see docs/handoff/stage-3a.md); those were continued by the new program only")
+    return 1 if failures else 0
+
+
+# Fixtures whose paused positions record-positions takes from the original.
+POSITION_FIXTURES = ("PelikanBurr.xmpuzzle", "DraculasDentalDesaster.xmpuzzle")
+
+
+def cmd_record_positions(args: argparse.Namespace) -> int:
+    """Record tests/data/positions_by_original.txt: searches the original paused,
+    with the position it saved and the assemblies it reported before."""
+    WORK_DIR.mkdir(exist_ok=True)
+    tool = WORK_DIR / "resume_old"
+    if not build_against_old(args.old_repo, HERE / "resume_old.cpp", tool):
+        return 2
+    blocks = ["# Assembler 0 searches paused by the original (oracle.py record-positions):",
+              "# POS <fixture> <threads> <plain> <reduce> <stopAfter>, the saved position,",
+              "# the assemblies reported before the pause. Read by tests/unit/solve/test_positions.cpp."]
+    for name in POSITION_FIXTURES:
+        puzzle = str(FIXTURES / name)
+        for threads, plain in ((1, 1), (1, 0), (4, 0)):
+            base = [puzzle, str(threads), str(plain), "1"]
+            n = len(run_resume_tool(tool, ["full", *base], args.timeout).get("assemblies", []))
+            for stop_after in sorted({1, max(1, n // 3), max(1, 2 * n // 3)}):
+                r = run_resume_tool(tool, ["pause", *base, str(stop_after)], args.timeout)
+                if "error" in r or "text" not in r:
+                    continue  # a position the original cannot save (after the last piece)
+                blocks.append(f"POS {name} {threads} {plain} 1 {stop_after}")
+                blocks.append(f"VERSION {r['version']}")
+                blocks.append(f"TEXT {r['text']}")
+                blocks += [f"A {a}" for a in r["assemblies"]]
+                blocks.append("END")
+    out = HERE.parent / "data" / "positions_by_original.txt"
+    out.write_text("\n".join(blocks) + "\n")
+    print(f"wrote {out}")
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
@@ -455,9 +649,23 @@ def main() -> int:
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
+        if name == "compare":
+            s.add_argument("--fields", nargs="+", metavar="FIELD",
+                           help=f"compare only these fields (default all: {' '.join(COMPARED)})")
+            s.add_argument("--threads", "-t", type=int, metavar="N",
+                           help="run the new bt with -t N (default: its own, all cores)")
+            s.add_argument("--allow-unported", action="store_true",
+                           help="list puzzles that need parts not ported yet without failing on them")
     sub.add_parser("grid-dump", help="record tests/data/grid_dump.txt from the original's grid code")
     sub.add_parser("model-dump", help="record tests/data/model_dump.txt from the original's model code")
     sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
+    s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
+    s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
+    s = sub.add_parser("resume-check", help="pause searches in one program and continue them in the other")
+    s.add_argument("--new-tool", type=Path, default=HERE.parent.parent / "build" / "release" / "tests" / "bt_resume")
+    s.add_argument("--filter", help="only puzzles whose path contains this text")
+    s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
+    s.add_argument("--verbose", "-v", action="store_true")
     s = sub.add_parser("roundtrip", help="load and save every corpus file with both programs and compare")
     s.add_argument("--new-tool", type=Path, default=HERE.parent.parent / "build" / "release" / "tests" / "bt_roundtrip")
     s.add_argument("--filter", help="only files whose path contains this text")
@@ -467,8 +675,9 @@ def main() -> int:
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
-            "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip,
-            "model-dump": cmd_model_dump, "record-saves": cmd_record_saves}[args.cmd](args)
+            "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
+            "model-dump": cmd_model_dump, "record-saves": cmd_record_saves,
+            "record-positions": cmd_record_positions}[args.cmd](args)
 
 
 if __name__ == "__main__":

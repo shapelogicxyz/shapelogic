@@ -37,6 +37,10 @@ oracle *args: (build "release")
 oracle-roundtrip *args: (build "release")
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" roundtrip {{args}}
 
+# Pause searches in one program and continue them in the other (saved positions, decision 0006)
+oracle-resume *args: (build "release")
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" resume-check {{args}}
+
 # Record the original burrTxt's answers for a corpus tier
 oracle-baseline *args:
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}
