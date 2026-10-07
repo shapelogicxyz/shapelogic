@@ -10,13 +10,18 @@
 #include "bt/io/puzzle_file.h"
 #include "bt/solve/assembler.h"
 #include "bt/solve/assembler_0.h"
+#include "bt/solve/dlx_matrix.h"
+#include "bt/solve/rotation_filter.h"
 #include "bt/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
+#include <cstdio>
+#include <optional>
 #include <random>
 #include <set>
 #include <sstream>
@@ -592,6 +597,209 @@ TEST_CASE("Assembler 0: a finished position restores as finished", "[solve][asse
   const test::RunResult r = runOnce(b, searchOptions(1, nullptr));
   CHECK(r.end == RunEnd::Finished);
   CHECK(r.found.empty());
+}
+
+// ---- from the audit of stage 3 ---------------------------------------------------
+
+namespace {
+
+std::unique_ptr<Assembler> madeA0(const Puzzle& p) {
+  auto a = std::make_unique<Assembler0>(p, p.getProblem(0));
+  REQUIRE(a->createMatrix({}) == AssemblerError::None);
+  return a;
+}
+
+// The first entry of a plain search's position "0 0 <iterations> (r c)":
+// the row at depth 0, or nothing when the position is not at depth 0.
+std::optional<unsigned int> depthZeroRow(const std::string& text) {
+  unsigned int pos = 1;
+  unsigned long long it = 0;
+  unsigned int row = 0;
+  unsigned int col = 0;
+  int used = 0;
+  if (std::sscanf(text.c_str(), "0 %u %llu (%u %u)%n", &pos, &it, &row, &col, &used) != 4 ||
+      pos != 0 || static_cast<std::size_t>(used) != text.size()) {
+    return std::nullopt;
+  }
+  return row;
+}
+
+// The node count of Pelikan's matrix, and positions of its plain, vector
+// and split searches to damage.
+std::size_t pelikanNodes(const Puzzle& p) {
+  DlxMatrix m;
+  RotationFilter f;
+  std::atomic<unsigned int> piece{0};
+  int param = 0;
+  REQUIRE(m.build(p, p.getProblem(0), false, f, piece, param) == AssemblerError::None);
+  return m.nodes.left.size();
+}
+
+std::vector<std::string> pelikanPositions(const Puzzle& p, ThreadPool& pool) {
+  std::vector<std::string> texts;
+  for (const auto& [threads, vector] : {std::pair{1U, false}, std::pair{1U, true},
+                                        std::pair{4U, false}}) {
+    auto a = madeA0(p);
+    (void)runOnce(*a, searchOptions(threads, &pool, vector), {}, 3);
+    texts.push_back(a->savePosition().text);
+  }
+  REQUIRE(texts[0][0] == '0');
+  REQUIRE(texts[1][0] == '3');
+  REQUIRE(texts[2][0] == '2');
+  return texts;
+}
+
+}  // namespace
+
+// The plain search goes back to depth 0 between two first-level rows, with
+// the last one still covered; a pause can land there. Continued with
+// threads or with the vector search, it was taken for a search that had not
+// started (the original's bug too) and reported assemblies of a matrix
+// that was not whole.
+TEST_CASE("Assembler 0: a plain search stopped anywhere continues the same on every path",
+          "[solve][assembler][resume][parallel]") {
+  ThreadPool pool(4);
+  for (const char* file : {"DraculasDentalDesaster.xmpuzzle", "PelikanBurr.xmpuzzle"}) {
+    INFO(file);
+    const Puzzle p = test::loadFixture(file);
+    auto make = [&p] { return madeA0(p); };
+    const Fingerprints all = allAssemblies(file);
+
+    // where depth 0 is revisited
+    std::vector<unsigned long> steps;
+    {
+      auto a = make();
+      for (unsigned long k = 1; k < 100000 && steps.size() < 2; k++) {
+        a->debugStep(1);
+        const std::optional<unsigned int> row = depthZeroRow(a->savePosition().text);
+        if (row && *row != 0) {
+          steps.push_back(k);
+        }
+      }
+    }
+    REQUIRE(!steps.empty());
+    for (const unsigned long k : {0UL, 40UL, 5000UL}) {
+      steps.push_back(k);
+    }
+
+    for (const unsigned long k : steps) {
+      const Fingerprints rest = test::continueOnEveryPath(make, k, pool);
+      CHECK(test::isSubMultiset(rest, all));
+    }
+  }
+}
+
+// A vector search stopped before it reported anything left its flag behind;
+// a plain search after it then saved a flag 3 position away from the start,
+// which no restore accepts, and beginSolving() dropped every result.
+TEST_CASE("Assembler 0: a vector search stopped at once leaves no trace in a plain position",
+          "[solve][assembler][resume]") {
+  const Puzzle p = test::loadFixture("DraculasDentalDesaster.xmpuzzle");
+  test::vectorStoppedAtOnceThenPlain([&p] { return madeA0(p); },
+                                     allAssemblies("DraculasDentalDesaster.xmpuzzle"));
+}
+
+TEST_CASE("Assembler 0: every search kind run to its end restores as finished",
+          "[solve][assembler][resume][parallel]") {
+  ThreadPool pool(4);
+  const Puzzle p = test::loadFixture("DraculasDentalDesaster.xmpuzzle");
+  test::finishedRestoresOnEveryPath([&p] { return madeA0(p); }, pool);
+
+  // a stopped split search whose tasks are all done (a stop that came after
+  // the last one) is through on the next run, and says so when saved
+  auto a = madeA0(p);
+  REQUIRE(a->restorePosition("2 0 0 (0 0) T 1 0 C 1 S 0", Assembler0::kVersion) ==
+          AssemblerError::None);
+  const test::RunResult r = runOnce(*a, searchOptions(1, nullptr, false));
+  CHECK(r.end == RunEnd::Finished);
+  CHECK(r.found.empty());
+  const SavedPosition pos = a->savePosition();
+  auto b = madeA0(p);
+  CHECK(b->restorePosition(pos.text, pos.version) == AssemblerError::None);
+  CHECK(b->finished() >= 1.0F);
+}
+
+// The original covered whatever a position named: a damaged one read and
+// wrote out of bounds. Each level is now checked before it is covered, and
+// a refused position leaves the assembler as it was.
+TEST_CASE("Assembler 0: a damaged position is refused before it is used",
+          "[solve][assembler][resume]") {
+  const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
+  const Fingerprints all = allAssemblies("PelikanBurr.xmpuzzle");
+  const std::size_t nodes = pelikanNodes(p);
+
+  {
+    const std::string damaged[] = {
+        "0 1 0 (5 4000000000) (0 0)",                    // a column that is no column
+        "0 1 0 (3 1) (0 0)",                             // a header as the row
+        "0 1 0 (" + std::to_string(nodes) + " 1) (0 0)",  // the row one past the last node
+        "0 2 0 (0 0) (0 0) (0 0)",                       // a level below pos without a row
+        "0 0 0 (4000000000 2)",                          // the level it stands on, no node
+        "2 0 0 (0 0) T 10000000 1 1 1",                  // more tasks than the text holds
+        "2 0 0 (0 0) T 1 4000000000 C 0 S 0",            // a prefix longer than the pieces
+        "2 0 0 (0 0) T 1 1 5 4000000000 C 0 S 0",        // a prefix row that is no node
+        "2 0 0 (0 0) T 1 1 1 3 C 0 S 0",                 // a prefix row that is a header
+    };
+    for (const std::string& text : damaged) {
+      INFO(text);
+      auto a = madeA0(p);
+      CHECK(a->restorePosition(text, Assembler0::kVersion) == AssemblerError::CannotRestoreSyntax);
+      // nothing changed: the search runs as from the start
+      const test::RunResult r = runOnce(*a, searchOptions(1, nullptr, false));
+      CHECK(r.end == RunEnd::Finished);
+      CHECK(r.found == all);
+    }
+  }
+}
+
+TEST_CASE("Assembler 0: random damage to a position is refused, or searches in bounds",
+          "[solve][assembler][resume][slow]") {
+  ThreadPool pool(4);
+  const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
+  const Fingerprints all = allAssemblies("PelikanBurr.xmpuzzle");
+  const std::size_t nodes = pelikanNodes(p);
+  const std::vector<std::string> texts = pelikanPositions(p, pool);
+
+  std::mt19937 rng(91);
+  unsigned int refused = 0;
+  for (const std::string& text : texts) {
+    for (int k = 0; k < 200; k++) {
+      std::string t = text;
+      std::vector<std::size_t> starts;
+      for (std::size_t i = 0; i < t.size(); i++) {
+        if (std::isdigit(static_cast<unsigned char>(t[i])) != 0 &&
+            (i == 0 || std::isdigit(static_cast<unsigned char>(t[i - 1])) == 0)) {
+          starts.push_back(i);
+        }
+      }
+      const std::size_t at =
+          starts[std::uniform_int_distribution<std::size_t>(0, starts.size() - 1)(rng)];
+      if (k % 5 == 0) {
+        t.resize(at);
+      } else {
+        std::size_t end = at;
+        while (end < t.size() && std::isdigit(static_cast<unsigned char>(t[end])) != 0) {
+          end++;
+        }
+        const auto v = k % 2 == 0
+                           ? std::uniform_int_distribution<std::size_t>(0, 10)(rng)
+                           : std::uniform_int_distribution<std::size_t>(0, nodes + 10)(rng);
+        t.replace(at, end - at, std::to_string(v));
+      }
+      INFO(t);
+      auto a = madeA0(p);
+      if (a->restorePosition(t, Assembler0::kVersion) != AssemblerError::None) {
+        refused++;
+        continue;
+      }
+      // another position the search could have stood at: it searches on
+      // to its end and finds only assemblies of the puzzle
+      const test::RunResult r = runOnce(*a, searchOptions(1, nullptr, false));
+      CHECK(r.end == RunEnd::Finished);
+      CHECK(test::isSubMultiset(r.found, all));
+    }
+  }
+  CHECK(refused > 100);
 }
 
 TEST_CASE("Assembler 0: errors of createMatrix", "[solve][assembler]") {

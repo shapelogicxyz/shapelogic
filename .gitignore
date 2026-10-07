@@ -1,7 +1,55 @@
-/build/
-/tests/oracle/work/
+*#
+*~
+admin/
+doxygen.cfg
+src/burrTxt
+src/burrTxt2
+src/gui/burrGui
+src/help/helpviewer
+src/unitTest
+build/
+build-*/
+GPATH
+GRTAGS
+GTAGS
+
+# Meson subprojects (keep only .wrap files in git)
+subprojects/*
+!subprojects/*.wrap
+!subprojects/packagefiles/
+
+# macOS build artifacts
+*.dmg
+*.app
+dmg_contents/
+coverage-html/
+
+# macOS Finder metadata, written into any directory the user opens in Finder
 .DS_Store
-.cache/
-compile_commands.json
+
+# Generated Doxygen API reference (`just docs`)
+gendoc/
+
+# Python artifacts
 __pycache__/
 *.pyc
+
+# The GUI's crash save, written to the folder it was started from (src/gui/main.cpp)
+__rescue.xmpuzzle
+
+# Local generated test output (anchored: tests/data/puzzles/ holds tracked fixtures)
+*.stl
+/puzzles/
+/tictest/
+tmp/
+
+# Benchmark and profiling outputs
+bench/*.csv
+bench_run.log
+callgrind*.out*
+perf.data*
+
+# BurrTools Next: oracle harness scratch, editor caches, the build's compile database
+/tests/oracle/work/
+.cache/
+compile_commands.json

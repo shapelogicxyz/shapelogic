@@ -150,6 +150,21 @@ class Assembler1 final : public Assembler {
   /// bounds (a saved position is checked before it is used).
   [[nodiscard]] bool validStacks(const SearchStacks& s, bool task) const;
 
+  /// One step a checked replay made, so that it can be taken back.
+  struct ReplayStep {
+    enum class Kind : unsigned char { CloseColumn, CoverRows, HideRow, AddRow };
+    Kind kind;
+    unsigned int node;
+  };
+  /// replay() for stacks read from a file (validStacks() first), each step
+  /// checked before it is made: a column closed must be open, a column's
+  /// rows taken out once, a row hidden must be in the matrix whole. False at
+  /// the first step that is not; the steps made are on `done` either way.
+  [[nodiscard]] bool replayChecked(Links& n, const SearchStacks& s, bool task,
+                                   std::vector<ReplayStep>& done) const;
+  /// Takes the steps on `done` back, the last first.
+  static void undoReplay(Links& n, std::vector<ReplayStep>& done);
+
   // ---- the searches ----------------------------------------------------------
   [[nodiscard]] Assembly assemblyFromRows(const std::vector<unsigned int>& rows) const;
   void solution(SearchRun& run);
@@ -166,10 +181,13 @@ class Assembler1 final : public Assembler {
   [[nodiscard]] std::unique_ptr<SimdHuangCoverBase> createSimdSolver(SimdKernels kernels) const;
   /// The search is through.
   [[nodiscard]] bool searchDone() const { return stacks_.nextRowStack.empty(); }
-  /// The search stands at its start.
+  /// The search stands at its start: the first frame not begun. (At its
+  /// end it stands on one frame too, with the first column still closed;
+  /// that is no start.)
   [[nodiscard]] bool atRoot() const {
-    return stacks_.taskStack.size() == 1 && stacks_.rows.empty() &&
-           stacks_.nextRowStack.size() == 1;
+    return stacks_.taskStack.size() == 1 && stacks_.taskStack[0] == 0 &&
+           stacks_.nextRowStack.size() == 1 && stacks_.rows.empty() &&
+           stacks_.columnStack.empty() && stacks_.hiddenRows.empty();
   }
 
   /// The fraction of the plain search, from where it stands (the original's

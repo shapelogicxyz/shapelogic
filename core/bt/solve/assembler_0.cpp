@@ -618,7 +618,12 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
 
   if (std::find(split_.completed.begin(), split_.completed.end(), 0) ==
       split_.completed.end()) {
+    // through: as at the end of a run below, so that a saved position says
+    // so (the original kept the tasks and wrote flag 2 past the last piece,
+    // which no restore accepts)
     pos_ = piecenumber + 1;
+    split_.clearTasks();
+    split_.interrupted = false;
     return;
   }
 
@@ -718,7 +723,7 @@ bool Assembler0::simdFits(const SearchOptions& options) const {
 }
 
 bool Assembler0::canUseSimd(const SearchOptions& options) const {
-  return pos_ == 0 && simdFits(options);
+  return atStart() && simdFits(options);
 }
 
 std::unique_ptr<SimdExactCoverBase> Assembler0::createSimdSolver(SimdKernels kernels) const {
@@ -845,13 +850,19 @@ RunEnd Assembler0::assemble(const AssemblyCallback& callback, const SearchOption
   vectorAnyway.vectorSearch = true;
   if (split_.vectorSkip > 0 && canUseSimd(vectorAnyway)) {
     simdSearch(run, vectorAnyway);
-  } else if (pos_ == 0 && (threads > 1 || !split_.tasks.empty())) {
+  } else if (atStart() && (threads > 1 || !split_.tasks.empty())) {
     parallelMultiSearch(run, threads, options);
   } else if (canUseSimd(options)) {
     simdSearch(run, options);
   } else {
     // not the fraction of an earlier search that reported by tasks
     taskProgress_.reset();
+    // What a save writes from now on is the plain search's position. A
+    // vector search stopped before it reported anything left the flag of a
+    // stopped vector search behind; with it, the save would be a flag 3
+    // position away from the start, which no restore accepts (the
+    // original's bug too).
+    split_.interrupted = false;
     iterativeMultiSearch(run);
   }
 
@@ -868,7 +879,8 @@ float Assembler0::finished() const {
 AssemblerError Assembler0::restorePosition(std::string_view text, std::string_view version) {
   // the matrix must stand at the start, otherwise the stack would need
   // cleaning
-  BT_ASSERT(pos_ == 0);
+  BT_ASSERT_MSG(!rows_.empty(), "restorePosition() before createMatrix()");
+  BT_ASSERT(atStart());
   split_ = SplitSearchState<SubtreeTask>{};
 
   if (version != kVersion) {
@@ -909,6 +921,10 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
     return AssemblerError::CannotRestoreSyntax;
   }
 
+  // read into these first: nothing changes unless the whole position is good
+  std::vector<unsigned int> rows(rows_.size(), 0);
+  std::vector<unsigned int> columns(columns_.size(), 0);
+
   if (pos <= piecenumber) {
     for (unsigned int i = 0; i <= pos; i++) {
       while ((spos < len) && (string[spos] != '(')) {
@@ -919,11 +935,11 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
         return AssemblerError::CannotRestoreSyntax;
       }
 
-      spos += getInt(string + spos, &rows_[i]);
+      spos += getInt(string + spos, &rows[i]);
       if (spos >= len) {
         return AssemblerError::CannotRestoreSyntax;
       }
-      spos += getInt(string + spos, &columns_[i]);
+      spos += getInt(string + spos, &columns[i]);
       if (spos >= len) {
         return AssemblerError::CannotRestoreSyntax;
       }
@@ -937,34 +953,26 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
         return AssemblerError::CannotRestoreSyntax;
       }
     }
-
-    // integrity: the rows placed must be nodes (the last entry may only
-    // prepare the next step and is not checked)
-    for (unsigned int i = 0; i < pos; i++) {
-      if (rows_[i] > matrix_.nodes.left.size()) {
-        return AssemblerError::CannotRestoreSyntax;
-      }
-    }
   }
   // A position past the last piece is a finished search, which has no rows
   // to read (the original read past its row list here).
 
+  SplitSearchState<SubtreeTask> tail;
   if (interrupted >= 2) {
     if (pos != 0) {
       return AssemblerError::CannotRestoreSyntax;
     }
-    SplitSearchState<SubtreeTask> tail;
     std::size_t done = 0;
-    const std::size_t rowCount = matrix_.nodes.left.size();
     const bool ok = readResumeTail(
-        string + spos, interrupted, tail, done, [rowCount](ResumeReader& r, SubtreeTask& t) {
+        string + spos, interrupted, tail, done, [piecenumber](ResumeReader& r, SubtreeTask& t) {
           unsigned long long k = 0;
-          if (!r.next(k)) {
+          // a worker has room for one row per piece
+          if (!r.next(k) || k > piecenumber) {
             return false;
           }
           t.prefix.resize(static_cast<std::size_t>(k));
           for (PrefixStep& st : t.prefix) {
-            if (!r.next(st.col) || !r.next(st.row) || st.col >= rowCount || st.row >= rowCount) {
+            if (!r.next(st.col) || !r.next(st.row)) {
               return false;
             }
           }
@@ -973,35 +981,95 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
     if (!ok) {
       return AssemblerError::CannotRestoreSyntax;
     }
-    split_ = std::move(tail);
-    if (interrupted == 2) {
-      taskProgress_.begin({}, split_.completed);
-    }
-    split_.interrupted = true;
+    tail.interrupted = true;
 
     // Such a search starts from the untouched matrix. A file written before
     // the rows were cleared on a stop may still name a row here (the last
     // solution's first); covering it below would take the matrix apart.
-    rows_[0] = 0;
-    columns_[0] = 0;
+    rows[0] = 0;
+    columns[0] = 0;
   }
 
+  // Each task's prefix must be one the split search could have made, and
+  // the position's levels a place the plain search could have stood: both
+  // are covered step by step, each step checked first (the original covered
+  // whatever it read, out of bounds on a damaged file). A task is covered
+  // and uncovered again; the position stays covered.
+  for (const SubtreeTask& t : tail.tasks) {
+    const unsigned int covered = coverChecked(t.prefix);
+    uncoverLevels(t.prefix, covered);
+    if (covered != t.prefix.size()) {
+      return AssemblerError::CannotRestoreSyntax;
+    }
+  }
+
+  std::vector<PrefixStep> levels;
+  if (pos <= piecenumber) {
+    // the level the search stands at has a row too when it is between two
+    // of its rows (backtracking into it)
+    const unsigned int count =
+        pos < piecenumber && rows[pos] == 0 ? pos : std::min(pos + 1, piecenumber);
+    for (unsigned int p = 0; p < count; p++) {
+      levels.push_back(PrefixStep{columns[p], rows[p]});
+    }
+  }
+  const unsigned int covered = coverChecked(levels);
+  if (covered != levels.size()) {
+    uncoverLevels(levels, covered);
+    return AssemblerError::CannotRestoreSyntax;
+  }
+
+  rows_ = std::move(rows);
+  columns_ = std::move(columns);
   pos_ = pos;
   iterations_.store(it, std::memory_order_relaxed);
-
-  // bring the matrix into the position: cover the rows and columns in the
-  // order the search did
-  if (pos_ <= piecenumber) {
-    for (unsigned int p = 0; p <= pos_; p++) {
-      if ((p < piecenumber) && rows_[p]) {
-        matrix_.nodes.cover(columns_[p]);
-        matrix_.nodes.coverRow(rows_[p]);
-      }
-    }
+  split_ = std::move(tail);
+  if (interrupted == 2) {
+    taskProgress_.begin({}, split_.completed);
   }
 
   publishSerialProgress();
   return AssemblerError::None;
+}
+
+// Each level's column must be one the search could have chosen there (a
+// piece or filled-voxel column still in the header list) and its row one of
+// that column's rows still in the matrix.
+unsigned int Assembler0::coverChecked(const std::vector<PrefixStep>& levels) {
+  DlxNodes& n = matrix_.nodes;
+  const std::size_t nodeCount = n.left.size();
+
+  unsigned int covered = 0;
+  for (const PrefixStep& step : levels) {
+    if (step.col == 0 || step.col >= matrix_.varivoxelStart || step.row <= matrix_.varivoxelEnd ||
+        step.row >= nodeCount || n.colCount[step.row] != step.col) {
+      break;
+    }
+    bool open = false;
+    for (unsigned int c = n.right[0]; c != 0 && !open; c = n.right[c]) {
+      open = c == step.col;
+    }
+    bool present = false;
+    for (unsigned int r = n.down(step.col); r != step.col && !present; r = n.down(r)) {
+      present = r == step.row;
+    }
+    if (!open || !present) {
+      break;
+    }
+    n.cover(step.col);
+    n.coverRow(step.row);
+    covered++;
+  }
+  return covered;
+}
+
+void Assembler0::uncoverLevels(const std::vector<PrefixStep>& levels, unsigned int count) {
+  DlxNodes& n = matrix_.nodes;
+  while (count > 0) {
+    count--;
+    n.uncoverRow(levels[count].row);
+    n.uncover(levels[count].col);
+  }
 }
 
 SavedPosition Assembler0::savePosition() const {

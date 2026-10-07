@@ -32,7 +32,7 @@ enum class AssemblerError : std::uint8_t {
   CannotPlace,               ///< a piece fits nowhere in the result
   CannotRestoreVersion,      ///< a saved position of another assembler version
   CannotRestoreSyntax,       ///< a saved position that cannot be read
-  CannotRestoreInterrupted,  ///< a saved parallel search of older versions that cannot go on
+  CannotRestoreInterrupted,  ///< a saved search that cannot go on (an older version's split search, a started BurrTools 2 search)
   PuzzleUnhandable,          ///< the problem has what this assembler cannot do (ranges, ...)
 };
 

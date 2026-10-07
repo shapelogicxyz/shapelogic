@@ -99,10 +99,29 @@ nothing (the parked branches).
 
 **Saved positions are checked before they are used.** The original
 replayed whatever a position held; a damaged one read and wrote out of
-bounds. Assembler 1 now parses into temporaries and checks that the stacks
-fit the matrix and each other (states, columns, rows, hidden-row batches,
-progress entries, a split or vector search at its start, every task) before
-anything is changed; a bad position is `CannotRestoreSyntax`.
+bounds. Both assemblers parse into temporaries and change nothing unless the
+whole position is good; a bad one is `CannotRestoreSyntax`. Assembler 1
+checks that the stacks fit the matrix and each other (states, columns,
+rows, hidden-row batches, progress entries, a frame's row in its column, a
+split or vector search at its start, every task), then replays them step
+by step, each step checked (a column closed must be open, a column's rows
+taken out once, a row hidden must be whole in the matrix; a task is
+replayed and taken back). Assembler 0 covers each level of the position,
+and of every saved task, only after checking that its column is one the
+search could choose there and its row one of that column's rows still in
+the matrix. Task counts and prefixes are bounded by the text and the
+pieces. (The audit of stage 3 found the gaps: a damaged assembler 0
+position crashed, a damaged assembler 1 one could loop for ever.)
+
+**Where a search stands.** The plain searches go back to their first
+level between two of its rows (assembler 0: pos 0 with a row still
+covered; assembler 1: one frame with the first column still closed): that
+is not a search that has not started, which only an untouched matrix is;
+such a position continues as the plain search whatever the next run asks
+for. A plain search clears the flag a vector search left when it was
+stopped before it reported anything; a search that is through says so in
+its saved position (assembler 0 drops its tasks, assembler 1 its rows),
+however it ran.
 
 ## Consequences
 - The pause, continue and save rules are implemented once and tested once

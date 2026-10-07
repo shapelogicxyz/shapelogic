@@ -96,8 +96,18 @@ class Assembler0 final : public Assembler {
                               unsigned int count);
   [[nodiscard]] bool simdFits(const SearchOptions& options) const;
   [[nodiscard]] bool canUseSimd(const SearchOptions& options) const;
+  /// The plain search has not moved: nothing chosen at depth 0. (It also
+  /// stands at depth 0 between two first-level rows, with the last one still
+  /// covered; that is no start.)
+  [[nodiscard]] bool atStart() const { return pos_ == 0 && (rows_.empty() || rows_[0] == 0); }
   void simdSearch(SearchRun& run, const SearchOptions& options);
   [[nodiscard]] std::unique_ptr<SimdExactCoverBase> createSimdSolver(SimdKernels kernels) const;
+
+  /// Covers the levels of a restored position or task one after the
+  /// other, checking each before it is covered; returns how many were good
+  /// (and are covered). uncoverLevels() takes the first `count` back off.
+  unsigned int coverChecked(const std::vector<PrefixStep>& levels);
+  void uncoverLevels(const std::vector<PrefixStep>& levels, unsigned int count);
 
   /// The fraction of the plain search, from where it stands (the original's
   /// getFinished()); computed by the thread running it.

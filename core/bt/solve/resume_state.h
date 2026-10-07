@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -57,7 +58,12 @@ struct SplitSearchState {
 /// Numbers and markers read one after the other from a saved position.
 class ResumeReader {
  public:
-  explicit ResumeReader(const char* at) : s(at) {}
+  explicit ResumeReader(const char* at) : s(at), last(at + std::strlen(at)) {}
+
+  /// The characters left: a bound for any count read, since each counted
+  /// item takes at least one (a damaged count would otherwise allocate what
+  /// it says).
+  [[nodiscard]] std::size_t remaining() const { return static_cast<std::size_t>(last - s); }
 
   /// The next number (strtoull: leading blanks are skipped); false when
   /// there is none.
@@ -97,6 +103,8 @@ class ResumeReader {
   }
 
   const char* s;
+  /// The text's terminating NUL.
+  const char* last;
 };
 
 /// Reads the tail for flag 2, 3 or 4 from `at` into `state` (4 is assembler
@@ -116,7 +124,7 @@ bool readResumeTail(const char* at, unsigned int flag, SplitSearchState<Task>& s
     state.vectorSkip = n;
     return true;
   }
-  if (!r.expect('T') || !r.next(n)) {
+  if (!r.expect('T') || !r.next(n) || n > r.remaining()) {
     return false;
   }
   state.tasks.resize(static_cast<std::size_t>(n));

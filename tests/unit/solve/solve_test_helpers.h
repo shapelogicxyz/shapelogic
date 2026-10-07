@@ -15,6 +15,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -155,6 +156,100 @@ void randomPauses(Make make, std::size_t expected, unsigned int maxStopAfter, st
     CHECK(runs > 2);
     CHECK(found == all);
     CHECK(a->finished() >= 1.0F);
+  }
+}
+
+/// True when every assembly of `part` is in `whole`, at most as often.
+inline bool isSubMultiset(const Fingerprints& part, const Fingerprints& whole) {
+  return std::includes(whole.begin(), whole.end(), part.begin(), part.end());
+}
+
+/// A plain search stopped after `steps` steps of the debugger (which stops
+/// where a pause from outside does, at the top of the search loop),
+/// continued on every path, in memory and through its saved position: each
+/// continuation must find what the plain search on one thread finds from
+/// there (a stopped search is never taken for one that has not started).
+/// Returns that.
+template <class Make>
+Fingerprints continueOnEveryPath(Make make, unsigned long steps, ThreadPool& pool) {
+  std::unique_ptr<Assembler> stepped = make();
+  stepped->debugStep(steps);
+  const SavedPosition pos = stepped->savePosition();
+  INFO("stopped after " << steps << " steps at \"" << pos.text.substr(0, 60) << "\"");
+
+  Fingerprints reference;
+  bool first = true;
+  for (const PausePath path : kAllPaths) {
+    INFO(path.threads << " threads" << (path.vector ? "" : ", plain"));
+    for (const bool viaSave : {false, true}) {
+      INFO((viaSave ? "through the saved position" : "in memory"));
+      std::unique_ptr<Assembler> a = make();
+      if (viaSave) {
+        REQUIRE(a->restorePosition(pos.text, pos.version) == AssemblerError::None);
+      } else {
+        a->debugStep(steps);
+      }
+      const RunResult r = runOnce(*a, searchOptions(path.threads, &pool, path.vector));
+      CHECK(r.end == RunEnd::Finished);
+      if (first) {
+        reference = r.found;
+        first = false;
+      } else {
+        CHECK(r.found == reference);
+      }
+    }
+  }
+  return reference;
+}
+
+/// A vector search stopped before it reports anything, then the plain
+/// search paused by the callback: the saved position restores and carries
+/// on (the stopped vector search's flag must not stay behind).
+template <class Make>
+void vectorStoppedAtOnceThenPlain(Make make, const Fingerprints& all) {
+  std::unique_ptr<Assembler> a = make();
+  const StopSource early;
+  early.request(StopKind::Pause);
+  const RunResult r1 = runOnce(*a, searchOptions(1, nullptr, true), early.token());
+  REQUIRE(r1.end == RunEnd::Stopped);
+  REQUIRE(r1.found.empty());
+
+  const RunResult r2 = runOnce(*a, searchOptions(1, nullptr, false), {}, 5);
+  REQUIRE(r2.end == RunEnd::Stopped);
+  REQUIRE(r2.found.size() == 5);
+  const SavedPosition pos = a->savePosition();
+  INFO(pos.text.substr(0, 60));
+  CHECK(pos.text[0] == '0');
+
+  std::unique_ptr<Assembler> b = make();
+  REQUIRE(b->restorePosition(pos.text, pos.version) == AssemblerError::None);
+  const RunResult r3 = runOnce(*b, searchOptions(1, nullptr, false));
+  CHECK(r3.end == RunEnd::Finished);
+  Fingerprints both = r2.found;
+  both.insert(r3.found.begin(), r3.found.end());
+  CHECK(both == all);
+}
+
+/// Every search kind run to its end saves a position that restores as
+/// finished and finds nothing more, on every path.
+template <class Make>
+void finishedRestoresOnEveryPath(Make make, ThreadPool& pool) {
+  for (const PausePath path : kAllPaths) {
+    INFO("searched with " << path.threads << " threads" << (path.vector ? "" : ", plain"));
+    std::unique_ptr<Assembler> a = make();
+    REQUIRE(runOnce(*a, searchOptions(path.threads, &pool, path.vector)).end ==
+            RunEnd::Finished);
+    const SavedPosition pos = a->savePosition();
+    INFO(pos.text.substr(0, 60));
+    for (const PausePath next : kAllPaths) {
+      INFO("continued with " << next.threads << " threads" << (next.vector ? "" : ", plain"));
+      std::unique_ptr<Assembler> b = make();
+      REQUIRE(b->restorePosition(pos.text, pos.version) == AssemblerError::None);
+      CHECK(b->finished() >= 1.0F);
+      const RunResult r = runOnce(*b, searchOptions(next.threads, &pool, next.vector));
+      CHECK(r.end == RunEnd::Finished);
+      CHECK(r.found.empty());
+    }
   }
 }
 

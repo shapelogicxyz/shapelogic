@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
 #include <limits>
 #include <string>
 #include <unordered_map>
@@ -2089,9 +2088,12 @@ void Assembler1::simdSearch(SearchRun& run, const SearchOptions& options) {
     taskProgress_.finish(0, 0);
     split_.vectorSkip = 0;
     split_.interrupted = false;
-    // as the other searches leave it when they are through
+    // as the other searches leave it when they are through; the rows held
+    // the last solution, which a saved position must not carry (no restore
+    // accepts rows without frames)
     stacks_.nextRowStack.clear();
     stacks_.taskStack.clear();
+    stacks_.rows.clear();
   }
 }
 
@@ -2128,6 +2130,12 @@ RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOption
     } else if (canUseSimd(options)) {
       simdSearch(run, options);
     } else {
+      // What a save writes from now on is the plain search's position. A
+      // vector search stopped before it reported anything left the flag of
+      // a stopped vector search behind; with it, the save would be a flag 3
+      // position away from the start, which no restore accepts (the
+      // original's bug too).
+      split_.interrupted = false;
       iterative(run);
     }
   }
@@ -2186,6 +2194,112 @@ void Assembler1::replay(Links& n, const SearchStacks& s, bool task) const {
   }
 }
 
+// A replay from a damaged file may name a column or a row twice: covered or
+// hidden a second time, the links would no longer be lists, and the search
+// would go round in them for ever. With only removals made, a node is still
+// in its list exactly when its neighbours point back at it.
+bool Assembler1::replayChecked(Links& n, const SearchStacks& s, bool task,
+                               std::vector<ReplayStep>& done) const {
+  auto linked = [&n](unsigned int x) { return n.down[n.up[x]] == x && n.up[n.down[x]] == x; };
+  auto hide = [&n, &done, &linked](unsigned int r) {
+    if (!linked(r)) {
+      return false;
+    }
+    for (unsigned int x = n.right[r]; x != r; x = n.right[x]) {
+      if (!linked(x)) {
+        return false;
+      }
+    }
+    n.hideRow(r);
+    done.push_back({ReplayStep::Kind::HideRow, r});
+    return true;
+  };
+  std::vector<bool> rowsCovered(headerNodes_, false);
+
+  std::size_t columnPos = 0;
+  std::size_t hiddenPos = 0;
+  std::size_t rowPos = 0;
+
+  const std::size_t end = task ? s.taskStack.size() - 1 : s.taskStack.size();
+  for (std::size_t i = 0; i < end; i++) {
+    switch (s.taskStack[i]) {
+      case 0:
+        break;
+      case 1: {
+        const unsigned int c = s.columnStack[columnPos++];
+        if (n.right[n.left[c]] != c || n.left[n.right[c]] != c) {
+          return false;
+        }
+        n.coverColumnOnly(c);
+        done.push_back({ReplayStep::Kind::CloseColumn, c});
+        break;
+      }
+      case 2: {
+        const unsigned int c = s.columnStack[columnPos - 1];
+        if (rowsCovered[c]) {
+          return false;
+        }
+        rowsCovered[c] = true;
+        n.coverColumnRows(c);
+        done.push_back({ReplayStep::Kind::CoverRows, c});
+        break;
+      }
+      case 5: {
+        hiddenPos++;
+        while (hiddenPos < s.hiddenRows.size() && s.hiddenRows[hiddenPos] > 0) {
+          if (!hide(s.hiddenRows[hiddenPos++])) {
+            return false;
+          }
+        }
+
+        const unsigned int r = s.rows[rowPos++];
+        n.weight[n.colCount[r]] += n.weight[r];
+        for (unsigned int rc = n.right[r]; rc != r; rc = n.right[rc]) {
+          n.weight[n.colCount[rc]] += n.weight[rc];
+        }
+        done.push_back({ReplayStep::Kind::AddRow, r});
+
+        hiddenPos++;
+        while (hiddenPos < s.hiddenRows.size() && s.hiddenRows[hiddenPos] > 0) {
+          if (!hide(s.hiddenRows[hiddenPos++])) {
+            return false;
+          }
+        }
+        break;
+      }
+      default:
+        return false;
+    }
+  }
+  return true;
+}
+
+void Assembler1::undoReplay(Links& n, std::vector<ReplayStep>& done) {
+  while (!done.empty()) {
+    const ReplayStep step = done.back();
+    done.pop_back();
+    switch (step.kind) {
+      case ReplayStep::Kind::CloseColumn:
+        n.uncoverColumnOnly(step.node);
+        break;
+      case ReplayStep::Kind::CoverRows:
+        n.uncoverColumnRows(step.node);
+        break;
+      case ReplayStep::Kind::HideRow:
+        n.unhideRow(step.node);
+        break;
+      case ReplayStep::Kind::AddRow: {
+        const unsigned int r = step.node;
+        for (unsigned int rc = n.left[r]; rc != r; rc = n.left[rc]) {
+          n.weight[n.colCount[rc]] -= n.weight[rc];
+        }
+        n.weight[n.colCount[r]] -= n.weight[r];
+        break;
+      }
+    }
+  }
+}
+
 // Walks the stacks as replay() and the search would, without touching the
 // matrix: every number must be a node, a column or a row where it is used
 // as one, and every stack must hold what the frames on taskStack put there.
@@ -2218,6 +2332,14 @@ bool Assembler1::validStacks(const SearchStacks& s, bool task) const {
   std::size_t columnPos = 0;
   std::size_t hiddenPos = 0;
   std::size_t rowPos = 0;
+  // A frame past its column choice stands on a row of the column the last
+  // state 1 frame below it closed (the search, the vector search and the
+  // task generation all keep to this; the replay and the search read the
+  // column from that row).
+  auto rowOfColumn = [this, &s](unsigned int row, std::size_t columns) {
+    return columns > 0 && row >= headerNodes_ &&
+           links_.colCount[row] == s.columnStack[columns - 1];
+  };
   // a separator, then rows up to the next one
   auto batch = [&s, &hiddenPos] {
     if (hiddenPos >= s.hiddenRows.size() || s.hiddenRows[hiddenPos] != 0) {
@@ -2246,12 +2368,15 @@ bool Assembler1::validStacks(const SearchStacks& s, bool task) const {
         columnPos++;
         break;
       case 2:
-        if (columnPos == 0) {
+        // a frame on a row of the column the last state 1 frame closed
+        if (!rowOfColumn(s.nextRowStack[i], columnPos)) {
           return false;
         }
         break;
       case 5:
-        if (!batch() || rowPos >= s.rows.size()) {
+        // the same, and the row it took is one of that column's too
+        if (!rowOfColumn(s.nextRowStack[i], columnPos) || !batch() ||
+            rowPos >= s.rows.size() || !rowOfColumn(s.rows[rowPos], columnPos)) {
           return false;
         }
         rowPos++;
@@ -2261,6 +2386,11 @@ bool Assembler1::validStacks(const SearchStacks& s, bool task) const {
         break;
       default:
         return false;
+    }
+    // a frame not begun goes on with a row of that column, or chooses one
+    if (s.taskStack[i] == 0 && s.nextRowStack[i] >= headerNodes_ &&
+        !rowOfColumn(s.nextRowStack[i], columnPos)) {
+      return false;
     }
     if (task && last && s.taskStack[i] != 0) {
       return false;
@@ -2324,7 +2454,7 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
                                {&t.taskStack, &t.nextRowStack, &t.columnStack, &t.rows,
                                 &t.hiddenRows}) {
                             unsigned long long k = 0;
-                            if (!r.next(k) || k > std::strlen(r.s)) {
+                            if (!r.next(k) || k > r.remaining()) {
                               return false;
                             }
                             v->resize(static_cast<std::size_t>(k));
@@ -2368,6 +2498,21 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
     }
   }
 
+  // Then replayed, each step checked: every task on the matrix and taken
+  // back, then the position, which stays.
+  std::vector<ReplayStep> done;
+  for (const SearchStacks& t : tail.tasks) {
+    const bool fits = replayChecked(links_, t, true, done);
+    undoReplay(links_, done);
+    if (!fits) {
+      return AssemblerError::CannotRestoreSyntax;
+    }
+  }
+  if (!replayChecked(links_, s, false, done)) {
+    undoReplay(links_, done);
+    return AssemblerError::CannotRestoreSyntax;
+  }
+
   split_ = std::move(tail);
   rowOrderSignatures_ = interrupted == 2;
   stacks_ = std::move(s);
@@ -2378,9 +2523,6 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
   if (!split_.tasks.empty()) {
     taskProgress_.begin({}, split_.completed);
   }
-
-  // bring the matrix into the position
-  replay(links_, stacks_, false);
 
   publishSerialProgress();
   return AssemblerError::None;

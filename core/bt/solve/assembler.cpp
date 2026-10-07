@@ -24,8 +24,10 @@ std::string_view errorMessage(AssemblerError e) noexcept {
     case AssemblerError::CannotRestoreSyntax:
       return "Impossible to restore saved state: corrupt data";
     case AssemblerError::CannotRestoreInterrupted:
-      return "The saved search was running on several cores when it was stopped, which can not "
-             "be continued; it has been reset and must be started again";
+      // The original named only the first cause; BurrTools 2's positions are
+      // refused on one thread too (decision 0009).
+      return "The saved search can not be continued (it was stopped while running on several "
+             "cores, or it is a BurrTools 2 search); it has been reset and must be started again";
     case AssemblerError::PuzzleUnhandable:
       return "Puzzle contains unhandable definitions";
   }

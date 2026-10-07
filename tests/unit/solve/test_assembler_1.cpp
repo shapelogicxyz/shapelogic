@@ -684,6 +684,8 @@ TEST_CASE("Assembler 1: a damaged position is refused before it is used",
   SECTION("random damage is refused or restores, never read out of bounds") {
     std::mt19937 rng(77);
     unsigned int refused = 0;
+    unsigned int searched = 0;
+    unsigned int broken = 0;
     for (const std::string& text : texts) {
       for (int k = 0; k < 300; k++) {
         // replace one number by another, or cut the text short
@@ -709,12 +711,165 @@ TEST_CASE("Assembler 1: a damaged position is refused before it is used",
                          : std::uniform_int_distribution<unsigned int>(0, 2000000)(rng);
           t.replace(at, end - at, std::to_string(v));
         }
+        INFO(t);
         auto a = made(p);
-        const AssemblerError err = a->restorePosition(t, "2.1");
-        refused += err != AssemblerError::None ? 1 : 0;
+        if (a->restorePosition(t, "2.1") != AssemblerError::None) {
+          refused++;
+          continue;
+        }
+        // Accepted: the stacks fit the matrix, so the search runs in bounds
+        // (the sanitizer build watches). A position that fits but is no
+        // place the search could have been may break one of its
+        // invariants, which stops it with a report rather than wrong
+        // answers.
+        try {
+          const test::RunResult r = runOnce(*a, searchOptions(1, nullptr, false));
+          CHECK(r.end == RunEnd::Finished);
+          searched++;
+        } catch (const InternalError&) {
+          broken++;
+        }
       }
     }
     CHECK(refused > 100);
+    CHECK(searched > 0);
+    INFO(broken << " broke an invariant");
+  }
+}
+
+// ---- from the audit of stage 3 ---------------------------------------------------
+
+namespace {
+
+// The vectors of a plain search's position: rows, taskStack, nextRowStack,
+// columnStack, hiddenRows, finishedA, finishedB (each written as its size
+// and its values).
+std::vector<std::vector<unsigned int>> stacksOf(const std::string& text) {
+  std::istringstream in(text);
+  unsigned int flag = 0;
+  in >> flag;
+  std::vector<std::vector<unsigned int>> v(7);
+  for (std::vector<unsigned int>& x : v) {
+    std::size_t n = 0;
+    in >> n;
+    x.resize(n);
+    for (unsigned int& e : x) {
+      in >> e;
+    }
+  }
+  return v;
+}
+
+std::string positionOf(const std::vector<std::vector<unsigned int>>& v) {
+  std::string out = "0 ";
+  for (const std::vector<unsigned int>& x : v) {
+    out += std::to_string(x.size()) + " ";
+    for (const unsigned int e : x) {
+      out += std::to_string(e) + " ";
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+// At its end the plain search stands on one frame with the first column
+// still closed, a state it can be paused in. Continued with threads or the
+// vector search it was taken for a search that had not started and reported
+// everything again.
+TEST_CASE("Assembler 1: a plain search stopped anywhere continues the same on every path",
+          "[solve][assembler][resume][parallel]") {
+  ThreadPool pool(4);
+  const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
+  auto make = [&p] { return std::unique_ptr<Assembler>(made(p)); };
+  const Fingerprints all = allAssemblies("CubeInCage.xmpuzzle");
+
+  // the last state, and the first with a frame in state 2 and in state 5
+  std::vector<unsigned long> steps;
+  {
+    auto a = made(p);
+    bool two = false;
+    bool five = false;
+    bool end = false;
+    for (unsigned long k = 1; k < 100000; k++) {
+      a->debugStep(1);
+      const std::vector<unsigned int> tasks = stacksOf(a->savePosition().text)[1];
+      if (tasks.empty()) {
+        break;
+      }
+      const bool hasTwo = std::find(tasks.begin(), tasks.end(), 2U) != tasks.end();
+      const bool hasFive = std::find(tasks.begin(), tasks.end(), 5U) != tasks.end();
+      const bool atEnd = tasks.size() == 1 && tasks[0] == 1;
+      if ((hasTwo && !two) || (hasFive && !five) || (atEnd && !end)) {
+        steps.push_back(k);
+      }
+      two = two || hasTwo;
+      five = five || hasFive;
+      end = end || atEnd;
+    }
+    REQUIRE(two);
+    REQUIRE(five);
+    REQUIRE(end);
+  }
+  for (const unsigned long k : {0UL, 40UL, 2000UL}) {
+    steps.push_back(k);
+  }
+
+  for (const unsigned long k : steps) {
+    const Fingerprints rest = test::continueOnEveryPath(make, k, pool);
+    CHECK(test::isSubMultiset(rest, all));
+  }
+}
+
+TEST_CASE("Assembler 1: a vector search stopped at once leaves no trace in a plain position",
+          "[solve][assembler][resume]") {
+  const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
+  test::vectorStoppedAtOnceThenPlain([&p] { return std::unique_ptr<Assembler>(made(p)); },
+                                     allAssemblies("CubeInCage.xmpuzzle"));
+}
+
+// The vector search left the last solution in the rows when it was through,
+// which no restore accepts.
+TEST_CASE("Assembler 1: every search kind run to its end restores as finished",
+          "[solve][assembler][resume][parallel]") {
+  ThreadPool pool(4);
+  const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
+  test::finishedRestoresOnEveryPath([&p] { return std::unique_ptr<Assembler>(made(p)); }, pool);
+
+  auto a = made(p);
+  REQUIRE(runOnce(*a, searchOptions(1, nullptr, true)).end == RunEnd::Finished);
+  // and the current assembly is an empty one, as after the plain search
+  const Assembly current = a->currentAssembly();
+  for (unsigned int i = 0; i < current.placementCount(); i++) {
+    CHECK_FALSE(current.isPlaced(i));
+  }
+}
+
+// A frame past its column choice stands on a row of that column; the check
+// took any node number, a header too, whose count the search then used as
+// a column.
+TEST_CASE("Assembler 1: a frame's row must be a row of its column", "[solve][assembler][resume]") {
+  const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
+  for (const unsigned int state : {2U, 5U}) {
+    INFO("a frame in state " << state);
+    auto a = made(p);
+    std::vector<std::vector<unsigned int>> v;
+    for (int k = 0; k < 100000; k++) {
+      a->debugStep(1);
+      v = stacksOf(a->savePosition().text);
+      if (std::find(v[1].begin(), v[1].end(), state) != v[1].end()) {
+        break;
+      }
+    }
+    const auto at = static_cast<std::size_t>(
+        std::find(v[1].begin(), v[1].end(), state) - v[1].begin());
+    REQUIRE(at < v[1].size());
+
+    // as it is, it restores
+    CHECK(made(p)->restorePosition(positionOf(v), "2.1") == AssemblerError::None);
+    // a header in its place does not
+    v[2][at] = 1;
+    CHECK(made(p)->restorePosition(positionOf(v), "2.1") == AssemblerError::CannotRestoreSyntax);
   }
 }
 
