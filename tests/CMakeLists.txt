@@ -20,7 +20,10 @@ add_executable(bt_tests
   unit/solve/test_assembler.cpp
   unit/solve/test_assembler_1.cpp
   unit/solve/test_assembler_bt2.cpp
+  unit/solve/test_disassembly.cpp
+  unit/solve/test_grouping.cpp
   unit/solve/test_positions.cpp
+  unit/solve/test_rotation_solvers.cpp
   unit/solve/test_simd_exact_cover.cpp
   unit/solve/test_work_stealing.cpp)
 
@@ -42,3 +45,13 @@ bt_set_warnings(bt_roundtrip)
 add_executable(bt_resume tools/resume.cpp)
 target_link_libraries(bt_resume PRIVATE btcore)
 bt_set_warnings(bt_resume)
+
+# bt_solve_file: solve a problem and write the solved file, as burrTxt2 does,
+# and bt_solutions: what a file holds of solving, for `oracle.py compare-files`.
+add_executable(bt_solve_file tools/solve_file.cpp)
+target_link_libraries(bt_solve_file PRIVATE btcore)
+bt_set_warnings(bt_solve_file)
+
+add_executable(bt_solutions tools/solutions.cpp)
+target_link_libraries(bt_solutions PRIVATE btcore)
+bt_set_warnings(bt_solutions)

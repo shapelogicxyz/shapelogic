@@ -1,0 +1,30 @@
+{
+ "tictest/performance/puzzles/5x5x5_TICs/Crowell_Lohe_Burrs/Climburr_OldVer.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "58R2.5R1.2R1",
+  "level": 60,
+  "totalmoves": 69,
+  "moves": 65,
+  "rotations": 4,
+  "solvetime": 0.159,
+  "wall": 0.164
+ },
+ "tictest/performance/puzzles/ARCparent_Cubes/CornerCube.xmpuzzle": {
+  "flags": "R",
+  "assemblies": 1952,
+  "solutions": 1,
+  "dotlevel": "9R0.2R0.3R0.3R1",
+  "level": 9,
+  "totalmoves": 18,
+  "moves": 17,
+  "rotations": 1,
+  "solvetime": 3.335,
+  "wall": 3.346
+ },
+ "tictest/performance/puzzles/ARCparent_Cubes/CoverUp3.xmpuzzle": {
+  "flags": "R",
+  "error": "timeout after 3600s"
+ }
+}

@@ -32,17 +32,40 @@ the original CLI.
 just oracle                       # compare the fast tier
 just oracle --tier fast full      # several tiers
 just oracle --filter Pelikan -v   # one puzzle, show matches too
-just oracle --fields assemblies --threads 1
-                                  # stage 3: assembly counts only, bt -t 1
-just oracle --fields assemblies --solver bt2
+just oracle --tier all --threads 1
+                                  # every field, bt -t 1
+just oracle --tier all --solver bt2
                                   # BurrTools 2 against the original's BT2
+just oracle --tier all --solver crowell
+                                  # Andrew Crowell's take-apart against the original's
 just oracle-baseline --tier fast --solver bt2
-                                  # record those (baseline/<tier>-bt2.json)
+                                  # record those (baseline/<tier>-<solver>.json)
+python3 tests/oracle/oracle.py baseline-files --tier all   # solved files from burrTxt2 -R, into work/old
+python3 tests/oracle/oracle.py compare-files --tier all -j 4
+                                  # the new core's solved files against those (stage 4)
 just oracle-resume                # paused searches continue in the other program
 just oracle-baseline --tier full  # re-record the original's answers
 python3 tests/oracle/oracle.py baseline-files --tier all    # solved files from burrTxt2, into work/
 just oracle-roundtrip             # the file round trip (stage 2 onward), see below
 ```
+
+## Solved files (stage 4 onward)
+
+`baseline-files` runs the original's `burrTxt2 -R -d` (with `--rotations`
+for `R` puzzles, without `-d` for `A` puzzles) on a copy of each corpus file
+and keeps the solved file it writes beside it (`work/old/<path>ttt`).
+`compare-files` does the same with the new core (`bt_solve_file`, which
+follows the solve thread: the matrix, reduce, the saved position,
+initHotspot, the search, each assembly taken apart, solutions sorted by
+moves) into `work/new`, reads both files with the new core (`bt_solutions`)
+and compares problem 0: the state, the assembly and solution counts, and
+the saved solutions. The original keeps the ten best by moves, and which of
+several with the same moves it keeps depends on the order its threads took
+them apart; so the new file keeps every solution, the original's moves must
+be the top of the new list, and each solution the original kept must be in
+the new file with the same assembly, separation tree (every state of every
+node), level text and move counts. `A` puzzles compare the counts only.
+`--solver crowell|bt2` uses `work/old-<solver>` and `work/new-<solver>`.
 
 ## Recorded values for unit tests
 
@@ -128,9 +151,8 @@ Piece Generator.
    `moves` and `rotations`). The original's answers are committed in
    `baseline/<tier>.json`; `solvetime` is recorded but never compared.
 2. **Files** (stage 4 onward): every solution and its disassembly tree, from
-   the solved puzzle files burrTxt2 writes (`baseline-files`). The new core
-   loads both its own and the original's solved file and compares solution by
-   solution. The comparison is written in stage 4.
+   the solved puzzle files burrTxt2 writes (`baseline-files`) and those the
+   new core writes the same way (`compare-files`); see "Solved files".
 
 Speed is compared separately (tests/bench), with both binaries run back to
 back on the same machine; numbers in the baseline files are only a guide.

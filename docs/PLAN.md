@@ -48,7 +48,8 @@ failure scenarios.
 - [x] **Stage 2**: model and file format (see docs/handoff/stage-2.md)
 - [x] **Stage 3a**: run layer, assembler 0, SIMD covers, `bt` solving (see docs/handoff/stage-3a.md)
 - [x] **Stage 3b**: assembler 1 and BurrTools 2 (see docs/handoff/stage-3b.md)
-- [ ] Stage 4: disassembly
+- [x] Audit of stage 3: six findings fixed (commit 05088fd; see docs/handoff/stage-4.md)
+- [x] **Stage 4**: disassembly (see docs/handoff/stage-4.md)
 - [ ] Stage 5: solve session
 - [ ] Stage 6: app layer
 - [ ] Stage 7: engine

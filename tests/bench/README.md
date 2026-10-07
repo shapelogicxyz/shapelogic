@@ -68,3 +68,24 @@ Stage 3b, 2026-10-07, same machine, assembly only (best of 3):
 
 DemoPieceGenerator and the rest take a few milliseconds and say nothing.
 Assembler 0 is as fast as before it moved onto `DlxMatrix`.
+
+Stage 4, 2026-10-07, same machine, best of 5; the take-apart rows (`-d`,
+`-R` for rotations) are new:
+
+| puzzle | threads | original s | new s | new/old |
+|---|---|---|---|---|
+| Climburr_OldVer (-rdR) | 1 | 1.395 | 1.348 | 0.97 |
+| Climburr_OldVer (-rdR) | 10 | 0.282 | 0.287 | 1.02 |
+| CoverUp3 (-rdR) | 1 | 5.108 | 4.862 | 0.95 |
+| CoverUp3 (-rdR) | 10 | 1.197 | 1.135 | 0.95 |
+| CornerCube (-rdR) | 1 | 12.553 | 12.056 | 0.96 |
+| CornerCube (-rdR) | 10 | 5.112 | 4.866 | 0.95 |
+| SolidSixPieceBurrs (-rd) | 1 | 0.086 | 0.080 | 0.93 |
+| SolidSixPieceBurrs (-rd) | 10 | 0.032 | 0.030 | 0.94 |
+| pentomino 6x10 (-r) | 1 | 0.948 | 0.976 | 1.03 |
+| pentomino 6x10 (-r) | 10 | 0.185 | 0.186 | 1.01 |
+| pentomino 6x10 (-r, bt2) | 1 | 1.581 | 1.578 | 1.00 |
+| pentomino 6x10 (-r, bt2) | 10 | 0.287 | 0.282 | 0.98 |
+
+A best of 3 just before, on a machine warm from the sanitizer runs, had the
+pentomino rows at 1.04 to 1.09: compare back to back, best of 5.

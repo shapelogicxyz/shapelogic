@@ -24,6 +24,7 @@ just test-tsan          # ThreadSanitizer on [parallel] cases (from stage 3)
 just oracle [--tier …]  # compare the new bt with the original burrTxt
 just oracle-resume      # pause searches in one program, continue in the other
 just oracle-roundtrip   # load + save every corpus file in both programs, compare
+just oracle-files       # solve as burrTxt2 does, compare the solved files (stage 4)
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
 just format             # clang-format
@@ -99,10 +100,13 @@ just format             # clang-format
 Every stage ends with, in this order:
 1. `just test-all`, `just test-asan` (and `just test-tsan` from stage 3),
    `just oracle` for what is ported (from stage 3 on the fast, full and slow
-   tiers, with all threads and with `--threads 1`), `just oracle-resume`
-   (from stage 3), `just oracle-roundtrip` (from stage 2; run
+   tiers, with all threads and with `--threads 1`; from stage 4 every field,
+   for `--solver classic`, `crowell` and `bt2`), `just oracle-resume`
+   (from stage 3), `just oracle-files --tier all` (from stage 4),
+   `just oracle-roundtrip` (from stage 2; run
    `oracle.py baseline-files --tier all` once so the original's solved
-   files are included), `just check` if LLVM is installed.
+   files are included), `just check` if LLVM is installed. Run the quick
+   suite a few times: a rare hang shows only so.
 2. `docs/ARCHITECTURE.md` updated to describe what now exists.
 3. `docs/handoff/stage-N.md`: what was done, gate results, known issues,
    and the brief for the next stage.

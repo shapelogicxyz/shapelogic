@@ -69,6 +69,13 @@ def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, li
         ("DraculasDentalDesaster", old_repo / "examples" / "DraculasDentalDesaster.xmpuzzle", []),
         ("SolidSixPieceBurrs (-r)", old_repo / "examples" / "SolidSixPieceBurrs.xmpuzzle", ["-r"]),
         ("DemoPieceGenerator", old_repo / "examples" / "DemoPieceGenerator.xmpuzzle", []),
+        # the take-apart (stage 4): rotation take-apart of the slow TIC puzzles,
+        # and Solid Six Piece Burrs' 588 assemblies taken apart
+        ("Climburr_OldVer (-rdR)", tic / "5x5x5_TICs" / "Crowell_Lohe_Burrs" / "Climburr_OldVer.xmpuzzle",
+         ["-r", "-d", "-R"]),
+        ("CoverUp3 (-rdR)", tic / "ARCparent_Cubes" / "CoverUp3.xmpuzzle", ["-r", "-d", "-R"]),
+        ("CornerCube (-rdR)", tic / "ARCparent_Cubes" / "CornerCube.xmpuzzle", ["-r", "-d", "-R"]),
+        ("SolidSixPieceBurrs (-rd)", old_repo / "examples" / "SolidSixPieceBurrs.xmpuzzle", ["-r", "-d"]),
     ]
     glar = Path(os.environ.get("BT_BURR_GLAR", Path.home() / "git/burr-tools/burr-tools-clean/examples/Burr-Glar.xmpuzzle"))
     return {

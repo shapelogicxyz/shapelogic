@@ -4,10 +4,10 @@ BurrTools Next is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 3 (the assembler run layer and all three assemblers:
-assembler 0, assembler 1, BurrTools 2; the vector covers; `bt` solving).
-`core/bt/base`, `grid`, `model`, `io` and `solve` have code; the
-disassemblers follow in stage 4.*
+*Current state: stage 4 (the assembler run layer and all three
+assemblers; the take-apart with rotation moves, Classic and Crowell; `bt`
+solving and taking apart). `core/bt/base`, `grid`, `model`, `io` and
+`solve` have code; the solve session follows in stage 5.*
 
 ## Big picture
 
@@ -38,13 +38,13 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 |---|---|
 | `core/bt/<module>/` | the library, headers and sources together; include as `"bt/<module>/x.h"` |
 | `engine/` | `bt-engine` (stage 7) |
-| `cli/` | `bt`: solves with burrTxt-compatible `--json` (assemblies only until stage 4; full CLI in stage 8) |
+| `cli/` | `bt`: solves and takes apart with burrTxt-compatible `--json` (full CLI in stage 8) |
 | `api/` | JSON Schema of engine methods and events (stage 7); see `api/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
 | `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`, `positions_by_original.txt`) |
-| `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`) |
+| `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solve_file`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, decisions/, handoff/, webui-spec.md, core-api.md |
 | `cmake/` | warnings, sanitizers, dependencies |
 
@@ -108,7 +108,8 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
 and bounding box of each transformation lazily inside const functions. A
 shape read by several threads must have `warmCaches()` called first (a
 split search calls `warmShapeCaches()` on the result and the parts before
-its threads start); editing a shape invalidates the caches.
+its threads start, and a disassembler when it is made); editing a shape
+invalidates the caches.
 
 **Differences from the original** (deliberate; listed in
 docs/handoff/stage-1.md): `getHotspot` of a transformation the shape cannot
@@ -162,8 +163,8 @@ and unknown `<voxel>` attributes, are kept and written back in place;
 stacking rod sets and maps are kept this way until stacking is ported.
 Saves are byte-identical to the original's.
 
-### solve (stage 3 exists; 4 and 5 add to it)
-The assemblers, on one run layer (decision 0009). Ported from
+### solve (stages 3 and 4 exist; 5 adds to it)
+The assemblers, on one run layer (decision 0009), and the take-apart. Ported from
 `assembler.cpp`, `assembler_resume.h`, `assembler_0.cpp`, `assembler_1.cpp`,
 `assembler_bt2.cpp`, `bt2_dancingcells.cpp`, `bt2_assemble.cpp`,
 `simd_exact_cover.cpp`, `simd_huang_cover.cpp`, `solvertype.h` and the
@@ -247,8 +248,59 @@ other threads): those are not found again. The assembler never writes into
 the `Problem` (results go to the callback; the CLI, later the session, owns
 the problem).
 
-Planned: the disassemblers, movement caches and rotation rules (4);
-`SolveSession` replacing `solveThread_c` (5).
+**The take-apart** (stage 4). Ported from `disassembler*.{h,cpp}`,
+`disassemblernode`, `disassemblerhashes`, `movementcache*`,
+`movementanalysator`, `grouping`, `rotationrules`, `rotationmoves_*` and
+`disasmtomoves`; checked against the original by the harness (every field of
+the summary on all 180 corpus puzzles, Classic, Crowell and BurrTools 2, 1
+and all threads; the solved files solution by solution, `compare-files`).
+- `disassembler.h`: `Disassembler`, the take-apart of one problem's
+  assemblies: `disassemble(assembly, stop) -> TakeApartResult` (the
+  `Separation`, or none, and whether it was stopped), `progress()`
+  (`DisassemblyProgress`, from any thread), the search times.
+  `DisassemblerOptions`: rotations, the solver (Crowell takes at most
+  `kCrowellMaxSuccessors` new positions from each position and has its own
+  turn generator; Classic and BurrTools 2 are complete), the `ThreadPool`
+  a level is spread over (`levelThreadCostUs`: only when what is left of a
+  level is reckoned to take longer), and the A/B switches.
+  `canDisassemble()`: cubes and prisms. The search is breadth first, level
+  by level, in three fronts; spread over threads it gives exactly the
+  result of one thread (positions of a level are expanded on several
+  threads and put together in the order one thread would have found them).
+  A separating position splits the problem into two parts, each taken
+  apart in turn (`Grouping` for pieces that may stay together).
+- `disassembler_node.h`: `DisassemblerNode` (the pieces' places and
+  orientations, the position it came from, the move) and `NodeRef`, a
+  counted reference (not atomic: a node's count is touched by one thread at
+  a time, see `Disassembler`). `node_hash.h`: `NodeHash`, `CountingNodeHash`,
+  sets of positions compared relatively (the whole puzzle shifted is the
+  same position).
+- `movement_analysator.h`: `MovementAnalysator`, Bill Cutler's moves from
+  one position (removals, groups, slides with merging, then turns); one per
+  thread. `movement_cache.h`: `MovementCache` with `MovementCacheBricks`
+  and `MovementCachePrisms`, `makeMovementCache()`.
+- `rotation_rules.h`: `RotationRules`, whether a 90 degree turn of a body is
+  possible (sandwich, perpendicular planes, axis cross, the bevelled arc
+  sweep with wiggles), bit for bit the original's answers.
+  `rotation_moves.h`: the `RotationMoves` generator interface;
+  `RotationMovesClassic` (complete: every group about every pivot, one
+  position per arrangement with the anchor) and `RotationMovesCrowell` (the
+  Fortran solver's heuristics; notes in `CROWELL.md`).
+- `grouping.h`: `Grouping`, groups given to sets of pieces.
+- `disasm_to_moves.h`: `DisasmToMoves` (piece positions at any step of a
+  tree, turns as angles about a pivot) and `FixedPositions`, behind
+  `PiecePositions`; stage 6 builds the playback sampler from it.
+
+**Rules of a take-apart:** one `StopToken` per take-apart (polled by the
+search, the analysators and the turn generators); a stopped take-apart
+returns no separation and says so (`stopped`), which is not "cannot come
+apart"; levels spread over the pool given, nested inside the assembler's
+callback without deadlock; the shapes' caches are warmed when the
+disassembler is made. Nothing is printed and nothing read from the
+environment (the original's switches are options).
+
+Planned: `SolveSession` replacing `solveThread_c` (5): the take-apart queue
+and its workers, solution sorting and limits, saving a solve.
 
 ### mesh and app (stage 6)
 Drawing meshes for every grid; `Document` with transactional undo/redo;
@@ -259,7 +311,11 @@ poses at any step); explorer data.
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
   comparison of `bt` with `burrTxt` (`just oracle`; `--fields`, `--threads`,
-  `--solver bt2` against the original's own BurrTools 2 baselines), the
+  `--solver crowell|bt2` against the original's own baselines for those),
+  the solved-file comparison (`compare-files`: `bt_solve_file` solves as
+  burrTxt2 does, both programs' files are read with the new core by
+  `bt_solutions` and compared solution by solution: assembly, separation
+  tree, level text, move counts), the
   saved-position check (`just oracle-resume`: assembler 0 and 1 searches
   paused by one program continue in the other, single-thread pauses save the
   same text; BurrTools 2 pauses save the same text and are refused), the

@@ -8,7 +8,10 @@ process that a new web front end will drive.
 The original application stays the reference: every ported solver must give
 the same answers on a corpus of 180 puzzles before it counts as done.
 
-**Status:** stage 0 of 8 (bootstrap). See [docs/PLAN.md](docs/PLAN.md).
+**Status:** stages 0 to 4 of 8 done: grids, model and file format, the
+assemblers, the take-apart (with rotation moves); `bt` solves and takes
+apart as the original's `burrTxt`. Next: the solve session (stage 5). See
+[docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 

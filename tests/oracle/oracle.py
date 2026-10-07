@@ -9,9 +9,10 @@ A ported component counts as done only when the two agree on the corpus
            `baseline` records the original's answers in baseline/<tier>.json
            (committed); `compare` runs the new bt and diffs.
   files    every solution and its disassembly, from the solved puzzle file the
-           original's burrTxt2 writes. `baseline-files` produces those files
-           under work/ (not committed); the comparison itself arrives with the
-           disassembly port (stage 4).
+           original's burrTxt2 writes (`baseline-files`, under work/old, not
+           committed) and the one the new core writes the same way
+           (`compare-files`, with bt_solve_file): both are read with the new
+           core (bt_solutions) and compared solution by solution.
   roundtrip  (stage 2) every corpus file, plus the files that are not solved
            yet and the solved files under work/old, is loaded and saved by the
            original and by the new core; the saves must be the same XML
@@ -194,8 +195,13 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if unknown:
         print(f"unknown field(s): {', '.join(unknown)}; choose from {', '.join(COMPARED)}", file=sys.stderr)
         return 2
-    results = run_many(args.new_bt, args.old_repo, entries, args.jobs, args.timeout, old=False,
+    # what the original could not answer is not run (Crowell's take-apart of
+    # some puzzles outlasts the baseline's time limit)
+    runnable = [e for e in entries if "error" not in expected.get(e.rel, {})]
+    results = run_many(args.new_bt, args.old_repo, runnable, args.jobs, args.timeout, old=False,
                        threads=args.threads, solver=args.solver)
+    for e in entries:
+        results.setdefault(e.rel, {"skipped": True})
 
     failures = 0
     unported = 0
@@ -205,6 +211,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
         if want is None:
             rows.append((e.rel, "NO BASELINE", ""))
             failures += 1
+        elif "error" in want:
+            rows.append((e.rel, "OLD FAILED", want["error"]))
         elif "unported" in got:
             rows.append((e.rel, "UNPORTED", got["unported"]))
             unported += 1
@@ -213,8 +221,6 @@ def cmd_compare(args: argparse.Namespace) -> int:
         elif "error" in got:
             rows.append((e.rel, "NEW FAILED", got["error"]))
             failures += 1
-        elif "error" in want:
-            rows.append((e.rel, "OLD FAILED", want["error"]))
         else:
             diffs = [f"{k}: {want.get(k)} != {got.get(k)}" for k in fields if want.get(k) != got.get(k)]
             if diffs:
@@ -228,15 +234,23 @@ def cmd_compare(args: argparse.Namespace) -> int:
     for rel, status, detail in rows:
         if status != "ok" or args.verbose:
             print(f"{status:12} {rel}  {detail}")
-    compared = len(rows) - (unported if args.allow_unported else 0)
+    oldFailed = sum(1 for _, status, _ in rows if status == "OLD FAILED")
+    compared = len(rows) - oldFailed - (unported if args.allow_unported else 0)
     what = "all fields" if args.fields is None else ", ".join(fields)
     threads = "default threads" if args.threads is None else f"{args.threads} thread(s)"
     print(f"\n{compared - failures}/{compared} match the original ({what}; {threads}; solver {args.solver})"
           + ("" if failures == 0 else f", {failures} do not"))
+    if oldFailed:
+        print(f"{oldFailed} not compared: the original gave no answer (OLD FAILED above)")
     if unported:
         print(f"{unported} need a part that is not ported yet"
               + (" (not counted: --allow-unported)" if args.allow_unported else " (counted as failures)"))
     return 1 if failures else 0
+
+
+def files_dir(side: str, solver: str) -> Path:
+    """work/old or work/new for the default solver, work/<side>-<solver> for another."""
+    return WORK_DIR / (side if solver == "classic" else f"{side}-{solver}")
 
 
 def cmd_baseline_files(args: argparse.Namespace) -> int:
@@ -246,13 +260,15 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
         print(f"original burrTxt2 not found at {old_bin}", file=sys.stderr)
         return 2
     entries = select(load_corpus(args.old_repo), args.tier, args.filter)
-    out_root = WORK_DIR / "old"
+    out_root = files_dir("old", args.solver)
     for n, e in enumerate(entries, 1):
         dst = out_root / e.rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(args.old_repo / e.rel, dst)  # burrTxt2 writes <file>ttt beside its input
-        # "A" grids have no take-apart; -d makes the original abort on them
-        flags = ([] if "A" in e.flags else ["-d"]) + (["-R", "--rotations"] if "R" in e.flags else [])
+        # -R starts over (a file may hold solutions or a paused search);
+        # "A" grids have no take-apart, -d makes the original abort on them
+        flags = (["-R"] + ([] if "A" in e.flags else ["-d"]) + (["--rotations"] if "R" in e.flags else [])
+                 + solver_args(args.solver))
         try:
             proc = subprocess.run([str(old_bin), *flags, str(dst)], capture_output=True, text=True,
                                   timeout=args.timeout, check=False)
@@ -262,6 +278,106 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
         print(f"[{n}/{len(entries)}] {e.rel}: {status}", file=sys.stderr)
     print(f"solved files in {out_root}")
     return 0
+
+
+# burrTxt2 keeps the best ten solutions by moves (the solve thread's default)
+SOLUTION_LIMIT = 10
+
+
+def read_solutions(tool: Path, path: Path, timeout: float) -> dict:
+    proc = subprocess.run([str(tool), str(path)], capture_output=True, text=True, timeout=timeout, check=False)
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout).strip()[-200:] or f"exit {proc.returncode}")
+    return json.loads(proc.stdout)
+
+
+def compare_solved(old: dict, new: dict, assemble_only: bool) -> str:
+    """Empty when the new solved problem 0 matches the original's, else what differs.
+
+    The original keeps the ten best solutions by moves; which of several with
+    the same moves it keeps depends on the order its threads took them apart,
+    so the new file keeps every solution, sorted the same way: the original's
+    moves must be the top of the new list, and each solution the original
+    kept must be in the new file with the very same assembly, separation
+    tree, level text and move counts."""
+    po, pn = old["problems"][0], new["problems"][0]
+    for key in ("state", "assemblies", "solutions"):
+        if po.get(key) != pn.get(key):
+            return f"{key}: {po.get(key)} != {pn.get(key)}"
+    if assemble_only:
+        return ""
+    olds, news = po["saved"], pn["saved"]
+    if len(olds) != min(len(news), SOLUTION_LIMIT):
+        return f"saved solutions: {len(olds)} != min({len(news)}, {SOLUTION_LIMIT})"
+    om = [s.get("moves") for s in olds]
+    nm = [s.get("moves") for s in news[:len(olds)]]
+    if om != nm:
+        return f"moves of the saved solutions: {om} != {nm}"
+    by_assembly: dict[str, list[dict]] = {}
+    for s in news:
+        by_assembly.setdefault(s["assembly"], []).append(s)
+    keys = ("tree", "level", "moves", "rotations")
+    for i, s in enumerate(olds):
+        candidates = by_assembly.get(s["assembly"])
+        if not candidates:
+            return f"solution {i}: its assembly is not among the new solutions"
+        if not any(all(c.get(k) == s.get(k) for k in keys) for c in candidates):
+            c = candidates[0]
+            diff = [k for k in keys if c.get(k) != s.get(k)]
+            return f"solution {i} ({s.get('level')}): differs in {', '.join(diff)}"
+    return ""
+
+
+def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
+    old_file = files_dir("old", args.solver) / (e.rel + "ttt")
+    if not old_file.exists():
+        return {"status": "NO BASELINE", "detail": f"no {old_file.relative_to(HERE)}: run baseline-files"}
+    new_in = files_dir("new", args.solver) / e.rel
+    new_in.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(args.old_repo / e.rel, new_in)
+    new_file = new_in.with_name(new_in.name + "ttt")
+    flags = (["--restart", "--limit", "0"] + ([] if "A" in e.flags else ["-d"])
+             + (["--rotations"] if "R" in e.flags else []) + solver_args(args.solver))
+    err = run_tool([str(args.new_tool), *flags, str(new_in), str(new_file)], args.timeout)
+    if err:
+        return {"status": "NEW FAILED", "detail": err}
+    try:
+        old = read_solutions(args.dump_tool, old_file, args.timeout)
+        new = read_solutions(args.dump_tool, new_file, args.timeout)
+    except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        return {"status": "MISMATCH", "detail": f"cannot read: {exc}"}
+    diff = compare_solved(old, new, "A" in e.flags)
+    if diff:
+        return {"status": "MISMATCH", "detail": diff}
+    po = old["problems"][0]
+    return {"status": "ok", "detail": f"{po.get('assemblies')} assemblies, {po.get('solutions')} solutions, "
+                                      f"{len(po['saved'])} saved"}
+
+
+def cmd_compare_files(args: argparse.Namespace) -> int:
+    """Solve each puzzle with the new core as burrTxt2 did and compare the solved files."""
+    for tool in (args.new_tool, args.dump_tool):
+        if not tool.exists():
+            print(f"{tool} not found: build the release preset", file=sys.stderr)
+            return 2
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    results: dict[str, dict] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        futures = {pool.submit(compare_files_one, e, args): e for e in entries}
+        for n, fut in enumerate(concurrent.futures.as_completed(futures), 1):
+            e = futures[fut]
+            results[e.rel] = fut.result()
+            print(f"[{n}/{len(entries)}] {e.rel}: {results[e.rel]['status']}", file=sys.stderr)
+    failures = 0
+    for rel in sorted(results):
+        r = results[rel]
+        if r["status"] != "ok":
+            failures += 1
+        if r["status"] != "ok" or args.verbose:
+            print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
+    print(f"\n{len(results) - failures}/{len(results)} solved files match the original's "
+          f"(solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
+    return 1 if failures else 0
 
 
 def build_against_old(old_repo: Path, source: Path, out: Path) -> bool:
@@ -710,16 +826,21 @@ def main() -> int:
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
     p.add_argument("--new-bt", type=Path, default=HERE.parent.parent / "build" / "release" / "cli" / "bt")
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name in ("baseline", "compare", "baseline-files"):
+    for name in ("baseline", "compare", "baseline-files", "compare-files"):
         s = sub.add_parser(name)
         s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all"])
         s.add_argument("--filter", help="only puzzles whose path contains this text")
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
-        if name != "baseline-files":
-            s.add_argument("--solver", choices=["classic", "bt2"], default="classic",
-                           help="the solver both programs run (baselines of bt2 are baseline/<tier>-bt2.json)")
+        s.add_argument("--solver", choices=["classic", "crowell", "bt2"], default="classic",
+                       help="the solver both programs run (baselines of another than classic are "
+                            "baseline/<tier>-<solver>.json, solved files work/old-<solver>)")
+        if name == "compare-files":
+            s.add_argument("--new-tool", type=Path,
+                           default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solve_file")
+            s.add_argument("--dump-tool", type=Path,
+                           default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solutions")
         if name == "compare":
             s.add_argument("--fields", nargs="+", metavar="FIELD",
                            help=f"compare only these fields (default all: {' '.join(COMPARED)})")
@@ -746,6 +867,7 @@ def main() -> int:
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
+            "compare-files": cmd_compare_files,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
             "model-dump": cmd_model_dump, "record-saves": cmd_record_saves,
             "record-positions": cmd_record_positions}[args.cmd](args)

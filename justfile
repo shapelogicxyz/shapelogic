@@ -41,6 +41,10 @@ oracle-roundtrip *args: (build "release")
 oracle-resume *args: (build "release")
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" resume-check {{args}}
 
+# Solve as burrTxt2 does and compare the solved files (after `oracle.py baseline-files --tier all`)
+oracle-files *args: (build "release")
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" compare-files {{args}}
+
 # Record the original burrTxt's answers for a corpus tier
 oracle-baseline *args:
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}

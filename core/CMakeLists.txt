@@ -32,8 +32,20 @@ add_library(btcore STATIC
   bt/solve/assembler_1.cpp
   bt/solve/assembler_bt2.cpp
   bt/solve/dancing_cells.cpp
+  bt/solve/disasm_to_moves.cpp
+  bt/solve/disassembler.cpp
+  bt/solve/disassembler_node.cpp
   bt/solve/dlx_matrix.cpp
+  bt/solve/grouping.cpp
+  bt/solve/movement_analysator.cpp
+  bt/solve/movement_cache.cpp
+  bt/solve/movement_cache_bricks.cpp
+  bt/solve/movement_cache_prisms.cpp
+  bt/solve/node_hash.cpp
   bt/solve/placement_finder.cpp
+  bt/solve/rotation_moves_classic.cpp
+  bt/solve/rotation_moves_crowell.cpp
+  bt/solve/rotation_rules.cpp
   bt/solve/search_run.cpp
   bt/solve/simd_exact_cover.cpp
   bt/solve/simd_huang_cover.cpp
