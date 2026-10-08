@@ -37,6 +37,7 @@ stdin and stdout), `build/<preset>/cli/bt` (command-line solver),
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organised
 - [docs/decisions/](docs/decisions/): why it is organised that way
 - [docs/webui-spec.md](docs/webui-spec.md): what the web front end does
+- [docs/FRONTEND-PLAN.md](docs/FRONTEND-PLAN.md): the plan for building it (stages, gates, what the API lacks)
 - [docs/API.md](docs/API.md): the engine's methods and events (generated from [api/](api/))
 - [docs/core-api.md](docs/core-api.md): the draft API.md replaced
 - [AGENTS.md](AGENTS.md): conventions for everyone working on the code

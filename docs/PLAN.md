@@ -121,5 +121,5 @@ in `tests/bench/`, profile and close any gap to the original. Done: `bt`
 is burrTxt for brick puzzles (its text checked byte for byte by
 `just oracle-text`) with burrTxt2's mode as `--save`; every benchmark row
 within 5% of the original or faster (Burr-Glar 0.84). This completes the
-plan; next is the web front end and the later features above
-(docs/handoff/stage-8.md).
+plan; next is the web front end (its own plan: docs/FRONTEND-PLAN.md)
+and the later features above (docs/handoff/stage-8.md).
