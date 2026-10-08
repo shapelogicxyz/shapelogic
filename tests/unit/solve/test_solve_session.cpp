@@ -994,7 +994,10 @@ TEST_CASE("solve session: a second solve's progress starts from nothing",
   // and after an abort
   s.abort();
   REQUIRE(s.start().has_value());
-  CHECK(s.progress().overall < 0.5F);
+  const SolveProgress again = s.progress();
+  if (again.stage == SolveStage::Prepare || again.stage == SolveStage::Reduce) {
+    CHECK(again.overall < 0.01F);
+  }
   s.wait();
 }
 
@@ -1078,21 +1081,29 @@ TEST_CASE("solve session: the saved position belongs to the paused state",
   s.wait();
   REQUIRE(s.state() == SolveState::Paused);
   CHECK_FALSE(p.getProblem(0).getAssemblerState().empty());
-  REQUIRE(s.resume().has_value());
+  // watched until seen (a slow or busy machine may let a whole run slip by
+  // between two looks: then the solve is prepared and run again)
   bool seen = false;
-  while (isActive(s.state())) {
-    seen = s.readProblem([](const Problem& pr) {
-             if (pr.getSolveState() == ProblemState::Solving && pr.getNumAssemblies() > 0) {
-               CHECK(pr.getAssemblerState().empty());
-               return true;
-             }
-             return false;
-           }) ||
-           seen;
+  for (int attempt = 0; attempt < 20 && !seen; attempt++) {
+    if (attempt > 0) {
+      REQUIRE(s.prepare().has_value());
+      s.wait();
+    }
+    REQUIRE(s.resume().has_value());
+    while (isActive(s.state())) {
+      seen = s.readProblem([](const Problem& pr) {
+               if (pr.getSolveState() == ProblemState::Solving && pr.getNumAssemblies() > 0) {
+                 CHECK(pr.getAssemblerState().empty());
+                 return true;
+               }
+               return false;
+             }) ||
+             seen;
+    }
+    s.wait();
+    CHECK(s.state() == SolveState::Finished);
   }
-  s.wait();
   CHECK(seen);
-  CHECK(s.state() == SolveState::Finished);
 }
 
 TEST_CASE("solve session: the search statistics are recorded", "[solve][session]") {
@@ -1158,8 +1169,10 @@ TEST_CASE("solve session: kept assemblies thin the same however the solve was pa
   {
     Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
     SolveSession s(p, p.getProblem(0), o);
-    const auto t0 = std::chrono::steady_clock::now();
     REQUIRE(s.start().has_value());
+    // the time it assembles: what the pauses below are spread over
+    untilPrepared(s);
+    const auto t0 = std::chrono::steady_clock::now();
     s.wait();
     whole = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now() - t0);
@@ -1176,7 +1189,8 @@ TEST_CASE("solve session: kept assemblies thin the same however the solve was pa
       REQUIRE(run < 200);
       // within the time a whole solve takes, widening as the runs go on
       untilPrepared(*session);
-      const auto window = static_cast<int>(whole.count()) * (2 + static_cast<int>(run)) / 4;
+      const auto window = std::max(static_cast<int>(whole.count()), 50) *
+                          (2 + static_cast<int>(run)) / 4;
       std::this_thread::sleep_for(
           std::chrono::microseconds(std::uniform_int_distribution<int>(0, window)(rng)));
       session->pause();

@@ -2,6 +2,11 @@
 # AGENTS.md ([slow] cases are skipped by `just test`, [parallel] cases are
 # what the ThreadSanitizer build runs).
 add_executable(bt_tests
+  unit/app/test_app_dump.cpp
+  unit/app/test_document.cpp
+  unit/app/test_document_solving.cpp
+  unit/app/test_playback_explorers.cpp
+  unit/app/test_tools_queries.cpp
   unit/base/test_error.cpp
   unit/base/test_solve_state.cpp
   unit/base/test_stop.cpp
@@ -15,6 +20,7 @@ add_executable(bt_tests
   unit/io/test_puzzle_file.cpp
   unit/io/test_roundtrip.cpp
   unit/io/test_xml.cpp
+  unit/mesh/test_meshes.cpp
   unit/model/test_model_dump.cpp
   unit/model/test_puzzle_model.cpp
   unit/solve/test_assembler.cpp

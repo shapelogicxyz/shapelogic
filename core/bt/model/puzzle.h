@@ -65,6 +65,9 @@ class Puzzle {
   void removeShape(unsigned int idx);
   /// Swaps two shapes; the problems follow.
   void exchangeShapes(unsigned int s1, unsigned int s2);
+  /// Puts `v` in place of the voxel space of shape `idx` and returns the old
+  /// one; the problems are not touched (an undo restores a shape this way).
+  std::unique_ptr<Voxel> replaceShape(unsigned int idx, std::unique_ptr<Voxel> v);
 
   // ---- constraint colours -----------------------------------------------------
 

@@ -11,6 +11,7 @@
 #include "bt/model/disassembly.h"
 #include "bt/model/xml_element.h"
 
+#include <cstdint>
 #include <optional>
 
 namespace bt {
@@ -46,6 +47,13 @@ class Solution {
   /// The disassembly or its summary, whichever there is, or nullptr.
   [[nodiscard]] const Disassembly* getDisassemblyInfo() const;
 
+  /// A number naming the solution while the puzzle is open (not saved):
+  /// given by its problem as it is added, it stays with the solution when
+  /// the list is sorted, thinned or edited, and is never given twice in a
+  /// problem. 0 until the problem gives one.
+  [[nodiscard]] std::uint64_t getId() const { return id_; }
+  void setId(std::uint64_t id) { id_ = id; }
+
   [[nodiscard]] unsigned int getAssemblyNumber() const { return assemblyNum_; }
   [[nodiscard]] unsigned int getSolutionNumber() const { return solutionNum_; }
 
@@ -74,6 +82,7 @@ class Solution {
   std::optional<SeparationInfo> treeInfo_;
   unsigned int assemblyNum_;
   unsigned int solutionNum_;
+  std::uint64_t id_ = 0;
   PreservedXml preserved_;
 };
 

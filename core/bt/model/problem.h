@@ -297,6 +297,10 @@ class Problem {
   /// Removes one saved solution.
   void removeSolution(unsigned int sol);
 
+  /// Gives the solutions that have none an id (Solution::getId), in list
+  /// order: the file reader calls it for the solutions it read.
+  void assignSolutionIds();
+
   /// Sorts the solutions: 0 by assembly number, 1 by level, 2 by moves,
   /// 3 by the pieces used.
   void sortSolutions(int by);
@@ -342,6 +346,8 @@ class Problem {
   unsigned int goal_ = kNoShape;
 
   std::vector<Solution> solutions_;
+  /// The id the next solution gets (runtime only, not saved).
+  std::uint64_t nextSolutionId_ = 1;
   /// What keepSolutionsSorted knows: the first sortedUpTo_ solutions are in
   /// sortSolutions(sortedBy_) order; -1 when nothing is known.
   int sortedBy_ = -1;

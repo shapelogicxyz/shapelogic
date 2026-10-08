@@ -4,10 +4,12 @@ BurrTools Alpha is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 5 (the assembler run layer and all three
+*Current state: stage 6 (the assembler run layer and all three
 assemblers; the take-apart with rotation moves, Classic and Crowell; the
-solve session; `bt` solving and taking apart). `core/bt/base`, `grid`,
-`model`, `io` and `solve` have code; the app layer follows in stage 6.*
+solve session; the drawing meshes of every grid; the app layer: the
+document with its undo history and commands, the queries, the playback
+sampler and the explorers; `bt` solving and taking apart). Every module
+of `core/bt` has code; the engine follows in stage 7.*
 
 ## Big picture
 
@@ -40,10 +42,10 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `engine/` | `bt-engine` (stage 7) |
 | `cli/` | `bt`: solves and takes apart with burrTxt-compatible `--json` (full CLI in stage 8) |
 | `api/` | JSON Schema of engine methods and events (stage 7); see `api/README.md` |
-| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` |
+| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `grid`, `io`, `mesh`, `model`, `solve`) |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
-| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `saved_by_original/`, `positions_by_original.txt`) |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solve_file`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, decisions/, handoff/, webui-spec.md, core-api.md |
 | `cmake/` | warnings, sanitizers, dependencies |
@@ -125,6 +127,7 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 - `puzzle.h`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint
   colours, problems, comment. Copying copies everything. Removing or
   swapping shapes goes through the puzzle, which updates every problem.
+  `replaceShape` puts another voxel space in a shape's place (undo).
 - `problem.h`: `Problem`: parts (`Part`: shape, min, max, groups), result
   and goal shape, colour rules, max holes, `ProblemState`, counts and time,
   the saved search position (`getAssemblerState()`/`Version()`,
@@ -140,7 +143,8 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   `State`, `Separation` (the tree, copyable), `SeparationInfo` (the compact
   pre-order form). `movesText()` keeps the original's 256-byte cut-off.
 - `solution.h`: `Solution`: an assembly with an optional `Separation` or
-  `SeparationInfo`, and its numbers.
+  `SeparationInfo`, its numbers, and a runtime id its problem gives it
+  (not saved; the app layer's solution id).
 - `xml_element.h`: `XmlElement` (the tree the reader builds) and
   `PreservedXml` (file content a model object keeps without modelling it).
 
@@ -366,10 +370,79 @@ around `beginSolving` (an assembler 1 replay included, which holds up
 (their own locks); the queue lock around a stop request. Mirror and
 rotation filter flags are applied to a kept assembler at every run.
 
-### mesh and app (stage 6)
-Drawing meshes for every grid; `Document` with transactional undo/redo;
-editing commands; fit statistics; the playback sampler (meshes plus piece
-poses at any step); explorer data.
+### mesh (exists: stage 6)
+The meshes of the shapes as the original's 3D view drew them. Ported from
+`src/halfedge/` (polyhedron, face, half-edge, vertex, the hole filling of
+`modifiers.cpp`), `voxel_c::getMeshInternal` / `getDrawingMesh` /
+`getWireframeMesh` / `getFlatMesh`, the cells' face geometry of
+`voxel_0` … `voxel_4` (`getConnectionFace`, `calculateSize`,
+`recalcSpaceCoordinates`, with their `meshverts.inc` tables) and
+`voxel_2_mesh.cpp`; checked against the original (`tests/data/app_dump.txt`:
+the drawing and flat meshes of every fixture shape face by face, the wire
+frame by its Euler characteristic).
+- `polyhedron.h`: `Polyhedron`, the half-edge mesh by numbers instead of
+  pointers (faces and half-edges keep the original's list order: erase
+  moves the last into the gap), `finalize()` (twins, an even number of
+  faces at an edge sorted by angle, holes closed), `VertexList`,
+  `eraseFaces`; `FaceFlag` (the view's face flags). `vec3.h`: `Vec3`, with
+  the original's float arithmetic.
+- `modifiers.h`: `fillPolyhedronHoles` (the wire frame: bevel and gap strips
+  merged, holes capped, never across a concave corner).
+- `grid_geometry.h`: `connectionFace` (the corners of a cell's face towards
+  a neighbour, or of a bevel face), `calculateSize`,
+  `recalcSpaceCoordinates`, for every grid (the grid module has no
+  geometry).
+- `voxel_mesh.h`: `shapeMesh(voxel, MeshStyle)` (Drawing, Wireframe, Flat),
+  `cellMesh` (getMeshInternal), `sphereMesh` (the balls of the sphere grid;
+  its expressions are kept as the original's, float and double as they
+  were, with the conversion warnings off for that file only).
+- `draw_mesh.h`: `DrawMesh`, a mesh as plain arrays for a binary frame:
+  triangles (the view's fans) with flat normals, and per triangle the cell
+  and side, flags, colour and polygon; the edge lines of the "edges"
+  style. `shapeDrawMesh`.
+The STL meshes (`cubemesh.cpp`, `minkmesh.cpp` with manifold, the view's
+"STL style") belong to the exports, later.
+
+### app (exists: stage 6)
+What the front end does to a puzzle (decision 0011). Ported from the
+original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
+`tooltabs.cpp`, `grideditor.cpp`, `statuswindow.cpp`,
+`placementbrowser.cpp`, `movementbrowser.cpp`, `mainwindow_solve.cpp`,
+`mainwindow_file.cpp`) and `gltfexport.cpp`'s sampler.
+- `document.h`: `Document`: the puzzle, the ids of its shapes, colours and
+  problems (a solution's id is `Solution::getId()`), the revision, the
+  dirty flag, the undo history (each step keeps the parts it changed and
+  swaps them back and forth; groups for a drag; a depth), every editing
+  command of core-api.md sections 1 to 4 and the solution commands
+  (delete, drop disassemblies, assemblies to shapes), each a `Result`, one
+  step; the queries; one `SolveSession` per problem being solved (start,
+  prepare, resume, pause, save point, abort, wait, state, progress, stats,
+  failure, `readProblem`); playback and explorers. The rules for edits
+  while solving are decision 0011.
+- `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
+  `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
+  grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
+  `defaultShapeSize`, `sizeUnit`.
+- `queries.h`: `problemFit` (`FitStats`: the result's and the pieces'
+  cells, the piece counts, holes, the verdict, the original's status
+  line), `shapeTable` (`ShapeInfo`: the status window's row),
+  `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`.
+- `playback.h`: `PlaybackSampler` (from a solution with its disassembly:
+  the pieces with their meshes in the assembly orientation, `sample(step)`
+  giving each piece's translation, quaternion and visibility, turns
+  tumbling about their pivots; `track()` the keyframes with holds and
+  reassembly), over `DisasmToMoves`.
+- `explorers.h`: `AssemblyExplorer` (the placements of each piece, the
+  assembly search one step at a time) and `MovementExplorer` (the tree of
+  positions of a take-apart: analyse, add a move, find a matching one,
+  prune); both work on a copy of the puzzle.
+
+**Rules of the app layer:** the owner calls the document from one thread;
+a command checks first and changes after, so a refused one changes
+nothing; every change is undoable except what solving does; while a run
+is active, shapes, lists and the solving problems are frozen (decision
+0011); runs only read shapes (the document resets hotspots and warms the
+caches before a run).
 
 ## Testing against the original
 
@@ -388,12 +461,13 @@ poses at any step); explorer data.
   fixtures and the original's solved files are loaded and saved by both
   programs; the saves must be the same XML), and recorders that compile a
   dump tool against the original's library (`oracle.py grid-dump`,
-  `model-dump`, `record-saves`, `record-positions`, writing into
-  `tests/data/`).
+  `model-dump`, `app-dump`, `record-saves`, `record-positions`, writing
+  into `tests/data/`).
 - `tests/bench/bench.py` times `bt` against the original's `burrTxt`, back
   to back (decision 0007's speed rule; stage 8 is the gate).
 - The unit tests compare with those recordings (`test_grid_dump.cpp`,
-  `test_model_dump.cpp`, the byte-for-byte save check in
+  `test_model_dump.cpp`, `test_app_dump.cpp` (meshes, the status table,
+  the fit line, playback tracks), the byte-for-byte save check in
   `test_puzzle_file.cpp`, the paused positions in `test_positions.cpp`);
   they never read the original repo.
 

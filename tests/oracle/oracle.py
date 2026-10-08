@@ -431,6 +431,21 @@ def cmd_model_dump(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_app_dump(args: argparse.Namespace) -> int:
+    """Record tests/data/app_dump.txt: the original's meshes, status table, fit line and
+    playback tracks for the fixture puzzles (stage 6)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "app_dump_old"
+    if not build_against_old(args.old_repo, HERE / "app_dump_old.cpp", exe):
+        return 2
+    files = sorted(FIXTURES.glob("*.xmpuzzle"))
+    out = HERE.parent / "data" / "app_dump.txt"
+    with open(out, "w") as f:
+        subprocess.run([str(exe), *map(str, files)], stdout=f, check=True)
+    print(f"wrote {out}")
+    return 0
+
+
 def cmd_record_saves(args: argparse.Namespace) -> int:
     """Record tests/data/saved_by_original/: what the original writes for each fixture puzzle."""
     WORK_DIR.mkdir(exist_ok=True)
@@ -852,6 +867,7 @@ def main() -> int:
                            help="list puzzles that need parts not ported yet without failing on them")
     sub.add_parser("grid-dump", help="record tests/data/grid_dump.txt from the original's grid code")
     sub.add_parser("model-dump", help="record tests/data/model_dump.txt from the original's model code")
+    sub.add_parser("app-dump", help="record tests/data/app_dump.txt: the original's meshes, status table, fit line and playback")
     sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
     s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
@@ -871,7 +887,7 @@ def main() -> int:
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
             "compare-files": cmd_compare_files,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
-            "model-dump": cmd_model_dump, "record-saves": cmd_record_saves,
+            "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "record-saves": cmd_record_saves,
             "record-positions": cmd_record_positions}[args.cmd](args)
 
 

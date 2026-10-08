@@ -525,6 +525,7 @@ void Problem::addSolution(Assembly assm) { addSolution(std::move(assm), numAssem
 void Problem::addSolution(Assembly assm, std::uint64_t assemblyNumber) {
   BT_ASSERT(state_ == ProblemState::Solving);
   solutions_.emplace_back(std::move(assm), static_cast<unsigned int>(assemblyNumber));
+  solutions_.back().setId(nextSolutionId_++);
 }
 
 void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemblyNumber,
@@ -533,6 +534,7 @@ void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemb
 
   Solution sol(std::move(assm), static_cast<unsigned int>(assemblyNumber), std::move(disasm),
                static_cast<unsigned int>(solutionNumber));
+  sol.setId(nextSolutionId_++);
   if (pos < solutions_.size()) {
     solutions_.insert(solutions_.begin() + pos, std::move(sol));
     sortedUpTo_ = std::min<std::size_t>(sortedUpTo_, pos);
@@ -547,6 +549,7 @@ void Problem::addSolution(Assembly assm, SeparationInfo disasm, std::uint64_t as
 
   Solution sol(std::move(assm), static_cast<unsigned int>(assemblyNumber), std::move(disasm),
                static_cast<unsigned int>(solutionNumber));
+  sol.setId(nextSolutionId_++);
   if (pos < solutions_.size()) {
     solutions_.insert(solutions_.begin() + pos, std::move(sol));
     sortedUpTo_ = std::min<std::size_t>(sortedUpTo_, pos);
@@ -561,6 +564,14 @@ void Problem::addSolution(Assembly assm, Separation disasm, unsigned int pos) {
 
 void Problem::addSolution(Assembly assm, SeparationInfo disasm, unsigned int pos) {
   addSolution(std::move(assm), std::move(disasm), numAssemblies_, numSolutions_, pos);
+}
+
+void Problem::assignSolutionIds() {
+  for (Solution& s : solutions_) {
+    if (s.getId() == 0) {
+      s.setId(nextSolutionId_++);
+    }
+  }
 }
 
 void Problem::removeSolution(unsigned int sol) {

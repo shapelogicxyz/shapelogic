@@ -52,7 +52,8 @@ failure scenarios.
 - [x] **Stage 4**: disassembly (see docs/handoff/stage-4.md)
 - [x] Audit of stage 4: three findings fixed (commit 60dc717; see docs/handoff/stage-5.md)
 - [x] **Stage 5**: solve session (see docs/handoff/stage-5.md)
-- [ ] Stage 6: app layer
+- [x] Audit of stage 5: six findings fixed (commit db3cb40; see docs/handoff/stage-6.md)
+- [x] **Stage 6**: app layer and meshes (see docs/handoff/stage-6.md)
 - [ ] Stage 7: engine
 - [ ] Stage 8: CLI and performance
 
@@ -102,7 +103,9 @@ snapshots, autosave hooks, error capture. Port the pause/resume tests from
 `Document` (puzzle + undo history), commands for every UI action in
 docs/webui-spec.md, queries (fit statistics), drawing meshes (`halfedge/`,
 `getDrawingMesh`, `voxel_2_mesh`), the playback sampler generalised from the
-original's `gltfexport.cpp`, placement/movement explorer data.
+original's `gltfexport.cpp`, placement/movement explorer data. Done; `grid.geometry` (the
+grid editors' 2D cells), `solution.analyse` and the export of paused solves
+moved to stage 7 (docs/handoff/stage-6.md).
 
 ### Stage 7: engine
 JSON Schema in `api/`, `bt-engine` JSON-RPC dispatcher, events, binary

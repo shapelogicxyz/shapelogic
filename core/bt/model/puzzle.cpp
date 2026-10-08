@@ -29,6 +29,15 @@ void Puzzle::removeShape(unsigned int idx) {
   shapes_.erase(shapes_.begin() + idx);
 }
 
+std::unique_ptr<Voxel> Puzzle::replaceShape(unsigned int idx, std::unique_ptr<Voxel> v) {
+  BT_ASSERT(idx < shapes_.size());
+  BT_ASSERT(v != nullptr);
+  BT_ASSERT(v->getGridType() == gt_);
+  std::unique_ptr<Voxel> old = shapes_[idx].release();
+  shapes_[idx].reset(std::move(v));
+  return old;
+}
+
 void Puzzle::exchangeShapes(unsigned int s1, unsigned int s2) {
   BT_ASSERT(s1 < shapes_.size());
   BT_ASSERT(s2 < shapes_.size());

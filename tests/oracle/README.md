@@ -79,6 +79,7 @@ it.
 ```bash
 python3 tests/oracle/oracle.py grid-dump     # tests/data/grid_dump.txt (stage 1)
 python3 tests/oracle/oracle.py model-dump    # tests/data/model_dump.txt (stage 2)
+python3 tests/oracle/oracle.py app-dump      # tests/data/app_dump.txt (stage 6)
 python3 tests/oracle/oracle.py record-saves  # tests/data/saved_by_original/ (stage 2)
 python3 tests/oracle/oracle.py record-positions  # tests/data/positions_by_original.txt (stage 3)
 ```
@@ -87,8 +88,15 @@ python3 tests/oracle/oracle.py record-positions  # tests/data/positions_by_origi
 code (`tests/unit/grid/grid_dump.h`) through two small adapters, so the
 recording and the check cannot drift apart. `model_dump_old.cpp` and
 `tests/unit/model/test_model_dump.cpp` are two copies of one dump (the
-model APIs differ too much for adapters): change both together. Both dumps
-and `record-saves` run over the fixtures in `tests/data/puzzles/`.
+model APIs differ too much for adapters): change both together. So are
+`app_dump_old.cpp` and `tests/unit/app/test_app_dump.cpp`: the meshes of
+every shape (drawing and flat face by face, as hashes; of the wire frame
+only the Euler characteristic, because the original's hole filling visits
+faces in address order and so merges different faces from run to run),
+the status window's table, the fit line, and the playback tracks of the
+first solutions (gltfexport.cpp's sampler, copied into the dump tool: it
+lives in an anonymous namespace there). The dumps and `record-saves` run
+over the fixtures in `tests/data/puzzles/`.
 
 ## File round trip (stage 2 onward)
 

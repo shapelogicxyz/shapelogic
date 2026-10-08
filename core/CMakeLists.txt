@@ -2,6 +2,12 @@
 # No UI, no stdout/stderr output, no global state: everything reaches it
 # through its API (docs/ARCHITECTURE.md).
 add_library(btcore STATIC
+  bt/app/document.cpp
+  bt/app/document_commands.cpp
+  bt/app/explorers.cpp
+  bt/app/playback.cpp
+  bt/app/queries.cpp
+  bt/app/shape_tools.cpp
   bt/base/assert.cpp
   bt/base/error.cpp
   bt/base/solve_state.cpp
@@ -22,6 +28,17 @@ add_library(btcore STATIC
   bt/io/xml_document.cpp
   bt/io/xml_pull_parser.cpp
   bt/io/xml_writer.cpp
+  bt/mesh/draw_mesh.cpp
+  bt/mesh/grid_geometry.cpp
+  bt/mesh/grid_geometry_0.cpp
+  bt/mesh/grid_geometry_1.cpp
+  bt/mesh/grid_geometry_3.cpp
+  bt/mesh/grid_geometry_4.cpp
+  bt/mesh/modifiers.cpp
+  bt/mesh/polyhedron.cpp
+  bt/mesh/sphere_mesh.cpp
+  bt/mesh/vec3.cpp
+  bt/mesh/voxel_mesh.cpp
   bt/model/assembly.cpp
   bt/model/disassembly.cpp
   bt/model/problem.cpp

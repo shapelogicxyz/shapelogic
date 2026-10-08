@@ -791,6 +791,7 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
           A::solutions(prob).push_back(readSolution(s, pieces, puzzle.getGridType()));
         }
       }
+      prob.assignSolutionIds();
     } else if (c.name == "bitmap") {
       keep.known(kSlotBitmap);
       for (const XmlElement& p : c.children) {
