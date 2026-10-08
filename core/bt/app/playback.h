@@ -29,6 +29,14 @@ class Voxel;
 
 namespace bt::app {
 
+/// The drawing mesh of a shape turned by one of its grid's
+/// transformations (an assembly's Placement.transformation): what the
+/// 3D view draws for a placed piece. InvalidArgument beyond the grid's
+/// table of transformations (mirrors included), Internal when the shape
+/// cannot take the orientation.
+[[nodiscard]] Result<mesh::DrawMesh> orientedMesh(const Voxel& shape, unsigned int transformation,
+                                                  mesh::MeshStyle style);
+
 /// Where a piece is: its mesh (in the assembly orientation, see
 /// PlaybackSampler::pieceMesh) is turned by `rotation` and moved by
 /// `translation`. Coordinates are mesh units, centred on the result.
@@ -72,14 +80,18 @@ struct PlaybackTrack {
 };
 
 /// The playback of one solution. Keeps copies of what it needs, so it is
-/// independent of the puzzle once made.
+/// independent of the puzzle once made. A solution without its
+/// disassembly stored (not taken apart, found not to come apart, or only
+/// its level summary kept) has the assembled pose alone: stepCount() is 0
+/// and every step samples the pieces as placed, so every solution can be
+/// shown through one path.
 class PlaybackSampler {
  public:
   /// The playback of saved solution `solution` of problem `problemIndex`.
   /// Refused for stacking and sliding puzzles (not yet), a problem without
-  /// a result, a missing solution, a solution without its disassembly
-  /// (Unsupported / InvalidArgument / NotFound, with the original's
-  /// messages), and a piece that cannot take its orientation.
+  /// a result, a missing solution (Unsupported / InvalidArgument /
+  /// NotFound, with the original's messages), and a piece that cannot
+  /// take its orientation.
   static Result<PlaybackSampler> make(const Puzzle& puzzle, unsigned int problemIndex,
                                       unsigned int solution);
 
@@ -89,9 +101,13 @@ class PlaybackSampler {
 
   /// The placed pieces, in problem order.
   [[nodiscard]] const std::vector<PlaybackPiece>& pieces() const { return pieces_; }
-  /// The number of steps (moves and turns) of the disassembly.
+  /// The number of steps (moves and turns) of the disassembly; 0 without
+  /// one.
   [[nodiscard]] unsigned int stepCount() const { return steps_; }
-  /// The moves as the solution's level text ("3.5.16.6...").
+  /// The disassembly is stored: the poses move with the steps.
+  [[nodiscard]] bool hasDisassembly() const { return moves_ != nullptr; }
+  /// The moves as the solution's level text ("3.5.16.6..."); empty
+  /// without a disassembly.
   [[nodiscard]] const std::string& movesText() const { return movesText_; }
 
   /// The poses of all pieces at `step` (0 assembled, stepCount() apart;
@@ -103,7 +119,8 @@ class PlaybackSampler {
   Result<PlaybackTrack> track(const TrackOptions& options);
 
   /// The drawing mesh of piece i (of pieces()) in its assembly orientation.
-  [[nodiscard]] mesh::DrawMesh pieceMesh(unsigned int i) const;
+  [[nodiscard]] mesh::DrawMesh pieceMesh(unsigned int i,
+                                         mesh::MeshStyle style = mesh::MeshStyle::Drawing) const;
 
  private:
   PlaybackSampler() = default;

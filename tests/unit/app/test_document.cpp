@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 using namespace bt;
@@ -637,4 +638,51 @@ TEST_CASE("document: queries and meshes through the document", "[app][document]"
   const mesh::DrawMesh m = d.shapeMesh(firstShape(d), mesh::MeshStyle::Drawing).value();
   CHECK(m.triangleCount() > 0);
   CHECK(d.shapeMesh(4242, mesh::MeshStyle::Flat).error().code == Errc::NotFound);
+}
+
+TEST_CASE("document: names and notes keep to text the file can hold", "[app][document]") {
+  Document d(GridKind::Bricks);
+  const Id s = d.createShape().value();
+  const Id p = d.createProblem().value();
+  // control characters are not well-formed XML 1.0; a name is an attribute,
+  // where a line break would come back as a space
+  test::refused(d, Errc::InvalidArgument, [s](Document& x) { return x.renameShape(s, "line\nbreak"); });
+  test::refused(d, Errc::InvalidArgument, [s](Document& x) { return x.renameShape(s, "a\rb"); });
+  test::refused(d, Errc::InvalidArgument,
+                [s](Document& x) { return x.renameShape(s, std::string("a\0b", 3)); });
+  test::refused(d, Errc::InvalidArgument, [s](Document& x) { return x.renameShape(s, "\x01ctrl"); });
+  test::refused(d, Errc::InvalidArgument, [p](Document& x) { return x.renameProblem(p, "x\ny"); });
+  test::refused(d, Errc::InvalidArgument,
+                [](Document& x) { return x.setNotes(std::string("a\0b", 3)); });
+  test::refused(d, Errc::InvalidArgument, [](Document& x) { return x.setNotes("\x1f"); });
+  // tabs in names, and line breaks in the notes, are fine
+  CHECK(d.renameShape(s, "tab\there").has_value());
+  CHECK(d.renameProblem(p, "tab\there").has_value());
+  CHECK(d.setNotes("two\nlines\r\n\twith a tab").has_value());
+  CHECK(d.puzzle().getComment() == "two\nlines\r\n\twith a tab");
+}
+
+TEST_CASE("document: a shape's mesh in an orientation is the mesh of the turned shape",
+          "[app][document]") {
+  Document d = openFixture("PelikanBurr.xmpuzzle");
+  const Id s = firstShape(d);
+  const Voxel& v = d.puzzle().getShape(0);
+  for (const unsigned int t : {0U, 5U, 23U, 47U}) {
+    INFO("transformation " << t);
+    const std::unique_ptr<Voxel> turned = v.clone();
+    REQUIRE(turned->transform(t));
+    for (const mesh::MeshStyle style : {mesh::MeshStyle::Drawing, mesh::MeshStyle::Flat}) {
+      const mesh::DrawMesh expect = mesh::shapeDrawMesh(*turned, style);
+      const mesh::DrawMesh got = d.shapeMesh(s, style, t).value();
+      CHECK(got.positions == expect.positions);
+      CHECK(got.normals == expect.normals);
+      CHECK(got.indices == expect.indices);
+      CHECK(got.edgeLines == expect.edgeLines);
+    }
+  }
+  // 0 is the shape as it is; beyond the grid's table is refused
+  CHECK(d.shapeMesh(s, mesh::MeshStyle::Drawing, 0).value().positions ==
+        d.shapeMesh(s, mesh::MeshStyle::Drawing).value().positions);
+  CHECK(d.shapeMesh(s, mesh::MeshStyle::Drawing, 48).error().code == Errc::InvalidArgument);
+  CHECK(d.shapeMesh(4242, mesh::MeshStyle::Drawing, 1).error().code == Errc::NotFound);
 }

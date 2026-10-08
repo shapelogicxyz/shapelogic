@@ -38,6 +38,7 @@
     },
     "MeshStyle": {"enum": ["drawing", "wireframe", "flat"], "description": "The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, or flat faces with edge lines."},
     "ChangeKind": {"enum": ["shapes", "colours", "problems", "solutions", "notes"]},
+    "SolutionsVersion": {"type": "integer", "minimum": 0, "description": "A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again."},
     "SortBy": {"enum": ["unsorted", "moves", "level", "rotations"], "description": "Where a new solution goes in the saved list while solving: the original's sort-by choice."},
     "ArrayRef": {
       "type": "object",
@@ -181,7 +182,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names). Settings of other versions are kept as strings.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels). highMemory belongs to the sliding and stacking solvers and maps to no SolveOptions field.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},

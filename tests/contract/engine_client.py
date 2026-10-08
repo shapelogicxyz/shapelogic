@@ -17,6 +17,12 @@ sys.path.insert(0, str(ROOT / "api"))
 
 from apischema import Api  # noqa: E402
 
+# the errcs a method's schema entry declares (its "errors" list); the
+# protocol's own (invalid_params, invalid_request, method_not_found and
+# -32700 parse_error) are not listed per method
+DECLARED_ERRCS = {"invalid_argument", "not_found", "parse_error", "io_error", "unsupported",
+                  "invalid_state", "internal"}
+
 # the codes of decision 0012, by errc
 ERROR_CODES = {
     "parse_error": {-32700, -32003},
@@ -172,6 +178,11 @@ class Engine:
                 errc = e["data"].get("errc")
                 if errc not in ERROR_CODES or e["code"] not in ERROR_CODES[errc]:
                     raise ContractError(f"error code {e['code']} with errc {errc!r}")
+                # an error of the core must be one the method declares
+                if (method is not None and errc in DECLARED_ERRCS and e["code"] != -32700
+                        and errc not in self.api.methods[method][1].get("errors", [])):
+                    raise ContractError(f"{method} answered {errc}, which its schema entry does not "
+                                        f"declare: {e['message']}")
                 raise RpcFailure(e)
             if method is not None:
                 self._check(self.api.check_result(method, m["result"]))

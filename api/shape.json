@@ -20,7 +20,7 @@
         "type": "object",
         "properties": {
           "shape": {"$ref": "types.json#/$defs/ShapeId"},
-          "layer": {"type": "integer", "minimum": 0, "description": "Only the cells with this z."}
+          "layer": {"type": "integer", "minimum": 0, "description": "Only the cells with this z (the grid editor's XY plane; the cube editor's XZ and YZ planes are the client's: filter the cells by y or x)."}
         },
         "required": ["shape"],
         "additionalProperties": false
@@ -90,7 +90,7 @@
         "additionalProperties": false
       },
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.setWeight": {
       "summary": "The weight: heavier shapes stay in place when taken apart.",
@@ -235,18 +235,19 @@
       }
     },
     "shape.mesh": {
-      "summary": "The shape's mesh as the original's 3D view drew it, as a binary frame. Allowed while solving.",
+      "summary": "The shape's mesh as the original's 3D view drew it, as a binary frame: in its own orientation, or turned by a transformation of the grid (a Placement's), which is how an assembled solution, a placement of the assembly explorer or a position of the movement explorer is drawn: the mesh of the piece's transformation, at its cell minus the turned shape's hotspot. Allowed while solving.",
       "params": {
         "type": "object",
         "properties": {
           "shape": {"$ref": "types.json#/$defs/ShapeId"},
-          "style": {"$ref": "types.json#/$defs/MeshStyle", "description": "Default drawing."}
+          "style": {"$ref": "types.json#/$defs/MeshStyle", "description": "Default drawing."},
+          "transformation": {"type": "integer", "minimum": 0, "description": "A number of the grid's symmetry table, mirrors included (bricks 0 to 47); absent or 0 is the shape as it is. Beyond the table: invalid_argument."}
         },
         "required": ["shape"],
         "additionalProperties": false
       },
       "result": {"$ref": "types.json#/$defs/MeshFrame"},
-      "errors": ["not_found"]
+      "errors": ["not_found", "invalid_argument"]
     },
     "grid.geometry": {
       "summary": "The grid editor's drawing of one layer of a space of the document's grid (at most 65536 cells a layer): each cell's outline (a circle on the sphere grid) and the cell across each edge. Units: a cube 1 by 1, prism triangles of side 1, spheres 1 apart, rhombic 5 by 5 cells and tetrahedra-octahedra 3 by 3 cells to 1 by 1.",

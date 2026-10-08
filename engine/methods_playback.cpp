@@ -38,7 +38,7 @@ Reply playbackOpen(State& s, Params& p) {
   Json j = Json::object();
   j["handle"] = formatId(IdKind::Playback, handle);
   j["steps"] = ps.stepCount();
-  j["movesText"] = ps.movesText();
+  j["movesText"] = ps.hasDisassembly() ? Json(ps.movesText()) : Json(nullptr);
   j["pieces"] = std::move(pieces);
   s.playbacks.emplace(handle, std::move(ps));
   return j;
@@ -47,12 +47,13 @@ Reply playbackOpen(State& s, Params& p) {
 Reply playbackMesh(State& s, Params& p) {
   const std::uint64_t handle = p.id("handle", IdKind::Playback);
   const unsigned int piece = p.count("piece");
+  const mesh::MeshStyle style = p.optChoice("style", meshStyleNames()).value_or(mesh::MeshStyle::Drawing);
   BTE_CHECK(p.finish());
   BTE_TRY(app::PlaybackSampler* ps, sampler(s, handle));
   if (piece >= ps->pieces().size()) {
     return coreError(Errc::InvalidArgument, "there is no such piece in the playback");
   }
-  return meshReply(s, ps->pieceMesh(piece));
+  return meshReply(s, ps->pieceMesh(piece, style));
 }
 
 // The poses of every piece at every time, as a frame.

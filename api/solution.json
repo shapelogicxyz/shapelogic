@@ -23,9 +23,10 @@
         "properties": {
           "total": {"type": "integer", "minimum": 0},
           "offset": {"type": "integer", "minimum": 0},
+          "solutionsVersion": {"$ref": "types.json#/$defs/SolutionsVersion"},
           "rows": {"type": "array", "items": {"$ref": "types.json#/$defs/SolutionRow"}}
         },
-        "required": ["total", "offset", "rows"],
+        "required": ["total", "offset", "solutionsVersion", "rows"],
         "additionalProperties": false
       },
       "errors": ["not_found"]
@@ -159,7 +160,7 @@
       "params": {"$ref": "#/$defs/AnalyseEvent"}
     },
     "solution.analyseEnded": {
-      "summary": "An analysis ended (through, or stopped); its results are in the problem (document.changed follows).",
+      "summary": "An analysis ended (through, stopped, or ended by an internal error: failure says what); its results are in the problem (document.changed follows). The problems of a document that is replaced get one with stopped true after the replacing call's reply.",
       "params": {"$ref": "#/$defs/AnalyseEvent"}
     }
   },
@@ -177,10 +178,11 @@
         "total": {"type": "integer", "minimum": 0},
         "done": {"type": "integer", "minimum": 0},
         "separated": {"type": "integer", "minimum": 0, "description": "Taken apart so far (the others do not come apart)."},
-        "stopped": {"type": "boolean"},
+        "stopped": {"type": "boolean", "description": "Ended before it was through (stopped, or by an internal error)."},
+        "failure": {"type": ["string", "null"], "description": "What an internal error on the analysis's thread said; what was done before it stays."},
         "current": {"oneOf": [{"$ref": "types.json#/$defs/TakeApartProgress"}, {"type": "null"}]}
       },
-      "required": ["active", "total", "done", "separated", "stopped", "current"],
+      "required": ["active", "total", "done", "separated", "stopped", "failure", "current"],
       "additionalProperties": false
     },
     "AnalyseEvent": {
@@ -190,9 +192,10 @@
         "total": {"type": "integer", "minimum": 0},
         "done": {"type": "integer", "minimum": 0},
         "separated": {"type": "integer", "minimum": 0},
-        "stopped": {"type": "boolean"}
+        "stopped": {"type": "boolean", "description": "Ended before it was through (stopped, or by an internal error)."},
+        "failure": {"type": ["string", "null"], "description": "What an internal error on the analysis's thread said; null otherwise."}
       },
-      "required": ["problem", "total", "done", "separated", "stopped"],
+      "required": ["problem", "total", "done", "separated", "stopped", "failure"],
       "additionalProperties": false
     }
   }

@@ -28,6 +28,8 @@
 #include "bt/model/solution.h"
 
 #include <algorithm>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace bt::app {
@@ -52,11 +54,30 @@ std::uint32_t packRgb(Rgb c) {
   return std::uint32_t{c.r} << 16 | std::uint32_t{c.g} << 8 | std::uint32_t{c.b};
 }
 
+// Text that goes into the file: control characters other than tab,
+// newline and carriage return are not well-formed XML 1.0 (and a name is
+// an attribute, where a line break would come back as a space).
+Result<void> checkText(std::string_view text, bool oneLine, std::string_view what) {
+  for (const char c : text) {
+    const auto u = static_cast<unsigned char>(c);
+    if (u < 0x20 && c != '\t' && c != '\n' && c != '\r') {
+      return fail(Errc::InvalidArgument, std::string(what) + " cannot hold control characters");
+    }
+    if (oneLine && (c == '\n' || c == '\r')) {
+      return fail(Errc::InvalidArgument, std::string(what) + " cannot hold a line break");
+    }
+  }
+  return {};
+}
+
 }  // namespace
 
 // ---- notes ---------------------------------------------------------------------------
 
 Result<void> Document::setNotes(std::string text) {
+  if (Result<void> r = checkText(text, false, "the notes"); !r) {
+    return r;
+  }
   if (text == puzzle_->getComment()) {
     return {};
   }
@@ -166,6 +187,9 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
 
 Result<void> Document::renameShape(Id shape, std::string name) {
   if (Result<void> r = checkNotSolving(); !r) {
+    return r;
+  }
+  if (Result<void> r = checkText(name, true, "a name"); !r) {
     return r;
   }
   const Result<unsigned int> s = shapeIndex(shape);
@@ -592,6 +616,9 @@ Result<void> Document::renameProblem(Id problem, std::string name) {
     return std::unexpected(p.error());
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  if (Result<void> r = checkText(name, true, "a name"); !r) {
     return r;
   }
   if (puzzle_->getProblem(*p).getName() == name) {

@@ -42,31 +42,29 @@ void pollSolve(State& s, app::Id id, unsigned int index, State::Watch& w,
     w.progressAt = now;
   }
   if (isActive(state) || changed) {
-    // the saved list: its length and newest solution
+    // the saved list: the problem counts its changes (a solution added, a
+    // sorted insert at the limit, the list thinned)
     struct Seen {
+      std::uint64_t version;
       std::size_t saved;
-      std::uint64_t newest;
       std::uint64_t assemblies;
       std::uint64_t solutions;
     };
     const Seen seen = d.readProblem(index, [](const Problem& pr) {
-      Seen v{pr.getNumberOfSavedSolutions(), 0, 0, 0};
-      for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
-        v.newest = std::max(v.newest, pr.getSavedSolution(i).getId());
-      }
+      Seen v{pr.solutionsVersion(), pr.getNumberOfSavedSolutions(), 0, 0};
       if (pr.numAssembliesKnown()) {
         v.assemblies = pr.getNumAssemblies();
         v.solutions = pr.getNumSolutions();
       }
       return v;
     });
-    if ((seen.saved != w.saved || seen.newest != w.newest) && (due || ended)) {
+    if (seen.version != w.solutionsVersion && (due || ended)) {
       s.out.notify("solve.solutionsAdded", Json{{"problem", problemName(id)},
                                                 {"saved", seen.saved},
+                                                {"solutionsVersion", seen.version},
                                                 {"assemblies", seen.assemblies},
                                                 {"solutions", seen.solutions}});
-      w.saved = seen.saved;
-      w.newest = seen.newest;
+      w.solutionsVersion = seen.version;
     }
   }
   w.state = state;
@@ -77,7 +75,8 @@ Json analyseEvent(app::Id id, const app::AnalyseProgress& a) {
               {"total", a.total},
               {"done", a.done},
               {"separated", a.separated},
-              {"stopped", a.stopped}};
+              {"stopped", a.stopped},
+              {"failure", a.failure ? Json(*a.failure) : Json(nullptr)}};
 }
 
 // The analysis of one problem.

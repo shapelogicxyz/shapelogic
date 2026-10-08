@@ -13,6 +13,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstdint>
 #include <string>
 
 using namespace bt;
@@ -973,4 +974,21 @@ TEST_CASE("assembly: createSpace matches the result shape cell for cell", "[mode
       }
     }
   }
+}
+
+TEST_CASE("problem: the saved list's version and the newest id", "[model][problem][solution]") {
+  Puzzle p = pelikan();
+  Problem& pr = p.getProblem(0);
+  REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+  CHECK(pr.lastSolutionId() == 1);  // the reader gave the solution id 1
+  const std::uint64_t v0 = pr.solutionsVersion();
+  pr.sortSolutions(1);
+  CHECK(pr.solutionsVersion() > v0);
+  const std::uint64_t v1 = pr.solutionsVersion();
+  pr.removeSolution(0);
+  CHECK(pr.solutionsVersion() > v1);
+  CHECK(pr.lastSolutionId() == 1);  // ids are never reused
+  const std::uint64_t v2 = pr.solutionsVersion();
+  pr.removeAllSolutions();
+  CHECK(pr.solutionsVersion() > v2);
 }

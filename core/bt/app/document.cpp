@@ -660,13 +660,16 @@ Result<void> Document::solveAbort(Id problem) {
   if (analyses_.contains(problem)) {
     return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
   }
+  // the hard stop of a solve under way (the original's Abort button was
+  // greyed out once the solve thread had ended): a finished solve's
+  // solutions are removed with deleteSolutions, which can be undone
   const auto it = sessions_.find(problem);
-  if (it != sessions_.end()) {
-    it->second->abort();
-  } else {
-    // a problem holding a solve from a file: thrown away the same way
-    puzzle_->getProblem(*p).removeAllSolutions();
+  if (it == sessions_.end() ||
+      (!isActive(it->second->state()) && it->second->state() != SolveState::Paused)) {
+    return fail(Errc::InvalidState,
+                "the problem has no solve under way: remove its solutions instead");
   }
+  it->second->abort();
   solveDirty_ = true;
   lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}};
   changed(kChangeSolutions | kChangeProblems);
@@ -840,12 +843,16 @@ Result<FitStats> Document::fit(Id problem) const {
 
 std::vector<ShapeInfo> Document::shapeTable() const { return app::shapeTable(*puzzle_); }
 
-Result<mesh::DrawMesh> Document::shapeMesh(Id shape, mesh::MeshStyle style) const {
+Result<mesh::DrawMesh> Document::shapeMesh(Id shape, mesh::MeshStyle style,
+                                           std::optional<unsigned int> transformation) const {
   const Result<unsigned int> s = shapeIndex(shape);
   if (!s) {
     return std::unexpected(s.error());
   }
-  return mesh::shapeDrawMesh(puzzle_->getShape(*s), style);
+  if (!transformation) {
+    return mesh::shapeDrawMesh(puzzle_->getShape(*s), style);
+  }
+  return orientedMesh(puzzle_->getShape(*s), *transformation, style);
 }
 
 namespace {

@@ -35,10 +35,10 @@
       "errors": ["not_found", "invalid_state"]
     },
     "solve.abort": {
-      "summary": "Stops and throws the solve away (results, paused state, saved position); waits for the run to end.",
+      "summary": "The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found"]
+      "errors": ["not_found", "invalid_state"]
     },
     "solve.status": {
       "summary": "Where the solve stands, its statistics, and why it failed.",
@@ -68,7 +68,7 @@
       "errors": ["not_found", "invalid_state", "io_error"]
     },
     "solve.importPaused": {
-      "summary": "Opens a .btsolve file as a new, untitled document; solve.continue on the problem carries the solve on.",
+      "summary": "Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on.",
       "params": {
         "type": "object",
         "properties": {"path": {"type": "string", "minLength": 1}},
@@ -89,7 +89,7 @@
   },
   "events": {
     "solve.state": {
-      "summary": "A solve's state changed (as the engine's poll saw it; the last state of a run is always sent).",
+      "summary": "A solve's state changed, as the engine's poll saw it: states a run passes through within one poll (50 ms) are skipped, the last state of a run (finished, paused, error, or idle after an abort) is always sent, and it comes before the document.changed that gives the run's end its revision. A client waits for that revision, not the state, before reloading the lists. The problems of a document that is replaced get a last 'idle' after the replacing call's reply.",
       "params": {
         "type": "object",
         "properties": {
@@ -101,7 +101,7 @@
       }
     },
     "solve.progress": {
-      "summary": "Where a running solve stands; at most four times a second, and once when a run ends.",
+      "summary": "Where a running solve stands; at most four times a second, and once when a run ends (after its last solve.state). The live counters of the Solver card (assemblies, solutions, time) come from here.",
       "params": {
         "type": "object",
         "properties": {
@@ -114,16 +114,17 @@
       }
     },
     "solve.solutionsAdded": {
-      "summary": "The saved solutions changed while solving (new ones, or the list thinned or re-sorted): page them again.",
+      "summary": "The saved solutions changed while solving (new ones, or the list thinned or re-sorted): page them again. At most four times a second, and once when the run ends; the last one of a run carries the final count. The counts are those at the time; the live counters are solve.progress's.",
       "params": {
         "type": "object",
         "properties": {
           "problem": {"$ref": "types.json#/$defs/ProblemId"},
           "saved": {"type": "integer", "minimum": 0},
+          "solutionsVersion": {"$ref": "types.json#/$defs/SolutionsVersion"},
           "assemblies": {"type": "integer", "minimum": 0},
           "solutions": {"type": "integer", "minimum": 0}
         },
-        "required": ["problem", "saved", "assemblies", "solutions"],
+        "required": ["problem", "saved", "solutionsVersion", "assemblies", "solutions"],
         "additionalProperties": false
       }
     },

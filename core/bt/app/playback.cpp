@@ -4,8 +4,10 @@
 // the quaternion hemispheres; buildMesh's bounding box).
 #include "bt/app/playback.h"
 
+#include "bt/base/assert.h"
 #include "bt/base/int_cast.h"
 #include "bt/grid/grid_type.h"
+#include "bt/grid/symmetries.h"
 #include "bt/grid/voxel.h"
 #include "bt/mesh/grid_geometry.h"
 #include "bt/mesh/voxel_mesh.h"
@@ -144,11 +146,26 @@ std::optional<Vec> meshCentre(const Voxel& v) {
 
 }  // namespace
 
+Result<mesh::DrawMesh> orientedMesh(const Voxel& shape, unsigned int transformation,
+                                    mesh::MeshStyle style) {
+  if (transformation >= shape.getGridType().getSymmetries().getNumTransformationsMirror()) {
+    return fail(Errc::InvalidArgument, "there is no such transformation in this grid");
+  }
+  std::unique_ptr<Voxel> v = shape.clone();
+  if (!v->transform(transformation)) {
+    return fail(Errc::Internal, "A piece could not be put into its assembly orientation.");
+  }
+  return mesh::shapeDrawMesh(*v, style);
+}
+
 // A placed piece: its shape, starting orientation and what the poses are
 // worked out from (pieceInfo of the original).
 struct PlaybackSampler::Piece {
   std::unique_ptr<Voxel> shape;  // the part's shape, untransformed
   unsigned int trans0 = 0;
+  int x0 = 0;  // where the assembly places it (for a solution without moves)
+  int y0 = 0;
+  int z0 = 0;
   Mat base0inv = Mat::identity();  // inverse of the matrix of trans0
   Vec centre0{0, 0, 0};            // bounding box centre of the trans0 mesh
   // the mesh centres of the other orientations the piece takes
@@ -180,18 +197,18 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
   }
   const Solution& sol = pr.getSavedSolution(solNum);
   const Separation* tree = sol.getDisassembly();
-  if (tree == nullptr) {
-    return fail(Errc::InvalidArgument, "This solution has no disassembly to animate.");
-  }
   const Assembly& assm = sol.getAssembly();
   const Voxel& result = pr.resultShape(puzzle);
 
   PlaybackSampler s;
-  // the same driver and settings as the solution slider
-  s.moves_ = std::make_unique<DisasmToMoves>(tree, 2 * result.getBiggestDimension(),
-                                             pr.getNumberOfPieces());
-  s.steps_ = tree->sumSteps();
-  s.movesText_ = tree->movesText();
+  if (tree != nullptr) {
+    // the same driver and settings as the solution slider
+    s.moves_ = std::make_unique<DisasmToMoves>(tree, 2 * result.getBiggestDimension(),
+                                               pr.getNumberOfPieces());
+    s.steps_ = tree->sumSteps();
+    s.movesText_ = tree->movesText();
+  }
+  // else: no moves to play; the pieces stay as the assembly places them
 
   float cx = 0;
   float cy = 0;
@@ -210,6 +227,9 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
       Piece d;
       d.shape = pr.partShape(puzzle, p).clone();
       d.trans0 = assm.getTransformation(piece);
+      d.x0 = assm.getX(piece);
+      d.y0 = assm.getY(piece);
+      d.z0 = assm.getZ(piece);
 
       std::unique_ptr<Voxel> v = d.shape->clone();
       if (!v->transform(d.trans0)) {
@@ -248,7 +268,9 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
 }
 
 bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
-  moves_->setStep(step, false, true);
+  if (moves_) {
+    moves_->setStep(step, false, true);
+  }
   out.assign(pieces_.size(), PiecePose{});
   const Vec centre{centre_[0], centre_[1], centre_[2]};
 
@@ -256,9 +278,10 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
     Piece& pi = data_[i];
     const unsigned int p = pieces_[i].piece;
 
-    out[i].visible = moves_->getA(p) > 0;
+    // without moves every piece is shown where the assembly places it
+    out[i].visible = !moves_ || moves_->getA(p) > 0;
 
-    unsigned int t = moves_->getTrans(p);
+    unsigned int t = moves_ ? moves_->getTrans(p) : pi.trans0;
     if (t == static_cast<unsigned int>(-1)) {
       t = pi.trans0;
     }
@@ -269,9 +292,9 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
     }
 
     // the view draws the mesh of orientation t at (x - hotspot - centre)
-    float x = moves_->getX(p);
-    float y = moves_->getY(p);
-    float z = moves_->getZ(p);
+    float x = moves_ ? moves_->getX(p) : static_cast<float>(pi.x0);
+    float y = moves_ ? moves_->getY(p) : static_cast<float>(pi.y0);
+    float z = moves_ ? moves_->getZ(p) : static_cast<float>(pi.z0);
     mesh::recalcSpaceCoordinates(*v, &x, &y, &z);
     auto hx = static_cast<float>(v->getHx());
     auto hy = static_cast<float>(v->getHy());
@@ -316,7 +339,7 @@ bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
     float px = 0;
     float py = 0;
     float pz = 0;
-    if (moves_->getRotationAnim(p, &ang, &ax, &ay, &az, &px, &py, &pz)) {
+    if (moves_ && moves_->getRotationAnim(p, &ang, &ax, &ay, &az, &px, &py, &pz)) {
       pm = axisAngle(static_cast<double>(ang), static_cast<double>(ax), static_cast<double>(ay),
                      static_cast<double>(az));
       pl = Vec{static_cast<double>(px), static_cast<double>(py), static_cast<double>(pz)} - place;
@@ -436,10 +459,11 @@ Result<PlaybackTrack> PlaybackSampler::track(const TrackOptions& opt) {
   return track;
 }
 
-mesh::DrawMesh PlaybackSampler::pieceMesh(unsigned int i) const {
-  std::unique_ptr<Voxel> v = data_[i].shape->clone();
-  (void)v->transform(data_[i].trans0);
-  return mesh::shapeDrawMesh(*v, mesh::MeshStyle::Drawing);
+mesh::DrawMesh PlaybackSampler::pieceMesh(unsigned int i, mesh::MeshStyle style) const {
+  // make() checked that the shape takes its orientation
+  Result<mesh::DrawMesh> m = orientedMesh(*data_[i].shape, data_[i].trans0, style);
+  BT_ASSERT(m.has_value());
+  return std::move(*m);
 }
 
 }  // namespace bt::app

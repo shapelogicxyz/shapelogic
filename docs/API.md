@@ -52,6 +52,26 @@ follows it.
 
 What the engine can do, its settings (kept across documents), and the frame announcement.
 
+### `engine.hello`
+
+Tells the engine which protocol the client speaks; a client calls it first. The engine answers with the protocol it will speak (this version: 1) or refuses one it does not know (unsupported), so that when the protocol changes, old and new clients can be told apart.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `protocol` | integer | required | The protocol the client speaks. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `protocol` | integer | required |  |
+| `name` | `"bt-engine"` | required |  |
+| `version` | string | required |  |
+
+Errors: `unsupported`
+
 ### `engine.info`
 
 The engine's version, the grids and solvers it knows, the machine's threads, and its methods.
@@ -149,7 +169,7 @@ The puzzle being edited (one per engine): new, open, save, the notes, undo and r
 
 ### `document.new`
 
-A new empty puzzle on a grid; the grid never changes.
+A new empty puzzle on a grid; the grid never changes. The open document goes (as with document.open, document.openBytes and solve.importPaused): its solves pause and are waited for, its analyses stop, its handles are dropped, and after the reply its problems whose work the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the revision counts on.
 
 Params:
 
@@ -161,7 +181,7 @@ Result: [Snapshot](#snapshot)
 
 ### `document.open`
 
-Opens a .xmpuzzle file (gzip or plain XML); what this version does not model is kept.
+Opens a .xmpuzzle file (gzip or plain XML; one that inflates to more than 256 MiB is refused as parse_error); what this version does not model is kept. The open document goes as with document.new.
 
 Params:
 
@@ -175,7 +195,7 @@ Errors: `io_error`, `parse_error`
 
 ### `document.openBytes`
 
-Opens a puzzle from its file's bytes (gzip or plain XML), base64; the document has no path.
+Opens a puzzle from its file's bytes (gzip or plain XML; gzip that inflates to more than 256 MiB is refused as parse_error), base64; the document has no path. The open document goes as with document.new.
 
 Params:
 
@@ -234,7 +254,7 @@ Result: [Snapshot](#snapshot)
 
 ### `document.setNotes`
 
-The puzzle's comment. Allowed while solving.
+The puzzle's comment. Allowed while solving. Control characters other than tab, newline and carriage return are refused (the file is XML 1.0); a name (shape.rename, problem.rename) refuses line breaks as well, since an attribute would give them back as spaces.
 
 Params:
 
@@ -243,6 +263,8 @@ Params:
 | `text` | string | required |  |
 
 Result: [Changed](#changed)
+
+Errors: `invalid_argument`
 
 ### `edit.undo`
 
@@ -347,7 +369,7 @@ Params:
 | name | type | | description |
 |---|---|---|---|
 | `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
-| `layer` | integer |  | Only the cells with this z. |
+| `layer` | integer |  | Only the cells with this z (the grid editor's XY plane; the cube editor's XZ and YZ planes are the client's: filter the cells by y or x). |
 
 Result:
 
@@ -436,7 +458,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.setWeight`
 
@@ -598,7 +620,7 @@ Result:
 
 ### `shape.mesh`
 
-The shape's mesh as the original's 3D view drew it, as a binary frame. Allowed while solving.
+The shape's mesh as the original's 3D view drew it, as a binary frame: in its own orientation, or turned by a transformation of the grid (a Placement's), which is how an assembled solution, a placement of the assembly explorer or a position of the movement explorer is drawn: the mesh of the piece's transformation, at its cell minus the turned shape's hotspot. Allowed while solving.
 
 Params:
 
@@ -606,10 +628,11 @@ Params:
 |---|---|---|---|
 | `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `style` | [MeshStyle](#meshstyle) |  | Default drawing. |
+| `transformation` | integer |  | A number of the grid's symmetry table, mirrors included (bricks 0 to 47); absent or 0 is the shape as it is. Beyond the table: invalid_argument. |
 
 Result: [MeshFrame](#meshframe)
 
-Errors: `not_found`
+Errors: `not_found`, `invalid_argument`
 
 ### `grid.geometry`
 
@@ -834,7 +857,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.setResult`
 
@@ -1185,7 +1208,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `solve.abort`
 
-Stops and throws the solve away (results, paused state, saved position); waits for the run to end.
+The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll.
 
 Params:
 
@@ -1195,7 +1218,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`
+Errors: `not_found`, `invalid_state`
 
 ### `solve.status`
 
@@ -1235,7 +1258,7 @@ Errors: `not_found`, `invalid_state`, `io_error`
 
 ### `solve.importPaused`
 
-Opens a .btsolve file as a new, untitled document; solve.continue on the problem carries the solve on.
+Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on.
 
 Params:
 
@@ -1254,7 +1277,7 @@ Errors: `io_error`, `parse_error`
 
 ### event `solve.state`
 
-A solve's state changed (as the engine's poll saw it; the last state of a run is always sent).
+A solve's state changed, as the engine's poll saw it: states a run passes through within one poll (50 ms) are skipped, the last state of a run (finished, paused, error, or idle after an abort) is always sent, and it comes before the document.changed that gives the run's end its revision. A client waits for that revision, not the state, before reloading the lists. The problems of a document that is replaced get a last 'idle' after the replacing call's reply.
 
 | name | type | | description |
 |---|---|---|---|
@@ -1263,7 +1286,7 @@ A solve's state changed (as the engine's poll saw it; the last state of a run is
 
 ### event `solve.progress`
 
-Where a running solve stands; at most four times a second, and once when a run ends.
+Where a running solve stands; at most four times a second, and once when a run ends (after its last solve.state). The live counters of the Solver card (assemblies, solutions, time) come from here.
 
 | name | type | | description |
 |---|---|---|---|
@@ -1273,12 +1296,13 @@ Where a running solve stands; at most four times a second, and once when a run e
 
 ### event `solve.solutionsAdded`
 
-The saved solutions changed while solving (new ones, or the list thinned or re-sorted): page them again.
+The saved solutions changed while solving (new ones, or the list thinned or re-sorted): page them again. At most four times a second, and once when the run ends; the last one of a run carries the final count. The counts are those at the time; the live counters are solve.progress's.
 
 | name | type | | description |
 |---|---|---|---|
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
 | `saved` | integer | required |  |
+| `solutionsVersion` | [SolutionsVersion](#solutionsversion) | required | A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again. |
 | `assemblies` | integer | required |  |
 | `solutions` | integer | required |  |
 
@@ -1328,6 +1352,7 @@ Result:
 |---|---|---|---|
 | `total` | integer | required |  |
 | `offset` | integer | required |  |
+| `solutionsVersion` | [SolutionsVersion](#solutionsversion) | required | A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again. |
 | `rows` | [SolutionRow](#solutionrow)[] | required |  |
 
 Errors: `not_found`
@@ -1476,11 +1501,12 @@ An analysis's progress; at most four times a second.
 | `total` | integer | required |  |
 | `done` | integer | required |  |
 | `separated` | integer | required |  |
-| `stopped` | boolean | required |  |
+| `stopped` | boolean | required | Ended before it was through (stopped, or by an internal error). |
+| `failure` | string or null | required | What an internal error on the analysis's thread said; null otherwise. |
 
 ### event `solution.analyseEnded`
 
-An analysis ended (through, or stopped); its results are in the problem (document.changed follows).
+An analysis ended (through, stopped, or ended by an internal error: failure says what); its results are in the problem (document.changed follows). The problems of a document that is replaced get one with stopped true after the replacing call's reply.
 
 | name | type | | description |
 |---|---|---|---|
@@ -1488,7 +1514,8 @@ An analysis ended (through, or stopped); its results are in the problem (documen
 | `total` | integer | required |  |
 | `done` | integer | required |  |
 | `separated` | integer | required |  |
-| `stopped` | boolean | required |  |
+| `stopped` | boolean | required | Ended before it was through (stopped, or by an internal error). |
+| `failure` | string or null | required | What an internal error on the analysis's thread said; null otherwise. |
 
 #### SolutionParam
 
@@ -1505,7 +1532,8 @@ An analysis ended (through, or stopped); its results are in the problem (documen
 | `total` | integer | required |  |
 | `done` | integer | required |  |
 | `separated` | integer | required | Taken apart so far (the others do not come apart). |
-| `stopped` | boolean | required |  |
+| `stopped` | boolean | required | Ended before it was through (stopped, or by an internal error). |
+| `failure` | string or null | required | What an internal error on the analysis's thread said; what was done before it stays. |
 | `current` | [TakeApartProgress](#takeapartprogress) or null | required |  |
 
 #### AnalyseEvent
@@ -1516,7 +1544,8 @@ An analysis ended (through, or stopped); its results are in the problem (documen
 | `total` | integer | required |  |
 | `done` | integer | required |  |
 | `separated` | integer | required |  |
-| `stopped` | boolean | required |  |
+| `stopped` | boolean | required | Ended before it was through (stopped, or by an internal error). |
+| `failure` | string or null | required | What an internal error on the analysis's thread said; null otherwise. |
 
 ## Playback
 
@@ -1524,7 +1553,7 @@ The disassembly player: a solution's pieces and their poses at any step (turns t
 
 ### `playback.open`
 
-Opens the playback of a saved solution with its moves stored.
+Opens the playback of a saved solution. With its moves stored the poses follow the steps; without them (not taken apart, found not to come apart, or only the level summary kept) steps is 0 and every pose is the assembled one, so every solution is shown through one path.
 
 Params:
 
@@ -1538,8 +1567,8 @@ Result:
 | name | type | | description |
 |---|---|---|---|
 | `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
-| `steps` | integer | required | Moves and turns: step 0 is assembled, 'steps' apart. |
-| `movesText` | string | required |  |
+| `steps` | integer | required | Moves and turns: step 0 is assembled, 'steps' apart; 0 without a disassembly. |
+| `movesText` | string or null | required | The level text; null without a disassembly. |
 | `pieces` | object[] | required |  |
 
 `pieces`:
@@ -1556,7 +1585,7 @@ Errors: `not_found`, `invalid_argument`, `unsupported`
 
 ### `playback.mesh`
 
-The drawing mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect.
+The mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect; in any style (wireframe pieces, showing through solid ones).
 
 Params:
 
@@ -1564,6 +1593,7 @@ Params:
 |---|---|---|---|
 | `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
 | `piece` | integer | required | An index into pieces. |
+| `style` | [MeshStyle](#meshstyle) |  | Default drawing. |
 
 Result: [MeshFrame](#meshframe)
 
@@ -1977,6 +2007,12 @@ The 3D view's bevelled cells, the same closed with the wire-frame faces flagged,
 
 `"shapes"` \| `"colours"` \| `"problems"` \| `"solutions"` \| `"notes"`
 
+### SolutionsVersion
+
+A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again.
+
+integer
+
 ### SortBy
 
 Where a new solution goes in the saved list while solving: the original's sort-by choice.
@@ -2111,7 +2147,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names). Settings of other versions are kept as strings.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels). highMemory belongs to the sliding and stacking solvers and maps to no SolveOptions field.
 
 | name | type | | description |
 |---|---|---|---|

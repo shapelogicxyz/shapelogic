@@ -288,6 +288,14 @@ class Problem {
     BT_ASSERT(sol < solutions_.size());
     return solutions_[sol];
   }
+  /// The id the newest saved solution got (Solution::getId()); 0 before
+  /// the first. Ids only grow and are never reused within a problem.
+  [[nodiscard]] std::uint64_t lastSolutionId() const { return nextSolutionId_ - 1; }
+  /// A counter that moves with every change of the saved list (a solution
+  /// added, removed, moved by a sort, or the pieces of the solutions
+  /// edited): two reads of the list with the same version saw the same
+  /// list. Runtime only, like the ids.
+  [[nodiscard]] std::uint64_t solutionsVersion() const { return solutionsVersion_; }
 
   /// Adds an assembly as a solution, numbered as the current assembly count.
   void addSolution(Assembly assm);
@@ -347,6 +355,8 @@ class Problem {
   void setShapeMaximumUnchecked(unsigned int shapeId, unsigned int count);
   void setShapeMinimumUnchecked(unsigned int shapeId, unsigned int count);
   void eraseSolution(std::size_t s);
+  /// The saved list changed (solutionsVersion()).
+  void touchSolutions() { solutionsVersion_++; }
 
   std::string name_;
   std::vector<Part> parts_;
@@ -356,6 +366,8 @@ class Problem {
   std::vector<Solution> solutions_;
   /// The id the next solution gets (runtime only, not saved).
   std::uint64_t nextSolutionId_ = 1;
+  /// Moves with every change of solutions_ (runtime only, not saved).
+  std::uint64_t solutionsVersion_ = 0;
   /// What keepSolutionsSorted knows: the first sortedUpTo_ solutions are in
   /// sortSolutions(sortedBy_) order; -1 when nothing is known.
   int sortedBy_ = -1;

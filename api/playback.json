@@ -5,7 +5,7 @@
   "description": "The disassembly player: a solution's pieces and their poses at any step (turns tumble about their pivots), as binary frames. A playback keeps copies of what it needs: it survives edits until closed or a new document.",
   "methods": {
     "playback.open": {
-      "summary": "Opens the playback of a saved solution with its moves stored.",
+      "summary": "Opens the playback of a saved solution. With its moves stored the poses follow the steps; without them (not taken apart, found not to come apart, or only the level summary kept) steps is 0 and every pose is the assembled one, so every solution is shown through one path.",
       "params": {
         "type": "object",
         "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "solution": {"$ref": "types.json#/$defs/SolutionId"}},
@@ -16,8 +16,8 @@
         "type": "object",
         "properties": {
           "handle": {"$ref": "types.json#/$defs/PlaybackHandle"},
-          "steps": {"type": "integer", "minimum": 0, "description": "Moves and turns: step 0 is assembled, 'steps' apart."},
-          "movesText": {"type": "string"},
+          "steps": {"type": "integer", "minimum": 0, "description": "Moves and turns: step 0 is assembled, 'steps' apart; 0 without a disassembly."},
+          "movesText": {"type": ["string", "null"], "description": "The level text; null without a disassembly."},
           "pieces": {
             "type": "array",
             "items": {
@@ -40,10 +40,14 @@
       "errors": ["not_found", "invalid_argument", "unsupported"]
     },
     "playback.mesh": {
-      "summary": "The drawing mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect.",
+      "summary": "The mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect; in any style (wireframe pieces, showing through solid ones).",
       "params": {
         "type": "object",
-        "properties": {"handle": {"$ref": "types.json#/$defs/PlaybackHandle"}, "piece": {"type": "integer", "minimum": 0, "description": "An index into pieces."}},
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/PlaybackHandle"},
+          "piece": {"type": "integer", "minimum": 0, "description": "An index into pieces."},
+          "style": {"$ref": "types.json#/$defs/MeshStyle", "description": "Default drawing."}
+        },
         "required": ["handle", "piece"],
         "additionalProperties": false
       },

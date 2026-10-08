@@ -15,7 +15,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <chrono>
 #include <cmath>
+#include <thread>
 
 using namespace bt;
 using namespace bt::app;
@@ -106,15 +108,59 @@ TEST_CASE("playback: rotation moves turn the pieces", "[app][playback][rotation]
   CHECK(between);
 }
 
+TEST_CASE("playback: a solution without its disassembly is shown assembled",
+          "[app][playback][parallel]") {
+  Document d = openFixture("PelikanBurr.xmpuzzle");
+  const Id p = d.problemIds().front();
+  const Id sol = d.puzzle().getProblem(0).getSavedSolution(0).getId();
+  // a disassembly made here carries the pieces' orientations; the fixture's
+  // comes from a file without them, which both programs play in
+  // orientation 0 (see the stage 7 handoff)
+  REQUIRE(d.deleteDisassemblies(p, sol).has_value());
+  AnalyseOptions o;
+  o.which = AnalyseWhich::All;
+  REQUIRE(d.analyseStart(p, o).value() == 1);
+  for (int i = 0; i < 6000 && d.analyseProgress(p).value().active; i++) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  REQUIRE(d.poll());
+  PlaybackSampler with = sampler(d);
+  REQUIRE(with.hasDisassembly());
+  REQUIRE(with.stepCount() > 0);
+  const std::vector<PiecePose> assembled = with.sample(0).value();
+  // the moves dropped: one pose, the assembled one, through the same path
+  REQUIRE(d.deleteDisassemblies(p, sol).has_value());
+  Result<PlaybackSampler> r = d.playback(p, sol);
+  REQUIRE(r.has_value());
+  CHECK(r->stepCount() == 0);
+  CHECK_FALSE(r->hasDisassembly());
+  CHECK(r->movesText().empty());
+  REQUIRE(r->pieces().size() == with.pieces().size());
+  for (const float step : {0.0F, 0.5F, 3.0F}) {
+    const std::vector<PiecePose> single = r->sample(step).value();
+    REQUIRE(single.size() == assembled.size());
+    for (std::size_t i = 0; i < single.size(); i++) {
+      INFO("piece " << i << " at step " << step);
+      CHECK(single[i].visible);
+      for (std::size_t k = 0; k < 3; k++) {
+        CHECK(std::fabs(single[i].translation[k] - assembled[i].translation[k]) < 1e-5F);
+      }
+      for (std::size_t k = 0; k < 4; k++) {
+        CHECK(std::fabs(single[i].rotation[k] - assembled[i].rotation[k]) < 1e-5F);
+      }
+    }
+  }
+  // a track is a hold on the assembled puzzle; the meshes come in every style
+  const PlaybackTrack track = r->track(TrackOptions{}).value();
+  CHECK(track.times.size() == track.poses.size());
+  CHECK(track.times.size() >= 2);
+  CHECK(r->pieceMesh(0, mesh::MeshStyle::Drawing).triangleCount() > 0);
+  CHECK_FALSE(r->pieceMesh(0, mesh::MeshStyle::Flat).edgeLines.empty());
+}
+
 TEST_CASE("playback: what has no animation is refused", "[app][playback]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
   const Id p = d.problemIds().front();
-  // a solution without its disassembly
-  const Id sol = d.puzzle().getProblem(0).getSavedSolution(0).getId();
-  REQUIRE(d.deleteDisassemblies(p, sol).has_value());
-  const Result<PlaybackSampler> r = d.playback(p, sol);
-  REQUIRE_FALSE(r.has_value());
-  CHECK(r.error().code == Errc::InvalidArgument);
   // a solution that is not there
   CHECK(d.playback(p, 99999).error().code == Errc::NotFound);
   // sliding puzzles: not yet

@@ -454,11 +454,15 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   cells, the piece counts, holes, the verdict, the original's status
   line), `shapeTable` (`ShapeInfo`: the status window's row),
   `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`.
-- `playback.h`: `PlaybackSampler` (from a solution with its disassembly:
-  the pieces with their meshes in the assembly orientation, `sample(step)`
-  giving each piece's translation, quaternion and visibility, turns
-  tumbling about their pivots; `track()` the keyframes with holds and
-  reassembly), over `DisasmToMoves`.
+- `playback.h`: `PlaybackSampler` (from a solution: the pieces with their
+  meshes in the assembly orientation, `sample(step)` giving each piece's
+  translation, quaternion and visibility, turns tumbling about their
+  pivots; `track()` the keyframes with holds and reassembly), over
+  `DisasmToMoves`; a solution without its disassembly is the assembled
+  pose alone (`stepCount()` 0), so every solution plays through one path.
+  `orientedMesh(shape, transformation, style)`: a shape's mesh turned by
+  a transformation of its grid (the piece meshes, and
+  `Document::shapeMesh` with a transformation: how a placement is drawn).
 - `explorers.h`: `AssemblyExplorer` (the placements of each piece, the
   assembly search one step at a time) and `MovementExplorer` (the tree of
   positions of a take-apart: analyse, add a move, find a matching one,
@@ -467,23 +471,31 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
 **Rules of the app layer:** the owner calls the document from one thread;
 a command checks first and changes after, so a refused one changes
 nothing; every change is undoable except what solving and analysing do;
-while a run or an analysis is active, shapes, lists and the solving
-problems are frozen (decision 0011); runs and analyses only read shapes
-(the document resets hotspots and warms the caches before the first one
-starts); a solution is found by its id under the solve's lock (a run
-moves solutions about).
+`solveAbort` is the hard stop of a solve under way (active or paused in
+memory) and is refused otherwise, so a finished run's solutions go only
+through the undoable `deleteSolutions`; names and notes refuse what the
+file cannot hold (control characters; line breaks in names); while a run
+or an analysis is active, shapes, lists and the solving problems are
+frozen (decision 0011); runs and analyses only read shapes (the document
+resets hotspots and warms the caches before the first one starts); a
+solution is found by its id under the solve's lock (a run moves solutions
+about); `Problem::solutionsVersion()` moves with every change of a saved
+list, so a reader can tell two reads apart.
 
 ## engine (stage 7, decision 0012)
 `bt-engine` speaks JSON-RPC 2.0 over stdio: one request per line in, one
 reply or notification per line out, binary frames (an announcement line,
 then the bytes) for meshes and poses, logs on stderr. The methods are the
 schema in `api/`, documented in the generated `docs/API.md`.
-- `engine.h`: `Engine` (the dispatcher: `handleLine`, `poll`, `run` with
-  a reader thread that only queues lines; the main thread runs every
-  request and owns the document and stdout), `State` (the document, its
-  path, the settings, the handles of playbacks and explorers, what the
-  events last told), `Settings`, the method table (`add…Methods` of each
-  `methods_<area>.cpp`).
+- `engine.h`: `Engine` (the dispatcher: `handleLine`, which parses with a
+  depth cap of 64 and never trims a line in silence, `poll`, `run` with a
+  reader thread that only queues lines, keeping at most 64 MiB of one and
+  waiting when 1,000 lines or 64 MiB are queued; the main thread runs
+  every request and owns the document and stdout), `State` (the document,
+  its path, the settings, the handles of playbacks and explorers, what
+  the events last told, the events queued for after a reply; a frame
+  inside a notification is refused), `Settings`, the method table
+  (`add…Methods` of each `methods_<area>.cpp`).
 - `rpc.h`: the error codes (`Errc` → `-32001`…, protocol errors as
   JSON-RPC's, `data.errc` on every error), `Params` (reads a method's
   fields, refusing missing, mistyped and unknown ones as the schema does),
@@ -496,29 +508,42 @@ schema in `api/`, documented in the generated `docs/API.md`.
   fit, meshes as frames, the stored solver settings, solve options over
   the settings, progress, statistics, failures, solution rows,
   placements).
-- `methods_<area>.cpp`: one per schema file. Solving (`solve.*` on the
-  document's solve calls; a pause only for a run under way), solutions
-  (`solution.page` sorts the saved list's indices under `readProblem`
-  with `solutionSortOrder`, a view; the analysis), playback (samplers
+- `methods_<area>.cpp`: one per schema file. `engine.hello` (the
+  protocol a client speaks), solving (`solve.*` on the document's solve
+  calls; a pause, a save point and an abort only for a solve under way),
+  solutions (`solution.page` sorts the saved list's indices under
+  `readProblem` with `solutionSortOrder`, a view, with the problem's
+  `solutionsVersion`; the analysis, with its failure), shapes
+  (`shape.mesh` in any transformation of the grid), playback (samplers
   behind `pb` handles: poses and keyframe tracks as frames of typed
-  arrays), explorers (`ax` and `mx` handles).
+  arrays; a solution without a disassembly as a single pose; piece meshes
+  in any style), explorers (`ax` and `mx` handles).
 - `events.cpp`: `document.changed` after a request that changed the
   document, and the poll of the background work: per problem, the solve's
   state as it is seen to change, progress at most four times a second
-  (and when a run ends), `solve.solutionsAdded` when the saved list's
-  length or newest id changes, `solve.error`, the analysis's progress and
-  end; then `Document::poll()` and its `document.changed`.
+  (and when a run ends), `solve.solutionsAdded` when the problem's
+  `solutionsVersion()` moved, `solve.error`, the analysis's progress and
+  end; then `Document::poll()` and its `document.changed`. A new document
+  sends a last `solve.state idle` and `solution.analyseEnded` for the old
+  one's watched problems after the reply (`State::replaceDocument` queues
+  them).
 
 **Rules of the engine:** requests run one at a time in order; a reply
 comes before the events it caused, a frame before the reply that refers
-to it; the revision clients see never goes back (a new document counts
-on from the old one); nothing but the main thread touches the document;
-handles hold copies and survive edits, a new document drops them;
-`core/` never sees JSON. Tested in process (`tests/unit/engine/`, a solve
-polled while it runs among the `[parallel]` cases) and as a subprocess
-(`tests/contract/`: every reply and event checked against the schema,
-every method called with success at least once, the scripted session of
-the brief).
+to it (so a notification gets no frame); the last `solve.state` of a run
+comes before the `document.changed` of its end; the revision clients see
+never goes back (a new document counts on from the old one); nothing but
+the main thread touches the document; handles hold copies and survive
+edits, a new document drops them; a malformed or oversized line is
+answered, never fatal (64 MiB, depth 64, gzip to 256 MiB); `core/` never
+sees JSON. Tested in process (`tests/unit/engine/`; among the
+`[parallel]` cases a solve polled while it runs, a solve next to an
+analysis of another problem, and the explorers, fit, paging and the
+table read while a solve runs until a new document ends it) and as a
+subprocess (`tests/contract/`: every reply and event checked against the
+schema, every error's errc one the method declares, every method called
+with success at least once, the scripted session of the brief; run
+against the dev, ASan and TSan engines).
 
 ## Testing against the original
 

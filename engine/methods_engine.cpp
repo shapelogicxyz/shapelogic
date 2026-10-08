@@ -8,12 +8,29 @@
 #include "bt/base/version.h"
 #include "bt/grid/grid_type.h"
 
+#include <limits>
+#include <string>
+
 namespace bt::engine {
 
 namespace {
 
+// The protocol this engine speaks (engine.hello, engine.info).
+constexpr int kProtocol = 1;
+
 // The grids this version solves (sliding and stacking load and save only).
 bool solvable(GridKind g) { return g != GridKind::Sliding && g != GridKind::Stacking; }
+
+Reply engineHello(State& s, Params& p) {
+  const std::int64_t protocol = p.integer("protocol", 1, std::numeric_limits<std::int64_t>::max());
+  BTE_CHECK(p.finish());
+  (void)s;
+  if (protocol != kProtocol) {
+    return coreError(Errc::Unsupported, "this engine speaks protocol " + std::to_string(kProtocol) +
+                                            ", not " + std::to_string(protocol));
+  }
+  return Json{{"protocol", kProtocol}, {"name", "bt-engine"}, {"version", kVersion}};
+}
 
 Reply engineInfo(State& s, Params& p) {
   BTE_CHECK(p.finish());
@@ -39,7 +56,7 @@ Reply engineInfo(State& s, Params& p) {
   Json j = Json::object();
   j["name"] = "bt-engine";
   j["version"] = kVersion;
-  j["protocol"] = 1;
+  j["protocol"] = kProtocol;
   j["grids"] = std::move(grids);
   j["solvers"] = std::move(solvers);
   j["hardwareThreads"] = hardwareThreads();
@@ -86,6 +103,7 @@ Reply settingsSet(State& s, Params& p) {
 }  // namespace
 
 void addEngineMethods(MethodTable& t) {
+  t["engine.hello"] = engineHello;
   t["engine.info"] = engineInfo;
   t["engine.shutdown"] = engineShutdown;
   t["settings.get"] = settingsGet;

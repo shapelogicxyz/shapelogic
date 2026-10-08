@@ -10,8 +10,10 @@ event against the schema in api/. Run by ctest:
 import argparse
 import base64
 import pathlib
+import shutil
 import sys
 import tempfile
+import time
 import traceback
 
 from engine_client import ROOT, Api, ContractError, Engine
@@ -39,7 +41,12 @@ def changed_event(e, revision):
 
 @test
 def engine_info_and_settings(e):
+    hello = e.call("engine.hello", {"protocol": 1})
+    check(hello["protocol"] == 1 and hello["name"] == "bt-engine", f"hello {hello}")
+    e.fails("engine.hello", {"protocol": 2}, "unsupported")
+    e.fails("engine.hello", {"protocol": 0}, "invalid_params")
     info = e.call("engine.info")
+    check(info["protocol"] == hello["protocol"], "engine.info names the same protocol")
     methods = set(info["methods"])
     unknown = methods - set(e.api.methods)
     check(not unknown, f"methods the schema does not have: {sorted(unknown)}")
@@ -96,24 +103,49 @@ def protocol_errors(e):
     # blank lines are ignored
     e.send_raw("\n   \n")
     e.call("engine.info")
+    # params nested 50,000 deep are refused, with the engine alive (finding 2 of the audit)
+    raw('{"jsonrpc":"2.0","id":1,"method":"settings.get","params":{"x":' + "[" * 50000 + "]" * 50000 + "}}",
+        "invalid_request")
+    e.call("engine.info")
+    # a line over the limit (64 MiB) is refused once its newline arrives, and the engine goes on
+    e.send_raw(b"x" * (64 * 1024 * 1024 + 1) + b"\n")
+    m = e._next(120)
+    check("error" in m and m["error"]["code"] == -32600 and m["id"] is None, f"a long line: {m}")
+    e.call("engine.info")
+    # a notification that would produce a frame gets none (nothing would refer to it)
+    s1 = e.call("shape.create")["shape"]
+    frames = len(e.frames)
+    e.request("shape.mesh", {"shape": s1}, notification=True)
+    e.call("settings.get")
+    check(len(e.frames) == frames, "no frame for a notification")
+    for _ in range(50):
+        if any("notification" in line for line in e.stderr):
+            break
+        time.sleep(0.05)
+    check(any("shape.mesh" in line and "notification" in line for line in e.stderr),
+          f"the refusal is logged: {e.stderr}")
 
 
 # ---- the document ------------------------------------------------------------------------------
 
 @test
 def document_files(e):
-    snap = e.call("document.open", {"path": str(FIXTURES / "Bermuda.xmpuzzle")})
-    check(snap["grid"] == "prisms" and len(snap["shapes"]) > 0 and not snap["dirty"], "opened")
-    check(snap["path"].endswith("Bermuda.xmpuzzle"), "its path")
-    rev0 = snap["revision"]
-
-    r = e.call("document.setNotes", {"text": "changed notes"})
-    check(r["revision"] > rev0, "the revision went up")
-    ev = changed_event(e, r["revision"])
-    check(ev["what"] == ["notes"], f"the event {ev}")
-    check(e.call("document.get")["dirty"], "dirty after an edit")
-
     with tempfile.TemporaryDirectory() as tmp:
+        # a copy of the fixture: the document remembers the path it was
+        # opened from, and a later save without a path goes there
+        fixture = pathlib.Path(tmp) / "Bermuda.xmpuzzle"
+        shutil.copy(FIXTURES / "Bermuda.xmpuzzle", fixture)
+        snap = e.call("document.open", {"path": str(fixture)})
+        check(snap["grid"] == "prisms" and len(snap["shapes"]) > 0 and not snap["dirty"], "opened")
+        check(snap["path"] == str(fixture), "its path")
+        rev0 = snap["revision"]
+
+        r = e.call("document.setNotes", {"text": "changed notes"})
+        check(r["revision"] > rev0, "the revision went up")
+        ev = changed_event(e, r["revision"])
+        check(ev["what"] == ["notes"], f"the event {ev}")
+        check(e.call("document.get")["dirty"], "dirty after an edit")
+
         path = pathlib.Path(tmp) / "saved.xmpuzzle"
         r = e.call("document.save", {"path": str(path)})
         check(path.exists() and r["path"] == str(path), "saved")
@@ -135,6 +167,13 @@ def document_files(e):
     e.call("document.new", {"grid": "bricks"})
     e.fails("document.save", {}, "invalid_argument")  # no path yet
     e.fails("document.new", {"grid": "hexagons"}, "invalid_params")
+    # names and notes: what the file cannot hold is refused
+    s1 = e.call("shape.create")["shape"]
+    e.fails("shape.rename", {"shape": s1, "name": "line\nbreak"}, "invalid_argument")
+    e.fails("shape.rename", {"shape": s1, "name": "a\x00b"}, "invalid_argument")
+    e.fails("document.setNotes", {"text": "\x01"}, "invalid_argument")
+    e.call("shape.rename", {"shape": s1, "name": "tab\there"})
+    e.call("document.setNotes", {"text": "two\nlines"})
 
 
 @test
@@ -427,24 +466,37 @@ def solving_session(e):
     e.call("solve.start", {"problem": p, "options": {"disassemble": True, "keepAtMost": 0, "sortBy": "moves"}})
     check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
     seen = [x["params"]["state"] for x in e.events[start:] if x["method"] == "solve.state"]
-    check(seen[-1] == "finished" and "assembling" in seen + ["assembling"], f"states {seen}")
+    check(seen[-1] == "finished", f"states {seen}")
     e.wait_event("solve.progress", lambda q: q["problem"] == p, start=start)
-    added = e.wait_event("solve.solutionsAdded", lambda q: q["problem"] == p, start=start)
+    e.wait_event("solve.solutionsAdded", lambda q: q["problem"] == p, start=start)
     e.drain()
     status = e.call("solve.status", {"problem": p})
     check(status["state"] == "finished" and status["failure"] is None, f"status {status['state']}")
     detail = e.call("problem.get", {"problem": p})
     check(detail["state"] == "solved" and detail["saved"] == detail["solutions"] > 1, f"solved {detail}")
-    check(added["saved"] == detail["saved"], "solutionsAdded's count")
-    # the run's end came with a revision of its own (after solve.start's)
+    # the saved count never goes back (nothing is thinned here) and the
+    # last solutionsAdded of the run carries the final count
+    added = [x["params"] for x in e.events[start:]
+             if x["method"] == "solve.solutionsAdded" and x["params"]["problem"] == p]
+    check(all(a["saved"] <= b["saved"] for a, b in zip(added, added[1:])), f"saved counts {added}")
+    check(added[-1]["saved"] == detail["saved"], f"the last solutionsAdded's count {added[-1]}")
+    # the run's end came with a revision of its own (after solve.start's),
+    # after the run's last solve.state
     changes = [x["params"] for x in e.events[start:] if x["method"] == "document.changed"]
     check(len(changes) >= 2 and changes[-1]["revision"] == e.call("document.get")["revision"]
           and p in changes[-1]["problems"], f"the run's end {changes}")
+    order = [x["method"] for x in e.events[start:]
+             if x["method"] in ("solve.state", "document.changed")]
+    check(order[-1] == "document.changed" and order[-2] == "solve.state", f"the end's order {order}")
     total = detail["saved"]
+    # a finished solve is not aborted (nothing is under way): the solutions stay
+    e.fails("solve.abort", {"problem": p}, "invalid_state")
+    check(e.call("problem.get", {"problem": p})["saved"] == total, "the solutions stay")
 
     # paging and sorting (a view: the stored order stays)
     page = e.call("solution.page", {"problem": p, "sortBy": "moves", "descending": True, "limit": total})
     check(page["total"] == total and len(page["rows"]) == total, "one page of all")
+    check(page["solutionsVersion"] == added[-1]["solutionsVersion"], "the page is of the version told")
     check(sorted_by(page["rows"], lambda r: r["moves"], True), "by moves, descending")
     for key, field in (("level", None), ("assembly", "assembly"), ("pieces", None), ("list", "index")):
         rows = e.call("solution.page", {"problem": p, "sortBy": key, "limit": total})["rows"]
@@ -460,6 +512,16 @@ def solving_session(e):
     got = e.call("solution.get", {"problem": p, "solution": row["id"]})
     check(got["row"] == row and len(got["placements"]) == detail["pieces"], "solution.get")
     e.fails("solution.get", {"problem": p, "solution": "sol99999"}, "not_found")
+    # a placed piece is drawn as its shape's mesh in the placement's transformation
+    placed = got["placements"][0]
+    shape = detail["parts"][0]["shape"]  # pieces are numbered part by part
+    plain = e.call("shape.mesh", {"shape": shape})
+    turned = e.call("shape.mesh", {"shape": shape, "transformation": placed["transformation"]})
+    check(turned["triangles"] == plain["triangles"] and turned["vertices"] == plain["vertices"],
+          "the turned shape has the same faces")
+    flat = e.call("shape.mesh", {"shape": shape, "transformation": 1, "style": "flat"})
+    check(e.frame(flat["frame"]).array("edgeLines"), "edge lines in an orientation")
+    e.fails("shape.mesh", {"shape": shape, "transformation": 48}, "invalid_argument")
 
     # playback
     pb = e.call("playback.open", {"problem": p, "solution": row["id"]})
@@ -476,6 +538,7 @@ def solving_session(e):
     steps = f.array("step")
     check(steps[0] == 0 and abs(steps[-1] - pb["steps"]) < 1e-6, "steps")
     check(all(v == 1 for v in f.array("visible")[:n]), "all pieces shown assembled")
+    assembled = f.array("translation")[:n * 3]
     track = e.call("playback.track", {"handle": pb["handle"], "samplesPerStep": 2, "reassemble": False})
     times = e.frame(track["frame"]).array("time")
     check(all(a <= b for a, b in zip(times, times[1:])) and len(times) == track["samples"], "track times")
@@ -483,6 +546,7 @@ def solving_session(e):
     check(part["samples"] == 2, "a part of the poses")
     e.fails("playback.poses", {"handle": pb["handle"], "from": 2, "to": 1}, "invalid_argument")
     e.fails("playback.mesh", {"handle": pb["handle"], "piece": n}, "invalid_argument")
+    e.call("playback.mesh", {"handle": pb["handle"], "piece": 0, "style": "wireframe"})
     e.call("playback.close", {"handle": pb["handle"]})
     e.fails("playback.close", {"handle": pb["handle"]}, "not_found")
 
@@ -529,11 +593,23 @@ def solving_session(e):
     e.call("solution.deleteDisassembly", {"problem": p})
     rows = e.call("solution.page", {"problem": p, "limit": total})["rows"]
     check(all(r["disassembly"] == "summary" for r in rows), "only the summaries left")
+    # a solution without its moves still plays: the assembled pose alone
+    pb = e.call("playback.open", {"problem": p, "solution": row["id"]})
+    check(pb["steps"] == 0 and pb["movesText"] is None and len(pb["pieces"]) == n, f"a single pose {pb}")
+    poses = e.call("playback.poses", {"handle": pb["handle"]})
+    f = e.frame(poses["frame"])
+    check(poses["samples"] == 1 and all(v == 1 for v in f.array("visible")), "assembled, all shown")
+    check(all(abs(a - b) < 1e-5 for a, b in zip(f.array("translation"), assembled)),
+          "the same pose as step 0 of the disassembly")
+    check(e.call("playback.mesh", {"handle": pb["handle"], "piece": 0, "style": "flat"})["triangles"] > 0,
+          "a piece mesh")
+    e.call("playback.close", {"handle": pb["handle"]})
     start = len(e.events)
     r = e.call("solution.analyse", {"problem": p, "which": "missing"})
     check(r["total"] == total, f"to analyse {r}")
     end = e.wait_event("solution.analyseEnded", lambda q: q["problem"] == p, start=start)
-    check(end["done"] == total and end["separated"] == total and not end["stopped"], f"analysed {end}")
+    check(end["done"] == total and end["separated"] == total and not end["stopped"]
+          and end["failure"] is None, f"analysed {end}")
     e.wait_event("document.changed", lambda q: p in q["problems"], start=start, timeout=10)
     rows = e.call("solution.page", {"problem": p, "limit": total})["rows"]
     check(all(r["disassembly"] == "tree" for r in rows), "the moves are back")
@@ -562,9 +638,12 @@ def solving_session(e):
     e.call("edit.undo")
     check(len(e.call("shape.list")["shapes"]) == shapes_before, "undone")
 
-    # removing solutions
-    ids = [r["id"] for r in e.call("solution.page", {"problem": p, "limit": total})["rows"]]
+    # removing solutions: each removal is a new version of the list
+    page = e.call("solution.page", {"problem": p, "limit": total})
+    ids = [r["id"] for r in page["rows"]]
     e.call("solution.delete", {"problem": p, "which": "one", "solution": ids[1]})
+    check(e.call("solution.page", {"problem": p})["solutionsVersion"] > page["solutionsVersion"],
+          "the version moved")
     e.call("solution.delete", {"problem": p, "which": "before", "solution": ids[2]})
     e.call("solution.delete", {"problem": p, "which": "after", "solution": ids[4]})
     left = [r["id"] for r in e.call("solution.page", {"problem": p})["rows"]]
@@ -586,37 +665,38 @@ def solving_session(e):
 
 @test
 def pause_continue_and_the_guards(e):
-    p, box, d = domino_box(e, 2, 4, 5)
+    # a 2x4x6 box on one thread runs for many seconds: the pause lands
+    p, box, d = domino_box(e, 2, 4, 6)
+    one = {"disassemble": True, "keepAtMost": 5, "threads": 1}
     other = e.call("problem.create")["problem"]
     c1 = e.call("colour.add", {"rgb": "#ff0000"})["colour"]
+    e.fails("solve.abort", {"problem": p}, "invalid_state")  # nothing under way
     start = len(e.events)
-    e.call("solve.start", {"problem": p, "options": {"disassemble": True, "keepAtMost": 5}})
+    e.call("solve.start", {"problem": p, "options": one})
     state = wait_state(e, p, ("assembling", "finished"), start)
-    if state == "assembling":
-        # frozen while a run is active (decision 0011)
-        e.fails("shape.setCells", {"shape": d, "tool": "erase", "cells": [[0, 0, 0]]}, "invalid_state")
-        e.fails("shape.create", {}, "invalid_state")
-        e.fails("problem.create", {}, "invalid_state")
-        e.fails("problem.rename", {"problem": p, "name": "x"}, "invalid_state")
-        e.fails("edit.undo", {}, "invalid_state")
-        e.fails("document.save", {"path": "/tmp/never.xmpuzzle"}, "invalid_state")
-        e.fails("document.saveBytes", {}, "invalid_state")
-        e.fails("solve.start", {"problem": p}, "invalid_state")
-        e.fails("solution.analyse", {"problem": p, "which": "all"}, "invalid_state")
-        e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.btsolve"}, "invalid_state")
-        # and what goes on
-        e.call("document.setNotes", {"text": "while solving"})
-        e.call("colour.edit", {"colour": c1, "rgb": "#00ff00"})
-        e.call("problem.rename", {"problem": other, "name": "not solving"})
-        e.call("shape.mesh", {"shape": d})
-        e.call("problem.get", {"problem": p})
-        e.call("solution.page", {"problem": p})
-        check(e.call("document.get")["solving"], "the snapshot says so")
-        e.call("solve.pause", {"problem": p})
+    check(state == "assembling", f"the run is long enough to be seen assembling ({state})")
+    # frozen while a run is active (decision 0011)
+    e.fails("shape.setCells", {"shape": d, "tool": "erase", "cells": [[0, 0, 0]]}, "invalid_state")
+    e.fails("shape.create", {}, "invalid_state")
+    e.fails("problem.create", {}, "invalid_state")
+    e.fails("problem.rename", {"problem": p, "name": "x"}, "invalid_state")
+    e.fails("edit.undo", {}, "invalid_state")
+    e.fails("document.save", {"path": "/tmp/never.xmpuzzle"}, "invalid_state")
+    e.fails("document.saveBytes", {}, "invalid_state")
+    e.fails("solve.start", {"problem": p}, "invalid_state")
+    e.fails("solution.analyse", {"problem": p, "which": "all"}, "invalid_state")
+    e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.btsolve"}, "invalid_state")
+    # and what goes on
+    e.call("document.setNotes", {"text": "while solving"})
+    e.call("colour.edit", {"colour": c1, "rgb": "#00ff00"})
+    e.call("problem.rename", {"problem": other, "name": "not solving"})
+    e.call("shape.mesh", {"shape": d})
+    e.call("problem.get", {"problem": p})
+    e.call("solution.page", {"problem": p})
+    check(e.call("document.get")["solving"], "the snapshot says so")
+    e.call("solve.pause", {"problem": p})
     state = wait_state(e, p, ("paused", "finished"), start)
-    if state != "paused":
-        print("  (the run ended before the pause; the paused part is skipped)")
-        return
+    check(state == "paused", f"the pause landed before the run ended ({state})")
     detail = e.call("problem.get", {"problem": p})
     check(detail["state"] == "solving" and detail["savedPosition"] and detail["solve"] == "paused", "paused")
     progress = e.call("solve.status", {"problem": p})["progress"]
@@ -625,19 +705,25 @@ def pause_continue_and_the_guards(e):
         e.call("document.save", {"path": str(pathlib.Path(tmp) / "paused.xmpuzzle")})
     # carry on, pause at a save point, carry on, abort
     start = len(e.events)
-    e.call("solve.continue", {"problem": p})
-    wait_state(e, p, ("assembling", "finished"), start)
+    e.call("solve.continue", {"problem": p, "options": one})
+    check(wait_state(e, p, ("assembling", "finished"), start) == "assembling", "carried on")
     e.call("solve.savePoint", {"problem": p})
-    state = wait_state(e, p, ("paused", "finished"), start)
+    check(wait_state(e, p, ("paused", "finished"), start) == "paused", "paused at a save point")
     start = len(e.events)
-    if state == "paused":
-        e.call("solve.continue", {"problem": p, "options": {"disassemble": True, "keepAtMost": 5}})
-        wait_state(e, p, ("assembling", "draining", "finished"), start)
-    e.call("solve.abort", {"problem": p})
+    e.call("solve.continue", {"problem": p, "options": one})
+    check(wait_state(e, p, ("assembling", "draining", "finished"), start) != "finished", "carried on again")
+    r = e.call("solve.abort", {"problem": p})
     wait_state(e, p, ("idle",), start, timeout=30)
     detail = e.call("problem.get", {"problem": p})
     check(detail["state"] == "unsolved" and detail["saved"] == 0 and detail["solve"] == "idle", "aborted")
+    # the abort's own document.changed, then the run's end from the poll
+    e.drain()
+    revisions = [x["params"]["revision"] for x in e.events[start:]
+                 if x["method"] == "document.changed" and x["params"]["revision"] >= r["revision"]]
+    check(len(revisions) == 2 and revisions[0] == r["revision"] and revisions[1] > r["revision"],
+          f"two document.changed after an abort {revisions}")
     e.fails("solve.pause", {"problem": p}, "invalid_state")
+    e.fails("solve.abort", {"problem": p}, "invalid_state")
 
 
 @test
@@ -666,6 +752,34 @@ def prepare_export_import(e):
 
 
 @test
+def document_replaced_while_working(e):
+    """A new document ends the old one's runs and analyses: after the
+    reply their problems get a last event, then nothing more of them."""
+    p, _, _ = domino_box(e, 2, 4, 4)
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": True, "keepAtMost": 0, "threads": 2}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
+    e.drain()
+    # an analysis of this problem and a solve of a copy, under way
+    q = e.call("problem.duplicate", {"problem": p})["problem"]
+    start = len(e.events)
+    check(e.call("solution.analyse", {"problem": p, "which": "all", "threads": 1})["total"] == 2856, "analysing")
+    e.call("solve.start", {"problem": q, "options": {"disassemble": True, "threads": 1}})
+    wait_state(e, q, ("assembling", "finished"), start)
+    start = len(e.events)
+    snap = e.call("document.new", {"grid": "bricks"})
+    check(snap["problems"] == [] and not snap["solving"], "the new document")
+    ended = e.wait_event("solution.analyseEnded", lambda x: x["problem"] == p, start=start, timeout=10)
+    check(ended["stopped"] and ended["done"] <= ended["total"] == 2856, f"the analysis ended {ended}")
+    e.wait_event("solve.state", lambda x: x["problem"] == q and x["state"] == "idle", start=start, timeout=10)
+    e.drain()
+    after = [x["method"] for x in e.events[start:]]
+    check("document.changed" not in after, f"no document.changed for the replacement {after}")
+    e.fails("solve.status", {"problem": q}, "not_found")
+    e.fails("solution.analyseStatus", {"problem": p}, "not_found")
+
+
+@test
 def unsupported_and_failures(e):
     snap = e.call("document.open", {"path": str(FIXTURES / "test_sliding_solver.xmpuzzle")})
     p = snap["problems"][0]["id"]
@@ -679,7 +793,10 @@ def unsupported_and_failures(e):
     sol = e.call("solution.page", {"problem": p})["rows"][0]["id"]
     e.fails("solution.analyse", {"problem": p, "which": "all"}, "unsupported")
     e.fails("explore.openMovements", {"problem": p, "solution": sol}, "unsupported")
-    e.fails("playback.open", {"problem": p, "solution": sol}, "invalid_argument")
+    # a solution that cannot have a disassembly still shows assembled
+    pb = e.call("playback.open", {"problem": p, "solution": sol})
+    check(pb["steps"] == 0 and pb["movesText"] is None, f"a single pose {pb}")
+    e.call("playback.close", {"handle": pb["handle"]})
     e.fails("solve.start", {"problem": p, "options": {"threads": 999}}, "invalid_params")
     e.fails("solve.start", {"problem": p, "options": {"sortBy": "colour"}}, "invalid_params")
     e.fails("solve.start", {"problem": p, "options": 5}, "invalid_params")

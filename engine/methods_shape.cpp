@@ -274,8 +274,13 @@ Reply shapeTable(State& s, Params& p) {
 Reply shapeMesh(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   const mesh::MeshStyle style = p.optChoice("style", meshStyleNames()).value_or(mesh::MeshStyle::Drawing);
+  const std::optional<std::int64_t> transformation = p.maybeInteger("transformation", 0, 0xFFFF);
   BTE_CHECK(p.finish());
-  BTE_TRY(const mesh::DrawMesh m, s.document().shapeMesh(shape, style));
+  std::optional<unsigned int> turned;
+  if (transformation) {
+    turned = static_cast<unsigned int>(*transformation);
+  }
+  BTE_TRY(const mesh::DrawMesh m, s.document().shapeMesh(shape, style, turned));
   return meshReply(s, m);
 }
 

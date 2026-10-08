@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <string>
 
 namespace bt::io {
 
@@ -34,9 +35,14 @@ gzFile openGz(const std::filesystem::path& path, const char* mode) {
 
 std::string describe(const std::filesystem::path& path) { return path.string(); }
 
+Error tooLarge(std::size_t maxBytes) {
+  return Error{Errc::ParseError, "the file is too large: it inflates to more than " +
+                                     std::to_string(maxBytes >> 20) + " MiB"};
+}
+
 }  // namespace
 
-Result<std::string> readMaybeGzipFile(const std::filesystem::path& path) {
+Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::size_t maxBytes) {
   // zlib reads data that is not gzip as it is ("transparent" reading)
   GzHandle f(openGz(path, "rb"));
   if (!f) {
@@ -54,6 +60,9 @@ Result<std::string> readMaybeGzipFile(const std::filesystem::path& path) {
     }
     if (n == 0) {
       break;
+    }
+    if (data.size() + static_cast<std::size_t>(n) > maxBytes) {
+      return std::unexpected(tooLarge(maxBytes));
     }
     data.append(buf.data(), static_cast<std::size_t>(n));
   }
@@ -107,7 +116,7 @@ std::string gzipCompress(std::string_view data) {
   return out;
 }
 
-Result<std::string> gunzipIfCompressed(std::string_view data) {
+Result<std::string> gunzipIfCompressed(std::string_view data, std::size_t maxBytes) {
   if (data.size() < 2 || static_cast<unsigned char>(data[0]) != 0x1f ||
       static_cast<unsigned char>(data[1]) != 0x8b) {
     return std::string(data);
@@ -128,6 +137,10 @@ Result<std::string> gunzipIfCompressed(std::string_view data) {
     if (ret != Z_OK && ret != Z_STREAM_END) {
       inflateEnd(&z);
       return fail(Errc::ParseError, "broken gzip data");
+    }
+    if (out.size() + (buf.size() - z.avail_out) > maxBytes) {
+      inflateEnd(&z);
+      return std::unexpected(tooLarge(maxBytes));
     }
     out.append(buf.data(), buf.size() - z.avail_out);
     if (ret == Z_OK && z.avail_in == 0 && z.avail_out != 0) {

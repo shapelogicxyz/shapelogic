@@ -305,7 +305,11 @@ class Document {
 
   [[nodiscard]] Result<FitStats> fit(Id problem) const;
   [[nodiscard]] std::vector<ShapeInfo> shapeTable() const;
-  [[nodiscard]] Result<mesh::DrawMesh> shapeMesh(Id shape, mesh::MeshStyle style) const;
+  /// The drawing mesh of a shape (shape.mesh), in its own orientation or
+  /// turned by one of the grid's transformations (a Placement's number;
+  /// InvalidArgument beyond the grid's table).
+  [[nodiscard]] Result<mesh::DrawMesh> shapeMesh(
+      Id shape, mesh::MeshStyle style, std::optional<unsigned int> transformation = {}) const;
 
   // ---- solving ----------------------------------------------------------------
 
@@ -319,7 +323,12 @@ class Document {
   Result<void> solvePause(Id problem);
   /// Asks the run to pause at a save point (autosave).
   Result<void> solvePauseAtSavePoint(Id problem);
-  /// Stops and throws the solve away; waits.
+  /// Stops a solve under way (active or paused in memory) and throws it
+  /// away: the results, the paused state and the saved position; waits
+  /// for the run to end. Refused (InvalidState) when the problem has no
+  /// such solve: a finished solve's solutions go through
+  /// deleteSolutions(All), which can be undone, and a paused solve from a
+  /// file is carried on (solveResume) or started over (solveStart).
   Result<void> solveAbort(Id problem);
   /// Waits for the run of a problem to end.
   Result<void> solveWait(Id problem);
@@ -375,6 +384,8 @@ class Document {
 
   // ---- playback and explorers -------------------------------------------------
 
+  /// The playback of a saved solution (playback.open): its disassembly
+  /// when it has one, else the assembled pose alone (stepCount() 0).
   [[nodiscard]] Result<PlaybackSampler> playback(Id problem, Id solution) const;
   [[nodiscard]] Result<AssemblyExplorer> exploreAssembly(Id problem, SolverType solver,
                                                          const MatrixOptions& matrix,

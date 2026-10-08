@@ -1,13 +1,13 @@
 # Handoff: stage 7 (the engine)
 
 **Date:** 2026-10-08 · **Next:** stage 8 (the `bt` CLI and performance) in a
-new session at high effort. PLAN.md recommends a separate review of the
-API design; it was not done (the design and the implementation went into
-this one session), so an audit of stage 7 before stage 8 is worth it. The
-brief is at the end.
+new session at high effort. The brief is at the end.
 
 The stage fitted one session, so it is one commit, not the 7a / 7b split
-the plan allowed.
+the plan allowed. It was audited the same day (`tmp/audit/stage7report.txt`:
+nine findings, the API design concerns A to I, the test gaps); the fixes
+are the commit after it, "Stage 7 audit: fixes for the nine findings",
+listed under "Fixed by the audit" below.
 
 ## Done
 
@@ -72,7 +72,7 @@ the saved assemblies of nine fixture cases taken apart again as the
 original's "Add disassembly" does (rotations and Crowell for the rotation
 fixture); recorded twice, identical.
 
-### Tests (433 cases in `bt_tests`; ctest also runs `api-schema`, `api-docs`, `contract`)
+### Tests (444 cases in `bt_tests` after the audit; ctest also runs `api-schema`, `api-docs`, `contract`)
 - `test_layer_geometry.cpp`: every cell of every layer of every grid
   against the original's corner formulas (getTriangle and getPolygon
   copied into the test, drawTileFrame's sums), the neighbours across the
@@ -106,6 +106,82 @@ fixture); recorded twice, identical.
   it runs; prepare, export, import and carry on; the unsupported grids and
   a run that ends in error. 3-4 s.
 
+## Fixed by the audit
+The nine findings, in the audit's order:
+1. **`solve.abort` destroyed saved solutions** (on an idle solved problem,
+   and in the moment after a run finished, with no undo step). It is the
+   hard stop of a solve under way now: `Document::solveAbort` refuses
+   (`invalid_state`) unless the problem's session is active or paused; a
+   finished solve's solutions go through `solution.delete {which: all}`
+   (undoable; the problem stays solved with its counts, as the original's
+   "remove all" left it), a paused solve from a file is carried on or
+   started over. Contract case: abort after finished is refused and the
+   solutions stay.
+2. **Params nested 50,000 deep crashed the engine** (nlohmann's copy
+   constructor recursed). The line is parsed with a callback that flags a
+   depth over 64 and is answered `-32600` "nesting too deep" (never
+   trimmed in silence); `params` is a pointer into the parsed message.
+   Contract case in `protocol_errors`.
+3. **No way to draw an assembled solution or an explorer's placement.**
+   `shape.mesh` takes an optional `transformation` (a `Placement`'s
+   number; `app::orientedMesh`, which the playback's piece meshes use
+   too), `playback.mesh` a `style`, and `playback.open` opens a solution
+   without a disassembly as a single pose (`steps` 0, `movesText` null).
+   Unit case: the oriented mesh equals the mesh of the transformed voxel
+   space; the single pose equals step 0 of a disassembly made in-process.
+4. **A timing-dependent contract test.** `solving_session` compares the
+   *last* `solve.solutionsAdded` of the run (and that the counts never go
+   back, and the end's order: `solve.state`, then `document.changed`);
+   `pause_continue_and_the_guards` runs a 2x4x6 box on one thread and
+   fails when the pause does not land; the always-true check went; the
+   client refuses an errc a method's schema entry does not declare (this
+   found `shape.rename`, `problem.rename` and `document.setNotes` missing
+   `invalid_argument`); `document_files` opens a copy of its fixture;
+   `just test-tsan` runs the contract suite against the TSan engine.
+5. **Uncapped gzip inflation.** `gunzipIfCompressed` and
+   `readMaybeGzipFile` stop at 256 MiB (`parse_error` "the file is too
+   large"); the limit is a parameter, so the unit test uses a 4 MiB
+   stream of zeros against a 1 MiB cap.
+6. **The line limit after the read, an unbounded queue.** The reader
+   keeps at most 64 MiB of a line, drops the rest and queues a marker
+   that is answered `-32600` once the newline arrives; the queue blocks
+   the reader at 1,000 lines or 64 MiB. Unit case through `Engine::run`;
+   contract case: a 64 MiB line is refused and the engine goes on.
+7. **Orphan frames.** A method that would send a frame inside a
+   notification is refused (`State::sendFrame` throws; logged to stderr,
+   no frame). Unit and contract cases.
+8. **An analysis's internal error hidden.** `failure: string | null` in
+   `AnalyseEvent` and `AnalyseProgress`, from `AnalyseProgress::failure`.
+9. **Control characters in names and notes.** The document refuses
+   control characters other than tab, newline and carriage return in
+   names and notes, and line breaks in names (`invalid_argument`). Unit
+   and contract cases.
+
+From the design concerns: **A** (`playback.mesh` style, with 3); **B**
+(`solutionsVersion`, a counter `Problem` moves on every change of its
+saved list, in `solution.page` and `solve.solutionsAdded`; the poll
+detects changes by it, so the scan over every saved solution went;
+`Problem::lastSolutionId()` is there for the newest id); **C** (the event
+order written into `solve.json`'s summaries and decision 0012; the
+contract checks the end's order and the abort's two `document.changed`);
+**D** (a new document queues a last `solve.state idle` and
+`solution.analyseEnded {stopped}` for the old one's watched problems,
+sent after the reply; contract case `document_replaced_while_working`);
+**F** (the planes, `highMemory` and the live counters noted in the
+schema); **G** (`engine.hello {protocol}`, `unsupported` for a protocol
+the engine does not know); **H** (recorded in decision 0012: the API's
+`SolveOptions` names and the file's `SolverSettings` names are both
+permanent, with the mapping in `types.json`). The two `[parallel]` unit
+cases of the test gaps were added (a solve next to an analysis of another
+problem; the explorers, fit, paging and the table while a solve runs,
+ended by a new document), the run-loop test's streams outlive the test,
+and `Problem`'s version and newest id have a model test.
+
+Not done from the concerns, deliberately: the engine still reads the
+stored check boxes as `"1"` (the original's text; I), `document.save`'s
+reply has no `dirty` (I), and `solve.continue` on a solved problem keeps
+the core's message naming `start()` (I; `core/bt/solve` was not touched).
+
 ## Gate results
 | Check | Result |
 |---|---|
@@ -121,6 +197,17 @@ fixture); recorded twice, identical.
 | `just oracle-roundtrip` | **365/365** byte-identical |
 | `oracle.py record-analysed` | recorded twice, identical; matched byte for byte |
 | `just check` | **not run: LLVM still not installed** |
+
+After the audit's fixes (nothing in `core/bt/solve`, `grid` or `model`
+changes behaviour; `model/problem` gained a runtime counter and a getter):
+
+| Check | Result |
+|---|---|
+| `just test-all` (dev) | pass: 444 cases (18 `[slow]`, 69 `[parallel]`), `api-schema`, `api-docs`, `contract` (13 sessions, 94 methods covered); 405 s |
+| `just test-asan` | pass: every case, `[slow]` included, and the contract suite against the ASan engine; 24 min |
+| `just test-tsan` (the `[parallel]` cases, then the contract suite against the TSan engine) | pass: 69 cases, no report; the contract suite 13 of 13 against the TSan engine (finding 4's test among them) |
+| contract suite, release engine, three times | pass, pass, pass (about 9 s each) |
+| `just oracle --tier fast` | **19/19** (all fields, default threads, Classic) |
 
 ## Faithfulness beyond the gates
 - The layer drawing's corners are the original's at its pixel scale for
@@ -160,6 +247,23 @@ fixture); recorded twice, identical.
   differs. Both programs agree on each path; noted for anyone comparing
   files.
 - The sphere grid editor's circles are off centre (difference 1).
+- **A disassembly read from a file without `<dt>` plays in orientation
+  0** (found while testing the single pose): a state without
+  orientations answers `getOrient()` 0, `disasmToMoves_c::getTrans`
+  passes it on, and both the original's view (`voxelFrame_c::updatePositions`
+  re-transforms a piece whose `shapeOrients` differs) and its glTF
+  sampler turn every piece to orientation 0 with the bounding-box
+  compensation, instead of leaving it as the assembly placed it. Classic
+  `<solutions>` are written without `<dt>`, so this is every classic
+  solution reloaded from a file (PelikanBurr's fixture: piece 2, assembly
+  transformation 13, is drawn turned by a 120 degree quaternion). The port
+  is faithful (`test_app_dump` matches the original's sampler) and the
+  single pose of `playback.open` is right (the pieces as placed). The fix
+  is one line in `DisasmToMoves::getTrans` (answer `-1`, "not given", for
+  a state without orientations, so the sampler keeps the assembly's
+  orientation), to be taken as a deliberate difference and recorded when
+  the front end's player is built; not done here, since the audit's scope
+  was the engine.
 
 ## Known issues and notes
 - **Windows:** stdout must be put in binary mode for frames (`_setmode`);
@@ -171,10 +275,17 @@ fixture); recorded twice, identical.
   when the front end starts.
 - **Undo depth** is an engine setting applied to the open document and
   every new one.
-- `document.changed` for the end of a run can come just before or just
-  after its last `solve.state` (both come; the order is the poll's).
-- The contract test's pause case skips its paused part (with a note) if a
-  very fast machine finishes the 2x4x5 box before the pause lands.
+- **Flooding is held back, not refused:** a client that sends requests
+  faster than they run is blocked on its pipe once 1,000 lines or 64 MiB
+  are queued (decision 0012); nothing tells it so.
+- **`solutionsVersion` starts at 0 for a loaded file** and is not saved:
+  it relates reads within one open document only.
+- **Declared-but-untested error pairs:** the contract client now refuses
+  an errc a method does not declare, but most declared pairs are still
+  never observed (the audit counted 114 of 159); a wrong extra entry in
+  an `errors` list goes unnoticed.
+- **The dt-less playback orientation** (see "Found in the original") is
+  left as the original has it.
 - Unchanged: `bt` aborts on the stacking fixture (stage 8); AVX2/AVX-512
   kernels untested on x86-64; LLVM missing, so nothing has been through
   clang-tidy; Burr-Glar on one thread behind the original (stage 8).
@@ -184,7 +295,11 @@ Work in `/Users/colin/git/burr-tools-rotations/burrtools_alpha`; the original
 is `../burrtools_rotations`. Read AGENTS.md, docs/ARCHITECTURE.md (the
 solve and engine sections above all), docs/PLAN.md (stage 8), decision
 0007 (the speed rule), tests/bench/README.md, tests/oracle/README.md and
-this note. Effort: high.
+this note. Stage 7 is done and audited: the commit "Stage 7: engine,
+JSON-RPC API schema and contract tests" (148d743) and the audit's fixes
+in the commit after it, "Stage 7 audit: fixes for the nine findings"
+(the list above; the engine's rules are in decision 0012 as amended).
+Start stage 8 directly. Effort: high.
 
 **Scope** (PLAN.md, stage 8):
 - **Complete `bt`** (`cli/main.cpp`) as the original's `burrTxt` for brick
@@ -209,7 +324,9 @@ this note. Effort: high.
   tests/bench/README.md. Never benchmark while a sanitizer suite runs.
 - **From stage 7, if time allows:** stdout in binary mode on Windows for
   the engine; the TypeScript types generated from `api/` (or leave them
-  to the front end's first stage and say so).
+  to the front end's first stage and say so). The dt-less playback
+  orientation ("Found in the original") belongs to the front end's player
+  stage, not here.
 
 **Mind:** `core/` never prints: the CLI formats everything. The oracle,
 compare-files, resume and roundtrip gates must stay green; `--json` is

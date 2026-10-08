@@ -4,6 +4,26 @@
   "title": "Engine and settings",
   "description": "What the engine can do, its settings (kept across documents), and the frame announcement.",
   "methods": {
+    "engine.hello": {
+      "summary": "Tells the engine which protocol the client speaks; a client calls it first. The engine answers with the protocol it will speak (this version: 1) or refuses one it does not know (unsupported), so that when the protocol changes, old and new clients can be told apart.",
+      "params": {
+        "type": "object",
+        "properties": {"protocol": {"type": "integer", "minimum": 1, "description": "The protocol the client speaks."}},
+        "required": ["protocol"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "protocol": {"type": "integer", "minimum": 1},
+          "name": {"const": "bt-engine"},
+          "version": {"type": "string"}
+        },
+        "required": ["protocol", "name", "version"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported"]
+    },
     "engine.info": {
       "summary": "The engine's version, the grids and solvers it knows, the machine's threads, and its methods.",
       "params": {"type": "object", "properties": {}, "additionalProperties": false},

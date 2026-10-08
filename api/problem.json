@@ -58,7 +58,7 @@
         "additionalProperties": false
       },
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setResult": {
       "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions.",

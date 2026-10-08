@@ -32,11 +32,13 @@ SolveOptions takeApart(unsigned int threads = 0) {
 
 // The document of a fixture with its problems' solves dropped.
 Document fresh(const std::string& name) {
-  Document d = openFixture(name);
-  for (const Id p : std::vector<Id>(d.problemIds())) {
-    REQUIRE(d.solveAbort(p).has_value());
+  Puzzle stripped = openFixture(name).puzzle();
+  for (unsigned int i = 0; i < stripped.getNumberOfProblems(); i++) {
+    stripped.getProblem(i).removeAllSolutions();
   }
-  return d;
+  Result<Document> d = Document::openBytes(io::writePuzzle(stripped));
+  REQUIRE(d.has_value());
+  return std::move(*d);
 }
 
 // A refusal while a run is active: InvalidState, no new revision.
@@ -88,8 +90,15 @@ TEST_CASE("document solving: a solve, its progress, and abort", "[app][solving]"
   CHECK(d.dirty());
   CHECK_FALSE(d.solveFailure(p).has_value());
 
-  REQUIRE(d.solveAbort(p).has_value());
-  CHECK(d.puzzle().getProblem(0).getSolveState() == ProblemState::Unsolved);
+  // a finished solve is not aborted (nothing is under way, as the
+  // original's greyed-out button): its solutions are removed as a step
+  CHECK(d.solveAbort(p).error().code == Errc::InvalidState);
+  CHECK(d.solveState(p) == SolveState::Finished);
+  REQUIRE(d.deleteSolutions(p, SolutionsToDelete::All).has_value());
+  CHECK(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 0);
+  CHECK(d.puzzle().getProblem(0).getSolveState() == ProblemState::Solved);
+  REQUIRE(d.undo().has_value());
+  CHECK(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 927);
   CHECK(d.solveState(p) == SolveState::Idle);
 }
 

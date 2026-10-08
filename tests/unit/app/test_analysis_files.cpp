@@ -220,6 +220,17 @@ TEST_CASE("gzip in memory: as the files are written", "[io]") {
   const std::filesystem::path tmp = std::filesystem::temp_directory_path() / "bt_gzip.gz";
   REQUIRE(io::writeGzipFile(tmp, text).has_value());
   CHECK(fileBytes(tmp) == z);
+  // what inflates past the limit is refused, in memory and from a file: a
+  // small stream can stand for gigabytes (the limit is 256 MiB; here a
+  // smaller one on a 4 MiB stream of zeros, which gzip packs into 4 KiB)
+  const std::string bomb = io::gzipCompress(std::string(std::size_t{4} << 20, '\0'));
+  CHECK(bomb.size() < 8192);
+  CHECK(io::gunzipIfCompressed(bomb).value().size() == std::size_t{4} << 20);
+  CHECK(io::gunzipIfCompressed(bomb, std::size_t{1} << 20).error().code == Errc::ParseError);
+  CHECK(io::gunzipIfCompressed(z, text.size() - 1).error().code == Errc::ParseError);
+  CHECK(io::gunzipIfCompressed(z, text.size()).value() == text);
+  CHECK(io::readMaybeGzipFile(tmp, text.size() - 1).error().code == Errc::ParseError);
+  CHECK(io::readMaybeGzipFile(tmp, text.size()).value() == text);
   std::filesystem::remove(tmp);
   // a puzzle's file bytes open as a document either way
   Document d = openFixture("PelikanBurr.xmpuzzle");

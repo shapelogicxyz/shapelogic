@@ -25,9 +25,11 @@ test-all preset="dev": (build preset)
 # Address + undefined-behaviour sanitizers
 test-asan: (test-all "asan")
 
-# ThreadSanitizer, on the [parallel] cases (see AGENTS.md for why the puzzle choice matters)
+# ThreadSanitizer: the [parallel] cases (see AGENTS.md for why the puzzle choice matters),
+# then the contract suite against the TSan-built engine
 test-tsan: (build "tsan")
     TSAN_OPTIONS=halt_on_error=1 ./build/tsan/tests/bt_tests "[parallel]"
+    TSAN_OPTIONS=halt_on_error=1 python3 tests/contract/test_engine.py --engine build/tsan/engine/bt-engine
 
 # Compare the new bt against the original burrTxt (see tests/oracle/README.md)
 oracle *args: (build "release")

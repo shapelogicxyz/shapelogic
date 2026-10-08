@@ -239,22 +239,24 @@ TEST_CASE("engine: replies, errors and document.changed", "[engine]") {
 TEST_CASE("engine: the run loop ends at the end of input or on shutdown", "[engine][parallel]") {
   std::ostringstream out;
   std::ostringstream log;
+  // the streams outlive the test: a reader thread the engine had to leave
+  // behind (it waits 100 ms for it) must not find them gone
+  static std::istringstream in1(R"({"jsonrpc":"2.0","id":1,"method":"settings.get"})"
+                                "\n");
+  static std::istringstream in2(R"({"jsonrpc":"2.0","id":1,"method":"engine.shutdown"})"
+                                "\n"
+                                R"({"jsonrpc":"2.0","id":2,"method":"settings.get"})"
+                                "\n");
   {
     Engine e(out, log);
-    std::istringstream in(R"({"jsonrpc":"2.0","id":1,"method":"settings.get"})"
-                          "\n");
-    CHECK(e.run(in));
+    CHECK(e.run(in1));
     CHECK_FALSE(e.stopped());
   }
   CHECK(parse(out.str()).messages.size() == 1);
   out.str("");
   {
     Engine e(out, log);
-    std::istringstream in(R"({"jsonrpc":"2.0","id":1,"method":"engine.shutdown"})"
-                          "\n"
-                          R"({"jsonrpc":"2.0","id":2,"method":"settings.get"})"
-                          "\n");
-    (void)e.run(in);
+    (void)e.run(in2);
     CHECK(e.stopped());
   }
   // nothing after the shutdown runs
@@ -339,4 +341,238 @@ TEST_CASE("engine: a run that ends before the next poll still tells its end", "[
     INFO("run " << run);
     CHECK(told);
   }
+}
+
+TEST_CASE("engine: a deeply nested request is refused, not run", "[engine]") {
+  Harness h;
+  const auto nested = [](int depth) {
+    return std::string(R"({"jsonrpc":"2.0","id":1,"method":"settings.get","params":{"x":)") +
+           std::string(static_cast<std::size_t>(depth), '[') +
+           std::string(static_cast<std::size_t>(depth), ']') + "}}";
+  };
+  h.out.str("");
+  h.engine.handleLine(nested(50000));
+  Captured c = parse(h.out.str());
+  REQUIRE(c.messages.size() == 1);
+  CHECK(c.messages[0]["error"]["code"] == kInvalidRequestCode);
+  CHECK(c.messages[0]["error"]["message"] == "nesting too deep");
+  CHECK(c.messages[0]["id"].is_null());
+  // within the limit the line is a request like any other: its unknown
+  // field is what gets refused
+  h.out.str("");
+  h.engine.handleLine(nested(50));
+  c = parse(h.out.str());
+  REQUIRE(c.messages.size() == 1);
+  CHECK(c.messages[0]["error"]["data"]["errc"] == "invalid_params");
+  // and the engine goes on
+  CHECK(h.result("settings.get")["undoDepth"] == 25);
+}
+
+TEST_CASE("engine: a notification cannot be given a frame", "[engine]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  h.result("shape.create", {{"size", {2, 2, 2}}});
+  h.result("shape.setCells", {{"shape", "s1"}, {"tool", "fixed"}, {"cells", {{0, 0, 0}}}});
+  h.out.str("");
+  h.log.str("");
+  h.engine.handleLine(R"({"jsonrpc":"2.0","method":"shape.mesh","params":{"shape":"s1"}})");
+  CHECK(h.out.str().empty());
+  CHECK(h.log.str().find("shape.mesh") != std::string::npos);
+  CHECK(h.log.str().find("notification") != std::string::npos);
+  // the next request's frame is the process's first
+  const Captured c = h.call("shape.mesh", {{"shape", "s1"}});
+  REQUIRE(c.messages.size() == 2);
+  CHECK(c.messages[0]["params"]["frame"] == 1);
+  CHECK(c.messages[1]["result"]["frame"]["frame"] == 1);
+}
+
+TEST_CASE("engine: a line over the limit is refused while it is read", "[engine][parallel]") {
+  std::ostringstream out;
+  std::ostringstream log;
+  static std::istringstream in;
+  {
+    std::string input(Engine::kMaxLine + 1, 'x');
+    input += "\n";
+    input += R"({"jsonrpc":"2.0","id":7,"method":"settings.get"})"
+             "\n";
+    in.str(input);
+  }
+  Engine e(out, log);
+  CHECK(e.run(in));
+  const Captured c = parse(out.str());
+  REQUIRE(c.messages.size() == 2);
+  CHECK(c.messages[0]["error"]["code"] == kInvalidRequestCode);
+  CHECK(c.messages[0]["error"]["message"] == "the line is too long");
+  CHECK(c.messages[0]["id"].is_null());
+  CHECK(c.messages[1]["id"] == 7);
+  CHECK(c.messages[1].contains("result"));
+}
+
+TEST_CASE("engine: engine.hello names the protocol", "[engine]") {
+  Harness h;
+  const Json r = h.result("engine.hello", {{"protocol", 1}});
+  CHECK(r["protocol"] == 1);
+  CHECK(r["name"] == "bt-engine");
+  CHECK(h.errc("engine.hello", {{"protocol", 2}}) == "unsupported");
+  CHECK(h.errc("engine.hello", {{"protocol", 0}}) == "invalid_params");
+  CHECK(h.errc("engine.hello") == "invalid_params");
+}
+
+TEST_CASE("engine: solve.abort is the stop of a solve under way", "[engine]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string box = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", box}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string domino = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", domino}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string p = h.result("problem.create")["problem"];
+  h.result("problem.setResult", {{"problem", p}, {"shape", box}});
+  h.result("problem.setPieceCount", {{"problem", p}, {"shape", domino}, {"min", 1}, {"max", 1}});
+  const app::Id id = *parseId(IdKind::Problem, p);
+  // nothing under way: refused
+  CHECK(h.errc("solve.abort", {{"problem", p}}) == "invalid_state");
+  // a finished run: refused, the solutions stay; removing them is a step
+  h.result("solve.start", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  CHECK(h.errc("solve.abort", {{"problem", p}}) == "invalid_state");
+  CHECK(h.result("problem.get", {{"problem", p}})["saved"] == 1);
+  h.result("solution.delete", {{"problem", p}, {"which", "all"}});
+  CHECK(h.result("problem.get", {{"problem", p}})["saved"] == 0);
+  h.result("edit.undo");
+  CHECK(h.result("problem.get", {{"problem", p}})["saved"] == 1);
+  // a paused one is a solve under way
+  h.result("solve.prepare", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  CHECK(h.result("problem.get", {{"problem", p}})["solve"] == "paused");
+  h.result("solve.abort", {{"problem", p}});
+  const Json after = h.result("problem.get", {{"problem", p}});
+  CHECK(after["solve"] == "idle");
+  CHECK(after["state"] == "unsolved");
+}
+
+namespace {
+
+// Builds a box of x*y*z cells to fill with dominoes; returns the problem id.
+std::string dominoBox(Harness& h, int x, int y, int z) {
+  const std::string box = h.result("shape.create", {{"size", {x, y, z}}})["shape"];
+  h.result("shape.setBox", {{"shape", box}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {x - 1, y - 1, z - 1}}});
+  const std::string domino = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", domino}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string p = h.result("problem.create")["problem"];
+  h.result("problem.setResult", {{"problem", p}, {"shape", box}});
+  const int n = x * y * z / 2;
+  h.result("problem.setPieceCount", {{"problem", p}, {"shape", domino}, {"min", n}, {"max", n}});
+  return p;
+}
+
+// Polls (and runs `between` every tenth round) until `done` sees an event
+// or `rounds` rounds have passed; returns the events seen.
+template <class Done, class Between>
+std::vector<Json> pollUntil(Harness& h, int rounds, Done&& done, Between&& between) {
+  std::vector<Json> events;
+  bool finished = false;
+  for (int i = 0; i < rounds && !finished; i++) {
+    h.out.str("");
+    h.engine.poll();
+    for (Json& m : parse(h.out.str()).messages) {
+      finished = finished || done(m);
+      events.push_back(std::move(m));
+    }
+    if (i % 10 == 0) {
+      between();
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return events;
+}
+
+}  // namespace
+
+TEST_CASE("engine: a solve next to an analysis of another problem", "[engine][parallel]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string a = dominoBox(h, 2, 4, 4);
+  const std::string b = h.result("problem.duplicate", {{"problem", a}})["problem"];
+  const std::string box = h.result("problem.get", {{"problem", a}})["result"];
+  h.result("solve.start", {{"problem", a}, {"options", {{"disassemble", true}, {"keepAtMost", 0}, {"threads", 2}}}});
+  (void)pollUntil(
+      h, 60000,
+      [](const Json& m) { return m["method"] == "solve.state" && m["params"]["state"] == "finished"; },
+      [] {});
+  REQUIRE(h.result("problem.get", {{"problem", a}})["saved"] == 2856);
+
+  // a's solutions taken apart again while b is solved; the owner reads both
+  REQUIRE(h.result("solution.analyse", {{"problem", a}, {"which", "all"}, {"threads", 2}})["total"] == 2856);
+  h.result("solve.start", {{"problem", b}, {"options", {{"disassemble", true}, {"keepAtMost", 0}, {"threads", 2}}}});
+  bool analysed = false;
+  bool solved = false;
+  const std::vector<Json> events = pollUntil(
+      h, 120000,
+      [&](const Json& m) {
+        if (m["method"] == "solution.analyseEnded" && m["params"]["problem"] == a) {
+          analysed = true;
+          CHECK(m["params"]["done"] == 2856);
+          CHECK(m["params"]["separated"] == 2856);
+          CHECK(m["params"]["failure"].is_null());
+        }
+        if (m["method"] == "solve.state" && m["params"]["problem"] == b &&
+            m["params"]["state"] == "finished") {
+          solved = true;
+        }
+        return analysed && solved;
+      },
+      [&] {
+        (void)h.result("solution.page", {{"problem", a}, {"limit", 20}});
+        (void)h.result("solution.page", {{"problem", b}, {"sortBy", "moves"}, {"limit", 20}});
+        (void)h.result("shape.table");
+        (void)h.result("shape.mesh", {{"shape", box}});
+        (void)h.result("problem.get", {{"problem", a}});
+        (void)h.result("solve.status", {{"problem", b}});
+        (void)h.result("solution.analyseStatus", {{"problem", a}});
+        (void)h.result("document.get");
+      });
+  REQUIRE(analysed);
+  REQUIRE(solved);
+  h.engine.poll();
+  CHECK(h.result("problem.get", {{"problem", b}})["assemblies"] == 2856);
+  CHECK_FALSE(h.engine.busy());
+}
+
+TEST_CASE("engine: explorers, fit, paging and the table while a solve runs; a new document ends it",
+          "[engine][parallel]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string p = dominoBox(h, 2, 4, 6);
+  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"keepAtMost", 10}, {"threads", 2}}}});
+  int rounds = 0;
+  const std::vector<Json> events = pollUntil(
+      h, 400,
+      [](const Json& m) { return m["method"] == "solve.state" && m["params"]["state"] == "finished"; },
+      [&] {
+        rounds++;
+        (void)h.result("solve.status", {{"problem", p}});
+        (void)h.result("problem.fit", {{"problem", p}});
+        (void)h.result("problem.kind", {{"problem", p}});
+        const std::string ax = h.result("explore.openAssembly", {{"problem", p}})["handle"];
+        (void)h.result("explore.step", {{"handle", ax}, {"steps", 50}});
+        h.result("explore.close", {{"handle", ax}});
+        (void)h.result("solution.page", {{"problem", p}, {"sortBy", "moves"}, {"descending", true}});
+        (void)h.result("problem.list");
+        (void)h.result("shape.table");
+      });
+  CHECK(rounds >= 10);
+  // the solve is still under way (a 2x4x6 box takes far longer): a new
+  // document ends it and tells the problem goodbye after the reply
+  REQUIRE(h.engine.busy());
+  const Captured c = h.call("document.new", {{"grid", "bricks"}});
+  REQUIRE(c.messages.size() >= 2);
+  CHECK(c.messages[0]["result"]["problems"] == Json::array());
+  const bool farewell = std::any_of(c.messages.begin() + 1, c.messages.end(), [&p](const Json& m) {
+    return m["method"] == "solve.state" && m["params"]["problem"] == p && m["params"]["state"] == "idle";
+  });
+  CHECK(farewell);
+  CHECK_FALSE(h.engine.busy());
+  CHECK(h.errc("solve.status", {{"problem", p}}) == "not_found");
 }

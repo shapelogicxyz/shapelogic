@@ -128,6 +128,7 @@ void Problem::dropShapesFrom(unsigned int numShapes) {
 void Problem::eraseSolution(std::size_t s) {
   solutions_.erase(solutions_.begin() + static_cast<std::ptrdiff_t>(s));
   sortedBy_ = -1;
+  touchSolutions();
 }
 
 void Problem::setShapeMinimum(const Puzzle& puzzle, unsigned int shape, unsigned int count) {
@@ -365,6 +366,7 @@ void Problem::exchangeParts(unsigned int partId1, unsigned int partId2) {
       pos[j] = pos[i];
     }
   }
+  touchSolutions();
 }
 
 unsigned int Problem::getNumberOfPieces() const {
@@ -480,6 +482,9 @@ unsigned short Problem::getPartGroupCount(unsigned int partId, unsigned int grou
 // ---- solving state --------------------------------------------------------------
 
 void Problem::editProblem() {
+  // the solutions may lose pieces or go (setShapeMinimum / Maximum,
+  // exchangeParts): the list is read as changed
+  touchSolutions();
   if (state_ == ProblemState::Solving || state_ == ProblemState::Solved) {
     makeUnknown();
   }
@@ -505,6 +510,7 @@ std::vector<PendingAssembly> Problem::takePending() {
 
 void Problem::removeAllSolutions() {
   solutions_.clear();
+  touchSolutions();
   sortedBy_ = -1;
   solutionsWithRotations_ = false;
   pending_.clear();
@@ -526,6 +532,7 @@ void Problem::addSolution(Assembly assm, std::uint64_t assemblyNumber) {
   BT_ASSERT(state_ == ProblemState::Solving);
   solutions_.emplace_back(std::move(assm), static_cast<unsigned int>(assemblyNumber));
   solutions_.back().setId(nextSolutionId_++);
+  touchSolutions();
 }
 
 void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemblyNumber,
@@ -541,6 +548,7 @@ void Problem::addSolution(Assembly assm, Separation disasm, std::uint64_t assemb
   } else {
     solutions_.push_back(std::move(sol));
   }
+  touchSolutions();
 }
 
 void Problem::addSolution(Assembly assm, SeparationInfo disasm, std::uint64_t assemblyNumber,
@@ -556,6 +564,7 @@ void Problem::addSolution(Assembly assm, SeparationInfo disasm, std::uint64_t as
   } else {
     solutions_.push_back(std::move(sol));
   }
+  touchSolutions();
 }
 
 void Problem::addSolution(Assembly assm, Separation disasm, unsigned int pos) {
@@ -572,11 +581,13 @@ void Problem::assignSolutionIds() {
       s.setId(nextSolutionId_++);
     }
   }
+  touchSolutions();
 }
 
 void Problem::removeSolution(unsigned int sol) {
   BT_ASSERT(sol < solutions_.size());
   solutions_.erase(solutions_.begin() + sol);
+  touchSolutions();
   if (sol < sortedUpTo_) {
     sortedUpTo_--;
   }
@@ -691,6 +702,7 @@ void Problem::sortSolutions(int by) {
   std::stable_sort(solutions_.begin(), solutions_.end(), less);
   sortedBy_ = by;
   sortedUpTo_ = solutions_.size();
+  touchSolutions();
 }
 
 void Problem::keepSolutionsSorted(int by) {
@@ -718,10 +730,12 @@ void Problem::keepSolutionsSorted(int by) {
     }
   }
   sortedUpTo_ = n;
+  touchSolutions();
 }
 
 void Problem::sortSolutionsBySolverMethod(int method) {
   sortedBy_ = -1;
+  touchSolutions();
   switch (method) {
     case 0:
       std::stable_sort(solutions_.begin(), solutions_.end(), compUnsorted);

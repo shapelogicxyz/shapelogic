@@ -25,6 +25,8 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace bt::engine {
 
@@ -64,6 +66,12 @@ struct State {
   std::map<std::uint64_t, app::MovementExplorer> movementExplorers;
 
   bool shutdown = false;
+  /// The request being run is a notification: it gets no reply, so it
+  /// may not produce a frame either (nothing would refer to it).
+  bool inNotification = false;
+  /// Events to send after the reply of the request being run (a new
+  /// document's farewell to the old one's work).
+  std::vector<std::pair<std::string, Json>> queuedEvents;
 
   /// What the events last told of a problem's background work.
   struct Watch {
@@ -73,8 +81,8 @@ struct State {
     /// two polls).
     bool launched = false;
     std::chrono::steady_clock::time_point progressAt{};
-    std::size_t saved = 0;
-    std::uint64_t newest = 0;
+    /// The problem's solutionsVersion() last told by solve.solutionsAdded.
+    std::uint64_t solutionsVersion = 0;
     bool analysing = false;
     std::chrono::steady_clock::time_point analyseAt{};
     unsigned int analysed = 0;
@@ -90,10 +98,16 @@ struct State {
   [[nodiscard]] std::uint64_t revision() const { return revisionBase_ + doc->revision(); }
   /// {revision}: the result of a mutating method.
   [[nodiscard]] Json changed() const { return Json{{"revision", revision()}}; }
-  /// Replaces the document; drops the handles and what the events told.
+  /// Replaces the document; drops the handles and what the events told,
+  /// after queueing a last solve.state idle and solution.analyseEnded for
+  /// the old document's problems whose work the events were reporting.
   void replaceDocument(app::Document d, std::optional<std::filesystem::path> from);
-  /// Sends a frame now (before the reply) and describes it.
+  /// Sends a frame now (before the reply) and describes it. Throws
+  /// (std::runtime_error) inside a notification: no reply would refer to
+  /// the frame.
   Json sendFrame(const FrameBuilder& frame);
+  /// Sends the queued events.
+  void flushEvents();
   /// A new handle number.
   std::uint64_t newHandle() { return nextHandle++; }
 
@@ -141,8 +155,16 @@ class Engine {
 
   [[nodiscard]] State& state() { return state_; }
 
-  /// The longest request line read (64 MiB).
+  /// The longest request line read (64 MiB): the reader stops keeping a
+  /// longer one and it is answered -32600 once its newline arrives.
   static constexpr std::size_t kMaxLine = std::size_t{64} << 20;
+  /// The deepest nesting of a request's JSON; deeper lines are -32600.
+  static constexpr int kMaxDepth = 64;
+  /// The reader thread waits when this many lines (or bytes of lines) are
+  /// queued and not yet run: a client that floods requests is held back
+  /// instead of growing the engine's memory.
+  static constexpr std::size_t kMaxQueuedLines = 1000;
+  static constexpr std::size_t kMaxQueuedBytes = std::size_t{64} << 20;
 
  private:
   Output out_;

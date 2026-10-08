@@ -44,7 +44,10 @@ Reply solutionPage(State& s, Params& p) {
     for (std::size_t k = offset; k < order.size() && k < offset + limit; k++) {
       rows.push_back(solutionRow(pr.getSavedSolution(order[k]), order[k]));
     }
-    return Json{{"total", order.size()}, {"offset", offset}, {"rows", std::move(rows)}};
+    return Json{{"total", order.size()},
+                {"offset", offset},
+                {"solutionsVersion", pr.solutionsVersion()},
+                {"rows", std::move(rows)}};
   });
 }
 
@@ -161,6 +164,7 @@ Json analyseJson(const app::AnalyseProgress& a) {
               {"done", a.done},
               {"separated", a.separated},
               {"stopped", a.stopped},
+              {"failure", a.failure ? Json(*a.failure) : Json(nullptr)},
               {"current", a.active ? takeApartJson(a.current) : Json(nullptr)}};
 }
 
