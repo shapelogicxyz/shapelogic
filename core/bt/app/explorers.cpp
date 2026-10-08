@@ -18,6 +18,7 @@
 #include "bt/solve/movement_analysator.h"
 #include "bt/solve/movement_cache.h"
 
+#include <algorithm>
 #include <cmath>
 #include <deque>
 #include <utility>
@@ -323,7 +324,11 @@ Result<unsigned int> MovementExplorer::findMatching(unsigned int id, unsigned in
     return fail(Errc::NotFound, "there is no such node");
   }
   Impl& m = *impl_;
-  NodeRef n = m.analysator->findMatching(m.refs[id].get(), m.nodes[id].pieces, piece, dx, dy, dz);
+  const std::vector<unsigned int>& present = m.nodes[id].pieces;
+  if (std::find(present.begin(), present.end(), piece) == present.end()) {
+    return fail(Errc::InvalidArgument, "that piece is not in this position");
+  }
+  NodeRef n = m.analysator->findMatching(m.refs[id].get(), present, piece, dx, dy, dz);
   if (!n) {
     return fail(Errc::NotFound, "no move does that");
   }

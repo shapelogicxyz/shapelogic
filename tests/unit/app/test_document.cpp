@@ -475,6 +475,40 @@ TEST_CASE("document: colour rules", "[app][document]") {
   CHECK(problem0(d).getColorConstraints().empty());
 }
 
+TEST_CASE("document: the stored solver settings", "[app][document]") {
+  Document d = openFixture("PelikanBurr.xmpuzzle");
+  const Id p = firstProblem(d);
+  const unsigned int saved = problem0(d).getNumberOfSavedSolutions();
+  const std::map<std::string, std::string> o = {{"disassemble", "1"}, {"solverType", "bt2"}};
+  roundTrip(d, [p, &o](Document& x) { return x.setSolverOptions(p, o); });
+  CHECK(problem0(d).getSolverOptions() == o);
+  // only stored: the solutions stay
+  CHECK(problem0(d).getNumberOfSavedSolutions() == saved);
+  REQUIRE(d.setSolverOptions(p, {{"justCount", "1"}}).has_value());
+  CHECK(d.lastChange().problems == std::vector<Id>{p});
+  REQUIRE(d.undo().has_value());
+  // the same settings again change nothing
+  const std::uint64_t rev = d.revision();
+  REQUIRE(d.setSolverOptions(p, o).has_value());
+  CHECK(d.revision() == rev);
+  // they are saved with the file
+  Document again = Document::openBytes(d.saveBytes().value()).value();
+  CHECK(again.puzzle().getProblem(0).getSolverOptions() == o);
+  CHECK(d.setSolverOptions(0, o).error().code == Errc::NotFound);
+}
+
+TEST_CASE("document: what undo and redo changed is not the last command's", "[app][document]") {
+  Document d(GridKind::Bricks);
+  const Id s = d.createShape().value();
+  REQUIRE(d.renameShape(s, "x").has_value());
+  CHECK(d.lastChange().shapes == std::vector<Id>{s});
+  REQUIRE(d.undo().has_value());
+  CHECK(d.lastChange().what == kChangeShapes);
+  CHECK(d.lastChange().shapes.empty());
+  REQUIRE(d.redo().has_value());
+  CHECK(d.lastChange().shapes.empty());
+}
+
 TEST_CASE("document: solutions are removed and turned into shapes", "[app][document]") {
   Document d = openFixture("SolidSixPieceBurrs.xmpuzzle");
   const Id p = firstProblem(d);

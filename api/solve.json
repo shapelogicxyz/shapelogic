@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "solve.json",
+  "title": "Solving",
+  "description": "One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. Sliding and stacking problems are refused (unsupported).",
+  "methods": {
+    "solve.start": {
+      "summary": "Solves from the start, dropping what the problem holds of earlier solving.",
+      "params": {"$ref": "#/$defs/Launch"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state", "unsupported"]
+    },
+    "solve.prepare": {
+      "summary": "Drops what the problem holds, builds the search (placements, reduce) and pauses.",
+      "params": {"$ref": "#/$defs/Launch"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state", "unsupported"]
+    },
+    "solve.continue": {
+      "summary": "Carries on a paused solve, one saved in the file, or an unsolved problem from the start.",
+      "params": {"$ref": "#/$defs/Launch"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state", "unsupported"]
+    },
+    "solve.pause": {
+      "summary": "Asks the run to pause where it can be continued; nothing is lost. Does not wait: solve.state 'paused' follows. Refused when no run is under way.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "solve.savePoint": {
+      "summary": "Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "solve.abort": {
+      "summary": "Stops and throws the solve away (results, paused state, saved position); waits for the run to end.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found"]
+    },
+    "solve.status": {
+      "summary": "Where the solve stands, its statistics, and why it failed.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {
+        "type": "object",
+        "properties": {
+          "state": {"$ref": "types.json#/$defs/SolveState"},
+          "progress": {"$ref": "types.json#/$defs/SolveProgress"},
+          "stats": {"$ref": "types.json#/$defs/SolveStats"},
+          "failure": {"oneOf": [{"$ref": "types.json#/$defs/SolveFailure"}, {"type": "null"}]}
+        },
+        "required": ["state", "progress", "stats", "failure"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "solve.exportPaused": {
+      "summary": "Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "path": {"type": "string", "minLength": 1}},
+        "required": ["problem", "path"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found", "invalid_state", "io_error"]
+    },
+    "solve.importPaused": {
+      "summary": "Opens a .btsolve file as a new, untitled document; solve.continue on the problem carries the solve on.",
+      "params": {
+        "type": "object",
+        "properties": {"path": {"type": "string", "minLength": 1}},
+        "required": ["path"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "document": {"$ref": "types.json#/$defs/Snapshot"}
+        },
+        "required": ["problem", "document"],
+        "additionalProperties": false
+      },
+      "errors": ["io_error", "parse_error"]
+    }
+  },
+  "events": {
+    "solve.state": {
+      "summary": "A solve's state changed (as the engine's poll saw it; the last state of a run is always sent).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "state": {"$ref": "types.json#/$defs/SolveState"}
+        },
+        "required": ["problem", "state"],
+        "additionalProperties": false
+      }
+    },
+    "solve.progress": {
+      "summary": "Where a running solve stands; at most four times a second, and once when a run ends.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "state": {"$ref": "types.json#/$defs/SolveState"},
+          "progress": {"$ref": "types.json#/$defs/SolveProgress"}
+        },
+        "required": ["problem", "state", "progress"],
+        "additionalProperties": false
+      }
+    },
+    "solve.solutionsAdded": {
+      "summary": "The saved solutions changed while solving (new ones, or the list thinned or re-sorted): page them again.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "saved": {"type": "integer", "minimum": 0},
+          "assemblies": {"type": "integer", "minimum": 0},
+          "solutions": {"type": "integer", "minimum": 0}
+        },
+        "required": ["problem", "saved", "assemblies", "solutions"],
+        "additionalProperties": false
+      }
+    },
+    "solve.error": {
+      "summary": "A run ended in error.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "failure": {"$ref": "types.json#/$defs/SolveFailure"}
+        },
+        "required": ["problem", "failure"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "ProblemParam": {
+      "type": "object",
+      "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}},
+      "required": ["problem"],
+      "additionalProperties": false
+    },
+    "Launch": {
+      "type": "object",
+      "properties": {
+        "problem": {"$ref": "types.json#/$defs/ProblemId"},
+        "options": {"$ref": "types.json#/$defs/SolveOptions"}
+      },
+      "required": ["problem"],
+      "additionalProperties": false
+    }
+  }
+}

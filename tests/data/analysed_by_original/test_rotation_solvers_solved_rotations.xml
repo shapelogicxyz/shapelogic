@@ -1,0 +1,157 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="0"/>
+ <colors/>
+ <shapes>
+  <voxel x="4" y="4" z="4" name="Goal" type="0">#####################++##++##########++##++#####################</voxel>
+  <voxel x="4" y="4" z="4" type="0">####_#_______________#_______________#___________#___#__________</voxel>
+  <voxel x="4" y="4" z="4" type="0">_##__#_______________#_____________#_#__________####_#__________</voxel>
+  <voxel x="4" y="4" z="4" type="0">__#_###___________#__#____________#_______________#_####________</voxel>
+  <voxel x="4" y="4" z="4" type="0">#_______________#####__#___#__##_______#________________________</voxel>
+  <voxel x="4" y="4" z="4" type="0">###_#___#__#####___________#____________________________________</voxel>
+  <voxel x="4" y="4" z="4" type="0">__#___##______________##__#____________#__________#___##________</voxel>
+ </shapes>
+ <problems>
+  <problem state="2" assemblies="1" solutions="1" time="0" timeMs="9">
+   <shapes>
+    <shape id="1" count="1"/>
+    <shape id="2" count="1"/>
+    <shape id="3" count="1"/>
+    <shape id="4" count="1"/>
+    <shape id="5" count="1"/>
+    <shape id="6" count="1"/>
+   </shapes>
+   <result id="0"/>
+   <bitmap/>
+   <solutionsWithRotations>
+    <solution>
+     <assembly>0 0 0 0 0 3 0 20 2 3 0 20 0 3 0 20 0 3 2 20 1 5 0 20</assembly>
+     <separation>
+      <pieces count="6">0 1 2 3 4 5</pieces>
+      <state>
+       <dx>0 0 2 0 0 1</dx>
+       <dy>0 3 3 3 3 5</dy>
+       <dz>0 0 0 0 2 0</dz>
+       <dt>0 20 20 20 20 20</dt>
+      </state>
+      <state>
+       <dx>0 0 2 0 0 1</dx>
+       <dy>0 3 20003 3 20003 20005</dy>
+       <dz>0 0 0 0 2 0</dz>
+       <dt>0 20 20 20 20 20</dt>
+      </state>
+      <separation type="removed">
+       <pieces count="3">2 4 5</pieces>
+       <state>
+        <dx>2 0 1</dx>
+        <dy>3 3 5</dy>
+        <dz>0 2 0</dz>
+        <dt>20 20 20</dt>
+       </state>
+       <state>
+        <dx>2 0 0</dx>
+        <dy>3 3 5</dy>
+        <dz>0 2 0</dz>
+        <dt>20 20 20</dt>
+       </state>
+       <state>
+        <dx>2 0 -2</dx>
+        <dy>3 3 1</dy>
+        <dz>0 2 0</dz>
+        <dt>20 20 0</dt>
+        <rotation piece="2" px="1" py="2" pz="0" axis="2" sense="0"/>
+       </state>
+       <state>
+        <dx>2 0 -2</dx>
+        <dy>3 3 -19999</dy>
+        <dz>0 2 0</dz>
+        <dt>20 20 0</dt>
+       </state>
+       <separation type="left">
+        <pieces count="2">2 4</pieces>
+        <state>
+         <dx>2 0</dx>
+         <dy>3 3</dy>
+         <dz>0 2</dz>
+         <dt>20 20</dt>
+        </state>
+        <state>
+         <dx>2 5</dx>
+         <dy>3 2</dy>
+         <dz>0 2</dz>
+         <dt>20 10</dt>
+         <rotation piece="1" px="2" py="0" pz="0" axis="2" sense="1"/>
+        </state>
+        <state>
+         <dx>2 5</dx>
+         <dy>20003 2</dy>
+         <dz>0 2</dz>
+         <dt>20 10</dt>
+        </state>
+       </separation>
+      </separation>
+      <separation type="left">
+       <pieces count="3">0 1 3</pieces>
+       <state>
+        <dx>0 0 0</dx>
+        <dy>0 3 3</dy>
+        <dz>0 0 0</dz>
+        <dt>0 20 20</dt>
+       </state>
+       <state>
+        <dx>1 0 0</dx>
+        <dy>0 3 3</dy>
+        <dz>0 0 0</dz>
+        <dt>0 20 20</dt>
+       </state>
+       <state>
+        <dx>1 0 0</dx>
+        <dy>1 3 3</dy>
+        <dz>0 0 0</dz>
+        <dt>0 20 20</dt>
+       </state>
+       <state>
+        <dx>20001 0 0</dx>
+        <dy>1 3 3</dy>
+        <dz>0 0 0</dz>
+        <dt>0 20 20</dt>
+       </state>
+       <separation type="left">
+        <pieces count="2">1 3</pieces>
+        <state>
+         <dx>0 0</dx>
+         <dy>3 3</dy>
+         <dz>0 0</dz>
+         <dt>20 20</dt>
+        </state>
+        <state>
+         <dx>0 0</dx>
+         <dy>3 4</dy>
+         <dz>0 0</dz>
+         <dt>20 20</dt>
+        </state>
+        <state>
+         <dx>0 2</dx>
+         <dy>3 3</dy>
+         <dz>0 0</dz>
+         <dt>20 10</dt>
+         <rotation piece="1" px="0.5" py="2.5" pz="0" axis="2" sense="1"/>
+        </state>
+        <state>
+         <dx>0 2</dx>
+         <dy>3 20003</dy>
+         <dz>0 0</dz>
+         <dt>20 10</dt>
+        </state>
+       </separation>
+      </separation>
+     </separation>
+    </solution>
+   </solutionsWithRotations>
+  </problem>
+ </problems>
+ <comment>Andrew Crowell put the STL files up on Thingiverse for a short time.
+https://www.thingiverse.com/thing:4293198/files
+
+Rotations required, of course. It&apos;s a TIC. So only the assembly, no solution.</comment>
+</puzzle>

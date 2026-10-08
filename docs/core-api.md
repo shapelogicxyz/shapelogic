@@ -7,8 +7,22 @@ these; stage 7 turns them into the JSON-RPC methods of `bt-engine`
 generated `docs/API.md`. Names below are the planned JSON-RPC method names;
 the C++ app layer mirrors them (`Document::setVoxels`…).
 
-**Status:** draft, stage 0. Signatures will be refined as the model is
-ported; the list of operations is the commitment.
+**Status:** superseded in stage 7 by the schema in `api/` and the
+generated [API.md](API.md) (decision 0012), which are the contract. This
+draft stays as the record of what the front end asked for. Where the API
+differs: `shape.transform`, `shape.prune`, `shape.center`, `shape.toOrigin`,
+`shape.minimize`, `shape.scale`, `shape.fillHoles` and `shape.surface` are
+one `shape.task` (its names from `shape.taskSet`); `shape.selectionFill` /
+`selectionClear` are `shape.setBox` with a tool; `solve.continue` keeps its
+name, `solve.savePoint` is new (the autosave pause); the analysis is
+`solution.analyse` / `analyseStop` / `analyseStatus` with its own events;
+playback adds `playback.mesh` and `playback.track`; the explorers are
+`explore.openAssembly` / `placements` / `step` and `explore.openMovements`
+/ `node` / `analyse` / `addMove` / `findMatching` / `prune`, closed by
+`explore.close`; the stored Solver tab settings are
+`problem.setSolverSettings`. The mockup's "drop below level" does not
+exist in the original: its "Drop" field keeps every n-th solution
+(`keepEach`).
 
 ## Conventions
 

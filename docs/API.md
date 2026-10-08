@@ -1,0 +1,2330 @@
+# bt-engine API
+
+*Generated from `api/*.json` by `api/gen_api_md.py`; do not edit. The schema
+is the contract (decision 0012); this page is its reference.*
+
+`bt-engine` speaks JSON-RPC 2.0 over stdio: one request per line on stdin,
+one response or notification per line on stdout, logs on stderr. Binary
+data (meshes, poses) comes as a **frame**: the notification
+`{"jsonrpc":"2.0","method":"frame","params":{"frame":N,"bytes":L}}`, then
+exactly L raw bytes; the reply referring to frame N follows. A frame holds
+little-endian typed arrays at offsets that are multiples of 4, described by
+the reply's `Frame` object.
+
+**Ids** are strings: shapes `s7`, colours `c2`, problems `p1`, solutions
+`sol42` (unique within their problem), playbacks `pb1`, explorers `ax1` and
+`mx1`. Labels (`S1`, `C1`, `P1`) follow the list order.
+
+**Errors** carry `data.errc`:
+
+| code | errc | meaning |
+|---|---|---|
+| -32700 | parse_error | the line is not JSON |
+| -32600 | invalid_request | not a JSON-RPC request (batches are refused) |
+| -32601 | method_not_found | no such method |
+| -32602 | invalid_params | a parameter is missing, of the wrong type, or unknown |
+| -32001 | invalid_argument | a value out of range or malformed |
+| -32002 | not_found | no such shape, colour, problem, solution or handle |
+| -32003 | parse_error | a file or bytes that are no puzzle |
+| -32004 | io_error | reading or writing a file failed |
+| -32005 | unsupported | valid, but not in this version (sliding, stacking) |
+| -32006 | invalid_state | not now: pause the solve first, close the edit group... |
+| -32603 | internal | a broken invariant in the engine or the core |
+
+Every mutating method returns the document's new `revision` and is one undo
+step (or part of the `edit.begin` / `edit.end` group); `document.changed`
+follows it.
+
+## Contents
+
+- [Engine and settings](#engine-and-settings)
+- [Document and history](#document-and-history)
+- [Shapes and cells](#shapes-and-cells)
+- [Colours](#colours)
+- [Problems](#problems)
+- [Solving](#solving)
+- [Solutions](#solutions)
+- [Playback](#playback)
+- [Explorers](#explorers)
+- [Types](#types)
+
+## Engine and settings
+
+What the engine can do, its settings (kept across documents), and the frame announcement.
+
+### `engine.info`
+
+The engine's version, the grids and solvers it knows, the machine's threads, and its methods.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `name` | `"bt-engine"` | required |  |
+| `version` | string | required |  |
+| `protocol` | integer | required | Raised when a change breaks clients. |
+| `grids` | object[] | required |  |
+| `solvers` | object[] | required |  |
+| `hardwareThreads` | integer | required |  |
+| `maxThreads` | integer | required |  |
+| `methods` | string[] | required |  |
+
+`grids`:
+
+| name | type | | description |
+|---|---|---|---|
+| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet. |
+| `grids.label` | string | required |  |
+| `grids.assemble` | boolean | required | It has an assembler. |
+| `grids.disassemble` | boolean | required | It has a take-apart. |
+| `grids.supported` | boolean | required | This version solves its puzzles (sliding and stacking: not yet). |
+| `grids.defaultSize` | integer | required | The size of a new shape in each direction, in cells. |
+| `grids.sizeUnit` | integer | required | shape.resize counts in blocks of this many cells. |
+
+`solvers`:
+
+| name | type | | description |
+|---|---|---|---|
+| `solvers.solver` | [Solver](#solver) | required | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solvers.label` | string | required |  |
+
+### `engine.shutdown`
+
+Replies, then ends the engine: its solves pause and are waited for (end of input does the same).
+
+Params:
+
+(none)
+
+Result: [Empty](#empty)
+
+### `settings.get`
+
+The engine's settings.
+
+Params:
+
+(none)
+
+Result: Settings
+
+### `settings.set`
+
+Changes some settings; the others stay. A smaller undo depth drops the oldest steps.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `undoDepth` | integer |  |  |
+| `threads` | integer |  |  |
+| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+
+Result: Settings
+
+### event `frame`
+
+Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; the reply that refers to it comes after.
+
+| name | type | | description |
+|---|---|---|---|
+| `frame` | integer | required |  |
+| `bytes` | integer | required |  |
+
+#### Settings
+
+| name | type | | description |
+|---|---|---|---|
+| `undoDepth` | integer | required | Undo steps kept (default 25). |
+| `threads` | integer | required | The threads of a solve when its options do not say; 0 every hardware thread (default). |
+| `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
+
+## Document and history
+
+The puzzle being edited (one per engine): new, open, save, the notes, undo and redo. A new document drops every playback and explorer handle.
+
+### `document.new`
+
+A new empty puzzle on a grid; the grid never changes.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet. |
+
+Result: [Snapshot](#snapshot)
+
+### `document.open`
+
+Opens a .xmpuzzle file (gzip or plain XML); what this version does not model is kept.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `path` | string | required |  |
+
+Result: [Snapshot](#snapshot)
+
+Errors: `io_error`, `parse_error`
+
+### `document.openBytes`
+
+Opens a puzzle from its file's bytes (gzip or plain XML), base64; the document has no path.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `data` | string | required |  |
+
+Result: [Snapshot](#snapshot)
+
+Errors: `invalid_argument`, `parse_error`
+
+### `document.save`
+
+Saves (gzip, as the original) to the path given, or to the document's path; the document is clean afterwards. Refused while a solve runs: save at a save point (solve.savePoint).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `path` | string |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+| `path` | string | required |  |
+
+Errors: `invalid_state`, `io_error`, `invalid_argument`
+
+### `document.saveBytes`
+
+The file's bytes (plain XML), base64, without marking the document clean.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `data` | string | required |  |
+
+Errors: `invalid_state`
+
+### `document.get`
+
+The document's lists and state.
+
+Params:
+
+(none)
+
+Result: [Snapshot](#snapshot)
+
+### `document.setNotes`
+
+The puzzle's comment. Allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `text` | string | required |  |
+
+Result: [Changed](#changed)
+
+### `edit.undo`
+
+Undoes the last step. Refused while solving or inside edit.begin / edit.end.
+
+Params:
+
+(none)
+
+Result: [Changed](#changed)
+
+Errors: `invalid_state`
+
+### `edit.redo`
+
+Redoes the last undone step.
+
+Params:
+
+(none)
+
+Result: [Changed](#changed)
+
+Errors: `invalid_state`
+
+### `edit.history`
+
+The labels of the undo and redo steps.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `undo` | string[] | required | Oldest first; the last is undone next. |
+| `redo` | string[] | required | The first is redone next. |
+
+### `edit.begin`
+
+Groups the following calls into one undo step (a drag across cells); groups do not nest.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `label` | string |  |  |
+
+Result: [Empty](#empty)
+
+Errors: `invalid_state`
+
+### `edit.end`
+
+Ends the group; an empty group leaves no step.
+
+Params:
+
+(none)
+
+Result: [Changed](#changed)
+
+Errors: `invalid_state`
+
+### event `document.changed`
+
+The document changed: after a call that changed it, and when a solve run ended or an analysis was applied. Empty id lists mean the lists themselves changed (or anything of that kind).
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+| `what` | [ChangeKind](#changekind)[] | required |  |
+| `shapes` | [ShapeId](#shapeid)[] | required |  |
+| `problems` | [ProblemId](#problemid)[] | required |  |
+
+## Shapes and cells
+
+The shapes of the puzzle, their cells, the tool tabs' operations, the status window, the 3D drawing mesh and the grid editor's layer drawing. Editing shapes is refused while a solve runs (invalid_state, decision 0011); an edit of a shape removes the solutions of the problems that use it.
+
+### `shape.list`
+
+The shapes in list order.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `shapes` | [ShapeSummary](#shapesummary)[] | required |  |
+
+### `shape.get`
+
+A shape with its non-empty cells (of one layer, when asked).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `layer` | integer |  | Only the cells with this z. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeSummary](#shapesummary) | required |  |
+| `cells` | object[] | required |  |
+
+`cells`:
+
+| name | type | | description |
+|---|---|---|---|
+| `cells.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+| `cells.state` | [CellState](#cellstate) | required |  |
+| `cells.colour` | [ColourId](#colourid) |  | Absent: the shape's own colour. |
+
+Errors: `not_found`
+
+### `shape.create`
+
+Adds an empty shape at the end: of a size in cells, or of the grid's default size.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `size` | [Size](#size) |  | A size [x, y, z]. |
+
+Result: Made
+
+Errors: `invalid_argument`, `invalid_state`
+
+### `shape.duplicate`
+
+Adds a copy of a shape at the end.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: Made
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.delete`
+
+Removes a shape; the problems drop it.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.move`
+
+Moves a shape to a place in the list; labels renumber.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `toIndex` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `shape.rename`
+
+The shape's name (empty for none).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `name` | string | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.setWeight`
+
+The weight: heavier shapes stay in place when taken apart.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `weight` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.setColour`
+
+The shape's own colour, or null for the default one.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `rgb` | [Rgb](#rgb) or null | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.setCells`
+
+Applies a tool to cells, each with the mirror and span options (the grid editor); cells outside the space or not cells of the grid are left out. Several calls inside edit.begin / edit.end are one undo step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `tool` | [CellTool](#celltool) | required | The grid editor's tools; paint changes only the colour of non-empty cells. |
+| `colour` | [ColourId](#colourid) |  | The colour put on the cells; absent: none (the shape's own). |
+| `mirror` | [Axes](#axes) |  | Mirror or span axes. |
+| `span` | [Axes](#axes) |  | Mirror or span axes. |
+| `cells` | [Cell](#cell)[] | required |  |
+
+Result: CellsChanged
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.setBox`
+
+The same for every cell of a box, corners included, clamped to the space (the box selection's fill and clear).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `tool` | [CellTool](#celltool) | required | The grid editor's tools; paint changes only the colour of non-empty cells. |
+| `colour` | [ColourId](#colourid) |  | A constraint colour. |
+| `mirror` | [Axes](#axes) |  | Mirror or span axes. |
+| `span` | [Axes](#axes) |  | Mirror or span axes. |
+| `from` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+| `to` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+
+Result: CellsChanged
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.resize`
+
+Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `size` | [Size](#size) | required | A size [x, y, z]. |
+| `toAll` | boolean |  |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `shape.taskSet`
+
+The tool tabs' operations the document's grid offers, in the original's button order.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `tasks` | object[] | required |  |
+
+`tasks`:
+
+| name | type | | description |
+|---|---|---|---|
+| `tasks.task` | [ShapeTask](#shapetask) | required | A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label). |
+| `tasks.group` | `"Flip"` \| `"Nudge"` \| `"Rotate"` \| `"Grid"` \| `"Shape"` \| `"Constrain"` \| `"Tools"` | required |  |
+| `tasks.label` | string | required | The original's tooltip. |
+| `tasks.toAll` | boolean | required | It can be applied to every shape at once. |
+
+### `shape.task`
+
+A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin, minimize, double, triple, fill holes, the surface.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `task` | [ShapeTask](#shapetask) | required | A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label). |
+| `toAll` | boolean |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+| `changed` | boolean | required | The shape changed at all (cells, size or hotspot). |
+| `cellsChanged` | integer | required | Cells whose state or colour changed (fill holes: the holes filled). |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
+### `shape.info`
+
+The status window's row for one shape, with its status line.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: [ShapeInfo](#shapeinfo)
+
+Errors: `not_found`
+
+### `shape.table`
+
+The status window: a row per shape, in list order.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `rows` | [ShapeInfo](#shapeinfo)[] | required |  |
+
+### `shape.mesh`
+
+The shape's mesh as the original's 3D view drew it, as a binary frame. Allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `style` | [MeshStyle](#meshstyle) |  | Default drawing. |
+
+Result: [MeshFrame](#meshframe)
+
+Errors: `not_found`
+
+### `grid.geometry`
+
+The grid editor's drawing of one layer of a space of the document's grid (at most 65536 cells a layer): each cell's outline (a circle on the sphere grid) and the cell across each edge. Units: a cube 1 by 1, prism triangles of side 1, spheres 1 apart, rhombic 5 by 5 cells and tetrahedra-octahedra 3 by 3 cells to 1 by 1.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `size` | [Size](#size) | required | A size [x, y, z]. |
+| `layer` | integer | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `width` | number | required |  |
+| `height` | number | required |  |
+| `cells` | object[] | required |  |
+
+`cells`:
+
+| name | type | | description |
+|---|---|---|---|
+| `cells.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+| `cells.polygon` | [Point2](#point2)[] |  | Counter-clockwise, y up. |
+| `cells.neighbours` | integer[] |  | Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none. |
+| `cells.circle` | object |  |  |
+
+`cells.circle`:
+
+| name | type | | description |
+|---|---|---|---|
+| `cells.circle.centre` | [Point2](#point2) | required | A point [x, y] of a layer drawing, y up. |
+| `cells.circle.radius` | number | required |  |
+
+Errors: `invalid_argument`
+
+#### ShapeParam
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+#### Made
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+#### CellsChanged
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+| `changed` | integer | required | Cells changed; 0 leaves no undo step. |
+
+## Colours
+
+The constraint colours: cells carry them, problems have rules about which piece colour may sit on which result colour.
+
+### `colour.list`
+
+The colours in list order.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `colours` | [Colour](#colour)[] | required |  |
+
+### `colour.add`
+
+Adds a colour (at most 63); every problem allows it on itself.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `rgb` | [Rgb](#rgb) | required | A colour, #rrggbb (the engine writes lower case). |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `colour` | [ColourId](#colourid) | required | A constraint colour. |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `invalid_argument`, `invalid_state`
+
+### `colour.edit`
+
+Changes how a colour looks. Allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `colour` | [ColourId](#colourid) | required | A constraint colour. |
+| `rgb` | [Rgb](#rgb) | required | A colour, #rrggbb (the engine writes lower case). |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`
+
+### `colour.delete`
+
+Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `colour` | [ColourId](#colourid) | required | A constraint colour. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+## Problems
+
+The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011).
+
+### `problem.list`
+
+The problems in list order.
+
+Params:
+
+(none)
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `problems` | [ProblemSummary](#problemsummary)[] | required |  |
+
+### `problem.get`
+
+A problem in full (read under the solve's lock while it runs).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [ProblemDetail](#problemdetail)
+
+Errors: `not_found`
+
+### `problem.create`
+
+Adds a problem; it allows each colour on itself.
+
+Params:
+
+(none)
+
+Result: Made
+
+Errors: `invalid_state`
+
+### `problem.duplicate`
+
+Adds a copy of a problem's definition (no name, no solutions).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: Made
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.delete`
+
+Removes a problem.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.move`
+
+Moves a problem to a place in the list.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `toIndex` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.rename`
+
+The problem's name.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `name` | string | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.setResult`
+
+Makes a shape the result (it stops being a piece); a different result removes the solutions.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.setPieceCount`
+
+The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `min` | integer | required |  |
+| `max` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.addPiece`
+
+One more of a shape (minimum and maximum).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.removePiece`
+
+One fewer of a shape.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.setRangeAll`
+
+One count range for every piece (the bulk range; a maximum below the minimum is raised to it). Removes the solutions.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `min` | integer | required |  |
+| `max` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.addOneOfEach`
+
+One more of every shape but the result.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.removeAllPieces`
+
+Removes every piece and the solutions.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.movePart`
+
+Moves a shape's part one place earlier (-1) or later (+1): the pieces renumber.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `delta` | `-1` \| `1` | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.setGroup`
+
+Puts all pieces of a shape in one exclusive group, or none (0).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `group` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.setGroupCount`
+
+Puts 'count' pieces of a shape in group 'group' (0 takes them out): the groups editor.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `group` | integer | required |  |
+| `count` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `problem.deleteGroup`
+
+Removes a group from every shape.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `group` | integer | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.setColourRule`
+
+Allows or forbids piece colour on result colour; removes the solutions.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `pieceColour` | [ColourId](#colourid) | required | A constraint colour. |
+| `resultColour` | [ColourId](#colourid) | required | A constraint colour. |
+| `allowed` | boolean | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.setColourRules`
+
+Sets every colour rule at once: each colour on itself, all on all, or none.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `preset` | `"eachOnItself"` \| `"allowAll"` \| `"clear"` | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `problem.fit`
+
+Whether the pieces can fill the result, and the original's status line.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [FitStats](#fitstats)
+
+Errors: `not_found`
+
+### `problem.kind`
+
+Brick, sliding or stacking; this version solves bricks only.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `kind` | `"brick"` \| `"sliding"` \| `"stacking"` | required |  |
+| `supported` | boolean | required |  |
+
+Errors: `not_found`
+
+### `problem.setSolverSettings`
+
+Stores the Solver tab's settings with the problem (saved in the file; the original's cb_SolverOptions). Replaces them all. Not while the problem is being solved.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `settings` | [SolverSettings](#solversettings) | required |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+#### ProblemParam
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+#### ProblemShape
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+#### Made
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+## Solving
+
+One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. Sliding and stacking problems are refused (unsupported).
+
+### `solve.start`
+
+Solves from the start, dropping what the problem holds of earlier solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `options` | [SolveOptions](#solveoptions) |  |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`, `unsupported`
+
+### `solve.prepare`
+
+Drops what the problem holds, builds the search (placements, reduce) and pauses.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `options` | [SolveOptions](#solveoptions) |  |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`, `unsupported`
+
+### `solve.continue`
+
+Carries on a paused solve, one saved in the file, or an unsolved problem from the start.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `options` | [SolveOptions](#solveoptions) |  |  |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`, `unsupported`
+
+### `solve.pause`
+
+Asks the run to pause where it can be continued; nothing is lost. Does not wait: solve.state 'paused' follows. Refused when no run is under way.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`, `invalid_state`
+
+### `solve.savePoint`
+
+Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`, `invalid_state`
+
+### `solve.abort`
+
+Stops and throws the solve away (results, paused state, saved position); waits for the run to end.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`
+
+### `solve.status`
+
+Where the solve stands, its statistics, and why it failed.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `state` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
+| `progress` | [SolveProgress](#solveprogress) | required |  |
+| `stats` | [SolveStats](#solvestats) | required |  |
+| `failure` | [SolveFailure](#solvefailure) or null | required |  |
+
+Errors: `not_found`
+
+### `solve.exportPaused`
+
+Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `path` | string | required |  |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`, `invalid_state`, `io_error`
+
+### `solve.importPaused`
+
+Opens a .btsolve file as a new, untitled document; solve.continue on the problem carries the solve on.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `path` | string | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `document` | [Snapshot](#snapshot) | required |  |
+
+Errors: `io_error`, `parse_error`
+
+### event `solve.state`
+
+A solve's state changed (as the engine's poll saw it; the last state of a run is always sent).
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `state` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
+
+### event `solve.progress`
+
+Where a running solve stands; at most four times a second, and once when a run ends.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `state` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
+| `progress` | [SolveProgress](#solveprogress) | required |  |
+
+### event `solve.solutionsAdded`
+
+The saved solutions changed while solving (new ones, or the list thinned or re-sorted): page them again.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `saved` | integer | required |  |
+| `assemblies` | integer | required |  |
+| `solutions` | integer | required |  |
+
+### event `solve.error`
+
+A run ended in error.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `failure` | [SolveFailure](#solvefailure) | required |  |
+
+#### ProblemParam
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+#### Launch
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `options` | [SolveOptions](#solveoptions) |  |  |
+
+## Solutions
+
+A problem's saved solutions: paged and sorted by the engine (a view: the stored order does not change), removed, taken apart afterwards, turned into shapes.
+
+### `solution.page`
+
+A slice of the saved solutions, sorted: list (the stored order), assembly (found order), level, moves or pieces (the original's sort buttons); descending sorts by the swapped comparison, so ties keep their order.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `sortBy` | `"list"` \| `"assembly"` \| `"level"` \| `"moves"` \| `"pieces"` |  |  |
+| `descending` | boolean |  |  |
+| `offset` | integer |  |  |
+| `limit` | integer |  | Default 100. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `total` | integer | required |  |
+| `offset` | integer | required |  |
+| `rows` | [SolutionRow](#solutionrow)[] | required |  |
+
+Errors: `not_found`
+
+### `solution.get`
+
+A solution: its row and the placement of every piece.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) | required | A saved solution, unique within its problem. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `row` | [SolutionRow](#solutionrow) | required |  |
+| `placements` | [Placement](#placement)[] | required |  |
+
+Errors: `not_found`
+
+### `solution.delete`
+
+Removes saved solutions: one, all before or after one (in the stored order), all without a disassembly, or all.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `which` | `"one"` \| `"before"` \| `"after"` \| `"withoutDisassembly"` \| `"all"` | required |  |
+| `solution` | [SolutionId](#solutionid) |  | Needed for one, before and after. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `solution.deleteDisassembly`
+
+Drops the moves of one solution (or of all), keeping their level summary.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) |  | Absent: every solution. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `solution.toShapes`
+
+Turns assemblies into new shapes (Convert assemblies to pieces), filtered, optionally added as pieces to a new or an existing problem.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) |  | Absent: every saved solution. |
+| `dropDisconnected` | boolean |  |  |
+| `dropMirror` | boolean |  | Shapes whose symmetry contains a mirror. |
+| `dropSymmetric` | boolean |  |  |
+| `dropNonMillable` | boolean |  |  |
+| `dropNonNotchable` | boolean |  |  |
+| `dropIdentical` | boolean |  |  |
+| `minCells` | integer |  |  |
+| `maxCells` | integer |  |  |
+| `addTo` | `"nothing"` \| `"newProblem"` \| `"problem"` |  |  |
+| `target` | [ProblemId](#problemid) |  | For addTo problem. |
+| `min` | integer |  |  |
+| `max` | integer |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `shapes` | [ShapeId](#shapeid)[] | required |  |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `solution.analyse`
+
+Takes saved assemblies apart afterwards (Add disassembly): all, the ones without the moves stored, or one. A job: returns at once, reports through events, stops with solution.analyseStop; the results go in when it ends (kept when stopped). Refused while the problem is being solved; while it runs, the document is frozen as while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `which` | `"all"` \| `"missing"` \| `"one"` | required |  |
+| `solution` | [SolutionId](#solutionid) |  | For one. |
+| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `rotations` | boolean |  | Try 90 degree turns. |
+| `threads` | integer |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `total` | integer | required | Assemblies to take apart. |
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
+
+### `solution.analyseStop`
+
+Stops an analysis; what it finished is kept. Does not wait: solution.analyseEnded follows.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`, `invalid_state`
+
+### `solution.analyseStatus`
+
+Where an analysis stands.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: AnalyseProgress
+
+Errors: `not_found`
+
+### event `solution.analyseProgress`
+
+An analysis's progress; at most four times a second.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `total` | integer | required |  |
+| `done` | integer | required |  |
+| `separated` | integer | required |  |
+| `stopped` | boolean | required |  |
+
+### event `solution.analyseEnded`
+
+An analysis ended (through, or stopped); its results are in the problem (document.changed follows).
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `total` | integer | required |  |
+| `done` | integer | required |  |
+| `separated` | integer | required |  |
+| `stopped` | boolean | required |  |
+
+#### SolutionParam
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) | required | A saved solution, unique within its problem. |
+
+#### AnalyseProgress
+
+| name | type | | description |
+|---|---|---|---|
+| `active` | boolean | required |  |
+| `total` | integer | required |  |
+| `done` | integer | required |  |
+| `separated` | integer | required | Taken apart so far (the others do not come apart). |
+| `stopped` | boolean | required |  |
+| `current` | [TakeApartProgress](#takeapartprogress) or null | required |  |
+
+#### AnalyseEvent
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `total` | integer | required |  |
+| `done` | integer | required |  |
+| `separated` | integer | required |  |
+| `stopped` | boolean | required |  |
+
+## Playback
+
+The disassembly player: a solution's pieces and their poses at any step (turns tumble about their pivots), as binary frames. A playback keeps copies of what it needs: it survives edits until closed or a new document.
+
+### `playback.open`
+
+Opens the playback of a saved solution with its moves stored.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) | required | A saved solution, unique within its problem. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
+| `steps` | integer | required | Moves and turns: step 0 is assembled, 'steps' apart. |
+| `movesText` | string | required |  |
+| `pieces` | object[] | required |  |
+
+`pieces`:
+
+| name | type | | description |
+|---|---|---|---|
+| `pieces.piece` | integer | required | The problem's piece number. |
+| `pieces.part` | integer | required |  |
+| `pieces.shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `pieces.name` | string | required | S1, or the shape's name, with ' #2' for the second piece of a part. |
+| `pieces.orientation` | integer | required | The orientation of the piece's mesh (playback.mesh). |
+
+Errors: `not_found`, `invalid_argument`, `unsupported`
+
+### `playback.mesh`
+
+The drawing mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
+| `piece` | integer | required | An index into pieces. |
+
+Result: [MeshFrame](#meshframe)
+
+Errors: `not_found`, `invalid_argument`
+
+### `playback.poses`
+
+Every piece's pose at steps from 'from' to 'to' (default the whole disassembly), samplesPerStep samples a step (default 8), as a frame: step (f32 per sample), translation (f32, xyz per sample and piece), rotation (f32, quaternion xyzw), visible (u8, padded).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
+| `from` | integer |  |  |
+| `to` | integer |  |  |
+| `samplesPerStep` | integer |  |  |
+
+Result: Poses
+
+Errors: `not_found`, `invalid_argument`, `internal`
+
+### `playback.track`
+
+The keyframes of an animation (the glTF export's sampler): time (f32 seconds per keyframe), translation, rotation, visible as playback.poses; forward, holds, and back again with reassemble.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
+| `samplesPerStep` | integer |  |  |
+| `secondsPerStep` | number |  |  |
+| `reassemble` | boolean |  |  |
+
+Result: Poses
+
+Errors: `not_found`, `internal`
+
+### `playback.close`
+
+Closes a playback.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [PlaybackHandle](#playbackhandle) | required | A playback opened by playback.open. |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`
+
+#### Poses
+
+| name | type | | description |
+|---|---|---|---|
+| `samples` | integer | required |  |
+| `pieces` | integer | required |  |
+| `frame` | [Frame](#frame) | required |  |
+
+## Explorers
+
+The step-by-step explorers of the solver: the placements of each piece and the assembly search one step at a time (on an assembler of their own, never a solve's), and the take-apart's positions as a tree. Each works on a copy of the puzzle behind a handle, until closed or a new document.
+
+### `explore.openAssembly`
+
+Prepares an assembly search of a problem to explore (Prepare in the original).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `keepMirrors` | boolean |  |  |
+| `keepRotations` | boolean |  |  |
+| `completeRotations` | boolean |  |  |
+| `strictColours` | boolean |  |  |
+| `reduce` | boolean |  | Default true. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) | required | An assembly explorer opened by explore.openAssembly. |
+| `pieces` | integer | required |  |
+| `placementsSupported` | boolean | required |  |
+| `finished` | number | required |  |
+
+Errors: `not_found`, `invalid_argument`, `unsupported`
+
+### `explore.placements`
+
+Every placement of a piece in the result, in the assembler's order.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) | required | An assembly explorer opened by explore.openAssembly. |
+| `piece` | integer | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `placements` | object[] | required |  |
+
+`placements`:
+
+| name | type | | description |
+|---|---|---|---|
+| `placements.transformation` | integer | required |  |
+| `placements.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+
+Errors: `not_found`, `invalid_argument`, `unsupported`
+
+### `explore.step`
+
+Advances the search 'steps' steps (default 1) and returns the pieces placed now.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) | required | An assembly explorer opened by explore.openAssembly. |
+| `steps` | integer |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `finished` | number | required | How far the search is, 0 to 1. |
+| `placements` | [Placement](#placement)[] | required |  |
+
+Errors: `not_found`
+
+### `explore.openMovements`
+
+Opens the movement browser on a saved solution's assembly: the root position.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) | required | A saved solution, unique within its problem. |
+| `rotations` | boolean |  | The analysis also tries 90 degree turns. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `root` | [MovementNode](#movementnode) | required |  |
+| `directions` | string[] | required | The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1. |
+
+Errors: `not_found`, `unsupported`
+
+### `explore.node`
+
+A position of the tree.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `node` | integer | required |  |
+
+Result: [MovementNode](#movementnode)
+
+Errors: `not_found`
+
+### `explore.analyse`
+
+Adds every position one move away from a node (Analyze); returns the new ones.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `node` | integer | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `nodes` | [MovementNode](#movementnode)[] | required |  |
+
+Errors: `not_found`
+
+### `explore.addMove`
+
+Adds the position where the given pieces moved one step in a direction (Add Movement), valid or not; returns it (or the child already there).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `node` | integer | required |  |
+| `pieces` | integer[] | required |  |
+| `direction` | integer | required |  |
+| `reverse` | boolean |  |  |
+
+Result: [MovementNode](#movementnode)
+
+Errors: `not_found`, `invalid_argument`
+
+### `explore.findMatching`
+
+The first valid move that moves a piece by a vector, taking as few others as needed; its position.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `node` | integer | required |  |
+| `piece` | integer | required |  |
+| `delta` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+
+Result: [MovementNode](#movementnode)
+
+Errors: `not_found`, `invalid_argument`
+
+### `explore.prune`
+
+Keeps only the path from the root to a node (Prune Tree).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `node` | integer | required |  |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`
+
+### `explore.close`
+
+Closes an explorer of either kind.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [AssemblyExplorerHandle](#assemblyexplorerhandle) or [MovementExplorerHandle](#movementexplorerhandle) | required |  |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`
+
+#### NodeParam
+
+| name | type | | description |
+|---|---|---|---|
+| `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
+| `node` | integer | required |  |
+
+## Types
+
+### ShapeId
+
+A shape, stable while the document is open.
+
+string matching `^s[1-9][0-9]*$`
+
+### ColourId
+
+A constraint colour.
+
+string matching `^c[1-9][0-9]*$`
+
+### ProblemId
+
+A problem; also names its solve and its analysis.
+
+string matching `^p[1-9][0-9]*$`
+
+### SolutionId
+
+A saved solution, unique within its problem.
+
+string matching `^sol[1-9][0-9]*$`
+
+### PlaybackHandle
+
+A playback opened by playback.open.
+
+string matching `^pb[1-9][0-9]*$`
+
+### AssemblyExplorerHandle
+
+An assembly explorer opened by explore.openAssembly.
+
+string matching `^ax[1-9][0-9]*$`
+
+### MovementExplorerHandle
+
+A movement explorer opened by explore.openMovements.
+
+string matching `^mx[1-9][0-9]*$`
+
+### Revision
+
+The document's revision; every change increments it.
+
+integer
+
+### Changed
+
+The result of a mutating call: the revision after it (unchanged when the call changed nothing).
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+### Empty
+
+No result.
+
+(none)
+
+### Rgb
+
+A colour, #rrggbb (the engine writes lower case).
+
+string matching `^#[0-9a-fA-F]{6}$`
+
+### Cell
+
+A cell [x, y, z] in the grid's own coordinates.
+
+integer[]
+
+### Size
+
+A size [x, y, z].
+
+integer[]
+
+### Point2
+
+A point [x, y] of a layer drawing, y up.
+
+number[]
+
+### Grid
+
+The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet.
+
+`"bricks"` \| `"prisms"` \| `"spheres"` \| `"rhombic"` \| `"tetraOcta"` \| `"sliding"` \| `"stacking"`
+
+### Solver
+
+BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2.
+
+`"classic"` \| `"crowell"` \| `"bt2"`
+
+### SolveState
+
+decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage).
+
+`"idle"` \| `"preparing"` \| `"assembling"` \| `"draining"` \| `"paused"` \| `"finished"` \| `"error"`
+
+### SolveStage
+
+`"idle"` \| `"prepare"` \| `"reduce"` \| `"assemble"` \| `"disassemble"` \| `"stopping"` \| `"paused"` \| `"done"` \| `"error"`
+
+### ProblemState
+
+What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit.
+
+`"unsolved"` \| `"solving"` \| `"solved"` \| `"unknown"`
+
+### CellState
+
+`"fixed"` \| `"variable"`
+
+### CellTool
+
+The grid editor's tools; paint changes only the colour of non-empty cells.
+
+`"fixed"` \| `"variable"` \| `"erase"` \| `"paint"`
+
+### Axes
+
+Mirror or span axes.
+
+`"x"` \| `"y"` \| `"z"`[]
+
+### ShapeTask
+
+A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label).
+
+`"nudge0"` \| `"nudge1"` \| `"nudge2"` \| `"nudge3"` \| `"nudge4"` \| `"nudge5"` \| `"rotate6"` \| `"rotate7"` \| `"rotate8"` \| `"rotate9"` \| `"rotate10"` \| `"rotate11"` \| `"flip12"` \| `"flip13"` \| `"flip14"` \| `"prune"` \| `"insideFixed"` \| `"outsideFixed"` \| `"insideVariable"` \| `"outsideVariable"` \| `"insideDecolour"` \| `"outsideDecolour"` \| `"double"` \| `"triple"` \| `"toOrigin"` \| `"centre"` \| `"minimize"` \| `"nudge27"` \| `"nudge28"` \| `"nudge29"` \| `"nudge30"` \| `"nudge31"` \| `"nudge32"` \| `"fillHoles"` \| `"gridScale"`
+
+### MeshStyle
+
+The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, or flat faces with edge lines.
+
+`"drawing"` \| `"wireframe"` \| `"flat"`
+
+### ChangeKind
+
+`"shapes"` \| `"colours"` \| `"problems"` \| `"solutions"` \| `"notes"`
+
+### SortBy
+
+Where a new solution goes in the saved list while solving: the original's sort-by choice.
+
+`"unsorted"` \| `"moves"` \| `"level"` \| `"rotations"`
+
+### ArrayRef
+
+A typed array inside a binary frame, little-endian, its offset a multiple of 4.
+
+| name | type | | description |
+|---|---|---|---|
+| `type` | `"f32"` \| `"u32"` \| `"i32"` \| `"u8"` | required |  |
+| `offset` | integer | required |  |
+| `length` | integer | required | Elements, not bytes. |
+
+### Frame
+
+A binary frame sent before the reply (decision 0012): its number, its size, and the arrays in it.
+
+| name | type | | description |
+|---|---|---|---|
+| `frame` | integer | required |  |
+| `bytes` | integer | required |  |
+| `arrays` | map of [ArrayRef](#arrayref) | required |  |
+
+### MeshFrame
+
+A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); and edgeLines (f32, two points per line, flat style only).
+
+| name | type | | description |
+|---|---|---|---|
+| `frame` | [Frame](#frame) | required |  |
+| `triangles` | integer | required |  |
+| `vertices` | integer | required |  |
+| `lo` | number[] | required |  |
+| `hi` | number[] | required |  |
+
+### ShapeSummary
+
+| name | type | | description |
+|---|---|---|---|
+| `id` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `label` | string | required | S1, S2, ... by place. |
+| `name` | string | required |  |
+| `size` | [Size](#size) | required | A size [x, y, z]. |
+| `fixed` | integer | required |  |
+| `variable` | integer | required |  |
+| `weight` | integer | required |  |
+| `colour` | [Rgb](#rgb) or null | required | The shape's own colour, or null for the default one. |
+
+### Colour
+
+| name | type | | description |
+|---|---|---|---|
+| `id` | [ColourId](#colourid) | required | A constraint colour. |
+| `label` | string | required | C1, C2, ... by place. |
+| `rgb` | [Rgb](#rgb) | required | A colour, #rrggbb (the engine writes lower case). |
+
+### ProblemSummary
+
+| name | type | | description |
+|---|---|---|---|
+| `id` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `label` | string | required | P1, P2, ... by place. |
+| `name` | string | required |  |
+| `result` | [ShapeId](#shapeid) or null | required |  |
+| `pieces` | integer | required | The number of pieces (the parts' maxima summed). |
+| `state` | [ProblemState](#problemstate) | required | What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit. |
+| `solve` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
+| `analysing` | boolean | required |  |
+| `assemblies` | integer or null | required | Assemblies found, when known. |
+| `solutions` | integer or null | required | Solutions found, when known. |
+| `saved` | integer | required | Saved solutions. |
+| `timeMs` | integer or null | required | Time spent solving, when known. |
+
+### Snapshot
+
+Everything a front end shows of the document's lists.
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+| `dirty` | boolean | required |  |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet. |
+| `path` | string or null | required | The file it was opened from or last saved to. |
+| `notes` | string | required |  |
+| `canUndo` | boolean | required |  |
+| `canRedo` | boolean | required |  |
+| `solving` | boolean | required | A solve or an analysis is active: shapes and lists are frozen (decision 0011). |
+| `shapes` | [ShapeSummary](#shapesummary)[] | required |  |
+| `colours` | [Colour](#colour)[] | required |  |
+| `problems` | [ProblemSummary](#problemsummary)[] | required |  |
+
+### ShapeInfo
+
+A row of the status window.
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `fixed` | integer | required |  |
+| `variable` | integer | required |  |
+| `identicalMirror` | [ShapeId](#shapeid) or null | required | An earlier shape it is identical to, mirrors allowed. |
+| `identicalShape` | [ShapeId](#shapeid) or null | required | ... in any orientation, not mirrored. |
+| `identicalComplete` | [ShapeId](#shapeid) or null | required | ... colours included. |
+| `connectedFace` | boolean | required |  |
+| `connectedEdge` | boolean | required |  |
+| `connectedCorner` | boolean | required |  |
+| `holes2D` | boolean | required |  |
+| `holes3D` | boolean | required |  |
+| `notchable` | boolean or null | required | Cube grid only. |
+| `millable` | boolean or null | required | Cube grid only. |
+| `symmetry` | integer or null | required | The symmetry group number, when the grid's tables know it. |
+| `statusLine` | string | required | The original's status line for the shape. |
+
+### Part
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `min` | integer | required |  |
+| `max` | integer | required |  |
+| `groups` | object[] | required |  |
+
+`groups`:
+
+| name | type | | description |
+|---|---|---|---|
+| `groups.group` | integer | required |  |
+| `groups.count` | integer | required |  |
+
+### SolverSettings
+
+The Solver tab's settings stored with a problem (saved in the file, the original's names). Settings of other versions are kept as strings.
+
+| name | type | | description |
+|---|---|---|---|
+| `disassemble` | boolean |  |  |
+| `checkRotations` | boolean |  |  |
+| `justCount` | boolean |  |  |
+| `justLevels` | boolean |  |  |
+| `deepSymmetry` | boolean |  |  |
+| `keepMirrors` | boolean |  |  |
+| `keepRotations` | boolean |  |  |
+| `strictColors` | boolean |  |  |
+| `nestedSlides` | boolean |  |  |
+| `highMemory` | boolean |  |  |
+| `autosave` | boolean |  |  |
+| `solverType` | string |  | classic, crowell, bt2 (sliding: fast, deep, full). |
+| `sortBy` | string |  | unsorted, moves, level, rotations. |
+| *other* | string | | |
+
+### ProblemDetail
+
+| name | type | | description |
+|---|---|---|---|
+| `id` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `label` | string | required |  |
+| `name` | string | required |  |
+| `result` | [ShapeId](#shapeid) or null | required |  |
+| `pieces` | integer | required |  |
+| `state` | [ProblemState](#problemstate) | required | What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit. |
+| `solve` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
+| `analysing` | boolean | required |  |
+| `assemblies` | integer or null | required |  |
+| `solutions` | integer or null | required |  |
+| `saved` | integer | required |  |
+| `timeMs` | integer or null | required |  |
+| `parts` | [Part](#part)[] | required |  |
+| `colourRules` | object[] | required | The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'. |
+| `maxHoles` | integer or null | required |  |
+| `savedPosition` | boolean | required | A paused search position is stored (solve.continue carries on from it). |
+| `solverSettings` | [SolverSettings](#solversettings) | required |  |
+
+`colourRules`:
+
+| name | type | | description |
+|---|---|---|---|
+| `colourRules.piece` | [ColourId](#colourid) | required | A constraint colour. |
+| `colourRules.result` | [ColourId](#colourid) | required | A constraint colour. |
+
+### FitStats
+
+Whether the pieces can fill the result (the fit summary).
+
+| name | type | | description |
+|---|---|---|---|
+| `verdict` | `"noResult"` \| `"fits"` \| `"tooLarge"` \| `"tooSmall"` | required |  |
+| `resultMin` | integer | required | The result's fixed cells. |
+| `resultMax` | integer | required | Fixed plus variable. |
+| `piecesMin` | integer | required |  |
+| `piecesMax` | integer | required |  |
+| `cellsMin` | integer | required |  |
+| `cellsMax` | integer | required |  |
+| `holesMin` | integer | required |  |
+| `holesMax` | integer | required |  |
+| `maxHoles` | integer or null | required |  |
+| `statusLine` | string | required |  |
+
+### SolveOptions
+
+What a solve does (the solve thread's flags); a missing field takes the engine's setting or the default.
+
+| name | type | | description |
+|---|---|---|---|
+| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `disassemble` | boolean |  | Take each assembly apart; only those that come apart are solutions. |
+| `checkRotations` | boolean |  | Try 90 degree turns while taking apart. |
+| `justCount` | boolean |  | Count, keep no solutions. |
+| `justLevels` | boolean |  | Keep the level summary of each take-apart, not its moves. |
+| `keepMirrors` | boolean |  |  |
+| `keepRotations` | boolean |  |  |
+| `completeRotations` | boolean |  | The thorough rotation check (the original's deep symmetry check). |
+| `strictColours` | boolean |  |  |
+| `reduce` | boolean |  | Drop placements that can never be part of an assembly first (default true). |
+| `sortBy` | [SortBy](#sortby) |  | Where a new solution goes in the saved list while solving: the original's sort-by choice. |
+| `keepAtMost` | integer |  | Keep at most this many solutions; 0 all (default 10). |
+| `keepEach` | integer |  | Unsorted, keep every n-th (0 and 1: each). |
+| `threads` | integer |  | Assembly and take-apart together; 0 every hardware thread. |
+| `takeApartWorkers` | integer |  | 0 chooses. |
+
+### TakeApartProgress
+
+One take-apart under way.
+
+| name | type | | description |
+|---|---|---|---|
+| `elapsedMs` | integer | required |  |
+| `pieces` | integer | required |  |
+| `searchPieces` | integer | required |  |
+| `separations` | integer | required |  |
+| `depth` | integer | required |  |
+| `level` | integer | required |  |
+| `levelDone` | integer | required |  |
+| `levelSize` | integer | required |  |
+| `nextLevelSize` | integer | required |  |
+| `nodes` | integer | required |  |
+| `threads` | integer | required |  |
+
+### SolveProgress
+
+| name | type | | description |
+|---|---|---|---|
+| `stage` | [SolveStage](#solvestage) | required |  |
+| `elapsedMs` | integer | required |  |
+| `piece` | integer | required |  |
+| `pieces` | integer | required |  |
+| `assemblyFraction` | number | required |  |
+| `iterations` | integer | required |  |
+| `assemblerThreads` | integer | required |  |
+| `assemblies` | integer | required |  |
+| `solutions` | integer | required |  |
+| `disassembly` | boolean | required |  |
+| `disasmCompleted` | integer | required |  |
+| `disasmPending` | integer | required |  |
+| `disasmWorkers` | integer | required |  |
+| `overall` | number | required | The whole solve, 0 to 1; never goes back during a run. |
+| `overallKnown` | boolean | required |  |
+| `levelFraction` | number | required |  |
+| `secondsLeft` | number or null | required |  |
+| `activity` | string | required | The original's status text. |
+
+### SolveStats
+
+The debug statistics panel.
+
+| name | type | | description |
+|---|---|---|---|
+| `state` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
+| `solver` | [Solver](#solver) | required | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `disassemblyEnabled` | boolean | required |  |
+| `rotationsEnabled` | boolean | required |  |
+| `hardwareThreads` | integer | required |  |
+| `assemblerThreads` | integer | required |  |
+| `disasmWorkers` | integer | required |  |
+| `assembliesFound` | integer | required |  |
+| `solutionsFound` | integer | required |  |
+| `inseparable` | integer | required |  |
+| `iterations` | integer | required |  |
+| `assemblyProgress` | number | required |  |
+| `pending` | integer | required |  |
+| `peakPending` | integer | required |  |
+| `disasmCompleted` | integer | required |  |
+| `elapsedMs` | integer | required |  |
+| `prepareMs` | integer | required |  |
+| `reduceMs` | integer | required |  |
+| `assemblyMs` | integer | required |  |
+| `disasmWorkMs` | integer | required |  |
+| `linearSearchMs` | integer | required |  |
+| `rotationSearchMs` | integer | required |  |
+| `drainMs` | integer | required |  |
+| `avgDisasmSeconds` | number | required |  |
+| `running` | [TakeApartProgress](#takeapartprogress)[] | required |  |
+
+### SolveFailure
+
+Why a run ended in error.
+
+| name | type | | description |
+|---|---|---|---|
+| `assembler` | `"tooManyUnits"` \| `"tooFewUnits"` \| `"cannotPlace"` \| `"cannotRestoreVersion"` \| `"cannotRestoreSyntax"` \| `"cannotRestoreInterrupted"` \| `"puzzleUnhandable"` \| `null` | required | The preparation's or the saved position's error; null for an internal error. |
+| `param` | integer | required | The piece or number the error names. |
+| `message` | string | required |  |
+| `file` | string | required |  |
+| `line` | integer | required |  |
+
+### Placement
+
+Where a piece is in an assembly.
+
+| name | type | | description |
+|---|---|---|---|
+| `piece` | integer | required | The problem's piece number (pieces are numbered part by part). |
+| `placed` | boolean | required |  |
+| `transformation` | integer | required |  |
+| `at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+
+### SolutionRow
+
+| name | type | | description |
+|---|---|---|---|
+| `id` | [SolutionId](#solutionid) | required | A saved solution, unique within its problem. |
+| `index` | integer | required | Its place in the saved list. |
+| `assembly` | integer | required | The assembly number (the original shows it plus one). |
+| `solution` | integer | required | The solution number (0 without a disassembly). |
+| `pieces` | integer | required | Pieces placed. |
+| `disassembly` | `"tree"` \| `"summary"` \| `"none"` | required | The moves are stored; only the level summary; not taken apart (or found not to come apart). |
+| `moves` | integer or null | required |  |
+| `rotations` | integer or null | required |  |
+| `steps` | integer or null | required | Moves plus rotations. |
+| `movesText` | string or null | required | The level text, e.g. 3.1.1. |
+
+### MovementNode
+
+A position of a movement explorer's tree.
+
+| name | type | | description |
+|---|---|---|---|
+| `node` | integer | required |  |
+| `parent` | integer | required | The root is its own parent. |
+| `label` | string | required | The direction and the pieces moved, e.g. 'x: S1, S2.2'; empty for the root. |
+| `pieces` | object[] | required |  |
+| `children` | integer[] | required |  |
+
+`pieces`:
+
+| name | type | | description |
+|---|---|---|---|
+| `pieces.piece` | integer | required |  |
+| `pieces.at` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |

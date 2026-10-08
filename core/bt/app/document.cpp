@@ -10,10 +10,13 @@
 #include "bt/base/assert.h"
 #include "bt/base/int_cast.h"
 #include "bt/grid/voxel.h"
+#include "bt/io/gzip_file.h"
+#include "bt/io/paused_solve.h"
 #include "bt/io/puzzle_file.h"
 #include "bt/model/problem.h"
 #include "bt/model/solution.h"
 #include "bt/solve/assembler_bt2.h"
+#include "bt/solve/disassembler.h"
 #include "bt/solve/solver_type.h"
 
 #include <algorithm>
@@ -34,7 +37,8 @@ Document::Document(std::unique_ptr<Puzzle> puzzle, DocumentSettings settings)
 Document::Document(Document&&) noexcept = default;
 
 Document::~Document() {
-  // the solves first: they hold the puzzle
+  // the analyses and solves first: they hold the puzzle
+  analyses_.clear();
   sessions_.clear();
 }
 
@@ -47,11 +51,43 @@ Result<Document> Document::open(const std::filesystem::path& path, DocumentSetti
 }
 
 Result<Document> Document::openBytes(std::string_view bytes, DocumentSettings settings) {
-  Result<Puzzle> p = io::parsePuzzle(bytes);
+  // a file's bytes: gzip, or plain XML
+  Result<std::string> xml = io::gunzipIfCompressed(bytes);
+  if (!xml) {
+    return std::unexpected(xml.error());
+  }
+  Result<Puzzle> p = io::parsePuzzle(*xml);
   if (!p) {
     return std::unexpected(p.error());
   }
   return Document(std::make_unique<Puzzle>(std::move(*p)), settings);
+}
+
+Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::path& path,
+                                                     DocumentSettings settings) {
+  Result<io::PausedSolve> ps = io::loadPausedSolve(path);
+  if (!ps) {
+    return std::unexpected(ps.error());
+  }
+  Document d(std::make_unique<Puzzle>(std::move(ps->puzzle)), settings);
+  // a new, untitled puzzle: it is not saved anywhere yet
+  d.solveDirty_ = true;
+  const Id problem = d.ids_.problems[ps->problem];
+  return std::pair<Document, Id>(std::move(d), problem);
+}
+
+Result<void> Document::exportPaused(Id problem, const std::filesystem::path& path) const {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (Result<void> r = checkNotSolving(); !r) {
+    return r;
+  }
+  if (puzzle_->getProblem(*p).getSolveState() != ProblemState::Solving) {
+    return fail(Errc::InvalidState, "pause a solve first: the problem has no paused solve");
+  }
+  return io::savePausedSolve(*puzzle_, *p, path);
 }
 
 void Document::assignIds() {
@@ -353,6 +389,7 @@ Result<void> Document::undo() {
   }
   const std::uint32_t what = step.what;
   redo_.push_back(std::move(step));
+  lastChange_ = ChangeSet{};
   changed(what);
   return {};
 }
@@ -378,6 +415,7 @@ Result<void> Document::redo() {
   }
   const std::uint32_t what = step.what;
   undo_.push_back(std::move(step));
+  lastChange_ = ChangeSet{};
   changed(what);
   return {};
 }
@@ -422,7 +460,8 @@ Result<void> Document::endGroup() {
 // ---- the guards of decision 0011 ------------------------------------------------------
 
 bool Document::solving() const {
-  return std::any_of(sessions_.begin(), sessions_.end(),
+  return !analyses_.empty() ||
+         std::any_of(sessions_.begin(), sessions_.end(),
                      [](const auto& s) { return isActive(s.second->state()); });
 }
 
@@ -437,6 +476,9 @@ Result<void> Document::checkProblemFree(unsigned int problem) const {
   const auto it = sessions_.find(ids_.problems[problem]);
   if (it != sessions_.end() && isActive(it->second->state())) {
     return fail(Errc::InvalidState, "the problem is being solved: pause it first");
+  }
+  if (analyses_.contains(ids_.problems[problem])) {
+    return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
   }
   return {};
 }
@@ -575,6 +617,8 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
     return r;
   }
   solveDirty_ = true;
+  runsStarted_.insert(problem);
+  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}};
   changed(kChangeSolutions | kChangeProblems);
   return {};
 }
@@ -613,6 +657,9 @@ Result<void> Document::solveAbort(Id problem) {
   if (!p) {
     return std::unexpected(p.error());
   }
+  if (analyses_.contains(problem)) {
+    return fail(Errc::InvalidState, "the problem's solutions are being taken apart: stop it first");
+  }
   const auto it = sessions_.find(problem);
   if (it != sessions_.end()) {
     it->second->abort();
@@ -621,6 +668,7 @@ Result<void> Document::solveAbort(Id problem) {
     puzzle_->getProblem(*p).removeAllSolutions();
   }
   solveDirty_ = true;
+  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}};
   changed(kChangeSolutions | kChangeProblems);
   return {};
 }
@@ -668,6 +716,117 @@ std::optional<SolveFailure> Document::solveFailure(Id problem) const {
   return it == sessions_.end() ? std::nullopt : it->second->failure();
 }
 
+// ---- analysing and what background work did -----------------------------------------
+
+Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& options) {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (Result<void> r = checkProblemFree(*p); !r) {
+    return std::unexpected(r.error());
+  }
+  if (grouping_) {
+    return fail(Errc::InvalidState, "a group of edits is open");
+  }
+  if (problemKind(*puzzle_) != ProblemKind::Brick) {
+    return fail(Errc::Unsupported, "sliding and stacking puzzles are not solved yet");
+  }
+  if (!Disassembler::canDisassemble(*puzzle_)) {
+    return fail(Errc::Unsupported, "Sorry, this space grid doesn't have a disassembler (yet)!");
+  }
+  const Problem& pr = puzzle_->getProblem(*p);
+  std::vector<std::pair<std::uint64_t, Assembly>> work;
+  for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+    const Solution& sol = pr.getSavedSolution(i);
+    const bool wanted = options.which == AnalyseWhich::All ||
+                        (options.which == AnalyseWhich::Missing && sol.getDisassembly() == nullptr) ||
+                        (options.which == AnalyseWhich::One && sol.getId() == options.solution);
+    if (wanted) {
+      work.emplace_back(sol.getId(), sol.getAssembly());
+    }
+  }
+  if (options.which == AnalyseWhich::One && work.empty()) {
+    return fail(Errc::NotFound, "there is no such solution");
+  }
+  const auto n = static_cast<unsigned int>(work.size());
+  if (n == 0) {
+    return 0U;
+  }
+  // the shapes as a run leaves them, so that solves may start meanwhile
+  if (!solving()) {
+    prepareShapesForSolving();
+  }
+  analyses_.emplace(problem, std::make_unique<Analysis>(*puzzle_, pr, std::move(work), options));
+  return n;
+}
+
+Result<void> Document::analyseStop(Id problem) {
+  if (Result<unsigned int> p = problemIndex(problem); !p) {
+    return std::unexpected(p.error());
+  }
+  const auto it = analyses_.find(problem);
+  if (it == analyses_.end()) {
+    return fail(Errc::InvalidState, "the problem is not being analysed");
+  }
+  it->second->stop();
+  return {};
+}
+
+Result<AnalyseProgress> Document::analyseProgress(Id problem) const {
+  if (Result<unsigned int> p = problemIndex(problem); !p) {
+    return std::unexpected(p.error());
+  }
+  const auto it = analyses_.find(problem);
+  return it == analyses_.end() ? AnalyseProgress{} : it->second->progress();
+}
+
+bool Document::analysing(Id problem) const { return analyses_.contains(problem); }
+
+bool Document::poll() {
+  std::vector<Id> touched;
+  // the analyses that ended: their separations go in (the problem cannot
+  // have changed: it was frozen)
+  for (auto it = analyses_.begin(); it != analyses_.end();) {
+    if (it->second->active()) {
+      ++it;
+      continue;
+    }
+    const Result<unsigned int> p = problemIndex(it->first);
+    BT_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
+    Problem& pr = puzzle_->getProblem(*p);
+    for (auto& [id, separation] : it->second->takeResults()) {
+      for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+        if (pr.getSavedSolution(i).getId() == id) {
+          pr.getSavedSolution(i).setDisassembly(std::move(separation));
+          break;
+        }
+      }
+    }
+    touched.push_back(it->first);
+    it = analyses_.erase(it);
+  }
+  // the runs that ended
+  for (auto it = runsStarted_.begin(); it != runsStarted_.end();) {
+    const auto s = sessions_.find(*it);
+    if (s != sessions_.end() && isActive(s->second->state())) {
+      ++it;
+      continue;
+    }
+    if (std::find(touched.begin(), touched.end(), *it) == touched.end()) {
+      touched.push_back(*it);
+    }
+    it = runsStarted_.erase(it);
+  }
+  if (touched.empty()) {
+    return false;
+  }
+  solveDirty_ = true;
+  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, std::move(touched)};
+  revision_++;
+  return true;
+}
+
 // ---- queries ------------------------------------------------------------------------
 
 Result<FitStats> Document::fit(Id problem) const {
@@ -689,16 +848,31 @@ Result<mesh::DrawMesh> Document::shapeMesh(Id shape, mesh::MeshStyle style) cons
   return mesh::shapeDrawMesh(puzzle_->getShape(*s), style);
 }
 
+namespace {
+
+// The place of a solution, found under the lock the caller reads with (a
+// running solve moves solutions about).
+std::optional<unsigned int> findSolution(const Problem& pr, Id solution) {
+  for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+    if (pr.getSavedSolution(i).getId() == solution) {
+      return i;
+    }
+  }
+  return std::nullopt;
+}
+
+}  // namespace
+
 Result<PlaybackSampler> Document::playback(Id problem, Id solution) const {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
-  const Result<unsigned int> s = solutionIndex(problem, solution);
-  if (!s) {
-    return std::unexpected(s.error());
-  }
-  return readProblem(*p, [this, &p, &s](const Problem&) {
+  return readProblem(*p, [this, &p, solution](const Problem& pr) -> Result<PlaybackSampler> {
+    const std::optional<unsigned int> s = findSolution(pr, solution);
+    if (!s) {
+      return fail(Errc::NotFound, "there is no such solution");
+    }
     return PlaybackSampler::make(*puzzle_, *p, *s);
   });
 }
@@ -721,11 +895,11 @@ Result<MovementExplorer> Document::exploreMovements(Id problem, Id solution,
   if (!p) {
     return std::unexpected(p.error());
   }
-  const Result<unsigned int> s = solutionIndex(problem, solution);
-  if (!s) {
-    return std::unexpected(s.error());
-  }
-  return readProblem(*p, [this, &p, &s, rotations](const Problem&) {
+  return readProblem(*p, [this, &p, solution, rotations](const Problem& pr) -> Result<MovementExplorer> {
+    const std::optional<unsigned int> s = findSolution(pr, solution);
+    if (!s) {
+      return fail(Errc::NotFound, "there is no such solution");
+    }
     return MovementExplorer::make(*puzzle_, *p, *s, rotations);
   });
 }

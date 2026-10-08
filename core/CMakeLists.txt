@@ -2,9 +2,11 @@
 # No UI, no stdout/stderr output, no global state: everything reaches it
 # through its API (docs/ARCHITECTURE.md).
 add_library(btcore STATIC
+  bt/app/analysis.cpp
   bt/app/document.cpp
   bt/app/document_commands.cpp
   bt/app/explorers.cpp
+  bt/app/layer_geometry.cpp
   bt/app/playback.cpp
   bt/app/queries.cpp
   bt/app/shape_tools.cpp
@@ -24,6 +26,7 @@ add_library(btcore STATIC
   bt/grid/voxel_table.cpp
   bt/grid/voxel_tetra_octa.cpp
   bt/io/gzip_file.cpp
+  bt/io/paused_solve.cpp
   bt/io/puzzle_file.cpp
   bt/io/xml_document.cpp
   bt/io/xml_pull_parser.cpp

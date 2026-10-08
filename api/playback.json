@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "playback.json",
+  "title": "Playback",
+  "description": "The disassembly player: a solution's pieces and their poses at any step (turns tumble about their pivots), as binary frames. A playback keeps copies of what it needs: it survives edits until closed or a new document.",
+  "methods": {
+    "playback.open": {
+      "summary": "Opens the playback of a saved solution with its moves stored.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "solution": {"$ref": "types.json#/$defs/SolutionId"}},
+        "required": ["problem", "solution"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/PlaybackHandle"},
+          "steps": {"type": "integer", "minimum": 0, "description": "Moves and turns: step 0 is assembled, 'steps' apart."},
+          "movesText": {"type": "string"},
+          "pieces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "piece": {"type": "integer", "minimum": 0, "description": "The problem's piece number."},
+                "part": {"type": "integer", "minimum": 0},
+                "shape": {"$ref": "types.json#/$defs/ShapeId"},
+                "name": {"type": "string", "description": "S1, or the shape's name, with ' #2' for the second piece of a part."},
+                "orientation": {"type": "integer", "minimum": 0, "description": "The orientation of the piece's mesh (playback.mesh)."}
+              },
+              "required": ["piece", "part", "shape", "name", "orientation"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["handle", "steps", "movesText", "pieces"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument", "unsupported"]
+    },
+    "playback.mesh": {
+      "summary": "The drawing mesh of piece i (of playback.open's pieces) in its assembly orientation, centred as the poses expect.",
+      "params": {
+        "type": "object",
+        "properties": {"handle": {"$ref": "types.json#/$defs/PlaybackHandle"}, "piece": {"type": "integer", "minimum": 0, "description": "An index into pieces."}},
+        "required": ["handle", "piece"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/MeshFrame"},
+      "errors": ["not_found", "invalid_argument"]
+    },
+    "playback.poses": {
+      "summary": "Every piece's pose at steps from 'from' to 'to' (default the whole disassembly), samplesPerStep samples a step (default 8), as a frame: step (f32 per sample), translation (f32, xyz per sample and piece), rotation (f32, quaternion xyzw), visible (u8, padded).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/PlaybackHandle"},
+          "from": {"type": "integer", "minimum": 0},
+          "to": {"type": "integer", "minimum": 0},
+          "samplesPerStep": {"type": "integer", "minimum": 1, "maximum": 256}
+        },
+        "required": ["handle"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/Poses"},
+      "errors": ["not_found", "invalid_argument", "internal"]
+    },
+    "playback.track": {
+      "summary": "The keyframes of an animation (the glTF export's sampler): time (f32 seconds per keyframe), translation, rotation, visible as playback.poses; forward, holds, and back again with reassemble.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/PlaybackHandle"},
+          "samplesPerStep": {"type": "integer", "minimum": 1, "maximum": 256},
+          "secondsPerStep": {"type": "number", "minimum": 0.001},
+          "reassemble": {"type": "boolean"}
+        },
+        "required": ["handle"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/Poses"},
+      "errors": ["not_found", "internal"]
+    },
+    "playback.close": {
+      "summary": "Closes a playback.",
+      "params": {
+        "type": "object",
+        "properties": {"handle": {"$ref": "types.json#/$defs/PlaybackHandle"}},
+        "required": ["handle"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found"]
+    }
+  },
+  "$defs": {
+    "Poses": {
+      "type": "object",
+      "properties": {
+        "samples": {"type": "integer", "minimum": 0},
+        "pieces": {"type": "integer", "minimum": 0},
+        "frame": {"$ref": "types.json#/$defs/Frame"}
+      },
+      "required": ["samples", "pieces", "frame"],
+      "additionalProperties": false
+    }
+  }
+}

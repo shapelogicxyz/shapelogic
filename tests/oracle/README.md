@@ -82,6 +82,7 @@ python3 tests/oracle/oracle.py model-dump    # tests/data/model_dump.txt (stage 
 python3 tests/oracle/oracle.py app-dump      # tests/data/app_dump.txt (stage 6)
 python3 tests/oracle/oracle.py record-saves  # tests/data/saved_by_original/ (stage 2)
 python3 tests/oracle/oracle.py record-positions  # tests/data/positions_by_original.txt (stage 3)
+python3 tests/oracle/oracle.py record-analysed   # tests/data/analysed_by_original/ (stage 7)
 ```
 
 `grid_dump_old.cpp` and `tests/unit/grid/test_grid_dump.cpp` run the same
@@ -96,7 +97,13 @@ faces in address order and so merges different faces from run to run),
 the status window's table, the fit line, and the playback tracks of the
 first solutions (gltfexport.cpp's sampler, copied into the dump tool: it
 lives in an anonymous namespace there). The dumps and `record-saves` run
-over the fixtures in `tests/data/puzzles/`.
+over the fixtures in `tests/data/puzzles/`. `record-analysed`
+(`analyse_old.cpp`) takes the saved assemblies of the fixtures with a
+take-apart apart again as the GUI's "Add disassembly" for all solutions
+did (the old trees dropped first; with rotations and Crowell's take-apart
+for the rotation fixture) and saves them;
+`tests/unit/app/test_analysis_files.cpp` does the same with the new core's
+`solution.analyse` and compares the files byte for byte.
 
 ## File round trip (stage 2 onward)
 

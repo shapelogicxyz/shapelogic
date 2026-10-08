@@ -12,7 +12,7 @@
 // src/gui/grideditor.cpp (the cell tools), src/gui/groupseditor.cpp,
 // src/gui/mainwindow_solve.cpp (cb_DeleteSolutions, cb_DeleteDisasm,
 // cb_DeleteAllDisasm) and src/gui/mainwindow_file.cpp
-// (cb_AssembliesToShapes). Each command checks what it is given first and
+// (cb_AssembliesToShapes) and cb_SolverOptions (mainwindow_solve.cpp). Each command checks what it is given first and
 // changes the document only then, so a refused command changes nothing.
 #include "bt/app/document.h"
 
@@ -960,6 +960,27 @@ Result<void> Document::setColourRules(Id problem, ColourPreset preset) {
   }
   lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
+  return {};
+}
+
+Result<void> Document::setSolverOptions(Id problem, std::map<std::string, std::string> options) {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  Problem& pr = puzzle_->getProblem(*p);
+  if (pr.getSolverOptions() == options) {
+    return {};
+  }
+  // only stored: the solve and the solutions stay
+  StepGuard g(*this, "Solver options");
+  touchProblem(*p);
+  pr.setSolverOptions(options);
+  lastChange_.problems = {problem};
+  g.commit(kChangeProblems);
   return {};
 }
 

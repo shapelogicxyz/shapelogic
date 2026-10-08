@@ -87,6 +87,12 @@ just format             # clang-format
   races while real ones remain.
 - Fixtures live in `tests/data/`. Copy them from the original repo; do not
   read the original repo from unit tests (only the harness does that).
+- The engine: `tests/unit/engine/` drives it in process; `tests/contract/`
+  (ctest `contract`) drives `bt-engine` as a subprocess and checks every
+  reply and event against `api/`. A new method needs its schema entry, a
+  contract call that succeeds (the coverage check) and
+  `python3 api/gen_api_md.py` (ctest `api-docs` fails on a stale
+  `docs/API.md`); see `api/README.md`.
 
 ## SIMD and platform code
 

@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "solution.json",
+  "title": "Solutions",
+  "description": "A problem's saved solutions: paged and sorted by the engine (a view: the stored order does not change), removed, taken apart afterwards, turned into shapes.",
+  "methods": {
+    "solution.page": {
+      "summary": "A slice of the saved solutions, sorted: list (the stored order), assembly (found order), level, moves or pieces (the original's sort buttons); descending sorts by the swapped comparison, so ties keep their order.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "sortBy": {"enum": ["list", "assembly", "level", "moves", "pieces"]},
+          "descending": {"type": "boolean"},
+          "offset": {"type": "integer", "minimum": 0},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 10000, "description": "Default 100."}
+        },
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "total": {"type": "integer", "minimum": 0},
+          "offset": {"type": "integer", "minimum": 0},
+          "rows": {"type": "array", "items": {"$ref": "types.json#/$defs/SolutionRow"}}
+        },
+        "required": ["total", "offset", "rows"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "solution.get": {
+      "summary": "A solution: its row and the placement of every piece.",
+      "params": {"$ref": "#/$defs/SolutionParam"},
+      "result": {
+        "type": "object",
+        "properties": {
+          "row": {"$ref": "types.json#/$defs/SolutionRow"},
+          "placements": {"type": "array", "items": {"$ref": "types.json#/$defs/Placement"}}
+        },
+        "required": ["row", "placements"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "solution.delete": {
+      "summary": "Removes saved solutions: one, all before or after one (in the stored order), all without a disassembly, or all.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "which": {"enum": ["one", "before", "after", "withoutDisassembly", "all"]},
+          "solution": {"$ref": "types.json#/$defs/SolutionId", "description": "Needed for one, before and after."}
+        },
+        "required": ["problem", "which"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "solution.deleteDisassembly": {
+      "summary": "Drops the moves of one solution (or of all), keeping their level summary.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "solution": {"$ref": "types.json#/$defs/SolutionId", "description": "Absent: every solution."}
+        },
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "solution.toShapes": {
+      "summary": "Turns assemblies into new shapes (Convert assemblies to pieces), filtered, optionally added as pieces to a new or an existing problem.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "solution": {"$ref": "types.json#/$defs/SolutionId", "description": "Absent: every saved solution."},
+          "dropDisconnected": {"type": "boolean"},
+          "dropMirror": {"type": "boolean", "description": "Shapes whose symmetry contains a mirror."},
+          "dropSymmetric": {"type": "boolean"},
+          "dropNonMillable": {"type": "boolean"},
+          "dropNonNotchable": {"type": "boolean"},
+          "dropIdentical": {"type": "boolean"},
+          "minCells": {"type": "integer", "minimum": 0},
+          "maxCells": {"type": "integer", "minimum": 0},
+          "addTo": {"enum": ["nothing", "newProblem", "problem"]},
+          "target": {"$ref": "types.json#/$defs/ProblemId", "description": "For addTo problem."},
+          "min": {"type": "integer", "minimum": 0},
+          "max": {"type": "integer", "minimum": 0}
+        },
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "shapes": {"type": "array", "items": {"$ref": "types.json#/$defs/ShapeId"}},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["shapes", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "solution.analyse": {
+      "summary": "Takes saved assemblies apart afterwards (Add disassembly): all, the ones without the moves stored, or one. A job: returns at once, reports through events, stops with solution.analyseStop; the results go in when it ends (kept when stopped). Refused while the problem is being solved; while it runs, the document is frozen as while solving.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "which": {"enum": ["all", "missing", "one"]},
+          "solution": {"$ref": "types.json#/$defs/SolutionId", "description": "For one."},
+          "solver": {"$ref": "types.json#/$defs/Solver"},
+          "rotations": {"type": "boolean", "description": "Try 90 degree turns."},
+          "threads": {"type": "integer", "minimum": 0, "maximum": 256}
+        },
+        "required": ["problem", "which"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {"total": {"type": "integer", "minimum": 0, "description": "Assemblies to take apart."}},
+        "required": ["total"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported"]
+    },
+    "solution.analyseStop": {
+      "summary": "Stops an analysis; what it finished is kept. Does not wait: solution.analyseEnded follows.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}},
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "solution.analyseStatus": {
+      "summary": "Where an analysis stands.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}},
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/AnalyseProgress"},
+      "errors": ["not_found"]
+    }
+  },
+  "events": {
+    "solution.analyseProgress": {
+      "summary": "An analysis's progress; at most four times a second.",
+      "params": {"$ref": "#/$defs/AnalyseEvent"}
+    },
+    "solution.analyseEnded": {
+      "summary": "An analysis ended (through, or stopped); its results are in the problem (document.changed follows).",
+      "params": {"$ref": "#/$defs/AnalyseEvent"}
+    }
+  },
+  "$defs": {
+    "SolutionParam": {
+      "type": "object",
+      "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "solution": {"$ref": "types.json#/$defs/SolutionId"}},
+      "required": ["problem", "solution"],
+      "additionalProperties": false
+    },
+    "AnalyseProgress": {
+      "type": "object",
+      "properties": {
+        "active": {"type": "boolean"},
+        "total": {"type": "integer", "minimum": 0},
+        "done": {"type": "integer", "minimum": 0},
+        "separated": {"type": "integer", "minimum": 0, "description": "Taken apart so far (the others do not come apart)."},
+        "stopped": {"type": "boolean"},
+        "current": {"oneOf": [{"$ref": "types.json#/$defs/TakeApartProgress"}, {"type": "null"}]}
+      },
+      "required": ["active", "total", "done", "separated", "stopped", "current"],
+      "additionalProperties": false
+    },
+    "AnalyseEvent": {
+      "type": "object",
+      "properties": {
+        "problem": {"$ref": "types.json#/$defs/ProblemId"},
+        "total": {"type": "integer", "minimum": 0},
+        "done": {"type": "integer", "minimum": 0},
+        "separated": {"type": "integer", "minimum": 0},
+        "stopped": {"type": "boolean"}
+      },
+      "required": ["problem", "total", "done", "separated", "stopped"],
+      "additionalProperties": false
+    }
+  }
+}

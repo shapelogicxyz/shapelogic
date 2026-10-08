@@ -24,4 +24,11 @@ namespace bt::io {
 /// file.
 [[nodiscard]] Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view data);
 
+/// `data` gzip-compressed in memory, as writeGzipFile writes it.
+[[nodiscard]] std::string gzipCompress(std::string_view data);
+
+/// `data` decompressed when it is gzip data (it starts with the gzip
+/// magic), as it is otherwise; ParseError for broken gzip data.
+[[nodiscard]] Result<std::string> gunzipIfCompressed(std::string_view data);
+
 }  // namespace bt::io

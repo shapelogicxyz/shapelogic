@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+/// @file
+/// bt-engine: JSON-RPC 2.0 over stdio around one app::Document (decisions
+/// 0003 and 0012). The main thread runs the requests one at a time and
+/// polls the document's background work for events; a reader thread only
+/// queues the lines of stdin.
+
+#include "output.h"
+#include "rpc.h"
+
+#include "bt/app/document.h"
+#include "bt/app/explorers.h"
+#include "bt/app/playback.h"
+#include "bt/solve/solver_type.h"
+
+#include <chrono>
+#include <cstdint>
+#include <filesystem>
+#include <functional>
+#include <istream>
+#include <map>
+#include <optional>
+#include <ostream>
+#include <string>
+#include <string_view>
+
+namespace bt::engine {
+
+/// The engine's settings, kept across documents.
+struct Settings {
+  unsigned int undoDepth = 25;
+  /// The threads of a solve whose options do not say; 0 every hardware thread.
+  unsigned int threads = 0;
+  SolverType solver = SolverType::Classic;
+};
+
+struct State;
+
+/// A method: reads its params, does its work, returns its result.
+using Method = Reply (*)(State&, Params&);
+using MethodTable = std::map<std::string, Method, std::less<>>;
+
+/// What the methods work on: the document and what the engine keeps
+/// beside it.
+struct State {
+  State(Output& output, std::ostream& logs, const MethodTable& table);
+
+  Output& out;
+  /// stderr: what has no reply to go into.
+  std::ostream& log;
+  const MethodTable& methods;
+  Settings settings;
+  /// Always set; replaced by document.new, open and the paused import.
+  std::optional<app::Document> doc;
+  /// Where it was opened from or last saved to.
+  std::optional<std::filesystem::path> path;
+
+  /// Playbacks and explorers, by handle number (never reused).
+  std::uint64_t nextHandle = 1;
+  std::map<std::uint64_t, app::PlaybackSampler> playbacks;
+  std::map<std::uint64_t, app::AssemblyExplorer> assemblyExplorers;
+  std::map<std::uint64_t, app::MovementExplorer> movementExplorers;
+
+  bool shutdown = false;
+
+  /// What the events last told of a problem's background work.
+  struct Watch {
+    SolveState state = SolveState::Idle;
+    /// A run was started since the last poll: its state is told even if
+    /// it is the one told before (a short run can start and end between
+    /// two polls).
+    bool launched = false;
+    std::chrono::steady_clock::time_point progressAt{};
+    std::size_t saved = 0;
+    std::uint64_t newest = 0;
+    bool analysing = false;
+    std::chrono::steady_clock::time_point analyseAt{};
+    unsigned int analysed = 0;
+  };
+  std::map<app::Id, Watch> watches;
+  /// The revision document.changed last told.
+  std::uint64_t announced = 0;
+
+  [[nodiscard]] app::Document& document() { return *doc; }
+  [[nodiscard]] const app::Document& document() const { return *doc; }
+  /// The revision clients see: the document's, counted on from the
+  /// documents before it, so that it never goes back.
+  [[nodiscard]] std::uint64_t revision() const { return revisionBase_ + doc->revision(); }
+  /// {revision}: the result of a mutating method.
+  [[nodiscard]] Json changed() const { return Json{{"revision", revision()}}; }
+  /// Replaces the document; drops the handles and what the events told.
+  void replaceDocument(app::Document d, std::optional<std::filesystem::path> from);
+  /// Sends a frame now (before the reply) and describes it.
+  Json sendFrame(const FrameBuilder& frame);
+  /// A new handle number.
+  std::uint64_t newHandle() { return nextHandle++; }
+
+ private:
+  std::uint64_t revisionBase_ = 0;
+};
+
+// The methods of each area (methods_*.cpp).
+void addEngineMethods(MethodTable& t);
+void addDocumentMethods(MethodTable& t);
+void addShapeMethods(MethodTable& t);
+void addColourMethods(MethodTable& t);
+void addProblemMethods(MethodTable& t);
+void addSolveMethods(MethodTable& t);
+void addSolutionMethods(MethodTable& t);
+void addPlaybackMethods(MethodTable& t);
+void addExploreMethods(MethodTable& t);
+
+/// Sends the events of the background work: solves, analyses, and
+/// document.changed when the document changed without a request (events.cpp).
+void pollEvents(State& s, std::chrono::steady_clock::time_point now);
+/// document.changed, when the revision moved since it was last told.
+void announceChange(State& s);
+
+/// The engine.
+class Engine {
+ public:
+  /// Writes messages and frames to `out`, logs to `log`.
+  Engine(std::ostream& out, std::ostream& log);
+
+  /// Runs one request line: its reply (unless a notification) and the
+  /// events it caused.
+  void handleLine(std::string_view line);
+  /// Sends the events of the background work.
+  void poll();
+  /// A solve or analysis is active: poll often.
+  [[nodiscard]] bool busy() const;
+  /// engine.shutdown was called.
+  [[nodiscard]] bool stopped() const { return state_.shutdown; }
+  /// Reads requests from `in` until it ends or engine.shutdown; returns
+  /// true when the input ended. After a shutdown the thread reading `in`
+  /// may still be blocked on it: `in` must then outlive the process
+  /// (stdin).
+  bool run(std::istream& in);
+
+  [[nodiscard]] State& state() { return state_; }
+
+  /// The longest request line read (64 MiB).
+  static constexpr std::size_t kMaxLine = std::size_t{64} << 20;
+
+ private:
+  Output out_;
+  std::ostream& log_;
+  MethodTable methods_;
+  State state_;
+};
+
+}  // namespace bt::engine

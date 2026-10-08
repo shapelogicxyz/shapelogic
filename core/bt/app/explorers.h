@@ -124,8 +124,9 @@ class MovementExplorer {
   Result<unsigned int> addMove(unsigned int id, const std::vector<unsigned int>& pieces,
                                unsigned int direction, bool reverse);
   /// The first valid move that moves piece `piece` (the problem's piece
-  /// number) by (dx, dy, dz), taking as few others as needed; the id of
-  /// its node, or NotFound when there is none.
+  /// number) by (dx, dy, dz), one step in one of the grid's directions,
+  /// taking as few others as needed; the id of its node, NotFound when
+  /// there is none, InvalidArgument for a piece not in the position.
   Result<unsigned int> findMatching(unsigned int id, unsigned int piece, int dx, int dy, int dz);
   /// Keeps only the path from the root to `id`: every other node goes, the
   /// children of `id` too (Prune Tree).

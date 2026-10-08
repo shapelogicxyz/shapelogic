@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "explore.json",
+  "title": "Explorers",
+  "description": "The step-by-step explorers of the solver: the placements of each piece and the assembly search one step at a time (on an assembler of their own, never a solve's), and the take-apart's positions as a tree. Each works on a copy of the puzzle behind a handle, until closed or a new document.",
+  "methods": {
+    "explore.openAssembly": {
+      "summary": "Prepares an assembly search of a problem to explore (Prepare in the original).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "solver": {"$ref": "types.json#/$defs/Solver"},
+          "keepMirrors": {"type": "boolean"},
+          "keepRotations": {"type": "boolean"},
+          "completeRotations": {"type": "boolean"},
+          "strictColours": {"type": "boolean"},
+          "reduce": {"type": "boolean", "description": "Default true."}
+        },
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/AssemblyExplorerHandle"},
+          "pieces": {"type": "integer", "minimum": 0},
+          "placementsSupported": {"type": "boolean"},
+          "finished": {"type": "number"}
+        },
+        "required": ["handle", "pieces", "placementsSupported", "finished"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument", "unsupported"]
+    },
+    "explore.placements": {
+      "summary": "Every placement of a piece in the result, in the assembler's order.",
+      "params": {
+        "type": "object",
+        "properties": {"handle": {"$ref": "types.json#/$defs/AssemblyExplorerHandle"}, "piece": {"type": "integer", "minimum": 0}},
+        "required": ["handle", "piece"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "placements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {"transformation": {"type": "integer", "minimum": 0}, "at": {"$ref": "types.json#/$defs/Cell"}},
+              "required": ["transformation", "at"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["placements"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument", "unsupported"]
+    },
+    "explore.step": {
+      "summary": "Advances the search 'steps' steps (default 1) and returns the pieces placed now.",
+      "params": {
+        "type": "object",
+        "properties": {"handle": {"$ref": "types.json#/$defs/AssemblyExplorerHandle"}, "steps": {"type": "integer", "minimum": 1, "maximum": 1000000}},
+        "required": ["handle"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "finished": {"type": "number", "description": "How far the search is, 0 to 1."},
+          "placements": {"type": "array", "items": {"$ref": "types.json#/$defs/Placement"}}
+        },
+        "required": ["finished", "placements"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "explore.openMovements": {
+      "summary": "Opens the movement browser on a saved solution's assembly: the root position.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "solution": {"$ref": "types.json#/$defs/SolutionId"},
+          "rotations": {"type": "boolean", "description": "The analysis also tries 90 degree turns."}
+        },
+        "required": ["problem", "solution"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/MovementExplorerHandle"},
+          "root": {"$ref": "types.json#/$defs/MovementNode"},
+          "directions": {"type": "array", "items": {"type": "string"}, "description": "The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1."}
+        },
+        "required": ["handle", "root", "directions"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported"]
+    },
+    "explore.node": {
+      "summary": "A position of the tree.",
+      "params": {"$ref": "#/$defs/NodeParam"},
+      "result": {"$ref": "types.json#/$defs/MovementNode"},
+      "errors": ["not_found"]
+    },
+    "explore.analyse": {
+      "summary": "Adds every position one move away from a node (Analyze); returns the new ones.",
+      "params": {"$ref": "#/$defs/NodeParam"},
+      "result": {
+        "type": "object",
+        "properties": {"nodes": {"type": "array", "items": {"$ref": "types.json#/$defs/MovementNode"}}},
+        "required": ["nodes"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "explore.addMove": {
+      "summary": "Adds the position where the given pieces moved one step in a direction (Add Movement), valid or not; returns it (or the child already there).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/MovementExplorerHandle"},
+          "node": {"type": "integer", "minimum": 0},
+          "pieces": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 1},
+          "direction": {"type": "integer", "minimum": 0},
+          "reverse": {"type": "boolean"}
+        },
+        "required": ["handle", "node", "pieces", "direction"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/MovementNode"},
+      "errors": ["not_found", "invalid_argument"]
+    },
+    "explore.findMatching": {
+      "summary": "The first valid move that moves a piece by a vector, taking as few others as needed; its position.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"$ref": "types.json#/$defs/MovementExplorerHandle"},
+          "node": {"type": "integer", "minimum": 0},
+          "piece": {"type": "integer", "minimum": 0},
+          "delta": {"$ref": "types.json#/$defs/Cell"}
+        },
+        "required": ["handle", "node", "piece", "delta"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/MovementNode"},
+      "errors": ["not_found", "invalid_argument"]
+    },
+    "explore.prune": {
+      "summary": "Keeps only the path from the root to a node (Prune Tree).",
+      "params": {"$ref": "#/$defs/NodeParam"},
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found"]
+    },
+    "explore.close": {
+      "summary": "Closes an explorer of either kind.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "handle": {"oneOf": [{"$ref": "types.json#/$defs/AssemblyExplorerHandle"}, {"$ref": "types.json#/$defs/MovementExplorerHandle"}]}
+        },
+        "required": ["handle"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found"]
+    }
+  },
+  "$defs": {
+    "NodeParam": {
+      "type": "object",
+      "properties": {"handle": {"$ref": "types.json#/$defs/MovementExplorerHandle"}, "node": {"type": "integer", "minimum": 0}},
+      "required": ["handle", "node"],
+      "additionalProperties": false
+    }
+  }
+}

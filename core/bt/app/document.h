@@ -15,6 +15,7 @@
 /// shapes) and mainwindow_solve.cpp (deleting solutions). The rules for
 /// edits while solving are decision 0011.
 
+#include "bt/app/analysis.h"
 #include "bt/app/explorers.h"
 #include "bt/app/playback.h"
 #include "bt/app/queries.h"
@@ -34,6 +35,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -143,6 +145,12 @@ class Document {
   Document& operator=(const Document&) = delete;
   /// Pauses the solves and waits for them.
   ~Document();
+
+  /// Opens a paused solve exported as a .btsolve file (cb_ImportPaused): a
+  /// new, untitled document (dirty: it has no file yet) and the paused
+  /// problem, which solveResume() carries on.
+  static Result<std::pair<Document, Id>> importPaused(const std::filesystem::path& path,
+                                                      DocumentSettings settings = {});
 
   /// Saves (gzip, as the original); the document is clean afterwards.
   /// Refused while a solve runs (save at a save point instead).
@@ -277,6 +285,11 @@ class Document {
   /// Allows or forbids piece colour on result colour (colour ids).
   Result<void> setColourRule(Id problem, Id pieceColour, Id resultColour, bool allowed);
   Result<void> setColourRules(Id problem, ColourPreset preset);
+  /// Stores the Solver tab's settings with a problem (cb_SolverOptions:
+  /// the original's names and values, saved in the file; the front end
+  /// decides what they mean). Replaces them all; not while the problem is
+  /// being solved.
+  Result<void> setSolverOptions(Id problem, std::map<std::string, std::string> options);
 
   // ---- solutions --------------------------------------------------------------
 
@@ -315,8 +328,39 @@ class Document {
   [[nodiscard]] Result<SolveProgress> solveProgress(Id problem) const;
   [[nodiscard]] Result<SolveStats> solveStats(Id problem) const;
   [[nodiscard]] std::optional<SolveFailure> solveFailure(Id problem) const;
-  /// Whether any run is active.
+  /// Whether any run or analysis is active (the guards of decision 0011
+  /// hold for both).
   [[nodiscard]] bool solving() const;
+
+  /// Writes a paused solve of a problem as a .btsolve file
+  /// (cb_ExportPaused): refused unless the problem holds a solve that can
+  /// be carried on (Solving, no run active) and while anything runs.
+  Result<void> exportPaused(Id problem, const std::filesystem::path& path) const;
+
+  // ---- analysing ----------------------------------------------------------------
+
+  /// Takes saved assemblies apart afterwards (solution.analyse) on a thread
+  /// of its own. Refused while the problem is being solved or analysed,
+  /// for grids without a take-apart, sliding and stacking puzzles, and
+  /// when there is nothing to take apart. While it lasts the document is
+  /// frozen as while solving (decision 0011); its results go in at poll()
+  /// once it has ended. Returns the number of assemblies to take apart.
+  Result<unsigned int> analyseStart(Id problem, const AnalyseOptions& options);
+  /// Asks an analysis to stop; what it finished is kept. Does not wait.
+  Result<void> analyseStop(Id problem);
+  /// Where it stands (inactive with zeros when there is none).
+  [[nodiscard]] Result<AnalyseProgress> analyseProgress(Id problem) const;
+  /// An analysis of the problem exists: running, or ended and not yet put
+  /// in by poll().
+  [[nodiscard]] bool analysing(Id problem) const;
+
+  /// Takes in what background work did: the results of the analyses that
+  /// have ended go into their problems, and the runs that ended since the
+  /// last call are noted. Either gives a new revision, with lastChange()
+  /// saying what (solving changes no undo step). Returns whether there was
+  /// any. The owner calls it now and then (the engine every 50 ms while
+  /// solving() and after each request).
+  bool poll();
 
   /// Calls f(problem) while the problem's solve does not write it.
   template <class F>
@@ -408,6 +452,10 @@ class Document {
 
   /// One solve per problem, by problem id; destroyed before the puzzle.
   std::map<Id, std::unique_ptr<SolveSession>> sessions_;
+  /// The problems whose run started since poll() last looked.
+  std::set<Id> runsStarted_;
+  /// One analysis per problem, until poll() puts its results in.
+  std::map<Id, std::unique_ptr<Analysis>> analyses_;
 };
 
 }  // namespace bt::app

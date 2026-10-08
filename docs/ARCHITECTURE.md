@@ -4,12 +4,14 @@ BurrTools Alpha is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 6 (the assembler run layer and all three
+*Current state: stage 7 (the assembler run layer and all three
 assemblers; the take-apart with rotation moves, Classic and Crowell; the
 solve session; the drawing meshes of every grid; the app layer: the
-document with its undo history and commands, the queries, the playback
-sampler and the explorers; `bt` solving and taking apart). Every module
-of `core/bt` has code; the engine follows in stage 7.*
+document with its undo history and commands, the queries, the layer
+drawing of the grid editors, the analysis of saved assemblies, the paused
+solve files, the playback sampler and the explorers; `bt` solving and
+taking apart; `bt-engine`, the JSON-RPC engine, with the schema of its
+API in `api/` and contract tests). The `bt` CLI is completed in stage 8.*
 
 ## Big picture
 
@@ -39,15 +41,16 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | Path | Contents |
 |---|---|
 | `core/bt/<module>/` | the library, headers and sources together; include as `"bt/<module>/x.h"` |
-| `engine/` | `bt-engine` (stage 7) |
+| `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
 | `cli/` | `bt`: solves and takes apart with burrTxt-compatible `--json` (full CLI in stage 8) |
-| `api/` | JSON Schema of engine methods and events (stage 7); see `api/README.md` |
-| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `grid`, `io`, `mesh`, `model`, `solve`) |
+| `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
+| `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
+| `tests/contract/` | the engine's contract tests: `bt-engine` driven as a subprocess, every message checked against `api/` |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
-| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`) |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solve_file`, `bt_solutions`) |
-| `docs/` | this file, PLAN.md, decisions/, handoff/, webui-spec.md, core-api.md |
+| `docs/` | this file, PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies |
 
 ## Modules
@@ -142,6 +145,8 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 - `disassembly.h`: `Disassembly` (the level and move counts),
   `State`, `Separation` (the tree, copyable), `SeparationInfo` (the compact
   pre-order form). `movesText()` keeps the original's 256-byte cut-off.
+- `problem.h` also gives `solutionSortOrder(by)`, the comparison
+  `sortSolutions` sorts with, for a sorted view (the engine's paging).
 - `solution.h`: `Solution`: an assembly with an optional `Separation` or
   `SeparationInfo`, its numbers, and a runtime id its problem gives it
   (not saved; the app layer's solution id).
@@ -162,7 +167,11 @@ solve).
   `XmlParseError`, which never leaves the module). `xml_document.h`: the
   tree built from it, and writing a tree back.
 - `xml_writer.h`: `XmlWriter`, the original's output layout.
-- `gzip_file.h`: whole-file reading and writing through zlib (level 9).
+- `gzip_file.h`: whole-file reading and writing through zlib (level 9),
+  and the same in memory (`gzipCompress`, `gunzipIfCompressed`).
+- `paused_solve.h`: the paused solve file (`.btsolve`, the original's
+  BTSOLVE2: the gzip-compressed puzzle and the paused problem's number in
+  little-endian sections; other sections skipped), both ways.
 
 Unknown attributes and elements of `<puzzle>`, `<problem>` and `<solution>`,
 and unknown `<voxel>` attributes, are kept and written back in place;
@@ -414,15 +423,33 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   dirty flag, the undo history (each step keeps the parts it changed and
   swaps them back and forth; groups for a drag; a depth), every editing
   command of core-api.md sections 1 to 4 and the solution commands
-  (delete, drop disassemblies, assemblies to shapes), each a `Result`, one
+  (delete, drop disassemblies, assemblies to shapes) and the stored
+  Solver tab settings (`setSolverOptions`), each a `Result`, one
   step; the queries; one `SolveSession` per problem being solved (start,
   prepare, resume, pause, save point, abort, wait, state, progress, stats,
-  failure, `readProblem`); playback and explorers. The rules for edits
-  while solving are decision 0011.
+  failure, `readProblem`); the analyses; `poll()`, which puts in what
+  background work did (an analysis's separations, the end of a run) as a
+  revision of its own; the paused solve files (`exportPaused`,
+  `importPaused`, a new untitled document); playback and explorers. The
+  rules for edits while solving are decision 0011; they hold while an
+  analysis runs too (`solving()` covers both).
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
   `defaultShapeSize`, `sizeUnit`.
+- `analysis.h`: `Analysis`, saved assemblies taken apart afterwards
+  (cb_AddDisasm / cb_AddAllDisasm: all, those without their moves, or one)
+  on a thread of its own with one `Disassembler` and a pool for its
+  levels; progress, a stop that keeps what was finished, the separations
+  by solution id. The document runs one per problem (`analyseStart`,
+  `analyseStop`, `analyseProgress`) and puts the results in at `poll()`.
+  Checked against the original's own re-analysis of the fixtures
+  (`tests/data/analysed_by_original/`, byte for byte).
+- `layer_geometry.h`: `layerGeometry(space, layer)`, the grid editor's
+  drawing of a layer (grideditor_0 to _4): each valid cell's outline,
+  counter-clockwise (circles on the sphere grid), and the cell across each
+  edge; in cell units (a rhombic block of 5 and a tetra-octa block of 3
+  cells is one square). Checked against the original's corner formulas.
 - `queries.h`: `problemFit` (`FitStats`: the result's and the pieces'
   cells, the piece counts, holes, the verdict, the original's status
   line), `shapeTable` (`ShapeInfo`: the status window's row),
@@ -439,10 +466,59 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
 
 **Rules of the app layer:** the owner calls the document from one thread;
 a command checks first and changes after, so a refused one changes
-nothing; every change is undoable except what solving does; while a run
-is active, shapes, lists and the solving problems are frozen (decision
-0011); runs only read shapes (the document resets hotspots and warms the
-caches before a run).
+nothing; every change is undoable except what solving and analysing do;
+while a run or an analysis is active, shapes, lists and the solving
+problems are frozen (decision 0011); runs and analyses only read shapes
+(the document resets hotspots and warms the caches before the first one
+starts); a solution is found by its id under the solve's lock (a run
+moves solutions about).
+
+## engine (stage 7, decision 0012)
+`bt-engine` speaks JSON-RPC 2.0 over stdio: one request per line in, one
+reply or notification per line out, binary frames (an announcement line,
+then the bytes) for meshes and poses, logs on stderr. The methods are the
+schema in `api/`, documented in the generated `docs/API.md`.
+- `engine.h`: `Engine` (the dispatcher: `handleLine`, `poll`, `run` with
+  a reader thread that only queues lines; the main thread runs every
+  request and owns the document and stdout), `State` (the document, its
+  path, the settings, the handles of playbacks and explorers, what the
+  events last told), `Settings`, the method table (`add…Methods` of each
+  `methods_<area>.cpp`).
+- `rpc.h`: the error codes (`Errc` → `-32001`…, protocol errors as
+  JSON-RPC's, `data.errc` on every error), `Params` (reads a method's
+  fields, refusing missing, mistyped and unknown ones as the schema does),
+  the ids (`s7`, `c2`, `p1`, `sol42`, handles `pb1`, `ax1`, `mx1`),
+  `BTE_TRY` / `BTE_CHECK` (a core `Result` error becomes the reply).
+- `output.h`: `Output` (lines and frames), `FrameBuilder` (typed arrays
+  at multiples of four, described for the reply), base64.
+- `convert.h`: the names of the schema's enums and the JSON of the items
+  (`snapshot`, shape, colour and problem summaries, the status row, the
+  fit, meshes as frames, the stored solver settings, solve options over
+  the settings, progress, statistics, failures, solution rows,
+  placements).
+- `methods_<area>.cpp`: one per schema file. Solving (`solve.*` on the
+  document's solve calls; a pause only for a run under way), solutions
+  (`solution.page` sorts the saved list's indices under `readProblem`
+  with `solutionSortOrder`, a view; the analysis), playback (samplers
+  behind `pb` handles: poses and keyframe tracks as frames of typed
+  arrays), explorers (`ax` and `mx` handles).
+- `events.cpp`: `document.changed` after a request that changed the
+  document, and the poll of the background work: per problem, the solve's
+  state as it is seen to change, progress at most four times a second
+  (and when a run ends), `solve.solutionsAdded` when the saved list's
+  length or newest id changes, `solve.error`, the analysis's progress and
+  end; then `Document::poll()` and its `document.changed`.
+
+**Rules of the engine:** requests run one at a time in order; a reply
+comes before the events it caused, a frame before the reply that refers
+to it; the revision clients see never goes back (a new document counts
+on from the old one); nothing but the main thread touches the document;
+handles hold copies and survive edits, a new document drops them;
+`core/` never sees JSON. Tested in process (`tests/unit/engine/`, a solve
+polled while it runs among the `[parallel]` cases) and as a subprocess
+(`tests/contract/`: every reply and event checked against the schema,
+every method called with success at least once, the scripted session of
+the brief).
 
 ## Testing against the original
 
@@ -461,13 +537,15 @@ caches before a run).
   fixtures and the original's solved files are loaded and saved by both
   programs; the saves must be the same XML), and recorders that compile a
   dump tool against the original's library (`oracle.py grid-dump`,
-  `model-dump`, `app-dump`, `record-saves`, `record-positions`, writing
-  into `tests/data/`).
+  `model-dump`, `app-dump`, `record-saves`, `record-positions`,
+  `record-analysed`, writing into `tests/data/`).
 - `tests/bench/bench.py` times `bt` against the original's `burrTxt`, back
   to back (decision 0007's speed rule; stage 8 is the gate).
 - The unit tests compare with those recordings (`test_grid_dump.cpp`,
   `test_model_dump.cpp`, `test_app_dump.cpp` (meshes, the status table,
-  the fit line, playback tracks), the byte-for-byte save check in
+  the fit line, playback tracks), `test_analysis_files.cpp` (the
+  re-analysis, byte for byte), `test_layer_geometry.cpp` (the grid
+  editors' corner formulas, copied into the test), the byte-for-byte save check in
   `test_puzzle_file.cpp`, the paused positions in `test_positions.cpp`);
   they never read the original repo.
 
@@ -485,7 +563,10 @@ See AGENTS.md for the full list. The load-bearing ones:
 
 `just build` / `just test` / `just test-all` / `just test-asan` /
 `just test-tsan` / `just oracle` / `just oracle-resume` /
-`just oracle-roundtrip` / `just check`.
+`just oracle-roundtrip` / `just check`. ctest also runs `api-schema`
+(the schema checks itself), `api-docs` (`docs/API.md` is current) and
+`contract` (the engine as a subprocess).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
 `release`. zlib comes from the system, or is built from a pinned release
-(`cmake/Dependencies.cmake`).
+(`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only) and
+Catch2 are fetched.

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "engine.json",
+  "title": "Engine and settings",
+  "description": "What the engine can do, its settings (kept across documents), and the frame announcement.",
+  "methods": {
+    "engine.info": {
+      "summary": "The engine's version, the grids and solvers it knows, the machine's threads, and its methods.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {
+          "name": {"const": "bt-engine"},
+          "version": {"type": "string"},
+          "protocol": {"type": "integer", "minimum": 1, "description": "Raised when a change breaks clients."},
+          "grids": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "grid": {"$ref": "types.json#/$defs/Grid"},
+                "label": {"type": "string"},
+                "assemble": {"type": "boolean", "description": "It has an assembler."},
+                "disassemble": {"type": "boolean", "description": "It has a take-apart."},
+                "supported": {"type": "boolean", "description": "This version solves its puzzles (sliding and stacking: not yet)."},
+                "defaultSize": {"type": "integer", "minimum": 1, "description": "The size of a new shape in each direction, in cells."},
+                "sizeUnit": {"type": "integer", "minimum": 1, "description": "shape.resize counts in blocks of this many cells."}
+              },
+              "required": ["grid", "label", "assemble", "disassemble", "supported", "defaultSize", "sizeUnit"],
+              "additionalProperties": false
+            }
+          },
+          "solvers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {"solver": {"$ref": "types.json#/$defs/Solver"}, "label": {"type": "string"}},
+              "required": ["solver", "label"],
+              "additionalProperties": false
+            }
+          },
+          "hardwareThreads": {"type": "integer", "minimum": 1},
+          "maxThreads": {"type": "integer", "minimum": 1},
+          "methods": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["name", "version", "protocol", "grids", "solvers", "hardwareThreads", "maxThreads", "methods"],
+        "additionalProperties": false
+      }
+    },
+    "engine.shutdown": {
+      "summary": "Replies, then ends the engine: its solves pause and are waited for (end of input does the same).",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "types.json#/$defs/Empty"}
+    },
+    "settings.get": {
+      "summary": "The engine's settings.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "#/$defs/Settings"}
+    },
+    "settings.set": {
+      "summary": "Changes some settings; the others stay. A smaller undo depth drops the oldest steps.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "undoDepth": {"type": "integer", "minimum": 1, "maximum": 10000},
+          "threads": {"type": "integer", "minimum": 0, "maximum": 256},
+          "solver": {"$ref": "types.json#/$defs/Solver"}
+        },
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/Settings"}
+    }
+  },
+  "events": {
+    "frame": {
+      "summary": "Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; the reply that refers to it comes after.",
+      "params": {
+        "type": "object",
+        "properties": {"frame": {"type": "integer", "minimum": 1}, "bytes": {"type": "integer", "minimum": 0}},
+        "required": ["frame", "bytes"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "Settings": {
+      "type": "object",
+      "properties": {
+        "undoDepth": {"type": "integer", "minimum": 1, "description": "Undo steps kept (default 25)."},
+        "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "The threads of a solve when its options do not say; 0 every hardware thread (default)."},
+        "solver": {"$ref": "types.json#/$defs/Solver", "description": "The solver when a solve's or analysis's options do not say (default classic)."}
+      },
+      "required": ["undoDepth", "threads", "solver"],
+      "additionalProperties": false
+    }
+  }
+}

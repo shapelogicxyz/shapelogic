@@ -64,6 +64,14 @@ struct PendingAssembly {
   std::uint64_t solutionNumber = 0;
 };
 
+/// A less-than of saved solutions.
+using SolutionLess = bool (*)(const Solution&, const Solution&);
+
+/// The order Problem::sortSolutions(by) sorts in (0 by assembly number, 1
+/// by level, 2 by moves, 3 by the pieces used); null for another number.
+/// For a front end that shows the solutions sorted without sorting them.
+[[nodiscard]] SolutionLess solutionSortOrder(int by);
+
 /// One problem of a puzzle. A value inside its Puzzle; operations that look
 /// at shapes or colours take that puzzle as a parameter.
 ///

@@ -465,6 +465,38 @@ def cmd_record_saves(args: argparse.Namespace) -> int:
     return 0
 
 
+# The fixtures solution.analyse is checked on (stage 7): those of a grid with
+# a take-apart that hold saved solutions, and how the original took them
+# apart again (cb_AddAllDisasm's take-apart settings).
+ANALYSED = (
+    ("PelikanBurr", []), ("Prisgon", []), ("CubeInCage", []), ("AlPackino", []),
+    ("Bermuda", []), ("DraculasDentalDesaster", []), ("SolidSixPieceBurrs", []),
+    ("test_rotation_solvers_solved", ["--rotations"]),
+    ("test_rotation_solvers_solved", ["--rotations", "--crowell"]),
+)
+
+
+def cmd_record_analysed(args: argparse.Namespace) -> int:
+    """Record tests/data/analysed_by_original/: each fixture's saved assemblies taken
+    apart again by the original, as "Add disassembly" for all solutions (stage 7)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "analyse_old"
+    if not build_against_old(args.old_repo, HERE / "analyse_old.cpp", exe):
+        return 2
+    out_dir = HERE.parent / "data" / "analysed_by_original"
+    out_dir.mkdir(exist_ok=True)
+    for name, flags in ANALYSED:
+        tmp = WORK_DIR / "analysed.xmpuzzle"
+        err = run_tool([str(exe), str(FIXTURES / (name + ".xmpuzzle")), str(tmp), *flags], 600)
+        if err:
+            print(f"{name}: {err}", file=sys.stderr)
+            return 1
+        suffix = "".join(f.replace("--", "_") for f in flags)
+        (out_dir / (name + suffix + ".xml")).write_bytes(read_xml_bytes(tmp))
+    print(f"wrote {out_dir}")
+    return 0
+
+
 # Files the round trip checks besides the corpus: features the corpus leaves
 # out (sliding, stacking, rotation solutions). Never add the commercial sliding
 # puzzle "One Way or Another"; test/test_sliding_solver.xmpuzzle stands in.
@@ -869,6 +901,7 @@ def main() -> int:
     sub.add_parser("model-dump", help="record tests/data/model_dump.txt from the original's model code")
     sub.add_parser("app-dump", help="record tests/data/app_dump.txt: the original's meshes, status table, fit line and playback")
     sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
+    sub.add_parser("record-analysed", help="record tests/data/analysed_by_original/: the original's Add disassembly")
     s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
     s = sub.add_parser("resume-check", help="pause searches in one program and continue them in the other")
@@ -888,6 +921,7 @@ def main() -> int:
             "compare-files": cmd_compare_files,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
             "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "record-saves": cmd_record_saves,
+            "record-analysed": cmd_record_analysed,
             "record-positions": cmd_record_positions}[args.cmd](args)
 
 

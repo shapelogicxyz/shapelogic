@@ -1,0 +1,144 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="0"/>
+ <colors/>
+ <shapes>
+  <voxel x="7" y="7" z="7" name="Result" type="0">__________#______#______#______#______#____________________#______+___#######___+______#____________________#_____+++__#+++++#__+++_____#___________#####__#+#+#__#+++#_##+++##_#+++#__#+#+#__#####___________#_____+++__#+++++#__+++_____#____________________#______+___#######___+______#____________________#______#______#______#______#__________</voxel>
+  <voxel x="5" y="7" z="1" name="Frame1" type="0">######___##___##___##___##__#######</voxel>
+  <voxel x="5" y="7" z="1" name="Frame2" type="0">######__###___##___##___##__#######</voxel>
+  <voxel x="3" y="3" z="2" type="0">_##__####________#</voxel>
+  <voxel x="6" y="6" z="6" type="0">______________#_____##__________________________________###___________________________________#_____#___________________________________________________________________________________________________________________</voxel>
+  <voxel x="6" y="6" z="6" type="0">_________________________________________________###_____#_____#_____________________#_#_________#_#_________________________________###________________________________________________________________________________</voxel>
+ </shapes>
+ <problems>
+  <problem name="g" state="2" assemblies="96" solutions="1" time="0" timeMs="0">
+   <shapes>
+    <shape id="1" count="1" group="1"/>
+    <shape id="2" count="2" group="1"/>
+    <shape id="3" count="1"/>
+    <shape id="4" count="1"/>
+    <shape id="5" count="1"/>
+   </shapes>
+   <result id="0"/>
+   <bitmap/>
+   <solutions>
+    <solution>
+     <assembly>1 6 3 2 6 3 1 5 3 1 0 17 2 2 3 0 2 6 0 6 1 5 6 23</assembly>
+     <separation>
+      <pieces count="6">0 1 2 3 4 5</pieces>
+      <state>
+       <dx>1 6 3 2 2 1</dx>
+       <dy>6 3 1 2 6 5</dy>
+       <dz>3 1 0 3 0 6</dz>
+      </state>
+      <state>
+       <dx>1 6 2 2 2 1</dx>
+       <dy>6 3 1 2 6 5</dy>
+       <dz>3 1 0 3 0 6</dz>
+      </state>
+      <state>
+       <dx>1 6 2 2 2 1</dx>
+       <dy>6 3 1 2 6 5</dy>
+       <dz>2 1 0 3 0 6</dz>
+      </state>
+      <state>
+       <dx>1 6 2 3 2 1</dx>
+       <dy>6 3 1 2 6 5</dy>
+       <dz>2 1 0 3 0 6</dz>
+      </state>
+      <state>
+       <dx>1 6 2 3 2 1</dx>
+       <dy>6 3 1 20002 6 5</dy>
+       <dz>2 1 0 3 0 6</dz>
+      </state>
+      <separation type="left">
+       <pieces count="5">0 1 2 4 5</pieces>
+       <state>
+        <dx>1 6 2 2 1</dx>
+        <dy>6 3 1 6 5</dy>
+        <dz>2 1 0 0 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 2 1</dx>
+        <dy>6 3 1 6 5</dy>
+        <dz>2 1 0 0 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 2 1</dx>
+        <dy>6 2 1 6 5</dy>
+        <dz>2 1 0 0 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 2 1</dx>
+        <dy>6 2 1 6 5</dy>
+        <dz>3 1 0 0 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 2 1</dx>
+        <dy>6 2 1 6 5</dy>
+        <dz>3 1 0 -1 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 1 1</dx>
+        <dy>6 2 1 6 5</dy>
+        <dz>3 1 0 -1 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 1 1</dx>
+        <dy>6 2 1 7 5</dy>
+        <dz>3 1 0 -1 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 1 2</dx>
+        <dy>6 2 1 7 5</dy>
+        <dz>3 1 0 -1 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 1 2</dx>
+        <dy>6 2 1 7 5</dy>
+        <dz>3 1 0 -2 6</dz>
+       </state>
+       <state>
+        <dx>1 6 3 -19999 2</dx>
+        <dy>6 2 1 7 5</dy>
+        <dz>3 1 0 -2 6</dz>
+       </state>
+       <separation type="left">
+        <pieces count="4">0 1 2 5</pieces>
+        <state>
+         <dx>1 6 3 2</dx>
+         <dy>6 2 1 5</dy>
+         <dz>3 1 0 6</dz>
+        </state>
+        <state>
+         <dx>1 6 2 2</dx>
+         <dy>6 2 1 5</dy>
+         <dz>3 1 0 6</dz>
+        </state>
+        <state>
+         <dx>1 6 2 2</dx>
+         <dy>6 2 1 6</dy>
+         <dz>3 1 0 6</dz>
+        </state>
+        <state>
+         <dx>1 6 2 2</dx>
+         <dy>6 2 1 6</dy>
+         <dz>3 1 0 -19994</dz>
+        </state>
+       </separation>
+      </separation>
+     </separation>
+    </solution>
+   </solutions>
+  </problem>
+ </problems>
+ <comment popup="">Name: CubeInCage
+Designed by: Mineyuki Uyematsu
+This file contains MINE&apos;s CUBE in CAGE 333 cube g. This
+file demonstrates how to use the grouping capabilities. The
+puzzle contains 3 interlocked pieces that construct a cage.
+The piece move but can not be taken apart. It needs to be
+told to the program that this is intentional. So here you have
+an example of how to do that.
+</comment>
+</puzzle>

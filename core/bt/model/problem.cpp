@@ -584,8 +584,6 @@ void Problem::removeSolution(unsigned int sol) {
 
 namespace {
 
-using SolutionLess = bool (*)(const Solution&, const Solution&);
-
 bool comp0Assembly(const Solution& s1, const Solution& s2) {
   return s1.getAssemblyNumber() < s2.getAssemblyNumber();
 }
@@ -668,7 +666,9 @@ bool compRotationsDesc(const Solution& s1, const Solution& s2) {
   return compUnsorted(s1, s2);
 }
 
-SolutionLess sortComparator(int by) {
+}  // namespace
+
+SolutionLess solutionSortOrder(int by) {
   switch (by) {
     case 0:
       return comp0Assembly;
@@ -683,10 +683,8 @@ SolutionLess sortComparator(int by) {
   }
 }
 
-}  // namespace
-
 void Problem::sortSolutions(int by) {
-  const SolutionLess less = sortComparator(by);
+  const SolutionLess less = solutionSortOrder(by);
   if (less == nullptr) {
     return;
   }
@@ -696,7 +694,7 @@ void Problem::sortSolutions(int by) {
 }
 
 void Problem::keepSolutionsSorted(int by) {
-  const SolutionLess less = sortComparator(by);
+  const SolutionLess less = solutionSortOrder(by);
   if (less == nullptr) {
     return;
   }

@@ -54,7 +54,7 @@ failure scenarios.
 - [x] **Stage 5**: solve session (see docs/handoff/stage-5.md)
 - [x] Audit of stage 5: six findings fixed (commit db3cb40; see docs/handoff/stage-6.md)
 - [x] **Stage 6**: app layer and meshes (see docs/handoff/stage-6.md)
-- [ ] Stage 7: engine
+- [x] **Stage 7**: engine, its API schema and contract tests (see docs/handoff/stage-7.md)
 - [ ] Stage 8: CLI and performance
 
 ## Stage details
@@ -110,6 +110,10 @@ moved to stage 7 (docs/handoff/stage-6.md).
 ### Stage 7: engine
 JSON Schema in `api/`, `bt-engine` JSON-RPC dispatcher, events, binary
 frames, paged solution lists, generated `docs/API.md`, contract tests.
+Done in one session (decision 0012), with what stage 6 left: the grid
+editors' layer drawing, the analysis of saved assemblies, the paused
+solve files and the stored solver settings. The recommended review of
+the API design was not held; an audit of stage 7 is worth it.
 
 ### Stage 8: CLI and performance
 Complete `bt` (burrTxt-compatible options and `--json`), benchmark scripts

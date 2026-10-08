@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "types.json",
+  "title": "Shared definitions",
+  "description": "The types the methods and events of bt-engine share (decision 0012).",
+  "$defs": {
+    "ShapeId": {"type": "string", "pattern": "^s[1-9][0-9]*$", "description": "A shape, stable while the document is open."},
+    "ColourId": {"type": "string", "pattern": "^c[1-9][0-9]*$", "description": "A constraint colour."},
+    "ProblemId": {"type": "string", "pattern": "^p[1-9][0-9]*$", "description": "A problem; also names its solve and its analysis."},
+    "SolutionId": {"type": "string", "pattern": "^sol[1-9][0-9]*$", "description": "A saved solution, unique within its problem."},
+    "PlaybackHandle": {"type": "string", "pattern": "^pb[1-9][0-9]*$", "description": "A playback opened by playback.open."},
+    "AssemblyExplorerHandle": {"type": "string", "pattern": "^ax[1-9][0-9]*$", "description": "An assembly explorer opened by explore.openAssembly."},
+    "MovementExplorerHandle": {"type": "string", "pattern": "^mx[1-9][0-9]*$", "description": "A movement explorer opened by explore.openMovements."},
+    "Revision": {"type": "integer", "minimum": 0, "description": "The document's revision; every change increments it."},
+    "Changed": {
+      "type": "object",
+      "description": "The result of a mutating call: the revision after it (unchanged when the call changed nothing).",
+      "properties": {"revision": {"$ref": "#/$defs/Revision"}},
+      "required": ["revision"],
+      "additionalProperties": false
+    },
+    "Empty": {"type": "object", "properties": {}, "additionalProperties": false, "description": "No result."},
+    "Rgb": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$", "description": "A colour, #rrggbb (the engine writes lower case)."},
+    "Cell": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3, "description": "A cell [x, y, z] in the grid's own coordinates."},
+    "Size": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 3, "maxItems": 3, "description": "A size [x, y, z]."},
+    "Point2": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "A point [x, y] of a layer drawing, y up."},
+    "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet."},
+    "Solver": {"enum": ["classic", "crowell", "bt2"], "description": "BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2."},
+    "SolveState": {"enum": ["idle", "preparing", "assembling", "draining", "paused", "finished", "error"], "description": "decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage)."},
+    "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error"]},
+    "ProblemState": {"enum": ["unsolved", "solving", "solved", "unknown"], "description": "What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit."},
+    "CellState": {"enum": ["fixed", "variable"]},
+    "CellTool": {"enum": ["fixed", "variable", "erase", "paint"], "description": "The grid editor's tools; paint changes only the colour of non-empty cells."},
+    "Axes": {"type": "array", "items": {"enum": ["x", "y", "z"]}, "maxItems": 3, "description": "Mirror or span axes."},
+    "ShapeTask": {
+      "enum": ["nudge0", "nudge1", "nudge2", "nudge3", "nudge4", "nudge5", "rotate6", "rotate7", "rotate8", "rotate9", "rotate10", "rotate11", "flip12", "flip13", "flip14", "prune", "insideFixed", "outsideFixed", "insideVariable", "outsideVariable", "insideDecolour", "outsideDecolour", "double", "triple", "toOrigin", "centre", "minimize", "nudge27", "nudge28", "nudge29", "nudge30", "nudge31", "nudge32", "fillHoles", "gridScale"],
+      "description": "A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label)."
+    },
+    "MeshStyle": {"enum": ["drawing", "wireframe", "flat"], "description": "The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, or flat faces with edge lines."},
+    "ChangeKind": {"enum": ["shapes", "colours", "problems", "solutions", "notes"]},
+    "SortBy": {"enum": ["unsorted", "moves", "level", "rotations"], "description": "Where a new solution goes in the saved list while solving: the original's sort-by choice."},
+    "ArrayRef": {
+      "type": "object",
+      "description": "A typed array inside a binary frame, little-endian, its offset a multiple of 4.",
+      "properties": {
+        "type": {"enum": ["f32", "u32", "i32", "u8"]},
+        "offset": {"type": "integer", "minimum": 0},
+        "length": {"type": "integer", "minimum": 0, "description": "Elements, not bytes."}
+      },
+      "required": ["type", "offset", "length"],
+      "additionalProperties": false
+    },
+    "Frame": {
+      "type": "object",
+      "description": "A binary frame sent before the reply (decision 0012): its number, its size, and the arrays in it.",
+      "properties": {
+        "frame": {"type": "integer", "minimum": 1},
+        "bytes": {"type": "integer", "minimum": 0},
+        "arrays": {"type": "object", "additionalProperties": {"$ref": "#/$defs/ArrayRef"}}
+      },
+      "required": ["frame", "bytes", "arrays"],
+      "additionalProperties": false
+    },
+    "MeshFrame": {
+      "type": "object",
+      "description": "A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); and edgeLines (f32, two points per line, flat style only).",
+      "properties": {
+        "frame": {"$ref": "#/$defs/Frame"},
+        "triangles": {"type": "integer", "minimum": 0},
+        "vertices": {"type": "integer", "minimum": 0},
+        "lo": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "hi": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+      },
+      "required": ["frame", "triangles", "vertices", "lo", "hi"],
+      "additionalProperties": false
+    },
+    "ShapeSummary": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/ShapeId"},
+        "label": {"type": "string", "description": "S1, S2, ... by place."},
+        "name": {"type": "string"},
+        "size": {"$ref": "#/$defs/Size"},
+        "fixed": {"type": "integer", "minimum": 0},
+        "variable": {"type": "integer", "minimum": 0},
+        "weight": {"type": "integer"},
+        "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."}
+      },
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour"],
+      "additionalProperties": false
+    },
+    "Colour": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/ColourId"},
+        "label": {"type": "string", "description": "C1, C2, ... by place."},
+        "rgb": {"$ref": "#/$defs/Rgb"}
+      },
+      "required": ["id", "label", "rgb"],
+      "additionalProperties": false
+    },
+    "ProblemSummary": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/ProblemId"},
+        "label": {"type": "string", "description": "P1, P2, ... by place."},
+        "name": {"type": "string"},
+        "result": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}]},
+        "pieces": {"type": "integer", "minimum": 0, "description": "The number of pieces (the parts' maxima summed)."},
+        "state": {"$ref": "#/$defs/ProblemState"},
+        "solve": {"$ref": "#/$defs/SolveState"},
+        "analysing": {"type": "boolean"},
+        "assemblies": {"type": ["integer", "null"], "description": "Assemblies found, when known."},
+        "solutions": {"type": ["integer", "null"], "description": "Solutions found, when known."},
+        "saved": {"type": "integer", "minimum": 0, "description": "Saved solutions."},
+        "timeMs": {"type": ["integer", "null"], "description": "Time spent solving, when known."}
+      },
+      "required": ["id", "label", "name", "result", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs"],
+      "additionalProperties": false
+    },
+    "Snapshot": {
+      "type": "object",
+      "description": "Everything a front end shows of the document's lists.",
+      "properties": {
+        "revision": {"$ref": "#/$defs/Revision"},
+        "dirty": {"type": "boolean"},
+        "grid": {"$ref": "#/$defs/Grid"},
+        "path": {"type": ["string", "null"], "description": "The file it was opened from or last saved to."},
+        "notes": {"type": "string"},
+        "canUndo": {"type": "boolean"},
+        "canRedo": {"type": "boolean"},
+        "solving": {"type": "boolean", "description": "A solve or an analysis is active: shapes and lists are frozen (decision 0011)."},
+        "shapes": {"type": "array", "items": {"$ref": "#/$defs/ShapeSummary"}},
+        "colours": {"type": "array", "items": {"$ref": "#/$defs/Colour"}},
+        "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}}
+      },
+      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colours", "problems"],
+      "additionalProperties": false
+    },
+    "ShapeInfo": {
+      "type": "object",
+      "description": "A row of the status window.",
+      "properties": {
+        "shape": {"$ref": "#/$defs/ShapeId"},
+        "fixed": {"type": "integer", "minimum": 0},
+        "variable": {"type": "integer", "minimum": 0},
+        "identicalMirror": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "An earlier shape it is identical to, mirrors allowed."},
+        "identicalShape": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "... in any orientation, not mirrored."},
+        "identicalComplete": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "... colours included."},
+        "connectedFace": {"type": "boolean"},
+        "connectedEdge": {"type": "boolean"},
+        "connectedCorner": {"type": "boolean"},
+        "holes2D": {"type": "boolean"},
+        "holes3D": {"type": "boolean"},
+        "notchable": {"type": ["boolean", "null"], "description": "Cube grid only."},
+        "millable": {"type": ["boolean", "null"], "description": "Cube grid only."},
+        "symmetry": {"type": ["integer", "null"], "description": "The symmetry group number, when the grid's tables know it."},
+        "statusLine": {"type": "string", "description": "The original's status line for the shape."}
+      },
+      "required": ["shape", "fixed", "variable", "identicalMirror", "identicalShape", "identicalComplete", "connectedFace", "connectedEdge", "connectedCorner", "holes2D", "holes3D", "notchable", "millable", "symmetry", "statusLine"],
+      "additionalProperties": false
+    },
+    "Part": {
+      "type": "object",
+      "properties": {
+        "shape": {"$ref": "#/$defs/ShapeId"},
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": "integer", "minimum": 1},
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"group": {"type": "integer", "minimum": 1}, "count": {"type": "integer", "minimum": 1}},
+            "required": ["group", "count"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["shape", "min", "max", "groups"],
+      "additionalProperties": false
+    },
+    "SolverSettings": {
+      "type": "object",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names). Settings of other versions are kept as strings.",
+      "properties": {
+        "disassemble": {"type": "boolean"},
+        "checkRotations": {"type": "boolean"},
+        "justCount": {"type": "boolean"},
+        "justLevels": {"type": "boolean"},
+        "deepSymmetry": {"type": "boolean"},
+        "keepMirrors": {"type": "boolean"},
+        "keepRotations": {"type": "boolean"},
+        "strictColors": {"type": "boolean"},
+        "nestedSlides": {"type": "boolean"},
+        "highMemory": {"type": "boolean"},
+        "autosave": {"type": "boolean"},
+        "solverType": {"type": "string", "description": "classic, crowell, bt2 (sliding: fast, deep, full)."},
+        "sortBy": {"type": "string", "description": "unsorted, moves, level, rotations."}
+      },
+      "additionalProperties": {"type": "string"}
+    },
+    "ProblemDetail": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/ProblemId"},
+        "label": {"type": "string"},
+        "name": {"type": "string"},
+        "result": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}]},
+        "pieces": {"type": "integer", "minimum": 0},
+        "state": {"$ref": "#/$defs/ProblemState"},
+        "solve": {"$ref": "#/$defs/SolveState"},
+        "analysing": {"type": "boolean"},
+        "assemblies": {"type": ["integer", "null"]},
+        "solutions": {"type": ["integer", "null"]},
+        "saved": {"type": "integer", "minimum": 0},
+        "timeMs": {"type": ["integer", "null"]},
+        "parts": {"type": "array", "items": {"$ref": "#/$defs/Part"}},
+        "colourRules": {
+          "type": "array",
+          "description": "The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'.",
+          "items": {
+            "type": "object",
+            "properties": {"piece": {"$ref": "#/$defs/ColourId"}, "result": {"$ref": "#/$defs/ColourId"}},
+            "required": ["piece", "result"],
+            "additionalProperties": false
+          }
+        },
+        "maxHoles": {"type": ["integer", "null"]},
+        "savedPosition": {"type": "boolean", "description": "A paused search position is stored (solve.continue carries on from it)."},
+        "solverSettings": {"$ref": "#/$defs/SolverSettings"}
+      },
+      "required": ["id", "label", "name", "result", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings"],
+      "additionalProperties": false
+    },
+    "FitStats": {
+      "type": "object",
+      "description": "Whether the pieces can fill the result (the fit summary).",
+      "properties": {
+        "verdict": {"enum": ["noResult", "fits", "tooLarge", "tooSmall"]},
+        "resultMin": {"type": "integer", "minimum": 0, "description": "The result's fixed cells."},
+        "resultMax": {"type": "integer", "minimum": 0, "description": "Fixed plus variable."},
+        "piecesMin": {"type": "integer", "minimum": 0},
+        "piecesMax": {"type": "integer", "minimum": 0},
+        "cellsMin": {"type": "integer", "minimum": 0},
+        "cellsMax": {"type": "integer", "minimum": 0},
+        "holesMin": {"type": "integer", "minimum": 0},
+        "holesMax": {"type": "integer", "minimum": 0},
+        "maxHoles": {"type": ["integer", "null"]},
+        "statusLine": {"type": "string"}
+      },
+      "required": ["verdict", "resultMin", "resultMax", "piecesMin", "piecesMax", "cellsMin", "cellsMax", "holesMin", "holesMax", "maxHoles", "statusLine"],
+      "additionalProperties": false
+    },
+    "SolveOptions": {
+      "type": "object",
+      "description": "What a solve does (the solve thread's flags); a missing field takes the engine's setting or the default.",
+      "properties": {
+        "solver": {"$ref": "#/$defs/Solver"},
+        "disassemble": {"type": "boolean", "description": "Take each assembly apart; only those that come apart are solutions."},
+        "checkRotations": {"type": "boolean", "description": "Try 90 degree turns while taking apart."},
+        "justCount": {"type": "boolean", "description": "Count, keep no solutions."},
+        "justLevels": {"type": "boolean", "description": "Keep the level summary of each take-apart, not its moves."},
+        "keepMirrors": {"type": "boolean"},
+        "keepRotations": {"type": "boolean"},
+        "completeRotations": {"type": "boolean", "description": "The thorough rotation check (the original's deep symmetry check)."},
+        "strictColours": {"type": "boolean"},
+        "reduce": {"type": "boolean", "description": "Drop placements that can never be part of an assembly first (default true)."},
+        "sortBy": {"$ref": "#/$defs/SortBy"},
+        "keepAtMost": {"type": "integer", "minimum": 0, "description": "Keep at most this many solutions; 0 all (default 10)."},
+        "keepEach": {"type": "integer", "minimum": 0, "description": "Unsorted, keep every n-th (0 and 1: each)."},
+        "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "Assembly and take-apart together; 0 every hardware thread."},
+        "takeApartWorkers": {"type": "integer", "minimum": 0, "maximum": 64, "description": "0 chooses."}
+      },
+      "additionalProperties": false
+    },
+    "TakeApartProgress": {
+      "type": "object",
+      "description": "One take-apart under way.",
+      "properties": {
+        "elapsedMs": {"type": "integer", "minimum": 0},
+        "pieces": {"type": "integer", "minimum": 0},
+        "searchPieces": {"type": "integer", "minimum": 0},
+        "separations": {"type": "integer", "minimum": 0},
+        "depth": {"type": "integer", "minimum": 0},
+        "level": {"type": "integer", "minimum": 0},
+        "levelDone": {"type": "integer", "minimum": 0},
+        "levelSize": {"type": "integer", "minimum": 0},
+        "nextLevelSize": {"type": "integer", "minimum": 0},
+        "nodes": {"type": "integer", "minimum": 0},
+        "threads": {"type": "integer", "minimum": 0}
+      },
+      "required": ["elapsedMs", "pieces", "searchPieces", "separations", "depth", "level", "levelDone", "levelSize", "nextLevelSize", "nodes", "threads"],
+      "additionalProperties": false
+    },
+    "SolveProgress": {
+      "type": "object",
+      "properties": {
+        "stage": {"$ref": "#/$defs/SolveStage"},
+        "elapsedMs": {"type": "integer", "minimum": 0},
+        "piece": {"type": "integer", "minimum": 0},
+        "pieces": {"type": "integer", "minimum": 0},
+        "assemblyFraction": {"type": "number"},
+        "iterations": {"type": "integer", "minimum": 0},
+        "assemblerThreads": {"type": "integer", "minimum": 0},
+        "assemblies": {"type": "integer", "minimum": 0},
+        "solutions": {"type": "integer", "minimum": 0},
+        "disassembly": {"type": "boolean"},
+        "disasmCompleted": {"type": "integer", "minimum": 0},
+        "disasmPending": {"type": "integer", "minimum": 0},
+        "disasmWorkers": {"type": "integer", "minimum": 0},
+        "overall": {"type": "number", "description": "The whole solve, 0 to 1; never goes back during a run."},
+        "overallKnown": {"type": "boolean"},
+        "levelFraction": {"type": "number"},
+        "secondsLeft": {"type": ["number", "null"]},
+        "activity": {"type": "string", "description": "The original's status text."}
+      },
+      "required": ["stage", "elapsedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity"],
+      "additionalProperties": false
+    },
+    "SolveStats": {
+      "type": "object",
+      "description": "The debug statistics panel.",
+      "properties": {
+        "state": {"$ref": "#/$defs/SolveState"},
+        "solver": {"$ref": "#/$defs/Solver"},
+        "disassemblyEnabled": {"type": "boolean"},
+        "rotationsEnabled": {"type": "boolean"},
+        "hardwareThreads": {"type": "integer", "minimum": 0},
+        "assemblerThreads": {"type": "integer", "minimum": 0},
+        "disasmWorkers": {"type": "integer", "minimum": 0},
+        "assembliesFound": {"type": "integer", "minimum": 0},
+        "solutionsFound": {"type": "integer", "minimum": 0},
+        "inseparable": {"type": "integer", "minimum": 0},
+        "iterations": {"type": "integer", "minimum": 0},
+        "assemblyProgress": {"type": "number"},
+        "pending": {"type": "integer", "minimum": 0},
+        "peakPending": {"type": "integer", "minimum": 0},
+        "disasmCompleted": {"type": "integer", "minimum": 0},
+        "elapsedMs": {"type": "integer", "minimum": 0},
+        "prepareMs": {"type": "integer", "minimum": 0},
+        "reduceMs": {"type": "integer", "minimum": 0},
+        "assemblyMs": {"type": "integer", "minimum": 0},
+        "disasmWorkMs": {"type": "integer", "minimum": 0},
+        "linearSearchMs": {"type": "integer", "minimum": 0},
+        "rotationSearchMs": {"type": "integer", "minimum": 0},
+        "drainMs": {"type": "integer", "minimum": 0},
+        "avgDisasmSeconds": {"type": "number"},
+        "running": {"type": "array", "items": {"$ref": "#/$defs/TakeApartProgress"}}
+      },
+      "required": ["state", "solver", "disassemblyEnabled", "rotationsEnabled", "hardwareThreads", "assemblerThreads", "disasmWorkers", "assembliesFound", "solutionsFound", "inseparable", "iterations", "assemblyProgress", "pending", "peakPending", "disasmCompleted", "elapsedMs", "prepareMs", "reduceMs", "assemblyMs", "disasmWorkMs", "linearSearchMs", "rotationSearchMs", "drainMs", "avgDisasmSeconds", "running"],
+      "additionalProperties": false
+    },
+    "SolveFailure": {
+      "type": "object",
+      "description": "Why a run ended in error.",
+      "properties": {
+        "assembler": {"enum": ["tooManyUnits", "tooFewUnits", "cannotPlace", "cannotRestoreVersion", "cannotRestoreSyntax", "cannotRestoreInterrupted", "puzzleUnhandable", null], "description": "The preparation's or the saved position's error; null for an internal error."},
+        "param": {"type": "integer", "description": "The piece or number the error names."},
+        "message": {"type": "string"},
+        "file": {"type": "string"},
+        "line": {"type": "integer"}
+      },
+      "required": ["assembler", "param", "message", "file", "line"],
+      "additionalProperties": false
+    },
+    "Placement": {
+      "type": "object",
+      "description": "Where a piece is in an assembly.",
+      "properties": {
+        "piece": {"type": "integer", "minimum": 0, "description": "The problem's piece number (pieces are numbered part by part)."},
+        "placed": {"type": "boolean"},
+        "transformation": {"type": "integer", "minimum": 0},
+        "at": {"$ref": "#/$defs/Cell"}
+      },
+      "required": ["piece", "placed", "transformation", "at"],
+      "additionalProperties": false
+    },
+    "SolutionRow": {
+      "type": "object",
+      "properties": {
+        "id": {"$ref": "#/$defs/SolutionId"},
+        "index": {"type": "integer", "minimum": 0, "description": "Its place in the saved list."},
+        "assembly": {"type": "integer", "minimum": 0, "description": "The assembly number (the original shows it plus one)."},
+        "solution": {"type": "integer", "minimum": 0, "description": "The solution number (0 without a disassembly)."},
+        "pieces": {"type": "integer", "minimum": 0, "description": "Pieces placed."},
+        "disassembly": {"enum": ["tree", "summary", "none"], "description": "The moves are stored; only the level summary; not taken apart (or found not to come apart)."},
+        "moves": {"type": ["integer", "null"]},
+        "rotations": {"type": ["integer", "null"]},
+        "steps": {"type": ["integer", "null"], "description": "Moves plus rotations."},
+        "movesText": {"type": ["string", "null"], "description": "The level text, e.g. 3.1.1."}
+      },
+      "required": ["id", "index", "assembly", "solution", "pieces", "disassembly", "moves", "rotations", "steps", "movesText"],
+      "additionalProperties": false
+    },
+    "MovementNode": {
+      "type": "object",
+      "description": "A position of a movement explorer's tree.",
+      "properties": {
+        "node": {"type": "integer", "minimum": 0},
+        "parent": {"type": "integer", "minimum": 0, "description": "The root is its own parent."},
+        "label": {"type": "string", "description": "The direction and the pieces moved, e.g. 'x: S1, S2.2'; empty for the root."},
+        "pieces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"piece": {"type": "integer", "minimum": 0}, "at": {"$ref": "#/$defs/Cell"}},
+            "required": ["piece", "at"],
+            "additionalProperties": false
+          }
+        },
+        "children": {"type": "array", "items": {"type": "integer", "minimum": 0}}
+      },
+      "required": ["node", "parent", "label", "pieces", "children"],
+      "additionalProperties": false
+    }
+  }
+}

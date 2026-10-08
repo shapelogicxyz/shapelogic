@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "problem.json",
+  "title": "Problems",
+  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011).",
+  "methods": {
+    "problem.list": {
+      "summary": "The problems in list order.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {"problems": {"type": "array", "items": {"$ref": "types.json#/$defs/ProblemSummary"}}},
+        "required": ["problems"],
+        "additionalProperties": false
+      }
+    },
+    "problem.get": {
+      "summary": "A problem in full (read under the solve's lock while it runs).",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/ProblemDetail"},
+      "errors": ["not_found"]
+    },
+    "problem.create": {
+      "summary": "Adds a problem; it allows each colour on itself.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "#/$defs/Made"},
+      "errors": ["invalid_state"]
+    },
+    "problem.duplicate": {
+      "summary": "Adds a copy of a problem's definition (no name, no solutions).",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "#/$defs/Made"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.delete": {
+      "summary": "Removes a problem.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.move": {
+      "summary": "Moves a problem to a place in the list.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "toIndex": {"type": "integer", "minimum": 0}},
+        "required": ["problem", "toIndex"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.rename": {
+      "summary": "The problem's name.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "name": {"type": "string"}},
+        "required": ["problem", "name"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.setResult": {
+      "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions.",
+      "params": {"$ref": "#/$defs/ProblemShape"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.setPieceCount": {
+      "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "min": {"type": "integer", "minimum": 0},
+          "max": {"type": "integer", "minimum": 0}
+        },
+        "required": ["problem", "shape", "min", "max"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.addPiece": {
+      "summary": "One more of a shape (minimum and maximum).",
+      "params": {"$ref": "#/$defs/ProblemShape"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.removePiece": {
+      "summary": "One fewer of a shape.",
+      "params": {"$ref": "#/$defs/ProblemShape"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.setRangeAll": {
+      "summary": "One count range for every piece (the bulk range; a maximum below the minimum is raised to it). Removes the solutions.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "min": {"type": "integer", "minimum": 0},
+          "max": {"type": "integer", "minimum": 0}
+        },
+        "required": ["problem", "min", "max"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.addOneOfEach": {
+      "summary": "One more of every shape but the result.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.removeAllPieces": {
+      "summary": "Removes every piece and the solutions.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.movePart": {
+      "summary": "Moves a shape's part one place earlier (-1) or later (+1): the pieces renumber.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "delta": {"enum": [-1, 1]}
+        },
+        "required": ["problem", "shape", "delta"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.setGroup": {
+      "summary": "Puts all pieces of a shape in one exclusive group, or none (0).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "group": {"type": "integer", "minimum": 0}
+        },
+        "required": ["problem", "shape", "group"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.setGroupCount": {
+      "summary": "Puts 'count' pieces of a shape in group 'group' (0 takes them out): the groups editor.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "group": {"type": "integer", "minimum": 1},
+          "count": {"type": "integer", "minimum": 0}
+        },
+        "required": ["problem", "shape", "group", "count"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "problem.deleteGroup": {
+      "summary": "Removes a group from every shape.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "group": {"type": "integer", "minimum": 1}},
+        "required": ["problem", "group"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.setColourRule": {
+      "summary": "Allows or forbids piece colour on result colour; removes the solutions.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "pieceColour": {"$ref": "types.json#/$defs/ColourId"},
+          "resultColour": {"$ref": "types.json#/$defs/ColourId"},
+          "allowed": {"type": "boolean"}
+        },
+        "required": ["problem", "pieceColour", "resultColour", "allowed"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.setColourRules": {
+      "summary": "Sets every colour rule at once: each colour on itself, all on all, or none.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "preset": {"enum": ["eachOnItself", "allowAll", "clear"]}
+        },
+        "required": ["problem", "preset"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "problem.fit": {
+      "summary": "Whether the pieces can fill the result, and the original's status line.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/FitStats"},
+      "errors": ["not_found"]
+    },
+    "problem.kind": {
+      "summary": "Brick, sliding or stacking; this version solves bricks only.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {
+        "type": "object",
+        "properties": {
+          "kind": {"enum": ["brick", "sliding", "stacking"]},
+          "supported": {"type": "boolean"}
+        },
+        "required": ["kind", "supported"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "problem.setSolverSettings": {
+      "summary": "Stores the Solver tab's settings with the problem (saved in the file; the original's cb_SolverOptions). Replaces them all. Not while the problem is being solved.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "settings": {"$ref": "types.json#/$defs/SolverSettings"}
+        },
+        "required": ["problem", "settings"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    }
+  },
+  "$defs": {
+    "ProblemParam": {
+      "type": "object",
+      "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}},
+      "required": ["problem"],
+      "additionalProperties": false
+    },
+    "ProblemShape": {
+      "type": "object",
+      "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "shape": {"$ref": "types.json#/$defs/ShapeId"}},
+      "required": ["problem", "shape"],
+      "additionalProperties": false
+    },
+    "Made": {
+      "type": "object",
+      "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "revision": {"$ref": "types.json#/$defs/Revision"}},
+      "required": ["problem", "revision"],
+      "additionalProperties": false
+    }
+  }
+}

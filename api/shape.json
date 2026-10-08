@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shape.json",
+  "title": "Shapes and cells",
+  "description": "The shapes of the puzzle, their cells, the tool tabs' operations, the status window, the 3D drawing mesh and the grid editor's layer drawing. Editing shapes is refused while a solve runs (invalid_state, decision 0011); an edit of a shape removes the solutions of the problems that use it.",
+  "methods": {
+    "shape.list": {
+      "summary": "The shapes in list order.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {"shapes": {"type": "array", "items": {"$ref": "types.json#/$defs/ShapeSummary"}}},
+        "required": ["shapes"],
+        "additionalProperties": false
+      }
+    },
+    "shape.get": {
+      "summary": "A shape with its non-empty cells (of one layer, when asked).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "layer": {"type": "integer", "minimum": 0, "description": "Only the cells with this z."}
+        },
+        "required": ["shape"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeSummary"},
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {"$ref": "types.json#/$defs/Cell"},
+                "state": {"$ref": "types.json#/$defs/CellState"},
+                "colour": {"$ref": "types.json#/$defs/ColourId", "description": "Absent: the shape's own colour."}
+              },
+              "required": ["at", "state"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["shape", "cells"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
+    "shape.create": {
+      "summary": "Adds an empty shape at the end: of a size in cells, or of the grid's default size.",
+      "params": {
+        "type": "object",
+        "properties": {"size": {"$ref": "types.json#/$defs/Size"}},
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/Made"},
+      "errors": ["invalid_argument", "invalid_state"]
+    },
+    "shape.duplicate": {
+      "summary": "Adds a copy of a shape at the end.",
+      "params": {"$ref": "#/$defs/ShapeParam"},
+      "result": {"$ref": "#/$defs/Made"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.delete": {
+      "summary": "Removes a shape; the problems drop it.",
+      "params": {"$ref": "#/$defs/ShapeParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.move": {
+      "summary": "Moves a shape to a place in the list; labels renumber.",
+      "params": {
+        "type": "object",
+        "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "toIndex": {"type": "integer", "minimum": 0}},
+        "required": ["shape", "toIndex"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "shape.rename": {
+      "summary": "The shape's name (empty for none).",
+      "params": {
+        "type": "object",
+        "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "name": {"type": "string"}},
+        "required": ["shape", "name"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.setWeight": {
+      "summary": "The weight: heavier shapes stay in place when taken apart.",
+      "params": {
+        "type": "object",
+        "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "weight": {"type": "integer"}},
+        "required": ["shape", "weight"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.setColour": {
+      "summary": "The shape's own colour, or null for the default one.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "rgb": {"oneOf": [{"$ref": "types.json#/$defs/Rgb"}, {"type": "null"}]}
+        },
+        "required": ["shape", "rgb"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.setCells": {
+      "summary": "Applies a tool to cells, each with the mirror and span options (the grid editor); cells outside the space or not cells of the grid are left out. Several calls inside edit.begin / edit.end are one undo step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "tool": {"$ref": "types.json#/$defs/CellTool"},
+          "colour": {"$ref": "types.json#/$defs/ColourId", "description": "The colour put on the cells; absent: none (the shape's own)."},
+          "mirror": {"$ref": "types.json#/$defs/Axes"},
+          "span": {"$ref": "types.json#/$defs/Axes"},
+          "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}}
+        },
+        "required": ["shape", "tool", "cells"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/CellsChanged"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.setBox": {
+      "summary": "The same for every cell of a box, corners included, clamped to the space (the box selection's fill and clear).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "tool": {"$ref": "types.json#/$defs/CellTool"},
+          "colour": {"$ref": "types.json#/$defs/ColourId"},
+          "mirror": {"$ref": "types.json#/$defs/Axes"},
+          "span": {"$ref": "types.json#/$defs/Axes"},
+          "from": {"$ref": "types.json#/$defs/Cell"},
+          "to": {"$ref": "types.json#/$defs/Cell"}
+        },
+        "required": ["shape", "tool", "from", "to"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "#/$defs/CellsChanged"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.resize": {
+      "summary": "Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "size": {"$ref": "types.json#/$defs/Size"},
+          "toAll": {"type": "boolean"}
+        },
+        "required": ["shape", "size"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "shape.taskSet": {
+      "summary": "The tool tabs' operations the document's grid offers, in the original's button order.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "task": {"$ref": "types.json#/$defs/ShapeTask"},
+                "group": {"enum": ["Flip", "Nudge", "Rotate", "Grid", "Shape", "Constrain", "Tools"]},
+                "label": {"type": "string", "description": "The original's tooltip."},
+                "toAll": {"type": "boolean", "description": "It can be applied to every shape at once."}
+              },
+              "required": ["task", "group", "label", "toAll"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["tasks"],
+        "additionalProperties": false
+      }
+    },
+    "shape.task": {
+      "summary": "A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin, minimize, double, triple, fill holes, the surface.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "task": {"$ref": "types.json#/$defs/ShapeTask"},
+          "toAll": {"type": "boolean"}
+        },
+        "required": ["shape", "task"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "revision": {"$ref": "types.json#/$defs/Revision"},
+          "changed": {"type": "boolean", "description": "The shape changed at all (cells, size or hotspot)."},
+          "cellsChanged": {"type": "integer", "minimum": 0, "description": "Cells whose state or colour changed (fill holes: the holes filled)."}
+        },
+        "required": ["revision", "changed", "cellsChanged"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
+    },
+    "shape.info": {
+      "summary": "The status window's row for one shape, with its status line.",
+      "params": {"$ref": "#/$defs/ShapeParam"},
+      "result": {"$ref": "types.json#/$defs/ShapeInfo"},
+      "errors": ["not_found"]
+    },
+    "shape.table": {
+      "summary": "The status window: a row per shape, in list order.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {"rows": {"type": "array", "items": {"$ref": "types.json#/$defs/ShapeInfo"}}},
+        "required": ["rows"],
+        "additionalProperties": false
+      }
+    },
+    "shape.mesh": {
+      "summary": "The shape's mesh as the original's 3D view drew it, as a binary frame. Allowed while solving.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "style": {"$ref": "types.json#/$defs/MeshStyle", "description": "Default drawing."}
+        },
+        "required": ["shape"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/MeshFrame"},
+      "errors": ["not_found"]
+    },
+    "grid.geometry": {
+      "summary": "The grid editor's drawing of one layer of a space of the document's grid (at most 65536 cells a layer): each cell's outline (a circle on the sphere grid) and the cell across each edge. Units: a cube 1 by 1, prism triangles of side 1, spheres 1 apart, rhombic 5 by 5 cells and tetrahedra-octahedra 3 by 3 cells to 1 by 1.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "size": {"$ref": "types.json#/$defs/Size"},
+          "layer": {"type": "integer", "minimum": 0}
+        },
+        "required": ["size", "layer"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "width": {"type": "number"},
+          "height": {"type": "number"},
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {"$ref": "types.json#/$defs/Cell"},
+                "polygon": {"type": "array", "items": {"$ref": "types.json#/$defs/Point2"}, "description": "Counter-clockwise, y up."},
+                "neighbours": {"type": "array", "items": {"type": "integer", "minimum": -1}, "description": "Per edge (corner i to i + 1): the index in cells of the cell across it, -1 for none."},
+                "circle": {
+                  "type": "object",
+                  "properties": {"centre": {"$ref": "types.json#/$defs/Point2"}, "radius": {"type": "number"}},
+                  "required": ["centre", "radius"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["at"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["width", "height", "cells"],
+        "additionalProperties": false
+      },
+      "errors": ["invalid_argument"]
+    }
+  },
+  "$defs": {
+    "ShapeParam": {
+      "type": "object",
+      "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}},
+      "required": ["shape"],
+      "additionalProperties": false
+    },
+    "Made": {
+      "type": "object",
+      "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "revision": {"$ref": "types.json#/$defs/Revision"}},
+      "required": ["shape", "revision"],
+      "additionalProperties": false
+    },
+    "CellsChanged": {
+      "type": "object",
+      "properties": {
+        "revision": {"$ref": "types.json#/$defs/Revision"},
+        "changed": {"type": "integer", "minimum": 0, "description": "Cells changed; 0 leaves no undo step."}
+      },
+      "required": ["revision", "changed"],
+      "additionalProperties": false
+    }
+  }
+}

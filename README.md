@@ -8,10 +8,12 @@ process that a new web front end will drive.
 The original application stays the reference: every ported solver must give
 the same answers on a corpus of 180 puzzles before it counts as done.
 
-**Status:** stages 0 to 4 of 8 done: grids, model and file format, the
-assemblers, the take-apart (with rotation moves); `bt` solves and takes
-apart as the original's `burrTxt`. Next: the solve session (stage 5). See
-[docs/PLAN.md](docs/PLAN.md).
+**Status:** stages 0 to 7 of 8 done: grids, model and file format, the
+assemblers, the take-apart (with rotation moves), the solve session, the
+app layer (document, undo, commands, meshes, playback, explorers) and
+`bt-engine`, the JSON-RPC engine the front end talks to; `bt` solves and
+takes apart as the original's `burrTxt`. Next: the complete `bt` CLI and
+the performance pass (stage 8). See [docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 
@@ -25,8 +27,9 @@ just test         # unit tests
 just oracle       # compare with the original BurrTools (needs ../burrtools_rotations built)
 ```
 
-Outputs: `build/<preset>/engine/bt-engine` (the engine, stage 7),
-`build/<preset>/cli/bt` (command-line solver), `build/<preset>/tests/bt_tests`.
+Outputs: `build/<preset>/engine/bt-engine` (the engine: JSON-RPC 2.0 on
+stdin and stdout), `build/<preset>/cli/bt` (command-line solver),
+`build/<preset>/tests/bt_tests`.
 
 ## Documentation
 
@@ -34,7 +37,8 @@ Outputs: `build/<preset>/engine/bt-engine` (the engine, stage 7),
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organised
 - [docs/decisions/](docs/decisions/): why it is organised that way
 - [docs/webui-spec.md](docs/webui-spec.md): what the web front end does
-- [docs/core-api.md](docs/core-api.md): what the engine offers it
+- [docs/API.md](docs/API.md): the engine's methods and events (generated from [api/](api/))
+- [docs/core-api.md](docs/core-api.md): the draft API.md replaced
 - [AGENTS.md](AGENTS.md): conventions for everyone working on the code
 
 ## Licence

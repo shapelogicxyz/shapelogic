@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document.json",
+  "title": "Document and history",
+  "description": "The puzzle being edited (one per engine): new, open, save, the notes, undo and redo. A new document drops every playback and explorer handle.",
+  "methods": {
+    "document.new": {
+      "summary": "A new empty puzzle on a grid; the grid never changes.",
+      "params": {
+        "type": "object",
+        "properties": {"grid": {"$ref": "types.json#/$defs/Grid"}},
+        "required": ["grid"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Snapshot"}
+    },
+    "document.open": {
+      "summary": "Opens a .xmpuzzle file (gzip or plain XML); what this version does not model is kept.",
+      "params": {
+        "type": "object",
+        "properties": {"path": {"type": "string", "minLength": 1}},
+        "required": ["path"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Snapshot"},
+      "errors": ["io_error", "parse_error"]
+    },
+    "document.openBytes": {
+      "summary": "Opens a puzzle from its file's bytes (gzip or plain XML), base64; the document has no path.",
+      "params": {
+        "type": "object",
+        "properties": {"data": {"type": "string"}},
+        "required": ["data"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Snapshot"},
+      "errors": ["invalid_argument", "parse_error"]
+    },
+    "document.save": {
+      "summary": "Saves (gzip, as the original) to the path given, or to the document's path; the document is clean afterwards. Refused while a solve runs: save at a save point (solve.savePoint).",
+      "params": {
+        "type": "object",
+        "properties": {"path": {"type": "string", "minLength": 1}},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {"revision": {"$ref": "types.json#/$defs/Revision"}, "path": {"type": "string"}},
+        "required": ["revision", "path"],
+        "additionalProperties": false
+      },
+      "errors": ["invalid_state", "io_error", "invalid_argument"]
+    },
+    "document.saveBytes": {
+      "summary": "The file's bytes (plain XML), base64, without marking the document clean.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {"data": {"type": "string"}},
+        "required": ["data"],
+        "additionalProperties": false
+      },
+      "errors": ["invalid_state"]
+    },
+    "document.get": {
+      "summary": "The document's lists and state.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "types.json#/$defs/Snapshot"}
+    },
+    "document.setNotes": {
+      "summary": "The puzzle's comment. Allowed while solving.",
+      "params": {
+        "type": "object",
+        "properties": {"text": {"type": "string"}},
+        "required": ["text"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"}
+    },
+    "edit.undo": {
+      "summary": "Undoes the last step. Refused while solving or inside edit.begin / edit.end.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["invalid_state"]
+    },
+    "edit.redo": {
+      "summary": "Redoes the last undone step.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["invalid_state"]
+    },
+    "edit.history": {
+      "summary": "The labels of the undo and redo steps.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {
+          "undo": {"type": "array", "items": {"type": "string"}, "description": "Oldest first; the last is undone next."},
+          "redo": {"type": "array", "items": {"type": "string"}, "description": "The first is redone next."}
+        },
+        "required": ["undo", "redo"],
+        "additionalProperties": false
+      }
+    },
+    "edit.begin": {
+      "summary": "Groups the following calls into one undo step (a drag across cells); groups do not nest.",
+      "params": {
+        "type": "object",
+        "properties": {"label": {"type": "string"}},
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["invalid_state"]
+    },
+    "edit.end": {
+      "summary": "Ends the group; an empty group leaves no step.",
+      "params": {"type": "object", "properties": {}, "additionalProperties": false},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["invalid_state"]
+    }
+  },
+  "events": {
+    "document.changed": {
+      "summary": "The document changed: after a call that changed it, and when a solve run ended or an analysis was applied. Empty id lists mean the lists themselves changed (or anything of that kind).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "revision": {"$ref": "types.json#/$defs/Revision"},
+          "what": {"type": "array", "items": {"$ref": "types.json#/$defs/ChangeKind"}},
+          "shapes": {"type": "array", "items": {"$ref": "types.json#/$defs/ShapeId"}},
+          "problems": {"type": "array", "items": {"$ref": "types.json#/$defs/ProblemId"}}
+        },
+        "required": ["revision", "what", "shapes", "problems"],
+        "additionalProperties": false
+      }
+    }
+  }
+}
