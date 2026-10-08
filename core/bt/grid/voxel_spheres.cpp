@@ -260,9 +260,27 @@ void VoxelSpheres::minimizePiece() {
 }
 
 void VoxelSpheres::initHotspot() {
-  unsigned long best = getX() * getX() + getY() * getY() + getZ() * getZ();
+  int x = 0;
+  int y = 0;
+  int z = 0;
+  if (nearestSphere(x, y, z)) {
+    setHotspot(x, y, z);
+  }
+}
 
-  // the sphere nearest to the origin
+bool VoxelSpheres::hasInitialHotspot() const {
+  int x = 0;
+  int y = 0;
+  int z = 0;
+  // without spheres initHotspot() leaves the hotspot where it is
+  return !nearestSphere(x, y, z) || (getHx() == x && getHy() == y && getHz() == z);
+}
+
+// The sphere nearest to the origin (the first in x, y, z order of those as
+// near); false when there is none.
+bool VoxelSpheres::nearestSphere(int& hx, int& hy, int& hz) const {
+  unsigned long best = getX() * getX() + getY() * getY() + getZ() * getZ();
+  bool found = false;
   for (unsigned int z = 0; z < getZ(); z++) {
     for (unsigned int y = 0; y < getY(); y++) {
       for (unsigned int x = 0; x < getX(); x++) {
@@ -270,12 +288,16 @@ void VoxelSpheres::initHotspot() {
           const unsigned long diff = x * x + y * y + z * z;
           if (diff < best) {
             best = diff;
-            setHotspot(asInt(x), asInt(y), asInt(z));
+            hx = asInt(x);
+            hy = asInt(y);
+            hz = asInt(z);
+            found = true;
           }
         }
       }
     }
   }
+  return found;
 }
 
 void VoxelSpheres::resizeInclude(int& px, int& py, int& pz) {

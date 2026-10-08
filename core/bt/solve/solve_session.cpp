@@ -238,6 +238,11 @@ Result<void> SolveSession::launch(Mode mode) {
   if (assembler_ && problem_.getSolveState() == ProblemState::Solving) {
     if (assembler_->usesStrictColors() == options_.matrix.strictColors) {
       reuse = true;
+      // this run's mirror and rotation filter (the solve thread set it on
+      // the problem's assembler before every run)
+      assembler_->applySolutionFilterFlags(options_.matrix.keepMirrors,
+                                           options_.matrix.keepRotations,
+                                           options_.matrix.completeRotations);
     } else {
       {
         const std::lock_guard<std::mutex> lock(resultsMutex_);
@@ -296,6 +301,8 @@ Result<void> SolveSession::launch(Mode mode) {
   drainMs_.store(0, std::memory_order_relaxed);
   phase_.store(Phase::None, std::memory_order_relaxed);
   progressShown_.store(0, std::memory_order_relaxed);
+  // the last solve's assembler is gone; this run's has done nothing yet
+  lastFinished_.store(0, std::memory_order_relaxed);
   runOriginNs_.store(nowNs(), std::memory_order_relaxed);
 
   // The first move is made here, before the thread exists, so that the
@@ -316,11 +323,12 @@ void SolveSession::run(const Plan& plan) {
     // on every run, as the solve thread did (a matrix kept across a pause
     // was made with them reset). Before the disassemblers are made: a
     // hotspot change clears the caches they warm, so only a hotspot that
-    // is elsewhere is reset (warming them again on every run made each run
-    // slow to start).
+    // is not where initHotspot() puts it is reset (warming them again on
+    // every run made each run slow to start; on the sphere grid that place
+    // is the sphere nearest the origin, not the origin).
     for (unsigned int i = 0; i < puzzle_.getNumberOfShapes(); i++) {
       Voxel& shape = puzzle_.getShape(i);
-      if (shape.getHx() != 0 || shape.getHy() != 0 || shape.getHz() != 0) {
+      if (!shape.hasInitialHotspot()) {
         shape.initHotspot();
       }
     }
@@ -540,11 +548,14 @@ void SolveSession::endRun(RunEnd end) {
     return;
   }
 
-  // a pause, a save point, or the search is through and everything taken
-  // apart
-  const bool finished = stop == StopKind::None && end == RunEnd::Finished;
+  // A pause, a save point, or the search is through and everything taken
+  // apart. Assemblies still waiting (counted for a take-apart this run did
+  // not do) keep the solve open: Paused with the search through, and the
+  // next run that takes apart finishes it.
+  bool finished = false;
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
+    finished = stop == StopKind::None && end == RunEnd::Finished && problem_.getPending().empty();
     problem_.addTimeMs(ms);
     // what the GUI recorded when a solve stopped (recordSearchStats)
     problem_.setSearchStats(std::max(problem_.getSearched(), assembler_->iterations()),
@@ -564,6 +575,9 @@ void SolveSession::failRun(std::exception_ptr error) {
   // did after an assert in its solve thread.
   requestStop(runStop_, StopKind::Abort);
   stopWorkers();
+
+  // an exception out of a phase skipped its end: no time runs on
+  phase_.store(Phase::None, std::memory_order_release);
 
   SolveFailure f;
   try {

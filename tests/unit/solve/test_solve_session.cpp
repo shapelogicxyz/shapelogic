@@ -31,6 +31,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <random>
 #include <set>
 #include <string>
@@ -67,6 +68,9 @@ SolveOptions takeApart(unsigned int threads = 0) {
 struct Totals {
   std::uint64_t assemblies = 0;
   std::uint64_t solutions = 0;
+  /// The assemblies tried apart (recordSearchStats): a take-apart stopped
+  /// by a pause and done again counts once.
+  std::uint64_t triedApart = 0;
   std::multiset<std::string> saved;
   bool operator==(const Totals&) const = default;
 };
@@ -77,6 +81,7 @@ Totals totals(const Problem& pr) {
   Totals t;
   t.assemblies = pr.getNumAssemblies();
   t.solutions = pr.getNumSolutions();
+  t.triedApart = pr.getTriedApart();
   for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
     const Solution& s = pr.getSavedSolution(i);
     const Disassembly* d = s.getDisassemblyInfo();
@@ -113,6 +118,23 @@ void untilPrepared(const SolveSession& s) {
   }
 }
 
+// Starts a solve of `name` and waits until its search is through and the
+// last take-aparts run (Draining), with `stop` called then; true when the
+// run was still draining. For test_rotation_solvers, whose one assembly
+// takes far longer to take apart (with turns) than to find.
+bool stoppedWhileDraining(Puzzle& p, const SolveOptions& o,
+                          const std::function<void(SolveSession&)>& stop) {
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  while (s.state() == SolveState::Preparing || s.state() == SolveState::Assembling) {
+    std::this_thread::yield();
+  }
+  const bool draining = s.state() == SolveState::Draining;
+  stop(s);
+  s.wait();
+  return draining;
+}
+
 // A solve paused `delay` after it started, then carried on: straight on,
 // or with the puzzle saved and loaded again into a new session. True when
 // the pause came before the end.
@@ -137,6 +159,14 @@ bool pauseAndContinue(const std::string& name, const SolveOptions& o,
     s.wait();
     REQUIRE(s.state() != SolveState::Error);
     paused = s.state() != SolveState::Finished;
+    if (soft && paused) {
+      // a save point: the take-aparts under way and queued are done, and
+      // the position is there to be saved
+      CHECK(s.state() == SolveState::Paused);
+      const Problem& pr = p.getProblem(0);
+      CHECK(pr.getPending().empty());
+      CHECK_FALSE(pr.getAssemblerState().empty());
+    }
     if (!viaSave && paused) {
       solveToEnd(s);
     }
@@ -350,20 +380,30 @@ TEST_CASE("solve session: quick twins of the pause cases", "[solve][session][res
   REQUIRE(expected.solutions == 927);
   REQUIRE(expected.saved.size() == 927);
 
-  int paused = 0;
-  for (const int delayUs : {-1, 0, 1000, 10000}) {
-    for (const bool viaSave : {false, true}) {
-      for (const bool soft : {false, true}) {
-        INFO("pause " << delayUs << " us in" << (viaSave ? ", saved and loaded" : "")
-                      << (soft ? ", at a save point" : ""));
-        paused += pauseAndContinue("DemoPieceGenerator.xmpuzzle", o,
-                                   std::chrono::microseconds(delayUs), viaSave, soft, expected)
-                      ? 1
-                      : 0;
+  // all threads (the split search), and one: assembler 1's plain search,
+  // which goes on to where it can be saved after a pause and hands over
+  // what it finds on the way (kept as pending)
+  for (const unsigned int threads : {0U, 1U}) {
+    o.threads = threads;
+    int paused = 0;
+    int softPaused = 0;
+    for (const int delayUs : {-1, 0, 1000, 10000}) {
+      for (const bool viaSave : {false, true}) {
+        for (const bool soft : {false, true}) {
+          INFO(threads << " threads, pause " << delayUs << " us in"
+                       << (viaSave ? ", saved and loaded" : "") << (soft ? ", at a save point" : ""));
+          const bool landed = pauseAndContinue("DemoPieceGenerator.xmpuzzle", o,
+                                               std::chrono::microseconds(delayUs), viaSave, soft,
+                                               expected);
+          paused += landed ? 1 : 0;
+          softPaused += landed && soft ? 1 : 0;
+        }
       }
     }
+    CHECK(paused >= 3);
+    // the ones as the search starts land: a save point does stop it
+    CHECK(softPaused >= 1);
   }
-  CHECK(paused >= 3);
 }
 
 TEST_CASE("solve session: a pause-delay sweep over the whole solve loses nothing",
@@ -543,14 +583,24 @@ TEST_CASE("solve session: what it refuses", "[solve][session]") {
       CHECK(r.error().code == Errc::Unsupported);
     }
   }
-  SECTION("carrying on a solved problem, and running twice") {
+  SECTION("running twice") {
+    // the run is active from the moment start() returns, and this one
+    // takes far longer than the calls below
+    Puzzle p = fresh("SolidSixPieceBurrs.xmpuzzle");
+    SolveSession s(p, p.getProblem(0), takeApart());
+    REQUIRE(s.start().has_value());
+    for (const Result<void>& r : {s.start(), s.prepare(), s.resume(), s.setOptions({})}) {
+      REQUIRE_FALSE(r.has_value());
+      CHECK(r.error().code == Errc::InvalidState);
+    }
+    CHECK(isActive(s.state()));
+    s.abort();
+    CHECK(s.state() == SolveState::Idle);
+  }
+  SECTION("carrying on a solved problem") {
     Puzzle p = fresh("PelikanBurr.xmpuzzle");
     SolveSession s(p, p.getProblem(0), {});
     REQUIRE(s.start().has_value());
-    const Result<void> twice = s.start();
-    if (!twice) {
-      CHECK(twice.error().code == Errc::InvalidState);
-    }
     s.wait();
     REQUIRE(s.state() == SolveState::Finished);
     const Result<void> r = s.resume();
@@ -815,4 +865,335 @@ TEST_CASE("solve session: a moved hotspot does not lose the solution", "[solve][
     CHECK(p.getProblem(0).getNumAssemblies() == 96);
     CHECK(p.getProblem(0).getNumSolutions() == 1);
   }
+}
+
+// ---- the stage 5 audit ----------------------------------------------------------------
+
+TEST_CASE("solve session: assemblies counted for a take-apart keep the solve open",
+          "[solve][session][resume]") {
+  // Paused while the last assembly is taken apart, then continued without
+  // take-apart: the search is through, but the assembly waits, so the run
+  // ends Paused (not Solved with the solution missing). A run that takes
+  // apart then finishes it, in memory or after a save.
+  SolveOptions o = takeApart(2);
+  o.checkRotations = true;
+  const Totals expected = straight("test_rotation_solvers.xmpuzzle", o);
+  REQUIRE(expected.solutions == 1);
+  SolveOptions without = o;
+  without.disassemble = false;
+
+  for (const bool viaSave : {false, true}) {
+    INFO((viaSave ? "saved and loaded" : "in memory"));
+    bool landed = false;
+    for (int attempt = 0; attempt < 5 && !landed; attempt++) {
+      Puzzle p = fresh("test_rotation_solvers.xmpuzzle");
+      SolveSession s(p, p.getProblem(0), o);
+      REQUIRE(s.start().has_value());
+      while (s.state() == SolveState::Preparing || s.state() == SolveState::Assembling) {
+        std::this_thread::yield();
+      }
+      s.pause();
+      s.wait();
+      if (s.state() != SolveState::Paused) {
+        continue;
+      }
+      landed = true;
+      const Problem& pr = p.getProblem(0);
+      REQUIRE(pr.getPending().size() == 1);
+      REQUIRE(pr.getPending()[0].counted);
+
+      REQUIRE(s.setOptions(without).has_value());
+      REQUIRE(s.resume().has_value());
+      s.wait();
+      CHECK(s.state() == SolveState::Paused);
+      CHECK(pr.getSolveState() == ProblemState::Solving);
+      CHECK(pr.getPending().size() == 1);
+      CHECK_FALSE(pr.getAssemblerState().empty());
+
+      if (viaSave) {
+        Puzzle q = reloaded(p);
+        SolveSession t(q, q.getProblem(0), without);
+        REQUIRE(t.resume().has_value());
+        t.wait();
+        CHECK(t.state() == SolveState::Paused);
+        REQUIRE(t.setOptions(o).has_value());
+        solveToEnd(t);
+        CHECK(totals(q.getProblem(0)) == expected);
+      } else {
+        REQUIRE(s.setOptions(o).has_value());
+        solveToEnd(s);
+        CHECK(totals(pr) == expected);
+      }
+    }
+    CHECK(landed);
+  }
+}
+
+TEST_CASE("solve session: a save point while draining finishes the solve",
+          "[solve][session][resume]") {
+  // The search is through: only the take-aparts are left, and they finish.
+  SolveOptions o = takeApart(2);
+  o.checkRotations = true;
+  const Totals expected = straight("test_rotation_solvers.xmpuzzle", o);
+  bool landed = false;
+  for (int attempt = 0; attempt < 5 && !landed; attempt++) {
+    Puzzle p = fresh("test_rotation_solvers.xmpuzzle");
+    SolveState end = SolveState::Idle;
+    landed = stoppedWhileDraining(p, o, [&end](SolveSession& s) {
+      s.pauseAtSavePoint();
+      s.wait();
+      end = s.state();
+    });
+    CHECK(end == SolveState::Finished);
+    CHECK(totals(p.getProblem(0)) == expected);
+  }
+  CHECK(landed);
+}
+
+TEST_CASE("solve session: the mirror and rotation filter of each run applies",
+          "[solve][session]") {
+  // Demo Mirror Paradox: one assembly, two with the mirror kept. Prepared
+  // with mirrors dropped, then continued with them kept (the original set
+  // the filter on its kept assembler before every run).
+  const auto assemblies = [](bool keep, bool prepareFirst) {
+    Puzzle p = fresh("DemoMirrorParadox.xmpuzzle");
+    SolveOptions o;
+    o.solutionLimit = 0;
+    SolveSession s(p, p.getProblem(0), o);
+    if (prepareFirst) {
+      REQUIRE(s.prepare().has_value());
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+    }
+    o.matrix.keepMirrors = keep;
+    o.matrix.keepRotations = keep;
+    REQUIRE(s.setOptions(o).has_value());
+    solveToEnd(s);
+    return p.getProblem(0).getNumAssemblies();
+  };
+  CHECK(assemblies(false, false) == 1);
+  CHECK(assemblies(true, false) == 2);
+  CHECK(assemblies(true, true) == 2);
+}
+
+TEST_CASE("solve session: a second solve's progress starts from nothing",
+          "[solve][session][progress]") {
+  // after a finished solve, the next one is not shown as almost done
+  Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+  SolveSession s(p, p.getProblem(0), takeApart());
+  for (int i = 0; i < 3; i++) {
+    REQUIRE(s.start().has_value());
+    const SolveProgress first = s.progress();
+    if (first.stage == SolveStage::Prepare || first.stage == SolveStage::Reduce) {
+      CHECK(first.overall < 0.01F);
+      CHECK(first.assemblyFraction < 0.01F);
+    }
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+  }
+  // and after an abort
+  s.abort();
+  REQUIRE(s.start().has_value());
+  CHECK(s.progress().overall < 0.5F);
+  s.wait();
+}
+
+TEST_CASE("solve session: sphere hotspots are reset to the sphere nearest the origin",
+          "[solve][session]") {
+  // Ball Room ships with its hotspots where initHotspot() puts them. With
+  // every hotspot at the origin (as a shape just drawn has it), the
+  // session resets them and finds the same assemblies, placed the same way.
+  const auto found = [](bool atOrigin) {
+    Puzzle p = fresh("BallRoom.xmpuzzle");
+    if (atOrigin) {
+      for (unsigned int i = 0; i < p.getNumberOfShapes(); i++) {
+        p.getShape(i).setHotspot(0, 0, 0);
+      }
+    }
+    SolveOptions o;
+    o.solutionLimit = 0;
+    o.threads = 1;
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    for (unsigned int i = 0; i < p.getNumberOfShapes(); i++) {
+      CHECK(p.getShape(i).hasInitialHotspot());
+    }
+    return totals(p.getProblem(0));
+  };
+  const Totals shipped = found(false);
+  CHECK(shipped.assemblies == 2);
+  CHECK(found(true) == shipped);
+}
+
+TEST_CASE("solve session: equal solutions are kept in assembly order",
+          "[solve][session][parallel]") {
+  // Demo Piece Generator: nearly all of its 927 solutions are ties, and with
+  // many workers some take-aparts finish out of order. One assembly thread
+  // keeps the numbers in the order found; sorted by moves or by level,
+  // equals are in assembly order.
+  for (const SolutionOrder order : {SolutionOrder::Moves, SolutionOrder::Level}) {
+    for (const unsigned int workers : {1U, 8U, 16U}) {
+      INFO(workers << " workers, order " << static_cast<int>(order));
+      Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+      SolveOptions o = takeApart(1);
+      o.takeApartWorkers = workers;
+      o.order = order;
+      o.solutionLimit = 0;
+      SolveSession s(p, p.getProblem(0), o);
+      REQUIRE(s.start().has_value());
+      s.wait();
+      const Problem& pr = p.getProblem(0);
+      REQUIRE(pr.getNumberOfSavedSolutions() == 927);
+      // equal keys (moves; or the levels, as text) by assembly number
+      const auto key = [order](const Solution& sol) {
+        const Disassembly& d = *sol.getDisassemblyInfo();
+        return order == SolutionOrder::Moves ? std::to_string(d.sumMoves()) : d.movesText();
+      };
+      unsigned int ties = 0;
+      unsigned int outOfOrder = 0;
+      for (unsigned int i = 1; i < pr.getNumberOfSavedSolutions(); i++) {
+        const Solution& a = pr.getSavedSolution(i - 1);
+        const Solution& b = pr.getSavedSolution(i);
+        if (key(a) == key(b)) {
+          ties++;
+          outOfOrder += a.getAssemblyNumber() > b.getAssemblyNumber() ? 1 : 0;
+        }
+      }
+      CHECK(ties > 900);
+      CHECK(outOfOrder == 0);
+    }
+  }
+}
+
+TEST_CASE("solve session: the saved position belongs to the paused state",
+          "[solve][session][resume]") {
+  // Prepared: Paused with the position. While the next run assembles, the
+  // problem holds none (it would be behind the search); a puzzle saved
+  // then carries no position.
+  Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+  SolveSession s(p, p.getProblem(0), takeApart());
+  REQUIRE(s.prepare().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  CHECK_FALSE(p.getProblem(0).getAssemblerState().empty());
+  REQUIRE(s.resume().has_value());
+  bool seen = false;
+  while (isActive(s.state())) {
+    seen = s.readProblem([](const Problem& pr) {
+             if (pr.getSolveState() == ProblemState::Solving && pr.getNumAssemblies() > 0) {
+               CHECK(pr.getAssemblerState().empty());
+               return true;
+             }
+             return false;
+           }) ||
+           seen;
+  }
+  s.wait();
+  CHECK(seen);
+  CHECK(s.state() == SolveState::Finished);
+}
+
+TEST_CASE("solve session: the search statistics are recorded", "[solve][session]") {
+  // recordSearchStats of the original GUI: the steps searched and the
+  // assemblies tried apart (every one of more than one piece)
+  Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+  SolveSession s(p, p.getProblem(0), takeApart());
+  REQUIRE(s.start().has_value());
+  s.wait();
+  const Problem& pr = p.getProblem(0);
+  CHECK(pr.getSearched() > 0);
+  CHECK(pr.getTriedApart() == 928);
+}
+
+TEST_CASE("solve session: a live sort keeps the saved solutions sorted as they come",
+          "[solve][session]") {
+  Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+  SolveOptions o = takeApart();
+  o.order = SolutionOrder::Unsorted;
+  o.solutionLimit = 0;
+  SolveSession s(p, p.getProblem(0), o);
+  constexpr int kByPiecesUsed = 3;
+  s.setLiveSort(kByPiecesUsed);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  const auto order = [](const Problem& pr) {
+    std::vector<std::string> v;
+    for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+      v.push_back(test::fingerprint(pr.getSavedSolution(i).getAssembly()));
+    }
+    return v;
+  };
+  const Problem& pr = p.getProblem(0);
+  REQUIRE(pr.getNumberOfSavedSolutions() == 927);
+  Problem sorted = pr;
+  sorted.sortSolutions(kByPiecesUsed);
+  CHECK(order(pr) == order(sorted));
+  // the premise: the order found is not that order
+  Problem found = pr;
+  found.sortSolutions(0);
+  CHECK(order(found) != order(sorted));
+}
+
+TEST_CASE("solve session: kept assemblies thin the same however the solve was paused",
+          "[solve][session][resume]") {
+  // Ten assemblies of 928 kept, thinned evenly. A continued solve works
+  // out how far the thinning had gone from the counts (in memory and after
+  // a save), so it keeps the same ten as a straight one. One thread: the
+  // assemblies are found in one order.
+  SolveOptions o;
+  o.threads = 1;
+  const auto kept = [](const Problem& pr) {
+    REQUIRE(pr.getSolveState() == ProblemState::Solved);
+    std::vector<std::string> v;
+    for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+      v.push_back(std::to_string(pr.getSavedSolution(i).getAssemblyNumber()) + " " +
+                  test::fingerprint(pr.getSavedSolution(i).getAssembly()));
+    }
+    return v;
+  };
+  std::vector<std::string> expected;
+  std::chrono::microseconds whole{0};
+  {
+    Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+    SolveSession s(p, p.getProblem(0), o);
+    const auto t0 = std::chrono::steady_clock::now();
+    REQUIRE(s.start().has_value());
+    s.wait();
+    whole = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - t0);
+    expected = kept(p.getProblem(0));
+    REQUIRE(expected.size() == 10);
+  }
+  std::mt19937 rng(20261008);
+  int paused = 0;
+  for (int trial = 0; trial < 8; trial++) {
+    Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+    auto session = std::make_unique<SolveSession>(p, p.getProblem(0), o);
+    REQUIRE(session->start().has_value());
+    for (unsigned int run = 0;; run++) {
+      REQUIRE(run < 200);
+      // within the time a whole solve takes, widening as the runs go on
+      untilPrepared(*session);
+      const auto window = static_cast<int>(whole.count()) * (2 + static_cast<int>(run)) / 4;
+      std::this_thread::sleep_for(
+          std::chrono::microseconds(std::uniform_int_distribution<int>(0, window)(rng)));
+      session->pause();
+      session->wait();
+      REQUIRE(session->state() != SolveState::Error);
+      if (session->state() == SolveState::Finished) {
+        break;
+      }
+      paused++;
+      if (trial % 2 == 1) {
+        session.reset();
+        p = reloaded(p);
+        session = std::make_unique<SolveSession>(p, p.getProblem(0), o);
+      }
+      REQUIRE(session->resume().has_value());
+    }
+    CHECK(kept(p.getProblem(0)) == expected);
+  }
+  CHECK(paused >= 4);
 }

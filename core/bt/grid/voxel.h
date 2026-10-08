@@ -321,6 +321,10 @@ class Voxel {
   /// (the origin, except on the sphere grid).
   virtual void initHotspot();
 
+  /// True when the hotspot is where initHotspot() would put it, so that
+  /// calling it would change nothing (and need not drop the caches).
+  [[nodiscard]] virtual bool hasInitialHotspot() const;
+
   /// The hotspot after transformation `trans`; false when the transformation
   /// is not possible for this shape.
   bool getHotspot(unsigned char trans, int* x, int* y, int* z) const;

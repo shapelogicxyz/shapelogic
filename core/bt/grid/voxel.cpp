@@ -627,6 +627,8 @@ void Voxel::setHotspot(int x, int y, int z) {
 
 void Voxel::initHotspot() { setHotspot(0, 0, 0); }
 
+bool Voxel::hasInitialHotspot() const { return hx_ == 0 && hy_ == 0 && hz_ == 0; }
+
 bool Voxel::indexToXYZ(unsigned int index, unsigned int* x, unsigned int* y,
                        unsigned int* z) const {
   *x = index % sx_;

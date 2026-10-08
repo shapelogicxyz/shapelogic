@@ -353,8 +353,18 @@ on a stop (requested under the queue's mutex). Assemblies handed over after
 a pause are kept as pending, not counted. A paused session carries on with
 the same assembler; a session on a reloaded file restores the position
 (BurrTools 2 cannot, except for a search that is through: Error, then a
-fresh start). Lock order: no lock is held while another is taken, except
-the owner's control lock around the results and run locks.
+fresh start). A run that ends with counted assemblies still waiting (it
+did not take apart) ends Paused, not Finished.
+
+**Lock order** (outer before inner; nothing takes a session lock under an
+assembler's or disassembler's, so there is no inversion): the owner's
+control lock around the results, run and failure locks; the results lock
+around `beginSolving` (an assembler 1 replay included, which holds up
+`readProblem` and `progress()` for that time) and `storePosition`
+(BurrTools 2's peer lock); the run lock around the published assembler's
+`finished()`/`iterations()` and the disassemblers' progress and times
+(their own locks); the queue lock around a stop request. Mirror and
+rotation filter flags are applied to a kept assembler at every run.
 
 ### mesh and app (stage 6)
 Drawing meshes for every grid; `Document` with transactional undo/redo;

@@ -519,3 +519,32 @@ TEST_CASE("voxel: copying preserves the name", "[voxel]") {
   std::unique_ptr<Voxel> copy = original->clone();
   REQUIRE(copy->getName() == "original shape");
 }
+
+TEST_CASE("voxel: hasInitialHotspot says whether initHotspot would move it", "[voxel]") {
+  // new (the stage 5 audit): the solve session resets only hotspots that
+  // initHotspot() would move; on the sphere grid that place is the sphere
+  // nearest the origin, not the origin
+  GridType bricks(GridKind::Bricks);
+  std::unique_ptr<Voxel> b = makeVoxel(bricks, 3, 3, 3);
+  b->setState(1, 1, 1, Voxel::kFilled);
+  CHECK(b->hasInitialHotspot());
+  b->setHotspot(1, 0, 0);
+  CHECK_FALSE(b->hasInitialHotspot());
+  b->initHotspot();
+  CHECK(b->hasInitialHotspot());
+
+  GridType spheres(GridKind::Spheres);
+  std::unique_ptr<Voxel> s = makeVoxel(spheres, 3, 3, 3);
+  // no sphere: initHotspot() leaves it where it is
+  s->setHotspot(2, 0, 0);
+  CHECK(s->hasInitialHotspot());
+  s->setHotspot(0, 0, 0);
+  s->setState(1, 1, 0, Voxel::kFilled);
+  s->setState(2, 2, 2, Voxel::kFilled);
+  CHECK_FALSE(s->hasInitialHotspot());
+  s->initHotspot();
+  CHECK(s->getHx() == 1);
+  CHECK(s->getHy() == 1);
+  CHECK(s->getHz() == 0);
+  CHECK(s->hasInitialHotspot());
+}

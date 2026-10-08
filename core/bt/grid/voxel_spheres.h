@@ -31,6 +31,10 @@ class VoxelSpheres : public Voxel {
   [[nodiscard]] bool validCoordinate(int x, int y, int z) const override;
   [[nodiscard]] bool onGrid(int x, int y, int z) const override;
   void initHotspot() override;
+  [[nodiscard]] bool hasInitialHotspot() const override;
+
+ private:
+  bool nearestSphere(int& hx, int& hy, int& hz) const;
 };
 
 }  // namespace bt

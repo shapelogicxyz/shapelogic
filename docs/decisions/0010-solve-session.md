@@ -54,7 +54,15 @@ The take-apart workers are threads of the session's own, one
 addition: a search that is through is saved as the dancing links position
 after the last piece, which assembler 0 also writes when through, and is
 restored as through. A pause while its last assemblies are being taken
-apart then survives a reload.
+apart then survives a reload. Such files are one-way: the original's
+`setPosition` reads past its row array on any position after the last
+piece (its own assembler 0 one too) and crashes, so they continue in the
+new core only (stage 5 audit).
+
+**A solve with assemblies waiting is not through.** Counted pending
+assemblies (queued or stopped take-aparts of a paused run) keep the solve
+open when a run does not take apart: it ends Paused with the search
+through, and a run that takes apart finishes it.
 
 ## Consequences
 - A front end (the engine, stage 7) starts, pauses, continues and aborts

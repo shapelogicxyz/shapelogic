@@ -122,9 +122,12 @@ ASan (the 33-cube probe no longer stops it), and the fast tier of `oracle`
    thread reset them after the matrix; burrTxt and burrTxt2 before it).
    Stage 4 found what that cost; a hotspot moved while a solve is paused
    no longer parts the take-apart from the kept matrix (a test). Only a
-   hotspot away from the origin is reset: a reset drops the shape's
+   hotspot that is not where `initHotspot()` puts it is reset (the origin;
+   on the sphere grid the sphere nearest it): a reset drops the shape's
    caches, and warming them again on every run made each run slow enough
-   to start that short pauses never let a take-apart finish.
+   to start that short pauses never let a take-apart finish. *(Corrected
+   after the stage 5 audit: the rule first tested the origin, wrong for
+   spheres.)*
 4. **Equal solutions in assembly order.** Sorted by moves, level or turns,
    equals go by assembly number (the original: the order its workers
    finished). With the limit, the kept solutions no longer depend on which
@@ -138,9 +141,13 @@ ASan (the 33-cube probe no longer stops it), and the fast tier of `oracle`
    its last assemblies are taken apart survives a reload. The original
    saved the start for it, so the reloaded solve searched again and
    reported every assembly twice (stage 3b's finding), and the new core's
-   rule for started searches would have dropped everything. The original
-   reads the new text (assembler 0 writes the same when through) and, as
-   for every BurrTools 2 position, searches again.
+   rule for started searches would have dropped everything. *(Corrected
+   after the stage 5 audit: this note first said the original reads the
+   new text. It does not: its `setPosition` of assembler 0 and BurrTools 2
+   reads `rows[piecenumber]`, one past the end, for any position after the
+   last piece, and traps under libc++ hardening. Such files, written by
+   either program for a Classic or BurrTools 2 solve paused while its last
+   take-aparts run, continue in the new core only; decision 0010.)*
 8. **The saved position belongs to the paused state:** a run clears the
    problem's position text when it starts assembling and writes it when it
    pauses (the original wrote the live assembler's position on every save,
@@ -151,7 +158,11 @@ ASan (the 33-cube probe no longer stops it), and the fast tier of `oracle`
 10. **recordSearchStats** (searched steps, assemblies tried apart) is the
     session's, at every Paused and Finished; it was the GUI's.
 11. **Counted pending assemblies** wait when a run does not take apart (the
-    original queued them without workers and lost them).
+    original queued them without workers and lost them), and keep the
+    solve open: such a run ends Paused, with the search through, and the
+    next run that takes apart finishes it. *(The second half added after
+    the stage 5 audit: the run first ended Finished, the problem Solved
+    with the waiting solutions missing.)*
 12. **Two pools:** the assembly's (the original's assembler threads) and
     the take-apart's (`helperPool`, with the load accounting). One pool for
     both would hold the assembly's lent threads while it waits at a full
@@ -183,7 +194,13 @@ ASan (the 33-cube probe no longer stops it), and the fast tier of `oracle`
 - **A stopped take-apart counts twice** in the assemblies tried apart.
 - **Counted pending assemblies are lost** when a solve continues without
   taking apart.
-All three worth fixing there; the hotspot finding of stage 4 is fixed here.
+- **A position after the last piece crashes it** (stage 5 audit, finding
+  3): `assembler_0_c::setPosition` and `assembler_bt2_c::setPosition` loop
+  to `pos = piecenumber + 1` over `rows`, which has `piecenumber` entries;
+  a solve paused while its last assemblies are taken apart writes such a
+  position (its own assembler 0 too). Fix there by bounding the loop by
+  the smaller of `pos` and `piecenumber`.
+All four worth fixing there; the hotspot finding of stage 4 is fixed here.
 
 ## Known issues and notes
 - **BurrTools 2 cannot carry on a saved search** (decision 0009): an
