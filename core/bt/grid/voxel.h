@@ -9,6 +9,7 @@
 
 #include "bt/base/assert.h"
 #include "bt/grid/grid_type.h"
+#include "bt/grid/symmetries.h"
 #include "bt/grid/types.h"
 
 #include <memory>
@@ -204,7 +205,31 @@ class Voxel {
   /// the transformation is not possible for this shape. Null pointers are
   /// not written.
   bool getBoundingBox(unsigned char trans, int* x1, int* y1, int* z1, int* x2 = nullptr,
-                      int* y2 = nullptr, int* z2 = nullptr) const;
+                      int* y2 = nullptr, int* z2 = nullptr) const {
+    const int* e = transformCacheEntry(trans);
+    if (e[3] == kCacheNotDef) {
+      return false;
+    }
+    if (x1) {
+      *x1 = e[3];
+    }
+    if (x2) {
+      *x2 = e[4];
+    }
+    if (y1) {
+      *y1 = e[5];
+    }
+    if (y2) {
+      *y2 = e[6];
+    }
+    if (z1) {
+      *z1 = e[7];
+    }
+    if (z2) {
+      *z2 = e[8];
+    }
+    return true;
+  }
 
   // ---- comparison ---------------------------------------------------------
 
@@ -299,10 +324,17 @@ class Voxel {
   // ---- symmetry -----------------------------------------------------------
 
   /// The symmetry group of the space in its current orientation (cached).
-  [[nodiscard]] Symmetry selfSymmetries() const;
+  [[nodiscard]] Symmetry selfSymmetries() const {
+    if (isSymmetryInvalid(symmetries_)) {
+      calculateSelfSymmetries();
+    }
+    return symmetries_;
+  }
 
   /// The smallest transformation that gives the same look as `trans`.
-  [[nodiscard]] unsigned char normalizeTransformation(unsigned char trans) const;
+  [[nodiscard]] unsigned char normalizeTransformation(unsigned char trans) const {
+    return gt_.getSymmetries().minimizeTransformation(selfSymmetries(), trans);
+  }
 
   /// Computes the symmetry and every transformation's hotspot and bounding
   /// box now, so the const queries no longer write to the caches.
@@ -327,7 +359,17 @@ class Voxel {
 
   /// The hotspot after transformation `trans`; false when the transformation
   /// is not possible for this shape.
-  bool getHotspot(unsigned char trans, int* x, int* y, int* z) const;
+  bool getHotspot(unsigned char trans, int* x, int* y, int* z) const {
+    BT_ASSERT(x && y && z);
+    const int* e = transformCacheEntry(trans);
+    if (e[0] == kCacheNotDef) {
+      return false;
+    }
+    *x = e[0];
+    *y = e[1];
+    *z = e[2];
+    return true;
+  }
 
   [[nodiscard]] const std::string& getName() const { return name_; }
   void setName(const std::string& n) { name_ = n; }
@@ -397,8 +439,28 @@ class Voxel {
   void unionFind(std::vector<int>& tree, char type, bool inverse, VoxelType value,
                  bool outsideZ) const;
 
+  /// Works out symmetries_ (selfSymmetries() keeps it).
+  void calculateSelfSymmetries() const;
+
   /// Fills cache entry `trans` (hotspot and bounding box) if it is empty.
   void fillTransformCache(unsigned char trans) const;
+
+  /// Cache entry `trans`, filled. Inline: the assemblers' rotation checks
+  /// ask for every piece of every assembly (the cache holds an entry for
+  /// each transformation of the grid, so its size bounds `trans`).
+  const int* transformCacheEntry(unsigned char trans) const {
+    BT_ASSERT(9 * std::size_t{trans} < bbHsCache_.size());
+    const int* e = &bbHsCache_[9 * std::size_t{trans}];
+    if (e[0] == kCacheUninit || e[3] == kCacheUninit) {
+      fillTransformCache(trans);
+    }
+    return e;
+  }
+
+  /// Cache values: not worked out yet, and a transformation the shape
+  /// cannot take.
+  static constexpr int kCacheUninit = -30000;
+  static constexpr int kCacheNotDef = -30001;
 
   std::string name_;
   int weight_ = 1;

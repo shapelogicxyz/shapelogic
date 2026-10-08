@@ -277,21 +277,6 @@ bool Problem::usesShape(unsigned int shape) const {
                      [shape](const Part& p) { return p.shapeId == shape; });
 }
 
-unsigned int Problem::getPartMinimum(unsigned int partId) const {
-  BT_ASSERT(partId < parts_.size());
-  return parts_[partId].min;
-}
-
-unsigned int Problem::getPartMaximum(unsigned int partId) const {
-  BT_ASSERT(partId < parts_.size());
-  return parts_[partId].max;
-}
-
-unsigned int Problem::getShapeIdOfPart(unsigned int partId) const {
-  BT_ASSERT(partId < parts_.size());
-  return parts_[partId].shapeId;
-}
-
 unsigned int Problem::getPartIdForShape(unsigned int shapeId) const {
   for (std::size_t i = 0; i < parts_.size(); i++) {
     if (parts_[i].shapeId == shapeId) {

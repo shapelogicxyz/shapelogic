@@ -138,9 +138,18 @@ class Problem {
     return static_cast<unsigned int>(parts_.size());
   }
   [[nodiscard]] const std::vector<Part>& getParts() const { return parts_; }
-  [[nodiscard]] unsigned int getPartMinimum(unsigned int partId) const;
-  [[nodiscard]] unsigned int getPartMaximum(unsigned int partId) const;
-  [[nodiscard]] unsigned int getShapeIdOfPart(unsigned int partId) const;
+  [[nodiscard]] unsigned int getPartMinimum(unsigned int partId) const {
+    BT_ASSERT(partId < parts_.size());
+    return parts_[partId].min;
+  }
+  [[nodiscard]] unsigned int getPartMaximum(unsigned int partId) const {
+    BT_ASSERT(partId < parts_.size());
+    return parts_[partId].max;
+  }
+  [[nodiscard]] unsigned int getShapeIdOfPart(unsigned int partId) const {
+    BT_ASSERT(partId < parts_.size());
+    return parts_[partId].shapeId;
+  }
   /// The part of a shape; the shape must be a part.
   [[nodiscard]] unsigned int getPartIdForShape(unsigned int shapeId) const;
   /// The voxel space of a part.

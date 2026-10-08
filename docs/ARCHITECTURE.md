@@ -4,14 +4,15 @@ BurrTools Alpha is the core of the BurrTools puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
-*Current state: stage 7 (the assembler run layer and all three
-assemblers; the take-apart with rotation moves, Classic and Crowell; the
-solve session; the drawing meshes of every grid; the app layer: the
-document with its undo history and commands, the queries, the layer
-drawing of the grid editors, the analysis of saved assemblies, the paused
-solve files, the playback sampler and the explorers; `bt` solving and
-taking apart; `bt-engine`, the JSON-RPC engine, with the schema of its
-API in `api/` and contract tests). The `bt` CLI is completed in stage 8.*
+*Current state: stage 8, the end of the plan (the assembler run layer
+and all three assemblers; the take-apart with rotation moves, Classic and
+Crowell; the solve session; the drawing meshes of every grid; the app
+layer: the document with its undo history and commands, the queries, the
+layer drawing of the grid editors, the analysis of saved assemblies, the
+paused solve files, the playback sampler and the explorers; `bt-engine`,
+the JSON-RPC engine, with the schema of its API in `api/` and contract
+tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
+benchmark as fast as the original or faster). Next: the web front end.*
 
 ## Big picture
 
@@ -42,14 +43,15 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 |---|---|
 | `core/bt/<module>/` | the library, headers and sources together; include as `"bt/<module>/x.h"` |
 | `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
-| `cli/` | `bt`: solves and takes apart with burrTxt-compatible `--json` (full CLI in stage 8) |
+| `cli/` | `bt`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
 | `tests/contract/` | the engine's contract tests: `bt-engine` driven as a subprocess, every message checked against `api/` |
+| `tests/cli/` | `test_cli.py` (ctest `cli`): `bt`'s options, refusals and modes on the fixtures |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
 | `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
-| `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solve_file`, `bt_solutions`) |
+| `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies |
 
@@ -105,7 +107,9 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
   instantiate it over the generated tables in `tabs_0/1/2/` (copied as they
   are; see `core/bt/grid/TABLES.md`). The instances are immutable,
   constant-initialized statics (`constinit`: no guard on use, which the
-  assemblers' rotation checks call in their inner loops).
+  assemblers' rotation checks call in their inner loops), reached through
+  constant-initialised pointers so that `GridType::getSymmetries()` is an
+  inline load (stage 8: the rotation check of every assembly asks for it).
 - `voxel_table.h`: `VoxelTable`, a hash table that finds a shape in any
   orientation; it takes a callback from index to shape.
 - `bitfield.h`: `Bitfield<N>`, a constexpr bit set (the sphere tables).
@@ -545,12 +549,44 @@ schema, every error's errc one the method declares, every method called
 with success at least once, the scripted session of the brief; run
 against the dev, ASan and TSan engines).
 
+## cli (stage 8)
+`bt` is the command line. Ported from `src/burrTxt.cpp` and
+`src/burrTxt2.cpp`; checked by the harness (`just oracle` reads its
+`--json`, `just oracle-text` compares its text with burrTxt's byte for
+byte, `just oracle-files` solves with `--save`).
+- `options.h`: `Options` and `parseArgs` (burrTxt's options and rules:
+  combined short options, `-q` turning `-p` and `-s` off, `-o`/`-a` not
+  combined, `--json` refusing `-a -x -o all -p -s`; burrTxt2's options as
+  long ones that go with `--save`; the A/B switches), `usage(kind)`.
+- `text_print.h`: the drawings of `src/lib/print.cpp` (a shape, the
+  puzzle, an assembly, a take-apart). Below the first separation the
+  original drew the wrong shapes; `bt` draws each piece as itself, and
+  `--original-drawings` draws as burrTxt did (for the comparison).
+- `dot_level.h`: the level text read as burrTxt `--json` read it, the best
+  level of a solve.
+- `main.cpp`: the modes. The solve (an `Assembler` per problem, each
+  assembly taken apart in its callback by one `Disassembler` whose levels
+  spread over a pool of their own, printing as asked; `--json` at the
+  end), `-x` (the saved solutions taken apart again), `-a` (the comment,
+  the saved solutions), `--save` (a `SolveSession` as burrTxt2 ran its
+  solve thread: a paused solve carried on unless `--restart`, the
+  solutions kept sorted by moves up to `--limit`, the puzzle written to the
+  file given), `--progress` (a line a second on stderr from a ticker
+  thread). Sliding and stacking puzzles are refused with burrTxt's message
+  for a puzzle it cannot handle (their files load, and `-a` reads them).
+  The core never prints: what the original's library said on stderr
+  (the assembler chosen, what reduce removed) the CLI prints from what the
+  core returns.
+
 ## Testing against the original
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
   comparison of `bt` with `burrTxt` (`just oracle`; `--fields`, `--threads`,
   `--solver crowell|bt2` against the original's own baselines for those),
-  the solved-file comparison (`compare-files`: `bt_solve_file` solves as
+  the text comparison (`just oracle-text`: `bt` and burrTxt run the same
+  ways on every corpus puzzle, stdout, stderr and the exit code compared
+  byte for byte against the original's recorded runs),
+  the solved-file comparison (`compare-files`: `bt --save` solves as
   burrTxt2 does, both programs' files are read with the new core by
   `bt_solutions` and compared solution by solution: assembly, separation
   tree, level text, move counts), the
@@ -588,9 +624,10 @@ See AGENTS.md for the full list. The load-bearing ones:
 
 `just build` / `just test` / `just test-all` / `just test-asan` /
 `just test-tsan` / `just oracle` / `just oracle-resume` /
-`just oracle-roundtrip` / `just check`. ctest also runs `api-schema`
-(the schema checks itself), `api-docs` (`docs/API.md` is current) and
-`contract` (the engine as a subprocess).
+`just oracle-roundtrip` / `just oracle-files` / `just oracle-text` /
+`just check`. ctest also runs `api-schema` (the schema checks itself),
+`api-docs` (`docs/API.md` is current), `contract` (the engine as a
+subprocess) and `cli` (`bt` as a subprocess).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
 `release`. zlib comes from the system, or is built from a pinned release
 (`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only) and

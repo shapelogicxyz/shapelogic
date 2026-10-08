@@ -25,6 +25,7 @@ just oracle [--tier …]  # compare the new bt with the original burrTxt
 just oracle-resume      # pause searches in one program, continue in the other
 just oracle-roundtrip   # load + save every corpus file in both programs, compare
 just oracle-files       # solve as burrTxt2 does, compare the solved files (stage 4)
+just oracle-text        # bt's text output against burrTxt's, byte for byte (stage 8)
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
 just format             # clang-format
@@ -109,9 +110,14 @@ Every stage ends with, in this order:
    tiers, with all threads and with `--threads 1`; from stage 4 every field,
    for `--solver classic`, `crowell` and `bt2`), `just oracle-resume`
    (from stage 3), `just oracle-files --tier all` (from stage 4),
+   `just oracle-text --tier all` (from stage 8; after
+   `oracle.py baseline-text --tier all`),
    `just oracle-roundtrip` (from stage 2; run
    `oracle.py baseline-files --tier all` once so the original's solved
-   files are included), `just check` if LLVM is installed. Run the quick
+   files are included), `just check` if LLVM is installed, and from
+   stage 8 the benchmarks (`tests/bench/bench.py`: the default set,
+   `--plain`, `--set glar`; within 5% of the original or faster, on a
+   quiet machine, never beside a sanitizer run). Run the quick
    suite a few times: a rare hang shows only so.
 2. `docs/ARCHITECTURE.md` updated to describe what now exists.
 3. `docs/handoff/stage-N.md`: what was done, gate results, known issues,

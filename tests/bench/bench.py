@@ -8,11 +8,14 @@ numbers from one run of this script compare. Each program reports the time
 of its own solve (reduce plus search, without loading), which is what is
 compared.
 
-Stage 3: assembly only (assemblers 0 and 1, BurrTools 2), so both run
-without -d. The stage 8 gate (decision 0007) is "within 5% or faster".
+The default set times the assemblers (0 and 1, BurrTools 2) and, with
+-d and -R, the take-apart; --plain turns the vector search off in both
+programs; --set glar is the long one. The gate (decision 0007, from stage
+8) is "within 5% of the original or faster" on every row.
 
     python3 tests/bench/bench.py                    # the default set, 1 and all threads
     python3 tests/bench/bench.py --set glar          # Burr-Glar (3.1 million assemblies, slow)
+    python3 tests/bench/bench.py --plain             # without the vector search
     python3 tests/bench/bench.py --threads 1 --repeat 5
 """
 
@@ -113,7 +116,7 @@ def main() -> int:
     p.add_argument("--new-bin", type=Path, default=ROOT / "build" / "release" / "cli" / "bt")
     p.add_argument("--set", choices=["default", "glar"], default="default")
     p.add_argument("--threads", type=int, nargs="+", default=[1, os.cpu_count() or 1])
-    p.add_argument("--repeat", type=int, default=3)
+    p.add_argument("--repeat", type=int, default=5)
     p.add_argument("--plain", action="store_true", help="without the vector search (BURRTOOLS_NO_SIMD / --no-simd)")
     p.add_argument("--timeout", type=float, default=1800.0)
     args = p.parse_args()

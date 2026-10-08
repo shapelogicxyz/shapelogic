@@ -1,0 +1,116 @@
+{
+ "tictest/performance/puzzles/5x5x5_TICs/Crowell_Lohe_Burrs/Climburr_OldVer.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "e379d59de2a175ab955a86a8b9b5744c652825cb0d8615d9766833c848ae882f",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 854
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "a54a7960f62959d753605461c18204640959227ea808353f08fea96a9ad75492",
+   "err": "72f4a350bdb21fe4eee43be76e96d0cf7928e5da9e0e7694eb60248760357b9c",
+   "lines": 0
+  },
+  "retake": {
+   "exit": 0,
+   "out": "fa63ea37d18602963406e075954d42bb4b3661e9e834ba65fe2c4b1f5c80963d",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 803
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "991aad6c4e9592ebe17a1bce374bd6819615a3d7defb47c7c15c6ec6a06c48ea",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "8fa9602b99512e9bba16b07db49383b2b926f616d2724cd2efc863ecf3263d5c",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 9
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tictest/performance/puzzles/ARCparent_Cubes/CornerCube.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "9b0a7817aee356e343a1627e4e205ffe88220a0638343cad2974f10803d9399a",
+   "err": "482147978f605df302148feceef7418d85149e48e1d874b8b8e010298b1385eb",
+   "lines": 467
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c7957face5672fef0b31e67a3d50fb08348fcb3b02cc3212cad91b32d29301e0",
+   "err": "6d9ab2a3175dfbac4a333a0912e105541c03b51bc1e6580c61dd9259b10a72e3",
+   "lines": 0
+  },
+  "retake": {
+   "exit": 0,
+   "out": "471b2fb79f6ec844e33269626cb153ff284aa69fd9eaa5a8c1f068b4fe861a77",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 411
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "36104f10ef5477d6823676cb1a3481184bef9a77e9cfad0cfb994b817f82725b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "d8179fcc1b56f757a934582e396bfb4a088c550facd6f5a81e9e930e8c6b3c1b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 12
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "tictest/performance/puzzles/ARCparent_Cubes/CoverUp3.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "93fab7543cc037073f09cc478f6743dfff5e36f4f5d665fbbbd6bf96d7f5c6ae",
+   "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
+   "lines": 317
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "697fd982bd47ee1669db91e01677290fcb04fb03a9730e46716771e87b654af1",
+   "err": "a6bf5a40c27e322e03612d0001338e175f517f147f9beb61116c4620c4175849",
+   "lines": 0
+  },
+  "retake": {
+   "exit": 0,
+   "out": "8164cec2b0c5c5d6463c944f1f059a80ee7e6165389912b0ccfa2ec55ff46437",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 249
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e90b0e72c805fb9268eaebdcf35e780a9c29e9b5ca02057b78ca3931daa52e52",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "a6d930974738ea6e7b05adb2e7fce2d414b431680b86a696ae38b5269b033ed2",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 12
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ }
+}

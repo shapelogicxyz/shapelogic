@@ -55,7 +55,7 @@ failure scenarios.
 - [x] Audit of stage 5: six findings fixed (commit db3cb40; see docs/handoff/stage-6.md)
 - [x] **Stage 6**: app layer and meshes (see docs/handoff/stage-6.md)
 - [x] **Stage 7**: engine, its API schema and contract tests (see docs/handoff/stage-7.md)
-- [ ] Stage 8: CLI and performance
+- [x] **Stage 8**: the `bt` CLI and performance (see docs/handoff/stage-8.md)
 
 ## Stage details
 
@@ -117,4 +117,9 @@ the API design was not held; an audit of stage 7 is worth it.
 
 ### Stage 8: CLI and performance
 Complete `bt` (burrTxt-compatible options and `--json`), benchmark scripts
-in `tests/bench/`, profile and close any gap to the original.
+in `tests/bench/`, profile and close any gap to the original. Done: `bt`
+is burrTxt for brick puzzles (its text checked byte for byte by
+`just oracle-text`) with burrTxt2's mode as `--save`; every benchmark row
+within 5% of the original or faster (Burr-Glar 0.84). This completes the
+plan; next is the web front end and the later features above
+(docs/handoff/stage-8.md).

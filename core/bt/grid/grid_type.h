@@ -18,6 +18,13 @@ namespace bt {
 class Symmetries;
 class Voxel;
 
+namespace detail {
+// The grids' symmetry tables (symmetries_0/1/2.cpp; see symmetries_tables.h).
+extern const Symmetries* const kSymmetriesTable0;
+extern const Symmetries* const kSymmetriesTable1;
+extern const Symmetries* const kSymmetriesTable2;
+}  // namespace detail
+
 /// The grid types. The numbers are the `type` attribute in .xmpuzzle files.
 enum class GridKind : std::uint8_t {
   Bricks = 0,           ///< cubes
@@ -57,7 +64,21 @@ class GridType {
   [[nodiscard]] unsigned int getCapabilities() const noexcept;
 
   /// The symmetry and transformation tables of this grid.
-  [[nodiscard]] const Symmetries& getSymmetries() const noexcept;
+  [[nodiscard]] const Symmetries& getSymmetries() const noexcept {
+    switch (kind_) {
+      case GridKind::TriangularPrism:
+        return *detail::kSymmetriesTable1;
+      case GridKind::Spheres:
+        return *detail::kSymmetriesTable2;
+      case GridKind::Bricks:
+      case GridKind::Rhombic:
+      case GridKind::TetraOcta:
+      case GridKind::Sliding:
+      case GridKind::Stacking:
+        break;
+    }
+    return *detail::kSymmetriesTable0;
+  }
 
   /// A new voxel space of this grid, of the given size, every cell `init`.
   [[nodiscard]] std::unique_ptr<Voxel> makeVoxel(unsigned int x, unsigned int y, unsigned int z,

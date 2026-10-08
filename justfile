@@ -47,6 +47,10 @@ oracle-resume *args: (build "release")
 oracle-files *args: (build "release")
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" compare-files {{args}}
 
+# Compare bt's text output with the original burrTxt's (after `oracle.py baseline-text`)
+oracle-text *args: (build "release")
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/bt compare-text {{args}}
+
 # Record the original burrTxt's answers for a corpus tier
 oracle-baseline *args:
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}

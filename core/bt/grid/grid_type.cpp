@@ -41,19 +41,6 @@ unsigned int GridType::getCapabilities() const noexcept {
   return 0;
 }
 
-const Symmetries& GridType::getSymmetries() const noexcept {
-  switch (kind_) {
-    case GridKind::TriangularPrism: return detail::symmetriesTable1();
-    case GridKind::Spheres: return detail::symmetriesTable2();
-    case GridKind::Bricks:
-    case GridKind::Rhombic:
-    case GridKind::TetraOcta:
-    case GridKind::Sliding:
-    case GridKind::Stacking: break;
-  }
-  return detail::symmetriesTable0();
-}
-
 std::unique_ptr<Voxel> GridType::makeVoxel(unsigned int x, unsigned int y, unsigned int z,
                                            VoxelType init) const {
   switch (kind_) {

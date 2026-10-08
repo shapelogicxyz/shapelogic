@@ -11,7 +11,7 @@ A ported component counts as done only when the two agree on the corpus
   files    every solution and its disassembly, from the solved puzzle file the
            original's burrTxt2 writes (`baseline-files`, under work/old, not
            committed) and the one the new core writes the same way
-           (`compare-files`, with bt_solve_file): both are read with the new
+           (`compare-files`, with `bt --save`): both are read with the new
            core (bt_solutions) and compared solution by solution.
   roundtrip  (stage 2) every corpus file, plus the files that are not solved
            yet and the solved files under work/old, is loaded and saved by the
@@ -27,6 +27,7 @@ import argparse
 import concurrent.futures
 import glob
 import gzip
+import hashlib
 import json
 import os
 import re
@@ -338,9 +339,9 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
     new_file = new_in.with_name(new_in.name + "ttt")
     # every solution is kept when taking apart (see compare_solved); saved
     # assemblies are not compared and keep the solve thread's limit
-    flags = (["--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
-             + (["--rotations"] if "R" in e.flags else []) + solver_args(args.solver))
-    err = run_tool([str(args.new_tool), *flags, str(new_in), str(new_file)], args.timeout)
+    flags = (["-q", "--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
+             + (["-R"] if "R" in e.flags else []) + solver_args(args.solver))
+    err = run_tool([str(args.new_bt), "--save", str(new_file), *flags, str(new_in)], args.timeout)
     if err:
         return {"status": "NEW FAILED", "detail": err}
     try:
@@ -358,7 +359,7 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
 
 def cmd_compare_files(args: argparse.Namespace) -> int:
     """Solve each puzzle with the new core as burrTxt2 did and compare the solved files."""
-    for tool in (args.new_tool, args.dump_tool):
+    for tool in (args.new_bt, args.dump_tool):
         if not tool.exists():
             print(f"{tool} not found: build the release preset", file=sys.stderr)
             return 2
@@ -379,6 +380,227 @@ def cmd_compare_files(args: argparse.Namespace) -> int:
             print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
     print(f"\n{len(results) - failures}/{len(results)} solved files match the original's "
           f"(solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
+    return 1 if failures else 0
+
+
+# ---- text output (stage 8) ------------------------------------------------
+#
+# burrTxt's text output against bt's, byte for byte: stdout, stderr and the
+# exit code of a set of runs per puzzle, on one thread (the order in which
+# solutions are printed is the order the search finds them). The solve time
+# is blanked. `baseline-text` records the original's runs once (hashes in
+# baseline/text-<tier>[-<solver>].json, committed; the text itself under
+# work/text-old*, for showing a difference); `compare-text` runs bt.
+
+TEXT_TIME_RE = re.compile(rb"in [0-9]+\.[0-9]{3} seconds")
+# assembler 1 says on stderr when it narrows piece ranges; bt does not
+TEXT_OLD_STDERR_SKIP = re.compile(rb"^range optimisation used min \d+, max \d+\n", re.M)
+
+
+def text_runs(e: Entry) -> list[tuple[str, list[str], str]]:
+    """(name, arguments, input) of the text runs of a puzzle. The input is
+    "corpus" (the corpus file) or "solved" (burrTxt2's solved file under
+    work/old, see baseline-files: up to ten saved solutions with their
+    take-aparts, for -x and -a)."""
+    one = ["-t", "1"]
+    # -o all only on the fast tier: some TIC files hold more problems that
+    # take far longer than the first
+    every = e.tier == "fast"
+    if "A" in e.flags:
+        # no -d: the original's take-apart aborts on these grids
+        return [("solve", [*one, "-s"], "corpus"),
+                ("quiet", [*one, "-q", "-n", "-r"], "corpus"),
+                *([("all", [*one, "-q", "-o", "all"], "corpus")] if every else []),
+                ("ask", ["-a", "s1"], "solved"),
+                ("comment", ["-a", "c"], "corpus")]
+    rot = ["-R"] if "R" in e.flags else []
+    return [("solve", [*one, "-dsp", *rot], "corpus"),
+            ("quiet", [*one, "-q", "-n", "-r", "-d", *rot], "corpus"),
+            *([("all", [*one, "-q", "-o", "all", "-d", *rot], "corpus")] if every else []),
+            ("retake", [*one, "-x", "-sp", *rot], "solved"),
+            ("retake-saved", [*one, "-x", *rot], "corpus"),
+            ("ask", ["-a", "s1"], "solved"),
+            ("comment", ["-a", "c"], "corpus")]
+
+
+def text_input(e: Entry, where: str, old_repo: Path) -> Path:
+    return old_repo / e.rel if where == "corpus" else files_dir("old", "classic") / (e.rel + "ttt")
+
+
+def text_dir(side: str, solver: str) -> Path:
+    return WORK_DIR / (f"text-{side}" if solver == "classic" else f"text-{side}-{solver}")
+
+
+def text_baseline_path(tier: str, solver: str) -> Path:
+    return BASELINE_DIR / (f"text-{tier}.json" if solver == "classic" else f"text-{tier}-{solver}.json")
+
+
+def run_text(binary: Path, args: list[str], puzzle: Path, timeout: float, old: bool) -> dict:
+    """One run: its normalised stdout and stderr, and the exit code."""
+    argv = [str(binary), *args, *([] if old else ["--original-drawings"]), str(puzzle)]
+    try:
+        proc = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        return {"error": f"timeout after {timeout:.0f}s"}
+    out = TEXT_TIME_RE.sub(b"in T seconds", proc.stdout)
+    err = TEXT_TIME_RE.sub(b"in T seconds", proc.stderr)
+    if old:
+        err = TEXT_OLD_STDERR_SKIP.sub(b"", err)
+    # a path in a message is the run's own
+    out = out.replace(str(puzzle).encode(), b"<file>")
+    err = err.replace(str(puzzle).encode(), b"<file>")
+    return {"exit": proc.returncode, "out": out, "err": err}
+
+
+def text_digest(r: dict) -> dict:
+    """What is kept of a run. The original dies of a signal when it draws a
+    take-apart with a piece that is not placed (-p with piece ranges: its
+    print() transforms every piece); then what it wrote before is kept, and
+    bt's output must begin with it."""
+    if "error" in r:
+        return {"error": r["error"]}
+    if r["exit"] < 0:
+        return {"crashed": -r["exit"], "out": hashlib.sha256(r["out"]).hexdigest(),
+                "outBytes": len(r["out"])}
+    return {"exit": r["exit"], "out": hashlib.sha256(r["out"]).hexdigest(),
+            "err": hashlib.sha256(r["err"]).hexdigest(), "lines": r["out"].count(b"\n")}
+
+
+def text_jobs(entries: list[Entry], old_repo: Path) -> list[tuple[Entry, str, list[str], Path]]:
+    jobs = []
+    for e in entries:
+        for name, args, where in text_runs(e):
+            jobs.append((e, name, args, text_input(e, where, old_repo)))
+    return jobs
+
+
+def cmd_baseline_text(args: argparse.Namespace) -> int:
+    """Record the original burrTxt's text runs (hashes committed, text under work/)."""
+    old_bin = args.old_repo / "build" / "burrTxt"
+    if not old_bin.exists():
+        print(f"original burrTxt not found at {old_bin}", file=sys.stderr)
+        return 2
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    jobs = text_jobs(entries, args.old_repo)
+    missing = sorted({str(p) for _, _, _, p in jobs if not p.exists()})
+    if missing:
+        print(f"{len(missing)} solved files missing (first: {missing[0]}): "
+              "run `oracle.py baseline-files --tier all` first", file=sys.stderr)
+        return 2
+    store = text_dir("old", args.solver)
+    results: dict[str, dict] = {}
+
+    def one(job):
+        e, name, a, puzzle = job
+        r = run_text(old_bin, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=True)
+        if "error" not in r:
+            base = store / f"{e.rel}.{name}"
+            base.parent.mkdir(parents=True, exist_ok=True)
+            base.with_name(base.name + ".out").write_bytes(r["out"])
+            base.with_name(base.name + ".err").write_bytes(r["err"])
+        return job, text_digest(r)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for n, (job, d) in enumerate(pool.map(one, jobs), 1):
+            e, name = job[0], job[1]
+            results.setdefault(e.rel, {"tier": e.tier})[name] = d
+            if "error" in d or args.verbose:
+                print(f"[{n}/{len(jobs)}] {e.rel} {name}: {d.get('error', 'ok')}", file=sys.stderr)
+    BASELINE_DIR.mkdir(exist_ok=True)
+    for tier in sorted({e.tier for e in entries}):
+        path = text_baseline_path(tier, args.solver)
+        data = {rel: {k: v for k, v in r.items() if k != "tier"} for rel, r in results.items()
+                if r["tier"] == tier}
+        merged = json.loads(path.read_text()) if path.exists() and args.filter else {}
+        merged.update(data)
+        path.write_text(json.dumps(dict(sorted(merged.items())), indent=1) + "\n")
+        print(f"wrote {path.relative_to(HERE.parent.parent)}: {len(data)} puzzles")
+    return 0
+
+
+def first_text_difference(old: bytes, new: bytes) -> str:
+    a, b = old.split(b"\n"), new.split(b"\n")
+    for i, (x, y) in enumerate(zip(a, b)):
+        if x != y:
+            return f"line {i + 1}: {x[:100]!r} != {y[:100]!r}"
+    return f"{len(a)} lines != {len(b)} lines"
+
+
+def cmd_compare_text(args: argparse.Namespace) -> int:
+    """Run bt's text runs and compare them with the original's recorded ones."""
+    if not args.new_bt.exists():
+        print(f"new bt not found at {args.new_bt}", file=sys.stderr)
+        return 2
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    expected: dict[str, dict] = {}
+    for tier in {e.tier for e in entries}:
+        path = text_baseline_path(tier, args.solver)
+        if not path.exists():
+            print(f"no text baseline for tier '{tier}' ({args.solver}): run "
+                  f"`oracle.py baseline-text --tier {tier} --solver {args.solver}`", file=sys.stderr)
+            return 2
+        expected.update(json.loads(path.read_text()))
+    jobs = text_jobs(entries, args.old_repo)
+    store = text_dir("new", args.solver)
+    old_store = text_dir("old", args.solver)
+
+    def one(job):
+        e, name, a, puzzle = job
+        want = expected.get(e.rel, {}).get(name)
+        if want is None:
+            return job, "NO BASELINE", ""
+        if "error" in want:
+            return job, "OLD FAILED", want["error"]
+        if not puzzle.exists():
+            return job, "NO INPUT", f"{puzzle} (run baseline-files --tier all)"
+        r = run_text(args.new_bt, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=False)
+        got = text_digest(r)
+        if "error" in got:
+            return job, "NEW FAILED", got["error"]
+        if "crashed" in want:
+            prefix = hashlib.sha256(r["out"][:want["outBytes"]]).hexdigest()
+            if got.get("exit") == 0 and prefix == want["out"]:
+                return job, "ok", f"the original's {want['outBytes']} bytes before it crashed (signal {want['crashed']})"
+            diffs = ["exit"] if got.get("exit") != 0 else ["out"]
+            want = {"exit": 0, **{k: v for k, v in want.items() if k != "exit"}}
+            r["out"] = r["out"][:want["outBytes"]]
+        else:
+            diffs = [k for k in ("exit", "out", "err") if want.get(k) != got.get(k)]
+        if not diffs:
+            return job, "ok", f"{got.get('lines')} lines"
+        base = store / f"{e.rel}.{name}"
+        base.parent.mkdir(parents=True, exist_ok=True)
+        base.with_name(base.name + ".out").write_bytes(r["out"])
+        base.with_name(base.name + ".err").write_bytes(r["err"])
+        detail = ", ".join(diffs)
+        if "exit" in diffs:
+            detail += f" (exit {want['exit']} != {got['exit']})"
+        for k in ("out", "err"):
+            old_file = old_store / f"{e.rel}.{name}.{k}"
+            if k in diffs and old_file.exists():
+                detail += f"; {k} {first_text_difference(old_file.read_bytes(), r[k])}"
+        return job, "MISMATCH", detail
+
+    rows = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for n, (job, status, detail) in enumerate(pool.map(one, jobs), 1):
+            rows.append((job[0].rel, job[1], status, detail))
+            if status != "ok":
+                print(f"[{n}/{len(jobs)}] {job[0].rel} {job[1]}: {status}", file=sys.stderr)
+    failures = 0
+    old_failed = 0
+    for rel, name, status, detail in sorted(rows):
+        if status == "OLD FAILED":
+            old_failed += 1
+        elif status != "ok":
+            failures += 1
+        if status != "ok" or args.verbose:
+            print(f"{status:12} {rel} {name}  {detail}")
+    compared = len(rows) - old_failed
+    print(f"\n{compared - failures}/{compared} text runs match the original's "
+          f"({len(entries)} puzzles; solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
+    if old_failed:
+        print(f"{old_failed} not compared: the original gave no answer (OLD FAILED above)")
     return 1 if failures else 0
 
 
@@ -875,7 +1097,7 @@ def main() -> int:
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
     p.add_argument("--new-bt", type=Path, default=HERE.parent.parent / "build" / "release" / "cli" / "bt")
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name in ("baseline", "compare", "baseline-files", "compare-files"):
+    for name in ("baseline", "compare", "baseline-files", "compare-files", "baseline-text", "compare-text"):
         s = sub.add_parser(name)
         s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all"])
         s.add_argument("--filter", help="only puzzles whose path contains this text")
@@ -886,10 +1108,10 @@ def main() -> int:
                        help="the solver both programs run (baselines of another than classic are "
                             "baseline/<tier>-<solver>.json, solved files work/old-<solver>)")
         if name == "compare-files":
-            s.add_argument("--new-tool", type=Path,
-                           default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solve_file")
             s.add_argument("--dump-tool", type=Path,
                            default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solutions")
+        if name in ("baseline-text", "compare-text"):
+            s.set_defaults(jobs=os.cpu_count() or 4)
         if name == "compare":
             s.add_argument("--fields", nargs="+", metavar="FIELD",
                            help=f"compare only these fields (default all: {' '.join(COMPARED)})")
@@ -918,7 +1140,8 @@ def main() -> int:
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
-            "compare-files": cmd_compare_files,
+            "compare-files": cmd_compare_files, "baseline-text": cmd_baseline_text,
+            "compare-text": cmd_compare_text,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
             "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "record-saves": cmd_record_saves,
             "record-analysed": cmd_record_analysed,

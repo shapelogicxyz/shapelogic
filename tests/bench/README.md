@@ -9,7 +9,7 @@ from an earlier run, and benchmark on a quiet machine.
 ```bash
 just build release                               # the new bt
 (cd ../burrtools_rotations && just build-release) # the original, build-rel (no assertions)
-python3 tests/bench/bench.py                     # default set, 1 and all threads
+python3 tests/bench/bench.py                     # default set, 1 and all threads, best of 5
 python3 tests/bench/bench.py --plain             # without the vector search
 python3 tests/bench/bench.py --set glar          # Burr-Glar, 3.1 million assemblies (minutes)
 ```
@@ -26,7 +26,8 @@ Sets:
 - `glar`: `Burr-Glar.xmpuzzle` from the upstream burr-tools clone
   (`BT_BURR_GLAR` overrides the path).
 
-The stage 8 gate (decision 0007) is "within 5% of the original or faster".
+The gate (decision 0007, from stage 8; AGENTS.md "Finishing a stage") is
+"within 5% of the original or faster" on every row of the three runs.
 
 ## Results
 
@@ -89,3 +90,54 @@ Stage 4, 2026-10-07, same machine, best of 5; the take-apart rows (`-d`,
 
 A best of 3 just before, on a machine warm from the sanitizer runs, had the
 pentomino rows at 1.04 to 1.09: compare back to back, best of 5.
+
+Stage 8, 2026-10-08, same machine, best of 5, the three runs back to back
+on a quiet machine (`bench.py`, `--plain`, `--set glar`). The gap of
+Burr-Glar on one thread (1.06 at the start of the stage) is closed: the
+profile (macOS `sample`) showed the rotation check of each of its 3.1
+million assemblies paying for small out-of-line calls that the original's
+build, with its assertions off, did not make: `GridType::getSymmetries()`
+(a switch and a function per call, from `BT_ASSERT`s and
+`normalizeTransformation`), `Problem::getPartMaximum` / `partShape`, the
+voxel transformation cache's lookup, and an `Assembly` copied for every
+symmetry checked. They are inline now (the tables behind
+constant-initialised pointers, the cache's bound checked against its size)
+and the check reuses one scratch assembly; the assertions stay on and no
+answer changes (the oracle is green).
+
+| puzzle | threads | original s | new s | new/old |
+|---|---|---|---|---|
+| pentomino 6x10 (-r) | 1 | 0.980 | 0.939 | 0.96 |
+| pentomino 6x10 (-r) | 10 | 0.185 | 0.179 | 0.97 |
+| pentomino 6x10 (-r, bt2) | 1 | 1.597 | 1.580 | 0.99 |
+| pentomino 6x10 (-r, bt2) | 10 | 0.270 | 0.277 | 1.03 |
+| CoverUp3 (-r) | 1 | 0.050 | 0.050 | 1.00 |
+| CornerCube (-r) | 10 | 0.015 | 0.015 | 1.00 |
+| SolidSixPieceBurrs (-r) | 1 | 0.082 | 0.066 | 0.80 |
+| SolidSixPieceBurrs (-r) | 10 | 0.029 | 0.024 | 0.83 |
+| Climburr_OldVer (-rdR) | 1 | 1.396 | 1.341 | 0.96 |
+| Climburr_OldVer (-rdR) | 10 | 0.281 | 0.267 | 0.95 |
+| CoverUp3 (-rdR) | 1 | 5.097 | 4.857 | 0.95 |
+| CoverUp3 (-rdR) | 10 | 1.173 | 1.113 | 0.95 |
+| CornerCube (-rdR) | 1 | 12.516 | 12.005 | 0.96 |
+| CornerCube (-rdR) | 10 | 5.055 | 4.851 | 0.96 |
+| SolidSixPieceBurrs (-rd) | 1 | 0.085 | 0.069 | 0.81 |
+| SolidSixPieceBurrs (-rd) | 10 | 0.031 | 0.027 | 0.87 |
+| **plain search** (`--plain`) | | | | |
+| pentomino 6x10 (-r) | 1 | 1.479 | 1.430 | 0.97 |
+| pentomino 6x10 (-r) | 10 | 0.273 | 0.258 | 0.95 |
+| pentomino 6x10 (-r, bt2) | 1 | 1.601 | 1.585 | 0.99 |
+| pentomino 6x10 (-r, bt2) | 10 | 0.268 | 0.272 | 1.01 |
+| SolidSixPieceBurrs (-r) | 1 | 0.286 | 0.268 | 0.94 |
+| SolidSixPieceBurrs (-r) | 10 | 0.056 | 0.054 | 0.96 |
+| CoverUp3 (-rdR) | 1 | 5.104 | 4.862 | 0.95 |
+| CornerCube (-rdR) | 1 | 12.627 | 12.082 | 0.96 |
+| CornerCube (-rdR) | 10 | 5.141 | 4.904 | 0.95 |
+| **Burr-Glar** (`--set glar`) | | | | |
+| Burr-Glar | 1 | 25.316 | 21.202 | 0.84 |
+| Burr-Glar | 10 | 7.048 | 5.898 | 0.84 |
+
+The rows left out are under 0.06 s and equal (1.00), or the few
+milliseconds of Demo Piece Generator and Draculas Dental Desaster; every
+row of the three runs is in the gate. The 1.03 is a 0.27 s run on ten
+threads (0.99 in the run at the start of the stage, 1.01 in the `--plain` run).

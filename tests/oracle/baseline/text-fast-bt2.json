@@ -1,0 +1,724 @@
+{
+ "examples/12PieceSeparation.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "d8486e4e5fd31dcfc8c6328bb63963e1431be61f94414d488cbdfbfb2bc8ec24",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 134
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "56cf4e94463e01af4d947d106afaf4e15ab04ce2b8c91c7a6fa41437973ff6d1",
+   "err": "f79a9359c817a6559ea05908042ab4b6fcb6851bf0149727aee4976bb13673fa",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "e0e3d8b3b7b61a39f40f371eabdf823161398c7e4959772d90530671f8afb2af",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 2
+  },
+  "ask": {
+   "exit": 0,
+   "out": "3f7b3419efa151e9f998b257282e4667dfb0f0cbf8b49b739b1ed3bd24859e33",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 29
+  },
+  "comment": {
+   "exit": 0,
+   "out": "2b91f78a38f8a9d5fe1398e38ec295d40ea7e9260eb7670fa3aff01bb650efda",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  }
+ },
+ "examples/AlPackino.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "076c7951b6b7f4dd5fe7671b07daac365588d03b59807be5623885d4eed3443f",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 471
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "f8d207c492d4f95b97687c7de4cfc523e436f88ba3a1d10b0de7805c7ba2154d",
+   "err": "e4ff85669834633f8cb52a2f4a955a7d44fe82069f0c2432e3edd76520276018",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "21864480bad57a8e0e86cdae0e69c4792459e485a54299825948c985e2095426",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 3
+  },
+  "retake": {
+   "exit": 0,
+   "out": "5fc991ee87e1b32f8348cba4ad9f6e79bc1e11e2f6482ae2d78fb798d8e5631b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 427
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e90b0e72c805fb9268eaebdcf35e780a9c29e9b5ca02057b78ca3931daa52e52",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "7d0c5cef04e004e0a7c8dcd83d0bc4b275595564c6aa8fe2d17e703c0aaa9baf",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 10
+  },
+  "comment": {
+   "exit": 0,
+   "out": "8c1d2484e46e5de111298cd6e5892f6763d425d061cdfd0990c81e1d31c38933",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 10
+  }
+ },
+ "examples/AugmentedSecondStellation.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "f93c2362d963b3e8f6807dc61710e52bec9e9c54b11d5ccbc91467481fc6bbc1",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 218
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "35db04ccb4ad6079e8ba50ada2385231b14713c4169e56a4dd09376d71ff079f",
+   "err": "775306f1c2d115b0f8cd9bd4a832583789ba716c5958e63a8619a03e4b1a4abe",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "d418941754cce4d0b685424fe8c0d5103ae0e8e7c7841fac0353a30f894bed42",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 2
+  },
+  "ask": {
+   "exit": 0,
+   "out": "27443731fd16470bb2bbc7dc77dfe169798535f8d23c73285019565cc97fa514",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 47
+  },
+  "comment": {
+   "exit": 0,
+   "out": "85d4eb7142cc86bb0ac8e2e8a17377f9af6d4c6da334cd779bc38ec8190a15c1",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  }
+ },
+ "examples/BallRoom.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "8d367cde03bfa43831b4cc350eb8ccb3b8e2e904c2ea44f15157e1a360d78959",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 81
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "780c8b4c8ce56ead861ac4c8588e5e7257a8af2f91bbbadfb41e1238d64ee37d",
+   "err": "763f86a0bb912b74e0776f9fd33f37ee96f86e03d148a695a856e87101ffe7ec",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "63b256a37343ed8fa9464995d2715d181a46d072a2a9bfd198cf1847ccac3542",
+   "err": "b85de239f66247de1b584849d3a89c31f3fac1cfc2801b1a15e074305c7c4baa",
+   "lines": 6
+  },
+  "ask": {
+   "exit": 0,
+   "out": "e6b1fab2758928ea46f5937f53e39858ce744112f930ff7afdc5ce8a625114eb",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 43
+  },
+  "comment": {
+   "exit": 0,
+   "out": "273ee1eb25193980ee10b8ad22493b8de650506462e8e3ff1f6bb50de29a7ea8",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 3
+  }
+ },
+ "examples/Bermuda.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "a57ae24d6f40d8c75cdbd78bed78344ff9804696ba0316cc76c86825500d3d24",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 374
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "88333ab111807d2505af419a0aa20365575be03c1caa60a732c0e4cb4adc1579",
+   "err": "ce7b3e5f1d51cb973e181d2a3dd6c0bc6a1b76610aafdaf93873a06af116727f",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "f06636f6f212aa8ea488cd5ef4562f784d303b0d82bd7ce8adce7028a84f8176",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 3
+  },
+  "retake": {
+   "exit": 0,
+   "out": "4b9a62c898b3193fe6c8238539ed26276d0a796ce6c95936326e3190880df8be",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 238
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e90b0e72c805fb9268eaebdcf35e780a9c29e9b5ca02057b78ca3931daa52e52",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "9f94bb79ed8235d42570bae8d4e9e454a0117662f2219de2a51401981607c1ff",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 8
+  },
+  "comment": {
+   "exit": 0,
+   "out": "cb941846a77669f1b1da25f5987b8c78ed2832866d27f6d0ccfdcd68f3c64ac2",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 5
+  }
+ },
+ "examples/BrokenSticks.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "c5bbb737a0299eea722f4d282f6c26edbc5245e0a05b19bb39b19420af173536",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 250
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c8c25725b2f2363ae436ecbfcb1751ba70fc45b8e0554ad002610d4b051c2cd8",
+   "err": "459de7cb02f517d1fbf00cfa02036861a8e481901334f9aa13c2821ffd1c75d1",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "580d22da92f89e81da900eb9abe8573529dbfd09007b47b8b72fc508c3ce7601",
+   "err": "9638f9e487d64a5719fb744f188a9efaca14837f7408c54aff22cf233ee2da61",
+   "lines": 3
+  },
+  "ask": {
+   "exit": 0,
+   "out": "36c84a33c5bc85c2cc6c7e7ae260a18c556c4ae7c0fe48c2ff0b058ab2c395ad",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 48
+  },
+  "comment": {
+   "exit": 0,
+   "out": "8a4a701cbf00b0d405b73aadf0cdf753a5ad18b33101834b67c683f12c8a1142",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 10
+  }
+ },
+ "examples/CubeInCage.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "a8b39945f57dd5ecbdcdfc95926894eac1104c69744bec9b9de0687dd27ce39b",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 364
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c1bb3339a4a88026a7f318ddddb242f61d0400d13ad90cad4f418887d5b1cbd0",
+   "err": "22d74727b1af1e0836746c11ec08d9d25fa0449e026d3a27b5aa592eeacecbc4",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "0fdb0f6436f6fdc4b2359525ce7b88bd2705a833df894d65e23406da22dd9e3d",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 3
+  },
+  "retake": {
+   "exit": 0,
+   "out": "9da2b2e7380c9a1c768abeab78735e8cae9bd37612e767c5badf7a9e698360b7",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 298
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "45731f1a9fc61743bf0c3f10b5d738f9889f81ee9312ab05e1fa6c9d54d759b5",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "2c79ebc73e11e5d1f9850547e31c67cba3a09823a53b646d3fc9e0a289d0f864",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 11
+  },
+  "comment": {
+   "exit": 0,
+   "out": "fedae715eb0916d7b980e566e0cc0e6c131fe049372e847da57fda5e189c8b57",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 9
+  }
+ },
+ "examples/DemoMirrorParadox.xmpuzzle": {
+  "solve": {
+   "crashed": 6,
+   "out": "d7ec7813fa430e5dbdef8a6ebdcd1d52f2fd2300807f9552461a40529a91dbd2",
+   "outBytes": 1283
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "a54a7960f62959d753605461c18204640959227ea808353f08fea96a9ad75492",
+   "err": "13edb6ec733bb6c08a5574954df9ea20a5f6b2452dcdd6decd1a8458d659d0bd",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "8f28113aef7deb938ee458927b3aeed60e6d8594bb410c372b189c9b592edee5",
+   "err": "e8c65b2390dbbca6a3f3fc261d1b978814c0cdc6f89081c83d0d8cb1b5fe185e",
+   "lines": 6
+  },
+  "retake": {
+   "crashed": 6,
+   "out": "18c3b26da0c6a2bc6e1befc010c0b12462dfc59b06a5b793a24389993a3d9b73",
+   "outBytes": 74
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "ask": {
+   "exit": 0,
+   "out": "d5f9ef31600e8331b556c061fd55d84bd5c733f168ac8e28ecf3ede777e66190",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 8
+  },
+  "comment": {
+   "exit": 0,
+   "out": "4f99faa98f80a9638385a13b5b367b9e90fad8e20c35cdcde648c62a06c5e70d",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 5
+  }
+ },
+ "examples/DemoPieceGenerator.xmpuzzle": {
+  "solve": {
+   "crashed": 6,
+   "out": "65398f3166bd54e4fffea7c913e29c9b93b1bf5b0c60755bdf8a1fba9fc6a140",
+   "outBytes": 621
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "8b656ff4190f15d3655f2c6c6ccc8844d60142dd750799e38f9b54bede2d0188",
+   "err": "4e12791e308edf268805b1383ea98670ad76210d8e815d1de83a8990247bf7f2",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "84ef56991145d7b29c9d098351010813b9a554e4278e82cb26cae02dd5c11472",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 929
+  },
+  "retake": {
+   "crashed": 6,
+   "out": "50dcb9a5e730dafd76b97fad4d627d9124cabe4b79018c176196af5272ff3129",
+   "outBytes": 68393
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "ask": {
+   "exit": 0,
+   "out": "631a49fbdd06ca91c576c090fef5088debba6ae3b0f48f23fcb796ac4b503ed2",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 91
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "examples/DiagonalCube.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "4ca5ccf52cd30651bfb10e98add251cd61a6c81590a97e16898f81bbed13cb5c",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 128
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "5fe8d12bf82195902ab4afe146603fa8a5847afd0250fb7ce643a6c9b4a901dd",
+   "err": "84a7119f8a181328d9c8c26a8c6fa0af3d37d6b0f8616c0640a0be10ea8a988f",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "ebc8eb61b89b681c0fa63f96bb9fbcc35c9532c228ce1244e70ce42b9bcdb5fe",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 2
+  },
+  "ask": {
+   "exit": 0,
+   "out": "24bf11a0bcc30506a0869cee2e01f865ff44bcb2bdf9f59bcabeec72de687070",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 27
+  },
+  "comment": {
+   "exit": 0,
+   "out": "d7b113b1a9e79dfd576c92ef4833142d6f30ebfdb31874249f3e0f1935534afc",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  }
+ },
+ "examples/DraculasDentalDesaster.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "3ecce0bf5140bbfcb9813118c7b355e398db431a2cf2ef5158d80c6bb17eb1cb",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 1561
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "cc85969cc7d9b76bd8282ac33d0886801afdf6858aed61b3725fefcb66331a9e",
+   "err": "0987b93b0045107450562dac691dcc8a924119fc8046b56f51030ca1eca56365",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "92be3231e0a279a3662c257f6b9f8f26926252ec2ffe15f45f9e4a326a982397",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 3
+  },
+  "retake": {
+   "exit": 0,
+   "out": "6cdc0c3189a620ded99184cabd3619e9b59ec9a78b5c6324ed4111f9bc3b7cd5",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1375
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "8ba7faba327f622b09c84c3dfcf24a98662b819967310f1b906c7c13bb48d562",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "b5f9bdbeadb0861f252cdfe13684f26f076c13736657474accfbf7d056b360eb",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 18
+  },
+  "comment": {
+   "exit": 0,
+   "out": "aa84bf6449e900e8c1810a41e06d63aa03db1c4092748b8054ac6fc1a97b8e3b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 7
+  }
+ },
+ "examples/FourPieceTetrahedron.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "a2e9d55b0f885c8c6f69d3842fe027a51bc0a49d05e4ef178d03017f3ac41da9",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 74
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "10e0844cb49890d9c8e6e580a918c016623fd1d0e26b9dcbae141895d6fd87a6",
+   "err": "1793431662e034d61b3bec1829c4e78fc74de85dc25358b46d5c160946ffe1e7",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "13fa806d56290ab6b8ff0b35334fe973033fee94c94f4ed4830c3009a1febeb8",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 2
+  },
+  "ask": {
+   "exit": 0,
+   "out": "654aad853ded2347f42f528bfbdf289f66e0810148a27fb5c3f21c039d2b7c98",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 16
+  },
+  "comment": {
+   "exit": 0,
+   "out": "ea4a27ecf997c66635346f722ceebc484344f0011b0ab4ab6fe95eeedffdd27f",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  }
+ },
+ "examples/HexSticks.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "051e766feb049be507ebede8e7316cb9984f055b0254eacacfb2f734ad195ac7",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 1353
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c263e9faf81e714a456c4789399493f53f2f0c6da8af21b291d11e4b3a29eed9",
+   "err": "94c739b14dee6e7e8478512f747b964d1ff0ea1a6aa648b25d0d6bb704cc47b4",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "e120914daa9bbf540e2c320fb232497afae6318feb36c44880479df56e76ec1d",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 2
+  },
+  "ask": {
+   "exit": 0,
+   "out": "9c08269071e30ec337a7e56c494593d0dbd89325b22293d9c8d9e87fb40ebd5b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 381
+  },
+  "comment": {
+   "exit": 0,
+   "out": "0c800aef1a772e0e2ae7e9038d39883274b3c889f228e2d1b17d104e90c24478",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 9
+  }
+ },
+ "examples/PelikanBurr.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "82ae42322fe93fa7e3a105452b163975663cb3604705d935e502938631677206",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 2147
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "1150358b418f12e5b44fef62025349e41637be77b019300b3f876c3376a7a45d",
+   "err": "bde05ed2995f81a38d6564e143ef20018aa45e7e3245bd72888a70540ffdadb7",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "03de3180e216aebb924d904672b06476e156414d6e3ebd5090734fd0abbaa57b",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 3
+  },
+  "retake": {
+   "exit": 0,
+   "out": "17d016cebe9adf5075d825645db399ff826aee3fa53d2c47c327a3fdbfd24c86",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 2069
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "df4b2eb0283919f51e2d4c28fe78e219a7ba0288198ee4ca26427d6682620310",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "331392c6d59d7ac463f63091e9d988e41fa894095334a0cb291ec866896a0344",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 12
+  },
+  "comment": {
+   "exit": 0,
+   "out": "62fde0e7f7d63ef1b03fc5946ab00fcdc3d447b8e63338971cf0c79361cbe79b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 5
+  }
+ },
+ "examples/PermutatedThirdStellation.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "d3478c193eec49330ae737d390e4be4d3c22e43686f0043da1cb7c217e8b8a10",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 218
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "c8c25725b2f2363ae436ecbfcb1751ba70fc45b8e0554ad002610d4b051c2cd8",
+   "err": "c1485797441aee3737efb794fcf4e9efd428d4c269fee46928336edabb559432",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "20ee3f556250b1f89119327aa531a56759bc4067f14e90bc4dcc524e957e8ed7",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 2
+  },
+  "ask": {
+   "exit": 0,
+   "out": "d54e91cb6de753bd71ea5f371c94b368810448d18d88fec184043102c95cf26d",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 47
+  },
+  "comment": {
+   "exit": 0,
+   "out": "f56d93ffbc464d9575fda544f7bf9081d2038fae23a09a7c547975dc24aadeed",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 6
+  }
+ },
+ "examples/PiecesOfEight.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "2f02f36a584f4717b65cbada152e2f083d34ee5b2815d0487d96acc72b6e09c5",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 284
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "f76e5ad1b4fa139712a748984c24ce5eb68fc8f476a38f2e1a50c7ed6d5c2851",
+   "err": "481f9566257f4af32b36778cb6840b3ffc856ba680fb7abf090eb05caf7d8163",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "a206b443788ef9c6658f7ab83c62ed08f3dbde76acbc4d131398a166e21ecb03",
+   "err": "e98627198547593e0549f845f0bc2934d44cff435d4a35f67088850d3c084b1e",
+   "lines": 12
+  },
+  "ask": {
+   "exit": 0,
+   "out": "a9c30b2b10147b3a55701ccf25e5edafb273f637013c9e65c4b4726dabd4f8c9",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1267
+  },
+  "comment": {
+   "exit": 0,
+   "out": "201b23fdb7d9a2f1ab01404c79447cdf8bc1ae141fe0fb8bd439ba2568f7c27f",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 3
+  }
+ },
+ "examples/Prisgon.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "1c22ce0bee44b2e585ba1bfa39316436c926080c2f0f32e816a0790848bf8d97",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 625
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "2483535fadbee51abdeca7be4ad4a5346a9aef320e89926d0510dae580901932",
+   "err": "a734da182cd15df9f08edc67467163e422ddc389c35c1d52357c14effaa41c21",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "9ed847a11b6b75961e41bc9b1f6a43052cff805d3b27fae11290707c01df2e4e",
+   "err": "9638f9e487d64a5719fb744f188a9efaca14837f7408c54aff22cf233ee2da61",
+   "lines": 6
+  },
+  "retake": {
+   "exit": 0,
+   "out": "b999c8ec37b5b3c78b5c52f55599af3e6061a39e5caa137947d0328a846812b3",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 521
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "36104f10ef5477d6823676cb1a3481184bef9a77e9cfad0cfb994b817f82725b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "d8f950b67094ede43983fe8e25757d1e0d5fba64cf1daa38ad86a450550f239b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 19
+  },
+  "comment": {
+   "exit": 0,
+   "out": "6542745956f2b2e636327e4b981b9b90ecc2a9da303b998df83f77a5de9176d3",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 9
+  }
+ },
+ "examples/SolidSixPieceBurrs.xmpuzzle": {
+  "solve": {
+   "crashed": 6,
+   "out": "48888df7e7fc923d941837139ffb26ef71210b7bebfdd1aa660c59a30bb8d416",
+   "outBytes": 4999
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "86cdbd5066a816669f4cab42507b991acad9eaa186022d3705e37b75d8741769",
+   "err": "d13aa4e4ef22b92dffe8e445ec8d36549bad2de810a15ca43bb1fe85716b5792",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "7c1dff138adafcca8025dabe35f4b40edd1ce1150f4c17601f91b61e0884d2ee",
+   "err": "1b75560233c81d2fed9277c096da989b20ae2a1ad78b3b0f72a4d0e8598876ee",
+   "lines": 181
+  },
+  "retake": {
+   "crashed": 6,
+   "out": "2667dda9ab9a16c587b382917f2e36f7220f9adf1db8aa2a6eec61f82fcc0ebe",
+   "outBytes": 449
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "c763bb3f4b373abac46e3150409b3707ab0ed99dd51bef26985c11cadd78082f",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 314
+  },
+  "ask": {
+   "exit": 0,
+   "out": "d43db11bfc8a3cd9d9066d4c97db6368ad036c1695eb07f3093f555facbd440a",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 91
+  },
+  "comment": {
+   "exit": 0,
+   "out": "405f670412ed2de14c9c4d395edee47e186af8533b4a6c68b936a40a7354fbb1",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 7
+  }
+ },
+ "test/test_rotation_solvers.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "b5c719f590a99768255af293a3259f8963a5fe9fe010e488d59f2683c94a4e6f",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 244
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "60ff574ef570caf66453e30a77bf65a4f7df906c00df451522a404e24d592fbf",
+   "err": "28d9a57864f2fead1412f925e61c2ae235240990bb63107cafa21c82ed0c13bc",
+   "lines": 0
+  },
+  "all": {
+   "exit": 0,
+   "out": "a56de47d57dc5c0388142fd98ae22853d9e0bf39bcb0e2997abdd4e629c30ede",
+   "err": "06dff89411a72d2ff2c68abb87b24afa249a0fe8f505fd74a31e9f5c21dc7e15",
+   "lines": 3
+  },
+  "retake": {
+   "exit": 0,
+   "out": "8f5d52c1ac8d65477b51a9f2d6b357c2478f0eb499d3bf03b0b98d0d69382f8b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 182
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e90b0e72c805fb9268eaebdcf35e780a9c29e9b5ca02057b78ca3931daa52e52",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "ask": {
+   "exit": 0,
+   "out": "16994f56a6fc65275a62f897e02ee4da11d635d4e5873dc353d30758b04df320",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 8
+  },
+  "comment": {
+   "exit": 0,
+   "out": "0181d41b560a833404ecaed45e3a4cd4dd6f43e4f91f48eae519cc4069ece623",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  }
+ }
+}

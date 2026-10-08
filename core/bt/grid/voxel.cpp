@@ -11,13 +11,6 @@
 
 namespace bt {
 
-namespace {
-/// Cache entry not calculated yet.
-constexpr int kCacheUninit = -30000;
-/// Cache entry for a transformation this shape cannot take.
-constexpr int kCacheNotDef = -30001;
-}  // namespace
-
 Voxel::Voxel(unsigned int x, unsigned int y, unsigned int z, GridType gt, VoxelType init)
     : gt_(gt),
       sx_(x),
@@ -217,51 +210,6 @@ void Voxel::fillTransformCache(unsigned char trans) const {
     e[7] = asInt(tmp->boundZ1());
     e[8] = asInt(tmp->boundZ2());
   }
-}
-
-bool Voxel::getHotspot(unsigned char trans, int* x, int* y, int* z) const {
-  BT_ASSERT(trans < gt_.getSymmetries().getNumTransformationsMirror());
-  BT_ASSERT(x && y && z);
-
-  fillTransformCache(trans);
-  const int* e = &bbHsCache_[9 * std::size_t{trans}];
-  if (e[0] == kCacheNotDef) {
-    return false;
-  }
-  *x = e[0];
-  *y = e[1];
-  *z = e[2];
-  return true;
-}
-
-bool Voxel::getBoundingBox(unsigned char trans, int* x1, int* y1, int* z1, int* x2, int* y2,
-                           int* z2) const {
-  BT_ASSERT(trans < gt_.getSymmetries().getNumTransformationsMirror());
-
-  fillTransformCache(trans);
-  const int* e = &bbHsCache_[9 * std::size_t{trans}];
-  if (e[3] == kCacheNotDef) {
-    return false;
-  }
-  if (x1) {
-    *x1 = e[3];
-  }
-  if (x2) {
-    *x2 = e[4];
-  }
-  if (y1) {
-    *y1 = e[5];
-  }
-  if (y2) {
-    *y2 = e[6];
-  }
-  if (z1) {
-    *z1 = e[7];
-  }
-  if (z2) {
-    *z2 = e[8];
-  }
-  return true;
 }
 
 void Voxel::warmCaches() const {
@@ -537,15 +485,8 @@ bool Voxel::neighbour(unsigned int p, VoxelType val) const {
   return false;
 }
 
-Symmetry Voxel::selfSymmetries() const {
-  if (isSymmetryInvalid(symmetries_)) {
-    symmetries_ = gt_.getSymmetries().calculateSymmetry(*this);
-  }
-  return symmetries_;
-}
-
-unsigned char Voxel::normalizeTransformation(unsigned char trans) const {
-  return gt_.getSymmetries().minimizeTransformation(selfSymmetries(), trans);
+void Voxel::calculateSelfSymmetries() const {
+  symmetries_ = gt_.getSymmetries().calculateSymmetry(*this);
 }
 
 void Voxel::minimizePiece() {

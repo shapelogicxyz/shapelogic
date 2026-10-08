@@ -43,6 +43,8 @@ just oracle-baseline --tier fast --solver bt2
 python3 tests/oracle/oracle.py baseline-files --tier all   # solved files from burrTxt2 -R, into work/old
 python3 tests/oracle/oracle.py compare-files --tier all -j 4
                                   # the new core's solved files against those (stage 4)
+python3 tests/oracle/oracle.py baseline-text --tier all    # burrTxt's text output (stage 8)
+just oracle-text --tier all       # bt's text output against it, byte for byte
 just oracle-resume                # paused searches continue in the other program
 just oracle-baseline --tier full  # re-record the original's answers
 python3 tests/oracle/oracle.py baseline-files --tier all    # solved files from burrTxt2, into work/
@@ -54,8 +56,8 @@ just oracle-roundtrip             # the file round trip (stage 2 onward), see be
 `baseline-files` runs the original's `burrTxt2 -R -d` (with `--rotations`
 for `R` puzzles, without `-d` for `A` puzzles) on a copy of each corpus file
 and keeps the solved file it writes beside it (`work/old/<path>ttt`).
-`compare-files` does the same with the new core (`bt_solve_file`, which
-runs a `SolveSession` as burrTxt2 runs its solve thread: the matrix, reduce,
+`compare-files` does the same with the new core (`bt --save`, burrTxt2's
+mode, which runs a `SolveSession` as burrTxt2 runs its solve thread: the matrix, reduce,
 the saved position, the search, the take-apart queue and its workers,
 solutions sorted by moves) into `work/new`, reads both files with the new
 core (`bt_solutions`) and compares problem 0: the state, the assembly and
@@ -68,6 +70,39 @@ same assembly, separation tree (every state of every node), level text and
 move counts. `A` puzzles compare the counts only (their saved assemblies
 keep the solve thread's limit of ten).
 `--solver crowell|bt2` uses `work/old-<solver>` and `work/new-<solver>`.
+
+## Text output (stage 8 onward)
+
+`bt` prints what burrTxt prints. `baseline-text` runs the original's
+`burrTxt` (build/, one thread) on every corpus puzzle in several ways and
+records each run's stdout, stderr and exit code: the hashes in
+`baseline/text-<tier>[-<solver>].json` (committed), the text itself under
+`work/text-old*` (to show where a later run differs). `compare-text`
+(`just oracle-text`) runs `bt` the same way and compares byte for byte,
+with the solve time blanked. The runs (`text_runs` in oracle.py):
+
+| run | arguments | input |
+|---|---|---|
+| `solve` | `-t 1 -dsp` (`-R` for R puzzles; `-s` only for A puzzles) | the corpus file |
+| `quiet` | `-t 1 -q -n -r` (with `-d`) | the corpus file |
+| `all` | `-t 1 -q -o all` (with `-d`; fast tier only: some TIC files hold further problems that run for many minutes) | the corpus file |
+| `retake` | `-t 1 -x -sp` (not for A puzzles) | burrTxt2's solved file (`work/old`) |
+| `retake-saved` | `-t 1 -x` (not for A puzzles) | the corpus file |
+| `ask` | `-a s1` | burrTxt2's solved file |
+| `comment` | `-a c` | the corpus file |
+
+So `baseline-files --tier all` must have run first (for the solved files).
+Three things are accounted for: the original dies (an assertion,
+SIGABRT) when it draws a take-apart (`-p`) of an assembly with a piece
+that is not placed (Demo Mirror Paradox, Demo Piece Generator, Solid Six
+Piece Burrs: piece ranges), since its `print()` transforms every piece;
+such a run is recorded by what it wrote before it died, and bt's output
+must begin with those bytes (and bt must end normally). Further, `bt` runs with `--original-drawings`, which
+draws the take-apart's parts as burrTxt did (with the wrong shapes below
+the first separation; `bt` draws each piece as itself otherwise); and the
+original's assembler 1 line "range optimisation used min …, max …" on
+stderr is dropped (bt does not print it). One thread, because the order in
+which solutions are printed is the order the search hands them over.
 
 ## Recorded values for unit tests
 

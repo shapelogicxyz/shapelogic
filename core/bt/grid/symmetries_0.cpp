@@ -53,6 +53,6 @@ constinit const Impl kInstance(Impl::Tables{kTransMult, kSymmetries, kUnifiedSym
 
 }  // namespace
 
-const Symmetries& symmetriesTable0() { return kInstance; }
+constinit const Symmetries* const kSymmetriesTable0 = &kInstance;
 
 }  // namespace bt::detail

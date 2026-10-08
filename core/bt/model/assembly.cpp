@@ -148,7 +148,7 @@ bool Assembly::transform(unsigned char trans, const Puzzle& puzzle, const Proble
         return false;
       }
 
-      const Voxel& shape = problem.partShape(puzzle, i);
+      const Voxel& shape = puzzle.getShape(problem.getShapeIdOfPart(i));
       const unsigned char tr = shape.normalizeTransformation(pl.transformation);
 
       if (tr != pl.transformation) {
@@ -511,11 +511,13 @@ bool Assembly::smallerRotationExists(const Puzzle& puzzle, const Problem& proble
       }
     }
   } else {
+    // one scratch copy for every transformation: assigning reuses its
+    // placements' memory (this runs for each assembly a search finds)
+    const Symmetry s = problem.resultShape(puzzle).selfSymmetries();
+    Assembly tmp(*this);
     for (unsigned int t = 0; t < endTrans; t++) {
-      const Symmetry s = problem.resultShape(puzzle).selfSymmetries();
-
       if (sym().symmetrieContainsTransformation(s, t)) {
-        Assembly tmp(*this);
+        tmp = *this;
         const bool transformed = tmp.transform(static_cast<unsigned char>(t), puzzle, problem, mir);
         BT_ASSERT(transformed);
 

@@ -12,6 +12,11 @@
 #include <iostream>
 #include <string_view>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 int main(int argc, char** argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--version") {
     std::printf("bt-engine %.*s\n", static_cast<int>(bt::kVersion.size()), bt::kVersion.data());
@@ -22,6 +27,12 @@ int main(int argc, char** argv) {
                          "  speaks JSON-RPC 2.0 on stdin and stdout (docs/API.md)\n");
     return 2;
   }
+#ifdef _WIN32
+  // frames are raw bytes, and a line ends in \n alone: no text-mode
+  // translation of either stream
+  (void)_setmode(_fileno(stdout), _O_BINARY);
+  (void)_setmode(_fileno(stdin), _O_BINARY);
+#endif
   std::ios::sync_with_stdio(false);
   {
     bt::engine::Engine engine(std::cout, std::cerr);

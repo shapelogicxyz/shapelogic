@@ -57,6 +57,10 @@ add_test(NAME api-docs COMMAND Python3::Interpreter api/gen_api_md.py --check
 add_test(NAME contract COMMAND Python3::Interpreter tests/contract/test_engine.py
          --engine $<TARGET_FILE:bt-engine> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
+# The bt command line: burrTxt's option rules, the refusals, --save, -a, -x.
+add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
+         --bt $<TARGET_FILE:bt> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 # bt_roundtrip: load and save one puzzle file, for `oracle.py roundtrip`.
 add_executable(bt_roundtrip tools/roundtrip.cpp)
 target_link_libraries(bt_roundtrip PRIVATE btcore)
@@ -67,12 +71,8 @@ add_executable(bt_resume tools/resume.cpp)
 target_link_libraries(bt_resume PRIVATE btcore)
 bt_set_warnings(bt_resume)
 
-# bt_solve_file: solve a problem and write the solved file, as burrTxt2 does,
-# and bt_solutions: what a file holds of solving, for `oracle.py compare-files`.
-add_executable(bt_solve_file tools/solve_file.cpp)
-target_link_libraries(bt_solve_file PRIVATE btcore)
-bt_set_warnings(bt_solve_file)
-
+# bt_solutions: what a file holds of solving, for `oracle.py compare-files`
+# (which solves with `bt --save`, burrTxt2's mode).
 add_executable(bt_solutions tools/solutions.cpp)
 target_link_libraries(bt_solutions PRIVATE btcore)
 bt_set_warnings(bt_solutions)
