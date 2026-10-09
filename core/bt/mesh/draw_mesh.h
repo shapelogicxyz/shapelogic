@@ -46,6 +46,12 @@ struct DrawMesh {
   /// The bounding box of the positions (all 0 when empty).
   float lo[3] = {0, 0, 0};
   float hi[3] = {0, 0, 0};
+  /// The hotspot of the voxel space the mesh was made from, in grid
+  /// coordinates (Voxel::getHx...): an assembly puts a piece so that the
+  /// hotspot of its orientation lands on the placement's cell, so the mesh
+  /// is drawn moved by the cell minus the hotspot (in mesh units). Zero for
+  /// a mesh not made from a space.
+  int hotspot[3] = {0, 0, 0};
 
   [[nodiscard]] std::size_t triangleCount() const { return indices.size() / 3; }
   [[nodiscard]] std::size_t vertexCount() const { return positions.size() / 3; }
@@ -55,8 +61,8 @@ struct DrawMesh {
 /// drew them; with `edgeLines` the lines between faces at an angle.
 [[nodiscard]] DrawMesh toDrawMesh(const Polyhedron& poly, bool edgeLines);
 
-/// The mesh of a shape in a style (shapeMesh) as a DrawMesh; the flat
-/// style has its edge lines.
+/// The mesh of a shape in a style (shapeMesh) as a DrawMesh, with the
+/// shape's hotspot; the flat style has its edge lines.
 [[nodiscard]] DrawMesh shapeDrawMesh(const Voxel& v, MeshStyle style);
 
 }  // namespace bt::mesh

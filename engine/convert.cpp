@@ -346,6 +346,7 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
   j["vertices"] = m.vertexCount();
   j["lo"] = Json::array({m.lo[0], m.lo[1], m.lo[2]});
   j["hi"] = Json::array({m.hi[0], m.hi[1], m.hi[2]});
+  j["hotspot"] = Json::array({m.hotspot[0], m.hotspot[1], m.hotspot[2]});
   return j;
 }
 

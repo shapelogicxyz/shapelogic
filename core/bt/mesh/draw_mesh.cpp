@@ -3,6 +3,8 @@
 // (src/lib/gltfexport.cpp).
 #include "bt/mesh/draw_mesh.h"
 
+#include "bt/grid/voxel.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -101,7 +103,11 @@ DrawMesh toDrawMesh(const Polyhedron& poly, bool edgeLines) {
 }
 
 DrawMesh shapeDrawMesh(const Voxel& v, MeshStyle style) {
-  return toDrawMesh(shapeMesh(v, style), style == MeshStyle::Flat);
+  DrawMesh m = toDrawMesh(shapeMesh(v, style), style == MeshStyle::Flat);
+  m.hotspot[0] = v.getHx();
+  m.hotspot[1] = v.getHy();
+  m.hotspot[2] = v.getHz();
+  return m;
 }
 
 }  // namespace bt::mesh

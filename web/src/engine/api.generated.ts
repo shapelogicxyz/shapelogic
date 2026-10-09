@@ -382,6 +382,12 @@ export interface MeshFrame {
    * @maxItems 3
    */
   hi: [number, number, number];
+  /**
+   * The hotspot of the shape in the mesh's orientation, in grid coordinates: an assembly puts it
+   * on a Placement's cell, so the mesh is drawn moved by the cell minus the hotspot (in mesh
+   * units: the grid's cell spacing).
+   */
+  hotspot: Cell;
 }
 
 export interface ShapeSummary {
@@ -1888,8 +1894,8 @@ export interface Methods {
    * The shape's mesh as the original's 3D view drew it, as a binary frame: in its own orientation,
    * or turned by a transformation of the grid (a Placement's), which is how an assembled solution,
    * a placement of the assembly explorer or a position of the movement explorer is drawn: the mesh
-   * of the piece's transformation, at its cell minus the turned shape's hotspot. Allowed while
-   * solving.
+   * of the piece's transformation, at its cell minus the turned shape's hotspot
+   * (MeshFrame.hotspot). Allowed while solving.
    * (shape.json)
    */
   'shape.mesh': {

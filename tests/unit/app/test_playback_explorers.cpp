@@ -9,15 +9,24 @@
 #include "bt/app/document.h"
 #include "bt/app/explorers.h"
 #include "bt/app/playback.h"
+#include "bt/grid/voxel.h"
+#include "bt/io/puzzle_file.h"
+#include "bt/mesh/grid_geometry.h"
 #include "bt/model/problem.h"
+#include "bt/model/puzzle.h"
 #include "bt/model/solution.h"
 #include "bt/solve/disassembler.h"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <filesystem>
+#include <string>
 #include <thread>
+#include <vector>
 
 using namespace bt;
 using namespace bt::app;
@@ -156,6 +165,74 @@ TEST_CASE("playback: a solution without its disassembly is shown assembled",
   CHECK(track.times.size() >= 2);
   CHECK(r->pieceMesh(0, mesh::MeshStyle::Drawing).triangleCount() > 0);
   CHECK_FALSE(r->pieceMesh(0, mesh::MeshStyle::Flat).edgeLines.empty());
+}
+
+TEST_CASE("playback: a placed piece is its turned mesh at its cell minus the mesh's hotspot",
+          "[app][playback][mesh]") {
+  // What a front end draws for an assembled solution without the player
+  // (solution.get's placements over shape.mesh {transformation}): the mesh
+  // of the placement's transformation moved by the cell minus that mesh's
+  // hotspot, in mesh units, must be where the sampler puts the piece (its
+  // single pose, minus the result's centre). Every grid's fixtures.
+  std::vector<std::filesystem::path> files;
+  for (const auto& e : std::filesystem::directory_iterator("tests/data/puzzles")) {
+    if (e.path().extension() == ".xmpuzzle") {
+      files.push_back(e.path());
+    }
+  }
+  std::sort(files.begin(), files.end());
+  unsigned int checked = 0;
+  std::vector<GridKind> grids;
+  for (const auto& f : files) {
+    Result<Puzzle> loaded = io::loadPuzzle(f);
+    REQUIRE(loaded.has_value());
+    Puzzle& pz = *loaded;
+    const GridKind kind = pz.getGridType().getType();
+    if (kind == GridKind::Sliding || kind == GridKind::Stacking) {
+      continue;
+    }
+    for (unsigned int prob = 0; prob < pz.getNumberOfProblems(); prob++) {
+      Problem& pr = pz.getProblem(prob);
+      if (!pr.resultValid()) {
+        continue;
+      }
+      const Voxel& result = pr.resultShape(pz);
+      float cx = 0;
+      float cy = 0;
+      float cz = 0;
+      mesh::calculateSize(result, &cx, &cy, &cz);
+      for (unsigned int sol = 0; sol < std::min(pr.getNumberOfSavedSolutions(), 3U); sol++) {
+        INFO(f.filename().string() << " problem " << prob << " solution " << sol);
+        // the single pose: the pieces as the assembly places them
+        pr.getSavedSolution(sol).removeDisassembly();
+        Result<PlaybackSampler> s = PlaybackSampler::make(pz, prob, sol);
+        REQUIRE(s.has_value());
+        const std::vector<PiecePose> pose = s->sample(0).value();
+        const Assembly& assm = pr.getSavedSolution(sol).getAssembly();
+        for (std::size_t i = 0; i < pose.size(); i++) {
+          const PlaybackPiece& pc = s->pieces()[i];
+          const mesh::DrawMesh m =
+              orientedMesh(pz.getShape(pc.shape), pc.orientation, mesh::MeshStyle::Drawing)
+                  .value();
+          auto x = static_cast<float>(assm.getX(pc.piece) - m.hotspot[0]);
+          auto y = static_cast<float>(assm.getY(pc.piece) - m.hotspot[1]);
+          auto z = static_cast<float>(assm.getZ(pc.piece) - m.hotspot[2]);
+          mesh::recalcSpaceCoordinates(result, &x, &y, &z);
+          INFO("piece " << pc.piece);
+          CHECK(std::fabs(pose[i].translation[0] - (x - cx / 2)) < 1e-4F);
+          CHECK(std::fabs(pose[i].translation[1] - (y - cy / 2)) < 1e-4F);
+          CHECK(std::fabs(pose[i].translation[2] - (z - cz / 2)) < 1e-4F);
+          CHECK(pose[i].rotation == std::array<float, 4>{0, 0, 0, 1});
+          checked++;
+        }
+        if (std::find(grids.begin(), grids.end(), kind) == grids.end()) {
+          grids.push_back(kind);
+        }
+      }
+    }
+  }
+  CHECK(checked > 100);
+  CHECK(grids.size() == 5);
 }
 
 TEST_CASE("playback: what has no animation is refused", "[app][playback]") {

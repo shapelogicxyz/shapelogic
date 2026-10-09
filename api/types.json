@@ -70,9 +70,10 @@
         "triangles": {"type": "integer", "minimum": 0},
         "vertices": {"type": "integer", "minimum": 0},
         "lo": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
-        "hi": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+        "hi": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "hotspot": {"$ref": "#/$defs/Cell", "description": "The hotspot of the shape in the mesh's orientation, in grid coordinates: an assembly puts it on a Placement's cell, so the mesh is drawn moved by the cell minus the hotspot (in mesh units: the grid's cell spacing)."}
       },
-      "required": ["frame", "triangles", "vertices", "lo", "hi"],
+      "required": ["frame", "triangles", "vertices", "lo", "hi", "hotspot"],
       "additionalProperties": false
     },
     "ShapeSummary": {

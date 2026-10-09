@@ -548,6 +548,21 @@ def solving_session(e):
     check(steps[0] == 0 and abs(steps[-1] - pb["steps"]) < 1e-6, "steps")
     check(all(v == 1 for v in f.array("visible")[:n]), "all pieces shown assembled")
     assembled = f.array("translation")[:n * 3]
+    # the assembled view without the player: each piece's mesh in its
+    # placement's transformation, at the cell minus that mesh's hotspot (on
+    # bricks a cell is a mesh unit), is where the player's first pose puts
+    # it, relative to the result's centre
+    size = next(x["size"] for x in snap["shapes"] if x["id"] == detail["result"])
+    at = {q["piece"]: q for q in got["placements"]}
+    for i, piece in enumerate(pb["pieces"]):
+        q = at[piece["piece"]]
+        check(q["placed"] and q["transformation"] == piece["orientation"], f"piece {piece}")
+        drawn = e.call("shape.mesh", {"shape": piece["shape"], "transformation": q["transformation"]})
+        played = e.call("playback.mesh", {"handle": pb["handle"], "piece": i})
+        check(drawn["hotspot"] == played["hotspot"], f"one hotspot {drawn['hotspot']} {played['hotspot']}")
+        want = [q["at"][k] - drawn["hotspot"][k] - size[k] / 2 for k in range(3)]
+        check(all(abs(assembled[3 * i + k] - want[k]) < 1e-5 for k in range(3)),
+              f"piece {i} at {assembled[3 * i:3 * i + 3]}, drawn at {want}")
     track = e.call("playback.track", {"handle": pb["handle"], "samplesPerStep": 2, "reassemble": False})
     times = e.frame(track["frame"]).array("time")
     check(all(a <= b for a, b in zip(times, times[1:])) and len(times) == track["samples"], "track times")
