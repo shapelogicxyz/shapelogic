@@ -26,7 +26,7 @@ export interface EngineHostOptions {
   client?: ClientOptions;
   /** An engine that dies sooner than this after its start counts as a quick death (default 10 s). */
   quickDeathMs?: number;
-  /** Quick deaths in a row (failed starts among them) before the host gives up (default 5). */
+  /** Quick deaths in a row (failed starts among them) at which the host gives up (default 5). */
   maxQuickDeaths?: number;
   /** The wait before restart n (1, 2, ...); default none for the first, then 250 ms doubling to 5 s. */
   restartDelayMs?: (attempt: number) => number;
@@ -45,6 +45,8 @@ export class EngineHost implements EngineApi {
   private startedAt = 0;
   private stopping = false;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The launch under way, while one is (start() joins it, stop() waits for it). */
+  private launching: Promise<void> | null = null;
   private readonly statusHandlers = new Set<(s: EngineStatus) => void>();
   private readonly eventHandlers = new Map<string, Set<(params: never) => void>>();
   private readonly anyHandlers = new Set<(event: string, params: unknown) => void>();
@@ -63,31 +65,52 @@ export class EngineHost implements EngineApi {
     return this.status_;
   }
 
-  /** Starts the first engine; fails when it cannot be started or refuses the protocol. */
+  /**
+   * Starts the first engine; fails when it cannot be started or refuses the
+   * protocol. A second call while the first is under way joins it.
+   */
   async start(): Promise<void> {
     if (this.client_ !== null) {
+      return;
+    }
+    if (this.launching !== null) {
+      await this.launching;
       return;
     }
     this.stopping = false;
     try {
       await this.launch();
     } catch (e) {
+      if (this.stopped()) {
+        // stop() came first and ended it: nothing to report
+        return;
+      }
       this.setStatus({ state: 'failed', reason: e instanceof Error ? e.message : String(e) });
       throw e;
     }
   }
 
-  /** Ends the engine (its solves pause) and starts no other; kills it after `graceMs`. */
+  /**
+   * Ends the engine (its solves pause) and starts no other; kills it after
+   * `graceMs`. An engine being started when this is called is ended too:
+   * one that has not said hello at once, one still being spawned as soon
+   * as it exists.
+   */
   async stop(graceMs = 10_000): Promise<void> {
     this.stopping = true;
     if (this.restartTimer !== null) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
+    if (this.launching !== null) {
+      const greeting = this.client_;
+      if (greeting !== null && greeting.engine === null) {
+        greeting.kill();
+      }
+      await this.launching.catch(() => undefined);
+    }
     const client = this.client_;
-    // not before the engine has said hello: a call made during a restart
-    // would reach the new engine with the old document's ids
-    if (client === null || client.closed || this.status_.state !== 'running') {
+    if (client === null || client.closed) {
       return;
     }
     await new Promise<void>((resolve) => {
@@ -147,7 +170,7 @@ export class EngineHost implements EngineApi {
     };
   }
 
-  /** Protocol problems of every engine the host runs. */
+  /** Protocol problems of every engine the host runs, and handlers that threw. */
   onProblem(handler: (p: ClientProblem) => void): () => void {
     this.problemHandlers.add(handler);
     return () => {
@@ -155,16 +178,50 @@ export class EngineHost implements EngineApi {
     };
   }
 
-  private setStatus(status: EngineStatus): void {
-    this.status_ = status;
-    for (const h of [...this.statusHandlers]) {
-      h(status);
+  // Read through a call: the checker takes `stopping` for unchanged across
+  // the awaits of start() and launch(), where stop() sets it.
+  private stopped(): boolean {
+    return this.stopping;
+  }
+
+  private report(p: ClientProblem): void {
+    if (this.problemHandlers.size === 0) {
+      console.error(`bt-engine: ${p.reason}: ${p.detail}`);
+    }
+    for (const h of [...this.problemHandlers]) {
+      h(p);
     }
   }
 
-  private async launch(): Promise<void> {
+  // A handler that throws must not stop the host (a restart hangs on it).
+  private setStatus(status: EngineStatus): void {
+    this.status_ = status;
+    for (const h of [...this.statusHandlers]) {
+      try {
+        h(status);
+      } catch (e) {
+        this.report({ reason: 'handler', detail: `a status handler threw: ${String(e)}` });
+      }
+    }
+  }
+
+  private launch(): Promise<void> {
+    const p = this.doLaunch();
+    this.launching = p;
+    return p.finally(() => {
+      if (this.launching === p) {
+        this.launching = null;
+      }
+    });
+  }
+
+  private async doLaunch(): Promise<void> {
     this.startedAt = Date.now();
     const transport = await this.options.start();
+    if (this.stopped()) {
+      transport.kill();
+      throw new Error('the host was stopped while its engine started');
+    }
     const client = new EngineClient(transport, this.options.client);
     client.onEvent((event, params) => {
       for (const h of [...(this.eventHandlers.get(event) ?? [])]) {
@@ -175,12 +232,7 @@ export class EngineHost implements EngineApi {
       }
     });
     client.onProblem((p) => {
-      if (this.problemHandlers.size === 0) {
-        console.error(`bt-engine: ${p.reason}: ${p.detail}`);
-      }
-      for (const h of [...this.problemHandlers]) {
-        h(p);
-      }
+      this.report(p);
     });
     client.onExit((info) => {
       this.died(client, info);
@@ -195,6 +247,10 @@ export class EngineHost implements EngineApi {
         this.client_ = null;
       }
       throw e;
+    }
+    if (this.stopped()) {
+      // stop() waits for this launch, then ends the engine as it would a running one
+      throw new Error('the host was stopped while its engine started');
     }
     this.setStatus({ state: 'running', version: hello.version, restarts: this.restarts });
   }
@@ -225,7 +281,7 @@ export class EngineHost implements EngineApi {
   }
 
   private scheduleRestart(): void {
-    if (this.quickDeaths > (this.options.maxQuickDeaths ?? 5)) {
+    if (this.quickDeaths >= (this.options.maxQuickDeaths ?? 5)) {
       this.setStatus({
         state: 'failed',
         reason: `the engine died ${this.quickDeaths} times in a row soon after starting`,

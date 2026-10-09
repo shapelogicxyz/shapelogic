@@ -1,7 +1,7 @@
 # Handoff: web stage 1a (toolchain, generated types, the engine client)
 
-**Date:** 2026-10-08 · **Next:** the audit of stage 1a (FRONTEND-PLAN.md,
-"Recommended audits"), then stage 1b, the shell and the 3D view.
+**Date:** 2026-10-08 · **Audited:** 2026-10-08 (the "Audit" section below)
+· **Next:** stage 1b, the shell and the 3D view.
 
 ## Done
 
@@ -163,19 +163,131 @@ Nothing of the mockup is ported yet; it is vendored for stage 1b.
 - The repository's README.md still says "stages 0 to 7 of 8"; not touched.
 - `just check` (clang-tidy) still needs LLVM; no C++ changed here.
 
+## Audit
+
+**Date:** 2026-10-08 · Fable 5.1 at max effort, on the diff
+`a62f154..2bbfcef` (nothing came later), decisions 0012 and 0013 and this
+note; the fixes are the commit `Web 1a audit: fixes for the 10 findings`.
+
+### How it was done
+Probes, kept out of the repository: the framing parser under 3,000 random
+streams of events, replies, frames (empty, over the limit, full of
+newlines and braces), blank and broken lines and lines over the limit,
+each parsed whole and in twelve cuttings (36,000 comparisons, none
+differing), and every malformed announcement by hand; the client, the host
+and the proxy over the scripted transport (the hello gate, the coalescing
+slots after errors, lost replies and exits, the end with calls queued and
+waiting, the order of statuses and errors over the bridge, a death at
+every moment of a restart); the real engine (1,720 meshes pipelined while
+a two-thread solve streamed its events: not one problem; a request line of
+exactly 64 MiB taken and one byte more refused on both sides; a kill with
+200 meshes in flight: 23 answered, 177 `disconnected`, nothing hung). Then
+26 one-line mutations of the sources, the unit suite run on each: 15
+caught, 11 survived, of which 8 were gaps in the tests (closed below) and 3
+equivalent or harmless (a frame numbered 0 accepted; a 0-byte frame
+finished on its next byte instead of at once; a restart timer after
+`stop()`, which the timer's own guard stops).
+
+### Findings, by severity (all fixed, each with a test that fails without the fix)
+1. **The renderer never learns the engine's status** (high). `serveEngine`
+   posts the status when it is made and on every change; the engine starts
+   while the page loads, so `running` is posted before the preload's
+   listener exists and is lost; a proxy made then has `status` null and its
+   `onStatus` never fires. Stage 1b, told to wait for `running`, would have
+   waited forever (the bridge test passed because its in-memory wire
+   delivered a task later, so the proxy was in time). Fix: the proxy sends
+   `{kind: 'status'}` when it connects and the host answers with its status
+   (`BridgeRequest` in bridge.ts).
+2. **`stop()` during a launch left the engine running** (medium). The
+   window closed while a restart's `--version` check ran, or while the new
+   engine was greeting, or during the first `start()`: `stop()` returned at
+   once (no client yet, or a status that was not `running`) and the launch
+   went on to `running`: a process nobody owned, solving on. Fix: the host
+   keeps the launch under way; `stop()` kills a greeting client, waits for
+   the launch, and a launch that finds the host stopping ends its engine.
+3. **A status handler that threw stopped the restart** (medium). The throw
+   left `died()` before `scheduleRestart()`; the client reported "an exit
+   handler threw" and the host stayed at `exited` for good. Fix: status
+   handlers are guarded and reported, as event handlers are.
+4. **`engine.hello` answered with a non-object hung the client** (low).
+   `{"result": null}`: a TypeError from `answer.protocol`, `hello()`
+   rejecting with it, the calls made before hello waiting forever, the
+   engine not ended. Fix: refused as `unsupported` like any wrong answer.
+5. **The `exited` status crossed the bridge before the errors of the
+   calls it failed** (low): decision 0013 says the calls fail, then the
+   window is told. Fix: `serveEngine` posts a status a microtask later.
+6. **The host gave up after six quick deaths, not five** (low): decision
+   0013 and the option's doc say five. Fix: `>=`.
+7. **`hello()` after the engine had ended failed as `protocol` ("called
+   once, first")** (low). Fix: `disconnected` (or the refusal).
+8. **The renderer's deferral was `setTimeout(0)`** (low): a browser holds a
+   timer nested five deep to 4 ms, so a burst of queued replies (pipelined
+   meshes) would be delivered 4 ms apart from the fifth on. Fix:
+   `makeDefer`: `setImmediate`, else a `MessageChannel`, else `setTimeout`.
+9. **The generator mapped an untyped schema with `items` to `unknown`,
+   and accepted unknown keys in an event entry** (low; the schema has no
+   such case today). Fix: `array` inferred from `items`, `minItems` and
+   `maxItems` as `object` is from `properties`; an event entry holds
+   summary and params only.
+10. **`start()` twice at once started two engines** (low). Fix: the second
+    call joins the launch under way.
+
+### Gaps in the tests closed (the code was right; a mutation showed no test said so)
+- a coalescing slot not cleared after its last call (every later call of
+  the key would have waited forever); the slot not moved on after an error
+  reply; a call waiting behind its key's call not failed when the engine
+  ends;
+- the proxy delivering an event before the catch of the error in front;
+- the engine's name unchecked in hello; the request line's length
+  boundary; a `u8` array at an unaligned offset; a message with both an id
+  and a method; the inbox itself (items queued behind a reply wait a
+  macrotask each) and `makeDefer` on each platform.
+
+### Checked and found sound
+The framing state machine (chunk splits anywhere, frames at chunk edges,
+0-byte frames, the limits on both sides of their boundary, the fatal
+announcement, the end mid-line, mid-frame and after an unclaimed frame;
+the engine writes a frame and its reply back to back and polls only
+between requests, so a frame followed by an event cannot come from it);
+the client's in-order matching, the id-less error to the oldest call, the
+in-flight bound, the hello gate, superseding; the event order (the inbox
+in the client and the proxy; a run's last `solve.state` before its
+`document.changed`; an abort's two); the generator on every keyword of the
+subset, `$ref` across files and through chains, name collisions, nullable
+enums and `oneOf`, index signatures, `FRAME_PATHS` through a `$ref` chain
+and refused under `oneOf`, `ERROR_CODES`; the host's back-off, deaths
+before and during the hello of a restart, the subscriptions carried over.
+
+### Known issues left
+- A renderer reload with calls in flight: the new proxy's ids start at 1
+  again, so a late reply to an old call could settle a new one. Stage 1b,
+  the first to run the app, should have `main/index.ts` dispose the server
+  and serve a new one on a main-frame navigation.
+- A frame announcement allocates its buffer (up to the 1 GiB limit) before
+  the bytes come.
+
+### Gate after the fixes
+| Check | Result |
+|---|---|
+| `just web-check` | clean, three times |
+| `just web-test` (release engine) | **121/121**, three times, ~12.8 s each: 12 files (unit: framing 26, client 33, dispatch 6, gen-api 8, frames 8, host 12, fake-engine 5, bridge 6; engine: engine 6, session 6, solving 3, host 2) |
+| each fix without its code | its tests fail: client 2, dispatch 3, bridge 2, host 6, gen-api 2 |
+| `electron-vite build` | builds main, preload, renderer |
+| generated types | current (the generator's two new rules change nothing in the schema's output) |
+| C++ | unchanged |
+
 ## Brief for the next stages
 
-**First, the audit of stage 1a** (Fable 5.1, max effort): the stage's
-diff, decision 0012 and 0013, this note; concrete failure scenarios in the
-framing state machine, request ordering and coalescing, the event order,
-the type generator's subset and the host's restart; probes and mutation
-tests rather than reading alone; fixes in a commit of their own
-(`Web 1a audit: ...`), recorded in this note.
+**The audit of stage 1a is done** (above); its fixes are in.
 
-**Then stage 1b** (Opus 5.5, high), FRONTEND-PLAN.md's "Stage 1b":
+**Stage 1b** (Opus 5.5, high), FRONTEND-PLAN.md's "Stage 1b":
 - The renderer talks through `EngineProxy` (`new EngineProxy(window.bt)`);
-  wait for its status `running` before the first call, reload the mirror
-  when `restarts` grows.
+  it asks the host for the status as it connects, so `onStatus` fires with
+  the current one soon after: wait for `running` before the first call,
+  reload the mirror when `restarts` grows. On a main-frame navigation
+  (a reload in development) `main/index.ts` should dispose the window's
+  server and serve a new one, so replies to the old page's calls are
+  dropped (see "Known issues left" above).
 - Meshes: `shape.mesh` replies carry `frame.arrays`; take them through
   `meshArrays()` (checked against the counts) into `BufferGeometry`;
   coalesce requests by a key such as `mesh:<shape>:<style>:<transformation>`.

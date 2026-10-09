@@ -18,6 +18,13 @@ export interface BridgeCall {
   coalesce?: string;
 }
 
+/**
+ * From the renderer: a call, or a request for the engine's status (the proxy
+ * sends it when it connects: a status posted before the renderer listened,
+ * such as `running` while the page loaded, was lost).
+ */
+export type BridgeRequest = BridgeCall | { kind: 'status' };
+
 /** To the renderer. */
 export type BridgeMessage =
   | { kind: 'reply'; id: number; result: unknown; frame?: { desc: Frame; data: ArrayBuffer } }
@@ -27,7 +34,7 @@ export type BridgeMessage =
 
 /** What the preload script exposes as `window.bt`. */
 export interface BtBridge {
-  send(call: BridgeCall): void;
+  send(request: BridgeRequest): void;
   /** Every message from the host, in order; returns the unsubscribe. */
   onMessage(handler: (message: BridgeMessage) => void): () => void;
 }
@@ -45,4 +52,9 @@ export function isBridgeCall(v: unknown): v is BridgeCall {
     typeof c.method === 'string' &&
     (c.coalesce === undefined || typeof c.coalesce === 'string')
   );
+}
+
+/** Whether a message from the renderer asks for the engine's status. */
+export function isStatusRequest(v: unknown): v is { kind: 'status' } {
+  return typeof v === 'object' && v !== null && (v as Record<string, unknown>).kind === 'status';
 }

@@ -42,6 +42,7 @@ const ASSERTIONS = new Set([
 const ANNOTATIONS = new Set(['title', 'description', '$schema', '$id', '$defs']);
 const FILE_KEYS = new Set([...ANNOTATIONS, 'methods', 'events']);
 const ENTRY_KEYS = new Set(['summary', 'params', 'result', 'errors']);
+const EVENT_KEYS = new Set(['summary', 'params']);
 /** The keywords that only narrow a value the type already names. */
 const CONSTRAINTS = ['pattern', 'minimum', 'maximum', 'minItems', 'maxItems', 'minLength'] as const;
 
@@ -279,12 +280,16 @@ export function typeExpr(api: Api, s: Json, base: string, where: string, indent:
     }
     return union(values.map(literal));
   }
+  // without a type, the keywords say what it is: an untyped schema with
+  // items would otherwise be `unknown`, which compiles and says nothing
   const declared = s.type;
   const types =
     declared === undefined
-      ? ['properties', 'additionalProperties'].some((k) => k in s)
+      ? ['properties', 'additionalProperties', 'required'].some((k) => k in s)
         ? ['object']
-        : []
+        : ['items', 'minItems', 'maxItems'].some((k) => k in s)
+          ? ['array']
+          : []
       : Array.isArray(declared)
         ? declared
         : [declared];
@@ -508,6 +513,11 @@ export function generate(apiDir: string = API_DIR): string {
     for (const [e, entry] of Object.entries(fileEvents)) {
       if (!isObject(entry) || !('params' in entry) || typeof entry.summary !== 'string') {
         throw new GenError(`${f.name} ${e}: an event needs summary and params`);
+      }
+      for (const k of Object.keys(entry)) {
+        if (!EVENT_KEYS.has(k)) {
+          throw new GenError(`${f.name} ${e}: unknown key ${k} (an event has summary and params)`);
+        }
       }
       const params = typeExpr(api, entry.params ?? true, f.name, `${e}.params`, '    ');
       events.push(

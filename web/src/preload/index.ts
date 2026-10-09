@@ -6,11 +6,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 
-import type { BridgeCall, BridgeMessage, BtBridge } from '../engine/bridge.ts';
+import type { BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
 
 const bridge: BtBridge = {
-  send(call: BridgeCall): void {
-    ipcRenderer.send('bt:call', call);
+  send(request: BridgeRequest): void {
+    ipcRenderer.send('bt:call', request);
   },
   onMessage(handler: (message: BridgeMessage) => void): () => void {
     const listener = (_event: IpcRendererEvent, message: BridgeMessage): void => {

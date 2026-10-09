@@ -7,7 +7,7 @@
 // main/index.ts connects it to ipcMain and webContents.
 
 import { FRAME_PATHS, METHOD_NAMES } from '../engine/api.generated.ts';
-import { isBridgeCall } from '../engine/bridge.ts';
+import { isBridgeCall, isStatusRequest } from '../engine/bridge.ts';
 import type { BridgeMessage } from '../engine/bridge.ts';
 import type { CallOptions, EngineStatus } from '../engine/client-types.ts';
 import { CLIENT_ERROR_CODE, isEngineError } from '../engine/errors.ts';
@@ -34,12 +34,20 @@ export function serveEngine(
     send({ kind: 'event', event, params });
   });
   const offStatus = host.onStatus((status: EngineStatus) => {
-    send({ kind: 'status', status });
+    // after the errors of the calls the change failed: the host rejects them
+    // first, and their rejections are delivered a microtask later
+    queueMicrotask(() => {
+      send({ kind: 'status', status });
+    });
   });
   send({ kind: 'status', status: host.status });
 
   return {
     receive(message: unknown): void {
+      if (isStatusRequest(message)) {
+        send({ kind: 'status', status: host.status });
+        return;
+      }
       if (!isBridgeCall(message)) {
         return;
       }

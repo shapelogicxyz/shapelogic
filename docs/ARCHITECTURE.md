@@ -598,14 +598,19 @@ the packages pinned in `web/package.json`. What exists after stage 1a:
   `client.ts` (`EngineClient`: `engine.hello` first, typed calls pipelined
   in order and bounded, replies matched in order, errors as `EngineError`,
   coalescing by key, typed events), `dispatch.ts` (`OrderedInbox`: a reply
-  settles before the events behind it are dispatched), `client-types.ts`
+  settles before the events behind it are dispatched; `makeDefer`, the
+  macrotask it yields with on each platform), `client-types.ts`
   (`EngineApi`, `Reply<M>`), `errors.ts`, `transport.ts`, `bridge.ts` (the
-  messages between host and renderer), `recorder.ts` (`RecordingTransport`),
+  messages between host and renderer: calls and a status request one way,
+  replies, events and statuses the other), `recorder.ts` (`RecordingTransport`),
   `node-transport.ts` (`NodeTransport`: the engine as a child process, its
   `--version`).
 - `src/main/`: `engine-host.ts` (`EngineHost`: one engine per window,
   restarted when it dies, its status told; calls fail while none is
-  running), `engine-ipc.ts` (`serveEngine`: the host's side of the bridge),
+  running; `stop()` ends an engine being started too), `engine-ipc.ts`
+  (`serveEngine`: the host's side of the bridge; it answers the proxy's
+  status request and posts a status after the errors of the calls it
+  failed),
   `engine-path.ts`, `index.ts` (Electron's main: a window, its host, IPC).
   `src/preload/index.ts` exposes `window.bt`; `src/renderer/engine-proxy.ts`
   (`EngineProxy`) has the client's interface over it; the renderer is a
@@ -619,8 +624,8 @@ mutating call waits for its revision; the renderer never sees Node and
 never parses frames by hand; `src/engine/` stays platform-free (a
 TypeScript project without Node's types and ESLint check it). Tested by
 Vitest: `tests/unit/` (the parser at every chunk size over recordings of
-the real engine, the client against a scripted engine, the fake engine,
-the host, the bridge) and `tests/engine/` (the real engine: every fixture
+the real engine, the client against a scripted engine, the inbox and its
+deferral, the fake engine, the host, the bridge) and `tests/engine/` (the real engine: every fixture
 opened and drawn in every style, stage 7's scripted session, pause, save
 point, continue and abort, the event order of decision 0012, a killed
 engine restarted).

@@ -94,6 +94,28 @@ describe('engine.hello', () => {
     const { client } = await ready();
     await expect(client.hello()).rejects.toThrow(/once/);
   });
+
+  it('refuses an answer that is no object, or that names another program', async () => {
+    for (const answer of [null, 7, { protocol: 1, name: 'other-engine', version: '1' }]) {
+      const t = new ScriptedTransport();
+      const client = new EngineClient(t);
+      const hello = client.hello();
+      const waiting = client.call('engine.info');
+      t.reply(1, answer);
+      expect((await rejection(hello)).errc).toBe('unsupported');
+      expect((await rejection(waiting)).errc).toBe('unsupported');
+      expect(t.killed).toBe(true);
+    }
+  });
+
+  it('fails as disconnected when the engine ended before it', async () => {
+    const t = new ScriptedTransport();
+    const client = new EngineClient(t);
+    t.exit({ code: 2, signal: null });
+    await settle();
+    const e = await rejection(client.hello());
+    expect([e.errc, e.method]).toEqual(['disconnected', 'engine.hello']);
+  });
 });
 
 describe('calls', () => {
@@ -142,6 +164,35 @@ describe('calls', () => {
     const e = await rejection(client.call('document.setNotes', { text: 'n'.repeat(100) }));
     expect([e.code, e.errc]).toEqual([-32600, 'invalid_request']);
     expect(t.sent).toHaveLength(1);
+  });
+
+  it("of exactly the engine's line length are sent; one byte more is refused", async () => {
+    const { t, client } = await ready({ maxLineBytes: 100 });
+    const head = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'document.setNotes',
+      params: { text: '' },
+    });
+    const fits = client.call('document.setNotes', { text: 'n'.repeat(100 - head.length) });
+    expect(t.sent).toHaveLength(2);
+    const e = await rejection(
+      client.call('document.setNotes', { text: 'n'.repeat(101 - head.length) }),
+    );
+    expect([e.code, e.errc]).toEqual([-32600, 'invalid_request']);
+    expect(t.sent).toHaveLength(2);
+    t.reply(2, { revision: 1 });
+    expect((await fits).revision).toBe(1);
+  });
+
+  it('ignore a message with both an id and a method, and report it', async () => {
+    const { t, client, problems } = await ready();
+    const call = client.call('engine.info');
+    t.line({ jsonrpc: '2.0', id: 2, method: 'engine.ping', params: {} });
+    await settle();
+    expect(problems.map((p) => p.reason)).toEqual(['not-message']);
+    t.reply(2, 'info');
+    expect(await call).toBe('info');
   });
 
   it('whose reply never came fail when a later reply comes (replies come in order)', async () => {
@@ -322,6 +373,46 @@ describe('coalescing', () => {
     expect(await Promise.all([first, b, between])).toEqual(['first', 'b', 'between']);
   });
 
+  it('moves on to the waiting call after an error reply, and after a lost reply', async () => {
+    const { t, client } = await ready();
+    const a = client.call('shape.get', { shape: 's1' }, { coalesce: 'k' });
+    const b = client.call('shape.get', { shape: 's2' }, { coalesce: 'k' });
+    t.error(2, -32002, 'not_found', 'no s1');
+    expect((await rejection(a)).errc).toBe('not_found');
+    await settle();
+    expect(t.last()).toMatchObject({ params: { shape: 's2' } });
+    t.reply(t.last().id as number, 'b');
+    expect(await b).toBe('b');
+    const c = client.call('shape.get', { shape: 's3' }, { coalesce: 'k' });
+    const other = client.call('engine.info');
+    const d = client.call('shape.get', { shape: 's4' }, { coalesce: 'k' });
+    t.reply(5, 'other'); // c's reply (id 4) never comes
+    expect((await rejection(c)).errc).toBe('protocol');
+    expect(await other).toBe('other');
+    await settle();
+    expect(t.last()).toMatchObject({ params: { shape: 's4' } });
+    t.reply(6, 'd');
+    expect(await d).toBe('d');
+  });
+
+  it('lets a key be used again once its calls are through', async () => {
+    const { t, client } = await ready();
+    const a = client.call('shape.get', { shape: 's1' }, { coalesce: 'k' });
+    t.reply(2, 'a');
+    expect(await a).toBe('a');
+    const b = client.call('shape.get', { shape: 's2' }, { coalesce: 'k' });
+    expect(t.sent).toHaveLength(3);
+    t.reply(3, 'b');
+    expect(await b).toBe('b');
+    const c = client.call('shape.get', { shape: 's3' }, { coalesce: 'k' });
+    t.error(4, -32002, 'not_found', 'no');
+    await rejection(c);
+    const d = client.call('shape.get', { shape: 's4' }, { coalesce: 'k' });
+    expect(t.sent).toHaveLength(5);
+    t.reply(5, 'd');
+    expect(await d).toBe('d');
+  });
+
   it('keys stay apart', async () => {
     const { t, client } = await ready();
     void client.call('shape.get', { shape: 's1' }, { coalesce: 'a' });
@@ -349,6 +440,16 @@ describe('the end of the engine', () => {
     expect(exits).toEqual([{ code: null, signal: 'SIGSEGV' }]);
     expect(client.closed).toBe(true);
     expect((await rejection(client.call('engine.info'))).errc).toBe('disconnected');
+  });
+
+  it("fails a call waiting behind its key's call too", async () => {
+    const { t, client } = await ready();
+    const a = client.call('shape.get', { shape: 's1' }, { coalesce: 'k' });
+    const b = client.call('shape.get', { shape: 's2' }, { coalesce: 'k' });
+    expect(t.sent).toHaveLength(2);
+    t.exit({ code: 1, signal: null });
+    expect((await rejection(a)).errc).toBe('disconnected');
+    expect((await rejection(b)).errc).toBe('disconnected');
   });
 
   it('in the middle of a frame is reported, then the calls fail', async () => {

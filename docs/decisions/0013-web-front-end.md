@@ -41,12 +41,18 @@ crosses as its description plus an `ArrayBuffer`; the renderer's
 the client's interface (`EngineApi`). The host checks what the renderer
 sends (a well-formed call of a schema method) before calling. When the
 engine dies the host fails its calls (`disconnected`), tells the window
-(`exited`, then `running` with a restart count), and starts another after
-a back-off (none, then 250 ms doubling to 5 s; after five quick deaths in a
-row it gives up: `failed`). Calls made while no engine is running, or
-before a new one has answered `engine.hello`, fail at once: a call queued
-for the next engine would carry the old document's ids into a new one. The
-window reloads its mirror on the restart (stage 6 adds the rescue copy).
+(`exited`, after the errors of the calls it failed, then `running` with a
+restart count), and starts another after a back-off (none, then 250 ms
+doubling to 5 s; after five quick deaths in a row it gives up: `failed`).
+Calls made while no engine is running, or before a new one has answered
+`engine.hello`, fail at once: a call queued for the next engine would
+carry the old document's ids into a new one. The window reloads its
+mirror on the restart (stage 6 adds the rescue copy). A proxy asks the
+host for the status when it connects: the engine starts while the page
+loads, so a `running` posted before the renderer listened would be lost.
+Stopping the host (the window closed) ends an engine being started too,
+and a status handler that throws does not stop a restart (the audit of
+stage 1a).
 
 **The client** (`src/engine/`), over a `Transport` (`write`, `onData`,
 `onStderr`, `onExit`, `kill`, `close`): Node's child process now, a
@@ -70,9 +76,11 @@ recording in tests, a WebSocket later.
   engine's 64 MiB fails without being sent, as the engine would fail it
   (`-32600 invalid_request`).
 - *Order*: settling a reply only queues the code awaiting it, so the
-  events behind a reply wait a macrotask (`dispatch.ts`): the caller sees
-  its reply before the `document.changed` it caused and the poll's events
-  after it. The proxy keeps the same rule.
+  events behind a reply wait a macrotask (`dispatch.ts`: `setImmediate`
+  where there is one, else a `MessageChannel`, since a browser holds a
+  nested `setTimeout(0)` to 4 ms): the caller sees its reply before the
+  `document.changed` it caused and the poll's events after it. The proxy
+  keeps the same rule.
 - *Errors*: `EngineError {code, errc, detail, method}`; the engine's errcs
   and codes as decision 0012 gives them (`ERROR_CODES`), and three of the
   client's own with code 0: `disconnected` (the engine ended; the call's

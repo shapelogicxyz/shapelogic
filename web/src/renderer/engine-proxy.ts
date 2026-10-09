@@ -47,6 +47,9 @@ export class EngineProxy implements EngineApi {
     this.off = bridge.onMessage((m) => {
       this.inbox.push(m);
     });
+    // the host told the window its status before this proxy listened (the
+    // engine starts while the page loads): ask for it
+    bridge.send({ kind: 'status' });
   }
 
   /** The engine's status as the host last told it. */

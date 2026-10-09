@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { ClientProblem } from '../../src/engine/client.ts';
 import type { EngineStatus } from '../../src/engine/client-types.ts';
 import { EngineError } from '../../src/engine/errors.ts';
 import { EngineHost } from '../../src/main/engine-host.ts';
@@ -120,12 +121,52 @@ describe('the engine host', () => {
   it('gives up after quick deaths in a row', async () => {
     const { host: h, engines, statuses } = host({ maxQuickDeaths: 2 });
     await h.start();
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       await until(() => engines.length === i + 1 && h.client?.engine !== null);
       engines[i]?.exit({ code: 1, signal: null });
     }
     await until(() => statuses.at(-1)?.state === 'failed');
-    expect(engines).toHaveLength(3);
+    // two quick deaths with a limit of two: no third engine
+    await settle(5);
+    expect(engines).toHaveLength(2);
+    expect(statuses.at(-1)).toEqual({
+      state: 'failed',
+      reason: 'the engine died 2 times in a row soon after starting',
+    });
+  });
+
+  it('restarts even when a status handler throws', async () => {
+    const { host: h, engines, statuses } = host();
+    const problems: ClientProblem[] = [];
+    h.onProblem((p) => problems.push(p));
+    h.onStatus((s) => {
+      if (s.state === 'exited') {
+        throw new Error('window gone');
+      }
+    });
+    await h.start();
+    engines[0]?.exit({ code: null, signal: 'SIGKILL' });
+    await until(() => statuses.length === 3 && statuses[2]?.state === 'running');
+    expect(engines).toHaveLength(2);
+    expect(problems.map((p) => p.reason)).toEqual(['handler']);
+  });
+
+  it('starts one engine when start() is called twice', async () => {
+    const engines: ScriptedTransport[] = [];
+    const h = new EngineHost({
+      start: async () => {
+        await settle(1);
+        const t = new ScriptedTransport();
+        engines.push(t);
+        setImmediate(() => {
+          t.greet();
+        });
+        return t;
+      },
+    });
+    await Promise.all([h.start(), h.start()]);
+    expect(engines).toHaveLength(1);
+    expect(h.status.state).toBe('running');
   });
 
   it('counts an engine that cannot start as a quick death', async () => {
@@ -156,6 +197,100 @@ describe('the engine host', () => {
     expect(((await h.call('engine.info').catch((x: unknown) => x)) as EngineError).errc).toBe(
       'disconnected',
     );
+  });
+
+  it('ends an engine that was being spawned when stop() was called', async () => {
+    const engines: ScriptedTransport[] = [];
+    const gate: { release: (() => void) | null } = { release: null };
+    const h = new EngineHost({
+      start: async () => {
+        const t = new ScriptedTransport();
+        engines.push(t);
+        if (engines.length === 2) {
+          // the second engine's --version check takes a while
+          await new Promise<void>((resolve) => {
+            gate.release = resolve;
+          });
+        }
+        setImmediate(() => {
+          // an engine stop() ended was never asked to say hello
+          if (t.sent.length > 0) {
+            t.greet();
+          }
+        });
+        return t;
+      },
+      restartDelayMs: () => 0,
+    });
+    const statuses: EngineStatus[] = [];
+    h.onStatus((s) => statuses.push(s));
+    await h.start();
+    engines[0]?.exit({ code: 1, signal: null });
+    await until(() => gate.release !== null);
+    const stopped = h.stop();
+    await settle();
+    gate.release?.();
+    await stopped;
+    await settle(5);
+    expect(engines).toHaveLength(2);
+    expect(engines[1]?.killed).toBe(true);
+    expect(h.client).toBeNull();
+    expect(statuses.map((s) => s.state)).toEqual(['running', 'exited']);
+  });
+
+  it('ends an engine that has not said hello when stop() is called', async () => {
+    const engines: ScriptedTransport[] = [];
+    const h = new EngineHost({
+      start: () => {
+        const t = new ScriptedTransport();
+        engines.push(t);
+        if (engines.length === 1) {
+          setImmediate(() => {
+            t.greet();
+          });
+        }
+        return t;
+      },
+      restartDelayMs: () => 0,
+    });
+    await h.start();
+    engines[0]?.exit({ code: 1, signal: null });
+    await until(() => engines[1]?.sent.length === 1);
+    await h.stop();
+    expect(engines[1]?.killed).toBe(true);
+    expect(h.client).toBeNull();
+    expect(h.status.state).toBe('exited');
+    await settle(5);
+    expect(engines).toHaveLength(2);
+  });
+
+  it('ends an engine whose first start stop() interrupted', async () => {
+    const engines: ScriptedTransport[] = [];
+    const gate: { release: (() => void) | null } = { release: null };
+    const h = new EngineHost({
+      start: async () => {
+        await new Promise<void>((resolve) => {
+          gate.release = resolve;
+        });
+        const t = new ScriptedTransport();
+        engines.push(t);
+        setImmediate(() => {
+          if (t.sent.length > 0) {
+            t.greet();
+          }
+        });
+        return t;
+      },
+    });
+    const started = h.start();
+    await until(() => gate.release !== null);
+    const stopped = h.stop();
+    gate.release?.();
+    await started;
+    await stopped;
+    expect(engines[0]?.killed).toBe(true);
+    expect(h.client).toBeNull();
+    expect(h.status).toEqual({ state: 'failed', reason: 'not started' });
   });
 
   it('refuses an engine of another protocol and does not restart it', async () => {

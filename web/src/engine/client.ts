@@ -164,6 +164,10 @@ export class EngineClient implements EngineApi {
    * answers with another, fails them and is ended.
    */
   async hello(): Promise<Hello> {
+    if (this.state === 'closed') {
+      // the engine ended (or was refused) before it could be greeted
+      throw this.refused('engine.hello');
+    }
     if (this.state !== 'new') {
       throw clientError('protocol', 'hello() is called once, first');
     }
@@ -180,9 +184,9 @@ export class EngineClient implements EngineApi {
         this.send(call);
       }
     });
-    let answer: Record<string, unknown>;
+    let answer: unknown;
     try {
-      answer = (await reply) as Record<string, unknown>;
+      answer = await reply;
     } catch (e) {
       this.refuse(
         e instanceof EngineError ? e : clientError('protocol', String(e), 'engine.hello'),
@@ -191,6 +195,7 @@ export class EngineClient implements EngineApi {
     }
     // the engine is checked, not trusted: another protocol (or another program) is refused
     if (
+      !isRecord(answer) ||
       answer.protocol !== PROTOCOL ||
       answer.name !== 'bt-engine' ||
       typeof answer.version !== 'string'

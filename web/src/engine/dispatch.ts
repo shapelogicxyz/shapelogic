@@ -9,15 +9,51 @@
 /** Runs `fn` after the current macrotask (and its microtasks). */
 export type Defer = (fn: () => void) => void;
 
-/** setImmediate where there is one (Node, Electron's main), else setTimeout. */
-export const defaultDefer: Defer = (fn) => {
-  const g = globalThis as { setImmediate?: (f: () => void) => unknown };
-  if (g.setImmediate !== undefined) {
-    g.setImmediate(fn);
-  } else {
-    setTimeout(fn, 0);
+/** What makeDefer looks for on the global object. */
+export interface DeferGlobals {
+  setImmediate?: (fn: () => void) => unknown;
+  MessageChannel?: new () => {
+    port1: { onmessage: ((event: unknown) => void) | null; unref?: () => void };
+    port2: { postMessage: (value: unknown) => void; unref?: () => void };
+  };
+  setTimeout: (fn: () => void, ms: number) => unknown;
+}
+
+/**
+ * The deferral for a global object: setImmediate where there is one (Node,
+ * Electron's main process); else a MessageChannel (a browser's renderer:
+ * setTimeout(0) is held to 4 ms once timers nest five deep, so a burst of
+ * replies would be delivered 4 ms apart); else setTimeout.
+ */
+export function makeDefer(g: DeferGlobals): Defer {
+  const setImmediate = g.setImmediate;
+  if (setImmediate !== undefined) {
+    return (fn) => {
+      setImmediate(fn);
+    };
   }
-};
+  const Channel = g.MessageChannel;
+  if (Channel !== undefined) {
+    const channel = new Channel();
+    const queue: (() => void)[] = [];
+    channel.port1.onmessage = () => {
+      queue.shift()?.();
+    };
+    // Node's ports hold the process open; a browser's have no unref
+    channel.port1.unref?.();
+    channel.port2.unref?.();
+    return (fn) => {
+      queue.push(fn);
+      channel.port2.postMessage(null);
+    };
+  }
+  return (fn) => {
+    g.setTimeout(fn, 0);
+  };
+}
+
+/** The deferral of this platform. */
+export const defaultDefer: Defer = makeDefer(globalThis as unknown as DeferGlobals);
 
 /** Delivers items in order, yielding a macrotask after each settled reply when more wait. */
 export class OrderedInbox<T> {

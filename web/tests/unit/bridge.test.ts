@@ -112,6 +112,79 @@ describe('the proxy', () => {
     expect(errcs).toEqual(['internal', 'method_not_found']);
   });
 
+  it('tells a proxy made after the engine started the status', async () => {
+    const w = wire();
+    const host = new EngineHost({ start: () => new FakeEngine(loadRecording('dominoes')) });
+    const server = serveEngine(host, w.post);
+    w.toHost((m) => {
+      server.receive(m);
+    });
+    await host.start();
+    // the running status was posted while nobody listened (the page was loading)
+    await settle(5);
+    const proxy = new EngineProxy(w.bridge);
+    const seen: EngineStatus[] = [];
+    proxy.onStatus((s) => seen.push(s));
+    await settle(5);
+    expect(proxy.status).toEqual({ state: 'running', version: '0.1.0', restarts: 0 });
+    expect(seen).toEqual([proxy.status]);
+    await host.stop();
+  });
+
+  it('posts the errors of the calls an exit failed before the exited status', async () => {
+    const engines: ScriptedTransport[] = [];
+    const host = new EngineHost({
+      start: () => {
+        const t = new ScriptedTransport();
+        engines.push(t);
+        setImmediate(() => {
+          t.greet();
+        });
+        return t;
+      },
+      restartDelayMs: () => 0,
+    });
+    const posted: string[] = [];
+    const server = serveEngine(host, (m) => {
+      posted.push(m.kind === 'status' ? `status ${m.status.state}` : m.kind);
+    });
+    await host.start();
+    server.receive({ kind: 'call', id: 1, method: 'engine.info' });
+    server.receive({ kind: 'call', id: 2, method: 'settings.get' });
+    await settle();
+    posted.length = 0;
+    engines[0]?.exit({ code: null, signal: 'SIGKILL' });
+    await settle();
+    expect(posted.slice(0, 3)).toEqual(['error', 'error', 'status exited']);
+    await host.stop();
+  });
+
+  it('settles an error before the events behind it', async () => {
+    const handlers: ((m: BridgeMessage) => void)[] = [];
+    const proxy = new EngineProxy({
+      send() {
+        // nothing listens
+      },
+      onMessage(h) {
+        handlers.push(h);
+        return () => {
+          handlers.length = 0;
+        };
+      },
+    });
+    const order: string[] = [];
+    proxy.on('document.changed', () => order.push('event'));
+    const call = proxy.call('engine.info').catch((e: unknown) => {
+      order.push(`catch ${(e as EngineError).errc}`);
+    });
+    // an error and an event delivered in one task
+    handlers[0]?.({ kind: 'error', id: 1, code: -32002, errc: 'not_found', message: 'x' });
+    handlers[0]?.({ kind: 'event', event: 'document.changed', params: {} });
+    await call;
+    await settle();
+    expect(order).toEqual(['catch not_found', 'event']);
+  });
+
   it('settles a reply before the events behind it', async () => {
     const w = wire();
     const t = new ScriptedTransport();

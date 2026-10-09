@@ -83,6 +83,7 @@ describe('the schema subset', () => {
         additionalProperties: { type: 'string' },
       },
       Empty: { type: 'object', properties: {}, additionalProperties: false },
+      Untyped: { items: { type: 'integer' }, minItems: 1 },
       Frame: frame,
       Mesh: {
         type: 'object',
@@ -139,6 +140,8 @@ describe('the schema subset', () => {
     // a named property must fit the index signature
     expect(out).toContain('[key: string]: string | boolean | undefined;');
     expect(out).toContain('export type Empty = Record<string, never>;');
+    // the keywords say what an untyped schema is (never `unknown` in silence)
+    expect(out).toContain('export type Untyped = number[];');
   });
 
   it('maps methods, events, errors and the frame marker', () => {
@@ -191,6 +194,10 @@ describe('the schema subset', () => {
     expect(() => gen({ 'types.json': types, 'a.json': area({}, { extra: 1 }) })).toThrow(
       /top-level key/,
     );
+    const event = { summary: 'It happened.', params: { type: 'object' }, result: {} };
+    expect(() =>
+      gen({ 'types.json': types, 'a.json': area({}, { events: { 'a.e': event } }) }),
+    ).toThrow(/unknown key result/);
   });
 
   it('refuses a frame the client cannot find', () => {

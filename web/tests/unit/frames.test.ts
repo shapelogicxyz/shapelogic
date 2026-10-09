@@ -64,6 +64,10 @@ describe('a frame view', () => {
     expect(() => viewFrame(arrays({ type: 'f32', offset: 2, length: 1 }), data)).toThrow(
       /multiple of 4/,
     );
+    // a byte array too (a typed array would not mind, the protocol does)
+    expect(() => viewFrame(arrays({ type: 'u8', offset: 2, length: 1 }), data)).toThrow(
+      /multiple of 4/,
+    );
     expect(() => viewFrame(arrays({ type: 'f32', offset: 48, length: 2 }), data)).toThrow(
       /runs past/,
     );
