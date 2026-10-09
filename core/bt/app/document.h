@@ -453,6 +453,8 @@ class Document {
   /// The step being recorded: a group, or the command under way.
   std::unique_ptr<Step> open_;
   bool grouping_ = false;
+  /// Every touch of a part by a command (saved or already covered).
+  std::uint64_t touches_ = 0;
   std::uint64_t stamps_ = 0;
   /// The step on top of the undo stack when the document was clean.
   std::uint64_t cleanStamp_ = 0;

@@ -184,7 +184,7 @@ std::string Document::problemLabel(unsigned int index) { return "P" + std::to_st
 // ---- the history --------------------------------------------------------------------
 
 Document::StepGuard::StepGuard(Document& doc, std::string label)
-    : doc_(doc), grouped_(doc.grouping_) {
+    : doc_(doc), grouped_(doc.grouping_), touches_(doc.touches_) {
   doc_.lastChange_ = ChangeSet{};
   if (!grouped_) {
     BT_ASSERT(doc_.open_ == nullptr);
@@ -213,10 +213,15 @@ Document::StepGuard::~StepGuard() {
 void Document::StepGuard::commit(std::uint32_t what) {
   committed_ = true;
   Step& s = *doc_.open_;
-  const bool any = s.parts.size() > first_;
+  const bool saved = s.parts.size() > first_;
+  // a command touches only what it changes; in a group a part touched
+  // before is saved once, so the touches say whether this command changed
+  // anything (a second batch of a drag on the same shape saves nothing
+  // new, and is still a change with a revision of its own)
+  const bool any = saved || doc_.touches_ > touches_;
   s.what |= what;
   if (!grouped_) {
-    if (any) {
+    if (saved) {
       doc_.pushStep(std::move(s));
     }
     doc_.open_.reset();
@@ -241,6 +246,7 @@ bool Document::covered(SnapshotKind kind, unsigned int index) const {
 }
 
 void Document::touchShape(unsigned int index) {
+  touches_++;
   if (covered(SnapshotKind::Shape, index)) {
     return;
   }
@@ -252,6 +258,7 @@ void Document::touchShape(unsigned int index) {
 }
 
 void Document::touchProblem(unsigned int index) {
+  touches_++;
   if (covered(SnapshotKind::Problem, index)) {
     return;
   }
@@ -263,6 +270,7 @@ void Document::touchProblem(unsigned int index) {
 }
 
 void Document::touchColour(unsigned int index) {
+  touches_++;
   if (covered(SnapshotKind::Colour, index)) {
     return;
   }
@@ -274,6 +282,7 @@ void Document::touchColour(unsigned int index) {
 }
 
 void Document::touchNotes() {
+  touches_++;
   if (covered(SnapshotKind::Notes, 0)) {
     return;
   }
@@ -285,6 +294,7 @@ void Document::touchNotes() {
 }
 
 void Document::touchAppendedShape() {
+  touches_++;
   const unsigned int index = puzzle_->getNumberOfShapes();
   if (covered(SnapshotKind::AppendedShape, index)) {
     return;
@@ -297,6 +307,7 @@ void Document::touchAppendedShape() {
 }
 
 void Document::touchWhole() {
+  touches_++;
   if (covered(SnapshotKind::Whole, 0)) {
     return;
   }

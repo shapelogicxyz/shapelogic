@@ -46,12 +46,15 @@ class Document::StepGuard {
   ~StepGuard();
   StepGuard(const StepGuard&) = delete;
   StepGuard& operator=(const StepGuard&) = delete;
-  /// Ends the command: a step when anything was saved, a new revision.
+  /// Ends the command: a step when anything was saved, a new revision
+  /// when anything was touched (saved now or, in a group, before).
   void commit(std::uint32_t what);
 
  private:
   Document& doc_;
   bool grouped_;
+  /** The document's touches when the command began. */
+  std::uint64_t touches_;
   std::size_t first_ = 0;
   bool committed_ = false;
 };

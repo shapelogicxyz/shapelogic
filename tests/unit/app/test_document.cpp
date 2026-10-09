@@ -574,12 +574,21 @@ TEST_CASE("document: groups of edits are one step; depth, dirty and history", "[
   const std::string before = io::writePuzzle(d.puzzle());
   const std::size_t steps = d.history().undo.size();
 
-  // a drag over cells: one step
+  // a drag over cells: one step, and every batch a change of its own (a
+  // new revision naming the shape), though the shape is saved only once
   REQUIRE(d.beginGroup("Draw").has_value());
   for (int i = 0; i < 4; i++) {
+    const std::uint64_t rev = d.revision();
     REQUIRE(d.editCells(s, CellTool::Fixed, 0, 0, {{i, 0, 0}}).has_value());
+    CHECK(d.revision() == rev + 1);
+    CHECK(d.lastChange().shapes == std::vector<Id>{s});
   }
+  // a batch that changes nothing is no change
+  const std::uint64_t still = d.revision();
+  REQUIRE(d.editCells(s, CellTool::Fixed, 0, 0, {{0, 0, 0}}).has_value());
+  CHECK(d.revision() == still);
   REQUIRE(d.shapeTask(s, ShapeTask::Nudge2, false).has_value());
+  CHECK(d.revision() == still + 1);
   CHECK(d.beginGroup("again").error().code == Errc::InvalidState);
   CHECK(d.undo().error().code == Errc::InvalidState);
   REQUIRE(d.endGroup().has_value());

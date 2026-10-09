@@ -654,3 +654,27 @@ TEST_CASE("engine: grid.neighbour numbers the sides as the meshes do", "[engine]
   CHECK(h.errc("grid.neighbour", {{"size", {3, 3, 3}}, {"cell", {1, 0, 0}}, {"face", 0}}) ==
         "invalid_argument");
 }
+
+TEST_CASE("engine: every change inside an edit group has its revision and its event", "[engine]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string s = h.result("shape.create", Json::object())["shape"];
+  CHECK(h.call("edit.begin", {{"label", "Draw"}}).messages.size() == 1);
+  std::uint64_t last = h.result("document.get")["revision"].get<std::uint64_t>();
+  // a drag's batches on one shape: each moves the revision and says so
+  for (int i = 0; i < 3; i++) {
+    const Captured c = h.call("shape.setCells", {{"shape", s}, {"tool", "fixed"}, {"cells", {{i, 0, 0}}}});
+    REQUIRE(c.messages.size() == 2);
+    const auto rev = c.messages[0]["result"]["revision"].get<std::uint64_t>();
+    CHECK(rev == last + 1);
+    CHECK(c.messages[1]["method"] == "document.changed");
+    CHECK(c.messages[1]["params"]["revision"] == rev);
+    CHECK(c.messages[1]["params"]["shapes"] == Json::array({s}));
+    last = rev;
+  }
+  // a batch that changes nothing: no event
+  CHECK(h.call("shape.setCells", {{"shape", s}, {"tool", "fixed"}, {"cells", {{0, 0, 0}}}}).messages.size() == 1);
+  h.result("edit.end");
+  CHECK(h.result("edit.history")["undo"].back() == "Draw");
+  CHECK(h.result("shape.get", {{"shape", s}})["shape"]["fixed"] == 3);
+}
