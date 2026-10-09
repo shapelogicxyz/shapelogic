@@ -71,6 +71,24 @@ format:
     if [ -z "$fmt" ]; then echo "clang-format not found: install LLVM (brew install llvm / apt install clang-format)"; exit 1; fi
     git ls-files 'core/*.h' 'core/*.cpp' 'engine/*.cpp' 'cli/*.cpp' 'tests/*.h' 'tests/*.cpp' | xargs "$fmt" -i
 
+# ---- the web front end (web/, docs/FRONTEND-PLAN.md; needs Node 22) ----
+
+# Install the web front end's packages from its lockfile
+web-install:
+    cd web && npm ci
+
+# Generate web/src/engine/api.generated.ts from api/*.json
+web-gen:
+    cd web && npm run gen
+
+# Type check (node and renderer projects), lint and format check the web front end
+web-check:
+    cd web && npm run check
+
+# The web front end's tests; the engine tests need `just build release` (or BT_ENGINE)
+web-test:
+    cd web && npm test
+
 # Remove all build directories
 clean:
     rm -rf build

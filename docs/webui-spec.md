@@ -5,12 +5,20 @@ BurrTools features, with the gaps the design still has to fill. The engine
 API ([core-api.md](core-api.md)) is derived from this document: every action
 here must map to an API call.
 
-**Source:** Girish Sharma's mockup, https://grssam.github.io/burr-tools/
-(`index.html` on the `gh-pages` branch of `grssam/burr-tools`, commit
-`d7afb3ed`, 2026-10-04, GPL-3.0). The mockup is a single HTML file with mock
-data and hand-projected canvas drawing; its layout, workflows, wording and
-keyboard map are adopted, its code is not. The mockup cites a separate spec
-(item ids such as "OQ-19", "C14") that is not published; ask the author.
+**Source:** Girish Sharma's mockup (`index.html` on the `gh-pages` branch
+of `grssam/burr-tools`, commit `d7afb3ed`, 2026-10-04, GPL-3.0), vendored
+unmodified as [mockup/index.html](mockup/index.html); its Pages site,
+https://grssam.github.io/burr-tools/, answered 404 on 2026-10-08. The mockup
+is a single HTML file with mock data and hand-projected canvas drawing. Its
+layout, workflows, wording and keyboard map are adopted, and so is its code
+(decision 0013, superseding "its code is not" of this paragraph's first
+version): its CSS, its shell and its card render functions become
+TypeScript modules over the engine's data, section by section
+([FRONTEND-PLAN.md](FRONTEND-PLAN.md), "The mockup as the basis"); its data
+model, voxel operations, canvas renderer, fake solver and player are
+replaced by the engine and three.js. The mockup cites a separate spec (item
+ids such as "OQ-19", "C14") that is not published; where it is cited, the
+original GUI decides (section 7).
 
 ## 1. Shell
 

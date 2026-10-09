@@ -1,0 +1,2023 @@
+{
+ "results": [
+  {
+   "undoDepth": 25,
+   "threads": 0,
+   "solver": "classic"
+  },
+  {
+   "revision": 1,
+   "dirty": false,
+   "grid": "prisms",
+   "path": "tests/data/puzzles/Bermuda.xmpuzzle",
+   "notes": "Name: Bermuda\nDesigned by: Bill Cutler\nThis is a puzzle using the triangular gridspace. You can see\nthat several layers of triangles can be stacked on top of one\nanother ",
+   "canUndo": false,
+   "canRedo": false,
+   "solving": false,
+   "shapes": [
+    {
+     "id": "s1",
+     "label": "S1",
+     "name": "A",
+     "size": [
+      4,
+      2,
+      1
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s2",
+     "label": "S2",
+     "name": "B",
+     "size": [
+      3,
+      2,
+      1
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s3",
+     "label": "S3",
+     "name": "C",
+     "size": [
+      6,
+      2,
+      1
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s4",
+     "label": "S4",
+     "name": "D",
+     "size": [
+      4,
+      2,
+      1
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s5",
+     "label": "S5",
+     "name": "E",
+     "size": [
+      4,
+      2,
+      1
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s6",
+     "label": "S6",
+     "name": "F",
+     "size": [
+      5,
+      2,
+      1
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s7",
+     "label": "S7",
+     "name": "G",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s8",
+     "label": "S8",
+     "name": "H",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s9",
+     "label": "S9",
+     "name": "I",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s10",
+     "label": "S10",
+     "name": "J",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s11",
+     "label": "S11",
+     "name": "K",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s12",
+     "label": "S12",
+     "name": "L",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s13",
+     "label": "S13",
+     "name": "M",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s14",
+     "label": "S14",
+     "name": "N",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s15",
+     "label": "S15",
+     "name": "O",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s16",
+     "label": "S16",
+     "name": "P",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s17",
+     "label": "S17",
+     "name": "Q",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s18",
+     "label": "S18",
+     "name": "R",
+     "size": [
+      4,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s19",
+     "label": "S19",
+     "name": "S",
+     "size": [
+      3,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s20",
+     "label": "S20",
+     "name": "T",
+     "size": [
+      3,
+      2,
+      2
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s21",
+     "label": "S21",
+     "name": "U",
+     "size": [
+      3,
+      2,
+      3
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s22",
+     "label": "S22",
+     "name": "V",
+     "size": [
+      3,
+      2,
+      3
+     ],
+     "fixed": 6,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    },
+    {
+     "id": "s23",
+     "label": "S23",
+     "name": "Result",
+     "size": [
+      7,
+      4,
+      3
+     ],
+     "fixed": 72,
+     "variable": 0,
+     "weight": 1,
+     "colour": null
+    }
+   ],
+   "colours": [],
+   "problems": [
+    {
+     "id": "p24",
+     "label": "P1",
+     "name": "Bermuda",
+     "result": "s23",
+     "pieces": 12,
+     "state": "solved",
+     "solve": "idle",
+     "analysing": false,
+     "assemblies": 1,
+     "solutions": 0,
+     "saved": 1,
+     "timeMs": 1000
+    }
+   ]
+  },
+  {
+   "frame": {
+    "frame": 1,
+    "bytes": 14396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 1176
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 4704,
+      "length": 1176
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 9408,
+      "length": 516
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 11472,
+      "length": 172
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 12160,
+      "length": 172
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 12848,
+      "length": 172
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 13536,
+      "length": 172
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 13708,
+      "length": 172
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 14396,
+      "length": 0
+     }
+    },
+    "checksum": "8e651a5e"
+   },
+   "triangles": 172,
+   "vertices": 392,
+   "lo": [
+    0.025980761274695396,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    2.4740192890167236,
+    1.72705078125,
+    0.9950000047683716
+   ]
+  },
+  {
+   "frame": {
+    "frame": 2,
+    "bytes": 12072,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 900
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 3600,
+      "length": 900
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 7200,
+      "length": 504
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 9216,
+      "length": 168
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 9888,
+      "length": 168
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 10560,
+      "length": 168
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 11232,
+      "length": 168
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 11400,
+      "length": 168
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 12072,
+      "length": 0
+     }
+    },
+    "checksum": "8c3c66a5"
+   },
+   "triangles": 168,
+   "vertices": 300,
+   "lo": [
+    0.025980761274695396,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    2.4740192890167236,
+    1.72705078125,
+    0.9950000047683716
+   ]
+  },
+  {
+   "frame": {
+    "frame": 3,
+    "bytes": 2396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 132
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 528,
+      "length": 132
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 1056,
+      "length": 84
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 1392,
+      "length": 28
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 1504,
+      "length": 28
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 1616,
+      "length": 28
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 1728,
+      "length": 28
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 1756,
+      "length": 28
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 1868,
+      "length": 132
+     }
+    },
+    "checksum": "196173e5"
+   },
+   "triangles": 28,
+   "vertices": 44,
+   "lo": [
+    0,
+    0,
+    0
+   ],
+   "hi": [
+    2.5,
+    1.7320507764816284,
+    1
+   ]
+  },
+  {
+   "frame": {
+    "frame": 4,
+    "bytes": 14396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 1176
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 4704,
+      "length": 1176
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 9408,
+      "length": 516
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 11472,
+      "length": 172
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 12160,
+      "length": 172
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 12848,
+      "length": 172
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 13536,
+      "length": 172
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 13708,
+      "length": 172
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 14396,
+      "length": 0
+     }
+    },
+    "checksum": "85219ead"
+   },
+   "triangles": 172,
+   "vertices": 392,
+   "lo": [
+    0.025980761274695396,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    1.9740192890167236,
+    1.72705078125,
+    0.9950000047683716
+   ]
+  },
+  {
+   "frame": {
+    "frame": 5,
+    "bytes": 12132,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 864
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 3456,
+      "length": 864
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 6912,
+      "length": 540
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 9072,
+      "length": 180
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 9792,
+      "length": 180
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 10512,
+      "length": 180
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 11232,
+      "length": 180
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 11412,
+      "length": 180
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 12132,
+      "length": 0
+     }
+    },
+    "checksum": "9e7f49e8"
+   },
+   "triangles": 180,
+   "vertices": 288,
+   "lo": [
+    0.025980761274695396,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    1.9740192890167236,
+    1.72705078125,
+    0.9950000047683716
+   ]
+  },
+  {
+   "frame": {
+    "frame": 6,
+    "bytes": 2396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 132
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 528,
+      "length": 132
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 1056,
+      "length": 84
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 1392,
+      "length": 28
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 1504,
+      "length": 28
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 1616,
+      "length": 28
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 1728,
+      "length": 28
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 1756,
+      "length": 28
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 1868,
+      "length": 132
+     }
+    },
+    "checksum": "c1dacabe"
+   },
+   "triangles": 28,
+   "vertices": 44,
+   "lo": [
+    0,
+    0,
+    0
+   ],
+   "hi": [
+    2,
+    1.7320507764816284,
+    1
+   ]
+  },
+  {
+   "frame": {
+    "frame": 7,
+    "bytes": 14396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 1176
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 4704,
+      "length": 1176
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 9408,
+      "length": 516
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 11472,
+      "length": 172
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 12160,
+      "length": 172
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 12848,
+      "length": 172
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 13536,
+      "length": 172
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 13708,
+      "length": 172
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 14396,
+      "length": 0
+     }
+    },
+    "checksum": "b719ffcb"
+   },
+   "triangles": 172,
+   "vertices": 392,
+   "lo": [
+    0.5259807705879211,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    3.4740192890167236,
+    1.692050814628601,
+    0.9950000047683716
+   ]
+  },
+  {
+   "frame": {
+    "frame": 8,
+    "bytes": 12372,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 894
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 3576,
+      "length": 894
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 7152,
+      "length": 540
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 9312,
+      "length": 180
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 10032,
+      "length": 180
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 10752,
+      "length": 180
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 11472,
+      "length": 180
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 11652,
+      "length": 180
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 12372,
+      "length": 0
+     }
+    },
+    "checksum": "017ebc6b"
+   },
+   "triangles": 180,
+   "vertices": 298,
+   "lo": [
+    0.5259807705879211,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    3.4740192890167236,
+    1.692050814628601,
+    0.9950000047683716
+   ]
+  },
+  {
+   "frame": {
+    "frame": 9,
+    "bytes": 2468,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 138
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 552,
+      "length": 138
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 1104,
+      "length": 84
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 1440,
+      "length": 28
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 1552,
+      "length": 28
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 1664,
+      "length": 28
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 1776,
+      "length": 28
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 1804,
+      "length": 28
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 1916,
+      "length": 138
+     }
+    },
+    "checksum": "515f8e88"
+   },
+   "triangles": 28,
+   "vertices": 46,
+   "lo": [
+    0.5,
+    0,
+    0
+   ],
+   "hi": [
+    3.5,
+    1.7320507764816284,
+    1
+   ]
+  },
+  [
+   {
+    "frame": {
+     "frame": 10,
+     "bytes": 14396,
+     "layout": {
+      "positions": {
+       "type": "f32",
+       "offset": 0,
+       "length": 1176
+      },
+      "normals": {
+       "type": "f32",
+       "offset": 4704,
+       "length": 1176
+      },
+      "indices": {
+       "type": "u32",
+       "offset": 9408,
+       "length": 516
+      },
+      "voxel": {
+       "type": "u32",
+       "offset": 11472,
+       "length": 172
+      },
+      "voxelFace": {
+       "type": "i32",
+       "offset": 12160,
+       "length": 172
+      },
+      "flags": {
+       "type": "u32",
+       "offset": 12848,
+       "length": 172
+      },
+      "colour": {
+       "type": "u8",
+       "offset": 13536,
+       "length": 172
+      },
+      "polygon": {
+       "type": "u32",
+       "offset": 13708,
+       "length": 172
+      },
+      "edgeLines": {
+       "type": "f32",
+       "offset": 14396,
+       "length": 0
+      }
+     },
+     "checksum": "a97154db"
+    },
+    "triangles": 172,
+    "vertices": 392,
+    "lo": [
+     0.025980761274695396,
+     0.004999999888241291,
+     0.004999999888241291
+    ],
+    "hi": [
+     2.4740192890167236,
+     1.72705078125,
+     0.9950000047683716
+    ]
+   },
+   {
+    "frame": {
+     "frame": 11,
+     "bytes": 14396,
+     "layout": {
+      "positions": {
+       "type": "f32",
+       "offset": 0,
+       "length": 1176
+      },
+      "normals": {
+       "type": "f32",
+       "offset": 4704,
+       "length": 1176
+      },
+      "indices": {
+       "type": "u32",
+       "offset": 9408,
+       "length": 516
+      },
+      "voxel": {
+       "type": "u32",
+       "offset": 11472,
+       "length": 172
+      },
+      "voxelFace": {
+       "type": "i32",
+       "offset": 12160,
+       "length": 172
+      },
+      "flags": {
+       "type": "u32",
+       "offset": 12848,
+       "length": 172
+      },
+      "colour": {
+       "type": "u8",
+       "offset": 13536,
+       "length": 172
+      },
+      "polygon": {
+       "type": "u32",
+       "offset": 13708,
+       "length": 172
+      },
+      "edgeLines": {
+       "type": "f32",
+       "offset": 14396,
+       "length": 0
+      }
+     },
+     "checksum": "8697264e"
+    },
+    "triangles": 172,
+    "vertices": 392,
+    "lo": [
+     0.025980761274695396,
+     0.03999999910593033,
+     0.004999999888241291
+    ],
+    "hi": [
+     2.4740192890167236,
+     1.72705078125,
+     0.9950000047683716
+    ]
+   },
+   {
+    "frame": {
+     "frame": 12,
+     "bytes": 14396,
+     "layout": {
+      "positions": {
+       "type": "f32",
+       "offset": 0,
+       "length": 1176
+      },
+      "normals": {
+       "type": "f32",
+       "offset": 4704,
+       "length": 1176
+      },
+      "indices": {
+       "type": "u32",
+       "offset": 9408,
+       "length": 516
+      },
+      "voxel": {
+       "type": "u32",
+       "offset": 11472,
+       "length": 172
+      },
+      "voxelFace": {
+       "type": "i32",
+       "offset": 12160,
+       "length": 172
+      },
+      "flags": {
+       "type": "u32",
+       "offset": 12848,
+       "length": 172
+      },
+      "colour": {
+       "type": "u8",
+       "offset": 13536,
+       "length": 172
+      },
+      "polygon": {
+       "type": "u32",
+       "offset": 13708,
+       "length": 172
+      },
+      "edgeLines": {
+       "type": "f32",
+       "offset": 14396,
+       "length": 0
+      }
+     },
+     "checksum": "98aa2812"
+    },
+    "triangles": 172,
+    "vertices": 392,
+    "lo": [
+     0.025980761274695396,
+     0.03999999910593033,
+     0.004999999888241291
+    ],
+    "hi": [
+     2.9740192890167236,
+     1.72705078125,
+     0.9950000047683716
+    ]
+   },
+   {
+    "frame": {
+     "frame": 13,
+     "bytes": 14504,
+     "layout": {
+      "positions": {
+       "type": "f32",
+       "offset": 0,
+       "length": 1182
+      },
+      "normals": {
+       "type": "f32",
+       "offset": 4728,
+       "length": 1182
+      },
+      "indices": {
+       "type": "u32",
+       "offset": 9456,
+       "length": 522
+      },
+      "voxel": {
+       "type": "u32",
+       "offset": 11544,
+       "length": 174
+      },
+      "voxelFace": {
+       "type": "i32",
+       "offset": 12240,
+       "length": 174
+      },
+      "flags": {
+       "type": "u32",
+       "offset": 12936,
+       "length": 174
+      },
+      "colour": {
+       "type": "u8",
+       "offset": 13632,
+       "length": 174
+      },
+      "polygon": {
+       "type": "u32",
+       "offset": 13808,
+       "length": 174
+      },
+      "edgeLines": {
+       "type": "f32",
+       "offset": 14504,
+       "length": 0
+      }
+     },
+     "checksum": "7ed34ce6"
+    },
+    "triangles": 174,
+    "vertices": 394,
+    "lo": [
+     0.025980761274695396,
+     0.004999999888241291,
+     0.004999999888241291
+    ],
+    "hi": [
+     2.4740192890167236,
+     1.692050814628601,
+     1.9950000047683716
+    ]
+   },
+   {
+    "frame": {
+     "frame": 14,
+     "bytes": 14504,
+     "layout": {
+      "positions": {
+       "type": "f32",
+       "offset": 0,
+       "length": 1182
+      },
+      "normals": {
+       "type": "f32",
+       "offset": 4728,
+       "length": 1182
+      },
+      "indices": {
+       "type": "u32",
+       "offset": 9456,
+       "length": 522
+      },
+      "voxel": {
+       "type": "u32",
+       "offset": 11544,
+       "length": 174
+      },
+      "voxelFace": {
+       "type": "i32",
+       "offset": 12240,
+       "length": 174
+      },
+      "flags": {
+       "type": "u32",
+       "offset": 12936,
+       "length": 174
+      },
+      "colour": {
+       "type": "u8",
+       "offset": 13632,
+       "length": 174
+      },
+      "polygon": {
+       "type": "u32",
+       "offset": 13808,
+       "length": 174
+      },
+      "edgeLines": {
+       "type": "f32",
+       "offset": 14504,
+       "length": 0
+      }
+     },
+     "checksum": "ea734a59"
+    },
+    "triangles": 174,
+    "vertices": 394,
+    "lo": [
+     0.025980761274695396,
+     0.004999999888241291,
+     0.004999999888241291
+    ],
+    "hi": [
+     2.4740192890167236,
+     1.692050814628601,
+     1.9950000047683716
+    ]
+   },
+   {
+    "frame": {
+     "frame": 15,
+     "bytes": 14504,
+     "layout": {
+      "positions": {
+       "type": "f32",
+       "offset": 0,
+       "length": 1182
+      },
+      "normals": {
+       "type": "f32",
+       "offset": 4728,
+       "length": 1182
+      },
+      "indices": {
+       "type": "u32",
+       "offset": 9456,
+       "length": 522
+      },
+      "voxel": {
+       "type": "u32",
+       "offset": 11544,
+       "length": 174
+      },
+      "voxelFace": {
+       "type": "i32",
+       "offset": 12240,
+       "length": 174
+      },
+      "flags": {
+       "type": "u32",
+       "offset": 12936,
+       "length": 174
+      },
+      "colour": {
+       "type": "u8",
+       "offset": 13632,
+       "length": 174
+      },
+      "polygon": {
+       "type": "u32",
+       "offset": 13808,
+       "length": 174
+      },
+      "edgeLines": {
+       "type": "f32",
+       "offset": 14504,
+       "length": 0
+      }
+     },
+     "checksum": "7466cdd6"
+    },
+    "triangles": 174,
+    "vertices": 394,
+    "lo": [
+     0.025980761274695396,
+     0.004999999888241291,
+     0.004999999888241291
+    ],
+    "hi": [
+     2.4740192890167236,
+     1.692050814628601,
+     1.9950000047683716
+    ]
+   }
+  ],
+  {
+   "revision": 2
+  },
+  {
+   "id": "p24",
+   "label": "P1",
+   "name": "Bermuda",
+   "result": "s23",
+   "pieces": 12,
+   "state": "solved",
+   "solve": "finished",
+   "analysing": false,
+   "assemblies": 1,
+   "solutions": 1,
+   "saved": 1,
+   "timeMs": 22,
+   "parts": [
+    {
+     "shape": "s1",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s5",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s7",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s11",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s12",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s16",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s17",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s18",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s19",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s20",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s21",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    },
+    {
+     "shape": "s22",
+     "min": 1,
+     "max": 1,
+     "groups": []
+    }
+   ],
+   "colourRules": [],
+   "maxHoles": null,
+   "savedPosition": false,
+   "solverSettings": {}
+  },
+  {
+   "total": 1,
+   "offset": 0,
+   "solutionsVersion": 3,
+   "rows": [
+    {
+     "id": "sol2",
+     "index": 0,
+     "assembly": 0,
+     "solution": 0,
+     "pieces": 12,
+     "disassembly": "tree",
+     "moves": 11,
+     "rotations": 0,
+     "steps": 11,
+     "movesText": "1.1.1.1.1.1.1.1.1.1.1"
+    }
+   ]
+  },
+  {
+   "row": {
+    "id": "sol2",
+    "index": 0,
+    "assembly": 0,
+    "solution": 0,
+    "pieces": 12,
+    "disassembly": "tree",
+    "moves": 11,
+    "rotations": 0,
+    "steps": 11,
+    "movesText": "1.1.1.1.1.1.1.1.1.1.1"
+   },
+   "placements": [
+    {
+     "piece": 0,
+     "placed": true,
+     "transformation": 0,
+     "at": [
+      2,
+      0,
+      1
+     ]
+    },
+    {
+     "piece": 1,
+     "placed": true,
+     "transformation": 7,
+     "at": [
+      7,
+      2,
+      0
+     ]
+    },
+    {
+     "piece": 2,
+     "placed": true,
+     "transformation": 0,
+     "at": [
+      2,
+      0,
+      0
+     ]
+    },
+    {
+     "piece": 3,
+     "placed": true,
+     "transformation": 3,
+     "at": [
+      4,
+      3,
+      0
+     ]
+    },
+    {
+     "piece": 4,
+     "placed": true,
+     "transformation": 2,
+     "at": [
+      3,
+      1,
+      0
+     ]
+    },
+    {
+     "piece": 5,
+     "placed": true,
+     "transformation": 9,
+     "at": [
+      2,
+      3,
+      1
+     ]
+    },
+    {
+     "piece": 6,
+     "placed": true,
+     "transformation": 6,
+     "at": [
+      4,
+      0,
+      2
+     ]
+    },
+    {
+     "piece": 7,
+     "placed": true,
+     "transformation": 6,
+     "at": [
+      4,
+      2,
+      2
+     ]
+    },
+    {
+     "piece": 8,
+     "placed": true,
+     "transformation": 10,
+     "at": [
+      -1,
+      1,
+      2
+     ]
+    },
+    {
+     "piece": 9,
+     "placed": true,
+     "transformation": 11,
+     "at": [
+      4,
+      1,
+      2
+     ]
+    },
+    {
+     "piece": 10,
+     "placed": true,
+     "transformation": 6,
+     "at": [
+      6,
+      0,
+      2
+     ]
+    },
+    {
+     "piece": 11,
+     "placed": true,
+     "transformation": 7,
+     "at": [
+      3,
+      2,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "handle": "pb1",
+   "steps": 11,
+   "movesText": "1.1.1.1.1.1.1.1.1.1.1",
+   "pieces": [
+    {
+     "piece": 0,
+     "part": 0,
+     "shape": "s1",
+     "name": "A",
+     "orientation": 0
+    },
+    {
+     "piece": 1,
+     "part": 1,
+     "shape": "s5",
+     "name": "E",
+     "orientation": 7
+    },
+    {
+     "piece": 2,
+     "part": 2,
+     "shape": "s7",
+     "name": "G",
+     "orientation": 0
+    },
+    {
+     "piece": 3,
+     "part": 3,
+     "shape": "s11",
+     "name": "K",
+     "orientation": 3
+    },
+    {
+     "piece": 4,
+     "part": 4,
+     "shape": "s12",
+     "name": "L",
+     "orientation": 2
+    },
+    {
+     "piece": 5,
+     "part": 5,
+     "shape": "s16",
+     "name": "P",
+     "orientation": 9
+    },
+    {
+     "piece": 6,
+     "part": 6,
+     "shape": "s17",
+     "name": "Q",
+     "orientation": 6
+    },
+    {
+     "piece": 7,
+     "part": 7,
+     "shape": "s18",
+     "name": "R",
+     "orientation": 6
+    },
+    {
+     "piece": 8,
+     "part": 8,
+     "shape": "s19",
+     "name": "S",
+     "orientation": 10
+    },
+    {
+     "piece": 9,
+     "part": 9,
+     "shape": "s20",
+     "name": "T",
+     "orientation": 11
+    },
+    {
+     "piece": 10,
+     "part": 10,
+     "shape": "s21",
+     "name": "U",
+     "orientation": 6
+    },
+    {
+     "piece": 11,
+     "part": 11,
+     "shape": "s22",
+     "name": "V",
+     "orientation": 7
+    }
+   ]
+  },
+  {
+   "frame": {
+    "frame": 16,
+    "bytes": 2396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 132
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 528,
+      "length": 132
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 1056,
+      "length": 84
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 1392,
+      "length": 28
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 1504,
+      "length": 28
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 1616,
+      "length": 28
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 1728,
+      "length": 28
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 1756,
+      "length": 28
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 1868,
+      "length": 132
+     }
+    },
+    "checksum": "196173e5"
+   },
+   "triangles": 28,
+   "vertices": 44,
+   "lo": [
+    0,
+    0,
+    0
+   ],
+   "hi": [
+    2.5,
+    1.7320507764816284,
+    1
+   ]
+  },
+  {
+   "samples": 23,
+   "pieces": 12,
+   "frame": {
+    "frame": 17,
+    "bytes": 8096,
+    "layout": {
+     "step": {
+      "type": "f32",
+      "offset": 0,
+      "length": 23
+     },
+     "translation": {
+      "type": "f32",
+      "offset": 92,
+      "length": 828
+     },
+     "rotation": {
+      "type": "f32",
+      "offset": 3404,
+      "length": 1104
+     },
+     "visible": {
+      "type": "u8",
+      "offset": 7820,
+      "length": 276
+     }
+    },
+    "checksum": "0b6f2e02"
+   }
+  },
+  {
+   "samples": 180,
+   "pieces": 12,
+   "frame": {
+    "frame": 18,
+    "bytes": 63360,
+    "layout": {
+     "time": {
+      "type": "f32",
+      "offset": 0,
+      "length": 180
+     },
+     "translation": {
+      "type": "f32",
+      "offset": 720,
+      "length": 6480
+     },
+     "rotation": {
+      "type": "f32",
+      "offset": 26640,
+      "length": 8640
+     },
+     "visible": {
+      "type": "u8",
+      "offset": 61200,
+      "length": 2160
+     }
+    },
+    "checksum": "7e52f3c1"
+   }
+  },
+  {},
+  {
+   "frame": {
+    "frame": 19,
+    "bytes": 14396,
+    "layout": {
+     "positions": {
+      "type": "f32",
+      "offset": 0,
+      "length": 1176
+     },
+     "normals": {
+      "type": "f32",
+      "offset": 4704,
+      "length": 1176
+     },
+     "indices": {
+      "type": "u32",
+      "offset": 9408,
+      "length": 516
+     },
+     "voxel": {
+      "type": "u32",
+      "offset": 11472,
+      "length": 172
+     },
+     "voxelFace": {
+      "type": "i32",
+      "offset": 12160,
+      "length": 172
+     },
+     "flags": {
+      "type": "u32",
+      "offset": 12848,
+      "length": 172
+     },
+     "colour": {
+      "type": "u8",
+      "offset": 13536,
+      "length": 172
+     },
+     "polygon": {
+      "type": "u32",
+      "offset": 13708,
+      "length": 172
+     },
+     "edgeLines": {
+      "type": "f32",
+      "offset": 14396,
+      "length": 0
+     }
+    },
+    "checksum": "8e651a5e"
+   },
+   "triangles": 172,
+   "vertices": 392,
+   "lo": [
+    0.025980761274695396,
+    0.004999999888241291,
+    0.004999999888241291
+   ],
+   "hi": [
+    2.4740192890167236,
+    1.72705078125,
+    0.9950000047683716
+   ]
+  },
+  {
+   "errc": "not_found"
+  },
+  {
+   "revision": 4
+  }
+ ],
+ "events": [
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 2,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p24"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p24",
+    "state": "preparing"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p24",
+    "state": "preparing",
+    "progress": {
+     "stage": "prepare",
+     "elapsedMs": 0,
+     "piece": 1,
+     "pieces": 12,
+     "assemblyFraction": 0,
+     "iterations": 0,
+     "assemblerThreads": 1,
+     "assemblies": 0,
+     "solutions": 0,
+     "disassembly": false,
+     "disasmCompleted": 0,
+     "disasmPending": 0,
+     "disasmWorkers": 0,
+     "overall": 0,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": "prepare piece 1 of 12"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p24",
+    "saved": 0,
+    "solutionsVersion": 2,
+    "assemblies": 0,
+    "solutions": 0
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p24",
+    "state": "finished"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p24",
+    "state": "finished",
+    "progress": {
+     "stage": "done",
+     "elapsedMs": 58,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 1,
+     "iterations": 1866,
+     "assemblerThreads": 10,
+     "assemblies": 1,
+     "solutions": 1,
+     "disassembly": true,
+     "disasmCompleted": 1,
+     "disasmPending": 0,
+     "disasmWorkers": 8,
+     "overall": 1,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": 0,
+     "activity": "finished"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p24",
+    "saved": 1,
+    "solutionsVersion": 3,
+    "assemblies": 1,
+    "solutions": 1
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 3,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p24"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 4,
+    "what": [
+     "notes"
+    ],
+    "shapes": [],
+    "problems": []
+   }
+  }
+ ]
+}

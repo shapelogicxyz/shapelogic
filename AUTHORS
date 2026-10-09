@@ -12,5 +12,7 @@ and Barry Downes.
 
 For later work on BurrTools, see the git history of the original repository.
 
-The web front-end design this project follows is by Girish Sharma
-(https://grssam.github.io/burr-tools/, GPL-3.0).
+The web front end is built on Girish Sharma's mockup of a BurrTools web
+GUI: its design, and its HTML, CSS and interaction code, which the front end
+takes over and reworks (docs/mockup/index.html, from the gh-pages branch of
+https://github.com/grssam/burr-tools, commit d7afb3ed, GPL-3.0).

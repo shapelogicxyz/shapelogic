@@ -12,13 +12,16 @@ layer drawing of the grid editors, the analysis of saved assemblies, the
 paused solve files, the playback sampler and the explorers; `bt-engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
 tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
-benchmark as fast as the original or faster). Next: the web front end.*
+benchmark as fast as the original or faster). The web front end
+(docs/FRONTEND-PLAN.md) has its stage 1a: the toolchain in `web/`, the
+TypeScript types generated from `api/`, and the engine client with its host,
+bridge and proxy. Next: its stage 1b, the shell and the 3D view.*
 
 ## Big picture
 
 ```
- web front end (later: Electron + TypeScript + three.js)
-        │  JSON-RPC 2.0 over stdio, binary frames for meshes   (decision 0003)
+ web front end (web/: Electron + TypeScript; stage 1a: the engine client)
+        │  JSON-RPC 2.0 over stdio, binary frames for meshes   (decisions 0003, 0012)
         ▼
  bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)
         │                         │
@@ -45,6 +48,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
 | `cli/` | `bt`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
+| `web/` | the web front end (Electron + TypeScript, decision 0013): the engine client, the host and bridge, the generated types, its tests; see `web/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
 | `tests/contract/` | the engine's contract tests: `bt-engine` driven as a subprocess, every message checked against `api/` |
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `bt`'s options, refusals and modes on the fixtures |
@@ -52,7 +56,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
 | `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`) |
-| `docs/` | this file, PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, core-api.md (the draft API.md replaced) |
+| `docs/` | this file, PLAN.md, FRONTEND-PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, mockup/ (Girish Sharma's mockup, vendored), core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies |
 
 ## Modules
@@ -578,6 +582,49 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
+## web (front-end stage 1a, decision 0013)
+Electron + TypeScript in `web/`, built on Girish Sharma's mockup
+(`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
+the packages pinned in `web/package.json`. What exists after stage 1a:
+- `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
+  (every `$defs` entry a named type, `Methods` and `Events` by name,
+  `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
+  a test fails when it is stale.
+- `src/engine/`, the client, platform-free but for `node-transport.ts`:
+  `framing.ts` (`FrameParser`: stdout as lines and frames, in two states,
+  frames copied once and handed out with the reply after them, protocol
+  problems reported; `StderrRing`), `frames.ts` (`viewFrame`, typed-array
+  views without copies; `attachFrame`; `meshArrays`, `poseArrays`),
+  `client.ts` (`EngineClient`: `engine.hello` first, typed calls pipelined
+  in order and bounded, replies matched in order, errors as `EngineError`,
+  coalescing by key, typed events), `dispatch.ts` (`OrderedInbox`: a reply
+  settles before the events behind it are dispatched), `client-types.ts`
+  (`EngineApi`, `Reply<M>`), `errors.ts`, `transport.ts`, `bridge.ts` (the
+  messages between host and renderer), `recorder.ts` (`RecordingTransport`),
+  `node-transport.ts` (`NodeTransport`: the engine as a child process, its
+  `--version`).
+- `src/main/`: `engine-host.ts` (`EngineHost`: one engine per window,
+  restarted when it dies, its status told; calls fail while none is
+  running), `engine-ipc.ts` (`serveEngine`: the host's side of the bridge),
+  `engine-path.ts`, `index.ts` (Electron's main: a window, its host, IPC).
+  `src/preload/index.ts` exposes `window.bt`; `src/renderer/engine-proxy.ts`
+  (`EngineProxy`) has the client's interface over it; the renderer is a
+  stub until stage 1b.
+- `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
+  `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
+  `npm run record`) and what the client saw in them.
+
+**Rules of the front end** (AGENTS.md): the engine is the truth; every
+mutating call waits for its revision; the renderer never sees Node and
+never parses frames by hand; `src/engine/` stays platform-free (a
+TypeScript project without Node's types and ESLint check it). Tested by
+Vitest: `tests/unit/` (the parser at every chunk size over recordings of
+the real engine, the client against a scripted engine, the fake engine,
+the host, the bridge) and `tests/engine/` (the real engine: every fixture
+opened and drawn in every style, stage 7's scripted session, pause, save
+point, continue and abort, the event order of decision 0012, a killed
+engine restarted).
+
 ## Testing against the original
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
@@ -625,7 +672,8 @@ See AGENTS.md for the full list. The load-bearing ones:
 `just build` / `just test` / `just test-all` / `just test-asan` /
 `just test-tsan` / `just oracle` / `just oracle-resume` /
 `just oracle-roundtrip` / `just oracle-files` / `just oracle-text` /
-`just check`. ctest also runs `api-schema` (the schema checks itself),
+`just check`; the front end's `just web-install` / `just web-gen` /
+`just web-check` / `just web-test`. ctest also runs `api-schema` (the schema checks itself),
 `api-docs` (`docs/API.md` is current), `contract` (the engine as a
 subprocess) and `cli` (`bt` as a subprocess).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and

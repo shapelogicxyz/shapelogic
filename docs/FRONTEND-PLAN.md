@@ -90,9 +90,9 @@ imports (PuzzleSolver3D, Puzzlecad), grid conversion; a browser-only build
   `web-dev` (the app against `build/dev` or `BT_ENGINE`), `web-check`
   (`tsc --noEmit`, eslint), `web-test` (unit; the engine tests when
   `build/release/engine/bt-engine` exists), `web-e2e`, `web-dist`.
-- **Prerequisites on this machine:** Node is not installed
-  (`brew install node@22`); Playwright's Electron driver needs no
-  browser download; the engine tests need `just build release`.
+- **Prerequisites on this machine:** Node 22 (installed: 22.23.3,
+  Homebrew); Playwright's Electron driver needs no browser download; the
+  engine tests need `just build release`.
 
 ## Stages and sessions
 
@@ -130,7 +130,7 @@ effort and audits".
 
 ## Status
 
-- [ ] **Stage 1a**: toolchain, generated types, the engine client
+- [x] **Stage 1a**: toolchain, generated types, the engine client (docs/handoff/web-1a.md)
 - [ ] Audit of stage 1a
 - [ ] **Stage 1b**: the shell and the 3D view
 - [ ] **Stage 2**: the Entities workspace
