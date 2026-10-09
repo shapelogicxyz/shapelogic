@@ -81,6 +81,13 @@ TEST_CASE("document: new, open, save, and the ids of what it holds", "[app][docu
   Result<Document> again = Document::openBytes(*bytes);
   REQUIRE(again.has_value());
   CHECK(io::writePuzzle(again->puzzle()) == *bytes);
+  // a rescue copy reopened: dirty until saved, and no undo step
+  CHECK_FALSE(again->dirty());
+  again->markUnsaved();
+  CHECK(again->dirty());
+  CHECK_FALSE(again->history().undo.size() > 0);
+  REQUIRE(again->save(tmp).has_value());
+  CHECK_FALSE(again->dirty());
   std::filesystem::remove(tmp);
 }
 

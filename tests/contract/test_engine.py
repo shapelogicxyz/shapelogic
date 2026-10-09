@@ -157,6 +157,17 @@ def document_files(e):
         check(again["path"] is None and again["notes"] == "changed notes", "openBytes")
         check([s["name"] for s in again["shapes"]] == [s["name"] for s in snap["shapes"]], "shapes")
         check(again["revision"] > r["revision"], "revisions go on across documents")
+        # a rescue copy: the bytes standing for a file, with unsaved changes
+        rescued = e.call(
+            "document.openBytes", {"data": data, "path": str(path), "dirty": True}
+        )
+        check(rescued["path"] == str(path) and rescued["dirty"], "openBytes with a path, dirty")
+        e.call("document.setNotes", {"text": "rescued notes"})
+        check(e.call("document.save")["path"] == str(path), "saved to the path given")
+        check(not e.call("document.get")["dirty"], "clean after saving the rescue copy")
+        e.call("document.setNotes", {"text": "changed notes"})
+        e.call("document.save")
+        e.fails("document.openBytes", {"data": data, "path": ""}, "invalid_argument")
         reopened = e.call("document.open", {"path": str(path)})
         check(reopened["notes"] == "changed notes", "the saved file")
 

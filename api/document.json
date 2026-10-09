@@ -26,10 +26,14 @@
       "errors": ["io_error", "parse_error"]
     },
     "document.openBytes": {
-      "summary": "Opens a puzzle from its file's bytes (gzip or plain XML; gzip that inflates to more than 256 MiB is refused as parse_error), base64; the document has no path. The open document goes as with document.new.",
+      "summary": "Opens a puzzle from its file's bytes (gzip or plain XML; gzip that inflates to more than 256 MiB is refused as parse_error), base64; the document has no path unless one is given. The open document goes as with document.new.",
       "params": {
         "type": "object",
-        "properties": {"data": {"type": "string"}},
+        "properties": {
+          "data": {"type": "string"},
+          "path": {"type": "string", "minLength": 1, "description": "The file these bytes stand for: the document's path, where document.save writes (a rescue copy of a puzzle that has a file)."},
+          "dirty": {"type": "boolean", "description": "The document starts with unsaved changes (a rescue copy): dirty until saved."}
+        },
         "required": ["data"],
         "additionalProperties": false
       },

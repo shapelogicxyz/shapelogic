@@ -157,6 +157,9 @@ class Document {
   Result<void> save(const std::filesystem::path& path);
   /// The file's bytes (plain XML), without marking the document clean.
   Result<std::string> saveBytes() const;
+  /// Marks the document as holding changes no file has (a rescue copy
+  /// reopened after the engine died): dirty until it is saved.
+  void markUnsaved() { solveDirty_ = true; }
 
   // ---- reading ----------------------------------------------------------------
 

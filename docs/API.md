@@ -195,13 +195,15 @@ Errors: `io_error`, `parse_error`
 
 ### `document.openBytes`
 
-Opens a puzzle from its file's bytes (gzip or plain XML; gzip that inflates to more than 256 MiB is refused as parse_error), base64; the document has no path. The open document goes as with document.new.
+Opens a puzzle from its file's bytes (gzip or plain XML; gzip that inflates to more than 256 MiB is refused as parse_error), base64; the document has no path unless one is given. The open document goes as with document.new.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
 | `data` | string | required |  |
+| `path` | string |  | The file these bytes stand for: the document's path, where document.save writes (a rescue copy of a puzzle that has a file). |
+| `dirty` | boolean |  | The document starts with unsaved changes (a rescue copy): dirty until saved. |
 
 Result: [Snapshot](#snapshot)
 

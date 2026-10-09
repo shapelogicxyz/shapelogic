@@ -25,14 +25,23 @@ Reply documentOpen(State& s, Params& p) {
 
 Reply documentOpenBytes(State& s, Params& p) {
   const std::string data = p.string("data");
+  const std::optional<std::string> path = p.optString("path");
+  const bool dirty = p.optBoolean("dirty", false);
   BTE_CHECK(p.finish());
   const std::optional<std::string> bytes = base64Decode(data);
   if (!bytes) {
     return coreError(Errc::InvalidArgument, "'data' is not base64");
   }
+  if (path && path->empty()) {
+    return coreError(Errc::InvalidArgument, "'path' is empty");
+  }
   BTE_TRY(app::Document d,
           app::Document::openBytes(*bytes, app::DocumentSettings{s.settings.undoDepth}));
-  s.replaceDocument(std::move(d), std::nullopt);
+  if (dirty) {
+    d.markUnsaved();
+  }
+  s.replaceDocument(std::move(d),
+                    path ? std::optional<std::filesystem::path>(*path) : std::nullopt);
   return snapshot(s);
 }
 

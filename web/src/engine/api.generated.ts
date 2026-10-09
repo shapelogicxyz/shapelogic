@@ -903,13 +903,21 @@ export interface Methods {
   };
   /**
    * Opens a puzzle from its file's bytes (gzip or plain XML; gzip that inflates to more than 256
-   * MiB is refused as parse_error), base64; the document has no path. The open document goes as
-   * with document.new.
+   * MiB is refused as parse_error), base64; the document has no path unless one is given. The open
+   * document goes as with document.new.
    * (document.json)
    */
   'document.openBytes': {
     params: {
       data: string;
+      /**
+       * The file these bytes stand for: the document's path, where document.save writes (a rescue
+       * copy of a puzzle that has a file).
+       * @minLength 1
+       */
+      path?: string;
+      /** The document starts with unsaved changes (a rescue copy): dirty until saved. */
+      dirty?: boolean;
     };
     result: Snapshot;
     errors: 'invalid_argument' | 'parse_error';
