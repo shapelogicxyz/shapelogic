@@ -2,8 +2,9 @@
 //
 // The settings of docs/webui-spec.md section 1 as the client holds them
 // (the mockup's `st.set`). Undo depth and threads are the engine's
-// (settings.set; the store mirrors them); the rest are the client's,
-// kept in memory until stage 6 stores them.
+// (settings.set; the store mirrors them); the rest are the client's.
+// Since stage 6 they are kept across sessions (persist.ts), read back
+// through `validPrefs`.
 
 /** The settings and their values. */
 export interface Prefs {
@@ -61,4 +62,30 @@ export function onPrefs(listener: (changed: (keyof Prefs)[]) => void): () => voi
   return () => {
     listeners.delete(listener);
   };
+}
+
+/** The choices of the settings that have them (the settings dialog's). */
+const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
+  density: ['Standard', 'Minimal'],
+  theme: ['Light', 'Dark', 'System'],
+  rot: ['Drag', 'Arc-ball'],
+};
+
+/** The stored settings that are well formed. */
+export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
+  const out: Partial<Record<keyof Prefs, unknown>> = {};
+  for (const k of Object.keys(DEFAULTS) as (keyof Prefs)[]) {
+    const v = saved[k];
+    const choices = CHOICES[k];
+    const ok =
+      choices !== undefined
+        ? choices.includes(v)
+        : typeof DEFAULTS[k] === 'number'
+          ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
+          : typeof v === typeof DEFAULTS[k];
+    if (ok) {
+      out[k] = v;
+    }
+  }
+  return out as Partial<Prefs>;
 }

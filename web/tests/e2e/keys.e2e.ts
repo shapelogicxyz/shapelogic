@@ -53,7 +53,7 @@ test('Ctrl+1, 2, 3 switch the workspace', async () => {
   await expect(page.locator('.rbtn.on')).toHaveAttribute('data-tab', 'entities');
 });
 
-test('Ctrl+, opens the settings, F1 the shortcuts, Esc closes; Tab stays in the dialog', async () => {
+test('Ctrl+, opens the settings, F1 the shortcuts, Esc closes; Tab stays in the dialogs', async () => {
   const { page } = a;
   await page.keyboard.press('Control+,');
   await expect(page.locator('#scrim')).toHaveClass(/show/);
@@ -67,12 +67,27 @@ test('Ctrl+, opens the settings, F1 the shortcuts, Esc closes; Tab stays in the 
   await page.keyboard.press('Escape');
   await expect(page.locator('#scrim')).not.toHaveClass(/show/);
   await page.keyboard.press('F1');
-  await expect(page.locator('#scrim')).toHaveClass(/show/);
-  await expect(page.locator('#setNav [data-p="keys"]')).toHaveClass(/on/);
-  // the one table: every group of the map is printed
-  for (const g of ['Everywhere', '3D view', 'Entities', 'Puzzle', 'Solver', 'Dialogs and menus']) {
-    await expect(page.locator('#setPg .kbgrp', { hasText: g }).first()).toBeVisible();
+  // F1 is Help ▸ Keyboard Shortcuts: a dialog of its own over the one table
+  await expect(page.locator('#helpKeys')).toBeVisible();
+  for (const g of [
+    'Everywhere',
+    '3D view',
+    'Entities',
+    'Puzzle',
+    'Solver',
+    'Explorers',
+    'Dialogs and menus',
+  ]) {
+    await expect(page.locator('#helpKeys .kbgrp', { hasText: g }).first()).toBeVisible();
   }
+  await page.keyboard.type('redo');
+  await expect(page.locator('#helpKeys .kbrow')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#helpKeys')).toHaveCount(0);
+  // the settings dialog's page prints the same table
+  await page.keyboard.press('Control+,');
+  await page.click('#setNav [data-p="keys"]');
+  await expect(page.locator('#setPg .kbgrp', { hasText: 'Explorers' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.locator('#scrim')).not.toHaveClass(/show/);
 });

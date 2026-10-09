@@ -190,7 +190,10 @@ solve).
 Unknown attributes and elements of `<puzzle>`, `<problem>` and `<solution>`,
 and unknown `<voxel>` attributes, are kept and written back in place;
 stacking rod sets and maps are kept this way until stacking is ported.
-Saves are byte-identical to the original's.
+Saves are byte-identical to the original's. A file is written beside its
+place (`<file>.tmp`) and renamed over it once whole, puzzle and paused
+solve alike (`replaceWith`; the original's writePuzzleFile), so a failed
+save leaves the old file.
 
 ### solve (exists: stages 3 to 5)
 The assemblers, on one run layer (decision 0009), and the take-apart. Ported from
@@ -532,7 +535,8 @@ schema in `api/`, documented in the generated `docs/API.md`.
   the settings, progress, statistics, failures, solution rows,
   placements).
 - `methods_<area>.cpp`: one per schema file. `engine.hello` (the
-  protocol a client speaks), solving (`solve.*` on the document's solve
+  protocol a client speaks), `document.openBytes` (with the file the bytes
+  stand for and unsaved changes: a rescue copy, `Document::markUnsaved`), solving (`solve.*` on the document's solve
   calls; a pause, a save point and an abort only for a solve under way),
   solutions (`solution.page` sorts the saved list's indices under
   `readProblem` with `solutionSortOrder`, a view, with the problem's
@@ -607,11 +611,11 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a to 5, decision 0013)
+## web (front-end stages 1a to 6, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
-1.64.0 among them). What exists after stage 5:
+1.64.0 among them). What exists after stage 6:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -630,7 +634,11 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   messages between host and renderer: calls and a status request one way,
   replies, events and statuses the other), `recorder.ts` (`RecordingTransport`),
   `node-transport.ts` (`NodeTransport`: the engine as a child process, its
-  `--version`).
+  `--version`), `app-bridge.ts` (stage 6: what crosses between the main
+  process and the renderer besides the engine: the menus' commands and
+  state, the file dialogs, the stored state, the recent files, the rescue
+  copy, the help links, the window's close; `window.btApp`'s interface and
+  the checks of what crosses).
 - `src/main/`: `engine-host.ts` (`EngineHost`: one engine per window,
   restarted when it dies, its status told; calls fail while none is
   running; `stop()` ends an engine being started too), `engine-ipc.ts`
@@ -639,21 +647,47 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   failed; with a log callback it tells how each call ended), `engine-path.ts`,
   `index.ts` (Electron's main: a window, its host, IPC; a main-frame
   navigation gets a new bridge server, so replies to the old page's calls
-  are dropped; in development the renderer's warnings and errors are
-  echoed to the terminal; with `BT_CALL_LOG` set every call of the
-  renderer is written to that file with its id and errc, which the e2e
-  tests read; `BT_AUTOSAVE_SECONDS` shortens the Solver's autosave for
-  them, passed in the page's address).
-  `src/preload/index.ts` exposes `window.bt`.
+  are dropped, and any other navigation or new window is refused; the
+  menus rebuilt from the focused window's state; the window's close held
+  and asked of the renderer (`close`), which answers `closeWindow` after
+  its question about unsaved changes, or the question asked natively when
+  the renderer has not taken the close within 4 s; a quit held by a
+  window's question goes on once it closes; the window's bounds kept;
+  files the system opens with the app (macOS's `open-file`, a command
+  line's `.xmpuzzle` or `.btsolve`); in development the renderer's
+  warnings and errors are echoed to the terminal; `BT_USER_DATA` moves the
+  app's data directory (the e2e tests give each launch its own); with
+  `BT_CALL_LOG` set every call of the renderer is written to that file
+  with its id and errc, which the e2e tests read; `BT_AUTOSAVE_SECONDS`
+  shortens the Solver's autosave for them, passed in the page's address),
+  `menu.ts` (stage 6: the menus' template from the menu state, Electron's
+  types only: the original's macOS table (File with Import, Export and
+  Close; Edit; View with the display modes and render styles; Help; About
+  and Settings in the application menu on macOS, in Help and Edit
+  elsewhere), the not-yet-ported items greyed, the keys of the one table
+  shown with `registerAccelerator: false`, so a press reaches the page and
+  is handled once), `app-ipc.ts` (stage 6: `window.btApp`'s main side: the
+  file dialogs (an extension added, a file that then exists asked about),
+  the store, the recent files, the rescue copy, the help links by name,
+  the menu state, the close; every message checked, only the app's windows
+  answered), `state-store.ts` (`StateStore`: `state.json` in the app's
+  data directory: the renderer's settings and layouts, the recent files,
+  the window's bounds; read once, written a moment after a change to a
+  temporary file renamed over it; what is not well formed read as absent),
+  `rescue.ts` (`RescueStore`: `__rescue.xmpuzzle`, the document's bytes,
+  and `__rescue.json`, its record with a hash of the bytes, written record
+  first, each by rename; a copy whose record does not match is offered as
+  a puzzle without a file).
+  `src/preload/index.ts` exposes `window.bt` and `window.btApp`.
 - `src/renderer/`, the app (sandboxed; it reaches nothing but `window.bt`):
   - `index.html`, `styles.css`: the mockup's body and stylesheet (the
     stylesheet in its compact form, left alone by Prettier; the Puzzle
     library's chip rules scoped to `.pz-lib`, since the stage's own
     collapsed class is `lc` too); the Entities, Puzzle and Solver cards
     are the mockup's, with the Solver's step-by-step explorer section and
-    the explorer's drawer (`#sdrawer`) over the view; a temporary Status…
-    button in the top bar (the status window until stage 6's menus);
-    `main.ts`;
+    the explorer's drawer (`#sdrawer`) over the view; the mockup's menu
+    placeholders are Electron's menus; `main.ts` (reads the stored
+    settings and layouts, then starts the shell);
     `engine-proxy.ts` (`EngineProxy`, the client's interface over
     `window.bt`).
   - `state/store.ts`: `Store`, the mirror of the engine: its status (no
@@ -664,7 +698,12 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     `generation` that grows with every new document (`openBytes`,
     `newDocument`), so the old one's ids are not taken for the new one's,
     and `whenRevision(r)`, which a mutating call awaits before acting on
-    what it made. `state/edits.ts`: `Edits`, shared by the workspaces: a
+    what it made; the documents' replacements (`newDocument`, `openPath`,
+    `openBytes`, `openRescue` with its file and unsaved changes,
+    `importPaused`) and `save`, which reads the snapshot again and waits
+    for the save's revision (a save sends no `document.changed`);
+    `wantedSettings`, the engine settings each new engine is given (the
+    stored undo depth and threads). `state/edits.ts`: `Edits`, shared by the workspaces: a
     mutating call awaited until the page shows its revision (`mutate`,
     with the workspace's own wait: the snapshot's for Entities, the
     problem's cards for Puzzle), `track`, `refuse` (a frozen part says
@@ -694,16 +733,42 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     redo, named by `edit.history`; refused while solving without asking
     the engine; a drag just released is waited for), `escape.ts` (Esc's step-back
     order), `layout.ts` (the rail, the cards' collapse and the 3D focus,
-    the layout per workspace), `settings.ts` and `prefs.ts` (the settings
-    dialog; undo depth and threads go to `settings.set`, the rest are the
-    client's, in memory until stage 6), `theme.ts` (theme, density,
+    the layout per workspace, kept across sessions: `layoutState`,
+    `restoreLayout`), `settings.ts` and `prefs.ts` (the settings dialog;
+    undo depth and threads go to `settings.set`, the rest are the
+    client's; `validPrefs` reads stored ones back), `persist.ts` (stage 6:
+    the settings and layouts stored whenever they change), `theme.ts` (theme, density,
     tooltips), `status.ts` (the status bar, flashes, `reportError`:
     `invalid_state` as "pause first"), `popover.ts`, `confirm.ts`,
     `panel.ts` (a window of its own over the workspace, not modal: the
     status window's and the debug statistics'; Esc closes the newest),
-    `topbar.ts` (the file's name, path and dirty mark; the temporary New…
-    with the grid chosen, by `document.new`, and the temporary Open and
-    drop, by `document.openBytes`), `icons.ts`, `cursors.ts` (the tools'
+    `topbar.ts` (the file's name, path and dirty mark, the window's
+    title; `#stage[data-dirty]`, `[data-path]`), and from stage 6:
+    `menus.ts` (`Menus`: the menu state sent when it changes (the
+    document, dirty, path, Undo and Redo labelled from `edit.history`, the
+    Solver's problem paused, solutions saved, the display mode and style,
+    the 3D focus, the table's keys as accelerators); a command with a key
+    of the table runs that key's handlers (`keyboard.ts`'s `runAction`),
+    the others go to their handlers), `files.ts` (`Files`: New with the
+    grid chosen in a dialog, Open, a path (recent, the system's, a drop;
+    `.btsolve` imported), Save, Save As, the window's close, each asking
+    about unsaved changes first (the original's `confirmDiscard`: Save,
+    Don't Save, Cancel); a save while a solve runs offered at a save point
+    (`Autosave.saveAtSavePoint(path)`), an analysis told to finish first;
+    the paused solver state exported and imported; a dropped file by its
+    path, else by its bytes; a file opened or saved goes to Open Recent,
+    a recent file that cannot be read leaves it), `rescue.ts` (`Rescue`:
+    the rescue copy written by `document.saveBytes` 300 ms after a change,
+    at most every 2 s, while the document is dirty and nothing solves,
+    removed once it is clean; writes and removals in one queue; offered
+    after an engine's restart, and at the start for a copy a session that
+    died left (not on a page reload, whose document is newer); nothing
+    written while an offer waits; `#stage[data-rescued]`), `dialog.ts`
+    (modal dialogs in the `.cfm` look: buttons, a default, Esc and a click
+    beside cancel unless the question must be answered, Tab kept inside,
+    the focus given back; `askChoice`), `help.ts` (the F1 dialog over the
+    one table, searchable; About with the app's and the engine's
+    versions; the Notes dialog, `document.setNotes`), `icons.ts`, `cursors.ts` (the tools'
     pictures and data-URL mouse cursors),
     `piece-colours.ts` (the original's `pieceColor` table and jitter),
     `dom.ts` (with `setHtml`, which leaves a list's elements alone when a
@@ -896,7 +961,13 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     with the setting runs: `solve.savePoint` on every run under way, their
     ends waited for by revision, `document.save`, `solve.continue`, none
     of it once another document replaced the one it paused; a puzzle
-    without a file is not saved, said once), `stats-panel.ts`
+    without a file is not saved, said once; `saveAtSavePoint(path)` is
+    also File ▸ Save's path while a solve runs, the save the store's),
+    `to-shapes.ts` and `to-shapes-form.ts` (stage 6: Edit ▸ Convert
+    Assemblies to Pieces, the original's dialog over `solution.toShapes`:
+    source, destination, range, filters with their defaults (millable and
+    notchable on bricks only), the shapes' size; one undo step, refused
+    while solving), `stats-panel.ts`
     (`StatsPanel`, stage 5: the debug statistics of the problem shown,
     `solve.status`'s `stats` read again with each event of its solve,
     held once a run stopped as the original's `freezeLive` (the session's
@@ -992,7 +1063,22 @@ matching move and Prune tree equal to an explorer of the test's own, the
 handles closed with the drawer; the debug panel's numbers
 `solve.status`'s; the status window's rows `shape.table`'s on every
 fixture, a selection removed as one undo step; the call log checked for
-refusals).
+refusals; stage 6: File ▸ New on every grid, every fixture opened by
+File ▸ Open with no `document.changed` and saved as a copy whose bytes are
+the engine's own save, an engine killed after edits and the rescue copy
+reopened with them (its file, its unsaved changes), a copy left by a
+session that died offered at the start, the window's close asking (Cancel
+keeps it, Save saves, Don't Save closes), the settings and layouts across
+a restart, a save while solving at a save point, the paused solver state
+exported and imported, the notes, Convert Assemblies to Pieces, About,
+the help links, the greyed items, a dropped file without a path; and one
+test over the keyboard table (`keymap.e2e.ts`): every row with keys
+pressed and checked, every row of mouse actions named with the test that
+drives it). Unit tests of stage 6: the store, the rescue copy's record,
+the menus' template (platforms, greyed items, keys shown and not
+registered, every command one the renderer takes), the bridge's checks,
+the stored settings read back, the convert dialog's fields, the table's
+accelerators.
 
 ## Testing against the original
 

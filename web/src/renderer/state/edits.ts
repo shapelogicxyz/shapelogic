@@ -87,6 +87,11 @@ export class Edits {
   }
 
   /** Changes the count of edits under way (readable from outside: the e2e tests). */
+  /** No edit under way (no mutating call waiting for its reply or its revision). */
+  get idle(): boolean {
+    return this.busy === 0;
+  }
+
   add(d: number): void {
     this.busy += d;
     byId('stage').dataset.busy = String(this.busy);

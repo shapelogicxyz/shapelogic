@@ -24,6 +24,7 @@ import {
   ENGINE,
   engineCall,
   launch,
+  newDocument,
   openFixture,
   readCallLog,
   settle,
@@ -334,9 +335,7 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
   const page = a.page;
   try {
     // a new puzzle: a box of 2x4x6 and a domino (a long solve on one thread), two colours
-    await page.click('#btnNewDoc');
-    await page.click('#pop [data-k="bricks"]');
-    await expect(page.locator('#shapeList .row')).toHaveCount(0);
+    await newDocument(page, 'bricks');
     const box = (await engineCall<{ shape: string }>(page, 'shape.create', { size: [2, 4, 6] }))
       .shape;
     await engineCall(page, 'shape.setBox', {

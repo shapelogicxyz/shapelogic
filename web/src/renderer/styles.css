@@ -715,8 +715,6 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 .empty.show{display:grid}
 .tbn:disabled{opacity:.4;cursor:default}
 .tbn:disabled:hover{background:transparent;color:var(--muted)}
-.openf{position:relative;overflow:hidden}
-.openf input{position:absolute;inset:0;opacity:0;cursor:pointer}
 #stage.drop .vp{outline:2px dashed var(--accent);outline-offset:-6px}
 
 /* ---- stage 2: what the mockup did not have ---- */
@@ -808,3 +806,21 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 .fpanel.dbg .kv tr.in th{padding-left:14px}
 .fpanel.dbg .kv td{font-variant-numeric:tabular-nums}
 .fpanel.dbg .notes{margin:0;padding-left:18px;font-size:12px;line-height:1.5;color:var(--muted)}
+
+/* ---- stage 6: the dialogs of the menus (the mockup's .cfm card, wider where they list) ---- */
+.dlg-scrim{z-index:90}
+.cfm .cb p{margin:0 0 10px;color:var(--muted);line-height:1.5}
+.cfm .cb p b{color:var(--text)}
+.cfm.wide{width:min(620px,calc(100% - 48px));max-height:calc(100% - 80px);display:flex;flex-direction:column}
+.cfm.wide .cb{overflow:auto;min-height:0;margin:0 -4px 12px;padding:0 4px}
+.cfm .kbsearch,.cfm .form input:not([type]),.cfm .form select{height:30px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:0 10px;font:inherit}
+.cfm .kbsearch{width:100%;margin:4px 0 4px}
+.cfm textarea.notes{width:100%;box-sizing:border-box;min-height:220px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:8px 10px;font:inherit;resize:vertical}
+.cfm .form{display:flex;flex-direction:column;gap:10px;font-size:13px}
+.cfm .form fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 12px 10px;display:flex;flex-direction:column;gap:6px;margin:0}
+.cfm .form legend{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);padding:0 4px}
+.cfm .form label{display:flex;align-items:center;gap:8px}
+.cfm .form .fl{justify-content:space-between}
+.cfm .form .fl input{width:110px}
+.cfm .form select{min-width:200px}
+.cfm .bt{flex-wrap:wrap}

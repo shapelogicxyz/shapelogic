@@ -2,15 +2,19 @@
 //
 // The app for the e2e tests: the build in out/ launched by Playwright's
 // Electron driver with the release engine (or BT_ENGINE), its window at a
-// fixed size, and the UI actions the tests share (open a fixture by the
-// temporary Open button, a new puzzle by the temporary New button, pick a
-// shape, change the display); `engineCall` asks the app's own engine
-// through the page's bridge (what the engine holds, not what the UI
-// shows), and `launch({ callLog })` has the main process log every call
-// of the renderer with how it ended (BT_CALL_LOG).
+// fixed size and its data (the stored settings, the rescue copy) in a
+// directory of its own, and the UI actions the tests share (open a
+// fixture as File ▸ Open Recent does, a new puzzle by File ▸ New, pick a
+// shape, change the display, click a menu item, answer the file dialogs);
+// `engineCall` asks the app's own engine through the page's bridge (what
+// the engine holds, not what the UI shows), and `launch({ callLog })` has
+// the main process log every call of the renderer with how it ended
+// (BT_CALL_LOG).
 
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import { _electron as electron, expect } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
@@ -38,15 +42,32 @@ export const WINDOW = { width: 1280, height: 800 } as const;
 export interface App {
   app: ElectronApplication;
   page: Page;
+  /** The app's data directory (BT_USER_DATA). */
+  userData: string;
   close(): Promise<void>;
+}
+
+const apps = new WeakMap<Page, ElectronApplication>();
+
+/** The app a page belongs to. */
+export function appOf(page: Page): ElectronApplication {
+  const app = apps.get(page);
+  if (app === undefined) {
+    throw new Error('the page was not launched by launch()');
+  }
+  return app;
 }
 
 /**
  * Launches the app and waits for its engine to run; `callLog` is
  * BT_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
- * (BT_AUTOSAVE_SECONDS; 20 minutes without).
+ * (BT_AUTOSAVE_SECONDS; 20 minutes without), `userData` the app's data
+ * directory (a new one, removed on close, unless given: a restart keeps
+ * its settings in the one given).
  */
-export async function launch(opts: { callLog?: string; autosave?: number } = {}): Promise<App> {
+export async function launch(
+  opts: { callLog?: string; autosave?: number; userData?: string } = {},
+): Promise<App> {
   // an editor's terminal may set ELECTRON_RUN_AS_NODE, which turns Electron into Node
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -60,22 +81,144 @@ export async function launch(opts: { callLog?: string; autosave?: number } = {})
   if (opts.autosave !== undefined) {
     env.BT_AUTOSAVE_SECONDS = String(opts.autosave);
   }
+  const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
+  env.BT_USER_DATA = userData;
   const app = await electron.launch({ args: [resolve(WEB, 'out/main/index.js')], cwd: WEB, env });
   const page = await app.firstWindow();
+  apps.set(page, app);
   await app.evaluate(({ BrowserWindow }, size) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
   }, WINDOW);
   await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
+  // the first document shown
+  await expect(page.locator('#stage')).toHaveAttribute('data-revision', /\d/);
   return {
     app,
     page,
-    close: () => app.close(),
+    userData,
+    close: async () => {
+      await closeApp(app);
+      if (opts.userData === undefined) {
+        rmSync(userData, { recursive: true, force: true });
+      }
+    },
   };
 }
 
-/** Opens a fixture of tests/data/puzzles and waits for its first shape to be drawn. */
+/**
+ * Ends the app without the question about unsaved changes (a test's
+ * document is thrown away): the windows are destroyed, then the app closes.
+ */
+export async function closeApp(app: ElectronApplication): Promise<void> {
+  await app
+    .evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        w.destroy();
+      }
+    })
+    .catch(() => undefined);
+  // an app that does not quit is a failure of the test, said so, not a hang
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const quit = await Promise.race([
+    app.close().then(() => true),
+    new Promise<boolean>((done) => {
+      timer = setTimeout(() => {
+        done(false);
+      }, 20_000);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (!quit) {
+    const pid = app.process().pid;
+    if (pid !== undefined) {
+      process.kill(pid, 'SIGKILL');
+    }
+    throw new Error('the app did not quit within 20 s of its windows going');
+  }
+}
+
+/** Sends the window a menu command (as Electron's menu does), e.g. `{ cmd: 'openPath', path }`. */
+export async function command(page: Page, c: Record<string, unknown>): Promise<void> {
+  await appOf(page).evaluate(({ BrowserWindow }, cmd) => {
+    BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', cmd);
+  }, c);
+}
+
+/** Clicks a menu item by its id (main/menu.ts), as a user would. */
+export async function menu(page: Page, id: string): Promise<void> {
+  const found = await appOf(page).evaluate(({ Menu }, itemId) => {
+    const item = Menu.getApplicationMenu()?.getMenuItemById(itemId);
+    if (!item?.enabled) {
+      return false;
+    }
+    (item.click as () => void)();
+    return true;
+  }, id);
+  if (!found) {
+    throw new Error(`no enabled menu item ${id}`);
+  }
+}
+
+/** Whether a menu item is there and enabled, and its label. */
+export async function menuItem(
+  page: Page,
+  id: string,
+): Promise<{ enabled: boolean; label: string; checked: boolean } | null> {
+  return appOf(page).evaluate(({ Menu }, itemId) => {
+    const item = Menu.getApplicationMenu()?.getMenuItemById(itemId);
+    return item === null || item === undefined
+      ? null
+      : { enabled: item.enabled, label: item.label, checked: item.checked };
+  }, id);
+}
+
+/**
+ * The file dialogs answer with these paths (null: cancelled), as a user
+ * would choose them, until they are answered again.
+ */
+export async function answerDialogs(
+  page: Page,
+  answers: { open?: string | null; save?: string | null },
+): Promise<void> {
+  await appOf(page).evaluate(({ dialog }, a) => {
+    if (a.open !== undefined) {
+      const path = a.open;
+      dialog.showOpenDialog = () =>
+        Promise.resolve({
+          canceled: path === null,
+          filePaths: path === null ? [] : [path],
+        });
+    }
+    if (a.save !== undefined) {
+      const path = a.save;
+      dialog.showSaveDialog = () =>
+        Promise.resolve({
+          canceled: path === null,
+          filePath: path ?? '',
+        });
+    }
+  }, answers);
+}
+
+/**
+ * The question about unsaved changes, if the document has them: answered
+ * Don't Save (a test's edits are thrown away when it opens another file).
+ */
+async function dropChanges(page: Page): Promise<void> {
+  if ((await page.locator('#stage').getAttribute('data-dirty')) === '1') {
+    await page.click('#discard [data-x="drop"]');
+  }
+}
+
+/**
+ * Opens a fixture of tests/data/puzzles (as File ▸ Open Recent does, unsaved
+ * changes given up) and waits for its first shape to be drawn.
+ */
 export async function openFixture(page: Page, name: string): Promise<void> {
-  await page.setInputFiles('#openFile', resolve(FIXTURES, name));
+  const before = await page.locator('#stage').getAttribute('data-generation');
+  await command(page, { cmd: 'openPath', path: resolve(FIXTURES, name) });
+  await dropChanges(page);
+  await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
   await expect(page.locator('#fname')).toHaveText(name);
   const first = page.locator('#shapeList .row').first();
   await expect(first).toHaveClass(/sel/);
@@ -213,11 +356,24 @@ export async function engineCall<T = unknown>(
   );
 }
 
-/** A new empty puzzle on a grid, by the top bar's temporary New button. */
+/** A new empty puzzle on a grid, by File ▸ New (unsaved changes given up). */
 export async function newDocument(page: Page, grid: string): Promise<void> {
   const before = await page.locator('#stage').getAttribute('data-generation');
-  await page.click('#btnNewDoc');
-  await page.click(`#pop [data-k="${grid}"]`);
+  await menu(page, 'new');
+  await dropChanges(page);
+  await page.click(`#newPuzzle [data-x="${grid}"]`);
   await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
   await expect(page.locator('#shapeList .row')).toHaveCount(0);
+}
+
+/** The engines an app's main process runs (their pids). */
+export function engines(mainPid: number): number[] {
+  try {
+    return execFileSync('pgrep', ['-P', String(mainPid), 'bt-engine'], { encoding: 'utf8' })
+      .split('\n')
+      .filter((l) => l.trim() !== '')
+      .map(Number);
+  } catch {
+    return [];
+  }
 }

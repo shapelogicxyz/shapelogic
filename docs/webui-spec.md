@@ -174,6 +174,7 @@ Rotation turns each piece about its own centre.
 |---|---|---|
 | Everywhere | Ctrl+1 / 2 / 3 | Entities / Puzzle / Solver |
 | | F1 | keyboard shortcuts |
+| | Ctrl+N / Ctrl+O, Ctrl+S / Shift+Ctrl+S, Ctrl+W | new, open; save, save as; close the window (the File menu, stage 6) |
 | | Ctrl+, | Settings |
 | | Ctrl+[ / Ctrl+] | collapse or expand left / right card |
 | | Ctrl+Space | focus the 3D view (toggle) |

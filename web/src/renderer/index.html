@@ -7,7 +7,8 @@
   mockup's (stage 2: the shapes list and inspector, the voxel editor) and
   so are the Puzzle cards (stage 3: problems, result, pieces, library, fit;
   selected piece, groups, colour rules); their contents are rendered from
-  the engine's data. The Solver cards come with stage 4.
+  the engine's data; so are the Solver's (stage 4). The mockup's menu
+  placeholders are Electron's menus (stage 6: src/main/menu.ts).
 -->
 <html lang="en">
   <head>
@@ -26,26 +27,6 @@
           <div class="brand"><i></i><span class="bt">BurrTools</span></div>
           <div class="right">
             <span class="fname" id="fname"></span>
-            <button
-              class="btn sm"
-              id="btnNewDoc"
-              title="A new, empty puzzle on a grid of your choice"
-            >
-              New…
-            </button>
-            <label
-              class="btn sm openf"
-              id="btnOpen"
-              title="Open a puzzle file (.xmpuzzle), or drop one on the window"
-              ><span>Open…</span><input type="file" id="openFile" accept=".xmpuzzle"
-            /></label>
-            <button
-              class="btn sm"
-              id="btnStatus"
-              title="The status window: a row per shape (cells, identical shapes, connectivity, holes, symmetry)"
-            >
-              Status…
-            </button>
             <button class="ib" id="btnSettings" title="Settings  (Ctrl+,)"></button>
           </div>
         </div>

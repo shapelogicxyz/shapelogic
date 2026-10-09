@@ -4,8 +4,9 @@
 // table"). Each row is a row of docs/webui-spec.md section 6 as the
 // mockup's help list words it (docs/mockup/index.html: `HELP`, `kbKeys`,
 // `kbRow`, and the keydown handlers' keys); the settings dialog's
-// "Keyboard shortcuts" page (and stage 6's F1 dialog) prints it, and the
-// shell's keydown handler (keyboard.ts) dispatches from its chords. Rows
+// "Keyboard shortcuts" page and the F1 dialog (help.ts) print it, the
+// shell's keydown handler (keyboard.ts) dispatches from its chords, and the
+// menus show its keys (`accelerator`) without registering their own. Rows
 // whose actions come with a later stage have no chords yet: that stage
 // adds them here. One press has one action, named for what the press means
 // wherever it acts (`delete`; `prev` and `next` for ↑ and ↓, a shape or a
@@ -63,7 +64,13 @@ export type KeyAction =
   | 'shape.duplicate'
   | 'piece.more'
   | 'piece.fewer'
-  | 'delete';
+  | 'delete'
+  /** The File menu's keys (stage 6): they act in a text field too. */
+  | 'file.new'
+  | 'file.open'
+  | 'file.save'
+  | 'file.saveAs'
+  | 'file.close';
 
 /**
  * A key press. `mod` is Ctrl, or Cmd on macOS (the mockup takes either);
@@ -151,6 +158,30 @@ export const KEY_MAP: readonly KeyRow[] = [
       { chord: { key: 'z', code: 'KeyZ', mod: true, shift: false }, action: 'undo' },
       { chord: { key: 'z', code: 'KeyZ', mod: true, shift: true }, action: 'redo' },
     ],
+  },
+  {
+    group: 'Everywhere',
+    keys: 'Ctrl+N / Ctrl+O',
+    does: 'New puzzle (its grid is chosen once) / Open a puzzle',
+    chords: [
+      { chord: mod('n', 'KeyN'), action: 'file.new' },
+      { chord: mod('o', 'KeyO'), action: 'file.open' },
+    ],
+  },
+  {
+    group: 'Everywhere',
+    keys: 'Ctrl+S / Shift+Ctrl+S',
+    does: 'Save / Save as',
+    chords: [
+      { chord: { key: 's', code: 'KeyS', mod: true, shift: false }, action: 'file.save' },
+      { chord: { key: 's', code: 'KeyS', mod: true, shift: true }, action: 'file.saveAs' },
+    ],
+  },
+  {
+    group: 'Everywhere',
+    keys: 'Ctrl+W',
+    does: 'Close the window (asks about unsaved changes)',
+    chords: [{ chord: mod('w', 'KeyW'), action: 'file.close' }],
   },
   { group: 'Everywhere', keys: 'Tab / Shift+Tab', does: 'Move keyboard focus between controls' },
   {
@@ -451,4 +482,51 @@ export function keyGroups(): { group: string; sub?: string; rows: KeyRow[] }[] {
     }
   }
   return out;
+}
+
+/** The actions that act while a text field has the focus (they hold Ctrl or Cmd). */
+export const IN_TEXT: ReadonlySet<KeyAction> = new Set<KeyAction>([
+  'file.new',
+  'file.open',
+  'file.save',
+  'file.saveAs',
+  'file.close',
+]);
+
+const ACCEL_KEYS: Readonly<Record<string, string>> = {
+  ' ': 'Space',
+  ',': ',',
+  '[': '[',
+  ']': ']',
+  '+': 'Plus',
+  '-': '-',
+};
+
+/**
+ * The first chord of an action as Electron writes an accelerator
+ * ("Shift+CmdOrCtrl+S", "F1"), for the menus to show; null when the table
+ * has none or it cannot be written so.
+ */
+export function accelerator(action: KeyAction): string | null {
+  for (const row of KEY_MAP) {
+    for (const c of row.chords ?? []) {
+      if (c.action !== action) {
+        continue;
+      }
+      const k = c.chord.key;
+      const key = ACCEL_KEYS[k] ?? (k.length === 1 ? k.toUpperCase() : /^F\d+$/.test(k) ? k : null);
+      if (key === null) {
+        return null;
+      }
+      return [
+        c.chord.shift === true ? 'Shift' : '',
+        c.chord.alt === true ? 'Alt' : '',
+        c.chord.mod === true ? 'CmdOrCtrl' : '',
+        key,
+      ]
+        .filter((x) => x !== '')
+        .join('+');
+    }
+  }
+  return null;
 }

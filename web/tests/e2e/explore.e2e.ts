@@ -25,7 +25,16 @@ import type { Page } from '@playwright/test';
 import { statsReport } from '../../src/renderer/explore/debug-stats.ts';
 import type { MovementNode, Placement, SolveStats } from '../../src/engine/api.generated.ts';
 import { cellScale, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
-import { BUILT, ENGINE, engineCall, FIXTURES, launch, openFixture, readCallLog } from './app.ts';
+import {
+  BUILT,
+  ENGINE,
+  engineCall,
+  FIXTURES,
+  launch,
+  menu,
+  openFixture,
+  readCallLog,
+} from './app.ts';
 import {
   runButton,
   runEnded,
@@ -496,7 +505,7 @@ test('the status window: its rows are shape.table’s on every fixture; select a
       .filter((f) => f.endsWith('.xmpuzzle'))
       .sort();
     await openFixture(page, files[0] ?? '');
-    await page.click('#btnStatus');
+    await menu(page, 'statusWindow');
     await expect(page.locator('#statusWin')).toBeVisible();
     for (const f of files) {
       await openFixture(page, f);

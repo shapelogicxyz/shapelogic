@@ -423,7 +423,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await newDocument(page, 'bricks');
     await engineCall(page, 'settings.set', { threads: 1 });
     const box = await dominoBox(page, 2, 4, 5);
-    // the puzzle gets a file (the File menu comes in stage 6)
+    // the puzzle gets a file (through the bridge: the test of File ▸ Save is files.e2e.ts)
     await engineCall(page, 'document.save', { path: file });
     const saved0 = statSync(file).mtimeMs;
     await toSolver(page);

@@ -4,7 +4,8 @@
 // `applyLayout` (a card collapses to a narrow rail; the 3D view takes the
 // focus, both cards railed), `setTab` and `LAYS` (each workspace keeps its
 // own layout), `renderRail` (Entities, Puzzle, Solver), and the collapse
-// buttons and rails of the cards (`[data-collapse]`, `.crail`). The 2D
+// buttons and rails of the cards (`[data-collapse]`, `.crail`). The
+// layouts are kept across sessions (stage 6: persist.ts). The 2D
 // editor's focus (`f2d`) comes with the editor in stage 2.
 
 import { $$, byId } from './dom.ts';
@@ -91,6 +92,38 @@ export function toggleCard(side: 'L' | 'R'): void {
 export function toggleFocus3d(): void {
   layout.focus = layout.focus === '3d' ? '' : '3d';
   applyLayout();
+}
+
+/** The layouts to keep (stage 6): the workspace shown and each workspace's cards. */
+export function layoutState(): Record<string, unknown> {
+  return { tab, cards: { ...remembered, [tab]: { lc: layout.lc, rc: layout.rc } } };
+}
+
+const WORKSPACES: readonly Workspace[] = ['entities', 'puzzle', 'solver'];
+
+/** Takes back the layouts a session kept (what is not well formed is left out). */
+export function restoreLayout(saved: Record<string, unknown>): void {
+  const cards = saved.cards;
+  if (typeof cards === 'object' && cards !== null) {
+    for (const w of WORKSPACES) {
+      const c = (cards as Record<string, unknown>)[w];
+      if (typeof c === 'object' && c !== null) {
+        const { lc, rc } = c as Record<string, unknown>;
+        if (typeof lc === 'boolean' && typeof rc === 'boolean') {
+          remembered[w] = { lc, rc };
+        }
+      }
+    }
+  }
+  const t = saved.tab;
+  const shown = WORKSPACES.find((w) => w === t) ?? tab;
+  // setTab keeps the layout of the workspace it leaves: the one restored for it
+  const keep = remembered[tab];
+  if (keep !== undefined) {
+    layout.lc = keep.lc;
+    layout.rc = keep.rc;
+  }
+  setTab(shown);
 }
 
 /** Whether the voxel editor is on screen (the mockup's editorVisible). */

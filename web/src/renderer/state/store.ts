@@ -47,13 +47,15 @@ export class Store {
   snapshot: Snapshot | null = null;
   /** The shape the view shows, or null. */
   selected: string | null = null;
-  /** The name of a document opened from bytes (it has no path). */
+  /** The name of a document without a file that the top bar shows (opened from bytes, a rescue copy), or null. */
   displayName: string | null = null;
   /**
    * Counts the documents: grows when another is opened or the engine was
    * restarted, so ids (s1, s2...) of the old one are not taken for the new.
    */
   generation = 0;
+  /** The engine settings each engine is given when it starts (the stored ones). */
+  wantedSettings: () => Partial<Settings> = () => ({});
   /** Problems the store met (calls that failed), for the status bar. */
   private readonly errorHandlers = new Set<(e: unknown) => void>();
   private readonly listeners = new Set<(c: StoreChange) => void>();
@@ -137,18 +139,58 @@ export class Store {
   /** Opens a puzzle from its file's bytes; `name` is what the top bar shows (the document has no path). */
   async openBytes(name: string, bytes: Uint8Array): Promise<void> {
     const snap = await this.engine.call('document.openBytes', { data: toBase64(bytes) });
-    this.snapshotLoads++; // a reload under way answers for the old document
-    this.displayName = name;
-    this.generation++;
-    this.selected = null;
-    this.setSnapshot(snap, false);
+    this.replaced(snap, name);
+  }
+
+  /** Opens a puzzle file. */
+  async openPath(path: string): Promise<void> {
+    const snap = await this.engine.call('document.open', { path });
+    this.replaced(snap, null);
+  }
+
+  /**
+   * Reopens a rescue copy (the file's bytes, base64): the document stands
+   * for its file (`path`, or none) and has unsaved changes.
+   */
+  async openRescue(data: string, path: string | null, name: string): Promise<void> {
+    const snap = await this.engine.call('document.openBytes', {
+      data,
+      dirty: true,
+      ...(path === null ? {} : { path }),
+    });
+    this.replaced(snap, path === null ? name : null);
+  }
+
+  /** Opens a paused solve (.btsolve) as a new, untitled document; its problem. */
+  async importPaused(path: string): Promise<string> {
+    const r = await this.engine.call('solve.importPaused', { path });
+    this.replaced(r.document, null);
+    return r.problem;
   }
 
   /** A new empty puzzle on a grid (the grid never changes). */
   async newDocument(grid: Grid): Promise<void> {
     const snap = await this.engine.call('document.new', { grid });
+    this.replaced(snap, null);
+  }
+
+  /**
+   * Saves to a file (the document's own when none is given) and waits for
+   * the snapshot that shows it clean: a save sends no document.changed.
+   * Returns the file's path.
+   */
+  async save(path?: string): Promise<string> {
+    const r = await this.engine.call('document.save', path === undefined ? {} : { path });
+    // the save has a revision of its own; the snapshot read after it shows the document clean
+    this.reloadSnapshot();
+    await this.whenRevision(r.revision);
+    return r.path;
+  }
+
+  // another document took the place of the old one
+  private replaced(snap: Snapshot, name: string | null): void {
     this.snapshotLoads++; // a reload under way answers for the old document
-    this.displayName = null;
+    this.displayName = name;
     this.generation++;
     this.selected = null;
     this.setSnapshot(snap, false);
@@ -179,9 +221,13 @@ export class Store {
     }
     this.reloadSnapshot(restarted);
     try {
+      // the settings kept from the last session (undo depth, threads) go to each new engine
+      const wanted = this.wantedSettings();
       const [info, settings] = await Promise.all([
         this.engine.call('engine.info'),
-        this.engine.call('settings.get'),
+        Object.keys(wanted).length > 0
+          ? this.engine.call('settings.set', wanted)
+          : this.engine.call('settings.get'),
       ]);
       if (n === this.infoLoads) {
         this.info = info;

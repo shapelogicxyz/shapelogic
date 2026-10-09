@@ -2,7 +2,7 @@
 //
 // The engine host: owns one bt-engine (one per window, decision 0013) and
 // starts it again when it dies. The window is told through the status
-// (stage 6 adds the rescue copy's reload); calls made while there is no
+// (the renderer then offers the rescue copy: renderer/shell/rescue.ts); calls made while there is no
 // engine fail as `disconnected` at once, never queued for the next engine,
 // whose document is a new one.
 

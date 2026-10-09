@@ -182,7 +182,8 @@ export function kbKeys(spec: string): string {
     .join('<i>/</i>');
 }
 
-const kbRow = (r: KeyRow): string =>
+/** A row of the keyboard map as the help prints it. */
+export const kbRowHtml = (r: KeyRow): string =>
   `<div class="kbrow"><span>${esc(r.does)}</span><span class="k">${kbKeys(r.keys)}</span></div>`;
 
 /** Draws the dialog's navigation and page. */
@@ -206,7 +207,7 @@ export function renderSettings(): void {
       .flatMap((g) =>
         g.rows.filter((r) => `${r.keys} ${r.does} ${g.group}`.toLowerCase().includes(q)),
       )
-      .map(kbRow);
+      .map(kbRowHtml);
     if (hk.length > 0) {
       h += '<h3>Keyboard shortcuts</h3>' + hk.join('');
     }
@@ -220,7 +221,7 @@ export function renderSettings(): void {
         .map(
           (g) =>
             `<div class="kbgrp">${esc(g.group)}${g.sub === undefined ? '' : `<small>${esc(g.sub)}</small>`}</div>` +
-            g.rows.map(kbRow).join(''),
+            g.rows.map(kbRowHtml).join(''),
         )
         .join('');
   } else {
@@ -260,7 +261,16 @@ export function openSettings(on?: 'keys'): void {
 /** Closes the dialog; the focus goes back where it was. */
 export function closeSettings(): void {
   byId('scrim').classList.remove('show');
-  returnFocus?.focus();
+  if (returnFocus !== null && returnFocus !== document.body && returnFocus.isConnected) {
+    returnFocus.focus();
+  } else {
+    // nothing had the focus: it must not stay in the hidden dialog's
+    // search field, where every key counts as typing
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && byId('scrim').contains(active)) {
+      active.blur();
+    }
+  }
   returnFocus = null;
 }
 

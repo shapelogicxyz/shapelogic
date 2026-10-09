@@ -6,11 +6,9 @@
 // restarted with a new document, and a reload with calls in flight gets a
 // new bridge server, so the old page's replies never reach the new one.
 
-import { execFileSync } from 'node:child_process';
-
 import { expect, test } from '@playwright/test';
 
-import { BUILT, ENGINE, launch, openFixture, shapes } from './app.ts';
+import { BUILT, ENGINE, engines, launch, openFixture, shapes } from './app.ts';
 import type { App } from './app.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -22,18 +20,6 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await a.close();
 });
-
-/** The engines the app's main process runs. */
-function engines(mainPid: number): number[] {
-  try {
-    return execFileSync('pgrep', ['-P', String(mainPid), 'bt-engine'], { encoding: 'utf8' })
-      .split('\n')
-      .filter((l) => l.trim() !== '')
-      .map(Number);
-  } catch {
-    return [];
-  }
-}
 
 test('a mesh crosses the bridge as a frame', async () => {
   const { page } = a;
@@ -145,9 +131,9 @@ test('a reload gets a bridge of its own: the old page’s replies do not reach i
   });
   await page.reload();
   await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
-  // the new page's first calls (engine.info, settings.get, document.get) got their own replies
+  // the new page's first calls (engine.info, settings.set, document.get) got their own replies
   await expect(page.locator('#shapeList .row')).toHaveCount(ids.length);
-  await expect(page.locator('#fname')).toHaveText('Untitled');
+  await expect(page.locator('#fname')).toHaveText('DraculasDentalDesaster.xmpuzzle');
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', /^s\d+:drawing$/);
   expect(errors).toEqual([]);
 });

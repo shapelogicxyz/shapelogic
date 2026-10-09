@@ -9,7 +9,14 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { actionOf, KEY_MAP, keyGroups, matches } from '../../../src/renderer/shell/keys.ts';
+import {
+  accelerator,
+  actionOf,
+  IN_TEXT,
+  KEY_MAP,
+  keyGroups,
+  matches,
+} from '../../../src/renderer/shell/keys.ts';
 
 const press = (
   key: string,
@@ -75,7 +82,7 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(38);
+    expect(seen.size).toBe(43);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
@@ -139,6 +146,34 @@ describe('the keyboard map', () => {
     expect(actionOf(press('PageDown'))).toBe('page.down');
     expect(actionOf(press('Delete'))).toBe('delete');
     expect(actionOf(press('Escape'))).toBe('escape');
+  });
+
+  it('has the File menu’s keys, which act in a text field too', () => {
+    expect(actionOf(press('n', { ctrl: true }, 'KeyN'))).toBe('file.new');
+    expect(actionOf(press('o', { meta: true }, 'KeyO'))).toBe('file.open');
+    expect(actionOf(press('s', { ctrl: true }, 'KeyS'))).toBe('file.save');
+    expect(actionOf(press('S', { ctrl: true, shift: true }, 'KeyS'))).toBe('file.saveAs');
+    expect(actionOf(press('w', { ctrl: true }, 'KeyW'))).toBe('file.close');
+    expect(actionOf(press('s'))).toBeNull();
+    expect([...IN_TEXT].sort()).toEqual([
+      'file.close',
+      'file.new',
+      'file.open',
+      'file.save',
+      'file.saveAs',
+    ]);
+  });
+
+  it('writes the menus’ keys as Electron accelerators', () => {
+    expect(accelerator('file.new')).toBe('CmdOrCtrl+N');
+    expect(accelerator('file.saveAs')).toBe('Shift+CmdOrCtrl+S');
+    expect(accelerator('undo')).toBe('CmdOrCtrl+Z');
+    expect(accelerator('redo')).toBe('Shift+CmdOrCtrl+Z');
+    expect(accelerator('settings')).toBe('CmdOrCtrl+,');
+    expect(accelerator('help.keys')).toBe('F1');
+    expect(accelerator('focus3d')).toBe('CmdOrCtrl+Space');
+    expect(accelerator('file.close')).toBe('CmdOrCtrl+W');
+    expect(accelerator('home')).toBe(null);
   });
 
   it('prints in the mockup’s groups', () => {

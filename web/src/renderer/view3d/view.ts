@@ -149,6 +149,7 @@ export class View3D {
   private readonly scene: ShapeScene;
   private readonly cube: ViewCube;
   private readonly toolbar: Toolbar;
+  private readonly displayListeners = new Set<() => void>();
   private readonly canvas: HTMLCanvasElement;
   private extent: V3 = [1, 1, 1];
   /** What the mesh shown is of: shape, style, generation, revision. */
@@ -206,11 +207,7 @@ export class View3D {
         this.setMode(m);
       },
       changed: () => {
-        // another style is another mesh
-        this.reload();
-        this.loadPieces();
-        this.solver?.styleChanged();
-        this.lookChanged();
+        this.displayChanged();
       },
       toggleFocus: toggleFocus3d,
       toggleEdit: () => {
@@ -318,6 +315,31 @@ export class View3D {
    * on the result. The player draws in its layer; an explorer's model, while
    * it has one, is shown over it (the player's comes back when it goes).
    */
+  /** Changes the Display menu's choices (the View menu's display modes and styles). */
+  setDisplay(change: Partial<Display>): void {
+    Object.assign(this.display, change);
+    this.displayChanged();
+  }
+
+  /** Listens to changes of the Display choices (the View menu shows them). */
+  onDisplay(listener: () => void): () => void {
+    this.displayListeners.add(listener);
+    return () => {
+      this.displayListeners.delete(listener);
+    };
+  }
+
+  private displayChanged(): void {
+    // another style is another mesh
+    this.reload();
+    this.loadPieces();
+    this.solver?.styleChanged();
+    this.lookChanged();
+    for (const l of [...this.displayListeners]) {
+      l();
+    }
+  }
+
   setSolution(model: SolutionModel | null, layer: SolutionLayer = 'player'): void {
     this.layers[layer].model = model;
     if (layer === 'explorer' && model === null) {

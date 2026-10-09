@@ -5,14 +5,18 @@ An Electron + TypeScript application that drives `bt-engine` over JSON-RPC
 (`../docs/mockup/`). The plan is `../docs/FRONTEND-PLAN.md`; what exists is
 the `web` section of `../docs/ARCHITECTURE.md`.
 
-**Status:** stage 2: the toolchain, the types generated from `../api/`,
+**Status:** stage 6: the toolchain, the types generated from `../api/`,
 the engine client with its host, bridge and proxy, the app's shell
 (top bar, workspace rail, cards, status bar, settings, keyboard map), the
-3D view in three.js, and the Entities workspace (shapes list, voxel editor
-on every grid, the tool tabs' tasks, 3D editing, undo and redo). The
-Puzzle and Solver cards come in stages 3 and 4; until the File menu
-(stage 6) a puzzle is made with the top bar's "New…" or opened with its
-"Open…" or by dropping it on the window.
+3D view in three.js, the Entities, Puzzle and Solver workspaces with the
+player and the explorers, and Electron's menus: File (New, Open, Open
+Recent, Save, Save As, the paused solver state, Close), Edit (Undo and
+Redo, Notes, Convert Assemblies to Pieces, Settings), View (the status
+window, the display modes and styles), Help (the keyboard shortcuts on
+F1, the user guide, About). The settings and layouts are kept in the
+app's data directory, with the rescue copy of a puzzle with unsaved
+changes (`__rescue.xmpuzzle`), offered after the engine or the app died.
+The exports come in stage 7, packaging in stage 8.
 
 ## Running
 

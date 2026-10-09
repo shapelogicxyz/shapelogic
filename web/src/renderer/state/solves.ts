@@ -238,6 +238,16 @@ export class Solves {
     return false;
   }
 
+  /** Whether an analysis this client started or was told of is active. */
+  get analysisActive(): boolean {
+    for (const r of this.records.values()) {
+      if (r.analysis?.active === true) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Listens to changes; returns the unsubscribe. */
   subscribe(listener: (c: SolvesChange) => void): () => void {
     this.listeners.add(listener);

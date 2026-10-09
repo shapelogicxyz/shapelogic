@@ -8,9 +8,10 @@
 // active, so every run is paused first, decision 0010), and the solves
 // paused for it carry on (solve.continue, with the options they ran
 // with). A run's pause is waited for by its revision (the solve record's
-// end), not its state. A puzzle without a file (opened by its bytes) is
+// end), not its state; the save is the store's, which waits for the
+// snapshot that shows the document clean. A puzzle without a file (opened by its bytes) is
 // not saved: it says so once a solve. `saveAtSavePoint` is the path a save
-// refused while solving offers (stage 6's Save). The interval is 20
+// refused while solving offers (stage 6's Save and Save As, with a path). The interval is 20
 // minutes; BT_AUTOSAVE_SECONDS (the main process passes it in the page's
 // address) shortens it for the e2e tests.
 
@@ -87,6 +88,16 @@ export class Autosave {
     void this.saveAtSavePoint();
   }
 
+  /** A save at a save point is under way (its pauses, its save, its continues). */
+  get busy(): boolean {
+    return this.saving;
+  }
+
+  /** Whether a run is under way (a save must wait for a save point). */
+  runsUnderWay(): boolean {
+    return this.activeRuns().length > 0;
+  }
+
   // the problems whose run is under way (an active state)
   private activeRuns(): string[] {
     const snap = this.store.snapshot;
@@ -103,11 +114,16 @@ export class Autosave {
 
   /**
    * Pauses the solves under way at a save point, saves the puzzle to its
-   * file, and carries the paused ones on; false when it could not save.
+   * file (or to `path`: File ▸ Save As, a puzzle without a file), and
+   * carries the paused ones on; the file saved to, or null when it could
+   * not save. `byUser`: File ▸ Save asked (what the flash says).
    */
-  async saveAtSavePoint(): Promise<boolean> {
+  async saveAtSavePoint(path?: string, byUser = false): Promise<string | null> {
     if (this.saving) {
-      return false;
+      if (byUser) {
+        flash('A save is under way already');
+      }
+      return null;
     }
     this.saving = true;
     const e = this.store.engine;
@@ -134,20 +150,29 @@ export class Autosave {
       await this.store.whenRevision(rev);
       if (this.store.generation !== gen) {
         // another document replaced this one while we waited: do not save it
-        return false;
+        return null;
       }
       if (this.activeRuns().length > 0) {
         // a run started meanwhile: no save this time
-        return false;
+        if (byUser) {
+          flash('A solve started meanwhile: not saved', 5000);
+        }
+        return null;
       }
-      await e.call('document.save', {});
+      const saved = await this.store.save(path);
       this.saves++;
       byId('leftS').dataset.autosaved = String(this.saves);
-      flash('Autosaved — the solve carries on');
-      return true;
+      flash(
+        paused.length === 0
+          ? 'Saved'
+          : byUser
+            ? 'Saved at a save point — the solve carries on'
+            : 'Autosaved — the solve carries on',
+      );
+      return saved;
     } catch (x) {
-      reportError(x, 'Autosave');
-      return false;
+      reportError(x, byUser ? 'Save' : 'Autosave');
+      return null;
     } finally {
       // the solves paused for the save carry on (unless the document is gone)
       for (const p of paused) {

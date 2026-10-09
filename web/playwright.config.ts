@@ -16,6 +16,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 120_000,
+  // an action that cannot happen fails where it waits, not at the test's timeout
+  use: { actionTimeout: 30_000 },
   expect: {
     timeout: 15_000,
     toHaveScreenshot: { maxDiffPixelRatio: 0.01, threshold: 0.15, animations: 'disabled' },

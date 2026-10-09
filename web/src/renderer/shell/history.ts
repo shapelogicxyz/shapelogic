@@ -8,7 +8,8 @@
 // a drag just released is waited for (its group closes first); refused
 // too while a BurrTools 2 search is paused (decision 0011: an undo would
 // lose it). The mockup had no undo; the original's Edit menu
-// named the steps the same way (stage 6 adds the menu items).
+// named the steps the same way (so do the Edit menu's items, stage 6:
+// menus.ts runs these handlers).
 
 import type { Store } from '../state/store.ts';
 import { onKey } from './keyboard.ts';

@@ -138,7 +138,7 @@ effort and audits".
 - [x] **Stage 4**: the Solver workspace and the player (docs/handoff/web-4.md)
 - [x] Audit of stage 4 (docs/handoff/web-4.md, "Audit")
 - [x] **Stage 5**: the explorers, the debug panel, the status window (docs/handoff/web-5.md)
-- [ ] **Stage 6**: menus, files, settings, recovery
+- [x] **Stage 6**: menus, files, settings, recovery (docs/handoff/web-6.md)
 - [ ] Audit of stage 6's file paths
 - [ ] **Stage 7**: exports
 - [ ] **Stage 8**: packaging

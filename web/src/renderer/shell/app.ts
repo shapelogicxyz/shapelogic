@@ -5,22 +5,42 @@
 // workspace: entities/workspace.ts; the Puzzle workspace:
 // puzzle/workspace.ts; the Solver workspace: solver/workspace.ts),
 // the 3D view, the status bar, the settings, the status window and the
-// floating panels (stage 5), and the keys of the one table. From docs/mockup/index.html: its orchestration (`renderAll`, the
-// keydown handler's shell rows) and `updateStatus`.
+// floating panels (stage 5), the menus, the files, the rescue copy, the
+// help and the settings and layouts kept across sessions (stage 6), and the
+// keys of the one table. From docs/mockup/index.html: its orchestration
+// (`renderAll`, the keydown handler's shell rows) and `updateStatus`.
 
 import { EngineProxy } from '../engine-proxy.ts';
 import { StatusWindow } from '../entities/status-window.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { PuzzleWorkspace } from '../puzzle/workspace.ts';
+import { openToShapes } from '../solver/to-shapes.ts';
 import { SolverWorkspace } from '../solver/workspace.ts';
+import { isActive } from '../state/solves.ts';
 import { Edits } from '../state/edits.ts';
 import { Solves } from '../state/solves.ts';
 import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
+import type { StoredState } from '../../engine/app-bridge.ts';
 import { installConfirm } from './confirm.ts';
+import { dialogOpen, installDialogs } from './dialog.ts';
+import { Files } from './files.ts';
+import { openAbout, openKeys, openNotes } from './help.ts';
+import { Menus } from './menus.ts';
+import { keepState } from './persist.ts';
+import { prefs, setPrefs, validPrefs } from './prefs.ts';
+import { Rescue } from './rescue.ts';
 import { stepBack } from './escape.ts';
 import { installKeyboard, onKey, setModal } from './keyboard.ts';
-import { installLayout, onLayout, setTab, tab, toggleCard, toggleFocus3d } from './layout.ts';
+import {
+  installLayout,
+  onLayout,
+  restoreLayout,
+  setTab,
+  tab,
+  toggleCard,
+  toggleFocus3d,
+} from './layout.ts';
 import { installPanels } from './panel.ts';
 import { installPopover } from './popover.ts';
 import { installSettings, openSettings, settingsOpen } from './settings.ts';
@@ -65,16 +85,22 @@ function renderGridChip(store: Store): void {
   chip.title = `Voxel type: ${label} — fixed when the file is created (File ▸ New); it cannot be changed afterwards.`;
 }
 
-/** Starts the app in the page. */
-export function startApp(): {
+/** Starts the app in the page, with the settings and layouts the last session kept. */
+export function startApp(saved: StoredState = {}): {
   store: Store;
   view: View3D;
   entities: EntitiesWorkspace;
   puzzle: PuzzleWorkspace;
   solver: SolverWorkspace;
 } {
+  const app = window.btApp;
+  if (saved.prefs !== undefined) {
+    setPrefs(validPrefs(saved.prefs));
+  }
   const engine = new EngineProxy(window.bt);
   const store = new Store(engine);
+  // each engine gets the settings kept (undo depth, threads)
+  store.wantedSettings = () => ({ undoDepth: prefs.undo, threads: prefs.threads });
   const solves = new Solves(engine);
   // another document (or engine): its problems' ids are new; the old
   // document's last idle and analyseEnded come after this
@@ -89,8 +115,13 @@ export function startApp(): {
   installTheme();
   installPopover();
   installConfirm();
+  installDialogs();
   installPanels();
   installLayout();
+  if (saved.layout !== undefined) {
+    restoreLayout(saved.layout);
+  }
+  keepState(app);
   installSettings(store);
   installTopBar(store);
   const view = new View3D(store);
@@ -98,11 +129,76 @@ export function startApp(): {
   const entities = new EntitiesWorkspace(store, view, edits);
   const puzzle = new PuzzleWorkspace(store, view, edits);
   const solver = new SolverWorkspace(store, view, edits, solves);
-  // the status window: from the top bar until stage 6's menus
+  // the status window: View ▸ Status Window
   const status = new StatusWindow(store, edits);
-  byId('btnStatus').addEventListener('click', () => {
-    status.open();
+  const runsUnderWay = (): boolean =>
+    solver.autosave.runsUnderWay() ||
+    (store.snapshot?.problems.some((p) => isActive(p.solve)) ?? false);
+  const rescue = new Rescue(
+    store,
+    app,
+    () =>
+      edits.idle &&
+      !solver.calling &&
+      !solver.autosave.busy &&
+      // a run launched counts before its first state is told
+      !solves.running &&
+      !solves.analysisActive &&
+      !runsUnderWay() &&
+      !(store.snapshot?.problems.some((p) => p.analysing) ?? false),
+  );
+  const files = new Files(
+    store,
+    app,
+    {
+      get current() {
+        return solver.current;
+      },
+      showProblem: (problem) => {
+        setTab('solver');
+        solver.selectProblem(problem);
+      },
+      runsUnderWay,
+      saveAtSavePoint: (path) => solver.autosave.saveAtSavePoint(path, true),
+    },
+    () => rescue.discard(),
+  );
+  const menus = new Menus(store, app, view, {
+    openPath: (path) => {
+      void files.openPath(path);
+    },
+    close: () => {
+      void files.close();
+    },
+    importPaused: () => {
+      void files.importPaused();
+    },
+    exportPaused: () => {
+      void files.exportPaused();
+    },
+    toShapes: () => {
+      openToShapes(store, edits, solver.current);
+    },
+    notes: () => {
+      openNotes(store);
+    },
+    statusWindow: () => {
+      status.open();
+    },
+    about: () => {
+      openAbout(store, app.version);
+    },
+    solverProblem: () => {
+      const p = solver.problem;
+      return p === null
+        ? null
+        : { paused: p.state === 'solving' && !isActive(solver.stateOf(p.id)) };
+    },
   });
+  // the Solver's problem and its solve change the menus too: look now and then
+  window.setInterval(() => {
+    menus.update();
+  }, 1000);
 
   setStatusProvider(() => statusLine(store, puzzle, solver));
   store.subscribe((c) => {
@@ -133,7 +229,7 @@ export function startApp(): {
   });
   renderGridChip(store);
 
-  setModal(settingsOpen);
+  setModal(() => settingsOpen() || dialogOpen());
   onKey('workspace.entities', () => {
     setTab('entities');
     return true;
@@ -151,7 +247,7 @@ export function startApp(): {
     return true;
   });
   onKey('help.keys', () => {
-    openSettings('keys');
+    openKeys();
     return true;
   });
   onKey('card.left', () => {
