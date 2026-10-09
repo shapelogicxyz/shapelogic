@@ -52,7 +52,10 @@ class PiecePositions {
   PiecePositions& operator=(const PiecePositions&) = default;
 };
 
-/// The positions along a disassembly tree.
+/// The positions along a disassembly tree. A state without orientations (a
+/// file without <dt>) gives none: getTrans() answers "not given" for its
+/// pieces, so a player keeps them as the assembly placed them (the original
+/// answered orientation 0; decision 0013, item 7).
 class DisasmToMoves final : public PiecePositions {
  public:
   /// Positions along a copy of `tree` (null: every piece at 0, invisible).

@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// Helpers for the app tests: documents from the fixtures, and the undo /
-// redo round trip every command is checked with.
+// Helpers for the app tests: documents from the fixtures, the undo / redo
+// round trip every command is checked with, and a disassembly given the
+// orientations a file without <dt> dropped.
 
 #include "bt/app/document.h"
+#include "bt/base/clone_ptr.h"
 #include "bt/io/puzzle_file.h"
+#include "bt/model/assembly.h"
+#include "bt/model/disassembly.h"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <memory>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -70,6 +75,32 @@ void refused(app::Document& d, Errc code, F&& cmd) {
   CHECK(state(d) == before);
   CHECK(d.revision() == rev);
   CHECK(d.history().undo.size() == steps);
+}
+
+/// A copy of a disassembly tree without turns whose states carry
+/// orientations: every piece in its transformation in `assm`, as the solve
+/// that found it stored it before a file without <dt> dropped them.
+inline Separation withOrientations(const Separation& t, const Assembly& assm) {
+  ClonePtr<Separation> removed;
+  ClonePtr<Separation> left;
+  if (t.getRemoved() != nullptr) {
+    removed = ClonePtr<Separation>(
+        std::make_unique<Separation>(withOrientations(*t.getRemoved(), assm)));
+  }
+  if (t.getLeft() != nullptr) {
+    left = ClonePtr<Separation>(std::make_unique<Separation>(withOrientations(*t.getLeft(), assm)));
+  }
+  Separation out(std::move(removed), std::move(left), t.getPieces());
+  std::vector<int> dt;
+  for (unsigned int i = 0; i < t.getPieceNumber(); i++) {
+    dt.push_back(static_cast<int>(assm.getTransformation(t.getPieceName(i))));
+  }
+  for (unsigned int k = 0; k < t.getNumStates(); k++) {
+    State st = t.getState(k);
+    st.setOrientations(dt);
+    out.appendState(std::move(st));
+  }
+  return out;
 }
 
 }  // namespace bt::test

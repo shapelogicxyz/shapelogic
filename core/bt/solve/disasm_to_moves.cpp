@@ -11,6 +11,20 @@
 
 namespace bt {
 
+namespace {
+
+// A piece's orientation in a state, or "not given" for a state without
+// orientations (a file without <dt>: every classic solution read back).
+// The original answered 0 there, which turned every piece of such a
+// solution to orientation 0 in its view and its glTF export instead of
+// leaving it as the assembly placed it (a deliberate difference: decision
+// 0013, item 7).
+unsigned int orientOf(const State& s, unsigned int i) {
+  return s.hasOrientations() ? s.getOrient(i) : static_cast<unsigned int>(-1);
+}
+
+}  // namespace
+
 DisasmToMoves::DisasmToMoves(const Separation* tree, unsigned int size, unsigned int maxPiece)
     : size_(size),
       moves_(std::size_t{maxPiece} * 4, 0.0F),
@@ -349,7 +363,7 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
             array[b + 2] += f(dz + cz + ((std::abs(s.getZ(p)) < 10000) ? s.getZ(p) : s2.getZ(p)));
             array[b + 3] += 0;
             if (orientsOut != nullptr) {
-              orientsOut[tree->getPieceName(p)] = s2.getOrient(p);
+              orientsOut[tree->getPieceName(p)] = orientOf(s2, p);
             }
           }
         }
@@ -390,7 +404,7 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
             array[b + 2] += f(cz + s.getZ(p));
             array[b + 3] += 0;
             if (orientsOut != nullptr) {
-              orientsOut[tree->getPieceName(p)] = s.getOrient(p);
+              orientsOut[tree->getPieceName(p)] = orientOf(s, p);
             }
           }
         }
@@ -411,7 +425,7 @@ int DisasmToMoves::doRecursive(const Separation* tree, int step, float* array,
       array[b + 2] += f(cz + s.getZ(i));
       array[b + 3] += 1;
       if (orientsOut != nullptr) {
-        orientsOut[tree->getPieceName(i)] = s.getOrient(i);
+        orientsOut[tree->getPieceName(i)] = orientOf(s, i);
       }
     }
   }

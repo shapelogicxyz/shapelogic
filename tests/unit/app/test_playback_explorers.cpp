@@ -123,8 +123,7 @@ TEST_CASE("playback: a solution without its disassembly is shown assembled",
   const Id p = d.problemIds().front();
   const Id sol = d.puzzle().getProblem(0).getSavedSolution(0).getId();
   // a disassembly made here carries the pieces' orientations; the fixture's
-  // comes from a file without them, which both programs play in
-  // orientation 0 (see the stage 7 handoff)
+  // comes from a file without them (the next case)
   REQUIRE(d.deleteDisassemblies(p, sol).has_value());
   AnalyseOptions o;
   o.which = AnalyseWhich::All;
@@ -165,6 +164,47 @@ TEST_CASE("playback: a solution without its disassembly is shown assembled",
   CHECK(track.times.size() >= 2);
   CHECK(r->pieceMesh(0, mesh::MeshStyle::Drawing).triangleCount() > 0);
   CHECK_FALSE(r->pieceMesh(0, mesh::MeshStyle::Flat).edgeLines.empty());
+}
+
+TEST_CASE("playback: a disassembly read without orientations plays as the assembly placed it",
+          "[app][playback]") {
+  // Classic solutions are saved without <dt>; the original then played
+  // every piece in orientation 0 (PelikanBurr's piece 2, placed in
+  // transformation 13, turned by 120 degrees). Here the pieces keep the
+  // assembly's orientations: the same track as the tree with them given.
+  Document d = openFixture("PelikanBurr.xmpuzzle");
+  const Solution& sol = d.puzzle().getProblem(0).getSavedSolution(0);
+  REQUIRE(sol.getDisassembly() != nullptr);
+  REQUIRE_FALSE(sol.getDisassembly()->getState(0).hasOrientations());
+  PlaybackSampler s = sampler(d);
+  bool turnedPiece = false;
+  for (const PlaybackPiece& pc : s.pieces()) {
+    turnedPiece = turnedPiece || pc.orientation != 0;
+  }
+  REQUIRE(turnedPiece);
+  const PlaybackTrack t = s.track({}).value();
+  for (const auto& row : t.poses) {
+    for (const PiecePose& p : row) {
+      CHECK(p.rotation == std::array<float, 4>{0, 0, 0, 1});
+    }
+  }
+  Puzzle given = d.puzzle();
+  Solution& g = given.getProblem(0).getSavedSolution(0);
+  g.setDisassembly(test::withOrientations(*sol.getDisassembly(), sol.getAssembly()));
+  REQUIRE(g.getDisassembly()->getState(0).hasOrientations());
+  Result<PlaybackSampler> withDt = PlaybackSampler::make(given, 0, 0);
+  REQUIRE(withDt.has_value());
+  const PlaybackTrack u = withDt->track({}).value();
+  CHECK(u.times == t.times);
+  REQUIRE(u.poses.size() == t.poses.size());
+  for (std::size_t k = 0; k < t.poses.size(); k++) {
+    REQUIRE(u.poses[k].size() == t.poses[k].size());
+    for (std::size_t i = 0; i < t.poses[k].size(); i++) {
+      CHECK(u.poses[k][i].translation == t.poses[k][i].translation);
+      CHECK(u.poses[k][i].rotation == t.poses[k][i].rotation);
+      CHECK(u.poses[k][i].visible == t.poses[k][i].visible);
+    }
+  }
 }
 
 TEST_CASE("playback: a placed piece is its turned mesh at its cell minus the mesh's hotspot",

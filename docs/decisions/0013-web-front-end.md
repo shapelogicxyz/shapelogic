@@ -188,7 +188,18 @@ list; each also in its handoff):
    window (a table of shapes by groups, `groupseditor.cpp`). That
    window's "maximum holes" field has no counterpart yet: no method sets
    `maxHoles` (the fit summary shows it when a file sets it).
-7. (stage 4) The dt-less playback orientation.
+7. (stage 4) A disassembly read from a file without orientations (no
+   `<dt>` in its states: every classic `<solutions>` element) plays as the
+   assembly placed its pieces: `DisasmToMoves::getTrans` answers "not
+   given" for a state without orientations, so the playback sampler keeps
+   each piece in its assembly orientation. The original answered
+   orientation 0 there, and both its view (`voxelFrame_c::updatePositions`)
+   and its glTF sampler turned every such piece to orientation 0 with the
+   bounding-box compensation (PelikanBurr's piece 2, placed in
+   transformation 13, was drawn turned by 120 degrees; stage 7's handoff,
+   "Found in the original"). `test_app_dump.cpp` leaves those pieces'
+   poses out of its comparison with the original's sampler and checks the
+   tracks against the same trees with the orientations given.
 
 ## Consequences
 - Building the front end needs Node 22; the core does not.
