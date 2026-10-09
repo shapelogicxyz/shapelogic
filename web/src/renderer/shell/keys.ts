@@ -7,9 +7,13 @@
 // "Keyboard shortcuts" page (and stage 6's F1 dialog) prints it, and the
 // shell's keydown handler (keyboard.ts) dispatches from its chords. Rows
 // whose actions come with a later stage have no chords yet: that stage
-// adds them here. An action names what a press means (`delete`), and each
-// workspace says what it does there (keyboard.ts tries their handlers in
-// turn); the shapes list's rows act while the list has the focus.
+// adds them here. One press has one action, named for what the press means
+// wherever it acts (`delete`; `prev` and `next` for ↑ and ↓, a shape or a
+// solution; `home`, `page.up`, `activate`...): each workspace says what it
+// does there (keyboard.ts tries their handlers in turn), and a row whose
+// keys an earlier row already holds names no chord of its own. The shapes
+// list's rows act while the list has the focus, the Solver's while its
+// solutions list, slider or move seekbar has it.
 
 /** What a key does; keyboard.ts maps each to a handler. */
 export type KeyAction =
@@ -24,7 +28,10 @@ export type KeyAction =
   | 'escape'
   | 'view.orbit'
   | 'view.pan'
-  | 'view.home'
+  /** Home: the home view; the first solution, or the start of the moves on the seekbar. */
+  | 'home'
+  /** End: the last solution, or the end of the moves on the seekbar. */
+  | 'end'
   | 'view.fit'
   | 'undo'
   | 'redo'
@@ -33,13 +40,25 @@ export type KeyAction =
   | 'tool.erase'
   | 'tool.paint'
   | 'edit3d'
-  | 'layer.next'
-  | 'layer.prev'
-  | 'shape.prev'
-  | 'shape.next'
+  /** PgUp: the next layer; 8 solutions back. */
+  | 'page.up'
+  /** PgDn: the previous layer; 8 solutions forward. */
+  | 'page.down'
+  /** ↑: the previous shape or solution. */
+  | 'prev'
+  /** ↓: the next shape or solution. */
+  | 'next'
   | 'shape.earlier'
   | 'shape.later'
   | 'shape.rename'
+  /** Enter, Space: rename the shape (Enter, the list); play or pause; cycle a piece chip. */
+  | 'activate'
+  /** ←, →: one move back or forward; the previous or next piece chip. */
+  | 'move.back'
+  | 'move.forward'
+  /** Shift+←, Shift+→: jump to assembled or fully apart. */
+  | 'move.start'
+  | 'move.end'
   | 'shape.duplicate'
   | 'piece.more'
   | 'piece.fewer'
@@ -161,7 +180,7 @@ export const KEY_MAP: readonly KeyRow[] = [
     group: '3D view',
     keys: 'Home',
     does: 'Home view — default orientation, framed',
-    chords: [{ chord: { key: 'Home' }, action: 'view.home' }],
+    chords: [{ chord: { key: 'Home' }, action: 'home' }],
   },
   {
     group: '3D view',
@@ -217,8 +236,8 @@ export const KEY_MAP: readonly KeyRow[] = [
     keys: 'PgUp / PgDn',
     does: 'Next / previous layer',
     chords: [
-      { chord: { key: 'PageUp' }, action: 'layer.next' },
-      { chord: { key: 'PageDown' }, action: 'layer.prev' },
+      { chord: { key: 'PageUp' }, action: 'page.up' },
+      { chord: { key: 'PageDown' }, action: 'page.down' },
     ],
   },
 
@@ -228,8 +247,8 @@ export const KEY_MAP: readonly KeyRow[] = [
     keys: '↑ / ↓',
     does: 'Previous / next shape (list focused)',
     chords: [
-      { chord: { key: 'ArrowUp' }, action: 'shape.prev' },
-      { chord: { key: 'ArrowDown' }, action: 'shape.next' },
+      { chord: { key: 'ArrowUp' }, action: 'prev' },
+      { chord: { key: 'ArrowDown' }, action: 'next' },
     ],
   },
   {
@@ -249,7 +268,7 @@ export const KEY_MAP: readonly KeyRow[] = [
     does: 'Rename the shape label; Enter commits, Esc cancels',
     chords: [
       { chord: { key: 'F2' }, action: 'shape.rename' },
-      { chord: { key: 'Enter' }, action: 'shape.rename' },
+      { chord: { key: 'Enter' }, action: 'activate' },
     ],
   },
   {
@@ -298,19 +317,38 @@ export const KEY_MAP: readonly KeyRow[] = [
     does: 'Select it (the view rotates each piece in place)',
   },
 
+  // the Solver's keys: Enter, ↑ ↓, Home, PgUp PgDn and Del are the actions of the rows above
   {
     group: 'Solver',
     sub: 'focus on the solutions list, solution slider or move seekbar',
     keys: 'Space / Enter',
     does: 'Play / pause the disassembly',
+    chords: [{ chord: { key: ' ', code: 'Space' }, action: 'activate' }],
   },
-  { group: 'Solver', keys: '← / →', does: 'One move back / forward' },
-  { group: 'Solver', keys: 'Shift+← / Shift+→', does: 'Jump to assembled / fully disassembled' },
+  {
+    group: 'Solver',
+    keys: '← / →',
+    does: 'One move back / forward',
+    chords: [
+      { chord: { key: 'ArrowLeft', shift: false }, action: 'move.back' },
+      { chord: { key: 'ArrowRight', shift: false }, action: 'move.forward' },
+    ],
+  },
+  {
+    group: 'Solver',
+    keys: 'Shift+← / Shift+→',
+    does: 'Jump to assembled / fully disassembled',
+    chords: [
+      { chord: { key: 'ArrowLeft', shift: true }, action: 'move.start' },
+      { chord: { key: 'ArrowRight', shift: true }, action: 'move.end' },
+    ],
+  },
   { group: 'Solver', keys: '↑ / ↓', does: 'Previous / next solution' },
   {
     group: 'Solver',
     keys: 'Home / End',
     does: 'First / last solution (on the seekbar: start / end of the moves)',
+    chords: [{ chord: { key: 'End' }, action: 'end' }],
   },
   { group: 'Solver', keys: 'PgUp / PgDn', does: '8 solutions back / forward' },
   { group: 'Solver', keys: 'Del', does: 'Remove the selected solution (list; asks first)' },

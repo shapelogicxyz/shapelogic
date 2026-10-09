@@ -10,14 +10,17 @@
 
 import { byId } from '../shell/dom.ts';
 import { flash, reportError } from '../shell/status.ts';
+import type { Solves } from './solves.ts';
 import type { Store } from './store.ts';
 
 export class Edits {
   private readonly store: Store;
+  private readonly solves: Solves | null;
   private busy = 0;
 
-  constructor(store: Store) {
+  constructor(store: Store, solves: Solves | null = null) {
     this.store = store;
+    this.solves = solves;
     this.add(0);
   }
 
@@ -25,6 +28,26 @@ export class Edits {
   refuse(frozen: boolean = this.store.solving): boolean {
     if (frozen) {
       flash('Pause the solve first', 4000);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Refuses a change of the lists of shapes, colours or problems, and undo
+   * and redo: while anything solves ("pause first"), and while a
+   * BurrTools 2 search is paused in memory, which such a change would lose
+   * (decision 0011: the engine refuses it as invalid_state; pausing is no
+   * help there, aborting or finishing it is).
+   */
+  refuseList(): boolean {
+    if (this.refuse(this.store.solving)) {
+      return true;
+    }
+    const p = this.solves?.pausedBt2() ?? null;
+    if (p !== null) {
+      const label = this.store.snapshot?.problems.find((q) => q.id === p)?.label ?? p;
+      flash(`Abort or finish the paused BurrTools 2 solve of ${label} first`, 5000);
       return true;
     }
     return false;

@@ -13,12 +13,15 @@ paused solve files, the playback sampler and the explorers; `bt-engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
 tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
 benchmark as fast as the original or faster). The web front end
-(docs/FRONTEND-PLAN.md) has its stages 1a, 1b and 2: the toolchain in
-`web/`, the TypeScript types generated from `api/`, the engine client with
-its host, bridge and proxy, the app's shell from the mockup, the 3D view in
-three.js, and the Entities workspace (the shapes list, the voxel editor on
-every grid, the tool tabs' tasks, 3D editing, undo and redo). Next: its
-stage 3, the Puzzle workspace.*
+(docs/FRONTEND-PLAN.md) has its stages 1a to 4: the toolchain in `web/`,
+the TypeScript types generated from `api/`, the engine client with its
+host, bridge and proxy, the app's shell from the mockup, the 3D view in
+three.js, the Entities workspace (the shapes list, the voxel editor on
+every grid, the tool tabs' tasks, 3D editing, undo and redo), the Puzzle
+workspace (problems, pieces, groups, colour rules, the pieces scene) and
+the Solver workspace (the search options, the runs, the solutions list,
+analysis, the disassembly player, autosave). Next: its stage 5, the
+explorers, the debug panel and the status window.*
 
 ## Big picture
 
@@ -320,7 +323,11 @@ and all threads; the solved files solution by solution, `compare-files`).
   audit).
 - `disasm_to_moves.h`: `DisasmToMoves` (piece positions at any step of a
   tree, turns as angles about a pivot) and `FixedPositions`, behind
-  `PiecePositions`; stage 6 builds the playback sampler from it.
+  `PiecePositions`; stage 6 builds the playback sampler from it. A state
+  without orientations (a file without `<dt>`: every classic solution read
+  back) gives none (`getTrans` "not given"), so a player keeps the
+  assembly's orientations; the original turned such pieces to
+  orientation 0 (decision 0013, item 7).
 
 **Rules of a take-apart:** one `StopToken` per take-apart (polled by the
 search, the analysators and the turn generators); a stopped take-apart
@@ -419,7 +426,8 @@ frame by its Euler characteristic).
 - `draw_mesh.h`: `DrawMesh`, a mesh as plain arrays for a binary frame:
   triangles (the view's fans) with flat normals, and per triangle the cell
   and side, flags, colour and polygon; the edge lines of the "edges"
-  style. `shapeDrawMesh`.
+  style; the hotspot of the space it was made from (an assembly puts that
+  on a placement's cell). `shapeDrawMesh`.
 The STL meshes (`cubemesh.cpp`, `minkmesh.cpp` with manifold, the view's
 "STL style") belong to the exports, later.
 
@@ -475,7 +483,8 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   pose alone (`stepCount()` 0), so every solution plays through one path.
   `orientedMesh(shape, transformation, style)`: a shape's mesh turned by
   a transformation of its grid (the piece meshes, and
-  `Document::shapeMesh` with a transformation: how a placement is drawn).
+  `Document::shapeMesh` with a transformation: how a placement is drawn:
+  at its cell minus the turned mesh's hotspot, in mesh units).
 - `explorers.h`: `AssemblyExplorer` (the placements of each piece, the
   assembly search one step at a time) and `MovementExplorer` (the tree of
   positions of a take-apart: analyse, add a move, find a matching one,
@@ -527,18 +536,24 @@ schema in `api/`, documented in the generated `docs/API.md`.
   solutions (`solution.page` sorts the saved list's indices under
   `readProblem` with `solutionSortOrder`, a view, with the problem's
   `solutionsVersion`; the analysis, with its failure), shapes
-  (`shape.mesh` in any transformation of the grid; `grid.geometry`, the
+  (`shape.mesh` in any transformation of the grid, with that orientation's
+  hotspot in `MeshFrame.hotspot`; `grid.geometry`, the
   editor's drawing of a layer; `grid.neighbour`, the cell across a side,
   the sides numbered as a mesh's `voxelFace`), playback (samplers
   behind `pb` handles: poses and keyframe tracks as frames of typed
   arrays; a solution without a disassembly as a single pose; piece meshes
   in any style), explorers (`ax` and `mx` handles).
 - `events.cpp`: `document.changed` after a request that changed the
-  document, and the poll of the background work: per problem, the solve's
-  state as it is seen to change, progress at most four times a second
-  (and when a run ends), `solve.solutionsAdded` when the problem's
-  `solutionsVersion()` moved, `solve.error`, the analysis's progress and
-  end; then `Document::poll()` and its `document.changed`. A new document
+  document, and the poll of the background work: first `Document::poll()`
+  takes in what has ended (a run's end, an analysis's results; the
+  document keeps how each problem's last analysis ended); then per
+  problem the solve's state as it is seen to change, progress at most
+  four times a second (and when a run ends), `solve.solutionsAdded` when
+  the problem's `solutionsVersion()` moved, `solve.error`, the analysis's
+  progress and end; then the `document.changed` of what was taken in, so
+  a run's last state and an analysis's end always come before it (web
+  stage 4 found them the other way round when work ended between the
+  telling and the taking in). A new document
   sends a last `solve.state idle` and `solution.analyseEnded` for the old
   one's watched problems after the reply (`State::replaceDocument` queues
   them).
@@ -589,11 +604,11 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a, 1b, 2 and 3, decision 0013)
+## web (front-end stages 1a to 4, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
-1.64.0 among them). What exists after stage 3:
+1.64.0 among them). What exists after stage 4:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -624,14 +639,16 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   are dropped; in development the renderer's warnings and errors are
   echoed to the terminal; with `BT_CALL_LOG` set every call of the
   renderer is written to that file with its id and errc, which the e2e
-  tests read).
+  tests read; `BT_AUTOSAVE_SECONDS` shortens the Solver's autosave for
+  them, passed in the page's address).
   `src/preload/index.ts` exposes `window.bt`.
 - `src/renderer/`, the app (sandboxed; it reaches nothing but `window.bt`):
   - `index.html`, `styles.css`: the mockup's body and stylesheet (the
     stylesheet in its compact form, left alone by Prettier; the Puzzle
     library's chip rules scoped to `.pz-lib`, since the stage's own
-    collapsed class is `lc` too); the Entities and Puzzle cards are the
-    mockup's, the Solver cards still placeholders; `main.ts`;
+    collapsed class is `lc` too); the Entities, Puzzle and Solver cards
+    are the mockup's (the Solver's step-by-step explorer comes with stage
+    5); `main.ts`;
     `engine-proxy.ts` (`EngineProxy`, the client's interface over
     `window.bt`).
   - `state/store.ts`: `Store`, the mirror of the engine: its status (no
@@ -647,7 +664,20 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     with the workspace's own wait: the snapshot's for Entities, the
     problem's cards for Puzzle), `track`, `refuse` (a frozen part says
     "Pause the solve first" before any call), and the count of edits
-    under way as `#stage[data-busy]`.
+    under way as `#stage[data-busy]`; `refuseList`: a change of the lists
+    of shapes, colours and problems, and undo and redo, refused while
+    anything solves and while a BurrTools 2 search is paused in memory
+    (decision 0011: the engine would refuse it; the advice is to abort or
+    finish that solve). `state/solves.ts`: `Solves`, the solve records,
+    one per problem (several may run), DOM-free: the state as the events
+    tell it, a run's phase (none, active, ending), its end at the
+    `document.changed` after its last `solve.state` (a run started here
+    and over between two polls too: `launch`; an abort's own change ends
+    nothing, a paused solve aborted ends no run; a state told again is no
+    run), `whenEnded`, the progress, the failure, the last
+    `solutionsAdded`, an analysis, the solver a run used (`pausedBt2`);
+    cleared when another document comes (its last idle and analyseEnded
+    then meet no run).
   - `shell/`: the frame of the app, ported from the mockup's functions:
     `app.ts` (puts it together; the status line), `keys.ts` (**the one
     keyboard table**: the rows of webui-spec.md section 6 with their
@@ -672,9 +702,16 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     re-render would draw the same, so a double-click whose first click
     re-rendered still lands, and `markSelected`). `keys.ts` has the
     Puzzle rows' chords (+ and −, `piece.more` and `piece.fewer`; Del is
-    the one action `delete`, which each workspace handles). The status
+    the one action `delete`, which each workspace handles) and the
+    Solver's (Space and Enter `activate`, ← → `move.back`/`move.forward`,
+    with Shift `move.start`/`move.end`, End `end`); a key several
+    workspaces use has one action named for its meaning (↑ ↓ `prev` and
+    `next`, Home `home`, PgUp PgDn `page.up` and `page.down`), and a
+    handler may go first (`onKey(…, first)`: the Solver's list before the
+    view's Home). The confirmation gives the focus back. The status
     line is the workspace's: the shape's in Entities, the problem's fit
-    (the original's line) in Puzzle.
+    (the original's line) in Puzzle, the solve's (the mockup's svStatus)
+    in Solver.
   - `view3d/`: the 3D view. `view.ts` (`View3D`: the selected shape's mesh
     fetched, built and drawn; navigation; picking into the status bar;
     rendering only on change; its state as `data-*` attributes of the
@@ -715,7 +752,18 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     HTML in `#pzScene`; a click picks the smallest box, never the
     result); `#vp` says `data-scene` (the items drawn: role, shape,
     copy, faded), `data-scene-meshes`, `data-scene-key`,
-    `data-scene-style`.
+    `data-scene-style`. In the Solver workspace it draws a solution
+    (`View3D.setSolution`, `poseSolution`, a solver host for the tag and
+    the empty message): `solution.ts` (`SolutionScene`: each piece its own
+    mesh and colour (the original's per copy), posed by a translation and
+    a quaternion in mesh units centred on the result, framed on the
+    result's extent; solid, wire frame or hidden; wire frames over the
+    solids with x-ray; a piece taken away faded through its opacity);
+    `#vp` says `data-solution`, `data-solution-pieces`, `data-poses`,
+    `data-solution-view` (assembled or playback). `extent.ts` has
+    `cellScale` too (grid coordinates to mesh units, the original's
+    recalcSpaceCoordinates), checked against the engine's poses by an
+    engine test.
   - `entities/`: the Entities workspace (stage 2), from the mockup's
     `renderShapes`, `renderInsp`, `renderTransform`, `renderTools`,
     `renderGrid`, `spaceGridSvg`, `renderLayers`, `renderPlane`,
@@ -779,9 +827,56 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     above the maximum; the groups read off the parts; `solveActive`),
     `layout.ts` (`puzLayout`, the scene's items and positions, and their
     labels).
+  - `solver/`: the Solver workspace (stage 4), from the mockup's
+    `renderSolver`, `renderSolverDrawer`, `renderSvSel`,
+    `renderSvSortAct`, `renderSolverPlayer`, `svSelect`, `svSeek`,
+    `svTogglePlay`, `svPlayLoop`, `svManage`, `svDaCell`, `renderPcs`,
+    `renderSolverScene`, `svKey` and the Solver keydown handlers.
+    `workspace.ts` (`SolverWorkspace`: the problem shown read after every
+    change (`problem.get`, `problem.kind` once), `#leftS[data-problem]`,
+    `[data-revision]`, `[data-state]`, `[data-phase]`, `[data-end]`; its
+    solve the record's; the options; Solve, Prepare and Continue (the
+    record told of the run at the reply, the selection dropped first),
+    Pause, Abort (asked; only while a run is under way or paused in
+    memory); the selection, shown only while the Solver is shown and only
+    from rows of the list's newest version, not chosen automatically
+    while a run changes the list; remove (`solution.delete`, each asks;
+    undoable), delete disassemblies, analyse (`solution.analyse`, its
+    targets read first, so the ones it took that did not come apart are
+    marked "Cannot be disassembled": the client remembers, the engine
+    keeps no mark); the keys; the status line and the tag), `run-card.ts`
+    (the left card: the problem picker with each problem's solve, what to
+    check, the search options, the run's buttons, progress and counters,
+    a failure, the notice of a puzzle this version does not solve),
+    `solutions-card.ts` (the right card: the list, virtual, its rows paged
+    as it scrolls, sorted by a header's click (again the other way, a
+    third time the saved order), or the slider; the player's controls; an
+    analysis's progress and Stop; the Manage menu with its preview; the
+    piece chips), `player.ts` (`Player`: a solution shown assembled at
+    once (`solution.get`, `shape.mesh {transformation}` at the cell minus
+    the hotspot), its playback opened once the choice rests and only if
+    its row is still current (`playback.open`, `playback.mesh` per piece
+    and style, the poses in chunks; a removal or an abort holds an open
+    not yet asked for), play, pause, the moves, the jumps, the seek bar,
+    the speed;
+    `#splayer[data-ready]`, `[data-t]`, `[data-steps]`, `[data-playing]`),
+    `poses.ts` (`PoseTrack`: the samples of `playback.poses` in chunks of
+    32 steps, 8 a step, interpolated: translations straight, rotations by
+    slerp; a piece taken away fades over its last step with the setting;
+    DOM-free), `pager.ts` (`SolutionPager`: `solution.page` in pages of
+    100 by `solutionsVersion`: a page of a newer version makes the others
+    old, read again; `solutionsAdded` at the version it has is ignored;
+    DOM-free), `settings.ts` (the options over the stored `SolverSettings`:
+    the original's rules, the two spellings, `SolveOptions`, the limits
+    not stored), `autosave.ts` (`Autosave`: every 20 minutes while a solve
+    with the setting runs: `solve.savePoint` on every run under way, their
+    ends waited for by revision, `document.save`, `solve.continue`; a
+    puzzle without a file is not saved, said once).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
-  `npm run record`) and what the client saw in them.
+  `npm run record`) and what the client saw in them; `solver-end` and
+  `solver` drive the solve records and the pager over the real engine's
+  output (the event-order rules of decision 0012).
 
 **Rules of the front end** (AGENTS.md): the engine is the truth; every
 mutating call waits for its revision; the renderer never sees Node and
@@ -797,14 +892,23 @@ the bridge; `unit/renderer/`: the keyboard table against webui-spec.md
 section 6, the piece colours against the original's, the mesh
 translation, the camera, the store and the mesh cache, a stroke's
 protocol, the planes, the quick tools, mirror and span; the Puzzle's
-counts, groups, layout and labels) and
+counts, groups, layout and labels; the Solver's options and rules, the
+poses' interpolation and fade, the pager, the solve records; and the
+replays of the recorded Solver sessions: a run's end at its revision,
+one between two polls (the active states taken out), an abort's two
+changes, a paused abort's one, a new document's last events,
+`solutionsAdded` at the version paged ignored) and
 `tests/engine/` (the real engine: every fixture opened and drawn in every
 style, stage 7's scripted session, pause, save point, continue and abort,
 the event order of decision 0012, a killed engine restarted; the
 preview's mirror and span cells on every grid, the cube's faces against
 `grid.neighbour`, a stroke as one step with an event per batch; every
 count the Puzzle's fields ask for taken by the engine, the groups as the
-UI reads them, every fixture's problems with a fit and a scene); by
+UI reads them, every fixture's problems with a fit and a scene; the assembled view's
+placement (cellScale, gridExtent, the hotspot) against the player's
+first pose on every fixture of the five grids, the pager in every sort
+against one `solution.page`, the chunked poses against the engine's
+samples); by
 Playwright's Electron driver (`tests/e2e/`, the built app with the
 release engine: the IPC path, a killed engine, a reload with calls in
 flight, every fixture shape in every style, reference screenshots of each
@@ -815,7 +919,15 @@ editor; the problems of CubeInCage and DemoPieceGenerator rebuilt
 through the Puzzle's actions, the chips, the table, the fit and the
 scene checked against the engine after each, a click and an orbit in
 the scene, the problems list, the colour rules, the frozen problem, the
-sliding and stacking notice; the call log checked for refusals).
+sliding and stacking notice; the Solver: Bermuda solved with take-apart
+with `bt --json`'s counts, played, stepped, jumped, the poses at every
+whole step the engine's, the list sorted every way and paged, its keys,
+every Remove variant with its confirmation, Analyse with the assemblies
+that do not come apart marked and a stop that keeps what was done,
+pause, continue, a save at a save point, abort, Prepare then Continue,
+an error run with its failure, two problems at once, a paused BurrTools 2
+solve refusing the lists' changes, a sliding puzzle not solved; the call
+log checked for refusals).
 
 ## Testing against the original
 

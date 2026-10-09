@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The shell put together: the engine proxy and the store, the top bar, the
-// workspace rail and cards (the Entities workspace: entities/workspace.ts;
-// the Puzzle workspace: puzzle/workspace.ts),
+// The shell put together: the engine proxy, the store and the solve
+// records, the top bar, the workspace rail and cards (the Entities
+// workspace: entities/workspace.ts; the Puzzle workspace:
+// puzzle/workspace.ts; the Solver workspace: solver/workspace.ts),
 // the 3D view, the status bar, the settings, and the keys of the one
 // table. From docs/mockup/index.html: its orchestration (`renderAll`, the
 // keydown handler's shell rows) and `updateStatus`.
@@ -10,7 +11,9 @@
 import { EngineProxy } from '../engine-proxy.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { PuzzleWorkspace } from '../puzzle/workspace.ts';
+import { SolverWorkspace } from '../solver/workspace.ts';
 import { Edits } from '../state/edits.ts';
+import { Solves } from '../state/solves.ts';
 import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
 import { installConfirm } from './confirm.ts';
@@ -28,7 +31,7 @@ import { byId, esc } from './dom.ts';
  * What the status bar says: the engine's state, else the workspace's (the
  * mockup's updateStatus: the shape shown; pzStatus: the problem's fit).
  */
-function statusLine(store: Store, puzzle: PuzzleWorkspace): string {
+function statusLine(store: Store, puzzle: PuzzleWorkspace, solver: SolverWorkspace): string {
   const s = store.status;
   if (s === null) {
     return 'Starting the engine…';
@@ -42,7 +45,11 @@ function statusLine(store: Store, puzzle: PuzzleWorkspace): string {
   if (store.snapshot === null) {
     return '';
   }
-  return tab === 'puzzle' ? puzzle.statusLine() : entitiesStatus(store);
+  return tab === 'puzzle'
+    ? puzzle.statusLine()
+    : tab === 'solver'
+      ? solver.statusLine()
+      : entitiesStatus(store);
 }
 
 // the grid of the document in the voxel editor's header (the mockup's
@@ -62,9 +69,20 @@ export function startApp(): {
   view: View3D;
   entities: EntitiesWorkspace;
   puzzle: PuzzleWorkspace;
+  solver: SolverWorkspace;
 } {
   const engine = new EngineProxy(window.bt);
   const store = new Store(engine);
+  const solves = new Solves(engine);
+  // another document (or engine): its problems' ids are new; the old
+  // document's last idle and analyseEnded come after this
+  let generation = store.generation;
+  store.subscribe((c) => {
+    if (c.kind === 'document' && store.generation !== generation) {
+      generation = store.generation;
+      solves.clear();
+    }
+  });
 
   installTheme();
   installPopover();
@@ -73,11 +91,12 @@ export function startApp(): {
   installSettings(store);
   installTopBar(store);
   const view = new View3D(store);
-  const edits = new Edits(store);
+  const edits = new Edits(store, solves);
   const entities = new EntitiesWorkspace(store, view, edits);
   const puzzle = new PuzzleWorkspace(store, view, edits);
+  const solver = new SolverWorkspace(store, view, edits, solves);
 
-  setStatusProvider(() => statusLine(store, puzzle));
+  setStatusProvider(() => statusLine(store, puzzle, solver));
   store.subscribe((c) => {
     if (c.kind === 'status' || c.kind === 'document' || c.kind === 'selection') {
       updateStatus(c.kind === 'status');
@@ -141,5 +160,5 @@ export function startApp(): {
   });
   onKey('escape', stepBack);
   installKeyboard();
-  return { store, view, entities, puzzle };
+  return { store, view, entities, puzzle, solver };
 }

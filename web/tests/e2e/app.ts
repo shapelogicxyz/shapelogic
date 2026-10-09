@@ -41,8 +41,12 @@ export interface App {
   close(): Promise<void>;
 }
 
-/** Launches the app and waits for its engine to run; `callLog` is BT_CALL_LOG's file. */
-export async function launch(opts: { callLog?: string } = {}): Promise<App> {
+/**
+ * Launches the app and waits for its engine to run; `callLog` is
+ * BT_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
+ * (BT_AUTOSAVE_SECONDS; 20 minutes without).
+ */
+export async function launch(opts: { callLog?: string; autosave?: number } = {}): Promise<App> {
   // an editor's terminal may set ELECTRON_RUN_AS_NODE, which turns Electron into Node
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -52,6 +56,9 @@ export async function launch(opts: { callLog?: string } = {}): Promise<App> {
   env.BT_ENGINE = ENGINE ?? '';
   if (opts.callLog !== undefined) {
     env.BT_CALL_LOG = opts.callLog;
+  }
+  if (opts.autosave !== undefined) {
+    env.BT_AUTOSAVE_SECONDS = String(opts.autosave);
   }
   const app = await electron.launch({ args: [resolve(WEB, 'out/main/index.js')], cwd: WEB, env });
   const page = await app.firstWindow();

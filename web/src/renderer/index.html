@@ -159,7 +159,30 @@
               Solver<span class="sp"></span
               ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
             </div>
-            <div class="later">Solving is not in this version yet.</div>
+            <div class="pz-scroll">
+              <div class="pz-note" id="slvKind"></div>
+              <div class="slv-sec">
+                <div class="slv-lab">Problem</div>
+                <button class="slv-prob" id="slvProb"></button>
+              </div>
+              <div class="slv-sec slv-optsec">
+                <div class="slv-lab">What to check</div>
+                <div class="slv-mode" id="slvMode"></div>
+              </div>
+              <div class="slv-sec slv-optsec">
+                <div class="slv-lab click" id="slvOptHead"></div>
+                <div class="slv-opts" id="slvOpts"></div>
+              </div>
+              <div class="slv-sec">
+                <div class="slv-lab">Run</div>
+                <div class="slv-run" id="slvRun"></div>
+                <div class="slv-prog">
+                  <div class="bar"><i id="slvBar"></i></div>
+                  <span id="slvPct">0%</span>
+                </div>
+                <div class="slv-stat" id="slvStat"></div>
+              </div>
+            </div>
           </section>
 
           <section class="card" id="center">
@@ -243,10 +266,31 @@
 
           <section class="card slv" id="rightS">
             <div class="ch">
-              Solutions<span class="sp"></span
-              ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
+              Solutions
+              <span
+                class="chip"
+                id="slvCount"
+                style="background: var(--muted); min-width: 22px; height: 20px"
+              ></span
+              ><span class="sp"></span>
+              <div class="seg" id="slvViewSeg">
+                <button data-v="list" class="on" title="All solutions at a glance">List</button
+                ><button data-v="slider" title="One solution at a time with a slider">
+                  Slider
+                </button>
+              </div>
+              <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
             </div>
-            <div class="later">Not in this version yet.</div>
+            <div class="slv-sel" id="slvSel"></div>
+            <div class="slv-player" id="splayer"></div>
+            <div class="slv-ana" id="slvAna"></div>
+            <div class="slv-sort" id="slvSort"></div>
+            <div class="slv-act" id="slvAct"></div>
+            <div class="pzh">
+              Piece display <span class="sp"></span
+              ><button class="btn sm" id="slvShowAll">Show all</button>
+            </div>
+            <div class="slv-pcs" id="slvPcs"></div>
           </section>
         </div>
 

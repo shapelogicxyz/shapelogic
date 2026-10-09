@@ -59,7 +59,9 @@ fake engine's sessions again (after a change to what the engine sends),
 - `src/main/`: Electron's main process: `engine-host.ts` (one engine,
   restarted when it dies), `engine-ipc.ts` (the host's side of the bridge),
   `engine-path.ts`, `index.ts` (with `BT_CALL_LOG=<file>` every call of the
-  renderer is logged there with how it ended; the e2e tests read it).
+  renderer is logged there with how it ended; the e2e tests read it;
+  `BT_AUTOSAVE_SECONDS=<n>` shortens the Solver's autosave from 20
+  minutes, for the e2e tests).
 - `src/preload/`: `window.bt`.
 - `src/renderer/`: `index.html` and `styles.css` (the mockup's body and
   stylesheet), `main.ts`, `engine-proxy.ts` (the client's interface over
@@ -68,13 +70,18 @@ fake engine's sessions again (after a change to what the engine sends),
   `theme.ts`, `status.ts`, `escape.ts`, `history.ts` (undo and redo),
   `popover.ts`, `confirm.ts`, `topbar.ts`, `icons.ts`, `cursors.ts`,
   `piece-colours.ts`, `dom.ts`),
-  `state/store.ts` (the mirror of the engine), `view3d/` (the 3D view:
+  `state/` (`store.ts` the mirror of the engine, `edits.ts` the edits
+  under way, `solves.ts` the solve records), `view3d/` (the 3D view:
   `view.ts`, `renderer.ts`, `camera.ts`, `viewcube.ts`, `mesh.ts`,
-  `material.ts`, `scene.ts`, `overlays.ts`, `picking.ts`, `meshcache.ts`,
-  `extent.ts`, `toolbar.ts`, `preview.ts`), `entities/` (the Entities
-  workspace: `workspace.ts`, `shapes-list.ts`, `inspector.ts`,
-  `editor-card.ts`, `grid2d.ts`, `layer-geometry.ts`, `shape-cells.ts`,
-  `stroke.ts`, `edit3d.ts`, `tools.ts`, `editor-state.ts`, `glyphs.ts`).
+  `material.ts`, `scene.ts`, `pieces.ts`, `solution.ts`, `overlays.ts`,
+  `picking.ts`, `meshcache.ts`, `extent.ts`, `toolbar.ts`, `preview.ts`),
+  `entities/` (the Entities workspace: `workspace.ts`, `shapes-list.ts`,
+  `inspector.ts`, `editor-card.ts`, `grid2d.ts`, `layer-geometry.ts`,
+  `shape-cells.ts`, `stroke.ts`, `edit3d.ts`, `tools.ts`,
+  `editor-state.ts`, `glyphs.ts`), `puzzle/` (the Puzzle workspace),
+  `solver/` (the Solver workspace: `workspace.ts`, `run-card.ts`,
+  `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`,
+  `autosave.ts`).
 - `tools/`: `gen-api.ts` (the types), `sessions.ts` and
   `record-sessions.ts` (the recorded sessions).
 - `fake-engine/`: `fake-engine.ts` (a recording replayed as a transport),
@@ -82,7 +89,8 @@ fake engine's sessions again (after a change to what the engine sends),
 - `tests/`: `unit/` (`unit/renderer/` for the app's pure parts), `engine/`
   (against the real engine), `e2e/` (Playwright: `app.ts` launches the
   built app and calls its engine through the page's bridge, `editor.ts`
-  drives the voxel editor; `__screenshots__/` the reference screenshots),
+  drives the voxel editor, `puzzle.ts` the Puzzle's cards, `solver.ts` the
+  Solver's; `__screenshots__/` the reference screenshots),
   `helpers/`.
 
 ## Rules

@@ -78,6 +78,7 @@ export class EntitiesWorkspace {
     this.list = new ShapesList({
       store,
       refuse,
+      refuseList: () => this.edits.refuseList(),
       mutate: (doing, call) => this.mutate(doing, call),
     });
     this.inspector = new Inspector({
@@ -183,7 +184,11 @@ export class EntitiesWorkspace {
       this.edit3d.show();
     });
     this.installKeys();
-    installHistory(store, () => this.groupState());
+    installHistory(
+      store,
+      () => this.groupState(),
+      () => this.edits.refuseList(),
+    );
     this.documentChanged();
   }
 
@@ -550,7 +555,7 @@ export class EntitiesWorkspace {
   }
 
   private async addColour(): Promise<void> {
-    if (this.refuse()) {
+    if (this.edits.refuseList()) {
       return;
     }
     const n = this.store.snapshot?.colours.length ?? 0;
@@ -564,7 +569,7 @@ export class EntitiesWorkspace {
   }
 
   private async deleteColour(id: string): Promise<void> {
-    if (this.refuse()) {
+    if (this.edits.refuseList()) {
       return;
     }
     const r = await this.mutate('Remove colour', () =>
@@ -602,14 +607,14 @@ export class EntitiesWorkspace {
       this.edit3d.toggle();
       return true;
     });
-    onKey('layer.next', () => {
+    onKey('page.up', () => {
       if (!inEntities() || !editorVisible()) {
         return false;
       }
       this.setLayer(st.layer + 1);
       return true;
     });
-    onKey('layer.prev', () => {
+    onKey('page.down', () => {
       if (!inEntities() || !editorVisible()) {
         return false;
       }

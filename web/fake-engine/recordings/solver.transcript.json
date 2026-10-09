@@ -1,0 +1,930 @@
+{
+ "results": [
+  {
+   "revision": 9
+  },
+  {},
+  {
+   "end": 10,
+   "trace": [
+    "cleared",
+    "changed:2:",
+    "changed:3:",
+    "changed:4:",
+    "changed:5:",
+    "changed:6:p3",
+    "changed:7:p3",
+    "changed:8:p3",
+    "launch:p3:idle:none",
+    "changed:9:p3",
+    "state:p3:preparing:active",
+    "progress:p3:preparing:active",
+    "added:p3:preparing:active",
+    "added:3:null:1",
+    "state:p3:assembling:active",
+    "progress:p3:assembling:active",
+    "added:p3:assembling:active",
+    "added:4946:3:1",
+    "state:p3:paused:ending",
+    "progress:p3:paused:ending",
+    "added:p3:paused:ending",
+    "added:4950:4950:0",
+    "changed:10:p3",
+    "ended:p3:paused:none"
+   ]
+  },
+  {
+   "revision": 11
+  },
+  {
+   "revision": 12
+  },
+  {
+   "version": 4951,
+   "trace": [
+    "changed:11:p3",
+    "launch:p3:paused:none",
+    "changed:12:p3",
+    "state:p3:assembling:active",
+    "progress:p3:assembling:active",
+    "added:p3:assembling:active",
+    "added:4951:4951:0"
+   ]
+  },
+  {
+   "revision": 13
+  },
+  {
+   "end": 14,
+   "trace": [
+    "changed:13:p3",
+    "state:p3:idle:ending",
+    "progress:p3:idle:ending",
+    "added:p3:idle:ending",
+    "added:4954:4951:1",
+    "changed:14:p3",
+    "ended:p3:idle:none"
+   ]
+  },
+  {
+   "revision": 15
+  },
+  {},
+  {
+   "end": 16,
+   "trace": [
+    "launch:p3:idle:none",
+    "changed:15:p3",
+    "state:p3:preparing:active",
+    "state:p3:assembling:active",
+    "state:p3:paused:ending",
+    "progress:p3:paused:ending",
+    "added:p3:paused:ending",
+    "added:5986:4951:0",
+    "changed:16:p3",
+    "ended:p3:paused:none"
+   ]
+  },
+  {
+   "revision": 17
+  },
+  {
+   "phase": "none",
+   "trace": [
+    "changed:17:p3",
+    "state:p3:idle:none",
+    "progress:p3:idle:none",
+    "added:p3:idle:none",
+    "added:5987:4951:0"
+   ]
+  },
+  {
+   "revision": 26
+  },
+  {
+   "end": 27,
+   "trace": [
+    "cleared",
+    "changed:19:",
+    "changed:20:",
+    "changed:21:",
+    "changed:22:",
+    "changed:23:p3",
+    "changed:24:p3",
+    "changed:25:p3",
+    "launch:p3:idle:none",
+    "changed:26:p3",
+    "state:p3:preparing:active",
+    "progress:p3:preparing:active",
+    "added:p3:preparing:active",
+    "added:3:4951:0",
+    "state:p3:assembling:active",
+    "state:p3:finished:ending",
+    "progress:p3:finished:ending",
+    "added:p3:finished:ending",
+    "added:2859:4951:0",
+    "changed:27:p3",
+    "ended:p3:finished:none"
+   ]
+  },
+  {
+   "revision": 28,
+   "dirty": false,
+   "grid": "bricks",
+   "path": null,
+   "notes": "",
+   "canUndo": false,
+   "canRedo": false,
+   "solving": false,
+   "shapes": [],
+   "colours": [],
+   "problems": []
+  },
+  {
+   "phase": "none",
+   "analysis": null,
+   "running": false,
+   "trace": [
+    "analysis:p3:finished:none",
+    "cleared",
+    "state:p3:idle:none"
+   ]
+  }
+ ],
+ "events": [
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 2,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s1"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 3,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s1"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 4,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s2"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 5,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s2"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 6,
+    "what": [
+     "problems"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 7,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 8,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 9,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "preparing"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "preparing",
+    "progress": {
+     "stage": "prepare",
+     "elapsedMs": 0,
+     "piece": 1,
+     "pieces": 1,
+     "assemblyFraction": 0,
+     "iterations": 0,
+     "assemblerThreads": 1,
+     "assemblies": 0,
+     "solutions": 0,
+     "disassembly": false,
+     "disasmCompleted": 0,
+     "disasmPending": 0,
+     "disasmWorkers": 0,
+     "overall": 0,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": "prepare piece 1 of 1"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 0,
+    "solutionsVersion": 3,
+    "assemblies": 0,
+    "solutions": 0
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "assembling"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "assembling",
+    "progress": {
+     "stage": "assemble",
+     "elapsedMs": 263,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 0.0017146776663139462,
+     "iterations": 17469,
+     "assemblerThreads": 1,
+     "assemblies": 2539,
+     "solutions": 2474,
+     "disassembly": true,
+     "disasmCompleted": 2474,
+     "disasmPending": 66,
+     "disasmWorkers": 1,
+     "overall": 0.0016927642282098532,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": 153.11859770015133,
+     "activity": "assemble, disassemble 2474 done 66 waiting, level 0: 0/1, split 2/19"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 5,
+    "solutionsVersion": 4946,
+    "assemblies": 2539,
+    "solutions": 2474
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "paused"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "paused",
+    "progress": {
+     "stage": "paused",
+     "elapsedMs": 315,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 0.0017146776663139462,
+     "iterations": 17476,
+     "assemblerThreads": 1,
+     "assemblies": 2542,
+     "solutions": 2476,
+     "disassembly": true,
+     "disasmCompleted": 2476,
+     "disasmPending": 0,
+     "disasmWorkers": 1,
+     "overall": 0.0016927642282098532,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": "pause"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 5,
+    "solutionsVersion": 4950,
+    "assemblies": 2542,
+    "solutions": 2476
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 10,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 11,
+    "what": [
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 12,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "assembling"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "assembling",
+    "progress": {
+     "stage": "assemble",
+     "elapsedMs": 0,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 0.0017146776663139462,
+     "iterations": 17476,
+     "assemblerThreads": 1,
+     "assemblies": 2542,
+     "solutions": 2476,
+     "disassembly": true,
+     "disasmCompleted": 0,
+     "disasmPending": 0,
+     "disasmWorkers": 1,
+     "overall": 0.0008573388331569731,
+     "overallKnown": false,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": "assemble, disassemble 0 done 0 waiting"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 4,
+    "solutionsVersion": 4951,
+    "assemblies": 2542,
+    "solutions": 2476
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 13,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "idle"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "idle",
+    "progress": {
+     "stage": "idle",
+     "elapsedMs": 0,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 0,
+     "iterations": 0,
+     "assemblerThreads": 1,
+     "assemblies": 0,
+     "solutions": 0,
+     "disassembly": true,
+     "disasmCompleted": 1,
+     "disasmPending": 0,
+     "disasmWorkers": 1,
+     "overall": 0.5,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": ""
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 0,
+    "solutionsVersion": 4954,
+    "assemblies": 0,
+    "solutions": 0
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 14,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 15,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "preparing"
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "assembling"
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "paused"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "paused",
+    "progress": {
+     "stage": "paused",
+     "elapsedMs": 110,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 0,
+     "iterations": 3987,
+     "assemblerThreads": 1,
+     "assemblies": 584,
+     "solutions": 518,
+     "disassembly": true,
+     "disasmCompleted": 518,
+     "disasmPending": 0,
+     "disasmWorkers": 1,
+     "overall": 0.5,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": "pause"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 5,
+    "solutionsVersion": 5986,
+    "assemblies": 584,
+    "solutions": 518
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 16,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 17,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "idle"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "idle",
+    "progress": {
+     "stage": "idle",
+     "elapsedMs": 110,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 0,
+     "iterations": 0,
+     "assemblerThreads": 1,
+     "assemblies": 0,
+     "solutions": 0,
+     "disassembly": true,
+     "disasmCompleted": 518,
+     "disasmPending": 0,
+     "disasmWorkers": 1,
+     "overall": 0.5,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": ""
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 0,
+    "solutionsVersion": 5987,
+    "assemblies": 0,
+    "solutions": 0
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 19,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s1"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 20,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s1"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 21,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s2"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 22,
+    "what": [
+     "shapes"
+    ],
+    "shapes": [
+     "s2"
+    ],
+    "problems": []
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 23,
+    "what": [
+     "problems"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 24,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 25,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 26,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "preparing"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "preparing",
+    "progress": {
+     "stage": "prepare",
+     "elapsedMs": 0,
+     "piece": 1,
+     "pieces": 1,
+     "assemblyFraction": 0,
+     "iterations": 0,
+     "assemblerThreads": 1,
+     "assemblies": 0,
+     "solutions": 0,
+     "disassembly": false,
+     "disasmCompleted": 0,
+     "disasmPending": 0,
+     "disasmWorkers": 0,
+     "overall": 0,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": null,
+     "activity": "prepare piece 1 of 1"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 0,
+    "solutionsVersion": 3,
+    "assemblies": 0,
+    "solutions": 0
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "assembling"
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "finished"
+   }
+  },
+  {
+   "event": "solve.progress",
+   "params": {
+    "problem": "p3",
+    "state": "finished",
+    "progress": {
+     "stage": "done",
+     "elapsedMs": 103,
+     "piece": 0,
+     "pieces": 0,
+     "assemblyFraction": 1,
+     "iterations": 109727,
+     "assemblerThreads": 1,
+     "assemblies": 2856,
+     "solutions": 0,
+     "disassembly": false,
+     "disasmCompleted": 0,
+     "disasmPending": 0,
+     "disasmWorkers": 0,
+     "overall": 1,
+     "overallKnown": true,
+     "levelFraction": 0,
+     "secondsLeft": 0,
+     "activity": "finished"
+    }
+   }
+  },
+  {
+   "event": "solve.solutionsAdded",
+   "params": {
+    "problem": "p3",
+    "saved": 2856,
+    "solutionsVersion": 2859,
+    "assemblies": 2856,
+    "solutions": 0
+   }
+  },
+  {
+   "event": "document.changed",
+   "params": {
+    "revision": 27,
+    "what": [
+     "problems",
+     "solutions"
+    ],
+    "shapes": [],
+    "problems": [
+     "p3"
+    ]
+   }
+  },
+  {
+   "event": "solve.state",
+   "params": {
+    "problem": "p3",
+    "state": "idle"
+   }
+  },
+  {
+   "event": "solution.analyseEnded",
+   "params": {
+    "problem": "p3",
+    "total": 2856,
+    "done": 1,
+    "separated": 1,
+    "stopped": true,
+    "failure": null
+   }
+  }
+ ]
+}

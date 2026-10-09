@@ -75,7 +75,7 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(32);
+    expect(seen.size).toBe(38);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
@@ -99,13 +99,13 @@ describe('the keyboard map', () => {
     expect(actionOf(press('z'))).toBeNull();
     expect(actionOf(press('4'))).toBe('tool.paint');
     expect(actionOf(press('E', { shift: true }))).toBe('edit3d');
-    expect(actionOf(press('PageUp'))).toBe('layer.next');
-    expect(actionOf(press('PageDown'))).toBe('layer.prev');
-    expect(actionOf(press('ArrowUp'))).toBe('shape.prev');
+    expect(actionOf(press('PageUp'))).toBe('page.up');
+    expect(actionOf(press('PageDown'))).toBe('page.down');
+    expect(actionOf(press('ArrowUp'))).toBe('prev');
     expect(actionOf(press('ArrowUp', { alt: true }))).toBe('shape.earlier');
     expect(actionOf(press('ArrowDown', { alt: true }))).toBe('shape.later');
     expect(actionOf(press('F2'))).toBe('shape.rename');
-    expect(actionOf(press('Enter'))).toBe('shape.rename');
+    expect(actionOf(press('Enter'))).toBe('activate');
     expect(actionOf(press('Delete'))).toBe('delete');
     expect(actionOf(press('d', { ctrl: true }, 'KeyD'))).toBe('shape.duplicate');
     expect(actionOf(press('d'))).toBeNull();
@@ -120,6 +120,25 @@ describe('the keyboard map', () => {
     expect(actionOf(press('-', {}, 'NumpadSubtract'))).toBe('piece.fewer');
     expect(actionOf(press('-', { ctrl: true }, 'Minus'))).toBeNull();
     expect(actionOf(press('Delete'))).toBe('delete');
+  });
+
+  it('has the Solver rows: Space and Enter play, the arrows step and jump, Home and End', () => {
+    expect(actionOf(press(' ', {}, 'Space'))).toBe('activate');
+    expect(actionOf(press('Enter'))).toBe('activate');
+    expect(actionOf(press('ArrowLeft'))).toBe('move.back');
+    expect(actionOf(press('ArrowRight'))).toBe('move.forward');
+    expect(actionOf(press('ArrowLeft', { shift: true }))).toBe('move.start');
+    expect(actionOf(press('ArrowRight', { shift: true }))).toBe('move.end');
+    expect(actionOf(press('ArrowLeft', { alt: true }))).toBeNull();
+    // the keys the Entities rows and the view hold: one action each
+    expect(actionOf(press('ArrowUp'))).toBe('prev');
+    expect(actionOf(press('ArrowDown', { shift: true }))).toBe('next');
+    expect(actionOf(press('Home'))).toBe('home');
+    expect(actionOf(press('End'))).toBe('end');
+    expect(actionOf(press('PageUp'))).toBe('page.up');
+    expect(actionOf(press('PageDown'))).toBe('page.down');
+    expect(actionOf(press('Delete'))).toBe('delete');
+    expect(actionOf(press('Escape'))).toBe('escape');
   });
 
   it('prints in the mockup’s groups', () => {

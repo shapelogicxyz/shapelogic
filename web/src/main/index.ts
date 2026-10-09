@@ -8,7 +8,9 @@
 // not reach it. With BT_CALL_LOG set, every call the renderer makes is
 // written to that file with how it ended (a JSON line: method, errc), so
 // the e2e tests can check that the UI never asked for what the engine
-// refused. Stage 6 adds the menus, files and recovery.
+// refused; BT_AUTOSAVE_SECONDS shortens the Solver's autosave (20
+// minutes) for them, passed in the page's address. Stage 6 adds the menus,
+// files and recovery.
 
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { appendFileSync } from 'node:fs';
@@ -29,6 +31,10 @@ const logCall =
       };
 
 const servers = new Map<number, ReturnType<typeof serveEngine>>();
+
+/** The page's parameters: the autosave's interval when BT_AUTOSAVE_SECONDS sets one. */
+const autosave = process.env.BT_AUTOSAVE_SECONDS;
+const query: Record<string, string> = autosave !== undefined && autosave !== '' ? { autosave } : {};
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -89,9 +95,15 @@ function createWindow(): void {
         console.log(`renderer ${event.level}: ${event.message}`);
       }
     });
-    void win.loadURL(devUrl);
+    const url = new URL(devUrl);
+    for (const [k, v] of Object.entries(query)) {
+      url.searchParams.set(k, v);
+    }
+    void win.loadURL(url.toString());
   } else {
-    void win.loadFile(fileURLToPath(new URL('../renderer/index.html', import.meta.url)));
+    void win.loadFile(fileURLToPath(new URL('../renderer/index.html', import.meta.url)), {
+      query,
+    });
   }
 }
 

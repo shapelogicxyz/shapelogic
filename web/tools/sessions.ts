@@ -10,6 +10,8 @@ import type { EngineClient } from '../src/engine/client.ts';
 import type { EventName, EventParams } from '../src/engine/client-types.ts';
 import { isEngineError } from '../src/engine/errors.ts';
 import type { FrameView } from '../src/engine/frames.ts';
+import { SolutionPager } from '../src/renderer/solver/pager.ts';
+import { Solves } from '../src/renderer/state/solves.ts';
 
 /** What a session saw. */
 export interface Transcript {
@@ -113,6 +115,51 @@ export interface SessionScript {
   run: (d: Driver) => Promise<void>;
 }
 
+/** A box of x*y*z cells to fill with dominoes (the contract suite's), and its problem. */
+async function dominoBox(
+  c: EngineClient,
+  x: number,
+  y: number,
+  z: number,
+  solves?: Solves,
+): Promise<string> {
+  await c.call('document.new', { grid: 'bricks' });
+  // the store sees a new document at its reply: the records of the old one go
+  solves?.clear();
+  const box = (await c.call('shape.create', { size: [x, y, z] })).shape;
+  await c.call('shape.setBox', {
+    shape: box,
+    tool: 'fixed',
+    from: [0, 0, 0],
+    to: [x - 1, y - 1, z - 1],
+  });
+  const dom = (await c.call('shape.create', { size: [2, 1, 1] })).shape;
+  await c.call('shape.setBox', { shape: dom, tool: 'fixed', from: [0, 0, 0], to: [1, 0, 0] });
+  const p = (await c.call('problem.create')).problem;
+  await c.call('problem.setResult', { problem: p, shape: box });
+  const n = (x * y * z) / 2;
+  await c.call('problem.setPieceCount', { problem: p, shape: dom, min: n, max: n });
+  return p;
+}
+
+/**
+ * The solve records (src/renderer/state/solves.ts) over a client, with a
+ * trace of what they told, in order with the document.changed events
+ * (registered first, so a change comes before what it ended).
+ */
+function traceSolves(c: EngineClient): { solves: Solves; trace: string[] } {
+  const trace: string[] = [];
+  c.on('document.changed', (p) => {
+    trace.push(`changed:${String(p.revision)}:${p.problems.join(',')}`);
+  });
+  const solves = new Solves(c);
+  solves.subscribe((x) => {
+    const r = x.problem === null ? undefined : solves.peek(x.problem);
+    trace.push(r === undefined ? x.kind : `${x.kind}:${r.problem}:${r.state}:${r.phase}`);
+  });
+  return { solves, trace };
+}
+
 /** The recorded sessions, by recording name. */
 export const SESSIONS: Record<string, SessionScript> = {
   basic: {
@@ -197,6 +244,128 @@ export const SESSIONS: Record<string, SessionScript> = {
       await d.waitFor('solve.state', state(['idle']), from);
       await d.waitFor('document.changed', (e) => e.revision > aborted.revision, from);
       d.keep(await c.call('document.new', { grid: 'bricks' }));
+    },
+  },
+  'solver-end': {
+    note:
+      'a small box of dominoes solved with take-apart, its end waited for by the solve ' +
+      "records (the replay drops the run's active solve.state lines for a run faster than a poll)",
+    run: async (d) => {
+      const c = d.client;
+      const { solves, trace } = traceSolves(c);
+      const p = await dominoBox(c, 2, 2, 3, solves);
+      d.keep(await c.call('solve.start', { problem: p, options: { disassemble: true } }));
+      solves.launch(p, 'classic');
+      const end = await solves.whenEnded(p);
+      d.keep({ end, trace: trace.splice(0) });
+      d.keep(await c.call('problem.get', { problem: p }));
+    },
+  },
+  solver: {
+    note:
+      'the solve records and the solutions pager of the Solver workspace over a 2x4x5 box of ' +
+      'dominoes on one thread: paused, a solution removed (the pager reads the new version), ' +
+      'carried on (its first solutionsAdded tells the version paged: ignored), aborted (two ' +
+      'document.changed); a paused solve aborted (one); a new document while an analysis runs ' +
+      '(the last idle and analyseEnded {stopped})',
+    run: async (d) => {
+      const c = d.client;
+      const { solves, trace } = traceSolves(c);
+      const p = await dominoBox(c, 2, 4, 5, solves);
+      // the pager as the Solver workspace drives it: solutionsAdded, and a
+      // document.changed naming the problem's solutions
+      const pager = new SolutionPager(c, p, 'list', false);
+      c.on('solve.solutionsAdded', (e) => {
+        if (e.problem === p) {
+          const before = pager.version;
+          const asked = pager.requests;
+          pager.added(e.solutionsVersion);
+          trace.push(
+            `added:${String(e.solutionsVersion)}:${String(before)}:${String(pager.requests - asked)}`,
+          );
+        }
+      });
+      c.on('document.changed', (e) => {
+        if (e.problems.includes(p) && e.what.includes('solutions')) {
+          pager.refresh();
+        }
+      });
+      const paged = (): Promise<void> =>
+        new Promise((done) => {
+          const off = pager.onChange(() => {
+            off();
+            done();
+          });
+        });
+      pager.want(0, 5);
+      const options = { disassemble: true, keepAtMost: 5, threads: 1 };
+      let from = d.mark;
+      d.keep(await c.call('solve.start', { problem: p, options }));
+      solves.launch(p, 'classic');
+      await d.waitFor('solve.state', (e) => e.problem === p && e.state === 'assembling', from);
+      await d.waitFor('solve.solutionsAdded', (e) => e.problem === p && e.saved > 0, from);
+      d.keep(await c.call('solve.pause', { problem: p }));
+      d.keep({ end: await solves.whenEnded(p), trace: trace.splice(0) });
+
+      // a solution removed while paused: the version moves, told by its
+      // document.changed only; the pager reads it
+      const next = paged();
+      const row = pager.row(0);
+      d.keep(
+        await c.call('solution.delete', { problem: p, which: 'one', solution: row?.id ?? 'sol1' }),
+      );
+      await next;
+      // past the progress events' quarter second, so carrying on tells the list's version at once
+      await new Promise((done) => setTimeout(done, 400));
+      from = d.mark;
+      d.keep(await c.call('solve.continue', { problem: p, options }));
+      solves.launch(p, 'classic');
+      await d.waitFor('solve.solutionsAdded', (e) => e.problem === p, from);
+      d.keep({ version: pager.version, trace: trace.splice(0) });
+
+      // an abort of a run: the abort's own document.changed, then the run's end
+      d.keep(await c.call('solve.abort', { problem: p }));
+      d.keep({ end: await solves.whenEnded(p), trace: trace.splice(0) });
+      pager.close();
+
+      // an abort of a solve paused in memory: one document.changed, no run ends
+      from = d.mark;
+      d.keep(await c.call('solve.start', { problem: p, options }));
+      solves.launch(p, 'classic');
+      await d.waitFor('solve.state', (e) => e.problem === p && e.state === 'assembling', from);
+      d.keep(await c.call('solve.pause', { problem: p }));
+      d.keep({ end: await solves.whenEnded(p), trace: trace.splice(0) });
+      from = d.mark;
+      d.keep(await c.call('solve.abort', { problem: p }));
+      await d.waitFor('solve.state', (e) => e.problem === p && e.state === 'idle', from);
+      d.keep({ phase: solves.get(p).phase, trace: trace.splice(0) });
+
+      // a new document while an analysis runs (a 2x4x4 box's assemblies taken apart afterwards)
+      const q = await dominoBox(c, 2, 4, 4, solves);
+      d.keep(
+        await c.call('solve.start', {
+          problem: q,
+          options: { disassemble: false, keepAtMost: 0, threads: 1 },
+        }),
+      );
+      solves.launch(q, 'classic');
+      d.keep({ end: await solves.whenEnded(q), trace: trace.splice(0) });
+      const total = (await c.call('solution.analyse', { problem: q, which: 'all', threads: 1 }))
+        .total;
+      solves.analysing(q, total);
+      from = d.mark;
+      d.keep(await c.call('document.new', { grid: 'bricks' }));
+      // the store sees the new document now: the records of the old one go
+      solves.clear();
+      await d.waitFor('solution.analyseEnded', (e) => e.problem === q, from);
+      await d.waitFor('solve.state', (e) => e.problem === q && e.state === 'idle', from);
+      const r = solves.get(q);
+      d.keep({
+        phase: r.phase,
+        analysis: r.analysis,
+        running: solves.running,
+        trace: trace.splice(0),
+      });
     },
   },
 };

@@ -11,8 +11,10 @@
 // and a click (not a drag) go to it, with the modifiers held, for 3D
 // editing and its preview. In the Puzzle workspace it draws the pieces
 // scene instead (pieces.ts: the problem's result and pieces, one mesh per
-// shape; a click selects a piece through the puzzle host). It renders
-// only when something changed.
+// shape; a click selects a piece through the puzzle host), in the Solver
+// workspace a solution (solution.ts: the pieces the Solver's player gives
+// it, posed, framed on the result). It renders only when something
+// changed.
 
 import { Vector2 } from 'three';
 
@@ -36,6 +38,8 @@ import type { Plane } from './overlays.ts';
 import { describePick, pickAt } from './picking.ts';
 import { PiecesScene } from './pieces.ts';
 import type { PieceMesh, PiecesModel } from './pieces.ts';
+import { SolutionScene } from './solution.ts';
+import type { ScenePose, SolutionModel } from './solution.ts';
 import type { Pick } from './picking.ts';
 import type { Ghost } from './preview.ts';
 import { ViewRenderer } from './renderer.ts';
@@ -61,6 +65,16 @@ export interface PuzzleHost {
   tag(): string;
   /** The message over an empty scene ('' for none). */
   empty(): string;
+}
+
+/** What the Solver workspace tells the view. */
+export interface SolverHost {
+  /** The view's tag (HTML), the mockup's svTag. */
+  tag(): string;
+  /** The message over an empty scene ('' for none). */
+  empty(): string;
+  /** The Display menu's style changed: the solution's meshes again. */
+  styleChanged(): void;
 }
 
 /** What 3D editing does with the view's points (the Entities workspace). */
@@ -116,6 +130,8 @@ export class View3D {
   edit: EditHost | null = null;
   /** The Puzzle workspace, once it is there. */
   puzzle: PuzzleHost | null = null;
+  /** The Solver workspace, once it is there. */
+  solver: SolverHost | null = null;
   private mods: ViewMods = { ctrl: false, shift: false, alt: false };
 
   private readonly store: Store;
@@ -133,6 +149,8 @@ export class View3D {
   private hoverAt: { x: number; y: number } | null = null;
   private readonly pieces: PiecesScene;
   private piecesModel: PiecesModel | null = null;
+  private readonly solution = new SolutionScene();
+  private solutionModel: SolutionModel | null = null;
   /** What the pieces scene shows: the model's key and the style. */
   private piecesShown = '';
   private piecesLoading = 0;
@@ -152,6 +170,9 @@ export class View3D {
     this.pieces = new PiecesScene(byId('pzScene'));
     this.pieces.group.visible = false;
     this.renderer.scene.add(this.pieces.group);
+    // centred on the result (the poses' frame), turned by the camera as the shape is
+    this.solution.group.visible = false;
+    this.renderer.root.add(this.solution.group);
     this.renderer.onDraw(() => {
       this.draw();
     });
@@ -173,6 +194,8 @@ export class View3D {
         // another style is another mesh
         this.reload();
         this.loadPieces();
+        this.solver?.styleChanged();
+        this.lookChanged();
       },
       toggleFocus: toggleFocus3d,
       toggleEdit: () => {
@@ -239,7 +262,7 @@ export class View3D {
       this.setMode('pan');
       return true;
     });
-    onKey('view.home', () => {
+    onKey('home', () => {
       this.camera.home(performance.now());
       this.renderer.request();
       return true;
@@ -268,6 +291,30 @@ export class View3D {
   /** The mesh shown, or null. */
   get mesh(): BuiltMesh | null {
     return this.scene.mesh;
+  }
+
+  /** The meshes of shapes asked of the engine (the Solver's assembled view shares them). */
+  get meshCache(): MeshCache {
+    return this.cache;
+  }
+
+  /** The Solver's solution (null: none): its pieces with their meshes, framed on the result. */
+  setSolution(model: SolutionModel | null): void {
+    this.solutionModel = model;
+    this.solution.set(model);
+    const vp = byId('vp');
+    vp.dataset.solution = model?.key ?? '';
+    vp.dataset.solutionPieces = this.solution.describe();
+    this.lookChanged();
+  }
+
+  /** Places the solution's pieces (a pose per piece of the model). */
+  poseSolution(poses: readonly ScenePose[]): void {
+    this.solution.setPoses(poses);
+    const vp = byId('vp');
+    vp.dataset.poses = this.solution.posesShown();
+    vp.dataset.solutionPieces = this.solution.describe();
+    this.renderer.request();
   }
 
   /** The pieces scene's model (the Puzzle workspace); its meshes are loaded when shown. */
@@ -326,6 +373,7 @@ export class View3D {
     this.renderer.resize(vp.clientWidth, vp.clientHeight);
     this.scene.setResolution(vp.clientWidth, vp.clientHeight);
     this.pieces.setResolution(vp.clientWidth, vp.clientHeight);
+    this.solution.setResolution(vp.clientWidth, vp.clientHeight);
     this.renderer.request();
   }
 
@@ -399,6 +447,10 @@ export class View3D {
 
   private get puzzleMode(): boolean {
     return tab === 'puzzle';
+  }
+
+  private get solverMode(): boolean {
+    return tab === 'solver';
   }
 
   // the pieces scene's meshes (one per shape), then the scene; only while it is shown
@@ -523,8 +575,22 @@ export class View3D {
   // the look and the overlays from the options, the store and the settings
   private lookChanged(): void {
     const puzzle = this.puzzleMode;
+    const solver = this.solverMode;
     this.renderer.root.visible = !puzzle;
+    this.renderer.model.visible = !solver;
     this.pieces.group.visible = puzzle;
+    this.solution.group.visible = solver;
+    if (solver) {
+      const snap0 = this.store.snapshot;
+      this.solution.setLook({
+        style: this.display.style,
+        colourView: this.display.colourView,
+        lit: prefs.lights,
+        xray: this.display.xray,
+        palette: snap0?.colours.map((c) => c.rgb) ?? [],
+      });
+      this.renderTag();
+    }
     if (puzzle) {
       this.pieces.setLook(this.piecesLook());
       this.loadPieces();
@@ -544,7 +610,7 @@ export class View3D {
       palette: snap?.colours.map((c) => c.rgb) ?? [],
       dim: this.display.dim && ed ? { axis: layerAxis(this.plane), layer: this.layer } : null,
     });
-    const showSlab = this.display.layer && ed && snap !== null && shape !== null;
+    const showSlab = this.display.layer && ed && snap !== null && shape !== null && !solver;
     this.scene.setOverlays({
       extent: this.extent,
       axes: this.display.axes && shape !== null && tab === 'entities',
@@ -581,6 +647,10 @@ export class View3D {
       tag.innerHTML = this.puzzle.tag();
       return;
     }
+    if (this.solverMode && this.solver !== null) {
+      tag.innerHTML = this.solver.tag();
+      return;
+    }
     if (shape === null) {
       tag.innerHTML = '';
       return;
@@ -596,6 +666,8 @@ export class View3D {
     let text = '';
     if (this.puzzleMode && s.running && s.snapshot !== null) {
       text = this.puzzle?.empty() ?? '';
+    } else if (this.solverMode && s.running && s.snapshot !== null) {
+      text = this.solver?.empty() ?? '';
     } else if (s.status === null || s.status.state === 'exited') {
       text = 'Starting the engine…';
     } else if (s.status.state === 'failed') {
@@ -620,6 +692,9 @@ export class View3D {
       this.pieces.turn(this.camera.q);
       r.render();
       this.pieces.place(r.camera, r.width, r.height, sc);
+    } else if (this.solverMode) {
+      this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
+      this.renderer.render();
     } else {
       this.renderer.frame(this.camera, this.extent);
       this.renderer.render();
@@ -654,7 +729,7 @@ export class View3D {
   }
 
   private pickAtClient(clientX: number, clientY: number): Pick | null {
-    if (this.puzzleMode) {
+    if (this.puzzleMode || this.solverMode) {
       return null;
     }
     const target = this.scene.target;

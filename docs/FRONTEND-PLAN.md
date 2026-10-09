@@ -135,7 +135,7 @@ effort and audits".
 - [x] **Stage 1b**: the shell and the 3D view (docs/handoff/web-1b.md)
 - [x] **Stage 2**: the Entities workspace (docs/handoff/web-2.md)
 - [x] **Stage 3**: the Puzzle workspace (docs/handoff/web-3.md)
-- [ ] **Stage 4**: the Solver workspace and the player
+- [x] **Stage 4**: the Solver workspace and the player (docs/handoff/web-4.md)
 - [ ] Audit of stage 4
 - [ ] **Stage 5**: the explorers, the debug panel, the status window
 - [ ] **Stage 6**: menus, files, settings, recovery
@@ -502,9 +502,9 @@ PLAN.md's "Later" list.
 
 | Need (webui-spec.md) | API today | What to do |
 |---|---|---|
-| Draw an assembled solution, an explorer's placement or a movement position (§5, §7) | `shape.mesh {transformation}` gives the turned mesh; **no reply gives the turned shape's hotspot**, so the client cannot place it | **Add** `hotspot` to `MeshFrame` (stage 4; `playback.mesh` is already centred) |
+| Draw an assembled solution, an explorer's placement or a movement position (§5, §7) | `shape.mesh {transformation}` gives the turned mesh; **no reply gives the turned shape's hotspot**, so the client cannot place it | **Added** in stage 4: `hotspot` (a `Cell`) in `MeshFrame`; the client places the mesh at the cell minus it, scaled by the grid's cell spacing (`extent.ts`'s `cellScale`, checked against the player's poses) |
 | 3D edit mode on non-cube grids (§3) | the mesh names the cell and side of each triangle; nothing gives the cell across a side | **Added** in stage 2: `grid.neighbour {size, cell, face}` over `Voxel::getNeighbor`; cubes use a client table (checked against it) |
-| "Cannot be disassembled" against "Disassembly not checked" (§5) | `SolutionRow.disassembly` is `none` for both | Stage 4 decides: an additive `inseparable` value if the core records the failed analysis, else the client remembers the last analysis |
+| "Cannot be disassembled" against "Disassembly not checked" (§5) | `SolutionRow.disassembly` is `none` for both | Decided in stage 4: the core records no failed take-apart (a solve with take-apart keeps only what comes apart), so the client remembers what an analysis of this session took and could not take apart (web-4.md) |
 | Mirror and span on non-cube grids (§3, "to be decided") | `shape.setCells` takes the axes on any grid | Verified in stage 2: the core applies them on every grid (cells the grid lacks left out); shown everywhere (web-2.md) |
 | "Drop below level" (§5) | does not exist in the original; `keepEach` keeps every n-th | The option becomes "Keep every n-th" |
 | Apply grid size to all shapes (§3) | `shape.resize toAll` grows the others, never shrinks (the original's rule) | Keep; the tooltip says so |

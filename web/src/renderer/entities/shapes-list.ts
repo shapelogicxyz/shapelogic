@@ -28,6 +28,8 @@ export interface ListHost {
   store: Store;
   /** Whether editing is refused now (a solve runs); says so when it is. */
   refuse(): boolean;
+  /** Whether a change of the list is refused now (also a paused BurrTools 2 solve); says so. */
+  refuseList(): boolean;
   /** Runs a mutating call and waits for its revision; reports a failure. */
   mutate<T extends { revision: number }>(doing: string, call: () => Promise<T>): Promise<T | null>;
 }
@@ -145,7 +147,7 @@ export class ShapesList {
         return;
       }
       case 'del': {
-        if (shapes.length < 2) {
+        if (shapes.length < 2 || this.host.refuseList()) {
           return;
         }
         // the mockup's choice: the shape now in the deleted one's place
@@ -168,7 +170,7 @@ export class ShapesList {
       case 'up':
       case 'down': {
         const to = i + (a === 'up' ? -1 : 1);
-        if (to >= 0 && to < shapes.length) {
+        if (to >= 0 && to < shapes.length && !this.host.refuseList()) {
           await this.move(id, to);
         }
         return;
@@ -348,7 +350,7 @@ export class ShapesList {
       e.preventDefault();
       const to = Number(row.dataset.i);
       const i = this.shapes.findIndex((s) => s.id === from);
-      if (i !== to && !this.host.refuse()) {
+      if (i !== to && !this.host.refuseList()) {
         void this.move(from, to);
       }
     });
@@ -385,8 +387,8 @@ export class ShapesList {
       return true;
     };
     const selected = (): string | null => this.host.store.selected;
-    onKey('shape.prev', (e) => (this.inList(e.target) ? step(-1) : false));
-    onKey('shape.next', (e) => (this.inList(e.target) ? step(1) : false));
+    onKey('prev', (e) => (this.inList(e.target) ? step(-1) : false));
+    onKey('next', (e) => (this.inList(e.target) ? step(1) : false));
     onKey('shape.earlier', (e) => {
       const id = selected();
       if (!this.inList(e.target) || id === null) {
@@ -403,9 +405,18 @@ export class ShapesList {
       void this.action('down', id);
       return true;
     });
-    onKey('shape.rename', (e) => {
+    onKey('shape.rename', () => {
       const id = selected();
-      if (tab !== 'entities' || id === null || (e.key === 'Enter' && !this.inList(e.target))) {
+      if (tab !== 'entities' || id === null) {
+        return false;
+      }
+      void this.action('label', id);
+      return true;
+    });
+    // Enter renames while the list has the focus (Space is the Solver's)
+    onKey('activate', (e) => {
+      const id = selected();
+      if (tab !== 'entities' || id === null || e.key !== 'Enter' || !this.inList(e.target)) {
         return false;
       }
       void this.action('label', id);

@@ -379,9 +379,9 @@ export class PuzzleWorkspace {
     return this.edits.refuse(this.problemFrozen);
   }
 
-  /** Refuses a change of the problems list while anything is solved; says so. */
+  /** Refuses a change of the problems list while anything is solved (or a BurrTools 2 solve is paused); says so. */
   refuseList(): boolean {
-    return this.edits.refuse(this.store.solving);
+    return this.edits.refuseList();
   }
 
   private get engine(): Store['engine'] {

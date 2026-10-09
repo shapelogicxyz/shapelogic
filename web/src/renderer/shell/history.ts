@@ -5,7 +5,9 @@
 // bar says what was undone or redone. Refused while a solve or an analysis
 // runs ("pause the solve first", never sent: the engine would answer
 // invalid_state) and while a drag is under way (its step is not finished);
-// a drag just released is waited for (its group closes first). The mockup had no undo; the original's Edit menu
+// a drag just released is waited for (its group closes first); refused
+// too while a BurrTools 2 search is paused (decision 0011: an undo would
+// lose it). The mockup had no undo; the original's Edit menu
 // named the steps the same way (stage 6 adds the menu items).
 
 import type { Store } from '../state/store.ts';
@@ -23,6 +25,7 @@ export async function undoRedo(
   store: Store,
   redo: boolean,
   group: () => GroupState,
+  refuse: () => boolean = () => false,
 ): Promise<void> {
   const g = group();
   if (g === 'drawing') {
@@ -37,6 +40,9 @@ export async function undoRedo(
   }
   if (store.solving) {
     flash('Pause the solve first', 4000);
+    return;
+  }
+  if (refuse()) {
     return;
   }
   if (!(redo ? snap.canRedo : snap.canUndo)) {
@@ -55,13 +61,17 @@ export async function undoRedo(
 }
 
 /** The keys of undo and redo. */
-export function installHistory(store: Store, group: () => GroupState): void {
+export function installHistory(
+  store: Store,
+  group: () => GroupState,
+  refuse: () => boolean = () => false,
+): void {
   onKey('undo', () => {
-    void undoRedo(store, false, group);
+    void undoRedo(store, false, group, refuse);
     return true;
   });
   onKey('redo', () => {
-    void undoRedo(store, true, group);
+    void undoRedo(store, true, group, refuse);
     return true;
   });
 }

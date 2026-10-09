@@ -753,3 +753,29 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 #stage.pzfrozen #pzLib .la,#stage.pzfrozen #pzMore,#stage.pzfrozen #pzSel>:not(.hd),#stage.pzfrozen #pzGroups .ib,
 #stage.pzfrozen #pzRules{pointer-events:none;opacity:.5}
 #stage.frozen #pzNew,#stage.frozen #pzProblems .acts [data-a=dup],#stage.frozen #pzProblems .acts [data-a=del]{pointer-events:none;opacity:.5}
+
+/* ---- stage 4: what the mockup did not have ---- */
+.slv-run{grid-template-columns:1fr 1.25fr 1fr 1fr 1fr}
+.slv-run button{padding:0 2px;font-size:12px}
+.slv-run button.pri:disabled{background:var(--panel);border-color:var(--line2);color:var(--text)}
+.slv-stat .slv-fail{display:flex;gap:6px;align-items:flex-start;color:#dc2626;font-weight:600;margin-top:4px;line-height:1.35}
+.slv-stat .slv-fail svg{flex:none;margin-top:1px}
+.slv-opts .switch{margin-top:0}
+.switch.off{opacity:.4;cursor:default}
+.mcard:disabled{opacity:.45;cursor:default}
+#leftS.slvfrozen .slv-optsec{pointer-events:none;opacity:.5}
+.lbody .lspace{position:relative}
+.lbody .lrow{position:absolute;left:0;right:0}
+.lrow.ph{cursor:default}
+.slv-ana{display:none;flex:none;padding:8px 14px 10px;border-top:1px solid var(--line);font-size:12px}
+.slv-ana.show{display:block}
+.slv-ana .t{display:flex;justify-content:space-between;gap:8px;color:var(--muted)}
+.slv-ana .t b{color:var(--text);font-weight:600}
+.slv-ana .slv-prog{margin-top:6px}
+.slv-ana .slv-prog .btn{flex:none}
+#rightS .seg button{padding:0 8px}
+#stage[data-tab=solver] .vtag{max-width:calc(50% - 130px)}
+#stage[data-tab=solver] .vtag>span{flex:none;white-space:nowrap}
+#stage[data-tab=solver] .vtag>.nm{flex:0 1 auto;min-width:3em;overflow:hidden;text-overflow:ellipsis}
+#stage[data-tab=solver] .vtag>.mute{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#pop .kb{margin-left:auto}

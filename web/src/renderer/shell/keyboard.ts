@@ -18,10 +18,18 @@ export type KeyHandler = (e: KeyboardEvent) => boolean | undefined;
 const handlers = new Map<KeyAction, KeyHandler[]>();
 let modal: () => boolean = () => false;
 
-/** Says what an action does; a handler returning false passes the press on. */
-export function onKey(action: KeyAction, handler: KeyHandler): void {
+/**
+ * Says what an action does; a handler returning false passes the press on.
+ * `first`: tried before the handlers already there (a focused control's
+ * meaning of a key before the view's: Home in the Solver's list).
+ */
+export function onKey(action: KeyAction, handler: KeyHandler, first = false): void {
   const list = handlers.get(action) ?? [];
-  list.push(handler);
+  if (first) {
+    list.unshift(handler);
+  } else {
+    list.push(handler);
+  }
   handlers.set(action, list);
 }
 
