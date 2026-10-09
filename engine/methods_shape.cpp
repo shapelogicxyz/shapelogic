@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// shape.* and grid.geometry (api/shape.json).
+// shape.*, grid.geometry and grid.neighbour (api/shape.json).
 #include "convert.h"
 #include "engine.h"
 
 #include "bt/app/layer_geometry.h"
 #include "bt/app/queries.h"
 #include "bt/app/shape_tools.h"
+#include "bt/base/int_cast.h"
 #include "bt/grid/grid_type.h"
 #include "bt/grid/voxel.h"
 
 #include <limits>
+#include <string>
 
 namespace bt::engine {
 
@@ -316,6 +318,39 @@ Reply gridGeometry(State& s, Params& p) {
   return Json{{"width", g.width}, {"height", g.height}, {"cells", std::move(cells)}};
 }
 
+// The cell across a side: the side numbering of the meshes' voxelFace,
+// which is getNeighbor's (voxel_mesh.cpp, sphere_mesh.cpp). Neither
+// getNeighbor nor validCoordinate depends on the size, so a one-cell space
+// of the grid answers for any.
+Reply gridNeighbour(State& s, Params& p) {
+  const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
+  const std::array<int, 3> cell = p.cell("cell");
+  const unsigned int face = p.count("face");
+  BTE_CHECK(p.finish());
+  const auto [x, y, z] = *size;
+  if (std::uint64_t{x} * y * z > kMaxCells) {
+    return coreError(Errc::InvalidArgument, "the space would be too large");
+  }
+  const auto inside = [&](int cx, int cy, int cz) {
+    return cx >= 0 && cy >= 0 && cz >= 0 && cx < asInt(x) && cy < asInt(y) && cz < asInt(z);
+  };
+  const std::unique_ptr<Voxel> v = s.document().puzzle().getGridType().makeVoxel(1, 1, 1);
+  const auto [cx, cy, cz] = cell;
+  if (!inside(cx, cy, cz) || !v->validCoordinate(cx, cy, cz)) {
+    return coreError(Errc::InvalidArgument, "the cell is not a cell of the space");
+  }
+  int nx = 0;
+  int ny = 0;
+  int nz = 0;
+  if (!v->getNeighbor(face, 0, cx, cy, cz, &nx, &ny, &nz)) {
+    return coreError(Errc::InvalidArgument, "the cell has no side " + std::to_string(face));
+  }
+  if (!inside(nx, ny, nz) || !v->validCoordinate(nx, ny, nz)) {
+    return Json{{"cell", nullptr}};
+  }
+  return Json{{"cell", Json::array({nx, ny, nz})}};
+}
+
 }  // namespace
 
 void addShapeMethods(MethodTable& t) {
@@ -337,6 +372,7 @@ void addShapeMethods(MethodTable& t) {
   t["shape.table"] = shapeTable;
   t["shape.mesh"] = shapeMesh;
   t["grid.geometry"] = gridGeometry;
+  t["grid.neighbour"] = gridNeighbour;
 }
 
 }  // namespace bt::engine

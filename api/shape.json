@@ -289,6 +289,28 @@
         "additionalProperties": false
       },
       "errors": ["invalid_argument"]
+    },
+    "grid.neighbour": {
+      "summary": "The cell across a side of a cell, in a space of the document's grid (the 3D view's tools that add a cell at a face): the sides are numbered as a MeshFrame's voxelFace (Voxel::getNeighbor, faces). Null when the cell across is outside the space. A cell outside the space or not a cell of the grid, or a side the cell does not have: invalid_argument.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "size": {"$ref": "types.json#/$defs/Size"},
+          "cell": {"$ref": "types.json#/$defs/Cell"},
+          "face": {"type": "integer", "minimum": 0, "description": "The side, a MeshFrame's voxelFace."}
+        },
+        "required": ["size", "cell", "face"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "cell": {"oneOf": [{"$ref": "types.json#/$defs/Cell"}, {"type": "null"}], "description": "The cell across the side, or null when it is outside the space."}
+        },
+        "required": ["cell"],
+        "additionalProperties": false
+      },
+      "errors": ["invalid_argument"]
     }
   },
   "$defs": {

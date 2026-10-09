@@ -671,6 +671,26 @@ Result:
 
 Errors: `invalid_argument`
 
+### `grid.neighbour`
+
+The cell across a side of a cell, in a space of the document's grid (the 3D view's tools that add a cell at a face): the sides are numbered as a MeshFrame's voxelFace (Voxel::getNeighbor, faces). Null when the cell across is outside the space. A cell outside the space or not a cell of the grid, or a side the cell does not have: invalid_argument.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `size` | [Size](#size) | required | A size [x, y, z]. |
+| `cell` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+| `face` | integer | required | The side, a MeshFrame's voxelFace. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `cell` | [Cell](#cell) or null | required | The cell across the side, or null when it is outside the space. |
+
+Errors: `invalid_argument`
+
 #### ShapeParam
 
 | name | type | | description |

@@ -1938,6 +1938,29 @@ export interface Methods {
     errors: 'invalid_argument';
   };
   /**
+   * The cell across a side of a cell, in a space of the document's grid (the 3D view's tools that
+   * add a cell at a face): the sides are numbered as a MeshFrame's voxelFace (Voxel::getNeighbor,
+   * faces). Null when the cell across is outside the space. A cell outside the space or not a cell
+   * of the grid, or a side the cell does not have: invalid_argument.
+   * (shape.json)
+   */
+  'grid.neighbour': {
+    params: {
+      size: Size;
+      cell: Cell;
+      /**
+       * The side, a MeshFrame's voxelFace.
+       * @minimum 0
+       */
+      face: number;
+    };
+    result: {
+      /** The cell across the side, or null when it is outside the space. */
+      cell: Cell | null;
+    };
+    errors: 'invalid_argument';
+  };
+  /**
    * A slice of the saved solutions, sorted: list (the stored order), assembly (found order),
    * level, moves or pieces (the original's sort buttons); descending sorts by the swapped
    * comparison, so ties keep their order.
@@ -2336,6 +2359,7 @@ export const METHOD_NAMES = [
   'explore.prune',
   'explore.step',
   'grid.geometry',
+  'grid.neighbour',
   'playback.close',
   'playback.mesh',
   'playback.open',

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <sstream>
 #include <thread>
@@ -575,4 +576,81 @@ TEST_CASE("engine: explorers, fit, paging and the table while a solve runs; a ne
   CHECK(farewell);
   CHECK_FALSE(h.engine.busy());
   CHECK(h.errc("solve.status", {{"problem", p}}) == "not_found");
+}
+
+namespace {
+
+// The sides a mesh draws for one cell: voxelFace of its triangles (on the
+// sphere grid not the connection holes, flag 1 there, whose number is stale).
+std::vector<int> sidesOf(Harness& h, const std::string& shape, std::uint32_t voxel, bool spheres) {
+  const Captured c = h.call("shape.mesh", {{"shape", shape}});
+  REQUIRE(c.frames.size() == 1);
+  const Json& arrays = Harness::reply(c)["result"]["frame"]["arrays"];
+  const auto read = [&](const char* name, std::size_t i) {
+    std::uint32_t v = 0;
+    std::memcpy(&v, c.frames[0].data() + arrays[name]["offset"].get<std::size_t>() + 4 * i, 4);
+    return v;
+  };
+  std::vector<int> sides;
+  for (std::size_t t = 0; t < arrays["voxelFace"]["length"].get<std::size_t>(); t++) {
+    const auto face = static_cast<std::int32_t>(read("voxelFace", t));
+    if (read("voxel", t) == voxel && face >= 0 && (!spheres || (read("flags", t) & 1U) == 0) &&
+        std::find(sides.begin(), sides.end(), face) == sides.end()) {
+      sides.push_back(face);
+    }
+  }
+  std::sort(sides.begin(), sides.end());
+  return sides;
+}
+
+}  // namespace
+
+TEST_CASE("engine: grid.neighbour numbers the sides as the meshes do", "[engine]") {
+  Harness h;
+  for (const char* grid : {"bricks", "prisms", "spheres", "rhombic", "tetraOcta"}) {
+    INFO(grid);
+    h.result("document.new", {{"grid", grid}});
+    const Json size = Json::array({10, 10, 10});
+    const std::string s = h.result("shape.create", {{"size", size}})["shape"];
+    // a cell of the middle layer near the middle of the space
+    const Json geo = h.result("grid.geometry", {{"size", size}, {"layer", 5}});
+    Json cell;
+    int best = 1 << 30;
+    for (const Json& c : geo["cells"]) {
+      const int d = std::abs(c["at"][0].get<int>() - 5) + std::abs(c["at"][1].get<int>() - 5);
+      if (d < best) {
+        best = d;
+        cell = c["at"];
+      }
+    }
+    REQUIRE(cell.is_array());
+    h.result("shape.setCells", {{"shape", s}, {"tool", "fixed"}, {"cells", {cell}}});
+    const auto voxel =
+        cell[0].get<std::uint32_t>() + 10 * (cell[1].get<std::uint32_t>() + 10 * cell[2].get<std::uint32_t>());
+    const bool spheres = std::string(grid) == "spheres";
+    const std::vector<int> sides = sidesOf(h, s, voxel, spheres);
+    REQUIRE(sides.size() >= 4);
+    for (const int face : sides) {
+      INFO("side " << face);
+      const Json n = h.result("grid.neighbour", {{"size", size}, {"cell", cell}, {"face", face}})["cell"];
+      REQUIRE(n.is_array());
+      // the cell across the side, filled, takes exactly that side away
+      CHECK(h.result("shape.setCells", {{"shape", s}, {"tool", "fixed"}, {"cells", {n}}})["changed"] == 1);
+      std::vector<int> rest = sides;
+      rest.erase(std::find(rest.begin(), rest.end(), face));
+      CHECK(sidesOf(h, s, voxel, spheres) == rest);
+      h.result("edit.undo");
+    }
+    CHECK(h.errc("grid.neighbour", {{"size", size}, {"cell", cell}, {"face", 99}}) == "invalid_argument");
+    CHECK(h.errc("grid.neighbour", {{"size", size}, {"cell", {10, 0, 0}}, {"face", 0}}) ==
+          "invalid_argument");
+  }
+  // across the edge of the space: none; a cell the grid does not have
+  h.result("document.new", {{"grid", "bricks"}});
+  CHECK(h.result("grid.neighbour", {{"size", {2, 2, 2}}, {"cell", {0, 0, 0}}, {"face", 0}})["cell"].is_null());
+  CHECK(h.result("grid.neighbour", {{"size", {2, 2, 2}}, {"cell", {0, 0, 0}}, {"face", 3}})["cell"] ==
+        Json::array({1, 0, 0}));
+  h.result("document.new", {{"grid", "spheres"}});
+  CHECK(h.errc("grid.neighbour", {{"size", {3, 3, 3}}, {"cell", {1, 0, 0}}, {"face", 0}}) ==
+        "invalid_argument");
 }

@@ -331,6 +331,15 @@ def shape_tasks_and_views(e):
                 for n in c["neighbours"]:
                     check(n == -1 or i in cells[n]["neighbours"], f"{grid}: mutual neighbours")
         e.fails("grid.geometry", {"size": size, "layer": size[2]}, "invalid_argument")
+        # the cell across each side the mesh draws of the corner cell: a cell
+        # of the space, or none past its edge
+        across = [e.call("grid.neighbour", {"size": size, "cell": corner, "face": face})["cell"]
+                  for face in sorted({fc for fc in f.array("voxelFace") if fc >= 0})]
+        check(None in across, f"{grid}: a side towards the outside")
+        check(any(c is not None and all(0 <= c[i] < size[i] for i in range(3)) for c in across),
+              f"{grid}: a side towards the space {across}")
+        e.fails("grid.neighbour", {"size": size, "cell": corner, "face": 99}, "invalid_argument")
+        e.fails("grid.neighbour", {"size": size, "cell": [size[0], 0, 0], "face": 0}, "invalid_argument")
 
     e.call("document.new", {"grid": "bricks"})
     s1 = e.call("shape.create", {"size": [3, 3, 3]})["shape"]
