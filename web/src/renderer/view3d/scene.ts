@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// What the 3D view shows: one shape now (stage 1b), with its overlays; the
-// pieces of a problem (stage 3) and the poses of a solution (stage 4) come
-// later. The shape is drawn in a style (drawing: the bevelled cells with
+// What the 3D view shows: one shape now (stage 1b), with its overlays and
+// the 3D edit's preview (stage 2); the pieces of a problem (stage 3) and
+// the poses of a solution (stage 4) come later. The shape is drawn in a style (drawing: the bevelled cells with
 // the checker; wireframe: the frame of the original's "gridline" mode;
 // flat: faces with black edge lines, the original's "edges" style), in a
 // colour view (the piece colour, or the constraint colours), lit or not,
@@ -23,6 +23,8 @@ import type { FaceUniforms } from './material.ts';
 import type { BuiltMesh } from './mesh.ts';
 import { Overlays } from './overlays.ts';
 import type { OverlayOptions } from './overlays.ts';
+import { Preview } from './preview.ts';
+import type { Ghost } from './preview.ts';
 
 /** How the shape is shown. */
 export interface ShapeLook {
@@ -40,6 +42,8 @@ export interface ShapeLook {
 
 export class ShapeScene {
   readonly overlays = new Overlays();
+  /** What a 3D edit would do (the Entities workspace). */
+  readonly preview = new Preview();
   private readonly uniforms: FaceUniforms = faceUniforms();
   private readonly mNormal = faceMaterial(this.uniforms, 'normal');
   private readonly mInside = faceMaterial(this.uniforms, 'inside');
@@ -58,6 +62,7 @@ export class ShapeScene {
   constructor(parent: Group) {
     this.parent = parent;
     parent.add(this.overlays.group);
+    parent.add(this.preview.group);
     this.edgeMaterial.resolution = new Vector2(1, 1);
   }
 
@@ -120,6 +125,11 @@ export class ShapeScene {
     }
   }
 
+  /** Shows the 3D edit's preview (empty: none). */
+  setPreview(ghosts: readonly Ghost[]): void {
+    this.preview.set(ghosts, this.built);
+  }
+
   /** The overlays' options. */
   setOverlays(o: OverlayOptions): void {
     this.overlays.update(o);
@@ -150,6 +160,7 @@ export class ShapeScene {
   dispose(): void {
     this.clearMesh();
     this.overlays.clear();
+    this.preview.clear();
     for (const m of [
       this.mNormal,
       this.mInside,

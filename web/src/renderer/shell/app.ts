@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The shell put together: the engine proxy and the store, the top bar, the
-// workspace rail and cards, the 3D view, the status bar, the settings, and
-// the keys of the one table. From docs/mockup/index.html: its
-// orchestration (`renderAll`, the keydown handler's shell rows) and
-// `updateStatus` for the Entities workspace.
+// workspace rail and cards (the Entities workspace: entities/workspace.ts),
+// the 3D view, the status bar, the settings, and the keys of the one
+// table. From docs/mockup/index.html: its orchestration (`renderAll`, the
+// keydown handler's shell rows) and `updateStatus`.
 
 import { EngineProxy } from '../engine-proxy.ts';
-import { installShapePicker } from '../entities/shape-picker.ts';
+import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
 import { installConfirm } from './confirm.ts';
@@ -33,15 +33,10 @@ function statusLine(store: Store): string {
   if (s.state === 'failed') {
     return `The engine could not be kept running: ${esc(s.reason)}`;
   }
-  const shape = store.shape;
   if (store.snapshot === null) {
     return '';
   }
-  if (shape === null) {
-    return 'No shapes';
-  }
-  const n = shape.fixed + shape.variable;
-  return `Shape <b>${esc(shape.label)}</b> has <b>${n}</b> voxels (${shape.fixed} fixed, ${shape.variable} variable)`;
+  return entitiesStatus(store);
 }
 
 // the grid of the document in the voxel editor's header (the mockup's
@@ -56,7 +51,7 @@ function renderGridChip(store: Store): void {
 }
 
 /** Starts the app in the page. */
-export function startApp(): { store: Store; view: View3D } {
+export function startApp(): { store: Store; view: View3D; entities: EntitiesWorkspace } {
   const engine = new EngineProxy(window.bt);
   const store = new Store(engine);
 
@@ -66,8 +61,8 @@ export function startApp(): { store: Store; view: View3D } {
   installLayout();
   installSettings(store);
   installTopBar(store);
-  installShapePicker(store);
   const view = new View3D(store);
+  const entities = new EntitiesWorkspace(store, view);
 
   setStatusProvider(() => statusLine(store));
   store.subscribe((c) => {
@@ -80,6 +75,11 @@ export function startApp(): { store: Store; view: View3D } {
     }
     if (c.kind === 'document' || c.kind === 'settings') {
       renderGridChip(store);
+    }
+    if (c.kind === 'document') {
+      // which document and revision the page shows (the e2e tests wait on them)
+      byId('stage').dataset.generation = String(store.generation);
+      byId('stage').dataset.revision = String(store.snapshot?.revision ?? '');
     }
     if (c.kind === 'document' && c.restarted) {
       flash('The engine was started again: a new, empty document', 5000);
@@ -128,5 +128,5 @@ export function startApp(): { store: Store; view: View3D } {
   });
   onKey('escape', stepBack);
   installKeyboard();
-  return { store, view };
+  return { store, view, entities };
 }

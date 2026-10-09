@@ -5,12 +5,14 @@ An Electron + TypeScript application that drives `bt-engine` over JSON-RPC
 (`../docs/mockup/`). The plan is `../docs/FRONTEND-PLAN.md`; what exists is
 the `web` section of `../docs/ARCHITECTURE.md`.
 
-**Status:** stage 1b: the toolchain, the types generated from `../api/`,
-the engine client with its host, bridge and proxy, and the app's shell
-(top bar, workspace rail, cards, status bar, settings, keyboard map) with
-the 3D view in three.js. The workspaces' cards come in stages 2 to 4; until
-the File menu (stage 6) a puzzle is opened with the top bar's "Open…" or
-by dropping it on the window.
+**Status:** stage 2: the toolchain, the types generated from `../api/`,
+the engine client with its host, bridge and proxy, the app's shell
+(top bar, workspace rail, cards, status bar, settings, keyboard map), the
+3D view in three.js, and the Entities workspace (shapes list, voxel editor
+on every grid, the tool tabs' tasks, 3D editing, undo and redo). The
+Puzzle and Solver cards come in stages 3 and 4; until the File menu
+(stage 6) a puzzle is made with the top bar's "New…" or opened with its
+"Open…" or by dropping it on the window.
 
 ## Running
 
@@ -56,25 +58,32 @@ fake engine's sessions again (after a change to what the engine sends),
   `node-transport.ts` (the child process, Node only).
 - `src/main/`: Electron's main process: `engine-host.ts` (one engine,
   restarted when it dies), `engine-ipc.ts` (the host's side of the bridge),
-  `engine-path.ts`, `index.ts`.
+  `engine-path.ts`, `index.ts` (with `BT_CALL_LOG=<file>` every call of the
+  renderer is logged there with how it ended; the e2e tests read it).
 - `src/preload/`: `window.bt`.
 - `src/renderer/`: `index.html` and `styles.css` (the mockup's body and
   stylesheet), `main.ts`, `engine-proxy.ts` (the client's interface over
   `window.bt`); `shell/` (the app's frame: `app.ts`, `keys.ts` the one
   keyboard table, `keyboard.ts`, `layout.ts`, `settings.ts`, `prefs.ts`,
-  `theme.ts`, `status.ts`, `escape.ts`, `popover.ts`, `confirm.ts`,
-  `topbar.ts`, `icons.ts`, `cursors.ts`, `piece-colours.ts`, `dom.ts`),
+  `theme.ts`, `status.ts`, `escape.ts`, `history.ts` (undo and redo),
+  `popover.ts`, `confirm.ts`, `topbar.ts`, `icons.ts`, `cursors.ts`,
+  `piece-colours.ts`, `dom.ts`),
   `state/store.ts` (the mirror of the engine), `view3d/` (the 3D view:
   `view.ts`, `renderer.ts`, `camera.ts`, `viewcube.ts`, `mesh.ts`,
   `material.ts`, `scene.ts`, `overlays.ts`, `picking.ts`, `meshcache.ts`,
-  `extent.ts`, `toolbar.ts`), `entities/shape-picker.ts` (temporary).
+  `extent.ts`, `toolbar.ts`, `preview.ts`), `entities/` (the Entities
+  workspace: `workspace.ts`, `shapes-list.ts`, `inspector.ts`,
+  `editor-card.ts`, `grid2d.ts`, `layer-geometry.ts`, `shape-cells.ts`,
+  `stroke.ts`, `edit3d.ts`, `tools.ts`, `editor-state.ts`, `glyphs.ts`).
 - `tools/`: `gen-api.ts` (the types), `sessions.ts` and
   `record-sessions.ts` (the recorded sessions).
 - `fake-engine/`: `fake-engine.ts` (a recording replayed as a transport),
   `recordings/`.
 - `tests/`: `unit/` (`unit/renderer/` for the app's pure parts), `engine/`
   (against the real engine), `e2e/` (Playwright: `app.ts` launches the
-  built app; `__screenshots__/` the reference screenshots), `helpers/`.
+  built app and calls its engine through the page's bridge, `editor.ts`
+  drives the voxel editor; `__screenshots__/` the reference screenshots),
+  `helpers/`.
 
 ## Rules
 

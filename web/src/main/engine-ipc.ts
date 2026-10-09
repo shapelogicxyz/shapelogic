@@ -19,10 +19,21 @@ type UntypedCall = (method: string, params?: unknown, options?: CallOptions) => 
 
 const methods: ReadonlySet<string> = new Set(METHOD_NAMES);
 
-/** Serves a host to one renderer; `post` sends a message to it. */
+/** A call the renderer made (its id) and how it ended (errc null: it succeeded). */
+export interface CallOutcome {
+  id: number;
+  method: string;
+  errc: string | null;
+}
+
+/**
+ * Serves a host to one renderer; `post` sends a message to it, `log` (when
+ * given) hears how each call ended.
+ */
 export function serveEngine(
   host: Host,
   post: (message: BridgeMessage) => void,
+  log?: (outcome: CallOutcome) => void,
 ): { receive(message: unknown): void; dispose(): void } {
   let disposed = false;
   const send = (message: BridgeMessage): void => {
@@ -66,6 +77,7 @@ export function serveEngine(
         message.coalesce === undefined ? {} : { coalesce: message.coalesce };
       (host.call.bind(host) as UntypedCall)(method, message.params, options).then(
         (value) => {
+          log?.({ id, method, errc: null });
           const path = (FRAME_PATHS as Partial<Record<string, string>>)[method];
           if (path === undefined) {
             send({ kind: 'reply', id, result: value });
@@ -82,6 +94,7 @@ export function serveEngine(
           });
         },
         (e: unknown) => {
+          log?.({ id, method, errc: isEngineError(e) ? e.errc : 'protocol' });
           if (isEngineError(e)) {
             send({ kind: 'error', id, code: e.code, errc: e.errc, message: e.detail });
           } else {

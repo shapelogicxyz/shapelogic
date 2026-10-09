@@ -6,8 +6,10 @@
 // orbits or pans by the mode, Shift the other, the middle button pans; the
 // wheel zooms, reversed by the setting; `renderTag`; the empty message),
 // with the original's arc-ball when the setting says so. A point under the
-// mouse names its cell and side in the status bar (picking.ts). It renders
-// only when something changed.
+// mouse names its cell and side in the status bar (picking.ts); with an
+// edit host (the Entities workspace, stage 2) the point under the mouse
+// and a click (not a drag) go to it, with the modifiers held, for 3D
+// editing and its preview. It renders only when something changed.
 
 import { Vector2 } from 'three';
 
@@ -23,18 +25,48 @@ import { isDarkTheme, onTheme } from '../shell/theme.ts';
 import { Camera } from './camera.ts';
 import { gridExtent } from './extent.ts';
 import { buildMesh } from './mesh.ts';
+import type { BuiltMesh } from './mesh.ts';
 import { MeshCache } from './meshcache.ts';
 import { layerAxis, layerSlab } from './overlays.ts';
 import type { Plane } from './overlays.ts';
 import { describePick, pickAt } from './picking.ts';
 import type { Pick } from './picking.ts';
+import type { Ghost } from './preview.ts';
 import { ViewRenderer } from './renderer.ts';
 import { ShapeScene } from './scene.ts';
 import { Toolbar } from './toolbar.ts';
-import type { Display, NavMode } from './toolbar.ts';
+import type { Display, EditButton, NavMode } from './toolbar.ts';
 import { ViewCube } from './viewcube.ts';
 
 type V3 = [number, number, number];
+
+/** The modifiers of a pointer event or key (Cmd counts as Alt, as the mockup's `mods`). */
+export interface ViewMods {
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+}
+
+/** What 3D editing does with the view's points (the Entities workspace). */
+export interface EditHost {
+  /** The face under the mouse changed, or the modifiers did (null: none). */
+  hover(pick: Pick | null, mods: ViewMods): void;
+  /** A click (no drag) on a face, or on nothing; true when it was taken. */
+  click(pick: Pick | null, mods: ViewMods): boolean;
+  /** The Edit button. */
+  toggle(): void;
+}
+
+const modsOf = (e: {
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+}): ViewMods => ({
+  ctrl: e.ctrlKey,
+  shift: e.shiftKey,
+  alt: e.altKey || e.metaKey,
+});
 
 interface Drag {
   x: number;
@@ -59,11 +91,14 @@ export class View3D {
     xray: false,
   };
   mode: NavMode = 'orbit';
-  /** The voxel editor's plane and layer (stage 2 moves them). */
+  /** The voxel editor's plane and layer (the slab, the dimmed layers). */
   plane: Plane = 'XY';
   layer = 0;
   /** The last pick under the mouse, or null. */
   lastPick: Pick | null = null;
+  /** 3D editing, when a workspace does it. */
+  edit: EditHost | null = null;
+  private mods: ViewMods = { ctrl: false, shift: false, alt: false };
 
   private readonly store: Store;
   private readonly cache: MeshCache;
@@ -107,6 +142,9 @@ export class View3D {
         this.reload();
       },
       toggleFocus: toggleFocus3d,
+      toggleEdit: () => {
+        this.edit?.toggle();
+      },
     });
     this.toolbar.renderMode();
 
@@ -180,6 +218,45 @@ export class View3D {
     return this.renderer;
   }
 
+  /** The mesh shown, or null. */
+  get mesh(): BuiltMesh | null {
+    return this.scene.mesh;
+  }
+
+  /** The voxel editor's plane and layer: the slab and the dimming follow. */
+  setEditLayer(plane: Plane, layer: number): void {
+    if (plane !== this.plane || layer !== this.layer) {
+      this.plane = plane;
+      this.layer = layer;
+      this.lookChanged();
+    }
+  }
+
+  /** The 3D edit's preview (empty: none). */
+  setPreview(ghosts: readonly Ghost[]): void {
+    this.scene.setPreview(ghosts);
+    byId('vp').dataset.preview = String(this.scene.preview.size);
+    this.renderer.request();
+  }
+
+  /** The view's mouse cursor (empty: the navigation's). */
+  setCursor(cursor: string): void {
+    this.canvas.style.cursor = cursor;
+  }
+
+  /** The Edit button. */
+  renderEditButton(e: EditButton): void {
+    this.toolbar.renderEdit(e);
+  }
+
+  /** The modifiers held changed (a key): the hover is told again. */
+  modsChanged(m: ViewMods): void {
+    this.mods = m;
+    if (this.hoverAt !== null && this.drag === null) {
+      this.edit?.hover(this.lastPick, m);
+    }
+  }
+
   private setMode(m: NavMode): void {
     this.mode = m;
     this.toolbar.renderMode();
@@ -219,7 +296,8 @@ export class View3D {
     }
     const n = ++this.loading;
     const size = shape.size;
-    this.cache.get(shape.id, style, snap.revision).then(
+    const revision = snap.revision;
+    this.cache.get(shape.id, style, revision).then(
       (reply) => {
         if (n !== this.loading) {
           return;
@@ -234,6 +312,7 @@ export class View3D {
         this.shownKey = key;
         this.scene.setMesh(built);
         byId('vp').dataset.shown = `${shape.id}:${style}`;
+        byId('vp').dataset.revision = String(revision);
         this.lookChanged();
         this.repick();
       },
@@ -314,7 +393,7 @@ export class View3D {
     } else if (s.snapshot === null) {
       text = '';
     } else if (s.snapshot.shapes.length === 0) {
-      text = 'No shapes — open a puzzle';
+      text = 'No shapes — add one with + New';
     } else if (s.shape !== null && s.shape.fixed + s.shape.variable === 0) {
       text = 'Empty shape — draw in the Voxel editor';
     }
@@ -361,10 +440,11 @@ export class View3D {
   private showPick(p: Pick | null): void {
     this.lastPick = p;
     setCursor(p === null ? '' : describePick(p));
+    this.edit?.hover(p, this.mods);
   }
 
   private repick(): void {
-    if (this.hoverAt !== null) {
+    if (this.hoverAt !== null && this.drag === null) {
       this.showPick(this.pickAtClient(this.hoverAt.x, this.hoverAt.y));
     }
   }
@@ -398,6 +478,7 @@ export class View3D {
     });
     cv.addEventListener('pointermove', (e) => {
       const d = this.drag;
+      this.mods = modsOf(e);
       if (d === null) {
         this.hoverAt = { x: e.clientX, y: e.clientY };
         this.showPick(this.pickAtClient(e.clientX, e.clientY));
@@ -408,6 +489,8 @@ export class View3D {
           return;
         }
         d.moved = true;
+        // a drag navigates: no edit preview while it lasts
+        this.edit?.hover(null, this.mods);
         d.x = e.clientX;
         d.y = e.clientY;
         if (d.m === 'orbit' && prefs.rot === 'Arc-ball') {
@@ -435,9 +518,14 @@ export class View3D {
       const was = this.drag;
       this.drag = null;
       this.camera.arcEnd();
+      this.mods = modsOf(e);
       if (was !== null && was.btn === 0 && !was.moved) {
-        // a click: the cell and side under it (stage 2 edits them)
-        this.showPick(this.pickAtClient(e.clientX, e.clientY));
+        // a click: the cell and side under it, edited when the workspace edits
+        const p = this.pickAtClient(e.clientX, e.clientY);
+        this.edit?.click(p, this.mods);
+        this.showPick(p);
+      } else if (was?.moved === true) {
+        this.repick();
       }
     });
     cv.addEventListener('pointerleave', () => {

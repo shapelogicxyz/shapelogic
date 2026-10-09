@@ -10,10 +10,11 @@
 // mode key). Added: the render styles of the original (docs/webui-spec.md
 // section 7.4: bevelled voxels, flat with edges, and the wire frame) and
 // "Show through solid pieces" (x-ray), which the mockup offered in the
-// Solver only. The Edit button waits for the editor (stage 2).
+// Solver only. The Edit button shows the voxel editor's tool (stage 2).
 
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import { toolIcon } from '../shell/cursors.ts';
+import type { Tool } from '../shell/cursors.ts';
 import { byId } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import type { IconName } from '../shell/icons.ts';
@@ -52,6 +53,23 @@ export interface ToolbarHost {
   /** A Display choice changed. */
   changed(): void;
   toggleFocus(): void;
+  /** The Edit button: 3D edit mode on or off. */
+  toggleEdit(): void;
+}
+
+/** What the Edit button shows (the mockup's renderEditBtn). */
+export interface EditButton {
+  tool: Tool;
+  /** The tool's name and key, e.g. "Fixed voxel", "1". */
+  name: string;
+  key: string;
+  /** The drawing colour of the badge (null: Default). */
+  colour: string | null;
+  /** 3D edit mode is on. */
+  on: boolean;
+  /** A modifier's quick tool is shown for now. */
+  tmp: boolean;
+  enabled: boolean;
 }
 
 export class Toolbar {
@@ -88,6 +106,9 @@ export class Toolbar {
     byId('bF3D').addEventListener('click', () => {
       this.host.toggleFocus();
     });
+    byId('bEdit').addEventListener('click', () => {
+      this.host.toggleEdit();
+    });
     this.installAutoHide();
   }
 
@@ -112,11 +133,24 @@ export class Toolbar {
     b.setAttribute('aria-pressed', String(f3));
   }
 
-  // the 3D edit button (renderEditBtn), waiting for the editor
-  private renderEdit(): void {
-    const b = byId('bEdit');
-    b.innerHTML = `${toolIcon('fixed', null)}<span>Edit</span><i class="kb">1</i>`;
-    b.title = '3D edit mode — a plain click uses the active voxel tool (with the voxel editor)';
+  /** The 3D edit button (the mockup's renderEditBtn). */
+  renderEdit(e?: EditButton): void {
+    const b = byId<HTMLButtonElement>('bEdit');
+    const s = e ?? {
+      tool: 'fixed',
+      name: 'Fixed voxel',
+      key: '1',
+      colour: null,
+      on: false,
+      tmp: false,
+      enabled: false,
+    };
+    b.innerHTML = `${toolIcon(s.tool, s.colour)}<span>Edit</span><i class="kb">${s.key}</i>`;
+    b.disabled = !s.enabled;
+    b.classList.toggle('on', s.on);
+    b.classList.toggle('tmp', s.tmp);
+    b.setAttribute('aria-pressed', String(s.on));
+    b.title = `${s.tmp ? 'Quick tool — ' : '3D edit mode — '}${s.name} (${s.key}). ${s.on ? 'Click edits with the active tool. Press E to leave edit mode.' : 'Press E to turn edit mode on; or hold Shift/Alt/Ctrl while clicking.'}`;
   }
 
   private displayHtml(): string {

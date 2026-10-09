@@ -75,13 +75,14 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(13);
+    expect(seen.size).toBe(30);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
     expect(actionOf(press('2', { ctrl: true }))).toBe('workspace.puzzle');
     expect(actionOf(press('2', { meta: true }))).toBe('workspace.puzzle');
-    expect(actionOf(press('2'))).toBeNull();
+    expect(actionOf(press('2'))).toBe('tool.variable');
+    expect(actionOf(press('2', { alt: true }))).toBeNull();
     expect(actionOf(press('ü', { ctrl: true }, 'BracketLeft'))).toBe('card.left');
     expect(actionOf(press(' ', { ctrl: true }, 'Space'))).toBe('focus3d');
     expect(actionOf(press('O', { shift: true }))).toBe('view.orbit');
@@ -89,6 +90,25 @@ describe('the keyboard map', () => {
     expect(actionOf(press('f', { ctrl: true }))).toBeNull();
     expect(actionOf(press('Escape'))).toBe('escape');
     expect(matches({ key: 'x', shift: true }, press('x'))).toBe(false);
+  });
+
+  it('has the Entities rows and undo', () => {
+    expect(actionOf(press('z', { ctrl: true }))).toBe('undo');
+    expect(actionOf(press('z', { meta: true }))).toBe('undo');
+    expect(actionOf(press('Z', { ctrl: true, shift: true }))).toBe('redo');
+    expect(actionOf(press('z'))).toBeNull();
+    expect(actionOf(press('4'))).toBe('tool.paint');
+    expect(actionOf(press('E', { shift: true }))).toBe('edit3d');
+    expect(actionOf(press('PageUp'))).toBe('layer.next');
+    expect(actionOf(press('PageDown'))).toBe('layer.prev');
+    expect(actionOf(press('ArrowUp'))).toBe('shape.prev');
+    expect(actionOf(press('ArrowUp', { alt: true }))).toBe('shape.earlier');
+    expect(actionOf(press('ArrowDown', { alt: true }))).toBe('shape.later');
+    expect(actionOf(press('F2'))).toBe('shape.rename');
+    expect(actionOf(press('Enter'))).toBe('shape.rename');
+    expect(actionOf(press('Delete'))).toBe('delete');
+    expect(actionOf(press('d', { ctrl: true }, 'KeyD'))).toBe('shape.duplicate');
+    expect(actionOf(press('d'))).toBeNull();
   });
 
   it('prints in the mockup’s groups', () => {

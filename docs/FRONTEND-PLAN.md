@@ -133,7 +133,7 @@ effort and audits".
 - [x] **Stage 1a**: toolchain, generated types, the engine client (docs/handoff/web-1a.md)
 - [x] Audit of stage 1a (docs/handoff/web-1a.md, "Audit")
 - [x] **Stage 1b**: the shell and the 3D view (docs/handoff/web-1b.md)
-- [ ] **Stage 2**: the Entities workspace
+- [x] **Stage 2**: the Entities workspace (docs/handoff/web-2.md)
 - [ ] **Stage 3**: the Puzzle workspace
 - [ ] **Stage 4**: the Solver workspace and the player
 - [ ] Audit of stage 4
@@ -503,9 +503,9 @@ PLAN.md's "Later" list.
 | Need (webui-spec.md) | API today | What to do |
 |---|---|---|
 | Draw an assembled solution, an explorer's placement or a movement position (§5, §7) | `shape.mesh {transformation}` gives the turned mesh; **no reply gives the turned shape's hotspot**, so the client cannot place it | **Add** `hotspot` to `MeshFrame` (stage 4; `playback.mesh` is already centred) |
-| 3D edit mode on non-cube grids (§3) | the mesh names the cell and side of each triangle; nothing gives the cell across a side | **Add** `grid.neighbour {size, cell, face}` over `Voxel::getNeighbor` (stage 2); cubes use a client table |
+| 3D edit mode on non-cube grids (§3) | the mesh names the cell and side of each triangle; nothing gives the cell across a side | **Added** in stage 2: `grid.neighbour {size, cell, face}` over `Voxel::getNeighbor`; cubes use a client table (checked against it) |
 | "Cannot be disassembled" against "Disassembly not checked" (§5) | `SolutionRow.disassembly` is `none` for both | Stage 4 decides: an additive `inseparable` value if the core records the failed analysis, else the client remembers the last analysis |
-| Mirror and span on non-cube grids (§3, "to be decided") | `shape.setCells` takes the axes on any grid | Verify in stage 2 what the core does per grid; hide where ignored |
+| Mirror and span on non-cube grids (§3, "to be decided") | `shape.setCells` takes the axes on any grid | Verified in stage 2: the core applies them on every grid (cells the grid lacks left out); shown everywhere (web-2.md) |
 | "Drop below level" (§5) | does not exist in the original; `keepEach` keeps every n-th | The option becomes "Keep every n-th" |
 | Apply grid size to all shapes (§3) | `shape.resize toAll` grows the others, never shrinks (the original's rule) | Keep; the tooltip says so |
 | Menus: New, Open, Save, Save As, recent, notes, status window, about (§7.1) | `document.*`, `shape.table`, `engine.info` | Client (stage 6) |

@@ -7,7 +7,9 @@
 // "Keyboard shortcuts" page (and stage 6's F1 dialog) prints it, and the
 // shell's keydown handler (keyboard.ts) dispatches from its chords. Rows
 // whose actions come with a later stage have no chords yet: that stage
-// adds them here.
+// adds them here. An action names what a press means (`delete`), and each
+// workspace says what it does there (keyboard.ts tries their handlers in
+// turn); the shapes list's rows act while the list has the focus.
 
 /** What a key does; keyboard.ts maps each to a handler. */
 export type KeyAction =
@@ -23,7 +25,23 @@ export type KeyAction =
   | 'view.orbit'
   | 'view.pan'
   | 'view.home'
-  | 'view.fit';
+  | 'view.fit'
+  | 'undo'
+  | 'redo'
+  | 'tool.fixed'
+  | 'tool.variable'
+  | 'tool.erase'
+  | 'tool.paint'
+  | 'edit3d'
+  | 'layer.next'
+  | 'layer.prev'
+  | 'shape.prev'
+  | 'shape.next'
+  | 'shape.earlier'
+  | 'shape.later'
+  | 'shape.rename'
+  | 'shape.duplicate'
+  | 'delete';
 
 /**
  * A key press. `mod` is Ctrl, or Cmd on macOS (the mockup takes either);
@@ -103,6 +121,15 @@ export const KEY_MAP: readonly KeyRow[] = [
     does: 'Step back: close dialog → close menu → cancel rename → pause playback → exit focus mode',
     chords: [{ chord: { key: 'Escape' }, action: 'escape' }],
   },
+  {
+    group: 'Everywhere',
+    keys: 'Ctrl+Z / Shift+Ctrl+Z',
+    does: 'Undo / redo (the status bar names the step)',
+    chords: [
+      { chord: { key: 'z', code: 'KeyZ', mod: true, shift: false }, action: 'undo' },
+      { chord: { key: 'z', code: 'KeyZ', mod: true, shift: true }, action: 'redo' },
+    ],
+  },
   { group: 'Everywhere', keys: 'Tab / Shift+Tab', does: 'Move keyboard focus between controls' },
   {
     group: 'Everywhere',
@@ -153,11 +180,18 @@ export const KEY_MAP: readonly KeyRow[] = [
     sub: 'drawing',
     keys: '1 / 2 / 3 / 4',
     does: 'Tool: Fixed / Variable / Erase / Paint',
+    chords: [
+      { chord: { key: '1', code: 'Digit1' }, action: 'tool.fixed' },
+      { chord: { key: '2', code: 'Digit2' }, action: 'tool.variable' },
+      { chord: { key: '3', code: 'Digit3' }, action: 'tool.erase' },
+      { chord: { key: '4', code: 'Digit4' }, action: 'tool.paint' },
+    ],
   },
   {
     group: 'Entities',
     keys: 'E',
     does: '3D edit mode (toggle) — a plain click uses the active tool',
+    chords: [{ chord: { key: 'e' }, action: 'edit3d' }],
   },
   {
     group: 'Entities',
@@ -176,28 +210,60 @@ export const KEY_MAP: readonly KeyRow[] = [
     keys: '@Drag across cells',
     does: '2D grid: apply the tool to every cell entered (one undo step)',
   },
-  { group: 'Entities', keys: 'PgUp / PgDn', does: 'Next / previous layer' },
+  {
+    group: 'Entities',
+    keys: 'PgUp / PgDn',
+    does: 'Next / previous layer',
+    chords: [
+      { chord: { key: 'PageUp' }, action: 'layer.next' },
+      { chord: { key: 'PageDown' }, action: 'layer.prev' },
+    ],
+  },
 
   {
     group: 'Entities',
     sub: 'shapes list',
     keys: '↑ / ↓',
     does: 'Previous / next shape (list focused)',
+    chords: [
+      { chord: { key: 'ArrowUp' }, action: 'shape.prev' },
+      { chord: { key: 'ArrowDown' }, action: 'shape.next' },
+    ],
   },
   {
     group: 'Entities',
     sub: 'shapes list',
     keys: 'Alt+↑ / Alt+↓',
     does: 'Move the shape earlier / later — shapes renumber',
+    chords: [
+      { chord: { key: 'ArrowUp', alt: true }, action: 'shape.earlier' },
+      { chord: { key: 'ArrowDown', alt: true }, action: 'shape.later' },
+    ],
   },
   {
     group: 'Entities',
     sub: 'shapes list',
     keys: 'F2 / Enter / @Double-click',
     does: 'Rename the shape label; Enter commits, Esc cancels',
+    chords: [
+      { chord: { key: 'F2' }, action: 'shape.rename' },
+      { chord: { key: 'Enter' }, action: 'shape.rename' },
+    ],
   },
-  { group: 'Entities', sub: 'shapes list', keys: 'Del', does: 'Delete the shape' },
-  { group: 'Entities', sub: 'shapes list', keys: 'Ctrl+D', does: 'Duplicate the shape' },
+  {
+    group: 'Entities',
+    sub: 'shapes list',
+    keys: 'Del',
+    does: 'Delete the shape',
+    chords: [{ chord: { key: 'Delete' }, action: 'delete' }],
+  },
+  {
+    group: 'Entities',
+    sub: 'shapes list',
+    keys: 'Ctrl+D',
+    does: 'Duplicate the shape',
+    chords: [{ chord: mod('d', 'KeyD'), action: 'shape.duplicate' }],
+  },
   { group: 'Entities', sub: 'shapes list', keys: '@Right-click a row', does: 'Shape menu' },
   { group: 'Entities', sub: 'shapes list', keys: '@Drag a row', does: 'Reorder' },
 

@@ -3,9 +3,13 @@
 // The app for the e2e tests: the build in out/ launched by Playwright's
 // Electron driver with the release engine (or BT_ENGINE), its window at a
 // fixed size, and the UI actions the tests share (open a fixture by the
-// temporary Open button, pick a shape, change the display).
+// temporary Open button, a new puzzle by the temporary New button, pick a
+// shape, change the display); `engineCall` asks the app's own engine
+// through the page's bridge (what the engine holds, not what the UI
+// shows), and `launch({ callLog })` has the main process log every call
+// of the renderer with how it ended (BT_CALL_LOG).
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { _electron as electron, expect } from '@playwright/test';
@@ -37,8 +41,8 @@ export interface App {
   close(): Promise<void>;
 }
 
-/** Launches the app and waits for its engine to run. */
-export async function launch(): Promise<App> {
+/** Launches the app and waits for its engine to run; `callLog` is BT_CALL_LOG's file. */
+export async function launch(opts: { callLog?: string } = {}): Promise<App> {
   // an editor's terminal may set ELECTRON_RUN_AS_NODE, which turns Electron into Node
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -46,6 +50,9 @@ export async function launch(): Promise<App> {
     ),
   );
   env.BT_ENGINE = ENGINE ?? '';
+  if (opts.callLog !== undefined) {
+    env.BT_CALL_LOG = opts.callLog;
+  }
   const app = await electron.launch({ args: [resolve(WEB, 'out/main/index.js')], cwd: WEB, env });
   const page = await app.firstWindow();
   await app.evaluate(({ BrowserWindow }, size) => {
@@ -138,4 +145,72 @@ export async function settle(page: Page): Promise<void> {
 export async function camera(page: Page): Promise<number[]> {
   const v = (await page.getAttribute('#vp', 'data-camera')) ?? '';
   return v.split(',').map(Number);
+}
+
+/** A call of the renderer as the main process logged it (BT_CALL_LOG). */
+export interface LoggedCall {
+  id: number;
+  method: string;
+  errc: string | null;
+}
+
+/** The ids engineCall gives its calls, above any the page's proxy reaches. */
+const BRIDGE_IDS = 1_000_000_000;
+
+/** The calls of the app a call log holds (the test's own engineCall calls left out). */
+export function readCallLog(path: string): LoggedCall[] {
+  if (!existsSync(path)) {
+    return [];
+  }
+  return readFileSync(path, 'utf8')
+    .split('\n')
+    .filter((l) => l !== '')
+    .map((l) => JSON.parse(l) as LoggedCall)
+    .filter((c) => c.id < BRIDGE_IDS);
+}
+
+let bridgeIds = BRIDGE_IDS;
+
+/**
+ * Calls the app's own engine through the page's bridge, with an id the
+ * page's proxy never uses (its reply is ignored there; the events reach
+ * the app as any other). Not for methods whose reply holds a frame.
+ */
+export async function engineCall<T = unknown>(
+  page: Page,
+  method: string,
+  params?: unknown,
+): Promise<T> {
+  const id = bridgeIds++;
+  return page.evaluate(
+    ([id, method, params]) =>
+      new Promise<T>((done, fail) => {
+        const off = window.bt.onMessage((m) => {
+          if ((m.kind === 'reply' || m.kind === 'error') && m.id === id) {
+            off();
+            if (m.kind === 'reply') {
+              done(m.result as T);
+            } else {
+              fail(new Error(`${m.errc}: ${m.message}`));
+            }
+          }
+        });
+        window.bt.send({
+          kind: 'call',
+          id,
+          method,
+          ...(params === undefined ? {} : { params }),
+        });
+      }),
+    [id, method, params] as const,
+  );
+}
+
+/** A new empty puzzle on a grid, by the top bar's temporary New button. */
+export async function newDocument(page: Page, grid: string): Promise<void> {
+  const before = await page.locator('#stage').getAttribute('data-generation');
+  await page.click('#btnNewDoc');
+  await page.click(`#pop [data-k="${grid}"]`);
+  await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
+  await expect(page.locator('#shapeList .row')).toHaveCount(0);
 }

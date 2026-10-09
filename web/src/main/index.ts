@@ -5,15 +5,28 @@
 // it reaches the engine only through the preload's window.bt. A main-frame
 // navigation (a reload) gets a new bridge server: the new page's proxy
 // numbers its calls from 1 again, so replies to the old page's calls must
-// not reach it. Stage 6 adds the menus, files and recovery.
+// not reach it. With BT_CALL_LOG set, every call the renderer makes is
+// written to that file with how it ended (a JSON line: method, errc), so
+// the e2e tests can check that the UI never asked for what the engine
+// refused. Stage 6 adds the menus, files and recovery.
 
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { NodeTransport } from '../engine/node-transport.ts';
 import { findEngine } from './engine-path.ts';
 import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
+import type { CallOutcome } from './engine-ipc.ts';
+
+const callLog = process.env.BT_CALL_LOG;
+const logCall =
+  callLog === undefined || callLog === ''
+    ? undefined
+    : (o: CallOutcome): void => {
+        appendFileSync(callLog, JSON.stringify(o) + '\n');
+      };
 
 const servers = new Map<number, ReturnType<typeof serveEngine>>();
 
@@ -40,11 +53,15 @@ function createWindow(): void {
     },
   });
   const serve = (): ReturnType<typeof serveEngine> =>
-    serveEngine(host, (message) => {
-      if (!contents.isDestroyed()) {
-        contents.send('bt:message', message);
-      }
-    });
+    serveEngine(
+      host,
+      (message) => {
+        if (!contents.isDestroyed()) {
+          contents.send('bt:message', message);
+        }
+      },
+      logCall,
+    );
   servers.set(contents.id, serve());
   contents.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) {

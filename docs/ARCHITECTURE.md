@@ -13,10 +13,12 @@ paused solve files, the playback sampler and the explorers; `bt-engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
 tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
 benchmark as fast as the original or faster). The web front end
-(docs/FRONTEND-PLAN.md) has its stages 1a and 1b: the toolchain in `web/`,
-the TypeScript types generated from `api/`, the engine client with its host,
-bridge and proxy, the app's shell from the mockup and the 3D view in
-three.js. Next: its stage 2, the Entities workspace.*
+(docs/FRONTEND-PLAN.md) has its stages 1a, 1b and 2: the toolchain in
+`web/`, the TypeScript types generated from `api/`, the engine client with
+its host, bridge and proxy, the app's shell from the mockup, the 3D view in
+three.js, and the Entities workspace (the shapes list, the voxel editor on
+every grid, the tool tabs' tasks, 3D editing, undo and redo). Next: its
+stage 3, the Puzzle workspace.*
 
 ## Big picture
 
@@ -430,7 +432,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
 - `document.h`: `Document`: the puzzle, the ids of its shapes, colours and
   problems (a solution's id is `Solution::getId()`), the revision, the
   dirty flag, the undo history (each step keeps the parts it changed and
-  swaps them back and forth; groups for a drag; a depth), every editing
+  swaps them back and forth; groups for a drag, in which every command
+  that changes something still gets a revision of its own and its
+  `lastChange`, though a part is saved once; a depth), every editing
   command of core-api.md sections 1 to 4 and the solution commands
   (delete, drop disassemblies, assemblies to shapes) and the stored
   Solver tab settings (`setSolverOptions`), each a `Result`, one
@@ -523,7 +527,9 @@ schema in `api/`, documented in the generated `docs/API.md`.
   solutions (`solution.page` sorts the saved list's indices under
   `readProblem` with `solutionSortOrder`, a view, with the problem's
   `solutionsVersion`; the analysis, with its failure), shapes
-  (`shape.mesh` in any transformation of the grid), playback (samplers
+  (`shape.mesh` in any transformation of the grid; `grid.geometry`, the
+  editor's drawing of a layer; `grid.neighbour`, the cell across a side,
+  the sides numbered as a mesh's `voxelFace`), playback (samplers
   behind `pb` handles: poses and keyframe tracks as frames of typed
   arrays; a solution without a disassembly as a single pose; piece meshes
   in any style), explorers (`ax` and `mx` handles).
@@ -583,11 +589,11 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a and 1b, decision 0013)
+## web (front-end stages 1a, 1b and 2, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
-1.64.0 among them). What exists after stage 1b:
+1.64.0 among them). What exists after stage 2:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -612,36 +618,49 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   running; `stop()` ends an engine being started too), `engine-ipc.ts`
   (`serveEngine`: the host's side of the bridge; it answers the proxy's
   status request and posts a status after the errors of the calls it
-  failed), `engine-path.ts`, `index.ts` (Electron's main: a window, its
-  host, IPC; a main-frame navigation gets a new bridge server, so replies
-  to the old page's calls are dropped; in development the renderer's
-  warnings and errors are echoed to the terminal).
+  failed; with a log callback it tells how each call ended), `engine-path.ts`,
+  `index.ts` (Electron's main: a window, its host, IPC; a main-frame
+  navigation gets a new bridge server, so replies to the old page's calls
+  are dropped; in development the renderer's warnings and errors are
+  echoed to the terminal; with `BT_CALL_LOG` set every call of the
+  renderer is written to that file with its id and errc, which the e2e
+  tests read).
   `src/preload/index.ts` exposes `window.bt`.
 - `src/renderer/`, the app (sandboxed; it reaches nothing but `window.bt`):
   - `index.html`, `styles.css`: the mockup's body and stylesheet (the
-    stylesheet in its compact form, left alone by Prettier); `main.ts`;
+    stylesheet in its compact form, left alone by Prettier; the Puzzle
+    library's chip rules scoped to `.pz-lib`, since the stage's own
+    collapsed class is `lc` too); `main.ts`;
     `engine-proxy.ts` (`EngineProxy`, the client's interface over
     `window.bt`).
   - `state/store.ts`: `Store`, the mirror of the engine: its status (no
     call before `running`; everything loaded again when `restarts`
     grows), `engine.info`, the engine's settings, the `Snapshot` (reloaded
-    on `document.changed`, the newest load winning), the shape shown, and a
-    `generation` that grows with every new document, so the old one's ids
-    are not taken for the new one's.
+    on `document.changed`, coalesced by the key `document.get`, the newest
+    load winning), the shape shown, `solving` (the frozen state), a
+    `generation` that grows with every new document (`openBytes`,
+    `newDocument`), so the old one's ids are not taken for the new one's,
+    and `whenRevision(r)`, which a mutating call awaits before acting on
+    what it made.
   - `shell/`: the frame of the app, ported from the mockup's functions:
     `app.ts` (puts it together; the status line), `keys.ts` (**the one
     keyboard table**: the rows of webui-spec.md section 6 with their
     chords and actions; the help prints it), `keyboard.ts` (the keydown
     handler: an action from the table, a handler per action; keys go to
-    text fields, a modal dialog keeps them), `escape.ts` (Esc's step-back
+    text fields, a modal dialog keeps them; an action may have several
+    handlers, one per workspace, tried in turn), `history.ts` (undo and
+    redo, named by `edit.history`; refused while solving without asking
+    the engine; a drag just released is waited for), `escape.ts` (Esc's step-back
     order), `layout.ts` (the rail, the cards' collapse and the 3D focus,
     the layout per workspace), `settings.ts` and `prefs.ts` (the settings
     dialog; undo depth and threads go to `settings.set`, the rest are the
     client's, in memory until stage 6), `theme.ts` (theme, density,
     tooltips), `status.ts` (the status bar, flashes, `reportError`:
     `invalid_state` as "pause first"), `popover.ts`, `confirm.ts`,
-    `topbar.ts` (the file's name, path and dirty mark; the temporary Open
-    and drop, by `document.openBytes`), `icons.ts`, `cursors.ts`,
+    `topbar.ts` (the file's name, path and dirty mark; the temporary New…
+    with the grid chosen, by `document.new`, and the temporary Open and
+    drop, by `document.openBytes`), `icons.ts`, `cursors.ts` (the tools'
+    pictures and data-URL mouse cursors),
     `piece-colours.ts` (the original's `pieceColor` table and jitter),
     `dom.ts`.
   - `view3d/`: the 3D view. `view.ts` (`View3D`: the selected shape's mesh
@@ -666,9 +685,47 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     slab), `picking.ts` (a raycast's triangle to its cell and side),
     `extent.ts` (a space's size in mesh units, the original's
     `calculateSize`), `toolbar.ts` (Orbit, Pan, Edit, Display, Focus; the
-    Display menu; Minimal's hiding toolbar).
-  - `entities/shape-picker.ts`: a temporary list of the shapes until
-    stage 2's shapes list.
+    Display menu; Minimal's hiding toolbar; the Edit button's tool),
+    `preview.ts` (the 3D edit's ghosts, drawn on top: boxes on the cube
+    grid, a cell's or one side's triangles of the mesh on the others). The
+    view takes an edit host (`View3D.edit`: the point under the mouse and a
+    click that was no drag, with the modifiers), the editor's plane and
+    layer (`setEditLayer`), a preview and a cursor; `#vp` says
+    `data-revision` and `data-preview`.
+  - `entities/`: the Entities workspace (stage 2), from the mockup's
+    `renderShapes`, `renderInsp`, `renderTransform`, `renderTools`,
+    `renderGrid`, `spaceGridSvg`, `renderLayers`, `renderPlane`,
+    `renderColors`, `renderSelbar`, `applyTool`, `applyCell`, `hover2d`,
+    `shapeAction` and their handlers. `workspace.ts` (`EntitiesWorkspace`:
+    puts it together; the workspace's keys; the frozen state while
+    `Snapshot.solving`, the cards disabled and every edit refused with
+    "Pause the solve first" before any call; `mutate`, a call awaited to its
+    revision; `data-busy`, the edits under way), `shapes-list.ts` (new,
+    duplicate, delete but never the last, move by Alt+arrows, the menu or
+    a drag, rename in place, weight, the shape's own colour, the collapsed
+    card's chips), `inspector.ts` (Transform, Fit & scale, Repair &
+    surface: the buttons of `shape.taskSet`, placed per grid as the mockup
+    draws them, the rest as plain buttons of their group; `shape.task`, the
+    counts and a blocked nudge as flash messages; "Apply to all shapes"),
+    `editor-card.ts` (the tool strip, mirror and span, the planes and the
+    box tool, the layer strip with its marks, the selection bar, the size
+    steppers in `sizeUnit` blocks rounded up as the original's, the
+    palette), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
+    a layer drawing; the cursor outlined by its edges towards cells not
+    under it; a drag collects every cell the pointer passes over, the right
+    button erases; the box selection), `layer-geometry.ts` (`grid.geometry`
+    by grid, size and layer; the cube's XZ and YZ planes as the client's
+    squares), `shape-cells.ts` (`ShapeCells`: the shape's cells, the XY
+    layer by `shape.get {layer}` and the whole shape, reloaded once the
+    snapshot after a change still has the shape; coalesced),
+    `stroke.ts` (`Stroke`: a drag as one `edit.begin` … `edit.end`, one
+    `shape.setCells` of a frame's cells at the engine at a time, the group
+    closed whatever failed inside it), `edit3d.ts` (`Edit3D`: 3D editing,
+    the cell across a face by `tools.ts`'s table on cubes and
+    `grid.neighbour` elsewhere, the preview with mirror and span),
+    `tools.ts` (which tool a press uses; the cube's faces), `editor-state.ts`
+    (`EditorState`; `planeMap`; `expand`, mirror and span's cells as the
+    core makes them, for the previews), `glyphs.ts` (the mockup's `G`).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them.
@@ -677,20 +734,28 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
 mutating call waits for its revision; the renderer never sees Node and
 never parses frames by hand; `src/engine/` stays platform-free (a
 TypeScript project without Node's types and ESLint check it); keys come
-from the one table. Tested by Vitest: `tests/unit/` (the parser at every
+from the one table; the client computes only what the engine cannot be
+asked for in time (the cube planes' squares, the cube's faces, the
+preview's mirror and span cells: each checked against the engine by a
+test). Tested by Vitest: `tests/unit/` (the parser at every
 chunk size over recordings of the real engine, the client against a
 scripted engine, the inbox and its deferral, the fake engine, the host,
 the bridge; `unit/renderer/`: the keyboard table against webui-spec.md
 section 6, the piece colours against the original's, the mesh
-translation, the camera, the store and the mesh cache) and
+translation, the camera, the store and the mesh cache, a stroke's
+protocol, the planes, the quick tools, mirror and span) and
 `tests/engine/` (the real engine: every fixture opened and drawn in every
 style, stage 7's scripted session, pause, save point, continue and abort,
-the event order of decision 0012, a killed engine restarted); by
+the event order of decision 0012, a killed engine restarted; the
+preview's mirror and span cells on every grid, the cube's faces against
+`grid.neighbour`, a stroke as one step with an event per batch); by
 Playwright's Electron driver (`tests/e2e/`, the built app with the
 release engine: the IPC path, a killed engine, a reload with calls in
 flight, every fixture shape in every style, reference screenshots of each
 grid, picking on every fixture, the shell's keys, the settings, the
-view's speed).
+view's speed; the editor on each of the five grids, the shapes list, the
+frozen state, every shape of Bermuda and Prisgon rebuilt through the
+editor; the call log checked for refusals).
 
 ## Testing against the original
 

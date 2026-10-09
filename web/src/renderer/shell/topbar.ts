@@ -2,12 +2,16 @@
 //
 // The top bar: the brand, the file's name (its path on hover, a mark when
 // it has unsaved changes) and the Settings button. From
-// docs/mockup/index.html: `.top`. Until the File menu of stage 6, an
-// "Open…" button and a file dropped on the window open a puzzle by its
-// bytes (document.openBytes: the renderer has no paths).
+// docs/mockup/index.html: `.top`. Until the File menu of stage 6, a
+// "New…" button makes an empty puzzle on a grid chosen from the engine's
+// (document.new), and an "Open…" button and a file dropped on the window
+// open a puzzle by its bytes (document.openBytes: the renderer has no
+// paths).
 
 import type { Store } from '../state/store.ts';
+import type { Grid } from '../../engine/api.generated.ts';
 import { byId, esc } from './dom.ts';
+import { openPop } from './popover.ts';
 import { flash, reportError } from './status.ts';
 
 function baseName(path: string): string {
@@ -44,8 +48,30 @@ async function open(store: Store, file: File): Promise<void> {
   }
 }
 
+// the grids a new puzzle can have (those this version solves)
+function newMenu(store: Store): string {
+  const grids = store.info?.grids.filter((g) => g.supported) ?? [];
+  return `<div class="ph">New puzzle — its grid cannot change later</div>${grids.map((g) => `<button data-k="${g.grid}">${esc(g.label)}</button>`).join('')}`;
+}
+
 /** Wires the top bar to the store. */
 export function installTopBar(store: Store): void {
+  byId('btnNewDoc').addEventListener('click', (e) => {
+    if (!store.running || store.info === null) {
+      flash('The engine is not running');
+      return;
+    }
+    openPop(e.currentTarget as Element, newMenu(store), (k) => {
+      store.newDocument(k as Grid).then(
+        () => {
+          flash('A new, empty puzzle');
+        },
+        (err: unknown) => {
+          reportError(err, 'New puzzle');
+        },
+      );
+    });
+  });
   store.subscribe((c) => {
     if (c.kind === 'document') {
       render(store);

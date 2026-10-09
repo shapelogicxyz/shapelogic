@@ -5,20 +5,24 @@
 // docs/mockup/index.html: the document's keydown handler (keys go to a
 // text field when one has the focus, except Esc; with the settings dialog
 // open only Esc, Ctrl+, and F1 act; Ctrl or Cmd for the "Ctrl" keys).
+// An action may have several handlers (one per workspace or view): they
+// are tried in the order they were registered until one takes the press.
 
 import { isTyping } from './dom.ts';
 import { actionOf } from './keys.ts';
 import type { KeyAction } from './keys.ts';
 
-const handlers = new Map<KeyAction, () => boolean | undefined>();
+/** What an action does; false: it did nothing (the press goes on to the next handler). */
+export type KeyHandler = (e: KeyboardEvent) => boolean | undefined;
+
+const handlers = new Map<KeyAction, KeyHandler[]>();
 let modal: () => boolean = () => false;
 
-/**
- * Says what an action does; a handler returning false did nothing (the
- * key then goes on as if unbound).
- */
-export function onKey(action: KeyAction, handler: () => boolean | undefined): void {
-  handlers.set(action, handler);
+/** Says what an action does; a handler returning false passes the press on. */
+export function onKey(action: KeyAction, handler: KeyHandler): void {
+  const list = handlers.get(action) ?? [];
+  list.push(handler);
+  handlers.set(action, list);
 }
 
 /** Says when a modal dialog holds the keyboard (only Esc, Ctrl+, and F1 act then). */
@@ -38,12 +42,13 @@ export function dispatchKey(e: KeyboardEvent): boolean {
   if (modal() && action !== 'escape' && action !== 'settings' && action !== 'help.keys') {
     return false;
   }
-  const h = handlers.get(action);
-  if (h === undefined || h() === false) {
-    return false;
+  for (const h of handlers.get(action) ?? []) {
+    if (h(e) !== false) {
+      e.preventDefault();
+      return true;
+    }
   }
-  e.preventDefault();
-  return true;
+  return false;
 }
 
 /** Listens to the document's key presses. */

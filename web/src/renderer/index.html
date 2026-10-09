@@ -3,16 +3,17 @@
 <!--
   The shell, from docs/mockup/index.html (Girish Sharma, GPL-3.0): its body
   (the top bar, the workspace rail, the six cards, the viewport with its
-  toolbar, the status bar, the settings dialog) with the cards' contents
-  left for their stages: the Entities cards hold a temporary shape picker
-  until stage 2, the Puzzle and Solver cards come with stages 3 and 4.
+  toolbar, the status bar, the settings dialog). The Entities cards are the
+  mockup's (stage 2: the shapes list and inspector, the voxel editor; their
+  contents are rendered from the engine's data); the Puzzle and Solver
+  cards come with stages 3 and 4.
 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
     />
     <title>BurrTools Alpha</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -24,6 +25,13 @@
           <div class="brand"><i></i><span class="bt">BurrTools</span></div>
           <div class="right">
             <span class="fname" id="fname"></span>
+            <button
+              class="btn sm"
+              id="btnNewDoc"
+              title="A new, empty puzzle on a grid of your choice"
+            >
+              New…
+            </button>
             <label
               class="btn sm openf"
               id="btnOpen"
@@ -47,15 +55,52 @@
                   style="background: var(--muted); min-width: 22px; height: 20px"
                 ></span>
                 <span class="sp"></span>
+                <button class="btn pri sm" id="btnNew" title="New shape">
+                  +<span class="lt"> New</span>
+                </button>
                 <button class="ib" data-collapse="L" title="Collapse sidebar"></button>
               </div>
               <div
-                class="shapes picker"
+                class="shapes"
                 id="shapeList"
                 tabindex="0"
                 role="listbox"
                 aria-label="Shapes"
               ></div>
+              <div class="ch" style="border-top: 1px solid var(--line)" id="inspHead"></div>
+              <div class="insp" id="insp">
+                <div class="sec" id="secTf">
+                  <button class="sh">
+                    <span class="chev"></span>Transform<span class="sum"
+                      >Flip · Rotate · Nudge</span
+                    >
+                  </button>
+                  <div class="sb"><div id="tmat"></div></div>
+                </div>
+                <div class="sec closed" id="secFit">
+                  <button class="sh">
+                    <span class="chev"></span>Fit &amp; scale<span class="sum"
+                      >Prune · Center · Scale</span
+                    >
+                  </button>
+                  <div class="sb" id="fitBody"></div>
+                </div>
+                <div class="sec closed" id="secTools">
+                  <button class="sh">
+                    <span class="chev"></span>Repair &amp; surface<span class="sum"
+                      >Fill · Inner / Outer</span
+                    >
+                  </button>
+                  <div class="sb" id="toolsBody"></div>
+                </div>
+              </div>
+              <input
+                type="color"
+                id="shapeColourPick"
+                tabindex="-1"
+                aria-hidden="true"
+                style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0"
+              />
             </div>
             <div class="lrail" id="lrail"></div>
           </section>
@@ -85,6 +130,10 @@
               <div class="vtag" id="vtag"></div>
               <div class="vt" id="vt"></div>
               <div class="hint" id="vhint">
+                <div class="ent-only">
+                  <kbd>Shift</kbd> click <b>1</b> fixed · <kbd>Alt</kbd>/<kbd>⌘</kbd> click
+                  <b>2</b> variable · <kbd>Ctrl</kbd> click <b>3</b> erase
+                </div>
                 <div id="navHint">Drag orbit · Shift/middle-drag pan · Wheel zoom</div>
               </div>
               <div class="empty" id="emptyMsg"></div>
@@ -96,9 +145,42 @@
               <div class="ch">
                 <span>Voxel editor</span><span class="vtchip" id="vtChip"></span
                 ><span class="sp"></span>
+                <button class="ib" id="btnF2D" title="Focus 2D editor (Esc to exit)"></button>
                 <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
               </div>
-              <div class="later">The voxel editor is not in this version yet.</div>
+              <div class="tools" id="toolStrip"></div>
+              <div class="mrow" id="modRow"></div>
+              <div class="subbar">
+                <div class="pseg" id="planeSeg"></div>
+                <span class="sp"></span>
+                <span id="boxSeg"></span>
+                <span class="mute" id="layerLbl"></span>
+              </div>
+              <div class="gbody">
+                <div class="lstrip" id="lstrip"></div>
+                <div
+                  id="garea"
+                  title="Click or drag: active tool (Shift fixed · Alt variable · Ctrl erase) · Right-click or right-drag: erase"
+                ></div>
+                <div class="selbar" id="selbar"></div>
+              </div>
+              <div class="gsize" id="gridSize">
+                <div class="gsh">
+                  <span class="gl2">Grid size</span><span class="sp"></span>
+                  <div
+                    class="switch"
+                    id="applyAll"
+                    role="switch"
+                    tabindex="0"
+                    aria-checked="false"
+                    title="Size changes apply to every shape: the others grow by as much (they never shrink); the Fit &amp; scale tasks too"
+                  >
+                    <span class="tr"></span><span>Apply to all shapes</span>
+                  </div>
+                </div>
+                <div class="size3" id="sizeSteppers"></div>
+              </div>
+              <div class="colfoot" id="colFoot"></div>
             </div>
             <div class="rrail" id="rrail"></div>
           </section>

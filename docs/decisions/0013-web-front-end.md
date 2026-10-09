@@ -168,7 +168,20 @@ list; each also in its handoff):
 2. (stage 1b) "Dim other layers" lightens the other layers' faces as the
    original dimmed a piece (1 − (1 − c) · 0.2), opaque, where the mockup
    made them transparent.
-3. (stage 4) The dt-less playback orientation.
+3. (stage 2) A 3D click that would add a cell outside the space is
+   refused (the face shows in the danger colour), as the mockup did; the
+   original grew the space to take the cell (`resizeInclude` in
+   `mainwindow_solve.cpp`). The size steppers grow it.
+4. (stage 2) The box selection is a mode of its own (the box button by the
+   layer label): a dragged rectangle is selected, then filled or cleared
+   (`shape.setBox`, mirror and span applying), as the mockup's selection
+   bar has it; the original's "rubber band" mode applied the active tool to
+   the rectangle when the mouse was released.
+5. (stage 2) A drag applies the tool to every cell the pointer passes over
+   (its path sampled between two moves), where the original and the
+   mockup took the cell under each mouse event, so a fast drag skipped
+   cells.
+6. (stage 4) The dt-less playback orientation.
 
 ## Consequences
 - Building the front end needs Node 22; the core does not.

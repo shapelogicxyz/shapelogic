@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The pictures of the editing tools: a pointer with the tool's badge for
-// fixed and variable, the tool's own picture for erase and paint. From
-// docs/mockup/index.html: `badgeSvg` and the toolbar-icon branch of
-// `ptrSvg` (the cursors themselves come with the editor, stage 2).
+// fixed and variable, the tool's own picture for erase and paint, as
+// toolbar icons and as mouse cursors (data: URLs; the page's CSP allows
+// data: images). From docs/mockup/index.html: `badgeSvg`, `ptrSvg`,
+// `cursorFor`, `themeInk`, `themeOpp`.
 
-/** An editing tool (docs/webui-spec.md section 3). */
-export type Tool = 'fixed' | 'variable' | 'erase' | 'paint';
+import type { CellTool } from '../../engine/api.generated.ts';
+import { isDarkTheme } from './theme.ts';
+
+/** An editing tool (docs/webui-spec.md section 3): the engine's CellTool. */
+export type Tool = CellTool;
 
 const isPtrTool = (t: Tool): boolean => t === 'fixed' || t === 'variable';
 
@@ -40,4 +44,25 @@ export function toolIcon(tool: Tool, col: string | null, size = 26): string {
     head +
     `<g transform="translate(14 12) scale(1.75) translate(-6 -6)">${badgeSvg(tool, col, 'currentColor')}</g></svg>`
   );
+}
+
+const PTR_ARROW =
+  '<path d="M.8 .8V16.4L4.4 13.2L7 19.3L9.4 18.2L6.8 12.1H11.9Z" fill="#000" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>';
+
+/** A tool's mouse cursor picture (32 x 32): the colour is the drawing colour's (null: Default). */
+export function cursorSvg(tool: Tool, col: string | null): string {
+  const dark = isDarkTheme();
+  const ink = dark ? '#f2f4f8' : '#1a1f29';
+  const opp = dark ? '#14171c' : '#ffffff';
+  const head =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">';
+  if (isPtrTool(tool)) {
+    return `${head}${PTR_ARROW}<g transform="translate(12 0)">${badgeSvg(tool, col, ink)}</g></svg>`;
+  }
+  return `${head}<g transform="translate(16 16) scale(1.5) translate(-6 -6)">${badgeSvg(tool, col, ink, opp)}</g></svg>`;
+}
+
+/** A tool's CSS cursor (the hot spot at the arrow's tip, or the picture's middle). */
+export function cursorFor(tool: Tool, col: string | null): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(cursorSvg(tool, col))}") ${isPtrTool(tool) ? '1 1' : '16 16'}, default`;
 }
