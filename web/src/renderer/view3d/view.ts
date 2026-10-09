@@ -16,7 +16,7 @@
 // it, posed, framed on the result). It renders only when something
 // changed.
 
-import { Vector2 } from 'three';
+import { Raycaster, Vector2, Vector3 } from 'three';
 
 import { EngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
@@ -75,7 +75,14 @@ export interface SolverHost {
   empty(): string;
   /** The Display menu's style changed: the solution's meshes again. */
   styleChanged(): void;
+  /** Whether an Alt-drag on a piece moves it now (the movement explorer), not the view. */
+  movesPieces(): boolean;
+  /** A piece was Alt-dragged by (dx, dy) CSS pixels on the screen. */
+  pieceDragged(piece: number, dx: number, dy: number): void;
 }
+
+/** Who draws in the Solver's view: the player, or an explorer over it while one is open. */
+export type SolutionLayer = 'player' | 'explorer';
 
 /** What 3D editing does with the view's points (the Entities workspace). */
 export interface EditHost {
@@ -105,7 +112,9 @@ interface Drag {
   sy: number;
   moved: boolean;
   btn: number;
-  m: 'orbit' | 'pan';
+  /** A piece moved by an Alt-drag (the movement explorer) instead of the view. */
+  m: 'orbit' | 'pan' | 'piece';
+  piece: number;
 }
 
 export class View3D {
@@ -151,6 +160,12 @@ export class View3D {
   private piecesModel: PiecesModel | null = null;
   private readonly solution = new SolutionScene();
   private solutionModel: SolutionModel | null = null;
+  /** What each layer would show; the explorer's over the player's while it has a model. */
+  private readonly layers: Record<
+    SolutionLayer,
+    { model: SolutionModel | null; poses: readonly ScenePose[] }
+  > = { player: { model: null, poses: [] }, explorer: { model: null, poses: [] } };
+  private shownLayer: SolutionLayer = 'player';
   /** What the pieces scene shows: the model's key and the style. */
   private piecesShown = '';
   private piecesLoading = 0;
@@ -298,23 +313,71 @@ export class View3D {
     return this.cache;
   }
 
-  /** The Solver's solution (null: none): its pieces with their meshes, framed on the result. */
-  setSolution(model: SolutionModel | null): void {
-    this.solutionModel = model;
-    this.solution.set(model);
+  /**
+   * The Solver's solution (null: none): its pieces with their meshes, framed
+   * on the result. The player draws in its layer; an explorer's model, while
+   * it has one, is shown over it (the player's comes back when it goes).
+   */
+  setSolution(model: SolutionModel | null, layer: SolutionLayer = 'player'): void {
+    this.layers[layer].model = model;
+    if (layer === 'explorer' && model === null) {
+      this.layers.explorer.poses = [];
+    }
+    const shown: SolutionLayer = this.layers.explorer.model !== null ? 'explorer' : 'player';
+    if (layer !== shown && shown === this.shownLayer) {
+      return;
+    }
+    this.shownLayer = shown;
+    const l = this.layers[shown];
+    this.solutionModel = l.model;
+    this.solution.set(l.model);
+    this.solution.setPoses(l.poses);
     const vp = byId('vp');
-    vp.dataset.solution = model?.key ?? '';
+    vp.dataset.solution = l.model?.key ?? '';
+    vp.dataset.solutionLayer = shown;
+    vp.dataset.poses = this.solution.posesShown();
     vp.dataset.solutionPieces = this.solution.describe();
     this.lookChanged();
   }
 
-  /** Places the solution's pieces (a pose per piece of the model). */
-  poseSolution(poses: readonly ScenePose[]): void {
+  /** Places the solution's pieces (a pose per piece of the layer's model). */
+  poseSolution(poses: readonly ScenePose[], layer: SolutionLayer = 'player'): void {
+    this.layers[layer].poses = [...poses];
+    if (layer !== this.shownLayer) {
+      return;
+    }
     this.solution.setPoses(poses);
     const vp = byId('vp');
     vp.dataset.poses = this.solution.posesShown();
     vp.dataset.solutionPieces = this.solution.describe();
     this.renderer.request();
+  }
+
+  /**
+   * Where a piece of the solution shown is on the screen (CSS pixels in the
+   * viewport), and where a move by `delta` (mesh units along the scene's
+   * axes) would take it: what an Alt-drag is matched against.
+   */
+  pieceOnScreen(
+    piece: number,
+    delta: readonly [number, number, number] = [0, 0, 0],
+  ): { x: number; y: number; dx: number; dy: number } | null {
+    this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
+    const c = this.solution.centreOf(piece);
+    if (c === null) {
+      return null;
+    }
+    const d = new Vector3(delta[0], delta[1], delta[2]).applyQuaternion(
+      this.renderer.root.quaternion,
+    );
+    const a = this.toScreen(c);
+    const b = this.toScreen(c.clone().add(d));
+    return { x: a[0], y: a[1], dx: b[0] - a[0], dy: b[1] - a[1] };
+  }
+
+  private toScreen(v: Vector3): [number, number] {
+    const p = v.clone().project(this.renderer.camera);
+    return [((p.x + 1) / 2) * this.canvas.clientWidth, ((1 - p.y) / 2) * this.canvas.clientHeight];
   }
 
   /** The pieces scene's model (the Puzzle workspace); its meshes are loaded when shown. */
@@ -695,6 +758,16 @@ export class View3D {
     } else if (this.solverMode) {
       this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
       this.renderer.render();
+      if (this.solver?.movesPieces() === true) {
+        // where each piece is on the screen (the e2e tests drag them)
+        byId('vp').dataset.pieceScreen = (this.solutionModel?.pieces ?? [])
+          .map((p) => {
+            const at = this.pieceOnScreen(p.piece);
+            return at === null ? '' : `${String(p.piece)}:${at.x.toFixed(1)},${at.y.toFixed(1)}`;
+          })
+          .filter((t) => t !== '')
+          .join(' ');
+      }
     } else {
       this.renderer.frame(this.camera, this.extent);
       this.renderer.render();
@@ -715,6 +788,19 @@ export class View3D {
   }
 
   // ---- picking ----
+
+  // the piece of the solution shown under a point
+  private solutionPieceAt(clientX: number, clientY: number): number | null {
+    const r = this.canvas.getBoundingClientRect();
+    const ndc = new Vector2(
+      ((clientX - r.left) / r.width) * 2 - 1,
+      -(((clientY - r.top) / r.height) * 2 - 1),
+    );
+    this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
+    const ray = new Raycaster();
+    ray.setFromCamera(ndc, this.renderer.camera);
+    return this.solution.pick(ray);
+  }
 
   // the piece under a point in the pieces scene (the mockup's puzPick)
   private pieceAt(clientX: number, clientY: number): string | null {
@@ -775,6 +861,11 @@ export class View3D {
       }
       cv.setPointerCapture(e.pointerId);
       const other = this.mode === 'orbit' ? 'pan' : 'orbit';
+      // an Alt-drag on a piece moves it (the movement explorer)
+      const piece =
+        e.button === 0 && modsOf(e).alt && this.solverMode && this.solver?.movesPieces() === true
+          ? this.solutionPieceAt(e.clientX, e.clientY)
+          : null;
       this.drag = {
         x: e.clientX,
         y: e.clientY,
@@ -782,7 +873,8 @@ export class View3D {
         sy: e.clientY,
         moved: false,
         btn: e.button,
-        m: e.button === 1 ? 'pan' : e.shiftKey ? other : this.mode,
+        m: piece !== null ? 'piece' : e.button === 1 ? 'pan' : e.shiftKey ? other : this.mode,
+        piece: piece ?? -1,
       };
     });
     cv.addEventListener('pointermove', (e) => {
@@ -793,6 +885,12 @@ export class View3D {
         if (this.puzzleMode) {
           this.hoverPiece(this.pieceAt(e.clientX, e.clientY));
           return;
+        }
+        if (this.solverMode && this.solver?.movesPieces() === true) {
+          // the piece an Alt-drag would move
+          const hp = this.solutionPieceAt(e.clientX, e.clientY);
+          byId('vp').dataset.hoverPiece = hp === null ? '' : String(hp);
+          this.canvas.style.cursor = hp !== null && this.mods.alt ? 'grab' : '';
         }
         this.showPick(this.pickAtClient(e.clientX, e.clientY));
         return;
@@ -815,6 +913,9 @@ export class View3D {
       const dy = e.clientY - d.y;
       d.x = e.clientX;
       d.y = e.clientY;
+      if (d.m === 'piece') {
+        return;
+      }
       if (d.m === 'orbit') {
         if (prefs.rot === 'Arc-ball') {
           const r = cv.getBoundingClientRect();
@@ -832,7 +933,11 @@ export class View3D {
       this.drag = null;
       this.camera.arcEnd();
       this.mods = modsOf(e);
-      if (was !== null && was.btn === 0 && !was.moved && this.puzzleMode) {
+      if (was?.m === 'piece') {
+        if (was.moved) {
+          this.solver?.pieceDragged(was.piece, e.clientX - was.sx, e.clientY - was.sy);
+        }
+      } else if (was !== null && was.btn === 0 && !was.moved && this.puzzleMode) {
         // a click on a piece selects it (the mockup's puzClick)
         const shape = this.pieceAt(e.clientX, e.clientY);
         if (shape !== null) {

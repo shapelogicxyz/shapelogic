@@ -42,6 +42,7 @@ import { onPrefs } from '../shell/prefs.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { PROBLEM_CHIP } from '../puzzle/counts.ts';
+import { Explorer } from '../explore/explorer.ts';
 import { Autosave } from './autosave.ts';
 import { SolutionPager } from './pager.ts';
 import type { SortKey } from './pager.ts';
@@ -58,6 +59,7 @@ import {
 } from './settings.ts';
 import type { BoxName, Limits, SearchOptions } from './settings.ts';
 import { SolutionsCard } from './solutions-card.ts';
+import { StatsPanel } from './stats-panel.ts';
 
 export type ProblemKind = Methods['problem.kind']['result'];
 
@@ -104,6 +106,10 @@ export class SolverWorkspace {
   /** The snapshot revision the cards show, or -1 while loading. */
   shown = -1;
   readonly autosave: Autosave;
+  /** The step-by-step explorers (the drawer over the view). */
+  readonly explorer: Explorer;
+  /** The debug statistics panel. */
+  readonly stats: StatsPanel;
   private readonly view3d: View3D;
   private readonly runCard: RunCard;
   private readonly solCard: SolutionsCard;
@@ -140,11 +146,34 @@ export class SolverWorkspace {
     this.runCard = new RunCard(this);
     this.solCard = new SolutionsCard(this);
     this.autosave = new Autosave(store, solves, (p) => this.launchOptions(p));
+    this.explorer = new Explorer({
+      store,
+      view,
+      problem: () => this.current,
+      detail: () => this.detail,
+      options: () => solveOptions(this.options, this.limits),
+      solution: () =>
+        this.selId !== null && this.player.row?.id === this.selId ? this.player.row : null,
+      assemblyReady: () => this.current !== null && this.stateOf(this.current) === 'paused',
+      changed: () => {
+        this.explorer.renderButtons();
+        this.renderTag();
+      },
+    });
+    this.stats = new StatsPanel(store, solves, () => this.current);
+    byId('slvStats').addEventListener('click', () => {
+      this.stats.open();
+    });
     view.solver = {
       tag: () => this.tagHtml(),
       empty: () => this.emptyText(),
       styleChanged: () => {
         this.player.restyle();
+        this.explorer.restyle();
+      },
+      movesPieces: () => this.explorer.movesPieces,
+      pieceDragged: (piece, dx, dy) => {
+        this.explorer.pieceDragged(piece, dx, dy);
       },
     };
     store.subscribe((c) => {
@@ -194,6 +223,7 @@ export class SolverWorkspace {
       if (c.problem === null || c.problem === this.current) {
         this.runCard.render();
         this.solCard.renderActions();
+        this.explorer.refresh();
         if (tab === 'solver') {
           updateStatus();
           this.renderTag();
@@ -297,6 +327,7 @@ export class SolverWorkspace {
   render(): void {
     this.runCard.render();
     this.solCard.render();
+    this.explorer.refresh();
     this.renderTag();
     if (tab === 'solver') {
       updateStatus();
@@ -315,7 +346,8 @@ export class SolverWorkspace {
     }
     const n = this.pager?.total ?? 0;
     const cur = this.player.row !== null && this.sel >= 0 && n > 0;
-    return `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : ''}`;
+    const ex = this.explorer.tag();
+    return `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : ''}`;
   }
 
   // the mockup's renderSolverScene's message over an empty scene
@@ -327,7 +359,7 @@ export class SolverWorkspace {
     if (snap.problems.length === 0) {
       return 'No problems — make one in the Puzzle workspace';
     }
-    if (this.player.row !== null) {
+    if (this.player.row !== null || this.explorer.mode !== null) {
       return '';
     }
     if (!this.supported) {
@@ -620,12 +652,14 @@ export class SolverWorkspace {
     const row = this.selected;
     if (this.sel < 0) {
       this.player.show(null, null);
+      this.explorer.refresh();
       return;
     }
     if (row === null || tab !== 'solver' || this.pager?.current(this.sel, this.sel + 1) !== true) {
       return;
     }
     this.player.show(this.current, row);
+    this.explorer.refresh();
   }
 
   /** Selects the solution at a place of the sorted list (clamped). */

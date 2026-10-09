@@ -27,7 +27,7 @@ import { pieceSubColour, shapeColour } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
-import { cellScale, gridExtent } from '../view3d/extent.ts';
+import { cellScale, gridExtent, placedAt } from '../view3d/extent.ts';
 import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
@@ -270,12 +270,8 @@ export class Player {
         return buildMesh(meshArrays(r), size, this.styleOf(p.piece));
       });
       const poses: ScenePose[] = this.pieces.map((p, i) => {
-        const h = replies[i]?.hotspot ?? [0, 0, 0];
         return {
-          t: [0, 1, 2].map(
-            (k) =>
-              ((p.at[k] ?? 0) - (h[k] ?? 0)) * scale[k as 0 | 1 | 2] - extent[k as 0 | 1 | 2] / 2,
-          ) as [number, number, number],
+          t: placedAt(p.at, replies[i]?.hotspot ?? [0, 0, 0], scale, extent),
           q: [0, 0, 0, 1],
           visible: true,
           opacity: 1,

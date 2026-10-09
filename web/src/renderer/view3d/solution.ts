@@ -16,7 +16,8 @@
 // three.js over the engine's meshes (mesh.ts, material.ts), as the other
 // scenes'.
 
-import { Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
+import { Box3, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
+import type { Raycaster } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -170,6 +171,31 @@ export class SolutionScene {
   /** The viewport's size in pixels, for the lines' widths. */
   setResolution(w: number, h: number): void {
     this.edgeMaterial.resolution.set(w, h);
+  }
+
+  /** The piece a ray meets first (its faces, shown; null: none). */
+  pick(raycaster: Raycaster): number | null {
+    // a piece, not the result an explorer draws around them (piece -1)
+    const shown = this.draws.filter(
+      (d) => d.faces !== null && d.group.visible && d.piece.piece >= 0,
+    );
+    const hit = raycaster.intersectObjects(
+      shown.flatMap((d) => (d.faces === null ? [] : [d.faces])),
+      false,
+    )[0];
+    return shown.find((d) => d.faces === hit?.object)?.piece.piece ?? null;
+  }
+
+  /** The centre of a piece's mesh as drawn, in world space (null: not drawn). */
+  centreOf(piece: number): Vector3 | null {
+    const d = this.draws.find((x) => x.piece.piece === piece);
+    if (d?.faces == null || !d.group.visible) {
+      return null;
+    }
+    d.faces.geometry.computeBoundingBox();
+    const box = d.faces.geometry.boundingBox ?? new Box3();
+    d.group.updateWorldMatrix(true, false);
+    return box.getCenter(new Vector3()).applyMatrix4(d.group.matrixWorld);
   }
 
   /** The pieces drawn now (the e2e tests read it): piece:shape:mode, then shown or not. */

@@ -150,6 +150,7 @@ describe('the keyboard map', () => {
         'Entities (shapes list)',
         'Puzzle',
         'Solver (focus on the solutions list, solution slider or move seekbar)',
+        'Explorers (Solver; focus in the explorer below the 3D view)',
         'Dialogs and menus',
       ],
     );

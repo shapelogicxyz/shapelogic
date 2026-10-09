@@ -488,7 +488,8 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
 - `explorers.h`: `AssemblyExplorer` (the placements of each piece, the
   assembly search one step at a time) and `MovementExplorer` (the tree of
   positions of a take-apart: analyse, add a move, find a matching one,
-  prune); both work on a copy of the puzzle.
+  prune; the grid's directions by label and by step); both work on a
+  copy of the puzzle.
 
 **Rules of the app layer:** the owner calls the document from one thread;
 a command checks first and changes after, so a refused one changes
@@ -542,7 +543,9 @@ schema in `api/`, documented in the generated `docs/API.md`.
   the sides numbered as a mesh's `voxelFace`), playback (samplers
   behind `pb` handles: poses and keyframe tracks as frames of typed
   arrays; a solution without a disassembly as a single pose; piece meshes
-  in any style), explorers (`ax` and `mx` handles).
+  in any style), explorers (`ax` and `mx` handles; the movement
+  explorer names the grid's directions by label and by step, `vectors`:
+  a prism's x step is 2).
 - `events.cpp`: `document.changed` after a request that changed the
   document, and the poll of the background work: first `Document::poll()`
   takes in what has ended (a run's end, an analysis's results; the
@@ -604,11 +607,11 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a to 4, decision 0013)
+## web (front-end stages 1a to 5, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
-1.64.0 among them). What exists after stage 4:
+1.64.0 among them). What exists after stage 5:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -647,8 +650,10 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     stylesheet in its compact form, left alone by Prettier; the Puzzle
     library's chip rules scoped to `.pz-lib`, since the stage's own
     collapsed class is `lc` too); the Entities, Puzzle and Solver cards
-    are the mockup's (the Solver's step-by-step explorer comes with stage
-    5); `main.ts`;
+    are the mockup's, with the Solver's step-by-step explorer section and
+    the explorer's drawer (`#sdrawer`) over the view; a temporary Status…
+    button in the top bar (the status window until stage 6's menus);
+    `main.ts`;
     `engine-proxy.ts` (`EngineProxy`, the client's interface over
     `window.bt`).
   - `state/store.ts`: `Store`, the mirror of the engine: its status (no
@@ -694,6 +699,8 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     client's, in memory until stage 6), `theme.ts` (theme, density,
     tooltips), `status.ts` (the status bar, flashes, `reportError`:
     `invalid_state` as "pause first"), `popover.ts`, `confirm.ts`,
+    `panel.ts` (a window of its own over the workspace, not modal: the
+    status window's and the debug statistics'; Esc closes the newest),
     `topbar.ts` (the file's name, path and dirty mark; the temporary New…
     with the grid chosen, by `document.new`, and the temporary Open and
     drop, by `document.openBytes`), `icons.ts`, `cursors.ts` (the tools'
@@ -761,9 +768,19 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     result's extent; solid, wire frame or hidden; wire frames over the
     solids with x-ray; a piece taken away faded through its opacity);
     `#vp` says `data-solution`, `data-solution-pieces`, `data-poses`,
-    `data-solution-view` (assembled or playback). `extent.ts` has
-    `cellScale` too (grid coordinates to mesh units, the original's
-    recalcSpaceCoordinates), checked against the engine's poses by an
+    `data-solution-view` (assembled or playback). The view keeps two
+    layers of solution models: the player's, and an explorer's shown over
+    it while it has one (`setSolution(model, layer)`, `poseSolution`;
+    `#vp[data-solution-layer]`); `pieceOnScreen` (where a piece is on
+    the screen and where a move by a vector would take it) and an
+    Alt-drag on a piece that the Solver host takes (`movesPieces`,
+    `pieceDragged`: the movement explorer's matching move) instead of
+    orbiting; `SolutionScene.pick` (the piece a ray meets, not the result
+    an explorer draws around them). `extent.ts` has `cellScale` too (grid
+    coordinates to mesh units, the original's recalcSpaceCoordinates) and
+    `placedAt` (a piece's mesh at its cell minus its turned hotspot,
+    scaled, centred on the result: the assembled view, the explorers'
+    placements and positions), checked against the engine's poses by an
     engine test.
   - `entities/`: the Entities workspace (stage 2), from the mockup's
     `renderShapes`, `renderInsp`, `renderTransform`, `renderTools`,
@@ -798,7 +815,13 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     `grid.neighbour` elsewhere, the preview with mirror and span),
     `tools.ts` (which tool a press uses; the cube's faces), `editor-state.ts`
     (`EditorState`; `planeMap`; `expand`, mirror and span's cells as the
-    core makes them, for the previews), `glyphs.ts` (the mockup's `G`).
+    core makes them, for the previews), `glyphs.ts` (the mockup's `G`),
+    `status-window.ts` (`StatusWindow`, stage 5: the original's status
+    window over `shape.table`: a row per shape with its cells, the earlier
+    shapes it is identical to, connectivity, holes, notch and mill on
+    cubes, symmetry, its status line as the tooltip; read again when a
+    change names the shapes; Refresh, Remove selected (one undo step,
+    refused while solving, never every shape) and the four selections).
   - `puzzle/`: the Puzzle workspace (stage 3), from the mockup's
     `renderPuzzle`, `renderPzSel`, `renderPzGroups`, `renderPzRules`,
     `pzAdd`, `pzBump`, `pzBulkRange`, `pzLibChip`, `pzUsedTile`,
@@ -873,7 +896,37 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     with the setting runs: `solve.savePoint` on every run under way, their
     ends waited for by revision, `document.save`, `solve.continue`, none
     of it once another document replaced the one it paused; a puzzle
-    without a file is not saved, said once).
+    without a file is not saved, said once), `stats-panel.ts`
+    (`StatsPanel`, stage 5: the debug statistics of the problem shown,
+    `solve.status`'s `stats` read again with each event of its solve,
+    held once a run stopped as the original's `freezeLive` (the session's
+    wall time counts on from the run's start), until a run is under way
+    again or Refresh).
+  - `explore/`: the step-by-step explorers (stage 5), from the mockup's
+    `renderSolverDrawer`, `#sdrawer`, `svPrepare`, `svStep` and the
+    Advanced section's buttons, the contents from the original's
+    placement and movement browsers. `explorer.ts` (`Explorer`: the
+    drawer with Placements (`explore.openAssembly`,
+    `explore.placements`: each piece's placements counted, the one chosen
+    drawn in the result's wire frame; ↑ ↓ ← → Home End), Step (an
+    assembler of its own stepped 1, 10, 100, 1000 steps; the pieces
+    placed now drawn; `finished`; Reset) and Movements
+    (`explore.openMovements` on the selected solution: the tree,
+    Analyse, Add move with the grid's directions, a matching move by an
+    Alt-drag of a piece in the view (the drag compared with each
+    direction's `vectors` step as it looks on the screen), Step back,
+    Prune tree; the position chosen drawn with the solution's
+    orientations); the Advanced buttons (Placements and Step need a
+    prepared or paused solve, Movements a solution with its moves); the
+    handles closed with the drawer, a change of problem or another
+    document (whose handles the engine dropped); the pieces drawn by
+    `placedAt` in the view's explorer layer; `#sdrawer[data-mode]`,
+    `[data-handle]`, `[data-piece]`, `[data-placement]`, `[data-node]`,
+    `[data-steps]`, `[data-finished]`, `[data-placed]`), `tree.ts`
+    (`MovementTree`, the tree as the engine's replies grow it and Prune
+    Tree as the engine prunes; `dragDirection`, the direction an Alt-drag
+    asks for; DOM-free), `debug-stats.ts` (the debug panel's report: the
+    original's `formatReport`, idle rows and analysis notes; DOM-free).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them; `solver-end` and
@@ -895,7 +948,8 @@ section 6, the piece colours against the original's, the mesh
 translation, the camera, the store and the mesh cache, a stroke's
 protocol, the planes, the quick tools, mirror and span; the Puzzle's
 counts, groups, layout and labels; the Solver's options and rules, the
-poses' interpolation and fade, the pager, the solve records; and the
+poses' interpolation and fade, the pager, the solve records; the movement
+tree, the Alt-drag's direction, the debug report; and the
 replays of the recorded Solver sessions: a run's end at its revision,
 one between two polls (the active states taken out), an abort's two
 changes, a paused abort's one, a new document's last events,
@@ -910,7 +964,9 @@ UI reads them, every fixture's problems with a fit and a scene; the assembled vi
 placement (cellScale, gridExtent, the hotspot) against the player's
 first pose on every fixture of the five grids, the pager in every sort
 against one `solution.page`, the chunked poses against the engine's
-samples); by
+samples; the explorers' placements in the solutions' frame on the five
+grids, the stepped assembler's in the placements' frame, the movement
+tree against `explore.node`); by
 Playwright's Electron driver (`tests/e2e/`, the built app with the
 release engine: the IPC path, a killed engine, a reload with calls in
 flight, every fixture shape in every style, reference screenshots of each
@@ -928,8 +984,15 @@ every Remove variant with its confirmation, Analyse with the assemblies
 that do not come apart marked and a stop that keeps what was done,
 pause, continue, a save at a save point, abort, Prepare then Continue,
 an error run with its failure, two problems at once, a paused BurrTools 2
-solve refusing the lists' changes, a sliding puzzle not solved; the call
-log checked for refusals).
+solve refusing the lists' changes, a sliding puzzle not solved; the
+explorers on Bermuda: every piece's placements counted and drawn where
+the engine says, the assembler stepped to its complete set as the
+engine's own, the movement tree's root, Analyse, Add move, an Alt-drag's
+matching move and Prune tree equal to an explorer of the test's own, the
+handles closed with the drawer; the debug panel's numbers
+`solve.status`'s; the status window's rows `shape.table`'s on every
+fixture, a selection removed as one undo step; the call log checked for
+refusals).
 
 ## Testing against the original
 

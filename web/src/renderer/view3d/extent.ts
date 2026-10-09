@@ -57,3 +57,22 @@ export function cellScale(grid: Grid): [number, number, number] {
       return [1 / 3, 1 / 3, 1 / 3];
   }
 }
+
+/**
+ * Where a placed piece's mesh goes, in mesh units centred on the result
+ * (the poses' frame): an assembly puts the turned shape's hotspot on the
+ * placement's cell (decision 0012, "Meshes in an orientation"), so the
+ * mesh moves by the cell minus that hotspot, scaled; the assembled view,
+ * the explorers' placements and positions alike.
+ */
+export function placedAt(
+  at: readonly [number, number, number],
+  hotspot: readonly [number, number, number],
+  scale: readonly [number, number, number],
+  extent: readonly [number, number, number],
+): [number, number, number] {
+  return [0, 1, 2].map((k) => {
+    const i = k as 0 | 1 | 2;
+    return (at[i] - hotspot[i]) * scale[i] - extent[i] / 2;
+  }) as [number, number, number];
+}

@@ -13,7 +13,8 @@
 // does there (keyboard.ts tries their handlers in turn), and a row whose
 // keys an earlier row already holds names no chord of its own. The shapes
 // list's rows act while the list has the focus, the Solver's while its
-// solutions list, slider or move seekbar has it.
+// solutions list, slider or move seekbar has it, the explorers' while their
+// drawer has it.
 
 /** What a key does; keyboard.ts maps each to a handler. */
 export type KeyAction =
@@ -365,6 +366,27 @@ export const KEY_MAP: readonly KeyRow[] = [
     keys: '@Orbit or click in the 3D view',
     does: 'Keyboard focus stays in the Solutions card',
   },
+
+  // the explorers' keys: the actions of the rows above, while the explorer's drawer has the focus
+  {
+    group: 'Explorers',
+    sub: 'Solver; focus in the explorer below the 3D view',
+    keys: '↑ / ↓ · ← / →',
+    does: 'Placements: previous / next placement · previous / next piece',
+  },
+  { group: 'Explorers', keys: 'Home / End', does: 'Placements: first / last placement' },
+  { group: 'Explorers', keys: 'Space / Enter', does: 'Step: one step of the assembler' },
+  {
+    group: 'Explorers',
+    keys: '↑ / ↓ · ← / → · Enter',
+    does: 'Movements: previous / next position · back to its parent / its first move · analyse',
+  },
+  {
+    group: 'Explorers',
+    keys: '@Alt-drag a piece in the 3D view',
+    does: 'Movements: the first valid move that takes the piece that way',
+  },
+  { group: 'Explorers', keys: 'Esc', does: 'Close the explorer' },
 
   { group: 'Dialogs and menus', keys: 'Esc', does: 'Close the dialog or menu' },
   { group: 'Dialogs and menus', keys: 'Enter', does: 'Commit an inline rename or a number field' },

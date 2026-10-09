@@ -137,7 +137,7 @@ effort and audits".
 - [x] **Stage 3**: the Puzzle workspace (docs/handoff/web-3.md)
 - [x] **Stage 4**: the Solver workspace and the player (docs/handoff/web-4.md)
 - [x] Audit of stage 4 (docs/handoff/web-4.md, "Audit")
-- [ ] **Stage 5**: the explorers, the debug panel, the status window
+- [x] **Stage 5**: the explorers, the debug panel, the status window (docs/handoff/web-5.md)
 - [ ] **Stage 6**: menus, files, settings, recovery
 - [ ] Audit of stage 6's file paths
 - [ ] **Stage 7**: exports
@@ -503,6 +503,7 @@ PLAN.md's "Later" list.
 | Need (webui-spec.md) | API today | What to do |
 |---|---|---|
 | Draw an assembled solution, an explorer's placement or a movement position (§5, §7) | `shape.mesh {transformation}` gives the turned mesh; **no reply gives the turned shape's hotspot**, so the client cannot place it | **Added** in stage 4: `hotspot` (a `Cell`) in `MeshFrame`; the client places the mesh at the cell minus it, scaled by the grid's cell spacing (`extent.ts`'s `cellScale`, checked against the player's poses) |
+| The movement explorer's matching move by dragging a piece (§5, stage 5) | `explore.openMovements` named the directions by label only, which does not say how far a step goes (a prism's x step is 2) | **Added** in stage 5: `vectors` (each direction's step) in its reply; the drag is matched against them as they look on the screen |
 | 3D edit mode on non-cube grids (§3) | the mesh names the cell and side of each triangle; nothing gives the cell across a side | **Added** in stage 2: `grid.neighbour {size, cell, face}` over `Voxel::getNeighbor`; cubes use a client table (checked against it) |
 | "Cannot be disassembled" against "Disassembly not checked" (§5) | `SolutionRow.disassembly` is `none` for both | Decided in stage 4: the core records no failed take-apart (a solve with take-apart keeps only what comes apart), so the client remembers what an analysis of this session took and could not take apart (web-4.md) |
 | Mirror and span on non-cube grids (§3, "to be decided") | `shape.setCells` takes the axes on any grid | Verified in stage 2: the core applies them on every grid (cells the grid lacks left out); shown everywhere (web-2.md) |

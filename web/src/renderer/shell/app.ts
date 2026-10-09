@@ -4,11 +4,12 @@
 // records, the top bar, the workspace rail and cards (the Entities
 // workspace: entities/workspace.ts; the Puzzle workspace:
 // puzzle/workspace.ts; the Solver workspace: solver/workspace.ts),
-// the 3D view, the status bar, the settings, and the keys of the one
-// table. From docs/mockup/index.html: its orchestration (`renderAll`, the
+// the 3D view, the status bar, the settings, the status window and the
+// floating panels (stage 5), and the keys of the one table. From docs/mockup/index.html: its orchestration (`renderAll`, the
 // keydown handler's shell rows) and `updateStatus`.
 
 import { EngineProxy } from '../engine-proxy.ts';
+import { StatusWindow } from '../entities/status-window.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { PuzzleWorkspace } from '../puzzle/workspace.ts';
 import { SolverWorkspace } from '../solver/workspace.ts';
@@ -20,6 +21,7 @@ import { installConfirm } from './confirm.ts';
 import { stepBack } from './escape.ts';
 import { installKeyboard, onKey, setModal } from './keyboard.ts';
 import { installLayout, onLayout, setTab, tab, toggleCard, toggleFocus3d } from './layout.ts';
+import { installPanels } from './panel.ts';
 import { installPopover } from './popover.ts';
 import { installSettings, openSettings, settingsOpen } from './settings.ts';
 import { flash, reportError, setStatusProvider, updateStatus } from './status.ts';
@@ -87,6 +89,7 @@ export function startApp(): {
   installTheme();
   installPopover();
   installConfirm();
+  installPanels();
   installLayout();
   installSettings(store);
   installTopBar(store);
@@ -95,6 +98,11 @@ export function startApp(): {
   const entities = new EntitiesWorkspace(store, view, edits);
   const puzzle = new PuzzleWorkspace(store, view, edits);
   const solver = new SolverWorkspace(store, view, edits, solves);
+  // the status window: from the top bar until stage 6's menus
+  const status = new StatusWindow(store, edits);
+  byId('btnStatus').addEventListener('click', () => {
+    status.open();
+  });
 
   setStatusProvider(() => statusLine(store, puzzle, solver));
   store.subscribe((c) => {

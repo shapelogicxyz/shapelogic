@@ -18,7 +18,7 @@ import { poseArrays } from '../../src/engine/frames.ts';
 import type { SortKey } from '../../src/renderer/solver/pager.ts';
 import { SolutionPager } from '../../src/renderer/solver/pager.ts';
 import { PoseTrack, SAMPLES } from '../../src/renderer/solver/poses.ts';
-import { cellScale, gridExtent } from '../../src/renderer/view3d/extent.ts';
+import { cellScale, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
 
 describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
@@ -70,10 +70,9 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
               shape: piece.shape,
               transformation: piece.orientation,
             });
+            const at = placedAt(pl?.at ?? [0, 0, 0], mesh.hotspot, scale, extent);
             for (let k = 0; k < 3; k++) {
-              const want =
-                ((pl?.at[k] ?? 0) - (mesh.hotspot[k] ?? 0)) * (scale[k] ?? 1) -
-                (extent[k] ?? 0) / 2;
+              const want = at[k] ?? 0;
               expect(
                 poses.translation[3 * i + k],
                 `${f} ${row.id} piece ${String(i)} axis ${String(k)}`,
