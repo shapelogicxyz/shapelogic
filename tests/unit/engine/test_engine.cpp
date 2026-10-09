@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <sstream>
 #include <thread>
 #include <string>
@@ -490,6 +491,110 @@ std::vector<Json> pollUntil(Harness& h, int rounds, Done&& done, Between&& betwe
 }
 
 }  // namespace
+
+// The messages of one poll whose taking in and telling have `between` in
+// the middle (work made to end inside the poll).
+std::vector<Json> pollWith(Harness& h, const std::function<void()>& between) {
+  h.out.str("");
+  pollEvents(h.engine.state(), std::chrono::steady_clock::now(), between);
+  return parse(h.out.str()).messages;
+}
+
+// Where the first message satisfying `f` is in `ms`, or -1.
+template <class F>
+std::ptrdiff_t indexOf(const std::vector<Json>& ms, F&& f) {
+  const auto it = std::find_if(ms.begin(), ms.end(), std::forward<F>(f));
+  return it == ms.end() ? -1 : it - ms.begin();
+}
+
+TEST_CASE("engine: a run that ends inside a poll is told before the revision of its end",
+          "[engine][parallel]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string p = dominoBox(h, 2, 4, 5);
+  const app::Id id = *parseId(IdKind::Problem, p);
+  h.result("solve.start", {{"problem", p}, {"options", {{"disassemble", true}, {"threads", 1}}}});
+  (void)pollUntil(
+      h, 60000,
+      [&](const Json& m) {
+        return m["method"] == "solve.state" && m["params"]["state"] == "assembling";
+      },
+      [] {});
+  // the run pauses and has ended while the engine polls: between taking in
+  // what ended and telling the states
+  std::vector<Json> ms = pollWith(h, [&] {
+    REQUIRE(h.engine.state().document().solvePause(id).has_value());
+    REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  });
+  for (Json& m : pollWith(h, {})) {
+    ms.push_back(std::move(m));
+  }
+  const std::ptrdiff_t state = indexOf(ms, [](const Json& m) {
+    return m["method"] == "solve.state" && m["params"]["state"] == "paused";
+  });
+  const std::ptrdiff_t progress = indexOf(ms, [](const Json& m) {
+    return m["method"] == "solve.progress" && m["params"]["state"] == "paused";
+  });
+  const std::ptrdiff_t changed = indexOf(ms, [&](const Json& m) {
+    return m["method"] == "document.changed" &&
+           std::find(m["params"]["problems"].begin(), m["params"]["problems"].end(), p) !=
+               m["params"]["problems"].end();
+  });
+  INFO(Json(ms).dump());
+  REQUIRE(state >= 0);
+  REQUIRE(changed >= 0);
+  CHECK(state < progress);
+  CHECK(progress < changed);
+  h.result("solve.abort", {{"problem", p}});
+}
+
+TEST_CASE("engine: an analysis that ends inside a poll is told, with its counts, before its results",
+          "[engine][parallel]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string p = dominoBox(h, 2, 3, 4);
+  const app::Id id = *parseId(IdKind::Problem, p);
+  h.result("solve.start", {{"problem", p}, {"options", {{"keepAtMost", 0}, {"threads", 1}}}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  (void)pollWith(h, {});
+  const std::uint64_t total = h.result("problem.get", {{"problem", p}})["saved"];
+  REQUIRE(total > 10);
+  REQUIRE(h.result("solution.analyse", {{"problem", p}, {"which", "all"}, {"threads", 1}})["total"] ==
+          total);
+  // the analysis ends while the engine polls
+  std::vector<Json> ms = pollWith(h, [&] {
+    for (int i = 0; i < 60000 && h.engine.state().document().analyseProgress(id)->active; i++) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  });
+  for (Json& m : pollWith(h, {})) {
+    ms.push_back(std::move(m));
+  }
+  const std::ptrdiff_t ended =
+      indexOf(ms, [](const Json& m) { return m["method"] == "solution.analyseEnded"; });
+  const std::ptrdiff_t changed = indexOf(ms, [&](const Json& m) {
+    return m["method"] == "document.changed" &&
+           std::find(m["params"]["problems"].begin(), m["params"]["problems"].end(), p) !=
+               m["params"]["problems"].end();
+  });
+  INFO(Json(ms).dump());
+  REQUIRE(ended >= 0);
+  REQUIRE(changed >= 0);
+  CHECK(ended < changed);
+  const Json& e = ms[static_cast<std::size_t>(ended)]["params"];
+  CHECK(e["total"] == total);
+  CHECK(e["done"] == total);
+  CHECK(e["separated"] == total);
+  CHECK(e["stopped"] == false);
+  // the results are in
+  for (const Json& r : h.result("solution.page", {{"problem", p}, {"limit", 1000}})["rows"]) {
+    CHECK(r["disassembly"] == "tree");
+  }
+  // asked after it, the analysis tells how it ended
+  const Json st = h.result("solution.analyseStatus", {{"problem", p}});
+  CHECK(st["active"] == false);
+  CHECK(st["done"] == total);
+}
 
 TEST_CASE("engine: a solve next to an analysis of another problem", "[engine][parallel]") {
   Harness h;

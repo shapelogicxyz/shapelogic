@@ -357,7 +357,9 @@ class Document {
   Result<unsigned int> analyseStart(Id problem, const AnalyseOptions& options);
   /// Asks an analysis to stop; what it finished is kept. Does not wait.
   Result<void> analyseStop(Id problem);
-  /// Where it stands (inactive with zeros when there is none).
+  /// Where it stands: running; or, once poll() put its results in, how
+  /// the last one ended (inactive, its counts kept until the next one
+  /// starts); inactive with zeros when there was none.
   [[nodiscard]] Result<AnalyseProgress> analyseProgress(Id problem) const;
   /// An analysis of the problem exists: running, or ended and not yet put
   /// in by poll().
@@ -469,6 +471,9 @@ class Document {
   std::set<Id> runsStarted_;
   /// One analysis per problem, until poll() puts its results in.
   std::map<Id, std::unique_ptr<Analysis>> analyses_;
+  /// How each problem's last analysis ended, kept by poll() as it puts the
+  /// results in: an owner that looks after poll() still learns its counts.
+  std::map<Id, AnalyseProgress> analysisEnds_;
 };
 
 }  // namespace bt::app

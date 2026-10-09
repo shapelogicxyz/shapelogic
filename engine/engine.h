@@ -128,7 +128,12 @@ void addExploreMethods(MethodTable& t);
 
 /// Sends the events of the background work: solves, analyses, and
 /// document.changed when the document changed without a request (events.cpp).
-void pollEvents(State& s, std::chrono::steady_clock::time_point now);
+/// What has ended is taken in first (Document::poll) and announced last, so
+/// each run's last solve.state and each analysis's analyseEnded come before
+/// the document.changed of their results (decision 0012). `between` runs
+/// after the taking in and before the telling (a test makes work end there).
+void pollEvents(State& s, std::chrono::steady_clock::time_point now,
+                const std::function<void()>& between = {});
 /// document.changed, when the revision moved since it was last told.
 void announceChange(State& s);
 

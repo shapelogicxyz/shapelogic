@@ -148,7 +148,16 @@ TEST_CASE("analysis: one solution, with turns, and what is refused", "[app][anal
   o.solution = 12345;
   CHECK(d.analyseStart(p, o).error().code == Errc::NotFound);
   CHECK(d.analyseStop(p).error().code == Errc::InvalidState);
-  CHECK(d.analyseProgress(p).value().total == 0);
+  // the last analysis's end is kept once poll() put it in (an owner that
+  // looks after the poll still learns its counts), until the next one
+  const AnalyseProgress last = d.analyseProgress(p).value();
+  CHECK_FALSE(last.active);
+  CHECK(last.total == 1);
+  CHECK(last.done == 1);
+  CHECK(last.separated == 1);
+  CHECK_FALSE(last.stopped);
+  const Id none = d.createProblem().value();
+  CHECK(d.analyseProgress(none).value().total == 0);
 
   Document spheres = openFixture("BallRoom_solved.xmpuzzle");
   CHECK(spheres.analyseStart(firstProblem(spheres), AnalyseOptions{}).error().code ==

@@ -771,6 +771,7 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
   if (!solving()) {
     prepareShapesForSolving();
   }
+  analysisEnds_.erase(problem);
   analyses_.emplace(problem, std::make_unique<Analysis>(*puzzle_, pr, std::move(work), options));
   return n;
 }
@@ -792,7 +793,11 @@ Result<AnalyseProgress> Document::analyseProgress(Id problem) const {
     return std::unexpected(p.error());
   }
   const auto it = analyses_.find(problem);
-  return it == analyses_.end() ? AnalyseProgress{} : it->second->progress();
+  if (it != analyses_.end()) {
+    return it->second->progress();
+  }
+  const auto e = analysisEnds_.find(problem);
+  return e == analysisEnds_.end() ? AnalyseProgress{} : e->second;
 }
 
 bool Document::analysing(Id problem) const { return analyses_.contains(problem); }
@@ -809,6 +814,7 @@ bool Document::poll() {
     const Result<unsigned int> p = problemIndex(it->first);
     BT_ASSERT_MSG(p.has_value(), "a problem was removed while being analysed");
     Problem& pr = puzzle_->getProblem(*p);
+    analysisEnds_[it->first] = it->second->progress();
     for (auto& [id, separation] : it->second->takeResults()) {
       for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
         if (pr.getSavedSolution(i).getId() == id) {

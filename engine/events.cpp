@@ -142,8 +142,20 @@ void announceChange(State& s) {
                                         {"problems", std::move(problems)}});
 }
 
-void pollEvents(State& s, std::chrono::steady_clock::time_point now) {
+void pollEvents(State& s, std::chrono::steady_clock::time_point now,
+                const std::function<void()>& between) {
   app::Document& d = s.document();
+  // What background work finished goes in first (a revision of its own,
+  // announced below). Taken in, a run or an analysis has ended, so the
+  // telling below sees its last state and its final counts and tells them
+  // before that revision; work that ends after the taking in is told here
+  // and taken in at the next poll. (Told first and taken in after, a run
+  // ending in between had its document.changed before its last state, and
+  // an analysis's analyseEnded came after its results, with zeros.)
+  d.poll();
+  if (between) {
+    between();
+  }
   const std::vector<app::Id>& ids = d.problemIds();
   for (unsigned int i = 0; i < ids.size(); i++) {
     const app::Id id = ids[i];
@@ -157,10 +169,7 @@ void pollEvents(State& s, std::chrono::steady_clock::time_point now) {
   }
   // problems that are gone
   std::erase_if(s.watches, [&d](const auto& w) { return !d.problemIndex(w.first); });
-  // results of the background work into the document: a new revision
-  if (d.poll()) {
-    announceChange(s);
-  }
+  // the revision of what was taken in (and of anything else not yet told)
   announceChange(s);
 }
 
