@@ -16,6 +16,7 @@
 #include "bt/solve/assembler.h"
 #include "bt/solve/solver_type.h"
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -135,6 +136,11 @@ class MovementExplorer {
   /// The grid's movement directions, as the dialog labels them ("x",
   /// "-y", "xy", ...): direction d forward is label 2d, reversed 2d+1.
   [[nodiscard]] std::vector<std::string> directionLabels() const;
+  /// The grid's movement directions as steps in grid coordinates (direction
+  /// d forward; reversed is its negation): what a dragged piece's move is
+  /// matched against, since a label does not say how far a step goes (a
+  /// prism step along x is 2).
+  [[nodiscard]] std::vector<std::array<int, 3>> directionVectors() const;
 
  private:
   MovementExplorer() = default;

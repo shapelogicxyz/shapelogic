@@ -411,4 +411,14 @@ std::vector<std::string> MovementExplorer::directionLabels() const {
   return out;
 }
 
+std::vector<std::array<int, 3>> MovementExplorer::directionVectors() const {
+  std::vector<std::array<int, 3>> out;
+  for (unsigned int i = 0; i < impl_->cache->numDirections(); i++) {
+    std::array<int, 3> v{};
+    impl_->cache->getDirection(i, &v[0], &v[1], &v[2]);
+    out.push_back(v);
+  }
+  return out;
+}
+
 }  // namespace bt::app

@@ -1205,6 +1205,12 @@ export interface Methods {
        * 2d, reversed 2d + 1.
        */
       directions: string[];
+      /**
+       * Direction d's step in grid coordinates (reversed: negated), one per direction: what
+       * explore.findMatching's delta is one of (a label does not say how far a step goes: a
+       * prism's x step is 2).
+       */
+      vectors: Cell[];
     };
     errors: 'not_found' | 'unsupported';
   };

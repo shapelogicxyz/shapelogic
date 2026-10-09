@@ -324,6 +324,32 @@ TEST_CASE("explorers: the placements and the assembly search step by step",
         Errc::Unsupported);
 }
 
+TEST_CASE("explorers: the movement directions of the prism grid", "[app][explorers]") {
+  // a label does not say how far a step goes: the prisms' x step is 2
+  Document d = openFixture("Bermuda.xmpuzzle");
+  const Id p = d.problemIds().front();
+  REQUIRE(d.puzzle().getProblem(0).getNumberOfSavedSolutions() > 0);
+  const Id sol = d.puzzle().getProblem(0).getSavedSolution(0).getId();
+  Result<MovementExplorer> e = d.exploreMovements(p, sol, false);
+  REQUIRE(e.has_value());
+  CHECK(e->directionVectors() ==
+        std::vector<std::array<int, 3>>{{0, 0, 1}, {2, 0, 0}, {1, 1, 0}, {-1, 1, 0}});
+  CHECK(e->directionLabels() ==
+        std::vector<std::string>{"z", "-z", "x", "-x", "xy", "-x-y", "-xy", "x-y"});
+  // a piece moved by a direction's vector is found; by a label's unit step on x, not
+  const MovementExplorer::Node& root = e->root();
+  bool moved = false;
+  for (const unsigned int piece : root.pieces) {
+    for (const std::array<int, 3>& v : e->directionVectors()) {
+      for (const int sign : {1, -1}) {
+        moved = moved || e->findMatching(0, piece, sign * v[0], sign * v[1], sign * v[2]).has_value();
+      }
+    }
+    CHECK(e->findMatching(0, piece, 1, 0, 0).error().code == Errc::NotFound);
+  }
+  CHECK(moved);
+}
+
 TEST_CASE("explorers: the movements of a take-apart", "[app][explorers]") {
   Document d = openFixture("CubeInCage.xmpuzzle");
   const Id p = d.problemIds().front();
@@ -336,6 +362,8 @@ TEST_CASE("explorers: the movements of a take-apart", "[app][explorers]") {
   CHECK(e->directionLabels().size() == 6);
   CHECK(e->directionLabels()[0] == "x");
   CHECK(e->directionLabels()[1] == "-x");
+  CHECK(e->directionVectors() ==
+        std::vector<std::array<int, 3>>{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}});
 
   const std::vector<unsigned int> kids = e->analyse(0).value();
   REQUIRE_FALSE(kids.empty());

@@ -587,6 +587,7 @@ def solving_session(e):
     root = mx["root"]
     check(root["node"] == root["parent"] and len(root["pieces"]) == detail["pieces"], f"root {root['node']}")
     check(mx["directions"], "directions")
+    check(len(mx["directions"]) == 2 * len(mx["vectors"]), "a vector per direction")
     children = e.call("explore.analyse", {"handle": mx["handle"], "node": root["node"]})["nodes"]
     check(children, "moves from the start")
     child = children[0]
@@ -598,7 +599,7 @@ def solving_session(e):
     # a piece dragged one step: some piece can move some way
     found = []
     for q in root["pieces"]:
-        for delta in ([1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]):
+        for delta in [v for d in mx["vectors"] for v in (d, [-k for k in d])]:
             try:
                 found.append(e.call("explore.findMatching", {"handle": mx["handle"], "node": root["node"],
                                                              "piece": q["piece"], "delta": delta}))

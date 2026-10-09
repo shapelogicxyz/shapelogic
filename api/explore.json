@@ -95,9 +95,10 @@
         "properties": {
           "handle": {"$ref": "types.json#/$defs/MovementExplorerHandle"},
           "root": {"$ref": "types.json#/$defs/MovementNode"},
-          "directions": {"type": "array", "items": {"type": "string"}, "description": "The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1."}
+          "directions": {"type": "array", "items": {"type": "string"}, "description": "The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1."},
+          "vectors": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}, "description": "Direction d's step in grid coordinates (reversed: negated), one per direction: what explore.findMatching's delta is one of (a label does not say how far a step goes: a prism's x step is 2)."}
         },
-        "required": ["handle", "root", "directions"],
+        "required": ["handle", "root", "directions", "vectors"],
         "additionalProperties": false
       },
       "errors": ["not_found", "unsupported"]

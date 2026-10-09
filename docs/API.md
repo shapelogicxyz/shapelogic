@@ -1771,6 +1771,7 @@ Result:
 | `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
 | `root` | [MovementNode](#movementnode) | required |  |
 | `directions` | string[] | required | The grid's movement directions as labelled ('x', '-x', ...): direction d forward is label 2d, reversed 2d + 1. |
+| `vectors` | [Cell](#cell)[] | required | Direction d's step in grid coordinates (reversed: negated), one per direction: what explore.findMatching's delta is one of (a label does not say how far a step goes: a prism's x step is 2). |
 
 Errors: `not_found`, `unsupported`
 

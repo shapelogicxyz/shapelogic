@@ -97,10 +97,15 @@ Reply exploreOpenMovements(State& s, Params& p) {
   const bool rotations = p.optBoolean("rotations", false);
   BTE_CHECK(p.finish());
   BTE_TRY(app::MovementExplorer m, s.document().exploreMovements(problem, solution, rotations));
+  Json vectors = Json::array();
+  for (const std::array<int, 3>& v : m.directionVectors()) {
+    vectors.push_back(Json::array({v[0], v[1], v[2]}));
+  }
   const std::uint64_t handle = s.newHandle();
   Json j = Json{{"handle", formatId(IdKind::MovementExplorer, handle)},
                 {"root", nodeJson(m.root())},
-                {"directions", m.directionLabels()}};
+                {"directions", m.directionLabels()},
+                {"vectors", vectors}};
   s.movementExplorers.emplace(handle, std::move(m));
   return j;
 }

@@ -231,6 +231,7 @@ describe.skipIf(ENGINE === null)('the scripted session', () => {
     expect(root.node).toBe(root.parent);
     expect(root.pieces).toHaveLength(detail.pieces);
     expect(mx.directions.length).toBeGreaterThan(0);
+    expect(mx.directions).toHaveLength(2 * mx.vectors.length);
     const children = (await c.call('explore.analyse', { handle: mx.handle, node: root.node }))
       .nodes;
     expect(children.length).toBeGreaterThan(0);
@@ -252,14 +253,10 @@ describe.skipIf(ENGINE === null)('the scripted session', () => {
     // a piece dragged one step: some piece can move some way
     const found = [];
     for (const q of root.pieces) {
-      for (const delta of [
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 1, 0],
-        [0, -1, 0],
-        [0, 0, 1],
-        [0, 0, -1],
-      ] as [number, number, number][]) {
+      for (const delta of mx.vectors.flatMap((v): [number, number, number][] => [
+        v,
+        [-v[0], -v[1], -v[2]],
+      ])) {
         try {
           found.push(
             await c.call('explore.findMatching', {
