@@ -41,6 +41,8 @@ export type KeyAction =
   | 'shape.later'
   | 'shape.rename'
   | 'shape.duplicate'
+  | 'piece.more'
+  | 'piece.fewer'
   | 'delete';
 
 /**
@@ -267,7 +269,17 @@ export const KEY_MAP: readonly KeyRow[] = [
   { group: 'Entities', sub: 'shapes list', keys: '@Right-click a row', does: 'Shape menu' },
   { group: 'Entities', sub: 'shapes list', keys: '@Drag a row', does: 'Reorder' },
 
-  { group: 'Puzzle', keys: '+ / −', does: 'One more / one fewer copy of the selected piece' },
+  {
+    group: 'Puzzle',
+    keys: '+ / −',
+    does: 'One more / one fewer copy of the selected piece',
+    // = and _ too (the same keys without and with Shift), as the mockup took them
+    chords: [
+      { chord: { key: '+', code: 'Equal' }, action: 'piece.more' },
+      { chord: { key: '-', code: 'Minus' }, action: 'piece.fewer' },
+    ],
+  },
+  // Del is the action `delete` of the Entities row: the Puzzle workspace says what it does here
   { group: 'Puzzle', keys: 'Del', does: 'Remove the selected piece from the puzzle' },
   { group: 'Puzzle', keys: '@Double-click a chip / +', does: 'Add one copy from All pieces' },
   {

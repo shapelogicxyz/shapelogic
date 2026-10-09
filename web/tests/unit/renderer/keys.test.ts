@@ -75,7 +75,7 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(30);
+    expect(seen.size).toBe(32);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
@@ -109,6 +109,17 @@ describe('the keyboard map', () => {
     expect(actionOf(press('Delete'))).toBe('delete');
     expect(actionOf(press('d', { ctrl: true }, 'KeyD'))).toBe('shape.duplicate');
     expect(actionOf(press('d'))).toBeNull();
+  });
+
+  it('has the Puzzle rows: + and − (= and _ too), Del the one delete', () => {
+    expect(actionOf(press('+', { shift: true }, 'Equal'))).toBe('piece.more');
+    expect(actionOf(press('=', {}, 'Equal'))).toBe('piece.more');
+    expect(actionOf(press('+', {}, 'NumpadAdd'))).toBe('piece.more');
+    expect(actionOf(press('-', {}, 'Minus'))).toBe('piece.fewer');
+    expect(actionOf(press('_', { shift: true }, 'Minus'))).toBe('piece.fewer');
+    expect(actionOf(press('-', {}, 'NumpadSubtract'))).toBe('piece.fewer');
+    expect(actionOf(press('-', { ctrl: true }, 'Minus'))).toBeNull();
+    expect(actionOf(press('Delete'))).toBe('delete');
   });
 
   it('prints in the mockup’s groups', () => {

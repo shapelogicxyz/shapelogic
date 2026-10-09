@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The shell put together: the engine proxy and the store, the top bar, the
-// workspace rail and cards (the Entities workspace: entities/workspace.ts),
+// workspace rail and cards (the Entities workspace: entities/workspace.ts;
+// the Puzzle workspace: puzzle/workspace.ts),
 // the 3D view, the status bar, the settings, and the keys of the one
 // table. From docs/mockup/index.html: its orchestration (`renderAll`, the
 // keydown handler's shell rows) and `updateStatus`.
 
 import { EngineProxy } from '../engine-proxy.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
+import { PuzzleWorkspace } from '../puzzle/workspace.ts';
+import { Edits } from '../state/edits.ts';
 import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
 import { installConfirm } from './confirm.ts';
 import { stepBack } from './escape.ts';
 import { installKeyboard, onKey, setModal } from './keyboard.ts';
-import { installLayout, onLayout, setTab, toggleCard, toggleFocus3d } from './layout.ts';
+import { installLayout, onLayout, setTab, tab, toggleCard, toggleFocus3d } from './layout.ts';
 import { installPopover } from './popover.ts';
 import { installSettings, openSettings, settingsOpen } from './settings.ts';
 import { flash, reportError, setStatusProvider, updateStatus } from './status.ts';
@@ -21,8 +24,11 @@ import { installTheme } from './theme.ts';
 import { installTopBar } from './topbar.ts';
 import { byId, esc } from './dom.ts';
 
-/** What the status bar says: the engine's state, else the shape shown (the mockup's updateStatus). */
-function statusLine(store: Store): string {
+/**
+ * What the status bar says: the engine's state, else the workspace's (the
+ * mockup's updateStatus: the shape shown; pzStatus: the problem's fit).
+ */
+function statusLine(store: Store, puzzle: PuzzleWorkspace): string {
   const s = store.status;
   if (s === null) {
     return 'Starting the engine…';
@@ -36,7 +42,7 @@ function statusLine(store: Store): string {
   if (store.snapshot === null) {
     return '';
   }
-  return entitiesStatus(store);
+  return tab === 'puzzle' ? puzzle.statusLine() : entitiesStatus(store);
 }
 
 // the grid of the document in the voxel editor's header (the mockup's
@@ -51,7 +57,12 @@ function renderGridChip(store: Store): void {
 }
 
 /** Starts the app in the page. */
-export function startApp(): { store: Store; view: View3D; entities: EntitiesWorkspace } {
+export function startApp(): {
+  store: Store;
+  view: View3D;
+  entities: EntitiesWorkspace;
+  puzzle: PuzzleWorkspace;
+} {
   const engine = new EngineProxy(window.bt);
   const store = new Store(engine);
 
@@ -62,9 +73,11 @@ export function startApp(): { store: Store; view: View3D; entities: EntitiesWork
   installSettings(store);
   installTopBar(store);
   const view = new View3D(store);
-  const entities = new EntitiesWorkspace(store, view);
+  const edits = new Edits(store);
+  const entities = new EntitiesWorkspace(store, view, edits);
+  const puzzle = new PuzzleWorkspace(store, view, edits);
 
-  setStatusProvider(() => statusLine(store));
+  setStatusProvider(() => statusLine(store, puzzle));
   store.subscribe((c) => {
     if (c.kind === 'status' || c.kind === 'document' || c.kind === 'selection') {
       updateStatus(c.kind === 'status');
@@ -128,5 +141,5 @@ export function startApp(): { store: Store; view: View3D; entities: EntitiesWork
   });
   onKey('escape', stepBack);
   installKeyboard();
-  return { store, view, entities };
+  return { store, view, entities, puzzle };
 }

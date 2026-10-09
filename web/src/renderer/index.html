@@ -4,9 +4,10 @@
   The shell, from docs/mockup/index.html (Girish Sharma, GPL-3.0): its body
   (the top bar, the workspace rail, the six cards, the viewport with its
   toolbar, the status bar, the settings dialog). The Entities cards are the
-  mockup's (stage 2: the shapes list and inspector, the voxel editor; their
-  contents are rendered from the engine's data); the Puzzle and Solver
-  cards come with stages 3 and 4.
+  mockup's (stage 2: the shapes list and inspector, the voxel editor) and
+  so are the Puzzle cards (stage 3: problems, result, pieces, library, fit;
+  selected piece, groups, colour rules); their contents are rendered from
+  the engine's data. The Solver cards come with stage 4.
 -->
 <html lang="en">
   <head>
@@ -107,12 +108,50 @@
 
           <section class="card puz" id="leftP">
             <div class="ch">
-              Problems<span class="sp"></span
+              Problems
+              <span
+                class="chip"
+                id="pzCount"
+                style="background: var(--muted); min-width: 22px; height: 20px"
+              ></span
+              ><span class="sp"></span
+              ><button class="btn pri sm" id="pzNew" title="New problem">
+                +<span class="lt"> New</span></button
               ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
             </div>
-            <div class="later">
-              Problems, the result and the pieces are not in this version yet.
+            <div class="pz-problems" id="pzProblems" role="listbox" aria-label="Problems"></div>
+            <div class="pz-note" id="pzKind"></div>
+            <div class="pzh">Result</div>
+            <div class="pz-result" id="pzResult"></div>
+            <div class="pzh">
+              In this puzzle
+              <span
+                class="chip"
+                id="pzPieceCount"
+                style="background: var(--muted); min-width: 22px; height: 20px"
+              ></span
+              ><span class="sp"></span>
+              <div class="seg" id="pzViewSeg">
+                <button data-v="chips" class="on">Chips</button
+                ><button data-v="table">Table</button>
+              </div>
+              <button class="ib" id="pzMore" title="More piece actions"></button>
             </div>
+            <div class="pz-used" id="pzUsed"></div>
+            <div class="pzh" id="pzLibHead" style="cursor: pointer">
+              All pieces
+              <span
+                class="chip"
+                id="pzLibCount"
+                style="background: var(--muted); min-width: 22px; height: 20px"
+              ></span
+              ><span class="sp"></span
+              ><span class="mute dhelp" style="font-size: 11px; font-weight: 400"
+                >drag, double-click or + to add</span
+              ><button class="ib" id="pzLibTog" title="Show / hide the list"></button>
+            </div>
+            <div class="pz-lib" id="pzLib"></div>
+            <div class="pz-sum" id="pzSummary"></div>
           </section>
 
           <section class="card slv" id="leftS">
@@ -137,6 +176,7 @@
                 <div id="navHint">Drag orbit · Shift/middle-drag pan · Wheel zoom</div>
               </div>
               <div class="empty" id="emptyMsg"></div>
+              <div class="pzscene" id="pzScene"></div>
             </div>
           </section>
 
@@ -190,7 +230,15 @@
               Selected piece<span class="sp"></span
               ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
             </div>
-            <div class="later">Not in this version yet.</div>
+            <div class="pz-scroll">
+              <div class="pzs" id="pzSel"></div>
+              <div id="pzGroupsSec">
+                <div class="pzh">Exclusive groups</div>
+                <div id="pzGroups" style="padding-top: 10px"></div>
+              </div>
+              <div class="pzh">Colour rules</div>
+              <div class="pzr" id="pzRules"></div>
+            </div>
           </section>
 
           <section class="card slv" id="rightS">

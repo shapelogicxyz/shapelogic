@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// What the 3D view shows: one shape now (stage 1b), with its overlays and
-// the 3D edit's preview (stage 2); the pieces of a problem (stage 3) and
-// the poses of a solution (stage 4) come later. The shape is drawn in a style (drawing: the bevelled cells with
+// What the 3D view shows: one shape (stage 1b), with its overlays and
+// the 3D edit's preview (stage 2); the pieces of a problem are
+// pieces.ts's (stage 3), the poses of a solution come with stage 4. The
+// shape is drawn in a style (drawing: the bevelled cells with
 // the checker; wireframe: the frame of the original's "gridline" mode;
 // flat: faces with black edge lines, the original's "edges" style), in a
 // colour view (the piece colour, or the constraint colours), lit or not,

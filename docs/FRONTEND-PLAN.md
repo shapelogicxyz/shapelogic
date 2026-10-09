@@ -134,7 +134,7 @@ effort and audits".
 - [x] Audit of stage 1a (docs/handoff/web-1a.md, "Audit")
 - [x] **Stage 1b**: the shell and the 3D view (docs/handoff/web-1b.md)
 - [x] **Stage 2**: the Entities workspace (docs/handoff/web-2.md)
-- [ ] **Stage 3**: the Puzzle workspace
+- [x] **Stage 3**: the Puzzle workspace (docs/handoff/web-3.md)
 - [ ] **Stage 4**: the Solver workspace and the player
 - [ ] Audit of stage 4
 - [ ] **Stage 5**: the explorers, the debug panel, the status window

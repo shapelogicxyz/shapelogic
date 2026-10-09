@@ -181,7 +181,14 @@ list; each also in its handoff):
    (its path sampled between two moves), where the original and the
    mockup took the cell under each mouse event, so a fast drag skipped
    cells.
-6. (stage 4) The dt-less playback orientation.
+6. (stage 3) The exclusive groups are set piece by piece in the
+   selected piece's card (None, G1…, + New, and how many of its copies
+   are in the group), with the groups and their members listed below, as
+   the mockup has them; the original edited them in a groups editor
+   window (a table of shapes by groups, `groupseditor.cpp`). That
+   window's "maximum holes" field has no counterpart yet: no method sets
+   `maxHoles` (the fit summary shows it when a file sets it).
+7. (stage 4) The dt-less playback orientation.
 
 ## Consequences
 - Building the front end needs Node 22; the core does not.

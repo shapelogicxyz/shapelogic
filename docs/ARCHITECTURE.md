@@ -589,11 +589,11 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a, 1b and 2, decision 0013)
+## web (front-end stages 1a, 1b, 2 and 3, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
-1.64.0 among them). What exists after stage 2:
+1.64.0 among them). What exists after stage 3:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -630,7 +630,8 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   - `index.html`, `styles.css`: the mockup's body and stylesheet (the
     stylesheet in its compact form, left alone by Prettier; the Puzzle
     library's chip rules scoped to `.pz-lib`, since the stage's own
-    collapsed class is `lc` too); `main.ts`;
+    collapsed class is `lc` too); the Entities and Puzzle cards are the
+    mockup's, the Solver cards still placeholders; `main.ts`;
     `engine-proxy.ts` (`EngineProxy`, the client's interface over
     `window.bt`).
   - `state/store.ts`: `Store`, the mirror of the engine: its status (no
@@ -641,7 +642,12 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     `generation` that grows with every new document (`openBytes`,
     `newDocument`), so the old one's ids are not taken for the new one's,
     and `whenRevision(r)`, which a mutating call awaits before acting on
-    what it made.
+    what it made. `state/edits.ts`: `Edits`, shared by the workspaces: a
+    mutating call awaited until the page shows its revision (`mutate`,
+    with the workspace's own wait: the snapshot's for Entities, the
+    problem's cards for Puzzle), `track`, `refuse` (a frozen part says
+    "Pause the solve first" before any call), and the count of edits
+    under way as `#stage[data-busy]`.
   - `shell/`: the frame of the app, ported from the mockup's functions:
     `app.ts` (puts it together; the status line), `keys.ts` (**the one
     keyboard table**: the rows of webui-spec.md section 6 with their
@@ -662,7 +668,13 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     drop, by `document.openBytes`), `icons.ts`, `cursors.ts` (the tools'
     pictures and data-URL mouse cursors),
     `piece-colours.ts` (the original's `pieceColor` table and jitter),
-    `dom.ts`.
+    `dom.ts` (with `setHtml`, which leaves a list's elements alone when a
+    re-render would draw the same, so a double-click whose first click
+    re-rendered still lands, and `markSelected`). `keys.ts` has the
+    Puzzle rows' chords (+ and −, `piece.more` and `piece.fewer`; Del is
+    the one action `delete`, which each workspace handles). The status
+    line is the workspace's: the shape's in Entities, the problem's fit
+    (the original's line) in Puzzle.
   - `view3d/`: the 3D view. `view.ts` (`View3D`: the selected shape's mesh
     fetched, built and drawn; navigation; picking into the status bar;
     rendering only on change; its state as `data-*` attributes of the
@@ -691,7 +703,19 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     view takes an edit host (`View3D.edit`: the point under the mouse and a
     click that was no drag, with the modifiers), the editor's plane and
     layer (`setEditLayer`), a preview and a cursor; `#vp` says
-    `data-revision` and `data-preview`.
+    `data-revision` and `data-preview`. In the Puzzle workspace the view
+    draws the pieces scene instead (`View3D.setPieces`, a puzzle host for
+    the click, the tag and the empty message): `pieces.ts`
+    (`PiecesScene`: one `shape.mesh` per shape, asked at the revision the
+    shape last changed at, its geometry shared by every copy; the
+    optional copies faded, their nearest surface only (a depth pass
+    first); each item turned about its own centre by the camera's
+    orientation while the layout stays put (`ViewRenderer.frameScene`:
+    the mockup's scale, a far eye); the labels and selection boxes as
+    HTML in `#pzScene`; a click picks the smallest box, never the
+    result); `#vp` says `data-scene` (the items drawn: role, shape,
+    copy, faded), `data-scene-meshes`, `data-scene-key`,
+    `data-scene-style`.
   - `entities/`: the Entities workspace (stage 2), from the mockup's
     `renderShapes`, `renderInsp`, `renderTransform`, `renderTools`,
     `renderGrid`, `spaceGridSvg`, `renderLayers`, `renderPlane`,
@@ -726,6 +750,35 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     `tools.ts` (which tool a press uses; the cube's faces), `editor-state.ts`
     (`EditorState`; `planeMap`; `expand`, mirror and span's cells as the
     core makes them, for the previews), `glyphs.ts` (the mockup's `G`).
+  - `puzzle/`: the Puzzle workspace (stage 3), from the mockup's
+    `renderPuzzle`, `renderPzSel`, `renderPzGroups`, `renderPzRules`,
+    `pzAdd`, `pzBump`, `pzBulkRange`, `pzLibChip`, `pzUsedTile`,
+    `pzDragStart`/`pzDragEnd`, `pzMenu`, `pzStats`, `renderPuzzleScene`,
+    `puzLayout`, `puzPick`. `workspace.ts` (`PuzzleWorkspace`: the
+    problem shown read after every change by `problem.get`,
+    `problem.fit` and once `problem.kind`, coalesced, the newest load
+    winning, `#leftP[data-problem]` and `[data-revision]` saying what is
+    shown; every action a call awaited until the cards show its
+    revision; the frozen state: the lists while anything solves
+    (`Snapshot.solving`), a problem while it is solved or analysed
+    (`ProblemSummary.solve`, `analysing`: `#stage.pzfrozen`), refused
+    before any call; the keys + − Del; the status line
+    `FitStats.statusLine`; the view's tag; the scene's model),
+    `problems.ts` (`ProblemsList`: new, duplicate, delete but never the
+    last, rename in place, reorder by drag), `pieces-card.ts`
+    (`PiecesCard`: the result and Change…, the parts as chips or a
+    table, "All pieces", drag and drop in, out and between tiles (a move
+    as one undo step: `movePart` in an edit group), the More menu and
+    the bulk range dialog, the right-click menus, the fit summary from
+    `FitStats` (`#pzSummary[data-fit]`), the notice for the sliding and
+    stacking puzzles), `piece-card.ts` (`PieceCard`: the selected piece's
+    copies or range with the switch, its group and the copies in it, the
+    groups and their members, the colour rules over the constraint
+    colours with the presets), `counts.ts` (a part's count as the chips
+    write it, `nextCount`: the count a field asks for, never a minimum
+    above the maximum; the groups read off the parts; `solveActive`),
+    `layout.ts` (`puzLayout`, the scene's items and positions, and their
+    labels).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them.
@@ -743,19 +796,26 @@ scripted engine, the inbox and its deferral, the fake engine, the host,
 the bridge; `unit/renderer/`: the keyboard table against webui-spec.md
 section 6, the piece colours against the original's, the mesh
 translation, the camera, the store and the mesh cache, a stroke's
-protocol, the planes, the quick tools, mirror and span) and
+protocol, the planes, the quick tools, mirror and span; the Puzzle's
+counts, groups, layout and labels) and
 `tests/engine/` (the real engine: every fixture opened and drawn in every
 style, stage 7's scripted session, pause, save point, continue and abort,
 the event order of decision 0012, a killed engine restarted; the
 preview's mirror and span cells on every grid, the cube's faces against
-`grid.neighbour`, a stroke as one step with an event per batch); by
+`grid.neighbour`, a stroke as one step with an event per batch; every
+count the Puzzle's fields ask for taken by the engine, the groups as the
+UI reads them, every fixture's problems with a fit and a scene); by
 Playwright's Electron driver (`tests/e2e/`, the built app with the
 release engine: the IPC path, a killed engine, a reload with calls in
 flight, every fixture shape in every style, reference screenshots of each
 grid, picking on every fixture, the shell's keys, the settings, the
 view's speed; the editor on each of the five grids, the shapes list, the
 frozen state, every shape of Bermuda and Prisgon rebuilt through the
-editor; the call log checked for refusals).
+editor; the problems of CubeInCage and DemoPieceGenerator rebuilt
+through the Puzzle's actions, the chips, the table, the fit and the
+scene checked against the engine after each, a click and an orbit in
+the scene, the problems list, the colour rules, the frozen problem, the
+sliding and stacking notice; the call log checked for refusals).
 
 ## Testing against the original
 

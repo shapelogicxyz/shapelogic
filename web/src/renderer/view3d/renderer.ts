@@ -61,16 +61,27 @@ export class ViewRenderer {
 
   /** Places the cameras and the shape for the camera's state and the space's extent. */
   frame(cam: Camera, extent: V3): void {
-    const w = this.width;
-    const h = this.height;
-    const sc = pixelsPerUnit(w, h, extent, cam.zoom);
-    const d = EYE_DISTANCE;
-    const reach = Math.hypot(...extent) + 2;
-    const near = Math.max(0.05, d - reach);
-    const far = d + reach;
-
+    const sc = pixelsPerUnit(this.width, this.height, extent, cam.zoom);
     this.root.quaternion.copy(cam.q);
     this.model.position.set(-extent[0] / 2, -extent[1] / 2, -extent[2] / 2);
+    this.place(cam, sc, EYE_DISTANCE, Math.hypot(...extent) + 2);
+  }
+
+  /**
+   * Places the cameras for a scene that is not turned as a whole (the
+   * pieces scene: each piece turns itself): `sc` pixels per unit at the
+   * scene's plane, the eye `eye` units away, nothing further than `reach`
+   * from the centre.
+   */
+  frameScene(cam: Camera, sc: number, eye: number, reach: number): void {
+    this.place(cam, sc, eye, reach);
+  }
+
+  private place(cam: Camera, sc: number, d: number, reach: number): void {
+    const w = this.width;
+    const h = this.height;
+    const near = Math.max(0.05, d - reach);
+    const far = d + reach;
 
     const p = this.persp;
     p.position.set(0, 0, d);

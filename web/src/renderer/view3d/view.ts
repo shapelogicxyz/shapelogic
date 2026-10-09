@@ -9,10 +9,14 @@
 // mouse names its cell and side in the status bar (picking.ts); with an
 // edit host (the Entities workspace, stage 2) the point under the mouse
 // and a click (not a drag) go to it, with the modifiers held, for 3D
-// editing and its preview. It renders only when something changed.
+// editing and its preview. In the Puzzle workspace it draws the pieces
+// scene instead (pieces.ts: the problem's result and pieces, one mesh per
+// shape; a click selects a piece through the puzzle host). It renders
+// only when something changed.
 
 import { Vector2 } from 'three';
 
+import { EngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId, css, esc } from '../shell/dom.ts';
@@ -22,7 +26,7 @@ import { contrast, hex, shapeColour } from '../shell/piece-colours.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
-import { Camera } from './camera.ts';
+import { Camera, EYE_DISTANCE } from './camera.ts';
 import { gridExtent } from './extent.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -30,6 +34,8 @@ import { MeshCache } from './meshcache.ts';
 import { layerAxis, layerSlab } from './overlays.ts';
 import type { Plane } from './overlays.ts';
 import { describePick, pickAt } from './picking.ts';
+import { PiecesScene } from './pieces.ts';
+import type { PieceMesh, PiecesModel } from './pieces.ts';
 import type { Pick } from './picking.ts';
 import type { Ghost } from './preview.ts';
 import { ViewRenderer } from './renderer.ts';
@@ -45,6 +51,16 @@ export interface ViewMods {
   ctrl: boolean;
   shift: boolean;
   alt: boolean;
+}
+
+/** What the Puzzle workspace tells the view and hears from it. */
+export interface PuzzleHost {
+  /** A piece was clicked in the pieces scene. */
+  pick(shape: string): void;
+  /** The view's tag (HTML), the mockup's pzTag. */
+  tag(): string;
+  /** The message over an empty scene ('' for none). */
+  empty(): string;
 }
 
 /** What 3D editing does with the view's points (the Entities workspace). */
@@ -98,6 +114,8 @@ export class View3D {
   lastPick: Pick | null = null;
   /** 3D editing, when a workspace does it. */
   edit: EditHost | null = null;
+  /** The Puzzle workspace, once it is there. */
+  puzzle: PuzzleHost | null = null;
   private mods: ViewMods = { ctrl: false, shift: false, alt: false };
 
   private readonly store: Store;
@@ -113,6 +131,17 @@ export class View3D {
   private loading = 0;
   private drag: Drag | null = null;
   private hoverAt: { x: number; y: number } | null = null;
+  private readonly pieces: PiecesScene;
+  private piecesModel: PiecesModel | null = null;
+  /** What the pieces scene shows: the model's key and the style. */
+  private piecesShown = '';
+  private piecesLoading = 0;
+  /** The pieces scene's meshes by shape, with what they were made of. */
+  private pieceMeshes = new Map<string, PieceMesh & { key: string }>();
+  /** The revision each shape last changed at (document.changed), per document. */
+  private readonly shapeRev = new Map<string, number>();
+  private revGeneration = -1;
+  private revBase = 0;
 
   constructor(store: Store) {
     this.store = store;
@@ -120,6 +149,9 @@ export class View3D {
     this.canvas = byId<HTMLCanvasElement>('cv');
     this.renderer = new ViewRenderer(this.canvas);
     this.scene = new ShapeScene(this.renderer.model);
+    this.pieces = new PiecesScene(byId('pzScene'));
+    this.pieces.group.visible = false;
+    this.renderer.scene.add(this.pieces.group);
     this.renderer.onDraw(() => {
       this.draw();
     });
@@ -140,6 +172,7 @@ export class View3D {
       changed: () => {
         // another style is another mesh
         this.reload();
+        this.loadPieces();
       },
       toggleFocus: toggleFocus3d,
       toggleEdit: () => {
@@ -160,7 +193,21 @@ export class View3D {
         case 'status':
           this.renderEmpty();
           break;
-        case 'changed':
+        case 'changed': {
+          const p = c.change;
+          if (p.what.includes('shapes') || p.what.includes('colours')) {
+            this.shapeRevision('');
+            if (p.shapes.length === 0 || p.what.includes('colours')) {
+              this.revBase = p.revision;
+              this.shapeRev.clear();
+            } else {
+              for (const s of p.shapes) {
+                this.shapeRev.set(s, p.revision);
+              }
+            }
+          }
+          break;
+        }
         case 'settings':
           break;
       }
@@ -223,6 +270,18 @@ export class View3D {
     return this.scene.mesh;
   }
 
+  /** The pieces scene's model (the Puzzle workspace); its meshes are loaded when shown. */
+  setPieces(model: PiecesModel | null): void {
+    this.piecesModel = model;
+    this.loadPieces();
+  }
+
+  /** The tag and the empty message again (the Puzzle workspace's changed). */
+  renderLabels(): void {
+    this.renderTag();
+    this.renderEmpty();
+  }
+
   /** The voxel editor's plane and layer: the slab and the dimming follow. */
   setEditLayer(plane: Plane, layer: number): void {
     if (plane !== this.plane || layer !== this.layer) {
@@ -266,6 +325,7 @@ export class View3D {
     const vp = byId('vp');
     this.renderer.resize(vp.clientWidth, vp.clientHeight);
     this.scene.setResolution(vp.clientWidth, vp.clientHeight);
+    this.pieces.setResolution(vp.clientWidth, vp.clientHeight);
     this.renderer.request();
   }
 
@@ -325,8 +385,151 @@ export class View3D {
     this.lookChanged();
   }
 
+  // the revision a shape last changed at in this document (its meshes
+  // asked at an older one are asked again)
+  private shapeRevision(shape: string): number {
+    const store = this.store;
+    if (store.generation !== this.revGeneration) {
+      this.revGeneration = store.generation;
+      this.revBase = store.snapshot?.revision ?? 0;
+      this.shapeRev.clear();
+    }
+    return Math.max(this.revBase, this.shapeRev.get(shape) ?? 0);
+  }
+
+  private get puzzleMode(): boolean {
+    return tab === 'puzzle';
+  }
+
+  // the pieces scene's meshes (one per shape), then the scene; only while it is shown
+  private loadPieces(): void {
+    const model = this.piecesModel;
+    if (!this.puzzleMode) {
+      return;
+    }
+    const style = this.display.style;
+    const shown = `${model?.key ?? ''}:${style}`;
+    if (shown === this.piecesShown) {
+      return;
+    }
+    const n = ++this.piecesLoading;
+    if (model === null) {
+      this.showPieces(n, null, new Map(), shown);
+      return;
+    }
+    const store = this.store;
+    const gen = store.generation;
+    const shapes = [...new Set(model.items.map((i) => i.shape))];
+    Promise.all(
+      shapes.map(async (s): Promise<[string, PieceMesh & { key: string }]> => {
+        const rev = this.shapeRevision(s);
+        const key = `${String(gen)}:${s}:${style}:${String(rev)}`;
+        const have = this.pieceMeshes.get(s);
+        if (have?.key === key) {
+          return [s, have];
+        }
+        const size = store.snapshot?.shapes.find((x) => x.id === s)?.size ?? [1, 1, 1];
+        const reply = await this.cache.get(s, style, rev);
+        const built = buildMesh(meshArrays(reply), size, style);
+        const lo = reply.lo;
+        const hi = reply.hi;
+        const c = [0, 1, 2].map((i) => ((lo[i] ?? 0) + (hi[i] ?? 0)) / 2) as [
+          number,
+          number,
+          number,
+        ];
+        const radius = Math.max(
+          0.5,
+          Math.hypot(...[0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)))) / 2,
+        );
+        return [s, { built, centre: c, radius, key }];
+      }),
+    ).then(
+      (list) => {
+        if (n !== this.piecesLoading) {
+          // a newer scene took its place: free what only this one made
+          for (const [s, m] of list) {
+            if (this.pieceMeshes.get(s) !== m) {
+              disposeBuilt(m.built);
+            }
+          }
+          return;
+        }
+        this.showPieces(n, model, new Map(list), shown);
+      },
+      (e: unknown) => {
+        if (n !== this.piecesLoading) {
+          return;
+        }
+        if (e instanceof EngineError && e.errc === 'superseded') {
+          // a newer request of a mesh took this one's place: ask again (it is cached now)
+          queueMicrotask(() => {
+            if (n === this.piecesLoading) {
+              this.loadPieces();
+            }
+          });
+          return;
+        }
+        reportError(e, 'The pieces could not be drawn');
+      },
+    );
+  }
+
+  private showPieces(
+    n: number,
+    model: PiecesModel | null,
+    meshes: Map<string, PieceMesh & { key: string }>,
+    shown: string,
+  ): void {
+    if (n !== this.piecesLoading) {
+      return;
+    }
+    const old = this.pieceMeshes;
+    this.pieceMeshes = meshes;
+    this.pieces.set(
+      model ?? { key: '', items: [], hidden: 0, selected: null, names: new Map() },
+      meshes,
+      this.piecesLook(),
+    );
+    for (const [s, m] of old) {
+      if (meshes.get(s) !== m) {
+        disposeBuilt(m.built);
+      }
+    }
+    this.piecesShown = shown;
+    const vp = byId('vp');
+    vp.dataset.scene = this.pieces.describe();
+    vp.dataset.sceneMeshes = String(this.pieces.meshCount);
+    vp.dataset.sceneKey = model?.key ?? '';
+    vp.dataset.sceneStyle = this.display.style;
+    this.renderLabels();
+    this.renderer.request();
+  }
+
+  private piecesLook(): Parameters<PiecesScene['setLook']>[0] {
+    const snap = this.store.snapshot;
+    return {
+      style: this.display.style,
+      colourView: this.display.colourView,
+      lit: prefs.lights,
+      palette: snap?.colours.map((c) => c.rgb) ?? [],
+      colourOf: (shape) => {
+        const i = this.store.indexOf(shape);
+        return shapeColour(snap?.shapes[i]?.colour ?? null, i);
+      },
+    };
+  }
+
   // the look and the overlays from the options, the store and the settings
   private lookChanged(): void {
+    const puzzle = this.puzzleMode;
+    this.renderer.root.visible = !puzzle;
+    this.pieces.group.visible = puzzle;
+    if (puzzle) {
+      this.pieces.setLook(this.piecesLook());
+      this.loadPieces();
+      this.renderTag();
+    }
     const snap = this.store.snapshot;
     const shape = this.store.shape;
     const index = shape === null ? 0 : this.store.indexOf(shape.id);
@@ -370,9 +573,14 @@ export class View3D {
   }
 
   // the mockup's renderTag: the shape's chip and name at the view's top left
+  // (pzTag in the Puzzle workspace)
   private renderTag(): void {
     const shape = this.store.shape;
     const tag = byId('vtag');
+    if (this.puzzleMode && this.puzzle !== null) {
+      tag.innerHTML = this.puzzle.tag();
+      return;
+    }
     if (shape === null) {
       tag.innerHTML = '';
       return;
@@ -386,7 +594,9 @@ export class View3D {
     const el = byId('emptyMsg');
     const s = this.store;
     let text = '';
-    if (s.status === null || s.status.state === 'exited') {
+    if (this.puzzleMode && s.running && s.snapshot !== null) {
+      text = this.puzzle?.empty() ?? '';
+    } else if (s.status === null || s.status.state === 'exited') {
       text = 'Starting the engine…';
     } else if (s.status.state === 'failed') {
       text = `The engine could not be started: ${s.status.reason}`;
@@ -403,8 +613,17 @@ export class View3D {
 
   private draw(): void {
     const moving = this.camera.step(performance.now());
-    this.renderer.frame(this.camera, this.extent);
-    this.renderer.render();
+    if (this.puzzleMode) {
+      const r = this.renderer;
+      const { sc, reach } = this.pieces.scale(r.width, r.height, this.camera.zoom);
+      r.frameScene(this.camera, sc, Math.max(EYE_DISTANCE, 2.5 * reach), reach);
+      this.pieces.turn(this.camera.q);
+      r.render();
+      this.pieces.place(r.camera, r.width, r.height, sc);
+    } else {
+      this.renderer.frame(this.camera, this.extent);
+      this.renderer.render();
+    }
     this.cube.draw();
     if (moving || this.camera.moving) {
       this.renderer.request();
@@ -422,7 +641,22 @@ export class View3D {
 
   // ---- picking ----
 
+  // the piece under a point in the pieces scene (the mockup's puzPick)
+  private pieceAt(clientX: number, clientY: number): string | null {
+    const r = this.canvas.getBoundingClientRect();
+    return this.pieces.pick(clientX - r.left, clientY - r.top);
+  }
+
+  private hoverPiece(shape: string | null): void {
+    if (this.pieces.setHover(shape)) {
+      this.canvas.style.cursor = shape === null ? '' : 'pointer';
+    }
+  }
+
   private pickAtClient(clientX: number, clientY: number): Pick | null {
+    if (this.puzzleMode) {
+      return null;
+    }
     const target = this.scene.target;
     const mesh = this.scene.mesh;
     if (target === null || mesh === null) {
@@ -481,6 +715,10 @@ export class View3D {
       this.mods = modsOf(e);
       if (d === null) {
         this.hoverAt = { x: e.clientX, y: e.clientY };
+        if (this.puzzleMode) {
+          this.hoverPiece(this.pieceAt(e.clientX, e.clientY));
+          return;
+        }
         this.showPick(this.pickAtClient(e.clientX, e.clientY));
         return;
       }
@@ -519,7 +757,13 @@ export class View3D {
       this.drag = null;
       this.camera.arcEnd();
       this.mods = modsOf(e);
-      if (was !== null && was.btn === 0 && !was.moved) {
+      if (was !== null && was.btn === 0 && !was.moved && this.puzzleMode) {
+        // a click on a piece selects it (the mockup's puzClick)
+        const shape = this.pieceAt(e.clientX, e.clientY);
+        if (shape !== null) {
+          this.puzzle?.pick(shape);
+        }
+      } else if (was !== null && was.btn === 0 && !was.moved) {
         // a click: the cell and side under it, edited when the workspace edits
         const p = this.pickAtClient(e.clientX, e.clientY);
         this.edit?.click(p, this.mods);
@@ -531,6 +775,7 @@ export class View3D {
     cv.addEventListener('pointerleave', () => {
       if (this.drag === null) {
         this.hoverAt = null;
+        this.hoverPiece(null);
         this.showPick(null);
       }
     });
@@ -545,4 +790,9 @@ export class View3D {
       { passive: false },
     );
   }
+}
+
+function disposeBuilt(b: BuiltMesh): void {
+  b.faces.dispose();
+  b.marks?.dispose();
 }

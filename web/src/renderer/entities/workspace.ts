@@ -12,6 +12,7 @@
 // Entities rows, `updateStatus` and the #garea cursor text.
 
 import type { CellTool } from '../../engine/api.generated.ts';
+import type { Edits } from '../state/edits.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
@@ -20,7 +21,7 @@ import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab } from '../shell/layout.ts';
 import { hex, shapeColour } from '../shell/piece-colours.ts';
-import { flash, reportError, setCursor } from '../shell/status.ts';
+import { reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
 import type { View3D } from '../view3d/view.ts';
 import type { Plane } from '../view3d/overlays.ts';
@@ -65,10 +66,11 @@ export class EntitiesWorkspace {
   private closingStroke: Stroke | null = null;
   private inspectorKey = '';
   /** Edits under way (a stroke open or closing, a call waiting for its revision): `data-busy`. */
-  private busy = 0;
+  private readonly edits: Edits;
 
-  constructor(store: Store, view: View3D) {
+  constructor(store: Store, view: View3D, edits: Edits) {
     this.store = store;
+    this.edits = edits;
     this.view = view;
     this.cells = new ShapeCells(store);
     this.geos = new LayerGeometries(store.engine);
@@ -182,7 +184,6 @@ export class EntitiesWorkspace {
     });
     this.installKeys();
     installHistory(store, () => this.groupState());
-    this.setBusy(0);
     this.documentChanged();
   }
 
@@ -367,45 +368,21 @@ export class EntitiesWorkspace {
 
   /** Whether editing is refused now (a solve runs); says so when it is. */
   refuse(): boolean {
-    if (this.store.solving) {
-      flash('Pause the solve first', 4000);
-      return true;
-    }
-    return false;
+    return this.edits.refuse();
   }
 
   /** Runs a mutating call, waits for its revision; null when it failed (and says why). */
-  async mutate<T extends { revision: number }>(
-    doing: string,
-    call: () => Promise<T>,
-  ): Promise<T | null> {
-    this.setBusy(1);
-    try {
-      const r = await call();
-      await this.store.whenRevision(r.revision);
-      return r;
-    } catch (e) {
-      reportError(e, doing);
-      return null;
-    } finally {
-      this.setBusy(-1);
-    }
+  mutate<T extends { revision: number }>(doing: string, call: () => Promise<T>): Promise<T | null> {
+    return this.edits.mutate(doing, call);
   }
 
   /** Counts a call as an edit under way until it settles. */
-  async track<T>(p: Promise<T>): Promise<T> {
-    this.setBusy(1);
-    try {
-      return await p;
-    } finally {
-      this.setBusy(-1);
-    }
+  track<T>(p: Promise<T>): Promise<T> {
+    return this.edits.track(p);
   }
 
-  // how many edits are under way, readable from outside (the e2e tests)
   private setBusy(d: number): void {
-    this.busy += d;
-    byId('stage').dataset.busy = String(this.busy);
+    this.edits.add(d);
   }
 
   private groupState(): GroupState {
