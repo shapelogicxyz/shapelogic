@@ -34,6 +34,8 @@ just web-install        # the web front end's packages (npm ci; Node 22)
 just web-gen            # web/src/engine/api.generated.ts from api/*.json
 just web-check          # the front end's type checks, ESLint, Prettier
 just web-test           # its unit tests, and engine tests against build/release
+just web-dev            # run the app (electron-vite dev)
+just web-e2e            # build the app, run its Playwright e2e tests
 ```
 
 ## How to port code from the original

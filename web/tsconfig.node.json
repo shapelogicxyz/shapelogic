@@ -14,5 +14,6 @@
     "tools/**/*.ts",
     "fake-engine/**/*.ts",
     "tests/**/*.ts"
-  ]
+  ],
+  "exclude": ["tests/e2e/**"]
 }

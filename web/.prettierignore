@@ -4,3 +4,8 @@ dist/
 package-lock.json
 src/engine/api.generated.ts
 fake-engine/recordings/
+# kept in the mockup's compact form (see its header)
+src/renderer/styles.css
+# Playwright's output
+test-results/
+playwright-report/

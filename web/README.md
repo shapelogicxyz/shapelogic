@@ -5,9 +5,12 @@ An Electron + TypeScript application that drives `bt-engine` over JSON-RPC
 (`../docs/mockup/`). The plan is `../docs/FRONTEND-PLAN.md`; what exists is
 the `web` section of `../docs/ARCHITECTURE.md`.
 
-**Status:** stage 1a: the toolchain, the types generated from `../api/`,
-and the engine client with its host, bridge and proxy. The shell and the 3D
-view come in stage 1b.
+**Status:** stage 1b: the toolchain, the types generated from `../api/`,
+the engine client with its host, bridge and proxy, and the app's shell
+(top bar, workspace rail, cards, status bar, settings, keyboard map) with
+the 3D view in three.js. The workspaces' cards come in stages 2 to 4; until
+the File menu (stage 6) a puzzle is opened with the top bar's "Open…" or
+by dropping it on the window.
 
 ## Running
 
@@ -19,7 +22,15 @@ just web-install   # npm ci: the pinned packages
 just web-gen       # src/engine/api.generated.ts from api/*.json (after a schema change)
 just web-check     # type checks (node and renderer projects), ESLint, Prettier
 just web-test      # unit tests; the engine tests too when the release engine exists
+just web-dev       # the app (electron-vite dev, reloads on change)
+just web-e2e       # build, then the end-to-end tests (Playwright's Electron driver)
 ```
+
+`just web-e2e -g picking` passes arguments to Playwright;
+`--update-snapshots` records the reference screenshots again (look at them
+first: `tests/e2e/__screenshots__`). The e2e tests open windows on the
+screen, one at a time. Both recipes clear `ELECTRON_RUN_AS_NODE`, which
+some editors' terminals set and which turns Electron into plain Node.
 
 Inside `web/`: `npm run format` reformats, `npm run record` records the
 fake engine's sessions again (after a change to what the engine sends),
@@ -29,7 +40,8 @@ fake engine's sessions again (after a change to what the engine sends),
 
 - The tests run `build/release/engine/bt-engine`, or `BT_ENGINE` when it is
   set, from the repository's root (fixtures are opened by relative path).
-  Without one the engine tests are skipped and the run says so.
+  Without one the engine tests are skipped and the run says so; so are the
+  e2e tests, which also need `npm run build` (`just web-e2e` builds).
 - The app (`src/main/engine-path.ts`) runs `BT_ENGINE`, else
   `build/dev/engine/bt-engine`, else the release one; stage 8 adds the copy
   inside the packaged app.
@@ -46,13 +58,23 @@ fake engine's sessions again (after a change to what the engine sends),
   restarted when it dies), `engine-ipc.ts` (the host's side of the bridge),
   `engine-path.ts`, `index.ts`.
 - `src/preload/`: `window.bt`.
-- `src/renderer/`: `engine-proxy.ts` (the client's interface over
-  `window.bt`); the app from stage 1b.
+- `src/renderer/`: `index.html` and `styles.css` (the mockup's body and
+  stylesheet), `main.ts`, `engine-proxy.ts` (the client's interface over
+  `window.bt`); `shell/` (the app's frame: `app.ts`, `keys.ts` the one
+  keyboard table, `keyboard.ts`, `layout.ts`, `settings.ts`, `prefs.ts`,
+  `theme.ts`, `status.ts`, `escape.ts`, `popover.ts`, `confirm.ts`,
+  `topbar.ts`, `icons.ts`, `cursors.ts`, `piece-colours.ts`, `dom.ts`),
+  `state/store.ts` (the mirror of the engine), `view3d/` (the 3D view:
+  `view.ts`, `renderer.ts`, `camera.ts`, `viewcube.ts`, `mesh.ts`,
+  `material.ts`, `scene.ts`, `overlays.ts`, `picking.ts`, `meshcache.ts`,
+  `extent.ts`, `toolbar.ts`), `entities/shape-picker.ts` (temporary).
 - `tools/`: `gen-api.ts` (the types), `sessions.ts` and
   `record-sessions.ts` (the recorded sessions).
 - `fake-engine/`: `fake-engine.ts` (a recording replayed as a transport),
   `recordings/`.
-- `tests/`: `unit/`, `engine/` (against the real engine), `helpers/`.
+- `tests/`: `unit/` (`unit/renderer/` for the app's pure parts), `engine/`
+  (against the real engine), `e2e/` (Playwright: `app.ts` launches the
+  built app; `__screenshots__/` the reference screenshots), `helpers/`.
 
 ## Rules
 

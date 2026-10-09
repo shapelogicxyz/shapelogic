@@ -2,8 +2,10 @@
 //
 // Electron's main process (decision 0013): one window, one engine host per
 // window, the bridge between them. The renderer is sandboxed and isolated;
-// it reaches the engine only through the preload's window.bt. Stage 1b adds
-// the shell; stage 6 the menus, files and recovery.
+// it reaches the engine only through the preload's window.bt. A main-frame
+// navigation (a reload) gets a new bridge server: the new page's proxy
+// numbers its calls from 1 again, so replies to the old page's calls must
+// not reach it. Stage 6 adds the menus, files and recovery.
 
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
@@ -37,15 +39,23 @@ function createWindow(): void {
       return NodeTransport.start(engine);
     },
   });
-  const server = serveEngine(host, (message) => {
-    if (!contents.isDestroyed()) {
-      contents.send('bt:message', message);
+  const serve = (): ReturnType<typeof serveEngine> =>
+    serveEngine(host, (message) => {
+      if (!contents.isDestroyed()) {
+        contents.send('bt:message', message);
+      }
+    });
+  servers.set(contents.id, serve());
+  contents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame && !details.isSameDocument) {
+      servers.get(contents.id)?.dispose();
+      servers.set(contents.id, serve());
     }
   });
-  servers.set(contents.id, server);
+  const id = contents.id;
   win.on('closed', () => {
-    servers.delete(contents.id);
-    server.dispose();
+    servers.get(id)?.dispose();
+    servers.delete(id);
     void host.stop();
   });
   win.once('ready-to-show', () => {
@@ -56,6 +66,12 @@ function createWindow(): void {
   });
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl !== undefined) {
+    // in development the renderer's warnings and errors show in the terminal
+    contents.on('console-message', (event) => {
+      if (event.level === 'warning' || event.level === 'error') {
+        console.log(`renderer ${event.level}: ${event.message}`);
+      }
+    });
     void win.loadURL(devUrl);
   } else {
     void win.loadFile(fileURLToPath(new URL('../renderer/index.html', import.meta.url)));

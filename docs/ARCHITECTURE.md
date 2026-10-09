@@ -13,14 +13,15 @@ paused solve files, the playback sampler and the explorers; `bt-engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
 tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
 benchmark as fast as the original or faster). The web front end
-(docs/FRONTEND-PLAN.md) has its stage 1a: the toolchain in `web/`, the
-TypeScript types generated from `api/`, and the engine client with its host,
-bridge and proxy. Next: its stage 1b, the shell and the 3D view.*
+(docs/FRONTEND-PLAN.md) has its stages 1a and 1b: the toolchain in `web/`,
+the TypeScript types generated from `api/`, the engine client with its host,
+bridge and proxy, the app's shell from the mockup and the 3D view in
+three.js. Next: its stage 2, the Entities workspace.*
 
 ## Big picture
 
 ```
- web front end (web/: Electron + TypeScript; stage 1a: the engine client)
+ web front end (web/: Electron + TypeScript + three.js; the client, the shell, the 3D view)
         │  JSON-RPC 2.0 over stdio, binary frames for meshes   (decisions 0003, 0012)
         ▼
  bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)
@@ -48,7 +49,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
 | `cli/` | `bt`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
-| `web/` | the web front end (Electron + TypeScript, decision 0013): the engine client, the host and bridge, the generated types, its tests; see `web/README.md` |
+| `web/` | the web front end (Electron + TypeScript + three.js, decision 0013): the engine client, the host and bridge, the generated types, the app (shell, 3D view), its tests (unit, engine, e2e); see `web/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
 | `tests/contract/` | the engine's contract tests: `bt-engine` driven as a subprocess, every message checked against `api/` |
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `bt`'s options, refusals and modes on the fixtures |
@@ -582,10 +583,11 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stage 1a, decision 0013)
+## web (front-end stages 1a and 1b, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
-the packages pinned in `web/package.json`. What exists after stage 1a:
+the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
+1.64.0 among them). What exists after stage 1b:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -610,11 +612,63 @@ the packages pinned in `web/package.json`. What exists after stage 1a:
   running; `stop()` ends an engine being started too), `engine-ipc.ts`
   (`serveEngine`: the host's side of the bridge; it answers the proxy's
   status request and posts a status after the errors of the calls it
-  failed),
-  `engine-path.ts`, `index.ts` (Electron's main: a window, its host, IPC).
-  `src/preload/index.ts` exposes `window.bt`; `src/renderer/engine-proxy.ts`
-  (`EngineProxy`) has the client's interface over it; the renderer is a
-  stub until stage 1b.
+  failed), `engine-path.ts`, `index.ts` (Electron's main: a window, its
+  host, IPC; a main-frame navigation gets a new bridge server, so replies
+  to the old page's calls are dropped; in development the renderer's
+  warnings and errors are echoed to the terminal).
+  `src/preload/index.ts` exposes `window.bt`.
+- `src/renderer/`, the app (sandboxed; it reaches nothing but `window.bt`):
+  - `index.html`, `styles.css`: the mockup's body and stylesheet (the
+    stylesheet in its compact form, left alone by Prettier); `main.ts`;
+    `engine-proxy.ts` (`EngineProxy`, the client's interface over
+    `window.bt`).
+  - `state/store.ts`: `Store`, the mirror of the engine: its status (no
+    call before `running`; everything loaded again when `restarts`
+    grows), `engine.info`, the engine's settings, the `Snapshot` (reloaded
+    on `document.changed`, the newest load winning), the shape shown, and a
+    `generation` that grows with every new document, so the old one's ids
+    are not taken for the new one's.
+  - `shell/`: the frame of the app, ported from the mockup's functions:
+    `app.ts` (puts it together; the status line), `keys.ts` (**the one
+    keyboard table**: the rows of webui-spec.md section 6 with their
+    chords and actions; the help prints it), `keyboard.ts` (the keydown
+    handler: an action from the table, a handler per action; keys go to
+    text fields, a modal dialog keeps them), `escape.ts` (Esc's step-back
+    order), `layout.ts` (the rail, the cards' collapse and the 3D focus,
+    the layout per workspace), `settings.ts` and `prefs.ts` (the settings
+    dialog; undo depth and threads go to `settings.set`, the rest are the
+    client's, in memory until stage 6), `theme.ts` (theme, density,
+    tooltips), `status.ts` (the status bar, flashes, `reportError`:
+    `invalid_state` as "pause first"), `popover.ts`, `confirm.ts`,
+    `topbar.ts` (the file's name, path and dirty mark; the temporary Open
+    and drop, by `document.openBytes`), `icons.ts`, `cursors.ts`,
+    `piece-colours.ts` (the original's `pieceColor` table and jitter),
+    `dom.ts`.
+  - `view3d/`: the 3D view. `view.ts` (`View3D`: the selected shape's mesh
+    fetched, built and drawn; navigation; picking into the status bar;
+    rendering only on change; its state as `data-*` attributes of the
+    viewport), `renderer.ts` (`ViewRenderer`: three.js, the perspective and
+    orthographic cameras framed as the mockup framed its picture, render
+    on demand, `performance.measure` per render), `camera.ts` (one
+    orientation quaternion; the mockup's Drag orbit, pan, smooth zoom,
+    animated Home and Fit; the original's arc-ball), `viewcube.ts` (the
+    mockup's canvas cube over that quaternion), `meshcache.ts` (meshes by
+    shape, style and transformation with their revision, coalesced as
+    `mesh:<shape>:<style>:<transformation>`, dropped by what
+    `document.changed` names), `mesh.ts` (a `MeshFrame` through
+    `meshArrays()` into a non-indexed `BufferGeometry` with the
+    per-triangle flags, colour and cell per vertex; the wire-frame style's
+    faces; the variable marks as the original's shrunk polygons),
+    `material.ts` (the faces' shader: the original's colours and its
+    fixed-function light; colour view, lighting, x-ray and the dimmed
+    layers as uniforms), `scene.ts` (`ShapeScene`: one shape, its passes,
+    marks, edge lines, overlays), `overlays.ts` (axes, bounds, the layer's
+    slab), `picking.ts` (a raycast's triangle to its cell and side),
+    `extent.ts` (a space's size in mesh units, the original's
+    `calculateSize`), `toolbar.ts` (Orbit, Pan, Edit, Display, Focus; the
+    Display menu; Minimal's hiding toolbar).
+  - `entities/shape-picker.ts`: a temporary list of the shapes until
+    stage 2's shapes list.
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them.
@@ -622,13 +676,21 @@ the packages pinned in `web/package.json`. What exists after stage 1a:
 **Rules of the front end** (AGENTS.md): the engine is the truth; every
 mutating call waits for its revision; the renderer never sees Node and
 never parses frames by hand; `src/engine/` stays platform-free (a
-TypeScript project without Node's types and ESLint check it). Tested by
-Vitest: `tests/unit/` (the parser at every chunk size over recordings of
-the real engine, the client against a scripted engine, the inbox and its
-deferral, the fake engine, the host, the bridge) and `tests/engine/` (the real engine: every fixture
-opened and drawn in every style, stage 7's scripted session, pause, save
-point, continue and abort, the event order of decision 0012, a killed
-engine restarted).
+TypeScript project without Node's types and ESLint check it); keys come
+from the one table. Tested by Vitest: `tests/unit/` (the parser at every
+chunk size over recordings of the real engine, the client against a
+scripted engine, the inbox and its deferral, the fake engine, the host,
+the bridge; `unit/renderer/`: the keyboard table against webui-spec.md
+section 6, the piece colours against the original's, the mesh
+translation, the camera, the store and the mesh cache) and
+`tests/engine/` (the real engine: every fixture opened and drawn in every
+style, stage 7's scripted session, pause, save point, continue and abort,
+the event order of decision 0012, a killed engine restarted); by
+Playwright's Electron driver (`tests/e2e/`, the built app with the
+release engine: the IPC path, a killed engine, a reload with calls in
+flight, every fixture shape in every style, reference screenshots of each
+grid, picking on every fixture, the shell's keys, the settings, the
+view's speed).
 
 ## Testing against the original
 
@@ -678,7 +740,7 @@ See AGENTS.md for the full list. The load-bearing ones:
 `just test-tsan` / `just oracle` / `just oracle-resume` /
 `just oracle-roundtrip` / `just oracle-files` / `just oracle-text` /
 `just check`; the front end's `just web-install` / `just web-gen` /
-`just web-check` / `just web-test`. ctest also runs `api-schema` (the schema checks itself),
+`just web-check` / `just web-test` / `just web-dev` / `just web-e2e`. ctest also runs `api-schema` (the schema checks itself),
 `api-docs` (`docs/API.md` is current), `contract` (the engine as a
 subprocess) and `cli` (`bt` as a subprocess).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and

@@ -81,13 +81,21 @@ web-install:
 web-gen:
     cd web && npm run gen
 
-# Type check (node and renderer projects), lint and format check the web front end
+# Type check (node, renderer and e2e projects), lint and format check the web front end
 web-check:
     cd web && npm run check
 
 # The web front end's tests; the engine tests need `just build release` (or BT_ENGINE)
 web-test:
     cd web && npm test
+
+# Run the app (electron-vite dev) with build/dev's engine, else build/release's, or BT_ENGINE (clears ELECTRON_RUN_AS_NODE, which turns Electron into Node)
+web-dev:
+    cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
+
+# Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE)
+web-e2e *args:
+    cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
 
 # Remove all build directories
 clean:

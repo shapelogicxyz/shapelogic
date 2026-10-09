@@ -1,15 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The renderer's entry. Stage 1b ports the mockup's shell here; until then
-// it only connects to the engine and says how it stands.
+// The renderer's entry: the shell (shell/app.ts) over the engine proxy.
 
-import { EngineProxy } from './engine-proxy.ts';
+import { startApp } from './shell/app.ts';
 
-const engine = new EngineProxy(window.bt);
-const line = document.getElementById('engine-status');
-engine.onStatus((status) => {
-  if (line !== null) {
-    line.textContent =
-      status.state === 'running' ? `bt-engine ${status.version}` : `bt-engine: ${status.state}`;
-  }
-});
+startApp();

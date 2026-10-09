@@ -132,7 +132,7 @@ effort and audits".
 
 - [x] **Stage 1a**: toolchain, generated types, the engine client (docs/handoff/web-1a.md)
 - [x] Audit of stage 1a (docs/handoff/web-1a.md, "Audit")
-- [ ] **Stage 1b**: the shell and the 3D view
+- [x] **Stage 1b**: the shell and the 3D view (docs/handoff/web-1b.md)
 - [ ] **Stage 2**: the Entities workspace
 - [ ] **Stage 3**: the Puzzle workspace
 - [ ] **Stage 4**: the Solver workspace and the player

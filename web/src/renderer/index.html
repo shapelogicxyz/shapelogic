@@ -1,5 +1,12 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!--
+  The shell, from docs/mockup/index.html (Girish Sharma, GPL-3.0): its body
+  (the top bar, the workspace rail, the six cards, the viewport with its
+  toolbar, the status bar, the settings dialog) with the cards' contents
+  left for their stages: the Entities cards hold a temporary shape picker
+  until stage 2, the Puzzle and Solver cards come with stages 3 and 4.
+-->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -8,10 +15,149 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     />
     <title>BurrTools Alpha</title>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <!-- Stage 1b ports the mockup's shell here (docs/FRONTEND-PLAN.md). -->
-    <p id="engine-status">Starting the engine…</p>
+    <div id="wrap">
+      <div id="stage" data-tab="entities">
+        <div class="top">
+          <div class="brand"><i></i><span class="bt">BurrTools</span></div>
+          <div class="right">
+            <span class="fname" id="fname"></span>
+            <label
+              class="btn sm openf"
+              id="btnOpen"
+              title="Open a puzzle file (.xmpuzzle), or drop one on the window"
+              ><span>Open…</span><input type="file" id="openFile" accept=".xmpuzzle"
+            /></label>
+            <button class="ib" id="btnSettings" title="Settings  (Ctrl+,)"></button>
+          </div>
+        </div>
+
+        <nav class="rail" id="appRail" aria-label="Workspace"></nav>
+
+        <div class="body">
+          <section class="card ent" id="left">
+            <div class="lfull">
+              <div class="ch">
+                Shapes
+                <span
+                  class="chip"
+                  id="shapeCount"
+                  style="background: var(--muted); min-width: 22px; height: 20px"
+                ></span>
+                <span class="sp"></span>
+                <button class="ib" data-collapse="L" title="Collapse sidebar"></button>
+              </div>
+              <div
+                class="shapes picker"
+                id="shapeList"
+                tabindex="0"
+                role="listbox"
+                aria-label="Shapes"
+              ></div>
+            </div>
+            <div class="lrail" id="lrail"></div>
+          </section>
+
+          <section class="card puz" id="leftP">
+            <div class="ch">
+              Problems<span class="sp"></span
+              ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
+            </div>
+            <div class="later">
+              Problems, the result and the pieces are not in this version yet.
+            </div>
+          </section>
+
+          <section class="card slv" id="leftS">
+            <div class="ch">
+              Solver<span class="sp"></span
+              ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
+            </div>
+            <div class="later">Solving is not in this version yet.</div>
+          </section>
+
+          <section class="card" id="center">
+            <div class="vp" id="vp">
+              <canvas id="cv"></canvas>
+              <canvas id="vcube" title=""></canvas>
+              <div class="vtag" id="vtag"></div>
+              <div class="vt" id="vt"></div>
+              <div class="hint" id="vhint">
+                <div id="navHint">Drag orbit · Shift/middle-drag pan · Wheel zoom</div>
+              </div>
+              <div class="empty" id="emptyMsg"></div>
+            </div>
+          </section>
+
+          <section class="card ent" id="right">
+            <div class="rfull">
+              <div class="ch">
+                <span>Voxel editor</span><span class="vtchip" id="vtChip"></span
+                ><span class="sp"></span>
+                <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
+              </div>
+              <div class="later">The voxel editor is not in this version yet.</div>
+            </div>
+            <div class="rrail" id="rrail"></div>
+          </section>
+
+          <section class="card puz" id="rightP">
+            <div class="ch">
+              Selected piece<span class="sp"></span
+              ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
+            </div>
+            <div class="later">Not in this version yet.</div>
+          </section>
+
+          <section class="card slv" id="rightS">
+            <div class="ch">
+              Solutions<span class="sp"></span
+              ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
+            </div>
+            <div class="later">Not in this version yet.</div>
+          </section>
+        </div>
+
+        <div class="status">
+          <span id="stText"></span><span class="sp"></span>
+          <span id="stCursor" class="mute"></span>
+        </div>
+
+        <div id="pop"></div>
+        <div id="scrim">
+          <div class="dlg" role="dialog" aria-modal="true" aria-label="Settings">
+            <div class="dh">
+              <span>Settings</span>
+              <div class="sbox">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                >
+                  <circle cx="11" cy="11" r="6" />
+                  <path d="M20 20l-4.5-4.5" />
+                </svg>
+                <input id="setSearch" placeholder="Search settings" autocomplete="off" />
+              </div>
+              <span class="sp"></span><button class="ib" id="setX" title="Close  (Esc)"></button>
+            </div>
+            <div class="nav" id="setNav"></div>
+            <div class="pg" id="setPg"></div>
+            <div class="df">
+              <span class="mute">Changes apply immediately</span><span class="sp"></span
+              ><button class="btn" id="setDefaults">Restore all defaults</button
+              ><button class="btn pri" id="setDone">Done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

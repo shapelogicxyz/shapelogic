@@ -138,13 +138,18 @@ electron-vite Vite 7 at most. Two TypeScript projects: `tsconfig.node.json`
 renderer, and `src/engine/` without `node-transport.ts`, compiled without
 Node's types: the check that the client is platform-free). ESLint keeps
 Node and Electron out of `src/engine/` and out of the renderer, and the
-renderer away from `main/` and `preload/`. three.js, Playwright's Electron
-driver and electron-builder come with stages 1b and 8.
+renderer away from `main/` and `preload/`. Stage 1b added three.js 0.186.1
+(with `@types/three` 0.186.0) and Playwright 1.64.0 (its Electron driver;
+no browser is downloaded), and a third TypeScript project,
+`tsconfig.e2e.json`, for the e2e tests (Node's types and the DOM's, for
+code run in the page). electron-builder comes with stage 8.
 
 **Recipes:** `just web-install`, `web-gen`, `web-check` (both type checks,
 ESLint, Prettier), `web-test` (unit; the engine tests against
 `build/release/engine/bt-engine` or `BT_ENGINE`, skipped with a message
-without one); `web-dev`, `web-e2e` and `web-dist` come with their stages.
+without one); `web-dev` and `web-e2e` (stage 1b; both clear
+`ELECTRON_RUN_AS_NODE`, which an editor's terminal may set); `web-dist`
+comes with stage 8.
 
 **State** (from stage 1b): a store mirrors `Snapshot` and a record per
 problem being solved; `document.changed` reloads what its ids name; the UI
@@ -154,7 +159,16 @@ revision, style and transformation.
 
 **Deliberate differences from the original GUI** (later stages add to the
 list; each also in its handoff):
-1. (none yet; stage 4 adds the dt-less playback orientation)
+1. (stage 1b) The 3D view is navigated as the mockup's, not the
+   original's: its home view (yaw −32°, pitch 26°), its framing and gentle
+   perspective, its Drag orbit as the default; the original's arc-ball is
+   the "Arc-ball" rotation method. The faces are coloured and lit as the
+   original's (its checker, variable marks, light), with its positional
+   light taken as a fixed eye-space point.
+2. (stage 1b) "Dim other layers" lightens the other layers' faces as the
+   original dimmed a piece (1 − (1 − c) · 0.2), opaque, where the mockup
+   made them transparent.
+3. (stage 4) The dt-less playback orientation.
 
 ## Consequences
 - Building the front end needs Node 22; the core does not.
