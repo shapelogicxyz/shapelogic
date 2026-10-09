@@ -1,8 +1,7 @@
 # Handoff: web stage 4 (the Solver workspace and the player)
 
-**Date:** 2026-10-09 · **Next:** the audit of stage 4 (Fable 5.1, max
-effort; FRONTEND-PLAN.md, "Recommended audits"), then stage 5, the
-explorers, the debug panel and the status window.
+**Date:** 2026-10-09 · **Next:** stage 5, the explorers, the debug panel
+and the status window (the audit of stage 4 is done: "Audit" below).
 
 ## Done
 
@@ -408,6 +407,129 @@ Where to look:
   and the kept analysis end: `9259304` (`events.cpp`'s `pollEvents`,
   `Document::poll` and `analyseProgress`, the two seam tests in
   `test_engine.cpp`).
+
+## Audit
+
+**Date:** 2026-10-09 · Fable 5.1 at max effort, on the diff
+`31cb948..eb55579` (`a70e3c1` Engine: hotspot, `3707bcb` the core's
+dt-less orientations, `9259304` the engine's poll order, `eb55579` the
+stage), FRONTEND-PLAN.md, docs/ARCHITECTURE.md, docs/API.md, decisions
+0010 to 0013 and this note; the fix is the commit `Web 4 audit: autosave
+survives a document replaced mid-save`.
+
+### How it was done
+Read in the plan's order, then the diff file by file; the focus areas
+traced against decision 0012's rules by hand, then probed with scripts
+kept out of the repository: the pager over a list that grows to 250 rows
+and is thinned to 30 at a new version (the rows past the end gone, every
+page current, `indexOf` of a dropped row -1, one read per page); the
+poses of a two-chunk track with only the first chunk loaded (the fade of
+a piece that goes at the boundary step runs 1, 0.75, 0.5, 0.25 over the
+last step from the first chunk's last sample; the boundary step itself
+renders; the first fractional step past it returns null and `missing`
+names the next chunk), then both chunks at 0.1-step resolution (no jump
+above 0.1, every whole step exact); the solve records' `whenEnded` across
+`clear()`; `Autosave.saveAtSavePoint` over a stubbed store and engine with
+a document replaced in two timings, and on its happy path. The stage's
+new tests by mutation, rebuilt and run each time: the core's `orientOf`
+put back to `getOrient` (the PelikanBurr playback case and the placed
+pieces of every fixture fail: 45,700 assertions in `[playback]`; the
+dump's `checkGivenOrientations` fails: 21,452, the handoff's number);
+`maskTracks` made a no-op with the core correct (31 key lines of the slow
+dump differ and `masked > 0` fails: the mask is load-bearing, and it masks
+exactly the pieces of a tree without `<dt>` whose assembly orientation is
+not 0, keeping the piece numbers and the visibility the two programs
+agree on); the engine's `pollEvents` put back to telling first and taking
+in after, with the seam between them (both seam cases fail:
+`document.changed` before `solution.analyseEnded`, the paused state after
+its revision). A first mutation with the seam before the telling passed
+every case: the seam's place is what the two cases test, so a mutation
+must keep it between the telling and `Document::poll()`.
+
+### Findings, by severity
+1. **Autosave hangs for good, or saves the wrong document, when another
+   document replaces the one being autosaved** (low to medium; the
+   autosave path of the brief). `saveAtSavePoint` sends `solve.savePoint`
+   to every run under way and waits for each run's end by
+   `Solves.whenEnded`; a save point lets the take-aparts under way finish
+   first, so the wait can last seconds. A document opened or made new in
+   that window moves the store's generation, and `Solves.clear()` dropped
+   the pending waiters without resolving them: the `await` never
+   returned, `saving` stayed true, and every later `tick` and
+   `saveAtSavePoint` returned at once: autosave was off for the rest of
+   the window's life, silently, for every later solve. In the other
+   timing (the new document arrives after the save point is taken and
+   before the end is awaited) `whenEnded` resolved at once (no record),
+   `activeRuns()` was empty on the new document, and `document.save` was
+   called on it: the file the user had just opened written again (or an
+   error flash for a document without a path), and "Autosaved" shown.
+   Both timings probed (one hung; the other called `document.save`). Fix:
+   `clear()` resolves the waiters with -1, and `saveAtSavePoint` remembers
+   the store's generation and, after its waits, neither saves nor
+   continues anything when it moved. Test: `unit/renderer/solver.test.ts`,
+   "resolve a pending whenEnded when the document is replaced" (hung
+   without the fix). The generation guard has the probe, not a unit test:
+   `autosave.ts` needs the DOM, which the tests' TypeScript project does
+   not have; the guard is three lines beside the test's scenario.
+
+### Gaps in the tests closed
+- A `whenEnded` pending across `clear()` (nothing said it must resolve).
+
+### Checked and found sound
+The solve records on every rule of decision 0012: a run's end at its
+revision after its last state, a run launched here that starts and ends
+between two polls, the state that moved between two ends, the abort's own
+`document.changed` ending nothing and the run's end at the second, a
+solve paused in memory aborted ending no run, a replaced document's last
+idle meeting a fresh record (`told` false) and its `analyseEnded` no
+analysis, `pausedBt2`; the pager's tickets against a stale reply, its
+coalescing key per page, a newer page making the others old, pages past
+the end pruned, `refresh` from `document.changed` and `added` at another
+version only; `pageChanged` not choosing while a run changes the list and
+choosing at `ended`, `showSelected` only from a current row and only
+while the Solver is shown, the held open re-checked at its timer;
+`abortable` and `doAbort` through `whenShown`, which is generation-aware
+(the asymmetry with `whenEnded` was the finding); `activeRuns`, each run
+continued with the options it was launched with (`launchOptions`), the
+continues in `finally` by state; the poses: the samples exact at whole
+steps, a chunk's last step the next one's first in `sample`, `missing`
+against `at`, the fade's next whole step, slerp the short way and unit,
+the play loop holding the time while a chunk is missing, the tokens, the
+handle closed only in its own generation; the core change: `orientOf`,
+the sampler's fall-back to the assembly orientation on -1, `rotating`
+never true without `<dt>`, `withOrientations` indexing the orientations by
+the node's own piece index as `getOrient` does, `maskPoses` on the dump's
+`key` lines (nine fields a piece after `key`, its number and its time);
+the hotspot: the turned voxel's in `shapeDrawMesh`, the client's
+`cellScale` a pure per-axis scale so a cell minus a hotspot scales as one
+and `gridExtent` the result's `calculateSize`, the assembled view and the
+playback's step 0 the same point; the engine's poll order and
+`analysisEnds_` (kept until the next `analyseStart`, reaching no client
+through events); `isTyping` leaving range inputs to the Solver's keys, so
+the slider and the seek bar get its ← → ↑ ↓ Home End.
+
+### Known issues left
+- The assembled view's placement in `player.ts` (`loadAssembled`) is
+  asserted only through the formula's twin in the engine test
+  (`extent.ts` with the hotspot) and through the playback's step 0, which
+  the e2e compares with the engine; the 120 ms the assembled view itself
+  shows are not compared. Same formula, same inputs.
+- `analysisChanged`'s change waiters are dropped, not resolved, by a new
+  document: a promise leaks; nothing awaits it.
+- `Document::analysisEnds_` keeps an entry per analysed problem until that
+  problem's next analysis (a deleted problem's until the document goes).
+- The autosave's generation guard has a probe, not a committed test
+  (above).
+- The handoff's own known issues stand.
+
+### Gate after the fix
+| Check | Result |
+|---|---|
+| `just web-check` | clean, three times (three TypeScript projects, ESLint without warnings, Prettier) |
+| `just web-test` (release engine) | **212/212**, three times, 18–19 s each: the stage's 211 and the new solve-records case |
+| `just web-e2e` | **38/38**, three times, 4.9–5.0 min each (build included); perf: mesh build 7.2, 7.0, 7.3 ms; orbit median 16.7 ms at a 16.7 ms display frame (this run's display), p95 17.6, 18.6, 18.6 ms; 121–122 renders in 121 frames |
+| the fix without its code | the new unit test fails (hung) |
+| C++ | unchanged by the fix; the mutations restored and the dev test binary rebuilt clean; the release engine untouched |
 
 ## Brief for the next stage (after the audit)
 

@@ -677,7 +677,8 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     run), `whenEnded`, the progress, the failure, the last
     `solutionsAdded`, an analysis, the solver a run used (`pausedBt2`);
     cleared when another document comes (its last idle and analyseEnded
-    then meet no run).
+    then meet no run, and whoever waits for a run's end, the autosave,
+    is released).
   - `shell/`: the frame of the app, ported from the mockup's functions:
     `app.ts` (puts it together; the status line), `keys.ts` (**the one
     keyboard table**: the rows of webui-spec.md section 6 with their
@@ -870,8 +871,9 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     the original's rules, the two spellings, `SolveOptions`, the limits
     not stored), `autosave.ts` (`Autosave`: every 20 minutes while a solve
     with the setting runs: `solve.savePoint` on every run under way, their
-    ends waited for by revision, `document.save`, `solve.continue`; a
-    puzzle without a file is not saved, said once).
+    ends waited for by revision, `document.save`, `solve.continue`, none
+    of it once another document replaced the one it paused; a puzzle
+    without a file is not saved, said once).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them; `solver-end` and

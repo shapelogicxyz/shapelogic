@@ -111,6 +111,10 @@ export class Autosave {
     }
     this.saving = true;
     const e = this.store.engine;
+    // the document being saved: if another replaces it while we wait (a run's
+    // end, then the snapshot), its solves are gone and its file must not be
+    // written with the new document's bytes
+    const gen = this.store.generation;
     const paused: string[] = [];
     try {
       const runs = this.activeRuns();
@@ -128,6 +132,10 @@ export class Autosave {
         rev = Math.max(rev, await this.solves.whenEnded(p));
       }
       await this.store.whenRevision(rev);
+      if (this.store.generation !== gen) {
+        // another document replaced this one while we waited: do not save it
+        return false;
+      }
       if (this.activeRuns().length > 0) {
         // a run started meanwhile: no save this time
         return false;
@@ -141,9 +149,9 @@ export class Autosave {
       reportError(x, 'Autosave');
       return false;
     } finally {
-      // the solves paused for the save carry on
+      // the solves paused for the save carry on (unless the document is gone)
       for (const p of paused) {
-        if (this.solves.peek(p)?.state === 'paused') {
+        if (this.store.generation === gen && this.solves.peek(p)?.state === 'paused') {
           const options = this.optionsOf(p);
           try {
             await e.call('solve.continue', { problem: p, options });

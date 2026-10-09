@@ -421,4 +421,23 @@ describe('the solve records', () => {
     s.launch('p1', 'classic');
     expect(s.get('p1').failure).toBeNull();
   });
+
+  it('resolve a pending whenEnded when the document is replaced (clear), so autosave never hangs', async () => {
+    const bus = eventBus();
+    const s = new Solves(bus);
+    s.launch('p1', 'classic');
+    bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
+    const ended = s.whenEnded('p1');
+    // another document arrives while a caller waits for this run's end
+    s.clear();
+    const outcome = await Promise.race([
+      ended.then((r) => `resolved:${String(r)}`),
+      new Promise<string>((r) => {
+        setTimeout(() => {
+          r('hung');
+        }, 100);
+      }),
+    ]);
+    expect(outcome).toBe('resolved:-1');
+  });
 });

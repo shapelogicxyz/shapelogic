@@ -192,8 +192,14 @@ export class Solves {
   /** Forgets every record (another document: its ids are new). */
   clear(): void {
     this.records.clear();
-    // nothing of the old document ends any more
+    // nothing of the old document ends any more; resolve anyone waiting for
+    // a run's end (autosave) with -1, since its document.changed will never
+    // come now — a dropped waiter would hang the caller forever
+    const waiting = this.ended;
     this.ended = [];
+    for (const w of waiting) {
+      w.done(-1);
+    }
     this.emit({ problem: null, kind: 'cleared' });
   }
 
