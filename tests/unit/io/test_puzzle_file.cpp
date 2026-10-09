@@ -4,6 +4,7 @@
 
 #include "../model/model_test_helpers.h"
 
+#include "bt/io/paused_solve.h"
 #include "bt/io/puzzle_file.h"
 #include "bt/io/xml_document.h"
 
@@ -308,4 +309,40 @@ TEST_CASE("puzzle file: a saved disassembly reads back with its levels", "[io][f
     }
   }
   CHECK(sawRotation);
+}
+
+TEST_CASE("puzzle file: a save replaces the file only once the new one is whole", "[io][file]") {
+  // the original's writePuzzleFile: written beside the file, renamed over it
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_safe_save";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  const std::filesystem::path file = dir / "p.xmpuzzle";
+  const Puzzle a = parse(withProblem("", ""));
+  REQUIRE(io::savePuzzle(a, file).has_value());
+  CHECK_FALSE(std::filesystem::exists(dir / "p.xmpuzzle.tmp"));
+  const std::string before = readText(file);
+  REQUIRE(io::loadPuzzle(file).has_value());
+
+  // the new file cannot be written (its place is a folder): the old one stays
+  std::filesystem::create_directories(dir / "p.xmpuzzle.tmp");
+  const Result<void> r = io::savePuzzle(a, file);
+  REQUIRE_FALSE(r.has_value());
+  CHECK(r.error().code == Errc::IoError);
+  CHECK(readText(file) == before);
+
+  // a paused solve's file the same way
+  const std::filesystem::path solve = dir / "s.btsolve";
+  std::filesystem::create_directories(dir / "s.btsolve.tmp");
+  {
+    std::ofstream out(solve, std::ios::binary);
+    out << "old";
+  }
+  CHECK_FALSE(io::savePausedSolve(a, 0, solve).has_value());
+  CHECK(readText(solve) == "old");
+  std::filesystem::remove_all(dir / "s.btsolve.tmp");
+  REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
+  CHECK_FALSE(std::filesystem::exists(dir / "s.btsolve.tmp"));
+  CHECK(io::loadPausedSolve(solve).has_value());
+  std::filesystem::remove_all(dir);
 }

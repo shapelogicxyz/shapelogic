@@ -11,6 +11,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <system_error>
 
 namespace bt::io {
 
@@ -70,21 +71,42 @@ Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::si
 }
 
 Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view data) {
-  GzHandle f(openGz(path, "wb9"));
-  if (!f) {
-    return fail(Errc::IoError, "could not open " + describe(path) + " for writing");
-  }
-
-  while (!data.empty()) {
-    const auto chunk = static_cast<unsigned int>(std::min<std::size_t>(data.size(), 1u << 30));
-    if (gzwrite(f.get(), data.data(), chunk) != static_cast<int>(chunk)) {
+  // the original's writePuzzleFile (mainwindow_file.cpp): written beside the
+  // file and renamed over it once whole, so a failed or interrupted save
+  // leaves the old file as it was
+  std::filesystem::path tmp = path;
+  tmp += ".tmp";
+  std::error_code ec;
+  {
+    GzHandle f(openGz(tmp, "wb9"));
+    if (!f) {
+      return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+    }
+    while (!data.empty()) {
+      const auto chunk = static_cast<unsigned int>(std::min<std::size_t>(data.size(), 1u << 30));
+      if (gzwrite(f.get(), data.data(), chunk) != static_cast<int>(chunk)) {
+        f.reset();
+        std::filesystem::remove(tmp, ec);
+        return fail(Errc::IoError, "could not write " + describe(path));
+      }
+      data.remove_prefix(chunk);
+    }
+    // closing writes the end of the compressed data; it can fail too
+    if (gzclose(f.release()) != Z_OK) {
+      std::filesystem::remove(tmp, ec);
       return fail(Errc::IoError, "could not write " + describe(path));
     }
-    data.remove_prefix(chunk);
   }
+  return replaceWith(tmp, path);
+}
 
-  if (gzclose(f.release()) != Z_OK) {
-    return fail(Errc::IoError, "could not write " + describe(path));
+Result<void> replaceWith(const std::filesystem::path& written, const std::filesystem::path& path) {
+  std::error_code ec;
+  std::filesystem::rename(written, path, ec);
+  if (ec) {
+    std::error_code ignored;
+    std::filesystem::remove(written, ignored);
+    return fail(Errc::IoError, "could not replace " + describe(path) + ": " + ec.message());
   }
   return {};
 }

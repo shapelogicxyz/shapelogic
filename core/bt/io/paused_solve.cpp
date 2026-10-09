@@ -63,15 +63,18 @@ std::string writePausedSolve(const Puzzle& puzzle, unsigned int problem) {
 Result<void> savePausedSolve(const Puzzle& puzzle, unsigned int problem,
                              const std::filesystem::path& path) {
   const std::string bytes = writePausedSolve(puzzle, problem);
-  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  // beside the file, renamed over it once whole (as a puzzle is saved)
+  std::filesystem::path tmp = path;
+  tmp += ".tmp";
+  std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
   out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
   out.close();
   if (!out) {
     std::error_code ec;
-    std::filesystem::remove(path, ec);
+    std::filesystem::remove(tmp, ec);
     return fail(Errc::IoError, "could not write " + path.string());
   }
-  return {};
+  return replaceWith(tmp, path);
 }
 
 Result<PausedSolve> parsePausedSolve(std::string_view in) {
