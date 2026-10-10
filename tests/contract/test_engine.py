@@ -939,6 +939,15 @@ def sliding_start_goal_shapes(e):
     check(parts[two]["required"] and parts[one]["required"], f"required parts {parts}")
     e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 0}, "invalid_argument")
     e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
+    # the problem buttons and the colour group the original greyed out: the
+    # problems follow the start/goal shapes, the cell colours are the marks
+    e.fails("problem.create", {}, "invalid_argument")
+    e.fails("problem.duplicate", {"problem": p}, "invalid_argument")
+    e.fails("problem.delete", {"problem": p}, "invalid_argument")
+    colours = e.call("document.get")["colours"]
+    check(len(colours) >= 2, f"the locks' colours {colours}")
+    e.fails("colour.delete", {"colour": colours[0]["id"]}, "invalid_argument")
+    check(len(e.call("document.get")["problems"]) == 1, "one problem still")
     # clicking where it is takes it off; undo puts it back
     off = e.call("sliding.place", {"tray": tray, "piece": one, "at": [3, 0], "goal": False})
     check(not off["placed"], "taken off")

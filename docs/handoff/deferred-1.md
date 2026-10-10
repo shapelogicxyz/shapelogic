@@ -269,4 +269,117 @@ start and goal (`sliding.place`, `sliding.preview`, `sliding.clearAt`,
 "Enable High Memory" (`SolveOptions.sliding`), the notices
 (`document.changed.notice`, `Snapshot.notice`), the walls in 3D, and New
 offering the sliding grid (`web/src/renderer/shell/files.ts` and
-`tests/e2e/files.e2e.ts` filter it out until then).
+`tests/e2e/files.e2e.ts` filter it out until then). Read the "Notes for
+part 2" of the Audit section below first.
+
+## Audit
+
+**Date:** 2026-10-10 · Fable 5.1 at extra high effort, on the diff
+`4a3d6ba..ed37914` (`ab15050` Core, `d9b26cd` and `91c3a4e` Engine,
+`ed37914` Deferred 1), the gate results above, this note, the plan and
+decision 0014. The fixes are one commit after the part's: `Deferred 1
+audit: refusals the GUI's greyed buttons gave, marks past the 63rd place`.
+
+### How it was done
+- The three searches, the level files, the routes and the tray model read
+  side by side with the original's `sliding.cpp`, `slidelevels.h` and the
+  sliding branches of `solvethread.cpp`, `burrTxt.cpp` and
+  `mainwindow.cpp`; the session's sliding run against the solve thread's
+  callback, stops, note and statistics; the document's hooks against the
+  GUI's callbacks and the buttons it greyed out or hid.
+- Suspicions probed with small programs against
+  `build/release/core/libbtcore.a` in the session's scratchpad (not
+  committed), and `bt -x` against `burrTxt -x` on three solved files
+  (`-x`, `-x -p`, `-x -s`, `-x -q`: byte-identical).
+- Each test added was run against the part's sources (the fixed files
+  copied aside, the part's versions written in their place, copied back)
+  and the colour refusal against a mutant with that block alone removed:
+  each fails without its fix.
+
+### Findings, by severity
+1. **Medium: deleting a colour renumbered a sliding puzzle's start marks
+   and locks.** The start marks are cell colours (shape index + 1) and the
+   pieces' locks the same numbers; `Puzzle::removeColor` moves every
+   higher cell colour down by one and leaves the goal marks (`goalPiece_`)
+   where they are. The original hid the colour group on sliding puzzles;
+   the document, and so `colour.delete` (the Entities workspace offers
+   the colour chips on every grid), allowed it. Probe: the 81-move
+   fixture opened, colour 1 deleted: every start mark and lock one lower
+   (S3's start now says S2, and so on), `startGoalError` "The start of S2
+   is not the whole piece. Place it again.", the file saved wrong, the
+   problem unsolvable. Fix: `Document::deleteColour` refuses
+   (`invalid_argument`) on a sliding puzzle; `colour.delete` declares the
+   error. `colour.add` stays (harmless: the marks keep their numbers).
+   Tests: "what the original greyed out is refused" (`deleteColour`
+   refused, `addColour` leaves the start/goal check as it was), the
+   contract case `sliding_start_goal_shapes`.
+2. **Low: a stamped piece moved past the 63rd place threw an
+   assertion.** A mark is six bits; `noteShapeSwap` swapped mark 63 to 64
+   and `Voxel::setColor` asserts `color < 64`: an `InternalError` out of
+   `shape.move`, the step uncommitted. The original has the same
+   `bt_assert` (found in the original, not fixed there). Probe: a sliding
+   document with 64 pieces, the 63rd stamped, moved one place up:
+   "assertion failed: color < 64". Fix: `noteShapeSwap` drops a mark that
+   would go to a shape past the 63rd place and returns the start/goal
+   shapes that lost one; `Document::moveShape` then syncs the problems
+   and says so in `document.changed.notice` ("Only the first 63 shapes
+   can have a start or goal: S64 moved past the 63rd place and its start
+   and goal were removed from S1."). Test: "a piece moved past the 63rd
+   place loses its marks, not the puzzle" (moved up, and crossed by a
+   shape moved down; undo and redo byte for byte; no notice when nothing
+   crossed).
+3. **Low: the problem buttons the original greyed out (New, Copy and
+   Delete problem) were not refused.** A sliding puzzle's problems follow
+   its start/goal shapes (`syncSlidingProblems`): a problem added was
+   dropped by the next stamp (its id gone), a deleted START/GOAL problem
+   came back at the next stamp with a new id and only the stamped pieces
+   (the user's counts of free pieces lost), a copy doubled a tray's
+   problem for good. The Puzzle workspace offers all three. Fix:
+   `createProblem`, `duplicateProblem` and `deleteProblem` refuse
+   (`invalid_argument`) on a sliding puzzle; `problem.create`,
+   `problem.duplicate` and `problem.delete` declare the error. Tests: the
+   greyed-out case, the contract case.
+
+### Probed and cleared
+- Concurrent slide searches: `onSlidingAssembly` runs the search outside
+  `resultsMutex_`, but the assembler's run layer (`SearchRun::deliver*`)
+  holds its hand-over mutex across every callback ("never called by two
+  threads at once"), as the original's `assemblyCallbackMutex` did: one
+  search at a time, so the memory and disk budgets hold.
+- The three searches, `KeySet`, `mergeRuns`, the level search's `Memory`
+  and `Disk` outcomes and trace-back, `findSlidePath`, the routes and the
+  keys: line for line the original's; the differences are decision 0014's
+  four.
+- The session: a pause stops the search under way (pending, not counted);
+  a save point lets it finish while the assembler's other threads drop
+  what they hold (`deliverOnce` after a stop), as the original's
+  `stopSoft`; the note, the statistics (`searched` adds the last search's
+  count per run, as `recordSearchStats` did) and the stage `Other` match
+  the original; the slide pool's threads add to the assembler's as the
+  original's did.
+- The document: every shape command on stamped pieces (edit, resize, the
+  tool tasks, delete, move, duplicate, rename) keeps the marks or drops
+  them as the GUI did; `solveLaunch`'s prepare runs after every refusal
+  the session has; `moveShape` does not resync (the GUI's exchange did
+  not either), the next launch repairs the locks; a second tray's launch
+  while another runs is refused when it would repaint the pieces.
+- The engine's `sliding.*`: ids, bounds, refusals and notices as the
+  schema says; `bt -x` equals `burrTxt -x` on solved sliding files.
+
+### Gate after the fixes
+- Release: `bt_tests "[app]"` 63 cases, `"[sliding]"` 46 cases (benches
+  and fuzz left out), the contract suite (100 methods called), the api
+  checks; `just web-gen` and the generated types' test.
+- `just test-all` (dev): 6/6 (unit, the slow cases, the api schema and
+  docs, the contract suite, the CLI), 395 s; `just web-check` clean.
+
+### Notes for part 2
+- Hide the colour chips and the New/Copy/Delete problem buttons on
+  sliding puzzles (the engine refuses them now) and show
+  `document.changed.notice`.
+- The editor should offer no colours on a sliding puzzle: a cell painted
+  with one is a stray start mark cell (the GUI forced the Walls tool
+  there); `shape.setCells` does not refuse it.
+- `shape.rename` with a name beginning "sg:" turns a piece into a
+  start/goal shape until the next sync (the GUI's cb_NameShape had the
+  same hole): refuse such names in the front end.

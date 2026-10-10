@@ -9,6 +9,7 @@
 #include "bt/grid/voxel.h"
 #include "bt/model/sliding.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -93,6 +94,22 @@ void Document::slidingShapeChanged(unsigned int shape) {
   lastChange_.notice = "S" + std::to_string(shape + 1) +
                        " changed shape: its start and goal were removed from " + shapeList(trays) +
                        ".";
+}
+
+void Document::slidingMarksLost(Id shape, const std::vector<Id>& trays) {
+  std::vector<unsigned int> indices;
+  for (const Id t : trays) {
+    const unsigned int i = shapeIndex(t).value();
+    if (std::find(indices.begin(), indices.end(), i) == indices.end()) {
+      indices.push_back(i);
+    }
+  }
+  std::sort(indices.begin(), indices.end());
+  syncSliding();
+  lastChange_.notice = "Only the first 63 shapes can have a start or goal: S" +
+                       std::to_string(shapeIndex(shape).value() + 1) +
+                       " moved past the 63rd place and its start and goal were removed from " +
+                       shapeList(indices) + ".";
 }
 
 bool Document::slidingRequired(unsigned int problem, unsigned int shape) const {

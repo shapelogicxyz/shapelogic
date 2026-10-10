@@ -206,18 +206,33 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   StepGuard g(*this, "Move shape");
   touchWhole();
   endSessions();
-  // one place at a time, as the buttons did: the problems follow each swap
+  // one place at a time, as the buttons did: the problems follow each
+  // swap; on a sliding puzzle so do the marks, and a stamped piece that
+  // crosses into the 64th place loses them (noteShapeSwap), which is told
+  const bool slidingPuzzle = sliding::isSliding(*puzzle_);
+  Id unmarked = 0;
+  std::vector<Id> lostTrays;
   unsigned int at = *s;
   while (at != toIndex) {
     const unsigned int next = at < toIndex ? at + 1 : at - 1;
-    if (sliding::isSliding(*puzzle_)) {
-      sliding::noteShapeSwap(*puzzle_, at, next);
+    if (slidingPuzzle) {
+      const std::vector<unsigned int> lost = sliding::noteShapeSwap(*puzzle_, at, next);
+      if (!lost.empty()) {
+        // the shape going up is the one that crossed
+        unmarked = ids_.shapes[std::min(at, next)];
+        for (const unsigned int t : lost) {
+          lostTrays.push_back(ids_.shapes[t]);
+        }
+      }
     }
     puzzle_->exchangeShapes(at, next);
     std::swap(ids_.shapes[at], ids_.shapes[next]);
     at = next;
   }
-  g.commit(kChangeShapes | kChangeProblems);
+  if (!lostTrays.empty()) {
+    slidingMarksLost(unmarked, lostTrays);
+  }
+  g.commit(kChangeShapes | kChangeProblems | lastChange_.what);
   return {};
 }
 
@@ -557,6 +572,12 @@ Result<void> Document::deleteColour(Id colour) {
   if (!c) {
     return std::unexpected(c.error());
   }
+  // the original hid the colour group: a sliding puzzle's cell colours are
+  // the start marks (shape index + 1), which removeColor would renumber
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument,
+                "a sliding puzzle's cell colours are its start marks: a colour is not deleted");
+  }
   if (Result<void> r = checkSessionsReplaceable(); !r) {
     return r;
   }
@@ -586,6 +607,14 @@ Result<Id> Document::createProblem() {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
+  // the original greyed New, Copy and Delete problem out: a sliding
+  // puzzle's problems follow its start/goal shapes (syncSlidingProblems
+  // would drop a problem of no start/goal shape at the next change)
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument,
+                "a sliding puzzle's problems follow its start/goal shapes: add a start/goal "
+                "shape instead");
+  }
   if (Result<void> r = checkSessionsReplaceable(); !r) {
     return std::unexpected(r.error());
   }
@@ -611,6 +640,11 @@ Result<Id> Document::duplicateProblem(Id problem) {
   if (!p) {
     return std::unexpected(p.error());
   }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument,
+                "a sliding puzzle's problems follow its start/goal shapes: duplicate the "
+                "shape instead");
+  }
   if (Result<void> r = checkSessionsReplaceable(); !r) {
     return std::unexpected(r.error());
   }
@@ -632,6 +666,11 @@ Result<void> Document::deleteProblem(Id problem) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
+  }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument,
+                "a sliding puzzle's problems follow its start/goal shapes: delete the shape "
+                "instead");
   }
   if (Result<void> r = checkSessionsReplaceable(); !r) {
     return r;

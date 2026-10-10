@@ -42,7 +42,7 @@
       "errors": ["not_found"]
     },
     "colour.delete": {
-      "summary": "Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions.",
+      "summary": "Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions. Refused (invalid_argument) on a sliding puzzle, whose cell colours are its start marks and locks.",
       "params": {
         "type": "object",
         "properties": {"colour": {"$ref": "types.json#/$defs/ColourId"}},
@@ -50,7 +50,7 @@
         "additionalProperties": false
       },
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     }
   }
 }

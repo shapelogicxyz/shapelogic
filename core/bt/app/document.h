@@ -300,7 +300,9 @@ class Document {
   /// In a sliding puzzle the result is the start/goal shape, a piece with
   /// a start or goal there keeps its count (shapeIsRequired: the buttons
   /// the original greyed out), bulk changes leave such pieces alone, and
-  /// there are no groups: those commands are refused (InvalidArgument).
+  /// there are no groups: those commands are refused (InvalidArgument), as
+  /// are new, copied and deleted problems (they follow the start/goal
+  /// shapes) and a deleted colour (the cell colours are the start marks).
   ///
   /// Stores the Solver tab's settings with a problem (cb_SolverOptions:
   /// the original's names and values, saved in the file; the front end
@@ -489,6 +491,10 @@ class Document {
   void syncSliding();
   /// The sliding part of changeShape, after shape `shape` was edited.
   void slidingShapeChanged(unsigned int shape);
+  /// After moveShape took piece `shape` past the 63rd place and its marks
+  /// off the start/goal shapes `trays` (sliding::noteShapeSwap): the
+  /// problems follow, with a notice.
+  void slidingMarksLost(Id shape, const std::vector<Id>& trays);
   /// A sliding piece with a start or goal on the problem's start/goal
   /// shape: its count follows them.
   [[nodiscard]] bool slidingRequired(unsigned int problem, unsigned int shape) const;

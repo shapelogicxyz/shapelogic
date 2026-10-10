@@ -21,22 +21,22 @@
       "errors": ["not_found"]
     },
     "problem.create": {
-      "summary": "Adds a problem; it allows each colour on itself.",
+      "summary": "Adds a problem; it allows each colour on itself. Refused (invalid_argument) on a sliding puzzle, whose problems follow its start/goal shapes (sliding.addStartGoal).",
       "params": {"type": "object", "properties": {}, "additionalProperties": false},
       "result": {"$ref": "#/$defs/Made"},
-      "errors": ["invalid_state"]
+      "errors": ["invalid_argument", "invalid_state"]
     },
     "problem.duplicate": {
-      "summary": "Adds a copy of a problem's definition (no name, no solutions).",
+      "summary": "Adds a copy of a problem's definition (no name, no solutions). Refused (invalid_argument) on a sliding puzzle (shape.duplicate of the start/goal shape instead).",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "#/$defs/Made"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.delete": {
-      "summary": "Removes a problem.",
+      "summary": "Removes a problem. Refused (invalid_argument) on a sliding puzzle (shape.delete of the start/goal shape instead).",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.move": {
       "summary": "Moves a problem to a place in the list.",

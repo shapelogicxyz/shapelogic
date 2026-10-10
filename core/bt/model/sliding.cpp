@@ -334,32 +334,46 @@ void noteShapeRemoved(Puzzle& puzzle, unsigned int shapeId) {
   }
 }
 
-void noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned int b) {
+std::vector<unsigned int> noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned int b) {
+  std::vector<unsigned int> lost;
   if (a == b) {
-    return;
+    return lost;
   }
   const unsigned int ca = a + 1;
   const unsigned int cb = b + 1;
+  // A mark is a cell's colour, six bits: a shape past the 63rd place can
+  // hold none (toggleCellMark and stampFits refuse it), so a mark that
+  // would follow its shape there goes instead.
+  const auto to = [](unsigned int id) { return id > 63 ? 0U : id; };
   for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
     if (!isStartGoalShape(&puzzle.getShape(s))) {
       continue;
     }
     Voxel& v = puzzle.getShape(s);
+    bool dropped = false;
     for (unsigned int i = 0; i < v.getXYZ(); i++) {
       const unsigned int c = v.getColor(i);
       if (c == ca) {
-        v.setColor(i, cb);
+        v.setColor(i, to(cb));
+        dropped = dropped || to(cb) == 0;
       } else if (c == cb) {
-        v.setColor(i, ca);
+        v.setColor(i, to(ca));
+        dropped = dropped || to(ca) == 0;
       }
       const unsigned int g = v.getGoalPiece(i);
       if (g == ca) {
-        v.setGoalPiece(i, cb);
+        v.setGoalPiece(i, to(cb));
+        dropped = dropped || to(cb) == 0;
       } else if (g == cb) {
-        v.setGoalPiece(i, ca);
+        v.setGoalPiece(i, to(ca));
+        dropped = dropped || to(ca) == 0;
       }
     }
+    if (dropped) {
+      lost.push_back(s);
+    }
   }
+  return lost;
 }
 
 bool toggleCellMark(Voxel* tray, int x, int y, unsigned int shapeId, bool goal) {

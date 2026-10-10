@@ -274,6 +274,80 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, free)) == 0);
   // an unstamped piece's count can be set
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, free, 1, 2); });
+
+  // the problem buttons: a sliding puzzle's problems follow its start/goal
+  // shapes (a new one would go at the next change, a deleted one come
+  // back without the user's counts, a copy double a shape's)
+  refused(d, Errc::InvalidArgument, [](Document& x) { return x.createProblem(); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.duplicateProblem(p); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.deleteProblem(p); });
+  // the colour group was hidden: the cell colours are the start marks and
+  // the pieces' locks, which deleting a colour would renumber
+  REQUIRE_FALSE(d.colourIds().empty());
+  refused(d, Errc::InvalidArgument,
+          [](Document& x) { return x.deleteColour(x.colourIds()[0]); });
+  const Puzzle before = d.puzzle();
+  CHECK(roundTrip(d, [](Document& x) { return x.addColour(Rgb{1, 2, 3}); }).has_value());
+  CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)) ==
+        sliding::startGoalError(before, index(d, tray)));
+}
+
+TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, not the puzzle",
+          "[app][sliding]") {
+  // a mark is a cell's colour, six bits: the original's noteShapeSwap
+  // overran them (an assertion) when a stamped piece crossed into the
+  // 64th place; here the marks come off, with a notice, and the puzzle
+  // stays whole
+  Document d(GridKind::Sliding);
+  const Id tray = d.addStartGoal({4, 3}).value();
+  std::vector<Id> pieces;
+  for (int k = 0; k < 64; k++) {
+    pieces.push_back(piece(d, 1, 1, {{0, 0, 0}}));
+  }
+  // the 63rd shape (mark 63) is the last that can be stamped
+  const Id last = pieces[61];
+  REQUIRE(index(d, last) == 62);
+  REQUIRE(d.placeStamp(tray, last, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, last, 2, 0, true).value());
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return x.placeStamp(tray, pieces[62], 1, 0, false); });
+  const unsigned int it = index(d, tray);
+  const auto cleared = [&] {
+    const Voxel& t = d.puzzle().getShape(it);
+    return sliding::stampAt(&t, 0, 0, false) == static_cast<unsigned int>(-1) &&
+           sliding::stampAt(&t, 2, 0, true) == static_cast<unsigned int>(-1) &&
+           sliding::pieceColor(d.puzzle(), index(d, last)) == 0;
+  };
+
+  // moved up past the place: its start and goal go, the problem follows
+  std::string notice;
+  roundTrip(d, [&](Document& x) {
+    const Result<void> r = x.moveShape(last, 63);
+    notice = x.lastChange().notice;
+    return r;
+  });
+  CHECK(index(d, last) == 63);
+  CHECK(cleared());
+  CHECK(notice ==
+        "Only the first 63 shapes can have a start or goal: S64 moved past the 63rd place and "
+        "its start and goal were removed from S1.");
+  CHECK_FALSE(sliding::shapeIsRequired(d.puzzle(), d.puzzle().getProblem(0), 63));
+
+  // back in the 63rd place and stamped again, another shape moved down
+  // across it takes it past the place too
+  REQUIRE(d.moveShape(last, 62).has_value());
+  REQUIRE(d.placeStamp(tray, last, 0, 0, false).value());
+  roundTrip(d, [&](Document& x) {
+    const Result<void> r = x.moveShape(pieces[63], 1);
+    notice = x.lastChange().notice;
+    return r;
+  });
+  CHECK(index(d, last) == 63);
+  CHECK(cleared());
+  CHECK(notice.starts_with("Only the first 63 shapes can have a start or goal: S64 moved"));
+  // a move that crosses no stamped piece says nothing
+  REQUIRE(d.moveShape(pieces[0], 5).has_value());
+  CHECK(d.lastChange().notice.empty());
 }
 
 TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the locks",

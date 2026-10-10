@@ -448,7 +448,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `shape.move`
 
-Moves a shape to a place in the list; labels renumber.
+Moves a shape to a place in the list; labels renumber. On a sliding puzzle the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.
 
 Params:
 
@@ -781,7 +781,7 @@ Errors: `not_found`
 
 ### `colour.delete`
 
-Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions.
+Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions. Refused (invalid_argument) on a sliding puzzle, whose cell colours are its start marks and locks.
 
 Params:
 
@@ -791,7 +791,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ## Problems
 
@@ -827,7 +827,7 @@ Errors: `not_found`
 
 ### `problem.create`
 
-Adds a problem; it allows each colour on itself.
+Adds a problem; it allows each colour on itself. Refused (invalid_argument) on a sliding puzzle, whose problems follow its start/goal shapes (sliding.addStartGoal).
 
 Params:
 
@@ -835,11 +835,11 @@ Params:
 
 Result: Made
 
-Errors: `invalid_state`
+Errors: `invalid_argument`, `invalid_state`
 
 ### `problem.duplicate`
 
-Adds a copy of a problem's definition (no name, no solutions).
+Adds a copy of a problem's definition (no name, no solutions). Refused (invalid_argument) on a sliding puzzle (shape.duplicate of the start/goal shape instead).
 
 Params:
 
@@ -849,11 +849,11 @@ Params:
 
 Result: Made
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.delete`
 
-Removes a problem.
+Removes a problem. Refused (invalid_argument) on a sliding puzzle (shape.delete of the start/goal shape instead).
 
 Params:
 
@@ -863,7 +863,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.move`
 

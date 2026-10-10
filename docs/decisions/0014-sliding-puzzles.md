@@ -57,11 +57,14 @@ disk budget are options: `bt` reads `BURRTOOLS_SLIDE_DIR` and
 **The document keeps sliding puzzles as the GUI did** (decision 0011):
 the start/goal commands (`addStartGoal`, `placeStamp`, `clearStampAt`)
 are undoable steps; the shape commands keep the stamps and the problems
-in step (a deleted or moved shape's marks renumbered, a duplicated or
-renamed start/goal shape keeping its number apart from the user's name,
-an edit that changes a stamped piece's shape taking its stamps off with a
-notice); what the GUI greyed out is refused (choosing the result, groups,
-the count of a piece a stamp requires); a sliding shape of more than one
+in step (a deleted or moved shape's marks renumbered, a stamped piece
+moved past the 63rd place losing them with a notice, since a mark is six
+bits, a duplicated or renamed start/goal shape keeping its number apart
+from the user's name, an edit that changes a stamped piece's shape taking
+its stamps off with a notice); what the GUI greyed out or hid is refused
+(choosing the result, groups, the count of a piece a stamp requires, new,
+copied and deleted problems, deleted colours: the cell colours are the
+start marks); a sliding shape of more than one
 layer is made flat on open (dirty, with a notice). Solve's setup
 (`prepareForSolving`) is part of the launch, not an undo step, as it was
 part of the original's solve: it runs after every check that can refuse,

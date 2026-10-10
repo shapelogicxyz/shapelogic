@@ -952,7 +952,8 @@ export interface Methods {
   };
   /**
    * Removes a colour: its cells revert to the shape's own colour, the colours after it move up,
-   * the problems with shapes using it lose their solutions.
+   * the problems with shapes using it lose their solutions. Refused (invalid_argument) on a
+   * sliding puzzle, whose cell colours are its start marks and locks.
    * (colour.json)
    */
   'colour.delete': {
@@ -960,7 +961,7 @@ export interface Methods {
       colour: ColourId;
     };
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * A new empty puzzle on a grid; the grid never changes. The open document goes (as with
@@ -1533,31 +1534,34 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Adds a problem; it allows each colour on itself.
+   * Adds a problem; it allows each colour on itself. Refused (invalid_argument) on a sliding
+   * puzzle, whose problems follow its start/goal shapes (sliding.addStartGoal).
    * (problem.json)
    */
   'problem.create': {
     params: Record<string, never>;
     result: ProblemMade;
-    errors: 'invalid_state';
+    errors: 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Adds a copy of a problem's definition (no name, no solutions).
+   * Adds a copy of a problem's definition (no name, no solutions). Refused (invalid_argument) on a
+   * sliding puzzle (shape.duplicate of the start/goal shape instead).
    * (problem.json)
    */
   'problem.duplicate': {
     params: ProblemProblemParam;
     result: ProblemMade;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Removes a problem.
+   * Removes a problem. Refused (invalid_argument) on a sliding puzzle (shape.delete of the
+   * start/goal shape instead).
    * (problem.json)
    */
   'problem.delete': {
     params: ProblemProblemParam;
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * Moves a problem to a place in the list.
@@ -1844,7 +1848,9 @@ export interface Methods {
     errors: 'not_found' | 'invalid_state';
   };
   /**
-   * Moves a shape to a place in the list; labels renumber.
+   * Moves a shape to a place in the list; labels renumber. On a sliding puzzle the starts and
+   * goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told
+   * in document.changed.notice.
    * (shape.json)
    */
   'shape.move': {

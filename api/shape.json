@@ -71,7 +71,7 @@
       "errors": ["not_found", "invalid_state"]
     },
     "shape.move": {
-      "summary": "Moves a shape to a place in the list; labels renumber.",
+      "summary": "Moves a shape to a place in the list; labels renumber. On a sliding puzzle the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.",
       "params": {
         "type": "object",
         "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "toIndex": {"type": "integer", "minimum": 0}},

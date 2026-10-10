@@ -525,11 +525,13 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   editor's click), `clearStampAt`; the shape commands keep stamps and
   problems in step (deleting, moving, duplicating and renaming a
   start/goal shape; an edit that changes a stamped piece's shape takes its
-  stamps off and says so in `ChangeSet::notice`); a sliding shape of more
-  than one layer is made flat on open (`openNotice()`, dirty); what the
-  original greyed out is refused (the result, groups, the count of a
-  piece a stamp requires); `solveLaunch` sets up the start locks as part
-  of the run (no undo step), after its checks.
+  stamps off and says so in `ChangeSet::notice`, as does moving a stamped
+  piece past the 63rd place, a mark being six bits); a sliding shape of
+  more than one layer is made flat on open (`openNotice()`, dirty); what
+  the original greyed out or hid is refused (the result, groups, the count
+  of a piece a stamp requires, new, copied and deleted problems, deleted
+  colours); `solveLaunch` sets up the start locks as part of the run (no
+  undo step), after its checks.
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),

@@ -162,7 +162,7 @@ In this order:
 
 ## Status
 - [x] **Part 1**: sliding: core, engine, CLI (2026-10-10; docs/handoff/deferred-1.md)
-- [ ] Audit of part 1
+- [x] Audit of part 1 (2026-10-10; the Audit section of docs/handoff/deferred-1.md)
 - [ ] **Part 2**: sliding: front end
 - [ ] **Part 3**: stacking and Panex: core, engine, CLI
 - [ ] Audit of part 3

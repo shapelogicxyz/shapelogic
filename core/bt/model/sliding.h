@@ -116,9 +116,12 @@ bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal);
 void refreshStartLocks(Puzzle& puzzle, const Problem& problem);
 
 /// Renumbers the marks of the start/goal shapes before shape shapeId is
-/// removed (its own go), or after shapes a and b swapped places.
+/// removed (its own go), or when shapes a and b swap places. A mark names
+/// a shape in the six bits of a cell's colour, so a stamped piece swapped
+/// past the 63rd place loses its start and goal (the original overran the
+/// bits there): noteShapeSwap returns the start/goal shapes that lost one.
 void noteShapeRemoved(Puzzle& puzzle, unsigned int shapeId);
-void noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned int b);
+std::vector<unsigned int> noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned int b);
 
 /// The older model: makes sure a sliding puzzle has a filled tray (the
 /// result), a goal map shape and a problem that refers to both; with no
