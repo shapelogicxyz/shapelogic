@@ -7,8 +7,10 @@
 
 #include <zlib.h>
 
+#include <fcntl.h>
 #ifdef _WIN32
 #include <io.h>
+#include <sys/stat.h>
 #else
 #include <unistd.h>
 #endif
@@ -53,6 +55,52 @@ bool writable(const std::filesystem::path& path) {
 
 /// The most links followed to the file a path names (as Linux's limit).
 constexpr int kMaxLinks = 40;
+
+/// Opens the temporary file of a save for writing, as a file of this save's
+/// own: a file or link already there (left by a save that died, or put there
+/// so that the save would write through it to another file) is removed, and
+/// the file is then made exclusively, so a link put in its place meanwhile
+/// is refused rather than followed. A directory there is left, and fails the
+/// open. The descriptor, or -1.
+int openTemporary(const std::filesystem::path& tmp) {
+  std::error_code ec;
+  const std::filesystem::file_status old = std::filesystem::symlink_status(tmp, ec);
+  if (!ec && (std::filesystem::is_symlink(old) || std::filesystem::is_regular_file(old))) {
+    std::filesystem::remove(tmp, ec);
+  }
+#ifdef _WIN32
+  return ::_wopen(tmp.c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY | _O_NOINHERIT,
+                  _S_IREAD | _S_IWRITE);
+#else
+  return ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0666);
+#endif
+}
+
+void closeFd(int fd) {
+#ifdef _WIN32
+  ::_close(fd);
+#else
+  ::close(fd);
+#endif
+}
+
+/// Writes all of `data` to an open descriptor; false when the write failed.
+bool writeAll(int fd, std::string_view data) {
+  while (!data.empty()) {
+#ifdef _WIN32
+    const auto chunk = static_cast<unsigned int>(std::min<std::size_t>(data.size(), 1u << 30));
+    const int n = ::_write(fd, data.data(), chunk);
+#else
+    const std::size_t chunk = std::min<std::size_t>(data.size(), std::size_t{1} << 30);
+    const ssize_t n = ::write(fd, data.data(), chunk);
+#endif
+    if (n <= 0) {
+      return false;
+    }
+    data.remove_prefix(static_cast<std::size_t>(n));
+  }
+  return true;
+}
 
 Error tooLarge(std::size_t maxBytes) {
   return Error{Errc::ParseError, "the file is too large: it inflates to more than " +
@@ -100,8 +148,13 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
   tmp += ".tmp";
   std::error_code ec;
   {
-    GzHandle f(openGz(tmp, "wb9"));
+    const int fd = openTemporary(tmp);
+    if (fd < 0) {
+      return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+    }
+    GzHandle f(gzdopen(fd, "wb9"));
     if (!f) {
+      closeFd(fd);
       return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
     }
     while (!data.empty()) {
@@ -118,6 +171,27 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
       std::filesystem::remove(tmp, ec);
       return fail(Errc::IoError, "could not write " + describe(path));
     }
+  }
+  return replaceWith(tmp, *target);
+}
+
+Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view data) {
+  const Result<std::filesystem::path> target = saveTarget(path);
+  if (!target) {
+    return std::unexpected(target.error());
+  }
+  std::filesystem::path tmp = *target;
+  tmp += ".tmp";
+  const int fd = openTemporary(tmp);
+  if (fd < 0) {
+    return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+  }
+  const bool written = writeAll(fd, data);
+  closeFd(fd);
+  if (!written) {
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
+    return fail(Errc::IoError, "could not write " + describe(path));
   }
   return replaceWith(tmp, *target);
 }

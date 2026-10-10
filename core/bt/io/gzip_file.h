@@ -29,8 +29,15 @@ inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
 /// Writes `data` gzip-compressed (level 9, as the original), replacing the
 /// file only once the new one is whole: it is written to `<file>.tmp` beside
 /// the file `path` names (saveTarget) and renamed over it, so a failed save
-/// leaves the old file.
+/// leaves the old file. The temporary file is this save's own: one already
+/// there is removed and the new one made exclusively, never written through
+/// (a link left at that name would carry the bytes to another file).
 [[nodiscard]] Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view data);
+
+/// Writes `data` as it is, replacing the file the way writeGzipFile does
+/// (through a temporary file of its own beside it, renamed over it once
+/// whole).
+[[nodiscard]] Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view data);
 
 /// The file a save to `path` replaces: `path` followed through its symbolic
 /// links, so a link is written through, not replaced by a file (the file it

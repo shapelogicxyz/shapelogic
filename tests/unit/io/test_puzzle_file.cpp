@@ -398,6 +398,47 @@ TEST_CASE("puzzle file: a save through a symbolic link writes the file it names"
   std::filesystem::remove_all(dir);
 }
 
+TEST_CASE("puzzle file: a save never writes through a planted temporary file", "[io][file]") {
+  // the temporary file is the save's own: a link left at <file>.tmp (by
+  // whoever may write in the folder) is removed, not written through, and
+  // the file is made exclusively; a stale file of a save that died goes too
+  const std::filesystem::path dir = freshDir("bt_test_save_tmp");
+  const std::filesystem::path file = dir / "p.xmpuzzle";
+  const std::filesystem::path victim = dir / "victim";
+  {
+    std::ofstream out(victim, std::ios::binary);
+    out << "untouched";
+  }
+  std::error_code ec;
+  std::filesystem::create_symlink("victim", dir / "p.xmpuzzle.tmp", ec);
+  if (ec) {
+    std::filesystem::remove_all(dir);
+    SKIP("no symbolic links here: " << ec.message());
+  }
+  const Puzzle a = parse(withProblem("", ""));
+  REQUIRE(io::savePuzzle(a, file).has_value());
+  CHECK(readText(victim) == "untouched");
+  CHECK(std::filesystem::is_regular_file(std::filesystem::symlink_status(file)));
+  CHECK_FALSE(std::filesystem::exists(std::filesystem::symlink_status(dir / "p.xmpuzzle.tmp")));
+  REQUIRE(io::loadPuzzle(file).has_value());
+  {
+    std::ofstream out(dir / "p.xmpuzzle.tmp", std::ios::binary);
+    out << "stale";
+  }
+  REQUIRE(io::savePuzzle(a, file).has_value());
+  CHECK_FALSE(std::filesystem::exists(dir / "p.xmpuzzle.tmp"));
+
+  // a paused solve's file the same way
+  const std::filesystem::path solve = dir / "s.btsolve";
+  std::filesystem::create_symlink("victim", dir / "s.btsolve.tmp");
+  REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
+  CHECK(readText(victim) == "untouched");
+  CHECK(std::filesystem::is_regular_file(std::filesystem::symlink_status(solve)));
+  CHECK_FALSE(std::filesystem::exists(std::filesystem::symlink_status(dir / "s.btsolve.tmp")));
+  CHECK(io::loadPausedSolve(solve).has_value());
+  std::filesystem::remove_all(dir);
+}
+
 TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was", "[io][file]") {
 #ifndef _WIN32
   if (geteuid() == 0) {
