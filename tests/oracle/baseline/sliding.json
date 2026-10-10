@@ -1,0 +1,352 @@
+{
+ "alpha:tests/data/puzzles/sliding/slide_all_variable.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.004
+ },
+ "alpha:tests/data/puzzles/sliding/slide_caterpillar.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_corridor.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 2,
+  "solutions": 1,
+  "dotlevel": "0",
+  "level": 0,
+  "totalmoves": 0,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_empty_floor.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 3,
+  "solutions": 3,
+  "dotlevel": "0",
+  "level": 0,
+  "totalmoves": 0,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_00.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.004,
+  "wall": 0.007
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_01.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 3.465,
+  "wall": 3.468
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_02.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.217,
+  "wall": 0.221
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_03.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 15.029,
+  "wall": 15.037
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_04.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.109,
+  "wall": 0.114
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_05.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "8",
+  "level": 8,
+  "totalmoves": 8,
+  "solvetime": 0.025,
+  "wall": 0.03
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_06.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.409,
+  "wall": 0.413
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_07.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 3.632,
+  "wall": 3.637
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_08.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.002,
+  "wall": 0.006
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_09.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "2",
+  "level": 2,
+  "totalmoves": 2,
+  "solvetime": 0.0,
+  "wall": 0.004
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_10.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.005,
+  "wall": 0.008
+ },
+ "alpha:tests/data/puzzles/sliding/slide_fuzz_11.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 183.234,
+  "wall": 183.26
+ },
+ "alpha:tests/data/puzzles/sliding/slide_goal_on_variable.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.006
+ },
+ "alpha:tests/data/puzzles/sliding/slide_klotski.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "81",
+  "level": 81,
+  "totalmoves": 81,
+  "solvetime": 0.009,
+  "wall": 0.013
+ },
+ "alpha:tests/data/puzzles/sliding/slide_like_pieces.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "10",
+  "level": 10,
+  "totalmoves": 10,
+  "solvetime": 0.026,
+  "wall": 0.03
+ },
+ "alpha:tests/data/puzzles/sliding/slide_many_starts.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 143,
+  "solutions": 116,
+  "dotlevel": "2",
+  "level": 2,
+  "totalmoves": 2,
+  "solvetime": 0.002,
+  "wall": 0.006
+ },
+ "alpha:tests/data/puzzles/sliding/slide_one_cell.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_one_way.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.003,
+  "wall": 0.007
+ },
+ "alpha:tests/data/puzzles/sliding/slide_pocket_nested.xmpuzzle": {
+  "flags": "NO",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.004
+ },
+ "alpha:tests/data/puzzles/sliding/slide_pocket_partial.xmpuzzle": {
+  "flags": "PO",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_shorter_path.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_swapped_eight.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.044,
+  "wall": 0.047
+ },
+ "alpha:tests/data/puzzles/sliding/slide_turn.xmpuzzle": {
+  "flags": "O",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.004
+ },
+ "alpha:tests/data/puzzles/sliding/slide_two_layers_open.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "1",
+  "level": 1,
+  "totalmoves": 1,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_two_layers_shut.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_variable_crossed.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "1",
+  "level": 1,
+  "totalmoves": 1,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_whole_piece.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "1",
+  "level": 1,
+  "totalmoves": 1,
+  "solvetime": 0.0,
+  "wall": 0.003
+ },
+ "alpha:tests/data/puzzles/sliding/slide_wide_keys.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "3",
+  "level": 3,
+  "totalmoves": 3,
+  "solvetime": 0.119,
+  "wall": 0.122
+ },
+ "examples/SliderByGiiker.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "81",
+  "level": 81,
+  "totalmoves": 81,
+  "solvetime": 0.009,
+  "wall": 0.012
+ },
+ "test/test_sliding_nested.xmpuzzle": {
+  "flags": "N",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "47",
+  "level": 47,
+  "totalmoves": 47,
+  "solvetime": 0.123,
+  "wall": 0.126
+ },
+ "test/test_sliding_solver.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "81",
+  "level": 81,
+  "totalmoves": 81,
+  "solvetime": 0.009,
+  "wall": 0.014
+ }
+}

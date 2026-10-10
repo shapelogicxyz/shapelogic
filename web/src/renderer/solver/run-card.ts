@@ -233,7 +233,7 @@ export class RunCard {
     const show = ws.problem !== null && !ws.supported;
     note.classList.toggle('show', show);
     note.innerHTML = show
-      ? '<b>Not solved in this version.</b> Sliding and stacking puzzles open, show and save here; solving them comes later.'
+      ? '<b>Not solved in this version.</b> Stacking puzzles open, show and save here; solving them comes later.'
       : '';
     note.dataset.kind = ws.kind?.kind ?? '';
   }

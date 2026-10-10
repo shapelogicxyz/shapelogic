@@ -35,6 +35,7 @@ add_executable(bt_tests
   unit/solve/test_positions.cpp
   unit/solve/test_rotation_solvers.cpp
   unit/solve/test_simd_exact_cover.cpp
+  unit/solve/test_slide_routes.cpp
   unit/solve/test_sliding.cpp
   unit/solve/test_sliding_session.cpp
   unit/solve/test_solve_session.cpp

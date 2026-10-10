@@ -445,7 +445,9 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await checkShown(page);
     await select(page, lib(dom));
     await fillAndLeave(page, '#pzSel input[data-sf="max"]', '24');
-    expect((await checkShown(page)).parts).toEqual([{ shape: dom, min: 24, max: 24, groups: [] }]);
+    expect((await checkShown(page)).parts).toEqual([
+      { shape: dom, min: 24, max: 24, groups: [], required: false },
+    ]);
     await engineCall(page, 'solve.start', { problem: p1, options: { threads: 1 } });
     await expect(page.locator('#stage')).toHaveAttribute('data-pzfrozen', '1');
     await expect(page.locator('#stText')).toContainText('pause the solve first');
@@ -479,7 +481,7 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await page.click(`${lib(dom)} .la`);
     await pzSettled(page);
     expect((await problemGet(page, p2)).parts).toEqual([
-      { shape: dom, min: 1, max: 1, groups: [] },
+      { shape: dom, min: 1, max: 1, groups: [], required: false },
     ]);
     await page.locator(`#pzProblems .row[data-id="${p2}"] [data-a=dup]`).dispatchEvent('click');
     await expect(page.locator('#stText')).toHaveText('Pause the solve first');
@@ -490,15 +492,17 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await checkShown(page);
     expect(refusals(readCallLog(log))).toEqual([]);
 
-    // a sliding and a stacking puzzle open and show, with the notice
+    // a sliding puzzle opens and shows, solved by this version: no notice;
+    // a stacking one has the notice
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     await pzSettled(page);
-    await expect(page.locator('#pzKind')).toBeVisible();
+    await expect(page.locator('#pzKind')).toBeHidden();
     await expect(page.locator('#pzKind')).toHaveAttribute('data-kind', 'sliding');
-    await expect(page.locator('#pzKind')).toContainText('does not solve sliding puzzles');
     await checkShown(page);
     await openFixture(page, 'test_stacking_hanoi.xmpuzzle');
     await pzSettled(page);
+    await expect(page.locator('#pzKind')).toBeVisible();
+    await expect(page.locator('#pzKind')).toContainText('does not solve stacking puzzles');
     await expect(page.locator('#pzKind')).toHaveAttribute('data-kind', 'stacking');
     const hanoi = await checkShown(page);
     expect(hanoi.result).toBeNull();

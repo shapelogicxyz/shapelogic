@@ -161,7 +161,7 @@ In this order:
    the exact prompt (the template at the end, filled in).
 
 ## Status
-- [ ] **Part 1**: sliding: core, engine, CLI
+- [x] **Part 1**: sliding: core, engine, CLI (2026-10-10; docs/handoff/deferred-1.md)
 - [ ] Audit of part 1
 - [ ] **Part 2**: sliding: front end
 - [ ] **Part 3**: stacking and Panex: core, engine, CLI

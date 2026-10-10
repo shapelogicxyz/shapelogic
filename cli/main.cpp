@@ -5,7 +5,9 @@
 // -q, -n, -o, taking saved solutions apart again with -x, -a), and --json
 // as burrTxt --json, which the comparison harness (tests/oracle) reads.
 // --save is burrTxt2's mode: a solve as the GUI runs it (a SolveSession),
-// written to a file. Sliding and stacking puzzles are refused.
+// written to a file. Sliding puzzles are solved as burrTxt solved them (the
+// start layouts found by the assembler, each searched to the goal);
+// stacking puzzles are refused.
 // Ported from src/burrTxt.cpp and src/burrTxt2.cpp of the original.
 #include "dot_level.h"
 #include "options.h"
@@ -13,16 +15,19 @@
 
 #include "bt/base/solve_state.h"
 #include "bt/base/stop.h"
+#include "bt/base/system.h"
 #include "bt/base/thread_pool.h"
 #include "bt/grid/grid_type.h"
 #include "bt/grid/voxel.h"
 #include "bt/io/puzzle_file.h"
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
+#include "bt/model/sliding.h"
 #include "bt/model/solution.h"
 #include "bt/solve/assembler.h"
 #include "bt/solve/assembler_bt2.h"
 #include "bt/solve/disassembler.h"
+#include "bt/solve/sliding_search.h"
 #include "bt/solve/solve_session.h"
 #include "bt/solve/solver_type.h"
 
@@ -31,9 +36,13 @@
 #include <condition_variable>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -88,15 +97,24 @@ std::string squash(std::string_view s) {
 }
 
 // --solver for the puzzle's type, with burrTxt's messages for a name of
-// another type or of none. The sliding and stacking solvers are known so
-// that their names give the same answers; those puzzles are refused later.
-bool pickSolver(PuzzleKind kind, const char* name, bt::SolverType* out) {
+// another type or of none. The stacking solvers are known so that their
+// names give the same answers; those puzzles are refused later.
+bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
   const std::string n = squash(name);
   if (kind == PuzzleKind::Sliding) {
     if (n == "fast" || n == "slidingfast" || n == "slidingfastsolver" ||
-        n == "slidingfastsolver250kdepth" || n == "deep" || n == "slidingdeep" ||
-        n == "slidingdeepsolver" || n == "slidingdeepsolver1mildepth" || n == "full" ||
-        n == "slidingfull" || n == "slidingfullsolver" || n == "slidingfullsolverfulldepth") {
+        n == "slidingfastsolver250kdepth") {
+      o.slidingSolver = bt::sliding::SlidingSolver::Fast;
+      return true;
+    }
+    if (n == "deep" || n == "slidingdeep" || n == "slidingdeepsolver" ||
+        n == "slidingdeepsolver1mildepth") {
+      o.slidingSolver = bt::sliding::SlidingSolver::Deep;
+      return true;
+    }
+    if (n == "full" || n == "slidingfull" || n == "slidingfullsolver" ||
+        n == "slidingfullsolverfulldepth") {
+      o.slidingSolver = bt::sliding::SlidingSolver::Full;
       return true;
     }
     std::fprintf(stderr,
@@ -118,7 +136,7 @@ bool pickSolver(PuzzleKind kind, const char* name, bt::SolverType* out) {
     return false;
   }
   if (const auto t = bt::solverTypeFromName(name)) {
-    *out = *t;
+    o.solver = *t;
     return true;
   }
   std::fprintf(stderr,
@@ -167,13 +185,47 @@ int reportMatrixError(const Options& o, bt::AssemblerError err, int param) {
   return o.json ? kExitError : kExitOk;
 }
 
-// Sliding and stacking puzzles: burrTxt's message for a puzzle it cannot
-// handle, and why on stderr.
+// Stacking puzzles: burrTxt's message for a puzzle it cannot handle, and
+// why on stderr.
 int refuseKind(const Options& o, PuzzleKind kind) {
   std::fputs("The puzzles contains features not yet supported by burrTxt\n",
              o.json ? stderr : stdout);
   std::fprintf(stderr, "bt: %s puzzles cannot be solved yet\n", kindName(kind));
   return kExitError;
+}
+
+// The slide search the command line asks for: burrTxt's flags, and where a
+// full search keeps its older levels: $BURRTOOLS_SLIDE_DIR, or else the
+// user's cache folder, and $BURRTOOLS_SLIDE_DISK_GB (the original's
+// library read them; the core takes them as options).
+bt::sliding::SlidingOptions slidingOptions(const Options& o) {
+  bt::sliding::SlidingOptions s;
+  s.solver = o.slidingSolver;
+  s.nested = o.nestedSlides;
+  s.partialNested = o.partialNested;
+  s.highMemory = o.highMemory;
+  if (const char* dir = std::getenv("BURRTOOLS_SLIDE_DIR")) {
+    s.workDir = dir;
+  } else if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
+    s.workDir = (std::filesystem::path(cache) / "sliding").string();
+  }
+  if (const char* gb = std::getenv("BURRTOOLS_SLIDE_DISK_GB")) {
+    s.diskBudget = static_cast<std::uint64_t>(std::atof(gb) * 1e9);
+  }
+  s.legacy = o.slideLegacy;
+  s.likePiecesApart = o.slideApart;
+  s.fullThroughQueue = o.slideQueue;
+  return s;
+}
+
+// A slide search set up for one start, on the threads of `pool`.
+bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool) {
+  bt::sliding::SlideSearch search = bt::sliding::slideSearchFor(slidingOptions(o));
+  search.pool = pool;
+  if (o.slideTrace) {
+    search.onLevel = [](const std::string& line) { std::fprintf(stderr, "%s\n", line.c_str()); };
+  }
+  return search;
 }
 
 // --progress: calls `line` once a second on a thread of its own until it
@@ -304,14 +356,25 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
   bt::cli::BestLevel best;
   double jsonSeconds = 0;
 
+  const bool sliding = bt::sliding::isSliding(puzzle);
+  // a sliding search spreads a full search's levels over threads of its own
+  std::unique_ptr<bt::ThreadPool> slidePool;
+
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
-    const bt::Problem& problem = puzzle.getProblem(pr);
+    bt::Problem& problem = puzzle.getProblem(pr);
     // the original's assemblers failed an assertion on this
     if (!problem.resultValid()) {
       std::fprintf(stderr, "bt: problem %u (%s) has no result shape\n", pr,
                    problem.getName().c_str());
       return kExitUsage;
+    }
+    // a sliding start is held by its colours (the start locks), matched
+    // strictly; and judged against a fixed goal, so rotated and mirrored
+    // starts are different starts: all are kept
+    if (sliding) {
+      bt::sliding::syncMaxHoles(puzzle, problem);
+      bt::sliding::refreshStartLocks(puzzle, problem);
     }
 
     const bt::AssemblerKind kind = bt::chooseAssembler(problem, o.solver);
@@ -321,7 +384,9 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, o.solver);
 
     bt::MatrixOptions matrix;
-    matrix.strictColors = o.strictColors;
+    matrix.strictColors = o.strictColors || sliding;
+    matrix.keepMirrors = sliding;
+    matrix.keepRotations = sliding;
     if (const bt::AssemblerError err = assembler->createMatrix(matrix);
         err != bt::AssemblerError::None) {
       return reportMatrixError(o, err, assembler->errorParam());
@@ -356,9 +421,10 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     setSearchSwitches(o, search);
 
     // The take-apart, on grids that have one (the others report no
-    // solutions, where the original aborted)
+    // solutions, where the original aborted); a sliding "take-apart" is the
+    // slide search from each start to the goal
     std::unique_ptr<bt::Disassembler> disassembler;
-    if (o.disassemble && bt::Disassembler::canDisassemble(puzzle)) {
+    if (o.disassemble && !sliding && bt::Disassembler::canDisassemble(puzzle)) {
       if (!takeApartPool) {
         takeApartPool = std::make_unique<bt::ThreadPool>(budget);
       }
@@ -366,8 +432,18 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                                                         takeApartOptions(o, takeApartPool.get()));
     }
 
+    if (o.disassemble && sliding && !slidePool) {
+      slidePool = std::make_unique<bt::ThreadPool>(budget);
+    }
+
     unsigned long assemblies = 0;
     unsigned long solutions = 0;
+    // the fewest moves to each finished picture so far, and the starts whose
+    // search stopped at a limit, not at its end
+    std::map<std::string, unsigned int> slideBestMoves;
+    unsigned int slideStartsCut = 0;
+    bool slideMemoryCut = false;
+    std::string slideDiskError;
     std::atomic<unsigned long> seenAssemblies{0};
     ProgressTicker ticker(o.progress, [&] {
       const unsigned long seen = seenAssemblies.load(std::memory_order_relaxed);
@@ -395,7 +471,54 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
         [&](const bt::Assembly& assembly) {
           assemblies++;
           seenAssemblies.store(assemblies, std::memory_order_relaxed);
-          if (disassembler) {
+          if (o.disassemble && sliding) {
+            bt::sliding::SlideSearch search = slideSearch(o, slidePool.get());
+            const std::optional<bt::Separation> path =
+                bt::sliding::findSlidePath(puzzle, problem, assembly, search);
+            if (search.outcome == bt::sliding::SlideOutcome::Limit ||
+                search.outcome == bt::sliding::SlideOutcome::Memory ||
+                search.outcome == bt::sliding::SlideOutcome::Disk) {
+              slideStartsCut++;
+            }
+            if (search.outcome == bt::sliding::SlideOutcome::Memory) {
+              slideMemoryCut = true;
+            }
+            if (search.outcome == bt::sliding::SlideOutcome::Disk) {
+              slideDiskError = search.error;
+            }
+            if (path) {
+              // a start that slides to a picture counted before counts only
+              // with fewer moves
+              const std::string key = bt::sliding::finalPlacementKey(*path);
+              const unsigned int moves = path->getMoves();
+              bool countIt = true;
+              const auto it = slideBestMoves.find(key);
+              if (it == slideBestMoves.end()) {
+                slideBestMoves.emplace(key, moves);
+              } else if (moves < it->second) {
+                it->second = moves;
+              } else {
+                countIt = false;
+              }
+              if (countIt) {
+                solutions++;
+                if (o.json) {
+                  best.consider(path->movesText());
+                } else {
+                  if (o.printAssembly) {
+                    bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+                  }
+                  if (!o.quiet || o.allProblems) {
+                    std::printf("level: %s\n", path->movesText().c_str());
+                  }
+                  if (o.printDisassembly) {
+                    bt::cli::printSeparation(stdout, puzzle, problem, *path, assembly,
+                                             o.originalDrawings);
+                  }
+                }
+              }
+            }
+          } else if (disassembler) {
             const bt::TakeApartResult r = disassembler->disassemble(assembly);
             if (r.separation) {
               solutions++;
@@ -438,6 +561,26 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       if (o.newline) {
         std::printf("\n");
       }
+      // whether "0 solutions" is proven, or the search gave up
+      if (o.disassemble && sliding) {
+        if (slideStartsCut > 0) {
+          std::printf(
+              "%u start layout(s) not searched completely: %s, so solutions may be missing%s\n",
+              slideStartsCut,
+              slideDiskError.empty()
+                  ? "the search limit was reached"
+                  : slideDiskError.substr(0, slideDiskError.size() - 1).c_str(),
+              slideMemoryCut ? (o.highMemory ? "" : " (try --high-memory)")
+                             : (o.slidingSolver == bt::sliding::SlidingSolver::Full
+                                    ? ""
+                                    : " (try --solver full)"));
+        } else if (solutions == 0 && assemblies > 0) {
+          std::printf("every reachable arrangement was searched: no solution%s\n",
+                      !o.nestedSlides     ? " (without --nested-slides)"
+                      : !o.partialNested ? " (without --partial-nested)"
+                                          : "");
+        }
+      }
     }
   }
 
@@ -460,8 +603,39 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
   return kExitOk;
 }
 
+// -x of a sliding puzzle: each saved start searched to the goal again.
+int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
+  bt::ThreadPool pool(o.threads > 0 ? o.threads : bt::hardwareThreads());
+  const ProblemRange range = problemRange(o, puzzle);
+  for (unsigned int pr = range.first; pr < range.last; pr++) {
+    const bt::Problem& problem = puzzle.getProblem(pr);
+    for (unsigned int sol = 0; sol < problem.getNumberOfSavedSolutions(); sol++) {
+      const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
+      bt::sliding::SlideSearch search = slideSearch(o, &pool);
+      const std::optional<bt::Separation> path =
+          bt::sliding::findSlidePath(puzzle, problem, assembly, search);
+      if (!path) {
+        continue;
+      }
+      if (o.printAssembly) {
+        bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+      }
+      if (!o.quiet) {
+        std::printf("level: %u\n", path->getMoves());
+      }
+      if (o.printDisassembly) {
+        bt::cli::printSeparation(stdout, puzzle, problem, *path, assembly, o.originalDrawings);
+      }
+    }
+  }
+  return kExitOk;
+}
+
 // -x: take the saved solutions apart again and print what comes apart.
 int retakeMode(const Options& o, bt::Puzzle& puzzle) {
+  if (bt::sliding::isSliding(puzzle)) {
+    return retakeSliding(o, puzzle);
+  }
   // grids without a take-apart have nothing to show (the original failed)
   if (!bt::Disassembler::canDisassemble(puzzle)) {
     return kExitOk;
@@ -501,7 +675,9 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     std::printf("Sorry, this space grid doesn't have an assembler (yet)\n");
     return kExitUsage;
   }
-  if (o.disassemble && (caps & bt::kCapDisassemble) == 0) {
+  // a sliding puzzle's -d is the slide search (burrTxt2 refused it, its grid
+  // having no take-apart; the solve thread it ran solved it)
+  if (o.disassemble && (caps & bt::kCapDisassemble) == 0 && !bt::sliding::isSliding(puzzle)) {
     std::printf(
         "Sorry, this space grid doesn't have a disassembler (yet)\n"
         "drop -d to just assemble the puzzle\n");
@@ -528,6 +704,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   so.threads = o.threads;
   setSearchSwitches(o, so.search);
   so.takeApart = takeApartOptions(o, nullptr);
+  so.sliding = slidingOptions(o);
 
   int exitCode = kExitOk;
   const ProblemRange range = problemRange(o, puzzle);
@@ -625,12 +802,23 @@ int main(int argc, char** argv) {
   bt::Puzzle& puzzle = *loaded;
 
   const PuzzleKind kind = puzzleKind(puzzle);
+  if (o.nestedSlides && kind != PuzzleKind::Sliding) {
+    std::fprintf(stderr, "bt: %s is for sliding puzzles; this is a %s puzzle\n",
+                 o.partialNested ? "--partial-nested" : "--nested-slides", kindName(kind));
+    return kExitUsage;
+  }
+  if (o.highMemory && kind == PuzzleKind::Brick) {
+    std::fprintf(stderr,
+                 "bt: --high-memory is for sliding and stacking puzzles; this is a %s puzzle\n",
+                 kindName(kind));
+    return kExitUsage;
+  }
   if ((o.rotations || o.strictColors) && kind != PuzzleKind::Brick) {
     std::fprintf(stderr, "bt: -R and -C are for brick puzzles; this is a %s puzzle\n",
                  kindName(kind));
     return kExitUsage;
   }
-  if (o.solverName != nullptr && !pickSolver(kind, o.solverName, &o.solver)) {
+  if (o.solverName != nullptr && !pickSolver(kind, o.solverName, o)) {
     return kExitUsage;
   }
 
@@ -643,7 +831,7 @@ int main(int argc, char** argv) {
                  o.problem, puzzle.getNumberOfProblems());
     return kExitUsage;
   }
-  if (kind != PuzzleKind::Brick) {
+  if (kind == PuzzleKind::Stacking) {
     return refuseKind(o, kind);
   }
 

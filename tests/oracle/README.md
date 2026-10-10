@@ -20,11 +20,15 @@ A solver stage is done only when the harness reports no differences
 | fast | 19 bundled examples and fixtures | ~2 s | every run |
 | full | 158 TIC puzzles with rotation take-apart | ~23 s | before finishing a solver stage |
 | slow | Climburr_OldVer, CoverUp3, CornerCube | ~7 s | benchmarks, final checks |
+| sliding | the 3 sliding fixtures and 33 puzzles made with the original's code | ~1 min full, seconds fast/deep | sliding work (deferred part 1) |
 
 Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only (the
 grid has no take-apart). See `corpus.txt` for why `A` puzzles read the
 original's text summary: its `--json` aborts on those grids, a known bug of
-the original CLI.
+the original CLI. Sliding puzzles have their own flags: `N` nested slides,
+`P` partially nested, `L` too long for the full search (fast and deep
+only), `O` compared on one thread only (see "Sliding puzzles" below). A
+path beginning `alpha:` is a file of this repo, not of the original's.
 
 ## Commands
 
@@ -103,6 +107,40 @@ the first separation; `bt` draws each piece as itself otherwise); and the
 original's assembler 1 line "range optimisation used min …, max …" on
 stderr is dropped (bt does not print it). One thread, because the order in
 which solutions are printed is the order the search hands them over.
+
+## Sliding puzzles (deferred part 1)
+
+`--tier all` leaves the `sliding` tier out: run it by name. The full
+search is the default (`--solver full` is the same, with the same
+baselines); `--solver fast` and `--solver deep` run the other two:
+
+```bash
+python3 tests/oracle/oracle.py sliding-puzzles      # tests/data/puzzles/sliding/ from the original's code
+just oracle-baseline --tier sliding                 # burrTxt --json (and --solver fast, deep)
+just oracle --tier sliding --threads 1              # every puzzle; without --threads 1, those not flagged O
+python3 tests/oracle/oracle.py baseline-files --tier sliding
+python3 tests/oracle/oracle.py compare-files --tier sliding
+python3 tests/oracle/oracle.py baseline-text --tier sliding
+just oracle-text --tier sliding
+python3 tests/oracle/oracle.py record-slide-routes  # tests/data/slide_routes.txt
+```
+
+`sliding-puzzles` builds `sliding_puzzles_old.cpp` against the original's
+library: the puzzles of its `test/test_sliding.cpp` (and a few fuzzed
+ones), made by its own sliding code and saved. The baselines are the
+original's runs on one thread: when a puzzle has several start layouts,
+which start's path the original keeps for an ending depends on the order
+the starts arrive in, so on several threads its counts vary from run to
+run (flag `O`; such puzzles are compared with `--threads 1` only, the
+others on any number). burrTxt2 refuses `-d` on the sliding grid, so the
+solved files come from the original's solve thread
+(`slide_solve_old.cpp`, as the GUI's Solve ran it) and are compared state
+by state with `bt --save`'s. `record-slide-routes` (`slide_routes_old.cpp`)
+solves twelve of the puzzles with the original and records every move's
+route and the player's positions at quarter steps, with the solved files
+in `tests/data/slide_solved_by_original/`; `test_slide_routes.cpp` checks
+the port against them. Never add the commercial puzzle "One Way or
+Another".
 
 ## Recorded values for unit tests
 

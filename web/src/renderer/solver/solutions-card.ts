@@ -316,7 +316,7 @@ export class SolutionsCard {
       setHtml(
         el,
         head() +
-          '<div class="msg"><span>This version does not play sliding and stacking puzzles yet.</span></div>',
+          '<div class="msg"><span>This version does not play stacking puzzles yet.</span></div>',
       );
       return;
     }

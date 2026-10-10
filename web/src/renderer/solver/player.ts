@@ -56,7 +56,7 @@ export interface PlayerHost {
   changed(): void;
   /** Whether an analysis of this session found the solution not to come apart. */
   inseparable(solution: string): boolean;
-  /** Whether this version plays the puzzle (sliding and stacking: not yet). */
+  /** Whether this version plays the puzzle (stacking: not yet). */
   supported(): boolean;
   /** Whether the solution is still the one chosen, in a row of the list's newest version. */
   current(solution: string): boolean;

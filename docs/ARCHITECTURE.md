@@ -23,7 +23,12 @@ Solver workspace (the search options, the runs, the solutions list,
 analysis, the disassembly player, autosave), the explorers, the debug
 panel and the status window, the menus, files and recovery, the exports,
 and the packaged app for macOS, Windows and Linux with the Electron
-security checklist. Next: the security audit before the first release.*
+security checklist, audited before the first release. The deferred
+features (docs/DEFERRED-PLAN.md): part 1, sliding puzzles in the core, the
+engine and `bt` (the start/goal model, the slide search, sliding solves
+through the solve session, routes in the playback, the `sliding.*`
+methods, decision 0014). Next: part 1's audit, then the sliding front end
+(part 2).*
 
 ## Big picture
 
@@ -98,8 +103,9 @@ Ported from the original `voxel*.cpp`, `symmetries_*.cpp`, `tabs_*`,
 original (`tests/data/grid_dump.txt`, see "Testing against the original").
 - `grid_type.h`: `GridKind` (the numbers are the file format's) and
   `GridType`, a small value type: capabilities, `getSymmetries()`, and
-  `makeVoxel()`, the factory for voxel spaces. Sliding and stacking grids
-  exist as kinds (cube spaces) so their files load; their solvers are later.
+  `makeVoxel()`, the factory for voxel spaces. The sliding and stacking
+  grids are cube spaces; sliding puzzles are solved (model's `sliding.h`,
+  solve's slide search), stacking ones load and save, their solver later.
 - `voxel.h`: `Voxel`, the abstract voxel space: cells (state + colour per
   byte), bounding box, hotspot, name, weight, the per-transformation hotspot
   and bounding-box queries, comparison, connectivity, and the editing
@@ -168,6 +174,20 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   (not saved; the app layer's solution id).
 - `xml_element.h`: `XmlElement` (the tree the reader builds) and
   `PreservedXml` (file content a model object keeps without modelling it).
+- `sliding.h` (deferred part 1, decision 0014; the tray part of
+  `sliding.{h,cpp}`): a sliding puzzle's start/goal shapes (names
+  `sg:<n>:`; a tray whose empty cells are walls and variable cells
+  corridors, each cell's colour the start mark of a piece and its goal
+  mark the goal of one), the stamps (`stampPiece`, `stampFits`,
+  `stampIsAt`, `clearStamp`, `stampAt`, `dropChangedStamps`),
+  `syncSlidingProblems` (one problem per start/goal shape, its parts
+  following the stamps), the start locks (`refreshStartLocks`: pieces
+  painted in the colours of their starts, so the assembler finds only
+  start layouts), `startGoalError`, `stampOverflowMessage`,
+  `flattenPieces`, the older goal-map model the solver still reads
+  (`ensureSetup`, `placeStart`, `placeGoal`), and `prepareForSolving`
+  (the maximum of holes and the start locks, what the solve thread set up
+  as a run started).
 
 The model has no locks and no atomics (the original's problem had both for
 its solver thread). While a `SolveSession` runs, it alone writes its
@@ -351,6 +371,39 @@ callback without deadlock; the shapes' caches are warmed when the
 disassembler is made. Nothing is printed and nothing read from the
 environment (the original's switches are options).
 
+**The slide search** (deferred part 1, decision 0014). Ported from the
+search part of `sliding.{h,cpp}` and the sliding run of `solvethread.cpp`;
+checked by the harness (the `sliding` tier: the summaries for each solver,
+the solved files state by state, the text, the routes).
+- `sliding_search.h`: `findSlidePath(puzzle, problem, start, SlideSearch&)`,
+  the fewest moves from a start layout (an assembly) to the goal: a piece,
+  or with nested slides the pieces it carries, slides cell by cell,
+  crossing corridors; positions keyed in 64 or 128 bits (the original's
+  text keys with `legacy`; puzzles of more than 64 pieces with nested
+  slides use those, where the original overran its tables); copies of
+  like pieces searched as one. `SlideSearch` holds the limit
+  (`kSearchStates` 250,000 for Fast, `kDeepSearchStates` 1,000,000 for
+  Deep, `kFullSearch` none), the memory budget (`memoryStates`, high
+  memory), the stop token, the progress counters, the full search's pool,
+  threads, work folder and disk budget, and answers with a `SlideOutcome`
+  (Found, NoPath, Limit, Memory, Stopped, Disk) and its counts. The full
+  search goes level by level (one-way moves included), keeps the older
+  levels in `KeySet` files (`slide_levels.h`) in its work folder and
+  spreads each level over the pool; any number of threads finds the same
+  path. `SlidingOptions` and `slideSearchFor()`: the GUI's three solvers
+  and its boxes. `slideRoute` and `applySlideRoutes`: a move's path
+  through corridors (its corners) and the player's driver following it;
+  `finalPlacementKey`: two solutions that end alike are one (the shorter
+  kept, in its place).
+- In `SolveSession`, a sliding problem runs as the solve thread ran it:
+  the assembler (Classic; mirrors and rotations kept, colours strict, as
+  the solve thread forced) finds the start layouts and each is searched
+  in its callback on the session's slide pool; a stopped search puts its
+  start back as pending, not counted; a save point lets the search under
+  way finish; `note()` is the original's summary (starts the limit cut,
+  everything searched) and the progress has stage `Other` with `searched`
+  and `searchDepth`. Take-apart workers are not used.
+
 **The solve session** (stage 5, decision 0010). Ported from `solvethread.{h,cpp}`,
 `solveprogress.h` and the parts of the original GUI that drove the solve
 thread (Solve, Prepare, Continue, Abort, the autosave pause,
@@ -467,7 +520,16 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   revision of its own; the paused solve files (`exportPaused`,
   `importPaused`, a new untitled document); playback and explorers. The
   rules for edits while solving are decision 0011; they hold while an
-  analysis runs too (`solving()` covers both).
+  analysis runs too (`solving()` covers both). Sliding puzzles (decision
+  0014; `document_sliding.cpp`): `addStartGoal`, `placeStamp` (the
+  editor's click), `clearStampAt`; the shape commands keep stamps and
+  problems in step (deleting, moving, duplicating and renaming a
+  start/goal shape; an edit that changes a stamped piece's shape takes its
+  stamps off and says so in `ChangeSet::notice`); a sliding shape of more
+  than one layer is made flat on open (`openNotice()`, dirty); what the
+  original greyed out is refused (the result, groups, the count of a
+  piece a stamp requires); `solveLaunch` sets up the start locks as part
+  of the run (no undo step), after its checks.
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
@@ -495,6 +557,7 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   pivots; `track()` the keyframes with holds and reassembly), over
   `DisasmToMoves`; a solution without its disassembly is the assembled
   pose alone (`stepCount()` 0), so every solution plays through one path.
+  A sliding solution follows its routes (`applySlideRoutes`).
   `orientedMesh(shape, transformation, style)`: a shape's mesh turned by
   a transformation of its grid (the piece meshes, and
   `Document::shapeMesh` with a transformation: how a placement is drawn:
@@ -503,7 +566,8 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   assembly search one step at a time) and `MovementExplorer` (the tree of
   positions of a take-apart: analyse, add a move, find a matching one,
   prune; the grid's directions by label and by step); both work on a
-  copy of the puzzle.
+  copy of the puzzle. A sliding problem's placements are those its solve
+  sees (start locks, the solve's forced options).
 
 **Rules of the app layer:** the owner calls the document from one thread;
 a command checks first and changes after, so a refused one changes
@@ -560,9 +624,13 @@ schema in `api/`, documented in the generated `docs/API.md`.
   arrays; a solution without a disassembly as a single pose; piece meshes
   in any style), explorers (`ax` and `mx` handles; the movement
   explorer names the grid's directions by label and by step, `vectors`:
-  a prism's x step is 2).
+  a prism's x step is 2), sliding puzzles (`sliding.*`: the start/goal
+  editor's actions and reads; a sliding solve's options in
+  `SolveOptions.sliding`, its note in `solve.status`; `Settings`'
+  `slideFolder` and `slideDiskGB`, the original's BURRTOOLS_SLIDE_DIR and
+  BURRTOOLS_SLIDE_DISK_GB, go into every sliding solve's options).
 - `events.cpp`: `document.changed` after a request that changed the
-  document, and the poll of the background work: first `Document::poll()`
+  document (with the change's `notice` when it has one), and the poll of the background work: first `Document::poll()`
   takes in what has ended (a run's end, an analysis's results; the
   document keeps how each problem's last analysis ended); then per
   problem the solve's state as it is seen to change, progress at most
@@ -616,8 +684,15 @@ byte, `just oracle-files` solves with `--save`).
   solve thread: a paused solve carried on unless `--restart`, the
   solutions kept sorted by moves up to `--limit`, the puzzle written to the
   file given), `--progress` (a line a second on stderr from a ticker
-  thread). Sliding and stacking puzzles are refused with burrTxt's message
-  for a puzzle it cannot handle (their files load, and `-a` reads them).
+  thread). Sliding puzzles solve as burrTxt solved them (`--solver` fast,
+  deep or full, `--nested-slides`, `--partial-nested`, `--high-memory`;
+  `-d` finds each start layout's slide path, with the original's notes
+  after the summary; `-x` and `--save` too, through a `SolveSession`);
+  the full search's folder and disk budget come from
+  `BURRTOOLS_SLIDE_DIR` and `BURRTOOLS_SLIDE_DISK_GB`, which the CLI reads
+  (the core reads no environment). Stacking puzzles are refused with
+  burrTxt's message for a puzzle it cannot handle (their files load, and
+  `-a` reads them).
   The core never prints: what the original's library said on stderr
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
@@ -1014,8 +1089,8 @@ What exists after stage 8:
     table, "All pieces", drag and drop in, out and between tiles (a move
     as one undo step: `movePart` in an edit group), the More menu and
     the bulk range dialog, the right-click menus, the fit summary from
-    `FitStats` (`#pzSummary[data-fit]`), the notice for the sliding and
-    stacking puzzles), `piece-card.ts` (`PieceCard`: the selected piece's
+    `FitStats` (`#pzSummary[data-fit]`), the notice for a puzzle this
+    version does not solve (stacking)), `piece-card.ts` (`PieceCard`: the selected piece's
     copies or range with the switch, its group and the copies in it, the
     groups and their members, the colour rules over the constraint
     colours with the presets), `counts.ts` (a part's count as the chips
@@ -1176,14 +1251,15 @@ editor; the problems of CubeInCage and DemoPieceGenerator rebuilt
 through the Puzzle's actions, the chips, the table, the fit and the
 scene checked against the engine after each, a click and an orbit in
 the scene, the problems list, the colour rules, the frozen problem, the
-sliding and stacking notice; the Solver: Bermuda solved with take-apart
+stacking notice (none for sliding); the Solver: Bermuda solved with take-apart
 with `bt --json`'s counts, played, stepped, jumped, the poses at every
 whole step the engine's, the list sorted every way and paged, its keys,
 every Remove variant with its confirmation, Analyse with the assemblies
 that do not come apart marked and a stop that keeps what was done,
 pause, continue, a save at a save point, abort, Prepare then Continue,
 an error run with its failure, two problems at once, a paused BurrTools 2
-solve refusing the lists' changes, a sliding puzzle not solved; the
+solve refusing the lists' changes, a sliding puzzle solved with `bt
+--json`'s counts and played along its routes, a stacking one not solved; the
 explorers on Bermuda: every piece's placements counted and drawn where
 the engine says, the assembler stepped to its complete set as the
 engine's own, the movement tree's root, Analyse, Add move, an Alt-drag's
@@ -1278,14 +1354,23 @@ fixture from the command line solved with bt's counts).
   programs; the saves must be the same XML), and recorders that compile a
   dump tool against the original's library (`oracle.py grid-dump`,
   `model-dump`, `app-dump`, `record-saves`, `record-positions`,
-  `record-analysed`, writing into `tests/data/`).
+  `record-analysed`, `record-slide-routes`, writing into `tests/data/`).
+  The `sliding` tier (deferred part 1) has the sliding fixtures and
+  puzzles built by the original's code (`oracle.py sliding-puzzles`, from
+  its `test_sliding.cpp`), compared for each solver (`--solver
+  fast|deep|full`) in the summary, the solved files (the original's solve
+  thread through `slide_solve_old`) and the text; puzzles whose count
+  depends on the order of their starts are compared on one thread (flag
+  `O`: the original is not deterministic there).
 - `tests/bench/bench.py` times `bt` against the original's `burrTxt`, back
   to back (decision 0007's speed rule; stage 8 is the gate).
 - The unit tests compare with those recordings (`test_grid_dump.cpp`,
   `test_model_dump.cpp`, `test_app_dump.cpp` (meshes, the status table,
   the fit line, playback tracks), `test_analysis_files.cpp` (the
   re-analysis, byte for byte), `test_layer_geometry.cpp` (the grid
-  editors' corner formulas, copied into the test), the byte-for-byte save check in
+  editors' corner formulas, copied into the test), `test_slide_routes.cpp`
+  (each sliding move's route and the player's positions at quarter
+  steps), the byte-for-byte save check in
   `test_puzzle_file.cpp`, the paused positions in `test_positions.cpp`);
   they never read the original repo.
 

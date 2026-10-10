@@ -195,11 +195,14 @@ generated from it (`api/gen_api_md.py`; a test fails when it is stale).
 The contract tests start `bt-engine`, check every reply and event against
 the schema, and check that the engine's methods are the schema's.
 
-**Not yet.** Sliding and stacking puzzles open, edit and save; solving,
-analysing, playback and explorers refuse them with `unsupported`. The
-original's "Enable High Memory" box (`highMemory` in `SolverSettings`)
-belongs to those solvers and maps to no `SolveOptions` field until they
-are ported.
+**Not yet.** Stacking puzzles open, edit and save; solving, analysing,
+playback and explorers refuse them with `unsupported`. Sliding puzzles
+are solved and played since the deferred plan's part 1 (decision 0014:
+`SolveOptions.sliding`, the `sliding.*` methods); analysing refuses them,
+as the original did (they have no take-apart). The original's "Enable
+High Memory" box (`highMemory` in `SolverSettings`) maps to
+`SolveOptions.sliding.highMemory`; for stacking it waits for that
+solver.
 
 ## Consequences
 - A client in any language needs a JSON parser and a line reader that

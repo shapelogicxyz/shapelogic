@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parent.parent
 CORPUS = HERE / "corpus.txt"
 BASELINE_DIR = HERE / "baseline"
 WORK_DIR = HERE / "work"
@@ -52,7 +53,24 @@ COMPARED = ("assemblies", "solutions", "dotlevel", "level", "totalmoves", "moves
 class Entry:
     tier: str
     flags: str
-    rel: str  # path relative to the old repo
+    rel: str  # path relative to the old repo, or "alpha:" and relative to this one
+
+
+# A corpus path "alpha:<path>" is a file of this repository: the sliding
+# puzzles the original's code made (`oracle.py sliding-puzzles`).
+ALPHA_PREFIX = "alpha:"
+
+
+def entry_path(old_repo: Path, rel: str) -> Path:
+    if rel.startswith(ALPHA_PREFIX):
+        return REPO / rel[len(ALPHA_PREFIX):]
+    return old_repo / rel
+
+
+def work_name(rel: str) -> str:
+    """Where a corpus file's copies go under work/: its path, this repo's
+    files under alpha/."""
+    return rel.replace(ALPHA_PREFIX, "alpha/", 1)
 
 
 def load_corpus(old_repo: Path) -> list[Entry]:
@@ -63,11 +81,13 @@ def load_corpus(old_repo: Path) -> list[Entry]:
         if not line:
             continue
         tier, flags, pattern = line.split(None, 2)
-        matches = sorted(glob.glob(str(old_repo / pattern), recursive=True))
+        alpha = pattern.startswith(ALPHA_PREFIX)
+        root = REPO if alpha else old_repo
+        matches = sorted(glob.glob(str(root / pattern.removeprefix(ALPHA_PREFIX)), recursive=True))
         if not matches:
             print(f"warning: corpus pattern matched nothing: {pattern}", file=sys.stderr)
         for m in matches:
-            rel = str(Path(m).relative_to(old_repo))
+            rel = (ALPHA_PREFIX if alpha else "") + str(Path(m).relative_to(root))
             if tier == "slow":
                 slow.add(rel)
             entries.append(Entry(tier, flags, rel))
@@ -75,11 +95,33 @@ def load_corpus(old_repo: Path) -> list[Entry]:
     return [e for e in entries if not (e.tier == "full" and e.rel in slow)]
 
 
-def select(entries: list[Entry], tiers: list[str], name_filter: str | None) -> list[Entry]:
+# The sliding solvers: their own tier (`--tier sliding`); "classic", the
+# default, runs both CLIs without --solver, which for a sliding puzzle is
+# the full search.
+SLIDING_SOLVERS = ("fast", "deep", "full")
+
+
+def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
+           solver: str = "classic") -> list[Entry]:
+    """The entries of the tiers, those the solver runs on: the brick solvers
+    on the brick tiers, the sliding ones on the sliding tier; a sliding
+    entry flagged L (a full search would not end) not with the full search."""
     wanted = set(tiers)
     if "all" in wanted:
-        wanted = {"fast", "full", "slow"}
-    return [e for e in entries if e.tier in wanted and (not name_filter or name_filter in e.rel)]
+        wanted = (wanted - {"all"}) | {"fast", "full", "slow"}
+    out = []
+    for e in entries:
+        if e.tier not in wanted or (name_filter and name_filter not in e.rel):
+            continue
+        if e.tier == "sliding":
+            if solver in ("crowell", "bt2"):
+                continue
+            if "L" in e.flags and solver in ("classic", "full"):
+                continue
+        elif solver in SLIDING_SOLVERS:
+            continue
+        out.append(e)
+    return out
 
 
 def solver_args(solver: str) -> list[str]:
@@ -87,10 +129,21 @@ def solver_args(solver: str) -> list[str]:
     return [] if solver == "classic" else ["--solver", solver]
 
 
-def cli_args(entry: Entry, threads: int | None = None, solver: str = "classic") -> list[str]:
-    args = ["--json", *solver_args(solver)]
+def flag_args(entry: Entry) -> list[str]:
+    """The options a corpus entry's flags stand for: R -R; N --nested-slides,
+    P --partial-nested (sliding)."""
+    args = []
     if "R" in entry.flags:
         args.append("-R")
+    if "N" in entry.flags:
+        args.append("--nested-slides")
+    if "P" in entry.flags:
+        args.append("--partial-nested")
+    return args
+
+
+def cli_args(entry: Entry, threads: int | None = None, solver: str = "classic") -> list[str]:
+    args = ["--json", *solver_args(solver), *flag_args(entry)]
     if threads is not None:
         args += ["-t", str(threads)]
     return args
@@ -112,6 +165,11 @@ def run_json(binary: Path, puzzle: Path, entry: Entry, timeout: float, old: bool
     its text summary parsed, because its --json aborts on grids without
     take-apart (see corpus.txt)."""
     text_mode = old and "A" in entry.flags
+    # The original's sliding answers on several threads depend on the order
+    # the starts come in (a shorter path to a picture already counted counts
+    # again): its baseline is one thread's.
+    if old and entry.tier == "sliding":
+        threads = 1
     argv = ([str(binary), "-q", *solver_args(solver), str(puzzle)] if text_mode
             else [str(binary), *cli_args(entry, threads, solver), str(puzzle)])
     start = time.monotonic()
@@ -147,7 +205,8 @@ def run_many(binary: Path, old_repo: Path, entries: list[Entry], jobs: int, time
              threads: int | None = None, solver: str = "classic") -> dict[str, dict]:
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
-        futures = {pool.submit(run_json, binary, old_repo / e.rel, e, timeout, old, threads, solver): e
+        futures = {pool.submit(run_json, binary, entry_path(old_repo, e.rel), e, timeout, old, threads,
+                               solver): e
                    for e in entries}
         for n, fut in enumerate(concurrent.futures.as_completed(futures), 1):
             e = futures[fut]
@@ -162,7 +221,7 @@ def cmd_baseline(args: argparse.Namespace) -> int:
     if not old_bin.exists():
         print(f"original burrTxt not found at {old_bin}; build the old repo first (just build)", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
     results = run_many(old_bin, args.old_repo, entries, args.jobs, args.timeout, old=True, solver=args.solver)
     BASELINE_DIR.mkdir(exist_ok=True)
     by_tier: dict[str, dict] = {}
@@ -182,7 +241,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if not args.new_bt.exists():
         print(f"new bt not found at {args.new_bt}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
     expected: dict[str, dict] = {}
     for tier in {e.tier for e in entries}:
         path = baseline_path(tier, args.solver)
@@ -197,8 +256,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
         print(f"unknown field(s): {', '.join(unknown)}; choose from {', '.join(COMPARED)}", file=sys.stderr)
         return 2
     # what the original could not answer is not run (Crowell's take-apart of
-    # some puzzles outlasts the baseline's time limit)
-    runnable = [e for e in entries if "error" not in expected.get(e.rel, {})]
+    # some puzzles outlasts the baseline's time limit); a sliding puzzle
+    # with several starts (O) only on one thread, as its baseline was made
+    order = [e for e in entries if "O" in e.flags and args.threads != 1]
+    runnable = [e for e in entries if "error" not in expected.get(e.rel, {}) and e not in order]
     results = run_many(args.new_bt, args.old_repo, runnable, args.jobs, args.timeout, old=False,
                        threads=args.threads, solver=args.solver)
     for e in entries:
@@ -209,6 +270,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
     rows = []
     for e in sorted(entries, key=lambda x: x.rel):
         want, got = expected.get(e.rel), results[e.rel]
+        if e in order:
+            rows.append((e.rel, "ONE THREAD", "several starts: compared with --threads 1 only"))
+            continue
         if want is None:
             rows.append((e.rel, "NO BASELINE", ""))
             failures += 1
@@ -236,13 +300,17 @@ def cmd_compare(args: argparse.Namespace) -> int:
         if status != "ok" or args.verbose:
             print(f"{status:12} {rel}  {detail}")
     oldFailed = sum(1 for _, status, _ in rows if status == "OLD FAILED")
-    compared = len(rows) - oldFailed - (unported if args.allow_unported else 0)
+    oneThread = sum(1 for _, status, _ in rows if status == "ONE THREAD")
+    compared = len(rows) - oldFailed - oneThread - (unported if args.allow_unported else 0)
     what = "all fields" if args.fields is None else ", ".join(fields)
     threads = "default threads" if args.threads is None else f"{args.threads} thread(s)"
     print(f"\n{compared - failures}/{compared} match the original ({what}; {threads}; solver {args.solver})"
           + ("" if failures == 0 else f", {failures} do not"))
     if oldFailed:
         print(f"{oldFailed} not compared: the original gave no answer (OLD FAILED above)")
+    if oneThread:
+        print(f"{oneThread} sliding puzzles with several starts not compared here: their counts "
+              "depend on the order of the starts (ONE THREAD above; run --threads 1)")
     if unported:
         print(f"{unported} need a part that is not ported yet"
               + (" (not counted: --allow-unported)" if args.allow_unported else " (counted as failures)"))
@@ -254,24 +322,49 @@ def files_dir(side: str, solver: str) -> Path:
     return WORK_DIR / (side if solver == "classic" else f"{side}-{solver}")
 
 
+def slide_solve_flags(entry: Entry, solver: str) -> list[str]:
+    """slide_solve_old's flags for a sliding entry and solver (the solve
+    thread's PAR_ flags; the default is the full search, as bt's)."""
+    flags = {"fast": [], "deep": ["--deep"]}.get(solver, ["--full"])
+    if "N" in entry.flags:
+        flags.append("--nested")
+    if "P" in entry.flags:
+        flags.append("--partial")
+    return flags
+
+
 def cmd_baseline_files(args: argparse.Namespace) -> int:
-    """Solve each puzzle with the original burrTxt2, keeping its solved file."""
+    """Solve each puzzle with the original burrTxt2, keeping its solved file;
+    sliding puzzles with the original's solve thread (slide_solve_old.cpp),
+    as burrTxt2 refuses -d on their grid."""
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
     old_bin = args.old_repo / "build" / "burrTxt2"
-    if not old_bin.exists():
+    if any(e.tier != "sliding" for e in entries) and not old_bin.exists():
         print(f"original burrTxt2 not found at {old_bin}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    slide_tool = WORK_DIR / "slide_solve_old"
+    if any(e.tier == "sliding" for e in entries):
+        WORK_DIR.mkdir(exist_ok=True)
+        if not build_against_old(args.old_repo, HERE / "slide_solve_old.cpp", slide_tool):
+            return 2
     out_root = files_dir("old", args.solver)
     for n, e in enumerate(entries, 1):
-        dst = out_root / e.rel
+        dst = out_root / work_name(e.rel)
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(args.old_repo / e.rel, dst)  # burrTxt2 writes <file>ttt beside its input
-        # -R starts over (a file may hold solutions or a paused search);
-        # "A" grids have no take-apart, -d makes the original abort on them
-        flags = (["-R"] + ([] if "A" in e.flags else ["-d"]) + (["--rotations"] if "R" in e.flags else [])
-                 + solver_args(args.solver))
+        # burrTxt2 writes <file>ttt beside its input
+        shutil.copyfile(entry_path(args.old_repo, e.rel), dst)
+        if e.tier == "sliding":
+            # every solution kept, one thread: one order of the starts
+            argv = [str(slide_tool), str(dst), str(dst) + "ttt", "-d", "--limit", "0",
+                    *slide_solve_flags(e, args.solver)]
+        else:
+            # -R starts over (a file may hold solutions or a paused search);
+            # "A" grids have no take-apart, -d makes the original abort on them
+            flags = (["-R"] + ([] if "A" in e.flags else ["-d"]) + (["--rotations"] if "R" in e.flags else [])
+                     + solver_args(args.solver))
+            argv = [str(old_bin), *flags, str(dst)]
         try:
-            proc = subprocess.run([str(old_bin), *flags, str(dst)], capture_output=True, text=True,
+            proc = subprocess.run(argv, capture_output=True, text=True,
                                   timeout=args.timeout, check=False)
             status = "ok" if proc.returncode == 0 else f"exit {proc.returncode}"
         except subprocess.TimeoutExpired:
@@ -329,18 +422,42 @@ def compare_solved(old: dict, new: dict, assemble_only: bool) -> str:
     return ""
 
 
+def compare_solved_exactly(old: dict, new: dict) -> str:
+    """Empty when the new solved problem 0 is the original's, solution for
+    solution in the same order (a sliding solve on one thread: every start
+    searched in the assembler's order, the paths and their every state)."""
+    po, pn = old["problems"][0], new["problems"][0]
+    for key in ("state", "assemblies", "solutions"):
+        if po.get(key) != pn.get(key):
+            return f"{key}: {po.get(key)} != {pn.get(key)}"
+    olds, news = po["saved"], pn["saved"]
+    if len(olds) != len(news):
+        return f"saved solutions: {len(olds)} != {len(news)}"
+    for i, (a, b) in enumerate(zip(olds, news)):
+        diff = [k for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)]
+        if diff:
+            return f"solution {i} ({a.get('level')}): differs in {', '.join(diff)}"
+    return ""
+
+
 def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
-    old_file = files_dir("old", args.solver) / (e.rel + "ttt")
+    old_file = files_dir("old", args.solver) / (work_name(e.rel) + "ttt")
     if not old_file.exists():
         return {"status": "NO BASELINE", "detail": f"no {old_file.relative_to(HERE)}: run baseline-files"}
-    new_in = files_dir("new", args.solver) / e.rel
+    new_in = files_dir("new", args.solver) / work_name(e.rel)
     new_in.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(args.old_repo / e.rel, new_in)
+    shutil.copyfile(entry_path(args.old_repo, e.rel), new_in)
     new_file = new_in.with_name(new_in.name + "ttt")
-    # every solution is kept when taking apart (see compare_solved); saved
-    # assemblies are not compared and keep the solve thread's limit
-    flags = (["-q", "--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
-             + (["-R"] if "R" in e.flags else []) + solver_args(args.solver))
+    if e.tier == "sliding":
+        # the solve thread's run of slide_solve_old: one thread, every
+        # solution kept, the full search unless the solver says
+        flags = ["-q", "--restart", "-t", "1", "-d", "--limit", "0", *solver_args(args.solver),
+                 *flag_args(e)]
+    else:
+        # every solution is kept when taking apart (see compare_solved); saved
+        # assemblies are not compared and keep the solve thread's limit
+        flags = (["-q", "--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
+                 + (["-R"] if "R" in e.flags else []) + solver_args(args.solver))
     err = run_tool([str(args.new_bt), "--save", str(new_file), *flags, str(new_in)], args.timeout)
     if err:
         return {"status": "NEW FAILED", "detail": err}
@@ -349,7 +466,7 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
         new = read_solutions(args.dump_tool, new_file, args.timeout)
     except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         return {"status": "MISMATCH", "detail": f"cannot read: {exc}"}
-    diff = compare_solved(old, new, "A" in e.flags)
+    diff = compare_solved_exactly(old, new) if e.tier == "sliding" else compare_solved(old, new, "A" in e.flags)
     if diff:
         return {"status": "MISMATCH", "detail": diff}
     po = old["problems"][0]
@@ -363,7 +480,7 @@ def cmd_compare_files(args: argparse.Namespace) -> int:
         if not tool.exists():
             print(f"{tool} not found: build the release preset", file=sys.stderr)
             return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = {pool.submit(compare_files_one, e, args): e for e in entries}
@@ -403,9 +520,19 @@ def text_runs(e: Entry) -> list[tuple[str, list[str], str]]:
     work/old, see baseline-files: up to ten saved solutions with their
     take-aparts, for -x and -a)."""
     one = ["-t", "1"]
-    # -o all only on the fast tier: some TIC files hold more problems that
-    # take far longer than the first
-    every = e.tier == "fast"
+    # -o all only on the fast and sliding tiers: some TIC files hold more
+    # problems that take far longer than the first
+    every = e.tier in ("fast", "sliding")
+    if e.tier == "sliding":
+        # the slide search's options on every run that searches
+        nest = flag_args(e)
+        return [("solve", [*one, "-dsp", *nest], "corpus"),
+                ("quiet", [*one, "-q", "-n", "-r", "-d", *nest], "corpus"),
+                ("all", [*one, "-q", "-o", "all", "-d", *nest], "corpus"),
+                ("retake", [*one, "-x", "-sp", *nest], "solved"),
+                ("retake-saved", [*one, "-x", *nest], "corpus"),
+                ("ask", ["-a", "s1"], "solved"),
+                ("comment", ["-a", "c"], "corpus")]
     if "A" in e.flags:
         # no -d: the original's take-apart aborts on these grids
         return [("solve", [*one, "-s"], "corpus"),
@@ -423,8 +550,12 @@ def text_runs(e: Entry) -> list[tuple[str, list[str], str]]:
             ("comment", ["-a", "c"], "corpus")]
 
 
-def text_input(e: Entry, where: str, old_repo: Path) -> Path:
-    return old_repo / e.rel if where == "corpus" else files_dir("old", "classic") / (e.rel + "ttt")
+def text_input(e: Entry, where: str, old_repo: Path, solver: str = "classic") -> Path:
+    if where == "corpus":
+        return entry_path(old_repo, e.rel)
+    # a sliding puzzle's solved file is its solver's (slide_solve_old)
+    side = solver if e.tier == "sliding" else "classic"
+    return files_dir("old", side) / (work_name(e.rel) + "ttt")
 
 
 def text_dir(side: str, solver: str) -> Path:
@@ -466,11 +597,12 @@ def text_digest(r: dict) -> dict:
             "err": hashlib.sha256(r["err"]).hexdigest(), "lines": r["out"].count(b"\n")}
 
 
-def text_jobs(entries: list[Entry], old_repo: Path) -> list[tuple[Entry, str, list[str], Path]]:
+def text_jobs(entries: list[Entry], old_repo: Path,
+              solver: str = "classic") -> list[tuple[Entry, str, list[str], Path]]:
     jobs = []
     for e in entries:
         for name, args, where in text_runs(e):
-            jobs.append((e, name, args, text_input(e, where, old_repo)))
+            jobs.append((e, name, args, text_input(e, where, old_repo, solver)))
     return jobs
 
 
@@ -480,8 +612,8 @@ def cmd_baseline_text(args: argparse.Namespace) -> int:
     if not old_bin.exists():
         print(f"original burrTxt not found at {old_bin}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
-    jobs = text_jobs(entries, args.old_repo)
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    jobs = text_jobs(entries, args.old_repo, args.solver)
     missing = sorted({str(p) for _, _, _, p in jobs if not p.exists()})
     if missing:
         print(f"{len(missing)} solved files missing (first: {missing[0]}): "
@@ -494,7 +626,7 @@ def cmd_baseline_text(args: argparse.Namespace) -> int:
         e, name, a, puzzle = job
         r = run_text(old_bin, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=True)
         if "error" not in r:
-            base = store / f"{e.rel}.{name}"
+            base = store / f"{work_name(e.rel)}.{name}"
             base.parent.mkdir(parents=True, exist_ok=True)
             base.with_name(base.name + ".out").write_bytes(r["out"])
             base.with_name(base.name + ".err").write_bytes(r["err"])
@@ -531,7 +663,7 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
     if not args.new_bt.exists():
         print(f"new bt not found at {args.new_bt}", file=sys.stderr)
         return 2
-    entries = select(load_corpus(args.old_repo), args.tier, args.filter)
+    entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
     expected: dict[str, dict] = {}
     for tier in {e.tier for e in entries}:
         path = text_baseline_path(tier, args.solver)
@@ -540,7 +672,7 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
                   f"`oracle.py baseline-text --tier {tier} --solver {args.solver}`", file=sys.stderr)
             return 2
         expected.update(json.loads(path.read_text()))
-    jobs = text_jobs(entries, args.old_repo)
+    jobs = text_jobs(entries, args.old_repo, args.solver)
     store = text_dir("new", args.solver)
     old_store = text_dir("old", args.solver)
 
@@ -568,7 +700,7 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
             diffs = [k for k in ("exit", "out", "err") if want.get(k) != got.get(k)]
         if not diffs:
             return job, "ok", f"{got.get('lines')} lines"
-        base = store / f"{e.rel}.{name}"
+        base = store / f"{work_name(e.rel)}.{name}"
         base.parent.mkdir(parents=True, exist_ok=True)
         base.with_name(base.name + ".out").write_bytes(r["out"])
         base.with_name(base.name + ".err").write_bytes(r["err"])
@@ -576,7 +708,7 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
         if "exit" in diffs:
             detail += f" (exit {want['exit']} != {got['exit']})"
         for k in ("out", "err"):
-            old_file = old_store / f"{e.rel}.{name}.{k}"
+            old_file = old_store / f"{work_name(e.rel)}.{name}.{k}"
             if k in diffs and old_file.exists():
                 detail += f"; {k} {first_text_difference(old_file.read_bytes(), r[k])}"
         return job, "MISMATCH", detail
@@ -827,8 +959,8 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
         return 2
 
     files: list[tuple[str, Path]] = []
-    for e in select(load_corpus(args.old_repo), ["all"], args.filter):
-        files.append((e.rel, args.old_repo / e.rel))
+    for e in select(load_corpus(args.old_repo), ["all", "sliding"], args.filter):
+        files.append((e.rel, entry_path(args.old_repo, e.rel)))
     for rel in ROUNDTRIP_EXTRA:
         if not args.filter or args.filter in rel:
             files.append((rel, args.old_repo / rel))
@@ -1092,6 +1224,76 @@ def cmd_record_positions(args: argparse.Namespace) -> int:
     return 0
 
 
+SLIDING_FIXTURES = FIXTURES / "sliding"
+
+
+def cmd_sliding_puzzles(args: argparse.Namespace) -> int:
+    """Make the sliding puzzles of the original's test_sliding.cpp (and a few
+    more) with the original's code: tests/data/puzzles/sliding/ (the sliding
+    tier's generated part)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "sliding_puzzles_old"
+    if not build_against_old(args.old_repo, HERE / "sliding_puzzles_old.cpp", exe):
+        return 2
+    proc = subprocess.run([str(exe), str(SLIDING_FIXTURES)], capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        print(proc.stderr, file=sys.stderr)
+        return 1
+    names = proc.stdout.split()
+    print(f"wrote {len(names)} puzzles into {SLIDING_FIXTURES.relative_to(REPO)}")
+    return 0
+
+
+# The solves record-slide-routes takes from the original: (puzzle in
+# tests/data/puzzles, slide_solve_old's flags); the solved files go to
+# tests/data/slide_solved_by_original/, their routes to slide_routes.txt.
+SLIDE_ROUTE_SET = (
+    ("test_sliding_solver", ["--full"]),
+    ("sliding/test_sliding_nested", ["--full", "--nested"]),
+    ("sliding/slide_klotski", ["--full"]),
+    ("sliding/slide_turn", ["--full"]),
+    ("sliding/slide_caterpillar", ["--full"]),
+    ("sliding/slide_pocket_nested", ["--full", "--nested"]),
+    ("sliding/slide_pocket_partial", ["--full", "--partial"]),
+    ("sliding/slide_two_layers_open", ["--full"]),
+    ("sliding/slide_shorter_path", []),
+    ("sliding/slide_many_starts", []),
+    ("sliding/slide_fuzz_00", ["--full", "--nested"]),
+    ("sliding/slide_fuzz_03", ["--full", "--nested"]),
+)
+
+
+def cmd_record_slide_routes(args: argparse.Namespace) -> int:
+    """Record tests/data/slide_solved_by_original/ and tests/data/slide_routes.txt:
+    sliding puzzles solved by the original's solve thread, and the route of
+    every move with where its player put the pieces at quarter steps."""
+    WORK_DIR.mkdir(exist_ok=True)
+    solve = WORK_DIR / "slide_solve_old"
+    routes = WORK_DIR / "slide_routes_old"
+    if not (build_against_old(args.old_repo, HERE / "slide_solve_old.cpp", solve)
+            and build_against_old(args.old_repo, HERE / "slide_routes_old.cpp", routes)):
+        return 2
+    out_dir = HERE.parent / "data" / "slide_solved_by_original"
+    out_dir.mkdir(exist_ok=True)
+    solved = []
+    for name, flags in SLIDE_ROUTE_SET:
+        out = out_dir / (Path(name).name + ".xmpuzzle")
+        err = run_tool([str(solve), str(FIXTURES / (name + ".xmpuzzle")), str(out), "-d", "--limit", "0",
+                        *flags], 600)
+        if err:
+            print(f"{name}: {err}", file=sys.stderr)
+            return 1
+        solved.append(out)
+    dump = HERE.parent / "data" / "slide_routes.txt"
+    with open(dump, "w") as f:
+        f.write("# Routes and quarter-step positions of sliding solutions, from the original\n"
+                "# (oracle.py record-slide-routes). Read by tests/unit/solve/test_slide_routes.cpp.\n")
+        f.flush()
+        subprocess.run([str(routes), *map(str, solved)], stdout=f, check=True)
+    print(f"wrote {out_dir.relative_to(REPO)} and {dump.relative_to(REPO)}")
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
@@ -1099,14 +1301,17 @@ def main() -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     for name in ("baseline", "compare", "baseline-files", "compare-files", "baseline-text", "compare-text"):
         s = sub.add_parser(name)
-        s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all"])
+        s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all", "sliding"],
+                       help="all is fast, full and slow; sliding is the sliding puzzles' own")
         s.add_argument("--filter", help="only puzzles whose path contains this text")
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
-        s.add_argument("--solver", choices=["classic", "crowell", "bt2"], default="classic",
+        s.add_argument("--solver", choices=["classic", "crowell", "bt2", *SLIDING_SOLVERS], default="classic",
                        help="the solver both programs run (baselines of another than classic are "
-                            "baseline/<tier>-<solver>.json, solved files work/old-<solver>)")
+                            "baseline/<tier>-<solver>.json, solved files work/old-<solver>); "
+                            "fast, deep and full are the sliding tier's (classic runs it with "
+                            "the default, the full search)")
         if name == "compare-files":
             s.add_argument("--dump-tool", type=Path,
                            default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solutions")
@@ -1124,6 +1329,9 @@ def main() -> int:
     sub.add_parser("app-dump", help="record tests/data/app_dump.txt: the original's meshes, status table, fit line and playback")
     sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
     sub.add_parser("record-analysed", help="record tests/data/analysed_by_original/: the original's Add disassembly")
+    sub.add_parser("sliding-puzzles", help="make tests/data/puzzles/sliding/ with the original's sliding code")
+    sub.add_parser("record-slide-routes",
+                   help="record tests/data/slide_solved_by_original/ and slide_routes.txt from the original")
     s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
     s = sub.add_parser("resume-check", help="pause searches in one program and continue them in the other")
@@ -1139,12 +1347,16 @@ def main() -> int:
     s.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
+    # the full search is the sliding default: its baselines are the default's
+    if getattr(args, "solver", None) == "full":
+        args.solver = "classic"
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
             "compare-files": cmd_compare_files, "baseline-text": cmd_baseline_text,
             "compare-text": cmd_compare_text,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
             "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "record-saves": cmd_record_saves,
             "record-analysed": cmd_record_analysed,
+            "sliding-puzzles": cmd_sliding_puzzles, "record-slide-routes": cmd_record_slide_routes,
             "record-positions": cmd_record_positions}[args.cmd](args)
 
 

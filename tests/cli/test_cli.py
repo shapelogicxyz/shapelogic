@@ -4,8 +4,9 @@
 
 What it prints is compared with the original burrTxt by the harness
 (`just oracle-text`, tests/oracle); this checks what holds without the
-original repo: burrTxt's option rules and exit codes, the refusal of
-sliding and stacking puzzles, and --save followed by -a and -x.
+original repo: burrTxt's option rules and exit codes, sliding puzzles
+solved with their options, the refusal of stacking puzzles, and --save
+followed by -a and -x.
 
     python3 tests/cli/test_cli.py --bt build/dev/cli/bt
 """
@@ -42,7 +43,10 @@ def test_help_and_mistakes() -> None:
     r = run("-h")
     check("help", r.returncode == 0 and r.stdout.startswith("bt [options] file"), r.stdout[:80])
     check("help brick", "brick puzzles:" in run("-h", "brick").stdout)
-    check("help sliding", "cannot solve sliding" in run("--help", "slider").stdout)
+    r = run("--help", "slider")
+    check("help sliding", "sliding puzzles:" in r.stdout and "--nested-slides" in r.stdout and
+          "Sliding Full Solver" in r.stdout, r.stdout[-200:])
+    check("help stacking", "cannot solve stacking" in run("-h", "stacking").stdout)
     r = run()
     check("no file", r.returncode == 1 and "bt [options]" in r.stdout, str(r.returncode))
     for args, text in ((["--json", "-x"], "--json cannot be combined"),
@@ -52,7 +56,10 @@ def test_help_and_mistakes() -> None:
                        (["--solver", "nope"], "unknown solver 'nope' for a brick puzzle"),
                        (["-o", "5"], "there is no problem 5"),
                        (["--restart"], "go with --save"),
-                       (["--nested-slides"], "for sliding and stacking puzzles")):
+                       (["--nested-slides"], "--nested-slides is for sliding puzzles; this is a brick"),
+                       (["--partial-nested"], "--partial-nested is for sliding puzzles"),
+                       (["--high-memory"], "--high-memory is for sliding and stacking puzzles"),
+                       (["--panex-dir", "x"], "for stacking puzzles")):
         r = run(*args, CUBE)
         check(f"refused {args}", r.returncode == 2 and text in r.stderr, f"{r.returncode} {r.stderr!r}")
     r = run("-t", "x", CUBE)
@@ -62,18 +69,52 @@ def test_help_and_mistakes() -> None:
     check("missing file", r.returncode == 2 and r.stdout.startswith("could not open input file"), r.stdout)
 
 
-def test_sliding_and_stacking() -> None:
-    for name in ("test_stacking_hanoi", "test_sliding_solver"):
-        f = PUZZLES / f"{name}.xmpuzzle"
-        r = run("-q", f)
-        check(f"{name} refused", r.returncode == 1 and
-              r.stdout == "The puzzles contains features not yet supported by burrTxt\n" and
-              "cannot be solved yet" in r.stderr, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
-        r = run("--json", f)
-        check(f"{name} refused --json", r.returncode == 1 and r.stdout == "", r.stdout)
-        check(f"{name} -a c", run("-a", "c", f).returncode == 0)
-        r = run("-R", f)
-        check(f"{name} -R", r.returncode == 2 and "-R and -C are for brick puzzles" in r.stderr, r.stderr)
+def test_stacking() -> None:
+    f = PUZZLES / "test_stacking_hanoi.xmpuzzle"
+    r = run("-q", f)
+    check("stacking refused", r.returncode == 1 and
+          r.stdout == "The puzzles contains features not yet supported by burrTxt\n" and
+          "cannot be solved yet" in r.stderr, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
+    r = run("--json", f)
+    check("stacking refused --json", r.returncode == 1 and r.stdout == "", r.stdout)
+    check("stacking -a c", run("-a", "c", f).returncode == 0)
+    r = run("-R", f)
+    check("stacking -R", r.returncode == 2 and "-R and -C are for brick puzzles" in r.stderr, r.stderr)
+
+
+def test_sliding() -> None:
+    slider = PUZZLES / "test_sliding_solver.xmpuzzle"
+    nested = PUZZLES / "sliding" / "test_sliding_nested.xmpuzzle"
+    for solver in (None, "fast", "Sliding Deep Solver", "full"):
+        args = [] if solver is None else ["--solver", solver]
+        r = run("--json", *args, slider)
+        j = json.loads(r.stdout) if r.returncode == 0 else {}
+        check(f"sliding --json {solver}", j.get("solutions") == 1 and j.get("dotlevel") == "81",
+              f"{r.returncode} {r.stdout!r} {r.stderr!r}")
+    r = run("--solver", "classic", slider)
+    check("sliding solver name", r.returncode == 2 and "unknown solver 'classic' for a sliding puzzle"
+          in r.stderr, r.stderr)
+    r = run("-R", slider)
+    check("sliding -R", r.returncode == 2 and "-R and -C are for brick puzzles" in r.stderr, r.stderr)
+    # the nested puzzle: no solution without nested slides, said so; 47 moves with
+    r = run("-q", "-d", nested)
+    check("nested without", r.returncode == 0 and "0 solutions" in r.stdout and
+          "every reachable arrangement was searched: no solution (without --nested-slides)" in r.stdout,
+          r.stdout)
+    r = run("--json", "--nested-slides", nested)
+    check("nested with", r.returncode == 0 and json.loads(r.stdout).get("dotlevel") == "47", r.stdout)
+    r = run("-q", "-d", "--solver", "fast", "--partial-nested", nested)
+    check("partially nested", "1 solutions" in r.stdout, r.stdout)
+    # --save solves it as the GUI did; -a and -x read the solved file
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "solved.xmpuzzle"
+        r = run("--save", out, "-d", "--restart", "--solver", "fast", slider)
+        check("sliding --save", r.returncode == 0 and out.exists() and
+              "problem 0: 1 assemblies and 1 solutions" in r.stdout, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
+        r = run("-a", "s0", out)
+        check("sliding -a s0", r.returncode == 0 and r.stdout.startswith("problem 0\n001: S2 "), r.stdout)
+        r = run("-x", out)
+        check("sliding -x", r.returncode == 0 and r.stdout == "level: 81\n", r.stdout)
 
 
 NO_RESULT = """<?xml version="1.0"?>
@@ -165,7 +206,8 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bt", type=Path, required=True)
     BT = p.parse_args().bt
-    for test in (test_help_and_mistakes, test_sliding_and_stacking, test_no_result, test_solving, test_save_ask_and_retake):
+    for test in (test_help_and_mistakes, test_stacking, test_sliding, test_no_result, test_solving,
+                 test_save_ask_and_retake):
         test()
     print(f"{'all passed' if not failures else f'{len(failures)} failed'}")
     return 1 if failures else 0

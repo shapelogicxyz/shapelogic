@@ -12,9 +12,23 @@
 #             aborts on these grids, so the harness reads its plain `-q`
 #             summary instead; the new bt --json must report assemblies with
 #             solutions 0 and no level.
+#         "N" sliding: --nested-slides; "P" sliding: --partial-nested
+#         "L" sliding: a full search would not end (or takes minutes): only
+#             the fast and deep solvers run it
+#         "O" sliding: several starts. A shorter path to a picture already
+#             counted counts again, so on several threads the counts depend
+#             on the order the starts come in (in the original too): the
+#             baseline is one thread's (every sliding one is) and these are
+#             compared with --threads 1 only
+#   tier  sliding  the sliding puzzles (deferred part 1): run with
+#         `--tier sliding` and `--solver fast|deep|full` (the default is the
+#         full search, burrTxt's). "alpha:" paths are files of this repo:
+#         the puzzles of the original's test/test_sliding.cpp made with its
+#         own code (`oracle.py sliding-puzzles`).
 #
-# Sliding (SliderByGiiker) and stacking (PanexLevel3to10) are out of scope
-# until those features are ported; do not add them here yet.
+# Stacking (PanexLevel3to10) is out of scope until it is ported (deferred
+# part 3); do not add it here yet. Never add the commercial sliding puzzle
+# "One Way or Another".
 
 fast  -  examples/AlPackino.xmpuzzle
 fast  -  examples/Bermuda.xmpuzzle
@@ -42,3 +56,29 @@ full  R  tictest/performance/puzzles/**/*.xmpuzzle
 slow  R  tictest/performance/puzzles/**/Climburr_OldVer*.xmpuzzle
 slow  R  tictest/performance/puzzles/**/CoverUp3*.xmpuzzle
 slow  R  tictest/performance/puzzles/**/CornerCube*.xmpuzzle
+
+sliding  -  test/test_sliding_solver.xmpuzzle
+sliding  -  examples/SliderByGiiker.xmpuzzle
+sliding  N  test/test_sliding_nested.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_all_variable.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_caterpillar.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_corridor.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_empty_floor.xmpuzzle
+sliding  N  alpha:tests/data/puzzles/sliding/slide_fuzz_*.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_goal_on_variable.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_klotski.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_like_pieces.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_many_starts.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_one_cell.xmpuzzle
+sliding  N  alpha:tests/data/puzzles/sliding/slide_one_way.xmpuzzle
+sliding  NO alpha:tests/data/puzzles/sliding/slide_pocket_nested.xmpuzzle
+sliding  PO alpha:tests/data/puzzles/sliding/slide_pocket_partial.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_shorter_path.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_swapped_eight.xmpuzzle
+sliding  L  alpha:tests/data/puzzles/sliding/slide_swapped_fifteen.xmpuzzle
+sliding  O  alpha:tests/data/puzzles/sliding/slide_turn.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_two_layers_open.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_two_layers_shut.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_variable_crossed.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_whole_piece.xmpuzzle
+sliding  -  alpha:tests/data/puzzles/sliding/slide_wide_keys.xmpuzzle

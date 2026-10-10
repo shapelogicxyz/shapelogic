@@ -56,7 +56,7 @@ export class PiecesCard {
     const others = shapes.filter((s) => s.id !== result);
     const byShape = new Map(shapes.map((s) => [s.id, s]));
 
-    // the notice for sliding and stacking puzzles
+    // the notice for a puzzle this version does not solve (stacking)
     const k = ws.kind;
     const note = byId('pzKind');
     note.classList.toggle('show', k !== null && !k.supported);

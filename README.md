@@ -8,12 +8,17 @@ process that a new web front end will drive.
 The original application stays the reference: every ported solver must give
 the same answers on a corpus of 180 puzzles before it counts as done.
 
-**Status:** stages 0 to 7 of 8 done: grids, model and file format, the
-assemblers, the take-apart (with rotation moves), the solve session, the
-app layer (document, undo, commands, meshes, playback, explorers) and
-`bt-engine`, the JSON-RPC engine the front end talks to; `bt` solves and
-takes apart as the original's `burrTxt`. Next: the complete `bt` CLI and
-the performance pass (stage 8). See [docs/PLAN.md](docs/PLAN.md).
+**Status:** the core's stages 0 to 8 and the web front end's stages 1a to
+8 are done: grids, model and file format, the assemblers, the take-apart
+(with rotation moves), the solve session, the app layer (document, undo,
+commands, meshes, playback, explorers), `bt-engine`, the JSON-RPC engine
+the front end talks to, `bt`, which solves and takes apart as the
+original's `burrTxt` and `burrTxt2`, and the Electron front end in `web/`.
+The deferred features follow part by part
+([docs/DEFERRED-PLAN.md](docs/DEFERRED-PLAN.md)): sliding puzzles are
+solved in the core, the engine and `bt` (part 1); their front end, then
+stacking and Panex puzzles, STL meshes, imports and Python bindings come
+next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 

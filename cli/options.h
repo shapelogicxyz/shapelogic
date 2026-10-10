@@ -6,6 +6,7 @@
 /// solve-and-save mode under --save (src/burrTxt2.cpp), and the A/B
 /// switches for benchmarks.
 
+#include "bt/solve/sliding_search.h"
 #include "bt/solve/solver_type.h"
 
 #include <optional>
@@ -39,6 +40,14 @@ struct Options {
   const char* solverName = nullptr;  ///< --solver, checked once the puzzle type is known
   SolverType solver = SolverType::Classic;
 
+  // burrTxt's sliding options
+  bool nestedSlides = false;   ///< --nested-slides
+  bool partialNested = false;  ///< --partial-nested (implies --nested-slides)
+  bool highMemory = false;     ///< --high-memory
+  /// --solver of a sliding puzzle: the full search unless it says (burrTxt's
+  /// and the GUI's default).
+  sliding::SlidingSolver slidingSolver = sliding::SlidingSolver::Full;
+
   // burrTxt2's mode
   const char* saveTo = nullptr;       ///< --save FILE
   bool restart = false;               ///< --restart (burrTxt2 -R)
@@ -56,6 +65,11 @@ struct Options {
   bool rotationAnchor = true;
   unsigned int vectorMemoryMb = 256;
   bool originalDrawings = false;  ///< --original-drawings
+  // the slide search's (the original's BURRTOOLS_SLIDE_* switches)
+  bool slideLegacy = false;  ///< --slide-legacy: the search over text keys
+  bool slideApart = false;   ///< --slide-apart: like pieces told apart
+  bool slideQueue = false;   ///< --slide-queue: a full search through the queue
+  bool slideTrace = false;   ///< --slide-trace: each level of a full search on stderr
 
   const char* file = nullptr;
 };

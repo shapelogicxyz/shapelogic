@@ -140,7 +140,10 @@ export class Files {
         return;
       }
     }
-    const grids = info.grids.filter((g) => g.supported);
+    // the grids this version solves; sliding waits for the start/goal editor
+    // (the deferred plan's part 2), without which a new sliding puzzle could
+    // be given no start or goal
+    const grids = info.grids.filter((g) => g.supported && g.grid !== 'sliding');
     const k = await openDialog({
       id: 'newPuzzle',
       title: 'New puzzle',

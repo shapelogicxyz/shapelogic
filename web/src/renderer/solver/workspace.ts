@@ -15,7 +15,7 @@
 // invalid_state is refused first: the options of a problem being solved,
 // a pause with no run under way, an abort once the run has ended (the
 // button greys out, as the original's); the frozen document says "pause
-// the solve first". Sliding and stacking puzzles are shown but not solved
+// the solve first". Stacking puzzles are shown but not solved
 // (problem.kind, engine.info's grids). From docs/mockup/index.html:
 // `renderSolver`, `svSelect`, `svManage`, `svTag`, `svStatus`, `svKey`
 // and the Solver keydown handlers, and `SV`.
@@ -287,7 +287,7 @@ export class SolverWorkspace {
     return r !== null && (r.phase !== 'none' || r.launched);
   }
 
-  /** Whether this version solves the problem shown (sliding and stacking: not yet). */
+  /** Whether this version solves the problem shown (stacking: not yet). */
   get supported(): boolean {
     const snap = this.store.snapshot;
     const grid = this.store.info?.grids.find((g) => g.grid === snap?.grid);
@@ -363,7 +363,7 @@ export class SolverWorkspace {
       return '';
     }
     if (!this.supported) {
-      return 'This version does not solve sliding and stacking puzzles yet';
+      return 'This version does not solve stacking puzzles yet';
     }
     if ((this.pager?.total ?? 0) > 0) {
       return 'Choose a solution in the list to see it here';
@@ -774,7 +774,7 @@ export class SolverWorkspace {
       return;
     }
     if (!this.supported) {
-      flash('This version does not solve sliding and stacking puzzles yet', 4000);
+      flash('This version does not solve stacking puzzles yet', 4000);
       return;
     }
     const options = solveOptions(this.options, this.limits);
@@ -983,7 +983,7 @@ export class SolverWorkspace {
       return;
     }
     if (!this.supported) {
-      flash('This version does not solve sliding and stacking puzzles yet', 4000);
+      flash('This version does not solve stacking puzzles yet', 4000);
       return;
     }
     const run: AnalysisRun = {

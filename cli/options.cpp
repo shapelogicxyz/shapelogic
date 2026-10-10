@@ -63,7 +63,8 @@ void usage(HelpKind kind) {
       "  --progress\n"
       "          print to stderr, once a second, how far the solve is\n"
       "  Short options may be combined (e.g. -dR, -rq).\n"
-      "  -d      solve: take apart; only print what solves\n"
+      "  -d      solve: take apart (brick) or find the slide path (sliding); only\n"
+      "          print what solves\n"
       "  -p      print the moves of each solution\n"
       "  -s      print the assembly\n"
       "  -q      be quiet and only print statistics\n"
@@ -127,12 +128,50 @@ void usage(HelpKind kind) {
     return;
   }
 
-  std::fprintf(stdout,
-               "\n%s puzzles:\n"
-               "  bt cannot solve %s puzzles yet: their files load, and -a reads them,\n"
-               "  but a solve is refused.\n",
-               kind == HelpKind::Sliding ? "sliding" : "stacking",
-               kind == HelpKind::Sliding ? "sliding" : "stacking");
+  if (kind == HelpKind::Sliding) {
+    std::fputs(
+        "\nsliding puzzles:\n"
+        "  -r      reduce the placements before finding the start layouts\n"
+        "  -t n    set number of worker threads for finding start layouts and for the\n"
+        "          Sliding Full Solver (0 = auto)\n"
+        "  --nested-slides\n"
+        "          a piece may carry the pieces nested inside its outline, such as a\n"
+        "          piece in another piece's pocket. Pieces that only touch never move\n"
+        "          together.\n"
+        "  --partial-nested\n"
+        "          with --nested-slides, a piece also carries the pieces partly nested\n"
+        "          in its outline: some of their cells inside it, the rest sticking out.\n"
+        "          Implies --nested-slides.\n"
+        "  --high-memory\n"
+        "          let the search hold up to half of this computer's memory in\n"
+        "          arrangements, instead of stopping at about 2 GB\n"
+        "  --solver TYPE   (default: Sliding Full Solver)\n"
+        "            \"Sliding Fast Solver\"  search up to 250,000 arrangements (also: fast)\n"
+        "            \"Sliding Deep Solver\"  search up to 1,000,000 arrangements (also: deep)\n"
+        "            \"Sliding Full Solver\"  no limit: finds the fewest moves or proves there is\n"
+        "                                   no solution, on every core (-t n to limit);\n"
+        "                                   keeps only the newest moves in memory and the\n"
+        "                                   rest on disk, so free disk space limits it\n"
+        "                                   (also: full)\n"
+        "  The Sliding Full Solver keeps its first 256 MB of older moves in memory, then\n"
+        "  writes to $BURRTOOLS_SLIDE_DIR, or the user's cache folder, and deletes its\n"
+        "  files when done. BURRTOOLS_SLIDE_DISK_GB limits the disk it may take (default:\n"
+        "  all but 2 GB or a twentieth of the disk, but at least 1 GB or half the free\n"
+        "  space, whichever is less).\n"
+        "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
+        "  --slide-legacy   the original search over text keys\n"
+        "  --slide-apart    like pieces told apart instead of searched as one\n"
+        "  --slide-queue    the full search through the queue, not level by level\n"
+        "  --slide-trace    each level of a full search on stderr\n",
+        stdout);
+    return;
+  }
+
+  std::fputs(
+      "\nstacking puzzles:\n"
+      "  bt cannot solve stacking puzzles yet: their files load, and -a reads them,\n"
+      "  but a solve is refused.\n",
+      stdout);
 }
 
 std::optional<int> parseArgs(int argc, char** argv, Options& o) {
@@ -245,10 +284,23 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.rotationAnchor = false;
     } else if (a == "--original-drawings") {
       o.originalDrawings = true;
-    } else if (a == "--nested-slides" || a == "--partial-nested" || a == "--high-memory" ||
-               a == "--panex-dir" || a == "--panex-disk") {
-      std::fprintf(stderr,
-                   "bt: %s is for sliding and stacking puzzles, which bt cannot solve yet\n",
+    } else if (a == "--nested-slides") {
+      o.nestedSlides = true;
+    } else if (a == "--partial-nested") {
+      o.nestedSlides = true;
+      o.partialNested = true;
+    } else if (a == "--high-memory") {
+      o.highMemory = true;
+    } else if (a == "--slide-legacy") {
+      o.slideLegacy = true;
+    } else if (a == "--slide-apart") {
+      o.slideApart = true;
+    } else if (a == "--slide-queue") {
+      o.slideQueue = true;
+    } else if (a == "--slide-trace") {
+      o.slideTrace = true;
+    } else if (a == "--panex-dir" || a == "--panex-disk") {
+      std::fprintf(stderr, "bt: %s is for stacking puzzles, which bt cannot solve yet\n",
                    argv[i]);
       return kExitUsage;
     } else if (a.size() > 1 && a[0] == '-' && a[1] == '-') {
