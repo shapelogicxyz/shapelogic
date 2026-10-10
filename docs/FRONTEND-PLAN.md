@@ -20,7 +20,11 @@ GLB animation, paused solves); packaging for macOS, Windows and Linux.
 **Later (with the core features of PLAN.md's "Later"):** sliding and
 stacking/Panex editing and solving, STL export from the STL meshes, the
 imports (PuzzleSolver3D, Puzzlecad), grid conversion; a browser-only build
-(a WebSocket bridge or WebAssembly, decision 0003); localisation.
+(a WebSocket bridge or WebAssembly, decision 0003); localisation. The
+deferred features (sliding, stacking/Panex, the STL meshes, the imports,
+grid conversion, Python bindings) are planned in
+[DEFERRED-PLAN.md](DEFERRED-PLAN.md); the browser-only build and
+localisation are not planned yet.
 
 ## The mockup as the basis
 - **Source:** `index.html` on the `gh-pages` branch of `grssam/burr-tools`,
