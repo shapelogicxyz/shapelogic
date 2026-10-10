@@ -463,7 +463,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.rename`
 
-The shape's name (empty for none).
+The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's part (its START/GOAL number stays), and a piece's name may not begin with "sg:" or "__sggoal:" (invalid_argument).
 
 Params:
 
@@ -547,7 +547,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `shape.resize`
 
-Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink).
+Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink). Sliding shapes are one layer deep: another Z is refused (invalid_argument).
 
 Params:
 
@@ -563,7 +563,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.taskSet`
 
-The tool tabs' operations the document's grid offers, in the original's button order.
+The tool tabs' operations the document's grid offers, in the original's button order. The sliding grid leaves out what would give a shape more layers (the nudges along Z, the turns about X and Y, double, triple, the grid scale), as the original greyed them out.
 
 Params:
 

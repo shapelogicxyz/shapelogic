@@ -251,6 +251,12 @@ Result<void> Document::renameShape(Id shape, std::string name) {
   // the user's part (cb_NameShape)
   Voxel& named = puzzle_->getShape(*s);
   const bool startGoal = sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&named);
+  // a piece named "sg:..." would become a start/goal shape at the next
+  // sync (the original's cb_NameShape let it)
+  if (sliding::isSliding(*puzzle_) && !startGoal && sliding::isReservedName(name)) {
+    return fail(Errc::InvalidArgument,
+                "a piece's name cannot begin with \"sg:\" or \"__sggoal:\" on a sliding puzzle");
+  }
   if ((startGoal ? sliding::startGoalUserName(&named) : named.getName()) == name) {
     return {};
   }
@@ -390,6 +396,10 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
   const unsigned int factor = sizeUnit(puzzle_->getGridType().getType());
   if (Result<void> r = checkSize(factor * x, factor * y, factor * z); !r) {
     return r;
+  }
+  // sliding shapes are one layer deep (the original locked the Z size)
+  if (sliding::isSliding(*puzzle_) && z != 1) {
+    return fail(Errc::InvalidArgument, "sliding shapes are one layer deep");
   }
   const Voxel& sel = puzzle_->getShape(*s);
 

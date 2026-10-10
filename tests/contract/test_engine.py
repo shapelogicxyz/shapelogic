@@ -909,6 +909,13 @@ def sliding_start_goal_shapes(e):
     check(len(snap["problems"]) == 1, f"its problem {snap['problems']}")
     p = snap["problems"][0]["id"]
     e.call("shape.rename", {"shape": tray, "name": "Corner"})
+    # one layer deep: no task that adds layers, no other Z, no piece named as a tray
+    tasks = {t["task"] for t in e.call("shape.taskSet")["tasks"]}
+    deep = {"nudge4", "nudge5", "rotate6", "rotate7", "rotate8", "rotate9", "double", "triple", "gridScale"}
+    check(not tasks & deep and {"nudge0", "nudge1", "rotate10", "rotate11"} <= tasks, f"flat tasks {tasks}")
+    e.fails("shape.task", {"shape": two, "task": "rotate6"}, "unsupported")
+    e.fails("shape.resize", {"shape": two, "size": [2, 1, 2]}, "invalid_argument")
+    e.fails("shape.rename", {"shape": two, "name": "sg:2:"}, "invalid_argument")
     t = e.call("sliding.tray", {"tray": tray})
     check(t["number"] == 1 and t["name"] == "Corner" and t["floor"] == 12, f"the tray {t}")
     check(t["starts"] == [None] * 12 and t["goals"] == [None] * 12, "nothing stamped")

@@ -23,6 +23,7 @@
 /// search is in bt/solve/sliding_search.h).
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -52,6 +53,9 @@ void setStartGoalUserName(Voxel* v, const std::string& user);
 [[nodiscard]] std::string displayName(const Voxel* v);
 /// True for a shape whose name begins "__sggoal:" (hidden from the lists).
 [[nodiscard]] bool isHiddenSlidingShape(const Voxel* v);
+/// True for a name that would make a piece a start/goal shape or a hidden
+/// one ("sg:" or "__sggoal:" at its start): a rename gives a piece no such name.
+[[nodiscard]] bool isReservedName(std::string_view name);
 
 /// Adds a start/goal shape of sx by sy cells, one layer, all filled, with
 /// the next free number. Returns its index.

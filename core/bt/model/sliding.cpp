@@ -242,6 +242,10 @@ bool isHiddenSlidingShape(const Voxel* v) {
   return v != nullptr && v->getName().rfind(kHiddenPrefix, 0) == 0;
 }
 
+bool isReservedName(std::string_view name) {
+  return name.starts_with(kStartGoalPrefix) || name.starts_with(kHiddenPrefix);
+}
+
 int startGoalNumber(const Voxel* v) {
   if (!isStartGoalShape(v)) {
     return 0;

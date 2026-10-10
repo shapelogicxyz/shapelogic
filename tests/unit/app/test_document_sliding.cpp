@@ -8,6 +8,7 @@
 #include "app_test_helpers.h"
 
 #include "bt/app/document.h"
+#include "bt/app/shape_tools.h"
 #include "bt/grid/voxel.h"
 #include "bt/io/puzzle_file.h"
 #include "bt/model/sliding.h"
@@ -15,6 +16,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <utility>
@@ -290,6 +292,59 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   CHECK(roundTrip(d, [](Document& x) { return x.addColour(Rgb{1, 2, 3}); }).has_value());
   CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)) ==
         sliding::startGoalError(before, index(d, tray)));
+}
+
+TEST_CASE("sliding document: shapes stay one layer deep, pieces keep plain names",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id tray = d.addStartGoal({4, 3}).value();
+  const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
+
+  // the tool tab's buttons ToolTab_0::lockZ greyed out are not offered, nor done
+  const std::vector<ShapeTaskInfo> set = taskSet(GridKind::Sliding);
+  const auto offered = [&set](ShapeTask t) {
+    return std::any_of(set.begin(), set.end(), [t](const ShapeTaskInfo& i) { return i.task == t; });
+  };
+  for (const ShapeTask t : {ShapeTask::Nudge4, ShapeTask::Nudge5, ShapeTask::Rotate6,
+                            ShapeTask::Rotate7, ShapeTask::Rotate8, ShapeTask::Rotate9,
+                            ShapeTask::Double, ShapeTask::Triple, ShapeTask::GridScale}) {
+    INFO(static_cast<int>(t));
+    CHECK_FALSE(offered(t));
+    refused(d, Errc::Unsupported, [=](Document& x) { return x.shapeTask(a, t, false); });
+  }
+  // what keeps a shape flat stays (the bricks' set less those)
+  for (const ShapeTask t : {ShapeTask::Nudge0, ShapeTask::Nudge3, ShapeTask::Rotate10,
+                            ShapeTask::Rotate11, ShapeTask::Minimize, ShapeTask::Prune}) {
+    CHECK(offered(t));
+  }
+  CHECK(set.size() + 9 == taskSet(GridKind::Bricks).size());
+  CHECK(taskSet(GridKind::Bricks).size() == taskSet(GridKind::Stacking).size());
+  CHECK(roundTrip(d, [=](Document& x) { return x.shapeTask(a, ShapeTask::Rotate10, false); })
+            .has_value());
+  CHECK(d.puzzle().getShape(index(d, a)).getZ() == 1);
+
+  // the Z size is locked; X and Y are not, alone or for all shapes
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.resizeShape(a, 3, 3, 2, false); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.resizeShape(tray, 5, 3, 2, true); });
+  CHECK(roundTrip(d, [=](Document& x) { return x.resizeShape(tray, 5, 4, 1, true); }).has_value());
+  for (unsigned int s = 0; s < d.puzzle().getNumberOfShapes(); s++) {
+    CHECK(d.puzzle().getShape(s).getZ() == 1);
+  }
+
+  // a piece named "sg:…" would turn into a start/goal shape at the next sync
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.renameShape(a, "sg:2:x"); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.renameShape(a, "__sggoal:1"); });
+  CHECK(roundTrip(d, [=](Document& x) { return x.renameShape(a, "a sg: piece"); }).has_value());
+  // a start/goal shape's name is the user's part: anything goes there
+  CHECK(roundTrip(d, [=](Document& x) { return x.renameShape(tray, "sg:odd"); }).has_value());
+  CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, tray))) == 1);
+  CHECK(sliding::startGoalUserName(&d.puzzle().getShape(index(d, tray))) == "sg:odd");
+
+  // other grids are as they were
+  Document b(GridKind::Bricks);
+  const Id s = b.createShape(std::array<unsigned int, 3>{2, 2, 2}).value();
+  CHECK(b.resizeShape(s, 2, 2, 3, false).has_value());
+  CHECK(b.renameShape(s, "sg:1:").has_value());
 }
 
 TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, not the puzzle",
