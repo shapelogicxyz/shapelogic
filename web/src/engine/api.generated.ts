@@ -93,6 +93,22 @@ export interface CellsChanged {
   changed: number;
 }
 
+// ---- sliding.json: Sliding puzzles ----
+
+/**
+ * A cell [x, y] of a start/goal shape's layer, y up.
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Cell2 = [number, number];
+
+/**
+ * A size [x, y] in cells.
+ * @minItems 2
+ * @maxItems 2
+ */
+export type Size2 = [number, number];
+
 // ---- solution.json: Solutions ----
 
 export interface SolutionParam {
@@ -416,6 +432,7 @@ export interface ShapeSummary {
   id: ShapeId;
   /** S1, S2, ... by place. */
   label: string;
+  /** A start/goal shape's is the user's part (shown as '(START/GOAL n) name'). */
   name: string;
   size: Size;
   /** @minimum 0 */
@@ -425,6 +442,11 @@ export interface ShapeSummary {
   weight: number;
   /** The shape's own colour, or null for the default one. */
   colour: Rgb | null;
+  /**
+   * A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape.
+   * @minimum 0
+   */
+  startGoal: number | null;
 }
 
 export interface Colour {
@@ -476,6 +498,13 @@ export interface Snapshot {
   shapes: ShapeSummary[];
   colours: Colour[];
   problems: ProblemSummary[];
+  /**
+   * What opening the file changed, to tell the user (the original's load message: a sliding shape
+   * of more than one layer made flat, which leaves the document dirty). Only in the result of
+   * document.open, document.openBytes and solve.importPaused, and only when there is something to
+   * tell.
+   */
+  notice?: string;
 }
 
 /** A row of the status window. */
@@ -518,6 +547,11 @@ export interface Part {
     /** @minimum 1 */
     count: number;
   })[];
+  /**
+   * A sliding piece with a start or goal on the problem's start/goal shape: its count follows them
+   * (problem.setPieceCount refuses to change it; the range and all-pieces commands leave it).
+   */
+  required: boolean;
 }
 
 /**
@@ -1557,7 +1591,7 @@ export interface Methods {
   'problem.setResult': {
     params: ProblemShape;
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become
@@ -1592,7 +1626,7 @@ export interface Methods {
   'problem.removePiece': {
     params: ProblemShape;
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * One count range for every piece (the bulk range; a maximum below the minimum is raised to it).
@@ -1682,7 +1716,7 @@ export interface Methods {
       group: number;
     };
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * Allows or forbids piece colour on result colour; removes the solutions.
@@ -2048,6 +2082,109 @@ export interface Methods {
     errors: 'invalid_argument';
   };
   /**
+   * Adds a start/goal shape (the original's New Start/Goal): one layer of 'size' cells (default 6
+   * by 6, the original took the selected shape's), all floor, numbered after the others, with its
+   * problem.
+   * (sliding.json)
+   */
+  'sliding.addStartGoal': {
+    params: {
+      size?: Size2;
+    };
+    result: {
+      shape: ShapeId;
+      revision: Revision;
+    };
+    errors: 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, its
+   * top-left cell at 'at' (y rises upwards, as in the grid editor), moved there if it was
+   * elsewhere; a piece that is exactly there already is taken off. Refused (invalid_argument) with
+   * the original's reason when it does not fit: off the floor, on another piece's start or goal, a
+   * goal on a corridor. The problems of the start/goal shape lose what they had found. One undo
+   * step.
+   * (sliding.json)
+   */
+  'sliding.place': {
+    params: {
+      tray: ShapeId;
+      piece: ShapeId;
+      at: Cell2;
+      goal: boolean;
+    };
+    result: {
+      /** The piece is there now (false: it was there and was taken off). */
+      placed: boolean;
+      revision: Revision;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Takes off the start or goal that covers a cell (the editor's right click). One undo step;
+   * nothing when none covers it.
+   * (sliding.json)
+   */
+  'sliding.clearAt': {
+    params: {
+      tray: ShapeId;
+      at: Cell2;
+      goal: boolean;
+    };
+    result: {
+      cleared: boolean;
+      revision: Revision;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * What a start/goal shape holds: its number and name, each cell's start and goal (the piece
+   * stamped there, cells indexed x + X*(y + Y*z)), whether it can be solved (the original's
+   * validity bar: null, or why not), the stamps larger than their pieces (null, or the message),
+   * and its floor cells.
+   * (sliding.json)
+   */
+  'sliding.tray': {
+    params: {
+      tray: ShapeId;
+    };
+    result: {
+      /** @minimum 0 */
+      number: number;
+      /** The user's part of its name; shown as '(START/GOAL n) name'. */
+      name: string;
+      size: Size;
+      starts: (ShapeId | null)[];
+      goals: (ShapeId | null)[];
+      error: string | null;
+      overflow: string | null;
+      /** @minimum 0 */
+      floor: number;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
+   * Where sliding.place would put a piece: the cells, whether it fits (and the original's reason
+   * when not), and whether it is exactly there already (then the click takes it off). Changes
+   * nothing.
+   * (sliding.json)
+   */
+  'sliding.preview': {
+    params: {
+      tray: ShapeId;
+      piece: ShapeId;
+      at: Cell2;
+      goal: boolean;
+    };
+    result: {
+      cells: Cell2[];
+      fits: boolean;
+      why: string | null;
+      there: boolean;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
    * A slice of the saved solutions, sorted: list (the stored order), assembly (found order),
    * level, moves or pieces (the original's sort buttons); descending sorts by the swapped
    * comparison, so ties keep their order.
@@ -2331,6 +2468,11 @@ export interface Events {
       what: ChangeKind[];
       shapes: ShapeId[];
       problems: ProblemId[];
+      /**
+       * What the change did beyond what was asked, to tell the user: a sliding piece whose new
+       * shape lost its starts and goals. Only when there is something to tell.
+       */
+      notice?: string;
     };
   };
   /**
@@ -2500,6 +2642,11 @@ export const METHOD_NAMES = [
   'shape.table',
   'shape.task',
   'shape.taskSet',
+  'sliding.addStartGoal',
+  'sliding.clearAt',
+  'sliding.place',
+  'sliding.preview',
+  'sliding.tray',
   'solution.analyse',
   'solution.analyseStatus',
   'solution.analyseStop',

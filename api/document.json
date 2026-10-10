@@ -133,7 +133,8 @@
           "revision": {"$ref": "types.json#/$defs/Revision"},
           "what": {"type": "array", "items": {"$ref": "types.json#/$defs/ChangeKind"}},
           "shapes": {"type": "array", "items": {"$ref": "types.json#/$defs/ShapeId"}},
-          "problems": {"type": "array", "items": {"$ref": "types.json#/$defs/ProblemId"}}
+          "problems": {"type": "array", "items": {"$ref": "types.json#/$defs/ProblemId"}},
+          "notice": {"type": "string", "description": "What the change did beyond what was asked, to tell the user: a sliding piece whose new shape lost its starts and goals. Only when there is something to tell."}
         },
         "required": ["revision", "what", "shapes", "problems"],
         "additionalProperties": false

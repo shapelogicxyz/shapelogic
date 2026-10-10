@@ -27,7 +27,7 @@ the reply's `Frame` object.
 | -32002 | not_found | no such shape, colour, problem, solution or handle |
 | -32003 | parse_error | a file or bytes that are no puzzle |
 | -32004 | io_error | reading or writing a file failed |
-| -32005 | unsupported | valid, but not in this version (sliding, stacking) |
+| -32005 | unsupported | valid, but not in this version (stacking puzzles; what a grid lacks) |
 | -32006 | invalid_state | not now: pause the solve first, close the edit group... |
 | -32603 | internal | a broken invariant in the engine or the core |
 
@@ -42,6 +42,7 @@ follows it.
 - [Shapes and cells](#shapes-and-cells)
 - [Colours](#colours)
 - [Problems](#problems)
+- [Sliding puzzles](#sliding-puzzles)
 - [Solving](#solving)
 - [Solutions](#solutions)
 - [Playback](#playback)
@@ -355,6 +356,7 @@ The document changed: after a call that changed it, and when a solve run ended o
 | `what` | [ChangeKind](#changekind)[] | required |  |
 | `shapes` | [ShapeId](#shapeid)[] | required |  |
 | `problems` | [ProblemId](#problemid)[] | required |  |
+| `notice` | string |  | What the change did beyond what was asked, to tell the user: a sliding piece whose new shape lost its starts and goals. Only when there is something to tell. |
 
 ## Shapes and cells
 
@@ -793,7 +795,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Problems
 
-The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011).
+The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding puzzle has one problem per start/goal shape, kept in step with its starts and goals (sliding.json): its result is not chosen (problem.setResult is refused), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required).
 
 ### `problem.list`
 
@@ -906,7 +908,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.setPieceCount`
 
@@ -953,7 +955,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.setRangeAll`
 
@@ -1061,7 +1063,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.setColourRule`
 
@@ -1162,6 +1164,121 @@ Errors: `not_found`, `invalid_state`
 |---|---|---|---|
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+## Sliding puzzles
+
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Each start/goal shape has a problem of its own (named START/GOAL n), whose parts and colour locks follow its stamps; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+
+### `sliding.addStartGoal`
+
+Adds a start/goal shape (the original's New Start/Goal): one layer of 'size' cells (default 6 by 6, the original took the selected shape's), all floor, numbered after the others, with its problem.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `size` | Size2 |  | A size [x, y] in cells. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `unsupported`, `invalid_argument`, `invalid_state`
+
+### `sliding.place`
+
+The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, its top-left cell at 'at' (y rises upwards, as in the grid editor), moved there if it was elsewhere; a piece that is exactly there already is taken off. Refused (invalid_argument) with the original's reason when it does not fit: off the floor, on another piece's start or goal, a goal on a corridor. The problems of the start/goal shape lose what they had found. One undo step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `at` | Cell2 | required | A cell [x, y] of a start/goal shape's layer, y up. |
+| `goal` | boolean | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `placed` | boolean | required | The piece is there now (false: it was there and was taken off). |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
+### `sliding.clearAt`
+
+Takes off the start or goal that covers a cell (the editor's right click). One undo step; nothing when none covers it.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `at` | Cell2 | required | A cell [x, y] of a start/goal shape's layer, y up. |
+| `goal` | boolean | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `cleared` | boolean | required |  |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
+### `sliding.tray`
+
+What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), whether it can be solved (the original's validity bar: null, or why not), the stamps larger than their pieces (null, or the message), and its floor cells.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `number` | integer | required |  |
+| `name` | string | required | The user's part of its name; shown as '(START/GOAL n) name'. |
+| `size` | [Size](#size) | required | A size [x, y, z]. |
+| `starts` | [ShapeId](#shapeid) or null[] | required |  |
+| `goals` | [ShapeId](#shapeid) or null[] | required |  |
+| `error` | string or null | required |  |
+| `overflow` | string or null | required |  |
+| `floor` | integer | required |  |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
+### `sliding.preview`
+
+Where sliding.place would put a piece: the cells, whether it fits (and the original's reason when not), and whether it is exactly there already (then the click takes it off). Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `at` | Cell2 | required | A cell [x, y] of a start/goal shape's layer, y up. |
+| `goal` | boolean | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `cells` | Cell2[] | required |  |
+| `fits` | boolean | required |  |
+| `why` | string or null | required |  |
+| `there` | boolean | required |  |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
 
 ## Solving
 
@@ -2102,12 +2219,13 @@ A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32
 |---|---|---|---|
 | `id` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `label` | string | required | S1, S2, ... by place. |
-| `name` | string | required |  |
+| `name` | string | required | A start/goal shape's is the user's part (shown as '(START/GOAL n) name'). |
 | `size` | [Size](#size) | required | A size [x, y, z]. |
 | `fixed` | integer | required |  |
 | `variable` | integer | required |  |
 | `weight` | integer | required |  |
 | `colour` | [Rgb](#rgb) or null | required | The shape's own colour, or null for the default one. |
+| `startGoal` | integer or null | required | A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape. |
 
 ### Colour
 
@@ -2151,6 +2269,7 @@ Everything a front end shows of the document's lists.
 | `shapes` | [ShapeSummary](#shapesummary)[] | required |  |
 | `colours` | [Colour](#colour)[] | required |  |
 | `problems` | [ProblemSummary](#problemsummary)[] | required |  |
+| `notice` | string |  | What opening the file changed, to tell the user (the original's load message: a sliding shape of more than one layer made flat, which leaves the document dirty). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell. |
 
 ### ShapeInfo
 
@@ -2182,6 +2301,7 @@ A row of the status window.
 | `min` | integer | required |  |
 | `max` | integer | required |  |
 | `groups` | object[] | required |  |
+| `required` | boolean | required | A sliding piece with a start or goal on the problem's start/goal shape: its count follows them (problem.setPieceCount refuses to change it; the range and all-pieces commands leave it). |
 
 `groups`:
 

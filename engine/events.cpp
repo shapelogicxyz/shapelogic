@@ -136,10 +136,14 @@ void announceChange(State& s) {
       problems.push_back(formatId(IdKind::Problem, id));
     }
   }
-  s.out.notify("document.changed", Json{{"revision", s.revision()},
-                                        {"what", std::move(what)},
-                                        {"shapes", std::move(shapes)},
-                                        {"problems", std::move(problems)}});
+  Json changed{{"revision", s.revision()},
+               {"what", std::move(what)},
+               {"shapes", std::move(shapes)},
+               {"problems", std::move(problems)}};
+  if (!c.notice.empty()) {
+    changed["notice"] = c.notice;
+  }
+  s.out.notify("document.changed", std::move(changed));
 }
 
 void pollEvents(State& s, std::chrono::steady_clock::time_point now,

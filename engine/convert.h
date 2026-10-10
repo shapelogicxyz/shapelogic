@@ -69,6 +69,9 @@ template <class E>
 [[nodiscard]] Json problemSummary(const State& s, unsigned int index);
 [[nodiscard]] Json problemDetail(const State& s, unsigned int index);
 [[nodiscard]] Json snapshot(const State& s);
+/// The snapshot of a document just opened, with what opening it changed
+/// (Document::openNotice) when there is something to tell.
+[[nodiscard]] Json openedSnapshot(const State& s);
 [[nodiscard]] Json shapeInfoJson(const State& s, const app::ShapeInfo& info, unsigned int index);
 [[nodiscard]] Json fitJson(const app::FitStats& f);
 /// A mesh: sent as a frame now, described for the reply.

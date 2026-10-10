@@ -4,6 +4,7 @@
 #include "bt/app/shape_tools.h"
 #include "bt/base/thread_pool.h"
 #include "bt/grid/voxel.h"
+#include "bt/model/sliding.h"
 
 #include <array>
 #include <charconv>
@@ -202,12 +203,16 @@ Json shapeSummary(const State& s, unsigned int index) {
   Json j = Json::object();
   j["id"] = shapeId(s, index);
   j["label"] = app::Document::shapeLabel(index);
-  j["name"] = v.getName();
+  // a start/goal shape's name holds its number ("sg:<n>:"): the number
+  // goes apart, the name is the user's part
+  const bool startGoal = sliding::isSliding(s.document().puzzle()) && sliding::isStartGoalShape(&v);
+  j["name"] = startGoal ? sliding::startGoalUserName(&v) : v.getName();
   j["size"] = Json::array({v.getX(), v.getY(), v.getZ()});
   j["fixed"] = v.countState(Voxel::kFilled);
   j["variable"] = v.countState(Voxel::kVariable);
   j["weight"] = v.getWeight();
   j["colour"] = shapeColour(v);
+  j["startGoal"] = startGoal ? Json(sliding::startGoalNumber(&v)) : Json(nullptr);
   return j;
 }
 
@@ -228,7 +233,9 @@ Json problemSummary(const State& s, unsigned int index) {
 }
 
 Json problemDetail(const State& s, unsigned int index) {
-  return s.document().readProblem(index, [&s, index](const Problem& pr) {
+  const Puzzle& puzzle = s.document().puzzle();
+  const bool slidingPuzzle = sliding::isSliding(puzzle);
+  return s.document().readProblem(index, [&s, index, &puzzle, slidingPuzzle](const Problem& pr) {
     Json j = Json::object();
     problemFields(s, index, pr, j);
     Json parts = Json::array();
@@ -240,7 +247,9 @@ Json problemDetail(const State& s, unsigned int index) {
       parts.push_back(Json{{"shape", shapeId(s, part.shapeId)},
                            {"min", part.min},
                            {"max", part.max},
-                           {"groups", std::move(groups)}});
+                           {"groups", std::move(groups)},
+                           {"required", slidingPuzzle && sliding::shapeIsRequired(
+                                                             puzzle, pr, part.shapeId)}});
     }
     j["parts"] = std::move(parts);
     Json rules = Json::array();
@@ -287,6 +296,14 @@ Json snapshot(const State& s) {
     problems.push_back(problemSummary(s, i));
   }
   j["problems"] = std::move(problems);
+  return j;
+}
+
+Json openedSnapshot(const State& s) {
+  Json j = snapshot(s);
+  if (!s.document().openNotice().empty()) {
+    j["notice"] = s.document().openNotice();
+  }
   return j;
 }
 

@@ -402,7 +402,7 @@ def problems(e):
     e.call("problem.addPiece", {"problem": p1, "shape": cube})
     e.call("problem.removePiece", {"problem": p1, "shape": cube})
     detail = e.call("problem.get", {"problem": p1})
-    check(detail["result"] == box and detail["parts"] == [{"shape": cube, "min": 2, "max": 2, "groups": []}],
+    check(detail["result"] == box and detail["parts"] == [{"shape": cube, "min": 2, "max": 2, "groups": [], "required": False}],
           f"detail {detail}")
     check(detail["state"] == "unsolved" and detail["solve"] == "idle" and detail["pieces"] == 2, "state")
     e.call("problem.setGroup", {"problem": p1, "shape": cube, "group": 1})
@@ -890,6 +890,101 @@ def sliding_solve_pause_continue_and_play(e):
         note = e.call("solve.status", {"problem": p})["note"]
         check(note is not None and "limit of 1,000,000 arrangements" in note, f"the note {note!r}")
         e.call("settings.set", {"slideFolder": was})
+
+
+@test
+def sliding_start_goal_shapes(e):
+    e.call("document.new", {"grid": "sliding"})
+    # two pieces: one cell, and two cells side by side
+    one = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+    e.call("shape.setCells", {"shape": one, "tool": "fixed", "cells": [[0, 0, 0]]})
+    two = e.call("shape.create", {"size": [2, 1, 1]})["shape"]
+    e.call("shape.setCells", {"shape": two, "tool": "fixed", "cells": [[0, 0, 0], [1, 0, 0]]})
+    made = e.call("sliding.addStartGoal", {"size": [4, 3]})
+    tray = made["shape"]
+    snap = e.call("document.get")
+    row = next(s for s in snap["shapes"] if s["id"] == tray)
+    check(row["startGoal"] == 1 and row["name"] == "" and row["size"] == [4, 3, 1], f"the tray {row}")
+    check(all(s["startGoal"] is None for s in snap["shapes"] if s["id"] != tray), "pieces have no number")
+    check(len(snap["problems"]) == 1, f"its problem {snap['problems']}")
+    p = snap["problems"][0]["id"]
+    e.call("shape.rename", {"shape": tray, "name": "Corner"})
+    t = e.call("sliding.tray", {"tray": tray})
+    check(t["number"] == 1 and t["name"] == "Corner" and t["floor"] == 12, f"the tray {t}")
+    check(t["starts"] == [None] * 12 and t["goals"] == [None] * 12, "nothing stamped")
+    check(t["error"] is not None and t["overflow"] is None, f"not solvable yet {t}")
+    # a wall in the top-right corner (cells are x + 4*y, y up)
+    e.call("shape.setCells", {"shape": tray, "tool": "erase", "cells": [[3, 2, 0]]})
+    check(e.call("sliding.tray", {"tray": tray})["floor"] == 11, "a wall")
+
+    # the editor's preview and click
+    pv = e.call("sliding.preview", {"tray": tray, "piece": two, "at": [2, 2], "goal": False})
+    check(pv["cells"] == [[2, 2], [3, 2]] and not pv["fits"] and pv["why"] and not pv["there"],
+          f"onto the wall {pv}")
+    e.fails("sliding.place", {"tray": tray, "piece": two, "at": [2, 2], "goal": False}, "invalid_argument")
+    pv = e.call("sliding.preview", {"tray": tray, "piece": two, "at": [0, 0], "goal": False})
+    check(pv["fits"] and pv["why"] is None and not pv["there"], f"fits {pv}")
+    placed = e.call("sliding.place", {"tray": tray, "piece": two, "at": [0, 0], "goal": False})
+    check(placed["placed"], "placed")
+    ch = changed_event(e, placed["revision"])
+    check("problems" in ch["what"] and "shapes" in ch["what"] and "notice" not in ch, f"the event {ch}")
+    check(e.call("sliding.preview", {"tray": tray, "piece": two, "at": [0, 0], "goal": False})["there"],
+          "the piece is there")
+    e.call("sliding.place", {"tray": tray, "piece": two, "at": [1, 2], "goal": True})
+    e.call("sliding.place", {"tray": tray, "piece": one, "at": [3, 0], "goal": False})
+    t = e.call("sliding.tray", {"tray": tray})
+    check(t["starts"][0] == two and t["starts"][1] == two and t["starts"][3] == one, f"starts {t['starts']}")
+    check(t["goals"][9] == two and t["goals"][10] == two and t["error"] is None, f"goals {t}")
+    parts = {x["shape"]: x for x in e.call("problem.get", {"problem": p})["parts"]}
+    check(parts[two]["required"] and parts[one]["required"], f"required parts {parts}")
+    e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 0}, "invalid_argument")
+    e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
+    # clicking where it is takes it off; undo puts it back
+    off = e.call("sliding.place", {"tray": tray, "piece": one, "at": [3, 0], "goal": False})
+    check(not off["placed"], "taken off")
+    e.call("edit.undo")
+    check(e.call("sliding.tray", {"tray": tray})["starts"][3] == one, "undone")
+    # the right click
+    check(not e.call("sliding.clearAt", {"tray": tray, "at": [2, 1], "goal": False})["cleared"], "nothing there")
+    check(e.call("sliding.clearAt", {"tray": tray, "at": [3, 0], "goal": False})["cleared"], "cleared")
+    parts = {x["shape"]: x for x in e.call("problem.get", {"problem": p})["parts"]}
+    check(not parts[one]["required"], f"no longer required {parts[one]}")
+
+    # an edit that changes a piece's shape takes its stamps off, and says so
+    r = e.call("shape.setCells", {"shape": two, "tool": "erase", "cells": [[1, 0, 0]]})
+    ch = changed_event(e, r["revision"])
+    check(ch.get("notice") == "S2 changed shape: its start and goal were removed from S3.", f"the notice {ch}")
+    t = e.call("sliding.tray", {"tray": tray})
+    check(t["starts"] == [None] * 12 and t["goals"] == [None] * 12, "its stamps are gone")
+
+    # refusals
+    e.fails("sliding.tray", {"tray": one}, "invalid_argument")
+    e.fails("sliding.place", {"tray": one, "piece": two, "at": [0, 0], "goal": False}, "invalid_argument")
+    e.fails("sliding.place", {"tray": tray, "piece": tray, "at": [0, 0], "goal": False}, "invalid_argument")
+    e.fails("sliding.preview", {"tray": tray, "piece": tray, "at": [0, 0], "goal": False}, "invalid_argument")
+    e.fails("sliding.clearAt", {"tray": one, "at": [0, 0], "goal": True}, "invalid_argument")
+    e.fails("sliding.tray", {"tray": "s999"}, "not_found")
+    e.fails("sliding.addStartGoal", {"size": [0, 3]}, "invalid_params")
+    e.fails("sliding.place", {"tray": tray, "piece": one, "at": [0, 0, 0], "goal": False}, "invalid_params")
+
+    # opening a file whose sliding shape is deeper than a layer flattens it
+    deep = e.call("shape.create", {"size": [1, 1, 2]})["shape"]
+    e.call("shape.setCells", {"shape": deep, "tool": "fixed", "cells": [[0, 0, 0], [0, 0, 1]]})
+    data = e.call("document.saveBytes")["data"]
+    snap = e.call("document.openBytes", {"data": data})
+    check(snap.get("notice", "").startswith("Sliding shapes are one layer deep. S4 had more than one layer")
+          and snap["dirty"], f"the open notice {snap.get('notice')!r}")
+    check("notice" not in e.call("document.get"), "only the opening tells it")
+
+    # other grids have none
+    e.call("document.new", {"grid": "bricks"})
+    e.fails("sliding.addStartGoal", {}, "unsupported")
+    s = e.call("shape.create")["shape"]
+    e.fails("sliding.tray", {"tray": s}, "unsupported")
+    e.fails("sliding.place", {"tray": s, "piece": s, "at": [0, 0], "goal": False}, "unsupported")
+    e.fails("sliding.clearAt", {"tray": s, "at": [0, 0], "goal": False}, "unsupported")
+    e.fails("sliding.preview", {"tray": s, "piece": s, "at": [0, 0], "goal": False}, "unsupported")
+    check(e.call("document.get")["shapes"][0]["startGoal"] is None, "no start/goal shapes")
 
 
 @test

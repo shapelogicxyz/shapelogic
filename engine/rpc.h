@@ -17,6 +17,7 @@
 #include <expected>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -140,6 +141,8 @@ class Params {
   }
   /// [x, y, z].
   std::array<int, 3> cell(std::string_view name);
+  /// [x, y].
+  std::array<int, 2> point(std::string_view name);
 
   // optional fields: the default when absent
   std::optional<std::string> optString(std::string_view name);
@@ -166,6 +169,8 @@ class Params {
 
  private:
   const Json* field(std::string_view name);
+  /// An array of out.size() integers; `shape` names it in messages ("[x, y]").
+  void integers(std::string_view name, std::span<int> out, std::string_view shape);
   template <class E>
   E pick(std::string_view name, const std::vector<std::pair<std::string_view, E>>& names,
          const std::string& v) {

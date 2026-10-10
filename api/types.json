@@ -82,14 +82,15 @@
       "properties": {
         "id": {"$ref": "#/$defs/ShapeId"},
         "label": {"type": "string", "description": "S1, S2, ... by place."},
-        "name": {"type": "string"},
+        "name": {"type": "string", "description": "A start/goal shape's is the user's part (shown as '(START/GOAL n) name')."},
         "size": {"$ref": "#/$defs/Size"},
         "fixed": {"type": "integer", "minimum": 0},
         "variable": {"type": "integer", "minimum": 0},
         "weight": {"type": "integer"},
-        "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."}
+        "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."},
+        "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal"],
       "additionalProperties": false
     },
     "Colour": {
@@ -135,7 +136,8 @@
         "solving": {"type": "boolean", "description": "A solve or an analysis is active: shapes and lists are frozen (decision 0011)."},
         "shapes": {"type": "array", "items": {"$ref": "#/$defs/ShapeSummary"}},
         "colours": {"type": "array", "items": {"$ref": "#/$defs/Colour"}},
-        "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}}
+        "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}},
+        "notice": {"type": "string", "description": "What opening the file changed, to tell the user (the original's load message: a sliding shape of more than one layer made flat, which leaves the document dirty). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell."}
       },
       "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colours", "problems"],
       "additionalProperties": false
@@ -177,9 +179,10 @@
             "required": ["group", "count"],
             "additionalProperties": false
           }
-        }
+        },
+        "required": {"type": "boolean", "description": "A sliding piece with a start or goal on the problem's start/goal shape: its count follows them (problem.setPieceCount refuses to change it; the range and all-pieces commands leave it)."}
       },
-      "required": ["shape", "min", "max", "groups"],
+      "required": ["shape", "min", "max", "groups", "required"],
       "additionalProperties": false
     },
     "SolverSettings": {

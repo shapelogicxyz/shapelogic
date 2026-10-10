@@ -89,6 +89,7 @@ Engine::Engine(std::ostream& out, std::ostream& log)
   addSolutionMethods(methods_);
   addPlaybackMethods(methods_);
   addExploreMethods(methods_);
+  addSlidingMethods(methods_);
 }
 
 namespace {

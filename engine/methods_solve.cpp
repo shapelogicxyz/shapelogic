@@ -92,7 +92,7 @@ Reply solveImportPaused(State& s, Params& p) {
           app::Document::importPaused(path, app::DocumentSettings{s.settings.undoDepth}));
   const app::Id problem = imported.second;
   s.replaceDocument(std::move(imported.first), std::nullopt);
-  return Json{{"problem", formatId(IdKind::Problem, problem)}, {"document", snapshot(s)}};
+  return Json{{"problem", formatId(IdKind::Problem, problem)}, {"document", openedSnapshot(s)}};
 }
 
 }  // namespace

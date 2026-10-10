@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sliding.json",
+  "title": "Sliding puzzles",
+  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Each start/goal shape has a problem of its own (named START/GOAL n), whose parts and colour locks follow its stamps; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.",
+  "methods": {
+    "sliding.addStartGoal": {
+      "summary": "Adds a start/goal shape (the original's New Start/Goal): one layer of 'size' cells (default 6 by 6, the original took the selected shape's), all floor, numbered after the others, with its problem.",
+      "params": {
+        "type": "object",
+        "properties": {"size": {"$ref": "#/$defs/Size2"}},
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "revision": {"$ref": "types.json#/$defs/Revision"}},
+        "required": ["shape", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported", "invalid_argument", "invalid_state"]
+    },
+    "sliding.place": {
+      "summary": "The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, its top-left cell at 'at' (y rises upwards, as in the grid editor), moved there if it was elsewhere; a piece that is exactly there already is taken off. Refused (invalid_argument) with the original's reason when it does not fit: off the floor, on another piece's start or goal, a goal on a corridor. The problems of the start/goal shape lose what they had found. One undo step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {"$ref": "types.json#/$defs/ShapeId"},
+          "piece": {"$ref": "types.json#/$defs/ShapeId"},
+          "at": {"$ref": "#/$defs/Cell2"},
+          "goal": {"type": "boolean"}
+        },
+        "required": ["tray", "piece", "at", "goal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "placed": {"type": "boolean", "description": "The piece is there now (false: it was there and was taken off)."},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["placed", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
+    },
+    "sliding.clearAt": {
+      "summary": "Takes off the start or goal that covers a cell (the editor's right click). One undo step; nothing when none covers it.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {"$ref": "types.json#/$defs/ShapeId"},
+          "at": {"$ref": "#/$defs/Cell2"},
+          "goal": {"type": "boolean"}
+        },
+        "required": ["tray", "at", "goal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "cleared": {"type": "boolean"},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["cleared", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
+    },
+    "sliding.tray": {
+      "summary": "What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), whether it can be solved (the original's validity bar: null, or why not), the stamps larger than their pieces (null, or the message), and its floor cells.",
+      "params": {
+        "type": "object",
+        "properties": {"tray": {"$ref": "types.json#/$defs/ShapeId"}},
+        "required": ["tray"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "number": {"type": "integer", "minimum": 0},
+          "name": {"type": "string", "description": "The user's part of its name; shown as '(START/GOAL n) name'."},
+          "size": {"$ref": "types.json#/$defs/Size"},
+          "starts": {"type": "array", "items": {"oneOf": [{"$ref": "types.json#/$defs/ShapeId"}, {"type": "null"}]}},
+          "goals": {"type": "array", "items": {"oneOf": [{"$ref": "types.json#/$defs/ShapeId"}, {"type": "null"}]}},
+          "error": {"type": ["string", "null"]},
+          "overflow": {"type": ["string", "null"]},
+          "floor": {"type": "integer", "minimum": 0}
+        },
+        "required": ["number", "name", "size", "starts", "goals", "error", "overflow", "floor"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument"]
+    },
+    "sliding.preview": {
+      "summary": "Where sliding.place would put a piece: the cells, whether it fits (and the original's reason when not), and whether it is exactly there already (then the click takes it off). Changes nothing.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {"$ref": "types.json#/$defs/ShapeId"},
+          "piece": {"$ref": "types.json#/$defs/ShapeId"},
+          "at": {"$ref": "#/$defs/Cell2"},
+          "goal": {"type": "boolean"}
+        },
+        "required": ["tray", "piece", "at", "goal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "cells": {"type": "array", "items": {"$ref": "#/$defs/Cell2"}},
+          "fits": {"type": "boolean"},
+          "why": {"type": ["string", "null"]},
+          "there": {"type": "boolean"}
+        },
+        "required": ["cells", "fits", "why", "there"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument"]
+    }
+  },
+  "events": {},
+  "$defs": {
+    "Cell2": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2, "description": "A cell [x, y] of a start/goal shape's layer, y up."},
+    "Size2": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 1024}, "minItems": 2, "maxItems": 2, "description": "A size [x, y] in cells."}
+  }
+}

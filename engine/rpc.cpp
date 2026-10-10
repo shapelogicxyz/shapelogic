@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "rpc.h"
 
+#include <algorithm>
 #include <charconv>
 #include <limits>
 
@@ -207,26 +208,37 @@ std::uint64_t Params::id(std::string_view name, IdKind kind) {
 }
 
 std::array<int, 3> Params::cell(std::string_view name) {
+  std::array<int, 3> c{};
+  integers(name, c, "[x, y, z]");
+  return c;
+}
+
+std::array<int, 2> Params::point(std::string_view name) {
+  std::array<int, 2> c{};
+  integers(name, c, "[x, y]");
+  return c;
+}
+
+void Params::integers(std::string_view name, std::span<int> out, std::string_view shape) {
   const Json* f = field(name);
   if (f == nullptr) {
     fail(fieldName(name) + " is missing");
-    return {};
+    return;
   }
-  std::array<int, 3> c{};
-  if (!f->is_array() || f->size() != 3) {
-    fail(fieldName(name) + " must be [x, y, z]");
-    return c;
+  if (!f->is_array() || f->size() != out.size()) {
+    fail(fieldName(name) + " must be " + std::string(shape));
+    return;
   }
-  for (std::size_t i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < out.size(); i++) {
     const Json& v = (*f)[i];
     if (!v.is_number_integer() || v.get<std::int64_t>() < std::numeric_limits<int>::min() ||
         v.get<std::int64_t>() > std::numeric_limits<int>::max()) {
-      fail(fieldName(name) + " must be [x, y, z] of integers");
-      return {};
+      fail(fieldName(name) + " must be " + std::string(shape) + " of integers");
+      std::ranges::fill(out, 0);
+      return;
     }
-    c[i] = v.get<int>();
+    out[i] = v.get<int>();
   }
-  return c;
 }
 
 std::optional<std::string> Params::optString(std::string_view name) {

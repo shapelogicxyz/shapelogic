@@ -20,7 +20,7 @@ Reply documentOpen(State& s, Params& p) {
   BTE_TRY(app::Document d,
           app::Document::open(path, app::DocumentSettings{s.settings.undoDepth}));
   s.replaceDocument(std::move(d), std::filesystem::path(path));
-  return snapshot(s);
+  return openedSnapshot(s);
 }
 
 Reply documentOpenBytes(State& s, Params& p) {
@@ -42,7 +42,7 @@ Reply documentOpenBytes(State& s, Params& p) {
   }
   s.replaceDocument(std::move(d),
                     path ? std::optional<std::filesystem::path>(*path) : std::nullopt);
-  return snapshot(s);
+  return openedSnapshot(s);
 }
 
 Reply documentSave(State& s, Params& p) {

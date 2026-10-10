@@ -11,6 +11,7 @@ add_library(btengine STATIC
   methods_playback.cpp
   methods_problem.cpp
   methods_shape.cpp
+  methods_sliding.cpp
   methods_solution.cpp
   methods_solve.cpp
   output.cpp

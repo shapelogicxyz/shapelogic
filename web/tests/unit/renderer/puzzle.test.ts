@@ -28,6 +28,7 @@ const part = (shape: string, min: number, max: number, groups: Part['groups'] = 
   min,
   max,
   groups,
+  required: false,
 });
 
 function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {

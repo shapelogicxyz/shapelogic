@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "problem.json",
   "title": "Problems",
-  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011).",
+  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding puzzle has one problem per start/goal shape, kept in step with its starts and goals (sliding.json): its result is not chosen (problem.setResult is refused), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required).",
   "methods": {
     "problem.list": {
       "summary": "The problems in list order.",
@@ -64,7 +64,7 @@
       "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions.",
       "params": {"$ref": "#/$defs/ProblemShape"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setPieceCount": {
       "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown.",
@@ -92,7 +92,7 @@
       "summary": "One fewer of a shape.",
       "params": {"$ref": "#/$defs/ProblemShape"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setRangeAll": {
       "summary": "One count range for every piece (the bulk range; a maximum below the minimum is raised to it). Removes the solutions.",
@@ -176,7 +176,7 @@
         "additionalProperties": false
       },
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setColourRule": {
       "summary": "Allows or forbids piece colour on result colour; removes the solutions.",
