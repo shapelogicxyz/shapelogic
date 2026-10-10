@@ -12,6 +12,12 @@ FetchContent_Declare(ZLIB
   EXCLUDE_FROM_ALL
   FIND_PACKAGE_ARGS)
 set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+if(MINGW)
+  # MSYS2's zlib, when found, as its static library: bt-engine is linked
+  # statically there (engine/CMakeLists.txt), and an import library would
+  # still want zlib1.dll
+  set(ZLIB_USE_STATIC_LIBS ON)
+endif()
 FetchContent_MakeAvailable(ZLIB)
 if(NOT TARGET ZLIB::ZLIB)
   # built from source: zlib's own CMake has no namespaced target

@@ -22,6 +22,20 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "BT_WERROR": "ON" }
     },
     {
+      "name": "release-x64",
+      "displayName": "Optimised, for Intel Macs (macOS only; the packaged app's engine, web/tools/dist.ts)",
+      "inherits": "release",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "x86_64" }
+    },
+    {
+      "name": "release-arm64",
+      "displayName": "Optimised, for Apple silicon Macs (macOS only; the packaged app's engine, web/tools/dist.ts)",
+      "inherits": "release",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "arm64" }
+    },
+    {
       "name": "asan",
       "displayName": "AddressSanitizer + UndefinedBehaviorSanitizer",
       "inherits": "base",
@@ -37,6 +51,8 @@
   "buildPresets": [
     { "name": "dev", "configurePreset": "dev" },
     { "name": "release", "configurePreset": "release" },
+    { "name": "release-x64", "configurePreset": "release-x64" },
+    { "name": "release-arm64", "configurePreset": "release-arm64" },
     { "name": "asan", "configurePreset": "asan" },
     { "name": "tsan", "configurePreset": "tsan" }
   ],

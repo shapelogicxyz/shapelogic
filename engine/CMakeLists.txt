@@ -22,3 +22,13 @@ bt_set_warnings(btengine)
 add_executable(bt-engine main.cpp)
 target_link_libraries(bt-engine PRIVATE btengine)
 bt_set_warnings(bt-engine)
+
+# The packaged app carries bt-engine alone (web/tools/dist.ts): on Windows
+# the MinGW runtime (libstdc++, libgcc, winpthread) and zlib are linked in,
+# so no DLL has to sit beside it; on Linux libstdc++ and libgcc are, since
+# a C++23 libstdc++ is newer than many systems have.
+if(MINGW)
+  target_link_options(bt-engine PRIVATE -static)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_link_options(bt-engine PRIVATE -static-libstdc++ -static-libgcc)
+endif()
