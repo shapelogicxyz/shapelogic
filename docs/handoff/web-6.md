@@ -1,8 +1,8 @@
 # Handoff: web stage 6 (menus, files, settings, recovery)
 
-**Date:** 2026-10-09 · **Next:** the short audit of this stage's save,
-recover and close paths (Fable 5.1, max effort; "Brief for the audit"
-below), then stage 7, the exports.
+**Date:** 2026-10-09 · **Next:** stage 7, the exports (Opus 5.5,
+medium; "Brief for stage 7" below). The short audit of the save, recover
+and close paths is done ("Audit" below).
 
 ## Done
 
@@ -319,7 +319,10 @@ Windows 10 or 11 x64 machine:
    Don't Save; in Task Manager end `bt-engine.exe` after an edit: the
    app restarts it and offers the rescue copy; reopen it; quit and
    start again: the settings and layout kept; drop a `.xmpuzzle` from
-   Explorer on the window.
+   Explorer on the window. From the audit: Save over a file made
+   read-only (its Properties): refused, "… is read-only"; with the app
+   open, open another `.xmpuzzle` from Explorer: it opens in the running
+   window (the unsaved-changes question first), no second window.
 6. Write down what happened (the working steps and anything wrong, with
    any messages from the PowerShell window) and give it to the next
    session (stage 7) to record in this handoff and fix.
@@ -414,6 +417,242 @@ stage's. Read the diff from `75f7f06` (Web 5) to the stage's commit:
   AGENTS.md's finishing steps (`just test-all`, the contract suite,
   `oracle-roundtrip`, `oracle-files --tier fast`, `oracle-resume`).
 
+## Audit
+
+**Date:** 2026-10-09 · Fable 5.1 at max effort, finished on Opus 5.5
+(the session's model was changed partway), on the diff `75f7f06..3d9e73e`
+(`6e0a9b6` Engine: document.openBytes path and dirty, `3035573` the
+core's safe save, `3d9e73e` the stage), the plan, docs/ARCHITECTURE.md,
+docs/API.md, decisions 0012 and 0013 and this note, with a crash the
+user met during the stage's test runs ("TypeError: Object has been
+destroyed at updateMenu … at Object.setMenu … at IpcMainImpl"). The
+fixes are the commit `Web 6 audit: rescue copy kept until answered, links followed, one app`
+after the stage's.
+
+### How it was done
+Read in the brief's order; the save, recover and close paths traced by
+hand; then every suspicion probed before it was called a finding, with
+scripts kept out of the repository and temporary e2e files (removed): an
+Electron script on the repository's Electron 44.7 (a window destroyed,
+closed and crashed while its page sends a message every tick); the
+release engine over stdin (a save through a symbolic link, over a mode
+444 file, over a mode 600 file); Playwright on the built app (the window
+destroyed while a slowed `Menu.setApplicationMenu` ran; the window closed
+while the rescue offer waits, after a restart and at the start; the
+engine killed again during an offer; Cmd+Q (`app.quit()`) with a close of
+the window's own meanwhile, and the plain Cmd+Q as the control; a close
+whose save hangs, the engine stopped by SIGSTOP; a second start on the
+same data directory; a solve running at the close, answered Save and
+Don't Save). Each new test was then run against the stage's code by
+mutation (the fixed files copied aside, the stage's versions written in
+their place with `git show`, rebuilt, the fixed files copied back): each
+fails without its fix (the first and the second-start test looked at:
+each at its check of the copy, of the second start's quitting).
+
+### Findings, by severity
+1. **The window's close removed a rescue copy whose offer had not been
+   answered** (high: the only copy of unsaved changes). After an
+   engine's death the restarted engine's document is clean, and at the
+   start the first document is; `Files.close` then asked nothing and
+   `Rescue.discard` removed the copy while its offer ("The engine
+   stopped … Reopen it?", "… did not close properly …") waited, and also
+   before a copy left by a dead session had been looked at (an engine
+   that never started). The question is modal in the page only: the
+   window's button, File ▸ Close and Cmd+Q all reach the close. Probed:
+   the copy gone after the close, for both offers. Fix: `discard` keeps a
+   copy whose offer waits or that was not looked at yet; it is offered at
+   the next start.
+2. **The rescue copy was removed when the engine died again during its
+   offer** (high). The newer offer opens a question of the same id, which
+   closes the older one as if cancelled (`null`), and the older offer
+   took `null` for Discard: `clearRescue` while the newer question asked,
+   and its `finally` let writes and removals go again while the newer one
+   waited. Probed: the copy gone a moment after the second offer showed
+   (Reopen still worked from memory; a crash or a quit before it lost
+   the changes). Fix: only Discard removes the copy; the offers waiting
+   are counted, and nothing is written or removed while any waits.
+3. **A second start of the app offered the running app's copy, and
+   could remove it** (medium to high). Nothing kept the app to one
+   instance, and two share the data directory: Windows and Linux start a
+   second one for each file opened from the file manager (macOS with
+   `open -n`). It offered the first's live copy as left by "a session
+   that died", and its Discard, or any clean close of it, removed the
+   copy of a document the first still had unsaved. Probed: the offer
+   shown, Discard, the copy gone while the first was dirty. Fix:
+   `app.requestSingleInstanceLock` (per data directory, so each e2e
+   launch keeps its own): a second start hands its files to the first
+   (`second-instance`), which opens them as Open Recent does and comes to
+   the front, and quits.
+4. **A close while the engine cannot run removed the copy** (medium).
+   When the host gives up (five quick deaths) the snapshot stays the dead
+   engine's, dirty; the close asked Save, Don't Save, Cancel; Save could
+   not work ("The engine is not running"), so the only way to close was
+   Don't Save, which removed the copy: this note's "the copy stays and is
+   offered at the next start" did not hold. The same in the moment
+   between a death and the restart. Fix: while the engine is not running
+   the close says the puzzle cannot be saved now and that its last
+   changes stay in the rescue copy (Cancel, Close), and `discard` keeps
+   the copy.
+5. **A save through a symbolic link replaced the link with a file**
+   (medium; the stage's core change). The rename of `<link>.tmp` over the
+   link left a regular file in the link's place and the puzzle's own
+   file as it was: opening the real file, a backup or a sync of it show
+   the old puzzle. Writing in place, before the stage, wrote the file the
+   link names. Probed with the release engine. Fix: `saveTarget` follows
+   the links (at most 40) and the temporary file goes beside the file
+   they name, so the link stays.
+6. **A save replaced a read-only file** (medium; the stage's core
+   change). A rename replaces a file whatever its permissions: a puzzle
+   made read-only (`chmod a-w`) was overwritten without a word, where the
+   save before the stage failed ("could not open"). Probed. Fix: a file
+   that exists and that the engine may not write (`access`, `_waccess` on
+   Windows) is refused, `io_error` "… is read-only", the file left as it
+   was.
+7. **The window could not be closed once the close's save did not end**
+   (medium). After the close's question was answered Save, each later
+   close was taken (`closeTaken`) and dropped, so the main process's 4 s
+   fallback never ran: a save that never ends (an engine that stops
+   answering) left a window that no button, menu item or Cmd+Q could
+   close; a save at a save point waiting for a long take-apart held it
+   the same while it lasted. Probed with the engine stopped: no native
+   question, the window still open 6 s after the second close. Fix: a
+   close that comes while one is under way is taken only while a question
+   is on screen; otherwise the main process asks natively after 4 s ("The
+   window does not answer. Close it anyway?"; the copy stays for the next
+   start), and a close that waited is taken when the first one ends.
+8. **The main process crashed when a test destroyed the window while
+   the menus were built: the crash reported, and most likely the stage's
+   unexplained 2-minute e2e stall** (medium for the tests; no path known
+   in use).
+   Playwright runs a test's `app.evaluate` code in the main process
+   through the inspector, which can run it between two statements of
+   other JavaScript, and `closeApp` destroys the windows that way at
+   every test's end. Landing while `updateMenu` built the menus (after a
+   menu state from the page), it left `updateMenu` holding a window that
+   was then destroyed, and its macOS `setDocumentEdited` threw. The
+   uncaught exception's dialog is modal and holds the main process, so
+   `app.close()` waited for the test's 120 s timeout (as the stall in the
+   gate's third round did, in the test of a copy left by a dead session);
+   since the stage's 20 s limit in `closeApp` it would have failed as "the
+   app did not quit". Electron itself sends `closed` right after a window
+   is marked destroyed, with nothing between (probed), so without an
+   inspector nothing reaches this. Reproduced line for line (the same
+   stack and line numbers) by slowing the menu build to 300 ms and
+   destroying the window during it. Fix: `current()` skips destroyed
+   windows, and `updateMenu`, `closeWindow` and `askNatively` check the
+   window again before using it.
+9. **A save widened a file's permissions** (low; the stage's core
+   change). The new file had the defaults (0644 under the usual umask): a
+   puzzle kept private (0600) became readable by every user, a
+   group-writable one lost its group's write. Probed. Fix: `replaceWith`
+   gives the temporary file the replaced file's permissions before the
+   rename.
+10. **A quit was given up by a close of the window's own while it
+   asked** (low). Each `close` event set `quitAfterClose` from `quitting`
+   and cleared `quitting`, so the window's button pressed while the
+   quit's question was open set it back to false: Cmd+Q, the button,
+   Don't Save closed the window and left the app running. Probed (the
+   plain Cmd+Q, Don't Save quits). Fix: only a quit's close sets it;
+   Cancel still clears it.
+
+The original's fork (`writePuzzleFile` in `../burrtools_rotations`)
+renames the same way, so findings 5, 6 and 9 are its behaviour too; the
+port's bytes are unchanged (`oracle-roundtrip` below).
+
+### Tests added (each fails without its fix)
+- `tests/unit/io/test_puzzle_file.cpp`: a save through a symbolic link
+  writes the file it names and keeps the link; a read-only file is
+  refused and left; the permissions kept (0600, 0664). A puzzle and a
+  paused solve each. Without the fix 7 checks fail.
+- `tests/e2e/files.e2e.ts`, six: the rescue copy kept until its offer is
+  answered (the engine killed again during an offer, the window closed
+  during one, closed again unanswered at the next start, reopened at the
+  one after); a window closed while the engine cannot run (five quick
+  deaths, the last offer answered Reopen) keeps the copy and says why;
+  Cmd+Q and Cancel keep the app, Cmd+Q with the window's button pressed
+  meanwhile and Don't Save quits; a close whose save does not end is
+  asked natively and the window goes; the menus outlive a window
+  destroyed while they are built (no uncaught exception in the main
+  process); a second start on the same data quits and hands its file
+  over, and the running app keeps its copy.
+
+### Checked and found sound
+- **Save.** `Files.save` goes to Save As without a path; `Store.save`
+  waits for the save's revision in a snapshot it reads itself (a save
+  sends no `document.changed`), so the top bar shows the document clean
+  only once the engine saved it; a change between the save and that
+  snapshot shows dirty at a later revision, and `confirmDiscard` and the
+  close then refuse to go on (`clean()`); `invalid_state` from a run
+  started between the check and the call goes to the save point. The
+  engine saves its own document to its own path (`State::path`), so no
+  race in the page can write another document under a file's name.
+  `saveAtSavePoint` keeps stage 4's audit's generation guard for the
+  user's Save too: no save and no continue once another document took
+  the place; the runs paused for it carry on when the save fails. A solve
+  running at the close (probe): Save at a save point wrote the file and
+  closed the window in 0.4 s, Don't Save in 20 ms, and the engine process
+  ended by itself both times (its stdin closed: the document destroyed,
+  the runs paused and waited for), far inside the host's 10 s grace.
+- **Save As.** `bt:choose-save` adds the extension after the dialog and
+  asks about an existing file the dialog did not see; Cancel gives null.
+- **The core's safe write.** A failed or cut-off write leaves the old
+  file (the stage's test); the temporary file is beside the file
+  written, so the rename never crosses volumes (through a link to another
+  volume too, now that the link is followed); `gzclose`'s failure and
+  `savePausedSolve`'s stream are checked; the bytes are the original's
+  (`oracle-roundtrip` 365/365).
+- **The rescue copy.** The record written first and each file by
+  rename, with the hash binding the record to its bytes, so a copy and a
+  record of two documents never pair (the stage's unit test); writes and
+  removals in one queue, a removal after a write under way; a write
+  skips bytes taken before a restart or another document (the
+  generation) and while an offer waits; `document.openBytes {path,
+  dirty}` gives a document dirty until saved whose Save writes the
+  record's file (`markUnsaved`, `State::path`; the stage's e2e saves it
+  and checks the file); a copy without a file reopens without one.
+- **The close.** A second close while the question is open is taken and
+  dropped; the page's `closeTaken` clears the 4 s timer (the stage's e2e:
+  no native question after 4.5 s); a crashed page is asked natively at
+  once; Cancel keeps the window and gives a quit up; Cmd+Q then Don't
+  Save quits (probe), Cmd+Q then Cancel does not (new e2e).
+
+### Known issues left
+- A copy of a document replaced by one dirty from the start (a paused
+  solve imported, a copy reopened) stays until the new one's first write
+  (300 ms, longer while writes are held, as when a run is launched in
+  that moment); a death then offers the replaced document's copy, named
+  by its own file.
+- The close decides on the snapshot, which follows a change's reply by
+  one `document.get` (milliseconds): a close in that moment after the
+  first change of a clean document closes without asking. From reading;
+  not probed.
+- A close that waits for a save at a save point (a long take-apart under
+  way) gets the native question 4 s after a second close, in the words
+  for a window that does not answer.
+- `saveTarget` does not keep hard links (this name gets a new file, the
+  other names keep the old puzzle), the owner, or extended attributes
+  (macOS Finder tags); a writable file in a folder that takes no new
+  file cannot be saved: the price of never truncating the old file.
+- On macOS a second instance started with `open -n file` hands over no
+  file (macOS gives files through `open-file`, after the lock).
+- On Windows `_waccess`, the rename over a read-only file, the
+  single-instance lock and the native question are unverified: the
+  Windows section's step 5 now names them.
+- The original's fork renames as the core did before the fixes
+  (findings 5, 6, 9): for that repository's owner to decide.
+- The stage's own known issues stand, but for "when the host gives up …
+  the copy stays and is offered at the next start", which now holds
+  (finding 4), and the stall it could not explain (finding 8).
+
+### Gate after the fixes
+| Check | Result |
+|---|---|
+| C++ (the core fix) | `just test-all` 6/6, 330 s (unit, unit-slow, api-schema, api-docs, contract, cli); the schema did not move (no `gen_api_md.py`); `just oracle-roundtrip` 365/365 byte-identical to the original's save; `just oracle-files --tier fast` 19/19; `just oracle-resume` 395/395; the `[io]` cases again, dev and release, after a line was wrapped to the column limit (clang-format is not installed) |
+| `just web-check` | clean, three times (three TypeScript projects, ESLint without warnings, Prettier) |
+| `just web-test` (release engine) | **242/242**, three times, 18.6, 18.2, 18.4 s (no unit test added: the close and the rescue copy need the page and the main process) |
+| `just web-e2e` | **56/56**, three times, 5.3 min each (build included): the stage's 50 and the audit's 6 |
+| perf (each e2e run) | mesh build 6.3, 6.0, 6.6 ms; orbit median 13.3 ms at a 13.3–13.4 ms display frame, p95 14.0, 15.0, 15.1 ms; 152, 148, 149 renders in 151, 152, 150 frames |
+
 ## Brief for stage 7 (after the audit)
 **Stage 7** (Opus 5.5, medium), FRONTEND-PLAN.md's "Stage 7": the
 exports needing no core work: **Image** (the view at 1x and 2x, PNG),
@@ -431,7 +670,10 @@ things are:
 - Files are written by the main process: add a `btApp` call that writes
   bytes to a path chosen by `chooseSave` (a new `FileKind` per format in
   `app-ipc.ts`'s `KINDS`), written beside and renamed as the core now
-  does; the renderer never gets a path any other way.
+  does (since the audit: through a symbolic link to the file it names, a
+  read-only file refused, the replaced file's permissions kept:
+  `saveTarget` and `replaceWith` in `core/bt/io/gzip_file.cpp`); the
+  renderer never gets a path any other way.
 - The view: `view3d/renderer.ts` (`ViewRenderer`, render on demand),
   `view3d/view.ts`; the player's poses `solver/poses.ts`; the solution
   scene `view3d/solution.ts`.

@@ -17,7 +17,7 @@ import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';
-import { askChoice, openDialog } from './dialog.ts';
+import { askChoice, dialogOpen, openDialog } from './dialog.ts';
 import { byId } from './dom.ts';
 import { onKey } from './keyboard.ts';
 import { flash, reportError } from './status.ts';
@@ -44,10 +44,12 @@ export class Files {
   private readonly store: Store;
   private readonly app: BtApp;
   private readonly solver: FilesSolver;
-  /** What clears the rescue copy (the window closes with nothing left to rescue). */
+  /** What clears the rescue copy as the window closes (Rescue.discard: it keeps one that must stay). */
   private readonly discardRescue: () => Promise<void>;
-  /** A question about the window's close is open. */
+  /** The window's close is under way (its question, its save). */
   private closing = false;
+  /** A close came while a save of the one under way ran (not taken: see close()). */
+  private closeWaiting = false;
 
   constructor(store: Store, app: BtApp, solver: FilesSolver, discardRescue: () => Promise<void>) {
     this.store = store;
@@ -278,14 +280,39 @@ export class Files {
    * asks about unsaved changes, then closes it, or keeps it on Cancel.
    */
   async close(): Promise<void> {
-    this.app.closeTaken();
     if (this.closing) {
+      // another close while one is under way: a question on screen takes it;
+      // a save under way does not, so a save that never ends (an engine that
+      // does not answer) leaves the main process to ask natively after a few
+      // seconds: the window can always be closed
+      if (dialogOpen()) {
+        this.app.closeTaken();
+      } else {
+        this.closeWaiting = true;
+      }
       return;
     }
+    this.app.closeTaken();
     this.closing = true;
     try {
       const snap = this.store.snapshot;
-      if (snap?.dirty === true) {
+      if (snap?.dirty === true && !this.store.running) {
+        // the engine is not running (it died, or could not be kept running):
+        // nothing can be saved now, and the rescue copy keeps the last changes
+        const k = await askChoice(
+          'closeAsk',
+          'Unsaved changes',
+          `The puzzle “${this.name}” has unsaved changes and cannot be saved now: the engine is not running.\nIts last changes are kept in the rescue copy, offered when the app starts again. Close the window?`,
+          [
+            { key: 'cancel', label: 'Cancel', default: true },
+            { key: 'drop', label: 'Close', kind: 'danger' },
+          ],
+        );
+        if (k !== 'drop') {
+          this.app.closeCancelled();
+          return;
+        }
+      } else if (snap?.dirty === true) {
         const k = await askChoice(
           'closeAsk',
           'Unsaved changes',
@@ -310,6 +337,11 @@ export class Files {
       this.app.closeWindow();
     } finally {
       this.closing = false;
+      if (this.closeWaiting) {
+        // the close that came during the save ends with this one
+        this.closeWaiting = false;
+        this.app.closeTaken();
+      }
     }
   }
 

@@ -193,7 +193,13 @@ stacking rod sets and maps are kept this way until stacking is ported.
 Saves are byte-identical to the original's. A file is written beside its
 place (`<file>.tmp`) and renamed over it once whole, puzzle and paused
 solve alike (`replaceWith`; the original's writePuzzleFile), so a failed
-save leaves the old file.
+save leaves the old file. The place is the file the path names
+(`saveTarget`): a symbolic link is followed, so the link stays and the
+file it names is written, as writing in place did; a read-only file is
+refused (`IoError`), where a rename would replace it; and the new file
+gets the permissions of the one it replaces (the web stage 6 audit; the
+original's rename replaces a link and a read-only file, and gives the
+defaults).
 
 ### solve (exists: stages 3 to 5)
 The assemblers, on one run layer (decision 0009), and the take-apart. Ported from
@@ -648,11 +654,14 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   `index.ts` (Electron's main: a window, its host, IPC; a main-frame
   navigation gets a new bridge server, so replies to the old page's calls
   are dropped, and any other navigation or new window is refused; the
-  menus rebuilt from the focused window's state; the window's close held
-  and asked of the renderer (`close`), which answers `closeWindow` after
-  its question about unsaved changes, or the question asked natively when
-  the renderer has not taken the close within 4 s; a quit held by a
-  window's question goes on once it closes; the window's bounds kept;
+  menus rebuilt from the focused window's state (a window destroyed
+  meanwhile left alone: the e2e tests' code runs through the inspector and
+  can come between two statements); the window's close held and asked of
+  the renderer (`close`), which answers `closeWindow` after its question
+  about unsaved changes, or the question asked natively when the renderer
+  has not taken the close within 4 s; a quit held by a window's question
+  goes on once it closes, a close of the window's own meanwhile does not
+  give it up; the window's bounds kept;
   files the system opens with the app (macOS's `open-file`, a command
   line's `.xmpuzzle` or `.btsolve`); in development the renderer's
   warnings and errors are echoed to the terminal; `BT_USER_DATA` moves the
@@ -753,7 +762,11 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     grid chosen in a dialog, Open, a path (recent, the system's, a drop;
     `.btsolve` imported), Save, Save As, the window's close, each asking
     about unsaved changes first (the original's `confirmDiscard`: Save,
-    Don't Save, Cancel); a save while a solve runs offered at a save point
+    Don't Save, Cancel); while the engine is not running the close says
+    the puzzle cannot be saved and keeps the rescue copy; another close
+    while the close's save runs is not taken, so a save that never ends
+    leaves the main process's native question (the window can always be
+    closed); a save while a solve runs offered at a save point
     (`Autosave.saveAtSavePoint(path)`), an analysis told to finish first;
     the paused solver state exported and imported; a dropped file by its
     path, else by its bytes; a file opened or saved goes to Open Recent,
@@ -763,7 +776,11 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     removed once it is clean; writes and removals in one queue; offered
     after an engine's restart, and at the start for a copy a session that
     died left (not on a page reload, whose document is newer); nothing
-    written while an offer waits; `#stage[data-rescued]`), `dialog.ts`
+    written or removed while an offer waits; a copy whose offer was not
+    answered (a newer offer after another death took the question's
+    place, the window closed) stays, as does one a close could not save
+    because the engine was not running: offered at the next start;
+    `#stage[data-rescued]`), `dialog.ts`
     (modal dialogs in the `.cfm` look: buttons, a default, Esc and a click
     beside cancel unless the question must be answered, Tab kept inside,
     the focus given back; `askChoice`), `help.ts` (the F1 dialog over the
@@ -1071,7 +1088,12 @@ session that died offered at the start, the window's close asking (Cancel
 keeps it, Save saves, Don't Save closes), the settings and layouts across
 a restart, a save while solving at a save point, the paused solver state
 exported and imported, the notes, Convert Assemblies to Pieces, About,
-the help links, the greyed items, a dropped file without a path; and one
+the help links, the greyed items, a dropped file without a path; the
+audit's: the rescue copy kept until its offer is answered (another
+death, the window closed, at the next start), a close while the engine
+cannot run, a quit and a close of the window's own, a close whose save
+does not end (asked natively), a window destroyed while the menus are
+built; and one
 test over the keyboard table (`keymap.e2e.ts`): every row with keys
 pressed and checked, every row of mouse actions named with the test that
 drives it). Unit tests of stage 6: the store, the rescue copy's record,

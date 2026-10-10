@@ -7,6 +7,12 @@
 
 #include <zlib.h>
 
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 #include <array>
 #include <memory>
@@ -35,6 +41,18 @@ gzFile openGz(const std::filesystem::path& path, const char* mode) {
 }
 
 std::string describe(const std::filesystem::path& path) { return path.string(); }
+
+/// Whether this process may write the file at `path` (which exists).
+bool writable(const std::filesystem::path& path) {
+#ifdef _WIN32
+  return _waccess(path.c_str(), 2) == 0;
+#else
+  return access(path.c_str(), W_OK) == 0;
+#endif
+}
+
+/// The most links followed to the file a path names (as Linux's limit).
+constexpr int kMaxLinks = 40;
 
 Error tooLarge(std::size_t maxBytes) {
   return Error{Errc::ParseError, "the file is too large: it inflates to more than " +
@@ -74,7 +92,11 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
   // the original's writePuzzleFile (mainwindow_file.cpp): written beside the
   // file and renamed over it once whole, so a failed or interrupted save
   // leaves the old file as it was
-  std::filesystem::path tmp = path;
+  const Result<std::filesystem::path> target = saveTarget(path);
+  if (!target) {
+    return std::unexpected(target.error());
+  }
+  std::filesystem::path tmp = *target;
   tmp += ".tmp";
   std::error_code ec;
   {
@@ -97,16 +119,47 @@ Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view d
       return fail(Errc::IoError, "could not write " + describe(path));
     }
   }
-  return replaceWith(tmp, path);
+  return replaceWith(tmp, *target);
 }
 
-Result<void> replaceWith(const std::filesystem::path& written, const std::filesystem::path& path) {
+Result<std::filesystem::path> saveTarget(const std::filesystem::path& path) {
+  // a rename replaces a link, where writing the file (as saves did before
+  // they went through a temporary file) wrote the file it names
+  std::filesystem::path target = path;
   std::error_code ec;
-  std::filesystem::rename(written, path, ec);
+  for (int i = 0; std::filesystem::is_symlink(target, ec); i++) {
+    if (i == kMaxLinks) {
+      return fail(Errc::IoError, "too many links: " + describe(path));
+    }
+    const std::filesystem::path to = std::filesystem::read_symlink(target, ec);
+    if (ec) {
+      return fail(Errc::IoError,
+                  "could not read the link " + describe(target) + ": " + ec.message());
+    }
+    target = to.is_absolute() ? to : target.parent_path() / to;
+  }
+  // a rename replaces a file whatever its permissions; writing it did not
+  if (std::filesystem::exists(target, ec) && !writable(target)) {
+    return fail(Errc::IoError, describe(path) + " is read-only");
+  }
+  return target;
+}
+
+Result<void> replaceWith(const std::filesystem::path& written,
+                         const std::filesystem::path& target) {
+  std::error_code ec;
+  // the file keeps who may read and write it (a new file has the defaults)
+  const std::filesystem::file_status old = std::filesystem::status(target, ec);
+  if (!ec && std::filesystem::exists(old)) {
+    std::error_code ignored;
+    std::filesystem::permissions(written, old.permissions() & std::filesystem::perms::all,
+                                 std::filesystem::perm_options::replace, ignored);
+  }
+  std::filesystem::rename(written, target, ec);
   if (ec) {
     std::error_code ignored;
     std::filesystem::remove(written, ignored);
-    return fail(Errc::IoError, "could not replace " + describe(path) + ": " + ec.message());
+    return fail(Errc::IoError, "could not replace " + describe(target) + ": " + ec.message());
   }
   return {};
 }

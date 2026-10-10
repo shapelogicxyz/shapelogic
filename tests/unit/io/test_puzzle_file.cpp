@@ -16,6 +16,10 @@
 #include <sstream>
 #include <string>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 using namespace bt;
 using Catch::Matchers::ContainsSubstring;
 
@@ -41,6 +45,14 @@ std::string parseError(const std::string& xml) {
   REQUIRE_FALSE(p.has_value());
   REQUIRE(p.error().code == Errc::ParseError);
   return p.error().message;
+}
+
+/// A directory of a test's own, empty.
+std::filesystem::path freshDir(const std::string& name) {
+  const std::filesystem::path dir = std::filesystem::temp_directory_path() / name;
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  return dir;
 }
 
 /// A small valid document around one problem's inner XML.
@@ -344,5 +356,102 @@ TEST_CASE("puzzle file: a save replaces the file only once the new one is whole"
   REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
   CHECK_FALSE(std::filesystem::exists(dir / "s.btsolve.tmp"));
   CHECK(io::loadPausedSolve(solve).has_value());
+  std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("puzzle file: a save through a symbolic link writes the file it names", "[io][file]") {
+  // a rename over the link would replace the link by a file and leave the
+  // puzzle's own file as it was
+  const std::filesystem::path dir = freshDir("bt_test_save_link");
+  std::filesystem::create_directories(dir / "real");
+  std::filesystem::create_directories(dir / "links");
+  const std::filesystem::path real = dir / "real" / "p.xmpuzzle";
+  const std::filesystem::path link = dir / "links" / "p.xmpuzzle";
+  const Puzzle a = parse(withProblem("", ""));
+  const Puzzle b = parse(withProblem(" name=\"b\"", ""));
+  REQUIRE(io::writePuzzle(a) != io::writePuzzle(b));
+  REQUIRE(io::savePuzzle(a, real).has_value());
+  std::error_code ec;
+  std::filesystem::create_symlink(std::filesystem::path("..") / "real" / "p.xmpuzzle", link, ec);
+  if (ec) {
+    std::filesystem::remove_all(dir);
+    SKIP("no symbolic links here: " << ec.message());
+  }
+  REQUIRE(io::savePuzzle(b, link).has_value());
+  CHECK(std::filesystem::is_symlink(link));
+  const Result<Puzzle> back = io::loadPuzzle(real);
+  REQUIRE(back.has_value());
+  CHECK(io::writePuzzle(*back) == io::writePuzzle(b));
+  CHECK_FALSE(std::filesystem::exists(dir / "real" / "p.xmpuzzle.tmp"));
+  CHECK_FALSE(std::filesystem::exists(dir / "links" / "p.xmpuzzle.tmp"));
+
+  // a paused solve's file the same way
+  const std::filesystem::path solve = dir / "real" / "s.btsolve";
+  const std::filesystem::path solveLink = dir / "links" / "s.btsolve";
+  REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
+  std::filesystem::create_symlink(std::filesystem::path("..") / "real" / "s.btsolve", solveLink);
+  REQUIRE(io::savePausedSolve(b, 0, solveLink).has_value());
+  CHECK(std::filesystem::is_symlink(solveLink));
+  const Result<io::PausedSolve> ps = io::loadPausedSolve(solve);
+  REQUIRE(ps.has_value());
+  CHECK(io::writePuzzle(ps->puzzle) == io::writePuzzle(b));
+  std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was", "[io][file]") {
+#ifndef _WIN32
+  if (geteuid() == 0) {
+    SKIP("root may write any file");
+  }
+#endif
+  // a rename replaces a file whatever its permissions; writing it did not
+  using std::filesystem::perms;
+  const perms readOnly = perms::owner_read | perms::group_read | perms::others_read;
+  const std::filesystem::path dir = freshDir("bt_test_save_read_only");
+  const std::filesystem::path file = dir / "p.xmpuzzle";
+  const Puzzle a = parse(withProblem("", ""));
+  const Puzzle b = parse(withProblem(" name=\"b\"", ""));
+  REQUIRE(io::savePuzzle(a, file).has_value());
+  const std::string before = readText(file);
+  std::filesystem::permissions(file, readOnly);
+  const Result<void> r = io::savePuzzle(b, file);
+  REQUIRE_FALSE(r.has_value());
+  CHECK(r.error().code == Errc::IoError);
+  CHECK_THAT(r.error().message, ContainsSubstring("read-only"));
+  CHECK(readText(file) == before);
+  CHECK_FALSE(std::filesystem::exists(dir / "p.xmpuzzle.tmp"));
+
+  // a paused solve's file the same way
+  const std::filesystem::path solve = dir / "s.btsolve";
+  REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
+  const std::string solveBefore = readText(solve);
+  std::filesystem::permissions(solve, readOnly);
+  const Result<void> rs = io::savePausedSolve(b, 0, solve);
+  REQUIRE_FALSE(rs.has_value());
+  CHECK(rs.error().code == Errc::IoError);
+  CHECK(readText(solve) == solveBefore);
+  std::filesystem::permissions(file, perms::owner_all);
+  std::filesystem::permissions(solve, perms::owner_all);
+  std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
+#ifdef _WIN32
+  SKIP("Windows keeps only a read-only flag");
+#endif
+  // a new file has the default permissions (0644 under the usual umask): a
+  // private puzzle would become readable by everyone
+  using std::filesystem::perms;
+  const std::filesystem::path dir = freshDir("bt_test_save_permissions");
+  const std::filesystem::path file = dir / "p.xmpuzzle";
+  const Puzzle a = parse(withProblem("", ""));
+  REQUIRE(io::savePuzzle(a, file).has_value());
+  for (const perms mode : {perms::owner_read | perms::owner_write,
+                           perms::owner_read | perms::owner_write | perms::group_read |
+                               perms::group_write | perms::others_read}) {
+    std::filesystem::permissions(file, mode);
+    REQUIRE(io::savePuzzle(a, file).has_value());
+    CHECK((std::filesystem::status(file).permissions() & perms::all) == mode);
+  }
   std::filesystem::remove_all(dir);
 }

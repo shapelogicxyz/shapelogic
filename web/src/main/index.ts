@@ -16,7 +16,8 @@
 // about unsaved changes and answers `closeWindow`. A renderer that does
 // not take the command within a few seconds (hung, or crashed) gets the
 // question natively, so a window can always be closed. A quit held by a
-// window's question goes on once that window closes.
+// window's question goes on once that window closes. One app runs at a
+// time for a data directory: a second start hands its files to the first.
 //
 // For the e2e tests: BT_USER_DATA puts the app's data (the store, the
 // rescue copy) in a directory of the test's own; with BT_CALL_LOG set
@@ -90,13 +91,19 @@ function send(w: WindowState, command: AppCommand): void {
   }
 }
 
-/** The focused window (the menus act on it), else the first. */
+/** The focused window (the menus act on it), else the first not destroyed. */
 function current(): WindowState | undefined {
   const focused = BrowserWindow.getFocusedWindow();
-  return (
-    (focused === null ? undefined : windows.get(focused.webContents.id)) ??
-    windows.values().next().value
-  );
+  const w = focused === null ? undefined : windows.get(focused.webContents.id);
+  if (w !== undefined) {
+    return w;
+  }
+  for (const x of windows.values()) {
+    if (!x.win.isDestroyed()) {
+      return x;
+    }
+  }
+  return undefined;
 }
 
 /** Builds the menus from the focused window's state. */
@@ -124,7 +131,10 @@ function updateMenu(): void {
     },
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-  if (w !== undefined && process.platform === 'darwin') {
+  // the window may have gone while the menu was built: code run through the
+  // inspector (the e2e tests' app.evaluate, which destroys the windows at a
+  // test's end) can interrupt this function between two statements
+  if (w !== undefined && !w.win.isDestroyed() && process.platform === 'darwin') {
     w.win.setDocumentEdited(w.menu.dirty);
     w.win.setRepresentedFilename(w.menu.path ?? '');
   }
@@ -132,6 +142,9 @@ function updateMenu(): void {
 
 /** The window could not be asked through its page: ask natively. */
 async function askNatively(w: WindowState): Promise<void> {
+  if (w.win.isDestroyed()) {
+    return;
+  }
   const { response } = await dialog.showMessageBox(w.win, {
     type: 'warning',
     buttons: ['Cancel', 'Close Anyway'],
@@ -211,8 +224,12 @@ function createWindow(first?: AppCommand): void {
       return;
     }
     e.preventDefault();
-    w.quitAfterClose = quitting;
-    quitting = false;
+    // a quit's close: the quit goes on once the window closed; a close of
+    // the window's own meanwhile (its button) does not give the quit up
+    if (quitting) {
+      w.quitAfterClose = true;
+      quitting = false;
+    }
     if (w.closeTimer !== null) {
       // asked already and not taken yet: the timer asks natively
       return;
@@ -294,18 +311,51 @@ function argFiles(): string[] {
     .map((a) => resolve(a));
 }
 
-// macOS: a file opened with the app (Finder, the Dock)
-app.on('open-file', (e, path) => {
-  e.preventDefault();
+/** Opens files the system gave the app (a window takes them, or a new one once ready). */
+function openFiles(paths: readonly string[]): void {
+  if (!primary) {
+    return;
+  }
   const w = current();
   if (w === undefined || !app.isReady()) {
-    pendingOpen.push(path);
+    pendingOpen.push(...paths);
     if (app.isReady()) {
       createWindow();
     }
-  } else {
+    return;
+  }
+  for (const path of paths) {
     send(w, { cmd: 'openPath', path });
   }
+}
+
+// One app at a time for a data directory: the store and the rescue copy are
+// the app's. A second start (Windows and Linux start one for each file opened
+// from the file manager) would offer the running app's rescue copy as left by
+// a session that died, and its Discard or a clean close would remove the copy
+// of a document still being edited: it hands its files to the first and quits.
+const primary = app.requestSingleInstanceLock({ files: argFiles() });
+if (!primary) {
+  app.quit();
+}
+app.on('second-instance', (_e, _argv, _dir, data: unknown) => {
+  const files = (data as { files?: unknown } | null)?.files;
+  if (Array.isArray(files)) {
+    openFiles(files.filter((f): f is string => typeof f === 'string' && f !== ''));
+  }
+  const w = current();
+  if (w !== undefined && !w.win.isDestroyed()) {
+    if (w.win.isMinimized()) {
+      w.win.restore();
+    }
+    w.win.focus();
+  }
+});
+
+// macOS: a file opened with the app (Finder, the Dock)
+app.on('open-file', (e, path) => {
+  e.preventDefault();
+  openFiles([path]);
 });
 
 app.on('before-quit', () => {
@@ -313,10 +363,16 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-  store.flush();
+  if (primary) {
+    store.flush();
+  }
 });
 
 void app.whenReady().then(() => {
+  if (!primary) {
+    // a second start: quitting, its files handed to the first
+    return;
+  }
   store = new StateStore(app.getPath('userData'));
   rescue = new RescueStore(app.getPath('userData'));
   pendingOpen.push(...argFiles());
@@ -341,7 +397,7 @@ void app.whenReady().then(() => {
     },
     closeWindow: (sender) => {
       const w = windows.get(sender.id);
-      if (w !== undefined) {
+      if (w !== undefined && !w.win.isDestroyed()) {
         w.allowClose = true;
         w.win.close();
       }

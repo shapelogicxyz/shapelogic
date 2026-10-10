@@ -10,7 +10,11 @@
 // with its file and its unsaved changes: document.openBytes {path,
 // dirty}). A copy left by a session that ended without closing (the app
 // died) is offered when the app starts. Nothing is written or removed while
-// an offer waits for its answer, and nothing is written while a solve or
+// an offer waits for its answer (a newer offer, after another death, takes
+// an older one's place: the copy stays for it), and a copy not answered yet
+// survives the window's close, as does one the close could not save because
+// the engine was not running: both are offered at the next start. Nothing
+// is written while a solve or
 // an analysis is active or a call that may start one is under way (the
 // engine refuses saveBytes then; the solve's own autosave keeps its
 // work). Writes and removals run one at a time, in order, so a
@@ -50,8 +54,10 @@ export class Rescue {
   private chain: Promise<void> = Promise.resolve();
   /** Whether a copy may exist (written this session, or left by the last). */
   private copy = true;
-  /** Not before the copy a last session left was looked at, nor while an offer waits. */
-  private held = true;
+  /** The copy a last session left was looked at (offered, or there was none). */
+  private looked = false;
+  /** Offers waiting for their answer (after a second death, two: the newer shown). */
+  private asking = 0;
   /** The window is closing: nothing more is written. */
   private closed = false;
 
@@ -73,7 +79,7 @@ export class Rescue {
         started = true;
         if (store.snapshot.dirty) {
           // a reload of the page: the engine's document is newer than any copy
-          this.held = false;
+          this.looked = true;
           this.changed();
         } else {
           // the first document: a copy the last session left?
@@ -88,9 +94,17 @@ export class Rescue {
     });
   }
 
+  /**
+   * Nothing is written or removed: before the copy a last session left was
+   * looked at, and while an offer waits for its answer.
+   */
+  private held(): boolean {
+    return !this.looked || this.asking > 0;
+  }
+
   // read through a call: the flags change across the awaits of write()
   private stopped(): boolean {
-    return this.closed || this.held;
+    return this.closed || this.held();
   }
 
   /** The revision the copy was last written at (for the tests: `#stage[data-rescued]`). */
@@ -100,7 +114,7 @@ export class Rescue {
 
   // the document changed: write the copy soon, or remove it
   private changed(): void {
-    if (this.held || this.closed) {
+    if (this.held() || this.closed) {
       return;
     }
     const snap = this.store.snapshot;
@@ -187,7 +201,7 @@ export class Rescue {
 
   /** Offers the copy, if there is one: after the engine died, or one a last session left. */
   private async offer(restarted: boolean): Promise<void> {
-    this.held = true;
+    this.asking++;
     this.cancel();
     try {
       await this.chain;
@@ -221,24 +235,35 @@ export class Rescue {
           return;
         }
       }
-      await this.app.clearRescue();
-      this.copy = false;
-      this.written(null);
+      if (k === 'drop') {
+        await this.app.clearRescue();
+        this.copy = false;
+        this.written(null);
+      }
+      // no answer (a newer offer took the question's place after another
+      // death, or the page went): the copy stays, for that offer or the next start
     } catch (e) {
       reportError(e, 'The rescue copy');
     } finally {
-      this.held = false;
+      this.asking--;
+      this.looked = true;
       this.changed();
     }
   }
 
   /**
-   * The window closes with nothing to keep (the document saved, or its
-   * changes given up): no more writes, and the copy removed.
+   * The window closes (the document saved, or its changes given up): no
+   * more writes, and the copy removed. A copy not answered yet (its offer
+   * waits, or the one a last session left was not looked at) stays, and so
+   * does one the close could not save because the engine is not running:
+   * each is offered at the next start.
    */
   async discard(): Promise<void> {
     this.closed = true;
     this.cancel();
+    if (this.held() || !this.store.running) {
+      return;
+    }
     await this.enqueue(() => this.app.clearRescue()).catch(noop);
     this.copy = false;
   }

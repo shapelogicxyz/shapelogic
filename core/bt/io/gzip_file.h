@@ -27,13 +27,21 @@ inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
                                                     std::size_t maxBytes = kMaxInflatedBytes);
 
 /// Writes `data` gzip-compressed (level 9, as the original), replacing the
-/// file only once the new one is whole: it is written to `<path>.tmp` and
-/// renamed over the file, so a failed save leaves the old file.
+/// file only once the new one is whole: it is written to `<file>.tmp` beside
+/// the file `path` names (saveTarget) and renamed over it, so a failed save
+/// leaves the old file.
 [[nodiscard]] Result<void> writeGzipFile(const std::filesystem::path& path, std::string_view data);
 
-/// Renames a file just written over `path` (removing it when that fails).
+/// The file a save to `path` replaces: `path` followed through its symbolic
+/// links, so a link is written through, not replaced by a file (the file it
+/// names would keep the old puzzle). IoError when that file exists and
+/// cannot be written: renaming over a read-only file would replace it.
+[[nodiscard]] Result<std::filesystem::path> saveTarget(const std::filesystem::path& path);
+
+/// Renames a file just written over `target` (a saveTarget), giving it the
+/// permissions of the file it replaces; removes it when that fails.
 [[nodiscard]] Result<void> replaceWith(const std::filesystem::path& written,
-                                       const std::filesystem::path& path);
+                                       const std::filesystem::path& target);
 
 /// `data` gzip-compressed in memory, as writeGzipFile writes it.
 [[nodiscard]] std::string gzipCompress(std::string_view data);

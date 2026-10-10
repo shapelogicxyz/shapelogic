@@ -12,9 +12,14 @@
 // offered at a save point; the paused solver state exported and imported;
 // the notes, Convert Assemblies to Pieces, About, the help links, Open
 // Recent, a file dropped without a path. The file dialogs are answered
-// in the main process (answerDialogs), as a user would answer them.
+// in the main process (answerDialogs), as a user would answer them. The
+// audit of the stage added: the rescue copy kept until its offer is
+// answered (another death, the window closed), a close while the engine
+// cannot run, a quit and a close of the window's own, a close whose save
+// does not end, a window destroyed while the menus are built, and a second
+// start while the app runs.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   copyFileSync,
   existsSync,
@@ -25,8 +30,9 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -44,6 +50,7 @@ import {
   menuItem,
   openFixture,
   readCallLog,
+  WEB,
 } from './app.ts';
 import { dominoBox, runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
@@ -108,6 +115,51 @@ async function settled(page: Page): Promise<void> {
       return Number(await page.getAttribute('#stage', 'data-revision')) >= snap.revision;
     })
     .toBe(true);
+}
+
+/** The app's windows. */
+function windowCount(page: Page): Promise<number> {
+  return appOf(page).evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+}
+
+/** Closes the window as its close button does. */
+async function closeTheWindow(page: Page): Promise<void> {
+  await appOf(page).evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.close();
+  });
+}
+
+/** Kills the app's engine and waits for the next one its host starts. */
+async function killEngine(page: Page): Promise<void> {
+  const main = appOf(page).process().pid ?? 0;
+  const [pid] = engines(main);
+  expect(pid).toBeDefined();
+  process.kill(pid ?? 0, 'SIGKILL');
+  await expect.poll(() => engines(main).some((p) => p !== pid), { timeout: 15_000 }).toBe(true);
+}
+
+/** Kills the engine and waits for the rescue copy's offer after its restart (newer than any shown). */
+async function killForOffer(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const shown = document.getElementById('rescueAsk');
+    if (shown !== null) {
+      shown.dataset.older = '1';
+    }
+  });
+  await killEngine(page);
+  await expect(page.locator('#rescueAsk:not([data-older])')).toBeVisible({ timeout: 15_000 });
+}
+
+/** Opens a puzzle file by File ▸ Open, changes its notes, and waits for the rescue copy. */
+async function editFile(page: Page, file: string, notes: string): Promise<void> {
+  await answerDialogs(page, { open: file });
+  await menu(page, 'open');
+  await expect(page.locator('#fname')).toHaveText(basename(file));
+  await settled(page);
+  await engineCall(page, 'document.setNotes', { text: notes });
+  await expect(page.locator('#stage')).toHaveAttribute('data-dirty', '1');
+  await settled(page);
+  await rescued(page);
 }
 
 /** Waits until the rescue copy holds the document's revision. */
@@ -709,5 +761,278 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     expect((await docOf(page)).path).toBeNull();
   } finally {
     await a.close();
+  }
+});
+
+test('the rescue copy is kept until its offer is answered: another death, the window closed', async () => {
+  const dir = tmp();
+  const userData = join(dir, 'data');
+  mkdirSync(userData);
+  const copy = join(userData, '__rescue.xmpuzzle');
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  const a = await test.step('the session whose engine dies', () => launch({ userData }));
+  try {
+    const { page } = a;
+    await editFile(page, file, 'kept until answered');
+    await killForOffer(page);
+    // the engine dies again while the offer waits: the newer offer takes the
+    // question's place and the copy stays for it (it was removed as if Discarded)
+    await killForOffer(page);
+    await page.waitForTimeout(500); // a removal comes at once
+    expect(existsSync(copy)).toBe(true);
+    await page.locator('#rescueAsk [data-x="open"]').click();
+    await expect(page.locator('#fname')).toHaveText('Bermuda.xmpuzzle●');
+    const back = await docOf(page);
+    expect(back.notes).toBe('kept until answered');
+    expect(back.path).toBe(file);
+    // the window closed while an offer waits: the copy stays for the next start
+    await settled(page);
+    await rescued(page);
+    await killForOffer(page);
+    await closeTheWindow(page);
+    await expect.poll(() => windowCount(page)).toBe(0);
+    expect(existsSync(copy)).toBe(true);
+  } finally {
+    await a.close();
+  }
+  // the next start offers it, and closing the window unanswered keeps it too
+  const b = await test.step('the next start, closed unanswered', () => launch({ userData }));
+  try {
+    await expect(b.page.locator('#rescueAsk')).toContainText('did not close properly');
+    await closeTheWindow(b.page);
+    await expect.poll(() => windowCount(b.page)).toBe(0);
+    expect(existsSync(copy)).toBe(true);
+  } finally {
+    await b.close();
+  }
+  const c = await test.step('the start after it, answered', () => launch({ userData }));
+  try {
+    await c.page.locator('#rescueAsk [data-x="open"]').click();
+    await expect(c.page.locator('#fname')).toHaveText('Bermuda.xmpuzzle●');
+    expect((await docOf(c.page)).notes).toBe('kept until answered');
+  } finally {
+    await c.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a window closed while the engine cannot run keeps the rescue copy, and says so', async () => {
+  const dir = tmp();
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  const a = await launch();
+  try {
+    const { app, page } = a;
+    await editFile(page, file, 'not saved: the engine is gone');
+    // four quick deaths, each offering the copy; the last offer answered Reopen
+    for (let i = 0; i < 4; i++) {
+      await killForOffer(page);
+    }
+    await page.locator('#rescueAsk [data-x="open"]').click();
+    await expect(page.locator('#fname')).toHaveText('Bermuda.xmpuzzle●');
+    await settled(page);
+    await rescued(page);
+    // the fifth: the host gives up, and nothing can be saved
+    const [pid] = engines(app.process().pid ?? 0);
+    process.kill(pid ?? 0, 'SIGKILL');
+    await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'failed', {
+      timeout: 15_000,
+    });
+    const ask = page.locator('#closeAsk');
+    await closeTheWindow(page);
+    await expect(ask).toContainText('the engine is not running');
+    await ask.locator('[data-x="cancel"]').click();
+    await expect(ask).toHaveCount(0);
+    expect(await windowCount(page)).toBe(1);
+    // Close: the window goes, the copy stays for the next start
+    await closeTheWindow(page);
+    await ask.locator('[data-x="drop"]').click();
+    await expect.poll(() => windowCount(page)).toBe(0);
+    expect(existsSync(join(a.userData, '__rescue.xmpuzzle'))).toBe(true);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a quit asked about: Cancel keeps the app; a close of the window meanwhile does not give it up', async () => {
+  const dir = tmp();
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  const a = await launch();
+  const app = { exited: false };
+  a.app.process().once('exit', () => {
+    app.exited = true;
+  });
+  try {
+    const { page } = a;
+    await editFile(page, file, 'a quit asked about');
+    const ask = page.locator('#closeAsk');
+    // Cmd+Q, then Cancel: the app stays
+    await a.app.evaluate(({ app: electron }) => {
+      electron.quit();
+    });
+    await ask.locator('[data-x="cancel"]').click();
+    await expect(ask).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(app.exited).toBe(false);
+    expect(await windowCount(page)).toBe(1);
+    // Cmd+Q again; the window's close button pressed while it asks; Don't Save: the app quits
+    await a.app.evaluate(({ app: electron }) => {
+      electron.quit();
+    });
+    await expect(ask).toBeVisible();
+    await closeTheWindow(page);
+    await ask.locator('[data-x="drop"]').click();
+    await expect.poll(() => app.exited, { timeout: 15_000 }).toBe(true);
+  } finally {
+    if (!app.exited) {
+      await a.close();
+    }
+    rmSync(a.userData, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a close whose save does not end: another close asks natively, and the window can go', async () => {
+  const dir = tmp();
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  const a = await launch();
+  let stopped = 0;
+  try {
+    const { app, page } = a;
+    await editFile(page, file, 'the save does not end');
+    await app.evaluate(({ dialog }) => {
+      const g = globalThis as unknown as { boxes: number };
+      g.boxes = 0;
+      dialog.showMessageBox = () => {
+        g.boxes++;
+        // Close Anyway
+        return Promise.resolve({ response: 1, checkboxChecked: false });
+      };
+    });
+    // the engine stops answering: the close's Save waits for ever
+    stopped = engines(app.process().pid ?? 0)[0] ?? 0;
+    process.kill(stopped, 'SIGSTOP');
+    await closeTheWindow(page);
+    await page.locator('#closeAsk [data-x="save"]').click();
+    await expect(page.locator('#closeAsk')).toHaveCount(0);
+    // the close button again: no question on screen takes it, so the main
+    // process asks natively a few seconds later
+    await closeTheWindow(page);
+    await expect.poll(() => windowCount(page), { timeout: 10_000 }).toBe(0);
+    expect(await app.evaluate(() => (globalThis as unknown as { boxes: number }).boxes)).toBe(1);
+    // the page did not end its close: the copy stays for the next start
+    expect(existsSync(join(a.userData, '__rescue.xmpuzzle'))).toBe(true);
+  } finally {
+    if (stopped !== 0) {
+      process.kill(stopped, 'SIGCONT');
+    }
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the menus outlive a window destroyed while they are built (as closeApp does)', async () => {
+  const a = await launch();
+  try {
+    const { app, page } = a;
+    await app.evaluate(({ Menu }) => {
+      const g = globalThis as unknown as { errors: string[]; building: boolean };
+      g.errors = [];
+      g.building = false;
+      // what Electron would show in a dialog that holds the main process
+      process.on('uncaughtException', (e: unknown) => {
+        g.errors.push(e instanceof Error ? (e.stack ?? e.message) : String(e));
+      });
+      // a slow menu (a busy main process): 600 ms in setApplicationMenu
+      const set = Menu.setApplicationMenu.bind(Menu);
+      Menu.setApplicationMenu = (m) => {
+        g.building = true;
+        const t = Date.now();
+        while (Date.now() - t < 600) {
+          // busy
+        }
+        set(m);
+        g.building = false;
+      };
+    });
+    // a change: the page sends its menu state and the main process builds the menus
+    await engineCall(page, 'document.setNotes', { text: 'the menus change' });
+    // the test's code runs through the inspector, in the middle of the build: the
+    // window destroyed there, as closeApp destroys it at every test's end
+    await expect
+      .poll(
+        () =>
+          app.evaluate(({ BrowserWindow }) => {
+            if (!(globalThis as unknown as { building: boolean }).building) {
+              return false;
+            }
+            for (const w of BrowserWindow.getAllWindows()) {
+              w.destroy();
+            }
+            return true;
+          }),
+        { intervals: [20], timeout: 5000 },
+      )
+      .toBe(true);
+    await new Promise((done) => setTimeout(done, 1500));
+    expect(
+      await app.evaluate(() => (globalThis as unknown as { errors: string[] }).errors),
+    ).toEqual([]);
+  } finally {
+    await a.close();
+  }
+});
+
+test('a second start while the app runs hands its file over and quits: the copy stays', async () => {
+  const dir = tmp();
+  const userData = join(dir, 'data');
+  mkdirSync(userData);
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  const other = join(dir, 'CubeInCage.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'CubeInCage.xmpuzzle'), other);
+  const a = await launch({ userData });
+  try {
+    const { page } = a;
+    await editFile(page, file, 'the running app’s changes');
+    // a second start on the same data, given a file (as a file manager starts
+    // one on Windows and Linux): it offered the running app's copy as left by
+    // a session that died, and its Discard removed it
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(
+        (e): e is [string, string] => e[0] !== 'ELECTRON_RUN_AS_NODE' && e[1] !== undefined,
+      ),
+    );
+    env.BT_USER_DATA = userData;
+    env.BT_ENGINE = ENGINE ?? '';
+    const electron = createRequire(import.meta.url)('electron') as string;
+    const second = spawn(electron, [resolve(WEB, 'out/main/index.js'), other], {
+      env,
+      stdio: 'ignore',
+    });
+    const code = await new Promise<number | null>((done) => {
+      const timer = setTimeout(() => {
+        second.kill('SIGKILL');
+        done(-1);
+      }, 20_000);
+      second.once('exit', (c) => {
+        clearTimeout(timer);
+        done(c);
+      });
+    });
+    expect(code, 'the second start quits').toBe(0);
+    // the running app was handed the file: it asks about its own changes first
+    const ask = page.locator('#discard');
+    await expect(ask).toBeVisible();
+    await ask.locator('[data-x="cancel"]').click();
+    expect((await docOf(page)).notes).toBe('the running app’s changes');
+    expect(existsSync(join(userData, '__rescue.xmpuzzle'))).toBe(true);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
   }
 });
