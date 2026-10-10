@@ -8,6 +8,9 @@
 // link, never a URL), the menus' state and the window's close; from stage
 // 7 the exports' files, written here (export-file.ts) and only to a path
 // this process's save dialog gave the same window for that kind, once.
+// From stage 8 the files a window's engine may be given (path-grants.ts)
+// are granted here: what the open and save dialogs gave for a puzzle or a
+// paused solve, the rescue record's file, a file dropped on the window.
 // Every message is checked before it is used, and only the app's windows
 // are answered.
 
@@ -19,14 +22,10 @@ import { basename, dirname, extname, join } from 'node:path';
 import { isExportKind, isFileKind, isMenuState, isRescueInfo } from '../engine/app-bridge.ts';
 import type { FileKind, HelpLink, MenuState, StoredState } from '../engine/app-bridge.ts';
 import { ExportGrants, writeFileSafely } from './export-file.ts';
+import type { PathGrants } from './path-grants.ts';
 import type { RescueStore } from './rescue.ts';
+import { HELP_URLS } from './security.ts';
 import type { StateStore } from './state-store.ts';
-
-/** The original's user guide (platform.cpp) and its first chapter, "Getting Started". */
-export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
-  guide: 'https://burrtools.sourceforge.net/gui-doc/toc.html',
-  tutorial: 'https://burrtools.sourceforge.net/gui-doc/GettingStarted.html',
-};
 
 /** Opens a help page in the system's browser. */
 export function openHelp(link: HelpLink): void {
@@ -78,6 +77,8 @@ const grants = new ExportGrants<WebContents>((kind) => KINDS[kind].ext);
 export interface AppIpcHost {
   store: StateStore;
   rescue: RescueStore;
+  /** The files each window's engine may be given. */
+  paths: PathGrants<WebContents>;
   version: string;
   /** The app's window of a renderer, or null (not ours: not answered). */
   window(sender: WebContents): BrowserWindow | null;
@@ -115,6 +116,7 @@ export function installAppIpc(h: AppIpcHost): void {
       return null;
     }
     lastDir = dirname(path);
+    h.paths.grant(e.sender, path);
     return path;
   });
 
@@ -154,6 +156,8 @@ export function installAppIpc(h: AppIpcHost): void {
     lastDir = dirname(path);
     if (isExportKind(kind)) {
       grants.grant(e.sender, path, kind);
+    } else {
+      h.paths.grant(e.sender, path);
     }
     return path;
   });
@@ -205,8 +209,11 @@ export function installAppIpc(h: AppIpcHost): void {
       return;
     }
     if (op === 'add') {
-      h.store.addRecent(path);
-      lastDir = dirname(path);
+      // only a file the window was handed: Open Recent hands it back (path-grants.ts)
+      if (h.paths.allows(e.sender, path)) {
+        h.store.addRecent(path);
+        lastDir = dirname(path);
+      }
     } else if (op === 'remove') {
       h.store.removeRecent(path);
     }
@@ -219,16 +226,33 @@ export function installAppIpc(h: AppIpcHost): void {
     switch (op) {
       case 'write':
         if (typeof data === 'string' && isRescueInfo(info)) {
-          h.rescue.write(data, info);
+          // the record's file is handed to the window that reads it: only
+          // one this window was handed itself, else the copy has no file
+          const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
+          h.rescue.write(data, { ...info, path });
         }
         return null;
-      case 'read':
-        return h.rescue.read();
+      case 'read': {
+        const copy = h.rescue.read();
+        if (copy?.info.path != null) {
+          // the copy reopens as the document of its file
+          h.paths.grant(e.sender, copy.info.path);
+        }
+        return copy;
+      }
       case 'clear':
         h.rescue.clear();
         return null;
       default:
         return null;
+    }
+  });
+
+  // the path of a file dropped on the window (the preload's pathOf: only a
+  // file the user dropped has one)
+  ipcMain.on('bt:dropped', (e, path: unknown) => {
+    if (ours(e) !== null && typeof path === 'string' && path !== '') {
+      h.paths.grant(e.sender, path);
     }
   });
 

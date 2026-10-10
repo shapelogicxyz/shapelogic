@@ -142,14 +142,32 @@ renderer away from `main/` and `preload/`. Stage 1b added three.js 0.186.1
 (with `@types/three` 0.186.0) and Playwright 1.64.0 (its Electron driver;
 no browser is downloaded), and a third TypeScript project,
 `tsconfig.e2e.json`, for the e2e tests (Node's types and the DOM's, for
-code run in the page). electron-builder comes with stage 8.
+code run in the page). Stage 8 added electron-builder 26.15.3 (with
+`@electron/fuses` 1.8.0 and `@electron/asar` 3.4.1, which it uses, named
+for the smoke test) and moved three.js to the dev dependencies: it is
+bundled into the renderer, so the packaged app has no runtime package.
 
 **Recipes:** `just web-install`, `web-gen`, `web-check` (both type checks,
 ESLint, Prettier), `web-test` (unit; the engine tests against
 `build/release/engine/bt-engine` or `BT_ENGINE`, skipped with a message
 without one); `web-dev` and `web-e2e` (stage 1b; both clear
 `ELECTRON_RUN_AS_NODE`, which an editor's terminal may set); `web-dist`
-comes with stage 8.
+and `web-smoke` (stage 8: the packaged app and its smoke test).
+
+**Packaging and the security checklist** (stage 8). The packaged app runs
+the `bt-engine` in its resources only, which must say the project's one
+version (CMakeLists.txt's, put into the main bundle at build); it ignores
+the development switches (`BT_ENGINE`, `BT_CALL_LOG`,
+`BT_AUTOSAVE_SECONDS`, `ELECTRON_RENDERER_URL`), and its fuses ignore
+`ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect`. Its session lets
+through the renderer's own files and nothing remote, grants no
+permission, and refuses webviews, new windows and navigation. A call that
+names a file (`document.open`, `openBytes`, `save`, `solve.importPaused`,
+`exportPaused`) goes to the engine only when the main process handed the
+window that path (its dialogs, the rescue record, a drop, a file opened
+with the app); exports are written only where their dialog said. The
+checklist is a unit test over the window's options and the main
+process's handlers; the smoke test checks the packaged app itself.
 
 **State** (from stage 1b): a store mirrors `Snapshot` and a record per
 problem being solved; `document.changed` reloads what its ids name; the UI

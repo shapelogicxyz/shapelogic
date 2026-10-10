@@ -17,7 +17,7 @@ end" below instead):
 Use `just`. Do not invent ad-hoc build steps when a recipe exists.
 
 ```bash
-just build [preset]     # dev (default), release, asan, tsan; output in build/<preset>
+just build [preset]     # dev (default), release, asan, tsan (macOS: release-x64, release-arm64); output in build/<preset>
 just test               # unit + contract tests without [slow]; the quick loop
 just test-all           # everything; run before calling a stage done
 just test-asan          # Address + UB sanitizers
@@ -36,6 +36,8 @@ just web-check          # the front end's type checks, ESLint, Prettier
 just web-test           # its unit tests, and engine tests against build/release
 just web-dev            # run the app (electron-vite dev)
 just web-e2e            # build the app, run its Playwright e2e tests
+just web-dist [--dir]   # the packaged app for this platform (electron-builder), in web/dist
+just web-smoke          # the packaged app's smoke test (after just web-dist --dir)
 ```
 
 ## How to port code from the original

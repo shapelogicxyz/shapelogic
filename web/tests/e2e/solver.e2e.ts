@@ -23,6 +23,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import {
+  answerDialogs,
   BUILT,
   ENGINE,
   engineCall,
@@ -423,7 +424,10 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await newDocument(page, 'bricks');
     await engineCall(page, 'settings.set', { threads: 1 });
     const box = await dominoBox(page, 2, 4, 5);
-    // the puzzle gets a file (through the bridge: the test of File ▸ Save is files.e2e.ts)
+    // the puzzle gets a file (its save dialog's, then through the bridge: the
+    // test of File ▸ Save is files.e2e.ts)
+    await answerDialogs(page, { save: file });
+    expect(await page.evaluate(() => window.btApp.chooseSave('puzzle', 'box'))).toBe(file);
     await engineCall(page, 'document.save', { path: file });
     const saved0 = statSync(file).mtimeMs;
     await toSolver(page);

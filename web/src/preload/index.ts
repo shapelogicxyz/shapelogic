@@ -4,6 +4,8 @@
 // the engine bridge as window.bt and, from stage 6, the app's menus,
 // dialogs, store and rescue copy as window.btApp (engine/app-bridge.ts),
 // with stage 7 the exports' writes, and nothing else of Electron or Node.
+// A dropped file's path is reported to the main process as it is read
+// (stage 8): only such paths, and the dialogs', reach the engine.
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcRendererEvent } from 'electron';
@@ -29,18 +31,45 @@ const bridge: BtBridge = {
 
 const info = ipcRenderer.sendSync('bt:app-info') as { platform: string; version: string } | null;
 
+// The main process sends a window's first commands (a file given on the
+// command line or opened from the file manager at the start) when its page
+// has loaded, before the page has read its stored settings and listens
+// (renderer/main.ts): they are kept here, and handed to the first handler,
+// in order, a task after it subscribes (stage 8: they were lost).
+const commandHandlers = new Set<(command: AppCommand) => void>();
+let early: AppCommand[] | null = [];
+ipcRenderer.on('bt:command', (_event: IpcRendererEvent, command: unknown) => {
+  if (!isAppCommand(command)) {
+    return;
+  }
+  if (early !== null) {
+    early.push(command);
+    return;
+  }
+  for (const h of commandHandlers) {
+    h(command);
+  }
+});
+
 const btApp: BtApp = {
   platform: info?.platform ?? '',
   version: info?.version ?? '',
   onCommand(handler: (command: AppCommand) => void): () => void {
-    const listener = (_event: IpcRendererEvent, command: unknown): void => {
-      if (isAppCommand(command)) {
-        handler(command);
-      }
-    };
-    ipcRenderer.on('bt:command', listener);
+    commandHandlers.add(handler);
+    if (early !== null) {
+      // after the code subscribing is through; commands meanwhile join the queue
+      setTimeout(() => {
+        const queued = early ?? [];
+        early = null;
+        for (const c of queued) {
+          for (const h of commandHandlers) {
+            h(c);
+          }
+        }
+      }, 0);
+    }
     return () => {
-      ipcRenderer.removeListener('bt:command', listener);
+      commandHandlers.delete(handler);
     };
   },
   setMenuState(state) {
@@ -62,7 +91,13 @@ const btApp: BtApp = {
     }
   },
   pathOf(file) {
-    return webUtils.getPathForFile(file);
+    // a file from the file system (dropped) has a path; one the page made has none
+    const path = webUtils.getPathForFile(file);
+    if (path !== '') {
+      // the window's engine may be given it (main/path-grants.ts)
+      ipcRenderer.send('bt:dropped', path);
+    }
+    return path;
   },
   async loadState() {
     return ((await ipcRenderer.invoke('bt:load-state')) as StoredState | null) ?? {};

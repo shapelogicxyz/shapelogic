@@ -6,7 +6,10 @@
 // problem, the display mode and style, the 3D focus, the keys of the one
 // table) sent whenever it changes, and what their commands do. A command
 // that has a key in the table runs that key's handlers (keyboard.ts:
-// `runAction`), so a menu item and its key do the same thing.
+// `runAction`), so a menu item and its key do the same thing. A command
+// that replaces the document and comes before the first document is shown
+// (a file given on the command line, the engine still starting) waits for
+// it (stage 8).
 
 import type { AppCommand, AppCommandName, BtApp, MenuState } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
@@ -28,6 +31,14 @@ const AS_KEY: Partial<Record<AppCommandName, KeyAction>> = {
   keys: 'help.keys',
   focus3d: 'focus3d',
 };
+
+/** The commands that replace the document: before the first one is shown, they wait for it. */
+const DOCUMENT_COMMANDS: ReadonlySet<AppCommandName> = new Set([
+  'new',
+  'open',
+  'openPath',
+  'importPaused',
+]);
 
 /** The keys the menus show: the table's, for the commands that have one. */
 export function menuKeys(): MenuState['keys'] {
@@ -76,6 +87,8 @@ export class Menus {
   private historyLoads = 0;
   private sent = '';
   private timer: number | null = null;
+  /** Commands that came before the first document, run once it is shown. */
+  private readonly waiting: AppCommand[] = [];
 
   constructor(store: Store, app: BtApp, view: View3D, handlers: MenuHandlers) {
     this.store = store;
@@ -83,9 +96,19 @@ export class Menus {
     this.view = view;
     this.h = handlers;
     app.onCommand((c) => {
+      if (store.snapshot === null && DOCUMENT_COMMANDS.has(c.cmd)) {
+        // the first document is not shown yet: the engine is starting
+        this.waiting.push(c);
+        return;
+      }
       this.run(c);
     });
     store.subscribe((c) => {
+      if (c.kind === 'document' && store.snapshot !== null && this.waiting.length > 0) {
+        for (const w of this.waiting.splice(0)) {
+          this.run(w);
+        }
+      }
       if (c.kind === 'document' || c.kind === 'status') {
         this.loadHistory();
         this.update();

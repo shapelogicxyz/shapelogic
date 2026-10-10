@@ -17,7 +17,9 @@
 // answered (another death, the window closed), a close while the engine
 // cannot run, a quit and a close of the window's own, a close whose save
 // does not end, a window destroyed while the menus are built, and a second
-// start while the app runs.
+// start while the app runs. Stage 8: a file the window was not handed is
+// refused before the engine sees it; a file given on the command line
+// opens at the start.
 
 import { spawn, spawnSync } from 'node:child_process';
 import {
@@ -1031,6 +1033,55 @@ test('a second start while the app runs hands its file over and quits: the copy 
     await ask.locator('[data-x="cancel"]').click();
     expect((await docOf(page)).notes).toBe('the running app’s changes');
     expect(existsSync(join(userData, '__rescue.xmpuzzle'))).toBe(true);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a file the window was not handed is refused before the engine; the dialog’s opens', async () => {
+  const dir = tmp();
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  const a = await launch();
+  try {
+    const { page } = a;
+    // stage 8: the main process lets a call name only a file its dialogs, a
+    // drop or the system handed the window (main/path-grants.ts)
+    for (const [method, params] of [
+      ['document.open', { path: file }],
+      ['document.save', { path: join(dir, 'new.xmpuzzle') }],
+      ['solve.importPaused', { path: join(dir, 'x.btsolve') }],
+    ] as const) {
+      await expect(engineCall(page, method, params), method).rejects.toThrow(
+        /invalid_argument: \S+ was not chosen in a file dialog or dropped on the window/,
+      );
+    }
+    expect(existsSync(join(dir, 'new.xmpuzzle'))).toBe(false);
+    expect((await docOf(page)).path).toBeNull();
+    // the same file from the open dialog: opened, then saved where it is
+    await answerDialogs(page, { open: file });
+    await menu(page, 'open');
+    await expect(page.locator('#fname')).toHaveText('Bermuda.xmpuzzle');
+    expect((await docOf(page)).path).toBe(file);
+    await engineCall(page, 'document.save', { path: file });
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a file given on the command line opens at the start', async () => {
+  const dir = tmp();
+  const file = join(dir, 'Bermuda.xmpuzzle');
+  copyFileSync(join(FIXTURES, 'Bermuda.xmpuzzle'), file);
+  // stage 8: the command was sent when the page had loaded, before it listened, and lost
+  const a = await launch({ args: [file] });
+  try {
+    const { page } = a;
+    await expect(page.locator('#fname')).toHaveText('Bermuda.xmpuzzle');
+    expect((await docOf(page)).path).toBe(file);
+    await expect(page.locator('#shapeList .row')).not.toHaveCount(0);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

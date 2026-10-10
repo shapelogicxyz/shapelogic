@@ -63,10 +63,11 @@ export function appOf(page: Page): ElectronApplication {
  * BT_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
  * (BT_AUTOSAVE_SECONDS; 20 minutes without), `userData` the app's data
  * directory (a new one, removed on close, unless given: a restart keeps
- * its settings in the one given).
+ * its settings in the one given), `args` the app's command line after its
+ * main script (a file to open).
  */
 export async function launch(
-  opts: { callLog?: string; autosave?: number; userData?: string } = {},
+  opts: { callLog?: string; autosave?: number; userData?: string; args?: string[] } = {},
 ): Promise<App> {
   // an editor's terminal may set ELECTRON_RUN_AS_NODE, which turns Electron into Node
   const env = Object.fromEntries(
@@ -83,7 +84,11 @@ export async function launch(
   }
   const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
   env.BT_USER_DATA = userData;
-  const app = await electron.launch({ args: [resolve(WEB, 'out/main/index.js')], cwd: WEB, env });
+  const app = await electron.launch({
+    args: [resolve(WEB, 'out/main/index.js'), ...(opts.args ?? [])],
+    cwd: WEB,
+    env,
+  });
   const page = await app.firstWindow();
   apps.set(page, app);
   await app.evaluate(({ BrowserWindow }, size) => {
@@ -137,9 +142,18 @@ export async function closeApp(app: ElectronApplication): Promise<void> {
   }
 }
 
-/** Sends the window a menu command (as Electron's menu does), e.g. `{ cmd: 'openPath', path }`. */
+/**
+ * Sends the window a menu command (as Electron's menu does). A file to open,
+ * `{ cmd: 'openPath', path }`, goes through the main process as a file the
+ * system opens with the app does (macOS's open-file), so the window is
+ * handed it (main/path-grants.ts) as Open Recent hands it.
+ */
 export async function command(page: Page, c: Record<string, unknown>): Promise<void> {
-  await appOf(page).evaluate(({ BrowserWindow }, cmd) => {
+  await appOf(page).evaluate(({ app, BrowserWindow }, cmd) => {
+    if (cmd.cmd === 'openPath') {
+      app.emit('open-file', { preventDefault: () => undefined }, cmd.path);
+      return;
+    }
     BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', cmd);
   }, c);
 }

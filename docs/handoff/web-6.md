@@ -289,6 +289,10 @@ question, the save point's offer, Notes, Convert, About, F1).
   the settings page stays.
 
 ## Windows: what to do by hand (not run in this session)
+*Still not run when stage 8 ended (2026-10-09); stage 8's handoff
+(docs/handoff/web-8.md, "Windows and Linux: what to do by hand") takes
+these steps into the packaged app's, and its step 5's checks stand.*
+
 The plan asks for the dev app run once on Windows; this Mac cannot. On a
 Windows 10 or 11 x64 machine:
 1. Install MSYS2 (https://www.msys2.org) and, in its **UCRT64** shell:

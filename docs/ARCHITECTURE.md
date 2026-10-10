@@ -13,15 +13,17 @@ paused solve files, the playback sampler and the explorers; `bt-engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
 tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
 benchmark as fast as the original or faster). The web front end
-(docs/FRONTEND-PLAN.md) has its stages 1a to 4: the toolchain in `web/`,
-the TypeScript types generated from `api/`, the engine client with its
-host, bridge and proxy, the app's shell from the mockup, the 3D view in
+(docs/FRONTEND-PLAN.md) has all its stages, 1a to 8: the toolchain in
+`web/`, the TypeScript types generated from `api/`, the engine client with
+its host, bridge and proxy, the app's shell from the mockup, the 3D view in
 three.js, the Entities workspace (the shapes list, the voxel editor on
 every grid, the tool tabs' tasks, 3D editing, undo and redo), the Puzzle
-workspace (problems, pieces, groups, colour rules, the pieces scene) and
-the Solver workspace (the search options, the runs, the solutions list,
-analysis, the disassembly player, autosave). Next: its stage 5, the
-explorers, the debug panel and the status window.*
+workspace (problems, pieces, groups, colour rules, the pieces scene), the
+Solver workspace (the search options, the runs, the solutions list,
+analysis, the disassembly player, autosave), the explorers, the debug
+panel and the status window, the menus, files and recovery, the exports,
+and the packaged app for macOS, Windows and Linux with the Electron
+security checklist. Next: the security audit before the first release.*
 
 ## Big picture
 
@@ -617,12 +619,12 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a to 7, decision 0013)
+## web (front-end stages 1a to 8, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
 1.64.0 among them; gltf-validator, Khronos's glTF validator, for the tests).
-What exists after stage 7:
+What exists after stage 8:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -696,7 +698,57 @@ What exists after stage 7:
   and `__rescue.json`, its record with a hash of the bytes, written record
   first, each by rename; a copy whose record does not match is offered as
   a puzzle without a file).
-  `src/preload/index.ts` exposes `window.bt` and `window.btApp`.
+  From stage 8, the security checklist: `security.ts` (Electron-free:
+  the window's web preferences, sandboxed, context-isolated, no Node in
+  the page, its workers or frames, no webview, no navigation by a drop;
+  the environment's switches a run takes, `BT_USER_DATA` only when
+  packaged, `BT_ENGINE`, `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS` and
+  `ELECTRON_RENDERER_URL` in development too; `allowedRequest`, what the
+  session lets through: `file:` URLs inside the renderer's directory only,
+  `devtools:`, `data:`, `blob:`, the dev server's origin in development,
+  nothing remote; no permission; `HELP_URLS`, the only addresses handed to
+  the system's browser), which `index.ts` applies (the window's options,
+  `webRequest.onBeforeRequest`, the permission handlers, no webview and no
+  new window for any web contents); `path-grants.ts` (`PathGrants`: the
+  files a window's engine may be given, which a call naming a path,
+  `document.open`, `document.openBytes`, `document.save`,
+  `solve.importPaused`, `solve.exportPaused`, must name: what the
+  window's open and save dialogs gave for a puzzle or a paused solve, the
+  rescue record's file, a file dropped on the window (the preload reports
+  the path its `pathOf` read, which only a real dropped file has), a file
+  the menus or the system opened with the app (every `openPath` the main
+  process sends); `serveEngine`'s `admit` refuses any other as
+  `invalid_argument` before the engine sees it). The project's version,
+  CMakeLists.txt's, is put into the main bundle at build
+  (`__BT_VERSION__`, electron.vite.config.ts): the version the app reports
+  and the one `NodeTransport.start` requires of the engine.
+  `engine-path.ts`: a packaged app runs `bt-engine` from its resources
+  (`process.resourcesPath`) and nothing else; development runs
+  `BT_ENGINE`, else the repository's dev build, else its release build.
+  `src/preload/index.ts` exposes `window.bt` and `window.btApp`; it keeps
+  the commands that come before the page listens (a file given on the
+  command line, sent when the page has loaded, while it still reads its
+  stored settings) and hands them to the first handler a task later, in
+  order; the renderer's menus hold a command that replaces the document
+  until the first document is shown.
+- Packaging (stage 8): `tools/dist.ts` (`just web-dist`) runs
+  electron-builder over `out/` for the platform it runs on: the bundles
+  and `package.json` only in `app.asar` (three.js is in the renderer's
+  bundle; the app has no runtime package), `bt-engine` from the release
+  preset as an extra resource (on macOS the other architecture's from
+  `release-x64` or `release-arm64`), checked first for its architecture
+  (`binaryArch`, the Mach-O, ELF or PE header) and its `--version`; the
+  version CMakeLists.txt's (`tools/project-version.ts`, given as
+  `extraMetadata`; a unit test keeps `package.json`'s equal); the file
+  types `.xmpuzzle` and `.btsolve`; Electron's fuses (no
+  `ELECTRON_RUN_AS_NODE`, no `NODE_OPTIONS`, no `--inspect`, the app only
+  from `app.asar`, checked against its hash); macOS a .dmg and a .zip,
+  signed ad hoc unless a certificate is named; Windows an NSIS installer;
+  Linux an AppImage and a .deb; the icons the original's
+  (`packaging/`). Signing and notarisation are documented
+  (`web/README.md`, docs/handoff/web-8.md), not automated. On Windows the
+  engine is linked statically (no MinGW DLL beside it), on Linux with
+  libstdc++ and libgcc linked in (`engine/CMakeLists.txt`).
 - `src/renderer/`, the app (sandboxed; it reaches nothing but `window.bt`):
   - `index.html`, `styles.css`: the mockup's body and stylesheet (the
     stylesheet in its compact form, left alone by Prettier; the Puzzle
@@ -1160,7 +1212,28 @@ reference image, Vector Image in the flat style drawn by the page like
 the view and a reference image, STL binary and text with a field
 refused, a read-only file refused and left, a path no dialog gave
 refused, Solution Animation greyed without a solution and then valid
-with the playback's pieces.
+with the playback's pieces. Stage 8: the security checklist
+(`tests/unit/security.test.ts`: the window's options and that nothing in
+`src/` turns them off, the switches a packaged app ignores, the requests
+the session lets through, no permission, the CSP as written and as built,
+nothing remote named by the renderer, the two bridges, the help links as
+the only external addresses, the path-taking methods of the schema all
+checked, the grants per window, a refused call never sent; the IPC
+handlers with Electron stood in for: only the app's windows answered,
+only what a dialog, the rescue record or a drop gave granted, an
+export's path not granted to the engine and written once, the help by
+name only), the preload (`tests/unit/preload.test.ts`: the first commands
+kept for the first handler, a drop's path reported), the packaging
+(`tests/unit/dist.test.ts`: one version in CMakeLists.txt, package.json,
+the release engine and the main bundle; the configuration; the
+architecture from a header; where the app finds its engine); e2e: a path
+the window was not handed refused, a file given on the command line
+opened at the start; and the smoke test of the packaged app
+(`tests/e2e/packaged.smoke.ts`, `just web-smoke`, over Chromium's DevTools
+protocol: the fuses, the archive, the engine's version, the development
+switches and Node's overrides ignored, the sandbox and the CSP, no file
+outside the renderer read and nothing remote, a path no dialog gave
+refused, a fixture from the command line solved with bt's counts).
 
 ## Testing against the original
 
@@ -1210,10 +1283,12 @@ See AGENTS.md for the full list. The load-bearing ones:
 `just test-tsan` / `just oracle` / `just oracle-resume` /
 `just oracle-roundtrip` / `just oracle-files` / `just oracle-text` /
 `just check`; the front end's `just web-install` / `just web-gen` /
-`just web-check` / `just web-test` / `just web-dev` / `just web-e2e`. ctest also runs `api-schema` (the schema checks itself),
+`just web-check` / `just web-test` / `just web-dev` / `just web-e2e` /
+`just web-dist` / `just web-smoke`. ctest also runs `api-schema` (the schema checks itself),
 `api-docs` (`docs/API.md` is current), `contract` (the engine as a
 subprocess) and `cli` (`bt` as a subprocess).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
-`release`. zlib comes from the system, or is built from a pinned release
+`release` (and `release-x64`, `release-arm64`: macOS's release for one
+architecture, the packaged app's engine for the other kind of Mac). zlib comes from the system, or is built from a pinned release
 (`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only) and
 Catch2 are fetched.

@@ -97,6 +97,14 @@ web-dev:
 web-e2e *args:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
 
+# Package the app (electron-builder, web/tools/dist.ts) for this platform with the release engine: `--dir` the unpacked app only, `--arch x64` an Intel Mac's (after `just build release-x64`)
+web-dist *args: (build "release")
+    cd web && env -u ELECTRON_RUN_AS_NODE npm run dist -- {{args}}
+
+# The packaged app's smoke test (after `just web-dist --dir`; BT_PACKAGED_APP names another executable)
+web-smoke:
+    cd web && env -u ELECTRON_RUN_AS_NODE npx playwright test -c playwright.smoke.config.ts
+
 # Remove all build directories
 clean:
     rm -rf build

@@ -5,7 +5,7 @@ An Electron + TypeScript application that drives `bt-engine` over JSON-RPC
 (`../docs/mockup/`). The plan is `../docs/FRONTEND-PLAN.md`; what exists is
 the `web` section of `../docs/ARCHITECTURE.md`.
 
-**Status:** stage 6: the toolchain, the types generated from `../api/`,
+**Status:** stage 8: the toolchain, the types generated from `../api/`,
 the engine client with its host, bridge and proxy, the app's shell
 (top bar, workspace rail, cards, status bar, settings, keyboard map), the
 3D view in three.js, the Entities, Puzzle and Solver workspaces with the
@@ -16,7 +16,9 @@ window, the display modes and styles), Help (the keyboard shortcuts on
 F1, the user guide, About). The settings and layouts are kept in the
 app's data directory, with the rescue copy of a puzzle with unsaved
 changes (`__rescue.xmpuzzle`), offered after the engine or the app died.
-The exports come in stage 7, packaging in stage 8.
+The exports (stage 7): image, vector image, STL, solution animation.
+Packaging (stage 8): electron-builder for macOS, Windows and Linux, the
+engine inside the app, the Electron security checklist.
 
 ## Running
 
@@ -42,15 +44,52 @@ Inside `web/`: `npm run format` reformats, `npm run record` records the
 fake engine's sessions again (after a change to what the engine sends),
 `npm run build` bundles with electron-vite into `out/`.
 
+## Packaging
+
+```bash
+just web-dist          # the installers for this machine: macOS .dmg and .zip, Windows NSIS, Linux AppImage and .deb
+just web-dist --dir    # the unpacked app only (dist/mac-arm64/, dist/win-unpacked/, dist/linux-unpacked/)
+just build release-x64 && just web-dist --arch x64   # an Intel Mac's app, on an Apple silicon Mac
+just web-smoke         # the smoke test of the unpacked app (after `just web-dist --dir`)
+```
+
+`tools/dist.ts` builds for the platform it runs on only (the engine is
+built natively); it puts `build/release/engine/bt-engine` (on macOS
+`build/release-<arch>/` for the other architecture) into the app's
+resources, after checking its architecture and that `--version` says
+CMakeLists.txt's version, which the app takes too (read at build). The
+output is in `dist/`. `web-smoke` starts the unpacked app as a user would,
+with a fixture on its command line, and drives its page over Chromium's
+DevTools protocol (the app's fuses turn `--inspect` off, so Playwright's
+Electron driver cannot reach it): the fuses, the archive, the engine's
+version, the development switches ignored, the sandbox and CSP, no file
+read outside the renderer, a path no dialog gave refused, the fixture
+solved. `BT_PACKAGED_APP=<executable>` tests another copy (an installed
+one).
+
+**Signing.** On macOS the app is signed ad hoc (it runs on the machine
+that built it; elsewhere Gatekeeper refuses a downloaded copy until the
+user allows it in System Settings ▸ Privacy & Security). With a Developer
+ID certificate in the keychain and `CSC_NAME="Developer ID Application:
+…"` (or `CSC_LINK`, `CSC_KEY_PASSWORD` for a .p12), electron-builder signs
+with the hardened runtime, and notarises when `APPLE_API_KEY` (the .p8
+file), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER` are set. On Windows the
+installer is unsigned (SmartScreen warns) unless `CSC_LINK` (or
+`WIN_CSC_LINK`) and `CSC_KEY_PASSWORD` name a code-signing certificate.
+None of this is automated; docs/handoff/web-8.md has the steps.
+
 ## Where the engine comes from
 
 - The tests run `build/release/engine/bt-engine`, or `BT_ENGINE` when it is
   set, from the repository's root (fixtures are opened by relative path).
   Without one the engine tests are skipped and the run says so; so are the
   e2e tests, which also need `npm run build` (`just web-e2e` builds).
-- The app (`src/main/engine-path.ts`) runs `BT_ENGINE`, else
-  `build/dev/engine/bt-engine`, else the release one; stage 8 adds the copy
-  inside the packaged app.
+- The app in development (`src/main/engine-path.ts`) runs `BT_ENGINE`,
+  else `build/dev/engine/bt-engine`, else the release one. A packaged app
+  runs the copy in its resources and nothing else: it ignores `BT_ENGINE`,
+  `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS` and electron-vite's
+  `ELECTRON_RENDERER_URL` (`src/main/security.ts`); only `BT_USER_DATA`
+  is taken. Either way the engine must say the app's version.
 
 ## Layout
 
@@ -62,11 +101,15 @@ fake engine's sessions again (after a change to what the engine sends),
   `node-transport.ts` (the child process, Node only).
 - `src/main/`: Electron's main process: `engine-host.ts` (one engine,
   restarted when it dies), `engine-ipc.ts` (the host's side of the bridge),
-  `engine-path.ts`, `index.ts` (with `BT_CALL_LOG=<file>` every call of the
+  `engine-path.ts`, `security.ts` (the window's options, the switches a
+  packaged app takes, the requests and permissions allowed, the help
+  links), `path-grants.ts` (the files a window's engine may be given),
+  `app-ipc.ts`, `menu.ts`, `export-file.ts`, `rescue.ts`,
+  `state-store.ts`, `index.ts` (with `BT_CALL_LOG=<file>` every call of the
   renderer is logged there with how it ended; the e2e tests read it;
   `BT_AUTOSAVE_SECONDS=<n>` shortens the Solver's autosave from 20
   minutes, for the e2e tests).
-- `src/preload/`: `window.bt`.
+- `src/preload/`: `window.bt` and `window.btApp`.
 - `src/renderer/`: `index.html` and `styles.css` (the mockup's body and
   stylesheet), `main.ts`, `engine-proxy.ts` (the client's interface over
   `window.bt`); `shell/` (the app's frame: `app.ts`, `keys.ts` the one
@@ -87,14 +130,17 @@ fake engine's sessions again (after a change to what the engine sends),
   `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`,
   `autosave.ts`).
 - `tools/`: `gen-api.ts` (the types), `sessions.ts` and
-  `record-sessions.ts` (the recorded sessions).
+  `record-sessions.ts` (the recorded sessions), `dist.ts` (the packaged
+  app), `project-version.ts` (CMakeLists.txt's version).
+- `packaging/`: the icons (the original's).
 - `fake-engine/`: `fake-engine.ts` (a recording replayed as a transport),
   `recordings/`.
 - `tests/`: `unit/` (`unit/renderer/` for the app's pure parts), `engine/`
   (against the real engine), `e2e/` (Playwright: `app.ts` launches the
   built app and calls its engine through the page's bridge, `editor.ts`
   drives the voxel editor, `puzzle.ts` the Puzzle's cards, `solver.ts` the
-  Solver's; `__screenshots__/` the reference screenshots),
+  Solver's; `packaged.smoke.ts` the packaged app's smoke test;
+  `__screenshots__/` the reference screenshots),
   `helpers/`.
 
 ## Rules

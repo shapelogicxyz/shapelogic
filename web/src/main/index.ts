@@ -19,16 +19,26 @@
 // window's question goes on once that window closes. One app runs at a
 // time for a data directory: a second start hands its files to the first.
 //
+// The security checklist (stage 8, security.ts): the window sandboxed and
+// isolated; the page the app's own file (a dev server only when not
+// packaged); every request but the app's files cancelled; no permission
+// granted; no webview, no new window, no navigation; a call naming a file
+// the window was not handed refused before the engine sees it
+// (path-grants.ts); exports written only where the dialog said
+// (app-ipc.ts).
+//
 // For the e2e tests: BT_USER_DATA puts the app's data (the store, the
 // rescue copy) in a directory of the test's own; with BT_CALL_LOG set
 // every call the renderer makes is written to that file with how it ended
 // (a JSON line: method, errc), so the tests can check that the UI never
 // asked for what the engine refused; BT_AUTOSAVE_SECONDS shortens the
-// Solver's autosave (20 minutes), passed in the page's address.
+// Solver's autosave (20 minutes), passed in the page's address. A
+// packaged app takes BT_USER_DATA only (security.ts's switches).
 
-import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, session } from 'electron';
+import type { WebContents } from 'electron';
 import { appendFileSync, existsSync } from 'node:fs';
-import { extname, resolve } from 'node:path';
+import { extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
@@ -39,23 +49,35 @@ import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
 import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
+import { PathGrants } from './path-grants.ts';
 import { RescueStore } from './rescue.ts';
+import { allowedRequest, permissionAllowed, switches, windowOptions } from './security.ts';
 import { StateStore } from './state-store.ts';
 
 const APP_NAME = 'BurrTools Alpha';
+/** The project's version (CMakeLists.txt's, put in at build): the app's and its engine's. */
+const VERSION = __BT_VERSION__;
+/** The web/ directory, where development looks for the repository's engine builds. */
+const WEB_DIR = fileURLToPath(new URL('../../', import.meta.url));
 app.setName(APP_NAME);
-const userData = process.env.BT_USER_DATA;
-if (userData !== undefined && userData !== '') {
-  app.setPath('userData', resolve(userData));
+const env = switches(app.isPackaged, process.env);
+if (env.userData !== undefined) {
+  app.setPath('userData', resolve(env.userData));
 }
 
-const callLog = process.env.BT_CALL_LOG;
+const callLog = env.callLog;
 const logCall =
-  callLog === undefined || callLog === ''
+  callLog === undefined
     ? undefined
     : (o: CallOutcome): void => {
         appendFileSync(callLog, JSON.stringify(o) + '\n');
       };
+
+/** The renderer's directory (out/renderer, in app.asar when packaged). */
+const rendererDir = fileURLToPath(new URL('../renderer/', import.meta.url));
+
+/** The files each window's renderer was handed: the only ones its engine may be given. */
+const paths = new PathGrants<WebContents>();
 
 /** How long a renderer may take to take a close before it is asked natively. */
 const CLOSE_TAKEN_MS = 4000;
@@ -82,11 +104,14 @@ let quitting = false;
 const pendingOpen: string[] = [];
 
 /** The page's parameters: the autosave's interval when BT_AUTOSAVE_SECONDS sets one. */
-const autosave = process.env.BT_AUTOSAVE_SECONDS;
-const query: Record<string, string> = autosave !== undefined && autosave !== '' ? { autosave } : {};
+const query: Record<string, string> = env.autosave !== undefined ? { autosave: env.autosave } : {};
 
 function send(w: WindowState, command: AppCommand): void {
   if (!w.win.isDestroyed() && !w.win.webContents.isDestroyed()) {
+    if (command.cmd === 'openPath') {
+      // a file the menus or the system opened with the app
+      paths.grant(w.win.webContents, command.path);
+    }
     w.win.webContents.send('bt:command', command);
   }
 }
@@ -164,19 +189,13 @@ async function askNatively(w: WindowState): Promise<void> {
 
 function createWindow(first?: AppCommand): void {
   const bounds = store.bounds;
-  const win = new BrowserWindow({
-    width: bounds?.width ?? 1280,
-    height: bounds?.height ?? 800,
-    ...(bounds === undefined || windows.size > 0 ? {} : { x: bounds.x, y: bounds.y }),
-    title: APP_NAME,
-    show: false,
-    webPreferences: {
-      preload: fileURLToPath(new URL('../preload/index.cjs', import.meta.url)),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
+  const win = new BrowserWindow(
+    windowOptions(fileURLToPath(new URL('../preload/index.cjs', import.meta.url)), APP_NAME, {
+      width: bounds?.width ?? 1280,
+      height: bounds?.height ?? 800,
+      ...(bounds === undefined || windows.size > 0 ? {} : { x: bounds.x, y: bounds.y }),
+    }),
+  );
   const contents = win.webContents;
   const id = contents.id;
   const w: WindowState = {
@@ -187,13 +206,23 @@ function createWindow(first?: AppCommand): void {
     quitAfterClose: false,
   };
   windows.set(id, w);
-  const engine = findEngine(app.getAppPath());
+  const engine = findEngine({
+    packaged: app.isPackaged,
+    resources: process.resourcesPath,
+    webDir: WEB_DIR,
+    engine: env.engine,
+  });
   const host = new EngineHost({
     start: () => {
       if (engine === null) {
-        throw new Error('no bt-engine: build one (just build) or set BT_ENGINE');
+        throw new Error(
+          app.isPackaged
+            ? 'no bt-engine in the app'
+            : 'no bt-engine: build one (just build) or set BT_ENGINE',
+        );
       }
-      return NodeTransport.start(engine);
+      // one version for the app and the engine (CMakeLists.txt's)
+      return NodeTransport.start(engine, { expectVersion: VERSION });
     },
   });
   const serve = (): ReturnType<typeof serveEngine> =>
@@ -205,6 +234,7 @@ function createWindow(first?: AppCommand): void {
         }
       },
       logCall,
+      (method, params) => paths.refusal(contents, method, params),
     );
   servers.set(id, serve());
   contents.on('did-start-navigation', (details) => {
@@ -279,7 +309,7 @@ function createWindow(first?: AppCommand): void {
   host.start().catch((e: unknown) => {
     console.error(`bt-engine did not start: ${String(e)}`);
   });
-  const devUrl = process.env.ELECTRON_RENDERER_URL;
+  const devUrl = env.rendererUrl;
   if (devUrl !== undefined) {
     // in development the renderer's warnings and errors show in the terminal
     contents.on('console-message', (event) => {
@@ -293,9 +323,7 @@ function createWindow(first?: AppCommand): void {
     }
     void win.loadURL(url.toString());
   } else {
-    void win.loadFile(fileURLToPath(new URL('../renderer/index.html', import.meta.url)), {
-      query,
-    });
+    void win.loadFile(join(rendererDir, 'index.html'), { query });
   }
 }
 
@@ -376,10 +404,21 @@ void app.whenReady().then(() => {
   store = new StateStore(app.getPath('userData'));
   rescue = new RescueStore(app.getPath('userData'));
   pendingOpen.push(...argFiles());
+  // no remote content, no permission
+  session.defaultSession.webRequest.onBeforeRequest((details, done) => {
+    done({ cancel: !allowedRequest(details.url, { rendererDir, rendererUrl: env.rendererUrl }) });
+  });
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, done) => {
+    done(permissionAllowed(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler((_contents, permission) =>
+    permissionAllowed(permission),
+  );
   installAppIpc({
     store,
     rescue,
-    version: app.getVersion(),
+    paths,
+    version: VERSION,
     window: (sender) => windows.get(sender.id)?.win ?? null,
     setMenu: (sender, state) => {
       const w = windows.get(sender.id);
@@ -417,6 +456,14 @@ void app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+
+// no webview and no new window, whatever web contents asks
+app.on('web-contents-created', (_e, contents) => {
+  contents.on('will-attach-webview', (e) => {
+    e.preventDefault();
+  });
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
 });
 
 app.on('window-all-closed', () => {

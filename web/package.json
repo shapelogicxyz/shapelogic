@@ -20,24 +20,26 @@
     "test": "vitest run",
     "build": "electron-vite build",
     "dev": "electron-vite dev",
-    "e2e": "electron-vite build && playwright test"
+    "e2e": "electron-vite build && playwright test",
+    "dist": "electron-vite build && node tools/dist.ts"
   },
   "devDependencies": {
+    "@electron/asar": "3.4.1",
+    "@electron/fuses": "1.8.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.0",
     "@types/node": "24.19.1",
     "@types/three": "0.186.0",
     "electron": "44.7.0",
+    "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
     "eslint": "10.12.0",
     "gltf-validator": "2.0.0-dev.3.10",
     "prettier": "3.9.9",
+    "three": "0.186.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
     "vite": "7.3.7",
     "vitest": "5.0.3"
-  },
-  "dependencies": {
-    "three": "0.186.1"
   }
 }
