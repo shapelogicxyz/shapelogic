@@ -9,9 +9,15 @@
 // first", so the engine is never asked for what it would refuse as
 // invalid_state). From docs/mockup/index.html: `renderAll`,
 // `renderEditor`, `afterEdit`, `selectShape`, the keydown handler's
-// Entities rows, `updateStatus` and the #garea cursor text.
+// Entities rows, `updateStatus` and the #garea cursor text. A sliding
+// puzzle's start/goal shape (docs/webui-spec.md, section 8.1): its Tray
+// edit mode, the starts and goals placed by a click (`sliding.place`,
+// `sliding.clearAt`, the outline from `sliding.preview`), the validity bar
+// under the view (the original's mainwindow_rods.cpp `refreshSlideValid`)
+// and the view's two trays.
 
 import type { CellTool } from '../../engine/api.generated.ts';
+import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from '../shell/dom.ts';
@@ -20,8 +26,8 @@ import { installHistory } from '../shell/history.ts';
 import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab } from '../shell/layout.ts';
-import { hex, shapeColour } from '../shell/piece-colours.ts';
-import { reportError, setCursor } from '../shell/status.ts';
+import { hex, isTray, shapeColour } from '../shell/piece-colours.ts';
+import { flash, reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
 import type { View3D } from '../view3d/view.ts';
 import type { Plane } from '../view3d/overlays.ts';
@@ -40,6 +46,7 @@ import type { LayerGeometry } from './layer-geometry.ts';
 import { ShapeCells } from './shape-cells.ts';
 import { ShapesList } from './shapes-list.ts';
 import { Stroke } from './stroke.ts';
+import { marksOf, outlineColour, stampPieces, stampsOf, TrayState, validity } from './tray.ts';
 
 const isCube = (g: string | undefined): boolean =>
   g === 'bricks' || g === 'sliding' || g === 'stacking';
@@ -67,12 +74,26 @@ export class EntitiesWorkspace {
   private inspectorKey = '';
   /** Edits under way (a stroke open or closing, a call waiting for its revision): `data-busy`. */
   private readonly edits: Edits;
+  /** The start/goal shape shown and what the engine says it holds. */
+  private readonly trays: TrayState;
+  /** The cell under the mouse while placing a start or goal. */
+  private stampAt: Cell | null = null;
+  private stampLoads = 0;
 
   constructor(store: Store, view: View3D, edits: Edits) {
     this.store = store;
     this.edits = edits;
     this.view = view;
     this.cells = new ShapeCells(store);
+    this.trays = new TrayState(
+      store.engine,
+      () => {
+        this.trayRead();
+      },
+      (e) => {
+        reportError(e, 'The start/goal shape could not be read');
+      },
+    );
     this.geos = new LayerGeometries(store.engine);
     const refuse = (): boolean => this.refuse();
     this.list = new ShapesList({
@@ -103,7 +124,8 @@ export class EntitiesWorkspace {
         return this.cells.layersWithCells(p === 'XY' ? 2 : p === 'XZ' ? 1 : 0);
       },
       unit: () => this.unit(),
-      allPlanes: () => isCube(store.snapshot?.grid),
+      // sliding shapes are one layer: the XY plane only
+      allPlanes: () => isCube(store.snapshot?.grid) && store.snapshot?.grid !== 'sliding',
       setPlane: (p) => {
         this.setPlane(p);
       },
@@ -118,6 +140,10 @@ export class EntitiesWorkspace {
           store.engine.call('colour.edit', { colour: id, rgb }),
         ),
       deleteColour: (id) => void this.deleteColour(id),
+      tray: () => (this.onTray ? this.trays.reply : null),
+      trayChanged: () => {
+        this.trayModeChanged();
+      },
     });
     this.grid = new Grid2D(byId('garea'), {
       state: this.state,
@@ -142,6 +168,11 @@ export class EntitiesWorkspace {
       },
       boxChanged: () => {
         this.card.renderSelbar();
+      },
+      stamping: () => this.card.stamping,
+      stampClick: (cell, right) => void this.stampClick(cell, right),
+      stampHover: (cell) => {
+        this.stampHover(cell);
       },
     });
     this.edit3d = new Edit3D({
@@ -221,8 +252,14 @@ export class EntitiesWorkspace {
       this.state.box = null;
       this.state.layer = 0;
       this.state.colour = null;
-      if (!isCube(snap?.grid)) {
+      this.state.tray = 'walls';
+      this.state.stampPiece = null;
+      if (!isCube(snap?.grid) || snap?.grid === 'sliding') {
         this.state.plane = 'XY';
+      }
+      // no paint on a sliding puzzle (no colours there)
+      if (snap?.grid === 'sliding' && this.state.tool === 'paint') {
+        this.state.tool = 'fixed';
       }
       this.geos.clear();
       this.geo = null;
@@ -238,6 +275,8 @@ export class EntitiesWorkspace {
     }
     this.loadTasks();
     this.clampLayer();
+    this.chooseStampPiece();
+    this.showTray();
     byId('stage').classList.toggle('frozen', store.solving);
     byId('stage').dataset.frozen = store.solving ? '1' : '0';
     this.list.render();
@@ -250,7 +289,9 @@ export class EntitiesWorkspace {
 
   private selectionChanged(): void {
     this.state.box = null;
+    this.stampAt = null;
     this.clampLayer();
+    this.showTray();
     this.list.render();
     this.renderInspector();
     this.card.render();
@@ -336,6 +377,7 @@ export class EntitiesWorkspace {
           ? this.cells.layerCells
           : new Map([...this.cells.all].filter(([, v]) => plane.crl(v.at)[2] === st.layer));
       const own = hex(shapeColour(shape.colour, store.indexOf(shape.id)));
+      const reply = this.onTray ? this.trays.reply : null;
       return {
         grid: snap.grid,
         geo,
@@ -344,6 +386,15 @@ export class EntitiesWorkspace {
         cells,
         shapeColour: own,
         palette: new Map(snap.colours.map((c) => [c.id, c.rgb])),
+        // a tray's tiles; its marks while a start or goal is placed (grideditor.cpp)
+        tray: !this.onTray
+          ? null
+          : {
+              marks:
+                reply !== null && this.card.stamping
+                  ? marksOf(reply, st.tray === 'goal', snap.shapes)
+                  : new Map(),
+            },
       };
     };
     if (k === this.geoKey && this.geo !== null) {
@@ -492,7 +543,8 @@ export class EntitiesWorkspace {
   }
 
   private setPlane(p: Plane): void {
-    if (p !== 'XY' && !isCube(this.store.snapshot?.grid)) {
+    const grid = this.store.snapshot?.grid;
+    if (p !== 'XY' && (!isCube(grid) || grid === 'sliding')) {
       return;
     }
     this.state.plane = p;
@@ -581,6 +633,149 @@ export class EntitiesWorkspace {
     }
   }
 
+  // ---- a sliding puzzle's start/goal shape ----
+
+  /** Whether the shape shown is a sliding start/goal shape. */
+  private get onTray(): boolean {
+    return this.store.snapshot?.grid === 'sliding' && isTray(this.store.shape);
+  }
+
+  // reads the tray shown at this revision (or forgets it)
+  private showTray(): void {
+    const store = this.store;
+    this.trays.show(
+      this.onTray ? store.selected : null,
+      store.generation,
+      store.snapshot?.revision ?? 0,
+    );
+    this.renderValidity();
+  }
+
+  // the piece to place: the one chosen while it is a piece, else the first
+  private chooseStampPiece(): void {
+    const pieces = stampPieces(this.store.snapshot?.shapes ?? []);
+    if (!pieces.some((p) => p.id === this.state.stampPiece)) {
+      this.state.stampPiece = pieces[0]?.id ?? null;
+    }
+  }
+
+  // the engine answered what the tray holds
+  private trayRead(): void {
+    this.card.renderTray();
+    this.showGrid();
+    this.renderValidity();
+    this.view.setTray(this.trayModel());
+    this.refreshStamp();
+  }
+
+  // Walls, Start or Goal chosen, or another piece
+  private trayModeChanged(): void {
+    this.card.render();
+    this.showGrid();
+    this.grid.refreshHover();
+    this.refreshStamp();
+  }
+
+  /** What the view's two trays show (null: the shape shown is no tray, or not read yet). */
+  private trayModel(): {
+    starts: Map<string, [number, number][]>;
+    goals: Map<string, [number, number][]>;
+  } | null {
+    const r = this.onTray ? this.trays.reply : null;
+    return r === null ? null : { starts: stampsOf(r, false), goals: stampsOf(r, true) };
+  }
+
+  // the validity bar under the view (refreshSlideValid)
+  private renderValidity(): void {
+    const el = byId('slideValid');
+    const r = this.onTray ? this.trays.reply : null;
+    if (r === null) {
+      el.classList.remove('show');
+      el.textContent = '';
+      delete el.dataset.valid;
+      return;
+    }
+    const v = validity(r.error);
+    el.textContent = v.text;
+    el.classList.add('show');
+    el.classList.toggle('bad', !v.valid);
+    el.dataset.valid = v.valid ? '1' : '0';
+  }
+
+  // the outline of the piece to place under the mouse (sliding.preview)
+  private stampHover(cell: Cell | null): void {
+    this.stampAt = cell;
+    const tray = this.store.selected;
+    const piece = this.state.stampPiece;
+    const n = ++this.stampLoads;
+    if (cell === null || tray === null || piece === null || !this.card.stamping) {
+      this.grid.setStamp(null);
+      return;
+    }
+    this.store.engine
+      .call(
+        'sliding.preview',
+        { tray, piece, at: [cell[0], cell[1]], goal: this.state.tray === 'goal' },
+        { coalesce: 'sliding.preview' },
+      )
+      .then(
+        (p) => {
+          if (n === this.stampLoads) {
+            this.grid.setStamp({ cells: p.cells, colour: outlineColour(p) });
+            if (p.why !== null) {
+              setCursor(p.why);
+            }
+          }
+        },
+        (e: unknown) => {
+          if (n === this.stampLoads) {
+            this.grid.setStamp(null);
+            reportError(e, 'The piece could not be shown');
+          }
+        },
+      );
+  }
+
+  private refreshStamp(): void {
+    this.stampHover(this.stampAt);
+  }
+
+  // a click on the tray: the chosen piece placed (or taken off where it
+  // is), a right click takes off the piece under the mouse
+  private async stampClick(cell: Cell, right: boolean): Promise<void> {
+    const tray = this.store.selected;
+    const st = this.state;
+    if (tray === null || this.refuse()) {
+      return;
+    }
+    const goal = st.tray === 'goal';
+    const at: [number, number] = [cell[0], cell[1]];
+    const piece = st.stampPiece;
+    if (!right && piece === null) {
+      flash('Choose a piece in the list first', 4000);
+      return;
+    }
+    const e = this.store.engine;
+    this.setBusy(1);
+    try {
+      const r =
+        right || piece === null
+          ? await e.call('sliding.clearAt', { tray, at, goal })
+          : await e.call('sliding.place', { tray, piece, at, goal });
+      await this.store.whenRevision(r.revision);
+    } catch (err) {
+      // the original put the reason in the status line
+      if (err instanceof EngineError && err.errc === 'invalid_argument') {
+        flash(err.detail, 5000);
+      } else {
+        reportError(err, goal ? 'The goal could not be placed' : 'The start could not be placed');
+      }
+    } finally {
+      this.setBusy(-1);
+      this.refreshStamp();
+    }
+  }
+
   // ---- keys ----
 
   private installKeys(): void {
@@ -592,6 +787,9 @@ export class EntitiesWorkspace {
         onKey(action, () => {
           if (!inEntities()) {
             return false;
+          }
+          if (t.id === 'paint' && this.store.snapshot?.grid === 'sliding') {
+            return true;
           }
           st.tool = t.id;
           st.boxMode = false;

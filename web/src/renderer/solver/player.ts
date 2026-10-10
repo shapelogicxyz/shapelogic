@@ -428,6 +428,7 @@ export class Player {
     const model: SolutionModel = {
       key: `${String(this.generation)}:${this.problem ?? ''}:${this.row?.id ?? ''}:${kind}:${String(n)}`,
       extent,
+      result: this.host.detail()?.result ?? null,
       pieces: numbers.map((piece, i) => {
         const p = byPiece.get(piece);
         return {

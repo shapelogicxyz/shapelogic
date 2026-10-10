@@ -27,8 +27,10 @@ security checklist, audited before the first release. The deferred
 features (docs/DEFERRED-PLAN.md): part 1, sliding puzzles in the core, the
 engine and `bt` (the start/goal model, the slide search, sliding solves
 through the solve session, routes in the playback, the `sliding.*`
-methods, decision 0014). Next: part 1's audit, then the sliding front end
-(part 2).*
+methods, decision 0014), audited; part 2, the sliding front end (the
+start/goal editor, the sliding solver options, the trays and the walls in
+3D, the notices, New offering the sliding grid; docs/webui-spec.md section
+8). Next: part 3, stacking and Panex in the core, the engine and `bt`.*
 
 ## Big picture
 
@@ -1203,6 +1205,45 @@ What exists after stage 8:
     Tree as the engine prunes; `dragDirection`, the direction an Alt-drag
     asks for; DOM-free), `debug-stats.ts` (the debug panel's report: the
     original's `formatReport`, idle rows and analysis notes; DOM-free).
+  - Sliding puzzles (deferred part 2, docs/webui-spec.md section 8, the
+    original GUI's sliding branches): `entities/tray.ts` (`TrayState`:
+    `sliding.tray` of the start/goal shape shown, read again at each
+    revision; the marks in the pieces' colours, the stamps per piece, the
+    outline's colours of `drawStampPreview`, the validity bar's words;
+    DOM-free); the editor card's **Tray edit** switch on a start/goal
+    shape (Walls: the ordinary tools, floor, corridor, wall; Start and
+    Goal: the piece list with the chosen piece drawn flat, the grid's
+    marked cells in the pieces' colours, the piece outlined under the
+    mouse from `sliding.preview`, a click `sliding.place`, a right click
+    `sliding.clearAt`, a refusal's reason in the status bar; the switch
+    green or red with the validity), no Paint tool or palette and the Z
+    size and the XZ/YZ planes off on sliding puzzles (`EditorState.tray`,
+    `stampPiece`; `GridInput.tray`, the grid's stamping host calls);
+    the shapes list's "(START/GOAL n)" rows with their black chips and
+    the New/Delete Start/Goal Positions row (`#sgRow`, `sliding.addStartGoal`
+    of the selected shape's size), the tray's Delete and colour greyed;
+    the validity bar under the view (`#slideValid`); `view3d/trays.ts`
+    (`TrayView`: the GOAL tray and the pieces standing on both trays as
+    the original's `showSingleShape`, through a `SolutionScene` in the
+    view's model group, the frame widened to both, the START and GOAL
+    titles); `view3d/walls.ts` (`wallOutline`, `wallSegments`: the
+    original's `buildSlidingWalls`, drawn by `SolutionScene.setWalls`
+    around the player's result, `SolutionModel.result`); the colours of
+    a tray (`piece-colours.ts`: `TRAY_LIST`, `TRAY_VIEW`, `TRAY_EDIT`,
+    `chipColour`, `viewColour`, `isTray`); the Puzzle's sliding rules (no
+    New, Copy or Delete problem, no Change…, no groups or colour rules, a
+    `Part.required` piece's count locked); the Solver's sliding options
+    (`settings.ts`: `nestedSlides`, `partialNested`, `highMemory`,
+    `slidingSolver`, `DEFAULT_SLIDING` with Find Solutions checked,
+    `normalize`'s sliding rules, `SolveOptions.sliding`; `shortCount`,
+    `slidingActivity` for the Activity line), Solve greyed while the
+    tray is invalid (`SolverWorkspace.slideError`), the solver's note in
+    a message box when a run is through (`tellNote`, also after an
+    autosave's continue), Movements and Analyse not offered on a grid
+    without a take-apart; the notices (`Store.onNotice`:
+    `document.changed.notice` and an opened file's `Snapshot.notice`) in
+    message boxes (`dialog.ts`'s `tell`, one at a time); File ▸ New's
+    grids in the original's order (`shell/files-order.ts`).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them; `solver-end` and
@@ -1333,7 +1374,20 @@ engine's version, the development switches and Node's overrides ignored,
 the page on the app's scheme, sandboxed, with its CSP, a script and an
 image from `file:` refused by Chromium itself, no file outside the
 renderer read and nothing remote, a path no dialog gave refused, a
-fixture from the command line solved with bt's counts).
+fixture from the command line solved with bt's counts). Deferred part 2:
+`tests/unit/renderer/sliding.test.ts` (the sliding options over the
+stored settings, their rules and `SolveOptions.sliding`, the Activity
+line's counts, the tray's marks and stamps, the outline's colours, the
+validity's words, New's order, the walls' outline and segments) and
+`tests/e2e/sliding.e2e.ts` (the 81-move puzzle built from File ▸ New:
+the start/goal shape, the pieces drawn and duplicated, every start and
+the goal stamped, a refusal with the engine's reason, `sliding.tray` and
+the problem equal to the fixture's; solved by the fast, deep and full
+solvers with `bt --json`'s counts and moves, the problem then the
+fixture's; played with the walls drawn, every whole step's poses the
+engine's; the nested fixture with and without nested slides and a
+partially nested pocket as `bt`; the notices; reference screenshots of
+the tray in Walls, Start and Goal, the two trays and the walls).
 
 ## Testing against the original
 

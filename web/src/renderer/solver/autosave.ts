@@ -39,13 +39,21 @@ export class Autosave {
   private readonly every = interval();
   /** When the solves under way started or were last saved. */
   private since: number | null = null;
+  /** A solve paused for the save was continued (the workspace waits for its end again). */
+  private readonly continued: (problem: string) => void;
   private saving = false;
   private toldNoFile = false;
 
-  constructor(store: Store, solves: Solves, optionsOf: (problem: string) => SolveOptions) {
+  constructor(
+    store: Store,
+    solves: Solves,
+    optionsOf: (problem: string) => SolveOptions,
+    continued: (problem: string) => void = () => undefined,
+  ) {
     this.store = store;
     this.solves = solves;
     this.optionsOf = optionsOf;
+    this.continued = continued;
     window.setInterval(
       () => {
         this.tick();
@@ -181,6 +189,7 @@ export class Autosave {
           try {
             await e.call('solve.continue', { problem: p, options });
             this.solves.launch(p, options.solver ?? null);
+            this.continued(p);
           } catch (x) {
             reportError(x, 'Continue');
           }

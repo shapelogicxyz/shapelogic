@@ -29,7 +29,7 @@ import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
-import { contrast, hex, shapeColour } from '../shell/piece-colours.ts';
+import { chipColour, contrast, hex } from '../shell/piece-colours.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { nextCount, nextGroup, partOf, PROBLEM_CHIP, solveActive } from './counts.ts';
@@ -128,7 +128,7 @@ export class PuzzleWorkspace {
   /** A shape's chip colours. */
   chip(shape: string): { bg: string; fg: string } {
     const i = this.store.indexOf(shape);
-    const c = shapeColour(this.store.snapshot?.shapes[i]?.colour ?? null, i);
+    const c = chipColour(this.store.snapshot?.shapes[i], i);
     return { bg: hex(c), fg: contrast(c) };
   }
 

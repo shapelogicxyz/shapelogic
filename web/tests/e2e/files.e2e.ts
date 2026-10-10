@@ -181,13 +181,17 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
       page,
       'engine.info',
     );
-    // sliding is solved, but offered once its start/goal editor is built
-    const grids = info.grids.filter((g) => g.supported && g.grid !== 'sliding');
-    expect(grids.length).toBe(5);
-    expect(info.grids.find((g) => g.grid === 'sliding')?.supported).toBe(true);
+    // every grid this version solves, sliding second (the original's order)
+    const grids = info.grids.filter((g) => g.supported);
+    expect(grids.length).toBe(6);
     // Cancel keeps the puzzle
     await openFixture(page, 'Bermuda.xmpuzzle');
     await menu(page, 'new');
+    expect(
+      await page
+        .locator('#newPuzzle [data-x]')
+        .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.x).filter((x) => x !== '')),
+    ).toEqual(['bricks', 'sliding', 'prisms', 'spheres', 'rhombic', 'tetraOcta']);
     for (const g of grids) {
       await expect(page.locator(`#newPuzzle [data-x="${g.grid}"]`)).toHaveText(g.label);
     }

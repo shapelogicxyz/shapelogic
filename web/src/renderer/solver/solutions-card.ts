@@ -322,17 +322,20 @@ export class SolutionsCard {
     }
     if (row.disassembly !== 'tree') {
       const insep = ws.inseparable(row.id);
-      const txt = insep
-        ? 'This assembly cannot be taken apart.'
-        : row.disassembly === 'summary'
-          ? 'Only the level was kept for this solution — the moves were not stored.'
-          : ws.options.disassemble
-            ? 'No disassembly stored.'
-            : 'Disassembly was not checked for this assembly.';
+      const txt = ws.sliding
+        ? // a start layout kept without its path to the goal (Find Solutions off)
+          'Find Solutions was not checked: no path to the goal was searched for this start.'
+        : insep
+          ? 'This assembly cannot be taken apart.'
+          : row.disassembly === 'summary'
+            ? 'Only the level was kept for this solution — the moves were not stored.'
+            : ws.options.disassemble
+              ? 'No disassembly stored.'
+              : 'Disassembly was not checked for this assembly.';
       setHtml(
         el,
         head() +
-          `<div class="msg"><span>${txt}</span>${insep ? '' : `<button class="btn sm" data-a="analyse" ${ws.analysing || ws.running ? 'disabled' : ''}>Analyse disassembly</button>`}</div>`,
+          `<div class="msg"><span>${txt}</span>${insep || ws.sliding ? '' : `<button class="btn sm" data-a="analyse" ${ws.analysing || ws.running ? 'disabled' : ''}>Analyse disassembly</button>`}</div>`,
       );
       return;
     }
@@ -506,7 +509,8 @@ export class SolutionsCard {
       this.menuOpen = true;
       openPop(
         b,
-        MENU,
+        // a sliding puzzle has no take-apart to analyse (its paths are the slide search's)
+        ws.sliding ? MENU.replace(/<button data-k="ad[cam]">.*?<\/button>/g, '') : MENU,
         (k) => {
           this.menuOpen = false;
           this.preview(null);

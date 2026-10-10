@@ -58,6 +58,8 @@ export class Store {
   wantedSettings: () => Partial<Settings> = () => ({});
   /** Problems the store met (calls that failed), for the status bar. */
   private readonly errorHandlers = new Set<(e: unknown) => void>();
+  /** What a change or an opened file did beyond what was asked (the original's message boxes). */
+  private readonly noticeHandlers = new Set<(text: string) => void>();
   private readonly listeners = new Set<(c: StoreChange) => void>();
   private restarts = -1;
   private infoLoads = 0;
@@ -72,6 +74,9 @@ export class Store {
     });
     engine.on('document.changed', (p) => {
       this.emit({ kind: 'changed', change: p });
+      if (p.notice !== undefined) {
+        this.notice(p.notice);
+      }
       this.reloadSnapshot();
     });
     if (engine.status !== null) {
@@ -92,6 +97,18 @@ export class Store {
     this.errorHandlers.add(handler);
     return () => {
       this.errorHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Listens to notices: what a change did beyond what was asked
+   * (`document.changed.notice`) or what opening a file changed
+   * (`Snapshot.notice`), to tell the user. Returns the unsubscribe.
+   */
+  onNotice(handler: (text: string) => void): () => void {
+    this.noticeHandlers.add(handler);
+    return () => {
+      this.noticeHandlers.delete(handler);
     };
   }
 
@@ -194,6 +211,19 @@ export class Store {
     this.generation++;
     this.selected = null;
     this.setSnapshot(snap, false);
+    if (snap.notice !== undefined) {
+      this.notice(snap.notice);
+    }
+  }
+
+  private notice(text: string): void {
+    for (const h of [...this.noticeHandlers]) {
+      try {
+        h(text);
+      } catch (e) {
+        console.error('store: a notice handler threw', e);
+      }
+    }
   }
 
   /** Changes engine settings (undo depth, threads); the store mirrors the answer. */

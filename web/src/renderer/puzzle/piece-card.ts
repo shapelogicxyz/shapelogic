@@ -50,14 +50,22 @@ export class PieceCard {
     const range = ws.isRange(x.id);
     const min = part?.min ?? 0;
     const max = part?.max ?? 0;
+    // a sliding piece a start or goal needs keeps its count (Part.required)
+    const req = part?.required ?? false;
+    const off = (tip: string): string =>
+      req
+        ? 'disabled title="Its start or goal on the start/goal shape needs exactly this piece"'
+        : `title="${tip}"`;
     const stp = (fld: string, v: number, lab?: string): string =>
-      `<div class="step sz ${lab !== undefined ? 'inl' : ''}"><button data-sf="${fld}" data-d="-1" title="Decrease">${ic('minus', 12)}</button>${lab !== undefined ? `<span class="il">${lab}</span>` : ''}<input class="v" data-sf="${fld}" value="${String(v)}" aria-label="${lab ?? 'Copies'}"><button data-sf="${fld}" data-d="1" title="Increase">${ic('plus', 12)}</button></div>`;
+      `<div class="step sz ${lab !== undefined ? 'inl' : ''}"><button data-sf="${fld}" data-d="-1" ${off('Decrease')}>${ic('minus', 12)}</button>${lab !== undefined ? `<span class="il">${lab}</span>` : ''}<input class="v" data-sf="${fld}" value="${String(v)}" aria-label="${lab ?? 'Copies'}" ${req ? 'disabled' : ''}><button data-sf="${fld}" data-d="1" ${off('Increase')}>${ic('plus', 12)}</button></div>`;
+    const sliding = ws.store.snapshot?.grid === 'sliding';
     const c = ws.chip(x.id);
     const count = range
       ? `<div class="lab">Count range</div><div class="rng"><div class="f">${stp('min', min, 'Min')}</div><div class="f">${stp('max', max, 'Max')}</div></div>`
       : `<div class="lab">Copies in the puzzle</div><div class="cnt1"><span class="mute" style="font-size:12px">${max > 0 ? 'Fixed count' : 'Not in this puzzle'}</span>${stp('max', max)}</div>`;
     let group = '';
-    if (part !== undefined) {
+    // a sliding puzzle has no groups (the original greyed Groups out)
+    if (part !== undefined && !sliding) {
       const g = groupOf(part);
       const gs = groupsOf(d)
         .map((n) => {
@@ -74,7 +82,7 @@ export class PieceCard {
     }
     box.innerHTML = `<div class="hd"><span class="chip" style="background:${c.bg};color:${c.fg}">${esc(x.label)}</span><div><b>${esc(x.name) || 'Piece'}</b><span class="m">${String(x.fixed + x.variable)} voxels · ${String(x.fixed)} fixed · ${String(x.variable)} variable</span></div></div>
  ${count}
- <div class="switch ${range ? 'on' : ''}" id="pzRange" role="switch" tabindex="0" aria-checked="${range}" style="margin-top:12px"><span class="tr"></span><span>Allow a range (min–max) instead of a fixed count</span></div>
+ ${req ? '' : `<div class="switch ${range ? 'on' : ''}" id="pzRange" role="switch" tabindex="0" aria-checked="${range}" style="margin-top:12px"><span class="tr"></span><span>Allow a range (min–max) instead of a fixed count</span></div>`}
  ${group}`;
   }
 
@@ -83,7 +91,8 @@ export class PieceCard {
     const ws = this.ws;
     const d = ws.detail;
     const groups = groupsOf(d);
-    byId('pzGroupsSec').style.display = groups.length > 0 ? '' : 'none';
+    byId('pzGroupsSec').style.display =
+      groups.length > 0 && ws.store.snapshot?.grid !== 'sliding' ? '' : 'none';
     byId('pzGroups').innerHTML = groups
       .map((g) => {
         const mem = membersOf(d, g);
@@ -109,7 +118,12 @@ export class PieceCard {
     const sw = (c: Colour, t: string): string =>
       `<span class="sw2" title="${t} ${esc(c.label)}" style="background:${c.rgb}"></span>`;
     const el = byId('pzRules');
-    if (ws.detail === null) {
+    // a sliding puzzle's cell colours are its start marks: no colour rules
+    // (the original hid the Colour Assignment group)
+    const sliding = ws.store.snapshot?.grid === 'sliding';
+    byId('pzRulesHead').style.display = sliding ? 'none' : '';
+    el.style.display = sliding ? 'none' : '';
+    if (ws.detail === null || sliding) {
       el.innerHTML = '';
       return;
     }

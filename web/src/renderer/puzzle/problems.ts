@@ -36,11 +36,22 @@ export class ProblemsList {
     return this.ws.store.snapshot?.problems ?? [];
   }
 
+  /**
+   * A sliding puzzle's problems follow its start/goal shapes: no new,
+   * copied or deleted problem (the original greyed the buttons out; the
+   * engine refuses them).
+   */
+  private get fixed(): boolean {
+    return this.ws.store.snapshot?.grid === 'sliding';
+  }
+
   /** Draws the list unless a rename is under way in it. */
   render(): void {
     const problems = this.problems;
     const cur = this.ws.current;
+    const fixed = this.fixed;
     byId('pzCount').textContent = String(problems.length);
+    byId('pzNew').style.display = fixed ? 'none' : '';
     const i = problems.findIndex((p) => p.id === cur);
     if (i >= 0) {
       this.lastIndex = i;
@@ -53,7 +64,7 @@ export class ProblemsList {
       problems
         .map((q, n) => {
           const busy = solveActive(q.solve) || q.analysing;
-          return `<div class="row" draggable="true" role="option" aria-selected="false" data-id="${q.id}" data-i="${n}" title="Drag the handle to reorder — double-click to rename${busy ? ' — being solved' : ''}"><span class="grip" title="Drag to reorder">${ic('grip', 14)}</span><span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(q.label)}</span><span class="lbl">${esc(q.name)}</span><span class="acts"><button class="ib" data-a="rename" title="Rename">${ic('edit', 14)}</button><button class="ib" data-a="dup" title="Duplicate">${ic('copy', 14)}</button><button class="ib del" data-a="del" title="Delete" ${problems.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button></span></div>`;
+          return `<div class="row" draggable="true" role="option" aria-selected="false" data-id="${q.id}" data-i="${n}" title="Drag the handle to reorder — double-click to rename${busy ? ' — being solved' : ''}"><span class="grip" title="Drag to reorder">${ic('grip', 14)}</span><span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(q.label)}</span><span class="lbl">${esc(q.name)}</span><span class="acts"><button class="ib" data-a="rename" title="Rename">${ic('edit', 14)}</button>${fixed ? '' : `<button class="ib" data-a="dup" title="Duplicate">${ic('copy', 14)}</button><button class="ib del" data-a="del" title="Delete" ${problems.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button>`}</span></div>`;
         })
         .join(''),
     );
@@ -63,7 +74,7 @@ export class ProblemsList {
   // ---- the actions ----
 
   private async create(): Promise<void> {
-    if (this.ws.refuseList()) {
+    if (this.fixed || this.ws.refuseList()) {
       return;
     }
     const r = await this.ws.mutate('New problem', () =>
@@ -83,7 +94,7 @@ export class ProblemsList {
       this.startRename(id);
       return;
     }
-    if (this.ws.refuseList()) {
+    if (this.fixed || this.ws.refuseList()) {
       return;
     }
     const e = this.ws.store.engine;

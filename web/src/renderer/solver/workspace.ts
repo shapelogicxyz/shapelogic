@@ -34,10 +34,12 @@ import { isActive } from '../state/solves.ts';
 import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
 import { askConfirm } from '../shell/confirm.ts';
+import { tell } from '../shell/dialog.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
+import { isTray } from '../shell/piece-colours.ts';
 import { onPrefs } from '../shell/prefs.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
@@ -51,8 +53,10 @@ import { RunCard } from './run-card.ts';
 import {
   DEFAULT_LIMITS,
   DEFAULT_OPTIONS,
+  DEFAULT_SLIDING,
   normalize,
   readOptions,
+  slidingActivity,
   sameOptions,
   solveOptions,
   writeOptions,
@@ -145,13 +149,23 @@ export class SolverWorkspace {
     });
     this.runCard = new RunCard(this);
     this.solCard = new SolutionsCard(this);
-    this.autosave = new Autosave(store, solves, (p) => this.launchOptions(p));
+    this.autosave = new Autosave(
+      store,
+      solves,
+      (p) => this.launchOptions(p),
+      (p) => {
+        // a sliding run carried on after an autosave tells its note at its end too
+        if (this.sliding) {
+          void this.tellNote(p);
+        }
+      },
+    );
     this.explorer = new Explorer({
       store,
       view,
       problem: () => this.current,
       detail: () => this.detail,
-      options: () => solveOptions(this.options, this.limits),
+      options: () => solveOptions(this.options, this.limits, this.sliding),
       solution: () =>
         this.selId !== null && this.player.row?.id === this.selId ? this.player.row : null,
       assemblyReady: () => this.current !== null && this.stateOf(this.current) === 'paused',
@@ -285,6 +299,14 @@ export class SolverWorkspace {
   private get runUnderWay(): boolean {
     const r = this.record;
     return r !== null && (r.phase !== 'none' || r.launched);
+  }
+
+  /** Why a sliding problem's start/goal shape cannot be solved yet (null: it can, or no sliding problem). */
+  slideError: string | null = null;
+
+  /** Whether the puzzle is a sliding one (its own options, decision 0014). */
+  get sliding(): boolean {
+    return this.store.snapshot?.grid === 'sliding';
   }
 
   /** Whether this version solves the problem shown (stacking: not yet). */
@@ -434,7 +456,8 @@ export class SolverWorkspace {
       return 'analysing disassemblies';
     }
     if (r !== null && r.phase !== 'none' && r.progress !== null) {
-      return r.progress.activity;
+      const g = r.progress;
+      return g.stage === 'search' ? slidingActivity(g.searched, g.searchDepth) : g.activity;
     }
     if (r?.failure !== null && r?.failure !== undefined && this.stateOf(r.problem) === 'error') {
       return 'error';
@@ -497,12 +520,22 @@ export class SolverWorkspace {
       this.loaded(n, revision, null, null);
       return;
     }
+    // a sliding problem's start/goal shape: whether Solve can start (its validity bar)
+    const result = snap.problems.find((q) => q.id === id)?.result ?? null;
+    const tray =
+      snap.grid === 'sliding' && result !== null && isTray(snap.shapes.find((x) => x.id === result))
+        ? result
+        : null;
     Promise.all([
       store.engine.call('problem.get', { problem: id }, { coalesce: 'solver:problem.get' }),
       this.kindOf(id),
+      tray === null
+        ? Promise.resolve(null)
+        : store.engine.call('sliding.tray', { tray }, { coalesce: 'solver:sliding.tray' }),
     ]).then(
-      ([d, k]) => {
+      ([d, k, t]) => {
         if (id === this.current) {
+          this.slideError = t?.error ?? null;
           this.loaded(n, revision, d, k);
         }
       },
@@ -549,7 +582,7 @@ export class SolverWorkspace {
     this.shown = revision;
     // the stored options, unless the problem's are being changed here
     if (d !== null && (before?.id !== d.id || !this.editingOptions)) {
-      this.options = readOptions(d.solverSettings);
+      this.options = readOptions(d.solverSettings, undefined, this.sliding);
     }
     if (d !== null) {
       this.autosave.want(d.id, this.options.autosave);
@@ -721,7 +754,7 @@ export class SolverWorkspace {
       this.render();
       return;
     }
-    const next = normalize({ ...this.options, ...change }, box).options;
+    const next = normalize({ ...this.options, ...change }, box, this.sliding).options;
     if (sameOptions(next, this.options)) {
       this.render();
       return;
@@ -735,7 +768,7 @@ export class SolverWorkspace {
         () =>
           this.store.engine.call('problem.setSolverSettings', {
             problem,
-            settings: writeOptions(next, d.solverSettings),
+            settings: writeOptions(next, d.solverSettings, this.sliding),
           }),
         (r) => this.whenShown(r),
       );
@@ -743,9 +776,32 @@ export class SolverWorkspace {
       this.editingOptions = false;
     }
     if (this.detail !== null) {
-      this.options = readOptions(this.detail.solverSettings);
+      this.options = readOptions(this.detail.solverSettings, undefined, this.sliding);
     }
     this.render();
+  }
+
+  /**
+   * A sliding run's note when it is through (the original's bt_message of
+   * the solver note): whether a missing solution is proven or the search
+   * gave up at a limit. Not for a pause to autosave, which carries on.
+   */
+  private async tellNote(problem: string): Promise<void> {
+    const gen = this.store.generation;
+    await this.solves.whenEnded(problem);
+    if (gen !== this.store.generation || this.autosave.busy) {
+      return;
+    }
+    try {
+      const st = await this.store.engine.call('solve.status', { problem });
+      if (st.note !== null && gen === this.store.generation) {
+        tell(st.note);
+      }
+    } catch (e) {
+      if (!(e instanceof EngineError) || e.errc !== 'not_found') {
+        reportError(e, 'The solver’s note could not be read');
+      }
+    }
   }
 
   /** Keep at most / keep every n-th (not stored, as the original's). */
@@ -761,7 +817,11 @@ export class SolverWorkspace {
   launchOptions(problem: string): ReturnType<typeof solveOptions> {
     return (
       this.launched.get(problem) ??
-      solveOptions(problem === this.current ? this.options : DEFAULT_OPTIONS, this.limits)
+      solveOptions(
+        problem === this.current ? this.options : this.sliding ? DEFAULT_SLIDING : DEFAULT_OPTIONS,
+        this.limits,
+        this.sliding,
+      )
     );
   }
 
@@ -777,7 +837,7 @@ export class SolverWorkspace {
       flash('This version does not solve stacking puzzles yet', 4000);
       return;
     }
-    const options = solveOptions(this.options, this.limits);
+    const options = solveOptions(this.options, this.limits, this.sliding);
     const solver: Solver = options.solver ?? 'classic';
     const method =
       kind === 'start' ? 'solve.start' : kind === 'prepare' ? 'solve.prepare' : 'solve.continue';
@@ -795,6 +855,9 @@ export class SolverWorkspace {
           // before the run's events (decision 0012: the reply first)
           this.solves.launch(problem, solver);
           this.launched.set(problem, options);
+          if (this.sliding) {
+            void this.tellNote(problem);
+          }
           return r;
         }),
       );

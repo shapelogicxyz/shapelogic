@@ -12,7 +12,12 @@
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
 // (mainwindow_layout.cpp) where the mockup had none: Solve, Pause, Abort,
-// Check Rotations, Strict Colours, the solver type, Autosave.
+// Check Rotations, Strict Colours, the solver type, Autosave. A sliding
+// puzzle (docs/webui-spec.md, section 8.3) shows the original's sliding
+// boxes and solvers instead (mainwindow_layout.cpp's tooltips,
+// mainwindow_help.cpp's solver help), "Find Solutions" for the second
+// mode, and Solve greyed while its start/goal shape is not valid
+// (mainwindow.cpp's Solve tooltip).
 
 import { isActive } from '../state/solves.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
@@ -43,9 +48,19 @@ const TIP: Record<BoxName, string> = {
   deepSymmetry: 'More thorough, slower check for duplicate (rotated) solutions.',
   strictColors:
     'A voxel with a colour fits only a result voxel of that same colour, not a neutral one; a voxel with no colour fits only a result voxel that also has none.',
+  nestedSlides:
+    'A piece may slide together with the pieces nested inside its outline, such as a piece in another piece’s pocket. Pieces that only touch never slide together.',
+  partialNested:
+    'With Allow Nested Slides: a piece may also slide together with a piece that sits partly in its outline, such as a piece in another piece’s pocket that sticks out of it. Pieces that only touch never slide together.',
+  highMemory:
+    'Let a sliding search hold up to half of this computer’s memory in arrangements, instead of stopping at about 2 GB. The Sliding Full Solver keeps older moves on disk and needs memory only for the widest move.',
   autosave:
     'Twenty minutes into a solve and every twenty minutes after, the solve pauses where it can be saved, the puzzle is saved to its file, and the solve carries on.',
 };
+
+/** The sliding solvers' help (mainwindow_help.cpp, its first lines). */
+const SLIDING_SOLVER_TIP =
+  'Each start is searched for the fewest moves to the goal. Fast looks at up to 250,000 arrangements per start, Deep up to 1,000,000; Full has no limit: it either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
 
 const LABEL: Record<BoxName, string> = {
   disassemble: 'Assemblies and disassembly',
@@ -56,6 +71,9 @@ const LABEL: Record<BoxName, string> = {
   keepRotations: 'Keep rotated solutions',
   deepSymmetry: 'Thorough rotation check',
   strictColors: 'Strict colours',
+  nestedSlides: 'Allow Nested Slides',
+  partialNested: 'Allow Partially Nested',
+  highMemory: 'Enable High Memory',
   autosave: 'Autosave every 20 min',
 };
 
@@ -104,8 +122,16 @@ export class RunCard {
   private renderMode(): void {
     const ws = this.ws;
     const o = ws.options;
-    const { disabled } = normalize(o, null);
+    const { disabled } = normalize(o, null, ws.sliding);
     const dis = o.disassemble;
+    if (ws.sliding) {
+      // the second mode is Find Solutions (updateSolverOptionCheckboxes)
+      setHtml(
+        byId('slvMode'),
+        `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm"><i class="rd"></i><div><b>Assemblies</b><span class="d">Find the start layouts: every way the pieces fit their starts.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Find Solutions</b><span class="d">Keep a placement only when each marked piece can slide from its start cell to its goal cell.</span></div></button>`,
+      );
+      return;
+    }
     const sw = (k: BoxName): string =>
       `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
     setHtml(
@@ -121,7 +147,7 @@ export class RunCard {
     const ws = this.ws;
     const o = ws.options;
     const lim = ws.limits;
-    const { disabled } = normalize(o, null);
+    const { disabled } = normalize(o, null, ws.sliding);
     const sw = (k: BoxName): string =>
       `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
     const changed = [
@@ -133,6 +159,10 @@ export class RunCard {
       o.solver !== DEFAULT_OPTIONS.solver,
       o.sortBy !== DEFAULT_OPTIONS.sortBy,
       o.autosave !== DEFAULT_OPTIONS.autosave,
+      ws.sliding && o.nestedSlides,
+      ws.sliding && o.partialNested,
+      ws.sliding && o.highMemory,
+      ws.sliding && o.slidingSolver !== DEFAULT_OPTIONS.slidingSolver,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
       lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
     ].filter(Boolean).length;
@@ -146,6 +176,26 @@ export class RunCard {
       { solver: 'classic' as const, label: 'BurrTools Classic' },
     ];
     const sort = effectiveSort(o);
+    const limits =
+      `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1">${ic('plus', 12)}</button></div></div>` +
+      `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10">${ic('plus', 12)}</button></div></div>`;
+    if (ws.sliding) {
+      // the sliding boxes in the places of the symmetry options, its solvers
+      const sliders = ws.store.info?.slidingSolvers ?? [
+        { solver: 'full' as const, label: 'Sliding Full Solver (full depth)' },
+      ];
+      setHtml(
+        opts,
+        sw('justCount') +
+          sw('nestedSlides') +
+          sw('partialNested') +
+          sw('highMemory') +
+          `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
+          limits +
+          sw('autosave'),
+      );
+      return;
+    }
     setHtml(
       opts,
       sw('justCount') +
@@ -155,8 +205,7 @@ export class RunCard {
         sw('strictColors') +
         `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: BurrTools Classic, Andrew Crowell’s or BurrTools 2 (its own assembly search too).</small></div><select data-o="solver">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
         `<div class="row2 wrap"><div class="t">Sort found solutions by<small>Order the solver keeps them in${o.disassemble ? '' : ' — moves, level and rotations need the disassembly check'}</small></div><select data-o="sortBy">${SORT_CHOICES.map((c) => `<option value="${c.value}" ${sort === c.value ? 'selected' : ''} ${c.needsDisassembly && !o.disassemble ? 'disabled' : ''}>${c.label}${c.needsDisassembly && !o.disassemble ? ' (needs disassembly)' : ''}</option>`).join('')}</select></div>` +
-        `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1">${ic('plus', 12)}</button></div></div>` +
-        `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10">${ic('plus', 12)}</button></div></div>` +
+        limits +
         sw('autosave'),
     );
   }
@@ -168,7 +217,9 @@ export class RunCard {
     const p = ws.problem;
     const s = ws.current === null ? 'idle' : ws.stateOf(ws.current);
     const busy = ws.calling || ws.running || ws.analysing;
-    const can = p !== null && ws.supported && p.result !== null;
+    // a sliding puzzle whose start/goal shape is not valid (Solve's tooltip in the original)
+    const why = ws.slideError;
+    const can = p !== null && ws.supported && p.result !== null && why === null;
     const canStart = can && !busy;
     const canCont = canStart && (s === 'paused' || p.state === 'solving');
     const canPause =
@@ -192,7 +243,9 @@ export class RunCard {
           'start',
           'Solve',
           canStart,
-          'Run the search from the start, removing old results',
+          why === null
+            ? 'Run the search from the start, removing old results'
+            : esc(`Fix the start and goal on the Entities tab first: ${why}`),
           true,
         ) +
         btn('continue', 'Continue', canCont, 'Resume a paused search') +
@@ -285,6 +338,8 @@ export class RunCard {
       const t = e.target as HTMLInputElement | HTMLSelectElement;
       if (t.dataset.o === 'solver') {
         void ws.setOption({ solver: t.value as SearchOptions['solver'] });
+      } else if (t.dataset.o === 'slidingSolver') {
+        void ws.setOption({ slidingSolver: t.value as SearchOptions['slidingSolver'] });
       } else if (t.dataset.o === 'sortBy') {
         void ws.setOption({ sortBy: t.value as SearchOptions['sortBy'] });
       } else if (t.dataset.sti !== undefined) {

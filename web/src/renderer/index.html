@@ -49,6 +49,7 @@
                 </button>
                 <button class="ib" data-collapse="L" title="Collapse sidebar"></button>
               </div>
+              <div class="sgrow" id="sgRow"></div>
               <div
                 class="shapes"
                 id="shapeList"
@@ -210,6 +211,8 @@
                 <div id="navHint">Drag orbit · Shift/middle-drag pan · Wheel zoom</div>
               </div>
               <div class="empty" id="emptyMsg"></div>
+              <div class="slidevalid ent-only" id="slideValid" role="status"></div>
+              <div class="traytags ent-only" id="trayTags"></div>
               <div class="pzscene" id="pzScene"></div>
             </div>
           </section>
@@ -222,6 +225,8 @@
                 <button class="ib" id="btnF2D" title="Focus 2D editor (Esc to exit)"></button>
                 <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
               </div>
+              <div class="trayrow" id="trayRow"></div>
+              <div class="stamprow" id="stampRow"></div>
               <div class="tools" id="toolStrip"></div>
               <div class="mrow" id="modRow"></div>
               <div class="subbar">
@@ -270,7 +275,7 @@
                 <div class="pzh">Exclusive groups</div>
                 <div id="pzGroups" style="padding-top: 10px"></div>
               </div>
-              <div class="pzh">Colour rules</div>
+              <div class="pzh" id="pzRulesHead">Colour rules</div>
               <div class="pzr" id="pzRules"></div>
             </div>
           </section>

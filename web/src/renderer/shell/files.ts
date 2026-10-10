@@ -15,6 +15,7 @@
 
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
+import { newOrder } from './files-order.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';
 import { askChoice, dialogOpen, openDialog } from './dialog.ts';
@@ -140,10 +141,11 @@ export class Files {
         return;
       }
     }
-    // the grids this version solves; sliding waits for the start/goal editor
-    // (the deferred plan's part 2), without which a new sliding puzzle could
-    // be given no start or goal
-    const grids = info.grids.filter((g) => g.supported && g.grid !== 'sliding');
+    // the grids this version solves, sliding second as in the original's
+    // grid selector (gridtypegui.cpp: Brick, Sliding, then the others)
+    const grids = info.grids
+      .filter((g) => g.supported)
+      .sort((a, b) => newOrder(a.grid) - newOrder(b.grid));
     const k = await openDialog({
       id: 'newPuzzle',
       title: 'New puzzle',

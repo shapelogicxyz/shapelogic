@@ -14,7 +14,8 @@
 // away fades (the setting) through its opacity. From docs/mockup/index.html:
 // `renderSolverScene` (what is drawn, the two passes); the drawing is
 // three.js over the engine's meshes (mesh.ts, material.ts), as the other
-// scenes'.
+// scenes'. A sliding puzzle's tray has its walls drawn around its floor
+// (walls.ts).
 
 import { Box3, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
 import type { Raycaster } from 'three';
@@ -48,6 +49,8 @@ export interface SolutionModel {
   /** The result's extent in mesh units (the view is framed on it). */
   extent: [number, number, number];
   pieces: ScenePiece[];
+  /** The result shape's id (a sliding puzzle's tray: its walls are drawn); absent for none. */
+  result?: string | null;
 }
 
 /** Where a piece is: translation, rotation (xyzw), shown, opacity. */
@@ -83,6 +86,9 @@ export class SolutionScene {
   private readonly shared: FaceUniforms = faceUniforms();
   private readonly markMaterial = new MeshBasicMaterial({ color: 0x000000 });
   private readonly edgeMaterial = new LineMaterial({ color: 0x000000, linewidth: 2 });
+  /** The walls' lines (drawSlidingWalls: black, 5 pixels). */
+  private readonly wallMaterial = new LineMaterial({ color: 0x000000, linewidth: 5 });
+  private walls: LineSegments2 | null = null;
   private draws: PieceDraw[] = [];
   private look: SolutionLook = {
     style: 'drawing',
@@ -95,6 +101,29 @@ export class SolutionScene {
 
   constructor() {
     this.edgeMaterial.resolution = new Vector2(1, 1);
+    this.wallMaterial.resolution = new Vector2(1, 1);
+  }
+
+  /** A sliding tray's walls: line segments (x,y,z pairs) in the scene's frame; null: none. */
+  setWalls(segments: Float32Array | null): void {
+    if (this.walls !== null) {
+      this.group.remove(this.walls);
+      this.walls.geometry.dispose();
+      this.walls = null;
+    }
+    if (segments === null || segments.length === 0) {
+      return;
+    }
+    this.walls = new LineSegments2(
+      new LineSegmentsGeometry().setPositions(segments),
+      this.wallMaterial,
+    );
+    this.group.add(this.walls);
+  }
+
+  /** How many wall segments are drawn (the e2e tests read it). */
+  get wallCount(): number {
+    return this.walls === null ? 0 : (this.walls.geometry.attributes.instanceStart?.count ?? 0);
   }
 
   /** Shows a model (null: nothing); the meshes belong to the caller. */
@@ -171,6 +200,7 @@ export class SolutionScene {
   /** The viewport's size in pixels, for the lines' widths. */
   setResolution(w: number, h: number): void {
     this.edgeMaterial.resolution.set(w, h);
+    this.wallMaterial.resolution.set(w, h);
   }
 
   /** The piece a ray meets first (its faces, shown; null: none). */
@@ -264,6 +294,8 @@ export class SolutionScene {
 
   dispose(): void {
     this.clear();
+    this.setWalls(null);
+    this.wallMaterial.dispose();
     this.markMaterial.dispose();
     this.edgeMaterial.dispose();
     this.shared.uPalette.value.dispose();

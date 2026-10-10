@@ -149,3 +149,37 @@ export function contrast(c: Rgb3): '#ffffff' | '#000000' {
 export function shapeColour(own: string | null, index: number): Rgb3 {
   return own === null ? pieceColour(index) : fromHex(own);
 }
+
+// A sliding puzzle's start/goal shape (a tray) has no colour of its own:
+// its cells show the pieces' colours. Its own look, from the original's
+// slidingcolors.h: black in the shapes list, a dark grey in the 3D view,
+// a dark chequer in the 2D editor.
+
+/** The tray's swatch in the shapes list (slidingColors::LIST). */
+export const TRAY_LIST: Rgb3 = [0, 0, 0];
+/** The tray's grey in the 3D view (slidingColors::VIEW_GREY). */
+export const TRAY_VIEW: Rgb3 = [0.12, 0.12, 0.12];
+/** The 2D editor's tray tiles (slidingColors::EDIT_LIGHT and EDIT_DARK). */
+export const TRAY_EDIT = { light: '#323232', dark: '#1e1e1e' } as const;
+
+/** What a shape's colour depends on (a ShapeSummary). */
+export interface ShapeLike {
+  colour: string | null;
+  /** A sliding start/goal shape's number; null (or absent) for any other shape. */
+  startGoal?: number | null;
+}
+
+/** A shape's chip colour: a tray's black, else its own or its number's. */
+export function chipColour(s: ShapeLike | undefined, index: number): Rgb3 {
+  return isTray(s) ? TRAY_LIST : shapeColour(s?.colour ?? null, index);
+}
+
+/** A shape's colour in the 3D view: a tray's grey, else its own or its number's. */
+export function viewColour(s: ShapeLike | undefined, index: number): Rgb3 {
+  return isTray(s) ? TRAY_VIEW : shapeColour(s?.colour ?? null, index);
+}
+
+/** Whether a shape is a sliding start/goal shape. */
+export function isTray(s: ShapeLike | null | undefined): boolean {
+  return s?.startGoal !== undefined && s.startGoal !== null;
+}

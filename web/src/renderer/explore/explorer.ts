@@ -210,7 +210,11 @@ export class Explorer {
       return false;
     }
     if (mode === 'movements') {
-      return this.host.solution()?.disassembly === 'tree';
+      // a grid without a take-apart has no movement search (sliding: its
+      // moves are the slide search's routes; the engine refuses it)
+      const store = this.host.store;
+      const grid = store.info?.grids.find((g) => g.grid === store.snapshot?.grid);
+      return grid?.disassemble !== false && this.host.solution()?.disassembly === 'tree';
     }
     return this.host.assemblyReady();
   }

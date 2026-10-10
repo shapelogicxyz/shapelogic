@@ -14,12 +14,12 @@
 
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
-import { $$, byId, esc } from '../shell/dom.ts';
+import { $$, byId, esc, setHtml } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { layout, applyLayout, tab } from '../shell/layout.ts';
-import { contrast, hex, shapeColour } from '../shell/piece-colours.ts';
+import { chipColour, contrast, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
 import { openPopAt } from '../shell/popover.ts';
 import { flash } from '../shell/status.ts';
 
@@ -39,7 +39,7 @@ export function chipColours(
   s: ShapeSummary | undefined,
   index: number,
 ): { bg: string; fg: string } {
-  const c = shapeColour(s?.colour ?? null, index);
+  const c = chipColour(s, index);
   return { bg: hex(c), fg: contrast(c) };
 }
 
@@ -64,6 +64,7 @@ export class ShapesList {
     const store = this.host.store;
     const shapes = this.shapes;
     byId('shapeCount').textContent = String(shapes.length);
+    this.renderStartGoal();
     if (this.renaming === null) {
       this.list.innerHTML = shapes
         .map((s, i) => {
@@ -72,14 +73,14 @@ export class ShapesList {
           return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
   <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
   <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
-  <span class="lbl">${esc(s.name)}</span>
+  <span class="lbl">${isTray(s) ? `<b class="sgtag">(START/GOAL ${String(s.startGoal)})</b> ` : ''}${esc(s.name)}</span>
   ${s.weight !== 1 ? `<span class="wbadge">W${s.weight}</span>` : ''}
   <span class="acts">
    <button class="ib" data-a="label" title="Rename">${ic('edit', 14)}</button>
    <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 14)}</button>
    <button class="ib w" data-a="wm" title="Weight −1 — in the Solver, heavier shapes stay in place and lighter ones move" ${s.weight <= 0 ? 'disabled' : ''}><span class="wtxt">W−</span></button>
    <button class="ib w" data-a="wp" title="Weight +1 — in the Solver, heavier shapes stay in place and lighter ones move"><span class="wtxt">W+</span></button>
-   <button class="ib del" data-a="del" title="Delete" ${shapes.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button>
+   <button class="ib del" data-a="del" title="${isTray(s) ? 'A start/goal shape goes with Delete Start/Goal Positions' : 'Delete'}" ${shapes.length < 2 || isTray(s) ? 'disabled' : ''}>${ic('trash', 14)}</button>
   </span></div>`;
         })
         .join('');
@@ -97,6 +98,60 @@ export class ShapesList {
         })
         .join('') +
       `<button class="ib" id="btnLN" title="New shape">${ic('plus')}</button>`;
+  }
+
+  /**
+   * The sliding puzzle's start/goal row above the list (the original's
+   * New Start/Goal Positions and Delete Start/Goal Positions); empty on
+   * the other grids.
+   */
+  private renderStartGoal(): void {
+    const store = this.host.store;
+    const row = byId('sgRow');
+    const sliding = store.snapshot?.grid === 'sliding';
+    row.classList.toggle('show', sliding);
+    if (!sliding) {
+      setHtml(row, '');
+      return;
+    }
+    const sel = store.shape;
+    setHtml(
+      row,
+      `<button class="btn sm" data-sg="new" title="Add a shape that holds start and goal positions">New Start/Goal Positions</button><button class="btn sm" data-sg="del" title="Delete the selected start/goal shape" ${isTray(sel) ? '' : 'disabled'}>Delete Start/Goal Positions</button>`,
+    );
+  }
+
+  /** New Start/Goal Positions: a tray of the selected shape's X and Y (else 6 by 6), selected. */
+  async newStartGoal(): Promise<void> {
+    if (this.host.refuseList()) {
+      return;
+    }
+    const sel = this.host.store.shape;
+    const size: [number, number] = sel === null ? [6, 6] : [sel.size[0], sel.size[1]];
+    const r = await this.host.mutate('New Start/Goal Positions', () =>
+      this.host.store.engine.call('sliding.addStartGoal', { size }),
+    );
+    if (r !== null) {
+      this.select(r.shape);
+    }
+  }
+
+  /** Delete Start/Goal Positions: the selected tray and its problem. */
+  async deleteStartGoal(): Promise<void> {
+    const store = this.host.store;
+    const shapes = this.shapes;
+    const i = shapes.findIndex((s) => s.id === store.selected);
+    const s = shapes[i];
+    if (s === undefined || !isTray(s) || shapes.length < 2 || this.host.refuseList()) {
+      return;
+    }
+    const next = (shapes[i + 1] ?? shapes[i - 1])?.id;
+    const r = await this.host.mutate('Delete Start/Goal Positions', () =>
+      store.engine.call('shape.delete', { shape: s.id }),
+    );
+    if (r !== null && next !== undefined) {
+      this.select(next);
+    }
   }
 
   /** Selects a shape and shows its row. */
@@ -147,7 +202,8 @@ export class ShapesList {
         return;
       }
       case 'del': {
-        if (shapes.length < 2 || this.host.refuseList()) {
+        // a tray goes with its own button (the original greyed Delete Shape there)
+        if (shapes.length < 2 || isTray(s) || this.host.refuseList()) {
           return;
         }
         // the mockup's choice: the shape now in the deleted one's place
@@ -176,7 +232,10 @@ export class ShapesList {
         return;
       }
       case 'colour':
-        this.pickColour(s);
+        // a tray shows the pieces' colours (cb_ShapeColor did nothing there)
+        if (!isTray(s)) {
+          this.pickColour(s);
+        }
         return;
       case 'nocolour':
         await this.host.mutate('Colour', () => e.call('shape.setColour', { shape: id, rgb: null }));
@@ -261,6 +320,17 @@ export class ShapesList {
   private install(): void {
     const list = this.list;
     byId('btnNew').addEventListener('click', () => void this.create());
+    byId('sgRow').addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-sg]');
+      if (b === null || b.disabled) {
+        return;
+      }
+      if (b.dataset.sg === 'new') {
+        void this.newStartGoal();
+      } else {
+        void this.deleteStartGoal();
+      }
+    });
     const pick = byId<HTMLInputElement>('shapeColourPick');
     pick.addEventListener('change', () => {
       const shape = pick.dataset.shape;
@@ -316,7 +386,7 @@ export class ShapesList {
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label">Rename…<span class="kb">F2</span></button><button data-k="copy">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''}>Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''}>Move later<span class="kb">Alt ↓</span></button><hr><button data-k="wp">Weight +1 <span class="kb">W+</span></button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''}>Weight −1 <span class="kb">W−</span></button><hr><button data-k="colour">Colour…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''}>Default colour</button><hr><button data-k="del" ${n < 2 ? 'disabled' : ''} style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label">Rename…<span class="kb">F2</span></button><button data-k="copy">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''}>Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''}>Move later<span class="kb">Alt ↓</span></button><hr><button data-k="wp">Weight +1 <span class="kb">W+</span></button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''}>Weight −1 <span class="kb">W−</span></button><hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''}>Colour…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''}>Default colour</button><hr><button data-k="del" ${n < 2 || isTray(s) ? 'disabled' : ''} style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },

@@ -185,6 +185,35 @@ function trapTab(root: HTMLElement, e: KeyboardEvent): void {
   }
 }
 
+const told: string[] = [];
+
+/**
+ * A message box (the original's bt_message): the text and OK. Messages
+ * come one at a time, in the order they were told.
+ */
+export function tell(text: string): void {
+  told.push(text);
+  if (told.length === 1) {
+    showTold();
+  }
+}
+
+function showTold(): void {
+  const text = told[0];
+  if (text === undefined) {
+    return;
+  }
+  void openDialog({
+    id: 'notice',
+    title: 'BurrTools',
+    body: `<p>${esc(text)}</p>`,
+    buttons: [{ key: 'ok', label: 'OK', kind: 'pri', default: true }],
+  }).then(() => {
+    told.shift();
+    showTold();
+  });
+}
+
 /** Esc cancels the newest dialog (one that must be answered stays). */
 export function installDialogs(): void {
   addEscapeStep(ESC_ORDER.dialog - 2, () => {

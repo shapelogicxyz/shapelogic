@@ -519,11 +519,11 @@ PLAN.md's "Later" list.
 | Export: STL (§5, §7.1) | the drawing and flat meshes; the STL meshes (`cubemesh`, `minkmesh`) are not ported | Interim from the flat mesh (stage 7); the real one later |
 | Export: Puzzlecad (§7.1) | none | Later |
 | Paused solver state import and export (§7.2) | `solve.importPaused`, `exportPaused` | Client (stage 6) |
-| This fork's solver options (§7.2) | `SolveOptions` has them all; High Memory is `SolveOptions.sliding.highMemory` (deferred part 1) | High Memory with the sliding options (deferred part 2) |
+| This fork's solver options (§7.2) | `SolveOptions` has them all; High Memory is `SolveOptions.sliding.highMemory` (deferred part 1) | **Done** in deferred part 2: "Enable High Memory" with the sliding options (webui-spec.md §8.3) |
 | Abort separate from Pause (§7.2) | `solve.abort`, refused once a run has ended | Grey the button out as the original did |
 | Autosave every 20 minutes (§7.2) | `solve.savePoint` then `document.save` then `solve.continue` | Client policy (stage 4) |
 | Debug statistics panel (§7.2) | `solve.status.stats` | Client (stage 5) |
-| Sliding and stacking puzzles (§7.3) | sliding: solved and played (`SolveOptions.sliding`, routes), start/goal shapes and stamps (`sliding.*`, deferred part 1); stacking: open, edit and save, solving refused (`unsupported`), no rods | Sliding solves and plays; its editor and options in deferred part 2. Stacking shown with the solver disabled; the rest later |
+| Sliding and stacking puzzles (§7.3) | sliding: solved and played (`SolveOptions.sliding`, routes), start/goal shapes and stamps (`sliding.*`, deferred part 1); stacking: open, edit and save, solving refused (`unsupported`), no rods | Sliding: **done** (deferred part 2, webui-spec.md §8). Stacking shown with the solver disabled; the rest in deferred parts 3 and 4 |
 | Anaglyph display (§7.4) | none | Client, three.js's anaglyph effect (cheap; decide in stage 6) |
 | Render styles (§7.4) | drawing, wireframe, flat | STL-like waits for the STL meshes |
 | Colour-constraint colour view (§7.4) | per-triangle `colour` in every mesh | Client (stage 1b) |

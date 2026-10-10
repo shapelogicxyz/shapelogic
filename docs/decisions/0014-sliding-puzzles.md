@@ -106,8 +106,9 @@ original:
   (`oracle.py sliding-puzzles`), compared for each solver in the summary,
   the solved files and the text; the routes of the original's solutions
   are recorded (`oracle.py record-slide-routes`) for the playback.
-- The front end needs a start/goal editor (the deferred plan's part 2)
-  before New offers the sliding grid; until then sliding files open,
-  solve and play.
+- The front end has the start/goal editor (the deferred plan's part 2,
+  docs/webui-spec.md section 8): New offers the sliding grid, the trays
+  are edited, stamped, solved with the sliding options and played with
+  their walls.
 - Stacking puzzles stay unsupported (`unsupported`); their solver is the
   plan's part 3, under the same rules.

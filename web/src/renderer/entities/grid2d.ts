@@ -14,18 +14,26 @@
 // rulers, `fillStyle` (variable cells half filled, dashed), `hover2d`,
 // `clear2d`, `eff2d`, `applyCell` and the #garea pointer handlers (a
 // right press erases whatever the tool; Ctrl erases, Alt or Cmd variable,
-// Shift fixed).
+// Shift fixed). A sliding puzzle's start/goal shape (docs/webui-spec.md,
+// section 8.1) is drawn as the original's grideditor.cpp drew it: dark
+// tiles, and while a start or goal is placed the marked cells in their
+// pieces' colours, the piece to place outlined under the mouse
+// (`drawStampPreview`), a click placing it and a right click taking off
+// the piece under the mouse.
 
 import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
 import { esc } from '../shell/dom.ts';
+import { dark, hex, light, TRAY_EDIT } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colours.ts';
 import { key } from './editor-state.ts';
 import { effectiveTool, modsOf } from './tools.ts';
 import type { Mods } from './tools.ts';
 import type { Box, Cell, EditorState, PlaneMap } from './editor-state.ts';
 import type { LayerGeometry } from './layer-geometry.ts';
 import type { CellValue } from './shape-cells.ts';
+import type { StampOutline } from './tray.ts';
 
 /** What the grid shows. */
 export interface GridInput {
@@ -39,6 +47,8 @@ export interface GridInput {
   shapeColour: string;
   /** The constraint colours by id, #rrggbb. */
   palette: ReadonlyMap<string, string>;
+  /** A sliding start/goal shape: its tiles, and the marks shown (pieces' colours by cell key); null for any other shape. */
+  tray?: { marks: ReadonlyMap<string, Rgb3> } | null;
 }
 
 /** What the grid asks of the editor. */
@@ -61,6 +71,12 @@ export interface GridHost {
   hover(cell: Cell | null, tool: Tool | null, mods: Mods): void;
   /** The box selection changed (the selection bar). */
   boxChanged(): void;
+  /** A start or goal is being placed on a tray: clicks place, nothing is drawn. */
+  stamping(): boolean;
+  /** A click while stamping: the left button places, the right takes off. */
+  stampClick(cell: Cell, right: boolean): void;
+  /** The cell under the mouse while stamping (null: none), for the outline. */
+  stampHover(cell: Cell | null): void;
 }
 
 const M = 44;
@@ -82,6 +98,8 @@ export class Grid2D {
   private hovered: number | null = null;
   private lastMods: Mods = { ctrl: false, shift: false, alt: false };
   private drag: { kind: 'stroke' | 'box'; last: P2; anchor: [number, number] } | null = null;
+  /** The piece to place, outlined under the mouse (stamping), or null. */
+  private stamp: StampOutline | null = null;
 
   constructor(area: HTMLElement, host: GridHost) {
     this.area = area;
@@ -119,6 +137,12 @@ export class Grid2D {
       this.builtFor = shape;
     }
     this.paint(input);
+    this.drawOverlay();
+  }
+
+  /** The piece to place, outlined (null: none). */
+  setStamp(stamp: StampOutline | null): void {
+    this.stamp = stamp;
     this.drawOverlay();
   }
 
@@ -207,12 +231,24 @@ export class Grid2D {
       }
       const v = input.cells.get(key(c.at));
       const vr = v?.state === 'variable';
-      const col =
+      let col =
         v === undefined
           ? 'var(--panel)'
           : v.colour === null
             ? input.shapeColour
             : (input.palette.get(v.colour) ?? input.shapeColour);
+      const tray = input.tray;
+      if (tray != null && v !== undefined) {
+        // the tray's chequer, a marked cell in its piece's (grideditor.cpp)
+        const odd = ((c.at[0] + c.at[1] + c.at[2]) & 1) === 1;
+        const mark = tray.marks.get(key(c.at));
+        col =
+          mark === undefined
+            ? odd
+              ? TRAY_EDIT.dark
+              : TRAY_EDIT.light
+            : hex(odd ? dark(mark) : light(mark));
+      }
       el.setAttribute('fill', col);
       el.setAttribute('fill-opacity', vr ? '0.5' : '1');
       el.setAttribute('stroke', vr ? 'var(--text)' : 'var(--line2)');
@@ -268,6 +304,21 @@ export class Grid2D {
     b += this.outline(new Set(sel), 'stroke-dasharray="5 3"');
     // the cursor: its cells' edges towards cells not under it
     b += this.outline(this.cursorCells(), '');
+    // the piece to place: each of its cells on the grid outlined (drawStampPreview)
+    const st = this.host.stamping() ? this.stamp : null;
+    if (st !== null) {
+      for (const [x, y] of st.cells) {
+        const i = input.geo.index.get(key([x, y, input.layer]));
+        const c = i === undefined ? undefined : input.geo.cells[i];
+        if (c !== undefined) {
+          b += this.shapeOf(c, h, `fill="none" stroke="${st.colour}" stroke-width="3"`);
+        }
+      }
+    }
+    if (this.svg !== null) {
+      this.svg.dataset.stamp =
+        st === null ? '' : `${st.colour};${st.cells.map((q) => q.join(',')).join(' ')}`;
+    }
     g.innerHTML = b;
   }
 
@@ -313,7 +364,7 @@ export class Grid2D {
     if (input === null) {
       return out;
     }
-    if (this.drag?.kind === 'box') {
+    if (this.drag?.kind === 'box' || this.host.stamping()) {
       return out;
     }
     if (this.hovered === null) {
@@ -350,7 +401,11 @@ export class Grid2D {
     this.hovered = i;
     const input = this.input;
     const c = i === null || input === null ? undefined : input.geo.cells[i];
-    if (c === undefined) {
+    if (this.host.stamping()) {
+      this.area.style.cursor = c === undefined ? '' : 'pointer';
+      this.host.hover(c?.at ?? null, null, this.lastMods);
+      this.host.stampHover(c?.at ?? null);
+    } else if (c === undefined) {
       this.area.style.cursor = '';
       this.host.hover(null, null, this.lastMods);
     } else {
@@ -414,6 +469,12 @@ export class Grid2D {
       }
       e.preventDefault();
       if (this.host.frozen()) {
+        return;
+      }
+      if (this.host.stamping()) {
+        if (e.button === 0 || e.button === 2) {
+          this.host.stampClick(c.at, e.button === 2);
+        }
         return;
       }
       this.lastMods = modsOf(e);

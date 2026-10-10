@@ -24,7 +24,7 @@ import type { Store } from '../state/store.ts';
 import { byId, css, esc } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab, toggleFocus3d } from '../shell/layout.ts';
-import { contrast, hex, shapeColour } from '../shell/piece-colours.ts';
+import { chipColour, contrast, hex, viewColour } from '../shell/piece-colours.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
@@ -46,6 +46,9 @@ import { ViewRenderer } from './renderer.ts';
 import { ShapeScene } from './scene.ts';
 import { vectorImage } from './svg.ts';
 import { Toolbar } from './toolbar.ts';
+import { TrayView } from './trays.ts';
+import { wallOutline, wallSegments } from './walls.ts';
+import type { TrayModel } from './trays.ts';
 import type { Display, EditButton, NavMode } from './toolbar.ts';
 import { ViewCube } from './viewcube.ts';
 
@@ -148,6 +151,10 @@ export class View3D {
   private readonly cache: MeshCache;
   private readonly renderer: ViewRenderer;
   private readonly scene: ShapeScene;
+  /** A sliding start/goal shape's GOAL tray and pieces (the Entities view). */
+  private readonly trays: TrayView;
+  private trayTags = '';
+  private wallLoads = 0;
   private readonly cube: ViewCube;
   private readonly toolbar: Toolbar;
   private readonly displayListeners = new Set<() => void>();
@@ -184,6 +191,29 @@ export class View3D {
     this.canvas = byId<HTMLCanvasElement>('cv');
     this.renderer = new ViewRenderer(this.canvas);
     this.scene = new ShapeScene(this.renderer.model);
+    this.trays = new TrayView(
+      {
+        store,
+        cache: this.cache,
+        shapeRevision: (s) => this.shapeRevision(s),
+        style: () => this.display.style,
+        changed: () => {
+          byId('vp').dataset.tray = this.trays.describe();
+          byId('vp').dataset.trayPoses = this.trays.posesShown();
+          this.renderer.request();
+        },
+        failed: (e) => {
+          if (e instanceof EngineError && e.errc === 'superseded') {
+            queueMicrotask(() => {
+              this.trays.load();
+            });
+            return;
+          }
+          reportError(e, 'The start/goal shape could not be drawn');
+        },
+      },
+      this.renderer.model,
+    );
     this.pieces = new PiecesScene(byId('pzScene'));
     this.pieces.group.visible = false;
     this.renderer.scene.add(this.pieces.group);
@@ -379,6 +409,7 @@ export class View3D {
     this.solutionModel = l.model;
     this.solution.set(l.model);
     this.solution.setPoses(l.poses);
+    this.loadWalls(l.model);
     const vp = byId('vp');
     vp.dataset.solution = l.model?.key ?? '';
     vp.dataset.solutionLayer = shown;
@@ -398,6 +429,38 @@ export class View3D {
     vp.dataset.poses = this.solution.posesShown();
     vp.dataset.solutionPieces = this.solution.describe();
     this.renderer.request();
+  }
+
+  // a sliding tray's walls around the solution (buildSlidingWalls), from
+  // the result's floor as the engine has it
+  private loadWalls(model: SolutionModel | null): void {
+    const store = this.store;
+    const snap = store.snapshot;
+    const result = model?.result ?? null;
+    const n = ++this.wallLoads;
+    if (model === null || result === null || snap?.grid !== 'sliding') {
+      this.solution.setWalls(null);
+      byId('vp').dataset.walls = '0';
+      return;
+    }
+    store.engine.call('shape.get', { shape: result }, { coalesce: 'walls' }).then(
+      (r) => {
+        if (n !== this.wallLoads) {
+          return;
+        }
+        const [sx, sy, sz] = r.shape.size;
+        const open = new Set(r.cells.map((c) => `${String(c.at[0])},${String(c.at[1])}`));
+        const outline = wallOutline(sx, sy, (x, y) => open.has(`${String(x)},${String(y)}`));
+        this.solution.setWalls(wallSegments(outline, sx, sy, sz));
+        byId('vp').dataset.walls = String(this.solution.wallCount);
+        this.renderer.request();
+      },
+      (e: unknown) => {
+        if (n === this.wallLoads && !(e instanceof EngineError && e.errc === 'superseded')) {
+          reportError(e, 'The walls could not be drawn');
+        }
+      },
+    );
   }
 
   /**
@@ -425,6 +488,11 @@ export class View3D {
   private toScreen(v: Vector3): [number, number] {
     const p = v.clone().project(this.renderer.camera);
     return [((p.x + 1) / 2) * this.canvas.clientWidth, ((1 - p.y) / 2) * this.canvas.clientHeight];
+  }
+
+  /** A sliding start/goal shape's two trays (null: the shape shown is no tray). */
+  setTray(model: TrayModel | null): void {
+    this.trays.set(model);
   }
 
   /** The pieces scene's model (the Puzzle workspace); its meshes are loaded when shown. */
@@ -484,6 +552,7 @@ export class View3D {
     this.scene.setResolution(vp.clientWidth, vp.clientHeight);
     this.pieces.setResolution(vp.clientWidth, vp.clientHeight);
     this.solution.setResolution(vp.clientWidth, vp.clientHeight);
+    this.trays.setResolution(vp.clientWidth, vp.clientHeight);
     this.renderer.request();
   }
 
@@ -498,6 +567,7 @@ export class View3D {
     const snap = store.snapshot;
     const shape = store.shape;
     this.renderTag();
+    this.trays.load();
     if (snap === null || shape === null) {
       this.shownKey = '';
       this.scene.setMesh(null);
@@ -687,7 +757,7 @@ export class View3D {
       palette: snap?.colours.map((c) => c.rgb) ?? [],
       colourOf: (shape) => {
         const i = this.store.indexOf(shape);
-        return shapeColour(snap?.shapes[i]?.colour ?? null, i);
+        return viewColour(snap?.shapes[i], i);
       },
     };
   }
@@ -721,12 +791,19 @@ export class View3D {
     const index = shape === null ? 0 : this.store.indexOf(shape.id);
     const ed = editorVisible();
     this.renderer.perspective = this.display.persp;
+    this.trays.setLook({
+      style: this.display.style,
+      colourView: false,
+      lit: prefs.lights,
+      xray: false,
+      palette: [],
+    });
     this.scene.setLook({
       style: this.display.style,
       colourView: this.display.colourView,
       lit: prefs.lights,
       xray: this.display.xray,
-      piece: shapeColour(shape?.colour ?? null, index),
+      piece: viewColour(shape ?? undefined, index),
       palette: snap?.colours.map((c) => c.rgb) ?? [],
       dim: this.display.dim && ed ? { axis: layerAxis(this.plane), layer: this.layer } : null,
     });
@@ -775,7 +852,7 @@ export class View3D {
       tag.innerHTML = '';
       return;
     }
-    const c = shapeColour(shape.colour, this.store.indexOf(shape.id));
+    const c = chipColour(shape, this.store.indexOf(shape.id));
     tag.innerHTML = `<span class="chip" style="background:${hex(c)};color:${contrast(c)}">${esc(shape.label)}</span><span>${esc(shape.name)}</span>`;
   }
 
@@ -826,8 +903,17 @@ export class View3D {
           .join(' ');
       }
     } else {
-      this.renderer.frame(this.camera, this.extent);
+      this.renderer.frame(this.camera, this.trays.extent ?? this.extent);
       this.renderer.render();
+    }
+    // the trays' titles (START, GOAL) over the Entities view
+    const tags =
+      !this.puzzleMode && !this.solverMode
+        ? this.trays.tags(this.renderer.model, (v) => this.toScreen(v))
+        : '';
+    if (tags !== this.trayTags) {
+      this.trayTags = tags;
+      byId('trayTags').innerHTML = tags;
     }
     this.cube.draw();
     if (moving || this.camera.moving) {

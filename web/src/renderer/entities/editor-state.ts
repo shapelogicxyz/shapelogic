@@ -36,6 +36,14 @@ export const TOOLS: readonly { id: Tool; n: string; short: string; k: string; ti
   },
 ];
 
+/**
+ * What a click on a sliding puzzle's start/goal shape does (the "Tray
+ * edit" switch): the ordinary tools (Walls: fixed floor, variable
+ * corridors, erased walls), or a piece's start or goal placed whole (the
+ * original's Start/Goal tab).
+ */
+export type TrayMode = 'walls' | 'start' | 'goal';
+
 /** A box selection: two corners of the layer's columns and rows. */
 export interface Box {
   c0: number;
@@ -61,6 +69,10 @@ export class EditorState {
   box: Box | null = null;
   /** 3D edit mode: a plain click in the 3D view uses the tool. */
   edit3d = false;
+  /** A start/goal shape's edit mode (only while one is shown). */
+  tray: TrayMode = 'walls';
+  /** The piece whose start or goal a click places (the Start/Goal tab's list), or null. */
+  stampPiece: string | null = null;
   private readonly listeners = new Set<() => void>();
 
   /** Listens to changes; returns the unsubscribe. */

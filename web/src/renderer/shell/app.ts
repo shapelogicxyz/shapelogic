@@ -25,7 +25,7 @@ import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
 import type { StoredState } from '../../engine/app-bridge.ts';
 import { installConfirm } from './confirm.ts';
-import { dialogOpen, installDialogs } from './dialog.ts';
+import { dialogOpen, installDialogs, tell } from './dialog.ts';
 import { Files } from './files.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
@@ -258,6 +258,8 @@ export function startApp(saved: StoredState = {}): {
   store.onError((e) => {
     reportError(e);
   });
+  // what a change or an opened file did beyond what was asked
+  store.onNotice(tell);
   onLayout(() => {
     updateStatus();
   });

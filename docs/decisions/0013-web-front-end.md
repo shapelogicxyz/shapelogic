@@ -224,6 +224,20 @@ list; each also in its handoff):
    "Found in the original"). `test_app_dump.cpp` leaves those pieces'
    poses out of its comparison with the original's sampler and checks the
    tracks against the same trees with the orientations given.
+8. (deferred part 2) A sliding puzzle's start/goal editor is a **Tray
+   edit** switch (Walls, Start, Goal) in the voxel editor's card, where the
+   original added a Start/Goal tab to the tool tabs and edited the walls
+   with the voxel pen of every tab; the labels are those of the original's
+   `ToolTab_Sliding`, which it never made. The tray's 2D tiles show their
+   marks only while Start or Goal is chosen, as the original's tab did.
+9. (deferred part 2) The engine refuses what the original only greyed out
+   for sliding shapes (the tasks that add layers, another Z), and a
+   piece's rename to a name beginning "sg:" (the original's
+   `cb_NameShape` let it, and the piece became a start/goal shape at the
+   next sync); the front end shows the refusal's reason.
+10. (deferred part 2) On a grid without a take-apart (sliding) the
+   Movements explorer and Analyse are not offered (the engine refuses
+   them); the original left the buttons and answered with a message.
 
 ## Consequences
 - Building the front end needs Node 22; the core does not.

@@ -26,6 +26,10 @@ import type { PuzzleWorkspace } from './workspace.ts';
 
 const cells = (s: ShapeSummary): number => s.fixed + s.variable;
 
+/** Why a sliding piece's count cannot change (Part.required). */
+const REQUIRED =
+  'Its start or goal on the start/goal shape needs exactly this piece: place or clear it on the Entities workspace';
+
 export class PiecesCard {
   private readonly ws: PuzzleWorkspace;
   private drag: { u: string; from: 'lib' | 'used' } | null = null;
@@ -66,19 +70,21 @@ export class PiecesCard {
         : '';
     note.dataset.kind = k?.kind ?? '';
 
-    // the result
+    // the result: a sliding puzzle's is its start/goal shape, for good
+    const fixedResult = ws.store.snapshot?.grid === 'sliding';
+    const change = fixedResult ? '' : '<button class="btn sm" id="pzChange">Change…</button>';
     const R = result === null ? undefined : byShape.get(result);
     const f = ws.fit;
     if (d === null) {
       byId('pzResult').innerHTML = '';
     } else if (R === undefined) {
       byId('pzResult').innerHTML =
-        `<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b>No result</b><span>Choose the shape the pieces fill</span></div><button class="btn sm" id="pzChange">Change…</button>`;
+        `<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b>No result</b><span>Choose the shape the pieces fill</span></div>${change}`;
     } else {
       const c = ws.chip(R.id);
       const hold = f === null ? '' : ` · can hold ${rng(f.resultMin, f.resultMax)}`;
       byId('pzResult').innerHTML =
-        `<span class="chip" style="background:${c.bg};color:${c.fg}">${esc(R.label)}</span><div class="meta"><b>${esc(R.name) || 'Result piece'}</b><span>${String(cells(R))} voxels${hold}</span></div><button class="btn sm" id="pzChange">Change…</button>`;
+        `<span class="chip" style="background:${c.bg};color:${c.fg}">${esc(R.label)}</span><div class="meta"><b>${esc(R.name) || 'Result piece'}</b><span>${String(cells(R))} voxels${hold}</span></div>${change}`;
     }
     byId('pzResult').dataset.shape = result ?? '';
 
@@ -118,10 +124,16 @@ export class PiecesCard {
             const rg = ws.isRange(s.id);
             const g = groupOf(p);
             const c = ws.chip(s.id);
+            // a piece a start or goal needs keeps its count (the engine refuses)
+            const off = p.required ? `disabled title="${REQUIRED}"` : '';
             const count = rg
-              ? `<input type="number" min="0" data-f="min" value="${String(p.min)}" aria-label="Minimum"><span class="dash">–</span><input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Maximum">`
-              : `<input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Copies">`;
-            return `<tr data-u="${s.id}"><td class="sh" style="background:${c.bg};color:${c.fg}" title="${esc(this.title(s))}">${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''}</td><td class="cn">${count}</td><td><input type="checkbox" data-range ${rg ? 'checked' : ''} aria-label="Range"></td><td><select data-grp aria-label="Group"><option value="">–</option>${groups.map((x) => `<option value="${String(x)}" ${g === x ? 'selected' : ''}>G${String(x)}</option>`).join('')}<option value="new">+ New</option></select></td></tr>`;
+              ? `<input type="number" min="0" data-f="min" value="${String(p.min)}" aria-label="Minimum" ${off}><span class="dash">–</span><input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Maximum" ${off}>`
+              : `<input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Copies" ${off}>`;
+            // a sliding puzzle has no groups
+            const grp = fixedResult
+              ? '–'
+              : `<select data-grp aria-label="Group"><option value="">–</option>${groups.map((x) => `<option value="${String(x)}" ${g === x ? 'selected' : ''}>G${String(x)}</option>`).join('')}<option value="new">+ New</option></select>`;
+            return `<tr data-u="${s.id}"><td class="sh" style="background:${c.bg};color:${c.fg}" title="${esc(this.title(s))}">${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''}</td><td class="cn">${count}</td><td><input type="checkbox" data-range ${rg ? 'checked' : ''} aria-label="Range" ${off}></td><td>${grp}</td></tr>`;
           })
           .join('')}</tbody></table>`,
       );
@@ -141,14 +153,17 @@ export class PiecesCard {
   private usedTile(s: ShapeSummary, p: Part): string {
     const g = groupOf(p);
     const c = this.ws.chip(s.id);
-    return `<div class="ut" data-u="${s.id}" draggable="true" title="${esc(this.title(s))} — drag onto “All pieces” to remove"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" title="One fewer (at 0 the piece leaves the puzzle)">−</button><span class="cnt">${countText(p)}</span><button data-d="1" title="One more">+</button></div></div></div>`;
+    // a piece a start or goal needs keeps its count (the engine refuses)
+    const off = p.required ? `disabled title="${REQUIRED}"` : '';
+    return `<div class="ut" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${off || 'title="One fewer (at 0 the piece leaves the puzzle)"'}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" ${off || 'title="One more"'}>+</button></div></div></div>`;
   }
 
   // the mockup's pzLibChip
   private libChip(s: ShapeSummary, p: Part | undefined): string {
     const n = p?.max ?? 0;
     const c = this.ws.chip(s.id);
-    return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="true" title="${esc(this.title(s))} — drag into “In this puzzle”, double-click, or press + to add one"><span class="gripd">${ic('grip', 12)}</span><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<button class="la" data-add="1" title="Add one to the puzzle">${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
+    const req = p?.required ?? false;
+    return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="${String(!req)}" title="${esc(this.title(s))}${req ? ` — ${REQUIRED}` : ' — drag into “In this puzzle”, double-click, or press + to add one'}"><span class="gripd">${ic('grip', 12)}</span><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<button class="la" data-add="1" ${req ? `disabled title="${REQUIRED}"` : 'title="Add one to the puzzle"'}>${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
   }
 
   // the fit summary: the engine's verdict and counts (FitStats)
