@@ -12,7 +12,9 @@
 /// generalised to every edit), the callbacks of src/gui/mainwindow.cpp
 /// (shapes, colours, problems, pieces, groups, colour rules, solutions,
 /// changeShape / changeProblem), mainwindow_file.cpp (assemblies to
-/// shapes) and mainwindow_solve.cpp (deleting solutions). The rules for
+/// shapes) and mainwindow_solve.cpp (deleting solutions), and for sliding
+/// puzzles mainwindow.cpp's and mainwindow_rods.cpp's start/goal shapes,
+/// stamps and the problems that follow them (decision 0014). The rules for
 /// edits while solving are decision 0011.
 
 #include "bt/app/analysis.h"
@@ -120,6 +122,9 @@ struct ChangeSet {
   std::uint32_t what = 0;  ///< ChangeFlag bits
   std::vector<Id> shapes;
   std::vector<Id> problems;
+  /// What the original GUI said of the change on its status line (a
+  /// sliding piece whose new shape lost its start and goal); mostly empty.
+  std::string notice;
 };
 
 /// A puzzle being edited. The owner calls it from one thread. Solves run
@@ -160,6 +165,10 @@ class Document {
   /// Marks the document as holding changes no file has (a rescue copy
   /// reopened after the engine died): dirty until it is saved.
   void markUnsaved() { solveDirty_ = true; }
+  /// What opening the file changed and said (the original's load
+  /// message): a sliding shape of more than one layer made flat, which
+  /// leaves the document dirty. Empty mostly.
+  [[nodiscard]] const std::string& openNotice() const { return openNotice_; }
 
   // ---- reading ----------------------------------------------------------------
 
@@ -288,6 +297,11 @@ class Document {
   /// Allows or forbids piece colour on result colour (colour ids).
   Result<void> setColourRule(Id problem, Id pieceColour, Id resultColour, bool allowed);
   Result<void> setColourRules(Id problem, ColourPreset preset);
+  /// In a sliding puzzle the result is the start/goal shape, a piece with
+  /// a start or goal there keeps its count (shapeIsRequired: the buttons
+  /// the original greyed out), bulk changes leave such pieces alone, and
+  /// there are no groups: those commands are refused (InvalidArgument).
+  ///
   /// Stores the Solver tab's settings with a problem (cb_SolverOptions:
   /// the original's names and values, saved in the file; the front end
   /// decides what they mean). Replaces them all; not while the problem is
@@ -303,6 +317,27 @@ class Document {
   Result<void> deleteDisassemblies(Id problem, std::optional<Id> solution);
   /// Turns assemblies into new shapes (solution.toShapes); returns their ids.
   Result<std::vector<Id>> assembliesToShapes(Id problem, const AssemblyImport& options);
+
+  // ---- sliding puzzles (decision 0014) -----------------------------------------
+  //
+  // A sliding puzzle keeps one problem per start/goal shape in step with
+  // its stamps (syncSlidingProblems), whatever changes them: these
+  // commands, and deleting, moving, duplicating, renaming and editing
+  // shapes, as the original GUI did. Refused (Unsupported) on other grids.
+
+  /// Adds a start/goal shape of `size` cells (sliding.addStartGoal, the
+  /// GUI's New Start/Goal): one layer, all floor, numbered after the
+  /// others, with its problem.
+  Result<Id> addStartGoal(std::array<unsigned int, 2> size);
+  /// The start/goal editor's click (sliding.place): the whole of a piece as
+  /// its start (goal false) or its goal, its top-left cell at (x, y), y
+  /// rising upwards; a piece that is exactly there already is taken off.
+  /// Refused (InvalidArgument) with the reason when it does not fit.
+  /// Returns whether the piece is there now.
+  Result<bool> placeStamp(Id tray, Id piece, int x, int y, bool goal);
+  /// Takes off the start or goal that covers (x, y) (the right click);
+  /// false when there is none.
+  Result<bool> clearStampAt(Id tray, int x, int y, bool goal);
 
   // ---- queries ----------------------------------------------------------------
 
@@ -445,11 +480,25 @@ class Document {
   void shapeChanged(unsigned int shape);
   void problemChanged(unsigned int problem);
 
+  // sliding puzzles
+  /// syncSlidingProblems with the ids kept in step: saves the whole
+  /// puzzle for undo and ends the sessions first (problems come and go).
+  void syncSliding();
+  /// The sliding part of changeShape, after shape `shape` was edited.
+  void slidingShapeChanged(unsigned int shape);
+  /// A sliding piece with a start or goal on the problem's start/goal
+  /// shape: its count follows them.
+  [[nodiscard]] bool slidingRequired(unsigned int problem, unsigned int shape) const;
+  /// Flattens the shapes of a sliding puzzle just opened (the original's
+  /// load), with the notice.
+  void flattenOnOpen();
+
   Result<unsigned int> requireShape(Id id) const { return shapeIndex(id); }
   Result<unsigned int> requireProblem(Id id) const { return problemIndex(id); }
 
   std::unique_ptr<Puzzle> puzzle_;
   Ids ids_;
+  std::string openNotice_;
   Id nextId_ = 1;
   DocumentSettings settings_;
 

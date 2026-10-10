@@ -14,6 +14,7 @@
 #include "bt/io/paused_solve.h"
 #include "bt/io/puzzle_file.h"
 #include "bt/model/problem.h"
+#include "bt/model/sliding.h"
 #include "bt/model/solution.h"
 #include "bt/solve/assembler_bt2.h"
 #include "bt/solve/disassembler.h"
@@ -47,7 +48,9 @@ Result<Document> Document::open(const std::filesystem::path& path, DocumentSetti
   if (!p) {
     return std::unexpected(p.error());
   }
-  return Document(std::make_unique<Puzzle>(std::move(*p)), settings);
+  Document d(std::make_unique<Puzzle>(std::move(*p)), settings);
+  d.flattenOnOpen();
+  return d;
 }
 
 Result<Document> Document::openBytes(std::string_view bytes, DocumentSettings settings) {
@@ -60,7 +63,9 @@ Result<Document> Document::openBytes(std::string_view bytes, DocumentSettings se
   if (!p) {
     return std::unexpected(p.error());
   }
-  return Document(std::make_unique<Puzzle>(std::move(*p)), settings);
+  Document d(std::make_unique<Puzzle>(std::move(*p)), settings);
+  d.flattenOnOpen();
+  return d;
 }
 
 Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::path& path,
@@ -70,6 +75,7 @@ Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::pa
     return std::unexpected(ps.error());
   }
   Document d(std::make_unique<Puzzle>(std::move(ps->puzzle)), settings);
+  d.flattenOnOpen();
   // a new, untitled puzzle: it is not saved anywhere yet
   d.solveDirty_ = true;
   const Id problem = d.ids_.problems[ps->problem];
@@ -553,6 +559,8 @@ void Document::shapeChanged(unsigned int shape) {
     }
     endSession(p);
   }
+  // a sliding piece whose shape changed loses its starts and goals
+  slidingShapeChanged(shape);
 }
 
 void Document::problemChanged(unsigned int problem) {
@@ -612,6 +620,46 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
   }
+  // A sliding puzzle: what the original's Solve checked (the start/goal
+  // shape valid, no stamp larger than its piece) and what its solve thread
+  // set up as it began (the start locks, the holes), which changes shapes:
+  // not while another run reads them. Solving's own change: no undo step.
+  bool slidingPrepared = false;
+  if (sliding::isSliding(*puzzle_)) {
+    const Problem& pr = puzzle_->getProblem(*p);
+    if (pr.resultValid() && sliding::isStartGoalShape(&puzzle_->getShape(pr.getResultId()))) {
+      const std::string why = sliding::startGoalError(*puzzle_, pr.getResultId());
+      if (!why.empty()) {
+        return fail(Errc::InvalidArgument, why);
+      }
+    }
+    const std::string overflow = sliding::stampOverflowMessage(*puzzle_, pr);
+    if (!overflow.empty()) {
+      return fail(Errc::InvalidArgument, overflow);
+    }
+    if (sliding::needsPreparing(*puzzle_, pr)) {
+      if (solving()) {
+        return fail(Errc::InvalidState,
+                    "the pieces' start locks must be set up, which changes shapes another solve "
+                    "reads: pause it first");
+      }
+      // what the session would refuse, before anything changes
+      if (!pr.resultValid()) {
+        return fail(Errc::InvalidArgument, "a result shape must be defined");
+      }
+      if (pr.getNumberOfPieces() == 0) {
+        return fail(Errc::InvalidArgument, "the problem has no pieces");
+      }
+      if (mode == LaunchMode::Resume && solveState(problem) == SolveState::Finished) {
+        return fail(Errc::InvalidState, "the problem is solved: start() solves it again");
+      }
+      const unsigned int colours = puzzle_->colorNumber();
+      slidingPrepared = sliding::prepareForSolving(*puzzle_, puzzle_->getProblem(*p));
+      for (unsigned int c = colours; c < puzzle_->colorNumber(); c++) {
+        ids_.colours.push_back(newId());
+      }
+    }
+  }
   // the shapes are read by runs from now on; with a run of another
   // problem active they are prepared already
   if (!solving()) {
@@ -625,12 +673,24 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
                    : mode == LaunchMode::Prepare ? s.prepare()
                                                  : s.resume();
   if (!r) {
+    if (slidingPrepared) {
+      // the start locks set up stay (they hold for any solve): told
+      solveDirty_ = true;
+      lastChange_ = ChangeSet{kChangeShapes | kChangeColours | kChangeProblems, {}, {}, {}};
+      changed(lastChange_.what);
+    }
     return r;
   }
   solveDirty_ = true;
   runsStarted_.insert(problem);
-  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}};
-  changed(kChangeSolutions | kChangeProblems);
+  if (slidingPrepared) {
+    // pieces repainted, maybe colours added: everything is news
+    lastChange_ = ChangeSet{kChangeShapes | kChangeColours | kChangeSolutions | kChangeProblems,
+                            {}, {}, {}};
+  } else {
+    lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
+  }
+  changed(lastChange_.what);
   return {};
 }
 
@@ -682,7 +742,7 @@ Result<void> Document::solveAbort(Id problem) {
   }
   it->second->abort();
   solveDirty_ = true;
-  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}};
+  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
   changed(kChangeSolutions | kChangeProblems);
   return {};
 }
@@ -743,8 +803,8 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
   }
-  if (problemKind(*puzzle_) != ProblemKind::Brick) {
-    return fail(Errc::Unsupported, "sliding and stacking puzzles are not solved yet");
+  if (problemKind(*puzzle_) == ProblemKind::Stacking) {
+    return fail(Errc::Unsupported, "stacking puzzles are not solved yet");
   }
   if (!Disassembler::canDisassemble(*puzzle_)) {
     return fail(Errc::Unsupported, "Sorry, this space grid doesn't have a disassembler (yet)!");
@@ -842,7 +902,7 @@ bool Document::poll() {
     return false;
   }
   solveDirty_ = true;
-  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, std::move(touched)};
+  lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, std::move(touched), {}};
   revision_++;
   return true;
 }

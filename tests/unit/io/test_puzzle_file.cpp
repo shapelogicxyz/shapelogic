@@ -72,6 +72,9 @@ TEST_CASE("puzzle file: every fixture is saved byte for byte as the original sav
   int checked = 0;
   for (const auto& entry : std::filesystem::directory_iterator("tests/data/puzzles")) {
     const std::filesystem::path& path = entry.path();
+    if (path.extension() != ".xmpuzzle") {
+      continue;  // the sliding/ folder: the generated sliding puzzles
+    }
     INFO(path.filename().string());
     const Puzzle p = test::loadFixture(path.filename().string());
     const std::string ours = io::writePuzzle(p);

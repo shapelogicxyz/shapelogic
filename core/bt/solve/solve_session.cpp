@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/lib/solvethread.cpp (solveThread_c: run, the take-apart
-// queue and its workers, processDisassembly, the assembly callback,
-// trimSavedSolutions, the progress snapshot and the statistics) and from
+// queue and its workers, processDisassembly, the assembly callback with its
+// sliding branch, slidingSummary, trimSavedSolutions, the progress snapshot
+// and the statistics) and from
 // the original GUI: Solve, Prepare, Continue and Abort
 // (src/gui/mainwindow_solve.cpp), recordSearchStats (src/gui/mainwindow.cpp).
 #include "bt/solve/solve_session.h"
@@ -13,6 +14,7 @@
 #include "bt/model/disassembly.h"
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
+#include "bt/model/sliding.h"
 #include "bt/model/solution.h"
 #include "bt/solve/assembler_bt2.h"
 
@@ -79,7 +81,10 @@ class AssemblyLoad {
 }  // namespace
 
 SolveSession::SolveSession(Puzzle& puzzle, Problem& problem, SolveOptions options)
-    : puzzle_(puzzle), problem_(problem), options_(std::move(options)) {}
+    : puzzle_(puzzle),
+      problem_(problem),
+      options_(std::move(options)),
+      sliding_(sliding::isSliding(puzzle)) {}
 
 SolveSession::~SolveSession() {
   pause();
@@ -197,13 +202,14 @@ Result<void> SolveSession::launch(Mode mode) {
 
   // what the original GUI checked before it made the solve thread
   const GridType& grid = puzzle_.getGridType();
-  if (grid.getType() == GridKind::Sliding || grid.getType() == GridKind::Stacking) {
-    return fail(Errc::Unsupported, "sliding and stacking puzzles cannot be solved yet");
+  if (grid.getType() == GridKind::Stacking) {
+    return fail(Errc::Unsupported, "stacking puzzles cannot be solved yet");
   }
   if ((grid.getCapabilities() & kCapAssemble) == 0) {
     return fail(Errc::Unsupported, "this space grid doesn't have an assembler");
   }
-  if (options_.disassemble && !Disassembler::canDisassemble(puzzle_)) {
+  // a sliding puzzle's "take apart" is the slide search
+  if (options_.disassemble && !sliding_ && !Disassembler::canDisassemble(puzzle_)) {
     return fail(Errc::Unsupported,
                 "this space grid doesn't have a disassembler: turn off disassembly");
   }
@@ -212,6 +218,20 @@ Result<void> SolveSession::launch(Mode mode) {
   }
   if (problem_.getNumberOfPieces() == 0) {
     return fail(Errc::InvalidArgument, "the problem has no pieces");
+  }
+
+  // A sliding start is judged against a fixed goal, so a rotated or
+  // mirrored start is a different start, not a duplicate: every one is
+  // kept; and the start locks are colours the matrix matches strictly (the
+  // solve thread's constructor and run).
+  SolveOptions o = options_;
+  if (sliding_) {
+    // the sliding menu lists its own solvers: the assembler is Classic's
+    o.solver = SolverType::Classic;
+    o.matrix.keepMirrors = true;
+    o.matrix.keepRotations = true;
+    o.matrix.completeRotations = false;
+    o.matrix.strictColors = true;
   }
 
   SolveState st = state_.load();
@@ -231,18 +251,18 @@ Result<void> SolveSession::launch(Mode mode) {
     st = SolveState::Idle;
   }
 
+
   // The search to carry on with (the problem's assembler in the original).
   // A matrix bakes the colour rule in: made with the other one, or unknown
   // (a saved position does not say), the solve starts over.
   bool reuse = false;
   if (assembler_ && problem_.getSolveState() == ProblemState::Solving) {
-    if (assembler_->usesStrictColors() == options_.matrix.strictColors) {
+    if (assembler_->usesStrictColors() == o.matrix.strictColors) {
       reuse = true;
       // this run's mirror and rotation filter (the solve thread set it on
       // the problem's assembler before every run)
-      assembler_->applySolutionFilterFlags(options_.matrix.keepMirrors,
-                                           options_.matrix.keepRotations,
-                                           options_.matrix.completeRotations);
+      assembler_->applySolutionFilterFlags(o.matrix.keepMirrors, o.matrix.keepRotations,
+                                           o.matrix.completeRotations);
     } else {
       {
         const std::lock_guard<std::mutex> lock(resultsMutex_);
@@ -252,7 +272,7 @@ Result<void> SolveSession::launch(Mode mode) {
     }
   } else {
     dropAssembler();
-    if (options_.matrix.strictColors) {
+    if (o.matrix.strictColors) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.removeAllSolutions();
     }
@@ -265,8 +285,18 @@ Result<void> SolveSession::launch(Mode mode) {
   // an assembler is only kept across a pause
   BT_ASSERT(!reuse || st == SolveState::Paused);
 
+  // What a sliding run sets up first (the solve thread did it as it began):
+  // the problem's maximum of holes and the start locks; once nothing can
+  // refuse the run any more. The owner makes sure no other run reads the
+  // shapes meanwhile (the document does it first, and this changes
+  // nothing then).
+  if (sliding_) {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    (void)sliding::prepareForSolving(puzzle_, problem_);
+  }
+
   Plan plan;
-  plan.options = options_;
+  plan.options = o;
   plan.prepare = !reuse;
   plan.prepareOnly = mode == Mode::Prepare;
 
@@ -275,19 +305,27 @@ Result<void> SolveSession::launch(Mode mode) {
     const std::lock_guard<std::mutex> lock(runMutex_);
     runStop_ = StopSource();
     assemblyStop_ = runStop_.child();
-    runOptions_ = options_;
+    runOptions_ = o;
     plan.assemblyToken = assemblyStop_.token();
   }
-  if (options_.justCount) {
-    action_ = options_.disassemble ? Action::CountSolutions : Action::CountAssemblies;
+  if (o.justCount) {
+    action_ = o.disassemble ? Action::CountSolutions : Action::CountAssemblies;
   } else {
-    action_ = options_.disassemble ? Action::SaveSolutions : Action::SaveAssemblies;
+    action_ = o.disassemble ? Action::SaveSolutions : Action::SaveAssemblies;
   }
   {
     const std::lock_guard<std::mutex> lock(failureMutex_);
     failure_.reset();
     workerError_ = nullptr;
+    note_.clear();
   }
+  // a sliding run counts its searches afresh (a new solve thread did)
+  slideProgress_.store(0, std::memory_order_relaxed);
+  searchDepth_.store(0, std::memory_order_relaxed);
+  slideStartsCut_ = 0;
+  slideMemoryCut_ = false;
+  slideMemoryStates_ = 0;
+  slideDiskError_.clear();
   assemblerThreads_.store(1, std::memory_order_relaxed);
   workerCount_.store(0, std::memory_order_relaxed);
   pending_.store(0, std::memory_order_relaxed);
@@ -474,8 +512,13 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   search.threads = assemblyThreads;
   search.pool = &assemblyPool;
 
-  if (o.disassemble) {
+  if (o.disassemble && !sliding_) {
     startWorkers(plan, chooseWorkers(o, budget), budget);
+  }
+  // a sliding run searches each start in the assembly's callback; a full
+  // search spreads its levels over the solve's threads (solveThreadBudget)
+  if (o.disassemble && sliding_) {
+    slidePool_ = std::make_unique<ThreadPool>(budget);
   }
 
   beginPhase(Phase::Assemble);
@@ -493,7 +536,7 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
       problem_.addPending(std::move(p));
     } else if (!p.counted) {
       (void)onAssembly(std::move(p.assembly));
-    } else if (!o.disassemble) {
+    } else if (!o.disassemble || sliding_) {
       // counted for a take-apart this run does not do: kept for one that does
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.addPending(std::move(p));
@@ -504,7 +547,7 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
 
   RunEnd end = RunEnd::Stopped;
   {
-    const AssemblyLoad load(o.disassemble ? takeApartPool_.get() : nullptr,
+    const AssemblyLoad load(o.disassemble && !sliding_ ? takeApartPool_.get() : nullptr,
                             static_cast<int>(assemblyThreads), assemblyLoad_);
     end = assembler_->assemble([this](Assembly a) { return onAssembly(std::move(a)); }, search,
                                plan.assemblyToken);
@@ -529,6 +572,18 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   }
   if (workerError) {
     std::rethrow_exception(workerError);
+  }
+  slidePool_.reset();
+
+  // whether "no solution" is proven, or the search gave up
+  if (sliding_ && o.disassemble && !runStopRequested()) {
+    std::string note;
+    {
+      const std::lock_guard<std::mutex> lock(resultsMutex_);
+      note = slidingSummary(o);
+    }
+    const std::lock_guard<std::mutex> lock(failureMutex_);
+    note_ = std::move(note);
   }
 
   endRun(end);
@@ -557,10 +612,19 @@ void SolveSession::endRun(RunEnd end) {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     finished = stop == StopKind::None && end == RunEnd::Finished && problem_.getPending().empty();
     problem_.addTimeMs(ms);
-    // what the GUI recorded when a solve stopped (recordSearchStats)
-    problem_.setSearchStats(std::max(problem_.getSearched(), assembler_->iterations()),
-                            problem_.getSearchDepth(),
-                            problem_.getTriedApart() + completed_.load(std::memory_order_relaxed));
+    // what the GUI recorded when a solve stopped (recordSearchStats): a
+    // sliding search counts afresh each run, the assembler carries its
+    // count on
+    if (sliding_) {
+      problem_.setSearchStats(
+          problem_.getSearched() + slideProgress_.load(std::memory_order_relaxed),
+          std::max(problem_.getSearchDepth(), searchDepth_.load(std::memory_order_relaxed)),
+          problem_.getTriedApart());
+    } else {
+      problem_.setSearchStats(std::max(problem_.getSearched(), assembler_->iterations()),
+                              problem_.getSearchDepth(),
+                              problem_.getTriedApart() + completed_.load(std::memory_order_relaxed));
+    }
     if (finished) {
       problem_.finishedSolving();
     } else {
@@ -625,6 +689,10 @@ bool SolveSession::onAssembly(Assembly assembly) {
     return true;
   }
 
+  if (sliding_) {
+    return onSlidingAssembly(std::move(assembly));
+  }
+
   switch (action_) {
     case Action::CountAssemblies:
       break;
@@ -665,6 +733,136 @@ bool SolveSession::onAssembly(Assembly assembly) {
   trimSavedSolutions();
   applyLiveSort();
   return true;
+}
+
+// The sliding branch of the assembly callback: Find Solutions keeps a start
+// only when it slides to the goal, and of the starts that end in the same
+// picture the one with the fewest moves.
+bool SolveSession::onSlidingAssembly(Assembly assembly) {
+  const SolveOptions& o = runOptions_;
+  if (!o.justCount) {
+    if (o.disassemble) {
+      sliding::SlideSearch search = sliding::slideSearchFor(o.sliding);
+      // a save point lets the search under way finish (stopSoft)
+      search.stop = runToken();
+      search.progress = &slideProgress_;
+      search.depthProgress = &searchDepth_;
+      search.pool = slidePool_.get();
+      // The search reads the problem's definition and the shapes, which
+      // nothing changes while the run is active; the lock is for what the
+      // run writes, and is not held over a search.
+      std::optional<Separation> path =
+          sliding::findSlidePath(puzzle_, problem_, assembly, search);
+      searchDepth_.store(0, std::memory_order_relaxed);
+
+      const std::lock_guard<std::mutex> lock(resultsMutex_);
+      // paused in the middle of this start's search: it is searched again
+      // on the next run instead of counted as one with no solution
+      if (search.outcome == sliding::SlideOutcome::Stopped) {
+        problem_.addPending(PendingAssembly{std::move(assembly), false, 0, 0});
+        return true;
+      }
+      if (search.outcome == sliding::SlideOutcome::Limit ||
+          search.outcome == sliding::SlideOutcome::Memory ||
+          search.outcome == sliding::SlideOutcome::Disk) {
+        slideStartsCut_++;
+        if (search.outcome == sliding::SlideOutcome::Disk) {
+          slideDiskError_ = search.error;
+        }
+        if (search.outcome == sliding::SlideOutcome::Memory) {
+          slideMemoryCut_ = true;
+          slideMemoryStates_ = search.memoryStates;
+        }
+      }
+      if (path) {
+        // Several starts can slide to the same finished picture. A search
+        // never walks in a circle, but a worse start takes more moves to
+        // reach that picture. The shortest path to each ending is kept.
+        const std::string key = sliding::finalPlacementKey(*path);
+        const unsigned int moves = path->getMoves();
+        int longer = -1;
+        bool keep = true;
+        for (unsigned int i = 0; i < problem_.getNumberOfSavedSolutions(); i++) {
+          const Separation* old = problem_.getSavedSolution(i).getDisassembly();
+          if (old == nullptr || sliding::finalPlacementKey(*old) != key) {
+            continue;
+          }
+          if (old->getMoves() <= moves) {
+            keep = false;
+          } else {
+            longer = static_cast<int>(i);
+          }
+          break;
+        }
+        if (keep) {
+          // A shorter path to an ending already counted is the same
+          // solution: it takes that solution's number. The count of
+          // solutions is the count of distinct endings.
+          std::uint64_t solNum = problem_.getNumSolutions();
+          if (longer >= 0) {
+            solNum = problem_.getSavedSolution(static_cast<unsigned int>(longer))
+                         .getSolutionNumber();
+            problem_.removeSolution(static_cast<unsigned int>(longer));
+          }
+          problem_.addSolution(std::move(assembly), std::move(*path),
+                               problem_.getNumAssemblies(), solNum);
+          if (longer < 0) {
+            problem_.incNumSolutions();
+          }
+        }
+      }
+    } else {
+      const std::lock_guard<std::mutex> lock(resultsMutex_);
+      problem_.addSolution(std::move(assembly));
+    }
+  }
+  const std::lock_guard<std::mutex> lock(resultsMutex_);
+  problem_.incNumAssemblies();
+  trimSavedSolutions(true);
+  applyLiveSort();
+  return true;
+}
+
+// Under resultsMutex_. Whether a missing solution is proven or the search
+// gave up (solveThread_c::slidingSummary, word for word).
+std::string SolveSession::slidingSummary(const SolveOptions& o) const {
+  const sliding::SlidingSolver solver = o.sliding.solver;
+  if (slideStartsCut_ > 0) {
+    std::string msg = std::to_string(slideStartsCut_) +
+                      (slideStartsCut_ == 1 ? " start layout was" : " start layouts were") +
+                      " not searched completely";
+    if (!slideDiskError_.empty()) {
+      msg += ". " + slideDiskError_.substr(0, slideDiskError_.size() - 1);
+    } else if (slideMemoryCut_) {
+      msg += ": the search reached its memory limit of " + std::to_string(slideMemoryStates_) +
+             " arrangements";
+    } else if (solver == sliding::SlidingSolver::Deep) {
+      msg += ": the search reached its limit of 1,000,000 arrangements";
+    } else {
+      msg += ": the search reached its limit of 250,000 arrangements";
+    }
+    msg += ". There may be solutions the solver did not find.";
+    if (slideMemoryCut_ && !o.sliding.highMemory) {
+      msg += " Try Enable High Memory.";
+    }
+    if (!slideMemoryCut_ && slideDiskError_.empty() && solver != sliding::SlidingSolver::Full) {
+      msg += solver == sliding::SlidingSolver::Deep ? " Try the Sliding Full Solver."
+                                                    : " Try the Sliding Deep or Full Solver.";
+    }
+    return msg;
+  }
+  if (problem_.getNumSolutions() == 0 && problem_.getNumAssemblies() > 0) {
+    std::string msg =
+        "Every reachable arrangement was searched: this puzzle has no solution "
+        "with the current settings.";
+    if (!o.sliding.nested && !o.sliding.partialNested) {
+      msg += " If a piece can carry pieces that sit inside it, try Allow Nested Slides.";
+    } else if (!o.sliding.partialNested) {
+      msg += " If a piece can carry pieces that stick out of it, try Allow Partially Nested.";
+    }
+    return msg;
+  }
+  return "";
 }
 
 void SolveSession::enqueue(Task task) {
@@ -824,16 +1022,20 @@ void SolveSession::addSolution(Task& task, Separation separation) {
 
 // Under resultsMutex_. Past the limit, one of the kept solutions goes, so
 // that those kept stay spread evenly over all found; when a whole round
-// has gone, every other one is kept from then on.
-void SolveSession::trimSavedSolutions() {
+// has gone, every other one is kept from then on. A sliding run counts by
+// the solutions whatever it saves (the solve thread's SOL_DISASM), and the
+// index is the solve thread's unsigned int (no solution yet makes it
+// 0xFFFFFFFF there).
+void SolveSession::trimSavedSolutions(bool bySolutions) {
   const unsigned int limit = runOptions_.solutionLimit;
   if (limit == 0 || problem_.getNumberOfSavedSolutions() <= limit) {
     return;
   }
   const std::uint64_t drop = std::uint64_t{std::max(runOptions_.solutionDrop, 1U)} *
                              dropMultiplicator_;
-  std::uint64_t idx = action_ == Action::SaveAssemblies ? problem_.getNumAssemblies() - 1
-                                                        : problem_.getNumSolutions() - 1;
+  std::uint64_t idx = static_cast<unsigned int>(
+      action_ == Action::SaveAssemblies && !bySolutions ? problem_.getNumAssemblies() - 1
+                                                         : problem_.getNumSolutions() - 1);
   idx = (idx % (limit * drop)) / drop;
   if (idx == limit - 1) {
     dropMultiplicator_ *= 2;
@@ -1018,6 +1220,11 @@ std::optional<SolveFailure> SolveSession::failure() const {
   return failure_;
 }
 
+std::string SolveSession::note() const {
+  const std::lock_guard<std::mutex> lock(failureMutex_);
+  return note_;
+}
+
 SolveProgress SolveSession::progress() const {
   SolveProgress p;
   p.elapsedMs = runMs();
@@ -1025,12 +1232,14 @@ SolveProgress SolveSession::progress() const {
   const SolveState st = state_.load();
   bool stopping = false;
   bool rotations = false;
+  bool slideRun = false;
   float af = lastFinished_.load(std::memory_order_relaxed);
   unsigned int piece = 0;
   {
     const std::lock_guard<std::mutex> lock(runMutex_);
     stopping = isActive(st) && runStop_.stopRequested();
     rotations = runOptions_.checkRotations;
+    slideRun = runOptions_.disassemble;
     if (published_ != nullptr) {
       af = published_->finished();
       p.iterations = published_->iterations();
@@ -1061,6 +1270,8 @@ SolveProgress SolveSession::progress() const {
     parts = problem_.getNumberOfParts();
     pieces = problem_.getNumberOfPieces();
   }
+  p.searched = slideProgress_.load(std::memory_order_relaxed);
+  p.searchDepth = searchDepth_.load(std::memory_order_relaxed);
   p.disasmCompleted = completed_.load(std::memory_order_relaxed);
   p.disasmPending = pending_.load(std::memory_order_relaxed);
   p.disasmWorkers = workerCount_.load(std::memory_order_relaxed);
@@ -1082,7 +1293,8 @@ SolveProgress SolveSession::progress() const {
       p.piece = std::min(piece + 1, p.pieces);
       break;
     case SolveState::Assembling:
-      p.stage = SolveStage::Assemble;
+      // the slide search reports in its own way (searched, searchDepth)
+      p.stage = sliding_ && slideRun ? SolveStage::Other : SolveStage::Assemble;
       break;
     case SolveState::Draining:
       p.stage = SolveStage::Disassemble;

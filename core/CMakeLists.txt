@@ -5,6 +5,7 @@ add_library(btcore STATIC
   bt/app/analysis.cpp
   bt/app/document.cpp
   bt/app/document_commands.cpp
+  bt/app/document_sliding.cpp
   bt/app/explorers.cpp
   bt/app/layer_geometry.cpp
   bt/app/playback.cpp
@@ -13,6 +14,7 @@ add_library(btcore STATIC
   bt/base/assert.cpp
   bt/base/error.cpp
   bt/base/solve_state.cpp
+  bt/base/system.cpp
   bt/base/thread_pool.cpp
   bt/grid/grid_type.cpp
   bt/grid/symmetries_0.cpp
@@ -46,6 +48,7 @@ add_library(btcore STATIC
   bt/model/disassembly.cpp
   bt/model/problem.cpp
   bt/model/puzzle.cpp
+  bt/model/sliding.cpp
   bt/model/solution.cpp
   bt/solve/assembler.cpp
   bt/solve/assembler_0.cpp
@@ -69,6 +72,7 @@ add_library(btcore STATIC
   bt/solve/search_run.cpp
   bt/solve/simd_exact_cover.cpp
   bt/solve/simd_huang_cover.cpp
+  bt/solve/sliding_search.cpp
   bt/solve/solve_progress.cpp
   bt/solve/solve_session.cpp
   bt/solve/solver_type.cpp)

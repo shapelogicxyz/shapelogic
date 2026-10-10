@@ -12,6 +12,7 @@
 #include "bt/grid/voxel.h"
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
+#include "bt/model/sliding.h"
 #include "bt/model/solution.h"
 #include "bt/solve/disassembler.h"
 #include "bt/solve/disassembler_node.h"
@@ -59,8 +60,8 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
                                                 SolverType solver, const MatrixOptions& matrix,
                                                 bool reduce) {
   const GridType& grid = puzzle.getGridType();
-  if (grid.getType() == GridKind::Sliding || grid.getType() == GridKind::Stacking) {
-    return fail(Errc::Unsupported, "sliding and stacking puzzles cannot be solved yet");
+  if (grid.getType() == GridKind::Stacking) {
+    return fail(Errc::Unsupported, "stacking puzzles cannot be solved yet");
   }
   if ((grid.getCapabilities() & kCapAssemble) == 0) {
     return fail(Errc::Unsupported, "this space grid doesn't have an assembler");
@@ -78,8 +79,20 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
 
   AssemblyExplorer e;
   e.puzzle_ = explorerCopy(puzzle, problemIndex);
+  // A sliding puzzle's placements are those its solve makes (the original
+  // browsed the solve's own assembler): the start locks set up, every
+  // start kept, colours matched strictly, Classic's assembler.
+  MatrixOptions options = matrix;
+  if (grid.getType() == GridKind::Sliding) {
+    (void)sliding::prepareForSolving(*e.puzzle_, e.puzzle_->getProblem(0));
+    solver = SolverType::Classic;
+    options.keepMirrors = true;
+    options.keepRotations = true;
+    options.completeRotations = false;
+    options.strictColors = true;
+  }
   e.assembler_ = makeAssembler(*e.puzzle_, e.puzzle_->getProblem(0), solver);
-  const AssemblerError err = e.assembler_->createMatrix(matrix);
+  const AssemblerError err = e.assembler_->createMatrix(options);
   if (err != AssemblerError::None) {
     return fail(Errc::InvalidArgument, std::string(errorMessage(err)));
   }

@@ -8,8 +8,7 @@
 /// (progress(), stats()) and are plain values.
 ///
 /// Ported from src/lib/solveprogress.h (solveProgress_c, activity()) and
-/// solveStats_c of src/lib/solvethread.h. The stages of sliding and stacking
-/// searches (STAGE_OTHER) are not ported.
+/// solveStats_c of src/lib/solvethread.h.
 
 #include "bt/base/solve_state.h"
 #include "bt/solve/disassembler.h"
@@ -32,6 +31,9 @@ enum class SolveStage : std::uint8_t {
   Paused,
   Done,
   Error,
+  /// A search that reports in its own way (STAGE_OTHER): the slide search
+  /// of a sliding puzzle; see SolveProgress::searched.
+  Other,
 };
 
 /// A picture of a solve (solveProgress_c).
@@ -51,6 +53,13 @@ struct SolveProgress {
 
   std::uint64_t assemblies = 0;
   std::uint64_t solutions = 0;
+
+  /// The slide search under way: the arrangements it has visited, and how
+  /// many moves deep a full search is (0 before its first level). What the
+  /// original GUI showed ("Sliding search, 12 moves deep. Scanned 3,456
+  /// arrangements.").
+  std::uint64_t searched = 0;
+  std::uint64_t searchDepth = 0;
 
   /// Taking apart: is it wanted, how many done, how many found and not
   /// done, by how many workers.

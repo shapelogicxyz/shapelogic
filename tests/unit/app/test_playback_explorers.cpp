@@ -275,14 +275,19 @@ TEST_CASE("playback: a placed piece is its turned mesh at its cell minus the mes
   CHECK(grids.size() == 5);
 }
 
-TEST_CASE("playback: what has no animation is refused", "[app][playback]") {
+TEST_CASE("playback: what has no animation is refused, a sliding solution plays",
+          "[app][playback]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
   const Id p = d.problemIds().front();
   // a solution that is not there
   CHECK(d.playback(p, 99999).error().code == Errc::NotFound);
-  // sliding puzzles: not yet
+  // stacking puzzles: not yet; a sliding solution plays its 81 moves
+  const Puzzle stacking = test::openFixture("test_stacking_hanoi.xmpuzzle").puzzle();
+  CHECK(PlaybackSampler::make(stacking, 0, 0).error().code == Errc::Unsupported);
   const Puzzle sliding = test::openFixture("test_sliding_solver.xmpuzzle").puzzle();
-  CHECK(PlaybackSampler::make(sliding, 0, 0).error().code == Errc::Unsupported);
+  const Result<PlaybackSampler> pb = PlaybackSampler::make(sliding, 0, 0);
+  REQUIRE(pb.has_value());
+  CHECK(pb->stepCount() == 81);
 }
 
 TEST_CASE("explorers: the placements and the assembly search step by step",
@@ -318,8 +323,9 @@ TEST_CASE("explorers: the placements and the assembly search step by step",
   }
   CHECK(full);
 
-  // what it refuses
-  Document s = openFixture("test_sliding_solver.xmpuzzle");
+  // what it refuses: stacking puzzles (a sliding puzzle's placements are
+  // its solve's: test_document_sliding.cpp)
+  Document s = openFixture("test_stacking_hanoi.xmpuzzle");
   CHECK(s.exploreAssembly(s.problemIds().front(), SolverType::Classic, {}, false).error().code ==
         Errc::Unsupported);
 }

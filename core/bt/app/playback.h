@@ -87,8 +87,9 @@ struct PlaybackTrack {
 /// shown through one path.
 class PlaybackSampler {
  public:
-  /// The playback of saved solution `solution` of problem `problemIndex`.
-  /// Refused for stacking and sliding puzzles (not yet), a problem without
+  /// The playback of saved solution `solution` of problem `problemIndex`
+  /// (a sliding solution's moves follow their routes round corners).
+  /// Refused for stacking puzzles (not yet), a problem without
   /// a result, a missing solution (Unsupported / InvalidArgument /
   /// NotFound, with the original's messages), and a piece that cannot
   /// take its orientation.

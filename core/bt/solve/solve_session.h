@@ -10,7 +10,10 @@
 /// Ported from src/lib/solvethread.{h,cpp} (solveThread_c) and from the
 /// parts of the original GUI that drove it: Solve, Prepare, Continue and
 /// Abort (mainwindow_solve.cpp), the autosave pause and recordSearchStats
-/// (mainwindow.cpp). Sliding and stacking puzzles are not ported (their
+/// (mainwindow.cpp). A sliding puzzle is solved the way the solve thread
+/// solved it: the assembler finds the start layouts, and each is searched
+/// to the goal by the slide search (bt/solve/sliding_search.h) instead of
+/// taken apart (decision 0014). Stacking puzzles are not ported (their
 /// files load and save, the session refuses them). The rules are decisions
 /// 0004 and 0009: one StopSource per run, nothing reset, the state written
 /// by one thread at a time, threads from pools the session makes.
@@ -20,6 +23,7 @@
 #include "bt/base/stop.h"
 #include "bt/solve/assembler.h"
 #include "bt/solve/disassembler.h"
+#include "bt/solve/sliding_search.h"
 #include "bt/solve/solve_progress.h"
 #include "bt/solve/solver_type.h"
 
@@ -93,6 +97,14 @@ struct SolveOptions {
   /// The take-apart's switches: levelThreads, levelThreadCostUs, analysis.
   /// Its rotations, solver and pool come from the fields above.
   DisassemblerOptions takeApart;
+  /// A sliding puzzle's search: its solver, nested slides, high memory,
+  /// where a full search keeps its levels. A sliding run always keeps
+  /// mirrored and rotated starts and matches colours strictly (the start
+  /// locks), whatever `matrix` says; `disassemble` (the GUI's Find
+  /// Solutions) searches each start to the goal; `checkRotations`,
+  /// `dropDisassemblies`, `order` (a found path goes at the end) and the
+  /// take-apart's settings play no part.
+  sliding::SlidingOptions sliding;
 };
 
 /// Why a run ended in the Error state.
@@ -194,6 +206,12 @@ class SolveSession {
   /// Why the last run ended in Error; empty otherwise. Any thread.
   [[nodiscard]] std::optional<SolveFailure> failure() const;
 
+  /// What the last run of a sliding solve has to say once it is through:
+  /// whether a missing solution is proven or the search gave up at a limit
+  /// (the solve thread's solver note, slidingSummary); empty otherwise.
+  /// Any thread.
+  [[nodiscard]] std::string note() const;
+
   /// Where the solve stands. Any thread; the overall figure never goes
   /// back during a run, whoever asks.
   [[nodiscard]] SolveProgress progress() const;
@@ -216,6 +234,10 @@ class SolveSession {
   }
 
  private:
+  /// The tests' seam: hands assemblies to a run's callback without a run,
+  /// as the original's tests called the solve thread's callback.
+  friend struct SolveSessionTestAccess;
+
   /// An assembly waiting to be taken apart, with the numbers it was found
   /// with (disasmTask_c).
   struct Task {
@@ -264,10 +286,12 @@ class SolveSession {
 
   // what is found
   bool onAssembly(Assembly assembly);
+  bool onSlidingAssembly(Assembly assembly);
+  [[nodiscard]] std::string slidingSummary(const SolveOptions& o) const;
   void enqueue(Task task);
   void processTask(Task& task, Disassembler& disassembler);
   void addSolution(Task& task, Separation separation);
-  void trimSavedSolutions();
+  void trimSavedSolutions(bool bySolutions = false);
   void applyLiveSort();
 
   // the take-apart workers
@@ -289,6 +313,8 @@ class SolveSession {
   Puzzle& puzzle_;
   Problem& problem_;
   SolveOptions options_;
+  /// A sliding puzzle: runs search each start to the goal.
+  bool sliding_ = false;
 
   /// The owner's calls one at a time; the run's thread.
   std::mutex controlMutex_;
@@ -347,6 +373,21 @@ class SolveSession {
   mutable std::mutex failureMutex_;
   std::optional<SolveFailure> failure_;
   std::exception_ptr workerError_;
+
+  /// The slide searches of a run: the pool a full search spreads its
+  /// levels over (made per run, with the solve's thread budget), the
+  /// arrangements the search under way has visited and how deep it is,
+  /// and what the run's searches came to (the solve thread's slide
+  /// members; the counts under resultsMutex_).
+  std::unique_ptr<ThreadPool> slidePool_;
+  std::atomic<std::uint64_t> slideProgress_{0};
+  std::atomic<std::uint64_t> searchDepth_{0};
+  unsigned int slideStartsCut_ = 0;
+  bool slideMemoryCut_ = false;
+  std::uint64_t slideMemoryStates_ = 0;
+  std::string slideDiskError_;
+  /// note(), under failureMutex_.
+  std::string note_;
 
   std::atomic<int> liveSort_{-1};
   /// The furthest overall progress shown in this run.

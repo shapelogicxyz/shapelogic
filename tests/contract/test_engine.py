@@ -822,7 +822,9 @@ def unsupported_and_failures(e):
     e.fails("solve.start", {"problem": p}, "unsupported")
     e.fails("solve.continue", {"problem": p}, "unsupported")
     e.fails("solution.analyse", {"problem": p, "which": "all"}, "unsupported")
-    e.fails("explore.openAssembly", {"problem": p}, "unsupported")
+    # a stacking puzzle is not solved yet, nor its placements explored
+    snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
+    e.fails("explore.openAssembly", {"problem": snap["problems"][0]["id"]}, "unsupported")
     # spheres have no take-apart
     snap = e.call("document.open", {"path": str(FIXTURES / "BallRoom_solved.xmpuzzle")})
     p = snap["problems"][0]["id"]

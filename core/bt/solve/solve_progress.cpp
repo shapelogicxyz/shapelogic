@@ -44,6 +44,7 @@ std::string SolveProgress::activity() const {
     case SolveStage::Error:
       return "error";
     case SolveStage::Idle:
+    case SolveStage::Other:  // the original printed nothing for its own searches
       return "";
   }
   return "";

@@ -25,6 +25,7 @@
 #include "bt/grid/voxel_table.h"
 #include "bt/model/assembly.h"
 #include "bt/model/problem.h"
+#include "bt/model/sliding.h"
 #include "bt/model/solution.h"
 
 #include <algorithm>
@@ -123,13 +124,37 @@ Result<Id> Document::duplicateShape(Id shape) {
   if (!s) {
     return std::unexpected(s.error());
   }
+  // a copy of a sliding start/goal shape is a start/goal shape of its own
+  // with the next number, and gets its problem (cb_CopyShape)
+  const bool startGoal =
+      sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&puzzle_->getShape(*s));
+  if (startGoal) {
+    if (Result<void> r = checkSessionsReplaceable(); !r) {
+      return std::unexpected(r.error());
+    }
+  }
   StepGuard g(*this, "Duplicate shape");
-  touchAppendedShape();
-  (void)puzzle_->addShape(puzzle_->getShape(*s).clone());
+  if (startGoal) {
+    touchWhole();
+  } else {
+    touchAppendedShape();
+  }
+  const unsigned int copy = puzzle_->addShape(puzzle_->getShape(*s).clone());
   const Id id = newId();
   ids_.shapes.push_back(id);
   lastChange_.shapes = {id};
-  g.commit(kChangeShapes);
+  if (startGoal) {
+    int next = 1;
+    for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+      if (i != copy) {
+        next = std::max(next, sliding::startGoalNumber(&puzzle_->getShape(i)) + 1);
+      }
+    }
+    Voxel& v = puzzle_->getShape(copy);
+    v.setName("sg:" + std::to_string(next) + ":" + sliding::startGoalUserName(&v));
+    syncSliding();
+  }
+  g.commit(kChangeShapes | lastChange_.what);
   return id;
 }
 
@@ -147,9 +172,17 @@ Result<void> Document::deleteShape(Id shape) {
   StepGuard g(*this, "Delete shape");
   touchWhole();
   endSessions();
+  const bool slidingPuzzle = sliding::isSliding(*puzzle_);
+  if (slidingPuzzle) {
+    // the marks of the start/goal shapes follow the shapes' numbers
+    sliding::noteShapeRemoved(*puzzle_, *s);
+  }
   puzzle_->removeShape(*s);
   ids_.shapes.erase(ids_.shapes.begin() + *s);
-  g.commit(kChangeShapes | kChangeProblems);
+  if (slidingPuzzle) {
+    syncSliding();
+  }
+  g.commit(kChangeShapes | kChangeProblems | lastChange_.what);
   return {};
 }
 
@@ -177,6 +210,9 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   unsigned int at = *s;
   while (at != toIndex) {
     const unsigned int next = at < toIndex ? at + 1 : at - 1;
+    if (sliding::isSliding(*puzzle_)) {
+      sliding::noteShapeSwap(*puzzle_, at, next);
+    }
     puzzle_->exchangeShapes(at, next);
     std::swap(ids_.shapes[at], ids_.shapes[next]);
     at = next;
@@ -196,12 +232,20 @@ Result<void> Document::renameShape(Id shape, std::string name) {
   if (!s) {
     return std::unexpected(s.error());
   }
-  if (puzzle_->getShape(*s).getName() == name) {
+  // a sliding start/goal shape keeps its "sg:<n>:": the name given is
+  // the user's part (cb_NameShape)
+  Voxel& named = puzzle_->getShape(*s);
+  const bool startGoal = sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&named);
+  if ((startGoal ? sliding::startGoalUserName(&named) : named.getName()) == name) {
     return {};
   }
   StepGuard g(*this, "Rename shape");
   touchShape(*s);
-  puzzle_->getShape(*s).setName(name);
+  if (startGoal) {
+    sliding::setStartGoalUserName(&puzzle_->getShape(*s), name);
+  } else {
+    puzzle_->getShape(*s).setName(name);
+  }
   lastChange_.shapes = {shape};
   g.commit(kChangeShapes);
   return {};
@@ -273,11 +317,23 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
   if (n == 0) {
     return 0U;
   }
+  const bool slidingPuzzle = sliding::isSliding(*puzzle_);
+  if (slidingPuzzle) {
+    // the sliding problems may follow (syncSliding ends the sessions)
+    if (Result<void> r = checkSessionsReplaceable(); !r) {
+      return std::unexpected(r.error());
+    }
+  }
   StepGuard g(*this, "Edit cells");
   touchShape(*s);
   (void)puzzle_->replaceShape(*s, std::move(v));
   lastChange_.shapes = {shape};
   shapeChanged(*s);
+  // the walls and floor of a start/goal shape: its problem follows (the
+  // grid editor's RS_CHANGESQUARE)
+  if (slidingPuzzle && sliding::isStartGoalShape(&puzzle_->getShape(*s))) {
+    syncSliding();
+  }
   g.commit(kChangeShapes | lastChange_.what);
   return n;
 }
@@ -349,6 +405,11 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
   }
   // this one always, also to shrink it with "apply to all" on
   sizes[*s] = {factor * x, factor * y, factor * z};
+  if (sliding::isSliding(*puzzle_)) {
+    if (Result<void> r = checkSessionsReplaceable(); !r) {
+      return r;
+    }
+  }
 
   StepGuard g(*this, "Resize");
   for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
@@ -426,6 +487,11 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
     }
   }
 
+  if (sliding::isSliding(*puzzle_)) {
+    if (Result<void> r = checkSessionsReplaceable(); !r) {
+      return std::unexpected(r.error());
+    }
+  }
   StepGuard g(*this, std::string(info->label));
   for (std::size_t k = 0; k < which.size(); k++) {
     if (!changedShape[k]) {
@@ -644,6 +710,10 @@ Result<void> Document::setResult(Id problem, Id shape) {
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
   }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument,
+                "a sliding problem's result is its start/goal shape: it is not chosen");
+  }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.resultValid() && pr.getResultId() == *s && pr.getShapeMaximum(*s) == 0) {
     return {};
@@ -683,6 +753,11 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
   }
   if (pr.getShapeMinimum(*s) == min && pr.getShapeMaximum(*s) == max) {
     return {};
+  }
+  if (slidingRequired(*p, *s)) {
+    return fail(Errc::InvalidArgument, "S" + std::to_string(*s + 1) +
+                                           " has a start or goal on this problem's start/goal "
+                                           "shape: its count follows them");
   }
   StepGuard g(*this, "Piece count");
   touchProblem(*p);
@@ -740,10 +815,13 @@ Result<void> Document::setRangeAll(Id problem, unsigned int min, unsigned int ma
   StepGuard g(*this, "Set range for all pieces");
   problemChanged(*p);
   Problem& pr = puzzle_->getProblem(*p);
-  // the parts as they are now: a maximum of 0 removes a part
+  // the parts as they are now: a maximum of 0 removes a part; a sliding
+  // piece with a start or goal keeps its count
   std::vector<unsigned int> shapes;
   for (unsigned int i = 0; i < pr.getNumberOfParts(); i++) {
-    shapes.push_back(pr.getShapeIdOfPart(i));
+    if (!slidingRequired(*p, pr.getShapeIdOfPart(i))) {
+      shapes.push_back(pr.getShapeIdOfPart(i));
+    }
   }
   for (const unsigned int s : shapes) {
     pr.setShapeMaximum(*puzzle_, s, max);
@@ -768,8 +846,8 @@ Result<void> Document::addOneOfEach(Id problem) {
   StepGuard g(*this, "Add one of each");
   touchProblem(*p);
   for (unsigned int j = 0; j < puzzle_->getNumberOfShapes(); j++) {
-    // not the result
-    if (pr.resultValid() && j == pr.getResultId()) {
+    // not the result, nor a sliding piece with a start or goal
+    if ((pr.resultValid() && j == pr.getResultId()) || slidingRequired(*p, j)) {
       continue;
     }
     pr.setShapeMaximum(*puzzle_, j, pr.getShapeMaximum(j) + 1);
@@ -793,10 +871,17 @@ Result<void> Document::removeAllPieces(Id problem) {
     return {};
   }
   StepGuard g(*this, "Remove all pieces");
+  // a sliding piece with a start or goal stays
+  std::vector<bool> keep(puzzle_->getNumberOfShapes());
+  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+    keep[i] = slidingRequired(*p, i);
+  }
   problemChanged(*p);
   Problem& pr = puzzle_->getProblem(*p);
   for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
-    pr.setShapeMaximum(*puzzle_, i, 0);
+    if (!keep[i]) {
+      pr.setShapeMaximum(*puzzle_, i, 0);
+    }
   }
   lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
@@ -852,6 +937,9 @@ Result<void> Document::setGroupCount(Id problem, Id shape, unsigned int group,
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
   }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
+  }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.getShapeMaximum(*s) == 0) {
     return fail(Errc::InvalidArgument, "the shape is no piece of the problem");
@@ -880,6 +968,9 @@ Result<void> Document::setGroup(Id problem, Id shape, unsigned int group) {
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
+  }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
   }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.getShapeMaximum(*s) == 0) {
@@ -912,6 +1003,9 @@ Result<void> Document::deleteGroup(Id problem, unsigned int group) {
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
+  }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
   }
   Problem& pr = puzzle_->getProblem(*p);
   StepGuard g(*this, "Delete group");

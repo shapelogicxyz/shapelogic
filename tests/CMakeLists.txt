@@ -5,6 +5,7 @@ add_executable(bt_tests
   unit/app/test_analysis_files.cpp
   unit/app/test_app_dump.cpp
   unit/app/test_document.cpp
+  unit/app/test_document_sliding.cpp
   unit/app/test_document_solving.cpp
   unit/app/test_layer_geometry.cpp
   unit/app/test_playback_explorers.cpp
@@ -34,6 +35,8 @@ add_executable(bt_tests
   unit/solve/test_positions.cpp
   unit/solve/test_rotation_solvers.cpp
   unit/solve/test_simd_exact_cover.cpp
+  unit/solve/test_sliding.cpp
+  unit/solve/test_sliding_session.cpp
   unit/solve/test_solve_session.cpp
   unit/solve/test_work_stealing.cpp)
 

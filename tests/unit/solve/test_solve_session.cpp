@@ -573,15 +573,12 @@ TEST_CASE("solve session: what it refuses", "[solve][session]") {
     s.wait();
     CHECK(s.state() == SolveState::Finished);
   }
-  SECTION("sliding and stacking puzzles") {
-    for (const char* f : {"test_sliding_solver.xmpuzzle", "test_stacking_hanoi.xmpuzzle"}) {
-      INFO(f);
-      Puzzle p = test::loadFixture(f);
-      SolveSession s(p, p.getProblem(0), {});
-      const Result<void> r = s.start();
-      REQUIRE_FALSE(r.has_value());
-      CHECK(r.error().code == Errc::Unsupported);
-    }
+  SECTION("stacking puzzles (sliding ones are solved: test_sliding_session.cpp)") {
+    Puzzle p = test::loadFixture("test_stacking_hanoi.xmpuzzle");
+    SolveSession s(p, p.getProblem(0), {});
+    const Result<void> r = s.start();
+    REQUIRE_FALSE(r.has_value());
+    CHECK(r.error().code == Errc::Unsupported);
   }
   SECTION("running twice") {
     // the run is active from the moment start() returns, and this one

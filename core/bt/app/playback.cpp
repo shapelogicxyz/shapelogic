@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/lib/gltfexport.cpp (solutionAnimation up to the keyframe
 // track: the piece list, evaluate, the poses of hidden pieces, the times,
-// the quaternion hemispheres; buildMesh's bounding box).
+// the quaternion hemispheres; buildMesh's bounding box), with the sliding
+// routes the original's solution slider applied (mainwindow.cpp).
 #include "bt/app/playback.h"
 
 #include "bt/base/assert.h"
@@ -16,6 +17,7 @@
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
 #include "bt/model/solution.h"
+#include "bt/solve/sliding_search.h"
 
 #include <cmath>
 #include <numbers>
@@ -182,9 +184,6 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
   if (kind == GridKind::Stacking) {
     return fail(Errc::Unsupported, "Stacking puzzles cannot be exported as an animation.");
   }
-  if (kind == GridKind::Sliding) {
-    return fail(Errc::Unsupported, "Sliding puzzles cannot be played back yet.");
-  }
   if (problemIndex >= puzzle.getNumberOfProblems()) {
     return fail(Errc::NotFound, "There is no such problem.");
   }
@@ -207,6 +206,11 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
                                                pr.getNumberOfPieces());
     s.steps_ = tree->sumSteps();
     s.movesText_ = tree->movesText();
+    // a sliding move can turn corners: it follows its route, not the
+    // diagonal (as the original's solution slider did)
+    if (kind == GridKind::Sliding) {
+      sliding::applySlideRoutes(puzzle, pr, *tree, *s.moves_);
+    }
   }
   // else: no moves to play; the pieces stay as the assembly places them
 

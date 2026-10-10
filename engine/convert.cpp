@@ -107,6 +107,7 @@ std::string_view solveStageName(SolveStage s) {
     case SolveStage::Paused: return "paused";
     case SolveStage::Done: return "done";
     case SolveStage::Error: return "error";
+    case SolveStage::Other: return "search";
   }
   return "idle";
 }
