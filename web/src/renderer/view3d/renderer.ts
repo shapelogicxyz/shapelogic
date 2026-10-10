@@ -6,7 +6,9 @@
 // orthographic camera framed as the mockup's render3d framed its
 // projection (docs/mockup/index.html: `sc`, the 64-unit eye of `pr`, the
 // pan as a shift of the picture), which replaces its canvas drawing.
-// Each render is measured ("view3d:render", performance.measure).
+// Each render is measured ("view3d:render", performance.measure). The
+// view's picture as a PNG at a scale of its size (File ▸ Export ▸ Image,
+// stage 7) is a render at that pixel ratio, read back at once.
 
 import { Group, OrthographicCamera, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import type { Camera as Camera3 } from 'three';
@@ -123,6 +125,31 @@ export class ViewRenderer {
       this.pending = 0;
       this.draw?.();
     });
+  }
+
+  /** Frames and renders now, as an animation frame would. */
+  drawNow(): void {
+    this.draw?.();
+  }
+
+  /**
+   * The view as a PNG, `scale` pixels to its CSS pixel (1 and 2: the
+   * export's sizes): drawn at that pixel ratio and read in the same task,
+   * before the page shows it; the display's ratio is then restored.
+   */
+  capture(scale: number): { data: string; width: number; height: number } {
+    const gl = this.gl;
+    try {
+      gl.setPixelRatio(scale);
+      gl.setSize(this.width, this.height, false);
+      this.drawNow();
+      const c = gl.domElement;
+      return { data: c.toDataURL('image/png'), width: c.width, height: c.height };
+    } finally {
+      gl.setPixelRatio(window.devicePixelRatio || 1);
+      gl.setSize(this.width, this.height, false);
+      this.request();
+    }
   }
 
   /** Renders now. */

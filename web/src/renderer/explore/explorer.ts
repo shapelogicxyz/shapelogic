@@ -1061,7 +1061,12 @@ export class Explorer {
         const r = replies[i];
         if (b === undefined && r !== undefined) {
           const size = snap.shapes.find((s) => s.id === it.shape)?.size ?? [1, 1, 1];
-          b = buildMesh(meshArrays(r), size, styleOf(it));
+          b = buildMesh(meshArrays(r), size, styleOf(it), {
+            kind: 'shape',
+            shape: it.shape,
+            revision: snap.revision,
+            transformation: it.transformation,
+          });
           this.built.set(k, b);
         }
         return b ?? null;

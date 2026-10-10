@@ -140,7 +140,7 @@ effort and audits".
 - [x] **Stage 5**: the explorers, the debug panel, the status window (docs/handoff/web-5.md)
 - [x] **Stage 6**: menus, files, settings, recovery (docs/handoff/web-6.md)
 - [x] Audit of stage 6's file paths (docs/handoff/web-6.md, "Audit")
-- [ ] **Stage 7**: exports
+- [x] **Stage 7**: exports (docs/handoff/web-7.md)
 - [ ] **Stage 8**: packaging
 - [ ] Security audit before the first release
 

@@ -30,6 +30,7 @@
     "electron": "44.7.0",
     "electron-vite": "5.0.0",
     "eslint": "10.12.0",
+    "gltf-validator": "2.0.0-dev.3.10",
     "prettier": "3.9.9",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",

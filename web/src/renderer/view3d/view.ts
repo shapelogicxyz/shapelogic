@@ -44,6 +44,7 @@ import type { Pick } from './picking.ts';
 import type { Ghost } from './preview.ts';
 import { ViewRenderer } from './renderer.ts';
 import { ShapeScene } from './scene.ts';
+import { vectorImage } from './svg.ts';
 import { Toolbar } from './toolbar.ts';
 import type { Display, EditButton, NavMode } from './toolbar.ts';
 import { ViewCube } from './viewcube.ts';
@@ -310,6 +311,30 @@ export class View3D {
     return this.cache;
   }
 
+  /** File ▸ Export ▸ Image: the view as a PNG (a data URL), `scale` pixels to a CSS pixel. */
+  image(scale: number): { data: string; width: number; height: number } {
+    return this.renderer.capture(scale);
+  }
+
+  /** File ▸ Export ▸ Vector Image: the view as an SVG document, over the flat meshes of what it draws. */
+  vectorImage(): Promise<string> {
+    const store = this.store;
+    return vectorImage(
+      this.renderer,
+      async (source) =>
+        meshArrays(
+          source.kind === 'shape'
+            ? await this.cache.get(source.shape, 'flat', source.revision, source.transformation)
+            : await store.engine.call('playback.mesh', {
+                handle: source.handle,
+                piece: source.piece,
+                style: 'flat',
+              }),
+        ),
+      css('--canvas') || '#e4e8ef',
+    );
+  }
+
   /**
    * The Solver's solution (null: none): its pieces with their meshes, framed
    * on the result. The player draws in its layer; an explorer's model, while
@@ -496,7 +521,12 @@ export class View3D {
           return;
         }
         const t0 = performance.now();
-        const built = buildMesh(meshArrays(reply), size, style);
+        const built = buildMesh(meshArrays(reply), size, style, {
+          kind: 'shape',
+          shape: shape.id,
+          revision,
+          transformation: 0,
+        });
         performance.measure('view3d:mesh-build', {
           start: t0,
           end: performance.now(),
@@ -567,7 +597,12 @@ export class View3D {
         }
         const size = store.snapshot?.shapes.find((x) => x.id === s)?.size ?? [1, 1, 1];
         const reply = await this.cache.get(s, style, rev);
-        const built = buildMesh(meshArrays(reply), size, style);
+        const built = buildMesh(meshArrays(reply), size, style, {
+          kind: 'shape',
+          shape: s,
+          revision: rev,
+          transformation: 0,
+        });
         const lo = reply.lo;
         const hi = reply.hi;
         const c = [0, 1, 2].map((i) => ((lo[i] ?? 0) + (hi[i] ?? 0)) / 2) as [

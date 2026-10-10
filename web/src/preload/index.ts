@@ -3,7 +3,7 @@
 // The preload script (sandboxed, context-isolated; decision 0013): exposes
 // the engine bridge as window.bt and, from stage 6, the app's menus,
 // dialogs, store and rescue copy as window.btApp (engine/app-bridge.ts),
-// and nothing else of Electron or Node.
+// with stage 7 the exports' writes, and nothing else of Electron or Node.
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcRendererEvent } from 'electron';
@@ -51,6 +51,15 @@ const btApp: BtApp = {
   },
   chooseSave(kind, name) {
     return ipcRenderer.invoke('bt:choose-save', kind, name) as Promise<string | null>;
+  },
+  async writeExport(path, data) {
+    const r = (await ipcRenderer.invoke('bt:write-export', path, data)) as {
+      ok?: boolean;
+      error?: string;
+    };
+    if (r.ok !== true) {
+      throw new Error(r.error ?? 'the file could not be written');
+    }
   },
   pathOf(file) {
     return webUtils.getPathForFile(file);

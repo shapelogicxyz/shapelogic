@@ -90,6 +90,7 @@ export class ShapeScene {
       return;
     }
     this.faces = new Mesh(built.faces, this.xray ? this.mInside : this.mNormal);
+    this.faces.userData.faces = true;
     this.parent.add(this.faces);
     this.outer = new Mesh(built.faces, this.mOutside);
     this.outer.renderOrder = 3;

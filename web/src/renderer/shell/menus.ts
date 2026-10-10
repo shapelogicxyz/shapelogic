@@ -51,6 +51,13 @@ export interface MenuHandlers {
   close(): void;
   importPaused(): void;
   exportPaused(): void;
+  /** File ▸ Export ▸ Image, Vector Image, STL, Solution Animation (stage 7). */
+  exportImage(): void;
+  exportVector(): void;
+  exportStl(): void;
+  exportGlb(): void;
+  /** Whether the Solver shows a solution with its moves stored (the animation's export). */
+  animation(): boolean;
   toShapes(): void;
   notes(): void;
   statusWindow(): void;
@@ -121,6 +128,8 @@ export class Menus {
       solving: snap?.solving ?? false,
       paused: p?.paused ?? false,
       solutions: snap?.problems.some((x) => x.saved > 0) ?? false,
+      shapes: snap?.shapes.some((x) => x.fixed + x.variable > 0) ?? false,
+      animation: snap !== null && this.h.animation(),
       colourView: this.view.display.colourView,
       style: this.view.display.style,
       focus3d: layout.focus === '3d',
@@ -168,6 +177,18 @@ export class Menus {
         break;
       case 'exportPaused':
         this.h.exportPaused();
+        break;
+      case 'exportImage':
+        this.h.exportImage();
+        break;
+      case 'exportVector':
+        this.h.exportVector();
+        break;
+      case 'exportStl':
+        this.h.exportStl();
+        break;
+      case 'exportGlb':
+        this.h.exportGlb();
         break;
       case 'toShapes':
         this.h.toShapes();

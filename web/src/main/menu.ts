@@ -7,7 +7,7 @@
 // application menu on macOS, at the foot of Help and Edit elsewhere) and
 // the mockup's placeholders (File, Toggle 3D, Export, Status, Edit comment,
 // Help, About). What this version cannot do yet is shown greyed: the
-// imports of PuzzleSolver3D and Puzzlecad, the exports of stage 7, grid
+// imports of PuzzleSolver3D and Puzzlecad, the Puzzlecad export, grid
 // conversion, the anaglyph modes and the STL-like style. The keys shown
 // are the one keyboard table's (renderer/shell/keys.ts, sent in the
 // state): the menus show them and do not register them, so a key press
@@ -42,6 +42,8 @@ export const NO_STATE: MenuState = {
   solving: false,
   paused: false,
   solutions: false,
+  shapes: false,
+  animation: false,
   colourView: false,
   style: 'drawing',
   focus3d: false,
@@ -153,10 +155,10 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         label: 'Export',
         submenu: [
           later('export.scad', 'Puzzlecad (OpenSCAD)…'),
-          later('export.image', 'Image…'),
-          later('export.vector', 'Vector Image…'),
-          later('export.stl', 'STL…'),
-          later('export.glb', 'Solution Animation (GLB)…'),
+          item('export.image', 'Image…', { cmd: 'exportImage' }, doc),
+          item('export.vector', 'Vector Image…', { cmd: 'exportVector' }, doc),
+          item('export.stl', 'STL…', { cmd: 'exportStl' }, doc && s.shapes),
+          item('export.glb', 'Solution Animation (GLB)…', { cmd: 'exportGlb' }, doc && s.animation),
           item(
             'exportPaused',
             'Paused Solver State…',

@@ -259,14 +259,18 @@ export class SolutionsCard {
     );
   }
 
-  /** The actions: Manage solutions and Export to STL (the exports come later). */
+  /**
+   * The actions: Manage solutions, and Export to STL (the original's
+   * "Export Solution to STL", each piece's STL mesh: it comes with the STL
+   * meshes; File ▸ Export ▸ STL writes a shape's flat faces meanwhile).
+   */
   renderActions(): void {
     const ws = this.ws;
     const n = ws.pager?.total ?? 0;
     const busy = ws.running || ws.analysing || ws.calling;
     setHtml(
       byId('slvAct'),
-      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''}>Manage solutions ▾</button><button class="btn" data-a="stl" disabled title="Export to STL comes with the exports">Export to STL</button>`,
+      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''}>Manage solutions ▾</button><button class="btn" data-a="stl" disabled title="Exporting a solution's pieces to STL comes with the STL meshes, in a later version; File ▸ Export ▸ STL writes a shape's flat faces">Export to STL</button>`,
     );
     this.renderAnalysis();
   }

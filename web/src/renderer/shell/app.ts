@@ -11,6 +11,8 @@
 // (`renderAll`, the keydown handler's shell rows) and `updateStatus`.
 
 import { EngineProxy } from '../engine-proxy.ts';
+import { Exports } from '../export/exports.ts';
+import type { AnimationSource } from '../export/exports.ts';
 import { StatusWindow } from '../entities/status-window.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { PuzzleWorkspace } from '../puzzle/workspace.ts';
@@ -53,6 +55,19 @@ import { byId, esc } from './dom.ts';
  * What the status bar says: the engine's state, else the workspace's (the
  * mockup's updateStatus: the shape shown; pzStatus: the problem's fit).
  */
+// the solution the Solver shows, when it has its moves stored (Export ▸ Solution Animation)
+function animationSource(solver: SolverWorkspace): AnimationSource | null {
+  const p = solver.player;
+  if (p.problem === null || p.row?.disassembly !== 'tree') {
+    return null;
+  }
+  return {
+    problem: p.problem,
+    row: p.row,
+    colours: new Map(p.pieces.map((x) => [x.piece, x.colour])),
+  };
+}
+
 function statusLine(store: Store, puzzle: PuzzleWorkspace, solver: SolverWorkspace): string {
   const s = store.status;
   if (s === null) {
@@ -163,6 +178,12 @@ export function startApp(saved: StoredState = {}): {
     },
     () => rescue.discard(),
   );
+  const exports = new Exports(store, app, view, {
+    get name() {
+      return files.name;
+    },
+    animation: () => animationSource(solver),
+  });
   const menus = new Menus(store, app, view, {
     openPath: (path) => {
       void files.openPath(path);
@@ -176,6 +197,19 @@ export function startApp(saved: StoredState = {}): {
     exportPaused: () => {
       void files.exportPaused();
     },
+    exportImage: () => {
+      void exports.image();
+    },
+    exportVector: () => {
+      void exports.vector();
+    },
+    exportStl: () => {
+      void exports.stlFile();
+    },
+    exportGlb: () => {
+      void exports.animation();
+    },
+    animation: () => animationSource(solver) !== null,
     toShapes: () => {
       openToShapes(store, edits, solver.current);
     },

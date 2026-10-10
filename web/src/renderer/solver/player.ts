@@ -267,7 +267,12 @@ export class Player {
           return null;
         }
         const size = snap.shapes.find((s) => s.id === p.shape)?.size ?? [1, 1, 1];
-        return buildMesh(meshArrays(r), size, this.styleOf(p.piece));
+        return buildMesh(meshArrays(r), size, this.styleOf(p.piece), {
+          kind: 'shape',
+          shape: p.shape,
+          revision: snap.revision,
+          transformation: p.transformation,
+        });
       });
       const poses: ScenePose[] = this.pieces.map((p, i) => {
         return {
@@ -372,7 +377,7 @@ export class Player {
         const r = await store.engine.call('playback.mesh', { handle: h, piece: i, style });
         const shape = this.pieces.find((p) => p.piece === piece)?.shape;
         const size = snap.shapes.find((s) => s.id === shape)?.size ?? [1, 1, 1];
-        const b = buildMesh(meshArrays(r), size, style);
+        const b = buildMesh(meshArrays(r), size, style, { kind: 'playback', handle: h, piece: i });
         if (n !== this.token || this.handle !== h) {
           b.faces.dispose();
           b.marks?.dispose();

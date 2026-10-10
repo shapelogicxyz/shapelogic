@@ -5,17 +5,20 @@
 // file that then exists is asked about, as the original's Save As did),
 // the store of settings, layouts and recent files, the rescue copy, the
 // help links (the addresses are the main process's: the renderer names a
-// link, never a URL), the menus' state and the window's close. Every
-// message is checked before it is used, and only the app's windows are
-// answered.
+// link, never a URL), the menus' state and the window's close; from stage
+// 7 the exports' files, written here (export-file.ts) and only to a path
+// this process's save dialog gave the same window for that kind, once.
+// Every message is checked before it is used, and only the app's windows
+// are answered.
 
 import { app, dialog, ipcMain, shell } from 'electron';
 import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent, WebContents } from 'electron';
 import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 
-import { isMenuState, isRescueInfo } from '../engine/app-bridge.ts';
+import { isExportKind, isFileKind, isMenuState, isRescueInfo } from '../engine/app-bridge.ts';
 import type { FileKind, HelpLink, MenuState, StoredState } from '../engine/app-bridge.ts';
+import { ExportGrants, writeFileSafely } from './export-file.ts';
 import type { RescueStore } from './rescue.ts';
 import type { StateStore } from './state-store.ts';
 
@@ -30,22 +33,47 @@ export function openHelp(link: HelpLink): void {
   void shell.openExternal(HELP_URLS[link]);
 }
 
-const KINDS: Readonly<
+/** Each kind's extension, the dialog's filter and its title. */
+export const KINDS: Readonly<
   Record<FileKind, { ext: string; filter: { name: string; extensions: string[] }; title: string }>
 > = {
   puzzle: {
     ext: '.xmpuzzle',
     filter: { name: 'Puzzle Files', extensions: ['xmpuzzle'] },
-    title: 'Puzzle',
+    title: 'Save Puzzle As',
   },
   paused: {
     ext: '.btsolve',
     filter: { name: 'Paused Solver State', extensions: ['btsolve'] },
-    title: 'Paused Solver State',
+    title: 'Save Paused Solver State As',
+  },
+  image: {
+    ext: '.png',
+    filter: { name: 'PNG Images', extensions: ['png'] },
+    title: 'Export Image',
+  },
+  vector: {
+    ext: '.svg',
+    filter: { name: 'SVG Images', extensions: ['svg'] },
+    title: 'Export Vector Image',
+  },
+  stl: {
+    ext: '.stl',
+    filter: { name: 'STL Files', extensions: ['stl'] },
+    title: 'Export STL',
+  },
+  glb: {
+    ext: '.glb',
+    filter: { name: 'glTF Binary', extensions: ['glb'] },
+    title: 'Export Solution Animation',
   },
 };
 
-const isKind = (v: unknown): v is FileKind => v === 'puzzle' || v === 'paused';
+/** The kinds a file can be opened as (the exports are written only). */
+const isOpenKind = (v: unknown): v is 'puzzle' | 'paused' => v === 'puzzle' || v === 'paused';
+
+/** The paths the save dialog gave each window's renderer for an export: `bt:write-export` writes only these. */
+const grants = new ExportGrants<WebContents>((kind) => KINDS[kind].ext);
 
 export interface AppIpcHost {
   store: StateStore;
@@ -72,12 +100,12 @@ export function installAppIpc(h: AppIpcHost): void {
 
   ipcMain.handle('bt:choose-open', async (e, kind: unknown) => {
     const win = ours(e);
-    if (win === null || !isKind(kind)) {
+    if (win === null || !isOpenKind(kind)) {
       return null;
     }
     const k = KINDS[kind];
     const r = await dialog.showOpenDialog(win, {
-      title: `Open ${k.title}`,
+      title: kind === 'puzzle' ? 'Open Puzzle' : 'Open Paused Solver State',
       properties: ['openFile'],
       filters: [k.filter, { name: 'All Files', extensions: ['*'] }],
       ...(lastDir === null ? {} : { defaultPath: lastDir }),
@@ -92,13 +120,13 @@ export function installAppIpc(h: AppIpcHost): void {
 
   ipcMain.handle('bt:choose-save', async (e, kind: unknown, name: unknown) => {
     const win = ours(e);
-    if (win === null || !isKind(kind) || typeof name !== 'string') {
+    if (win === null || !isFileKind(kind) || typeof name !== 'string') {
       return null;
     }
     const k = KINDS[kind];
     const proposed = basename(name) === '' ? `puzzle${k.ext}` : basename(name);
     const r = await dialog.showSaveDialog(win, {
-      title: `Save ${k.title} As`,
+      title: k.title,
       defaultPath: join(lastDir ?? defaultDir(), proposed),
       filters: [k.filter],
       properties: ['showOverwriteConfirmation', 'createDirectory'],
@@ -124,7 +152,26 @@ export function installAppIpc(h: AppIpcHost): void {
       }
     }
     lastDir = dirname(path);
+    if (isExportKind(kind)) {
+      grants.grant(e.sender, path, kind);
+    }
     return path;
+  });
+
+  // an export's bytes: { ok } or { error } (an invoke's own rejection would carry Electron's wording)
+  ipcMain.handle('bt:write-export', async (e, path: unknown, data: unknown) => {
+    if (ours(e) === null || typeof path !== 'string' || !(data instanceof Uint8Array)) {
+      return { error: 'nothing to write' };
+    }
+    if (grants.take(e.sender, path) === null) {
+      return { error: `${basename(path)} was not chosen in the export's dialog` };
+    }
+    try {
+      await writeFileSafely(path, data);
+      return { ok: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
   });
 
   ipcMain.handle('bt:load-state', (e): StoredState | null => {

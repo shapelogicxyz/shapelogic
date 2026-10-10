@@ -41,6 +41,15 @@ export const FLAG = {
 const SHRINK = 0.13;
 const MY = 0.005;
 
+/**
+ * Where a mesh came from, so the same can be asked in another style (the
+ * vector image asks for the flat mesh of what the view draws): a shape,
+ * at a revision, turned by a transformation; or a piece of a playback.
+ */
+export type MeshSource =
+  | { kind: 'shape'; shape: string; revision: number; transformation: number }
+  | { kind: 'playback'; handle: string; piece: number };
+
 /** A frame made into geometry. */
 export interface BuiltMesh {
   /**
@@ -59,6 +68,9 @@ export interface BuiltMesh {
   arrays: MeshArrays;
   /** The shape's size: a cell index is x + X*(y + Y*z). */
   size: Size;
+  /** Its style, and where it came from (also in `faces.userData`); null when not told. */
+  style: MeshStyle;
+  source: MeshSource | null;
 }
 
 /** The cell [x, y, z] of a cell index of a shape of this size. */
@@ -69,8 +81,13 @@ export function cellOf(index: number, size: Size): [number, number, number] {
   return [x, rest % sy, Math.floor(rest / sy)];
 }
 
-/** The geometry of a mesh frame in a style. */
-export function buildMesh(arrays: MeshArrays, size: Size, style: MeshStyle): BuiltMesh {
+/** The geometry of a mesh frame in a style; `source` says where it came from. */
+export function buildMesh(
+  arrays: MeshArrays,
+  size: Size,
+  style: MeshStyle,
+  source: MeshSource | null = null,
+): BuiltMesh {
   const { positions, normals, indices, voxel, flags, colour } = arrays;
   const total = flags.length;
 
@@ -124,6 +141,9 @@ export function buildMesh(arrays: MeshArrays, size: Size, style: MeshStyle): Bui
   faces.setAttribute('aCell', new BufferAttribute(aCell, 3));
   faces.computeBoundingBox();
   faces.computeBoundingSphere();
+  faces.userData.style = style;
+  faces.userData.source = source;
+  faces.userData.size = size;
 
   return {
     faces,
@@ -132,6 +152,8 @@ export function buildMesh(arrays: MeshArrays, size: Size, style: MeshStyle): Bui
     edges: style === 'flat' && arrays.edgeLines.length > 0 ? arrays.edgeLines : null,
     arrays,
     size,
+    style,
+    source,
   };
 }
 

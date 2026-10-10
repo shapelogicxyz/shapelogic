@@ -743,7 +743,7 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     ]);
 
     // greyed: what this version does not have yet
-    for (const id of ['import.ps3d', 'export.stl', 'export.glb', 'convertGrid', 'anaglyph']) {
+    for (const id of ['import.ps3d', 'export.scad', 'convertGrid', 'anaglyph']) {
       expect((await menuItem(page, id))?.enabled, id).toBe(false);
     }
 

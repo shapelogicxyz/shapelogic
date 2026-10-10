@@ -617,11 +617,12 @@ byte, `just oracle-files` solves with `--save`).
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
 
-## web (front-end stages 1a to 6, decision 0013)
+## web (front-end stages 1a to 7, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
 (`docs/mockup/index.html`) in the stages of docs/FRONTEND-PLAN.md. Node 22;
 the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
-1.64.0 among them). What exists after stage 6:
+1.64.0 among them; gltf-validator, Khronos's glTF validator, for the tests).
+What exists after stage 7:
 - `tools/gen-api.ts`: `src/engine/api.generated.ts` from `api/*.json`
   (every `$defs` entry a named type, `Methods` and `Events` by name,
   `METHOD_NAMES`, `EVENT_NAMES`, `ERROR_CODES`, `FRAME_PATHS`), committed;
@@ -643,8 +644,9 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   `--version`), `app-bridge.ts` (stage 6: what crosses between the main
   process and the renderer besides the engine: the menus' commands and
   state, the file dialogs, the stored state, the recent files, the rescue
-  copy, the help links, the window's close; `window.btApp`'s interface and
-  the checks of what crosses).
+  copy, the help links, the window's close, from stage 7 the exports'
+  writes (`writeExport`) and the kinds of file (`FileKind`, `ExportKind`);
+  `window.btApp`'s interface and the checks of what crosses).
 - `src/main/`: `engine-host.ts` (`EngineHost`: one engine per window,
   restarted when it dies, its status told; calls fail while none is
   running; `stop()` ends an engine being started too), `engine-ipc.ts`
@@ -678,8 +680,15 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
   is handled once), `app-ipc.ts` (stage 6: `window.btApp`'s main side: the
   file dialogs (an extension added, a file that then exists asked about),
   the store, the recent files, the rescue copy, the help links by name,
-  the menu state, the close; every message checked, only the app's windows
-  answered), `state-store.ts` (`StateStore`: `state.json` in the app's
+  the menu state, the close; from stage 7 the exports' kinds (PNG, SVG,
+  STL, glTF binary) and `bt:write-export`, which writes an export's bytes
+  only to a path the save dialog gave the same window for that kind, once;
+  every message checked, only the app's windows answered),
+  `export-file.ts` (stage 7: `writeFileSafely`, an export written as the
+  core writes a puzzle: beside the file and renamed over it, a symbolic
+  link followed, a read-only file refused, the permissions kept;
+  `ExportGrants`, the paths each window may write, Electron-free),
+  `state-store.ts` (`StateStore`: `state.json` in the app's
   data directory: the renderer's settings and layouts, the recent files,
   the window's bounds; read once, written a moment after a change to a
   temporary file renamed over it; what is not well formed read as absent),
@@ -825,6 +834,18 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     `extent.ts` (a space's size in mesh units, the original's
     `calculateSize`), `toolbar.ts` (Orbit, Pan, Edit, Display, Focus; the
     Display menu; Minimal's hiding toolbar; the Edit button's tool),
+    `svg.ts` (stage 7: the vector image: the flat meshes of what the view
+    draws, asked again by each mesh's source (`MeshSource`, which
+    `buildMesh` keeps in the geometry: a shape at a revision and
+    transformation, or a playback's piece), placed as the view has them,
+    the faces turned towards the eye in the colours the shader gives them
+    (computed per triangle), the flat style's edge lines and the variable
+    marks, painted in a BSP tree's order and written by three.js's
+    SVGRenderer at the view's size over the view's background; a wire-frame
+    piece as its lines; no overlays), `depth-order.ts` (`paintingOrder`:
+    faces and lines back to front for an eye or a direction, faces split
+    where a plane crosses them, a line after the face it lies on, as gl2ps
+    sorted the original's vector export; DOM-free),
     `preview.ts` (the 3D edit's ghosts, drawn on top: boxes on the cube
     grid, a cell's or one side's triangles of the mesh on the others). The
     view takes an edit host (`View3D.edit`: the point under the mouse and a
@@ -990,6 +1011,27 @@ the packages pinned in `web/package.json` (three.js 0.186.1, Playwright
     held once a run stopped as the original's `freezeLive` (the session's
     wall time counts on from the run's start), until a run is under way
     again or Refresh).
+  - `export/`: File ▸ Export (stage 7). `exports.ts` (`Exports`: Image,
+    the view at its size or twice it as a PNG (`ViewRenderer.capture`:
+    a render at that pixel ratio read back in the same task); Vector Image
+    (`View3D.vectorImage`, svg.ts); STL of a shape chosen in a dialog
+    (the selected one first; Unit Size, Binary STL; the dialog says the
+    STL meshes come later); Solution Animation of the solution the Solver
+    shows with its moves stored (the original's dialog: seconds per move,
+    cell size, reassemble, bevelled edges; a playback of its own, closed
+    after); each asks the file of the main process's dialog and has it
+    written by `writeExport`; `#stage[data-exported]` counts what was
+    written), `glb.ts` (`animationGlb`: gltfexport.cpp's scene, a root
+    node "Puzzle" scaled to metres and a node per piece with its
+    playback.mesh (indexed, flat shaded, no inside faces) in its solution
+    colour, linear, metallic 0, roughness 0.6, both sides; the channels of
+    playback.track thinned to the keys their interpolation does not
+    reproduce (`keptKeys`), translation always, rotation when it turns,
+    scale 0 or 1 as STEP when it hides; written by three.js's
+    GLTFExporter; DOM-free), `stl.ts` (`stlBytes`: a shape's flat mesh,
+    each triangle in the order its normal gives, scaled by the unit,
+    binary or text through three.js's STLExporter; DOM-free), `form.ts`
+    (the dialogs' numbers).
   - `explore/`: the step-by-step explorers (stage 5), from the mockup's
     `renderSolverDrawer`, `#sdrawer`, `svPrepare`, `svStep` and the
     Advanced section's buttons, the contents from the original's
@@ -1100,7 +1142,25 @@ drives it). Unit tests of stage 6: the store, the rescue copy's record,
 the menus' template (platforms, greyed items, keys shown and not
 registered, every command one the renderer takes), the bridge's checks,
 the stored settings read back, the convert dialog's fields, the table's
-accelerators.
+accelerators. Stage 7: an export's file (written whole, through a link,
+a read-only file refused and left, the permissions kept, a failed write
+leaving the old file), the grants (only a path the window's dialog gave,
+once, with its kind's extension), the menus' export items, the
+keyframes a channel keeps, the painting order (behind first, a face
+split, a line after its face, the eye turned round); the engine tests
+(`tests/engine/exports.test.ts`): the .glb of every fixture solution
+with its moves stored passes Khronos's validator and, read back by a
+reader of the tests' own, puts each piece where the player's poses do
+at sampled times of the holds, the moves (between keyframes too) and the
+moves backwards, its meshes the playback's; the STL of a one-cell cube a
+closed surface facing out, every fixture shape's STL loaded by three.js's
+STL loader with its triangles and size; e2e (`exports.e2e.ts`): Image at
+1x and 2x the view's picture (against a screenshot of the view) and a
+reference image, Vector Image in the flat style drawn by the page like
+the view and a reference image, STL binary and text with a field
+refused, a read-only file refused and left, a path no dialog gave
+refused, Solution Animation greyed without a solution and then valid
+with the playback's pieces.
 
 ## Testing against the original
 

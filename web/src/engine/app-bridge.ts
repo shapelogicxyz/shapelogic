@@ -4,10 +4,12 @@
 // the engine (stage 6; the engine's half is bridge.ts): the menus'
 // commands one way and their state the other, the file dialogs, the
 // stored settings and layouts, the recent files, the rescue copy, the
-// help links, and the window's close. The preload exposes it as
-// `window.btApp`; the renderer never sees a path it did not get from a
-// dialog, a drop, the recent files or the rescue copy's record. Plain
-// types and checks, free of Electron and Node.
+// help links, the window's close, and from stage 7 the exports' files.
+// The preload exposes it as `window.btApp`; the renderer never sees a path
+// it did not get from a dialog, a drop, the recent files or the rescue
+// copy's record, and the main process writes an export only to a path its
+// own save dialog gave for that kind. Plain types and checks, free of
+// Electron and Node.
 
 /** A command of the menus (or the window: close), sent to the renderer. */
 export type AppCommand =
@@ -19,6 +21,11 @@ export type AppCommand =
   | { cmd: 'saveAs' }
   | { cmd: 'importPaused' }
   | { cmd: 'exportPaused' }
+  /** File ▸ Export ▸ Image, Vector Image, STL, Solution Animation (stage 7). */
+  | { cmd: 'exportImage' }
+  | { cmd: 'exportVector' }
+  | { cmd: 'exportStl' }
+  | { cmd: 'exportGlb' }
   /** The window is closing (its button, Ctrl+W, quit): ask about unsaved changes, then `closeWindow`. */
   | { cmd: 'close' }
   | { cmd: 'undo' }
@@ -52,6 +59,10 @@ export interface MenuState {
   paused: boolean;
   /** The problem the Solver shows has saved solutions (Convert assemblies to pieces). */
   solutions: boolean;
+  /** The puzzle has a shape with cells (Export ▸ STL). */
+  shapes: boolean;
+  /** The Solver shows a solution with its moves stored (Export ▸ Solution Animation). */
+  animation: boolean;
   colourView: boolean;
   style: 'drawing' | 'flat' | 'wireframe';
   focus3d: boolean;
@@ -63,7 +74,30 @@ export interface MenuState {
 export type HelpLink = 'tutorial' | 'guide';
 
 /** The kinds of file the dialogs ask for. */
-export type FileKind = 'puzzle' | 'paused';
+export type FileKind = 'puzzle' | 'paused' | ExportKind;
+
+/** The kinds of file an export writes (through `writeExport`). */
+export type ExportKind = 'image' | 'vector' | 'stl' | 'glb';
+
+/** The kinds of file, for the checks. */
+export const FILE_KINDS: readonly FileKind[] = [
+  'puzzle',
+  'paused',
+  'image',
+  'vector',
+  'stl',
+  'glb',
+];
+
+/** Whether a value is a kind of file. */
+export function isFileKind(v: unknown): v is FileKind {
+  return typeof v === 'string' && (FILE_KINDS as readonly string[]).includes(v);
+}
+
+/** Whether a kind of file is an export's. */
+export function isExportKind(v: unknown): v is ExportKind {
+  return v === 'image' || v === 'vector' || v === 'stl' || v === 'glb';
+}
 
 /** A record of the rescue copy: what it stands for. */
 export interface RescueInfo {
@@ -97,6 +131,12 @@ export interface BtApp {
   chooseOpen(kind: FileKind): Promise<string | null>;
   /** The save dialog with a name proposed; null when cancelled. */
   chooseSave(kind: FileKind, name: string): Promise<string | null>;
+  /**
+   * Writes an export's bytes to a path the save dialog gave for an export
+   * kind (once); rejects with the reason when it could not (a read-only
+   * file, a full disk, a path no dialog gave).
+   */
+  writeExport(path: string, data: Uint8Array): Promise<void>;
   /** The path of a file dropped on the window (Electron's webUtils), or '' when it has none. */
   pathOf(file: File): string;
   /** The stored settings and layouts, as the last session left them. */
@@ -131,6 +171,10 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'saveAs',
   'importPaused',
   'exportPaused',
+  'exportImage',
+  'exportVector',
+  'exportStl',
+  'exportGlb',
   'close',
   'undo',
   'redo',
@@ -186,7 +230,17 @@ export function isMenuState(v: unknown): v is MenuState {
     return false;
   }
   const s = v as Record<string, unknown>;
-  const bools = ['document', 'dirty', 'solving', 'paused', 'solutions', 'colourView', 'focus3d'];
+  const bools = [
+    'document',
+    'dirty',
+    'solving',
+    'paused',
+    'solutions',
+    'shapes',
+    'animation',
+    'colourView',
+    'focus3d',
+  ];
   const label = (x: unknown): boolean => x === null || typeof x === 'string';
   return (
     bools.every((k) => typeof s[k] === 'boolean') &&

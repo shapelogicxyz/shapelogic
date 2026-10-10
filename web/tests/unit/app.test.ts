@@ -8,15 +8,34 @@
 // renderer takes), the bridge's checks, the stored settings read back, and
 // the convert dialog's fields.
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { MenuItemConstructorOptions } from 'electron';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { isAppCommand, isMenuState, isRescueInfo } from '../../src/engine/app-bridge.ts';
+import {
+  isAppCommand,
+  isExportKind,
+  isFileKind,
+  isMenuState,
+  isRescueInfo,
+} from '../../src/engine/app-bridge.ts';
 import type { AppCommand, MenuState } from '../../src/engine/app-bridge.ts';
+import { ExportGrants, writeFileSafely } from '../../src/main/export-file.ts';
 import { commandItems, menuTemplate, NO_STATE, recentLabel } from '../../src/main/menu.ts';
 import { RescueStore } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
@@ -170,13 +189,13 @@ describe('the menus', () => {
   });
 
   it('greys what this version cannot do, and what the state does not allow', () => {
+    const none = (): ReturnType<typeof commandItems> =>
+      commandItems(build(NO_STATE, 'darwin').template);
     const items = commandItems(build(state, 'darwin').template);
     for (const id of [
       'import.ps3d',
       'import.scad',
       'export.scad',
-      'export.image',
-      'export.vector',
       'export.stl',
       'export.glb',
       'convertGrid',
@@ -188,14 +207,31 @@ describe('the menus', () => {
     ]) {
       expect(items.get(id)?.enabled, id).toBe(false);
     }
-    for (const id of ['new', 'open', 'save', 'saveAs', 'undo', 'notes', 'toShapes', 'close']) {
+    for (const id of [
+      'new',
+      'open',
+      'save',
+      'saveAs',
+      'undo',
+      'notes',
+      'toShapes',
+      'close',
+      'export.image',
+      'export.vector',
+    ]) {
       expect(items.get(id)?.enabled, id).toBe(true);
     }
+    // the STL needs a shape with cells, the animation a solution with its moves shown
+    const exports = commandItems(
+      build({ ...state, shapes: true, animation: true }, 'darwin').template,
+    );
+    expect(exports.get('export.stl')?.enabled).toBe(true);
+    expect(exports.get('export.glb')?.enabled).toBe(true);
+    expect(none().get('export.image')?.enabled).toBe(false);
     expect(items.get('undo')?.label).toBe('Undo Rename shape');
     // nothing open: only New, Open and the like
-    const none = commandItems(build(NO_STATE, 'darwin').template);
-    expect(none.get('save')?.enabled).toBe(false);
-    expect(none.get('new')?.enabled).toBe(true);
+    expect(none().get('save')?.enabled).toBe(false);
+    expect(none().get('new')?.enabled).toBe(true);
     // solving: no conversion; a paused solve can be exported
     const solving = commandItems(
       build({ ...state, solving: true, paused: true }, 'darwin').template,
@@ -253,6 +289,11 @@ describe('the bridge’s checks', () => {
     expect(isMenuState(NO_STATE)).toBe(true);
     expect(isMenuState({ ...NO_STATE, undo: 3 })).toBe(false);
     expect(isMenuState({ ...NO_STATE, keys: { new: 1 } })).toBe(false);
+    expect(isMenuState({ ...NO_STATE, animation: 1 })).toBe(false);
+    expect(isAppCommand({ cmd: 'exportGlb' })).toBe(true);
+    expect(isFileKind('glb')).toBe(true);
+    expect(isFileKind('exe')).toBe(false);
+    expect(isExportKind('puzzle')).toBe(false);
     expect(isRescueInfo({ path: null, name: 'x', revision: 1, time: 2 })).toBe(true);
     expect(isRescueInfo({ path: '', name: 'x', revision: 1, time: 2 })).toBe(false);
   });
@@ -313,5 +354,82 @@ describe('Convert Assemblies to Pieces: the fields as the call', () => {
     expect(typeof toShapesParams({ ...fields, max: 'x' }, true)).toBe('string');
     expect(typeof toShapesParams({ ...fields, max: '70000' }, true)).toBe('string');
     expect(typeof toShapesParams({ ...fields, minCells: '-1' }, true)).toBe('string');
+  });
+});
+
+describe('an export’s file, written as the core writes a puzzle', () => {
+  let dir = '';
+  afterEach(() => {
+    if (dir !== '') {
+      chmodSync(dir, 0o755);
+      rmSync(dir, { recursive: true, force: true });
+      dir = '';
+    }
+  });
+  const fresh = (): string => {
+    dir = mkdtempSync(join(tmpdir(), 'bt-export-'));
+    return dir;
+  };
+
+  it('writes a new file and replaces an old one whole, leaving no temporary file', async () => {
+    const d = fresh();
+    const f = join(d, 'a.png');
+    await writeFileSafely(f, new Uint8Array([1, 2, 3]));
+    expect([...readFileSync(f)]).toEqual([1, 2, 3]);
+    await writeFileSafely(f, new Uint8Array([4]));
+    expect([...readFileSync(f)]).toEqual([4]);
+    expect(readdirSync(d)).toEqual(['a.png']);
+  });
+
+  it('writes the file a link names and keeps the link', async () => {
+    const d = fresh();
+    mkdirSync(join(d, 'real'));
+    const target = join(d, 'real', 'b.svg');
+    writeFileSync(target, 'old');
+    const link = join(d, 'b.svg');
+    symlinkSync(join('real', 'b.svg'), link);
+    await writeFileSafely(link, new TextEncoder().encode('new'));
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readFileSync(target, 'utf8')).toBe('new');
+    expect(readdirSync(join(d, 'real'))).toEqual(['b.svg']);
+  });
+
+  it('refuses a read-only file and leaves it, and keeps a file’s permissions', async () => {
+    const d = fresh();
+    const locked = join(d, 'c.stl');
+    writeFileSync(locked, 'old');
+    chmodSync(locked, 0o444);
+    await expect(writeFileSafely(locked, new Uint8Array([1]))).rejects.toThrow(
+      'c.stl is read-only',
+    );
+    expect(readFileSync(locked, 'utf8')).toBe('old');
+    const own = join(d, 'd.glb');
+    writeFileSync(own, 'old');
+    chmodSync(own, 0o600);
+    await writeFileSafely(own, new Uint8Array([1]));
+    expect(statSync(own).mode & 0o777).toBe(0o600);
+  });
+
+  it('fails without touching the old file when the temporary file cannot be made', async () => {
+    const d = fresh();
+    const f = join(d, 'e.png');
+    writeFileSync(f, 'old');
+    mkdirSync(`${f}.tmp`);
+    await expect(writeFileSafely(f, new Uint8Array([1]))).rejects.toThrow('could not write e.png');
+    expect(readFileSync(f, 'utf8')).toBe('old');
+  });
+
+  it('lets a window write only a path its dialog gave for an export, once, with the kind’s extension', () => {
+    const ext = { image: '.png', vector: '.svg', stl: '.stl', glb: '.glb' } as const;
+    const grants = new ExportGrants<object>((k) => ext[k]);
+    const a = {};
+    const b = {};
+    grants.grant(a, '/x/view.png', 'image');
+    expect(grants.take(b, '/x/view.png')).toBeNull();
+    expect(grants.take(a, '/x/other.png')).toBeNull();
+    expect(grants.take(a, '/x/view.png')).toBe('image');
+    expect(grants.take(a, '/x/view.png')).toBeNull();
+    grants.grant(a, '/x/puzzle.xmpuzzle', 'glb');
+    expect(grants.take(a, '/x/puzzle.xmpuzzle')).toBeNull();
   });
 });
