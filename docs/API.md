@@ -89,6 +89,7 @@ Result:
 | `protocol` | integer | required | Raised when a change breaks clients. |
 | `grids` | object[] | required |  |
 | `solvers` | object[] | required |  |
+| `slidingSolvers` | object[] | required | The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu labels. |
 | `hardwareThreads` | integer | required |  |
 | `maxThreads` | integer | required |  |
 | `methods` | string[] | required |  |
@@ -97,11 +98,11 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet. |
+| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet. |
 | `grids.label` | string | required |  |
 | `grids.assemble` | boolean | required | It has an assembler. |
 | `grids.disassemble` | boolean | required | It has a take-apart. |
-| `grids.supported` | boolean | required | This version solves its puzzles (sliding and stacking: not yet). |
+| `grids.supported` | boolean | required | This version solves its puzzles (stacking: not yet). |
 | `grids.defaultSize` | integer | required | The size of a new shape in each direction, in cells. |
 | `grids.sizeUnit` | integer | required | shape.resize counts in blocks of this many cells. |
 
@@ -111,6 +112,13 @@ Result:
 |---|---|---|---|
 | `solvers.solver` | [Solver](#solver) | required | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
 | `solvers.label` | string | required |  |
+
+`slidingSolvers`:
+
+| name | type | | description |
+|---|---|---|---|
+| `slidingSolvers.solver` | [SlidingSolver](#slidingsolver) | required | How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default). |
+| `slidingSolvers.label` | string | required |  |
 
 ### `engine.shutdown`
 
@@ -143,6 +151,8 @@ Params:
 | `undoDepth` | integer |  |  |
 | `threads` | integer |  |  |
 | `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `slideFolder` | string |  |  |
+| `slideDiskGB` | number |  |  |
 
 Result: Settings
 
@@ -162,6 +172,8 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `undoDepth` | integer | required | Undo steps kept (default 25). |
 | `threads` | integer | required | The threads of a solve when its options do not say; 0 every hardware thread (default). |
 | `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
+| `slideFolder` | string | required | Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
+| `slideDiskGB` | number | required | The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it. |
 
 ## Document and history
 
@@ -175,7 +187,7 @@ Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet. |
 
 Result: [Snapshot](#snapshot)
 
@@ -1099,7 +1111,7 @@ Errors: `not_found`
 
 ### `problem.kind`
 
-Brick, sliding or stacking; this version solves bricks only.
+Brick, sliding or stacking; this version solves brick and sliding puzzles.
 
 Params:
 
@@ -1153,7 +1165,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Solving
 
-One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. Sliding and stacking problems are refused (unsupported).
+One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). Stacking problems are refused (unsupported).
 
 ### `solve.start`
 
@@ -1260,6 +1272,7 @@ Result:
 | `progress` | [SolveProgress](#solveprogress) | required |  |
 | `stats` | [SolveStats](#solvestats) | required |  |
 | `failure` | [SolveFailure](#solvefailure) or null | required |  |
+| `note` | string or null | required | What a sliding solve's last run said when it was through: whether a missing solution is proven or the search gave up at a limit (the original's solver note, shown in a message box); null otherwise. |
 
 Errors: `not_found`
 
@@ -1972,7 +1985,7 @@ number[]
 
 ### Grid
 
-The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet.
+The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet.
 
 `"bricks"` \| `"prisms"` \| `"spheres"` \| `"rhombic"` \| `"tetraOcta"` \| `"sliding"` \| `"stacking"`
 
@@ -1982,6 +1995,12 @@ BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2.
 
 `"classic"` \| `"crowell"` \| `"bt2"`
 
+### SlidingSolver
+
+How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default).
+
+`"fast"` \| `"deep"` \| `"full"`
+
 ### SolveState
 
 decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage).
@@ -1990,7 +2009,9 @@ decision 0004; 'stopping' is an active state with a stop requested (SolveProgres
 
 ### SolveStage
 
-`"idle"` \| `"prepare"` \| `"reduce"` \| `"assemble"` \| `"disassemble"` \| `"stopping"` \| `"paused"` \| `"done"` \| `"error"`
+What a solve is doing; search is a sliding puzzle's search from a start to the goal (SolveProgress.searched, searchDepth).
+
+`"idle"` \| `"prepare"` \| `"reduce"` \| `"assemble"` \| `"disassemble"` \| `"stopping"` \| `"paused"` \| `"done"` \| `"error"` \| `"search"`
 
 ### ProblemState
 
@@ -2121,7 +2142,7 @@ Everything a front end shows of the document's lists.
 |---|---|---|---|
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 | `dirty` | boolean | required |  |
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet. |
 | `path` | string or null | required | The file it was opened from or last saved to. |
 | `notes` | string | required |  |
 | `canUndo` | boolean | required |  |
@@ -2171,7 +2192,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels). highMemory belongs to the sliding and stacking solvers and maps to no SolveOptions field.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested and highMemory are sliding's nestedSlides, partialNested and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.
 
 | name | type | | description |
 |---|---|---|---|
@@ -2184,6 +2205,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `keepRotations` | boolean |  |  |
 | `strictColors` | boolean |  |  |
 | `nestedSlides` | boolean |  |  |
+| `partialNested` | boolean |  |  |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
 | `solverType` | string |  | classic, crowell, bt2 (sliding: fast, deep, full). |
@@ -2258,6 +2280,18 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 | `keepEach` | integer |  | Unsorted, keep every n-th (0 and 1: each). |
 | `threads` | integer |  | Assembly and take-apart together; 0 every hardware thread. |
 | `takeApartWorkers` | integer |  | 0 chooses. |
+| `sliding` | [SlidingOptions](#slidingoptions) |  |  |
+
+### SlidingOptions
+
+A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). Where a full search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+
+| name | type | | description |
+|---|---|---|---|
+| `solver` | [SlidingSolver](#slidingsolver) |  | How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default). |
+| `nestedSlides` | boolean |  | A piece may carry what is nested in its outline (Allow Nested Slides). |
+| `partialNested` | boolean |  | And what is partly nested in it (Allow Partially Nested); implies nestedSlides. |
+| `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). |
 
 ### TakeApartProgress
 
@@ -2281,7 +2315,7 @@ One take-apart under way.
 
 | name | type | | description |
 |---|---|---|---|
-| `stage` | [SolveStage](#solvestage) | required |  |
+| `stage` | [SolveStage](#solvestage) | required | What a solve is doing; search is a sliding puzzle's search from a start to the goal (SolveProgress.searched, searchDepth). |
 | `elapsedMs` | integer | required |  |
 | `piece` | integer | required |  |
 | `pieces` | integer | required |  |
@@ -2298,7 +2332,9 @@ One take-apart under way.
 | `overallKnown` | boolean | required |  |
 | `levelFraction` | number | required |  |
 | `secondsLeft` | number or null | required |  |
-| `activity` | string | required | The original's status text. |
+| `activity` | string | required | The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.'). |
+| `searched` | integer | required | The sliding search under way: the arrangements it has visited. |
+| `searchDepth` | integer | required | How many moves deep a full sliding search is (0 before its first level, and for the other searches). |
 
 ### SolveStats
 

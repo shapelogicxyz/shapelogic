@@ -36,6 +36,15 @@ struct Settings {
   /// The threads of a solve whose options do not say; 0 every hardware thread.
   unsigned int threads = 0;
   SolverType solver = SolverType::Classic;
+  /// Where a full sliding search keeps its older levels (empty: in
+  /// memory), and the disk they may take in GB (0: automatic). The folder
+  /// starts as the user's cache folder's "sliding" (the original's default
+  /// for BURRTOOLS_SLIDE_DIR).
+  std::string slideFolder = defaultSlideFolder();
+  double slideDiskGB = 0;
+
+  /// The user's cache folder's "sliding", or empty without one.
+  static std::string defaultSlideFolder();
 };
 
 struct State;

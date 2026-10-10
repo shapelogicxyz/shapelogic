@@ -375,6 +375,9 @@ class Document {
   [[nodiscard]] Result<SolveProgress> solveProgress(Id problem) const;
   [[nodiscard]] Result<SolveStats> solveStats(Id problem) const;
   [[nodiscard]] std::optional<SolveFailure> solveFailure(Id problem) const;
+  /// What a sliding solve's last run said once through (SolveSession::note);
+  /// empty otherwise.
+  [[nodiscard]] std::string solveNote(Id problem) const;
   /// Whether any run or analysis is active (the guards of decision 0011
   /// hold for both).
   [[nodiscard]] bool solving() const;

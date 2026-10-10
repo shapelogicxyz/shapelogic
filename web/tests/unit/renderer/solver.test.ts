@@ -57,16 +57,16 @@ describe('the search options', () => {
     const stored: SolverSettings = {
       highMemory: true,
       nestedSlides: false,
-      partialNested: '1',
       futureSetting: 'x',
+      futureBox: '1',
       sortBy: 'moves',
     };
     const w = writeOptions({ ...DEFAULT_OPTIONS, deepSymmetry: true, solver: 'crowell' }, stored);
     expect(w).toMatchObject({
       highMemory: true,
       nestedSlides: false,
-      partialNested: '1',
       futureSetting: 'x',
+      futureBox: '1',
       deepSymmetry: true,
       solverType: 'crowell',
       autosave: true,

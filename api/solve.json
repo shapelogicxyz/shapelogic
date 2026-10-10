@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "solve.json",
   "title": "Solving",
-  "description": "One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. Sliding and stacking problems are refused (unsupported).",
+  "description": "One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). Stacking problems are refused (unsupported).",
   "methods": {
     "solve.start": {
       "summary": "Solves from the start, dropping what the problem holds of earlier solving.",
@@ -49,9 +49,10 @@
           "state": {"$ref": "types.json#/$defs/SolveState"},
           "progress": {"$ref": "types.json#/$defs/SolveProgress"},
           "stats": {"$ref": "types.json#/$defs/SolveStats"},
-          "failure": {"oneOf": [{"$ref": "types.json#/$defs/SolveFailure"}, {"type": "null"}]}
+          "failure": {"oneOf": [{"$ref": "types.json#/$defs/SolveFailure"}, {"type": "null"}]},
+          "note": {"type": ["string", "null"], "description": "What a sliding solve's last run said when it was through: whether a missing solution is proven or the search gave up at a limit (the original's solver note, shown in a message box); null otherwise."}
         },
-        "required": ["state", "progress", "stats", "failure"],
+        "required": ["state", "progress", "stats", "failure", "note"],
         "additionalProperties": false
       },
       "errors": ["not_found"]

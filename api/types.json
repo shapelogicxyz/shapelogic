@@ -24,10 +24,11 @@
     "Cell": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3, "description": "A cell [x, y, z] in the grid's own coordinates."},
     "Size": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 3, "maxItems": 3, "description": "A size [x, y, z]."},
     "Point2": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "A point [x, y] of a layer drawing, y up."},
-    "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not solved yet."},
+    "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet."},
     "Solver": {"enum": ["classic", "crowell", "bt2"], "description": "BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2."},
+    "SlidingSolver": {"enum": ["fast", "deep", "full"], "description": "How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default)."},
     "SolveState": {"enum": ["idle", "preparing", "assembling", "draining", "paused", "finished", "error"], "description": "decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage)."},
-    "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error"]},
+    "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error", "search"], "description": "What a solve is doing; search is a sliding puzzle's search from a start to the goal (SolveProgress.searched, searchDepth)."},
     "ProblemState": {"enum": ["unsolved", "solving", "solved", "unknown"], "description": "What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit."},
     "CellState": {"enum": ["fixed", "variable"]},
     "CellTool": {"enum": ["fixed", "variable", "erase", "paint"], "description": "The grid editor's tools; paint changes only the colour of non-empty cells."},
@@ -183,7 +184,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels). highMemory belongs to the sliding and stacking solvers and maps to no SolveOptions field.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested and highMemory are sliding's nestedSlides, partialNested and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},
@@ -194,6 +195,7 @@
         "keepRotations": {"type": "boolean"},
         "strictColors": {"type": "boolean"},
         "nestedSlides": {"type": "boolean"},
+        "partialNested": {"type": "boolean"},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
         "solverType": {"type": "string", "description": "classic, crowell, bt2 (sliding: fast, deep, full)."},
@@ -271,7 +273,19 @@
         "keepAtMost": {"type": "integer", "minimum": 0, "description": "Keep at most this many solutions; 0 all (default 10)."},
         "keepEach": {"type": "integer", "minimum": 0, "description": "Unsorted, keep every n-th (0 and 1: each)."},
         "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "Assembly and take-apart together; 0 every hardware thread."},
-        "takeApartWorkers": {"type": "integer", "minimum": 0, "maximum": 64, "description": "0 chooses."}
+        "takeApartWorkers": {"type": "integer", "minimum": 0, "maximum": 64, "description": "0 chooses."},
+        "sliding": {"$ref": "#/$defs/SlidingOptions"}
+      },
+      "additionalProperties": false
+    },
+    "SlidingOptions": {
+      "type": "object",
+      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). Where a full search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
+      "properties": {
+        "solver": {"$ref": "#/$defs/SlidingSolver"},
+        "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
+        "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},
+        "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory)."}
       },
       "additionalProperties": false
     },
@@ -314,9 +328,11 @@
         "overallKnown": {"type": "boolean"},
         "levelFraction": {"type": "number"},
         "secondsLeft": {"type": ["number", "null"]},
-        "activity": {"type": "string", "description": "The original's status text."}
+        "activity": {"type": "string", "description": "The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.')."},
+        "searched": {"type": "integer", "minimum": 0, "description": "The sliding search under way: the arrangements it has visited."},
+        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a full sliding search is (0 before its first level, and for the other searches)."}
       },
-      "required": ["stage", "elapsedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity"],
+      "required": ["stage", "elapsedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth"],
       "additionalProperties": false
     },
     "SolveStats": {

@@ -3,11 +3,13 @@
 #include "engine.h"
 
 #include "bt/base/assert.h"
+#include "bt/base/system.h"
 
 #include <array>
 #include <condition_variable>
 #include <deque>
 #include <exception>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -17,6 +19,11 @@
 namespace bt::engine {
 
 // ---- state ------------------------------------------------------------------------------
+
+std::string Settings::defaultSlideFolder() {
+  const std::string cache = userCacheDirectory();
+  return cache.empty() ? std::string() : (std::filesystem::path(cache) / "sliding").string();
+}
 
 State::State(Output& output, std::ostream& logs, const MethodTable& table)
     : out(output), log(logs), methods(table), doc(std::in_place, GridKind::Bricks) {}

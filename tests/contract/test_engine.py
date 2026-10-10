@@ -55,13 +55,24 @@ def engine_info_and_settings(e):
     check({g["grid"] for g in info["grids"]} == {"bricks", "prisms", "spheres", "rhombic",
                                                   "tetraOcta", "sliding", "stacking"}, "the grids")
     check(info["hardwareThreads"] >= 1, "hardware threads")
+    supported = {g["grid"]: g["supported"] for g in info["grids"]}
+    check(supported["sliding"] and not supported["stacking"], f"what is solved {supported}")
+    check([x["solver"] for x in info["slidingSolvers"]] == ["fast", "deep", "full"] and
+          info["slidingSolvers"][2]["label"] == "Sliding Full Solver (full depth)",
+          f"the sliding solvers {info['slidingSolvers']}")
 
     s = e.call("settings.get")
-    check(s == {"undoDepth": 25, "threads": 0, "solver": "classic"}, f"default settings {s}")
-    s = e.call("settings.set", {"undoDepth": 2, "solver": "bt2"})
-    check(s == {"undoDepth": 2, "threads": 0, "solver": "bt2"}, f"settings after set {s}")
+    folder = s.pop("slideFolder")
+    check(folder == "" or folder.endswith("sliding"), f"the slide folder {folder!r}")
+    check(s == {"undoDepth": 25, "threads": 0, "solver": "classic", "slideDiskGB": 0},
+          f"default settings {s}")
+    s = e.call("settings.set", {"undoDepth": 2, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5})
+    check(s == {"undoDepth": 2, "threads": 0, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5},
+          f"settings after set {s}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")
+    e.fails("settings.set", {"slideDiskGB": -1}, "invalid_params")
+    e.call("settings.set", {"slideFolder": folder, "slideDiskGB": 0})
 
     # the undo depth reaches the document: three steps, two kept
     e.call("document.new", {"grid": "bricks"})
@@ -442,11 +453,14 @@ def problems(e):
     check(e.call("problem.get", {"problem": p1})["parts"][0]["shape"] == other, "part moved")
     e.fails("problem.movePart", {"problem": p1, "shape": other, "delta": 2}, "invalid_params")
 
-    # a sliding puzzle opens; its kind says it is not solved yet
+    # a sliding puzzle opens and is solved; a stacking one is not yet
     snap = e.call("document.open", {"path": str(FIXTURES / "test_sliding_solver.xmpuzzle")})
     check(snap["grid"] == "sliding", "sliding opened")
     kind = e.call("problem.kind", {"problem": snap["problems"][0]["id"]})
-    check(kind == {"kind": "sliding", "supported": False}, f"sliding kind {kind}")
+    check(kind == {"kind": "sliding", "supported": True}, f"sliding kind {kind}")
+    snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
+    kind = e.call("problem.kind", {"problem": snap["problems"][0]["id"]})
+    check(kind == {"kind": "stacking", "supported": False}, f"stacking kind {kind}")
 
 
 # ---- solving ----------------------------------------------------------------------------------
@@ -816,15 +830,76 @@ def document_replaced_while_working(e):
 
 
 @test
+def sliding_solve_pause_continue_and_play(e):
+    with tempfile.TemporaryDirectory() as tmp:
+        # a full search's levels in a folder of the test's own
+        was = e.call("settings.get")["slideFolder"]
+        e.call("settings.set", {"slideFolder": tmp})
+        snap = e.call("document.open", {"path": str(FIXTURES / "test_sliding_solver.xmpuzzle")})
+        p = snap["problems"][0]["id"]
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True,
+                                                          "sliding": {"solver": "full"}}})
+        check(wait_state(e, p, ["finished", "error"], start) == "finished", "the sliding solve finished")
+        st = e.call("solve.status", {"problem": p})
+        check(st["note"] is None and st["progress"]["solutions"] == 1, f"its status {st}")
+        page = e.call("solution.page", {"problem": p})
+        check(len(page["rows"]) == 1 and page["rows"][0]["moves"] == 81, f"the solution {page['rows']}")
+        pb = e.call("playback.open", {"problem": p, "solution": page["rows"][0]["id"]})
+        check(pb["steps"] == 81 and pb["movesText"] == "81", f"the playback {pb}")
+        poses = e.call("playback.poses", {"handle": pb["handle"], "from": 8, "to": 10, "samplesPerStep": 4})
+        check(poses["samples"] == 9 and poses["pieces"] == 10, f"the poses {poses}")
+        e.call("playback.close", {"handle": pb["handle"]})
+        e.fails("solution.analyse", {"problem": p, "which": "all"}, "unsupported")
+
+        # the nested puzzle: no solution without nested slides, and the note says so
+        snap = e.call("document.open", {"path": str(FIXTURES / "sliding" / "test_sliding_nested.xmpuzzle")})
+        p = snap["problems"][0]["id"]
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True}})
+        check(wait_state(e, p, ["finished", "error"], start) == "finished", "the nested solve finished")
+        note = e.call("solve.status", {"problem": p})["note"]
+        check(note is not None and "try Allow Nested Slides" in note, f"the note {note!r}")
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True,
+                                                          "sliding": {"nestedSlides": True}}})
+        check(wait_state(e, p, ["finished", "error"], start) == "finished", "the nested solve finished")
+        check(e.call("solution.page", {"problem": p})["rows"][0]["moves"] == 47, "47 moves nested")
+        e.fails("solve.start", {"problem": p, "options": {"sliding": {"solver": "bfs"}}}, "invalid_params")
+        e.fails("solve.start", {"problem": p, "options": {"sliding": {"depth": 3}}}, "invalid_params")
+
+        # paused in the middle of a search, carried on: the deep search's limit,
+        # with its note
+        snap = e.call("document.open",
+                      {"path": str(FIXTURES / "sliding" / "slide_swapped_fifteen.xmpuzzle")})
+        p = snap["problems"][0]["id"]
+        deep = {"disassemble": True, "sliding": {"solver": "deep"}}
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": deep})
+        e.wait_event("solve.progress", lambda x: x["problem"] == p and x["progress"]["stage"] == "search"
+                     and x["progress"]["searched"] > 0, start=start, timeout=600)
+        e.call("solve.pause", {"problem": p})
+        state = wait_state(e, p, ["paused", "finished", "error"], start)
+        if state == "paused":
+            # the start under way went back to be searched again: not counted yet
+            check(e.call("problem.get", {"problem": p})["assemblies"] == 0, "the start not counted")
+            start = len(e.events)
+            e.call("solve.continue", {"problem": p, "options": deep})
+            state = wait_state(e, p, ["finished", "error"], start)
+        check(state == "finished", f"carried on to its end: {state}")
+        note = e.call("solve.status", {"problem": p})["note"]
+        check(note is not None and "limit of 1,000,000 arrangements" in note, f"the note {note!r}")
+        e.call("settings.set", {"slideFolder": was})
+
+
+@test
 def unsupported_and_failures(e):
-    snap = e.call("document.open", {"path": str(FIXTURES / "test_sliding_solver.xmpuzzle")})
+    # a stacking puzzle is not solved yet, nor its placements explored
+    snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
     p = snap["problems"][0]["id"]
     e.fails("solve.start", {"problem": p}, "unsupported")
     e.fails("solve.continue", {"problem": p}, "unsupported")
-    e.fails("solution.analyse", {"problem": p, "which": "all"}, "unsupported")
-    # a stacking puzzle is not solved yet, nor its placements explored
-    snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
-    e.fails("explore.openAssembly", {"problem": snap["problems"][0]["id"]}, "unsupported")
+    e.fails("explore.openAssembly", {"problem": p}, "unsupported")
     # spheres have no take-apart
     snap = e.call("document.open", {"path": str(FIXTURES / "BallRoom_solved.xmpuzzle")})
     p = snap["problems"][0]["id"]

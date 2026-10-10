@@ -16,8 +16,8 @@ Reply launch(State& s, Params& p, Launch how) {
   BTE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
   app::Document& d = s.document();
   BTE_CHECK(d.problemIndex(problem));
-  if (app::problemKind(d.puzzle()) != app::ProblemKind::Brick) {
-    return coreError(Errc::Unsupported, "sliding and stacking puzzles are not solved yet");
+  if (app::problemKind(d.puzzle()) == app::ProblemKind::Stacking) {
+    return coreError(Errc::Unsupported, "stacking puzzles are not solved yet");
   }
   BTE_CHECK(how == Launch::Start     ? d.solveStart(problem, options)
             : how == Launch::Prepare ? d.solvePrepare(problem, options)
@@ -69,10 +69,12 @@ Reply solveStatus(State& s, Params& p) {
   BTE_TRY(const SolveProgress progress, d.solveProgress(problem));
   BTE_TRY(const SolveStats stats, d.solveStats(problem));
   const std::optional<SolveFailure> failure = d.solveFailure(problem);
+  const std::string note = d.solveNote(problem);
   return Json{{"state", solveStateName(d.solveState(problem))},
               {"progress", progressJson(progress)},
               {"stats", statsJson(stats)},
-              {"failure", failure ? failureJson(*failure) : Json(nullptr)}};
+              {"failure", failure ? failureJson(*failure) : Json(nullptr)},
+              {"note", note.empty() ? Json(nullptr) : Json(note)}};
 }
 
 Reply solveExportPaused(State& s, Params& p) {

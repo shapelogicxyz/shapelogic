@@ -790,6 +790,11 @@ std::optional<SolveFailure> Document::solveFailure(Id problem) const {
   return it == sessions_.end() ? std::nullopt : it->second->failure();
 }
 
+std::string Document::solveNote(Id problem) const {
+  const auto it = sessions_.find(problem);
+  return it == sessions_.end() ? std::string() : it->second->note();
+}
+
 // ---- analysing and what background work did -----------------------------------------
 
 Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& options) {

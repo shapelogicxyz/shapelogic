@@ -29,6 +29,13 @@ const Names<SolverType>& solverNames() {
   return n;
 }
 
+const Names<sliding::SlidingSolver>& slidingSolverNames() {
+  static const Names<sliding::SlidingSolver> n = {{"fast", sliding::SlidingSolver::Fast},
+                                                  {"deep", sliding::SlidingSolver::Deep},
+                                                  {"full", sliding::SlidingSolver::Full}};
+  return n;
+}
+
 const Names<app::CellTool>& cellToolNames() {
   static const Names<app::CellTool> n = {{"fixed", app::CellTool::Fixed},
                                          {"variable", app::CellTool::Variable},
@@ -356,9 +363,10 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
 namespace {
 
 // The original's check boxes (mainwindow_solve.cpp's optionNames).
-constexpr std::array<std::string_view, 11> kSolverBoxes = {
-    "disassemble", "checkRotations", "justCount", "justLevels", "deepSymmetry", "keepMirrors",
-    "keepRotations", "strictColors", "nestedSlides", "highMemory", "autosave"};
+constexpr std::array<std::string_view, 12> kSolverBoxes = {
+    "disassemble",   "checkRotations", "justCount",     "justLevels",
+    "deepSymmetry",  "keepMirrors",    "keepRotations", "strictColors",
+    "nestedSlides",  "partialNested",  "highMemory",    "autosave"};
 
 bool isBox(std::string_view name) {
   for (const std::string_view b : kSolverBoxes) {
@@ -414,6 +422,9 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   SolveOptions o;
   o.solver = s.settings.solver;
   o.threads = s.settings.threads;
+  // where a full sliding search keeps its levels: the engine's settings
+  o.sliding.workDir = s.settings.slideFolder;
+  o.sliding.diskBudget = static_cast<std::uint64_t>(s.settings.slideDiskGB * 1e9);
   if (j.is_null()) {
     return o;
   }
@@ -436,6 +447,23 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.solutionDrop = static_cast<unsigned int>(p.optInteger("keepEach", o.solutionDrop, 0, 0xFFFFFFFF));
   o.threads = static_cast<unsigned int>(p.optInteger("threads", o.threads, 0, kMaxThreads));
   o.takeApartWorkers = static_cast<unsigned int>(p.optInteger("takeApartWorkers", 0, 0, 64));
+  if (p.has("sliding")) {
+    const Json& sj = p.value("sliding");
+    if (!sj.is_object()) {
+      p.fail("'sliding' must be an object");
+    } else {
+      Params sp(sj);
+      o.sliding.solver = sp.optChoice("solver", slidingSolverNames()).value_or(o.sliding.solver);
+      o.sliding.nested = sp.optBoolean("nestedSlides", o.sliding.nested);
+      o.sliding.partialNested = sp.optBoolean("partialNested", o.sliding.partialNested);
+      o.sliding.highMemory = sp.optBoolean("highMemory", o.sliding.highMemory);
+      if (RpcResult<void> r = sp.finish(); !r) {
+        RpcError e = r.error();
+        e.message = "options: sliding: " + e.message;
+        return std::unexpected(e);
+      }
+    }
+  }
   if (RpcResult<void> r = p.finish(); !r) {
     RpcError e = r.error();
     e.message = "options: " + e.message;
@@ -480,6 +508,8 @@ Json progressJson(const SolveProgress& g) {
   j["levelFraction"] = g.levelFraction;
   j["secondsLeft"] = g.secondsLeft < 0 ? Json(nullptr) : Json(g.secondsLeft);
   j["activity"] = g.activity();
+  j["searched"] = g.searched;
+  j["searchDepth"] = g.searchDepth;
   return j;
 }
 

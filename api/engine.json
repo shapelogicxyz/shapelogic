@@ -42,7 +42,7 @@
                 "label": {"type": "string"},
                 "assemble": {"type": "boolean", "description": "It has an assembler."},
                 "disassemble": {"type": "boolean", "description": "It has a take-apart."},
-                "supported": {"type": "boolean", "description": "This version solves its puzzles (sliding and stacking: not yet)."},
+                "supported": {"type": "boolean", "description": "This version solves its puzzles (stacking: not yet)."},
                 "defaultSize": {"type": "integer", "minimum": 1, "description": "The size of a new shape in each direction, in cells."},
                 "sizeUnit": {"type": "integer", "minimum": 1, "description": "shape.resize counts in blocks of this many cells."}
               },
@@ -59,11 +59,21 @@
               "additionalProperties": false
             }
           },
+          "slidingSolvers": {
+            "type": "array",
+            "description": "The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu labels.",
+            "items": {
+              "type": "object",
+              "properties": {"solver": {"$ref": "types.json#/$defs/SlidingSolver"}, "label": {"type": "string"}},
+              "required": ["solver", "label"],
+              "additionalProperties": false
+            }
+          },
           "hardwareThreads": {"type": "integer", "minimum": 1},
           "maxThreads": {"type": "integer", "minimum": 1},
           "methods": {"type": "array", "items": {"type": "string"}}
         },
-        "required": ["name", "version", "protocol", "grids", "solvers", "hardwareThreads", "maxThreads", "methods"],
+        "required": ["name", "version", "protocol", "grids", "solvers", "slidingSolvers", "hardwareThreads", "maxThreads", "methods"],
         "additionalProperties": false
       }
     },
@@ -84,7 +94,9 @@
         "properties": {
           "undoDepth": {"type": "integer", "minimum": 1, "maximum": 10000},
           "threads": {"type": "integer", "minimum": 0, "maximum": 256},
-          "solver": {"$ref": "types.json#/$defs/Solver"}
+          "solver": {"$ref": "types.json#/$defs/Solver"},
+          "slideFolder": {"type": "string"},
+          "slideDiskGB": {"type": "number", "minimum": 0}
         },
         "additionalProperties": false
       },
@@ -108,9 +120,11 @@
       "properties": {
         "undoDepth": {"type": "integer", "minimum": 1, "description": "Undo steps kept (default 25)."},
         "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "The threads of a solve when its options do not say; 0 every hardware thread (default)."},
-        "solver": {"$ref": "types.json#/$defs/Solver", "description": "The solver when a solve's or analysis's options do not say (default classic)."}
+        "solver": {"$ref": "types.json#/$defs/Solver", "description": "The solver when a solve's or analysis's options do not say (default classic)."},
+        "slideFolder": {"type": "string", "description": "Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder."},
+        "slideDiskGB": {"type": "number", "minimum": 0, "description": "The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it."}
       },
-      "required": ["undoDepth", "threads", "solver"],
+      "required": ["undoDepth", "threads", "solver", "slideFolder", "slideDiskGB"],
       "additionalProperties": false
     }
   }

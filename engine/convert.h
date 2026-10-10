@@ -33,6 +33,7 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 /// The names of the schema's enums, each value once.
 [[nodiscard]] const Names<GridKind>& gridNames();
 [[nodiscard]] const Names<SolverType>& solverNames();
+[[nodiscard]] const Names<sliding::SlidingSolver>& slidingSolverNames();
 [[nodiscard]] const Names<app::CellTool>& cellToolNames();
 [[nodiscard]] const Names<app::ShapeTask>& shapeTaskNames();
 [[nodiscard]] const Names<mesh::MeshStyle>& meshStyleNames();

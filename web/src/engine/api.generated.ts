@@ -25,6 +25,18 @@ export interface Settings {
   threads: number;
   /** The solver when a solve's or analysis's options do not say (default classic). */
   solver: Solver;
+  /**
+   * Where a full sliding search keeps its older levels while it runs, in a folder of its own that
+   * goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default:
+   * the user's cache folder's sliding folder.
+   */
+  slideFolder: string;
+  /**
+   * The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free
+   * space but a margin, and at least a little of it.
+   * @minimum 0
+   */
+  slideDiskGB: number;
 }
 
 // ---- explore.json: Explorers ----
@@ -219,8 +231,7 @@ export type Size = [number, number, number];
 export type Point2 = [number, number];
 
 /**
- * The grid of a puzzle, fixed for its life. Sliding and stacking puzzles load and save but are not
- * solved yet.
+ * The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet.
  */
 export type Grid =
   | 'bricks'
@@ -234,6 +245,12 @@ export type Grid =
 /** BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. */
 export type Solver = 'classic' | 'crowell' | 'bt2';
 
+/**
+ * How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full
+ * search keeps its older levels on disk and spreads each over threads; the default).
+ */
+export type SlidingSolver = 'fast' | 'deep' | 'full';
+
 /** decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). */
 export type SolveState =
   | 'idle'
@@ -244,6 +261,10 @@ export type SolveState =
   | 'finished'
   | 'error';
 
+/**
+ * What a solve is doing; search is a sliding puzzle's search from a start to the goal
+ * (SolveProgress.searched, searchDepth).
+ */
 export type SolveStage =
   | 'idle'
   | 'prepare'
@@ -253,7 +274,8 @@ export type SolveStage =
   | 'stopping'
   | 'paused'
   | 'done'
-  | 'error';
+  | 'error'
+  | 'search';
 
 /**
  * What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or
@@ -502,8 +524,9 @@ export interface Part {
  * The Solver tab's settings stored with a problem (saved in the file, the original's names; the
  * front end decides what they mean). Settings of other versions are kept as strings. These names
  * are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations,
- * strictColors is strictColours, justLevels is justLevels). highMemory belongs to the sliding and
- * stacking solvers and maps to no SolveOptions field.
+ * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested and
+ * highMemory are sliding's nestedSlides, partialNested and highMemory, solverType fast, deep or
+ * full its solver). highMemory belongs to the stacking solvers too.
  */
 export interface SolverSettings {
   disassemble?: boolean;
@@ -515,6 +538,7 @@ export interface SolverSettings {
   keepRotations?: boolean;
   strictColors?: boolean;
   nestedSlides?: boolean;
+  partialNested?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
   /** classic, crowell, bt2 (sliding: fast, deep, full). */
@@ -626,6 +650,24 @@ export interface SolveOptions {
    * @maximum 64
    */
   takeApartWorkers?: number;
+  sliding?: SlidingOptions;
+}
+
+/**
+ * A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps
+ * mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick
+ * fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver,
+ * checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list).
+ * Where a full search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+ */
+export interface SlidingOptions {
+  solver?: SlidingSolver;
+  /** A piece may carry what is nested in its outline (Allow Nested Slides). */
+  nestedSlides?: boolean;
+  /** And what is partly nested in it (Allow Partially Nested); implies nestedSlides. */
+  partialNested?: boolean;
+  /** Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). */
+  highMemory?: boolean;
 }
 
 /** One take-apart under way. */
@@ -683,8 +725,22 @@ export interface SolveProgress {
   overallKnown: boolean;
   levelFraction: number;
   secondsLeft: number | null;
-  /** The original's status text. */
+  /**
+   * The original's status text (empty in the search stage, which the original GUI told as 'Sliding
+   * search, N moves deep. Scanned N arrangements.').
+   */
   activity: string;
+  /**
+   * The sliding search under way: the arrangements it has visited.
+   * @minimum 0
+   */
+  searched: number;
+  /**
+   * How many moves deep a full sliding search is (0 before its first level, and for the other
+   * searches).
+   * @minimum 0
+   */
+  searchDepth: number;
 }
 
 /** The debug statistics panel. */
@@ -1066,7 +1122,7 @@ export interface Methods {
         assemble: boolean;
         /** It has a take-apart. */
         disassemble: boolean;
-        /** This version solves its puzzles (sliding and stacking: not yet). */
+        /** This version solves its puzzles (stacking: not yet). */
         supported: boolean;
         /**
          * The size of a new shape in each direction, in cells.
@@ -1081,6 +1137,14 @@ export interface Methods {
       })[];
       solvers: ({
         solver: Solver;
+        label: string;
+      })[];
+      /**
+       * The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu
+       * labels.
+       */
+      slidingSolvers: ({
+        solver: SlidingSolver;
         label: string;
       })[];
       /** @minimum 1 */
@@ -1127,6 +1191,9 @@ export interface Methods {
        */
       threads?: number;
       solver?: Solver;
+      slideFolder?: string;
+      /** @minimum 0 */
+      slideDiskGB?: number;
     };
     result: Settings;
     errors: never;
@@ -1653,7 +1720,7 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Brick, sliding or stacking; this version solves bricks only.
+   * Brick, sliding or stacking; this version solves brick and sliding puzzles.
    * (problem.json)
    */
   'problem.kind': {
@@ -2210,6 +2277,12 @@ export interface Methods {
       progress: SolveProgress;
       stats: SolveStats;
       failure: SolveFailure | null;
+      /**
+       * What a sliding solve's last run said when it was through: whether a missing solution is
+       * proven or the search gave up at a limit (the original's solver note, shown in a message
+       * box); null otherwise.
+       */
+      note: string | null;
     };
     errors: 'not_found';
   };

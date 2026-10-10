@@ -155,7 +155,8 @@ describe.skipIf(ENGINE === null)('the engine', () => {
     const untyped = c.call.bind(c) as (m: string, p?: unknown) => Promise<unknown>;
     expectCode(await failure(untyped('no.such.method')), 'method_not_found');
     expectCode(await failure(c.call('document.openBytes', { data: '%%%' })), 'invalid_argument');
-    await c.call('document.open', { path: `${FIXTURES}/test_sliding_solver.xmpuzzle` });
+    // a stacking puzzle is not solved yet (a sliding one is)
+    await c.call('document.open', { path: `${FIXTURES}/test_stacking_hanoi.xmpuzzle` });
     const p = (await c.call('problem.list')).problems[0]?.id ?? '';
     expectCode(await failure(c.call('solve.start', { problem: p })), 'unsupported');
   });
