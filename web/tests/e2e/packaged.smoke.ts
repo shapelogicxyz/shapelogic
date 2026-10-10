@@ -9,16 +9,19 @@
 // only the bundles), its engine the one in its resources with the project's
 // version, the environment's development switches ignored (another engine,
 // another page, Node's options and ELECTRON_RUN_AS_NODE all set), the page
-// sandboxed and isolated with its CSP, no file outside the renderer read,
-// a path no dialog gave refused, and the fixture opened and solved with
-// bt's counts. BT_PACKAGED_APP names another executable (an installed app).
+// on the app's own scheme, sandboxed and isolated with its CSP (a script
+// or image from a file: URL is refused by the CSP, before the request
+// filter), no file outside the renderer read, a path no dialog gave
+// refused, and the fixture opened and solved with bt's counts.
+// BT_PACKAGED_APP names another executable (an installed app).
 
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { listPackage } from '@electron/asar';
 import { FuseV1Options, getCurrentFuseWire } from '@electron/fuses';
@@ -142,6 +145,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
   expect(fuses[FuseV1Options.EnableNodeCliInspectArguments]).toBe(DISABLE);
   expect(fuses[FuseV1Options.EnableEmbeddedAsarIntegrityValidation]).toBe(ENABLE);
   expect(fuses[FuseV1Options.OnlyLoadAppFromAsar]).toBe(ENABLE);
+  expect(fuses[FuseV1Options.GrantFileProtocolExtraPrivileges]).toBe(DISABLE);
   const files = listPackage(join(APP.resources, 'app.asar'), { isPack: false }).map((f) =>
     f.replaceAll('\\', '/'),
   );
@@ -182,8 +186,8 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
   const browser = await chromium.connectOverCDP(ws);
   try {
     const page = await windowPage(browser);
-    // the app's own page, not the dev server's
-    expect(page.url()).toMatch(/^file:\/\/.*\/app\.asar\/out\/renderer\/index\.html/);
+    // the app's own page on its own scheme, not the dev server's
+    expect(page.url()).toMatch(/^bt-app:\/\/app\/index\.html/);
     await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running', {
       timeout: 30_000,
     });
@@ -209,27 +213,56 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
       process: 'undefined',
       bt: ['onMessage', 'send'],
       version: VERSION,
-      csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+      csp: "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'",
     });
 
-    // no file outside the renderer is read, and nothing remote
-    const reads = await page.evaluate(async () => {
-      const tryFetch = async (url: string): Promise<string> => {
-        try {
-          const r = await fetch(url);
-          return `read ${String(r.status)}`;
-        } catch {
-          return 'refused';
-        }
-      };
-      return {
-        file: await tryFetch(
-          navigator.platform.startsWith('Win') ? 'file:///C:/Windows/win.ini' : 'file:///etc/hosts',
-        ),
-        remote: await tryFetch('https://example.com/'),
-      };
+    // a script or an image from a file: URL is refused by Chromium itself: a
+    // page on the app's scheme may not load local files at all (on a file:
+    // page the CSP's 'self' matched every file: URL and only the request
+    // filter stood in the way); the filter is the second check, not the only one
+    const probe = join(userData, 'probe.js');
+    writeFileSync(probe, 'window.__probeRan = 1;\n');
+    const consoleErrors: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') {
+        consoleErrors.push(m.text());
+      }
     });
-    expect(reads).toEqual({ file: 'refused', remote: 'refused' });
+    const loads = await page.evaluate(async (probeUrl) => {
+      const violations: string[] = [];
+      document.addEventListener('securitypolicyviolation', (e) => {
+        violations.push(`${e.violatedDirective} ${e.blockedURI}`);
+      });
+      const script = document.createElement('script');
+      script.src = probeUrl;
+      const scriptEnd = new Promise<string>((done) => {
+        script.addEventListener('load', () => {
+          done('loaded');
+        });
+        script.addEventListener('error', () => {
+          done('refused');
+        });
+        setTimeout(() => {
+          done('no event');
+        }, 10_000);
+      });
+      const image = document.createElement('img');
+      image.src = 'file:///etc/hosts';
+      document.body.append(script, image);
+      const scriptResult = await scriptEnd;
+      await new Promise((done) => setTimeout(done, 500));
+      return {
+        script: scriptResult,
+        imageDrawn: image.naturalWidth > 0,
+        ran: (window as unknown as Record<string, unknown>).__probeRan,
+        violations,
+      };
+    }, pathToFileURL(probe).href);
+    expect(loads).toEqual({ script: 'refused', imageDrawn: false, ran: undefined, violations: [] });
+    expect(consoleErrors).toContain(
+      `Not allowed to load local resource: ${pathToFileURL(probe).href}`,
+    );
+    expect(consoleErrors).toContain('Not allowed to load local resource: file:///etc/hosts');
 
     // the fixture given on the command line is open; a path no dialog gave is refused
     await expect(page.locator('#fname')).toHaveText('Bermuda.xmpuzzle', { timeout: 30_000 });

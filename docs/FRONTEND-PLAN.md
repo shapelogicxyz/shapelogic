@@ -142,7 +142,7 @@ effort and audits".
 - [x] Audit of stage 6's file paths (docs/handoff/web-6.md, "Audit")
 - [x] **Stage 7**: exports (docs/handoff/web-7.md)
 - [x] **Stage 8**: packaging (docs/handoff/web-8.md)
-- [ ] Security audit before the first release
+- [x] Security audit before the first release (docs/handoff/web-8.md, "Audit")
 
 ## Stage details
 

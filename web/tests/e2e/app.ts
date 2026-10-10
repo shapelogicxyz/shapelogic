@@ -91,6 +91,17 @@ export async function launch(
   });
   const page = await app.firstWindow();
   apps.set(page, app);
+  // an uncaught exception in the main process would show Electron's dialog
+  // and hold the app, so a test would end in "the app did not quit" and say
+  // nothing of the cause (the stage 6 audit's stall): recorded instead, and
+  // reported by closeApp
+  await app.evaluate(() => {
+    const g = globalThis as unknown as { mainErrors?: string[] };
+    g.mainErrors = [];
+    process.on('uncaughtException', (e: unknown) => {
+      g.mainErrors?.push(e instanceof Error ? (e.stack ?? e.message) : String(e));
+    });
+  });
   await app.evaluate(({ BrowserWindow }, size) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
   }, WINDOW);
@@ -113,8 +124,13 @@ export async function launch(
 /**
  * Ends the app without the question about unsaved changes (a test's
  * document is thrown away): the windows are destroyed, then the app closes.
+ * An exception the main process did not catch (launch records them) fails
+ * the test with its stack.
  */
 export async function closeApp(app: ElectronApplication): Promise<void> {
+  const errors = await app
+    .evaluate(() => (globalThis as unknown as { mainErrors?: string[] }).mainErrors ?? [])
+    .catch((): string[] => []);
   await app
     .evaluate(({ BrowserWindow }) => {
       for (const w of BrowserWindow.getAllWindows()) {
@@ -138,7 +154,12 @@ export async function closeApp(app: ElectronApplication): Promise<void> {
     if (pid !== undefined) {
       process.kill(pid, 'SIGKILL');
     }
-    throw new Error('the app did not quit within 20 s of its windows going');
+    throw new Error(
+      `the app did not quit within 20 s of its windows going${errors.length === 0 ? '' : `; the main process threw: ${errors.join('\n')}`}`,
+    );
+  }
+  if (errors.length > 0) {
+    throw new Error(`the main process threw: ${errors.join('\n')}`);
   }
 }
 

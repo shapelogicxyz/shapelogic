@@ -25,6 +25,9 @@ import { serveEngine } from '../../src/main/engine-ipc.ts';
 import { callPath, PATH_METHODS, PathGrants } from '../../src/main/path-grants.ts';
 import {
   allowedRequest,
+  APP_SCHEME,
+  appFile,
+  appUrl,
   HELP_URLS,
   permissionAllowed,
   switches,
@@ -104,12 +107,65 @@ describe('the window', () => {
     expect(index).toContain('setPermissionCheckHandler');
   });
 
-  it('loads a page other than its own only from a dev server, never when packaged', () => {
-    // the one loadURL is the dev server's, which only an unpackaged app takes
-    expect(occurrences(/\.loadURL\(/g)).toEqual(['src/main/index.ts']);
+  it('loads its own page on the app’s scheme, and another only from a dev server, never when packaged', () => {
+    // the two loadURLs: the app's own page, and the dev server's, which only
+    // an unpackaged app takes; nothing is loaded from file:
+    expect(occurrences(/\.loadURL\(/g)).toEqual(['src/main/index.ts', 'src/main/index.ts']);
+    expect(occurrences(/\.loadFile\(/g)).toEqual([]);
     const index = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
+    expect(index).toContain("win.loadURL(appUrl('index.html', query))");
     expect(index).toContain('const devUrl = env.rendererUrl;');
     expect(occurrences(/process\.env\.ELECTRON_RENDERER_URL/g)).toEqual([]);
+    // the scheme is registered before the app is ready and served from the renderer's directory only
+    expect(index).toMatch(
+      /^protocol\.registerSchemesAsPrivileged\(\[\s*\{ scheme: APP_SCHEME, privileges: \{ standard: true, secure: true/m,
+    );
+    expect(index).toContain('protocol.handle(APP_SCHEME, (request) => {');
+    expect(index).toContain('const file = appFile(request.url, rendererDir);');
+  });
+});
+
+describe('the app’s scheme', () => {
+  const rendererDir = resolve('/app/out/renderer');
+
+  it('names the page and its files, with a query', () => {
+    expect(APP_SCHEME).toBe('bt-app');
+    expect(appUrl('index.html')).toBe('bt-app://app/index.html');
+    expect(appUrl('index.html', { autosave: '3' })).toBe('bt-app://app/index.html?autosave=3');
+  });
+
+  it('serves only files inside the renderer’s directory', () => {
+    const inside = (p: string): string => join(rendererDir, p);
+    expect(appFile('bt-app://app/index.html', rendererDir)).toBe(inside('index.html'));
+    expect(appFile('bt-app://app/index.html?autosave=3', rendererDir)).toBe(inside('index.html'));
+    expect(appFile('bt-app://app/assets/index-x.js', rendererDir)).toBe(
+      inside('assets/index-x.js'),
+    );
+    expect(appFile('bt-app://app/assets/a%20b.css', rendererDir)).toBe(inside('assets/a b.css'));
+    for (const bad of [
+      'bt-app://app/',
+      'bt-app://app',
+      'bt-app://app/%2e%2e%2f%2e%2e%2fetc/passwd',
+      'bt-app://app/assets%2f..%2f..%2fmain/index.js',
+      'bt-app://app/x%00.js',
+      'bt-app://other/index.html',
+      'bt-app://app.evil/index.html',
+      'bt-apps://app/index.html',
+      'file:///app/out/renderer/index.html',
+      'not a url',
+    ]) {
+      expect(appFile(bad, rendererDir), bad).toBeNull();
+    }
+    // a URL's own parsing resolves its dot segments (encoded too) before the
+    // path is looked at, so these name files inside the directory (missing
+    // ones: the handler's 404), as does a path that leaves and comes back
+    expect(appFile('bt-app://app/../main/index.js', rendererDir)).toBe(inside('main/index.js'));
+    expect(appFile('bt-app://app/%2e%2e/main/index.js', rendererDir)).toBe(inside('main/index.js'));
+    expect(appFile('bt-app://app/assets/../../main/index.js', rendererDir)).toBe(
+      inside('main/index.js'),
+    );
+    expect(appFile('bt-app://app/assets/../index.html', rendererDir)).toBe(inside('index.html'));
+    expect(appFile('bt-app://app//etc/passwd', rendererDir)).toBe(inside('etc/passwd'));
   });
 });
 
@@ -151,7 +207,12 @@ describe('the requests the session lets through', () => {
   const built = { rendererDir };
   const dev = { rendererDir, rendererUrl: 'http://localhost:5173/' };
 
-  it('the renderer files, devtools, data and blob URLs', () => {
+  it('the page’s own scheme inside the renderer’s directory, its files, devtools, data and blob URLs', () => {
+    expect(allowedRequest('bt-app://app/index.html?autosave=3', built)).toBe(true);
+    expect(allowedRequest('bt-app://app/assets/index-x.js', built)).toBe(true);
+    expect(allowedRequest('bt-app://app/%2e%2e%2f%2e%2e%2fetc/passwd', built)).toBe(false);
+    expect(allowedRequest('bt-app://other/index.html', built)).toBe(false);
+    expect(allowedRequest('bt-app://app/', built)).toBe(false);
     expect(allowedRequest(inside('index.html'), built)).toBe(true);
     expect(allowedRequest(inside('assets/index-x.js'), built)).toBe(true);
     expect(allowedRequest(`${inside('index.html')}?autosave=3`, built)).toBe(true);
@@ -210,8 +271,11 @@ describe('the requests the session lets through', () => {
 });
 
 describe('the page', () => {
+  // nothing but the bundle's own scripts, styles and images (and data: images:
+  // the cursors), inline styles (the mockup's); no fetch, worker, frame,
+  // plugin, media, <base> or form submission at all
   const CSP =
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
+    "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; media-src 'none'; base-uri 'none'; form-action 'none'";
   const cspOf = (html: string): string[] =>
     [...html.matchAll(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)"/g)].map(
       (m) => m[1] ?? '',

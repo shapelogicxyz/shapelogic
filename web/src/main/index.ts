@@ -20,7 +20,8 @@
 // time for a data directory: a second start hands its files to the first.
 //
 // The security checklist (stage 8, security.ts): the window sandboxed and
-// isolated; the page the app's own file (a dev server only when not
+// isolated; the page the app's own, on its own scheme (`bt-app://app/`,
+// served from the renderer's directory only; a dev server only when not
 // packaged); every request but the app's files cancelled; no permission
 // granted; no webview, no new window, no navigation; a call naming a file
 // the window was not handed refused before the engine sees it
@@ -35,11 +36,11 @@
 // Solver's autosave (20 minutes), passed in the page's address. A
 // packaged app takes BT_USER_DATA only (security.ts's switches).
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session } from 'electron';
 import type { WebContents } from 'electron';
 import { appendFileSync, existsSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { extname, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
@@ -51,7 +52,15 @@ import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
 import { PathGrants } from './path-grants.ts';
 import { RescueStore } from './rescue.ts';
-import { allowedRequest, permissionAllowed, switches, windowOptions } from './security.ts';
+import {
+  allowedRequest,
+  APP_SCHEME,
+  appFile,
+  appUrl,
+  permissionAllowed,
+  switches,
+  windowOptions,
+} from './security.ts';
 import { StateStore } from './state-store.ts';
 
 const APP_NAME = 'BurrTools Alpha';
@@ -75,6 +84,10 @@ const logCall =
 
 /** The renderer's directory (out/renderer, in app.asar when packaged). */
 const rendererDir = fileURLToPath(new URL('../renderer/', import.meta.url));
+// the page's own scheme (security.ts), registered before the app is ready
+protocol.registerSchemesAsPrivileged([
+  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, codeCache: true } },
+]);
 
 /** The files each window's renderer was handed: the only ones its engine may be given. */
 const paths = new PathGrants<WebContents>();
@@ -323,7 +336,7 @@ function createWindow(first?: AppCommand): void {
     }
     void win.loadURL(url.toString());
   } else {
-    void win.loadFile(join(rendererDir, 'index.html'), { query });
+    void win.loadURL(appUrl('index.html', query));
   }
 }
 
@@ -404,6 +417,15 @@ void app.whenReady().then(() => {
   store = new StateStore(app.getPath('userData'));
   rescue = new RescueStore(app.getPath('userData'));
   pendingOpen.push(...argFiles());
+  // the page and its files, from the renderer's directory and nowhere else
+  protocol.handle(APP_SCHEME, (request) => {
+    const file = appFile(request.url, rendererDir);
+    const notFound = (): Response => new Response('not found', { status: 404 });
+    if (file === null) {
+      return notFound();
+    }
+    return net.fetch(pathToFileURL(file).href).catch(notFound);
+  });
   // no remote content, no permission
   session.defaultSession.webRequest.onBeforeRequest((details, done) => {
     done({ cancel: !allowedRequest(details.url, { rendererDir, rendererUrl: env.rendererUrl }) });

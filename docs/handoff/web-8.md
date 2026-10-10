@@ -49,8 +49,9 @@ left the file as it was).
 - Electron's fuses: `runAsNode` off, `enableNodeOptionsEnvironmentVariable`
   off, `enableNodeCliInspectArguments` off,
   `enableEmbeddedAsarIntegrityValidation` on, `onlyLoadAppFromAsar` on,
-  `enableCookieEncryption` on. `grantFileProtocolExtraPrivileges` stays on:
-  the page is loaded from `file://` (see "Known issues").
+  `enableCookieEncryption` on. `grantFileProtocolExtraPrivileges` stayed on:
+  the page was loaded from `file://` (the audit below turned it off: the
+  page is on the app's own scheme).
 - Targets: macOS a .dmg and a .zip, signed ad hoc (`identity: '-'`, no
   hardened runtime) unless `CSC_NAME` or `CSC_LINK` names a certificate
   (then electron-builder's signing with the hardened runtime and its
@@ -93,7 +94,7 @@ the web directory is the bundle's `../..`.
   address, fetches nothing, opens no socket (a test scans it).
 - **Permissions**: none (`setPermissionRequestHandler` and
   `setPermissionCheckHandler` answer `permissionAllowed`: false).
-- **The CSP** of `src/renderer/index.html`
+- **The CSP** (tightened by the audit, finding 1) of `src/renderer/index.html`
   (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:`)
   is the one served: the built `out/renderer/index.html` has it, once, and
   loads only `./assets/…` (unit test); the packaged page has it (smoke
@@ -352,11 +353,11 @@ take it in (its step 5's checks are in step 6 here).
 7. Write down what happened, as for Windows.
 
 ## Known issues and notes
-- **The page is loaded from `file://`**, so Electron's
-  `grantFileProtocolExtraPrivileges` fuse stays on (module scripts from
-  `file://` need it). The request filter keeps the page to its own
+- **The page was loaded from `file://`**, so Electron's
+  `grantFileProtocolExtraPrivileges` fuse stayed on (module scripts from
+  `file://` need it). The request filter kept the page to its own
   directory; a custom protocol (`protocol.handle`, a privileged scheme)
-  would let the fuse go off. Not done.
+  would let the fuse go off. Done by the audit (its finding 1).
 - **The packaged app accepts `--remote-debugging-port`** (a Chromium
   switch; no fuse turns it off): whoever starts the app can drive its
   page, as the smoke test does. Only the user who starts it can.
@@ -449,3 +450,253 @@ fixed in a commit "Web 8 audit: …" after the stage's. Where to look:
   web-test` (release engine), `just web-e2e`, and `just web-dist --dir`
   with `just web-smoke`; the C++ steps of AGENTS.md if the engine or core
   changes.
+
+## Audit
+
+**Date:** 2026-10-09 · Fable 5.1 at max effort, on the diff
+`6ff213a..b5a34a9` (`19d2128` Core: the AVX2 kernels build for x86-64,
+`722df03` Engine: a bt-engine to bundle, `b5a34a9` the stage), the plan,
+docs/ARCHITECTURE.md, docs/API.md, decisions 0012 and 0013, this note and
+the audit and known-issues sections of web-7.md and web-6.md. The fixes
+are two commits after the stage's: `Core: a save's temporary file is its
+own` and `Web 8 audit: the page on its own scheme, exclusive temporary
+files, markup in names tested`.
+
+### How it was done
+Read in the brief's order; the Electron surface, the IPC handlers, the
+grants and the packaging traced by hand against the stage's tests; then
+every suspicion probed before it was called a finding, with scripts kept
+out of the repository and temporary tests (removed):
+- the packaged app (`dist/mac-arm64`) started as the smoke test starts it
+  and driven over DevTools by a temporary smoke test: CSP violation
+  events listened for while the page was given a script and an image
+  from `file:` URLs, a `data:` script, an inline script and an inline
+  handler, `eval`, a stylesheet from `file:`, frames (`file:///etc/hosts`,
+  the page itself, `srcdoc` with a script), `fetch` inside and outside the
+  renderer's directory, `window.open`, `location.href`, a `<meta
+  refresh>`, a `target=_blank` link; the device APIs the page has;
+- a crafted `.xmpuzzle` whose three shapes' names, problem name and notes
+  are markup (an element with a class, a quote that closes an attribute
+  and adds one, a `<style>` that would outline the page, a
+  `</textarea>`), checked to open in the engine with the names intact,
+  then opened in the development build by a temporary e2e test that
+  visited every card, menu, dialog and explorer counting the elements
+  the markup would make;
+- the export writer and the release engine over stdin, each with a
+  symbolic link planted at `<file>.tmp` before the write;
+- Electron 44's documentation (`electron.d.ts`) for the device choosers,
+  `protocol.handle`, the scheme privileges and the fuses; `npm view` for
+  the current Electron.
+Each test added was then run against the stage's code by mutation (the
+fixed file copied aside, the stage's version or a one-line mutant written
+in its place, copied back): each fails without its fix.
+
+### Findings, by severity
+1. **The request filter was the only thing between a puzzle file and a
+   script from disk** (medium: defence in depth; no way to run script in
+   the page was found). The page was loaded from `file://`, where the
+   CSP's `'self'` matches every `file:` URL: an `<img
+   src="file:///etc/hosts">` and a `<script src="file:///…/probe.js">`
+   raised no CSP violation, and only the request filter's
+   `ERR_BLOCKED_BY_CLIENT` stopped them; the `grantFileProtocolExtraPrivileges`
+   fuse let the page `fetch` other files too. Inline scripts, `data:`
+   scripts, handlers and `eval` were CSP-blocked, markup in names is
+   escaped everywhere (below), so a second bug was needed: one in
+   `allowedRequest`, or an Electron change to what `webRequest` sees of
+   `file:` loads (it has changed before), would have let a puzzle file
+   whose name is markup load a script from a path it knows, with all of
+   `window.bt` and `window.btApp` in reach (every file the window was
+   handed saved over, the rescue copy, the dialogs). Fix: the page is
+   served on a scheme of the app's own, `bt-app://app/index.html`
+   (`security.ts`: `APP_SCHEME`, `appUrl`, `appFile`, the file of the
+   renderer's directory an app URL names or null; `index.ts`:
+   `protocol.registerSchemesAsPrivileged` before the app is ready,
+   standard and secure, `protocol.handle` serving the renderer's directory
+   through `net.fetch` of its files and a 404 for anything else); the
+   fuse is off (`tools/dist.ts`); the CSP is `default-src 'none'` with
+   each source named: scripts, styles and images `'self'`, inline styles
+   (the mockup's) and `data:` images (the cursors), and no fetch, worker,
+   frame, plugin, media, `<base>` or form at all. Probed after: the page
+   is `bt-app://app/index.html`; a `file:` script or image is refused by
+   Chromium itself ("Not allowed to load local resource"), before the CSP
+   and the filter; the filter is the second check, not the only one.
+2. **A save or an export wrote through a link planted at `<file>.tmp`**
+   (low: it needs someone else who may write in the folder the file is
+   saved to, a shared one). The core's `writeGzipFile` opened the
+   temporary file with `gzopen` and `savePausedSolve` with an `ofstream`,
+   which follow a symbolic link, and `writeFileSafely` with Node's default
+   flags: a link left at `<file>.tmp` carried the puzzle's or the export's
+   bytes into any file the user may write, which then held them, and the
+   rename put the link in the puzzle's place. Probed with the release
+   engine (Bermuda saved to `out.xmpuzzle` beside `out.xmpuzzle.tmp →
+   victim.txt`: the victim held the gzip data, `out.xmpuzzle` became the
+   link) and with the export writer the same way. Fix: the temporary file
+   is the write's own: a file or link already at its name is removed (a
+   directory stays, and fails the save as before), the new one is made
+   exclusively (`O_EXCL`, `_O_EXCL` on Windows, Node's `wx`), so a link
+   put there meanwhile is refused rather than followed; `writeFileWhole`
+   is shared by the puzzle and paused-solve writers; the saved bytes are
+   unchanged.
+
+### Tests added (each fails without its fix)
+- `tests/unit/io/test_puzzle_file.cpp`: a save never writes through a
+  planted temporary file, puzzle and paused solve, and replaces a stale
+  one (5 checks fail with the stage's writers).
+- `web/tests/unit/app.test.ts`: the export writer the same (fails with
+  the stage's `export-file.ts`).
+- `web/tests/unit/security.test.ts` (26 now): the app's scheme (`appUrl`;
+  `appFile` serving only the renderer's directory: other schemes and
+  hosts, a path that leaves it, encoded or not, a NUL, the directory
+  itself; a URL's own dot-segment resolution), `allowedRequest` for the
+  scheme, the page loaded by `loadURL(appUrl(…))` and never `loadFile`,
+  the scheme registered before ready and handled, the CSP as written and
+  as built (fail with `appFile`'s containment check removed, and with the
+  stage's `index.ts` and `index.html`); `dist.test.ts`: the fuse.
+- `web/tests/e2e/packaged.smoke.ts`: the page's URL on the scheme, the
+  fuse off, a `file:` script and image refused by Chromium itself (the
+  script's `error`, nothing run, no CSP violation, the console's "Not
+  allowed to load local resource" for both), the new CSP (the stage's
+  page, probed, reported neither message and no violation either: the
+  filter alone refused them).
+- `web/tests/e2e/security.e2e.ts`: a puzzle file whose names hold markup
+  shows them as text everywhere (fails with `esc()` dropped from the
+  shapes list).
+
+### Checked and found sound
+- **Markup in names** (the brief's first probe): every place a shape's
+  or a problem's name or the notes are shown escapes them (`esc` of
+  `shell/dom.ts`, 97 uses): the shapes list and its rename field, the
+  inspector, the status window, the notes dialog, the STL and GLB
+  dialogs, the Puzzle's tiles, table, scene labels and menus, the
+  Solver's problem, list, Manage menu and convert dialog, the explorers,
+  the questions about unsaved changes and the rescue offer (`askChoice`
+  escapes), the status bar (`textContent`), the window title. Nothing
+  was injected, no style sheet applied; now the e2e test above.
+- **What a page could do if it ran script**: inline scripts, `data:`
+  scripts, inline handlers and `eval` CSP-blocked; `location.href`,
+  `<meta refresh>` and `window.open` refused (`will-navigate`, the open
+  handler); a `target=_blank` link opens nothing; a frame of
+  `file:///etc/hosts` empty, the page in a frame of itself without
+  `window.bt` (no preload in subframes), a `srcdoc` script blocked; the
+  main bundle and `package.json` unreadable from the page.
+- **Permissions and devices**: no permission granted; Electron 44 cancels
+  a Bluetooth request when no `select-bluetooth-device` listener is
+  added, and USB, HID and serial requests need a chooser the app has not;
+  the permission check handler answers false for them too.
+- **The IPC handlers** (`app-ipc.ts`): every channel answers only the
+  app's windows; `bt:choose-open` and `choose-save` grant what the
+  dialog gave (an export's path to the export grants, not the engine);
+  `bt:write-export` writes a granted path once; `bt:recent add` and the
+  rescue record keep only granted paths; `bt:dropped` is reachable only
+  through the preload's `pathOf` with a `File` that has a path (one the
+  user dropped, pasted or chose in a file chooser; a page cannot make
+  one); `bt:help` by name; `bt:menu-state` checked; `bt:call` admits
+  only schema methods and refuses the five path-taking ones for a path
+  the window was not handed (exact strings; links and `..` refused, not
+  resolved; a non-string `path` left to the engine's strict parameter
+  check); the `openPath` grants come from the menus, the command line,
+  `open-file` and a second start, never from the page.
+- **The files**: the rescue copy and `state.json` are in the user's data
+  directory (`~/Library/Application Support`, mode 700 on macOS); the
+  record's hash binds it to the copy, and its path is granted on read
+  only when they match; a recent file in `state.json` was granted when
+  it was added. The core's save follows links and refuses read-only
+  files (stage 6's audit) and now makes its temporary file itself.
+- **The packaging**: `app.asar` holds the bundles and `package.json`
+  only, no source map; the fuses as listed and now the `file:` one off;
+  `bt-engine` checked for its architecture and version before packing;
+  `publish: null`; Electron 44.7.0 is npm's `latest` (Chromium 152);
+  `npm audit`'s eight moderate findings are build-time only (the stage's
+  note).
+- **The switches**: a packaged app takes `BT_USER_DATA` only (the smoke
+  test sets every other one); `--remote-debugging-port` stays (below).
+
+### Known issues left
+- **Two e2e one-offs in the gate's runs, each once in about 180 tests,
+  both in what the inspector does to the main process.** (1) The
+  engine-kill test of `ipc.e2e.ts` ended in "the app did not quit within
+  20 s of its windows going" after its own checks had passed (six repeats
+  and every later round clean). The shape is the stage 6 audit's finding
+  8: Playwright's `app.evaluate` destroys the windows through the
+  inspector and can land between two statements of the main process,
+  whose uncaught exception then holds it in Electron's dialog. Which
+  statement is not known: a deterministic probe (a 600 ms
+  `webContents.send` with the window destroyed meanwhile) showed that
+  `send` does not throw, and nothing of the main process's output reached
+  the log. So `tests/e2e/app.ts` now installs an `uncaughtException`
+  handler in the main process at launch (Electron shows no dialog when
+  one is installed) and `closeApp` fails the test with the stack when one
+  was recorded: the next occurrence will say where. (2) The stage 6
+  audit's own test, "the menus outlive a window destroyed while they are
+  built", once saw none of its two 600 ms menu builds in 5 s of polling
+  through the inspector (the state is sent 30 ms after the change and
+  again when the Undo label arrives); it passed in every other round. Both
+  involve the inspector's interrupt landing inside running JavaScript;
+  nothing of a user's run does. Left for the next session: run the two
+  tests a hundred times each with the main process's stderr echoed.
+- **`--remote-debugging-port`** (and Chromium's other switches) are
+  taken by the packaged app: no fuse turns them off; whoever starts the
+  app can drive its page, as the smoke test does. Only the user who
+  starts it can, and that user runs anything as themselves anyway.
+- **The engine beside `app.asar`** is outside the archive's integrity
+  check, as the Electron framework is: code signing is what protects it,
+  and the app is signed ad hoc until a certificate is used. A swapped
+  `Resources/bt-engine` runs with everything the user granted the app;
+  the app checks only its version. A hash of the engine put into the
+  bundle at build would not survive signing (the engine is signed too).
+- **A second start's files** (`second-instance`'s data) are trusted: any
+  process of the same user can hand the running app paths to open, as it
+  could drive the app in other ways.
+- `style-src 'unsafe-inline'` stays for the mockup's inline styles; a
+  name that is markup is shown as text (tested), so no style sheet
+  reaches the page from a file.
+- `bt:save-state` and `bt:rescue write` take any size from the page (its
+  own settings and document); a page running foreign script would be the
+  problem, not these.
+- The writers' temporary file keeps its fixed name: a stale one is
+  replaced (by design), and a directory planted there fails the save, as
+  before. Two saves of one file at once still share it (nothing in the
+  app does that).
+- The `.deb`'s maintainer and `package.json`'s `author`, the entitlements
+  of a signed build, notarisation, and the Windows and Linux builds: the
+  stage's list stands.
+
+### Gate after the fixes
+| Check | Result |
+|---|---|
+| C++ (the core fix) | `just test-all` 6/6 (dev, 330 s), `just test-asan` 6/6 (1140 s); the schema did not move (no `gen_api_md.py`, `just web-gen` would leave the types as they are); `just oracle-roundtrip` 365/365 byte-identical to the original's save; `just oracle-files --tier fast` 19/19; the `[io]` cases 53/53 dev; clang-tidy and clang-format are not installed |
+| `just web-check` | clean, three times (three TypeScript projects, ESLint without warnings, Prettier), 12 s each |
+| `just web-test` (release engine) | **292/292**, three times, 20, 21, 20 s: the stage's 289 and the audit's three (the export writer's planted link, the app's scheme and its files) |
+| `just web-e2e` | **61/61**, three times, 5.2 min each (build included): the stage's 60 and `security.e2e.ts`; two earlier attempts at the three rounds each lost one round to a one-off (above, "Known issues left"), and were run again whole |
+| `just web-dist --dir` + `just web-smoke` | packed in 11–13 s, **1/1** three times (3.3–3.5 s), with the new checks of the page's scheme, the fuse and the `file:` probe |
+| perf (each e2e run) | mesh build 5.7, 5.1, 4.8 ms; orbit median 13.3 ms at a 13.3–13.4 ms display frame, p95 14.9, 14.9, 14.7 ms; 151, 150, 151 renders in 151, 150, 153 frames |
+| The reference screenshots | none changed (the page's scheme and CSP draw nothing differently; the 38 pass unchanged) |
+
+## Brief for the first release (after the audit)
+Opus 5.5 at medium (FRONTEND-PLAN.md's packaging row), in accept-edits
+mode: the user's machines and certificates are needed. Version 0.1.0 as
+CMakeLists.txt has it, from the audit's commit.
+- **The other platforms by hand first**: the Windows and Linux steps of
+  this note (above), on the audit's commit (its changes to the page's
+  scheme and the writers are platform code: `_wopen` with `_O_EXCL`, the
+  `bt-app:` page, the smoke test's `file:` probe on `C:\Windows\win.ini`),
+  each step's outcome written down and anything wrong fixed in its own
+  commit with a test; the AVX2 kernels' first run is among them.
+- **Signing**: on macOS with a Developer ID certificate as "Signing and
+  notarisation" says, with an entitlements file of the project's own
+  (allow-jit only) tried first, falling back to electron-builder's
+  defaults; `codesign --verify --deep --strict`, `spctl`, `stapler`, then
+  the smoke test on the notarised app; on Windows with the certificate
+  at hand, else unsigned with the SmartScreen note in the release notes.
+- **The artefacts**: `just web-dist` (arm64), `just build release-x64 &&
+  just web-dist --arch x64`, the Windows installer, the AppImage and
+  `.deb`; their SHA-256 sums; a tag `v0.1.0` on the commit they were
+  built from; release notes naming what this version does and does not
+  solve (sliding and stacking puzzles, the interim STL, the imports), the
+  Gatekeeper and SmartScreen notes for unsigned copies, the audit's known
+  issues that concern users (`--remote-debugging-port`, an unsigned
+  engine).
+- Record it in `docs/handoff/release-0.1.0.md`: what was built where,
+  the checks, what was fixed on Windows and Linux, the known issues
+  carried, and the brief for what comes next (FRONTEND-PLAN.md's
+  "Later").

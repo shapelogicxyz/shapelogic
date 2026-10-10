@@ -104,6 +104,7 @@ describe('the configuration', () => {
       enableNodeCliInspectArguments: false,
       enableEmbeddedAsarIntegrityValidation: true,
       onlyLoadAppFromAsar: true,
+      grantFileProtocolExtraPrivileges: false,
     });
   });
 

@@ -3,14 +3,22 @@
 // The Electron security checklist as data and pure functions (stage 8), so
 // that a unit test checks what main/index.ts applies: the window's web
 // preferences (sandboxed, context-isolated, no Node, no webview, no
-// navigation by a drop), the page it loads (the app's own file; a dev
-// server only when not packaged), the requests its session lets through
-// (the app's files, and in development the dev server: no remote
-// content), the permissions it grants (none), and the environment
-// switches a packaged app keeps. Electron's types only.
+// navigation by a drop), the page it loads (the app's own, on a scheme of
+// its own, `bt-app://app/`, served from the renderer's directory and
+// nowhere else; a dev server only when not packaged), the requests its
+// session lets through (the app's files, and in development the dev
+// server: no remote content), the permissions it grants (none), and the
+// environment switches a packaged app keeps. Electron's types only.
+//
+// The page is not loaded from file: (the web stage 8 audit): on a file:
+// page the CSP's 'self' matches every file: URL and Electron's
+// grantFileProtocolExtraPrivileges fuse lets it fetch other files, so the
+// request filter alone stood between markup in a puzzle file's names and a
+// script loaded from disk. On its own scheme 'self' is the page's origin,
+// the fuse is off, and the filter is the second check, not the only one.
 
 import type { BrowserWindowConstructorOptions, WebPreferences } from 'electron';
-import { isAbsolute, relative } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { HelpLink } from '../engine/app-bridge.ts';
@@ -24,6 +32,49 @@ export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
   guide: 'https://burrtools.sourceforge.net/gui-doc/toc.html',
   tutorial: 'https://burrtools.sourceforge.net/gui-doc/GettingStarted.html',
 };
+
+/** The scheme the renderer's page is served on: standard and secure, the app's own. */
+export const APP_SCHEME = 'bt-app';
+/** The one host of that scheme. */
+export const APP_HOST = 'app';
+
+/** The page's URL for a file of the renderer's directory, with a query. */
+export function appUrl(file: string, query: Readonly<Record<string, string>> = {}): string {
+  const u = new URL(`${APP_SCHEME}://${APP_HOST}/${file}`);
+  for (const [k, v] of Object.entries(query)) {
+    u.searchParams.set(k, v);
+  }
+  return u.toString();
+}
+
+/**
+ * The file of the renderer's directory an app URL names, or null: another
+ * scheme or host, a path that leaves the directory (`..`, encoded or not),
+ * the directory itself. What `protocol.handle` serves.
+ */
+export function appFile(url: string, rendererDir: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== `${APP_SCHEME}:` || u.host !== APP_HOST) {
+    return null;
+  }
+  let rel: string;
+  try {
+    rel = decodeURIComponent(u.pathname);
+  } catch {
+    return null;
+  }
+  if (rel.includes('\0')) {
+    return null;
+  }
+  const path = join(rendererDir, rel);
+  const r = relative(rendererDir, path);
+  return r !== '' && !r.startsWith('..') && !isAbsolute(r) ? path : null;
+}
 
 /** The renderer's web preferences, given the preload script's path. */
 export function webPreferences(preload: string): WebPreferences {
@@ -117,7 +168,7 @@ export function switches(
 
 /** Where the page comes from: the renderer's directory, or in development the dev server. */
 export interface PageSource {
-  /** The directory of the renderer's index.html (file: URLs are allowed only inside it). */
+  /** The directory of the renderer's index.html (the app's scheme serves it; file: URLs are allowed only inside it). */
   rendererDir: string;
   /** The dev server's address (security.ts's switches; never when packaged). */
   rendererUrl?: string | undefined;
@@ -125,8 +176,8 @@ export interface PageSource {
 
 /**
  * Whether the window's session lets a request through: the renderer's own
- * files (file: URLs inside its directory, not any other file: the page
- * loads from file:, which Electron lets read other local files), what
+ * files (the app's scheme naming a file inside its directory, and file:
+ * URLs inside it, which the scheme's handler reads; no other file), what
  * Chromium makes itself (devtools:, and the data: and blob: URLs the page
  * made), and in development the dev server's origin (its page, its
  * modules, its hot-reload socket). Nothing remote.
@@ -137,6 +188,9 @@ export function allowedRequest(url: string, source: PageSource): boolean {
     u = new URL(url);
   } catch {
     return false;
+  }
+  if (u.protocol === `${APP_SCHEME}:`) {
+    return appFile(url, source.rendererDir) !== null;
   }
   if (u.protocol === 'file:') {
     let path: string;

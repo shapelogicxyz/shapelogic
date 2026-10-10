@@ -62,10 +62,11 @@ output is in `dist/`. `web-smoke` starts the unpacked app as a user would,
 with a fixture on its command line, and drives its page over Chromium's
 DevTools protocol (the app's fuses turn `--inspect` off, so Playwright's
 Electron driver cannot reach it): the fuses, the archive, the engine's
-version, the development switches ignored, the sandbox and CSP, no file
-read outside the renderer, a path no dialog gave refused, the fixture
-solved. `BT_PACKAGED_APP=<executable>` tests another copy (an installed
-one).
+version, the development switches ignored, the page on the app's own
+scheme (`bt-app://app/`, served from the renderer's directory only) with
+its CSP, a file: script refused, no file read outside the renderer, a
+path no dialog gave refused, the fixture solved.
+`BT_PACKAGED_APP=<executable>` tests another copy (an installed one).
 
 **Signing.** On macOS the app is signed ad hoc (it runs on the machine
 that built it; elsewhere Gatekeeper refuses a downloaded copy until the

@@ -159,9 +159,15 @@ the `bt-engine` in its resources only, which must say the project's one
 version (CMakeLists.txt's, put into the main bundle at build); it ignores
 the development switches (`BT_ENGINE`, `BT_CALL_LOG`,
 `BT_AUTOSAVE_SECONDS`, `ELECTRON_RENDERER_URL`), and its fuses ignore
-`ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect`. Its session lets
-through the renderer's own files and nothing remote, grants no
-permission, and refuses webviews, new windows and navigation. A call that
+`ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect`. The page is
+served on a scheme of the app's own (`bt-app://app/`, from the renderer's
+directory and nowhere else; the stage 8 audit: on a `file:` page the
+CSP's 'self' matched every `file:` URL and only the request filter stood
+between markup in a puzzle's names and a script from disk, so the fuse
+that gives `file:` pages extra privileges is off too), with a CSP that
+allows nothing but its own files. Its session lets through the
+renderer's own files and nothing remote, grants no permission, and
+refuses webviews, new windows and navigation. A call that
 names a file (`document.open`, `openBytes`, `save`, `solve.importPaused`,
 `exportPaused`) goes to the engine only when the main process handed the
 window that path (its dialogs, the rescue record, a drop, a file opened

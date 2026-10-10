@@ -419,6 +419,22 @@ describe('an export’s file, written as the core writes a puzzle', () => {
     expect(readFileSync(f, 'utf8')).toBe('old');
   });
 
+  it('never writes through a link planted at the temporary file’s name, and replaces a stale one', async () => {
+    const d = fresh();
+    const victim = join(d, 'victim.txt');
+    writeFileSync(victim, 'untouched');
+    const f = join(d, 'f.png');
+    symlinkSync('victim.txt', `${f}.tmp`);
+    await writeFileSafely(f, new TextEncoder().encode('PNG'));
+    expect(readFileSync(victim, 'utf8')).toBe('untouched');
+    expect(lstatSync(f).isSymbolicLink()).toBe(false);
+    expect(readFileSync(f, 'utf8')).toBe('PNG');
+    writeFileSync(`${f}.tmp`, 'stale');
+    await writeFileSafely(f, new TextEncoder().encode('PNG2'));
+    expect(readFileSync(f, 'utf8')).toBe('PNG2');
+    expect(readdirSync(d).sort()).toEqual(['f.png', 'victim.txt']);
+  });
+
   it('lets a window write only a path its dialog gave for an export, once, with the kind’s extension', () => {
     const ext = { image: '.png', vector: '.svg', stl: '.stl', glb: '.glb' } as const;
     const grants = new ExportGrants<object>((k) => ext[k]);

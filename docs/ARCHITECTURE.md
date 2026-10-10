@@ -194,8 +194,11 @@ and unknown `<voxel>` attributes, are kept and written back in place;
 stacking rod sets and maps are kept this way until stacking is ported.
 Saves are byte-identical to the original's. A file is written beside its
 place (`<file>.tmp`) and renamed over it once whole, puzzle and paused
-solve alike (`replaceWith`; the original's writePuzzleFile), so a failed
-save leaves the old file. The place is the file the path names
+solve alike (`writeFileWhole`, `replaceWith`; the original's
+writePuzzleFile), so a failed save leaves the old file; the temporary
+file is the save's own, made exclusively after a file or link already at
+its name is removed, so a link planted there is never written through
+(the web stage 8 audit). The place is the file the path names
 (`saveTarget`): a symbolic link is followed, so the link stays and the
 file it names is written, as writing in place did; a read-only file is
 refused (`IoError`), where a rename would replace it; and the new file
@@ -688,8 +691,10 @@ What exists after stage 8:
   every message checked, only the app's windows answered),
   `export-file.ts` (stage 7: `writeFileSafely`, an export written as the
   core writes a puzzle: beside the file and renamed over it, a symbolic
-  link followed, a read-only file refused, the permissions kept;
-  `ExportGrants`, the paths each window may write, Electron-free),
+  link followed, a read-only file refused, the permissions kept, the
+  temporary file made exclusively and never one already at its name (the
+  stage 8 audit); `ExportGrants`, the paths each window may write,
+  Electron-free),
   `state-store.ts` (`StateStore`: `state.json` in the app's
   data directory: the renderer's settings and layouts, the recent files,
   the window's bounds; read once, written a moment after a change to a
@@ -701,13 +706,24 @@ What exists after stage 8:
   From stage 8, the security checklist: `security.ts` (Electron-free:
   the window's web preferences, sandboxed, context-isolated, no Node in
   the page, its workers or frames, no webview, no navigation by a drop;
+  the page's own scheme (the stage 8 audit: `APP_SCHEME`,
+  `bt-app://app/index.html`, `appUrl`; `appFile`, the file of the
+  renderer's directory an app URL names, or null for any other scheme or
+  host and for a path that leaves the directory; on a `file:` page the
+  CSP's 'self' matched every `file:` URL and the request filter alone
+  stood between markup in a puzzle's names and a script from disk, on its
+  own scheme Chromium refuses every local file to the page itself);
   the environment's switches a run takes, `BT_USER_DATA` only when
   packaged, `BT_ENGINE`, `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS` and
   `ELECTRON_RENDERER_URL` in development too; `allowedRequest`, what the
-  session lets through: `file:` URLs inside the renderer's directory only,
-  `devtools:`, `data:`, `blob:`, the dev server's origin in development,
-  nothing remote; no permission; `HELP_URLS`, the only addresses handed to
-  the system's browser), which `index.ts` applies (the window's options,
+  session lets through: the app's scheme naming a file inside the
+  renderer's directory, `file:` URLs inside it (the scheme's handler reads
+  them), `devtools:`, `data:`, `blob:`, the dev server's origin in
+  development, nothing remote; no permission; `HELP_URLS`, the only
+  addresses handed to the system's browser), which `index.ts` applies
+  (the scheme registered as standard and secure before the app is ready
+  and served by `protocol.handle` from the renderer's directory, a file
+  outside it or missing a 404; the window's options,
   `webRequest.onBeforeRequest`, the permission handlers, no webview and no
   new window for any web contents); `path-grants.ts` (`PathGrants`: the
   files a window's engine may be given, which a call naming a path,
@@ -742,7 +758,8 @@ What exists after stage 8:
   `extraMetadata`; a unit test keeps `package.json`'s equal); the file
   types `.xmpuzzle` and `.btsolve`; Electron's fuses (no
   `ELECTRON_RUN_AS_NODE`, no `NODE_OPTIONS`, no `--inspect`, the app only
-  from `app.asar`, checked against its hash); macOS a .dmg and a .zip,
+  from `app.asar`, checked against its hash, no extra privileges for
+  `file:` pages: the page is on the app's scheme); macOS a .dmg and a .zip,
   signed ad hoc unless a certificate is named; Windows an NSIS installer;
   Linux an AppImage and a .deb; the icons the original's
   (`packaging/`). Signing and notarisation are documented
@@ -1228,12 +1245,17 @@ kept for the first handler, a drop's path reported), the packaging
 the release engine and the main bundle; the configuration; the
 architecture from a header; where the app finds its engine); e2e: a path
 the window was not handed refused, a file given on the command line
-opened at the start; and the smoke test of the packaged app
-(`tests/e2e/packaged.smoke.ts`, `just web-smoke`, over Chromium's DevTools
-protocol: the fuses, the archive, the engine's version, the development
-switches and Node's overrides ignored, the sandbox and the CSP, no file
-outside the renderer read and nothing remote, a path no dialog gave
-refused, a fixture from the command line solved with bt's counts).
+opened at the start; the stage 8 audit's `security.e2e.ts`: a puzzle
+file whose names hold markup (an element, a quote that would close an
+attribute, a style sheet; the notes a closing `</textarea>`) shown as
+text in every card, menu, dialog and explorer, nothing injected; and the
+smoke test of the packaged app (`tests/e2e/packaged.smoke.ts`, `just
+web-smoke`, over Chromium's DevTools protocol: the fuses, the archive, the
+engine's version, the development switches and Node's overrides ignored,
+the page on the app's scheme, sandboxed, with its CSP, a script and an
+image from `file:` refused by Chromium itself, no file outside the
+renderer read and nothing remote, a path no dialog gave refused, a
+fixture from the command line solved with bt's counts).
 
 ## Testing against the original
 

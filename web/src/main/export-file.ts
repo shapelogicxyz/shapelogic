@@ -7,9 +7,12 @@
 // once whole, so a failed write leaves the old file; the place is the file
 // the path names, a symbolic link followed (at most 40), so the link
 // stays; a read-only file is refused, where a rename would replace it; the
-// new file gets the permissions of the one it replaces. And which paths a
-// window may have written (`ExportGrants`): those its save dialog gave it
-// for an export, once each. Free of Electron (the unit tests use it).
+// new file gets the permissions of the one it replaces; the temporary file
+// is this write's own, made exclusively, never one already at that name
+// (the web stage 8 audit: a link planted there carried the bytes to the
+// file it named). And which paths a window may have written
+// (`ExportGrants`): those its save dialog gave it for an export, once each.
+// Free of Electron (the unit tests use it).
 
 import {
   access,
@@ -78,7 +81,16 @@ export async function writeFileSafely(path: string, data: Uint8Array): Promise<v
   const target = await writeTarget(path);
   const tmp = `${target}.tmp`;
   try {
-    await writeFile(tmp, data);
+    // a file or link left at the temporary file's name (a write that died, or
+    // a link put there so that the bytes would land in the file it names) is
+    // removed, and the new file is made exclusively, so a link put there
+    // meanwhile is refused rather than followed; a directory there stays and
+    // fails the write
+    const old = await lstat(tmp).catch(() => null);
+    if (old !== null && (old.isSymbolicLink() || old.isFile())) {
+      await rm(tmp, { force: true });
+    }
+    await writeFile(tmp, data, { flag: 'wx' });
   } catch (e) {
     await rm(tmp, { force: true }).catch(() => undefined);
     throw new WriteError(`could not write ${basename(path)} (${code(e) || String(e)})`);

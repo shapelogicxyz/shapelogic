@@ -129,7 +129,8 @@ export function distConfig(
     ],
     // Electron's fuses (the security checklist): no ELECTRON_RUN_AS_NODE,
     // no NODE_OPTIONS, no --inspect, the app only from its app.asar, and
-    // that checked against the hash the build wrote
+    // that checked against the hash the build wrote; no extra privileges
+    // for file: pages (the page is on the app's own scheme, security.ts)
     electronFuses: {
       runAsNode: false,
       enableCookieEncryption: true,
@@ -137,6 +138,7 @@ export function distConfig(
       enableNodeCliInspectArguments: false,
       enableEmbeddedAsarIntegrityValidation: true,
       onlyLoadAppFromAsar: true,
+      grantFileProtocolExtraPrivileges: false,
     },
     mac: {
       target: ['dmg', 'zip'],
