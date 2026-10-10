@@ -53,9 +53,9 @@ gated increment:
 
 | Part | Work | Original code | Model, effort | Audit after | Gate (summary) |
 |---|---|---|---|---|---|
-| 1 | Sliding: core, engine, CLI | `sliding.*` 3.1k lines, plus their parts in `solvethread`, `disasmtomoves`, `puzzle`, `problem` | Opus 5.5, extra high | **Yes** (Fable 5.1, max) | oracle sliding tier equal for the three solvers and nested slides; ported `test_sliding.cpp`; routes equal the original's; TSan |
+| 1 | Sliding: core, engine, CLI | `sliding.*` 3.1k lines, plus their parts in `solvethread`, `disasmtomoves`, `puzzle`, `problem` | Opus 5.5, extra high | **Yes** (Fable 5.1, extra high) | oracle sliding tier equal for the three solvers and nested slides; ported `test_sliding.cpp`; routes equal the original's; TSan |
 | 2 | Sliding: front end | GUI: tray edit, walls, start/goal, locks, solver options, player with routes | Opus 5.5, high | No | e2e: build the sliding fixture in the UI, solve, play; equals `bt --json` |
-| 3 | Stacking and Panex: core, engine, CLI | `stacking.*`, `panex.*`, `blockpack.*` 3.5k lines, their parts in `solvethread`, `paused_solve`, `puzzle`, `problem` | Opus 5.5, extra high | **Yes** (Fable 5.1, max) | oracle stacking tier equal for both solvers; Panex pause/continue and saved searches, compatible with the original; ported `test_stacking.cpp`; TSan |
+| 3 | Stacking and Panex: core, engine, CLI | `stacking.*`, `panex.*`, `blockpack.*` 3.5k lines, their parts in `solvethread`, `paused_solve`, `puzzle`, `problem` | Opus 5.5, extra high | **Yes** (Fable 5.1, extra high) | oracle stacking tier equal for both solvers; Panex pause/continue and saved searches, compatible with the original; ported `test_stacking.cpp`; TSan |
 | 4 | Stacking and Panex: front end | GUI: rod sets, discs, start/goal rods, Panex columns, pocket, player of transfers | Opus 5.5, high | No | e2e: build Hanoi and a Panex swap in the UI, solve, play |
 | 5 | STL meshes and exports | `stl*`, `cubemesh`, `cubepoly`, `minkmesh` (Manifold), `millable` 2.3k lines; GUI `stlexport*` | Opus 5.5, high (extra high for `minkmesh`) | No | meshes equal dumps from the original; closed and printable; both STL dialogs; STL-like style |
 | 6 | Imports, Puzzlecad export, grid conversion | `ps3dloader`, `scadloader`, `converter` 1k lines; GUI `convertwindow` | Opus 5.5, high | No | imported files equal the original's import; conversions equal the original's |
@@ -449,7 +449,7 @@ when the module is built.
 
 For an audit session:
 > Audit part N of docs/DEFERRED-PLAN.md in
-> /Users/colin/git/burr-tools-rotations/burrtools_alpha at max effort: the
+> /Users/colin/git/burr-tools-rotations/burrtools_alpha with Fable 5.1 at extra high effort: the
 > diff of the part's commits, its gate results, docs/handoff/deferred-N.md
 > and the plan. Probe every suspicion before calling it a finding; report
 > findings by severity with concrete failure scenarios; fix them in a
