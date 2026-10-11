@@ -21,6 +21,7 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
 import { flash } from '../shell/status.ts';
+import { frontEndSolves } from '../state/kinds.ts';
 import { countText, groupOf, groupsOf, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
@@ -60,12 +61,14 @@ export class PiecesCard {
     const others = shapes.filter((s) => s.id !== result);
     const byShape = new Map(shapes.map((s) => [s.id, s]));
 
-    // the notice for a puzzle this version does not solve (stacking)
+    // the notice for a puzzle this version does not solve (stacking: the
+    // engine does, this front end not yet)
     const k = ws.kind;
+    const unsolved = k !== null && (!k.supported || !frontEndSolves(k.kind));
     const note = byId('pzKind');
-    note.classList.toggle('show', k !== null && !k.supported);
+    note.classList.toggle('show', unsolved);
     note.innerHTML =
-      k !== null && !k.supported
+      k !== null && unsolved
         ? `<b>${k.kind === 'sliding' ? 'Sliding' : 'Stacking'} puzzle</b> — it opens and shows here, but this version does not solve ${k.kind} puzzles yet; the Solver is disabled for it.`
         : '';
     note.dataset.kind = k?.kind ?? '';

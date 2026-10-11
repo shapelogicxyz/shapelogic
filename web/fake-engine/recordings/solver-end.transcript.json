@@ -31,6 +31,7 @@
    "label": "P1",
    "name": "",
    "result": "s1",
+   "rodSet": null,
    "pieces": 6,
    "state": "solved",
    "solve": "finished",
@@ -44,13 +45,15 @@
      "shape": "s2",
      "min": 6,
      "max": 6,
-     "groups": []
+     "groups": [],
+     "required": false
     }
    ],
    "colourRules": [],
    "maxHoles": null,
    "savedPosition": false,
-   "solverSettings": {}
+   "solverSettings": {},
+   "stacks": null
   }
  ],
  "events": [
@@ -191,7 +194,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "prepare piece 1 of 1"
+     "activity": "prepare piece 1 of 1",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -219,7 +226,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 50,
+     "elapsedMs": 58,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,
@@ -235,7 +242,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": 0,
-     "activity": "finished"
+     "activity": "finished",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },

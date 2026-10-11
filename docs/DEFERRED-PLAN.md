@@ -167,12 +167,15 @@ In this order:
 - [x] **Part 1**: sliding: core, engine, CLI (2026-10-10; docs/handoff/deferred-1.md)
 - [x] Audit of part 1 (2026-10-10; the Audit section of docs/handoff/deferred-1.md)
 - [x] **Part 2**: sliding: front end (2026-10-10; docs/handoff/deferred-2.md)
-- [ ] **Part 3**: stacking and Panex: core, engine, CLI
+- [x] **Part 3**: stacking and Panex: core, engine, CLI
   - [x] 3a: the core and `bt` (the model, the stacking and Panex searches,
     blockpack, stacking solves, the paused-solve file's saved searches,
     the playback in transfers; the oracle's stacking tier; 2026-10-10;
     docs/handoff/deferred-3a.md, decision 0015)
-  - [ ] 3b: the document's stacking commands and the engine
+  - [x] 3b: the document's stacking commands and the engine (rod sets,
+    discs and stacks, undoable; `stacking.*`; stacking solves in the
+    engine with their saved searches in its Panex folder; 2026-10-11;
+    docs/handoff/deferred-3b.md, decision 0015 amended)
 - [ ] Audit of part 3 (3a and 3b together)
 - [ ] **Part 4**: stacking and Panex: front end
 - [ ] **Part 5**: STL meshes and exports

@@ -19,8 +19,10 @@ The deferred features follow part by part
 solved in the core, the engine and `bt` (part 1) and made, edited, solved
 and played in the front end (part 2); stacking and Panex puzzles are solved
 in the core and `bt` (part 3a: the stacking search, the Panex search with
-its saved searches); their engine part, the stacking front end, STL
-meshes, imports and Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
+its saved searches) and edited and solved through the document and the
+engine (part 3b: rod sets, discs and stacks, `stacking.*`, saved searches
+in the engine's Panex folder); the stacking front end, STL meshes, imports
+and Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 

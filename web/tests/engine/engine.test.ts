@@ -155,9 +155,12 @@ describe.skipIf(ENGINE === null)('the engine', () => {
     const untyped = c.call.bind(c) as (m: string, p?: unknown) => Promise<unknown>;
     expectCode(await failure(untyped('no.such.method')), 'method_not_found');
     expectCode(await failure(c.call('document.openBytes', { data: '%%%' })), 'invalid_argument');
-    // a stacking puzzle is not solved yet (a sliding one is)
+    // a stacking puzzle is solved with Find Solutions on (the original's
+    // message without it); nothing saved: no Panex folder
+    await c.call('settings.set', { panexFolder: '' });
     await c.call('document.open', { path: `${FIXTURES}/test_stacking_hanoi.xmpuzzle` });
     const p = (await c.call('problem.list')).problems[0]?.id ?? '';
-    expectCode(await failure(c.call('solve.start', { problem: p })), 'unsupported');
+    expectCode(await failure(c.call('solve.start', { problem: p })), 'invalid_argument');
+    expectCode(await failure(c.call('solve.prepare', { problem: p })), 'unsupported');
   });
 });

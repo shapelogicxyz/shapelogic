@@ -17,26 +17,29 @@
    "label": "P1",
    "name": "",
    "result": "s1",
+   "rodSet": null,
    "pieces": 20,
    "state": "solving",
    "solve": "paused",
    "analysing": false,
-   "assemblies": 603,
-   "solutions": 538,
+   "assemblies": 631,
+   "solutions": 565,
    "saved": 5,
-   "timeMs": 55,
+   "timeMs": 56,
    "parts": [
     {
      "shape": "s2",
      "min": 20,
      "max": 20,
-     "groups": []
+     "groups": [],
+     "required": false
     }
    ],
    "colourRules": [],
    "maxHoles": null,
    "savedPosition": true,
-   "solverSettings": {}
+   "solverSettings": {},
+   "stacks": null
   },
   {
    "revision": 11
@@ -59,7 +62,8 @@
    "solving": false,
    "shapes": [],
    "colours": [],
-   "problems": []
+   "problems": [],
+   "rodSets": []
   }
  ],
  "events": [
@@ -200,7 +204,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "prepare piece 1 of 1"
+     "activity": "prepare piece 1 of 1",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -235,23 +243,27 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 110,
+     "elapsedMs": 111,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0,
-     "iterations": 4150,
+     "iterations": 5425,
      "assemblerThreads": 1,
-     "assemblies": 603,
-     "solutions": 538,
+     "assemblies": 631,
+     "solutions": 565,
      "disassembly": true,
-     "disasmCompleted": 538,
+     "disasmCompleted": 565,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0.5,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "pause"
+     "activity": "pause",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -260,9 +272,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 1074,
-    "assemblies": 603,
-    "solutions": 538
+    "solutionsVersion": 1128,
+    "assemblies": 631,
+    "solutions": 565
    }
   },
   {
@@ -344,7 +356,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": ""
+     "activity": "",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -353,7 +369,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 1076,
+    "solutionsVersion": 1130,
     "assemblies": 0,
     "solutions": 0
    }

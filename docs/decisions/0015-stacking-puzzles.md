@@ -1,11 +1,12 @@
 # 0015: Stacking and Panex puzzles in the core and the CLI
 
-**Status:** accepted (deferred part 3a); `core/bt/model/stacking.h`,
+**Status:** accepted (deferred part 3a; amended by part 3b: the document
+and the engine); `core/bt/model/stacking.h`,
 `core/bt/model/stacking_types.h`, `core/bt/solve/stack_search.h`,
 `core/bt/solve/panex_search.h`, `core/bt/io/blockpack.h`, the stacking run
-of `core/bt/solve/solve_session.cpp`, `core/bt/io/paused_solve.h`. The
-engine's part (`stacking.*`, solve options and settings, playback, the
-paused solve's export) is part 3b and amends this record.
+of `core/bt/solve/solve_session.cpp`, `core/bt/io/paused_solve.h`,
+`core/bt/app/document_stacking.cpp`, `engine/methods_stacking.cpp`,
+`api/stacking.json`.
 
 ## Context
 The original's stacking puzzles (`src/lib/stacking.{h,cpp}`, `panex.{h,cpp}`,
@@ -128,6 +129,71 @@ original:
 7. An export puts the levels in name order (the original in the folder's
    order, which an import does not depend on).
 
+## Part 3b: the document and the engine
+
+**The document's stacking commands are the GUI's callbacks**
+(`document_stacking.cpp`: mainwindow_rods.cpp's rod sets, the disc list,
+the stacking branches of the Problems tab), each one undo step: the GUI's
+own rod history (rodPast, rodFuture, forty deep) is the document's undo.
+Rod sets have ids beside the puzzle's, as shapes, colours and problems do
+(decision 0011; `r<n>` in the engine, labels R1, R2), and the list
+commands save the whole puzzle for undo. The rules of a rod set are
+written as cb_RodField wrote them (the counts clamped, the pocket only
+with Panex columns, the outside channel with three rods or more, "can
+move over" written off), the reads show them as its fields did. Which
+edits drop a problem's solutions follows each callback: new rules
+(cb_RodField) and an emptied stacking (changeProblem) do; a disc's size,
+a disc moved, placed or taken off (through the counts' own rules), a
+board chosen do not. The rod sets are not changed while anything is
+solved (the GUI greyed them out while a solve ran), a problem's stacks
+not while it is (decision 0011).
+
+**What the GUI hid on a stacking puzzle is refused** (`invalid_argument`),
+as part 1 refused what it greyed out on sliding puzzles (decision 0014):
+the cell editor and the tool tabs (the disc list replaced them), a new
+shape of a given size (New made a disc of size 1), and the Problems
+tab's brick commands, whose buttons did the stacking ones there (the
+result, the counts and ranges, the parts' order, the groups). The
+stacking branch of cb_ColSel (painting a disc's cells in a constraint
+colour) could not be reached (the colour list is hidden on stacking
+puzzles) and is not ported: a disc's colour is the shape's own colour
+(`shape.setColour`, the Color button the GUI kept).
+
+**A paused stacking solve is its saved search.** The engine's settings
+hold its folder and disk budget (`panexFolder`, default the user's cache
+folder's `panex` as the CLI's and the original's; `panexDiskGB`), given to
+every stacking solve and to whatever looks for a saved search:
+`solve.status.savedSearch` (the description the GUI's Solve asked with,
+the time it holds, the bytes of its levels; none while the problem's run
+is active), `solve.exportPaused` (with or without the levels) and
+`solve.importPaused`. `solve.abort` also takes a search saved on disk
+that no session holds (after a restart, an import, a reopened file),
+throwing it away with the problem's results, as the GUI's Abort was
+offered for it (abortable()); decision 0012's rule that an abort needs a
+solve under way stands, a saved search being one. `solve.savePoint` is
+refused (`unsupported`) on a stacking solve rather than answered and
+never paused: the GUI never autosaved one, its search saves itself every
+20 minutes (`StackingOptions.autosave`) and when it stops.
+
+**The solver a request does not name is the one the GUI offered**: the
+original's menu had one entry for a stacking problem, the Panex Solver
+for a rod set with Panex columns, else the Stacking Solver
+(syncSolverTypeMenu); `engine.info.stackingSolvers` lists both.
+
+**A stacking solution counts transfers**: its row's moves, steps and
+text are its transfers, as the original showed them (logicalMoves) and
+as the playback steps, not the three frames of each.
+
+**The reads the editor and the player need** are the engine's
+(`stacking.board`: the rods' names and capacities, the stacks, where
+rods and discs stand, the validity bar's sentence, the centre the
+playback's poses are placed around; `stacking.rodSetLayout`, the rod set
+drawn alone as showRodSet drew it), so a front end computes none of them.
+
+**The front end** keeps its stacking notices until part 4 builds the
+editor: `web/src/renderer/state/kinds.ts` holds the one rule (the Solver
+disabled, New not offering the grid), which part 4 removes.
+
 ## Consequences
 - The oracle harness has a `stacking` tier (the fixtures and 39 puzzles
   built with the original's code from its `test_stacking.cpp`,
@@ -138,9 +204,8 @@ original:
   in the other (the saved folders byte for byte the same);
   `oracle.py blockpack-check` packs with one program and unpacks with the
   other.
-- Part 3b: the document's stacking commands (rod sets, discs, stacks,
-  undoable), the engine's `stacking.*`, `SolveOptions.stacking`, the
-  settings for the Panex folder and disk budget, `solve.status`'s saved
-  search, its discard without a session, playback and the paused-solve
-  export with stacking; until then the engine refuses stacking solves
-  (`unsupported`).
+- Part 3b gave the document its stacking commands and the engine
+  `stacking.*`, `SolveOptions.stacking`, the Panex folder and disk budget,
+  the saved search in `solve.status` and its abort without a session; the
+  contract suite pauses a Panex solve, finds its saved search in another
+  engine and carries it on. Part 4 builds the front end on them.

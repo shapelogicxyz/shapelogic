@@ -95,12 +95,9 @@ describe.skipIf(ENGINE === null)('the Puzzle workspace and the engine', () => {
     ] as const) {
       const snap = await c.call('document.open', { path: `${FIXTURES}/${f}` });
       const id = snap.problems[0]?.id ?? '';
-      expect(await c.call('problem.kind', { problem: id })).toEqual({
-        kind,
-        supported: kind !== 'stacking',
-      });
+      expect(await c.call('problem.kind', { problem: id })).toEqual({ kind, supported: true });
       const grid = (await c.call('engine.info')).grids.find((g) => g.grid === snap.grid);
-      expect(grid?.supported).toBe(kind !== 'stacking');
+      expect(grid?.supported).toBe(true);
     }
   });
 

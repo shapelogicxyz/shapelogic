@@ -3,7 +3,11 @@
   {
    "undoDepth": 25,
    "threads": 0,
-   "solver": "classic"
+   "solver": "classic",
+   "slideFolder": "/home/user/Library/Caches/BurrTools/sliding",
+   "slideDiskGB": 0,
+   "panexFolder": "/home/user/Library/Caches/BurrTools/panex",
+   "panexDiskGB": 0
   },
   {
    "revision": 1,
@@ -27,7 +31,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s2",
@@ -41,7 +47,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s3",
@@ -55,7 +63,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s4",
@@ -69,7 +79,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s5",
@@ -83,7 +95,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s6",
@@ -97,7 +111,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s7",
@@ -111,7 +127,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s8",
@@ -125,7 +143,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s9",
@@ -139,7 +159,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s10",
@@ -153,7 +175,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s11",
@@ -167,7 +191,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s12",
@@ -181,7 +207,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s13",
@@ -195,7 +223,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s14",
@@ -209,7 +239,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s15",
@@ -223,7 +255,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s16",
@@ -237,7 +271,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s17",
@@ -251,7 +287,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s18",
@@ -265,7 +303,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s19",
@@ -279,7 +319,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s20",
@@ -293,7 +335,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s21",
@@ -307,7 +351,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s22",
@@ -321,7 +367,9 @@
      "fixed": 6,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     },
     {
      "id": "s23",
@@ -335,7 +383,9 @@
      "fixed": 72,
      "variable": 0,
      "weight": 1,
-     "colour": null
+     "colour": null,
+     "startGoal": null,
+     "disc": null
     }
    ],
    "colours": [],
@@ -345,6 +395,7 @@
      "label": "P1",
      "name": "Bermuda",
      "result": "s23",
+     "rodSet": null,
      "pieces": 12,
      "state": "solved",
      "solve": "idle",
@@ -354,7 +405,8 @@
      "saved": 1,
      "timeMs": 1000
     }
-   ]
+   ],
+   "rodSets": []
   },
   {
    "frame": {
@@ -1431,6 +1483,7 @@
    "label": "P1",
    "name": "Bermuda",
    "result": "s23",
+   "rodSet": null,
    "pieces": 12,
    "state": "solved",
    "solve": "finished",
@@ -1444,79 +1497,92 @@
      "shape": "s1",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s5",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s7",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s11",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s12",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s16",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s17",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s18",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s19",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s20",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s21",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     },
     {
      "shape": "s22",
      "min": 1,
      "max": 1,
-     "groups": []
+     "groups": [],
+     "required": false
     }
    ],
    "colourRules": [],
    "maxHoles": null,
    "savedPosition": false,
-   "solverSettings": {}
+   "solverSettings": {},
+   "stacks": null
   },
   {
    "total": 1,
@@ -2021,7 +2087,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "prepare piece 1 of 12"
+     "activity": "prepare piece 1 of 12",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -2049,7 +2119,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 53,
+     "elapsedMs": 58,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,
@@ -2065,7 +2135,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": 0,
-     "activity": "finished"
+     "activity": "finished",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },

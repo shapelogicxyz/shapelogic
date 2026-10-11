@@ -34,7 +34,11 @@ start/goal editor, the sliding solver options, the trays and the walls in
 stacks modelled, the Stacking Solver's search, the Panex search with its
 saved searches, blockpack, stacking solves through the solve session, the
 playback in transfers, the paused-solve file's saved searches, decision
-0015). Next: part 3b, stacking in the document's commands and the engine.*
+0015); part 3b, stacking in the document's commands and the engine (rod
+sets, discs and stacks as undoable commands, the `stacking.*` methods,
+stacking solves in the engine with their saved searches in its Panex
+folder). Next: the audit of part 3 (3a and 3b), then part 4, the stacking
+front end.*
 
 ## Big picture
 
@@ -609,7 +613,24 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   `exportPaused` (`PausedExport`: the folder, the levels or not) and
   `importPaused` (the folder) carry in the file; the analysis and the
   explorers refuse them in the grid's words (no take-apart, no
-  assembler). The stacking editing commands come with part 3b.
+  assembler). Their editing commands (part 3b; `document_stacking.cpp`,
+  from mainwindow_rods.cpp's rod sets, the disc list and the stacking
+  branches of the Problems tab; each one undo step, the GUI's own rod
+  history become the document's undo): rod sets with ids beside the
+  puzzle's (`rodSetIds`, labels R1: `addRodSet`, `duplicateRodSet`,
+  `deleteRodSet` keeping one, `renameRodSet`, `moveRodSet`,
+  `setRodSetRules` with cb_RodField's clamps and Panex dependencies,
+  dropping the solutions of the problems on the set), discs (a new shape
+  is a disc of size 1, `setDiscSize`), a problem's board
+  (`setProblemRodSet`), `placeDisc` (placeOneDisk: one more copy when
+  every copy is on that stacking), `placeAllDiscs` (largest first),
+  `removeDisc` (from both stackings, one copy fewer), `clearStacks`
+  (changeProblem), `moveDisc`; what the GUI hid is refused (the cell
+  editor, the tool tabs, a shape of a given size, the result, the counts
+  and ranges, the parts' order, the groups). `savedSearch(problem,
+  folder)` describes a saved search (`SavedSearchInfo`; none while the
+  problem's run is active) and `solveAbort(problem, folder)` throws away
+  one that no session holds, with the problem's results (cb_BtnAbort).
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
@@ -630,7 +651,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
 - `queries.h`: `problemFit` (`FitStats`: the result's and the pieces'
   cells, the piece counts, holes, the verdict, the original's status
   line), `shapeTable` (`ShapeInfo`: the status window's row),
-  `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`.
+  `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`,
+  `rodSetLayout` (a stacking puzzle's rod set drawn alone,
+  voxelFrame_c::showRodSet).
 - `playback.h`: `PlaybackSampler` (from a solution: the pieces with their
   meshes in the assembly orientation, `sample(step)` giving each piece's
   translation, quaternion and visibility, turns tumbling about their
@@ -682,7 +705,7 @@ schema in `api/`, documented in the generated `docs/API.md`.
 - `rpc.h`: the error codes (`Errc` → `-32001`…, protocol errors as
   JSON-RPC's, `data.errc` on every error), `Params` (reads a method's
   fields, refusing missing, mistyped and unknown ones as the schema does),
-  the ids (`s7`, `c2`, `p1`, `sol42`, handles `pb1`, `ax1`, `mx1`),
+  the ids (`s7`, `c2`, `p1`, `sol42`, rod sets `r1`, handles `pb1`, `ax1`, `mx1`),
   `BTE_TRY` / `BTE_CHECK` (a core `Result` error becomes the reply).
 - `output.h`: `Output` (lines and frames), `FrameBuilder` (typed arrays
   at multiples of four, described for the reply), base64.
@@ -710,7 +733,19 @@ schema in `api/`, documented in the generated `docs/API.md`.
   editor's actions and reads; a sliding solve's options in
   `SolveOptions.sliding`, its note in `solve.status`; `Settings`'
   `slideFolder` and `slideDiskGB`, the original's BURRTOOLS_SLIDE_DIR and
-  BURRTOOLS_SLIDE_DISK_GB, go into every sliding solve's options).
+  BURRTOOLS_SLIDE_DISK_GB, go into every sliding solve's options),
+  stacking puzzles (`stacking.*`, deferred part 3b: the rod sets, discs
+  and stacks commands and the reads of the board, `stacking.board` and
+  `stacking.rodSetLayout`; rod sets in the snapshot, a problem's board
+  and stacks in its summary and detail, a shape's disc size; a stacking
+  solve's options in `SolveOptions.stacking`, the solver defaulting to the
+  one the original's menu offered for the board; `Settings`'
+  `panexFolder` and `panexDiskGB`, the original's BURRTOOLS_PANEX_DIR and
+  BURRTOOLS_PANEX_DISK_GB, go into every stacking solve and into
+  `solve.status.savedSearch`, `solve.abort` of a saved search no session
+  holds, and the paused solve's export (`withLevels`) and import;
+  `solve.savePoint` is refused on a stacking solve, whose search saves
+  itself; a stacking solution's row counts transfers).
 - `events.cpp`: `document.changed` after a request that changed the
   document (with the change's `notice` when it has one), and the poll of the background work: first `Document::poll()`
   takes in what has ended (a run's end, an analysis's results; the
@@ -735,13 +770,15 @@ the main thread touches the document; handles hold copies and survive
 edits, a new document drops them; a malformed or oversized line is
 answered, never fatal (64 MiB, depth 64, gzip to 256 MiB); `core/` never
 sees JSON. Tested in process (`tests/unit/engine/`; among the
-`[parallel]` cases a solve polled while it runs, a solve next to an
-analysis of another problem, and the explorers, fit, paging and the
-table read while a solve runs until a new document ends it) and as a
-subprocess (`tests/contract/`: every reply and event checked against the
-schema, every error's errc one the method declares, every method called
-with success at least once, the scripted session of the brief; run
-against the dev, ASan and TSan engines).
+`[parallel]` cases a solve polled while it runs, a stacking solve polled,
+paused and carried on, a solve next to an analysis of another problem,
+and the explorers, fit, paging and the table read while a solve runs
+until a new document ends it) and as a subprocess (`tests/contract/`:
+every reply and event checked against the schema, every error's errc one
+the method declares, every method called with success at least once, the
+scripted session of the brief, a Panex solve paused and carried on by
+another engine from its saved search, Hanoi built through `stacking.*`;
+run against the dev, ASan and TSan engines).
 
 ## cli (stage 8)
 `bt` is the command line. Ported from `src/burrTxt.cpp` and
@@ -961,7 +998,11 @@ What exists after stage 8:
     of shapes, colours and problems, and undo and redo, refused while
     anything solves and while a BurrTools 2 search is paused in memory
     (decision 0011: the engine would refuse it; the advice is to abort or
-    finish that solve). `state/solves.ts`: `Solves`, the solve records,
+    finish that solve). `state/kinds.ts`: `frontEndSolves`, the one rule
+    that keeps stacking puzzles as before in this front end (the engine
+    solves them since deferred part 3b; the Puzzle's and the Solver's
+    notices, the Solver disabled, New without the stacking grid) until
+    deferred part 4 brings their editor. `state/solves.ts`: `Solves`, the solve records,
     one per problem (several may run), DOM-free: the state as the events
     tell it, a run's phase (none, active, ending), its end at the
     `document.changed` after its last `solve.state` (a run started here

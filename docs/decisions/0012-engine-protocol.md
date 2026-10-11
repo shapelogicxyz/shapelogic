@@ -195,16 +195,19 @@ generated from it (`api/gen_api_md.py`; a test fails when it is stale).
 The contract tests start `bt-engine`, check every reply and event against
 the schema, and check that the engine's methods are the schema's.
 
-**Not yet.** Stacking puzzles open, edit and save; solving, analysing,
-playback and explorers refuse them with `unsupported`. (The core and `bt`
-solve and play them since the deferred plan's part 3a, decision 0015; the
-engine follows in part 3b.) Sliding puzzles
-are solved and played since the deferred plan's part 1 (decision 0014:
-`SolveOptions.sliding`, the `sliding.*` methods); analysing refuses them,
-as the original did (they have no take-apart). The original's "Enable
-High Memory" box (`highMemory` in `SolverSettings`) maps to
-`SolveOptions.sliding.highMemory`; for stacking it waits for that
-solver.
+**Sliding and stacking puzzles.** Sliding puzzles are solved and played
+since the deferred plan's part 1 (decision 0014: `SolveOptions.sliding`,
+the `sliding.*` methods); stacking puzzles since part 3b (decision 0015:
+`SolveOptions.stacking`, the `stacking.*` methods, rod sets by `r<n>`
+ids, a paused stacking solve being its search saved in the engine's
+`panexFolder`, which `solve.status` describes, `solve.abort` throws away
+without a session, and `solve.savePoint` refuses as `unsupported`).
+Analysing and the explorers refuse both, as the original did (they have
+no take-apart and no assembler). The original's "Enable High Memory" box
+(`highMemory` in `SolverSettings`) maps to `SolveOptions.sliding.highMemory`
+or `SolveOptions.stacking.highMemory`. `engine.info.grids[].supported`
+and `problem.kind.supported` are true for every grid; they stay for
+clients that read them.
 
 ## Consequences
 - A client in any language needs a JSON parser and a line reader that

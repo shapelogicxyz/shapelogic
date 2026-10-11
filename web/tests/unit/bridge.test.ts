@@ -87,7 +87,16 @@ describe('the proxy', () => {
     const statuses: EngineStatus[] = [];
     proxy.onStatus((s) => statuses.push(s));
     const settings = await proxy.call('settings.get');
-    expect(settings).toEqual({ undoDepth: 25, threads: 0, solver: 'classic' });
+    // the default folders under the recorder's neutral home (record-sessions.ts)
+    expect(settings).toEqual({
+      undoDepth: 25,
+      threads: 0,
+      solver: 'classic',
+      slideFolder: '/home/user/Library/Caches/BurrTools/sliding',
+      slideDiskGB: 0,
+      panexFolder: '/home/user/Library/Caches/BurrTools/panex',
+      panexDiskGB: 0,
+    });
     const snap = await proxy.call('document.open', { path: 'tests/data/puzzles/Bermuda.xmpuzzle' });
     const shape = snap.shapes[0]?.id ?? '';
     const mesh = await proxy.call('shape.mesh', { shape, style: 'drawing' });

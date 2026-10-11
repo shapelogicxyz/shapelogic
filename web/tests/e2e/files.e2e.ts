@@ -181,8 +181,9 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
       page,
       'engine.info',
     );
-    // every grid this version solves, sliding second (the original's order)
-    const grids = info.grids.filter((g) => g.supported);
+    // every grid this version solves, sliding second (the original's order);
+    // stacking once this front end has its editor (state/kinds.ts)
+    const grids = info.grids.filter((g) => g.supported && g.grid !== 'stacking');
     expect(grids.length).toBe(6);
     // Cancel keeps the puzzle
     await openFixture(page, 'Bermuda.xmpuzzle');

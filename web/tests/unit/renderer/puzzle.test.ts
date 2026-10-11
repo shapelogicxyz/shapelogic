@@ -37,6 +37,7 @@ function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {
     label: 'P1',
     name: '',
     result,
+    rodSet: null,
     pieces: parts.reduce((n, p) => n + p.max, 0),
     state: 'unsolved',
     solve: 'idle',
@@ -50,6 +51,7 @@ function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {
     maxHoles: null,
     savedPosition: false,
     solverSettings: {},
+    stacks: null,
   };
 }
 

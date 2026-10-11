@@ -17,6 +17,7 @@ import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
 import { newOrder } from './files-order.ts';
 import { EngineError } from '../../engine/errors.ts';
+import { frontEndSolves } from '../state/kinds.ts';
 import type { Store } from '../state/store.ts';
 import { askChoice, dialogOpen, openDialog } from './dialog.ts';
 import { byId } from './dom.ts';
@@ -144,7 +145,7 @@ export class Files {
     // the grids this version solves, sliding second as in the original's
     // grid selector (gridtypegui.cpp: Brick, Sliding, then the others)
     const grids = info.grids
-      .filter((g) => g.supported)
+      .filter((g) => g.supported && frontEndSolves(g.grid))
       .sort((a, b) => newOrder(a.grid) - newOrder(b.grid));
     const k = await openDialog({
       id: 'newPuzzle',

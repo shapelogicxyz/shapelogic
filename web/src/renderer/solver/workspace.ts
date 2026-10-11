@@ -30,6 +30,7 @@ import type {
 } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
+import { frontEndSolves } from '../state/kinds.ts';
 import { isActive } from '../state/solves.ts';
 import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
@@ -309,11 +310,13 @@ export class SolverWorkspace {
     return this.store.snapshot?.grid === 'sliding';
   }
 
-  /** Whether this version solves the problem shown (stacking: not yet). */
+  /** Whether this version solves the problem shown (stacking: not in this front end yet). */
   get supported(): boolean {
     const snap = this.store.snapshot;
     const grid = this.store.info?.grids.find((g) => g.grid === snap?.grid);
-    return (grid?.supported ?? true) && this.kind?.supported !== false;
+    return (
+      (grid?.supported ?? true) && this.kind?.supported !== false && frontEndSolves(snap?.grid)
+    );
   }
 
   /** The label of a shape (S1...), or its id. */

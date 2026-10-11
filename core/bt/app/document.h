@@ -486,7 +486,8 @@ class Document {
   [[nodiscard]] Result<SolveProgress> solveProgress(Id problem) const;
   [[nodiscard]] Result<SolveStats> solveStats(Id problem) const;
   [[nodiscard]] std::optional<SolveFailure> solveFailure(Id problem) const;
-  /// What a sliding solve's last run said once through (SolveSession::note);
+  /// What a sliding or stacking solve's last run said (SolveSession::note:
+  /// once through, or a stacking search that paused and saved itself);
   /// empty otherwise.
   [[nodiscard]] std::string solveNote(Id problem) const;
   /// Whether any run or analysis is active (the guards of decision 0011

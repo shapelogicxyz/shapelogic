@@ -24,11 +24,11 @@
     "state:p3:assembling:active",
     "progress:p3:assembling:active",
     "added:p3:assembling:active",
-    "added:4946:3:1",
+    "added:5428:3:1",
     "state:p3:paused:ending",
     "progress:p3:paused:ending",
     "added:p3:paused:ending",
-    "added:4950:4950:0",
+    "added:5432:5432:0",
     "changed:10:p3",
     "ended:p3:paused:none"
    ]
@@ -40,7 +40,7 @@
    "revision": 12
   },
   {
-   "version": 4951,
+   "version": 5433,
    "trace": [
     "changed:11:p3",
     "launch:p3:paused:none",
@@ -48,7 +48,7 @@
     "state:p3:assembling:active",
     "progress:p3:assembling:active",
     "added:p3:assembling:active",
-    "added:4951:4951:0"
+    "added:5433:5433:0"
    ]
   },
   {
@@ -61,7 +61,7 @@
     "state:p3:idle:ending",
     "progress:p3:idle:ending",
     "added:p3:idle:ending",
-    "added:4954:4951:1",
+    "added:5436:5433:1",
     "changed:14:p3",
     "ended:p3:idle:none"
    ]
@@ -80,7 +80,7 @@
     "state:p3:paused:ending",
     "progress:p3:paused:ending",
     "added:p3:paused:ending",
-    "added:5986:4951:0",
+    "added:6282:5433:0",
     "changed:16:p3",
     "ended:p3:paused:none"
    ]
@@ -95,7 +95,7 @@
     "state:p3:idle:none",
     "progress:p3:idle:none",
     "added:p3:idle:none",
-    "added:5987:4951:0"
+    "added:6283:5433:0"
    ]
   },
   {
@@ -117,12 +117,12 @@
     "state:p3:preparing:active",
     "progress:p3:preparing:active",
     "added:p3:preparing:active",
-    "added:3:4951:0",
+    "added:3:5433:0",
     "state:p3:assembling:active",
     "state:p3:finished:ending",
     "progress:p3:finished:ending",
     "added:p3:finished:ending",
-    "added:2859:4951:0",
+    "added:2859:5433:0",
     "changed:27:p3",
     "ended:p3:finished:none"
    ]
@@ -138,7 +138,8 @@
    "solving": false,
    "shapes": [],
    "colours": [],
-   "problems": []
+   "problems": [],
+   "rodSets": []
   },
   {
    "phase": "none",
@@ -289,7 +290,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "prepare piece 1 of 1"
+     "activity": "prepare piece 1 of 1",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -317,23 +322,27 @@
     "state": "assembling",
     "progress": {
      "stage": "assemble",
-     "elapsedMs": 263,
+     "elapsedMs": 284,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0.0017146776663139462,
-     "iterations": 17469,
+     "iterations": 18730,
      "assemblerThreads": 1,
-     "assemblies": 2539,
-     "solutions": 2474,
+     "assemblies": 2780,
+     "solutions": 2715,
      "disassembly": true,
-     "disasmCompleted": 2474,
+     "disasmCompleted": 2715,
      "disasmPending": 66,
      "disasmWorkers": 1,
-     "overall": 0.0016927642282098532,
+     "overall": 0.0016947450349107385,
      "overallKnown": true,
      "levelFraction": 0,
-     "secondsLeft": 153.11859770015133,
-     "activity": "assemble, disassemble 2474 done 66 waiting, level 0: 0/1, split 2/19"
+     "secondsLeft": 165.34479751651318,
+     "activity": "assemble, disassemble 2715 done 66 waiting, level 0: 0/1, split 7/19",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -342,9 +351,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 4946,
-    "assemblies": 2539,
-    "solutions": 2474
+    "solutionsVersion": 5428,
+    "assemblies": 2780,
+    "solutions": 2715
    }
   },
   {
@@ -361,23 +370,27 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 315,
+     "elapsedMs": 341,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0.0017146776663139462,
-     "iterations": 17476,
+     "iterations": 18740,
      "assemblerThreads": 1,
-     "assemblies": 2542,
-     "solutions": 2476,
+     "assemblies": 2783,
+     "solutions": 2717,
      "disassembly": true,
-     "disasmCompleted": 2476,
+     "disasmCompleted": 2717,
      "disasmPending": 0,
      "disasmWorkers": 1,
-     "overall": 0.0016927642282098532,
+     "overall": 0.0016947450349107385,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "pause"
+     "activity": "pause",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -386,9 +399,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 4950,
-    "assemblies": 2542,
-    "solutions": 2476
+    "solutionsVersion": 5432,
+    "assemblies": 2783,
+    "solutions": 2717
    }
   },
   {
@@ -450,10 +463,10 @@
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0.0017146776663139462,
-     "iterations": 17476,
+     "iterations": 18740,
      "assemblerThreads": 1,
-     "assemblies": 2542,
-     "solutions": 2476,
+     "assemblies": 2783,
+     "solutions": 2717,
      "disassembly": true,
      "disasmCompleted": 0,
      "disasmPending": 0,
@@ -462,7 +475,11 @@
      "overallKnown": false,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "assemble, disassemble 0 done 0 waiting"
+     "activity": "assemble, disassemble 0 done 0 waiting",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -471,9 +488,9 @@
    "params": {
     "problem": "p3",
     "saved": 4,
-    "solutionsVersion": 4951,
-    "assemblies": 2542,
-    "solutions": 2476
+    "solutionsVersion": 5433,
+    "assemblies": 2783,
+    "solutions": 2717
    }
   },
   {
@@ -520,7 +537,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": ""
+     "activity": "",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -529,7 +550,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 4954,
+    "solutionsVersion": 5436,
     "assemblies": 0,
     "solutions": 0
    }
@@ -590,23 +611,27 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 110,
+     "elapsedMs": 113,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0,
-     "iterations": 3987,
+     "iterations": 2871,
      "assemblerThreads": 1,
-     "assemblies": 584,
-     "solutions": 518,
+     "assemblies": 491,
+     "solutions": 425,
      "disassembly": true,
-     "disasmCompleted": 518,
+     "disasmCompleted": 425,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0.5,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "pause"
+     "activity": "pause",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -615,9 +640,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 5986,
-    "assemblies": 584,
-    "solutions": 518
+    "solutionsVersion": 6282,
+    "assemblies": 491,
+    "solutions": 425
    }
   },
   {
@@ -662,7 +687,7 @@
     "state": "idle",
     "progress": {
      "stage": "idle",
-     "elapsedMs": 110,
+     "elapsedMs": 113,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0,
@@ -671,14 +696,18 @@
      "assemblies": 0,
      "solutions": 0,
      "disassembly": true,
-     "disasmCompleted": 518,
+     "disasmCompleted": 425,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0.5,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": ""
+     "activity": "",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -687,7 +716,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 5987,
+    "solutionsVersion": 6283,
     "assemblies": 0,
     "solutions": 0
    }
@@ -829,7 +858,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
-     "activity": "prepare piece 1 of 1"
+     "activity": "prepare piece 1 of 1",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },
@@ -864,7 +897,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 103,
+     "elapsedMs": 116,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,
@@ -880,7 +913,11 @@
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": 0,
-     "activity": "finished"
+     "activity": "finished",
+     "searched": 0,
+     "searchDepth": 0,
+     "searchTraced": 0,
+     "panexSearch": false
     }
    }
   },

@@ -7,7 +7,8 @@
 //   node tools/record-sessions.ts [names...]     (npm run record)
 //
 // The engine is BT_ENGINE or build/release/engine/bt-engine, run from the
-// repository's root (the sessions open fixtures by relative path).
+// repository's root (the sessions open fixtures by relative path), with a
+// neutral home (its default folders name the user's cache folder).
 
 import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -48,6 +49,12 @@ async function record(name: string, engine: string): Promise<void> {
 
 async function main(): Promise<void> {
   const engine = process.env.BT_ENGINE ?? resolve(ROOT, 'build/release/engine/bt-engine');
+  // The engine's default folders (settings.get's slideFolder, panexFolder)
+  // are in the user's cache folder, which it finds from these: a neutral
+  // home keeps the recording user's paths out of the recordings.
+  process.env.HOME = '/home/user';
+  process.env.XDG_CACHE_HOME = '';
+  process.env.LOCALAPPDATA = 'C:\\Users\\user\\AppData\\Local';
   if (!existsSync(engine)) {
     throw new Error(`no engine at ${engine}: run \`just build release\` or set BT_ENGINE`);
   }
