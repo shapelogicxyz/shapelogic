@@ -63,8 +63,8 @@ void usage(HelpKind kind) {
       "  --progress\n"
       "          print to stderr, once a second, how far the solve is\n"
       "  Short options may be combined (e.g. -dR, -rq).\n"
-      "  -d      solve: take apart (brick) or find the slide path (sliding); only\n"
-      "          print what solves\n"
+      "  -d      solve: take apart (brick), find the slide path (sliding) or the rod\n"
+      "          transfers (stacking); only print what solves\n"
       "  -p      print the moves of each solution\n"
       "  -s      print the assembly\n"
       "  -q      be quiet and only print statistics\n"
@@ -169,8 +169,31 @@ void usage(HelpKind kind) {
 
   std::fputs(
       "\nstacking puzzles:\n"
-      "  bt cannot solve stacking puzzles yet: their files load, and -a reads them,\n"
-      "  but a solve is refused.\n",
+      "  The start and goal stacks come from the file. A move is one disc going\n"
+      "  from the top of one rod to the top of another. With Panex columns a\n"
+      "  disc of size n sits at most n places below the top of its rod.\n"
+      "  --high-memory\n"
+      "          let the search hold up to half of this computer's memory in\n"
+      "          stackings, instead of stopping at about 2 GB\n"
+      "  --solver TYPE   (default: Stacking Solver)\n"
+      "            \"Stacking Solver\"  fewest rod transfers (also: stacking)\n"
+      "            \"Panex Solver\"     fewest rod transfers for Panex columns, built for\n"
+      "                                large towers: searches from both ends, holds only the\n"
+      "                                newest levels and uses every core (-t n to limit)\n"
+      "                                (also: panex)\n"
+      "  Panex Solver searches are saved when stopped (Ctrl-C), when they run out\n"
+      "  of memory, and every 20 minutes; the same command carries a saved search on.\n"
+      "  --restart       discard a saved search and start over\n"
+      "  --panex-dir DIR keep saved searches in DIR (default: $BURRTOOLS_PANEX_DIR, or\n"
+      "                  the user's cache folder)\n"
+      "  --panex-disk GB disk saved levels may take (default: $BURRTOOLS_PANEX_DISK_GB,\n"
+      "                  or half the free space, at most 200); less disk makes tracing\n"
+      "                  the path back slower\n"
+      "  With --save, -d searches the transfers as the GUI's Solve did (burrTxt2 had\n"
+      "  no stacking solver); a saved search carries on unless --restart.\n"
+      "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
+      "  --no-tower-rule  search the classic tower too, instead of its recursion\n"
+      "  --panex-log      each level of a Panex search on stderr\n",
       stdout);
 }
 
@@ -299,10 +322,23 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideQueue = true;
     } else if (a == "--slide-trace") {
       o.slideTrace = true;
-    } else if (a == "--panex-dir" || a == "--panex-disk") {
-      std::fprintf(stderr, "bt: %s is for stacking puzzles, which bt cannot solve yet\n",
-                   argv[i]);
-      return kExitUsage;
+    } else if (a == "--panex-dir") {
+      if (!hasValue) {
+        std::fputs("bt: --panex-dir requires a folder\n", stderr);
+        return kExitUsage;
+      }
+      o.panexDir = argv[++i];
+    } else if (a == "--panex-disk") {
+      // burrTxt read it with atof
+      if (!hasValue) {
+        std::fputs("bt: --panex-disk requires a number of GB\n", stderr);
+        return kExitUsage;
+      }
+      o.panexDiskGB = std::atof(argv[++i]);
+    } else if (a == "--no-tower-rule") {
+      o.noTowerRule = true;
+    } else if (a == "--panex-log") {
+      o.panexLog = true;
     } else if (a.size() > 1 && a[0] == '-' && a[1] == '-') {
       std::fprintf(stderr, "bt: unknown option %s\n", argv[i]);
       return kExitUsage;
@@ -372,7 +408,9 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
     std::fputs("bt: --save cannot be combined with --json, -a, -x, -p, or -s\n", stderr);
     return kExitUsage;
   }
-  if (o.saveTo == nullptr && (o.restart || o.countOnly || o.keepMirrors || o.keepRotations ||
+  // --restart of a stacking puzzle goes without --save too: checked once
+  // the puzzle's type is known
+  if (o.saveTo == nullptr && (o.countOnly || o.keepMirrors || o.keepRotations ||
                               o.dropDisassemblies || o.solutionLimit != 10)) {
     std::fputs(
         "bt: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"

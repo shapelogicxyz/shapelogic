@@ -21,13 +21,16 @@ A solver stage is done only when the harness reports no differences
 | full | 158 TIC puzzles with rotation take-apart | ~23 s | before finishing a solver stage |
 | slow | Climburr_OldVer, CoverUp3, CornerCube | ~7 s | benchmarks, final checks |
 | sliding | the 3 sliding fixtures and 33 puzzles made with the original's code | ~1 min full, seconds fast/deep | sliding work (deferred part 1) |
+| stacking | the 2 stacking fixtures and 39 puzzles made with the original's code | seconds | stacking work (deferred part 3) |
 
 Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only (the
 grid has no take-apart). See `corpus.txt` for why `A` puzzles read the
 original's text summary: its `--json` aborts on those grids, a known bug of
 the original CLI. Sliding puzzles have their own flags: `N` nested slides,
 `P` partially nested, `L` too long for the full search (fast and deep
-only), `O` compared on one thread only (see "Sliding puzzles" below). A
+only), `O` compared on one thread only (see "Sliding puzzles" below);
+so have stacking puzzles: `Q` not for the Panex Solver, `L` no `-o all`
+text run, `I` a setup that is not ready (see "Stacking puzzles" below). A
 path beginning `alpha:` is a file of this repo, not of the original's.
 
 ## Commands
@@ -246,3 +249,49 @@ Piece Generator.
 
 Speed is compared separately (tests/bench), with both binaries run back to
 back on the same machine; numbers in the baseline files are only a guide.
+
+## Stacking puzzles (deferred part 3a)
+
+`--tier all` leaves the `stacking` tier out too: run it by name. The
+default solver is the Stacking Solver (burrTxt's); `--solver panex` runs
+the Panex Solver on the puzzles it takes (flag `Q` marks the others). Each
+run gets a Panex folder of its own (`BURRTOOLS_PANEX_DIR` under
+`work/panex-tmp`), so the user's cache and other runs' saved searches are
+never touched:
+
+```bash
+python3 tests/oracle/oracle.py stacking-puzzles      # tests/data/puzzles/stacking/ from the original's code
+just oracle-baseline --tier stacking                 # burrTxt --json (and --solver panex)
+just oracle --tier stacking                          # all threads; --threads 1 the same
+python3 tests/oracle/oracle.py baseline-files --tier stacking   # the original's solve thread (stack_solve_old)
+python3 tests/oracle/oracle.py compare-files --tier stacking
+python3 tests/oracle/oracle.py baseline-text --tier stacking
+just oracle-text --tier stacking
+python3 tests/oracle/oracle.py panex-resume          # stopped in one program, carried on in the other
+python3 tests/oracle/oracle.py blockpack-check       # packed by one program, unpacked by the other
+```
+
+`stacking-puzzles` builds `stacking_puzzles_old.cpp` against the original's
+library: the puzzles of its `test/test_stacking.cpp` (Hanoi, the distance
+rule, Panex Jr with and without its pocket, the Panex swaps with and
+without the outside channel, plain rods under every rule, the classic
+towers, nine rods) and a few more (copies of a disc, a pocket of two, the
+start equal to the goal, no path, a setup that is not ready, two boards).
+burrTxt2 has no stacking solver, so the solved files come from the
+original's solve thread as the GUI's Solve ran it (`stack_solve_old.cpp`)
+and are compared state by state with `bt --save`'s. Flag `L`
+(PanexLevel3to10: its later problems run for hours) leaves out the `-o
+all` text run; flag `I` (a setup that is not ready) leaves out the solved
+files, since the GUI refused to solve it. burrTxt's `-a s1` dies on a
+solved stacking file (it draws the assembly into a result shape the
+problem does not have); `bt` prints what it printed before and no drawing,
+which the text comparison accounts for as it does the other crashes.
+
+`panex-resume` runs five Panex searches (the 5-disc swap, Panex Jr, the
+4-disc swap with the outside channel, plain rods under the distance rule,
+Panex 6 of PanexLevel3to10) three ways (the levels kept in memory; kept on
+disk, every level; kept on disk thinned to a budget): straight in both
+programs (the same path and counts), then stopped at a sweep of depths in
+both (`panex_resume_old` and `bt_panex_resume`, `stopAtDepth`): the saved
+folders must be byte for byte alike (but for the solving time in
+`state.bin`), and each must carry on in both programs to the same path.

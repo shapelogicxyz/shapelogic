@@ -111,4 +111,5 @@ original:
   are edited, stamped, solved with the sliding options and played with
   their walls.
 - Stacking puzzles stay unsupported (`unsupported`); their solver is the
-  plan's part 3, under the same rules.
+  plan's part 3, under the same rules (decision 0015: the core and `bt` in
+  part 3a, the engine in part 3b).

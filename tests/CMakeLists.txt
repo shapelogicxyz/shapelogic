@@ -78,6 +78,16 @@ add_executable(bt_resume tools/resume.cpp)
 target_link_libraries(bt_resume PRIVATE btcore)
 bt_set_warnings(bt_resume)
 
+# bt_panex_resume: stop and carry on Panex searches, for `oracle.py panex-resume`.
+add_executable(bt_panex_resume tools/panex_resume.cpp)
+target_link_libraries(bt_panex_resume PRIVATE btcore)
+bt_set_warnings(bt_panex_resume)
+
+# bt_blockpack: pack and unpack files, for `oracle.py blockpack-check`.
+add_executable(bt_blockpack tools/blockpack.cpp)
+target_link_libraries(bt_blockpack PRIVATE btcore)
+bt_set_warnings(bt_blockpack)
+
 # bt_solutions: what a file holds of solving, for `oracle.py compare-files`
 # (which solves with `bt --save`, burrTxt2's mode).
 add_executable(bt_solutions tools/solutions.cpp)

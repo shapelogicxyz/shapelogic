@@ -17,7 +17,9 @@ original's `burrTxt` and `burrTxt2`, and the Electron front end in `web/`.
 The deferred features follow part by part
 ([docs/DEFERRED-PLAN.md](docs/DEFERRED-PLAN.md)): sliding puzzles are
 solved in the core, the engine and `bt` (part 1) and made, edited, solved
-and played in the front end (part 2); stacking and Panex puzzles, STL
+and played in the front end (part 2); stacking and Panex puzzles are solved
+in the core and `bt` (part 3a: the stacking search, the Panex search with
+its saved searches); their engine part, the stacking front end, STL
 meshes, imports and Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Building

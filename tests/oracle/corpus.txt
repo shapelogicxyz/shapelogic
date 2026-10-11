@@ -26,9 +26,18 @@
 #         the puzzles of the original's test/test_sliding.cpp made with its
 #         own code (`oracle.py sliding-puzzles`).
 #
-# Stacking (PanexLevel3to10) is out of scope until it is ported (deferred
-# part 3); do not add it here yet. Never add the commercial sliding puzzle
-# "One Way or Another".
+#   tier  stacking  the stacking puzzles (deferred part 3): run with
+#         `--tier stacking` and `--solver panex` for the Panex Solver (the
+#         default is the Stacking Solver, burrTxt's). "alpha:" paths are the
+#         puzzles of the original's test/test_stacking.cpp made with its own
+#         code (`oracle.py stacking-puzzles`).
+#         "Q" stacking: the Panex Solver does not take it (no Panex columns,
+#             or more rods than it holds): not run with --solver panex
+#         "L" stacking: its further problems run for hours: no `-o all` run
+#         "I" stacking: its setup is not ready (setupError): the GUI's Solve
+#             refused it, so no solved file is made or compared
+#
+# Never add the commercial sliding puzzle "One Way or Another".
 
 fast  -  examples/AlPackino.xmpuzzle
 fast  -  examples/Bermuda.xmpuzzle
@@ -82,3 +91,20 @@ sliding  -  alpha:tests/data/puzzles/sliding/slide_two_layers_shut.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_variable_crossed.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_whole_piece.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_wide_keys.xmpuzzle
+
+stacking  Q  test/test_stacking_hanoi.xmpuzzle
+stacking  L  examples/PanexLevel3to10.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_copies.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_distance.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_hanoi_3.xmpuzzle
+stacking  QI alpha:tests/data/puzzles/stacking/stack_invalid.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_move_over.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_nine_rods.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_no_path.xmpuzzle
+stacking  -  alpha:tests/data/puzzles/stacking/stack_panex_channel_*.xmpuzzle
+stacking  -  alpha:tests/data/puzzles/stacking/stack_panex_jr*.xmpuzzle
+stacking  -  alpha:tests/data/puzzles/stacking/stack_panex_swap_*.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_plain_*.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_same_start_goal.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_tower_*.xmpuzzle
+stacking  Q  alpha:tests/data/puzzles/stacking/stack_two_boards.xmpuzzle

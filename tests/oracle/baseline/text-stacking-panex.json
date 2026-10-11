@@ -1,0 +1,470 @@
+{
+ "alpha:tests/data/puzzles/stacking/stack_panex_channel_2.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "84666d9ee88de592679046007dc4058798f6dc063065b1a5acd19a5dcb3dd543",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 50
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "5162ff7c54885886b8687d895a6a433720bf6afe8d7c198bed34bcc26ccf9139",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "a40c34851edf6f5729a2d7a511323644c1d2fd7cebc898bbc605a913c17606a1",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "e26a5b2b041fdc7fb22ed6355a430debfa615c8540583de987105e12cfcd6df7",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 10
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "a5052d3e9750010d9b3d8a97e9579857a4b06a9df1bcae91d3d972348b55b603",
+   "outBytes": 28
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_channel_3.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "1d8b88a15bd5f6f5075763c6d69c1993c817d4cc16ad532a27fbc0a7c8372a63",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 84
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "40bf48c55cda363dc6a6fdae1a071054988ea2e495ec6d76c1c8f6a6a4a92cc0",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "eb3ac36934dbba695dcd5ec992b0bf078edb81a5f7552fefb0d2cd9e988d142c",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "0ed633a2023eb5133e11fc74819695cf9014fa6456b41a5b5b89b78c175ea4fd",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 22
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "aa7b0b947ed03ad034d1084a3b955b1ae69a87c29ae1d50c67566cb915d62165",
+   "outBytes": 34
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_channel_4.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "1e1689835dab07580d92e0260f4acc0d4db876221c2fcf6fe9142da2ccb926ba",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 134
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "fcd864a4015c8a1823e45a0bd966db7a0d6634eff5af3300decdb8af7fc81332",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "019759417082cd8285a986e2b4f67d0ddd7a2a7e3ad8a7858494ce779dbb0163",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "fd0efe607ea347d94a967f68a51f8494d527c929487a0be824170faf0ac1d69c",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 46
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "562a3a8335c448f031055a5c6e02280fad9b26e5ba559b4e9cb7a043d7dc74e3",
+   "outBytes": 40
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_jr.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "c8ce25403e9a2bab7f479a8f3584afdb9632a8e802f0bae2e931f2543d203c7a",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 224
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "ffd165d7e3f999f50b55d64e3480d3731eeffd745cbf81930072a21ead37d243",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "e0527643febbb462ab44aa02c170f23778e15815d1cf58cfad81e021d32bb715",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "1f634055d13423bfa7f6ade0e8a52e7546fa1f689133dacb83c5e0b312b3cc69",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 144
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "aa7b0b947ed03ad034d1084a3b955b1ae69a87c29ae1d50c67566cb915d62165",
+   "outBytes": 34
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_jr_no_pocket.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "081f7e5784612b8cbe7bf7850951bb66e9070288c3235bcc69239f32b9585f3f",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 81
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "ae8248304dcc9103c589f391b9c038a97fc0bfd18aec86ec466e115853776f3b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 2
+  },
+  "all": {
+   "exit": 0,
+   "out": "d85f0af97d069c7392a39456ca12ec5cf6ab85ed14a6b04260666f4172e431bc",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "ask": {
+   "exit": 0,
+   "out": "243746a2a398d6232bce446370606b734de5d5673f12ea6260b31db50d553247",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_jr_pocket_2.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "9b05f8fde770108d6a42bea1ba3ba9675e60abb21885f8df3f322ef8f4ac46af",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 107
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "8e136613873f4dc441f0862aedaac34d7f84e2ae0be7b9b608972272f40d6caf",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "326530f685bcbd34261d8e62a9de743613d582f9b068a3138c4a04e36a5dd7b3",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "17590b6620b46ff47e68708d1dcd045e74a1e53427c8a780785e6511d998fd06",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 27
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "aa7b0b947ed03ad034d1084a3b955b1ae69a87c29ae1d50c67566cb915d62165",
+   "outBytes": 34
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_2.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "8b24dac21949b8a3c98a081d6d9db91d9b99632d1d4e03d8ebc4d9600c8ab6e8",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 54
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "5a21a3d71fb7e9d3d4980de52c09e5eba68425eba0276d8f20acff724213c684",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "2ef3cc060e1d1f3b109c317dbbfaf4ec088d1dc280e59a0d76eecca58f0aab33",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "9942af76f4a0a7f58cd809983892a3f698fc568a1e41fa3c7649a6018470d2c8",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 14
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "a5052d3e9750010d9b3d8a97e9579857a4b06a9df1bcae91d3d972348b55b603",
+   "outBytes": 28
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_3.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "d5fc2a8e7cdd9249f24d8c94675ec687f3efac0222301e1d2cd6d4bf5b2a358d",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 105
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "7fa2ef8671aa812880b859881965416d087cff0ed8d5f2cfba684de12264295a",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "6724f72aa075b752daee6ad5f1f49003341eecbbdc1ab37dcf4a78dcc419bd6e",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "e1511847af81bb5e7d578425faf0c9fc2afe23a4b73ee6dfa92b7d88d28f40d3",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 43
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "aa7b0b947ed03ad034d1084a3b955b1ae69a87c29ae1d50c67566cb915d62165",
+   "outBytes": 34
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_4.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "79201c79ae7a05ac5c7b5c1ba229373da8143afc8a7aa0b9517179c6aefab28f",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 217
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "cb475babd77d6b8c24de82340f400d48ca87af21d2acff47b2dc763f511ed110",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "52f717d047b03a8f599bd3904864a408a61e29f2a22462899fefda7d6eb9dfe8",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "1a393e2998ecfe06164cab65ea2cdb65f08b37e037322f77c2cd375b80b41d8e",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 129
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "562a3a8335c448f031055a5c6e02280fad9b26e5ba559b4e9cb7a043d7dc74e3",
+   "outBytes": 40
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "a30b61f7c4ebec036189c35cefb138916ed26d68554e042f275a59ae10515c77",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 462
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "8a432a3edc4713d6f70845ea5a309d417b04d14ad09460e487b6ab9b4820dcfe",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "all": {
+   "exit": 0,
+   "out": "06b47191e25ca81e04ce988446b7838ec81a2ce3f217a13f8e087a926dadf12b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 4
+  },
+  "retake": {
+   "exit": 0,
+   "out": "ce1a160a7eabbc3d7124e2a9aae0309e3914e50809ccb93316caa1ff5ad3be85",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 344
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "863b5080aa8f268d276e77ec55bc877264905f7dc991649cba7057142a9149e4",
+   "outBytes": 47
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 0
+  },
+  "comment": {
+   "exit": 0,
+   "out": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ },
+ "examples/PanexLevel3to10.xmpuzzle": {
+  "solve": {
+   "exit": 0,
+   "out": "7baca108821853e5558f8fc0103e558b460d1d311210a1ef2ce4a6ba7546e5ad",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 476
+  },
+  "quiet": {
+   "exit": 0,
+   "out": "7fa2ef8671aa812880b859881965416d087cff0ed8d5f2cfba684de12264295a",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "retake": {
+   "exit": 0,
+   "out": "697b7e912a44f29c9f240b2cfae72f7f5e5ee302335beb23f9d67caa62ca8252",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 43
+  },
+  "ask": {
+   "crashed": 6,
+   "out": "a7e057910206fbfe8932aa586ed948650f7ba8ffb4c2a3833148ba9ee3d6685d",
+   "outBytes": 37
+  },
+  "retake-saved": {
+   "exit": 0,
+   "out": "9255f7c989cae0535c61e6541e334658340d01a4a85f7e116453ab445cd351ac",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  },
+  "comment": {
+   "exit": 0,
+   "out": "68ae37851c1f6ce6d43eea4aa97384d14c626aa9b0e8db199595f49aa84f916b",
+   "err": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "lines": 1
+  }
+ }
+}

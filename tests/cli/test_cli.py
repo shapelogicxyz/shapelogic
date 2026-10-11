@@ -4,9 +4,8 @@
 
 What it prints is compared with the original burrTxt by the harness
 (`just oracle-text`, tests/oracle); this checks what holds without the
-original repo: burrTxt's option rules and exit codes, sliding puzzles
-solved with their options, the refusal of stacking puzzles, and --save
-followed by -a and -x.
+original repo: burrTxt's option rules and exit codes, sliding and stacking
+puzzles solved with their options, and --save followed by -a and -x.
 
     python3 tests/cli/test_cli.py --bt build/dev/cli/bt
 """
@@ -46,7 +45,9 @@ def test_help_and_mistakes() -> None:
     r = run("--help", "slider")
     check("help sliding", "sliding puzzles:" in r.stdout and "--nested-slides" in r.stdout and
           "Sliding Full Solver" in r.stdout, r.stdout[-200:])
-    check("help stacking", "cannot solve stacking" in run("-h", "stacking").stdout)
+    r = run("-h", "stacking")
+    check("help stacking", "stacking puzzles:" in r.stdout and "Panex Solver" in r.stdout and
+          "--panex-dir" in r.stdout and "--restart" in r.stdout, r.stdout[-200:])
     r = run()
     check("no file", r.returncode == 1 and "bt [options]" in r.stdout, str(r.returncode))
     for args, text in ((["--json", "-x"], "--json cannot be combined"),
@@ -58,10 +59,12 @@ def test_help_and_mistakes() -> None:
                        (["--restart"], "go with --save"),
                        (["--nested-slides"], "--nested-slides is for sliding puzzles; this is a brick"),
                        (["--partial-nested"], "--partial-nested is for sliding puzzles"),
-                       (["--high-memory"], "--high-memory is for sliding and stacking puzzles"),
-                       (["--panex-dir", "x"], "for stacking puzzles")):
+                       (["--high-memory"], "--high-memory is for sliding and stacking puzzles")):
         r = run(*args, CUBE)
         check(f"refused {args}", r.returncode == 2 and text in r.stderr, f"{r.returncode} {r.stderr!r}")
+    # burrTxt ignored the Panex options on other puzzles
+    r = run("-q", "--panex-dir", "x", "--panex-disk", "1", CUBE)
+    check("--panex-dir on a brick puzzle", r.returncode == 0, f"{r.returncode} {r.stderr!r}")
     r = run("-t", "x", CUBE)
     check("-t not a number", r.returncode == 2 and r.stdout == "-t requires a non-negative number\n",
           repr(r.stdout))
@@ -71,15 +74,56 @@ def test_help_and_mistakes() -> None:
 
 def test_stacking() -> None:
     f = PUZZLES / "test_stacking_hanoi.xmpuzzle"
-    r = run("-q", f)
-    check("stacking refused", r.returncode == 1 and
-          r.stdout == "The puzzles contains features not yet supported by burrTxt\n" and
-          "cannot be solved yet" in r.stderr, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
-    r = run("--json", f)
-    check("stacking refused --json", r.returncode == 1 and r.stdout == "", r.stdout)
-    check("stacking -a c", run("-a", "c", f).returncode == 0)
-    r = run("-R", f)
-    check("stacking -R", r.returncode == 2 and "-R and -C are for brick puzzles" in r.stderr, r.stderr)
+    swap = PUZZLES / "stacking" / "stack_panex_swap_3.xmpuzzle"
+    with tempfile.TemporaryDirectory() as tmp:
+        # a Panex folder of the test's own, never the user's cache
+        env = ["--panex-dir", str(Path(tmp) / "panex")]
+        r = run("-q", *env, f)
+        check("stacking without -d", r.returncode == 0 and
+              r.stdout.startswith("1 assemblies and 0 solutions found in ") and
+              r.stdout.endswith(" seconds (use -d to search for the moves)\n"), repr(r.stdout))
+        r = run("-d", "-q", *env, f)
+        check("stacking -d", r.returncode == 0 and "1 assemblies and 1 solutions" in r.stdout and
+              "stack search: 7 moves deep" in r.stdout, repr(r.stdout))
+        r = run("--json", *env, f)
+        check("stacking --json", r.returncode == 0 and
+              json.loads(r.stdout) | {"solvetime": 0} == {"assemblies": 1, "solutions": 1, "dotlevel": "7",
+                                                         "level": 7, "totalmoves": 7, "solvetime": 0},
+              r.stdout)
+        r = run("-dp", *env, f)
+        check("stacking -p", "level: 7\n" in r.stdout and "  1: S3 from rod 1 to rod 3\n" in r.stdout and
+              "  7: S3 from rod 1 to rod 3\n" in r.stdout, r.stdout[-300:])
+        r = run("-d", "--solver", "panex", *env, f)
+        check("Panex Solver without Panex columns", r.returncode == 2 and "Panex Style Columns" in r.stderr,
+              f"{r.returncode} {r.stderr!r}")
+        r = run("-d", "-q", "--solver", "Panex Solver", *env, swap)
+        check("Panex Solver", r.returncode == 0 and "panex search: 42 moves deep" in r.stdout, r.stdout)
+        # --restart throws a saved search away: it goes without --save here
+        r = run("-d", "-q", "--restart", *env, swap)
+        check("--restart on a stacking puzzle", r.returncode == 0 and "stack search: 42 moves deep" in r.stdout,
+              f"{r.returncode} {r.stderr!r}")
+        check("no saved search left", not any((Path(tmp) / "panex").glob("*/state.bin")))
+        check("stacking -a c", run("-a", "c", f).returncode == 0)
+        r = run("-R", f)
+        check("stacking -R", r.returncode == 2 and "-R and -C are for brick puzzles" in r.stderr, r.stderr)
+
+        # --save: the GUI's Solve as a session runs it (burrTxt2 had no
+        # stacking solver), then -a and -x on the file it wrote
+        out = Path(tmp) / "hanoi.xmpuzzle"
+        r = run("--save", out, "-d", *env, f)
+        check("stacking --save", r.returncode == 0 and "problem 0: 1 assemblies and 1 solutions" in r.stdout,
+              f"{r.returncode} {r.stdout!r} {r.stderr!r}")
+        r = run("--save", out, "-d", *env, out)
+        check("stacking --save again", "is already solved" in r.stdout and "use --restart" in r.stdout, r.stdout)
+        r = run("--save", out, "--restart", "-d", *env, out)
+        check("stacking --save --restart", "1 assemblies and 1 solutions" in r.stdout, r.stdout)
+        r = run("-a", "s1", out)
+        check("stacking -a s1", r.returncode == 0 and r.stdout == "problem 0\n001: S1 S2 S3 \n", repr(r.stdout))
+        r = run("-x", "-p", out)
+        check("stacking -x", r.stdout.startswith("level: 7\n  1: S3 from rod 1 to rod 3\n"), r.stdout[:80])
+        r = run("--save", out, *env, f)
+        check("stacking --save without -d", r.returncode == 1 and "Could not start Solver" in r.stdout and
+              "Turn on Find Solutions" in r.stderr, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
 
 
 def test_sliding() -> None:

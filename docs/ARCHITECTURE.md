@@ -30,7 +30,11 @@ through the solve session, routes in the playback, the `sliding.*`
 methods, decision 0014), audited; part 2, the sliding front end (the
 start/goal editor, the sliding solver options, the trays and the walls in
 3D, the notices, New offering the sliding grid; docs/webui-spec.md section
-8). Next: part 3, stacking and Panex in the core, the engine and `bt`.*
+8); part 3a, stacking and Panex puzzles in the core and `bt` (rod sets and
+stacks modelled, the Stacking Solver's search, the Panex search with its
+saved searches, blockpack, stacking solves through the solve session, the
+playback in transfers, the paused-solve file's saved searches, decision
+0015). Next: part 3b, stacking in the document's commands and the engine.*
 
 ## Big picture
 
@@ -107,7 +111,8 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
   `GridType`, a small value type: capabilities, `getSymmetries()`, and
   `makeVoxel()`, the factory for voxel spaces. The sliding and stacking
   grids are cube spaces; sliding puzzles are solved (model's `sliding.h`,
-  solve's slide search), stacking ones load and save, their solver later.
+  solve's slide search), and stacking ones (model's `stacking.h`, solve's
+  stacking and Panex searches).
 - `voxel.h`: `Voxel`, the abstract voxel space: cells (state + colour per
   byte), bounding box, hotspot, name, weight, the per-transformation hotspot
   and bounding-box queries, comparison, connectivity, and the editing
@@ -152,14 +157,20 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 `disassembly.cpp`; checked value for value against the original
 (`tests/data/model_dump.txt`).
 - `puzzle.h`: `Puzzle`: grid, shapes (`ClonePtr<Voxel>`), constraint
-  colours, problems, comment. Copying copies everything. Removing or
+  colours, problems, comment, and a stacking puzzle's rod sets
+  (`stacking::RodSet`; one made with the puzzle, or with its reading when
+  the file has none; `removeRodSet` and `exchangeRodSets` renumber the
+  problems'). Copying copies everything. Removing or
   swapping shapes goes through the puzzle, which updates every problem.
   `replaceShape` puts another voxel space in a shape's place (undo).
 - `problem.h`: `Problem`: parts (`Part`: shape, min, max, groups), result
   and goal shape, colour rules, max holes, `ProblemState`, counts and time,
   the saved search position (`getAssemblerState()`/`Version()`,
   `setAssemblerState()`: the text an assembler wrote, see `solve`), pending
-  assemblies, saved solutions with their sort orders, solver options. A problem holds no reference to its puzzle: what needs
+  assemblies, saved solutions with their sort orders, solver options, and
+  a stacking problem's rod set and start and goal stacks
+  (`stacking::StackMap`, kept in step when a shape goes, two swap or a
+  count is lowered: `trimStacks`). A problem holds no reference to its puzzle: what needs
   shapes or colours takes the `Puzzle` (`resultShape(puzzle)`,
   `placementAllowed(puzzle, ...)`, `setShapeMaximum(puzzle, ...)`).
   Pieces are numbered part by part; assemblies and solutions follow that
@@ -190,6 +201,18 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   (`ensureSetup`, `placeStart`, `placeGoal`), and `prepareForSolving`
   (the maximum of holes and the start locks, what the solve thread set up
   as a run started).
+- `stacking_types.h` and `stacking.h` (deferred part 3a, decision 0015;
+  `stacking.{h,cpp}` but its search): a stacking puzzle's boards
+  (`RodSet`: rods, height, the size and distance rules, Panex columns
+  with a pocket and an outside channel; `totalRods`, `isPocket`,
+  `rodPosition`, `rodCapacity`), its discs (shapes one cell thick whose
+  size is their radius: `generateDisk`, `addDisk`, `ensureHotspot`,
+  `placeSolvingHotspot`), the stacks (`DiskRef`, `StackMap`; `syncMaps`,
+  `placeDisk`, `liftTop`, `moveDisk`, `dropInstance`), `setupError` (the
+  validity bar's sentence), `layoutBoard` (where rods and discs stand),
+  and what the searches read and make (`discsOf`, `moveAllowed`,
+  `searchInput`, `pathSeparation`: three frames a transfer, lift, cross
+  and drop; `logicalMoves`, `startAssembly`, `boardSpan`).
 
 The model has no locks and no atomics (the original's problem had both for
 its solver thread). While a `SolveSession` runs, it alone writes its
@@ -208,12 +231,21 @@ solve).
 - `gzip_file.h`: whole-file reading and writing through zlib (level 9),
   and the same in memory (`gzipCompress`, `gunzipIfCompressed`).
 - `paused_solve.h`: the paused solve file (`.btsolve`, the original's
-  BTSOLVE2: the gzip-compressed puzzle and the paused problem's number in
-  little-endian sections; other sections skipped), both ways.
+  BTSOLVE2: the gzip-compressed puzzle, the paused problem's number, and a
+  stacking solve's saved search as `searchz/<name>` sections packed by
+  blockpack, in little-endian sections; other sections skipped), both
+  ways, streamed (a saved search's levels can be gigabytes): written
+  through `writeFileStreamed` (a seekable stream on the exclusive
+  temporary file), read section by section into the folder an import is
+  told.
+- `blockpack.h` (deferred part 3a): files packed in chunks on a pool's
+  threads, sorted 16-byte keys as variable-length gaps, byte for byte the
+  original's packing.
 
 Unknown attributes and elements of `<puzzle>`, `<problem>` and `<solution>`,
-and unknown `<voxel>` attributes, are kept and written back in place;
-stacking rod sets and maps are kept this way until stacking is ported.
+and unknown `<voxel>` attributes, are kept and written back in place.
+Stacking rod sets and stacks are modelled (decision 0015) and written as
+the original wrote them; what it dropped of them is dropped.
 Saves are byte-identical to the original's. A file is written beside its
 place (`<file>.tmp`) and renamed over it once whole, puzzle and paused
 solve alike (`writeFileWhole`, `replaceWith`; the original's
@@ -406,6 +438,43 @@ the solved files state by state, the text, the routes).
   everything searched) and the progress has stage `Other` with `searched`
   and `searchDepth`. Take-apart workers are not used.
 
+**The stacking searches** (deferred part 3a, decision 0015). Ported from
+`stacking.cpp`'s search and `panex.{h,cpp}`; checked by the harness (the
+`stacking` tier for both solvers: the summaries, the solved files state
+by state, the text; `panex-resume`: searches stopped in one program at a
+sweep of depths and carried on in the other, the saved folders byte for
+byte alike).
+- `stack_search.h`: `findStackPath` (the Stacking Solver's own breadth-
+  first search over stackings, packed keys or text keys, up to a memory
+  budget; `StackSearch`, `StackOutcome`), and the stacking solve's
+  options (`StackingSolver`, `StackingOptions`: the solver, high memory,
+  the search's autosave, the work folder and disk budget, the tower rule).
+- `panex_search.h`: the Panex search (`panex::solve`, `PanexSearch`,
+  `Outcome`): 128-bit keys, level by level from both ends (one end and
+  its mirror image for a swap, twin stackings folded), the newest levels
+  in memory as sorted arrays, every few levels on disk once they outgrow a
+  quarter of the budget (thinned to a disk budget), the path traced back
+  between them, or each half solved again when there is no folder; the
+  classic tower answered by its recursion; a stop (or the memory) saves
+  the search in its folder (`BTPANEX4`, the original's bytes), and
+  `resume` carries it on; `unsupported`, `savedSearch`, `savedMs`,
+  `searchFolder`, `discardSaved`. Its steps run on a `ThreadPool` (slices
+  taken from a counter, the newest level written by the next level's first
+  job, the pool a core larger than the levels' threads for it, as the
+  original had a writer thread); any number of threads gives the same path.
+- In `SolveSession`, a stacking problem runs as the solve thread's
+  `runStacking` ran it: no assembler, one start searched (the Panex search
+  when the Panex Solver is asked for or the puzzle fits it, else
+  `findStackPath`), the path the one solution with the start stacking as
+  its assembly, `note()` the original's notes, the progress stage `Other`
+  with the stackings found, the depth and the moves traced back
+  (`searchTraced`, `panexSearch`). Launch checks what Continue checked and
+  sets the discs' hotspots (only those elsewhere); `start()` throws a
+  saved search away first, `resume()` carries it on, `abort()` throws it
+  away; a stopped search ends the run Paused (the problem written as the
+  solve thread left it: solved, one start, no solution). `prepare()` is
+  refused and a save point does nothing (the search saves itself).
+
 **The solve session** (stage 5, decision 0010). Ported from `solvethread.{h,cpp}`,
 `solveprogress.h` and the parts of the original GUI that drove the solve
 thread (Solve, Prepare, Continue, Abort, the autosave pause,
@@ -533,7 +602,14 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   the original greyed out or hid is refused (the result, groups, the count
   of a piece a stamp requires, new, copied and deleted problems, deleted
   colours); `solveLaunch` sets up the start locks as part of the run (no
-  undo step), after its checks.
+  undo step), after its checks. Stacking puzzles (decision 0015) solve
+  through the same calls with `SolveOptions.stacking` (the discs' hotspots
+  put at their centres before the first run, with the others' reset); a
+  paused stacking solve is a saved search in the work folder, which
+  `exportPaused` (`PausedExport`: the folder, the levels or not) and
+  `importPaused` (the folder) carry in the file; the analysis and the
+  explorers refuse them in the grid's words (no take-apart, no
+  assembler). The stacking editing commands come with part 3b.
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
@@ -561,7 +637,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   pivots; `track()` the keyframes with holds and reassembly), over
   `DisasmToMoves`; a solution without its disassembly is the assembled
   pose alone (`stepCount()` 0), so every solution plays through one path.
-  A sliding solution follows its routes (`applySlideRoutes`).
+  A sliding solution follows its routes (`applySlideRoutes`); a stacking
+  solution's steps are its transfers (three frames each), its frames
+  places, and its poses are centred on its board (`stackingCentre`).
   `orientedMesh(shape, transformation, style)`: a shape's mesh turned by
   a transformation of its grid (the piece meshes, and
   `Document::shapeMesh` with a transformation: how a placement is drawn:
@@ -694,9 +772,14 @@ byte, `just oracle-files` solves with `--save`).
   after the summary; `-x` and `--save` too, through a `SolveSession`);
   the full search's folder and disk budget come from
   `BURRTOOLS_SLIDE_DIR` and `BURRTOOLS_SLIDE_DISK_GB`, which the CLI reads
-  (the core reads no environment). Stacking puzzles are refused with
-  burrTxt's message for a puzzle it cannot handle (their files load, and
-  `-a` reads them).
+  (the core reads no environment). Stacking puzzles solve as burrTxt
+  solved them (deferred part 3a: `--solver` stacking or panex,
+  `--high-memory`, `--restart` throwing a saved search away,
+  `--panex-dir` and `--panex-disk`, else `BURRTOOLS_PANEX_DIR` and
+  `BURRTOOLS_PANEX_DISK_GB`, else the cache folder's `panex`; Ctrl-C stops
+  a Panex search, which saves itself, and a second quits; the summary and
+  search lines, `-p` the transfer plan, `-x`, `--save` through a session;
+  the A/B switches `--no-tower-rule` and `--panex-log`).
   The core never prints: what the original's library said on stderr
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
@@ -1418,6 +1501,17 @@ the tray in Walls, Start and Goal, the two trays and the walls).
   thread through `slide_solve_old`) and the text; puzzles whose count
   depends on the order of their starts are compared on one thread (flag
   `O`: the original is not deterministic there).
+  The `stacking` tier (deferred part 3a) has the stacking fixtures and
+  puzzles built by the original's code (`oracle.py stacking-puzzles`, from
+  its `test_stacking.cpp`), compared for both solvers (the default
+  Stacking Solver, `--solver panex`) in the summary, the solved files (the
+  original's solve thread through `stack_solve_old`) and the text; each run
+  gets a Panex folder of its own (never the user's cache).
+  `oracle.py panex-resume` stops Panex searches in one program at a sweep
+  of depths (`panex_resume_old` and `bt_panex_resume`, `stopAtDepth`) and
+  carries them on in both (the saved folders byte for byte the same, the
+  solving time aside); `oracle.py blockpack-check` packs with one
+  program's blockpack and unpacks with the other's.
 - `tests/bench/bench.py` times `bt` against the original's `burrTxt`, back
   to back (decision 0007's speed rule; stage 8 is the gate).
 - The unit tests compare with those recordings (`test_grid_dump.cpp`,

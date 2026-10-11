@@ -74,7 +74,10 @@ gated increment:
   bind the sliding and stacking API too.
 - Each part is one fresh session. If a part runs long, it may stop at a
   clean point with a handoff note (e.g. 3a: stacking + stack search,
-  3b: Panex + blockpack + saved searches).
+  3b: Panex + blockpack + saved searches). Part 3 was split by layer
+  instead (3a the core and `bt`, 3b the document's commands and the
+  engine): the original's Stacking Solver runs on the Panex search, so
+  the two searches go together (docs/handoff/deferred-3a.md).
 
 ## Rules every part follows
 Read first, in this order:
@@ -165,7 +168,12 @@ In this order:
 - [x] Audit of part 1 (2026-10-10; the Audit section of docs/handoff/deferred-1.md)
 - [x] **Part 2**: sliding: front end (2026-10-10; docs/handoff/deferred-2.md)
 - [ ] **Part 3**: stacking and Panex: core, engine, CLI
-- [ ] Audit of part 3
+  - [x] 3a: the core and `bt` (the model, the stacking and Panex searches,
+    blockpack, stacking solves, the paused-solve file's saved searches,
+    the playback in transfers; the oracle's stacking tier; 2026-10-10;
+    docs/handoff/deferred-3a.md, decision 0015)
+  - [ ] 3b: the document's stacking commands and the engine
+- [ ] Audit of part 3 (3a and 3b together)
 - [ ] **Part 4**: stacking and Panex: front end
 - [ ] **Part 5**: STL meshes and exports
 - [ ] **Part 6**: imports, Puzzlecad export, grid conversion

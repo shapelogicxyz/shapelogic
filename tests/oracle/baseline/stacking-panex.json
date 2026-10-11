@@ -1,0 +1,112 @@
+{
+ "alpha:tests/data/puzzles/stacking/stack_panex_channel_2.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "9",
+  "level": 9,
+  "totalmoves": 9,
+  "solvetime": 0.0,
+  "wall": 0.007
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_channel_3.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "21",
+  "level": 21,
+  "totalmoves": 21,
+  "solvetime": 0.0,
+  "wall": 0.007
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_channel_4.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "45",
+  "level": 45,
+  "totalmoves": 45,
+  "solvetime": 0.005,
+  "wall": 0.015
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_jr.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "143",
+  "level": 143,
+  "totalmoves": 143,
+  "solvetime": 0.001,
+  "wall": 0.006
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_jr_no_pocket.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 0,
+  "dotlevel": null,
+  "level": null,
+  "totalmoves": null,
+  "solvetime": 0.0,
+  "wall": 0.005
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_jr_pocket_2.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "26",
+  "level": 26,
+  "totalmoves": 26,
+  "solvetime": 0.001,
+  "wall": 0.005
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_2.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "13",
+  "level": 13,
+  "totalmoves": 13,
+  "solvetime": 0.0,
+  "wall": 0.006
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_3.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "42",
+  "level": 42,
+  "totalmoves": 42,
+  "solvetime": 0.0,
+  "wall": 0.005
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_4.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "128",
+  "level": 128,
+  "totalmoves": 128,
+  "solvetime": 0.005,
+  "wall": 0.009
+ },
+ "alpha:tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle": {
+  "flags": "-",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "343",
+  "level": 343,
+  "totalmoves": 343,
+  "solvetime": 0.091,
+  "wall": 0.096
+ },
+ "examples/PanexLevel3to10.xmpuzzle": {
+  "flags": "L",
+  "assemblies": 1,
+  "solutions": 1,
+  "dotlevel": "42",
+  "level": 42,
+  "totalmoves": 42,
+  "solvetime": 0.001,
+  "wall": 0.108
+ }
+}

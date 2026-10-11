@@ -25,15 +25,18 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import contextlib
 import glob
 import gzip
 import hashlib
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -99,13 +102,36 @@ def load_corpus(old_repo: Path) -> list[Entry]:
 # default, runs both CLIs without --solver, which for a sliding puzzle is
 # the full search.
 SLIDING_SOLVERS = ("fast", "deep", "full")
+# The stacking tier's other solver (`--tier stacking --solver panex`);
+# "classic", the default, runs the Stacking Solver.
+STACKING_SOLVERS = ("panex",)
+
+
+@contextlib.contextmanager
+def panex_env(entry: "Entry"):
+    """The environment of a run: for a stacking puzzle, a Panex folder of
+    the run's own (BURRTOOLS_PANEX_DIR), removed afterwards, so neither the
+    user's cache nor another run's saved search is ever touched or carried
+    on. None for other puzzles (the inherited environment)."""
+    if entry.tier != "stacking":
+        yield None
+        return
+    root = WORK_DIR / "panex-tmp"
+    root.mkdir(parents=True, exist_ok=True)
+    folder = Path(tempfile.mkdtemp(dir=root))
+    try:
+        yield {**os.environ, "BURRTOOLS_PANEX_DIR": str(folder)}
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
 
 
 def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
            solver: str = "classic") -> list[Entry]:
     """The entries of the tiers, those the solver runs on: the brick solvers
-    on the brick tiers, the sliding ones on the sliding tier; a sliding
-    entry flagged L (a full search would not end) not with the full search."""
+    on the brick tiers, the sliding ones on the sliding tier, the stacking
+    ones on the stacking tier; a sliding entry flagged L (a full search would
+    not end) not with the full search, a stacking one flagged Q (no Panex
+    columns) not with the Panex Solver."""
     wanted = set(tiers)
     if "all" in wanted:
         wanted = (wanted - {"all"}) | {"fast", "full", "slow"}
@@ -114,11 +140,18 @@ def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
         if e.tier not in wanted or (name_filter and name_filter not in e.rel):
             continue
         if e.tier == "sliding":
-            if solver in ("crowell", "bt2"):
+            if solver in ("crowell", "bt2", *STACKING_SOLVERS):
                 continue
             if "L" in e.flags and solver in ("classic", "full"):
                 continue
-        elif solver in SLIDING_SOLVERS:
+        elif e.tier == "stacking":
+            # the Stacking Solver (classic) on all, the Panex Solver on the
+            # puzzles it takes (not Q)
+            if solver not in ("classic", *STACKING_SOLVERS):
+                continue
+            if "Q" in e.flags and solver == "panex":
+                continue
+        elif solver in SLIDING_SOLVERS or solver in STACKING_SOLVERS:
             continue
         out.append(e)
     return out
@@ -174,7 +207,9 @@ def run_json(binary: Path, puzzle: Path, entry: Entry, timeout: float, old: bool
             else [str(binary), *cli_args(entry, threads, solver), str(puzzle)])
     start = time.monotonic()
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+        with panex_env(entry) as env:
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False,
+                                  env=env)
     except subprocess.TimeoutExpired:
         return {"error": f"timeout after {timeout:.0f}s"}
     wall = round(time.monotonic() - start, 3)
@@ -336,16 +371,24 @@ def slide_solve_flags(entry: Entry, solver: str) -> list[str]:
 def cmd_baseline_files(args: argparse.Namespace) -> int:
     """Solve each puzzle with the original burrTxt2, keeping its solved file;
     sliding puzzles with the original's solve thread (slide_solve_old.cpp),
-    as burrTxt2 refuses -d on their grid."""
+    as burrTxt2 refuses -d on their grid, and stacking ones too
+    (stack_solve_old.cpp: burrTxt2 has no stacking solver)."""
     entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    # a stacking puzzle whose setup is not ready (I): the GUI refused to solve it
+    entries = [e for e in entries if "I" not in e.flags]
     old_bin = args.old_repo / "build" / "burrTxt2"
-    if any(e.tier != "sliding" for e in entries) and not old_bin.exists():
+    if any(e.tier not in ("sliding", "stacking") for e in entries) and not old_bin.exists():
         print(f"original burrTxt2 not found at {old_bin}", file=sys.stderr)
         return 2
     slide_tool = WORK_DIR / "slide_solve_old"
     if any(e.tier == "sliding" for e in entries):
         WORK_DIR.mkdir(exist_ok=True)
         if not build_against_old(args.old_repo, HERE / "slide_solve_old.cpp", slide_tool):
+            return 2
+    stack_tool = WORK_DIR / "stack_solve_old"
+    if any(e.tier == "stacking" for e in entries):
+        WORK_DIR.mkdir(exist_ok=True)
+        if not build_against_old(args.old_repo, HERE / "stack_solve_old.cpp", stack_tool):
             return 2
     out_root = files_dir("old", args.solver)
     for n, e in enumerate(entries, 1):
@@ -357,6 +400,9 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
             # every solution kept, one thread: one order of the starts
             argv = [str(slide_tool), str(dst), str(dst) + "ttt", "-d", "--limit", "0",
                     *slide_solve_flags(e, args.solver)]
+        elif e.tier == "stacking":
+            argv = [str(stack_tool), str(dst), str(dst) + "ttt", "-d",
+                    *(["--panex"] if args.solver == "panex" else [])]
         else:
             # -R starts over (a file may hold solutions or a paused search);
             # "A" grids have no take-apart, -d makes the original abort on them
@@ -364,8 +410,9 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
                      + solver_args(args.solver))
             argv = [str(old_bin), *flags, str(dst)]
         try:
-            proc = subprocess.run(argv, capture_output=True, text=True,
-                                  timeout=args.timeout, check=False)
+            with panex_env(e) as env:
+                proc = subprocess.run(argv, capture_output=True, text=True,
+                                      timeout=args.timeout, check=False, env=env)
             status = "ok" if proc.returncode == 0 else f"exit {proc.returncode}"
         except subprocess.TimeoutExpired:
             status = "timeout"
@@ -453,12 +500,17 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
         # solution kept, the full search unless the solver says
         flags = ["-q", "--restart", "-t", "1", "-d", "--limit", "0", *solver_args(args.solver),
                  *flag_args(e)]
+    elif e.tier == "stacking":
+        # the solve thread's stacking run (stack_solve_old)
+        flags = ["-q", "--restart", "-d", *solver_args(args.solver)]
     else:
         # every solution is kept when taking apart (see compare_solved); saved
         # assemblies are not compared and keep the solve thread's limit
         flags = (["-q", "--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
                  + (["-R"] if "R" in e.flags else []) + solver_args(args.solver))
-    err = run_tool([str(args.new_bt), "--save", str(new_file), *flags, str(new_in)], args.timeout)
+    with panex_env(e) as env:
+        err = run_tool([str(args.new_bt), "--save", str(new_file), *flags, str(new_in)], args.timeout,
+                       env)
     if err:
         return {"status": "NEW FAILED", "detail": err}
     try:
@@ -466,7 +518,8 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
         new = read_solutions(args.dump_tool, new_file, args.timeout)
     except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         return {"status": "MISMATCH", "detail": f"cannot read: {exc}"}
-    diff = compare_solved_exactly(old, new) if e.tier == "sliding" else compare_solved(old, new, "A" in e.flags)
+    diff = (compare_solved_exactly(old, new) if e.tier in ("sliding", "stacking")
+            else compare_solved(old, new, "A" in e.flags))
     if diff:
         return {"status": "MISMATCH", "detail": diff}
     po = old["problems"][0]
@@ -481,6 +534,7 @@ def cmd_compare_files(args: argparse.Namespace) -> int:
             print(f"{tool} not found: build the release preset", file=sys.stderr)
             return 2
     entries = select(load_corpus(args.old_repo), args.tier, args.filter, args.solver)
+    entries = [e for e in entries if "I" not in e.flags]
     results: dict[str, dict] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = {pool.submit(compare_files_one, e, args): e for e in entries}
@@ -533,6 +587,17 @@ def text_runs(e: Entry) -> list[tuple[str, list[str], str]]:
                 ("retake-saved", [*one, "-x", *nest], "corpus"),
                 ("ask", ["-a", "s1"], "solved"),
                 ("comment", ["-a", "c"], "corpus")]
+    if e.tier == "stacking":
+        # -o all not on puzzles whose further problems run for hours (L);
+        # no solved file for a setup that is not ready (I)
+        solved = [] if "I" in e.flags else [("retake", [*one, "-x", "-sp"], "solved"),
+                                             ("ask", ["-a", "s1"], "solved")]
+        return [("solve", [*one, "-dsp"], "corpus"),
+                ("quiet", [*one, "-q", "-n", "-r", "-d"], "corpus"),
+                *([("all", [*one, "-q", "-o", "all", "-d"], "corpus")] if "L" not in e.flags else []),
+                *solved,
+                ("retake-saved", [*one, "-x"], "corpus"),
+                ("comment", ["-a", "c"], "corpus")]
     if "A" in e.flags:
         # no -d: the original's take-apart aborts on these grids
         return [("solve", [*one, "-s"], "corpus"),
@@ -553,8 +618,9 @@ def text_runs(e: Entry) -> list[tuple[str, list[str], str]]:
 def text_input(e: Entry, where: str, old_repo: Path, solver: str = "classic") -> Path:
     if where == "corpus":
         return entry_path(old_repo, e.rel)
-    # a sliding puzzle's solved file is its solver's (slide_solve_old)
-    side = solver if e.tier == "sliding" else "classic"
+    # a sliding or stacking puzzle's solved file is its solver's
+    # (slide_solve_old, stack_solve_old)
+    side = solver if e.tier in ("sliding", "stacking") else "classic"
     return files_dir("old", side) / (work_name(e.rel) + "ttt")
 
 
@@ -566,11 +632,13 @@ def text_baseline_path(tier: str, solver: str) -> Path:
     return BASELINE_DIR / (f"text-{tier}.json" if solver == "classic" else f"text-{tier}-{solver}.json")
 
 
-def run_text(binary: Path, args: list[str], puzzle: Path, timeout: float, old: bool) -> dict:
+def run_text(binary: Path, args: list[str], puzzle: Path, timeout: float, old: bool,
+             entry: "Entry | None" = None) -> dict:
     """One run: its normalised stdout and stderr, and the exit code."""
     argv = [str(binary), *args, *([] if old else ["--original-drawings"]), str(puzzle)]
     try:
-        proc = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
+        with (panex_env(entry) if entry is not None else contextlib.nullcontext()) as env:
+            proc = subprocess.run(argv, capture_output=True, timeout=timeout, check=False, env=env)
     except subprocess.TimeoutExpired:
         return {"error": f"timeout after {timeout:.0f}s"}
     out = TEXT_TIME_RE.sub(b"in T seconds", proc.stdout)
@@ -624,7 +692,7 @@ def cmd_baseline_text(args: argparse.Namespace) -> int:
 
     def one(job):
         e, name, a, puzzle = job
-        r = run_text(old_bin, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=True)
+        r = run_text(old_bin, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=True, entry=e)
         if "error" not in r:
             base = store / f"{work_name(e.rel)}.{name}"
             base.parent.mkdir(parents=True, exist_ok=True)
@@ -685,7 +753,8 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
             return job, "OLD FAILED", want["error"]
         if not puzzle.exists():
             return job, "NO INPUT", f"{puzzle} (run baseline-files --tier all)"
-        r = run_text(args.new_bt, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=False)
+        r = run_text(args.new_bt, [*a, *solver_args(args.solver)], puzzle, args.timeout, old=False,
+                     entry=e)
         got = text_digest(r)
         if "error" in got:
             return job, "NEW FAILED", got["error"]
@@ -706,7 +775,8 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
         base.with_name(base.name + ".err").write_bytes(r["err"])
         detail = ", ".join(diffs)
         if "exit" in diffs:
-            detail += f" (exit {want['exit']} != {got['exit']})"
+            detail += (f" (exit {want.get('exit', 'signal ' + str(want.get('crashed')))} != "
+                       f"{got.get('exit', 'signal ' + str(got.get('crashed')))})")
         for k in ("out", "err"):
             old_file = old_store / f"{work_name(e.rel)}.{name}.{k}"
             if k in diffs and old_file.exists():
@@ -906,10 +976,11 @@ def first_difference(a, b, where="") -> str:
     return ""
 
 
-def run_tool(argv: list[str], timeout: float) -> str | None:
+def run_tool(argv: list[str], timeout: float, env: dict | None = None) -> str | None:
     """None on success, else the error text."""
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False,
+                              env=env)
     except subprocess.TimeoutExpired:
         return "timeout"
     if proc.returncode != 0:
@@ -959,7 +1030,7 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
         return 2
 
     files: list[tuple[str, Path]] = []
-    for e in select(load_corpus(args.old_repo), ["all", "sliding"], args.filter):
+    for e in select(load_corpus(args.old_repo), ["all", "sliding", "stacking"], args.filter):
         files.append((e.rel, entry_path(args.old_repo, e.rel)))
     for rel in ROUNDTRIP_EXTRA:
         if not args.filter or args.filter in rel:
@@ -1294,6 +1365,230 @@ def cmd_record_slide_routes(args: argparse.Namespace) -> int:
     return 0
 
 
+STACKING_FIXTURES = FIXTURES / "stacking"
+
+
+def cmd_stacking_puzzles(args: argparse.Namespace) -> int:
+    """Make the stacking puzzles of the original's test_stacking.cpp (and a
+    few more) with the original's code: tests/data/puzzles/stacking/ (the
+    stacking tier's generated part)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "stacking_puzzles_old"
+    if not build_against_old(args.old_repo, HERE / "stacking_puzzles_old.cpp", exe):
+        return 2
+    proc = subprocess.run([str(exe), str(STACKING_FIXTURES)], capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        print(proc.stderr, file=sys.stderr)
+        return 1
+    names = proc.stdout.split()
+    print(f"wrote {len(names)} puzzles into {STACKING_FIXTURES.relative_to(REPO)}")
+    return 0
+
+
+# Panex searches for panex-resume: (puzzle, problem, solver). They take a
+# second or less each; Panex 6 of the example file goes 881 moves deep.
+PANEX_RESUME_SET = (
+    ("alpha:tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle", 0, "panex"),
+    ("alpha:tests/data/puzzles/stacking/stack_panex_jr.xmpuzzle", 0, "panex"),
+    ("alpha:tests/data/puzzles/stacking/stack_panex_channel_4.xmpuzzle", 0, "panex"),
+    ("alpha:tests/data/puzzles/stacking/stack_plain_r1_n6.xmpuzzle", 0, "stacking"),
+    ("examples/PanexLevel3to10.xmpuzzle", 3, "panex"),
+)
+# (keepLimit, diskBudget, threads): the levels kept in memory; kept on disk
+# only, every level; kept on disk thinned out to every few levels.
+PANEX_RESUME_MODES = ((0, 0, 1), (10, 0, 4), (10, 20000, 4))
+# where the milliseconds of solving lie in state.bin (BTPANEX4): the one
+# thing the two programs save differently
+PANEX_STATE_MS = slice(36, 44)
+
+
+def run_panex_tool(tool: Path, args: list[str], timeout: float) -> dict:
+    """Run panex_resume_old / bt_panex_resume: its fields, the path's frames."""
+    try:
+        proc = subprocess.run([str(tool), *args], capture_output=True, text=True, timeout=timeout,
+                              check=False)
+    except subprocess.TimeoutExpired:
+        return {"error": "timeout"}
+    if proc.returncode != 0:
+        return {"error": (proc.stderr or proc.stdout).strip()[-200:] or f"exit {proc.returncode}"}
+    out: dict = {"states": []}
+    for line in proc.stdout.splitlines():
+        key, _, rest = line.partition(" ")
+        if key == "STATE":
+            out["states"].append(rest)
+        elif key == "FOLDER":
+            out["folder"] = Path(rest).name
+        else:
+            out[key.lower()] = rest
+    return out
+
+
+def saved_files(folder: Path) -> dict[str, bytes]:
+    """A saved search's files, state.bin without its solving time."""
+    files = {}
+    for f in sorted(folder.iterdir()) if folder.exists() else []:
+        data = f.read_bytes()
+        if f.name == "state.bin":
+            data = data[:PANEX_STATE_MS.start] + bytes(8) + data[PANEX_STATE_MS.stop:]
+        files[f.name] = data
+    return files
+
+
+def cmd_panex_resume(args: argparse.Namespace) -> int:
+    """Stop Panex searches in one program and carry them on in the other;
+    both must save the same files and find the same paths."""
+    WORK_DIR.mkdir(exist_ok=True)
+    old_tool = WORK_DIR / "panex_resume_old"
+    if not build_against_old(args.old_repo, HERE / "panex_resume_old.cpp", old_tool):
+        return 2
+    if not args.new_tool.exists():
+        print(f"new bt_panex_resume not found at {args.new_tool}", file=sys.stderr)
+        return 2
+    tools = {"old": old_tool, "new": args.new_tool}
+    root = WORK_DIR / "panex-resume"
+    rng = random.Random(3)
+    checks = failures = 0
+
+    def folder(name: str) -> Path:
+        p = root / name
+        shutil.rmtree(p, ignore_errors=True)
+        p.mkdir(parents=True)
+        return p
+
+    def same(a: dict, b: dict) -> str:
+        diff = [k for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)]
+        return ", ".join(diff)
+
+    for rel, problem, solver in PANEX_RESUME_SET:
+        if args.filter and args.filter not in rel:
+            continue
+        puzzle = str(entry_path(args.old_repo, rel))
+        for keep, disk, threads in PANEX_RESUME_MODES:
+            mode = f"keep {keep}, disk {disk}, {threads} thread(s)"
+            base = lambda work: [puzzle, str(problem), str(work), solver, str(keep), str(disk), str(threads)]
+            full = {k: run_panex_tool(t, ["full", *base(folder(f"full-{k}"))], args.timeout)
+                    for k, t in tools.items()}
+            checks += 1
+            if any("error" in r for r in full.values()) or same(full["old"], full["new"]):
+                print(f"MISMATCH     {rel} [{mode}]: the straight searches differ: "
+                      f"{full['old'].get('error') or full['new'].get('error') or same(full['old'], full['new'])}")
+                failures += 1
+                continue
+            depth = int(full["old"]["depth"])
+            stops = {1, depth // 4, depth // 2, 3 * depth // 4, depth - 1}
+            stops |= {rng.randrange(1, max(2, depth)) for _ in range(2)}
+            for stop in sorted(d for d in stops if 0 < d < depth):
+                label = f"{rel} [{mode}] stopped at {stop}"
+                paused = {}
+                for k, t in tools.items():
+                    work = folder(f"pause-{k}")
+                    paused[k] = (work, run_panex_tool(t, ["pause", *base(work), str(stop)], args.timeout))
+                checks += 1
+                po, pn = paused["old"][1], paused["new"][1]
+                if "error" in po or "error" in pn or same(po, pn):
+                    print(f"MISMATCH     {label}: the stops differ: "
+                          f"{po.get('error') or pn.get('error') or same(po, pn)}")
+                    failures += 1
+                    continue
+                if po.get("saved") != "1":
+                    continue  # through before the depth: nothing saved
+                checks += 1
+                fo = saved_files(paused["old"][0] / po["folder"])
+                fn = saved_files(paused["new"][0] / pn["folder"])
+                if fo != fn:
+                    names = sorted(set(fo) ^ set(fn)) or [n for n in fo if fo[n] != fn.get(n)]
+                    print(f"MISMATCH     {label}: the saved searches differ ({', '.join(names[:5])})")
+                    failures += 1
+                    continue
+                # each saved search carried on by both programs
+                results = {}
+                for src in ("old", "new"):
+                    for dst in ("old", "new"):
+                        work = folder(f"resume-{src}-{dst}")
+                        shutil.copytree(paused[src][0], work, dirs_exist_ok=True)
+                        results[(src, dst)] = run_panex_tool(tools[dst], ["resume", *base(work)], args.timeout)
+                first = results[("old", "old")]
+                for key, r in results.items():
+                    checks += 1
+                    if "error" in r or same(first, r) or r.get("moves") != full["old"].get("moves"):
+                        print(f"MISMATCH     {label}: stopped by {key[0]}, carried on by {key[1]}: "
+                              f"{r.get('error') or same(first, r) or 'another length'}")
+                        failures += 1
+                    elif args.verbose:
+                        print(f"ok           {label}: stopped by {key[0]}, carried on by {key[1]}")
+    shutil.rmtree(root, ignore_errors=True)
+    print(f"\n{checks - failures}/{checks} Panex resume checks pass")
+    return 1 if failures else 0
+
+
+def cmd_blockpack_check(args: argparse.Namespace) -> int:
+    """Pack files with one program's blockpack and unpack them with the
+    other's: a saved Panex search's state and levels (as a .btsolve export
+    holds them), and odd files; the packed bytes compared too."""
+    WORK_DIR.mkdir(exist_ok=True)
+    old_tool = WORK_DIR / "blockpack_old"
+    search_tool = WORK_DIR / "panex_resume_old"
+    if not (build_against_old(args.old_repo, HERE / "blockpack_old.cpp", old_tool)
+            and build_against_old(args.old_repo, HERE / "panex_resume_old.cpp", search_tool)):
+        return 2
+    if not args.new_tool.exists():
+        print(f"new bt_blockpack not found at {args.new_tool}", file=sys.stderr)
+        return 2
+    tools = {"old": old_tool, "new": args.new_tool}
+    root = WORK_DIR / "blockpack-check"
+    shutil.rmtree(root, ignore_errors=True)
+    root.mkdir(parents=True)
+    # a saved search: the Panex 5 swap stopped half way, every level on disk
+    work = root / "search"
+    puzzle = REPO / "tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle"
+    out = run_panex_tool(search_tool,
+                         ["pause", str(puzzle), "0", str(work), "panex", "10", "0", "4", "150"],
+                         args.timeout)
+    if "error" in out or out.get("saved") != "1":
+        print(f"could not make a saved search: {out}", file=sys.stderr)
+        return 2
+    files = [(f, f.suffix == ".lvl") for f in sorted((work / out["folder"]).iterdir())]
+    # odd files: random bytes, empty, unsorted keys read as keys
+    rng = random.Random(5)
+    odd = root / "odd.bin"
+    odd.write_bytes(bytes(rng.randrange(256) for _ in range(123457)))
+    empty = root / "empty.bin"
+    empty.write_bytes(b"")
+    unsorted = root / "unsorted.lvl"
+    unsorted.write_bytes(bytes(rng.randrange(256) for _ in range(16 * 5000)))
+    files += [(odd, False), (odd, True), (empty, True), (unsorted, True)]
+    checks = failures = same_bytes = 0
+    for f, keys in files:
+        for chunk in ("0", str(16 * 997)):
+            packed = {}
+            for side, tool in tools.items():
+                p = root / f"{f.name}.{side}.{int(keys)}.{chunk}.btz"
+                err = run_tool([str(tool), "pack", str(f), str(p), str(int(keys)), chunk], args.timeout)
+                if err:
+                    print(f"MISMATCH     {f.name} (keys {keys}, chunk {chunk}): {side} cannot pack: {err}")
+                    failures += 1
+                packed[side] = p
+            if any(not p.exists() for p in packed.values()):
+                continue
+            checks += 1
+            if packed["old"].read_bytes() == packed["new"].read_bytes():
+                same_bytes += 1
+            for src, dst in (("old", "new"), ("new", "old"), ("new", "new")):
+                checks += 1
+                back = root / f"{f.name}.{src}-{dst}.back"
+                err = run_tool([str(tools[dst]), "unpack", str(packed[src]), str(back)], args.timeout)
+                if err or back.read_bytes() != f.read_bytes():
+                    print(f"MISMATCH     {f.name} (keys {keys}, chunk {chunk}): packed by {src}, "
+                          f"unpacked by {dst}: {err or 'other bytes'}")
+                    failures += 1
+                elif args.verbose:
+                    print(f"ok           {f.name} (keys {keys}, chunk {chunk}): {src} -> {dst}")
+    shutil.rmtree(root, ignore_errors=True)
+    print(f"\n{checks - failures}/{checks} blockpack checks pass; "
+          f"{same_bytes}/{len(files) * 2} packed byte for byte as the original packs")
+    return 1 if failures else 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
@@ -1301,17 +1596,20 @@ def main() -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     for name in ("baseline", "compare", "baseline-files", "compare-files", "baseline-text", "compare-text"):
         s = sub.add_parser(name)
-        s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all", "sliding"],
-                       help="all is fast, full and slow; sliding is the sliding puzzles' own")
+        s.add_argument("--tier", nargs="+", default=["fast"],
+                       choices=["fast", "full", "slow", "all", "sliding", "stacking"],
+                       help="all is fast, full and slow; sliding and stacking are those puzzles' own")
         s.add_argument("--filter", help="only puzzles whose path contains this text")
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
-        s.add_argument("--solver", choices=["classic", "crowell", "bt2", *SLIDING_SOLVERS], default="classic",
+        s.add_argument("--solver", choices=["classic", "crowell", "bt2", *SLIDING_SOLVERS, *STACKING_SOLVERS],
+                       default="classic",
                        help="the solver both programs run (baselines of another than classic are "
                             "baseline/<tier>-<solver>.json, solved files work/old-<solver>); "
                             "fast, deep and full are the sliding tier's (classic runs it with "
-                            "the default, the full search)")
+                            "the default, the full search), panex the stacking tier's (classic "
+                            "runs it with the Stacking Solver)")
         if name == "compare-files":
             s.add_argument("--dump-tool", type=Path,
                            default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solutions")
@@ -1330,6 +1628,18 @@ def main() -> int:
     sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
     sub.add_parser("record-analysed", help="record tests/data/analysed_by_original/: the original's Add disassembly")
     sub.add_parser("sliding-puzzles", help="make tests/data/puzzles/sliding/ with the original's sliding code")
+    sub.add_parser("stacking-puzzles", help="make tests/data/puzzles/stacking/ with the original's stacking code")
+    s = sub.add_parser("blockpack-check", help="pack files with one program's blockpack, unpack with the other's")
+    s.add_argument("--new-tool", type=Path,
+                   default=HERE.parent.parent / "build" / "release" / "tests" / "bt_blockpack")
+    s.add_argument("--timeout", type=float, default=300.0, help="seconds per program run")
+    s.add_argument("--verbose", "-v", action="store_true")
+    s = sub.add_parser("panex-resume", help="stop Panex searches in one program and carry them on in the other")
+    s.add_argument("--new-tool", type=Path,
+                   default=HERE.parent.parent / "build" / "release" / "tests" / "bt_panex_resume")
+    s.add_argument("--filter", help="only puzzles whose path contains this text")
+    s.add_argument("--timeout", type=float, default=300.0, help="seconds per program run")
+    s.add_argument("--verbose", "-v", action="store_true")
     sub.add_parser("record-slide-routes",
                    help="record tests/data/slide_solved_by_original/ and slide_routes.txt from the original")
     s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
@@ -1357,6 +1667,8 @@ def main() -> int:
             "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "record-saves": cmd_record_saves,
             "record-analysed": cmd_record_analysed,
             "sliding-puzzles": cmd_sliding_puzzles, "record-slide-routes": cmd_record_slide_routes,
+            "stacking-puzzles": cmd_stacking_puzzles, "panex-resume": cmd_panex_resume,
+            "blockpack-check": cmd_blockpack_check,
             "record-positions": cmd_record_positions}[args.cmd](args)
 
 

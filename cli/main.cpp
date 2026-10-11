@@ -6,8 +6,10 @@
 // as burrTxt --json, which the comparison harness (tests/oracle) reads.
 // --save is burrTxt2's mode: a solve as the GUI runs it (a SolveSession),
 // written to a file. Sliding puzzles are solved as burrTxt solved them (the
-// start layouts found by the assembler, each searched to the goal);
-// stacking puzzles are refused.
+// start layouts found by the assembler, each searched to the goal), and so
+// are stacking puzzles (the start stacking searched to the goal by the
+// Panex search or the Stacking Solver's own; Ctrl-C stops and saves a Panex
+// search, the same command carries it on).
 // Ported from src/burrTxt.cpp and src/burrTxt2.cpp of the original.
 #include "dot_level.h"
 #include "options.h"
@@ -24,16 +26,20 @@
 #include "bt/model/puzzle.h"
 #include "bt/model/sliding.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking.h"
 #include "bt/solve/assembler.h"
 #include "bt/solve/assembler_bt2.h"
 #include "bt/solve/disassembler.h"
+#include "bt/solve/panex_search.h"
 #include "bt/solve/sliding_search.h"
 #include "bt/solve/solve_session.h"
 #include "bt/solve/solver_type.h"
+#include "bt/solve/stack_search.h"
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -97,8 +103,7 @@ std::string squash(std::string_view s) {
 }
 
 // --solver for the puzzle's type, with burrTxt's messages for a name of
-// another type or of none. The stacking solvers are known so that their
-// names give the same answers; those puzzles are refused later.
+// another type or of none.
 bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
   const std::string n = squash(name);
   if (kind == PuzzleKind::Sliding) {
@@ -126,7 +131,12 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
     return false;
   }
   if (kind == PuzzleKind::Stacking) {
-    if (n == "stacking" || n == "stackingsolver" || n == "panex" || n == "panexsolver") {
+    if (n == "stacking" || n == "stackingsolver") {
+      o.panexSolver = false;
+      return true;
+    }
+    if (n == "panex" || n == "panexsolver") {
+      o.panexSolver = true;
       return true;
     }
     std::fprintf(stderr,
@@ -185,13 +195,120 @@ int reportMatrixError(const Options& o, bt::AssemblerError err, int param) {
   return o.json ? kExitError : kExitOk;
 }
 
-// Stacking puzzles: burrTxt's message for a puzzle it cannot handle, and
-// why on stderr.
-int refuseKind(const Options& o, PuzzleKind kind) {
-  std::fputs("The puzzles contains features not yet supported by burrTxt\n",
-             o.json ? stderr : stdout);
-  std::fprintf(stderr, "bt: %s puzzles cannot be solved yet\n", kindName(kind));
-  return kExitError;
+// Ctrl-C during a Panex search stops it, and it saves itself; a second one
+// quits at once (burrTxt's onInterrupt). The handler only stores: the
+// search's stop is a lock-free atomic, so asking it from here is safe.
+std::atomic<bool> gInterrupted{false};
+std::atomic<const bt::StopSource*> gInterruptStop{nullptr};
+
+extern "C" void onInterrupt(int /*signal*/) {
+  if (gInterrupted.exchange(true)) {
+    std::_Exit(130);
+  }
+  if (const bt::StopSource* s = gInterruptStop.load()) {
+    s->request(bt::StopKind::Pause);
+  }
+}
+
+// While it lives, Ctrl-C stops `stop` (once; then it quits).
+class InterruptStops {
+ public:
+  explicit InterruptStops(const bt::StopSource* stop) {
+    gInterrupted.store(false);
+    gInterruptStop.store(stop);
+    was_ = std::signal(SIGINT, onInterrupt);
+  }
+  ~InterruptStops() {
+    std::signal(SIGINT, was_);
+    gInterruptStop.store(nullptr);
+  }
+  InterruptStops(const InterruptStops&) = delete;
+  InterruptStops& operator=(const InterruptStops&) = delete;
+
+ private:
+  void (*was_)(int) = nullptr;
+};
+
+// Where Panex searches are saved: --panex-dir, else $BURRTOOLS_PANEX_DIR,
+// else the user's cache folder's "panex" (the original's library read the
+// variable; the core takes the folder as an option).
+std::string panexWorkDir(const Options& o) {
+  if (o.panexDir != nullptr) {
+    return o.panexDir;
+  }
+  if (const char* dir = std::getenv("BURRTOOLS_PANEX_DIR")) {
+    return dir;
+  }
+  if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
+    return (std::filesystem::path(cache) / "panex").string();
+  }
+  return "";
+}
+
+// The disk saved levels may take: --panex-disk, else
+// $BURRTOOLS_PANEX_DISK_GB, else 0 (half the free space, at most 200 GB).
+std::uint64_t panexDiskBudget(const Options& o) {
+  double gb = o.panexDiskGB;
+  if (gb <= 0) {
+    if (const char* e = std::getenv("BURRTOOLS_PANEX_DISK_GB")) {
+      gb = std::atof(e);
+    }
+  }
+  return gb > 0 ? static_cast<std::uint64_t>(gb * 1e9) : 0;
+}
+
+// A stacking solve's options from the command line (the session's).
+bt::stacking::StackingOptions stackingOptions(const Options& o) {
+  bt::stacking::StackingOptions s;
+  s.solver = o.panexSolver ? bt::stacking::StackingSolver::Panex
+                           : bt::stacking::StackingSolver::Stacking;
+  s.highMemory = o.highMemory;
+  s.workDir = panexWorkDir(o);
+  s.diskBudget = panexDiskBudget(o);
+  s.towerRule = !o.noTowerRule;
+  return s;
+}
+
+// One line per rod transfer of a stacking path: lift, cross and drop are
+// three states, and a disc's x is the x of the rod it is on
+// (printStackPlan).
+void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
+                    const bt::Problem& problem) {
+  const std::vector<int> rodX = bt::stacking::layoutBoard(puzzle, problem, false).rodX;
+  const bt::stacking::RodSet& board = puzzle.getRodSet(problem.getRodSetId());
+  auto rodAt = [&](int x) {
+    for (unsigned int r = 0; r < rodX.size(); r++) {
+      if (rodX[r] == x) {
+        return bt::stacking::isPocket(board, r) ? std::string("pocket")
+                                                : "rod " + std::to_string(r + 1);
+      }
+    }
+    return std::string("?");
+  };
+  std::vector<std::string> names;
+  for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
+    for (unsigned int j = 0; j < problem.getPartMaximum(part); j++) {
+      std::string nm = "S" + std::to_string(problem.getShapeIdOfPart(part) + 1);
+      if (problem.getPartMaximum(part) > 1) {
+        nm += " copy " + std::to_string(j + 1);
+      }
+      names.push_back(nm);
+    }
+  }
+  const unsigned int n = path.getPieceNumber();
+  const unsigned int moves = bt::stacking::logicalMoves(path);
+  for (unsigned int m = 0; m < moves; m++) {
+    const bt::State& a = path.getState(m * bt::stacking::kStepsPerMove);
+    const bt::State& b = path.getState((m + 1) * bt::stacking::kStepsPerMove);
+    for (unsigned int i = 0; i < n; i++) {
+      if (a.getX(i) == b.getX(i)) {
+        continue;
+      }
+      std::printf("%3u: %s from %s to %s\n", m + 1, i < names.size() ? names[i].c_str() : "?",
+                  rodAt(a.getX(i)).c_str(), rodAt(b.getX(i)).c_str());
+      break;
+    }
+  }
 }
 
 // The slide search the command line asks for: burrTxt's flags, and where a
@@ -314,7 +431,9 @@ int askMode(const Options& o, const bt::Puzzle& puzzle) {
         }
       }
       std::printf("\n");
-      if (o.ask == Ask::SolutionAssemblies) {
+      // drawn into the result shape: a stacking problem has none (the
+      // original failed an assertion here and died)
+      if (o.ask == Ask::SolutionAssemblies && problem.resultValid()) {
         bt::cli::printAssembly(stdout, puzzle, problem, a);
       }
     }
@@ -331,6 +450,133 @@ struct ProblemRange {
 ProblemRange problemRange(const Options& o, const bt::Puzzle& puzzle) {
   return o.allProblems ? ProblemRange{0, puzzle.getNumberOfProblems()}
                        : ProblemRange{o.problem, o.problem + 1};
+}
+
+// What --json prints at the end of a solve, summed over its problems.
+struct JsonTotals {
+  unsigned long assemblies = 0;
+  unsigned long solutions = 0;
+  bt::cli::BestLevel best;
+  double seconds = 0;
+};
+
+// The stacking branch of burrTxt's solve: no assembler, one start (the
+// file's start stacks) searched to the goal with -d, by the Panex search
+// when the Panex Solver is asked for or the puzzle fits that search (as the
+// GUI ran the Stacking Solver), else by the Stacking Solver's own. A
+// Panex search carries on a saved one (unless --restart), and Ctrl-C
+// stops it and saves it. The exit code when the solve ends here.
+std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
+                                 const bt::Problem& problem, JsonTotals& json) {
+  if (o.allProblems && !o.json) {
+    std::printf("problem: %s\n", problem.getName().c_str());
+  }
+  const std::string err = bt::stacking::setupError(puzzle, problem);
+  if (!err.empty()) {
+    std::fprintf(o.json ? stderr : stdout, "%s\n", err.c_str());
+    return o.json ? kExitError : kExitOk;
+  }
+  const auto start = std::chrono::steady_clock::now();
+  std::optional<bt::Separation> path;
+  bt::stacking::StackSearch search;
+  search.highMemory = o.highMemory;
+  bt::panex::PanexSearch px;
+  px.highMemory = o.highMemory;
+  px.threads = o.threads;
+  const bool usePanex =
+      o.disassemble && (o.panexSolver || bt::panex::unsupported(puzzle, problem, true).empty());
+  if (usePanex) {
+    const std::string why = bt::panex::unsupported(puzzle, problem, !o.panexSolver);
+    if (!why.empty()) {
+      std::fprintf(stderr, "bt: %s\n", why.c_str());
+      return kExitUsage;
+    }
+    px.anyRules = !o.panexSolver;
+    px.workDir = panexWorkDir(o);
+    px.diskBudget = panexDiskBudget(o);
+    px.towerRule = !o.noTowerRule;
+    if (o.panexLog) {
+      px.onLevel = [](const std::string& line) { std::fprintf(stderr, "%s\n", line.c_str()); };
+    }
+    if (o.restart) {
+      bt::panex::discardSaved(puzzle, problem, px.workDir);
+    }
+    const std::string saved = bt::panex::savedSearch(puzzle, problem, px.workDir);
+    if (!saved.empty() && !o.json) {
+      std::printf("continuing %s\n", saved.c_str());
+    }
+    px.resume = true;
+    const bt::StopSource stop;
+    px.stop = stop.token();
+    const InterruptStops ctrlC(&stop);
+    path = bt::panex::solve(puzzle, problem, px);
+  } else if (o.disassemble) {
+    path = bt::stacking::findStackPath(puzzle, problem, search);
+  }
+  const double secs = secondsSince(start);
+  const unsigned int moves = path ? bt::stacking::logicalMoves(*path) : 0;
+  if (o.json) {
+    // one start; solved or not, with its transfers (addStacking)
+    json.assemblies++;
+    if (path) {
+      json.solutions++;
+      const auto m = static_cast<int>(moves);
+      if (!json.best.has || m < json.best.stats.level) {
+        json.best.has = true;
+        json.best.text = std::to_string(moves);
+        json.best.stats = bt::cli::DotLevel{m, m, m, 0};
+      }
+    }
+    json.seconds += secs;
+    return std::nullopt;
+  }
+  if (path && (!o.quiet || o.allProblems)) {
+    std::printf("level: %u\n", moves);
+  }
+  if (path && o.printDisassembly) {
+    printStackPlan(*path, puzzle, problem);
+  }
+  std::printf("1 assemblies and %u solutions found in %.3f seconds%s", path ? 1U : 0U, secs,
+              o.disassemble ? "" : " (use -d to search for the moves)");
+  if (o.newline) {
+    std::printf("\n");
+  }
+  if (usePanex) {
+    std::printf("%s%llu moves deep, %llu stackings, peak %llu MB in memory",
+                o.panexSolver ? "panex search: " : "stack search: ",
+                static_cast<unsigned long long>(px.depthReached),
+                static_cast<unsigned long long>(px.found),
+                static_cast<unsigned long long>(px.peakMemory / 1048576));
+    if (px.diskBytes != 0) {
+      std::printf(", %llu MB on disk (%s)", static_cast<unsigned long long>(px.diskBytes / 1048576),
+                  px.levelInterval == 1
+                      ? "every level"
+                      : ("every " + std::to_string(px.levelInterval) + " levels").c_str());
+    }
+    std::printf("\n");
+    const bool memory = px.outcome == bt::panex::Outcome::Memory;
+    if (!path && px.saved) {
+      std::printf("%s; it is saved: run the same command again to carry on%s, or add --restart to "
+                  "start over\n",
+                  memory ? "the search outgrew its memory" : "stopped",
+                  memory && !o.highMemory ? " (with --high-memory)" : "");
+    } else if (!path) {
+      std::printf("%s\n", memory ? (std::string("the search outgrew its memory") +
+                                    (o.highMemory ? "" : " (try --high-memory)"))
+                                       .c_str()
+                       : px.outcome == bt::panex::Outcome::Error
+                           ? px.error.c_str()
+                           : "every reachable stacking was searched: no solution");
+    }
+  } else if (o.disassemble && !path) {
+    std::printf("%s\n", search.outcome == bt::stacking::StackOutcome::Memory
+                            ? (std::string("the search reached its memory limit, so a solution "
+                                           "may be missing") +
+                               (o.highMemory ? "" : " (try --high-memory)"))
+                                  .c_str()
+                            : "every reachable stacking was searched: no solution");
+  }
+  return std::nullopt;
 }
 
 // The solve of burrTxt: assemble each problem, take each assembly apart
@@ -351,18 +597,27 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
   // helper pool: the assembly's are busy
   std::unique_ptr<bt::ThreadPool> takeApartPool;
 
-  unsigned long jsonAssemblies = 0;
-  unsigned long jsonSolutions = 0;
-  bt::cli::BestLevel best;
-  double jsonSeconds = 0;
+  JsonTotals json;
+  unsigned long& jsonAssemblies = json.assemblies;
+  unsigned long& jsonSolutions = json.solutions;
+  bt::cli::BestLevel& best = json.best;
+  double& jsonSeconds = json.seconds;
 
   const bool sliding = bt::sliding::isSliding(puzzle);
+  const bool stacking = bt::stacking::isStacking(puzzle);
   // a sliding search spreads a full search's levels over threads of its own
   std::unique_ptr<bt::ThreadPool> slidePool;
 
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
     bt::Problem& problem = puzzle.getProblem(pr);
+    // a stacking problem has no assembly: its start is the file's stacks
+    if (stacking) {
+      if (const std::optional<int> code = solveStacking(o, puzzle, problem, json)) {
+        return *code;
+      }
+      continue;
+    }
     // the original's assemblers failed an assertion on this
     if (!problem.resultValid()) {
       std::fprintf(stderr, "bt: problem %u (%s) has no result shape\n", pr,
@@ -631,10 +886,34 @@ int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
   return kExitOk;
 }
 
+// -x of a stacking puzzle: a problem with saved solutions searched again.
+int retakeStacking(const Options& o, const bt::Puzzle& puzzle) {
+  const ProblemRange range = problemRange(o, puzzle);
+  for (unsigned int pr = range.first; pr < range.last; pr++) {
+    const bt::Problem& problem = puzzle.getProblem(pr);
+    if (problem.getNumberOfSavedSolutions() == 0) {
+      continue;
+    }
+    const std::optional<bt::Separation> path = bt::stacking::findStackPath(puzzle, problem);
+    if (path) {
+      if (!o.quiet) {
+        std::printf("level: %u\n", bt::stacking::logicalMoves(*path));
+      }
+      if (o.printDisassembly) {
+        printStackPlan(*path, puzzle, problem);
+      }
+    }
+  }
+  return kExitOk;
+}
+
 // -x: take the saved solutions apart again and print what comes apart.
 int retakeMode(const Options& o, bt::Puzzle& puzzle) {
   if (bt::sliding::isSliding(puzzle)) {
     return retakeSliding(o, puzzle);
+  }
+  if (bt::stacking::isStacking(puzzle)) {
+    return retakeStacking(o, puzzle);
   }
   // grids without a take-apart have nothing to show (the original failed)
   if (!bt::Disassembler::canDisassemble(puzzle)) {
@@ -664,6 +943,72 @@ int retakeMode(const Options& o, bt::Puzzle& puzzle) {
     }
   }
   return kExitOk;
+}
+
+// --save of a stacking puzzle: the GUI's Solve as a SolveSession runs it
+// (burrTxt2 had no stacking solver): a saved Panex search carried on unless
+// --restart, Ctrl-C pausing it (it saves itself), the solved puzzle written
+// to the file with the solver's note on stdout.
+int saveStacking(const Options& o, bt::Puzzle& puzzle) {
+  if (!o.quiet) {
+    std::printf("outputting into %s\n", o.saveTo);
+  }
+  bt::SolveOptions so;
+  so.disassemble = o.disassemble;
+  so.justCount = o.countOnly;
+  so.threads = o.threads;
+  so.stacking = stackingOptions(o);
+
+  int exitCode = kExitOk;
+  const ProblemRange range = problemRange(o, puzzle);
+  for (unsigned int pr = range.first; pr < range.last; pr++) {
+    bt::Problem& problem = puzzle.getProblem(pr);
+    const bool saved = !bt::panex::savedSearch(puzzle, problem, so.stacking.workDir).empty();
+    if (!o.restart && !saved && problem.getSolveState() == bt::ProblemState::Solved) {
+      std::printf("problem %u (%s) is already solved: %llu assemblies, %llu solutions\n", pr,
+                  problem.getName().c_str(),
+                  static_cast<unsigned long long>(problem.getNumAssemblies()),
+                  static_cast<unsigned long long>(problem.getNumSolutions()));
+      std::printf("use --restart to solve it again\n");
+      continue;
+    }
+    bt::SolveSession session(puzzle, problem, so);
+    const InterruptStops ctrlC(nullptr);
+    if (const bt::Result<void> r = o.restart ? session.start() : session.resume(); !r) {
+      std::printf("Could not start Solver\n");
+      std::fprintf(stderr, "bt: %s\n", r.error().message.c_str());
+      exitCode = kExitError;
+      continue;
+    }
+    while (bt::isActive(session.state())) {
+      if (gInterrupted.load()) {
+        session.pause();
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    session.wait();
+    if (session.state() == bt::SolveState::Error) {
+      std::printf("error in solver\n");
+      if (const auto f = session.failure()) {
+        std::fprintf(stderr, "bt: %s\n", f->message.c_str());
+      }
+      exitCode = kExitError;
+    } else if (!o.quiet) {
+      std::printf("problem %u: %llu assemblies and %llu solutions found in %.3f seconds\n", pr,
+                  static_cast<unsigned long long>(problem.getNumAssemblies()),
+                  static_cast<unsigned long long>(problem.getNumSolutions()),
+                  static_cast<double>(problem.getUsedMs()) / 1000.0);
+      if (const std::string note = session.note(); !note.empty()) {
+        std::printf("%s\n", note.c_str());
+      }
+    }
+  }
+
+  if (const bt::Result<void> written = bt::io::savePuzzle(puzzle, o.saveTo); !written) {
+    std::fprintf(stderr, "bt: %s\n", written.error().message.c_str());
+    return kExitUsage;
+  }
+  return exitCode;
 }
 
 // --save: burrTxt2's solve, as the GUI runs it (a SolveSession: reduce, a
@@ -821,6 +1166,15 @@ int main(int argc, char** argv) {
   if (o.solverName != nullptr && !pickSolver(kind, o.solverName, o)) {
     return kExitUsage;
   }
+  // a stacking puzzle's --restart throws a saved search away (burrTxt's);
+  // the others' goes with --save (burrTxt2's)
+  if (o.restart && o.saveTo == nullptr && kind != PuzzleKind::Stacking) {
+    std::fputs(
+        "bt: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
+        "    --drop-disassemblies go with --save\n",
+        stderr);
+    return kExitUsage;
+  }
 
   if (o.ask != Ask::None) {
     return askMode(o, puzzle);
@@ -831,12 +1185,8 @@ int main(int argc, char** argv) {
                  o.problem, puzzle.getNumberOfProblems());
     return kExitUsage;
   }
-  if (kind == PuzzleKind::Stacking) {
-    return refuseKind(o, kind);
-  }
-
   if (o.saveTo != nullptr) {
-    return saveMode(o, puzzle);
+    return kind == PuzzleKind::Stacking ? saveStacking(o, puzzle) : saveMode(o, puzzle);
   }
   if (!o.assemble) {
     return retakeMode(o, puzzle);

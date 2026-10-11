@@ -35,6 +35,8 @@ whatever follows the root element left unread.
 - **Stacking is kept, not modelled**: `<puzzle>/<rodSets>` and
   `<problem>/<stacking>` are preserved elements. A stacking puzzle without
   rod sets is written with the default one, as the original does.
+  (Amended by decision 0015, deferred part 3a: they are modelled now, read
+  and written as the original did.)
 - **The writer is a port of `xmlWriter_c`** and the save functions write in
   the original's order, so saves are byte-identical to the original's (365
   of 365 files in `just oracle-roundtrip`).
@@ -56,4 +58,4 @@ whatever follows the root element left unread.
   makes this matter.
 - Editing shapes of a stacking puzzle does not update the preserved
   `<stacking>` element (the original renumbered its rods); the stacking
-  port has to model it.
+  port has to model it. (Done in deferred part 3a: decision 0015.)

@@ -196,7 +196,9 @@ The contract tests start `bt-engine`, check every reply and event against
 the schema, and check that the engine's methods are the schema's.
 
 **Not yet.** Stacking puzzles open, edit and save; solving, analysing,
-playback and explorers refuse them with `unsupported`. Sliding puzzles
+playback and explorers refuse them with `unsupported`. (The core and `bt`
+solve and play them since the deferred plan's part 3a, decision 0015; the
+engine follows in part 3b.) Sliding puzzles
 are solved and played since the deferred plan's part 1 (decision 0014:
 `SolveOptions.sliding`, the `sliding.*` methods); analysing refuses them,
 as the original did (they have no take-apart). The original's "Enable

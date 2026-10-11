@@ -8,6 +8,7 @@
 
 #include "bt/solve/sliding_search.h"
 #include "bt/solve/solver_type.h"
+#include "bt/solve/stack_search.h"
 
 #include <optional>
 
@@ -48,9 +49,16 @@ struct Options {
   /// and the GUI's default).
   sliding::SlidingSolver slidingSolver = sliding::SlidingSolver::Full;
 
+  // burrTxt's stacking options (--high-memory and --restart too)
+  bool panexSolver = false;          ///< --solver of a stacking puzzle: the Panex Solver
+  const char* panexDir = nullptr;    ///< --panex-dir DIR
+  double panexDiskGB = 0;            ///< --panex-disk GB (0: BURRTOOLS_PANEX_DISK_GB or half the free space)
+
   // burrTxt2's mode
   const char* saveTo = nullptr;       ///< --save FILE
-  bool restart = false;               ///< --restart (burrTxt2 -R)
+  /// --restart: burrTxt2's -R; on a stacking puzzle (with --save or not)
+  /// burrTxt's: a saved Panex search is thrown away, not carried on
+  bool restart = false;
   bool countOnly = false;             ///< --count-only (burrTxt2 -c)
   bool keepMirrors = false;           ///< --keep-mirrors (burrTxt2 -m)
   bool keepRotations = false;         ///< --keep-rotations (burrTxt2 -r)
@@ -70,6 +78,9 @@ struct Options {
   bool slideApart = false;   ///< --slide-apart: like pieces told apart
   bool slideQueue = false;   ///< --slide-queue: a full search through the queue
   bool slideTrace = false;   ///< --slide-trace: each level of a full search on stderr
+  // the Panex search's (BURRTOOLS_NO_TOWER_RULE, BURRTOOLS_PANEX_LOG)
+  bool noTowerRule = false;  ///< --no-tower-rule: the classic tower searched too
+  bool panexLog = false;     ///< --panex-log: each level of a Panex search on stderr
 
   const char* file = nullptr;
 };
