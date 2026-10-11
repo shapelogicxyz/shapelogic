@@ -46,7 +46,7 @@ the reply's `Frame` object.
 | -32002 | not_found | no such shape, colour, problem, solution or handle |
 | -32003 | parse_error | a file or bytes that are no puzzle |
 | -32004 | io_error | reading or writing a file failed |
-| -32005 | unsupported | valid, but not in this version (stacking puzzles; what a grid lacks) |
+| -32005 | unsupported | valid, but not for this puzzle (what a grid or a solver lacks: a take-apart, an assembler, Panex columns) |
 | -32006 | invalid_state | not now: pause the solve first, close the edit group... |
 | -32603 | internal | a broken invariant in the engine or the core |
 

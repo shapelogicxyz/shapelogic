@@ -9,6 +9,7 @@ event against the schema in api/. Run by ctest:
 
 import argparse
 import base64
+import gzip
 import pathlib
 import shutil
 import sys
@@ -19,6 +20,12 @@ import traceback
 from engine_client import ROOT, Api, ContractError, Engine
 
 FIXTURES = ROOT / "tests" / "data" / "puzzles"
+
+
+def read_puzzle_bytes(path):
+    """A puzzle file's XML (gzip or plain)."""
+    data = pathlib.Path(path).read_bytes()
+    return gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
 TESTS = []
 
 
@@ -56,23 +63,31 @@ def engine_info_and_settings(e):
                                                   "tetraOcta", "sliding", "stacking"}, "the grids")
     check(info["hardwareThreads"] >= 1, "hardware threads")
     supported = {g["grid"]: g["supported"] for g in info["grids"]}
-    check(supported["sliding"] and not supported["stacking"], f"what is solved {supported}")
+    check(all(supported.values()), f"what is solved {supported}")
     check([x["solver"] for x in info["slidingSolvers"]] == ["fast", "deep", "full"] and
           info["slidingSolvers"][2]["label"] == "Sliding Full Solver (full depth)",
           f"the sliding solvers {info['slidingSolvers']}")
+    check(info["stackingSolvers"] == [{"solver": "stacking", "label": "Stacking Solver"},
+                                      {"solver": "panex", "label": "Panex Solver"}],
+          f"the stacking solvers {info['stackingSolvers']}")
 
     s = e.call("settings.get")
     folder = s.pop("slideFolder")
     check(folder == "" or folder.endswith("sliding"), f"the slide folder {folder!r}")
-    check(s == {"undoDepth": 25, "threads": 0, "solver": "classic", "slideDiskGB": 0},
-          f"default settings {s}")
-    s = e.call("settings.set", {"undoDepth": 2, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5})
-    check(s == {"undoDepth": 2, "threads": 0, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5},
-          f"settings after set {s}")
+    panex = s.pop("panexFolder")
+    check(panex == "" or panex.endswith("panex"), f"the Panex folder {panex!r}")
+    check(s == {"undoDepth": 25, "threads": 0, "solver": "classic", "slideDiskGB": 0,
+                "panexDiskGB": 0}, f"default settings {s}")
+    s = e.call("settings.set", {"undoDepth": 2, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5,
+                                "panexFolder": "", "panexDiskGB": 2})
+    check(s == {"undoDepth": 2, "threads": 0, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5,
+                "panexFolder": "", "panexDiskGB": 2}, f"settings after set {s}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")
     e.fails("settings.set", {"slideDiskGB": -1}, "invalid_params")
-    e.call("settings.set", {"slideFolder": folder, "slideDiskGB": 0})
+    e.fails("settings.set", {"panexDiskGB": -1}, "invalid_params")
+    e.call("settings.set", {"slideFolder": folder, "slideDiskGB": 0, "panexFolder": panex,
+                            "panexDiskGB": 0})
 
     # the undo depth reaches the document: three steps, two kept
     e.call("document.new", {"grid": "bricks"})
@@ -453,14 +468,14 @@ def problems(e):
     check(e.call("problem.get", {"problem": p1})["parts"][0]["shape"] == other, "part moved")
     e.fails("problem.movePart", {"problem": p1, "shape": other, "delta": 2}, "invalid_params")
 
-    # a sliding puzzle opens and is solved; a stacking one is not yet
+    # sliding and stacking puzzles open and are solved
     snap = e.call("document.open", {"path": str(FIXTURES / "test_sliding_solver.xmpuzzle")})
     check(snap["grid"] == "sliding", "sliding opened")
     kind = e.call("problem.kind", {"problem": snap["problems"][0]["id"]})
     check(kind == {"kind": "sliding", "supported": True}, f"sliding kind {kind}")
     snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
     kind = e.call("problem.kind", {"problem": snap["problems"][0]["id"]})
-    check(kind == {"kind": "stacking", "supported": False}, f"stacking kind {kind}")
+    check(kind == {"kind": "stacking", "supported": True}, f"stacking kind {kind}")
 
 
 # ---- solving ----------------------------------------------------------------------------------
@@ -1003,14 +1018,144 @@ def sliding_start_goal_shapes(e):
     check(e.call("document.get")["shapes"][0]["startGoal"] is None, "no start/goal shapes")
 
 
+def panex_swap(n):
+    """A Panex swap of two towers of n discs as plain XML: the corpus's
+    stack_panex_swap_<n> (made by the original's code) for any n."""
+    def disc(size):
+        d = 2 * size + 1
+        cells = "#" * (d * d // 2) + "_" + "#" * (d * d // 2)
+        return (f'  <voxel x="{d}" y="{d}" z="1" hx="{size}" hy="{size}" diskSize="{size}" '
+                f'type="0">{cells}</voxel>\n')
+    shapes = "".join(disc(s) for s in range(n, 0, -1)) * 2
+    parts = "".join(f'    <shape id="{i}" count="1"/>\n' for i in range(2 * n))
+    left = ",".join(f"{i}:0" for i in range(n))
+    right = ",".join(f"{i}:0" for i in range(n, 2 * n))
+    return ('<?xml version="1.0"?>\n<puzzle version="2">\n <gridType type="6"/>\n <colors/>\n'
+            ' <shapes>\n' + shapes + ' </shapes>\n <rodSets>\n'
+            f'  <rodSet rods="3" grow="0" height="{n}" sizeMatters="0" distanceMatters="0" '
+            'moveOver="0" panex="1"/>\n </rodSets>\n <problems>\n  <problem state="0">\n'
+            '   <shapes>\n' + parts + '   </shapes>\n   <result id="4294967295"/>\n'
+            '   <stacking rodSet="0">\n    <start>\n'
+            f'     <rod pieces="{left}"/>\n     <rod/>\n     <rod pieces="{right}"/>\n'
+            '    </start>\n    <goal>\n'
+            f'     <rod pieces="{right}"/>\n     <rod/>\n     <rod pieces="{left}"/>\n'
+            '    </goal>\n   </stacking>\n   <bitmap/>\n  </problem>\n </problems>\n'
+            ' <comment/>\n</puzzle>\n')
+
+
+@test
+def stacking_solve_pause_saved_search_continue(e):
+    """A Panex solve paused, its saved search told, exported with and
+    without its levels, carried on by another engine (as after a restart),
+    imported, and thrown away by an abort no session holds."""
+    check(panex_swap(5).encode() == read_puzzle_bytes(FIXTURES / "stacking" / "stack_panex_swap_5.xmpuzzle"),
+          "the generated swap is the corpus's")
+    with tempfile.TemporaryDirectory() as tmp:
+        work = str(pathlib.Path(tmp) / "panex")
+        puzzle = pathlib.Path(tmp) / "swap6.xmpuzzle"
+        puzzle.write_text(panex_swap(6))
+        e.call("settings.set", {"panexFolder": work})
+        snap = e.call("document.open", {"path": str(puzzle)})
+        p = snap["problems"][0]["id"]
+        check(snap["problems"][0]["result"] is None, "a stacking problem has no result")
+
+        # the default solver is the Panex Solver for Panex columns (the
+        # original's menu); one thread, so the pause comes long before the end
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True, "threads": 1}})
+        prog = e.wait_event("solve.progress", lambda x: x["problem"] == p and
+                            x["progress"]["searched"] > 0, start=start, timeout=600)["progress"]
+        check(prog["stage"] == "search" and prog["panexSearch"] and prog["searchDepth"] > 0,
+              f"the Panex search's progress {prog}")
+        e.fails("solve.savePoint", {"problem": p}, "unsupported")
+        e.fails("solve.prepare", {"problem": p}, "invalid_state")
+        e.call("solve.pause", {"problem": p})
+        check(wait_state(e, p, ("paused", "finished", "error"), start) == "paused", "paused")
+        st = e.call("solve.status", {"problem": p})
+        saved = st["savedSearch"]
+        check(saved is not None and saved["description"].startswith("a saved search")
+              and saved["levelBytes"] > 0, f"the saved search {saved}")
+        check(st["note"] is not None and st["note"].startswith("Paused"), f"the note {st['note']!r}")
+        detail = e.call("problem.get", {"problem": p})
+        check(detail["state"] == "solved" and detail["saved"] == 0, f"the problem as the original wrote it {detail}")
+
+        with_levels = str(pathlib.Path(tmp) / "with.btsolve")
+        without = str(pathlib.Path(tmp) / "without.btsolve")
+        e.call("solve.exportPaused", {"problem": p, "path": with_levels})
+        e.call("solve.exportPaused", {"problem": p, "path": without, "withLevels": False})
+        check(pathlib.Path(without).stat().st_size < pathlib.Path(with_levels).stat().st_size,
+              "the levels left out")
+
+        # the engine ends: the search stays saved, and another carries it on
+        e.close()
+        f = Engine(e.proc.args[0], e.api)
+        try:
+            f.call("settings.set", {"panexFolder": work})
+            q = f.call("document.open", {"path": str(puzzle)})["problems"][0]["id"]
+            check(f.call("solve.status", {"problem": q})["savedSearch"] == saved,
+                  "the saved search after the engine ended")
+            start = len(f.events)
+            f.call("solve.continue", {"problem": q, "options": {"disassemble": True}})
+            check(wait_state(f, q, ("finished", "error"), start) == "finished", "carried on to the end")
+            page = f.call("solution.page", {"problem": q})
+            check(len(page["rows"]) == 1 and page["rows"][0]["moves"] == 881
+                  and page["rows"][0]["movesText"] == "881", f"881 transfers {page['rows']}")
+            pb = f.call("playback.open", {"problem": q, "solution": page["rows"][0]["id"]})
+            check(pb["steps"] == 881, f"the playback in transfers {pb}")
+            f.call("playback.close", {"handle": pb["handle"]})
+            check(f.call("solve.status", {"problem": q})["savedSearch"] is None, "a finished search keeps nothing")
+
+            # imported: the saved search back in its folder, with or without levels
+            for path, levels in ((with_levels, True), (without, False)):
+                imported = f.call("solve.importPaused", {"path": path})
+                r = imported["problem"]
+                held = f.call("solve.status", {"problem": r})["savedSearch"]
+                check(held is not None and held["description"] == saved["description"]
+                      and (held["levelBytes"] > 0) == levels, f"imported {held}")
+            # an abort throws away a search no session holds, with the results
+            start = len(f.events)
+            rev = f.call("solve.abort", {"problem": r})["revision"]
+            changed_event(f, rev)
+            check(f.call("solve.status", {"problem": r})["savedSearch"] is None, "thrown away")
+            check(f.call("problem.get", {"problem": r})["state"] == "unsolved", "unsolved")
+            f.fails("solve.abort", {"problem": r}, "invalid_state")
+            f.fails("solve.exportPaused", {"problem": r, "path": without}, "invalid_state")
+            # without a Panex folder such a file has no place
+            f.call("settings.set", {"panexFolder": ""})
+            f.fails("solve.importPaused", {"path": with_levels}, "parse_error")
+            f.close()
+            check(not f.problems, f"contract problems: {f.problems}")
+        finally:
+            if f.proc.poll() is None:
+                f.proc.kill()
+            e.called |= f.called
+
+
 @test
 def unsupported_and_failures(e):
-    # a stacking puzzle is not solved yet, nor its placements explored
-    snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
-    p = snap["problems"][0]["id"]
-    e.fails("solve.start", {"problem": p}, "unsupported")
-    e.fails("solve.continue", {"problem": p}, "unsupported")
-    e.fails("explore.openAssembly", {"problem": p}, "unsupported")
+    # what a stacking puzzle cannot do or does not have
+    with tempfile.TemporaryDirectory() as tmp:
+        e.call("settings.set", {"panexFolder": tmp})
+        snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
+        p = snap["problems"][0]["id"]
+        e.fails("solve.prepare", {"problem": p}, "unsupported")
+        e.fails("solve.start", {"problem": p}, "invalid_argument")  # Find Solutions is off
+        e.fails("solve.start", {"problem": p, "options": {"disassemble": True,
+                                                           "stacking": {"solver": "panex"}}},
+                "unsupported")  # no Panex columns
+        e.fails("solve.start", {"problem": p, "options": {"stacking": {"depth": 1}}}, "invalid_params")
+        e.fails("explore.openAssembly", {"problem": p}, "unsupported")
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True,
+                                                          "stacking": {"highMemory": True,
+                                                                       "autosave": False}}})
+        check(wait_state(e, p, ("finished", "error"), start) == "finished", "Hanoi solved")
+        check(e.call("solution.page", {"problem": p})["rows"][0]["moves"] == 7, "7 transfers")
+        e.fails("solution.analyse", {"problem": p, "which": "all"}, "unsupported")
+        e.fails("solve.abort", {"problem": p}, "invalid_state")
+        snap = e.call("document.open", {"path": str(FIXTURES / "stacking" / "stack_invalid.xmpuzzle")})
+        e.fails("solve.start", {"problem": snap["problems"][0]["id"], "options": {"disassemble": True}},
+                "invalid_argument")
     # spheres have no take-apart
     snap = e.call("document.open", {"path": str(FIXTURES / "BallRoom_solved.xmpuzzle")})
     p = snap["problems"][0]["id"]

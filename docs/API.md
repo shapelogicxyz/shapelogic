@@ -27,7 +27,7 @@ the reply's `Frame` object.
 | -32002 | not_found | no such shape, colour, problem, solution or handle |
 | -32003 | parse_error | a file or bytes that are no puzzle |
 | -32004 | io_error | reading or writing a file failed |
-| -32005 | unsupported | valid, but not in this version (stacking puzzles; what a grid lacks) |
+| -32005 | unsupported | valid, but not for this puzzle (what a grid or a solver lacks: a take-apart, an assembler, Panex columns) |
 | -32006 | invalid_state | not now: pause the solve first, close the edit group... |
 | -32603 | internal | a broken invariant in the engine or the core |
 
@@ -91,6 +91,7 @@ Result:
 | `grids` | object[] | required |  |
 | `solvers` | object[] | required |  |
 | `slidingSolvers` | object[] | required | The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu labels. |
+| `stackingSolvers` | object[] | required | The solvers of stacking puzzles (SolveOptions.stacking.solver), with the original's menu labels. The original offered one, by the problem's rod set: the Panex Solver for Panex columns, else the Stacking Solver, which a solve without a solver named uses too. |
 | `hardwareThreads` | integer | required |  |
 | `maxThreads` | integer | required |  |
 | `methods` | string[] | required |  |
@@ -99,11 +100,11 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet. |
+| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
 | `grids.label` | string | required |  |
 | `grids.assemble` | boolean | required | It has an assembler. |
 | `grids.disassemble` | boolean | required | It has a take-apart. |
-| `grids.supported` | boolean | required | This version solves its puzzles (stacking: not yet). |
+| `grids.supported` | boolean | required | This version solves its puzzles: every grid (stacking since the deferred plan's part 3b). |
 | `grids.defaultSize` | integer | required | The size of a new shape in each direction, in cells. |
 | `grids.sizeUnit` | integer | required | shape.resize counts in blocks of this many cells. |
 
@@ -120,6 +121,13 @@ Result:
 |---|---|---|---|
 | `slidingSolvers.solver` | [SlidingSolver](#slidingsolver) | required | How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default). |
 | `slidingSolvers.label` | string | required |  |
+
+`stackingSolvers`:
+
+| name | type | | description |
+|---|---|---|---|
+| `stackingSolvers.solver` | [StackingSolver](#stackingsolver) | required | The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it, which pauses, carries on and saves itself, else a search of its own) or the Panex Solver (the Panex search alone, for rod sets with Panex columns; a puzzle it cannot take is refused with its reason). |
+| `stackingSolvers.label` | string | required |  |
 
 ### `engine.shutdown`
 
@@ -154,6 +162,8 @@ Params:
 | `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
 | `slideFolder` | string |  |  |
 | `slideDiskGB` | number |  |  |
+| `panexFolder` | string |  |  |
+| `panexDiskGB` | number |  |  |
 
 Result: Settings
 
@@ -175,6 +185,8 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
 | `slideFolder` | string | required | Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
 | `slideDiskGB` | number | required | The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it. |
+| `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's BURRTOOLS_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
+| `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (BURRTOOLS_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. |
 
 ## Document and history
 
@@ -188,7 +200,7 @@ Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
 
 Result: [Snapshot](#snapshot)
 
@@ -1113,7 +1125,7 @@ Errors: `not_found`
 
 ### `problem.kind`
 
-Brick, sliding or stacking; this version solves brick and sliding puzzles.
+Brick, sliding or stacking; this version solves all three (supported is always true, kept for clients that read it).
 
 Params:
 
@@ -1282,11 +1294,11 @@ Errors: `not_found`, `unsupported`, `invalid_argument`
 
 ## Solving
 
-One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). Stacking problems are refused (unsupported).
+One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). A stacking problem too (decision 0015): one search from its start stacking to its goal, its path the one solution; a paused stacking solve is its search saved in the engine's panexFolder, which outlives the run, the document and the engine: solve.continue carries it on (also on a reopened file), solve.start and solve.abort throw it away, solve.status describes it (savedSearch), and the paused solve's export and import carry it.
 
 ### `solve.start`
 
-Solves from the start, dropping what the problem holds of earlier solving.
+Solves from the start, dropping what the problem holds of earlier solving (a stacking problem's saved search too: the original's Solve asked first, solve.status.savedSearch tells it). Refused (invalid_argument) with the original's message when the problem cannot be solved as it stands (no result, no pieces; a stacking problem without a rod set, with neither disassemble nor justCount, or whose stacks break its rules), and (unsupported) when its grid or solver cannot take it.
 
 Params:
 
@@ -1297,11 +1309,11 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
 
 ### `solve.prepare`
 
-Drops what the problem holds, builds the search (placements, reduce) and pauses.
+Drops what the problem holds, builds the search (placements, reduce) and pauses. A stacking search has nothing to build (unsupported).
 
 Params:
 
@@ -1312,11 +1324,11 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
 
 ### `solve.continue`
 
-Carries on a paused solve, one saved in the file, or an unsolved problem from the start.
+Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start.
 
 Params:
 
@@ -1327,7 +1339,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_state`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
 
 ### `solve.pause`
 
@@ -1345,7 +1357,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `solve.savePoint`
 
-Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue.
+Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved: its search saves itself every 20 minutes (StackingOptions.autosave) and when it stops.
 
 Params:
 
@@ -1355,11 +1367,11 @@ Params:
 
 Result: [Empty](#empty)
 
-Errors: `not_found`, `invalid_state`
+Errors: `not_found`, `invalid_state`, `unsupported`
 
 ### `solve.abort`
 
-The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll.
+The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll. A stacking problem whose search is saved (solve.status.savedSearch) has a solve under way though no run is in memory, as the original's Abort judged it: the search and the problem's results go, and one document.changed follows.
 
 Params:
 
@@ -1389,13 +1401,14 @@ Result:
 | `progress` | [SolveProgress](#solveprogress) | required |  |
 | `stats` | [SolveStats](#solvestats) | required |  |
 | `failure` | [SolveFailure](#solvefailure) or null | required |  |
-| `note` | string or null | required | What a sliding solve's last run said when it was through: whether a missing solution is proven or the search gave up at a limit (the original's solver note, shown in a message box); null otherwise. |
+| `note` | string or null | required | What a sliding or stacking solve's last run said when it was through, or a stacking search when it paused: whether a missing solution is proven, the search gave up at a limit, or where it was saved (the original's solver note, shown in a message box); null otherwise. |
+| `savedSearch` | object or null | required | Null while the problem's run is active, when there is none, and on other grids. |
 
 Errors: `not_found`
 
 ### `solve.exportPaused`
 
-Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere.
+Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere. A stacking problem is paused when its search is saved (solve.status.savedSearch): the file carries the search, packed.
 
 Params:
 
@@ -1403,6 +1416,7 @@ Params:
 |---|---|---|---|
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
 | `path` | string | required |  |
+| `withLevels` | boolean |  | A stacking search's saved levels go into the file too (default true): left out, the file is far smaller, but finding the path at the end takes longer. |
 
 Result: [Empty](#empty)
 
@@ -1410,7 +1424,7 @@ Errors: `not_found`, `invalid_state`, `io_error`
 
 ### `solve.importPaused`
 
-Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on.
+Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error).
 
 Params:
 
@@ -2102,7 +2116,7 @@ number[]
 
 ### Grid
 
-The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet.
+The grid of a puzzle, fixed for its life.
 
 `"bricks"` \| `"prisms"` \| `"spheres"` \| `"rhombic"` \| `"tetraOcta"` \| `"sliding"` \| `"stacking"`
 
@@ -2118,6 +2132,12 @@ How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no
 
 `"fast"` \| `"deep"` \| `"full"`
 
+### StackingSolver
+
+The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it, which pauses, carries on and saves itself, else a search of its own) or the Panex Solver (the Panex search alone, for rod sets with Panex columns; a puzzle it cannot take is refused with its reason).
+
+`"stacking"` \| `"panex"`
+
 ### SolveState
 
 decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage).
@@ -2126,7 +2146,7 @@ decision 0004; 'stopping' is an active state with a stop requested (SolveProgres
 
 ### SolveStage
 
-What a solve is doing; search is a sliding puzzle's search from a start to the goal (SolveProgress.searched, searchDepth).
+What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced, panexSearch).
 
 `"idle"` \| `"prepare"` \| `"reduce"` \| `"assemble"` \| `"disassemble"` \| `"stopping"` \| `"paused"` \| `"done"` \| `"error"` \| `"search"`
 
@@ -2260,7 +2280,7 @@ Everything a front end shows of the document's lists.
 |---|---|---|---|
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 | `dirty` | boolean | required |  |
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
 | `path` | string or null | required | The file it was opened from or last saved to. |
 | `notes` | string | required |  |
 | `canUndo` | boolean | required |  |
@@ -2401,6 +2421,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 | `threads` | integer |  | Assembly and take-apart together; 0 every hardware thread. |
 | `takeApartWorkers` | integer |  | 0 chooses. |
 | `sliding` | [SlidingOptions](#slidingoptions) |  |  |
+| `stacking` | [StackingOptions](#stackingoptions) |  |  |
 
 ### SlidingOptions
 
@@ -2412,6 +2433,16 @@ A sliding puzzle's search (the solve thread's sliding flags). A sliding solve al
 | `nestedSlides` | boolean |  | A piece may carry what is nested in its outline (Allow Nested Slides). |
 | `partialNested` | boolean |  | And what is partly nested in it (Allow Partially Nested); implies nestedSlides. |
 | `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). |
+
+### StackingOptions
+
+A stacking puzzle's search (the solve thread's stacking flags). A stacking solve has no assembler and no take-apart: one search from the start stacking to the goal, whose path is the one solution (its assembly the start stacking). disassemble (the GUI's Find Solutions) or justCount must be on; threads count; the brick fields play no part. solve.prepare is refused (unsupported), and so is solve.savePoint: the search saves itself. Where it is saved is the engine's setting (panexFolder, panexDiskGB).
+
+| name | type | | description |
+|---|---|---|---|
+| `solver` | [StackingSolver](#stackingsolver) |  | Default: the Panex Solver for a problem on Panex columns, else the Stacking Solver (the original's menu offered only that one). |
+| `highMemory` | boolean |  | Hold up to half the machine's memory in stackings (Enable High Memory). |
+| `autosave` | boolean |  | The Panex search saves itself every 20 minutes (default true); off, only when it stops (the GUI's Autosave box). |
 
 ### TakeApartProgress
 
@@ -2435,7 +2466,7 @@ One take-apart under way.
 
 | name | type | | description |
 |---|---|---|---|
-| `stage` | [SolveStage](#solvestage) | required | What a solve is doing; search is a sliding puzzle's search from a start to the goal (SolveProgress.searched, searchDepth). |
+| `stage` | [SolveStage](#solvestage) | required | What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced, panexSearch). |
 | `elapsedMs` | integer | required |  |
 | `piece` | integer | required |  |
 | `pieces` | integer | required |  |
@@ -2452,9 +2483,11 @@ One take-apart under way.
 | `overallKnown` | boolean | required |  |
 | `levelFraction` | number | required |  |
 | `secondsLeft` | number or null | required |  |
-| `activity` | string | required | The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.'). |
-| `searched` | integer | required | The sliding search under way: the arrangements it has visited. |
-| `searchDepth` | integer | required | How many moves deep a full sliding search is (0 before its first level, and for the other searches). |
+| `activity` | string | required | The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search. Scanned N stackings.'). |
+| `searched` | integer | required | The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search). |
+| `searchDepth` | integer | required | How many moves deep a full sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
+| `searchTraced` | integer | required | Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before. |
+| `panexSearch` | boolean | required | The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search'). |
 
 ### SolveStats
 
@@ -2521,7 +2554,7 @@ Where a piece is in an assembly.
 | `solution` | integer | required | The solution number (0 without a disassembly). |
 | `pieces` | integer | required | Pieces placed. |
 | `disassembly` | `"tree"` \| `"summary"` \| `"none"` | required | The moves are stored; only the level summary; not taken apart (or found not to come apart). |
-| `moves` | integer or null | required |  |
+| `moves` | integer or null | required | A stacking solution's: its rod transfers (each three frames of its path), as the original counted them; steps and movesText the same. |
 | `rotations` | integer or null | required |  |
 | `steps` | integer or null | required | Moves plus rotations. |
 | `movesText` | string or null | required | The level text, e.g. 3.1.1. |

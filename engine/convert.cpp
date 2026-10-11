@@ -5,6 +5,7 @@
 #include "bt/base/thread_pool.h"
 #include "bt/grid/voxel.h"
 #include "bt/model/sliding.h"
+#include "bt/model/stacking.h"
 
 #include <array>
 #include <charconv>
@@ -34,6 +35,12 @@ const Names<sliding::SlidingSolver>& slidingSolverNames() {
   static const Names<sliding::SlidingSolver> n = {{"fast", sliding::SlidingSolver::Fast},
                                                   {"deep", sliding::SlidingSolver::Deep},
                                                   {"full", sliding::SlidingSolver::Full}};
+  return n;
+}
+
+const Names<stacking::StackingSolver>& stackingSolverNames() {
+  static const Names<stacking::StackingSolver> n = {{"stacking", stacking::StackingSolver::Stacking},
+                                                    {"panex", stacking::StackingSolver::Panex}};
   return n;
 }
 
@@ -439,9 +446,12 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   SolveOptions o;
   o.solver = s.settings.solver;
   o.threads = s.settings.threads;
-  // where a full sliding search keeps its levels: the engine's settings
+  // where a full sliding search keeps its levels and a Panex search is
+  // saved: the engine's settings
   o.sliding.workDir = s.settings.slideFolder;
   o.sliding.diskBudget = static_cast<std::uint64_t>(s.settings.slideDiskGB * 1e9);
+  o.stacking.workDir = s.settings.panexFolder;
+  o.stacking.diskBudget = static_cast<std::uint64_t>(s.settings.panexDiskGB * 1e9);
   if (j.is_null()) {
     return o;
   }
@@ -477,6 +487,23 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
       if (RpcResult<void> r = sp.finish(); !r) {
         RpcError e = r.error();
         e.message = "options: sliding: " + e.message;
+        return std::unexpected(e);
+      }
+    }
+  }
+  if (p.has("stacking")) {
+    const Json& sj = p.value("stacking");
+    if (!sj.is_object()) {
+      p.fail("'stacking' must be an object");
+    } else {
+      Params sp(sj);
+      o.stacking.solver =
+          sp.optChoice("solver", stackingSolverNames()).value_or(o.stacking.solver);
+      o.stacking.highMemory = sp.optBoolean("highMemory", o.stacking.highMemory);
+      o.stacking.autosave = sp.optBoolean("autosave", o.stacking.autosave);
+      if (RpcResult<void> r = sp.finish(); !r) {
+        RpcError e = r.error();
+        e.message = "options: stacking: " + e.message;
         return std::unexpected(e);
       }
     }
@@ -527,6 +554,8 @@ Json progressJson(const SolveProgress& g) {
   j["activity"] = g.activity();
   j["searched"] = g.searched;
   j["searchDepth"] = g.searchDepth;
+  j["searchTraced"] = g.searchTraced;
+  j["panexSearch"] = g.panexSearch;
   return j;
 }
 
@@ -587,7 +616,7 @@ Json failureJson(const SolveFailure& f) {
 
 // ---- solutions --------------------------------------------------------------------------
 
-Json solutionRow(const Solution& sol, unsigned int index) {
+Json solutionRow(const Solution& sol, unsigned int index, bool stackingPuzzle) {
   unsigned int placed = 0;
   for (const Placement& pl : sol.getAssembly().getPlacements()) {
     placed += pl.transformation != kUnplacedTrans ? 1U : 0U;
@@ -603,6 +632,16 @@ Json solutionRow(const Solution& sol, unsigned int index) {
   j["solution"] = sol.getSolutionNumber();
   j["pieces"] = placed;
   j["disassembly"] = kind;
+  if (stackingPuzzle && d != nullptr) {
+    // a transfer is three frames (lift, cross, drop): the original showed
+    // the transfers (logicalMoves), as the playback counts its steps
+    const unsigned int transfers = d->sumMoves() / stacking::kStepsPerMove;
+    j["moves"] = transfers;
+    j["rotations"] = d->sumRotations();
+    j["steps"] = transfers;
+    j["movesText"] = std::to_string(transfers);
+    return j;
+  }
   j["moves"] = d != nullptr ? Json(d->sumMoves()) : Json(nullptr);
   j["rotations"] = d != nullptr ? Json(d->sumRotations()) : Json(nullptr);
   j["steps"] = d != nullptr ? Json(d->sumSteps()) : Json(nullptr);

@@ -18,9 +18,6 @@ namespace {
 // The protocol this engine speaks (engine.hello, engine.info).
 constexpr int kProtocol = 1;
 
-// The grids this version solves (stacking loads and saves only).
-bool solvable(GridKind g) { return g != GridKind::Stacking; }
-
 // The sliding solvers' labels: the original's menu.
 std::string_view slidingSolverLabel(sliding::SlidingSolver s) {
   switch (s) {
@@ -32,6 +29,11 @@ std::string_view slidingSolverLabel(sliding::SlidingSolver s) {
       break;
   }
   return "Sliding Full Solver (full depth)";
+}
+
+// The stacking solvers' labels: the original's menu (syncSolverTypeMenu).
+std::string_view stackingSolverLabel(stacking::StackingSolver s) {
+  return s == stacking::StackingSolver::Panex ? "Panex Solver" : "Stacking Solver";
 }
 
 Reply engineHello(State& s, Params& p) {
@@ -54,7 +56,7 @@ Reply engineInfo(State& s, Params& p) {
                          {"label", toString(kind)},
                          {"assemble", (caps & kCapAssemble) != 0},
                          {"disassemble", (caps & kCapDisassemble) != 0},
-                         {"supported", solvable(kind)},
+                         {"supported", true},
                          {"defaultSize", app::defaultShapeSize(kind)},
                          {"sizeUnit", app::sizeUnit(kind)}});
   }
@@ -65,6 +67,10 @@ Reply engineInfo(State& s, Params& p) {
   Json slidingSolvers = Json::array();
   for (const auto& [name, solver] : slidingSolverNames()) {
     slidingSolvers.push_back(Json{{"solver", name}, {"label", slidingSolverLabel(solver)}});
+  }
+  Json stackingSolvers = Json::array();
+  for (const auto& [name, solver] : stackingSolverNames()) {
+    stackingSolvers.push_back(Json{{"solver", name}, {"label", stackingSolverLabel(solver)}});
   }
   Json methods = Json::array();
   for (const auto& [name, m] : s.methods) {
@@ -77,6 +83,7 @@ Reply engineInfo(State& s, Params& p) {
   j["grids"] = std::move(grids);
   j["solvers"] = std::move(solvers);
   j["slidingSolvers"] = std::move(slidingSolvers);
+  j["stackingSolvers"] = std::move(stackingSolvers);
   j["hardwareThreads"] = hardwareThreads();
   j["maxThreads"] = kMaxThreads;
   j["methods"] = std::move(methods);
@@ -94,7 +101,9 @@ Json settingsJson(const State& s) {
               {"threads", s.settings.threads},
               {"solver", nameOf(solverNames(), s.settings.solver)},
               {"slideFolder", s.settings.slideFolder},
-              {"slideDiskGB", s.settings.slideDiskGB}};
+              {"slideDiskGB", s.settings.slideDiskGB},
+              {"panexFolder", s.settings.panexFolder},
+              {"panexDiskGB", s.settings.panexDiskGB}};
 }
 
 Reply settingsGet(State& s, Params& p) {
@@ -109,6 +118,9 @@ Reply settingsSet(State& s, Params& p) {
   const std::optional<std::string> slideFolder = p.optString("slideFolder");
   const std::optional<double> slideDiskGB =
       p.has("slideDiskGB") ? std::optional<double>(p.number("slideDiskGB", 0, 1e9)) : std::nullopt;
+  const std::optional<std::string> panexFolder = p.optString("panexFolder");
+  const std::optional<double> panexDiskGB =
+      p.has("panexDiskGB") ? std::optional<double>(p.number("panexDiskGB", 0, 1e9)) : std::nullopt;
   BTE_CHECK(p.finish());
   if (depth) {
     s.settings.undoDepth = static_cast<unsigned int>(*depth);
@@ -125,6 +137,12 @@ Reply settingsSet(State& s, Params& p) {
   }
   if (slideDiskGB) {
     s.settings.slideDiskGB = *slideDiskGB;
+  }
+  if (panexFolder) {
+    s.settings.panexFolder = *panexFolder;
+  }
+  if (panexDiskGB) {
+    s.settings.panexDiskGB = *panexDiskGB;
   }
   return settingsJson(s);
 }

@@ -24,11 +24,12 @@
     "Cell": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3, "description": "A cell [x, y, z] in the grid's own coordinates."},
     "Size": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 3, "maxItems": 3, "description": "A size [x, y, z]."},
     "Point2": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "A point [x, y] of a layer drawing, y up."},
-    "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet."},
+    "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life."},
     "Solver": {"enum": ["classic", "crowell", "bt2"], "description": "BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2."},
     "SlidingSolver": {"enum": ["fast", "deep", "full"], "description": "How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default)."},
+    "StackingSolver": {"enum": ["stacking", "panex"], "description": "The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it, which pauses, carries on and saves itself, else a search of its own) or the Panex Solver (the Panex search alone, for rod sets with Panex columns; a puzzle it cannot take is refused with its reason)."},
     "SolveState": {"enum": ["idle", "preparing", "assembling", "draining", "paused", "finished", "error"], "description": "decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage)."},
-    "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error", "search"], "description": "What a solve is doing; search is a sliding puzzle's search from a start to the goal (SolveProgress.searched, searchDepth)."},
+    "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error", "search"], "description": "What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced, panexSearch)."},
     "ProblemState": {"enum": ["unsolved", "solving", "solved", "unknown"], "description": "What the problem holds of solving: nothing, a started solve (maybe paused), a finished one, or counts lost by an edit."},
     "CellState": {"enum": ["fixed", "variable"]},
     "CellTool": {"enum": ["fixed", "variable", "erase", "paint"], "description": "The grid editor's tools; paint changes only the colour of non-empty cells."},
@@ -277,7 +278,8 @@
         "keepEach": {"type": "integer", "minimum": 0, "description": "Unsorted, keep every n-th (0 and 1: each)."},
         "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "Assembly and take-apart together; 0 every hardware thread."},
         "takeApartWorkers": {"type": "integer", "minimum": 0, "maximum": 64, "description": "0 chooses."},
-        "sliding": {"$ref": "#/$defs/SlidingOptions"}
+        "sliding": {"$ref": "#/$defs/SlidingOptions"},
+        "stacking": {"$ref": "#/$defs/StackingOptions"}
       },
       "additionalProperties": false
     },
@@ -289,6 +291,16 @@
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},
         "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory)."}
+      },
+      "additionalProperties": false
+    },
+    "StackingOptions": {
+      "type": "object",
+      "description": "A stacking puzzle's search (the solve thread's stacking flags). A stacking solve has no assembler and no take-apart: one search from the start stacking to the goal, whose path is the one solution (its assembly the start stacking). disassemble (the GUI's Find Solutions) or justCount must be on; threads count; the brick fields play no part. solve.prepare is refused (unsupported), and so is solve.savePoint: the search saves itself. Where it is saved is the engine's setting (panexFolder, panexDiskGB).",
+      "properties": {
+        "solver": {"$ref": "#/$defs/StackingSolver", "description": "Default: the Panex Solver for a problem on Panex columns, else the Stacking Solver (the original's menu offered only that one)."},
+        "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in stackings (Enable High Memory)."},
+        "autosave": {"type": "boolean", "description": "The Panex search saves itself every 20 minutes (default true); off, only when it stops (the GUI's Autosave box)."}
       },
       "additionalProperties": false
     },
@@ -331,11 +343,13 @@
         "overallKnown": {"type": "boolean"},
         "levelFraction": {"type": "number"},
         "secondsLeft": {"type": ["number", "null"]},
-        "activity": {"type": "string", "description": "The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.')."},
-        "searched": {"type": "integer", "minimum": 0, "description": "The sliding search under way: the arrangements it has visited."},
-        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a full sliding search is (0 before its first level, and for the other searches)."}
+        "activity": {"type": "string", "description": "The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search. Scanned N stackings.')."},
+        "searched": {"type": "integer", "minimum": 0, "description": "The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search)."},
+        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a full sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together."},
+        "searchTraced": {"type": "integer", "minimum": 0, "description": "Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before."},
+        "panexSearch": {"type": "boolean", "description": "The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search')."}
       },
-      "required": ["stage", "elapsedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth"],
+      "required": ["stage", "elapsedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch"],
       "additionalProperties": false
     },
     "SolveStats": {
@@ -405,7 +419,7 @@
         "solution": {"type": "integer", "minimum": 0, "description": "The solution number (0 without a disassembly)."},
         "pieces": {"type": "integer", "minimum": 0, "description": "Pieces placed."},
         "disassembly": {"enum": ["tree", "summary", "none"], "description": "The moves are stored; only the level summary; not taken apart (or found not to come apart)."},
-        "moves": {"type": ["integer", "null"]},
+        "moves": {"type": ["integer", "null"], "description": "A stacking solution's: its rod transfers (each three frames of its path), as the original counted them; steps and movesText the same."},
         "rotations": {"type": ["integer", "null"]},
         "steps": {"type": ["integer", "null"], "description": "Moves plus rotations."},
         "movesText": {"type": ["string", "null"], "description": "The level text, e.g. 3.1.1."}

@@ -42,7 +42,7 @@
                 "label": {"type": "string"},
                 "assemble": {"type": "boolean", "description": "It has an assembler."},
                 "disassemble": {"type": "boolean", "description": "It has a take-apart."},
-                "supported": {"type": "boolean", "description": "This version solves its puzzles (stacking: not yet)."},
+                "supported": {"type": "boolean", "description": "This version solves its puzzles: every grid (stacking since the deferred plan's part 3b)."},
                 "defaultSize": {"type": "integer", "minimum": 1, "description": "The size of a new shape in each direction, in cells."},
                 "sizeUnit": {"type": "integer", "minimum": 1, "description": "shape.resize counts in blocks of this many cells."}
               },
@@ -69,11 +69,21 @@
               "additionalProperties": false
             }
           },
+          "stackingSolvers": {
+            "type": "array",
+            "description": "The solvers of stacking puzzles (SolveOptions.stacking.solver), with the original's menu labels. The original offered one, by the problem's rod set: the Panex Solver for Panex columns, else the Stacking Solver, which a solve without a solver named uses too.",
+            "items": {
+              "type": "object",
+              "properties": {"solver": {"$ref": "types.json#/$defs/StackingSolver"}, "label": {"type": "string"}},
+              "required": ["solver", "label"],
+              "additionalProperties": false
+            }
+          },
           "hardwareThreads": {"type": "integer", "minimum": 1},
           "maxThreads": {"type": "integer", "minimum": 1},
           "methods": {"type": "array", "items": {"type": "string"}}
         },
-        "required": ["name", "version", "protocol", "grids", "solvers", "slidingSolvers", "hardwareThreads", "maxThreads", "methods"],
+        "required": ["name", "version", "protocol", "grids", "solvers", "slidingSolvers", "stackingSolvers", "hardwareThreads", "maxThreads", "methods"],
         "additionalProperties": false
       }
     },
@@ -96,7 +106,9 @@
           "threads": {"type": "integer", "minimum": 0, "maximum": 256},
           "solver": {"$ref": "types.json#/$defs/Solver"},
           "slideFolder": {"type": "string"},
-          "slideDiskGB": {"type": "number", "minimum": 0}
+          "slideDiskGB": {"type": "number", "minimum": 0},
+          "panexFolder": {"type": "string"},
+          "panexDiskGB": {"type": "number", "minimum": 0}
         },
         "additionalProperties": false
       },
@@ -122,9 +134,11 @@
         "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "The threads of a solve when its options do not say; 0 every hardware thread (default)."},
         "solver": {"$ref": "types.json#/$defs/Solver", "description": "The solver when a solve's or analysis's options do not say (default classic)."},
         "slideFolder": {"type": "string", "description": "Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder."},
-        "slideDiskGB": {"type": "number", "minimum": 0, "description": "The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it."}
+        "slideDiskGB": {"type": "number", "minimum": 0, "description": "The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it."},
+        "panexFolder": {"type": "string", "description": "Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's BURRTOOLS_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder."},
+        "panexDiskGB": {"type": "number", "minimum": 0, "description": "The disk a saved search's levels may take, in GB (BURRTOOLS_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes."}
       },
-      "required": ["undoDepth", "threads", "solver", "slideFolder", "slideDiskGB"],
+      "required": ["undoDepth", "threads", "solver", "slideFolder", "slideDiskGB", "panexFolder", "panexDiskGB"],
       "additionalProperties": false
     }
   }

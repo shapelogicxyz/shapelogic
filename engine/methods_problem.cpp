@@ -199,7 +199,7 @@ Reply problemKind(State& s, Params& p) {
   const std::string_view name = kind == app::ProblemKind::Sliding    ? "sliding"
                                 : kind == app::ProblemKind::Stacking ? "stacking"
                                                                      : "brick";
-  return Json{{"kind", name}, {"supported", kind != app::ProblemKind::Stacking}};
+  return Json{{"kind", name}, {"supported", true}};
 }
 
 Reply problemSetSolverSettings(State& s, Params& p) {

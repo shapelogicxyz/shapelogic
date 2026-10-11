@@ -25,6 +25,11 @@ std::string Settings::defaultSlideFolder() {
   return cache.empty() ? std::string() : (std::filesystem::path(cache) / "sliding").string();
 }
 
+std::string Settings::defaultPanexFolder() {
+  const std::string cache = userCacheDirectory();
+  return cache.empty() ? std::string() : (std::filesystem::path(cache) / "panex").string();
+}
+
 State::State(Output& output, std::ostream& logs, const MethodTable& table)
     : out(output), log(logs), methods(table), doc(std::in_place, GridKind::Bricks) {}
 

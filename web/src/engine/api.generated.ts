@@ -37,6 +37,22 @@ export interface Settings {
    * @minimum 0
    */
   slideDiskGB: number;
+  /**
+   * Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's
+   * BURRTOOLS_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue
+   * carries on (also after the engine or the document ended), solve.start and solve.abort throw
+   * away, solve.status describes, and the paused solve's export and import carry. Empty saves
+   * nothing (a search that outgrows its memory then finds its path by solving halves again).
+   * Default: the user's cache folder's panex folder.
+   */
+  panexFolder: string;
+  /**
+   * The disk a saved search's levels may take, in GB (BURRTOOLS_PANEX_DISK_GB); 0, the default:
+   * half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the
+   * longer finding the path at the end takes.
+   * @minimum 0
+   */
+  panexDiskGB: number;
 }
 
 // ---- explore.json: Explorers ----
@@ -246,9 +262,7 @@ export type Size = [number, number, number];
  */
 export type Point2 = [number, number];
 
-/**
- * The grid of a puzzle, fixed for its life. Stacking puzzles load and save but are not solved yet.
- */
+/** The grid of a puzzle, fixed for its life. */
 export type Grid =
   | 'bricks'
   | 'prisms'
@@ -267,6 +281,14 @@ export type Solver = 'classic' | 'crowell' | 'bt2';
  */
 export type SlidingSolver = 'fast' | 'deep' | 'full';
 
+/**
+ * The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it,
+ * which pauses, carries on and saves itself, else a search of its own) or the Panex Solver (the
+ * Panex search alone, for rod sets with Panex columns; a puzzle it cannot take is refused with its
+ * reason).
+ */
+export type StackingSolver = 'stacking' | 'panex';
+
 /** decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). */
 export type SolveState =
   | 'idle'
@@ -278,8 +300,9 @@ export type SolveState =
   | 'error';
 
 /**
- * What a solve is doing; search is a sliding puzzle's search from a start to the goal
- * (SolveProgress.searched, searchDepth).
+ * What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a
+ * stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced,
+ * panexSearch).
  */
 export type SolveStage =
   | 'idle'
@@ -685,6 +708,7 @@ export interface SolveOptions {
    */
   takeApartWorkers?: number;
   sliding?: SlidingOptions;
+  stacking?: StackingOptions;
 }
 
 /**
@@ -702,6 +726,29 @@ export interface SlidingOptions {
   partialNested?: boolean;
   /** Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). */
   highMemory?: boolean;
+}
+
+/**
+ * A stacking puzzle's search (the solve thread's stacking flags). A stacking solve has no
+ * assembler and no take-apart: one search from the start stacking to the goal, whose path is the
+ * one solution (its assembly the start stacking). disassemble (the GUI's Find Solutions) or
+ * justCount must be on; threads count; the brick fields play no part. solve.prepare is refused
+ * (unsupported), and so is solve.savePoint: the search saves itself. Where it is saved is the
+ * engine's setting (panexFolder, panexDiskGB).
+ */
+export interface StackingOptions {
+  /**
+   * Default: the Panex Solver for a problem on Panex columns, else the Stacking Solver (the
+   * original's menu offered only that one).
+   */
+  solver?: StackingSolver;
+  /** Hold up to half the machine's memory in stackings (Enable High Memory). */
+  highMemory?: boolean;
+  /**
+   * The Panex search saves itself every 20 minutes (default true); off, only when it stops (the
+   * GUI's Autosave box).
+   */
+  autosave?: boolean;
 }
 
 /** One take-apart under way. */
@@ -761,20 +808,34 @@ export interface SolveProgress {
   secondsLeft: number | null;
   /**
    * The original's status text (empty in the search stage, which the original GUI told as 'Sliding
-   * search, N moves deep. Scanned N arrangements.').
+   * search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N
+   * stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search.
+   * Scanned N stackings.').
    */
   activity: string;
   /**
-   * The sliding search under way: the arrangements it has visited.
+   * The sliding search under way: the arrangements it has visited; the stacking search: the
+   * stackings it has searched (found, for the Panex search).
    * @minimum 0
    */
   searched: number;
   /**
    * How many moves deep a full sliding search is (0 before its first level, and for the other
-   * searches).
+   * searches); how many moves deep both ends of the Panex search are together.
    * @minimum 0
    */
   searchDepth: number;
+  /**
+   * Once the ends of the Panex search have met: how many moves of the path are traced back (of
+   * searchDepth); 0 before.
+   * @minimum 0
+   */
+  searchTraced: number;
+  /**
+   * The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking
+   * search').
+   */
+  panexSearch: boolean;
 }
 
 /** The debug statistics panel. */
@@ -882,6 +943,10 @@ export interface SolutionRow {
    * The moves are stored; only the level summary; not taken apart (or found not to come apart).
    */
   disassembly: 'tree' | 'summary' | 'none';
+  /**
+   * A stacking solution's: its rod transfers (each three frames of its path), as the original
+   * counted them; steps and movesText the same.
+   */
   moves: number | null;
   rotations: number | null;
   /** Moves plus rotations. */
@@ -1157,7 +1222,10 @@ export interface Methods {
         assemble: boolean;
         /** It has a take-apart. */
         disassemble: boolean;
-        /** This version solves its puzzles (stacking: not yet). */
+        /**
+         * This version solves its puzzles: every grid (stacking since the deferred plan's part
+         * 3b).
+         */
         supported: boolean;
         /**
          * The size of a new shape in each direction, in cells.
@@ -1180,6 +1248,15 @@ export interface Methods {
        */
       slidingSolvers: ({
         solver: SlidingSolver;
+        label: string;
+      })[];
+      /**
+       * The solvers of stacking puzzles (SolveOptions.stacking.solver), with the original's menu
+       * labels. The original offered one, by the problem's rod set: the Panex Solver for Panex
+       * columns, else the Stacking Solver, which a solve without a solver named uses too.
+       */
+      stackingSolvers: ({
+        solver: StackingSolver;
         label: string;
       })[];
       /** @minimum 1 */
@@ -1229,6 +1306,9 @@ export interface Methods {
       slideFolder?: string;
       /** @minimum 0 */
       slideDiskGB?: number;
+      panexFolder?: string;
+      /** @minimum 0 */
+      panexDiskGB?: number;
     };
     result: Settings;
     errors: never;
@@ -1758,7 +1838,8 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Brick, sliding or stacking; this version solves brick and sliding puzzles.
+   * Brick, sliding or stacking; this version solves all three (supported is always true, kept for
+   * clients that read it).
    * (problem.json)
    */
   'problem.kind': {
@@ -2354,31 +2435,38 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Solves from the start, dropping what the problem holds of earlier solving.
+   * Solves from the start, dropping what the problem holds of earlier solving (a stacking
+   * problem's saved search too: the original's Solve asked first, solve.status.savedSearch tells
+   * it). Refused (invalid_argument) with the original's message when the problem cannot be solved
+   * as it stands (no result, no pieces; a stacking problem without a rod set, with neither
+   * disassemble nor justCount, or whose stacks break its rules), and (unsupported) when its grid
+   * or solver cannot take it.
    * (solve.json)
    */
   'solve.start': {
     params: Launch;
     result: Changed;
-    errors: 'not_found' | 'invalid_state' | 'unsupported';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state' | 'unsupported';
   };
   /**
-   * Drops what the problem holds, builds the search (placements, reduce) and pauses.
+   * Drops what the problem holds, builds the search (placements, reduce) and pauses. A stacking
+   * search has nothing to build (unsupported).
    * (solve.json)
    */
   'solve.prepare': {
     params: Launch;
     result: Changed;
-    errors: 'not_found' | 'invalid_state' | 'unsupported';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state' | 'unsupported';
   };
   /**
-   * Carries on a paused solve, one saved in the file, or an unsolved problem from the start.
+   * Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an
+   * unsolved problem from the start.
    * (solve.json)
    */
   'solve.continue': {
     params: Launch;
     result: Changed;
-    errors: 'not_found' | 'invalid_state' | 'unsupported';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state' | 'unsupported';
   };
   /**
    * Asks the run to pause where it can be continued; nothing is lost. Does not wait: solve.state
@@ -2392,13 +2480,15 @@ export interface Methods {
   };
   /**
    * Asks the assembly search alone to pause where the solve can be saved; the take-aparts under
-   * way finish, then 'paused'. The autosave: save, then solve.continue.
+   * way finish, then 'paused'. The autosave: save, then solve.continue. Refused (unsupported) on a
+   * stacking solve, which the original never autosaved: its search saves itself every 20 minutes
+   * (StackingOptions.autosave) and when it stops.
    * (solve.json)
    */
   'solve.savePoint': {
     params: SolveProblemParam;
     result: Empty;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_state' | 'unsupported';
   };
   /**
    * The hard stop of a solve under way (a run active, or paused in memory): throws it away
@@ -2406,7 +2496,10 @@ export interface Methods {
    * when the problem has no such solve, so a finished run's solutions are never lost by a late
    * click: remove them with solution.delete {which: all}, which can be undone; a paused solve from
    * a file is carried on with solve.continue or started over with solve.start. Two
-   * document.changed follow: the abort's own, then the run's end from the poll.
+   * document.changed follow: the abort's own, then the run's end from the poll. A stacking problem
+   * whose search is saved (solve.status.savedSearch) has a solve under way though no run is in
+   * memory, as the original's Abort judged it: the search and the problem's results go, and one
+   * document.changed follows.
    * (solve.json)
    */
   'solve.abort': {
@@ -2426,17 +2519,34 @@ export interface Methods {
       stats: SolveStats;
       failure: SolveFailure | null;
       /**
-       * What a sliding solve's last run said when it was through: whether a missing solution is
-       * proven or the search gave up at a limit (the original's solver note, shown in a message
-       * box); null otherwise.
+       * What a sliding or stacking solve's last run said when it was through, or a stacking search
+       * when it paused: whether a missing solution is proven, the search gave up at a limit, or
+       * where it was saved (the original's solver note, shown in a message box); null otherwise.
        */
       note: string | null;
+      /** Null while the problem's run is active, when there is none, and on other grids. */
+      savedSearch: {
+        /** e.g. 'a saved search 200 moves deep, 3.4M stackings'. */
+        description: string;
+        /**
+         * The solving time it holds.
+         * @minimum 0
+         */
+        ms: number;
+        /**
+         * The bytes its levels take (solve.exportPaused withLevels; the original asked about them
+         * beyond 1 GB).
+         * @minimum 0
+         */
+        levelBytes: number;
+      } | null;
     };
     errors: 'not_found';
   };
   /**
    * Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the
-   * problem's number) to carry it on elsewhere.
+   * problem's number) to carry it on elsewhere. A stacking problem is paused when its search is
+   * saved (solve.status.savedSearch): the file carries the search, packed.
    * (solve.json)
    */
   'solve.exportPaused': {
@@ -2444,13 +2554,20 @@ export interface Methods {
       problem: ProblemId;
       /** @minLength 1 */
       path: string;
+      /**
+       * A stacking search's saved levels go into the file too (default true): left out, the file
+       * is far smaller, but finding the path at the end takes longer.
+       */
+      withLevels?: boolean;
     };
     result: Empty;
     errors: 'not_found' | 'invalid_state' | 'io_error';
   };
   /**
    * Opens a .btsolve file as a new, untitled document (the open one goes as with document.new);
-   * solve.continue on the problem carries the solve on.
+   * solve.continue on the problem carries the solve on. A stacking search it carries goes into its
+   * folder in the engine's panexFolder, replacing what was there; without a panexFolder such a
+   * file is refused (parse_error).
    * (solve.json)
    */
   'solve.importPaused': {

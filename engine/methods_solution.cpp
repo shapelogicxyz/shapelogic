@@ -3,6 +3,8 @@
 #include "convert.h"
 #include "engine.h"
 
+#include "bt/model/stacking.h"
+
 #include <algorithm>
 #include <numeric>
 
@@ -27,6 +29,7 @@ Reply solutionPage(State& s, Params& p) {
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
   // sorted as a view, under the lock a running solve writes with
+  const bool stackingPuzzle = stacking::isStacking(s.document().puzzle());
   return s.document().readProblem(index, [&](const Problem& pr) -> Reply {
     std::vector<unsigned int> order(pr.getNumberOfSavedSolutions());
     std::iota(order.begin(), order.end(), 0U);
@@ -42,7 +45,7 @@ Reply solutionPage(State& s, Params& p) {
     }
     Json rows = Json::array();
     for (std::size_t k = offset; k < order.size() && k < offset + limit; k++) {
-      rows.push_back(solutionRow(pr.getSavedSolution(order[k]), order[k]));
+      rows.push_back(solutionRow(pr.getSavedSolution(order[k]), order[k], stackingPuzzle));
     }
     return Json{{"total", order.size()},
                 {"offset", offset},
@@ -60,7 +63,8 @@ Reply solutionGet(State& s, Params& p) {
     for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
       const Solution& sol = pr.getSavedSolution(i);
       if (sol.getId() == solution) {
-        return Json{{"row", solutionRow(sol, i)}, {"placements", placementsJson(sol.getAssembly())}};
+        return Json{{"row", solutionRow(sol, i, stacking::isStacking(s.document().puzzle()))},
+                    {"placements", placementsJson(sol.getAssembly())}};
       }
     }
     return coreError(Errc::NotFound, "there is no such solution");

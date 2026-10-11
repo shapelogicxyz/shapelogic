@@ -2,25 +2,25 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "solve.json",
   "title": "Solving",
-  "description": "One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). Stacking problems are refused (unsupported).",
+  "description": "One solve per problem (decision 0010), named by the problem's id. Starting calls return at once; what happens comes as events. A sliding problem is solved as the original's solve thread did: the assembler finds the start layouts, and each is searched to the goal (decision 0014). A stacking problem too (decision 0015): one search from its start stacking to its goal, its path the one solution; a paused stacking solve is its search saved in the engine's panexFolder, which outlives the run, the document and the engine: solve.continue carries it on (also on a reopened file), solve.start and solve.abort throw it away, solve.status describes it (savedSearch), and the paused solve's export and import carry it.",
   "methods": {
     "solve.start": {
-      "summary": "Solves from the start, dropping what the problem holds of earlier solving.",
+      "summary": "Solves from the start, dropping what the problem holds of earlier solving (a stacking problem's saved search too: the original's Solve asked first, solve.status.savedSearch tells it). Refused (invalid_argument) with the original's message when the problem cannot be solved as it stands (no result, no pieces; a stacking problem without a rod set, with neither disassemble nor justCount, or whose stacks break its rules), and (unsupported) when its grid or solver cannot take it.",
       "params": {"$ref": "#/$defs/Launch"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state", "unsupported"]
+      "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported"]
     },
     "solve.prepare": {
-      "summary": "Drops what the problem holds, builds the search (placements, reduce) and pauses.",
+      "summary": "Drops what the problem holds, builds the search (placements, reduce) and pauses. A stacking search has nothing to build (unsupported).",
       "params": {"$ref": "#/$defs/Launch"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state", "unsupported"]
+      "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported"]
     },
     "solve.continue": {
-      "summary": "Carries on a paused solve, one saved in the file, or an unsolved problem from the start.",
+      "summary": "Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start.",
       "params": {"$ref": "#/$defs/Launch"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state", "unsupported"]
+      "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported"]
     },
     "solve.pause": {
       "summary": "Asks the run to pause where it can be continued; nothing is lost. Does not wait: solve.state 'paused' follows. Refused when no run is under way.",
@@ -29,13 +29,13 @@
       "errors": ["not_found", "invalid_state"]
     },
     "solve.savePoint": {
-      "summary": "Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue.",
+      "summary": "Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved: its search saves itself every 20 minutes (StackingOptions.autosave) and when it stops.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Empty"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_state", "unsupported"]
     },
     "solve.abort": {
-      "summary": "The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll.",
+      "summary": "The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll. A stacking problem whose search is saved (solve.status.savedSearch) has a solve under way though no run is in memory, as the original's Abort judged it: the search and the problem's results go, and one document.changed follows.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_state"]
@@ -50,18 +50,39 @@
           "progress": {"$ref": "types.json#/$defs/SolveProgress"},
           "stats": {"$ref": "types.json#/$defs/SolveStats"},
           "failure": {"oneOf": [{"$ref": "types.json#/$defs/SolveFailure"}, {"type": "null"}]},
-          "note": {"type": ["string", "null"], "description": "What a sliding solve's last run said when it was through: whether a missing solution is proven or the search gave up at a limit (the original's solver note, shown in a message box); null otherwise."}
+          "note": {"type": ["string", "null"], "description": "What a sliding or stacking solve's last run said when it was through, or a stacking search when it paused: whether a missing solution is proven, the search gave up at a limit, or where it was saved (the original's solver note, shown in a message box); null otherwise."},
+          "savedSearch": {
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "A stacking problem's search saved in the engine's panexFolder: solve.continue carries it on, solve.start and solve.abort throw it away (the original's Solve asked 'This problem has <description>. Continue it, or start over and discard it?').",
+                "properties": {
+                  "description": {"type": "string", "description": "e.g. 'a saved search 200 moves deep, 3.4M stackings'."},
+                  "ms": {"type": "integer", "minimum": 0, "description": "The solving time it holds."},
+                  "levelBytes": {"type": "integer", "minimum": 0, "description": "The bytes its levels take (solve.exportPaused withLevels; the original asked about them beyond 1 GB)."}
+                },
+                "required": ["description", "ms", "levelBytes"],
+                "additionalProperties": false
+              },
+              {"type": "null"}
+            ],
+            "description": "Null while the problem's run is active, when there is none, and on other grids."
+          }
         },
-        "required": ["state", "progress", "stats", "failure", "note"],
+        "required": ["state", "progress", "stats", "failure", "note", "savedSearch"],
         "additionalProperties": false
       },
       "errors": ["not_found"]
     },
     "solve.exportPaused": {
-      "summary": "Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere.",
+      "summary": "Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere. A stacking problem is paused when its search is saved (solve.status.savedSearch): the file carries the search, packed.",
       "params": {
         "type": "object",
-        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "path": {"type": "string", "minLength": 1}},
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "path": {"type": "string", "minLength": 1},
+          "withLevels": {"type": "boolean", "description": "A stacking search's saved levels go into the file too (default true): left out, the file is far smaller, but finding the path at the end takes longer."}
+        },
         "required": ["problem", "path"],
         "additionalProperties": false
       },
@@ -69,7 +90,7 @@
       "errors": ["not_found", "invalid_state", "io_error"]
     },
     "solve.importPaused": {
-      "summary": "Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on.",
+      "summary": "Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error).",
       "params": {
         "type": "object",
         "properties": {"path": {"type": "string", "minLength": 1}},

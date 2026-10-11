@@ -42,9 +42,20 @@ struct Settings {
   /// for BURRTOOLS_SLIDE_DIR).
   std::string slideFolder = defaultSlideFolder();
   double slideDiskGB = 0;
+  /// Where a stacking solve's Panex search is saved (empty: nothing is
+  /// saved, and a search that outgrows memory solves by halves), and the
+  /// disk its levels may take in GB (0: automatic). The folder starts as
+  /// the user's cache folder's "panex" (the original's default for
+  /// BURRTOOLS_PANEX_DIR). A paused stacking solve is its saved search
+  /// there: solve.continue, solve.abort, solve.status and the paused
+  /// solve's export and import look for it there.
+  std::string panexFolder = defaultPanexFolder();
+  double panexDiskGB = 0;
 
   /// The user's cache folder's "sliding", or empty without one.
   static std::string defaultSlideFolder();
+  /// The user's cache folder's "panex", or empty without one.
+  static std::string defaultPanexFolder();
 };
 
 struct State;

@@ -12,7 +12,9 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <functional>
+#include <random>
 #include <sstream>
 #include <thread>
 #include <string>
@@ -316,6 +318,79 @@ TEST_CASE("engine: a solve's events, polled while it runs", "[engine][parallel]"
   const Json detail = h.result("problem.get", {{"problem", p}});
   CHECK(detail["assemblies"] == 2856);
   CHECK(detail["state"] == "solved");
+  CHECK_FALSE(h.engine.busy());
+}
+
+TEST_CASE("engine: a stacking solve's events, polled while it runs, paused and carried on",
+          "[engine][parallel]") {
+  // a Panex folder of the test's own (never the user's cache)
+  std::random_device rd;
+  const std::filesystem::path work =
+      std::filesystem::temp_directory_path() /
+      ("bt_test_engine_panex_" + std::to_string(rd()) + "_" + std::to_string(rd()));
+  struct Remove {
+    std::filesystem::path path;
+    ~Remove() {
+      std::error_code ec;
+      std::filesystem::remove_all(path, ec);
+    }
+  } remove{work};
+  Harness h;
+  h.result("settings.set", {{"panexFolder", work.string()}});
+  const Json snap =
+      h.result("document.open", {{"path", "tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle"}});
+  const std::string p = snap["problems"][0]["id"];
+  const Json options = {{"disassemble", true}, {"threads", 2}};
+  h.result("solve.start", {{"problem", p}, {"options", options}});
+
+  // the owner's loop: requests and polls while the search's threads run; a
+  // pause asked for at its first progress (it may come after the end)
+  std::vector<Json> events;
+  bool finished = false;
+  bool paused = false;
+  bool asked = false;
+  for (int i = 0; i < 60000 && !finished; i++) {
+    h.out.str("");
+    h.engine.poll();
+    for (Json& m : parse(h.out.str()).messages) {
+      if (m["method"] == "solve.state" && m["params"]["state"] == "finished") {
+        finished = true;
+      }
+      if (m["method"] == "solve.state" && m["params"]["state"] == "paused") {
+        paused = true;
+      }
+      if (!asked && m["method"] == "solve.progress" && m["params"]["progress"]["searched"] > 0) {
+        asked = true;
+        (void)h.call("solve.pause", {{"problem", p}});
+      }
+      events.push_back(std::move(m));
+    }
+    if (paused) {
+      // the search saved itself: told, then carried on
+      const Json st = h.result("solve.status", {{"problem", p}});
+      CHECK(st["savedSearch"].is_object());
+      h.result("solve.continue", {{"problem", p}, {"options", options}});
+      paused = false;
+    }
+    if (i % 10 == 0) {
+      (void)h.result("problem.get", {{"problem", p}});
+      (void)h.result("solution.page", {{"problem", p}, {"limit", 5}});
+      (void)h.result("solve.status", {{"problem", p}});
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  REQUIRE(finished);
+  h.out.str("");
+  h.engine.poll();
+  const auto progress = std::find_if(events.begin(), events.end(), [](const Json& m) {
+    return m["method"] == "solve.progress" && m["params"]["progress"]["stage"] == "search";
+  });
+  REQUIRE(progress != events.end());
+  CHECK((*progress)["params"]["progress"]["panexSearch"] == true);
+  const Json page = h.result("solution.page", {{"problem", p}});
+  REQUIRE(page["rows"].size() == 1);
+  CHECK(page["rows"][0]["moves"] == 343);
+  CHECK(h.result("solve.status", {{"problem", p}})["savedSearch"].is_null());
   CHECK_FALSE(h.engine.busy());
 }
 

@@ -215,7 +215,7 @@
       "errors": ["not_found"]
     },
     "problem.kind": {
-      "summary": "Brick, sliding or stacking; this version solves brick and sliding puzzles.",
+      "summary": "Brick, sliding or stacking; this version solves all three (supported is always true, kept for clients that read it).",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {
         "type": "object",

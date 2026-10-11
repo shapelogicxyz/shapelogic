@@ -34,6 +34,7 @@ using Names = std::vector<std::pair<std::string_view, E>>;
 [[nodiscard]] const Names<GridKind>& gridNames();
 [[nodiscard]] const Names<SolverType>& solverNames();
 [[nodiscard]] const Names<sliding::SlidingSolver>& slidingSolverNames();
+[[nodiscard]] const Names<stacking::StackingSolver>& stackingSolverNames();
 [[nodiscard]] const Names<app::CellTool>& cellToolNames();
 [[nodiscard]] const Names<app::ShapeTask>& shapeTaskNames();
 [[nodiscard]] const Names<mesh::MeshStyle>& meshStyleNames();
@@ -90,7 +91,7 @@ template <class E>
 [[nodiscard]] Json failureJson(const SolveFailure& f);
 [[nodiscard]] Json takeApartJson(const DisassemblyProgress& d);
 /// A saved solution's row (solution.page) and the placements of an assembly.
-[[nodiscard]] Json solutionRow(const Solution& sol, unsigned int index);
+[[nodiscard]] Json solutionRow(const Solution& sol, unsigned int index, bool stackingPuzzle);
 [[nodiscard]] Json placementsJson(const Assembly& a);
 
 }  // namespace bt::engine
