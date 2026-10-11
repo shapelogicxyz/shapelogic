@@ -170,6 +170,10 @@ std::string problemId(const State& s, unsigned int index) {
   return formatId(IdKind::Problem, s.document().problemIds()[index]);
 }
 
+std::string rodSetId(const State& s, unsigned int index) {
+  return formatId(IdKind::RodSet, s.document().rodSetIds()[index]);
+}
+
 namespace {
 
 Json shapeColour(const Voxel& v) {
@@ -193,6 +197,7 @@ void problemFields(const State& s, unsigned int index, const Problem& pr, Json& 
   j["label"] = app::Document::problemLabel(index);
   j["name"] = pr.getName();
   j["result"] = pr.resultValid() ? Json(shapeId(s, pr.getResultId())) : Json(nullptr);
+  j["rodSet"] = pr.rodSetValid(d.puzzle()) ? Json(rodSetId(s, pr.getRodSetId())) : Json(nullptr);
   j["pieces"] = pr.getNumberOfPieces();
   j["state"] = problemStateName(pr.getSolveState());
   j["solve"] = solveStateName(d.solveState(d.problemIds()[index]));
@@ -220,6 +225,67 @@ Json shapeSummary(const State& s, unsigned int index) {
   j["weight"] = v.getWeight();
   j["colour"] = shapeColour(v);
   j["startGoal"] = startGoal ? Json(sliding::startGoalNumber(&v)) : Json(nullptr);
+  const bool disc = stacking::isStacking(s.document().puzzle()) && v.getDiskSize() > 0;
+  j["disc"] = disc ? Json(v.getDiskSize()) : Json(nullptr);
+  return j;
+}
+
+Json rodSetJson(const State& s, unsigned int index) {
+  const stacking::RodSet& r = s.document().puzzle().getRodSet(index);
+  Json j = Json::object();
+  j["id"] = rodSetId(s, index);
+  j["label"] = app::Document::rodSetLabel(index);
+  j["name"] = r.name;
+  j["rodCount"] = r.rodCount;
+  j["rods"] = stacking::totalRods(r);
+  j["growHeight"] = r.growHeight;
+  j["definedHeight"] = r.definedHeight;
+  j["sizeMatters"] = r.sizeMatters;
+  // what the GUI's box showed (loadRodFields): older files cancelled the
+  // distance rule with "can move over", which an edit writes off
+  j["distanceMatters"] = r.distanceMatters && !r.canMoveOver;
+  j["panexColumns"] = r.panexColumns;
+  // the pocket and the channel as syncPanexFields left the boxes
+  j["pocketColumn"] = r.panexColumns && r.pocketColumn;
+  j["pocketHeight"] = r.pocketHeight;
+  j["outsideChannel"] = stacking::hasOutsideChannel(r);
+  return j;
+}
+
+Json stacksJson(const State& s, const stacking::StackMap& map) {
+  Json rods = Json::array();
+  for (const std::vector<stacking::DiskRef>& rod : map.rods) {
+    Json discs = Json::array();
+    for (const stacking::DiskRef& d : rod) {
+      const bool known = d.shapeId < s.document().shapeIds().size();
+      discs.push_back(Json{{"shape", known ? Json(shapeId(s, d.shapeId)) : Json(nullptr)},
+                           {"instance", d.instance}});
+    }
+    rods.push_back(std::move(discs));
+  }
+  return rods;
+}
+
+Json layoutJson(const State& s, const stacking::BoardLayout& lay,
+                const std::vector<stacking::Disc>& pieces) {
+  Json j = Json::object();
+  j["spacing"] = lay.spacing;
+  j["rodCount"] = lay.rodCount;
+  j["rodHeight"] = lay.rodHeight;
+  j["rodX"] = lay.rodX;
+  j["rodHeights"] = lay.rodHeights;
+  j["panex"] = lay.panex;
+  j["pocket"] = lay.pocket;
+  j["maxSize"] = lay.maxSize;
+  Json discs = Json::array();
+  for (std::size_t i = 0; i < lay.disks.size() && i < pieces.size(); i++) {
+    const stacking::Hotspot& h = lay.disks[i];
+    discs.push_back(Json{{"shape", shapeId(s, pieces[i].shapeId)},
+                         {"instance", pieces[i].instance},
+                         {"size", pieces[i].size},
+                         {"at", h.placed ? Json::array({h.x, h.y, h.z}) : Json(nullptr)}});
+  }
+  j["discs"] = std::move(discs);
   return j;
 }
 
@@ -272,6 +338,10 @@ Json problemDetail(const State& s, unsigned int index) {
     j["savedPosition"] =
         pr.getSolveState() == ProblemState::Solving && !pr.getAssemblerState().empty();
     j["solverSettings"] = solverSettingsJson(pr.getSolverOptions());
+    j["stacks"] = stacking::isStacking(puzzle)
+                      ? Json{{"start", stacksJson(s, pr.startStacks())},
+                             {"goal", stacksJson(s, pr.goalStacks())}}
+                      : Json(nullptr);
     return j;
   });
 }
@@ -303,6 +373,11 @@ Json snapshot(const State& s) {
     problems.push_back(problemSummary(s, i));
   }
   j["problems"] = std::move(problems);
+  Json rodSets = Json::array();
+  for (unsigned int i = 0; i < p.rodSetCount(); i++) {
+    rodSets.push_back(rodSetJson(s, i));
+  }
+  j["rodSets"] = std::move(rodSets);
   return j;
 }
 

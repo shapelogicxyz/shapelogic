@@ -21,6 +21,8 @@ The JSON Schema of every `bt-engine` method and event (decisions 0003 and
 | `shape.json` | `shape.*`, `grid.geometry` |
 | `colour.json` | `colour.*` |
 | `problem.json` | `problem.*` |
+| `sliding.json` | `sliding.*`: a sliding puzzle's start/goal shapes and stamps |
+| `stacking.json` | `stacking.*`: a stacking puzzle's rod sets, discs and stacks |
 | `solve.json` | `solve.*` and its events |
 | `solution.json` | `solution.*` and the analysis events |
 | `playback.json` | `playback.*` |

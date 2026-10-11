@@ -63,9 +63,19 @@ template <class E>
 [[nodiscard]] std::string shapeId(const State& s, unsigned int index);
 [[nodiscard]] std::string colourId(const State& s, unsigned int index);
 [[nodiscard]] std::string problemId(const State& s, unsigned int index);
+[[nodiscard]] std::string rodSetId(const State& s, unsigned int index);
 
 /// The items (api/types.json).
 [[nodiscard]] Json shapeSummary(const State& s, unsigned int index);
+/// A stacking puzzle's rod set (RodSet): its id, label, name and rules as
+/// the original's fields showed them.
+[[nodiscard]] Json rodSetJson(const State& s, unsigned int index);
+/// A stacking (Stacks): each rod's discs, bottom to top.
+[[nodiscard]] Json stacksJson(const State& s, const stacking::StackMap& map);
+/// Where rods and discs stand (BoardLayout); `pieces` names the discs of
+/// `disks` (none for a rod set alone).
+[[nodiscard]] Json layoutJson(const State& s, const stacking::BoardLayout& lay,
+                              const std::vector<stacking::Disc>& pieces);
 [[nodiscard]] Json colourJson(const State& s, unsigned int index);
 [[nodiscard]] Json problemSummary(const State& s, unsigned int index);
 [[nodiscard]] Json problemDetail(const State& s, unsigned int index);

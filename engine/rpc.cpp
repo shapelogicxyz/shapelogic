@@ -37,6 +37,7 @@ std::string_view prefix(IdKind kind) {
     case IdKind::Playback: return "pb";
     case IdKind::AssemblyExplorer: return "ax";
     case IdKind::MovementExplorer: return "mx";
+    case IdKind::RodSet: return "r";
   }
   return "?";
 }
@@ -50,6 +51,7 @@ std::string_view kindName(IdKind kind) {
     case IdKind::Playback: return "a playback";
     case IdKind::AssemblyExplorer: return "an assembly explorer";
     case IdKind::MovementExplorer: return "a movement explorer";
+    case IdKind::RodSet: return "a rod set";
   }
   return "an id";
 }
@@ -79,7 +81,8 @@ std::optional<std::uint64_t> parseId(IdKind kind, std::string_view text) {
 
 std::optional<IdKind> idKindOf(std::string_view text) {
   for (const IdKind k : {IdKind::Solution, IdKind::Shape, IdKind::Colour, IdKind::Problem,
-                         IdKind::Playback, IdKind::AssemblyExplorer, IdKind::MovementExplorer}) {
+                         IdKind::Playback, IdKind::AssemblyExplorer, IdKind::MovementExplorer,
+                         IdKind::RodSet}) {
     if (parseId(k, text)) {
       return k;
     }

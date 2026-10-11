@@ -102,6 +102,7 @@ enum class IdKind : std::uint8_t {
   Playback,          ///< pb1
   AssemblyExplorer,  ///< ax1
   MovementExplorer,  ///< mx1
+  RodSet,            ///< r1, a stacking puzzle's board
 };
 
 /// "s7" for a shape with id 7.

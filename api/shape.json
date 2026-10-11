@@ -49,7 +49,7 @@
       "errors": ["not_found"]
     },
     "shape.create": {
-      "summary": "Adds an empty shape at the end: of a size in cells, or of the grid's default size.",
+      "summary": "Adds an empty shape at the end: of a size in cells, or of the grid's default size. On a stacking puzzle a disc of size 1 (the original's New), and no size may be given (invalid_argument).",
       "params": {
         "type": "object",
         "properties": {"size": {"$ref": "types.json#/$defs/Size"}},
@@ -118,7 +118,7 @@
       "errors": ["not_found", "invalid_state"]
     },
     "shape.setCells": {
-      "summary": "Applies a tool to cells, each with the mirror and span options (the grid editor); cells outside the space or not cells of the grid are left out. Several calls inside edit.begin / edit.end are one undo step.",
+      "summary": "Applies a tool to cells, each with the mirror and span options (the grid editor); cells outside the space or not cells of the grid are left out. Several calls inside edit.begin / edit.end are one undo step. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {
         "type": "object",
         "properties": {
@@ -133,10 +133,10 @@
         "additionalProperties": false
       },
       "result": {"$ref": "#/$defs/CellsChanged"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.setBox": {
-      "summary": "The same for every cell of a box, corners included, clamped to the space (the box selection's fill and clear).",
+      "summary": "The same for every cell of a box, corners included, clamped to the space (the box selection's fill and clear). Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {
         "type": "object",
         "properties": {
@@ -152,10 +152,10 @@
         "additionalProperties": false
       },
       "result": {"$ref": "#/$defs/CellsChanged"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.resize": {
-      "summary": "Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink). Sliding shapes are one layer deep: another Z is refused (invalid_argument).",
+      "summary": "Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink). Sliding shapes are one layer deep: another Z is refused (invalid_argument). Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {
         "type": "object",
         "properties": {
@@ -195,7 +195,7 @@
       }
     },
     "shape.task": {
-      "summary": "A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin, minimize, double, triple, fill holes, the surface.",
+      "summary": "A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape): flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin, minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {
         "type": "object",
         "properties": {

@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "stacking.json",
+  "title": "Stacking puzzles",
+  "description": "A stacking puzzle's rod sets, discs and stacks (decision 0015; the original's Rods panel, disc list and the stacking branches of its Problems tab). Its shapes are discs: shape.create makes one of size 1, stacking.setDiscSize sizes it; the cell editor and the tool tabs are refused, as the original hid them. A puzzle has one rod set at least; a problem stands on one (its rodSet) and holds the discs of each rod at its start and its goal (problem.get's stacks); its pieces are the discs on them, so the Problems tab's brick commands (problem.setResult, the counts and ranges, problem.movePart, the groups) are refused and these are used instead. Each command is one undo step; a rod set is not changed while anything is solved, a problem's stacks not while it is. Refused (unsupported) on other grids.",
+  "methods": {
+    "stacking.addRodSet": {
+      "summary": "Adds a rod set with the default rules (the original's New: three rods that grow, size matters), unnamed, at the end. One undo step.",
+      "params": {"type": "object", "properties": {}, "required": [], "additionalProperties": false},
+      "result": {
+        "type": "object",
+        "properties": {
+          "rodSet": {"$ref": "types.json#/$defs/RodSetId"},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["rodSet", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported", "invalid_state"]
+    },
+    "stacking.duplicateRodSet": {
+      "summary": "Adds a copy of a rod set, its name and rules, at the end (the original's Copy).",
+      "params": {
+        "type": "object",
+        "properties": {"rodSet": {"$ref": "types.json#/$defs/RodSetId"}},
+        "required": ["rodSet"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "rodSet": {"$ref": "types.json#/$defs/RodSetId"},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["rodSet", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported", "not_found", "invalid_state"]
+    },
+    "stacking.deleteRodSet": {
+      "summary": "Removes a rod set (the original's Delete); the problems on it stand on none afterwards, their stacks kept. The last one is kept (invalid_argument: 'Keep at least one rod set').",
+      "params": {
+        "type": "object",
+        "properties": {"rodSet": {"$ref": "types.json#/$defs/RodSetId"}},
+        "required": ["rodSet"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.renameRodSet": {
+      "summary": "Names a rod set (the original's Label); names cannot hold line breaks or control characters.",
+      "params": {
+        "type": "object",
+        "properties": {"rodSet": {"$ref": "types.json#/$defs/RodSetId"}, "name": {"type": "string"}},
+        "required": ["rodSet", "name"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.moveRodSet": {
+      "summary": "Moves a rod set to a place in the list, one place at a time as the original's arrows did; labels renumber, the problems keep their board.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "rodSet": {"$ref": "types.json#/$defs/RodSetId"},
+          "toIndex": {"type": "integer", "minimum": 0}
+        },
+        "required": ["rodSet", "toIndex"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.setRules": {
+      "summary": "Sets a rod set's rules (the Rods panel's fields): the fields given, over the rod set's as shown (RodSet). The pocket column needs Panex columns, the outside channel Panex columns and three rods or more: without them they are off. The problems on the rod set get its rods in their stacks (discs on rods past the count are kept, setupError tells) and lose their solutions. Refused while anything is solved. One undo step.",
+      "params": {
+        "type": "object",
+        "properties": {"rodSet": {"$ref": "types.json#/$defs/RodSetId"}, "rules": {"$ref": "#/$defs/Rules"}},
+        "required": ["rodSet", "rules"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_state"]
+    },
+    "stacking.setDiscSize": {
+      "summary": "A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2 size + 1 cells one cell thick with its centre empty, its colour kept. Solutions stay, as the original kept them. One undo step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "size": {"type": "integer", "minimum": 1, "maximum": 100}
+        },
+        "required": ["shape", "size"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.setProblemRodSet": {
+      "summary": "The board a problem stands on (the original's Set Start/Goal Rods); its stacks get the board's rods. Its solutions stay.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "rodSet": {"$ref": "types.json#/$defs/RodSetId"}
+        },
+        "required": ["problem", "rodSet"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_state"]
+    },
+    "stacking.placeDisc": {
+      "summary": "Puts a copy of a disc on top of a rod of the start or the goal (the Problems tab's Add): the next copy not on that stacking, or one copy more when every copy is (the count of the disc follows). The rules are not checked here, so a stacking can be built step by step: stacking.board's error tells what breaks them. Refused (invalid_argument) for a problem without a rod set ('Choose a rod set with Set Start/Goal Rods') and a rod not on the board.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "rod": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "A rod of the problem's stack map (the pocket column is the last)."
+          },
+          "goal": {"type": "boolean", "description": "The goal's stacking; false the start's."}
+        },
+        "required": ["problem", "shape", "rod", "goal"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.placeAll": {
+      "summary": "Puts a copy of every disc on a rod, largest first so a size rule can still stack them (the Problems tab's Add all); what went before a refusal stays.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "rod": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "A rod of the problem's stack map (the pocket column is the last)."
+          },
+          "goal": {"type": "boolean", "description": "The goal's stacking; false the start's."}
+        },
+        "required": ["problem", "rod", "goal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "placed": {"type": "integer", "minimum": 0},
+          "error": {
+            "type": ["string", "null"],
+            "description": "Why the next disc did not go; null when all went."
+          },
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["placed", "error", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.removeDisc": {
+      "summary": "Takes a disc off (the Problems tab's Remove): that copy goes from the start and the goal, the later copies renumbered, one copy fewer. Refused (invalid_argument) on an empty rod ('That rod is empty').",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "goal": {"type": "boolean", "description": "The goal's stacking; false the start's."},
+          "rod": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "A rod of the problem's stack map (the pocket column is the last)."
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The disc's place on the rod, from the bottom (0)."
+          }
+        },
+        "required": ["problem", "goal", "rod", "index"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.clear": {
+      "summary": "Empties the start's or the goal's rods (the Problems tab's Remove all); the counts stay, shared by both. The problem loses its solutions. Nothing to do on an empty stacking.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "goal": {"type": "boolean", "description": "The goal's stacking; false the start's."}
+        },
+        "required": ["problem", "goal"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["unsupported", "not_found", "invalid_state"]
+    },
+    "stacking.moveDisc": {
+      "summary": "Swaps a disc with the one above (delta 1) or below (-1) it on its rod (the Problems tab's arrows). Its solutions stay.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "goal": {"type": "boolean", "description": "The goal's stacking; false the start's."},
+          "rod": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "A rod of the problem's stack map (the pocket column is the last)."
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The disc's place on the rod, from the bottom (0)."
+          },
+          "delta": {"type": "integer", "minimum": -1, "maximum": 1}
+        },
+        "required": ["problem", "goal", "rod", "index", "delta"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "index": {"type": "integer", "minimum": 0, "description": "The disc's place now."},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["index", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported", "not_found", "invalid_argument", "invalid_state"]
+    },
+    "stacking.board": {
+      "summary": "A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and the centre a playback's poses are placed around (playback.json: a stacking solution is centred on its board).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "goal": {"type": "boolean", "description": "The goal's stacking; false the start's."}
+        },
+        "required": ["problem", "goal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "rodSet": {"oneOf": [{"$ref": "types.json#/$defs/RodSetId"}, {"type": "null"}]},
+          "rods": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/Rod"},
+            "description": "The board's rods in the stack map's order; empty without a rod set."
+          },
+          "stacks": {"$ref": "types.json#/$defs/Stacks"},
+          "layout": {
+            "oneOf": [{"$ref": "types.json#/$defs/BoardLayout"}, {"type": "null"}],
+            "description": "Null without a rod set."
+          },
+          "error": {
+            "type": ["string", "null"],
+            "description": "Why the problem cannot be solved as it stands (the original's setupError: a rule broken, a disc missing from the start or the goal, no rod set); null when it is ready."
+          },
+          "centre": {
+            "oneOf": [
+              {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+              {"type": "null"}
+            ],
+            "description": "The middle of the board, half the rods' height up, in cells; null without a rod set."
+          }
+        },
+        "required": ["rodSet", "rods", "stacks", "layout", "error", "centre"],
+        "additionalProperties": false
+      },
+      "errors": ["unsupported", "not_found"]
+    },
+    "stacking.rodSetLayout": {
+      "summary": "A rod set drawn alone, without discs (the Entities tab's view of it): rods that grow drawn five high, spaced for the puzzle's largest disc.",
+      "params": {
+        "type": "object",
+        "properties": {"rodSet": {"$ref": "types.json#/$defs/RodSetId"}},
+        "required": ["rodSet"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/BoardLayout"},
+      "errors": ["not_found"]
+    }
+  },
+  "events": {},
+  "$defs": {
+    "Rules": {
+      "type": "object",
+      "description": "A rod set's rules to change (RodSet's fields; absent ones stay).",
+      "properties": {
+        "rodCount": {"type": "integer", "minimum": 1, "maximum": 16},
+        "growHeight": {"type": "boolean"},
+        "definedHeight": {"type": "integer", "minimum": 1, "maximum": 64},
+        "sizeMatters": {"type": "boolean"},
+        "distanceMatters": {"type": "boolean"},
+        "panexColumns": {"type": "boolean"},
+        "pocketColumn": {"type": "boolean"},
+        "pocketHeight": {"type": "integer", "minimum": 1, "maximum": 64},
+        "outsideChannel": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "Rod": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "'rod 2' or 'the pocket column', as the original's messages name it."
+        },
+        "pocket": {"type": "boolean"},
+        "position": {
+          "type": "integer",
+          "description": "Where it stands along the board: rod r at r, the pocket at -1."
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The discs it holds: a Panex column one more than its height."
+        }
+      },
+      "required": ["name", "pocket", "position", "capacity"],
+      "additionalProperties": false
+    }
+  }
+}

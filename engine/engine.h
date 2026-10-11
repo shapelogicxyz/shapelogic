@@ -146,6 +146,7 @@ void addSolutionMethods(MethodTable& t);
 void addPlaybackMethods(MethodTable& t);
 void addExploreMethods(MethodTable& t);
 void addSlidingMethods(MethodTable& t);
+void addStackingMethods(MethodTable& t);
 
 /// Sends the events of the background work: solves, analyses, and
 /// document.changed when the document changed without a request (events.cpp).

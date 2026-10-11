@@ -175,6 +175,46 @@ export interface Launch {
   options?: SolveOptions;
 }
 
+// ---- stacking.json: Stacking puzzles ----
+
+/** A rod set's rules to change (RodSet's fields; absent ones stay). */
+export interface Rules {
+  /**
+   * @minimum 1
+   * @maximum 16
+   */
+  rodCount?: number;
+  growHeight?: boolean;
+  /**
+   * @minimum 1
+   * @maximum 64
+   */
+  definedHeight?: number;
+  sizeMatters?: boolean;
+  distanceMatters?: boolean;
+  panexColumns?: boolean;
+  pocketColumn?: boolean;
+  /**
+   * @minimum 1
+   * @maximum 64
+   */
+  pocketHeight?: number;
+  outsideChannel?: boolean;
+}
+
+export interface Rod {
+  /** 'rod 2' or 'the pocket column', as the original's messages name it. */
+  name: string;
+  pocket: boolean;
+  /** Where it stands along the board: rod r at r, the pocket at -1. */
+  position: number;
+  /**
+   * The discs it holds: a Panex column one more than its height.
+   * @minimum 0
+   */
+  capacity: number;
+}
+
 // ---- types.json: Shared definitions ----
 
 /**
@@ -194,6 +234,12 @@ export type ColourId = string;
  * @pattern ^p[1-9][0-9]*$
  */
 export type ProblemId = string;
+
+/**
+ * A stacking puzzle's rod set (a board), stable while the document is open.
+ * @pattern ^r[1-9][0-9]*$
+ */
+export type RodSetId = string;
 
 /**
  * A saved solution, unique within its problem.
@@ -380,7 +426,7 @@ export type ShapeTask =
  */
 export type MeshStyle = 'drawing' | 'wireframe' | 'flat';
 
-export type ChangeKind = 'shapes' | 'colours' | 'problems' | 'solutions' | 'notes';
+export type ChangeKind = 'shapes' | 'colours' | 'problems' | 'solutions' | 'notes' | 'rodSets';
 
 /**
  * A counter the problem moves on every change of its saved list (a solution added, removed,
@@ -451,6 +497,117 @@ export interface MeshFrame {
   hotspot: Cell;
 }
 
+/**
+ * A stacking puzzle's board: a row of rods and the rules of a move (the original's rod set; its
+ * fields as the Rods panel showed them).
+ */
+export interface RodSet {
+  id: RodSetId;
+  /** R1, R2, ... by place (shown as 'R1 - name' with a name). */
+  label: string;
+  name: string;
+  /**
+   * How many rods (the pocket column not counted).
+   * @minimum 1
+   */
+  rodCount: number;
+  /**
+   * The rods of a stack map: rodCount, and one more with the pocket column (the last; it stands
+   * left of rod 1).
+   * @minimum 1
+   */
+  rods: number;
+  /** Grow to the height of all pieces: a rod holds every disc of the problem. */
+  growHeight: boolean;
+  /**
+   * Defined height: the discs a rod holds when it does not grow.
+   * @minimum 1
+   */
+  definedHeight: number;
+  /** Disc size matters - no large on small (equal sizes stack); Panex columns ignore it. */
+  sizeMatters: boolean;
+  /** Disc can only move over 1 rod: to a neighbouring rod only. */
+  distanceMatters: boolean;
+  /**
+   * Panex Style Columns: a disc of size s sits at most s places below the top, in any order; one
+   * disc more may wait raised into the bridge, blocking moves that pass over it.
+   */
+  panexColumns: boolean;
+  /** Add pocket column (with Panex columns): an extra rod beside rod 1 that holds any disc. */
+  pocketColumn: boolean;
+  /**
+   * The discs the pocket column holds.
+   * @minimum 1
+   */
+  pocketHeight: number;
+  /**
+   * Extra outside channel (with Panex columns and three rods or more): the first and last rods are
+   * joined outside the bridge.
+   */
+  outsideChannel: boolean;
+}
+
+/** One copy of a disc on a rod: the shape, and which of its copies (from 0). */
+export interface DiscRef {
+  /**
+   * Null for a shape the file names that the puzzle does not have (only an edited file; setupError
+   * says so).
+   */
+  shape: ShapeId | null;
+  /** @minimum 0 */
+  instance: number;
+}
+
+/**
+ * Each rod of a stack map, its discs bottom to top; rods past the board's count are kept while
+ * they hold discs.
+ */
+export type Stacks = DiscRef[][];
+
+/**
+ * Where the rods and the discs of a stacking stand (the original's layoutBoard), in cells: what
+ * the 3D view draws around the discs' meshes.
+ */
+export interface BoardLayout {
+  /** The distance between neighbouring rods. */
+  spacing: number;
+  /**
+   * The rods drawn, the pocket column included.
+   * @minimum 0
+   */
+  rodCount: number;
+  /**
+   * The rods' drawn height.
+   * @minimum 1
+   */
+  rodHeight: number;
+  /** x of each rod, in the stack map's order (the pocket last, standing left of rod 1). */
+  rodX: number[];
+  /** The drawn height of each rod; the pocket column is shorter. */
+  rodHeights: number[];
+  /** Panex columns: drawn with a V that narrows to the bottom. */
+  panex: boolean;
+  /** The last rod is the pocket column, drawn as a plain peg. */
+  pocket: boolean;
+  /**
+   * The largest disc size, so the V stays inside the rod spacing.
+   * @minimum 1
+   */
+  maxSize: number;
+  /**
+   * Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its
+   * centre) stands on; null for a disc on no rod. Empty for a rod set drawn alone.
+   */
+  discs: ({
+    shape: ShapeId;
+    /** @minimum 0 */
+    instance: number;
+    /** @minimum 1 */
+    size: number;
+    at: Cell | null;
+  })[];
+}
+
 export interface ShapeSummary {
   id: ShapeId;
   /** S1, S2, ... by place. */
@@ -470,6 +627,12 @@ export interface ShapeSummary {
    * @minimum 0
    */
   startGoal: number | null;
+  /**
+   * A stacking puzzle's disc: its size, the radius, which the size rule compares
+   * (stacking.setDiscSize); null for any other shape.
+   * @minimum 1
+   */
+  disc: number | null;
 }
 
 export interface Colour {
@@ -485,6 +648,11 @@ export interface ProblemSummary {
   label: string;
   name: string;
   result: ShapeId | null;
+  /**
+   * A stacking problem's board (stacking.setProblemRodSet, the original's Set Start/Goal Rods);
+   * null for none and on other grids.
+   */
+  rodSet: RodSetId | null;
   /**
    * The number of pieces (the parts' maxima summed).
    * @minimum 0
@@ -521,6 +689,8 @@ export interface Snapshot {
   shapes: ShapeSummary[];
   colours: Colour[];
   problems: ProblemSummary[];
+  /** A stacking puzzle's boards (at least one); empty on other grids. */
+  rodSets: RodSet[];
   /**
    * What opening the file changed, to tell the user (the original's load message: a sliding shape
    * of more than one layer made flat, which leaves the document dirty). Only in the result of
@@ -610,6 +780,11 @@ export interface ProblemDetail {
   label: string;
   name: string;
   result: ShapeId | null;
+  /**
+   * A stacking problem's board (stacking.setProblemRodSet, the original's Set Start/Goal Rods);
+   * null for none and on other grids.
+   */
+  rodSet: RodSetId | null;
   /** @minimum 0 */
   pieces: number;
   state: ProblemState;
@@ -632,6 +807,11 @@ export interface ProblemDetail {
   /** A paused search position is stored (solve.continue carries on from it). */
   savedPosition: boolean;
   solverSettings: SolverSettings;
+  /** Null on other grids. */
+  stacks: {
+    start: Stacks;
+    goal: Stacks;
+  } | null;
 }
 
 /** Whether the pieces can fill the result (the fit summary). */
@@ -1670,6 +1850,8 @@ export interface Methods {
   };
   /**
    * Makes a shape the result (it stops being a piece); a different result removes the solutions.
+   * Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead
+   * (stacking.setProblemRodSet).
    * (problem.json)
    */
   'problem.setResult': {
@@ -1679,7 +1861,8 @@ export interface Methods {
   };
   /**
    * The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become
-   * unknown.
+   * unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks
+   * (stacking.json).
    * (problem.json)
    */
   'problem.setPieceCount': {
@@ -1695,7 +1878,8 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * One more of a shape (minimum and maximum).
+   * One more of a shape (minimum and maximum). Refused (invalid_argument) on a stacking puzzle,
+   * whose pieces follow its stacks (stacking.json).
    * (problem.json)
    */
   'problem.addPiece': {
@@ -1704,7 +1888,8 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * One fewer of a shape.
+   * One fewer of a shape. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its
+   * stacks (stacking.json).
    * (problem.json)
    */
   'problem.removePiece': {
@@ -1714,7 +1899,8 @@ export interface Methods {
   };
   /**
    * One count range for every piece (the bulk range; a maximum below the minimum is raised to it).
-   * Removes the solutions.
+   * Removes the solutions. Refused (invalid_argument) on a stacking puzzle, whose pieces follow
+   * its stacks (stacking.json).
    * (problem.json)
    */
   'problem.setRangeAll': {
@@ -1729,25 +1915,28 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * One more of every shape but the result.
+   * One more of every shape but the result. Refused (invalid_argument) on a stacking puzzle, whose
+   * pieces follow its stacks (stacking.json).
    * (problem.json)
    */
   'problem.addOneOfEach': {
     params: ProblemProblemParam;
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Removes every piece and the solutions.
+   * Removes every piece and the solutions. Refused (invalid_argument) on a stacking puzzle, whose
+   * pieces follow its stacks (stacking.json).
    * (problem.json)
    */
   'problem.removeAllPieces': {
     params: ProblemProblemParam;
     result: Changed;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Moves a shape's part one place earlier (-1) or later (+1): the pieces renumber.
+   * Moves a shape's part one place earlier (-1) or later (+1): the pieces renumber. Refused
+   * (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).
    * (problem.json)
    */
   'problem.movePart': {
@@ -1760,7 +1949,8 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Puts all pieces of a shape in one exclusive group, or none (0).
+   * Puts all pieces of a shape in one exclusive group, or none (0). Refused (invalid_argument) on
+   * sliding and stacking puzzles, which have no groups.
    * (problem.json)
    */
   'problem.setGroup': {
@@ -1774,7 +1964,8 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Puts 'count' pieces of a shape in group 'group' (0 takes them out): the groups editor.
+   * Puts 'count' pieces of a shape in group 'group' (0 takes them out): the groups editor. Refused
+   * (invalid_argument) on sliding and stacking puzzles, which have no groups.
    * (problem.json)
    */
   'problem.setGroupCount': {
@@ -1790,7 +1981,8 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Removes a group from every shape.
+   * Removes a group from every shape. Refused (invalid_argument) on sliding and stacking puzzles,
+   * which have no groups.
    * (problem.json)
    */
   'problem.deleteGroup': {
@@ -1900,7 +2092,9 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Adds an empty shape at the end: of a size in cells, or of the grid's default size.
+   * Adds an empty shape at the end: of a size in cells, or of the grid's default size. On a
+   * stacking puzzle a disc of size 1 (the original's New), and no size may be given
+   * (invalid_argument).
    * (shape.json)
    */
   'shape.create': {
@@ -1984,7 +2178,8 @@ export interface Methods {
   /**
    * Applies a tool to cells, each with the mirror and span options (the grid editor); cells
    * outside the space or not cells of the grid are left out. Several calls inside edit.begin /
-   * edit.end are one undo step.
+   * edit.end are one undo step. Refused (invalid_argument) on a stacking puzzle, whose shapes are
+   * discs (stacking.setDiscSize).
    * (shape.json)
    */
   'shape.setCells': {
@@ -1998,11 +2193,12 @@ export interface Methods {
       cells: Cell[];
     };
     result: CellsChanged;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * The same for every cell of a box, corners included, clamped to the space (the box selection's
-   * fill and clear).
+   * fill and clear). Refused (invalid_argument) on a stacking puzzle, whose shapes are discs
+   * (stacking.setDiscSize).
    * (shape.json)
    */
   'shape.setBox': {
@@ -2016,12 +2212,13 @@ export interface Methods {
       to: Cell;
     };
     result: CellsChanged;
-    errors: 'not_found' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
    * Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside.
    * With toAll the other shapes grow by as much (they never shrink). Sliding shapes are one layer
-   * deep: another Z is refused (invalid_argument).
+   * deep: another Z is refused (invalid_argument). Refused (invalid_argument) on a stacking
+   * puzzle, whose shapes are discs (stacking.setDiscSize).
    * (shape.json)
    */
   'shape.resize': {
@@ -2056,7 +2253,8 @@ export interface Methods {
   /**
    * A tool tab operation on a shape (and, with toAll and a task that allows it, on every shape):
    * flip, rotate, nudge (refused when cells would leave the grid), prune, centre, to origin,
-   * minimize, double, triple, fill holes, the surface.
+   * minimize, double, triple, fill holes, the surface. Refused (invalid_argument) on a stacking
+   * puzzle, whose shapes are discs (stacking.setDiscSize).
    * (shape.json)
    */
   'shape.task': {
@@ -2581,6 +2779,283 @@ export interface Methods {
     };
     errors: 'io_error' | 'parse_error';
   };
+  /**
+   * Adds a rod set with the default rules (the original's New: three rods that grow, size
+   * matters), unnamed, at the end. One undo step.
+   * (stacking.json)
+   */
+  'stacking.addRodSet': {
+    params: Record<string, never>;
+    result: {
+      rodSet: RodSetId;
+      revision: Revision;
+    };
+    errors: 'unsupported' | 'invalid_state';
+  };
+  /**
+   * Adds a copy of a rod set, its name and rules, at the end (the original's Copy).
+   * (stacking.json)
+   */
+  'stacking.duplicateRodSet': {
+    params: {
+      rodSet: RodSetId;
+    };
+    result: {
+      rodSet: RodSetId;
+      revision: Revision;
+    };
+    errors: 'unsupported' | 'not_found' | 'invalid_state';
+  };
+  /**
+   * Removes a rod set (the original's Delete); the problems on it stand on none afterwards, their
+   * stacks kept. The last one is kept (invalid_argument: 'Keep at least one rod set').
+   * (stacking.json)
+   */
+  'stacking.deleteRodSet': {
+    params: {
+      rodSet: RodSetId;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Names a rod set (the original's Label); names cannot hold line breaks or control characters.
+   * (stacking.json)
+   */
+  'stacking.renameRodSet': {
+    params: {
+      rodSet: RodSetId;
+      name: string;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Moves a rod set to a place in the list, one place at a time as the original's arrows did;
+   * labels renumber, the problems keep their board.
+   * (stacking.json)
+   */
+  'stacking.moveRodSet': {
+    params: {
+      rodSet: RodSetId;
+      /** @minimum 0 */
+      toIndex: number;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Sets a rod set's rules (the Rods panel's fields): the fields given, over the rod set's as
+   * shown (RodSet). The pocket column needs Panex columns, the outside channel Panex columns and
+   * three rods or more: without them they are off. The problems on the rod set get its rods in
+   * their stacks (discs on rods past the count are kept, setupError tells) and lose their
+   * solutions. Refused while anything is solved. One undo step.
+   * (stacking.json)
+   */
+  'stacking.setRules': {
+    params: {
+      rodSet: RodSetId;
+      rules: Rules;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_state';
+  };
+  /**
+   * A disc's size (the disc list's size field, 1 to 100): the disc is made anew, a square of 2
+   * size + 1 cells one cell thick with its centre empty, its colour kept. Solutions stay, as the
+   * original kept them. One undo step.
+   * (stacking.json)
+   */
+  'stacking.setDiscSize': {
+    params: {
+      shape: ShapeId;
+      /**
+       * @minimum 1
+       * @maximum 100
+       */
+      size: number;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * The board a problem stands on (the original's Set Start/Goal Rods); its stacks get the board's
+   * rods. Its solutions stay.
+   * (stacking.json)
+   */
+  'stacking.setProblemRodSet': {
+    params: {
+      problem: ProblemId;
+      rodSet: RodSetId;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_state';
+  };
+  /**
+   * Puts a copy of a disc on top of a rod of the start or the goal (the Problems tab's Add): the
+   * next copy not on that stacking, or one copy more when every copy is (the count of the disc
+   * follows). The rules are not checked here, so a stacking can be built step by step:
+   * stacking.board's error tells what breaks them. Refused (invalid_argument) for a problem
+   * without a rod set ('Choose a rod set with Set Start/Goal Rods') and a rod not on the board.
+   * (stacking.json)
+   */
+  'stacking.placeDisc': {
+    params: {
+      problem: ProblemId;
+      shape: ShapeId;
+      /**
+       * A rod of the problem's stack map (the pocket column is the last).
+       * @minimum 0
+       */
+      rod: number;
+      /** The goal's stacking; false the start's. */
+      goal: boolean;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Puts a copy of every disc on a rod, largest first so a size rule can still stack them (the
+   * Problems tab's Add all); what went before a refusal stays.
+   * (stacking.json)
+   */
+  'stacking.placeAll': {
+    params: {
+      problem: ProblemId;
+      /**
+       * A rod of the problem's stack map (the pocket column is the last).
+       * @minimum 0
+       */
+      rod: number;
+      /** The goal's stacking; false the start's. */
+      goal: boolean;
+    };
+    result: {
+      /** @minimum 0 */
+      placed: number;
+      /** Why the next disc did not go; null when all went. */
+      error: string | null;
+      revision: Revision;
+    };
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Takes a disc off (the Problems tab's Remove): that copy goes from the start and the goal, the
+   * later copies renumbered, one copy fewer. Refused (invalid_argument) on an empty rod ('That rod
+   * is empty').
+   * (stacking.json)
+   */
+  'stacking.removeDisc': {
+    params: {
+      problem: ProblemId;
+      /** The goal's stacking; false the start's. */
+      goal: boolean;
+      /**
+       * A rod of the problem's stack map (the pocket column is the last).
+       * @minimum 0
+       */
+      rod: number;
+      /**
+       * The disc's place on the rod, from the bottom (0).
+       * @minimum 0
+       */
+      index: number;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Empties the start's or the goal's rods (the Problems tab's Remove all); the counts stay,
+   * shared by both. The problem loses its solutions. Nothing to do on an empty stacking.
+   * (stacking.json)
+   */
+  'stacking.clear': {
+    params: {
+      problem: ProblemId;
+      /** The goal's stacking; false the start's. */
+      goal: boolean;
+    };
+    result: Changed;
+    errors: 'unsupported' | 'not_found' | 'invalid_state';
+  };
+  /**
+   * Swaps a disc with the one above (delta 1) or below (-1) it on its rod (the Problems tab's
+   * arrows). Its solutions stay.
+   * (stacking.json)
+   */
+  'stacking.moveDisc': {
+    params: {
+      problem: ProblemId;
+      /** The goal's stacking; false the start's. */
+      goal: boolean;
+      /**
+       * A rod of the problem's stack map (the pocket column is the last).
+       * @minimum 0
+       */
+      rod: number;
+      /**
+       * The disc's place on the rod, from the bottom (0).
+       * @minimum 0
+       */
+      index: number;
+      /**
+       * @minimum -1
+       * @maximum 1
+       */
+      delta: number;
+    };
+    result: {
+      /**
+       * The disc's place now.
+       * @minimum 0
+       */
+      index: number;
+      revision: Revision;
+    };
+    errors: 'unsupported' | 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * A problem's board as the Problems tab showed it: its rods (names, the pocket, capacities), the
+   * start's or the goal's stacks, where the rods and discs stand, the validity bar's sentence, and
+   * the centre a playback's poses are placed around (playback.json: a stacking solution is centred
+   * on its board).
+   * (stacking.json)
+   */
+  'stacking.board': {
+    params: {
+      problem: ProblemId;
+      /** The goal's stacking; false the start's. */
+      goal: boolean;
+    };
+    result: {
+      rodSet: RodSetId | null;
+      /** The board's rods in the stack map's order; empty without a rod set. */
+      rods: Rod[];
+      stacks: Stacks;
+      /** Null without a rod set. */
+      layout: BoardLayout | null;
+      /**
+       * Why the problem cannot be solved as it stands (the original's setupError: a rule broken, a
+       * disc missing from the start or the goal, no rod set); null when it is ready.
+       */
+      error: string | null;
+      /** The middle of the board, half the rods' height up, in cells; null without a rod set. */
+      centre: [number, number, number] | null;
+    };
+    errors: 'unsupported' | 'not_found';
+  };
+  /**
+   * A rod set drawn alone, without discs (the Entities tab's view of it): rods that grow drawn
+   * five high, spaced for the puzzle's largest disc.
+   * (stacking.json)
+   */
+  'stacking.rodSetLayout': {
+    params: {
+      rodSet: RodSetId;
+    };
+    result: BoardLayout;
+    errors: 'not_found';
+  };
 }
 
 /** Every event (notification) the engine sends. */
@@ -2792,6 +3267,21 @@ export const METHOD_NAMES = [
   'solve.savePoint',
   'solve.start',
   'solve.status',
+  'stacking.addRodSet',
+  'stacking.board',
+  'stacking.clear',
+  'stacking.deleteRodSet',
+  'stacking.duplicateRodSet',
+  'stacking.moveDisc',
+  'stacking.moveRodSet',
+  'stacking.placeAll',
+  'stacking.placeDisc',
+  'stacking.removeDisc',
+  'stacking.renameRodSet',
+  'stacking.rodSetLayout',
+  'stacking.setDiscSize',
+  'stacking.setProblemRodSet',
+  'stacking.setRules',
 ] as const satisfies readonly (keyof Methods)[];
 
 /** The events of the schema. */

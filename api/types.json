@@ -7,6 +7,7 @@
     "ShapeId": {"type": "string", "pattern": "^s[1-9][0-9]*$", "description": "A shape, stable while the document is open."},
     "ColourId": {"type": "string", "pattern": "^c[1-9][0-9]*$", "description": "A constraint colour."},
     "ProblemId": {"type": "string", "pattern": "^p[1-9][0-9]*$", "description": "A problem; also names its solve and its analysis."},
+    "RodSetId": {"type": "string", "pattern": "^r[1-9][0-9]*$", "description": "A stacking puzzle's rod set (a board), stable while the document is open."},
     "SolutionId": {"type": "string", "pattern": "^sol[1-9][0-9]*$", "description": "A saved solution, unique within its problem."},
     "PlaybackHandle": {"type": "string", "pattern": "^pb[1-9][0-9]*$", "description": "A playback opened by playback.open."},
     "AssemblyExplorerHandle": {"type": "string", "pattern": "^ax[1-9][0-9]*$", "description": "An assembly explorer opened by explore.openAssembly."},
@@ -39,7 +40,7 @@
       "description": "A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label)."
     },
     "MeshStyle": {"enum": ["drawing", "wireframe", "flat"], "description": "The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, or flat faces with edge lines."},
-    "ChangeKind": {"enum": ["shapes", "colours", "problems", "solutions", "notes"]},
+    "ChangeKind": {"enum": ["shapes", "colours", "problems", "solutions", "notes", "rodSets"]},
     "SolutionsVersion": {"type": "integer", "minimum": 0, "description": "A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again."},
     "SortBy": {"enum": ["unsorted", "moves", "level", "rotations"], "description": "Where a new solution goes in the saved list while solving: the original's sort-by choice."},
     "ArrayRef": {
@@ -78,6 +79,73 @@
       "required": ["frame", "triangles", "vertices", "lo", "hi", "hotspot"],
       "additionalProperties": false
     },
+    "RodSet": {
+      "type": "object",
+      "description": "A stacking puzzle's board: a row of rods and the rules of a move (the original's rod set; its fields as the Rods panel showed them).",
+      "properties": {
+        "id": {"$ref": "#/$defs/RodSetId"},
+        "label": {"type": "string", "description": "R1, R2, ... by place (shown as 'R1 - name' with a name)."},
+        "name": {"type": "string"},
+        "rodCount": {"type": "integer", "minimum": 1, "description": "How many rods (the pocket column not counted)."},
+        "rods": {"type": "integer", "minimum": 1, "description": "The rods of a stack map: rodCount, and one more with the pocket column (the last; it stands left of rod 1)."},
+        "growHeight": {"type": "boolean", "description": "Grow to the height of all pieces: a rod holds every disc of the problem."},
+        "definedHeight": {"type": "integer", "minimum": 1, "description": "Defined height: the discs a rod holds when it does not grow."},
+        "sizeMatters": {"type": "boolean", "description": "Disc size matters - no large on small (equal sizes stack); Panex columns ignore it."},
+        "distanceMatters": {"type": "boolean", "description": "Disc can only move over 1 rod: to a neighbouring rod only."},
+        "panexColumns": {"type": "boolean", "description": "Panex Style Columns: a disc of size s sits at most s places below the top, in any order; one disc more may wait raised into the bridge, blocking moves that pass over it."},
+        "pocketColumn": {"type": "boolean", "description": "Add pocket column (with Panex columns): an extra rod beside rod 1 that holds any disc."},
+        "pocketHeight": {"type": "integer", "minimum": 1, "description": "The discs the pocket column holds."},
+        "outsideChannel": {"type": "boolean", "description": "Extra outside channel (with Panex columns and three rods or more): the first and last rods are joined outside the bridge."}
+      },
+      "required": ["id", "label", "name", "rodCount", "rods", "growHeight", "definedHeight", "sizeMatters", "distanceMatters", "panexColumns", "pocketColumn", "pocketHeight", "outsideChannel"],
+      "additionalProperties": false
+    },
+    "DiscRef": {
+      "type": "object",
+      "description": "One copy of a disc on a rod: the shape, and which of its copies (from 0).",
+      "properties": {
+        "shape": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}], "description": "Null for a shape the file names that the puzzle does not have (only an edited file; setupError says so)."},
+        "instance": {"type": "integer", "minimum": 0}
+      },
+      "required": ["shape", "instance"],
+      "additionalProperties": false
+    },
+    "Stacks": {
+      "type": "array",
+      "description": "Each rod of a stack map, its discs bottom to top; rods past the board's count are kept while they hold discs.",
+      "items": {"type": "array", "items": {"$ref": "#/$defs/DiscRef"}}
+    },
+    "BoardLayout": {
+      "type": "object",
+      "description": "Where the rods and the discs of a stacking stand (the original's layoutBoard), in cells: what the 3D view draws around the discs' meshes.",
+      "properties": {
+        "spacing": {"type": "integer", "description": "The distance between neighbouring rods."},
+        "rodCount": {"type": "integer", "minimum": 0, "description": "The rods drawn, the pocket column included."},
+        "rodHeight": {"type": "integer", "minimum": 1, "description": "The rods' drawn height."},
+        "rodX": {"type": "array", "items": {"type": "integer"}, "description": "x of each rod, in the stack map's order (the pocket last, standing left of rod 1)."},
+        "rodHeights": {"type": "array", "items": {"type": "integer", "minimum": 0}, "description": "The drawn height of each rod; the pocket column is shorter."},
+        "panex": {"type": "boolean", "description": "Panex columns: drawn with a V that narrows to the bottom."},
+        "pocket": {"type": "boolean", "description": "The last rod is the pocket column, drawn as a plain peg."},
+        "maxSize": {"type": "integer", "minimum": 1, "description": "The largest disc size, so the V stays inside the rod spacing."},
+        "discs": {
+          "type": "array",
+          "description": "Each disc of the problem (its pieces: parts, then copies) and the cell its hotspot (its centre) stands on; null for a disc on no rod. Empty for a rod set drawn alone.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shape": {"$ref": "#/$defs/ShapeId"},
+              "instance": {"type": "integer", "minimum": 0},
+              "size": {"type": "integer", "minimum": 1},
+              "at": {"oneOf": [{"$ref": "#/$defs/Cell"}, {"type": "null"}]}
+            },
+            "required": ["shape", "instance", "size", "at"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["spacing", "rodCount", "rodHeight", "rodX", "rodHeights", "panex", "pocket", "maxSize", "discs"],
+      "additionalProperties": false
+    },
     "ShapeSummary": {
       "type": "object",
       "properties": {
@@ -89,9 +157,10 @@
         "variable": {"type": "integer", "minimum": 0},
         "weight": {"type": "integer"},
         "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."},
-        "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."}
+        "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."},
+        "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal", "disc"],
       "additionalProperties": false
     },
     "Colour": {
@@ -111,6 +180,7 @@
         "label": {"type": "string", "description": "P1, P2, ... by place."},
         "name": {"type": "string"},
         "result": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}]},
+        "rodSet": {"oneOf": [{"$ref": "#/$defs/RodSetId"}, {"type": "null"}], "description": "A stacking problem's board (stacking.setProblemRodSet, the original's Set Start/Goal Rods); null for none and on other grids."},
         "pieces": {"type": "integer", "minimum": 0, "description": "The number of pieces (the parts' maxima summed)."},
         "state": {"$ref": "#/$defs/ProblemState"},
         "solve": {"$ref": "#/$defs/SolveState"},
@@ -120,7 +190,7 @@
         "saved": {"type": "integer", "minimum": 0, "description": "Saved solutions."},
         "timeMs": {"type": ["integer", "null"], "description": "Time spent solving, when known."}
       },
-      "required": ["id", "label", "name", "result", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs"],
       "additionalProperties": false
     },
     "Snapshot": {
@@ -138,9 +208,10 @@
         "shapes": {"type": "array", "items": {"$ref": "#/$defs/ShapeSummary"}},
         "colours": {"type": "array", "items": {"$ref": "#/$defs/Colour"}},
         "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}},
+        "rodSets": {"type": "array", "items": {"$ref": "#/$defs/RodSet"}, "description": "A stacking puzzle's boards (at least one); empty on other grids."},
         "notice": {"type": "string", "description": "What opening the file changed, to tell the user (the original's load message: a sliding shape of more than one layer made flat, which leaves the document dirty). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell."}
       },
-      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colours", "problems"],
+      "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colours", "problems", "rodSets"],
       "additionalProperties": false
     },
     "ShapeInfo": {
@@ -214,6 +285,7 @@
         "label": {"type": "string"},
         "name": {"type": "string"},
         "result": {"oneOf": [{"$ref": "#/$defs/ShapeId"}, {"type": "null"}]},
+        "rodSet": {"oneOf": [{"$ref": "#/$defs/RodSetId"}, {"type": "null"}], "description": "A stacking problem's board (stacking.setProblemRodSet, the original's Set Start/Goal Rods); null for none and on other grids."},
         "pieces": {"type": "integer", "minimum": 0},
         "state": {"$ref": "#/$defs/ProblemState"},
         "solve": {"$ref": "#/$defs/SolveState"},
@@ -235,9 +307,22 @@
         },
         "maxHoles": {"type": ["integer", "null"]},
         "savedPosition": {"type": "boolean", "description": "A paused search position is stored (solve.continue carries on from it)."},
-        "solverSettings": {"$ref": "#/$defs/SolverSettings"}
+        "solverSettings": {"$ref": "#/$defs/SolverSettings"},
+        "stacks": {
+          "oneOf": [
+            {
+              "type": "object",
+              "description": "A stacking problem's discs on each rod of its board at the start and at the goal (stacking.json).",
+              "properties": {"start": {"$ref": "#/$defs/Stacks"}, "goal": {"$ref": "#/$defs/Stacks"}},
+              "required": ["start", "goal"],
+              "additionalProperties": false
+            },
+            {"type": "null"}
+          ],
+          "description": "Null on other grids."
+        }
       },
-      "required": ["id", "label", "name", "result", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings", "stacks"],
       "additionalProperties": false
     },
     "FitStats": {

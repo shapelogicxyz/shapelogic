@@ -118,7 +118,8 @@ void announceChange(State& s) {
                                   std::pair{app::kChangeColours, "colours"},
                                   std::pair{app::kChangeProblems, "problems"},
                                   std::pair{app::kChangeSolutions, "solutions"},
-                                  std::pair{app::kChangeNotes, "notes"}}) {
+                                  std::pair{app::kChangeNotes, "notes"},
+                                  std::pair{app::kChangeRodSets, "rodSets"}}) {
     if ((c.what & bit) != 0) {
       what.push_back(name);
     }

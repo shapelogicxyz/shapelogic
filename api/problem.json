@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "problem.json",
   "title": "Problems",
-  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding puzzle has one problem per start/goal shape, kept in step with its starts and goals (sliding.json): its result is not chosen (problem.setResult is refused), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required).",
+  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding puzzle has one problem per start/goal shape, kept in step with its starts and goals (sliding.json): its result is not chosen (problem.setResult is refused), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.",
   "methods": {
     "problem.list": {
       "summary": "The problems in list order.",
@@ -61,13 +61,13 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setResult": {
-      "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions.",
+      "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions. Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead (stacking.setProblemRodSet).",
       "params": {"$ref": "#/$defs/ProblemShape"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setPieceCount": {
-      "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown.",
+      "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {
         "type": "object",
         "properties": {
@@ -83,19 +83,19 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.addPiece": {
-      "summary": "One more of a shape (minimum and maximum).",
+      "summary": "One more of a shape (minimum and maximum). Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {"$ref": "#/$defs/ProblemShape"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.removePiece": {
-      "summary": "One fewer of a shape.",
+      "summary": "One fewer of a shape. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {"$ref": "#/$defs/ProblemShape"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setRangeAll": {
-      "summary": "One count range for every piece (the bulk range; a maximum below the minimum is raised to it). Removes the solutions.",
+      "summary": "One count range for every piece (the bulk range; a maximum below the minimum is raised to it). Removes the solutions. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {
         "type": "object",
         "properties": {
@@ -110,19 +110,19 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.addOneOfEach": {
-      "summary": "One more of every shape but the result.",
+      "summary": "One more of every shape but the result. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.removeAllPieces": {
-      "summary": "Removes every piece and the solutions.",
+      "summary": "Removes every piece and the solutions. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
-      "errors": ["not_found", "invalid_state"]
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.movePart": {
-      "summary": "Moves a shape's part one place earlier (-1) or later (+1): the pieces renumber.",
+      "summary": "Moves a shape's part one place earlier (-1) or later (+1): the pieces renumber. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
       "params": {
         "type": "object",
         "properties": {
@@ -137,7 +137,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setGroup": {
-      "summary": "Puts all pieces of a shape in one exclusive group, or none (0).",
+      "summary": "Puts all pieces of a shape in one exclusive group, or none (0). Refused (invalid_argument) on sliding and stacking puzzles, which have no groups.",
       "params": {
         "type": "object",
         "properties": {
@@ -152,7 +152,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setGroupCount": {
-      "summary": "Puts 'count' pieces of a shape in group 'group' (0 takes them out): the groups editor.",
+      "summary": "Puts 'count' pieces of a shape in group 'group' (0 takes them out): the groups editor. Refused (invalid_argument) on sliding and stacking puzzles, which have no groups.",
       "params": {
         "type": "object",
         "properties": {
@@ -168,7 +168,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.deleteGroup": {
-      "summary": "Removes a group from every shape.",
+      "summary": "Removes a group from every shape. Refused (invalid_argument) on sliding and stacking puzzles, which have no groups.",
       "params": {
         "type": "object",
         "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "group": {"type": "integer", "minimum": 1}},

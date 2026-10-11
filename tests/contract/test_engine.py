@@ -1018,6 +1018,121 @@ def sliding_start_goal_shapes(e):
     check(e.call("document.get")["shapes"][0]["startGoal"] is None, "no start/goal shapes")
 
 
+@test
+def stacking_rod_sets_discs_and_stacks(e):
+    """Hanoi built from a new stacking document through stacking.*, equal to
+    the fixture; then the rod sets, the discs and the stacks edited, undone,
+    and what the original hid refused."""
+    snap = e.call("document.new", {"grid": "stacking"})
+    check(len(snap["rodSets"]) == 1 and snap["rodSets"][0]["label"] == "R1", f"one board {snap['rodSets']}")
+    board = snap["rodSets"][0]["id"]
+    check(snap["rodSets"][0] == {"id": board, "label": "R1", "name": "", "rodCount": 3, "rods": 3,
+                                 "growHeight": True, "definedHeight": 8, "sizeMatters": True,
+                                 "distanceMatters": False, "panexColumns": False, "pocketColumn": False,
+                                 "pocketHeight": 1, "outsideChannel": False}, f"the default board {snap['rodSets'][0]}")
+    discs = []
+    for size in (3, 2, 1):
+        made = e.call("shape.create")
+        discs.append(made["shape"])
+        rev = e.call("stacking.setDiscSize", {"shape": made["shape"], "size": size})["revision"]
+    ev = changed_event(e, rev)
+    check(ev["what"] == ["shapes"] and ev["shapes"] == [discs[-1]], f"the size's change {ev}")
+    shapes = e.call("document.get")["shapes"]
+    check([x["disc"] for x in shapes] == [3, 2, 1] and shapes[0]["size"] == [7, 7, 1], f"the discs {shapes}")
+    e.fails("shape.create", {"size": [3, 3, 1]}, "invalid_argument")
+    e.fails("shape.setCells", {"shape": discs[0], "tool": "erase", "cells": [[0, 0, 0]]}, "invalid_argument")
+    e.fails("stacking.setDiscSize", {"shape": discs[0], "size": 101}, "invalid_params")
+    p = e.call("problem.create")["problem"]
+    e.call("problem.rename", {"problem": p, "name": "Tower of Hanoi"})
+    e.call("stacking.renameRodSet", {"rodSet": board, "name": "Hanoi"})
+    e.fails("stacking.placeDisc", {"problem": p, "shape": discs[0], "rod": 0, "goal": False}, "invalid_argument")
+    e.call("stacking.setProblemRodSet", {"problem": p, "rodSet": board})
+    placed = e.call("stacking.placeAll", {"problem": p, "rod": 0, "goal": False})
+    check(placed["placed"] == 3 and placed["error"] is None, f"all placed {placed}")
+    for d in discs:
+        e.call("stacking.placeDisc", {"problem": p, "shape": d, "rod": 2, "goal": True})
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["rodSet"] == board and detail["result"] is None, f"the problem's board {detail}")
+    hanoi = FIXTURES / "test_stacking_hanoi.xmpuzzle"
+    check(base64.b64decode(e.call("document.saveBytes")["data"]) == read_puzzle_bytes(hanoi),
+          "Hanoi built through the commands is the fixture")
+    check(detail["stacks"]["start"] == [[{"shape": d, "instance": 0} for d in discs], [], []],
+          f"the start {detail['stacks']['start']}")
+
+    def by_place(stacks, shapes):
+        return {k: [[(shapes.index(x["shape"]), x["instance"]) for x in rod] for rod in v]
+                for k, v in stacks.items()}
+
+    built = by_place(detail["stacks"], discs)
+    on_file = e.call("document.open", {"path": str(hanoi)})
+    check(by_place(e.call("problem.get", {"problem": on_file["problems"][0]["id"]})["stacks"],
+                   [x["id"] for x in on_file["shapes"]]) == built, "the stacks as the fixture's")
+
+    # the board as the Problems tab showed it
+    snap = e.call("document.open", {"path": str(hanoi)})
+    p = snap["problems"][0]["id"]
+    board = snap["rodSets"][0]["id"]
+    discs = [x["id"] for x in snap["shapes"]]
+    b = e.call("stacking.board", {"problem": p, "goal": False})
+    check(b["rodSet"] == board and b["error"] is None and [r["name"] for r in b["rods"]] ==
+          ["rod 1", "rod 2", "rod 3"] and b["rods"][0]["capacity"] == 3, f"the board {b}")
+    lay = b["layout"]
+    check(lay["rodX"] == [0, 7, 14] and lay["spacing"] == 7 and
+          [x["at"] is not None for x in lay["discs"]] == [True, True, True], f"the layout {lay}")
+    check(b["centre"] == [7.5, 0.5, lay["rodHeight"] / 2], f"the centre {b['centre']}")
+    alone = e.call("stacking.rodSetLayout", {"rodSet": board})
+    check(alone["rodHeight"] == 5 and alone["discs"] == [], f"the rod set alone {alone}")
+
+    # the stacks: moved, taken off, a copy more, cleared, and undone
+    moved = e.call("stacking.moveDisc", {"problem": p, "goal": False, "rod": 0, "index": 0, "delta": 1})
+    check(moved["index"] == 1, f"moved {moved}")
+    b = e.call("stacking.board", {"problem": p, "goal": False})
+    check(b["error"] == "On rod 1 of the start, S1 (size 3) sits on the smaller S2 (size 2), but size "
+          "matters is on.", f"the size rule broken, told {b['error']!r}")
+    e.fails("stacking.moveDisc", {"problem": p, "goal": False, "rod": 0, "index": 2, "delta": 1},
+            "invalid_argument")
+    e.call("edit.undo")
+    e.call("stacking.placeDisc", {"problem": p, "shape": discs[2], "rod": 1, "goal": False})
+    check(e.call("problem.get", {"problem": p})["pieces"] == 4, "a copy more")
+    e.call("stacking.removeDisc", {"problem": p, "goal": False, "rod": 1, "index": 0})
+    check(e.call("problem.get", {"problem": p})["pieces"] == 3, "a copy fewer")
+    e.fails("stacking.removeDisc", {"problem": p, "goal": False, "rod": 1, "index": 0}, "invalid_argument")
+    e.call("stacking.clear", {"problem": p, "goal": True})
+    check(e.call("problem.get", {"problem": p})["stacks"]["goal"] == [[], [], []], "the goal cleared")
+    e.call("edit.undo")
+    check(e.call("stacking.board", {"problem": p, "goal": True})["error"] is None, "undone")
+
+    # the rod sets: a copy, its rules (only what is given changes), moved, deleted
+    copy = e.call("stacking.duplicateRodSet", {"rodSet": board})["rodSet"]
+    rev = e.call("stacking.setRules", {"rodSet": copy, "rules": {"panexColumns": True, "pocketColumn": True,
+                                                                  "rodCount": 4}})["revision"]
+    ev = changed_event(e, rev)
+    check(ev["what"] == ["rodSets"], f"the rules' change {ev}")
+    r = e.call("document.get")["rodSets"][1]
+    check(r["name"] == "Hanoi" and r["rodCount"] == 4 and r["rods"] == 5 and r["pocketColumn"]
+          and r["sizeMatters"] and r["growHeight"], f"the copy's rules {r}")
+    e.fails("stacking.setRules", {"rodSet": copy, "rules": {"rodCount": 17}}, "invalid_params")
+    e.fails("stacking.setRules", {"rodSet": copy, "rules": {"colour": 1}}, "invalid_params")
+    added = e.call("stacking.addRodSet")["rodSet"]
+    e.call("stacking.moveRodSet", {"rodSet": added, "toIndex": 0})
+    check([x["id"] for x in e.call("document.get")["rodSets"]] == [added, board, copy], "moved")
+    e.call("stacking.setProblemRodSet", {"problem": p, "rodSet": copy})
+    e.call("stacking.deleteRodSet", {"rodSet": copy})
+    check(e.call("problem.get", {"problem": p})["rodSet"] is None, "the problem lost its board")
+    e.call("stacking.deleteRodSet", {"rodSet": added})
+    e.fails("stacking.deleteRodSet", {"rodSet": board}, "invalid_argument")
+    e.fails("stacking.renameRodSet", {"rodSet": "r999", "name": "x"}, "not_found")
+    e.fails("stacking.renameRodSet", {"rodSet": board, "name": "two\nlines"}, "invalid_argument")
+
+    # the brick commands are refused; stacking commands on other grids too
+    e.fails("problem.setResult", {"problem": p, "shape": discs[0]}, "invalid_argument")
+    e.fails("problem.setPieceCount", {"problem": p, "shape": discs[0], "min": 2, "max": 2}, "invalid_argument")
+    e.fails("problem.addOneOfEach", {"problem": p}, "invalid_argument")
+    e.call("document.new", {"grid": "bricks"})
+    e.fails("stacking.addRodSet", {}, "unsupported")
+    check(e.call("document.get")["rodSets"] == [], "no rod sets on bricks")
+
+
 def panex_swap(n):
     """A Panex swap of two towers of n discs as plain XML: the corpus's
     stack_panex_swap_<n> (made by the original's code) for any n."""
