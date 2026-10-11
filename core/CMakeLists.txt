@@ -6,6 +6,7 @@ add_library(btcore STATIC
   bt/app/document.cpp
   bt/app/document_commands.cpp
   bt/app/document_sliding.cpp
+  bt/app/document_stacking.cpp
   bt/app/explorers.cpp
   bt/app/layer_geometry.cpp
   bt/app/playback.cpp

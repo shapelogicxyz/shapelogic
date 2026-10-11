@@ -5,12 +5,15 @@
 /// Read-only questions about a puzzle that the editor shows: whether a
 /// problem's pieces can fill its result (the fit summary and the status
 /// line), the status window's facts about each shape, and what kind of
-/// problem a problem is.
+/// problem a problem is, and where a stacking puzzle's rod set stands on
+/// its own.
 /// Ported from mainWindow_c::StatProblemInfo and StatPieceInfo
-/// (src/gui/mainwindow.cpp), the table of src/gui/statuswindow.cpp, and
-/// isNotchable / isMillable (src/lib/millable.cpp).
+/// (src/gui/mainwindow.cpp), the table of src/gui/statuswindow.cpp,
+/// isNotchable / isMillable (src/lib/millable.cpp), and the layout of
+/// voxelFrame_c::showRodSet (src/gui/voxelframe.cpp).
 
 #include "bt/grid/types.h"
+#include "bt/model/stacking.h"
 
 #include <optional>
 #include <string>
@@ -94,12 +97,18 @@ struct ShapeInfo {
 /// A brick piece has no inside corners (isMillable).
 [[nodiscard]] bool isMillable(const Voxel& v);
 
-/// What kind of problem: the solvers handle bricks; sliding and stacking
-/// puzzles load and save but are not solved yet.
+/// What kind of problem: brick, sliding or stacking puzzles each have
+/// solvers of their own.
 enum class ProblemKind : unsigned char { Brick, Sliding, Stacking };
 
 /// The kind of the puzzle's problems (all problems of a puzzle are of the
 /// kind of its grid).
 [[nodiscard]] ProblemKind problemKind(const Puzzle& puzzle);
+
+/// A stacking puzzle's rod set drawn on its own, without a problem's discs
+/// (the Entities tab's view of the rod set chosen, showRodSet): rods that
+/// grow drawn 5 high, the spacing of the puzzle's largest disc, the pocket
+/// left of rod 1 with every x at 0 or more. `disks` is empty.
+[[nodiscard]] stacking::BoardLayout rodSetLayout(const Puzzle& puzzle, unsigned int rodSet);
 
 }  // namespace bt::app

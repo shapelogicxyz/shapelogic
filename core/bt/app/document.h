@@ -14,8 +14,10 @@
 /// changeShape / changeProblem), mainwindow_file.cpp (assemblies to
 /// shapes) and mainwindow_solve.cpp (deleting solutions), and for sliding
 /// puzzles mainwindow.cpp's and mainwindow_rods.cpp's start/goal shapes,
-/// stamps and the problems that follow them (decision 0014). The rules for
-/// edits while solving are decision 0011.
+/// stamps and the problems that follow them (decision 0014), and for
+/// stacking puzzles mainwindow_rods.cpp's rod sets, BlockList.cpp's disc
+/// sizes and mainwindow.cpp's stacking branches of the Problems tab
+/// (decision 0015). The rules for edits while solving are decision 0011.
 
 #include "bt/app/analysis.h"
 #include "bt/app/explorers.h"
@@ -27,6 +29,7 @@
 #include "bt/grid/grid_type.h"
 #include "bt/mesh/draw_mesh.h"
 #include "bt/model/puzzle.h"
+#include "bt/model/stacking_types.h"
 #include "bt/solve/solve_progress.h"
 #include "bt/solve/solve_session.h"
 
@@ -57,6 +60,7 @@ enum ChangeFlag : std::uint32_t {
   kChangeProblems = 4,
   kChangeSolutions = 8,
   kChangeNotes = 16,
+  kChangeRodSets = 32,  ///< a stacking puzzle's rod sets
 };
 
 /// The settings of a document that are not UI (configuration.cpp).
@@ -135,6 +139,24 @@ struct PausedExport {
   bool withLevels = true;
 };
 
+/// A stacking problem's saved search (Document::savedSearch): what the
+/// original GUI said of it when Solve would throw it away ("a saved search
+/// 200 moves deep, 3.4M stackings"), the solving time it holds, and the
+/// bytes its levels take (an export asked about them beyond 1 GB).
+struct SavedSearchInfo {
+  std::string description;
+  std::uint64_t ms = 0;
+  std::uint64_t levelBytes = 0;
+};
+
+/// What placing every disc did (Document::placeAllDiscs): how many went on
+/// the rod before one would not, and why that one would not (empty when
+/// all went).
+struct DiscsPlaced {
+  unsigned int placed = 0;
+  std::string error;
+};
+
 /// A puzzle being edited. The owner calls it from one thread. Solves run
 /// on their own threads; while a run is active (decision 0011) the
 /// document refuses (InvalidState) edits of shapes, of the shape, colour
@@ -205,17 +227,22 @@ class Document {
   [[nodiscard]] const std::vector<Id>& shapeIds() const { return ids_.shapes; }
   [[nodiscard]] const std::vector<Id>& colourIds() const { return ids_.colours; }
   [[nodiscard]] const std::vector<Id>& problemIds() const { return ids_.problems; }
+  /// A stacking puzzle's rod sets (empty on other grids).
+  [[nodiscard]] const std::vector<Id>& rodSetIds() const { return ids_.rodSets; }
   /// The place of an id in its list (colours: 0 is colour number 1);
   /// NotFound for an unknown id.
   [[nodiscard]] Result<unsigned int> shapeIndex(Id id) const;
   [[nodiscard]] Result<unsigned int> colourIndex(Id id) const;
   [[nodiscard]] Result<unsigned int> problemIndex(Id id) const;
+  [[nodiscard]] Result<unsigned int> rodSetIndex(Id id) const;
   /// The place of a solution in its problem's list.
   [[nodiscard]] Result<unsigned int> solutionIndex(Id problem, Id solution) const;
   /// The labels the front end shows: "S1", "C1", "P1" by place.
   [[nodiscard]] static std::string shapeLabel(unsigned int index);
   [[nodiscard]] static std::string colourLabel(unsigned int index);
   [[nodiscard]] static std::string problemLabel(unsigned int index);
+  /// "R1": a rod set's label (the original's rod-set list).
+  [[nodiscard]] static std::string rodSetLabel(unsigned int index);
 
   // ---- history ----------------------------------------------------------------
 
@@ -238,7 +265,8 @@ class Document {
   // ---- shapes -----------------------------------------------------------------
 
   /// Adds an empty shape (shape.create): of the given size in cells, or of
-  /// the grid's default size.
+  /// the grid's default size. On a stacking puzzle a disc of size 1
+  /// (cb_NewShape), and no size may be given.
   Result<Id> createShape(std::optional<std::array<unsigned int, 3>> size = std::nullopt);
   /// Adds a copy of a shape at the end (shape.duplicate).
   Result<Id> duplicateShape(Id shape);
@@ -353,6 +381,72 @@ class Document {
   /// false when there is none.
   Result<bool> clearStampAt(Id tray, int x, int y, bool goal);
 
+  // ---- stacking puzzles (decision 0015) ---------------------------------------
+  //
+  // A stacking puzzle's boards are its rod sets (at least one); a problem
+  // stands on one (Set Start/Goal Rods) and holds the discs on each rod at
+  // its start and its goal. Its shapes are discs: shape.create makes one
+  // of size 1 (cb_NewShape), and their size is set here (the disc list),
+  // not by cells. What the original GUI hid on a stacking puzzle is refused
+  // (InvalidArgument): the cell editor and the tool tabs (editCells,
+  // editBox, resizeShape, shapeTask, a shape of a given size), and the
+  // Problems tab's brick commands, whose buttons did the stacking ones
+  // below there (setResult, the piece counts and ranges, movePart, the
+  // groups). Refused (Unsupported) on other grids. The rod set commands
+  // are refused while anything is solved (the GUI greyed them out while a
+  // solve ran); the stacks' commands while their problem is.
+
+  /// Adds a rod set with the default rules (cb_NewRod).
+  Result<Id> addRodSet();
+  /// Adds a copy of a rod set, name and all, at the end (cb_CopyRod).
+  Result<Id> duplicateRodSet(Id rodSet);
+  /// Removes a rod set; the problems on it have none afterwards, their
+  /// stacks kept (cb_DeleteRod). The last one is kept ("Keep at least one
+  /// rod set").
+  Result<void> deleteRodSet(Id rodSet);
+  Result<void> renameRodSet(Id rodSet, std::string name);
+  /// Moves a rod set to place `toIndex`, one place at a time as the arrows
+  /// did; the problems keep theirs (cb_RodExchange).
+  Result<void> moveRodSet(Id rodSet, unsigned int toIndex);
+  /// Sets a rod set's rules (cb_RodField; `rules.name` is not used): the
+  /// rod count 1 to 16, the heights 1 to 64, the pocket and the outside
+  /// channel only with Panex columns (the channel with three rods or more
+  /// too), the older "can move over" dropped. The problems on it have
+  /// their stacks fitted to the new count and lose their solutions.
+  Result<void> setRodSetRules(Id rodSet, const stacking::RodSet& rules);
+  /// A disc's size, 1 to 100 (the disc list's size; generateDisk: a new
+  /// square of (2 size + 1) cells, its colour kept). Solutions stay, as in
+  /// the original (cb_DiskList).
+  Result<void> setDiscSize(Id shape, unsigned int size);
+  /// The board a problem stands on (Set Start/Goal Rods: cb_ShapeToResult's
+  /// stacking branch); its stacks get the board's rods.
+  Result<void> setProblemRodSet(Id problem, Id rodSet);
+  /// Puts a copy of a disc on top of a rod of the start (goal false) or
+  /// the goal (cb_AddShapeToProblem: placeOneDisk): the next copy not on
+  /// that stacking, one more copy when every copy is; the rules are not
+  /// enforced (setupError tells what breaks them). `rod` is a place of the
+  /// problem's stack map (the pocket column is the last).
+  Result<void> placeDisc(Id problem, Id shape, unsigned int rod, bool goal);
+  /// Puts a copy of every disc on a rod, largest first
+  /// (cb_AddAllShapesToProblem); what was placed before a refusal stays.
+  Result<DiscsPlaced> placeAllDiscs(Id problem, unsigned int rod, bool goal);
+  /// Takes the disc at place `index` (from the bottom) of a rod off both
+  /// stackings, one copy fewer (cb_RemoveShapeFromProblem).
+  Result<void> removeDisc(Id problem, bool goal, unsigned int rod, unsigned int index);
+  /// Empties the start's or the goal's rods; the counts stay, and the
+  /// problem loses its solutions (cb_RemoveAllShapesFromProblem).
+  Result<void> clearStacks(Id problem, bool goal);
+  /// Swaps the disc at place `index` (from the bottom) with the one above
+  /// (+1) or below (-1) it (cb_ProbShapeExchange); returns its new place.
+  Result<unsigned int> moveDisc(Id problem, bool goal, unsigned int rod, unsigned int index,
+                                int delta);
+  /// The saved search of a stacking problem in `workDir`, which Continue
+  /// carries on and Solve would throw away; none while the problem's run
+  /// is active (the GUI asked only when nothing ran), and none on other
+  /// grids.
+  [[nodiscard]] Result<std::optional<SavedSearchInfo>> savedSearch(
+      Id problem, const std::string& workDir) const;
+
   // ---- queries ----------------------------------------------------------------
 
   [[nodiscard]] Result<FitStats> fit(Id problem) const;
@@ -380,8 +474,11 @@ class Document {
   /// for the run to end. Refused (InvalidState) when the problem has no
   /// such solve: a finished solve's solutions go through
   /// deleteSolutions(All), which can be undone, and a paused solve from a
-  /// file is carried on (solveResume) or started over (solveStart).
-  Result<void> solveAbort(Id problem);
+  /// file is carried on (solveResume) or started over (solveStart). A
+  /// stacking problem whose search is saved in `stackingWorkDir` has a
+  /// solve under way too, though no run is in memory (the GUI's Abort was
+  /// offered for it): its saved search and its results go (cb_BtnAbort).
+  Result<void> solveAbort(Id problem, const std::string& stackingWorkDir = {});
   /// Waits for the run of a problem to end.
   Result<void> solveWait(Id problem);
   /// The state of a problem's solve (Idle when it has none).
@@ -457,6 +554,7 @@ class Document {
     std::vector<Id> shapes;
     std::vector<Id> colours;
     std::vector<Id> problems;
+    std::vector<Id> rodSets;
   };
   /// What a snapshot saved: a shape, a problem, a colour's value, the
   /// notes, or everything.
@@ -515,6 +613,18 @@ class Document {
   /// Flattens the shapes of a sliding puzzle just opened (the original's
   /// load), with the notice.
   void flattenOnOpen();
+
+  // stacking puzzles
+  /// Unsupported on other grids.
+  [[nodiscard]] Result<void> checkStacking() const;
+  /// What the original GUI hid on a stacking puzzle (InvalidArgument with
+  /// `why`); nothing on other grids.
+  [[nodiscard]] Result<void> refuseOnStacking(const char* why) const;
+  /// A stacking problem's index, free to edit, standing on a rod set
+  /// ("Choose a rod set with Set Start/Goal Rods").
+  [[nodiscard]] Result<unsigned int> stackingProblem(Id problem) const;
+  /// cb_NewShape's stacking branch: a disc of size 1.
+  Result<Id> addDisc();
 
   Result<unsigned int> requireShape(Id id) const { return shapeIndex(id); }
   Result<unsigned int> requireProblem(Id id) const { return problemIndex(id); }

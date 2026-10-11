@@ -127,6 +127,9 @@ void Document::assignIds() {
   for (unsigned int i = 0; i < puzzle_->getNumberOfProblems(); i++) {
     ids_.problems.push_back(newId());
   }
+  for (unsigned int i = 0; i < puzzle_->rodSetCount(); i++) {
+    ids_.rodSets.push_back(newId());
+  }
 }
 
 Result<void> Document::save(const std::filesystem::path& path) {
@@ -186,6 +189,10 @@ Result<unsigned int> Document::problemIndex(Id id) const {
   return indexIn(ids_.problems, id, "problem");
 }
 
+Result<unsigned int> Document::rodSetIndex(Id id) const {
+  return indexIn(ids_.rodSets, id, "rod set");
+}
+
 Result<unsigned int> Document::solutionIndex(Id problem, Id solution) const {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
@@ -206,6 +213,8 @@ std::string Document::shapeLabel(unsigned int index) { return "S" + std::to_stri
 std::string Document::colourLabel(unsigned int index) { return "C" + std::to_string(index + 1); }
 
 std::string Document::problemLabel(unsigned int index) { return "P" + std::to_string(index + 1); }
+
+std::string Document::rodSetLabel(unsigned int index) { return "R" + std::to_string(index + 1); }
 
 // ---- the history --------------------------------------------------------------------
 
@@ -747,7 +756,7 @@ Result<void> Document::solvePauseAtSavePoint(Id problem) {
   return withSession(sessions_, problem, [](SolveSession& s) { s.pauseAtSavePoint(); });
 }
 
-Result<void> Document::solveAbort(Id problem) {
+Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
@@ -761,8 +770,22 @@ Result<void> Document::solveAbort(Id problem) {
   const auto it = sessions_.find(problem);
   if (it == sessions_.end() ||
       (!isActive(it->second->state()) && it->second->state() != SolveState::Paused)) {
-    return fail(Errc::InvalidState,
-                "the problem has no solve under way: remove its solutions instead");
+    // a stacking search saved in its folder is a paused solve, on disk:
+    // the GUI's Abort threw it away with the problem's results
+    // (cb_BtnAbort, abortable())
+    if (!stacking::isStacking(*puzzle_) ||
+        panex::savedSearch(*puzzle_, puzzle_->getProblem(*p), stackingWorkDir).empty()) {
+      return fail(Errc::InvalidState,
+                  "the problem has no solve under way: remove its solutions instead");
+    }
+    endSession(*p);
+    Problem& pr = puzzle_->getProblem(*p);
+    pr.removeAllSolutions();
+    panex::discardSaved(*puzzle_, pr, stackingWorkDir);
+    solveDirty_ = true;
+    lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
+    changed(kChangeSolutions | kChangeProblems);
+    return {};
   }
   it->second->abort();
   solveDirty_ = true;
@@ -817,6 +840,28 @@ std::optional<SolveFailure> Document::solveFailure(Id problem) const {
 std::string Document::solveNote(Id problem) const {
   const auto it = sessions_.find(problem);
   return it == sessions_.end() ? std::string() : it->second->note();
+}
+
+Result<std::optional<SavedSearchInfo>> Document::savedSearch(Id problem,
+                                                             const std::string& workDir) const {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  // a run writes its search's files (problemPaused: nothing while one runs)
+  if (!stacking::isStacking(*puzzle_) || isActive(solveState(problem))) {
+    return std::nullopt;
+  }
+  const Problem& pr = puzzle_->getProblem(*p);
+  std::string description = panex::savedSearch(*puzzle_, pr, workDir);
+  if (description.empty()) {
+    return std::nullopt;
+  }
+  SavedSearchInfo info;
+  info.description = std::move(description);
+  info.ms = panex::savedMs(*puzzle_, pr, workDir);
+  info.levelBytes = io::savedLevelBytes(panex::searchFolder(*puzzle_, pr, workDir));
+  return info;
 }
 
 // ---- analysing and what background work did -----------------------------------------

@@ -33,11 +33,13 @@ struct DocState {
   std::vector<app::Id> shapes;
   std::vector<app::Id> colours;
   std::vector<app::Id> problems;
+  std::vector<app::Id> rodSets;
   bool operator==(const DocState&) const = default;
 };
 
 inline DocState state(const app::Document& d) {
-  return DocState{io::writePuzzle(d.puzzle()), d.shapeIds(), d.colourIds(), d.problemIds()};
+  return DocState{io::writePuzzle(d.puzzle()), d.shapeIds(), d.colourIds(), d.problemIds(),
+                  d.rodSetIds()};
 }
 
 /// Runs a command that must change the document, then checks that undo

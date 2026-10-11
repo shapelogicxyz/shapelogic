@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from mainWindow_c::StatProblemInfo and StatPieceInfo
 // (src/gui/mainwindow.cpp), statusWindow_c's table (src/gui/statuswindow.cpp)
-// and src/lib/millable.cpp. The verdict and the hole range of the fit are
+// and src/lib/millable.cpp, and the layout of voxelFrame_c::showRodSet
+// (src/gui/voxelframe.cpp). The verdict and the hole range of the fit are
 // new (the web UI's fit summary); the status line is the original's.
 #include "bt/app/queries.h"
 
@@ -13,6 +14,7 @@
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 
@@ -180,6 +182,29 @@ ProblemKind problemKind(const Puzzle& puzzle) {
     default:
       return ProblemKind::Brick;
   }
+}
+
+stacking::BoardLayout rodSetLayout(const Puzzle& puzzle, unsigned int rodSet) {
+  const stacking::RodSet& board = puzzle.getRodSet(rodSet);
+  const unsigned int height = std::max(board.growHeight ? 5U : board.definedHeight, 1U);
+  int maxR = 1;
+  for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
+    maxR = std::max(maxR, asInt(puzzle.getShape(i).getDiskSize()));
+  }
+  stacking::BoardLayout lay;
+  lay.spacing = 2 * maxR + 1;
+  lay.rodCount = stacking::totalRods(board);
+  lay.rodHeight = height;
+  lay.panex = board.panexColumns;
+  lay.pocket = lay.rodCount > board.rodCount;
+  lay.maxSize = asUnsigned(maxR);
+  // the pocket stands left of rod 1, so every x stays at 0 or more
+  const int shift = lay.pocket ? 1 : 0;
+  for (unsigned int r = 0; r < lay.rodCount; r++) {
+    lay.rodX.push_back((stacking::rodPosition(board, r) + shift) * lay.spacing);
+    lay.rodHeights.push_back(stacking::isPocket(board, r) ? board.pocketHeight : height);
+  }
+  return lay;
 }
 
 }  // namespace bt::app

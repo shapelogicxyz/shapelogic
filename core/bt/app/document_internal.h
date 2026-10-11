@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace bt::app {
@@ -58,5 +59,10 @@ class Document::StepGuard {
   std::size_t first_ = 0;
   bool committed_ = false;
 };
+
+/// Refuses text the file cannot hold (InvalidArgument naming `what`):
+/// control characters other than tab, newline and carriage return, and
+/// with `oneLine` line breaks (a name is an attribute).
+Result<void> checkText(std::string_view text, bool oneLine, std::string_view what);
 
 }  // namespace bt::app

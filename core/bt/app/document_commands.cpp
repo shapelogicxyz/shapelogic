@@ -27,6 +27,7 @@
 #include "bt/model/problem.h"
 #include "bt/model/sliding.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking.h"
 
 #include <algorithm>
 #include <string>
@@ -55,6 +56,8 @@ std::uint32_t packRgb(Rgb c) {
   return std::uint32_t{c.r} << 16 | std::uint32_t{c.g} << 8 | std::uint32_t{c.b};
 }
 
+}  // namespace
+
 // Text that goes into the file: control characters other than tab,
 // newline and carriage return are not well-formed XML 1.0 (and a name is
 // an attribute, where a line break would come back as a space).
@@ -70,8 +73,6 @@ Result<void> checkText(std::string_view text, bool oneLine, std::string_view wha
   }
   return {};
 }
-
-}  // namespace
 
 // ---- notes ---------------------------------------------------------------------------
 
@@ -94,6 +95,15 @@ Result<void> Document::setNotes(std::string text) {
 Result<Id> Document::createShape(std::optional<std::array<unsigned int, 3>> size) {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
+  }
+  // a stacking puzzle's shapes are discs (cb_NewShape's stacking branch)
+  if (stacking::isStacking(*puzzle_)) {
+    if (size) {
+      return fail(Errc::InvalidArgument,
+                  "a stacking puzzle's shapes are discs: a new one has size 1, set its size "
+                  "afterwards");
+    }
+    return addDisc();
   }
   const GridKind grid = puzzle_->getGridType().getType();
   std::array<unsigned int, 3> s{};
@@ -324,6 +334,9 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
   if (!s) {
     return std::unexpected(s.error());
   }
+  if (Result<void> r = refuseOnStacking("a stacking puzzle's shapes are discs: they are not edited by cells"); !r) {
+    return std::unexpected(r.error());
+  }
   unsigned int colourNumber = 0;
   if (colour != 0) {
     const Result<unsigned int> c = colourIndex(colour);
@@ -365,6 +378,9 @@ Result<unsigned int> Document::editBox(Id shape, CellTool tool, Id colour, std::
   if (!s) {
     return std::unexpected(s.error());
   }
+  if (Result<void> r = refuseOnStacking("a stacking puzzle's shapes are discs: they are not edited by cells"); !r) {
+    return std::unexpected(r.error());
+  }
   // the box clamped to the space (setLayer)
   const Voxel& v = puzzle_->getShape(*s);
   const int x1 = std::max(std::min(box.x1, box.x2), 0);
@@ -392,6 +408,11 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
   const Result<unsigned int> s = shapeIndex(shape);
   if (!s) {
     return std::unexpected(s.error());
+  }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking puzzle's shapes are discs: their size follows the disc's");
+      !r) {
+    return r;
   }
   const unsigned int factor = sizeUnit(puzzle_->getGridType().getType());
   if (Result<void> r = checkSize(factor * x, factor * y, factor * z); !r) {
@@ -458,6 +479,11 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   const Result<unsigned int> s = shapeIndex(shape);
   if (!s) {
     return std::unexpected(s.error());
+  }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking puzzle's shapes are discs: the tool tabs do not change them");
+      !r) {
+    return std::unexpected(r.error());
   }
   const GridKind grid = puzzle_->getGridType().getType();
   const std::vector<ShapeTaskInfo> set = taskSet(grid);
@@ -763,6 +789,11 @@ Result<void> Document::setResult(Id problem, Id shape) {
     return fail(Errc::InvalidArgument,
                 "a sliding problem's result is its start/goal shape: it is not chosen");
   }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking problem has a rod set, not a result: set its start/goal rods");
+      !r) {
+    return r;
+  }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.resultValid() && pr.getResultId() == *s && pr.getShapeMaximum(*s) == 0) {
     return {};
@@ -788,6 +819,9 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
     return std::unexpected(s.error());
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  if (Result<void> r = refuseOnStacking("a stacking problem's discs follow its stacks: place them on its rods"); !r) {
     return r;
   }
   if (min > max) {
@@ -856,6 +890,9 @@ Result<void> Document::setRangeAll(Id problem, unsigned int min, unsigned int ma
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
   }
+  if (Result<void> r = refuseOnStacking("a stacking problem's discs follow its stacks: place them on its rods"); !r) {
+    return r;
+  }
   // the bulk range window: a maximum below the minimum is raised to it
   max = std::max(max, min);
   if (max > 0xFFFF) {
@@ -891,6 +928,9 @@ Result<void> Document::addOneOfEach(Id problem) {
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
   }
+  if (Result<void> r = refuseOnStacking("a stacking problem's discs follow its stacks: place them on its rods"); !r) {
+    return r;
+  }
   Problem& pr = puzzle_->getProblem(*p);
   StepGuard g(*this, "Add one of each");
   touchProblem(*p);
@@ -914,6 +954,11 @@ Result<void> Document::removeAllPieces(Id problem) {
     return std::unexpected(p.error());
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking problem's discs follow its stacks: clear its start or goal rods");
+      !r) {
     return r;
   }
   if (puzzle_->getProblem(*p).getNumberOfParts() == 0) {
@@ -947,6 +992,11 @@ Result<void> Document::movePart(Id problem, Id shape, int delta) {
     return std::unexpected(s.error());
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking problem's discs are moved on their rods, not in its list of pieces");
+      !r) {
     return r;
   }
   Problem& pr = puzzle_->getProblem(*p);
@@ -989,6 +1039,9 @@ Result<void> Document::setGroupCount(Id problem, Id shape, unsigned int group,
   if (sliding::isSliding(*puzzle_)) {
     return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
   }
+  if (Result<void> r = refuseOnStacking("stacking puzzles have no piece groups"); !r) {
+    return r;
+  }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.getShapeMaximum(*s) == 0) {
     return fail(Errc::InvalidArgument, "the shape is no piece of the problem");
@@ -1020,6 +1073,9 @@ Result<void> Document::setGroup(Id problem, Id shape, unsigned int group) {
   }
   if (sliding::isSliding(*puzzle_)) {
     return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
+  }
+  if (Result<void> r = refuseOnStacking("stacking puzzles have no piece groups"); !r) {
+    return r;
   }
   Problem& pr = puzzle_->getProblem(*p);
   if (pr.getShapeMaximum(*s) == 0) {
@@ -1055,6 +1111,9 @@ Result<void> Document::deleteGroup(Id problem, unsigned int group) {
   }
   if (sliding::isSliding(*puzzle_)) {
     return fail(Errc::InvalidArgument, "sliding puzzles have no piece groups");
+  }
+  if (Result<void> r = refuseOnStacking("stacking puzzles have no piece groups"); !r) {
+    return r;
   }
   Problem& pr = puzzle_->getProblem(*p);
   StepGuard g(*this, "Delete group");
