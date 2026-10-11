@@ -33,7 +33,7 @@ enum class GridKind : std::uint8_t {
   Rhombic = 3,          ///< a cut cube grid that builds rhombic dodecahedra
   TetraOcta = 4,        ///< tetrahedra and octahedra, also a cut cube grid
   Sliding = 5,          ///< 2D brick tray for sliding puzzles (bt/model/sliding.h)
-  Stacking = 6,         ///< discs on rods (not ported yet)
+  Stacking = 6,         ///< discs on rods (bt/model/stacking.h)
 };
 
 /// The number of grid kinds; `type` attributes at or above it are invalid.

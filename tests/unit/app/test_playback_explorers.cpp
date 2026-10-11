@@ -15,8 +15,11 @@
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking.h"
 #include "bt/solve/disassembler.h"
+#include "bt/solve/solve_session.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -281,13 +284,55 @@ TEST_CASE("playback: what has no animation is refused, a sliding solution plays"
   const Id p = d.problemIds().front();
   // a solution that is not there
   CHECK(d.playback(p, 99999).error().code == Errc::NotFound);
-  // stacking puzzles: not yet; a sliding solution plays its 81 moves
-  const Puzzle stacking = test::openFixture("test_stacking_hanoi.xmpuzzle").puzzle();
-  CHECK(PlaybackSampler::make(stacking, 0, 0).error().code == Errc::Unsupported);
+  // a sliding solution plays its 81 moves (stacking ones their transfers:
+  // the next case)
   const Puzzle sliding = test::openFixture("test_sliding_solver.xmpuzzle").puzzle();
   const Result<PlaybackSampler> pb = PlaybackSampler::make(sliding, 0, 0);
   REQUIRE(pb.has_value());
   CHECK(pb->stepCount() == 81);
+}
+
+TEST_CASE("playback: a stacking solution plays in transfers", "[app][playback][stacking]") {
+  Puzzle hanoi = test::openFixture("test_stacking_hanoi.xmpuzzle").puzzle();
+  // the fixture is not solved
+  CHECK(PlaybackSampler::make(hanoi, 0, 0).error().code == Errc::NotFound);
+  {
+    SolveOptions o;
+    o.disassemble = true;
+    SolveSession s(hanoi, hanoi.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+  }
+  Result<PlaybackSampler> pb = PlaybackSampler::make(hanoi, 0, 0);
+  REQUIRE(pb.has_value());
+  // the slider counts transfers, as the original's did
+  CHECK(pb->stepCount() == 7);
+  CHECK(pb->movesText() == "7");
+  REQUIRE(pb->pieces().size() == 3);
+
+  // after transfer k every disc stands where the path's frame 3k puts it:
+  // its centre cell on the rod (the hotspot), the poses centred on the board
+  const Problem& pr = hanoi.getProblem(0);
+  const Separation& path = *pr.getSavedSolution(0).getDisassembly();
+  const std::array<double, 3> centre = stackingCentre(hanoi, pr);
+  for (unsigned int k = 0; k <= 7; k++) {
+    const Result<std::vector<PiecePose>> poses = pb->sample(static_cast<float>(k));
+    REQUIRE(poses.has_value());
+    const State& st = path.getState(k * stacking::kStepsPerMove);
+    for (unsigned int i = 0; i < 3; i++) {
+      const auto r = static_cast<double>(hanoi.getShape(pr.getShapeIdOfPart(i)).getDiskSize());
+      const PiecePose& pose = (*poses)[i];
+      CHECK(pose.visible);
+      CHECK(static_cast<double>(pose.translation[0]) + centre[0] + r ==
+            Catch::Approx(st.getX(i)));
+      CHECK(static_cast<double>(pose.translation[2]) + centre[2] == Catch::Approx(st.getZ(i)));
+    }
+  }
+  // half a transfer: the moving disc on its way up, the others still
+  const Result<std::vector<PiecePose>> half = pb->sample(1.0F / 3.0F);
+  REQUIRE(half.has_value());
+  CHECK(half->size() == 3);
 }
 
 TEST_CASE("explorers: the placements and the assembly search step by step",
@@ -323,8 +368,8 @@ TEST_CASE("explorers: the placements and the assembly search step by step",
   }
   CHECK(full);
 
-  // what it refuses: stacking puzzles (a sliding puzzle's placements are
-  // its solve's: test_document_sliding.cpp)
+  // what it refuses: stacking puzzles, which have no assembler (a sliding
+  // puzzle's placements are its solve's: test_document_sliding.cpp)
   Document s = openFixture("test_stacking_hanoi.xmpuzzle");
   CHECK(s.exploreAssembly(s.problemIds().front(), SolverType::Classic, {}, false).error().code ==
         Errc::Unsupported);

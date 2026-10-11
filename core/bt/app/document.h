@@ -127,6 +127,14 @@ struct ChangeSet {
   std::string notice;
 };
 
+/// What an export of a paused stacking solve takes along
+/// (Document::exportPaused): its saved search in `stackingWorkDir`, with
+/// the levels or not.
+struct PausedExport {
+  std::string stackingWorkDir;
+  bool withLevels = true;
+};
+
 /// A puzzle being edited. The owner calls it from one thread. Solves run
 /// on their own threads; while a run is active (decision 0011) the
 /// document refuses (InvalidState) edits of shapes, of the shape, colour
@@ -153,9 +161,13 @@ class Document {
 
   /// Opens a paused solve exported as a .btsolve file (cb_ImportPaused): a
   /// new, untitled document (dirty: it has no file yet) and the paused
-  /// problem, which solveResume() carries on.
+  /// problem, which solveResume() carries on. A stacking solve's saved
+  /// search goes into its folder in `stackingWorkDir` (where the solves'
+  /// SolveOptions::stacking.workDir look), replacing what was there; a
+  /// stacking file whose search has no place there is refused.
   static Result<std::pair<Document, Id>> importPaused(const std::filesystem::path& path,
-                                                      DocumentSettings settings = {});
+                                                      DocumentSettings settings = {},
+                                                      const std::string& stackingWorkDir = {});
 
   /// Saves (gzip, as the original); the document is clean afterwards.
   /// Refused while a solve runs (save at a save point instead).
@@ -386,14 +398,16 @@ class Document {
 
   /// Writes a paused solve of a problem as a .btsolve file
   /// (cb_ExportPaused): refused unless the problem holds a solve that can
-  /// be carried on (Solving, no run active) and while anything runs.
-  Result<void> exportPaused(Id problem, const std::filesystem::path& path) const;
+  /// be carried on (Solving, no run active; a stacking problem: a saved
+  /// search in the work folder) and while anything runs.
+  Result<void> exportPaused(Id problem, const std::filesystem::path& path,
+                            const PausedExport& options = {}) const;
 
   // ---- analysing ----------------------------------------------------------------
 
   /// Takes saved assemblies apart afterwards (solution.analyse) on a thread
   /// of its own. Refused while the problem is being solved or analysed,
-  /// for grids without a take-apart, sliding and stacking puzzles, and
+  /// for grids without a take-apart (sliding and stacking puzzles), and
   /// when there is nothing to take apart. While it lasts the document is
   /// frozen as while solving (decision 0011); its results go in at poll()
   /// once it has ended. Returns the number of assemblies to take apart.

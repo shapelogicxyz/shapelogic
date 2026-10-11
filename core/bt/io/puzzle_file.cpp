@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from the XML load and save code of src/lib/puzzle.cpp, problem.cpp,
-// solution.cpp, assembly.cpp, disassembly.cpp, voxel.cpp and gridtype.cpp.
+// solution.cpp, assembly.cpp, disassembly.cpp, voxel.cpp and gridtype.cpp,
+// and the file part of src/lib/stacking.cpp (saveRodSets, loadRodSets,
+// saveProblem, loadProblem, encodeRod, decodeRod, countAttribute).
 //
 // The original read with a pull parser and skipped what it did not know. This
 // reads the XmlElement tree of xml_document.h and keeps what it does not know
@@ -24,6 +26,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -633,12 +636,109 @@ enum ProblemSlot : unsigned int {
   kSlotParts = 0,
   kSlotResult,
   kSlotGoal,
+  kSlotStacking,
   kSlotSolverOptions,
   kSlotBitmap,
   kSlotAssembler,
   kSlotPending,
   kSlotSolutions,
 };
+
+// ---- stacking (stacking.cpp) --------------------------------------------------
+
+/// Rods, or discs a rod holds, that a file may ask for (MAX_FILE_COUNT).
+constexpr unsigned int kMaxFileCount = 1000;
+
+/// An attribute as a count from 0 to `most`; `fallback` when it is missing
+/// or not a number in range (an edited file can hold anything).
+unsigned int countAttribute(const XmlElement& e, const char* name, unsigned int fallback,
+                            unsigned int most) {
+  const std::string str = e.attribute(name);
+  if (str.empty()) {
+    return fallback;
+  }
+  char* end = nullptr;
+  const long v = std::strtol(str.c_str(), &end, 10);
+  if (end == str.c_str() || v < 0 || static_cast<unsigned long>(v) > most) {
+    return fallback;
+  }
+  return static_cast<unsigned int>(v);
+}
+
+/// <rodSets>: each <rodSet> a board; anything else is skipped, as the
+/// original did.
+void readRodSets(const XmlElement& e, Puzzle& puzzle) {
+  for (const XmlElement& c : e.children) {
+    if (c.name != "rodSet") {
+      continue;
+    }
+    stacking::RodSet r;
+    r.name = c.attribute("name");
+    r.rodCount = std::max(1U, countAttribute(c, "rods", r.rodCount, kMaxFileCount));
+    r.growHeight = countAttribute(c, "grow", r.growHeight ? 1U : 0U, 1) != 0;
+    r.definedHeight = std::max(1U, countAttribute(c, "height", r.definedHeight, kMaxFileCount));
+    r.sizeMatters = countAttribute(c, "sizeMatters", r.sizeMatters ? 1U : 0U, 1) != 0;
+    r.distanceMatters = countAttribute(c, "distanceMatters", r.distanceMatters ? 1U : 0U, 1) != 0;
+    r.canMoveOver = countAttribute(c, "moveOver", r.canMoveOver ? 1U : 0U, 1) != 0;
+    r.panexColumns = countAttribute(c, "panex", r.panexColumns ? 1U : 0U, 1) != 0;
+    const unsigned int pocket = countAttribute(c, "pocket", 0, kMaxFileCount);
+    if (pocket > 0) {
+      r.pocketColumn = true;
+      r.pocketHeight = pocket;
+    }
+    r.outsideChannel = countAttribute(c, "channel", r.outsideChannel ? 1U : 0U, 1) != 0;
+    puzzle.addRodSet(r);
+  }
+}
+
+/// A rod's discs, "shape:copy,shape:copy", read as the original's stream
+/// read them (decodeRod): it stops at the first thing that is not one.
+std::vector<stacking::DiskRef> decodeRod(const std::string& str) {
+  std::vector<stacking::DiskRef> rod;
+  if (str.empty()) {
+    return rod;
+  }
+  std::istringstream in(str);
+  while (in.good()) {
+    unsigned int shape = 0;
+    unsigned int inst = 0;
+    char colon = 0;
+    in >> shape >> colon >> inst;
+    if (!in.fail() && colon == ':') {
+      rod.push_back(stacking::DiskRef{shape, inst});
+    }
+    if (in.peek() == ',') {
+      in.get();
+    }
+  }
+  return rod;
+}
+
+/// <start> or <goal>: a <rod> per rod; anything else is skipped.
+stacking::StackMap readStackMap(const XmlElement& e) {
+  stacking::StackMap map;
+  for (const XmlElement& c : e.children) {
+    if (c.name == "rod") {
+      map.rods.push_back(decodeRod(c.attribute("pieces")));
+    }
+  }
+  return map;
+}
+
+/// A problem's <stacking>: its rod set and the start and goal stacks.
+void readStacking(const XmlElement& e, Problem& prob) {
+  const std::string id = e.attribute("rodSet");
+  if (!id.empty()) {
+    prob.setRodSetId(static_cast<unsigned int>(atoiOf(id)));
+  }
+  for (const XmlElement& c : e.children) {
+    if (c.name == "start") {
+      prob.editStart() = readStackMap(c);
+    } else if (c.name == "goal") {
+      prob.editGoal() = readStackMap(c);
+    }
+  }
+}
 
 Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
   using A = ProblemFileAccess;
@@ -776,6 +876,9 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
         error(c, "the goal node must have an 'id' attribute with content");
       }
       A::goal(prob) = asUnsigned(atoiOf(str));
+    } else if (c.name == "stacking") {
+      keep.known(kSlotStacking);
+      readStacking(c, prob);
     } else if (c.name == "solutions" || c.name == "solutionsWithRotations") {
       keep.known(kSlotSolutions);
       if (c.name == "solutionsWithRotations") {
@@ -868,6 +971,7 @@ enum PuzzleSlot : unsigned int {
   kSlotGridType = 0,
   kSlotColors,
   kSlotShapes,
+  kSlotRodSets,
   kSlotProblems,
   kSlotComment,
 };
@@ -920,6 +1024,9 @@ Puzzle readPuzzleElement(const XmlElement& root) {
           puzzle.addShape(readVoxel(v, puzzle.getGridType()));
         }
       }
+    } else if (c.name == "rodSets") {
+      keep.known(kSlotRodSets);
+      readRodSets(c, puzzle);
     } else if (c.name == "problems") {
       keep.known(kSlotProblems);
       for (const XmlElement& p : c.children) {
@@ -936,6 +1043,11 @@ Puzzle readPuzzleElement(const XmlElement& root) {
     } else {
       keep.unknown(c);
     }
+  }
+
+  // a stacking puzzle has a board, even when its file has none
+  if (puzzle.getGridType().getType() == GridKind::Stacking && puzzle.rodSetCount() == 0) {
+    puzzle.addRodSet();
   }
 
   return puzzle;
@@ -1215,7 +1327,84 @@ void writeSolution(XmlWriter& xml, const Solution& sol, bool includeRotationFiel
   xml.endTag("solution");
 }
 
-void writeProblem(XmlWriter& xml, const Problem& prob) {
+/// A rod's discs as the file holds them (encodeRod).
+std::string encodeRod(const std::vector<stacking::DiskRef>& rod) {
+  std::string str;
+  for (std::size_t i = 0; i < rod.size(); i++) {
+    if (i != 0) {
+      str += ',';
+    }
+    str += std::to_string(rod[i].shapeId);
+    str += ':';
+    str += std::to_string(rod[i].instance);
+  }
+  return str;
+}
+
+void writeStackMap(XmlWriter& xml, const char* tag, const stacking::StackMap& map) {
+  xml.newTag(tag);
+  for (const std::vector<stacking::DiskRef>& rod : map.rods) {
+    xml.newTag("rod");
+    const std::string body = encodeRod(rod);
+    if (!body.empty()) {
+      xml.newAttrib("pieces", body);
+    }
+    xml.endTag("rod");
+  }
+  xml.endTag(tag);
+}
+
+/// A problem's <stacking> (stacking::saveProblem): written when it has a
+/// rod set of the puzzle or stacks; a rod set the puzzle does not have is
+/// not written.
+void writeStacking(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
+  const bool valid = prob.rodSetValid(puzzle);
+  if (!valid && prob.startStacks().rods.empty() && prob.goalStacks().rods.empty()) {
+    return;
+  }
+  xml.newTag("stacking");
+  if (valid) {
+    xml.newAttrib("rodSet", prob.getRodSetId());
+  }
+  writeStackMap(xml, "start", prob.startStacks());
+  writeStackMap(xml, "goal", prob.goalStacks());
+  xml.endTag("stacking");
+}
+
+/// The puzzle's <rodSets> (stacking::saveRodSets): on a stacking puzzle, or
+/// when there are any.
+void writeRodSets(XmlWriter& xml, const Puzzle& puzzle) {
+  if (puzzle.getGridType().getType() != GridKind::Stacking && puzzle.rodSetCount() == 0) {
+    return;
+  }
+  xml.newTag("rodSets");
+  for (unsigned int i = 0; i < puzzle.rodSetCount(); i++) {
+    const stacking::RodSet& r = puzzle.getRodSet(i);
+    xml.newTag("rodSet");
+    if (!r.name.empty()) {
+      xml.newAttrib("name", r.name);
+    }
+    xml.newAttrib("rods", r.rodCount);
+    xml.newAttrib("grow", r.growHeight ? 1U : 0U);
+    xml.newAttrib("height", r.definedHeight);
+    xml.newAttrib("sizeMatters", r.sizeMatters ? 1U : 0U);
+    xml.newAttrib("distanceMatters", r.distanceMatters ? 1U : 0U);
+    xml.newAttrib("moveOver", r.canMoveOver ? 1U : 0U);
+    if (r.panexColumns) {
+      xml.newAttrib("panex", 1U);
+    }
+    if (r.pocketColumn) {
+      xml.newAttrib("pocket", r.pocketHeight);
+    }
+    if (r.outsideChannel) {
+      xml.newAttrib("channel", 1U);
+    }
+    xml.endTag("rodSet");
+  }
+  xml.endTag("rodSets");
+}
+
+void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
   const PreservedXml& kept = prob.preserved();
 
   xml.newTag("problem");
@@ -1294,6 +1483,9 @@ void writeProblem(XmlWriter& xml, const Problem& prob) {
     xml.endTag("goal");
   }
 
+  writeKept(xml, kept, kSlotStacking);
+  writeStacking(xml, puzzle, prob);
+
   writeKept(xml, kept, kSlotSolverOptions);
   if (!prob.getSolverOptions().empty()) {
     xml.newTag("solverOptions");
@@ -1352,20 +1544,6 @@ void writeProblem(XmlWriter& xml, const Problem& prob) {
   writeKept(xml, kept, kSlotSolutions + 1);
 
   xml.endTag("problem");
-}
-
-/// The rod set the original adds to a stacking puzzle that has none.
-void writeDefaultRodSets(XmlWriter& xml) {
-  xml.newTag("rodSets");
-  xml.newTag("rodSet");
-  xml.newAttrib("rods", 3);
-  xml.newAttrib("grow", 1);
-  xml.newAttrib("height", 8);
-  xml.newAttrib("sizeMatters", 1);
-  xml.newAttrib("distanceMatters", 0);
-  xml.newAttrib("moveOver", 0);
-  xml.endTag("rodSet");
-  xml.endTag("rodSets");
 }
 
 }  // namespace
@@ -1429,17 +1607,13 @@ std::string writePuzzle(const Puzzle& puzzle) {
   }
   xml.endTag("shapes");
 
-  // stacking rod sets are kept as they were read (slot kSlotProblems); a
-  // stacking puzzle without any gets the default one, as in the original
-  if (puzzle.getGridType().getType() == GridKind::Stacking &&
-      kept.findChild("rodSets") == nullptr) {
-    writeDefaultRodSets(xml);
-  }
+  writeKept(xml, kept, kSlotRodSets);
+  writeRodSets(xml, puzzle);
 
   writeKept(xml, kept, kSlotProblems);
   xml.newTag("problems");
   for (unsigned int i = 0; i < puzzle.getNumberOfProblems(); i++) {
-    writeProblem(xml, puzzle.getProblem(i));
+    writeProblem(xml, puzzle, puzzle.getProblem(i));
   }
   xml.endTag("problems");
 

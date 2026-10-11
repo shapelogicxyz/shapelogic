@@ -29,6 +29,13 @@ class Voxel;
 
 namespace bt::app {
 
+/// Where the poses of a stacking problem's playback are centred, in grid
+/// units (the cells of the discs, whose hotspots stand on the rods at a
+/// BoardLayout's places): the middle of the rods' row, the discs' middle
+/// across it, and half the rods' drawn height up. A front end draws the
+/// board around it.
+[[nodiscard]] std::array<double, 3> stackingCentre(const Puzzle& puzzle, const Problem& problem);
+
 /// The drawing mesh of a shape turned by one of its grid's
 /// transformations (an assembly's Placement.transformation): what the
 /// 3D view draws for a placed piece. InvalidArgument beyond the grid's
@@ -88,11 +95,13 @@ struct PlaybackTrack {
 class PlaybackSampler {
  public:
   /// The playback of saved solution `solution` of problem `problemIndex`
-  /// (a sliding solution's moves follow their routes round corners).
-  /// Refused for stacking puzzles (not yet), a problem without
-  /// a result, a missing solution (Unsupported / InvalidArgument /
-  /// NotFound, with the original's messages), and a piece that cannot
-  /// take its orientation.
+  /// (a sliding solution's moves follow their routes round corners; a
+  /// stacking solution's steps are its transfers, each a lift, a cross and
+  /// a drop, as the original's slider counted them, and the poses are
+  /// centred on its board: stackingCentre()). Refused for a problem
+  /// without a result (a stacking one without a rod set), a missing
+  /// solution (InvalidArgument / NotFound, with the original's messages),
+  /// and a piece that cannot take its orientation.
   static Result<PlaybackSampler> make(const Puzzle& puzzle, unsigned int problemIndex,
                                       unsigned int solution);
 
@@ -102,8 +111,8 @@ class PlaybackSampler {
 
   /// The placed pieces, in problem order.
   [[nodiscard]] const std::vector<PlaybackPiece>& pieces() const { return pieces_; }
-  /// The number of steps (moves and turns) of the disassembly; 0 without
-  /// one.
+  /// The number of steps (moves and turns) of the disassembly, or the
+  /// transfers of a stacking solution; 0 without one.
   [[nodiscard]] unsigned int stepCount() const { return steps_; }
   /// The disassembly is stored: the poses move with the steps.
   [[nodiscard]] bool hasDisassembly() const { return moves_ != nullptr; }
@@ -135,6 +144,8 @@ class PlaybackSampler {
   std::unique_ptr<DisasmToMoves> moves_;
   std::array<double, 3> centre_ = {0, 0, 0};
   unsigned int steps_ = 0;
+  /// The frames a step plays (a stacking transfer's three).
+  unsigned int stepFrames_ = 1;
   std::string movesText_;
 };
 

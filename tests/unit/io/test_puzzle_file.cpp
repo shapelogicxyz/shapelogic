@@ -141,11 +141,27 @@ TEST_CASE("puzzle file: unknown solution content is kept", "[io][file]") {
   CHECK_THAT(out, ContainsSubstring("</assembly>\n     <marker/>\n    </solution>"));
 }
 
-TEST_CASE("puzzle file: stacking rod sets are kept, or the default one is written",
+TEST_CASE("puzzle file: stacking rod sets and stacks are read, or the default rod set is made",
           "[io][file]") {
   const Puzzle hanoi = test::loadFixture("test_stacking_hanoi.xmpuzzle");
-  REQUIRE(hanoi.preserved().findChild("rodSets") != nullptr);
-  REQUIRE(hanoi.getProblem(0).preserved().findChild("stacking") != nullptr);
+  REQUIRE(hanoi.preserved().findChild("rodSets") == nullptr);
+  REQUIRE(hanoi.getProblem(0).preserved().findChild("stacking") == nullptr);
+  REQUIRE(hanoi.rodSetCount() == 1);
+  CHECK(hanoi.getRodSet(0).name == "Hanoi");
+  CHECK(hanoi.getProblem(0).getRodSetId() == 0);
+  REQUIRE(hanoi.getProblem(0).startStacks().rods.size() == 3);
+  CHECK(hanoi.getProblem(0).startStacks().rods[0].size() == 3);
+  CHECK(hanoi.getProblem(0).goalStacks().rods[2].size() == 3);
+  CHECK_THAT(io::writePuzzle(hanoi),
+             ContainsSubstring("   <stacking rodSet=\"0\">\n    <start>\n     <rod "
+                               "pieces=\"0:0,1:0,2:0\"/>\n     <rod/>\n     <rod/>\n    "
+                               "</start>"));
+
+  // a stacking file without rod sets gets the default one when it is read
+  const Result<Puzzle> bare =
+      io::parsePuzzle("<puzzle version=\"2\"><gridType type=\"6\"/></puzzle>");
+  REQUIRE(bare);
+  CHECK(bare->rodSetCount() == 1);
 
   const Puzzle fresh{GridType(GridKind::Stacking)};
   CHECK_THAT(io::writePuzzle(fresh),

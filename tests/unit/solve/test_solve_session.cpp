@@ -573,10 +573,10 @@ TEST_CASE("solve session: what it refuses", "[solve][session]") {
     s.wait();
     CHECK(s.state() == SolveState::Finished);
   }
-  SECTION("stacking puzzles (sliding ones are solved: test_sliding_session.cpp)") {
+  SECTION("a stacking search has nothing to prepare (stacking: test_stacking_session.cpp)") {
     Puzzle p = test::loadFixture("test_stacking_hanoi.xmpuzzle");
-    SolveSession s(p, p.getProblem(0), {});
-    const Result<void> r = s.start();
+    SolveSession s(p, p.getProblem(0), takeApart());
+    const Result<void> r = s.prepare();
     REQUIRE_FALSE(r.has_value());
     CHECK(r.error().code == Errc::Unsupported);
   }

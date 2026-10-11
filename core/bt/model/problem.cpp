@@ -10,6 +10,36 @@
 
 namespace bt {
 
+namespace {
+
+// The stacks of a problem whose puzzle removed shape `removed`
+// (stacking.cpp's retarget).
+void retargetStacks(stacking::StackMap& map, unsigned int removed) {
+  for (std::vector<stacking::DiskRef>& rod : map.rods) {
+    std::erase_if(rod, [removed](const stacking::DiskRef& d) { return d.shapeId == removed; });
+    for (stacking::DiskRef& d : rod) {
+      if (d.shapeId > removed) {
+        d.shapeId--;
+      }
+    }
+  }
+}
+
+// The stacks of a problem whose puzzle swapped two shapes (swapIds).
+void swapStackIds(stacking::StackMap& map, unsigned int a, unsigned int b) {
+  for (std::vector<stacking::DiskRef>& rod : map.rods) {
+    for (stacking::DiskRef& d : rod) {
+      if (d.shapeId == a) {
+        d.shapeId = b;
+      } else if (d.shapeId == b) {
+        d.shapeId = a;
+      }
+    }
+  }
+}
+
+}  // namespace
+
 Problem Problem::copyDefinition() const {
   // solutions, counts and the saved position are not copied, the problem is
   // unsolved; the name is left empty, the user gives a new one anyway
@@ -20,6 +50,9 @@ Problem Problem::copyDefinition() const {
   p.solverOptions_ = solverOptions_;
   p.colorConstraints_ = colorConstraints_;
   p.maxHoles_ = maxHoles_;
+  p.rodSetId_ = rodSetId_;
+  p.startMap_ = startMap_;
+  p.goalMap_ = goalMap_;
   p.preserved_ = preserved_;
   return p;
 }
@@ -87,6 +120,11 @@ void Problem::removeShape(unsigned int idx) {
   if (goal_ != kNoShape && goal_ > idx) {
     goal_--;
   }
+
+  // the stacks drop the shape's discs and renumber those above it
+  // (stacking::noteShapeRemoved)
+  retargetStacks(startMap_, idx);
+  retargetStacks(goalMap_, idx);
 }
 
 void Problem::exchangeShapes(unsigned int shapeId1, unsigned int shapeId2) {
@@ -109,6 +147,10 @@ void Problem::exchangeShapes(unsigned int shapeId1, unsigned int shapeId2) {
       part.shapeId = static_cast<unsigned short>(shapeId1);
     }
   }
+
+  // stacking::noteShapeSwap
+  swapStackIds(startMap_, shapeId1, shapeId2);
+  swapStackIds(goalMap_, shapeId1, shapeId2);
 }
 
 void Problem::dropShapesFrom(unsigned int numShapes) {
@@ -121,6 +163,13 @@ void Problem::dropShapesFrom(unsigned int numShapes) {
   for (std::size_t part = parts_.size(); part-- > 0;) {
     if (parts_[part].shapeId >= numShapes) {
       setShapeMaximumUnchecked(parts_[part].shapeId, 0);
+    }
+  }
+  // the original never copied a problem into another puzzle: discs of
+  // shapes it does not have go off the rods
+  for (stacking::StackMap* map : {&startMap_, &goalMap_}) {
+    for (std::vector<stacking::DiskRef>& rod : map->rods) {
+      std::erase_if(rod, [numShapes](const stacking::DiskRef& d) { return d.shapeId >= numShapes; });
     }
   }
 }
@@ -205,6 +254,7 @@ void Problem::setShapeMaximumUnchecked(unsigned int shape, unsigned int count) {
         }
 
         parts_.erase(parts_.begin() + static_cast<std::ptrdiff_t>(id));
+        trimStacks();
         return;
       }
 
@@ -236,6 +286,7 @@ void Problem::setShapeMaximumUnchecked(unsigned int shape, unsigned int count) {
         setShapeMinimumUnchecked(shape, count);
       }
 
+      trimStacks();
       return;
     }
     pieceIdx += part.max;
@@ -247,6 +298,24 @@ void Problem::setShapeMaximumUnchecked(unsigned int shape, unsigned int count) {
 
     for (Solution& sol : solutions_) {
       sol.addNonPlacedPieces(pieceIdx, count);
+    }
+  }
+  trimStacks();
+}
+
+// ---- stacking ------------------------------------------------------------------
+
+bool Problem::rodSetValid(const Puzzle& puzzle) const { return rodSetId_ < puzzle.rodSetCount(); }
+
+void Problem::trimStacks() {
+  // A disc whose copy is beyond its shape's count is off the rods; so is
+  // one of a shape that is no part (the original also dropped discs of
+  // shapes past the puzzle's, which have no part either).
+  for (stacking::StackMap* map : {&startMap_, &goalMap_}) {
+    for (std::vector<stacking::DiskRef>& rod : map->rods) {
+      std::erase_if(rod, [this](const stacking::DiskRef& d) {
+        return d.instance >= getShapeMaximum(d.shapeId);
+      });
     }
   }
 }

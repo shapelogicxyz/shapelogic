@@ -48,7 +48,7 @@ class AssemblyExplorer {
   /// original; a sliding puzzle's as its solve makes it: start locks set
   /// up, Classic's assembler, every start kept, colours matched strictly,
   /// whatever `solver` and `matrix` say). Refused for grids without an
-  /// assembler, stacking puzzles, a problem without a result or pieces
+  /// assembler (stacking puzzles among them), a problem without a result or pieces
   /// (Unsupported / InvalidArgument), and when the matrix cannot be made
   /// (InvalidArgument with the assembler's message).
   static Result<AssemblyExplorer> make(const Puzzle& puzzle, unsigned int problemIndex,

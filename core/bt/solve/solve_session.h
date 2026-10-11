@@ -13,10 +13,13 @@
 /// (mainwindow.cpp). A sliding puzzle is solved the way the solve thread
 /// solved it: the assembler finds the start layouts, and each is searched
 /// to the goal by the slide search (bt/solve/sliding_search.h) instead of
-/// taken apart (decision 0014). Stacking puzzles are not ported (their
-/// files load and save, the session refuses them). The rules are decisions
-/// 0004 and 0009: one StopSource per run, nothing reset, the state written
-/// by one thread at a time, threads from pools the session makes.
+/// taken apart (decision 0014). A stacking puzzle is solved the way the
+/// solve thread's runStacking solved it: no assembler, one search from the
+/// start stacking to the goal (the Panex search, bt/solve/panex_search.h,
+/// or findStackPath), which saves itself when it stops and carries on from
+/// there (decision 0015). The rules are decisions 0004 and 0009: one
+/// StopSource per run, nothing reset, the state written by one thread at a
+/// time, threads from pools the session makes.
 
 #include "bt/base/error.h"
 #include "bt/base/solve_state.h"
@@ -25,6 +28,7 @@
 #include "bt/solve/disassembler.h"
 #include "bt/solve/sliding_search.h"
 #include "bt/solve/solve_progress.h"
+#include "bt/solve/stack_search.h"
 #include "bt/solve/solver_type.h"
 
 #include <atomic>
@@ -105,6 +109,11 @@ struct SolveOptions {
   /// `dropDisassemblies`, `order` (a found path goes at the end) and the
   /// take-apart's settings play no part.
   sliding::SlidingOptions sliding;
+  /// A stacking puzzle's search: its solver, high memory, its own autosave,
+  /// where a Panex search is saved. A stacking run has no assembler:
+  /// `disassemble` (Find Solutions) or `justCount` must be on, and of the
+  /// rest only `justCount` and `threads` play a part.
+  stacking::StackingOptions stacking;
 };
 
 /// Why a run ended in the Error state.
@@ -170,6 +179,7 @@ class SolveSession {
 
   /// Drops what the problem holds, prepares the search (the matrix, reduce)
   /// and pauses (Prepare in the original): the position is in the problem.
+  /// A stacking search has nothing to prepare (Unsupported).
   Result<void> prepare();
 
   /// Carries on (Continue in the original): a paused run, a problem that
@@ -189,12 +199,15 @@ class SolveSession {
   /// the run is Paused with its position in the problem (the autosave
   /// pause, stopSoft in the original). The owner then saves the puzzle and
   /// calls resume(). Only while assembling or taking apart; otherwise
-  /// nothing happens (the next autosave will do). Does not wait. Any thread.
+  /// nothing happens (the next autosave will do). Nothing happens on a
+  /// stacking run either: its search saves itself (the GUI did not
+  /// autosave stacking solves). Does not wait. Any thread.
   void pauseAtSavePoint();
 
   /// Stops a running solve and throws away everything of it: the results,
-  /// the paused state and the saved position (Abort in the original); the
-  /// problem is unsolved and the session Idle. Waits for the run to end.
+  /// the paused state and the saved position, and a stacking search's
+  /// saved search (Abort in the original); the problem is unsolved and the
+  /// session Idle. Waits for the run to end.
   void abort();
 
   /// Waits until the run (if any) has ended.
@@ -208,8 +221,9 @@ class SolveSession {
 
   /// What the last run of a sliding solve has to say once it is through:
   /// whether a missing solution is proven or the search gave up at a limit
-  /// (the solve thread's solver note, slidingSummary); empty otherwise.
-  /// Any thread.
+  /// (the solve thread's solver note, slidingSummary); for a stacking solve
+  /// why there is no solution, or where a paused search stands (the solve
+  /// thread's notes of runStacking); empty otherwise. Any thread.
   [[nodiscard]] std::string note() const;
 
   /// Where the solve stands. Any thread; the overall figure never goes
@@ -269,6 +283,7 @@ class SolveSession {
   enum class Mode : std::uint8_t { Start, Prepare, Resume };
 
   Result<void> launch(Mode mode);
+  Result<void> launchStacking(Mode mode);
   void joinRunner();
   void dropAssembler();
 
@@ -277,6 +292,8 @@ class SolveSession {
   bool prepareSearch(const Plan& plan);
   void assembleAndTakeApart(const Plan& plan);
   void endRun(RunEnd end);
+  void runStacking(const Plan& plan);
+  void endStackingRun(bool stopped);
   void failRun(std::exception_ptr error);
   // the run's stop, read by the run's threads (it does not change while a
   // run is active)
@@ -315,6 +332,8 @@ class SolveSession {
   SolveOptions options_;
   /// A sliding puzzle: runs search each start to the goal.
   bool sliding_ = false;
+  /// A stacking puzzle: runs search the start stacking to the goal.
+  bool stacking_ = false;
 
   /// The owner's calls one at a time; the run's thread.
   std::mutex controlMutex_;
@@ -382,6 +401,10 @@ class SolveSession {
   std::unique_ptr<ThreadPool> slidePool_;
   std::atomic<std::uint64_t> slideProgress_{0};
   std::atomic<std::uint64_t> searchDepth_{0};
+  /// A stacking run's search reports here too: the stackings it has found
+  /// (slideProgress_), how deep both ends are (searchDepth_), and the moves
+  /// traced back once they met.
+  std::atomic<std::uint64_t> searchTraced_{0};
   unsigned int slideStartsCut_ = 0;
   bool slideMemoryCut_ = false;
   std::uint64_t slideMemoryStates_ = 0;

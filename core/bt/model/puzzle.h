@@ -4,14 +4,14 @@
 /// @file
 /// The puzzle: its grid, shapes, constraint colours, problems and comment.
 /// Ported from src/lib/puzzle.{h,cpp} (reading and writing files lives in
-/// bt/io; stacking rod sets are not modelled yet and are kept as preserved
-/// XML).
+/// bt/io), with the stacking rod sets.
 
 #include "bt/base/assert.h"
 #include "bt/base/clone_ptr.h"
 #include "bt/grid/grid_type.h"
 #include "bt/grid/voxel.h"
 #include "bt/model/problem.h"
+#include "bt/model/stacking_types.h"
 #include "bt/model/xml_element.h"
 
 #include <cstdint>
@@ -39,8 +39,9 @@ class Puzzle {
   /// The most constraint colours (colour 0 is "none").
   static constexpr unsigned int kMaxColors = 63;
 
-  /// An empty puzzle on grid `gt`.
-  explicit Puzzle(GridType gt = GridType{}) : gt_(gt) {}
+  /// An empty puzzle on grid `gt`; a stacking puzzle gets the default rod
+  /// set.
+  explicit Puzzle(GridType gt = GridType{});
 
   [[nodiscard]] const GridType& getGridType() const { return gt_; }
 
@@ -107,6 +108,29 @@ class Puzzle {
   void removeProblem(unsigned int p);
   void exchangeProblems(unsigned int p1, unsigned int p2);
 
+  // ---- stacking rod sets ------------------------------------------------------
+
+  /// Adds a rod set (a board of a stacking puzzle); returns its index.
+  unsigned int addRodSet(const stacking::RodSet& set);
+  /// Adds a rod set with the default rules.
+  unsigned int addRodSet() { return addRodSet(stacking::RodSet{}); }
+  /// Removes a rod set; the problems on it have none after, those on later
+  /// ones follow the renumbering.
+  void removeRodSet(unsigned int idx);
+  /// Swaps two rod sets; the problems follow.
+  void exchangeRodSets(unsigned int a, unsigned int b);
+  [[nodiscard]] unsigned int rodSetCount() const {
+    return static_cast<unsigned int>(rodSets_.size());
+  }
+  [[nodiscard]] const stacking::RodSet& getRodSet(unsigned int idx) const {
+    BT_ASSERT(idx < rodSets_.size());
+    return rodSets_[idx];
+  }
+  [[nodiscard]] stacking::RodSet& getRodSet(unsigned int idx) {
+    BT_ASSERT(idx < rodSets_.size());
+    return rodSets_[idx];
+  }
+
   // ---- comment ----------------------------------------------------------------
 
   [[nodiscard]] const std::string& getComment() const { return comment_; }
@@ -115,8 +139,7 @@ class Puzzle {
   [[nodiscard]] bool getCommentPopup() const { return commentPopup_; }
   void setCommentPopup(bool val) { commentPopup_ = val; }
 
-  /// File content of the puzzle element this version does not model (e.g.
-  /// stacking <rodSets>).
+  /// File content of the puzzle element this version does not model.
   [[nodiscard]] const PreservedXml& preserved() const { return preserved_; }
   [[nodiscard]] PreservedXml& preserved() { return preserved_; }
 
@@ -126,6 +149,8 @@ class Puzzle {
   GridType gt_;
   std::vector<ClonePtr<Voxel>> shapes_;
   std::vector<Problem> problems_;
+  /// The boards of a stacking puzzle; empty on other grids.
+  std::vector<stacking::RodSet> rodSets_;
   /// red in the lowest byte, then green, then blue
   std::vector<std::uint32_t> colors_;
   std::string comment_;

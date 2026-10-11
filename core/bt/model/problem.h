@@ -7,10 +7,13 @@
 /// what solving found.
 /// Ported from src/lib/problem.{h,cpp} (XML reading and writing lives in
 /// bt/io; the solver hooks such as setAssembler come with stages 3 and 5).
+/// A stacking problem's board and its start and goal stacks are here too
+/// (the rules that read them are bt/model/stacking.h).
 
 #include "bt/base/assert.h"
 #include "bt/model/assembly.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking_types.h"
 #include "bt/model/xml_element.h"
 
 #include <cstdint>
@@ -111,6 +114,23 @@ class Problem {
     BT_ASSERT(goalValid());
     return goal_;
   }
+
+  // ---- stacking ---------------------------------------------------------------
+
+  /// The rod set (board) of a stacking problem, the puzzle's rod set
+  /// number; stacking::kNoRodSet when it has none.
+  [[nodiscard]] unsigned int getRodSetId() const { return rodSetId_; }
+  void setRodSetId(unsigned int id) { rodSetId_ = id; }
+  void clearRodSet() { rodSetId_ = stacking::kNoRodSet; }
+  /// True when the problem's rod set is one of the puzzle's.
+  [[nodiscard]] bool rodSetValid(const Puzzle& puzzle) const;
+  /// The discs on each rod at the start and at the goal. A shape removed,
+  /// two shapes swapped or a piece count lowered (setShapeMaximum) keeps
+  /// them in step: a disc that is no longer a piece goes off its rod.
+  [[nodiscard]] const stacking::StackMap& startStacks() const { return startMap_; }
+  [[nodiscard]] const stacking::StackMap& goalStacks() const { return goalMap_; }
+  [[nodiscard]] stacking::StackMap& editStart() { return startMap_; }
+  [[nodiscard]] stacking::StackMap& editGoal() { return goalMap_; }
 
   // ---- parts and pieces -----------------------------------------------------
 
@@ -363,6 +383,8 @@ class Problem {
 
   void setShapeMaximumUnchecked(unsigned int shapeId, unsigned int count);
   void setShapeMinimumUnchecked(unsigned int shapeId, unsigned int count);
+  /// Drops the discs of the stacks that are no longer pieces (trimStacks).
+  void trimStacks();
   void eraseSolution(std::size_t s);
   /// The saved list changed (solutionsVersion()).
   void touchSolutions() { solutionsVersion_++; }
@@ -397,6 +419,10 @@ class Problem {
   std::uint64_t searchDepth_ = 0;
   std::uint64_t triedApart_ = 0;
   unsigned int maxHoles_ = kNoMaxHoles;
+
+  unsigned int rodSetId_ = stacking::kNoRodSet;
+  stacking::StackMap startMap_;
+  stacking::StackMap goalMap_;
 
   PreservedXml preserved_;
 };

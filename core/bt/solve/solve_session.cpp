@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Ported from src/lib/solvethread.cpp (solveThread_c: run, the take-apart
-// queue and its workers, processDisassembly, the assembly callback with its
-// sliding branch, slidingSummary, trimSavedSolutions, the progress snapshot
-// and the statistics) and from
-// the original GUI: Solve, Prepare, Continue and Abort
+// Ported from src/lib/solvethread.cpp (solveThread_c: run, runStacking, the
+// take-apart queue and its workers, processDisassembly, the assembly
+// callback with its sliding branch, slidingSummary, trimSavedSolutions, the
+// progress snapshot and the statistics) and from the original GUI: Solve,
+// Prepare, Continue and Abort, with their stacking branches
 // (src/gui/mainwindow_solve.cpp), recordSearchStats (src/gui/mainwindow.cpp).
 #include "bt/solve/solve_session.h"
 
@@ -16,7 +16,9 @@
 #include "bt/model/puzzle.h"
 #include "bt/model/sliding.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking.h"
 #include "bt/solve/assembler_bt2.h"
+#include "bt/solve/panex_search.h"
 
 #include <algorithm>
 #include <chrono>
@@ -84,7 +86,8 @@ SolveSession::SolveSession(Puzzle& puzzle, Problem& problem, SolveOptions option
     : puzzle_(puzzle),
       problem_(problem),
       options_(std::move(options)),
-      sliding_(sliding::isSliding(puzzle)) {}
+      sliding_(sliding::isSliding(puzzle)),
+      stacking_(stacking::isStacking(puzzle)) {}
 
 SolveSession::~SolveSession() {
   pause();
@@ -129,7 +132,7 @@ void SolveSession::pause() {
 
 void SolveSession::pauseAtSavePoint() {
   const SolveState st = state_.load();
-  if (st != SolveState::Assembling && st != SolveState::Draining) {
+  if (stacking_ || (st != SolveState::Assembling && st != SolveState::Draining)) {
     return;
   }
   StopSource s;
@@ -157,6 +160,10 @@ void SolveSession::abort() {
     problem_.removeAllSolutions();
   }
   dropAssembler();
+  // a stacking search saves itself as it stops: that goes too (cb_BtnAbort)
+  if (stacking_) {
+    panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
+  }
   if (state_.load() != SolveState::Idle) {
     state_.advance(SolveState::Idle);
   }
@@ -200,11 +207,12 @@ Result<void> SolveSession::launch(Mode mode) {
   }
   joinRunner();
 
+  if (stacking_) {
+    return launchStacking(mode);
+  }
+
   // what the original GUI checked before it made the solve thread
   const GridType& grid = puzzle_.getGridType();
-  if (grid.getType() == GridKind::Stacking) {
-    return fail(Errc::Unsupported, "stacking puzzles cannot be solved yet");
-  }
   if ((grid.getCapabilities() & kCapAssemble) == 0) {
     return fail(Errc::Unsupported, "this space grid doesn't have an assembler");
   }
@@ -350,9 +358,96 @@ Result<void> SolveSession::launch(Mode mode) {
   return {};
 }
 
+// Under controlMutex_, nothing active. A stacking puzzle's Solve and
+// Continue (cb_BtnStart and cb_BtnCont with their stacking branches): the
+// checks, then a run of runStacking.
+Result<void> SolveSession::launchStacking(Mode mode) {
+  if (mode == Mode::Prepare) {
+    return fail(Errc::Unsupported, "a stacking search has nothing to prepare");
+  }
+  if (!problem_.rodSetValid(puzzle_)) {
+    return fail(Errc::InvalidArgument, "Choose a rod set with Set Start/Goal Rods");
+  }
+  if (!options_.disassemble && !options_.justCount) {
+    return fail(Errc::InvalidArgument, "Turn on Find Solutions");
+  }
+  if (const std::string err = stacking::setupError(puzzle_, problem_); !err.empty()) {
+    return fail(Errc::InvalidArgument, err);
+  }
+  if (options_.stacking.solver == stacking::StackingSolver::Panex) {
+    if (const std::string why = panex::unsupported(puzzle_, problem_); !why.empty()) {
+      return fail(Errc::Unsupported, why);
+    }
+  }
+
+  // Solve starts afresh, so a saved search would be lost (the GUI asked
+  // first); Continue carries it on, as both stacking solvers do.
+  if (mode == Mode::Start) {
+    panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
+  }
+  // The hotspots where a stacking solve has them: a disc's at its centre
+  // (cb_BtnCont's ensureHotspot); no change when the owner set them so
+  // before the first run (the document does).
+  for (unsigned int i = 0; i < puzzle_.getNumberOfShapes(); i++) {
+    (void)stacking::placeSolvingHotspot(puzzle_.getShape(i));
+  }
+
+  const SolveState st = state_.load();
+  if (st == SolveState::Finished || st == SolveState::Error) {
+    state_.advance(SolveState::Idle);
+  }
+  dropAssembler();
+
+  Plan plan;
+  plan.options = options_;
+  {
+    const std::lock_guard<std::mutex> lock(runMutex_);
+    runStop_ = StopSource();
+    assemblyStop_ = runStop_.child();
+    runOptions_ = options_;
+    plan.assemblyToken = assemblyStop_.token();
+  }
+  {
+    const std::lock_guard<std::mutex> lock(failureMutex_);
+    failure_.reset();
+    workerError_ = nullptr;
+    note_.clear();
+  }
+  slideProgress_.store(0, std::memory_order_relaxed);
+  searchDepth_.store(0, std::memory_order_relaxed);
+  searchTraced_.store(0, std::memory_order_relaxed);
+  assemblerThreads_.store(0, std::memory_order_relaxed);
+  workerCount_.store(0, std::memory_order_relaxed);
+  pending_.store(0, std::memory_order_relaxed);
+  peakPending_.store(0, std::memory_order_relaxed);
+  completed_.store(0, std::memory_order_relaxed);
+  disasmMsTotal_.store(0, std::memory_order_relaxed);
+  inseparable_.store(0, std::memory_order_relaxed);
+  prepareMs_.store(0, std::memory_order_relaxed);
+  reduceMs_.store(0, std::memory_order_relaxed);
+  assemblyMs_.store(0, std::memory_order_relaxed);
+  drainMs_.store(0, std::memory_order_relaxed);
+  phase_.store(Phase::None, std::memory_order_relaxed);
+  progressShown_.store(0, std::memory_order_relaxed);
+  lastFinished_.store(0, std::memory_order_relaxed);
+  runOriginNs_.store(nowNs(), std::memory_order_relaxed);
+
+  state_.advance(SolveState::Preparing);
+  runner_ = std::thread([this, plan = std::move(plan)] { run(plan); });
+  return {};
+}
+
 // ---- the run -----------------------------------------------------------------------
 
 void SolveSession::run(const Plan& plan) {
+  if (stacking_) {
+    try {
+      runStacking(plan);
+    } catch (...) {
+      failRun(std::current_exception());
+    }
+    return;
+  }
   try {
     // The matrix places the pieces by their hotspots and the take-apart
     // reads the shapes as they are: reset before the matrix, as burrTxt and
@@ -632,6 +727,138 @@ void SolveSession::endRun(RunEnd end) {
     }
   }
   state_.advance(finished ? SolveState::Finished : SolveState::Paused);
+}
+
+// The solve thread's runStacking: one search from the start stacking to the
+// goal, the Panex search whenever it can hold the puzzle (it can pause and
+// carry on), else findStackPath; a found path is the one solution, its
+// assembly the start stacking. The notes word for word.
+void SolveSession::runStacking(const Plan& plan) {
+  const SolveOptions& o = plan.options;
+  const bool panexSolver = o.stacking.solver == stacking::StackingSolver::Panex;
+  const bool countOnly = o.justCount;
+  {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    problem_.removeAllSolutions();
+    problem_.markSolving();
+  }
+  state_.advance(SolveState::Assembling);
+  beginPhase(Phase::Assemble);
+
+  const unsigned int budget = o.threads > 0 ? std::min(o.threads, kMaxThreads) : hardwareThreads();
+  std::optional<Separation> path;
+  std::string note;
+  bool stopped = false;
+  // The Panex Solver, and the Stacking Solver on any puzzle the same
+  // search can hold: that search can pause, resume and autosave.
+  if (panexSolver || panex::unsupported(puzzle_, problem_, true).empty()) {
+    // the levels on the solve's threads, a saved level written beside them
+    // (the original's writer thread)
+    ThreadPool pool(std::min(budget + 1, kMaxThreads));
+    panex::PanexSearch search;
+    search.anyRules = !panexSolver;
+    search.highMemory = o.stacking.highMemory;
+    search.stop = runToken();
+    search.progress = &slideProgress_;
+    search.depth = &searchDepth_;
+    search.traced = &searchTraced_;
+    search.resume = true;
+    search.autosaveMinutes = o.stacking.autosave ? 20 : 0;
+    search.workDir = o.stacking.workDir;
+    search.diskBudget = o.stacking.diskBudget;
+    search.towerRule = o.stacking.towerRule;
+    search.pool = &pool;
+    search.threads = budget;
+    // time used counts every run of a saved search, before this one too
+    const std::uint64_t before = panex::savedMs(puzzle_, problem_, o.stacking.workDir);
+    {
+      const std::lock_guard<std::mutex> lock(resultsMutex_);
+      problem_.addTimeMs(before);
+    }
+    path = panex::solve(puzzle_, problem_, search);
+    stopped = search.outcome == panex::Outcome::Stopped;
+    if (path) {
+      // no note
+    } else if (stopped && search.saved) {
+      note = "Paused " + std::to_string(search.depthReached) +
+             " moves deep. The search is saved: press Continue to carry on, even after quitting "
+             "BurrTools.";
+    } else if (stopped) {
+      note = "Stopped before the search was complete.";
+    } else if (search.outcome == panex::Outcome::Memory) {
+      note = "The search outgrew its memory after " + std::to_string(search.found) +
+             " stackings." +
+             (search.saved ? std::string(" It is saved:") +
+                                 (search.highMemory ? "" : " turn on Enable High Memory and") +
+                                 " press Continue to carry on."
+                           : (search.highMemory ? "" : " Try Enable High Memory."));
+    } else if (search.outcome == panex::Outcome::Error) {
+      note = search.error;
+    } else {
+      note = "Every reachable stacking was searched: this puzzle has no solution.";
+    }
+  } else {
+    stacking::StackSearch search;
+    search.highMemory = o.stacking.highMemory;
+    search.stop = runToken();
+    search.progress = &slideProgress_;
+    path = stacking::findStackPath(puzzle_, problem_, search);
+    stopped = search.outcome == stacking::StackOutcome::Stopped;
+    if (path) {
+      // no note
+    } else if (stopped) {
+      note = "Stopped before the search was complete.";
+    } else if (search.outcome == stacking::StackOutcome::Memory) {
+      note = "The search reached its memory limit of " + std::to_string(search.memoryStates) +
+             " stackings. There may be a solution the solver did not find." +
+             (search.highMemory ? "" : " Try Enable High Memory.");
+    } else {
+      note = "Every reachable stacking was searched: this puzzle has no solution.";
+    }
+  }
+  endPhase(assemblyMs_);
+  {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    problem_.addTimeMs(runMs());
+    problem_.incNumAssemblies();
+    if (path) {
+      problem_.incNumSolutions();
+      if (!countOnly) {
+        problem_.addSolution(stacking::startAssembly(puzzle_, problem_), std::move(*path), 0, 0);
+      }
+    }
+  }
+  {
+    const std::lock_guard<std::mutex> lock(failureMutex_);
+    note_ = std::move(note);
+  }
+  endStackingRun(stopped);
+}
+
+// The end of a stacking run. The solve thread finished it whatever had
+// happened: the problem is solved, with one start and its path or none.
+// A search that stopped short (a pause) is not through, so the session is
+// Paused and resume() carries on what the search saved; an abort throws it
+// all away.
+void SolveSession::endStackingRun(bool stopped) {
+  if (runStopKind() == StopKind::Abort) {
+    {
+      const std::lock_guard<std::mutex> lock(resultsMutex_);
+      problem_.removeAllSolutions();
+    }
+    state_.advance(SolveState::Idle);
+    return;
+  }
+  {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    problem_.finishedSolving();
+    // what the GUI recorded when a solve stopped (recordSearchStats)
+    problem_.setSearchStats(
+        problem_.getSearched() + slideProgress_.load(std::memory_order_relaxed),
+        std::max(problem_.getSearchDepth(), searchDepth_.load(std::memory_order_relaxed)),
+        problem_.getTriedApart());
+  }
+  state_.advance(stopped ? SolveState::Paused : SolveState::Finished);
 }
 
 void SolveSession::failRun(std::exception_ptr error) {
@@ -1240,6 +1467,7 @@ SolveProgress SolveSession::progress() const {
     stopping = isActive(st) && runStop_.stopRequested();
     rotations = runOptions_.checkRotations;
     slideRun = runOptions_.disassemble;
+    p.panexSearch = stacking_ && runOptions_.stacking.solver == stacking::StackingSolver::Panex;
     if (published_ != nullptr) {
       af = published_->finished();
       p.iterations = published_->iterations();
@@ -1272,6 +1500,7 @@ SolveProgress SolveSession::progress() const {
   }
   p.searched = slideProgress_.load(std::memory_order_relaxed);
   p.searchDepth = searchDepth_.load(std::memory_order_relaxed);
+  p.searchTraced = searchTraced_.load(std::memory_order_relaxed);
   p.disasmCompleted = completed_.load(std::memory_order_relaxed);
   p.disasmPending = pending_.load(std::memory_order_relaxed);
   p.disasmWorkers = workerCount_.load(std::memory_order_relaxed);
@@ -1293,8 +1522,9 @@ SolveProgress SolveSession::progress() const {
       p.piece = std::min(piece + 1, p.pieces);
       break;
     case SolveState::Assembling:
-      // the slide search reports in its own way (searched, searchDepth)
-      p.stage = sliding_ && slideRun ? SolveStage::Other : SolveStage::Assemble;
+      // the slide search and the stacking search report in their own way
+      // (searched, searchDepth, searchTraced)
+      p.stage = (sliding_ && slideRun) || stacking_ ? SolveStage::Other : SolveStage::Assemble;
       break;
     case SolveState::Draining:
       p.stage = SolveStage::Disassemble;

@@ -59,10 +59,8 @@ AssemblyExplorer::~AssemblyExplorer() = default;
 Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned int problemIndex,
                                                 SolverType solver, const MatrixOptions& matrix,
                                                 bool reduce) {
+  // a stacking puzzle has no assembler either: its search is its own
   const GridType& grid = puzzle.getGridType();
-  if (grid.getType() == GridKind::Stacking) {
-    return fail(Errc::Unsupported, "stacking puzzles cannot be solved yet");
-  }
   if ((grid.getCapabilities() & kCapAssemble) == 0) {
     return fail(Errc::Unsupported, "this space grid doesn't have an assembler");
   }

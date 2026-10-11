@@ -32,7 +32,7 @@ enum class SolveStage : std::uint8_t {
   Done,
   Error,
   /// A search that reports in its own way (STAGE_OTHER): the slide search
-  /// of a sliding puzzle; see SolveProgress::searched.
+  /// of a sliding puzzle, the stacking search; see SolveProgress::searched.
   Other,
 };
 
@@ -60,6 +60,15 @@ struct SolveProgress {
   /// arrangements.").
   std::uint64_t searched = 0;
   std::uint64_t searchDepth = 0;
+  /// A stacking search: the stackings searched (found, for the Panex
+  /// search) are `searched`, how many moves deep both ends together are
+  /// `searchDepth`, and once the ends have met, how many moves of the path
+  /// are traced back (the GUI's "Panex search, tracing the path. Traced N
+  /// of M moves."). panexSearch: the Panex Solver runs ("Panex search, N
+  /// moves deep. Found N stackings."), not the Stacking Solver ("Stacking
+  /// search. Scanned N stackings.").
+  std::uint64_t searchTraced = 0;
+  bool panexSearch = false;
 
   /// Taking apart: is it wanted, how many done, how many found and not
   /// done, by how many workers.

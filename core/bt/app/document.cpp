@@ -16,8 +16,10 @@
 #include "bt/model/problem.h"
 #include "bt/model/sliding.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking.h"
 #include "bt/solve/assembler_bt2.h"
 #include "bt/solve/disassembler.h"
+#include "bt/solve/panex_search.h"
 #include "bt/solve/solver_type.h"
 
 #include <algorithm>
@@ -69,8 +71,15 @@ Result<Document> Document::openBytes(std::string_view bytes, DocumentSettings se
 }
 
 Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::path& path,
-                                                     DocumentSettings settings) {
-  Result<io::PausedSolve> ps = io::loadPausedSolve(path);
+                                                     DocumentSettings settings,
+                                                     const std::string& stackingWorkDir) {
+  // where Continue looks for a stacking problem's saved search
+  const io::SavedSearchFolder folder = [&stackingWorkDir](const Puzzle& puzzle,
+                                                          unsigned int problem) {
+    return std::filesystem::path(
+        panex::searchFolder(puzzle, puzzle.getProblem(problem), stackingWorkDir));
+  };
+  Result<io::PausedSolve> ps = io::loadPausedSolve(path, folder);
   if (!ps) {
     return std::unexpected(ps.error());
   }
@@ -82,7 +91,8 @@ Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::pa
   return std::pair<Document, Id>(std::move(d), problem);
 }
 
-Result<void> Document::exportPaused(Id problem, const std::filesystem::path& path) const {
+Result<void> Document::exportPaused(Id problem, const std::filesystem::path& path,
+                                    const PausedExport& options) const {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
@@ -90,7 +100,17 @@ Result<void> Document::exportPaused(Id problem, const std::filesystem::path& pat
   if (Result<void> r = checkNotSolving(); !r) {
     return r;
   }
-  if (puzzle_->getProblem(*p).getSolveState() != ProblemState::Solving) {
+  const Problem& pr = puzzle_->getProblem(*p);
+  // a stacking solve is paused when its search is saved (problemPaused)
+  if (stacking::isStacking(*puzzle_)) {
+    if (panex::savedSearch(*puzzle_, pr, options.stackingWorkDir).empty()) {
+      return fail(Errc::InvalidState, "pause a solve first: the problem has no paused solve");
+    }
+    const io::SavedSearchFiles search{
+        panex::searchFolder(*puzzle_, pr, options.stackingWorkDir), options.withLevels};
+    return io::savePausedSolve(*puzzle_, *p, path, &search);
+  }
+  if (pr.getSolveState() != ProblemState::Solving) {
     return fail(Errc::InvalidState, "pause a solve first: the problem has no paused solve");
   }
   return io::savePausedSolve(*puzzle_, *p, path);
@@ -576,9 +596,13 @@ void Document::problemChanged(unsigned int problem) {
 // hotspots where a run puts them and the caches warm. Then the document
 // can read them while it runs.
 void Document::prepareShapesForSolving() {
+  // a stacking solve has the discs' hotspots at their centres (cb_BtnCont)
+  const bool stack = stacking::isStacking(*puzzle_);
   for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
     Voxel& v = puzzle_->getShape(i);
-    if (!v.hasInitialHotspot()) {
+    if (stack) {
+      (void)stacking::placeSolvingHotspot(v);
+    } else if (!v.hasInitialHotspot()) {
       v.initHotspot();
     }
     v.warmCaches();
@@ -807,9 +831,6 @@ Result<unsigned int> Document::analyseStart(Id problem, const AnalyseOptions& op
   }
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
-  }
-  if (problemKind(*puzzle_) == ProblemKind::Stacking) {
-    return fail(Errc::Unsupported, "stacking puzzles are not solved yet");
   }
   if (!Disassembler::canDisassemble(*puzzle_)) {
     return fail(Errc::Unsupported, "Sorry, this space grid doesn't have a disassembler (yet)!");

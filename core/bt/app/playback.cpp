@@ -2,7 +2,9 @@
 // Ported from src/lib/gltfexport.cpp (solutionAnimation up to the keyframe
 // track: the piece list, evaluate, the poses of hidden pieces, the times,
 // the quaternion hemispheres; buildMesh's bounding box), with the sliding
-// routes the original's solution slider applied (mainwindow.cpp).
+// routes the original's solution slider applied and its stacking slider
+// (transfers of three frames, the board's span; mainwindow.cpp,
+// voxelFrame_c::showStackingAssembly).
 #include "bt/app/playback.h"
 
 #include "bt/base/assert.h"
@@ -17,8 +19,10 @@
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
 #include "bt/model/solution.h"
+#include "bt/model/stacking.h"
 #include "bt/solve/sliding_search.h"
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <optional>
@@ -148,6 +152,18 @@ std::optional<Vec> meshCentre(const Voxel& v) {
 
 }  // namespace
 
+std::array<double, 3> stackingCentre(const Puzzle& puzzle, const Problem& problem) {
+  const stacking::BoardLayout lay = stacking::layoutBoard(puzzle, problem, false);
+  if (lay.rodX.empty()) {
+    return {0, 0, 0};
+  }
+  const auto [lo, hi] = std::minmax_element(lay.rodX.begin(), lay.rodX.end());
+  // a disc's hotspot cell is its centre: the rod runs through that cell's
+  // middle
+  return {static_cast<double>(*lo + *hi) / 2.0 + 0.5, 0.5,
+          static_cast<double>(lay.rodHeight) / 2.0};
+}
+
 Result<mesh::DrawMesh> orientedMesh(const Voxel& shape, unsigned int transformation,
                                     mesh::MeshStyle style) {
   if (transformation >= shape.getGridType().getSymmetries().getNumTransformationsMirror()) {
@@ -181,15 +197,14 @@ PlaybackSampler::~PlaybackSampler() = default;
 Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int problemIndex,
                                               unsigned int solNum) {
   const GridKind kind = puzzle.getGridType().getType();
-  if (kind == GridKind::Stacking) {
-    return fail(Errc::Unsupported, "Stacking puzzles cannot be exported as an animation.");
-  }
+  const bool stack = kind == GridKind::Stacking;
   if (problemIndex >= puzzle.getNumberOfProblems()) {
     return fail(Errc::NotFound, "There is no such problem.");
   }
   const Problem& pr = puzzle.getProblem(problemIndex);
-  if (!pr.resultValid()) {
-    return fail(Errc::InvalidArgument, "The problem has no valid result shape.");
+  if (stack ? !pr.rodSetValid(puzzle) : !pr.resultValid()) {
+    return fail(Errc::InvalidArgument, stack ? "Choose a rod set with Set Start/Goal Rods"
+                                             : "The problem has no valid result shape.");
   }
   if (solNum >= pr.getNumberOfSavedSolutions()) {
     return fail(Errc::NotFound, "There is no such solution.");
@@ -197,15 +212,23 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
   const Solution& sol = pr.getSavedSolution(solNum);
   const Separation* tree = sol.getDisassembly();
   const Assembly& assm = sol.getAssembly();
-  const Voxel& result = pr.resultShape(puzzle);
 
   PlaybackSampler s;
   if (tree != nullptr) {
-    // the same driver and settings as the solution slider
-    s.moves_ = std::make_unique<DisasmToMoves>(tree, 2 * result.getBiggestDimension(),
-                                               pr.getNumberOfPieces());
-    s.steps_ = tree->sumSteps();
-    s.movesText_ = tree->movesText();
+    // the same driver and settings as the solution slider; a stacking
+    // path's frames are the discs' places, three a transfer, and its
+    // slider counts transfers
+    const unsigned int size = stack ? stacking::boardSpan(puzzle, pr)
+                                    : 2 * pr.resultShape(puzzle).getBiggestDimension();
+    s.moves_ = std::make_unique<DisasmToMoves>(tree, size, pr.getNumberOfPieces());
+    if (stack) {
+      s.steps_ = stacking::logicalMoves(*tree);
+      s.stepFrames_ = stacking::kStepsPerMove;
+      s.movesText_ = std::to_string(s.steps_);
+    } else {
+      s.steps_ = tree->sumSteps();
+      s.movesText_ = tree->movesText();
+    }
     // a sliding move can turn corners: it follows its route, not the
     // diagonal (as the original's solution slider did)
     if (kind == GridKind::Sliding) {
@@ -214,12 +237,16 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
   }
   // else: no moves to play; the pieces stay as the assembly places them
 
-  float cx = 0;
-  float cy = 0;
-  float cz = 0;
-  mesh::calculateSize(result, &cx, &cy, &cz);
-  s.centre_ = {static_cast<double>(cx) * 0.5, static_cast<double>(cy) * 0.5,
-               static_cast<double>(cz) * 0.5};
+  if (stack) {
+    s.centre_ = stackingCentre(puzzle, pr);
+  } else {
+    float cx = 0;
+    float cy = 0;
+    float cz = 0;
+    mesh::calculateSize(pr.resultShape(puzzle), &cx, &cy, &cz);
+    s.centre_ = {static_cast<double>(cx) * 0.5, static_cast<double>(cy) * 0.5,
+                 static_cast<double>(cz) * 0.5};
+  }
 
   // the placed pieces, with their mesh in the assembly orientation
   unsigned int piece = 0;
@@ -230,6 +257,10 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
       }
       Piece d;
       d.shape = pr.partShape(puzzle, p).clone();
+      // a disc stands on its rod by its centre (showStackingAssembly)
+      if (stack) {
+        stacking::ensureHotspot(*d.shape);
+      }
       d.trans0 = assm.getTransformation(piece);
       d.x0 = assm.getX(piece);
       d.y0 = assm.getY(piece);
@@ -273,7 +304,7 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
 
 bool PlaybackSampler::evaluate(float step, std::vector<PiecePose>& out) {
   if (moves_) {
-    moves_->setStep(step, false, true);
+    moves_->setStep(step * static_cast<float>(stepFrames_), false, true);
   }
   out.assign(pieces_.size(), PiecePose{});
   const Vec centre{centre_[0], centre_[1], centre_[2]};

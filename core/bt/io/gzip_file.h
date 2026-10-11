@@ -10,6 +10,8 @@
 #include "bt/base/error.h"
 
 #include <filesystem>
+#include <functional>
+#include <iosfwd>
 #include <string>
 #include <string_view>
 
@@ -38,6 +40,14 @@ inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
 /// (through a temporary file of its own beside it, renamed over it once
 /// whole).
 [[nodiscard]] Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view data);
+
+/// Writes a file through `write`, which gets a stream on the new file (it
+/// may seek back to fill in what it learns later) and answers false on an
+/// error of its own; the file is replaced the way writeFileWhole replaces
+/// it. For files too large to build in memory (a paused solve with its
+/// saved search).
+[[nodiscard]] Result<void> writeFileStreamed(const std::filesystem::path& path,
+                                             const std::function<bool(std::ostream&)>& write);
 
 /// The file a save to `path` replaces: `path` followed through its symbolic
 /// links, so a link is written through, not replaced by a file (the file it

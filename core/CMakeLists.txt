@@ -27,6 +27,7 @@ add_library(btcore STATIC
   bt/grid/voxel_spheres.cpp
   bt/grid/voxel_table.cpp
   bt/grid/voxel_tetra_octa.cpp
+  bt/io/blockpack.cpp
   bt/io/gzip_file.cpp
   bt/io/paused_solve.cpp
   bt/io/puzzle_file.cpp
@@ -50,6 +51,7 @@ add_library(btcore STATIC
   bt/model/puzzle.cpp
   bt/model/sliding.cpp
   bt/model/solution.cpp
+  bt/model/stacking.cpp
   bt/solve/assembler.cpp
   bt/solve/assembler_0.cpp
   bt/solve/assembler_1.cpp
@@ -65,6 +67,7 @@ add_library(btcore STATIC
   bt/solve/movement_cache_bricks.cpp
   bt/solve/movement_cache_prisms.cpp
   bt/solve/node_hash.cpp
+  bt/solve/panex_search.cpp
   bt/solve/placement_finder.cpp
   bt/solve/rotation_moves_classic.cpp
   bt/solve/rotation_moves_crowell.cpp
@@ -75,7 +78,8 @@ add_library(btcore STATIC
   bt/solve/sliding_search.cpp
   bt/solve/solve_progress.cpp
   bt/solve/solve_session.cpp
-  bt/solve/solver_type.cpp)
+  bt/solve/solver_type.cpp
+  bt/solve/stack_search.cpp)
 
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")

@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <ostream>
+#include <streambuf>
 #include <string>
 #include <system_error>
 
@@ -189,6 +191,93 @@ Result<void> writeFileWhole(const std::filesystem::path& path, std::string_view 
   const bool written = writeAll(fd, data);
   closeFd(fd);
   if (!written) {
+    std::error_code ec;
+    std::filesystem::remove(tmp, ec);
+    return fail(Errc::IoError, "could not write " + describe(path));
+  }
+  return replaceWith(tmp, *target);
+}
+
+namespace {
+
+/// A stream buffer that writes to a file descriptor and can seek in it.
+class FdOutBuf : public std::streambuf {
+ public:
+  explicit FdOutBuf(int fd) : fd_(fd) { setp(buf_.data(), buf_.data() + buf_.size()); }
+  FdOutBuf(const FdOutBuf&) = delete;
+  FdOutBuf& operator=(const FdOutBuf&) = delete;
+  ~FdOutBuf() override = default;
+
+  /// Writes what is buffered; false when the write failed.
+  bool flushBuffer() {
+    const std::ptrdiff_t n = pptr() - pbase();
+    if (n > 0 && !writeAll(fd_, std::string_view(pbase(), static_cast<std::size_t>(n)))) {
+      failed_ = true;
+    }
+    setp(buf_.data(), buf_.data() + buf_.size());
+    return !failed_;
+  }
+  [[nodiscard]] bool failed() const { return failed_; }
+
+ protected:
+  int_type overflow(int_type ch) override {
+    if (!flushBuffer()) {
+      return traits_type::eof();
+    }
+    if (!traits_type::eq_int_type(ch, traits_type::eof())) {
+      *pptr() = traits_type::to_char_type(ch);
+      pbump(1);
+    }
+    return traits_type::not_eof(ch);
+  }
+  int sync() override { return flushBuffer() ? 0 : -1; }
+  pos_type seekoff(off_type off, std::ios_base::seekdir dir,
+                   std::ios_base::openmode which) override {
+    if ((which & std::ios_base::out) == 0 || !flushBuffer()) {
+      return pos_type(off_type(-1));
+    }
+    const int whence = dir == std::ios_base::beg ? SEEK_SET
+                       : dir == std::ios_base::cur ? SEEK_CUR
+                                                   : SEEK_END;
+#ifdef _WIN32
+    const long long r = ::_lseeki64(fd_, off, whence);
+#else
+    const off_t r = ::lseek(fd_, static_cast<off_t>(off), whence);
+#endif
+    return r < 0 ? pos_type(off_type(-1)) : pos_type(static_cast<off_type>(r));
+  }
+  pos_type seekpos(pos_type pos, std::ios_base::openmode which) override {
+    return seekoff(off_type(pos), std::ios_base::beg, which);
+  }
+
+ private:
+  int fd_;
+  bool failed_ = false;
+  std::array<char, 65536> buf_{};
+};
+
+}  // namespace
+
+Result<void> writeFileStreamed(const std::filesystem::path& path,
+                               const std::function<bool(std::ostream&)>& write) {
+  const Result<std::filesystem::path> target = saveTarget(path);
+  if (!target) {
+    return std::unexpected(target.error());
+  }
+  std::filesystem::path tmp = *target;
+  tmp += ".tmp";
+  const int fd = openTemporary(tmp);
+  if (fd < 0) {
+    return fail(Errc::IoError, "could not open " + describe(tmp) + " for writing");
+  }
+  bool ok = false;
+  {
+    FdOutBuf buf(fd);
+    std::ostream out(&buf);
+    ok = write(out) && static_cast<bool>(out.flush()) && buf.flushBuffer();
+  }
+  closeFd(fd);
+  if (!ok) {
     std::error_code ec;
     std::filesystem::remove(tmp, ec);
     return fail(Errc::IoError, "could not write " + describe(path));

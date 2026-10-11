@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Ported from src/lib/puzzle.cpp.
+// Ported from src/lib/puzzle.cpp (with its rod sets: the constructor,
+// addRodSet, removeRodSet, exchangeRodSets).
 
 #include "bt/model/puzzle.h"
 
 #include <utility>
 
 namespace bt {
+
+Puzzle::Puzzle(GridType gt) : gt_(gt) {
+  if (gt_.getType() == GridKind::Stacking) {
+    rodSets_.emplace_back();
+  }
+}
 
 unsigned int Puzzle::addShape(std::unique_ptr<Voxel> p) {
   BT_ASSERT(p != nullptr);
@@ -128,6 +135,38 @@ unsigned int Puzzle::addProblem(const Problem& prob) {
 
   problems_.push_back(std::move(copy));
   return static_cast<unsigned int>(problems_.size() - 1);
+}
+
+unsigned int Puzzle::addRodSet(const stacking::RodSet& set) {
+  rodSets_.push_back(set);
+  return static_cast<unsigned int>(rodSets_.size() - 1);
+}
+
+void Puzzle::removeRodSet(unsigned int idx) {
+  BT_ASSERT(idx < rodSets_.size());
+  for (Problem& p : problems_) {
+    const unsigned int id = p.getRodSetId();
+    if (id == idx) {
+      p.clearRodSet();
+    } else if (id != stacking::kNoRodSet && id > idx) {
+      p.setRodSetId(id - 1);
+    }
+  }
+  rodSets_.erase(rodSets_.begin() + idx);
+}
+
+void Puzzle::exchangeRodSets(unsigned int a, unsigned int b) {
+  BT_ASSERT(a < rodSets_.size());
+  BT_ASSERT(b < rodSets_.size());
+  std::swap(rodSets_[a], rodSets_[b]);
+  for (Problem& p : problems_) {
+    const unsigned int id = p.getRodSetId();
+    if (id == a) {
+      p.setRodSetId(b);
+    } else if (id == b) {
+      p.setRodSetId(a);
+    }
+  }
 }
 
 void Puzzle::removeProblem(unsigned int p) {
