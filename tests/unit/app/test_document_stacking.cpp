@@ -596,3 +596,33 @@ TEST_CASE("stacking document: a rod set is laid out on its own", "[app][stacking
   CHECK(panex.rodX == std::vector<int>{7, 14, 21, 0});
   CHECK(panex.rodHeights == std::vector<unsigned int>{4, 4, 4, 2});
 }
+
+// syncMaps drops the empty rods past the board's count as well as adding
+// the missing ones: a rod emptied after the count was lowered is not on
+// the board, and a disc for it is refused, not placed and lost.
+TEST_CASE("stacking document: a rod past the board's count is not on it", "[app][stacking]") {
+  Document d = openFixture("test_stacking_hanoi.xmpuzzle");
+  const Id p = d.problemIds().front();
+  const Id r = d.rodSetIds().front();
+  const Id smallest = d.shapeIds()[2];
+  stacking::RodSet f = d.puzzle().getRodSet(0);
+  f.rodCount = 5;
+  REQUIRE(d.setRodSetRules(r, f).has_value());
+  // the smallest disc onto rod 4, then the board back to three rods: rod 4
+  // keeps its disc (the stacks keep what holds discs)
+  REQUIRE(d.removeDisc(p, false, 0, 2).has_value());
+  REQUIRE(d.placeDisc(p, smallest, 3, false).has_value());
+  f.rodCount = 3;
+  REQUIRE(d.setRodSetRules(r, f).has_value());
+  REQUIRE(d.puzzle().getProblem(0).startStacks().rods.size() == 4);
+  // emptied, rod 4 is past the count: no rod of the board
+  REQUIRE(d.removeDisc(p, false, 3, 0).has_value());
+  REQUIRE(d.puzzle().getProblem(0).startStacks().rods.size() == 4);
+  test::refused(d, Errc::InvalidArgument,
+                [p, smallest](Document& x) { return x.placeDisc(p, smallest, 3, false); });
+  test::refused(d, Errc::InvalidArgument,
+                [p](Document& x) { return x.placeAllDiscs(p, 3, false); });
+  // and a board chosen again fits the stacks to it (the GUI's syncMaps)
+  test::roundTrip(d, [p, r](Document& x) { return x.setProblemRodSet(p, r); });
+  CHECK(d.puzzle().getProblem(0).startStacks().rods.size() == 3);
+}

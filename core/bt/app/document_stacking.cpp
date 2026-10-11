@@ -39,11 +39,23 @@ const stacking::StackMap& mapOf(const Problem& pr, bool goal) {
   return goal ? pr.goalStacks() : pr.startStacks();
 }
 
-// The rods a stack map has once syncMaps has run (it adds the board's
-// missing rods and keeps those past its count while they hold discs).
+// The rods a stack map has once syncMaps has run on a board of `board`
+// rods: it adds the missing ones, and of those past the count it keeps
+// the ones up to the last that holds discs.
+std::size_t rodsAfterSync(const stacking::StackMap& map, std::size_t board) {
+  std::size_t size = map.rods.size();
+  if (size < board) {
+    return board;
+  }
+  while (size > board && map.rods[size - 1].empty()) {
+    size--;
+  }
+  return size;
+}
+
 std::size_t rodsAfterSync(const Puzzle& puzzle, const Problem& pr, bool goal) {
-  const std::size_t board = stacking::totalRods(puzzle.getRodSet(pr.getRodSetId()));
-  return std::max(board, mapOf(pr, goal).rods.size());
+  return rodsAfterSync(mapOf(pr, goal),
+                       stacking::totalRods(puzzle.getRodSet(pr.getRodSetId())));
 }
 
 // cb_RodField: the fields as the GUI read them back, clamped, and the
@@ -362,10 +374,12 @@ Result<void> Document::setProblemRodSet(Id problem, Id rodSet) {
   if (!r) {
     return std::unexpected(r.error());
   }
+  // the same board, its stacks fitted to it already: nothing to do
   const Problem& pr = puzzle_->getProblem(*p);
   const std::size_t rods = stacking::totalRods(puzzle_->getRodSet(*r));
-  if (pr.getRodSetId() == *r && pr.startStacks().rods.size() >= rods &&
-      pr.goalStacks().rods.size() >= rods) {
+  if (pr.getRodSetId() == *r &&
+      rodsAfterSync(pr.startStacks(), rods) == pr.startStacks().rods.size() &&
+      rodsAfterSync(pr.goalStacks(), rods) == pr.goalStacks().rods.size()) {
     return {};
   }
   StepGuard g(*this, "Set start/goal rods");
