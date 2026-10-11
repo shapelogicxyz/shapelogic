@@ -2765,7 +2765,8 @@ export interface Methods {
    * Opens a .btsolve file as a new, untitled document (the open one goes as with document.new);
    * solve.continue on the problem carries the solve on. A stacking search it carries goes into its
    * folder in the engine's panexFolder, replacing what was there; without a panexFolder such a
-   * file is refused (parse_error).
+   * file is refused (parse_error), and so is any import (invalid_state) while the open document is
+   * a stacking puzzle being solved, whose search would write the same folder as it stops.
    * (solve.json)
    */
   'solve.importPaused': {
@@ -2777,7 +2778,7 @@ export interface Methods {
       problem: ProblemId;
       document: Snapshot;
     };
-    errors: 'io_error' | 'parse_error';
+    errors: 'io_error' | 'parse_error' | 'invalid_state';
   };
   /**
    * Adds a rod set with the default rules (the original's New: three rods that grow, size

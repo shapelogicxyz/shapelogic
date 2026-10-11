@@ -176,7 +176,8 @@ In this order:
     discs and stacks, undoable; `stacking.*`; stacking solves in the
     engine with their saved searches in its Panex folder; 2026-10-11;
     docs/handoff/deferred-3b.md, decision 0015 amended)
-- [ ] Audit of part 3 (3a and 3b together)
+- [x] Audit of part 3 (3a and 3b together) (2026-10-11; the Audit section of
+  docs/handoff/deferred-3b.md: three findings fixed)
 - [ ] **Part 4**: stacking and Panex: front end
 - [ ] **Part 5**: STL meshes and exports
 - [ ] **Part 6**: imports, Puzzlecad export, grid conversion

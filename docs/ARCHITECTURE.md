@@ -631,6 +631,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   folder)` describes a saved search (`SavedSearchInfo`; none while the
   problem's run is active) and `solveAbort(problem, folder)` throws away
   one that no session holds, with the problem's results (cb_BtnAbort).
+  Identical problems (a copy) share one saved search, as in the original:
+  one run at a time works on it (`sharedSearchActive`; Solve, Continue and
+  Abort of the other refused meanwhile, its saved search not told).
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
@@ -743,9 +746,11 @@ schema in `api/`, documented in the generated `docs/API.md`.
   `panexFolder` and `panexDiskGB`, the original's BURRTOOLS_PANEX_DIR and
   BURRTOOLS_PANEX_DISK_GB, go into every stacking solve and into
   `solve.status.savedSearch`, `solve.abort` of a saved search no session
-  holds, and the paused solve's export (`withLevels`) and import;
-  `solve.savePoint` is refused on a stacking solve, whose search saves
-  itself; a stacking solution's row counts transfers).
+  holds, and the paused solve's export (`withLevels`) and import (refused
+  while the open document is a stacking puzzle being solved: the import
+  writes into the folder its search saves in); `solve.savePoint` is
+  refused on a stacking solve, whose search saves itself; a stacking
+  solution's row counts transfers).
 - `events.cpp`: `document.changed` after a request that changed the
   document (with the change's `notice` when it has one), and the poll of the background work: first `Document::poll()`
   takes in what has ended (a run's end, an analysis's results; the

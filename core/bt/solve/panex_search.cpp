@@ -664,7 +664,13 @@ class Store {
   }
 
   // With layers false, only the header: enough to describe the search.
+  // A layer's count is checked against what the file holds before room is
+  // made for it: a damaged or crafted file (one imported from a .btsolve,
+  // say) could otherwise claim terabytes, which the original allocated and
+  // filled (an audit finding). Such a state is no saved search.
   bool loadState(SavedState& st, std::uint64_t fingerprint, bool layers) const {
+    std::error_code sizeError;
+    const std::uint64_t fileBytes = std::filesystem::file_size(dir / "state.bin", sizeError);
     std::ifstream in(dir / "state.bin", std::ios::binary);
     std::array<char, kStateMagic.size()> magic{};
     in.read(magic.data(), magic.size());
@@ -694,7 +700,11 @@ class Store {
     for (Layer* l : {&st.fwdPrev, &st.fwdCur, &st.bwdPrev, &st.bwdCur, &st.mirrorPrev}) {
       std::uint64_t n = 0;
       get(in, n);
-      if (!in) {
+      if (!in || sizeError) {
+        return false;
+      }
+      const auto at = static_cast<std::uint64_t>(in.tellg());
+      if (at > fileBytes || n > (fileBytes - at) / sizeof(PKey)) {
         return false;
       }
       l->resize(static_cast<std::size_t>(n));

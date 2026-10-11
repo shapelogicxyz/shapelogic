@@ -1247,6 +1247,43 @@ def stacking_solve_pause_saved_search_continue(e):
 
 
 @test
+def stacking_import_refused_while_solving(e):
+    """solve.importPaused is refused while the open stacking document
+    solves: the import empties and fills the folder of the search it
+    carries, then the old document goes, and its run, stopping, wrote over
+    the imported search (an audit finding; the original refused an import
+    while it solved)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        work = str(pathlib.Path(tmp) / "panex")
+        puzzle = pathlib.Path(tmp) / "swap6.xmpuzzle"
+        puzzle.write_text(panex_swap(6))
+        e.call("settings.set", {"panexFolder": work})
+        p = e.call("document.open", {"path": str(puzzle)})["problems"][0]["id"]
+        options = {"disassemble": True, "threads": 1}
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": options})
+        e.call("solve.pause", {"problem": p})
+        check(wait_state(e, p, ("paused", "finished", "error"), start) == "paused", "paused")
+        saved = e.call("solve.status", {"problem": p})["savedSearch"]
+        exported = str(pathlib.Path(tmp) / "swap6.btsolve")
+        e.call("solve.exportPaused", {"problem": p, "path": exported})
+
+        # the same puzzle carried on: no import while its search runs
+        start = len(e.events)
+        e.call("solve.continue", {"problem": p, "options": options})
+        e.fails("solve.importPaused", {"path": exported}, "invalid_state")
+        check(e.call("problem.get", {"problem": p})["id"] == p, "the document stays")
+        e.call("solve.pause", {"problem": p})
+        check(wait_state(e, p, ("paused", "finished", "error"), start) == "paused", "paused again")
+
+        # nothing runs: the import goes through, its search in the folder
+        r = e.call("solve.importPaused", {"path": exported})["problem"]
+        held = e.call("solve.status", {"problem": r})["savedSearch"]
+        check(held is not None and held["description"] == saved["description"],
+              f"the imported search {held} (exported {saved})")
+
+
+@test
 def unsupported_and_failures(e):
     # what a stacking puzzle cannot do or does not have
     with tempfile.TemporaryDirectory() as tmp:

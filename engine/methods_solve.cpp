@@ -130,6 +130,16 @@ Reply solveExportPaused(State& s, Params& p) {
 Reply solveImportPaused(State& s, Params& p) {
   const std::string path = p.string("path");
   BTE_CHECK(p.finish());
+  // A stacking search the file carries is unpacked into the Panex folder,
+  // its folder emptied first, before the open document goes; a stacking
+  // search of that document still running would write the same folder as
+  // it stops, over the imported one (the original refused an import while
+  // it solved: threadStopped)
+  if (stacking::isStacking(s.document().puzzle()) && s.document().solving()) {
+    return coreError(Errc::InvalidState,
+                     "a stacking puzzle is being solved: pause it first (an import writes into "
+                     "the folder its search saves in)");
+  }
   BTE_TRY(auto imported,
           app::Document::importPaused(path, app::DocumentSettings{s.settings.undoDepth},
                                       s.settings.panexFolder));

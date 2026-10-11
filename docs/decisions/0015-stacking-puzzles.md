@@ -194,6 +194,24 @@ drawn alone as showRodSet drew it), so a front end computes none of them.
 editor: `web/src/renderer/state/kinds.ts` holds the one rule (the Solver
 disabled, New not offering the grid), which part 4 removes.
 
+## The audit of part 3
+
+**One run at a time on a shared saved search.** Identical problems (a
+copy keeps the rules and the stacks, in the original too) share the
+folder their search is saved in. The original never ran two solves at
+once; the document does, so a stacking solve is refused (`invalid_state`)
+while another problem's run is active on the same folder, its saved search
+is not told (`solve.status.savedSearch` null), and an abort of a search no
+run of its own holds is refused meanwhile: the end of either run removed
+the folder, and a Solve or an Abort threw it away under the other.
+**A saved state is trusted no further than its file**: a layer's count is
+checked against the bytes left before room is made for it; a state that
+claims more is no saved search (the search starts afresh, as with a
+truncated one). **No import while a stacking puzzle is being solved**
+(`solve.importPaused`, as the original's import waited for the solve to
+stop): the import empties and fills the folder of the search it carries,
+which the run, stopping with the document it replaces, wrote over.
+
 ## Consequences
 - The oracle harness has a `stacking` tier (the fixtures and 39 puzzles
   built with the original's code from its `test_stacking.cpp`,

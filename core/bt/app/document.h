@@ -442,8 +442,8 @@ class Document {
                                 int delta);
   /// The saved search of a stacking problem in `workDir`, which Continue
   /// carries on and Solve would throw away; none while the problem's run
-  /// is active (the GUI asked only when nothing ran), and none on other
-  /// grids.
+  /// is active (the GUI asked only when nothing ran) or an identical
+  /// problem's run on the search they share, and none on other grids.
   [[nodiscard]] Result<std::optional<SavedSearchInfo>> savedSearch(
       Id problem, const std::string& workDir) const;
 
@@ -459,7 +459,9 @@ class Document {
 
   // ---- solving ----------------------------------------------------------------
 
-  /// Solves a problem from the start (solve.start).
+  /// Solves a problem from the start (solve.start). A stacking problem is
+  /// refused (InvalidState, here and in solveResume) while an identical
+  /// problem's run is active on the saved search they share.
   Result<void> solveStart(Id problem, const SolveOptions& options);
   /// Prepares the search and pauses (solve.prepare).
   Result<void> solvePrepare(Id problem, const SolveOptions& options);
@@ -477,7 +479,9 @@ class Document {
   /// file is carried on (solveResume) or started over (solveStart). A
   /// stacking problem whose search is saved in `stackingWorkDir` has a
   /// solve under way too, though no run is in memory (the GUI's Abort was
-  /// offered for it): its saved search and its results go (cb_BtnAbort).
+  /// offered for it): its saved search and its results go (cb_BtnAbort);
+  /// refused (InvalidState) while an identical problem's run is active on
+  /// the search they share.
   Result<void> solveAbort(Id problem, const std::string& stackingWorkDir = {});
   /// Waits for the run of a problem to end.
   Result<void> solveWait(Id problem);
@@ -626,6 +630,15 @@ class Document {
   [[nodiscard]] Result<unsigned int> stackingProblem(Id problem) const;
   /// cb_NewShape's stacking branch: a disc of size 1.
   Result<Id> addDisc();
+  /// Identical stacking problems (a copy, say) share one saved search, a
+  /// folder named by the rules and the stacks, as in the original, which
+  /// never ran two solves at once: true while a run of another problem is
+  /// active on the folder of `problem`'s search in `workDir` (it writes
+  /// the folder, and its end removes it).
+  [[nodiscard]] bool sharedSearchActive(unsigned int problem, const std::string& workDir) const;
+  /// sharedSearchActive's refusal (InvalidState), or nothing.
+  [[nodiscard]] Result<void> checkSharedSearchFree(unsigned int problem,
+                                                   const std::string& workDir) const;
 
   Result<unsigned int> requireShape(Id id) const { return shapeIndex(id); }
   Result<unsigned int> requireProblem(Id id) const { return problemIndex(id); }

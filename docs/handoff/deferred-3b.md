@@ -208,7 +208,8 @@ Not fixed in `../burrtools_rotations` (never modified).
   share one, and an edit that changes the rules or the stacks leaves the
   old search on disk, unreachable, until the folder is cleaned (the
   original did the same). The engine's default folder is the user's cache
-  folder, shared with `bt`.
+  folder, shared with `bt`. Since the audit only one run at a time works
+  on a shared search (see "Audit").
 - `setDiscSize` keeps solutions found with the old size (as the GUI did),
   though the size rule may no longer hold for them.
 - The GUI's Solve asked "Continue it, or start over and discard it?" when
@@ -268,3 +269,160 @@ in transfers. Hide what the engine refuses on stacking puzzles (the cell
 editor, the tool tabs, the Problems tab's brick controls). Decide whether
 the app sets `panexFolder` to its own data directory (the plan's
 suggestion) or keeps the cache folder the engine defaults to.
+
+## Audit
+
+**Date:** 2026-10-11 · begun with Fable 5.1 at extra high effort (the
+reading and the probes), finished with Opus 5.5 at extra high effort (the
+fixes, the tests and the gates) after the model was switched mid-session.
+On the diff of part 3, `4cb6e2b..63d53ba`: `a87241d` and `ea6a91d` (3a),
+`e6ab98f`, `f736508`, `1453ded`, `a6a17c6` and `63d53ba` (3b); the gate
+results of both notes, both notes, the plan and decision 0015. The fixes
+are one commit after the part's: `Deferred 3 audit: one run per shared
+saved search, saved states trusted no further than their files, no import
+while a stacking puzzle solves`.
+
+### How it was done
+- Read side by side with the original: the Panex search against
+  `panex.cpp` (the keys and rules, `subtract`, `radixSort`, the merges,
+  `meet`, the store with BTPANEX4 and BTPANEX3, `findIn`, `thin`, the
+  searcher with `findSigma` and the twins, `nextLevel`'s slices and the
+  level written by the next expansion's first job, `traceStored`,
+  `meetSearch`'s stops and saves, `setup`, `classicTower`, the fingerprint
+  and the folder, `solve`); the model and the stack search against
+  `stacking.cpp`; `blockpack.cpp`; the export and import loops of
+  `mainwindow_file.cpp`; `runStacking`; the GUI's Solve, Continue and
+  Abort (`mainwindow_solve.cpp`); the rod set callbacks
+  (`mainwindow_rods.cpp`), the disc list (`BlockList.cpp`) and the
+  Problems tab's stacking branches (`mainwindow.cpp`); the engine's
+  `stacking.*` and `solve.*`.
+- Suspicions probed with small programs against
+  `build/release/core/libbtcore.a` and `build/asan/core/libbtcore.a` in
+  the session's scratchpad (not committed), on a six-disc Panex swap made
+  as the contract suite makes it.
+- Each test added was run with its fix disabled (a one-line mutant: the
+  check returns early or never refuses), then the source restored: each
+  fails without its fix.
+
+### Findings, by severity
+1. **Medium: identical stacking problems solved at once shared one saved
+   search, and one run's end deleted the other's paused search.** A copy
+   of a stacking problem keeps its rules and stacks (in the original too),
+   so its saved search lives in the same folder (named by the
+   fingerprint). The original never ran two solves at once; the document
+   does, and nothing kept two runs off one folder. Probe: the swap opened,
+   its problem copied, both solved on one thread each, the first paused:
+   "a saved search 256 moves deep, 404310 stackings"; once the copy's run
+   finished (its end removes the folder): no saved search, while the first
+   problem's note still said "The search is saved: press Continue to carry
+   on". Continue then starts from scratch. Solve or Abort of one also threw
+   the folder away under the other's run, and `solve.status` of the copy
+   described files the running search was writing. Fix:
+   `Document::sharedSearchActive` (another problem's active run on the
+   same folder, worked out with that run's own work folder);
+   `solveStart` and `solveResume` refuse (`invalid_state`) meanwhile,
+   `savedSearch` tells none, and `solveAbort` refuses for a problem whose
+   own run is not the active one. Paused, the search stays shared, as in
+   the original (the copy's Continue carries it on). Test: "stacking
+   document: identical problems share their saved search, one run at a
+   time".
+2. **Medium: a saved state that claimed more keys than its file held was
+   allocated and filled.** `Store::loadState` resized each layer to the
+   count the file gave before reading it (the original did the same). A
+   damaged or crafted `state.bin` (one imported from a `.btsolve`) then
+   asks for whatever it claims. Probe: a paused search's 20,560-byte
+   `state.bin` with its first count set to 2^40: on Continue the release
+   build was killed by the system; under ASan, "allocation-size-too-big"
+   in `loadState` from `runStacking`. Through the engine: an imported
+   file, then `solve.continue`, and the engine dies. Fix: each count is
+   checked against the bytes left in the file; a state that claims more is
+   no saved search, and the search starts afresh, as with a truncated one.
+   `savedSearch` still describes it from its header. Test: "stacking
+   session: a saved search that claims more than its file holds starts
+   afresh" (a claim of 2^60 keys, which without the fix throws
+   `length_error` out of the search).
+3. **Low: an import while the open stacking document solved the same
+   puzzle lost the imported search.** `solve.importPaused` unpacks the
+   search into its folder (emptied first) and then replaces the document;
+   the old document's run, stopping with it, saves over the imported
+   state. Probe: a search exported 602 moves deep (4.9M stackings),
+   imported while the same puzzle solved: right after the import the
+   folder held it; once the old document had gone, "a saved search 418
+   moves deep, 1.8M stackings", the old run's. Fix: `solve.importPaused`
+   is refused (`invalid_state`) while the open document is a stacking
+   puzzle being solved (the original refused any import while it solved:
+   `threadStopped`); declared in `api/solve.json`, `docs/API.md` and the
+   generated types updated. Test: the contract case
+   `stacking_import_refused_while_solving`.
+
+### Probed and cleared
+- The Panex search is the original's line for line. Its differences are
+  the documented ones: `subtract`'s steps, the pool's slices taken from a
+  counter, and the level written by the next expansion's first job. Every
+  path that needs the file or the budget finishes that write first: the
+  next level's end, a save or an autosave, the meeting and the loop's end.
+  A stop inside the expansion still writes it, since job 0 runs on the
+  caller before it looks at the stop. The level's memory is untouched
+  until then.
+- Stops: a stop at the top of a level or inside its expansion saves the
+  frontier (the kept levels to disk first); a stop while tracing keeps
+  the meeting written before it; Memory saved as the original did. A
+  level that is missing makes the trace solve that end by halves: with
+  two runs on one folder (before the fix) both still found the path.
+- The budgets, `thin`, the keep cap, the halving path, `findSigma` and
+  the twins; the stack search, `setupError`, `checkStack`, `moveAllowed`,
+  `layoutBoard`, `pathSeparation` and `stateFor`: line for line.
+- `blockpack` line for line; a hostile packed section is bounded (the
+  chunk sizes against the 64 MB chunk and the section's bytes, the key
+  gaps' decoding), and section names are bare file names. What a packed
+  section may inflate to is not capped: a level file can rightly be
+  hundreds of GB, as in the original.
+- The streamed export fills in each section's size by seeking back;
+  `FdOutBuf` writes what it holds before every seek.
+- The session: Paused against Finished, the problem as the solve thread
+  left it, `abort()` with and without a session (the saved search thrown
+  away after the run is joined), the progress and its words.
+- Undo and redo of the rod set commands (whole-puzzle copies) end every
+  session before the puzzle is swapped back.
+- The document's commands against their callbacks: `placeOneDisk`'s
+  counts, `dropInstance` before the counts are lowered (a solution of the
+  problem places every disc, so it goes, as in the original), the rules'
+  clamps and the Panex dependencies (the fields shown as
+  `syncPanexFields` left them, what an edit writes off), the refused
+  move that changes nothing.
+- The engine: `stacking.*`'s bounds, ids and errors, `setRules`' merge
+  over the shown fields, the default solver, and the Panex folder in
+  every path that needs it (the solve options, status, abort, export and
+  import).
+
+### Gate after the fixes
+All on the final tree (2026-10-11, M-series Mac), one after another:
+- `just test-all`: 6/6 (unit, the slow cases, the api schema and docs,
+  the contract suite with 115 methods called and the new import case,
+  the CLI), 473 s.
+- `just test-asan`: 6/6, no sanitizer report, 1,601 s.
+- `just test-tsan`: the `[parallel]` cases (82, 18,393 assertions, the
+  shared-search case among them) and the contract suite on the TSan
+  engine (18 tests, 115 methods), no report, 826 s.
+- `just oracle --tier fast`: 19/19, all threads and one.
+- The stacking tier: 40/40 with the Stacking Solver and 11/11 with the
+  Panex Solver, all threads and one (the setup that is not ready is the
+  original's failure too); solved files 40/40; text 284/284.
+- `oracle.py panex-resume`: 624/624 (the saved states read with the new
+  check, carried on in both programs); `oracle.py blockpack-check`:
+  648/648, 162/162 packed byte for byte.
+- `just oracle-roundtrip`: 511/511 byte-identical.
+- `just web-gen` (one summary changed); `just web-check` clean, `just
+  web-test` 304/304 (release engine). The front end's code did not
+  change: `web-e2e`, `web-dist` and `web-smoke` not run.
+- `just check`: not run (LLVM is not installed).
+
+### Notes for part 4
+- Solve, Continue and Abort on a problem whose copy is solving answer
+  `invalid_state` ("an identical problem is being solved, and the two
+  share one saved search: pause it first"): show it, or grey the buttons
+  while the copy runs.
+- `solve.importPaused` answers `invalid_state` while a stacking puzzle is
+  being solved: ask the user to pause it first.
+- The saved search of a problem is its copies' too: the question at Solve
+  ("This problem has …") applies to a copy's search as well.

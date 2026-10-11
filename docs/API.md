@@ -1711,7 +1711,7 @@ Errors: `not_found`, `invalid_state`, `io_error`
 
 ### `solve.importPaused`
 
-Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error).
+Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error), and so is any import (invalid_state) while the open document is a stacking puzzle being solved, whose search would write the same folder as it stops.
 
 Params:
 
@@ -1726,7 +1726,7 @@ Result:
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
 | `document` | [Snapshot](#snapshot) | required |  |
 
-Errors: `io_error`, `parse_error`
+Errors: `io_error`, `parse_error`, `invalid_state`
 
 ### event `solve.state`
 

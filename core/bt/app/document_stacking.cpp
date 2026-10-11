@@ -18,8 +18,10 @@
 #include "bt/io/paused_solve.h"
 #include "bt/model/problem.h"
 #include "bt/model/stacking.h"
+#include "bt/solve/panex_search.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -125,6 +127,43 @@ Result<void> Document::checkStacking() const {
 Result<void> Document::refuseOnStacking(const char* why) const {
   if (stacking::isStacking(*puzzle_)) {
     return fail(Errc::InvalidArgument, why);
+  }
+  return {};
+}
+
+bool Document::sharedSearchActive(unsigned int problem, const std::string& workDir) const {
+  if (!stacking::isStacking(*puzzle_)) {
+    return false;
+  }
+  const auto folderOf = [this](unsigned int p, const std::string& dir) {
+    return readProblem(p, [this, &dir](const Problem& pr) {
+      const std::string f = panex::searchFolder(*puzzle_, pr, dir);
+      return f.empty() ? std::string() : std::filesystem::path(f).lexically_normal().string();
+    });
+  };
+  const std::string folder = folderOf(problem, workDir);
+  if (folder.empty()) {
+    return false;
+  }
+  for (const auto& [id, session] : sessions_) {
+    if (id == ids_.problems[problem] || !isActive(session->state())) {
+      continue;
+    }
+    const Result<unsigned int> other = problemIndex(id);
+    // a run's options stay as they were while it is active
+    if (other && folderOf(*other, session->options().stacking.workDir) == folder) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Result<void> Document::checkSharedSearchFree(unsigned int problem,
+                                             const std::string& workDir) const {
+  if (sharedSearchActive(problem, workDir)) {
+    return fail(Errc::InvalidState,
+                "an identical problem is being solved, and the two share one saved search: "
+                "pause it first");
   }
   return {};
 }

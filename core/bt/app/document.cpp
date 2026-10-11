@@ -653,6 +653,14 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
   }
+  // A stacking solve runs on the saved search it shares with identical
+  // problems: not while one of theirs runs on it (Solve would throw it
+  // away under that run, and the end of either removes it)
+  if (mode != LaunchMode::Prepare) {
+    if (Result<void> r = checkSharedSearchFree(*p, options.stacking.workDir); !r) {
+      return r;
+    }
+  }
   // A sliding puzzle: what the original's Solve checked (the start/goal
   // shape valid, no stamp larger than its piece) and what its solve thread
   // set up as it began (the start locks, the holes), which changes shapes:
@@ -768,6 +776,13 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
   // greyed out once the solve thread had ended): a finished solve's
   // solutions are removed with deleteSolutions, which can be undone
   const auto it = sessions_.find(problem);
+  // a stacking search shared with an identical problem whose run is
+  // active is that run's to write: not thrown away under it
+  if (it == sessions_.end() || !isActive(it->second->state())) {
+    if (Result<void> r = checkSharedSearchFree(*p, stackingWorkDir); !r) {
+      return r;
+    }
+  }
   if (it == sessions_.end() ||
       (!isActive(it->second->state()) && it->second->state() != SolveState::Paused)) {
     // a stacking search saved in its folder is a paused solve, on disk:
@@ -848,8 +863,10 @@ Result<std::optional<SavedSearchInfo>> Document::savedSearch(Id problem,
   if (!p) {
     return std::unexpected(p.error());
   }
-  // a run writes its search's files (problemPaused: nothing while one runs)
-  if (!stacking::isStacking(*puzzle_) || isActive(solveState(problem))) {
+  // a run writes its search's files (problemPaused: nothing while one runs),
+  // this problem's or an identical one's on the folder they share
+  if (!stacking::isStacking(*puzzle_) || isActive(solveState(problem)) ||
+      sharedSearchActive(*p, workDir)) {
     return std::nullopt;
   }
   const Problem& pr = puzzle_->getProblem(*p);

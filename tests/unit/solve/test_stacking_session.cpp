@@ -22,6 +22,8 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <optional>
 #include <random>
 #include <string>
 #include <thread>
@@ -266,6 +268,46 @@ TEST_CASE("stacking session: abort throws the saved search away", "[stacking][pa
   s.abort();
   CHECK(s.state() == SolveState::Idle);
   CHECK(pr.getSolveState() == ProblemState::Unsolved);
+  CHECK(panex::savedSearch(puz, pr, workDir()).empty());
+}
+
+// A saved search's state is trusted no further than its file: a damaged or
+// crafted state.bin (one imported from a .btsolve) claimed a layer of 2^60
+// keys, which the search set out to make room for (an audit finding; a
+// claim of a few terabytes had the process killed). It is no saved search:
+// the search starts afresh.
+TEST_CASE("stacking session: a saved search that claims more than its file holds starts afresh",
+          "[stacking]") {
+  Puzzle puz = panexSwap(4);
+  Problem& pr = puz.getProblem(0);
+  panex::PanexSearch first;
+  first.workDir = workDir();
+  first.threads = 1;
+  first.stopAtDepth = 20;
+  REQUIRE_FALSE(panex::solve(puz, pr, first).has_value());
+  REQUIRE(first.saved);
+  const std::filesystem::path state =
+      std::filesystem::path(panex::searchFolder(puz, pr, workDir())) / "state.bin";
+  {
+    // the first layer's count, after the 72 bytes of the header
+    std::fstream f(state, std::ios::in | std::ios::out | std::ios::binary);
+    REQUIRE(f.good());
+    const std::uint64_t claim = std::uint64_t{1} << 60;
+    f.seekp(72);
+    f.write(reinterpret_cast<const char*>(&claim), sizeof(claim));
+    REQUIRE(f.good());
+  }
+  // the header alone still describes it ...
+  CHECK_FALSE(panex::savedSearch(puz, pr, workDir()).empty());
+  // ... but it is not carried on
+  panex::PanexSearch again;
+  again.workDir = workDir();
+  again.threads = 1;
+  again.resume = true;
+  const std::optional<Separation> path = panex::solve(puz, pr, again);
+  REQUIRE(path.has_value());
+  CHECK(again.outcome == panex::Outcome::Found);
+  CHECK(logicalMoves(*path) == 128);
   CHECK(panex::savedSearch(puz, pr, workDir()).empty());
 }
 
