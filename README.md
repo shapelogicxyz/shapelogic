@@ -23,8 +23,11 @@ its saved searches) and edited and solved through the document and the
 engine (part 3b: rod sets, discs and stacks, `stacking.*`, saved searches
 in the engine's Panex folder) and made, edited, solved and played in the
 front end (part 4: the disc list, the Rods card, the board and its stacks,
-the Panex solves paused and carried on from the app's own folder); STL
-meshes, imports and Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
+the Panex solves paused and carried on from the app's own folder); the
+STL meshes of every grid (part 5: the cube grids' chamfer table and the
+Minkowski mesher on Manifold, the same files as the original's) are
+exported from both STL dialogs and drawn in the view's STL-like style;
+imports and Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 

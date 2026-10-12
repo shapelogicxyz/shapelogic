@@ -4,12 +4,21 @@
 // keeps (gltfexport.cpp's thinning: only those its interpolation does not
 // reproduce), and the vector image's painting order (a BSP tree: what is
 // behind first, a face split where another's plane crosses it, a line
-// after the face it lies on, the order turned round with the eye).
+// after the face it lies on, the order turned round with the eye); and
+// the STL dialogs' fields and words (deferred part 5, stl-form.ts).
 
 import { describe, expect, it } from 'vitest';
 
 import { keptKeys } from '../../../src/renderer/export/glb.ts';
 import { positive } from '../../../src/renderer/export/form.ts';
+import {
+  exportedLine,
+  formatParameter,
+  overwriteQuestion,
+  piecesText,
+  readParameters,
+  volumeLine,
+} from '../../../src/renderer/export/stl-form.ts';
 import { paintingOrder, polygonNormal } from '../../../src/renderer/view3d/depth-order.ts';
 import type { Face, Segment } from '../../../src/renderer/view3d/depth-order.ts';
 
@@ -140,5 +149,57 @@ describe('the vector image’s painting order', () => {
     const s: Segment<string> = { a: [0, 0, 0], b: [1, 1, 1], paint: 'line' };
     expect(names(paintingOrder([flat], [s], [0, 0, 5]))).toEqual(['line']);
     expect(polygonNormal(square(0, 'x').corners)).toEqual([0, 0, 1]);
+  });
+});
+
+describe('the STL dialogs’ fields and words (stlexport.cpp, stlexportsolution.cpp)', () => {
+  const unit = { name: 'Unit Size', type: 'positiveNumber', default: 10, tooltip: '' } as const;
+  const bevel = { name: 'Bevel', type: 'positiveNumber', default: 0.3, tooltip: '' } as const;
+  const rec = { name: 'Recursions', type: 'positiveInteger', default: 2, tooltip: '' } as const;
+  const chamfers = { name: 'Interior chamfers', type: 'switch', default: 1, tooltip: '' } as const;
+
+  it('shows a value as the original’s %2.2f and %i', () => {
+    expect(formatParameter(unit, 10)).toBe('10.00');
+    expect(formatParameter(bevel, 0.3)).toBe('0.30');
+    expect(formatParameter(bevel, 0.01)).toBe('0.01');
+    expect(formatParameter(rec, 2)).toBe('2');
+    expect(formatParameter(chamfers, 1)).toBe('1');
+  });
+
+  it('reads the fields in order, refusing what is not a number', () => {
+    const params = [unit, bevel, rec, chamfers];
+    expect(readParameters(params, ['10.00', '0,5', '3', false])).toEqual({
+      values: [10, 0.5, 3, 0],
+    });
+    expect(readParameters(params, ['12', ' .3 ', '0', true])).toEqual({ values: [12, 0.3, 0, 1] });
+    expect(readParameters(params, ['', '0.3', '2', true])).toEqual({
+      error: 'Unit Size must be a number',
+    });
+    expect(readParameters(params, ['10', 'x', '2', true])).toEqual({
+      error: 'Bevel must be a number',
+    });
+    expect(readParameters(params, ['10', '0.3', '2.5', true])).toEqual({
+      error: 'Recursions must be a whole number',
+    });
+    // the ranges are the engine's: a negative bevel is read, and refused there
+    expect(readParameters(params, ['10', '-1', '2', true])).toEqual({ values: [10, -1, 2, 1] });
+  });
+
+  it('says the volume, the pieces, the question and the outcome in the original’s words', () => {
+    expect(volumeLine(7936.04)).toBe('Volume: 7936.0 cubic-units');
+    expect(
+      piecesText(1, [
+        { label: 'S2', name: 'Frame1', count: 1 },
+        { label: 'S4', name: '', count: 2 },
+      ]),
+    ).toEqual([
+      'Pieces placed in solution 1:',
+      '  S2  Frame1  ×1',
+      '  S4  ×2',
+      'Total instances: 3',
+    ]);
+    expect(overwriteQuestion(5)).toBe('5 output file(s) already exist. Overwrite?');
+    expect(exportedLine(5, 0)).toBe('Done — exported 5 piece type(s).');
+    expect(exportedLine(4, 1)).toBe('Done — exported 4 piece type(s), 1 error(s).');
   });
 });

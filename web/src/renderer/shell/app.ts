@@ -187,6 +187,9 @@ export function startApp(saved: StoredState = {}): {
     },
     animation: () => animationSource(solver),
   });
+  solver.exportStl = (problem, row) => {
+    void exports.solutionStl(problem, row);
+  };
   const menus = new Menus(store, app, view, {
     openPath: (path) => {
       void files.openPath(path);

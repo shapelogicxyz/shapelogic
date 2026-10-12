@@ -41,7 +41,11 @@ folder), audited; part 4, the stacking front end (the disc list, the Rods
 card, the board and its stacks, the stacking solver options, the saved
 search's question, the player in transfers, every stacking view tilted as
 the original's, the saved searches in the app's own data folder;
-docs/webui-spec.md section 9). Next: part 5, the STL meshes and exports.*
+docs/webui-spec.md section 9); part 5, the STL meshes of every grid (the
+cube grids' chamfer table and the Minkowski mesher on Manifold, the STL
+file as the original wrote it, the view's STL-like style; `export.*`;
+both STL dialogs; docs/webui-spec.md section 10). Next: part 6, the
+imports, the Puzzlecad export and grid conversion.*
 
 ## Big picture
 
@@ -573,8 +577,34 @@ frame by its Euler characteristic).
   and side, flags, colour and polygon; the edge lines of the "edges"
   style; the hotspot of the space it was made from (an assembly puts that
   on a placement's cell). `shapeDrawMesh`.
-The STL meshes (`cubemesh.cpp`, `minkmesh.cpp` with manifold, the view's
-"STL style") belong to the exports, later.
+- `cube_mesh.h` (deferred part 5): the STL mesh of the cube grids
+  (bricks, sliding, stacking; cubemesh.cpp, cubepoly.cpp):
+  `cubeSurface` puts the chamfered surface inside the dual cell around
+  each cell corner from the generated table (`tabs_cube/`, copied
+  unchanged: per vertex body and r/g regime, polygons whose corners are
+  affine in the gap and the bevel), welds it, merges coplanar polygons
+  into faces and triangulates them (`triangulate.h`: ear clipping with
+  holes bridged, Eberly's rule); `cubePolyhedron` tags each triangle with
+  its cell and side as the view picks.
+- `mink_mesh.h`: the STL mesh of the prism, rhombic and tetra-octa grids
+  (minkmesh.cpp): the exact surface of the cells as a Manifold solid,
+  shrunk and chamfered by Minkowski sums and differences with small
+  convex bits (cube and cuboctahedron, or the hexagonal prism and
+  bipyramid; one hull per convex piece of each planar face, a turn of
+  1e-8 against coincident faces), every step put back onto its planes
+  (edges contracted, vertices snapped, faces triangulated again), a step
+  with a fold redone with the bit turned another way. Manifold 3.5.2 is
+  the only third-party library of the core (cmake/Dependencies.cmake).
+- `stl.h` (decision 0016): each grid's STL parameters as the original's dialog showed
+  them (`stlParameters`: stl_0's six, the sphere grid's eight),
+  `stlMesh` (the mesh for values, with the original's refusals; more than
+  6 sphere recursions refused, unlike the original), `stlFile` (binary
+  or text, in memory, after `mergeCoplanarFaces`). `modifiers.h` also has
+  `scalePolyhedron`, `mergeCoplanarFaces` and `volume`.
+  `MeshStyle::Stl` is the view's STL-like style (getSTLMesh: the meshers
+  at gap 0.02, bevel 0.05 with interior chamfers; the flat mesh where
+  they fail). All of it gives the original's bytes for every fixture
+  shape (`tests/data/stl_dump.txt`).
 
 ### app (exists: stage 6)
 What the front end does to a puzzle (decision 0011). Ported from the
@@ -637,6 +667,10 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   Identical problems (a copy) share one saved search, as in the original:
   one run at a time works on it (`sharedSearchActive`; Solve, Continue and
   Abort of the other refused meanwhile, its saved search not told).
+  The STL export (deferred part 5): `stlMesh(shape, values)` (a mesh that
+  fails one of the meshers' assertions refused with the words of the
+  original's dialog, which caught them) and `stlPieces(problem,
+  solution)`, under the solve's lock.
 - `shape_tools.h`: the tool tabs' tasks per grid (`ShapeTask`, `taskSet`,
   `applyTask`, `minimizeShapes`; a nudge out of the grid is refused), the
   grid editor's cell tools (`CellTool`, mirror and span, `editCells`),
@@ -659,7 +693,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   line), `shapeTable` (`ShapeInfo`: the status window's row),
   `shapeStatusLine`, `isNotchable`, `isMillable`, `problemKind`,
   `rodSetLayout` (a stacking puzzle's rod set drawn alone,
-  voxelFrame_c::showRodSet).
+  voxelFrame_c::showRodSet), `stlPieces` (a solution's STL export: the
+  shapes its assembly places, their counts and safe, distinct file
+  names, stlexportsolution.cpp).
 - `playback.h`: `PlaybackSampler` (from a solution: the pieces with their
   meshes in the assembly orientation, `sample(step)` giving each piece's
   translation, quaternion and visibility, turns tumbling about their
@@ -753,7 +789,12 @@ schema in `api/`, documented in the generated `docs/API.md`.
   while the open document is a stacking puzzle being solved: the import
   writes into the folder its search saves in); `solve.savePoint` is
   refused on a stacking solve, whose search saves itself; a stacking
-  solution's row counts transfers).
+  solution's row counts transfers), and the STL export (`export.*`,
+  deferred part 5: `export.stlParameters`, `export.stlMesh` (a
+  `MeshFrame` and the volume, the dialog's preview), `export.stl` (the
+  file's bytes as a frame of one u8 array; the client writes them),
+  `export.solutionPieces`; `shape.mesh` and `playback.mesh` take the
+  `stl` style).
 - `events.cpp`: `document.changed` after a request that changed the
   document (with the change's `notice` when it has one), and the poll of the background work: first `Document::poll()`
   takes in what has ended (a run's end, an analysis's results; the
@@ -1294,9 +1335,17 @@ What exists after stage 8:
   - `export/`: File ▸ Export (stage 7). `exports.ts` (`Exports`: Image,
     the view at its size or twice it as a PNG (`ViewRenderer.capture`:
     a render at that pixel ratio read back in the same task); Vector Image
-    (`View3D.vectorImage`, svg.ts); STL of a shape chosen in a dialog
-    (the selected one first; Unit Size, Binary STL; the dialog says the
-    STL meshes come later); Solution Animation of the solution the Solver
+    (`View3D.vectorImage`, svg.ts); STL (deferred part 5,
+    `stl-dialogs.ts`: File ▸ Export ▸ STL, the grid's parameters from
+    `export.stlParameters` with the original's labels, formats and
+    tooltips, Binary STL, the shape, a preview of `export.stlMesh` in a
+    small three.js view of its own (`stl-preview.ts`: the arc-ball, the
+    wheel, Normal and Insides) with its volume or the engine's refusal,
+    Export STL… keeping the dialog open; Solutions ▸ Export to STL, the
+    pieces of `export.solutionPieces` into a folder the main process's
+    folder dialog gave, written by `writeFolderExport`, with the
+    original's overwrite question and closing line; `stl-form.ts` the
+    fields and words, DOM-free); Solution Animation of the solution the Solver
     shows with its moves stored (the original's dialog: seconds per move,
     cell size, reassemble, bevelled edges; a playback of its own, closed
     after); each asks the file of the main process's dialog and has it
@@ -1516,15 +1565,22 @@ split, a line after its face, the eye turned round); the engine tests
 with its moves stored passes Khronos's validator and, read back by a
 reader of the tests' own, puts each piece where the player's poses do
 at sampled times of the holds, the moves (between keyframes too) and the
-moves backwards, its meshes the playback's; the STL of a one-cell cube a
-closed surface facing out, every fixture shape's STL loaded by three.js's
-STL loader with its triangles and size; e2e (`exports.e2e.ts`): Image at
+moves backwards, its meshes the playback's; the engine's STL of a
+one-cell cube a closed surface facing out, every fixture shape's STL
+(but the four slow fixtures') loaded by three.js's STL loader with its
+triangles and size, each a closed, consistently oriented surface; e2e
+(`exports.e2e.ts`): Image at
 1x and 2x the view's picture (against a screenshot of the view) and a
 reference image, Vector Image in the flat style drawn by the page like
-the view and a reference image, STL binary and text with a field
-refused, a read-only file refused and left, a path no dialog gave
+the view and a reference image, STL (deferred part 5) with the
+original's labels and values, the preview's volume, a refusal in the
+original's words, the file equal to the original's byte for byte, binary
+and text, a read-only file refused and left, a path no dialog gave
 refused, Solution Animation greyed without a solution and then valid
-with the playback's pieces. Stage 8: the security checklist
+with the playback's pieces, Solutions ▸ Export to STL of CubeInCage's
+first solution equal to the original's files and names, its overwrite
+question, names and folders no dialog gave refused; `view.e2e.ts` has a
+reference screenshot of the STL-like style for each grid. Stage 8: the security checklist
 (`tests/unit/security.test.ts`: the window's options and that nothing in
 `src/` turns them off, the switches a packaged app ignores, the requests
 the session lets through, no permission, the CSP as written and as built,
@@ -1610,6 +1666,12 @@ player).
   Stacking Solver, `--solver panex`) in the summary, the solved files (the
   original's solve thread through `stack_solve_old`) and the text; each run
   gets a Panex folder of its own (never the user's cache).
+  The STL meshes (deferred part 5) are compared through recordings:
+  `oracle.py stl-dump` (the original's STL files of every fixture shape
+  with the default parameters, read back into their vertices and
+  triangles, its view meshes, one text file) and `oracle.py stl-solution`
+  (its solution export of CubeInCage, the dialog's naming copied from
+  GUI code); see tests/oracle/README.md.
   `oracle.py panex-resume` stops Panex searches in one program at a sweep
   of depths (`panex_resume_old` and `bt_panex_resume`, `stopAtDepth`) and
   carries them on in both (the saved folders byte for byte the same, the
@@ -1623,7 +1685,8 @@ player).
   re-analysis, byte for byte), `test_layer_geometry.cpp` (the grid
   editors' corner formulas, copied into the test), `test_slide_routes.cpp`
   (each sliding move's route and the player's positions at quarter
-  steps), the byte-for-byte save check in
+  steps), `test_stl_dump.cpp` (the STL files and view meshes of every
+  fixture shape, positions within 1e-5), the byte-for-byte save check in
   `test_puzzle_file.cpp`, the paused positions in `test_positions.cpp`);
   they never read the original repo.
 
@@ -1650,5 +1713,7 @@ subprocess) and `cli` (`bt` as a subprocess).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
 `release` (and `release-x64`, `release-arm64`: macOS's release for one
 architecture, the packaged app's engine for the other kind of Mac). zlib comes from the system, or is built from a pinned release
-(`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only) and
-Catch2 are fetched.
+(`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only),
+Manifold 3.5.2 (pinned, the core's STL meshes; built optimised and without
+its cross sections or parallel backend, as the original builds it; left
+uninstrumented under ASan, decision 0016) and Catch2 are fetched.

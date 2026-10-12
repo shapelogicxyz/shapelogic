@@ -227,3 +227,8 @@ export function poseArrays(
     visible: typed(f, 'visible', Uint8Array, n),
   };
 }
+
+/** The bytes of a file frame (export.stl: one u8 array, `file`). */
+export function fileBytes(reply: { frame: FrameView }): Uint8Array {
+  return typed(reply.frame, 'file', Uint8Array, () => true);
+}

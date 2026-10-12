@@ -35,7 +35,12 @@ import {
   isRescueInfo,
 } from '../../src/engine/app-bridge.ts';
 import type { AppCommand, MenuState } from '../../src/engine/app-bridge.ts';
-import { ExportGrants, writeFileSafely } from '../../src/main/export-file.ts';
+import {
+  ExportGrants,
+  FolderGrants,
+  isPieceFileName,
+  writeFileSafely,
+} from '../../src/main/export-file.ts';
 import { commandItems, menuTemplate, NO_STATE, recentLabel } from '../../src/main/menu.ts';
 import { RescueStore } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
@@ -201,7 +206,6 @@ describe('the menus', () => {
       'convertGrid',
       'anaglyph',
       'anaglyph.swapped',
-      'style.stl',
       'redo',
       'exportPaused',
     ]) {
@@ -218,9 +222,14 @@ describe('the menus', () => {
       'close',
       'export.image',
       'export.vector',
+      'style.stl',
     ]) {
       expect(items.get(id)?.enabled, id).toBe(true);
     }
+    // the STL-like style is the fourth style (deferred part 5)
+    const stl = commandItems(build({ ...state, style: 'stl' }, 'darwin').template);
+    expect(stl.get('style.stl')?.checked).toBe(true);
+    expect(stl.get('style.drawing')?.checked).toBe(false);
     // the STL needs a shape with cells, the animation a solution with its moves shown
     const exports = commandItems(
       build({ ...state, shapes: true, animation: true }, 'darwin').template,
@@ -283,7 +292,10 @@ describe('the bridge’s checks', () => {
   it('takes the commands and states it knows, nothing else', () => {
     expect(isAppCommand({ cmd: 'save' })).toBe(true);
     expect(isAppCommand({ cmd: 'openPath', path: '' })).toBe(false);
-    expect(isAppCommand({ cmd: 'style', style: 'stl' })).toBe(false);
+    expect(isAppCommand({ cmd: 'style', style: 'stl' })).toBe(true);
+    expect(isAppCommand({ cmd: 'style', style: 'anaglyph' })).toBe(false);
+    expect(isMenuState({ ...NO_STATE, style: 'stl' })).toBe(true);
+    expect(isMenuState({ ...NO_STATE, style: 'gouraud' })).toBe(false);
     expect(isAppCommand({ cmd: 'rm' })).toBe(false);
     expect(isAppCommand(null)).toBe(false);
     expect(isMenuState(NO_STATE)).toBe(true);
@@ -447,5 +459,37 @@ describe('an export’s file, written as the core writes a puzzle', () => {
     expect(grants.take(a, '/x/view.png')).toBeNull();
     grants.grant(a, '/x/puzzle.xmpuzzle', 'glb');
     expect(grants.take(a, '/x/puzzle.xmpuzzle')).toBeNull();
+  });
+
+  it('lets a window write a solution’s pieces only into the folder its dialog gave last', () => {
+    const folders = new FolderGrants<object>();
+    const a = {};
+    const b = {};
+    expect(folders.has(a, '/x')).toBe(false);
+    folders.grant(a, '/x');
+    expect(folders.has(a, '/x')).toBe(true);
+    expect(folders.has(b, '/x')).toBe(false);
+    folders.grant(a, '/y');
+    expect(folders.has(a, '/x')).toBe(false);
+    expect(folders.has(a, '/y')).toBe(true);
+  });
+
+  it('takes only the names the engine gives a solution’s pieces', () => {
+    for (const ok of ['Frame1.stl', 'S4.stl', 'Frame1-S4.stl', '__l.stl', 'a_b_c_d.stl']) {
+      expect(isPieceFileName(ok), ok).toBe(true);
+    }
+    for (const bad of [
+      '../x.stl',
+      'a/b.stl',
+      'a\\b.stl',
+      '.stl',
+      'x.STL',
+      'x.xmpuzzle',
+      'x.stl.png',
+      'a b.stl',
+      `${'x'.repeat(252)}.stl`,
+    ]) {
+      expect(isPieceFileName(bad), bad).toBe(false);
+    }
   });
 });

@@ -15,4 +15,6 @@ AUTHORS credits the original authors and the front-end designer.
 ## Consequences
 - Compatible with both sources (GPLv2-or-later code may be used under v3).
 - Third-party dependencies must be GPLv3-compatible (Catch2: BSL-1.0, zlib:
-  zlib licence, nlohmann/json: MIT, all fine).
+  zlib licence, nlohmann/json: MIT, all fine; Manifold, the STL meshes'
+  boolean library since deferred part 5: Apache-2.0, compatible with
+  GPLv3, as the original's build used it).

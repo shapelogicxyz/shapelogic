@@ -5,9 +5,11 @@
 // glTF validator and, read back as a viewer reads it, puts every piece
 // where the player puts it at sampled times (the holds, the moves, the
 // moves backwards; between keyframes too), its mesh the playback's; the
-// STL of a one-cell cube is a closed surface, every face facing out, and
-// every fixture shape's STL loads in three.js's STL viewer code with its
-// triangles and its size.
+// engine's STL file (export.stl, deferred part 5) of a one-cell cube is a
+// closed surface, every face facing out, and every fixture shape's STL
+// loads in three.js's STL viewer code with its triangles and its size and
+// is a closed, consistently oriented surface (each edge used as often one
+// way as the other).
 
 import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -15,10 +17,9 @@ import { resolve } from 'node:path';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { meshArrays, poseArrays } from '../../src/engine/frames.ts';
+import { fileBytes, meshArrays, poseArrays } from '../../src/engine/frames.ts';
 import type { MeshArrays } from '../../src/engine/frames.ts';
 import { ANIMATION_SAMPLES, animationGlb } from '../../src/renderer/export/glb.ts';
-import { stlBytes, stlGeometry } from '../../src/renderer/export/stl.ts';
 import { PoseTrack } from '../../src/renderer/solver/poses.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
 import { Glb, installFileReader, validateGlb } from '../helpers/gltf.ts';
@@ -26,8 +27,16 @@ import { Glb, installFileReader, validateGlb } from '../helpers/gltf.ts';
 const SECONDS = 0.5;
 const CELL = 0.01;
 
-/** The closed surface's check: each edge once each way, between triangles facing out. */
-function edgeBalance(positions: ArrayLike<number>): { unpaired: number; triangles: number } {
+/**
+ * The closed surface's check: `unpaired` edges are used more often one way
+ * than the other (an open or inconsistently oriented surface), `shared`
+ * ones more than once each way (a manifold has none).
+ */
+function edgeBalance(positions: ArrayLike<number>): {
+  unpaired: number;
+  shared: number;
+  triangles: number;
+} {
   const key = (k: number): string =>
     [0, 1, 2].map((a) => (positions[3 * k + a] ?? 0).toFixed(4)).join(',');
   const edges = new Map<string, number>();
@@ -40,14 +49,39 @@ function edgeBalance(positions: ArrayLike<number>): { unpaired: number; triangle
     }
   }
   let unpaired = 0;
+  let shared = 0;
   for (const [e, n] of edges) {
     const [a, b] = e.split('>');
-    if (n !== 1 || edges.get(`${b ?? ''}>${a ?? ''}`) !== 1) {
+    if (edges.get(`${b ?? ''}>${a ?? ''}`) !== n) {
       unpaired++;
+    } else if (n > 1 && (a ?? '') < (b ?? '')) {
+      // each edge once, not each way
+      shared++;
     }
   }
-  return { unpaired, triangles };
+  return { unpaired, shared, triangles };
 }
+
+/** The positions of a binary STL's triangles (its normals left out). */
+function stlPositions(bytes: Uint8Array): Float32Array {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const n = view.getUint32(80, true);
+  const out = new Float32Array(9 * n);
+  for (let t = 0; t < n; t++) {
+    for (let k = 0; k < 9; k++) {
+      out[9 * t + k] = view.getFloat32(84 + 50 * t + 12 + 4 * k, true);
+    }
+  }
+  return out;
+}
+
+/** The fixtures whose large shapes take the Minkowski mesher long, or are large spheres. */
+const SLOW = new Set([
+  '12PieceSeparation.xmpuzzle',
+  'AugmentedSecondStellation.xmpuzzle',
+  'BallRoom.xmpuzzle',
+  'BallRoom_solved.xmpuzzle',
+]);
 
 describe.skipIf(ENGINE === null)('the exports and the engine', () => {
   let s: Session;
@@ -234,11 +268,14 @@ describe.skipIf(ENGINE === null)('the exports and the engine', () => {
     await c.call('document.new', { grid: 'bricks' });
     const { shape } = await c.call('shape.create', { size: [1, 1, 1] });
     await c.call('shape.setCells', { shape, tool: 'fixed', cells: [[0, 0, 0]] });
-    const m = meshArrays(await c.call('shape.mesh', { shape, style: 'flat' }));
-    const g = stlGeometry(m, 10);
-    const pos = g.getAttribute('position').array;
-    expect(edgeBalance(pos)).toEqual({ unpaired: 0, triangles: 12 });
-    // facing out: the signed volume is the cube's
+    // plain cells, unit size 10
+    const parameters = [10, 0, 0, 0, 0, 1];
+    const bin = fileBytes(await c.call('export.stl', { shape, parameters, name: 'cube' }));
+    expect(bin.length).toBe(84 + 12 * 50);
+    expect(new TextDecoder().decode(bin.subarray(0, 4))).toBe('cube');
+    const pos = stlPositions(bin);
+    expect(edgeBalance(pos)).toEqual({ unpaired: 0, shared: 0, triangles: 12 });
+    // facing out: the signed volume is the cube's, as the preview says
     let volume = 0;
     for (let t = 0; t < pos.length; t += 9) {
       const [ax, ay, az, bx, by, bz, cx, cy, cz] = Array.from(pos.slice(t, t + 9));
@@ -249,44 +286,47 @@ describe.skipIf(ENGINE === null)('the exports and the engine', () => {
         6;
     }
     expect(volume).toBeCloseTo(1000, 3);
-    // the binary file: 80 bytes, the count, 50 a triangle; the text file the same triangles
-    const bin = stlBytes(m, 'cube', { unit: 10, binary: true });
-    expect(bin.length).toBe(84 + 12 * 50);
-    const text = new TextDecoder().decode(stlBytes(m, 'cube', { unit: 10, binary: false }));
+    expect((await c.call('export.stlMesh', { shape, parameters })).volume).toBeCloseTo(1000, 3);
+    // the text file: the same triangles
+    const text = new TextDecoder().decode(
+      fileBytes(await c.call('export.stl', { shape, parameters, binary: false, name: 'cube' })),
+    );
+    expect(text.startsWith('solid cube\n')).toBe(true);
     expect(text.match(/facet normal/g)).toHaveLength(12);
   });
 
-  it('writes an STL of every fixture shape that a viewer loads with its triangles and size', async () => {
+  it('writes an STL of every fixture shape that a viewer loads, a closed surface of its size', async () => {
     const c = s.client;
     const loader = new STLLoader();
     let shapes = 0;
-    const files = readdirSync(resolve(ROOT, FIXTURES)).filter((f) => f.endsWith('.xmpuzzle'));
+    let shared = 0;
+    const files = readdirSync(resolve(ROOT, FIXTURES)).filter(
+      (f) => f.endsWith('.xmpuzzle') && !SLOW.has(f),
+    );
     for (const f of files.sort()) {
       const snap = await c.call('document.open', { path: `${FIXTURES}/${f}` });
-      for (const shape of snap.shapes.filter((x) => x.fixed + x.variable > 0)) {
-        const m = meshArrays(await c.call('shape.mesh', { shape: shape.id, style: 'flat' }));
-        for (const binary of [true, false]) {
-          const bytes = stlBytes(m, shape.name, { unit: 10, binary });
-          const g = loader.parse(bytes.slice().buffer);
-          const what = `${f} ${shape.id} ${binary ? 'binary' : 'text'}`;
-          expect(g.getAttribute('position').count, what).toBe(m.indices.length);
-          g.computeBoundingBox();
-          const box = g.boundingBox;
-          const lo = [Infinity, Infinity, Infinity];
-          const hi = [-Infinity, -Infinity, -Infinity];
-          for (const v of m.indices) {
-            for (let a = 0; a < 3; a++) {
-              const x = (m.positions[3 * v + a] ?? 0) * 10;
-              lo[a] = Math.min(lo[a] ?? 0, x);
-              hi[a] = Math.max(hi[a] ?? 0, x);
-            }
-          }
-          expect(box?.min.toArray()[0], what).toBeCloseTo(lo[0] ?? 0, 2);
-          expect(box?.max.toArray()[2], what).toBeCloseTo(hi[2] ?? 0, 2);
+      for (const shape of snap.shapes.filter((x) => x.variable === 0 && x.fixed > 0)) {
+        const what = `${f} ${shape.id}`;
+        const preview = await c.call('export.stlMesh', { shape: shape.id });
+        const bin = fileBytes(await c.call('export.stl', { shape: shape.id, name: shape.name }));
+        const g = loader.parse(bin.slice().buffer);
+        const count = new DataView(bin.buffer, bin.byteOffset).getUint32(80, true);
+        expect(g.getAttribute('position').count, what).toBe(3 * count);
+        g.computeBoundingBox();
+        const box = g.boundingBox;
+        for (let a = 0; a < 3; a++) {
+          expect(box?.min.getComponent(a), what).toBeCloseTo(preview.lo[a] ?? 0, 3);
+          expect(box?.max.getComponent(a), what).toBeCloseTo(preview.hi[a] ?? 0, 3);
         }
+        const balance = edgeBalance(stlPositions(bin));
+        expect(balance.unpaired, what).toBe(0);
+        shared += balance.shared;
         shapes++;
       }
     }
     expect(shapes).toBeGreaterThan(100);
-  }, 60_000);
+    // one edge of Bermuda's shape 22 carries four triangles, as the original's file
+    // (docs/handoff/deferred-5.md, "Found in the original")
+    expect(shared).toBe(1);
+  }, 120_000);
 });

@@ -8,7 +8,7 @@
 // the mockup's placeholders (File, Toggle 3D, Export, Status, Edit comment,
 // Help, About). What this version cannot do yet is shown greyed: the
 // imports of PuzzleSolver3D and Puzzlecad, the Puzzlecad export, grid
-// conversion, the anaglyph modes and the STL-like style. The keys shown
+// conversion and the anaglyph modes. The keys shown
 // are the one keyboard table's (renderer/shell/keys.ts, sent in the
 // state): the menus show them and do not register them, so a key press
 // reaches the page and is handled once, by the table. Free of Electron but
@@ -251,7 +251,10 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         cmd: 'style',
         style: 'wireframe',
       }),
-      radio('style.stl', 'Draw Pieces like STL Export', false, null),
+      radio('style.stl', 'Draw Pieces like STL Export', s.style === 'stl', {
+        cmd: 'style',
+        style: 'stl',
+      }),
       ...(h.dev ? [SEP, { role: 'reload' as const }, { role: 'toggleDevTools' as const }] : []),
     ],
   };

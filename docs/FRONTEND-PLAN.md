@@ -474,7 +474,8 @@ table); settings and layouts survive a restart. Windows by hand.
   `GLTFExporter`, the original's `gltfexport.cpp` as the reference for
   the holds and reassembly), **STL** from the flat mesh as an interim
   (the bevelled STL meshes are a later core feature; say so in the
-  dialog), the **paused solver state** (stage 6). Puzzlecad export waits
+  dialog; replaced by the engine's STL meshes in deferred part 5), the
+  **paused solver state** (stage 6). Puzzlecad export waits
   for the core (its text needs the grid's cell geometry rules).
 
 **Gate.** The GLB passes the glTF validator and, at sampled times, places
@@ -516,7 +517,7 @@ PLAN.md's "Later" list.
 | Menus: New, Open, Save, Save As, recent, notes, status window, about (§7.1) | `document.*`, `shape.table`, `engine.info` | Client (stage 6) |
 | Import PuzzleSolver3D, Puzzlecad; Convert grid type (§7.1) | none | Later (core) |
 | Export: image, vector image, GLB (§7.1) | `playback.track`, `playback.mesh` | Client (stage 7) |
-| Export: STL (§5, §7.1) | the drawing and flat meshes; the STL meshes (`cubemesh`, `minkmesh`) are not ported | Interim from the flat mesh (stage 7); the real one later |
+| Export: STL (§5, §7.1) | `export.stlParameters`, `export.stlMesh`, `export.stl`, `export.solutionPieces` (deferred part 5: `cubemesh`, `minkmesh` with Manifold) | Interim from the flat mesh (stage 7); **done** in deferred part 5: both STL dialogs (webui-spec.md §10) |
 | Export: Puzzlecad (§7.1) | none | Later |
 | Paused solver state import and export (§7.2) | `solve.importPaused`, `exportPaused` | Client (stage 6) |
 | This fork's solver options (§7.2) | `SolveOptions` has them all; High Memory is `SolveOptions.sliding.highMemory` (deferred part 1) | **Done** in deferred part 2: "Enable High Memory" with the sliding options (webui-spec.md §8.3) |
@@ -525,7 +526,7 @@ PLAN.md's "Later" list.
 | Debug statistics panel (§7.2) | `solve.status.stats` | Client (stage 5) |
 | Sliding and stacking puzzles (§7.3) | sliding: solved and played (`SolveOptions.sliding`, routes), start/goal shapes and stamps (`sliding.*`, deferred part 1); stacking: solved, paused, carried on and played (`SolveOptions.stacking`, saved searches in `panexFolder`), rod sets, discs and stacks (`stacking.*`, deferred part 3b) | Sliding: **done** (deferred part 2, webui-spec.md §8). Stacking: **done** (deferred part 4, webui-spec.md §9) |
 | Anaglyph display (§7.4) | none | Client, three.js's anaglyph effect (cheap; decide in stage 6) |
-| Render styles (§7.4) | drawing, wireframe, flat | STL-like waits for the STL meshes |
+| Render styles (§7.4) | drawing, wireframe, flat, stl (deferred part 5) | **Done**: the STL-like style in deferred part 5 (webui-spec.md §10.3) |
 | Colour-constraint colour view (§7.4) | per-triangle `colour` in every mesh | Client (stage 1b) |
 | Transform sets of rhombic and tetra-octa grids (§7.5) | `shape.taskSet` gives each grid's buttons with labels | Client renders what the engine lists |
 | XZ and YZ planes on non-cube grids (§7.5) | `grid.geometry` draws XY layers | Cube grid only, as the mockup; the original had no more |

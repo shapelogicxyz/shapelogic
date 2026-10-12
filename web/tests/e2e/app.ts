@@ -287,7 +287,10 @@ export async function display(page: Page, key: string): Promise<void> {
 }
 
 /** The style the view draws now. */
-export async function style(page: Page, s: 'drawing' | 'wireframe' | 'flat'): Promise<void> {
+export async function style(
+  page: Page,
+  s: 'drawing' | 'wireframe' | 'flat' | 'stl',
+): Promise<void> {
   await display(page, s);
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`:${s}$`));
   await settle(page);

@@ -30,6 +30,7 @@ import { esc } from '../shell/dom.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
 import type { FaceUniforms } from './material.ts';
+import { hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 
 /** What the scene shows; `key` names it (the e2e tests wait for it). */
@@ -237,7 +238,7 @@ export class PiecesScene {
     setPalette(u, look.palette);
     u.uColourView.value = look.colourView ? 1 : 0;
     u.uLit.value = look.lit ? 1 : 0;
-    u.uChecker.value = look.style === 'flat' ? 0 : 1;
+    u.uChecker.value = hasChecker(look.style) ? 1 : 0;
     for (const [shape, d] of this.shapes) {
       setPiece(d.uniforms, look.colourOf(shape));
     }

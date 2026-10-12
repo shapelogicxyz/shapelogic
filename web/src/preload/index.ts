@@ -90,6 +90,21 @@ const btApp: BtApp = {
       throw new Error(r.error ?? 'the file could not be written');
     }
   },
+  chooseFolder() {
+    return ipcRenderer.invoke('bt:choose-folder') as Promise<string | null>;
+  },
+  async existingExports(folder, names) {
+    return ((await ipcRenderer.invoke('bt:existing-exports', folder, names)) as number | null) ?? 0;
+  },
+  async writeFolderExport(folder, name, data) {
+    const r = (await ipcRenderer.invoke('bt:write-folder-export', folder, name, data)) as {
+      ok?: boolean;
+      error?: string;
+    };
+    if (r.ok !== true) {
+      throw new Error(r.error ?? 'the file could not be written');
+    }
+  },
   pathOf(file) {
     // a file from the file system (dropped) has a path; one the page made has none
     const path = webUtils.getPathForFile(file);

@@ -7,7 +7,9 @@
 // help links (the addresses are the main process's: the renderer names a
 // link, never a URL), the menus' state and the window's close; from stage
 // 7 the exports' files, written here (export-file.ts) and only to a path
-// this process's save dialog gave the same window for that kind, once.
+// this process's save dialog gave the same window for that kind, once,
+// and from deferred part 5 into the folder its folder dialog gave last,
+// by the names the engine gives a solution's pieces.
 // From stage 8 the files a window's engine may be given (path-grants.ts)
 // are granted here: what the open and save dialogs gave for a puzzle or a
 // paused solve, the rescue record's file, a file dropped on the window.
@@ -21,7 +23,7 @@ import { basename, dirname, extname, join } from 'node:path';
 
 import { isExportKind, isFileKind, isMenuState, isRescueInfo } from '../engine/app-bridge.ts';
 import type { FileKind, HelpLink, MenuState, StoredState } from '../engine/app-bridge.ts';
-import { ExportGrants, writeFileSafely } from './export-file.ts';
+import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { RescueStore } from './rescue.ts';
 import { HELP_URLS } from './security.ts';
@@ -73,6 +75,8 @@ const isOpenKind = (v: unknown): v is 'puzzle' | 'paused' => v === 'puzzle' || v
 
 /** The paths the save dialog gave each window's renderer for an export: `bt:write-export` writes only these. */
 const grants = new ExportGrants<WebContents>((kind) => KINDS[kind].ext);
+/** The folder the folder dialog gave each window's renderer last: `bt:write-folder-export` writes only there. */
+const folders = new FolderGrants<WebContents>();
 
 export interface AppIpcHost {
   store: StateStore;
@@ -177,6 +181,68 @@ export function installAppIpc(h: AppIpcHost): void {
       return { error: err instanceof Error ? err.message : String(err) };
     }
   });
+
+  // a solution's STL files (deferred part 5): the folder dialog, then
+  // files of the engine's names in the folder it gave
+  ipcMain.handle('bt:choose-folder', async (e) => {
+    const win = ours(e);
+    if (win === null) {
+      return null;
+    }
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Choose the Output Folder',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: lastDir ?? defaultDir(),
+    });
+    const folder = r.canceled ? undefined : r.filePaths[0];
+    if (folder === undefined) {
+      return null;
+    }
+    lastDir = folder;
+    folders.grant(e.sender, folder);
+    return folder;
+  });
+
+  ipcMain.handle('bt:existing-exports', (e, folder: unknown, names: unknown) => {
+    if (
+      ours(e) === null ||
+      typeof folder !== 'string' ||
+      !folders.has(e.sender, folder) ||
+      !Array.isArray(names)
+    ) {
+      return 0;
+    }
+    return names.filter(
+      (n): n is string =>
+        typeof n === 'string' && isPieceFileName(n) && existsSync(join(folder, n)),
+    ).length;
+  });
+
+  ipcMain.handle(
+    'bt:write-folder-export',
+    async (e, folder: unknown, name: unknown, data: unknown) => {
+      if (
+        ours(e) === null ||
+        typeof folder !== 'string' ||
+        typeof name !== 'string' ||
+        !(data instanceof Uint8Array)
+      ) {
+        return { error: 'nothing to write' };
+      }
+      if (!folders.has(e.sender, folder)) {
+        return { error: "the folder was not chosen in the export's dialog" };
+      }
+      if (!isPieceFileName(name)) {
+        return { error: `${name} is not a piece's file name` };
+      }
+      try {
+        await writeFileSafely(join(folder, name), data);
+        return { ok: true };
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  );
 
   ipcMain.handle('bt:load-state', (e): StoredState | null => {
     if (ours(e) === null) {

@@ -11,8 +11,11 @@
 // is this write's own, made exclusively, never one already at that name
 // (the web stage 8 audit: a link planted there carried the bytes to the
 // file it named). And which paths a window may have written
-// (`ExportGrants`): those its save dialog gave it for an export, once each.
-// Free of Electron (the unit tests use it).
+// (`ExportGrants`): those its save dialog gave it for an export, once each;
+// and from deferred part 5 the folder its folder dialog gave it for a
+// solution's STL files (`FolderGrants`), files there named only as the
+// engine names them (`isPieceFileName`). Free of Electron (the unit tests
+// use it).
 
 import {
   access,
@@ -142,5 +145,33 @@ export class ExportGrants<K extends WeakKey> {
     }
     m.delete(path);
     return extname(path).toLowerCase() === this.extension(kind) ? kind : null;
+  }
+}
+
+/**
+ * Whether a name is one a solution's STL export may write into its folder:
+ * what the engine's export.solutionPieces names files (ASCII letters,
+ * digits, '-' and '_', then ".stl"), so it cannot leave the folder or
+ * name another kind of file.
+ */
+export function isPieceFileName(name: string): boolean {
+  return name.length <= 255 && /^[A-Za-z0-9_-]+\.stl$/.test(name);
+}
+
+/**
+ * The folder each window (by a key: its renderer) may write a solution's
+ * STL files into (deferred part 5): the one its folder dialog gave last.
+ */
+export class FolderGrants<K extends WeakKey> {
+  private readonly granted = new WeakMap<K, string>();
+
+  /** The folder dialog gave this folder (replacing the one before). */
+  grant(key: K, folder: string): void {
+    this.granted.set(key, folder);
+  }
+
+  /** Whether the window may write into this folder. */
+  has(key: K, folder: string): boolean {
+    return this.granted.get(key) === folder;
   }
 }

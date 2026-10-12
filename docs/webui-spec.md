@@ -217,9 +217,10 @@ Rotation turns each piece about its own centre.
 3. **Sliding and Stacking/Panex puzzles**: sliding in section 8 (deferred
    part 2); stacking in section 9 (deferred part 4): rods, disc sizes, start/goal
    trays, Panex columns, pocket column.
-4. **Display modes:** colour-constraint colours exist (`colorView`), anaglyph
-   and the original's three render styles (bevelled voxels, flat with edges,
-   STL-like) do not. Decide which to keep.
+4. **Display modes:** colour-constraint colours exist (`colorView`), and the
+   original's render styles (bevelled voxels, flat with edges, the wire
+   frame, and since deferred part 5 the STL-like one, section 10.3);
+   anaglyph does not.
 5. **Non-cube grids:** transform sets for rhombic and tetra-octa, mirror and
    span tools, XZ/YZ planes (OQ-19 in the mockup's spec).
 
@@ -527,7 +528,89 @@ disc lies flat, the rods stand up).
   on in the app (also after a restart); the `.btsolve` export carries it
   to `bt` or the original.
 
-## 10. Mapping to the original
+## 10. The STL export and the STL-like style (deferred part 5)
+
+The original's two STL dialogs (`src/gui/stlexport.cpp`,
+`src/gui/stlexportsolution.cpp`) and its fourth render style
+(`voxelframe.cpp`'s `styleSTL`, `getSTLMesh`). Everything the dialogs
+show comes from the engine: the grid's parameters
+(`export.stlParameters`), the preview's mesh and volume
+(`export.stlMesh`), the file's bytes (`export.stl`), a solution's pieces
+and their file names (`export.solutionPieces`); the page writes the bytes
+through the main process, to paths its own dialogs gave.
+
+### 10.1 File ▸ Export ▸ STL… (`stlExport_c`)
+
+A dialog "Export STL" (`#exportStl`), wide, in two columns:
+- **Left:** the grid's parameters, one row each, in the original's order
+  with its labels and tooltips (cube, prism, rhombic and tetra-octa grids:
+  Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers;
+  spheres: Sphere radius, Connection radius, Curvature radius, Offset,
+  Recursions, Inner radius, Hole diameter, Square Hole): a number field
+  for numbers (shown as the original's `%2.2f`), a whole-number field for
+  Recursions (`%i`), a check box for a switch. **Binary STL** (on). The
+  shape: a list of the puzzle's shapes (label, name), the selected shape
+  first chosen (the original's PieceSelector started at the first).
+- **Right:** the preview, a small 3D view of the STL mesh of the chosen
+  shape at the values as they are (drag turns it, the wheel zooms), in the
+  piece's colour, lit, with the original's two modes as a pair of buttons:
+  **Normal** and **Insides** ("Display the insides of the STL object": the
+  inner faces drawn, the outer ones faint, as x-ray). Under it the status
+  line: "Volume: 123.4 cubic-units" (`%1.1f`), or the engine's refusal in
+  the original's words ("Unit size too small", "Shapes with variable
+  voxels cannot be exported", "The generated mesh is faulty in some way,
+  try to tweak the parameter") with the preview emptied, as the original
+  showed nothing.
+- A changed field or shape updates the preview (on change, as the
+  original's field callbacks; a field that is not a number says so in the
+  status line and keeps the last preview).
+- Buttons: **Close** (the original's Abort) and **Export STL…**: the
+  system's save dialog (the original's File name and Path fields and its
+  "..." chooser), proposing "<shape name, else label>.stl" in the
+  puzzle's folder; the system dialog asks before replacing a file (the
+  original asked "File exists overwrite?"). The file's solid is named by
+  the file's name, as the original's. The dialog stays open, as the
+  original's did; the status bar says "Exported name.stl".
+- A large shape on the prism, rhombic or tetra-octa grid takes seconds
+  (the Minkowski mesher): the status line says "Building the mesh…" while
+  the engine works.
+
+### 10.2 Solutions ▸ Export to STL (`stlExportSolution_c`)
+
+The Solver's solutions card's **Export to STL** (enabled with a solution
+chosen; greyed while nothing is chosen) opens "Export Solution Pieces to
+STL" (`#exportStlSolution`):
+- The grid's parameters and **Binary STL**, as in 10.1 (no preview, as
+  the original's).
+- **Output folder**: the folder chosen, and **Choose…** (the system's
+  folder dialog; the original's "..." picked a file inside it). Until one
+  is chosen, Export All is greyed (the original started at ".", the
+  folder the program was started from, which a packaged app has no use
+  for).
+- The box "Pieces placed in solution N:", one line per distinct shape the
+  assembly places: "S2  Frame1  ×1" (without a name "S4  ×1"), then
+  "Total instances: 6"; the file each is written to is its own
+  (`fileName`: the name made safe, told apart).
+- **Export All** writes one file per piece into the folder; when some of
+  them are there already it asks first: "N output file(s) already exist.
+  Overwrite?" (Cancel, Overwrite). The status line then says "Done —
+  exported 5 piece type(s)." or "Done — exported 4 piece type(s), 1
+  error(s)." with each error told in a message box ("Error exporting
+  name:" and the reason), as the original. **Close** closes it.
+
+### 10.3 The STL-like style
+
+View ▸ **Draw Pieces like STL Export** (enabled; the fourth of the style
+radio items) and the Display menu's Style **Like the STL export**: the
+pieces drawn with the STL mesh at the view's own parameters (the engine's
+`shape.mesh` style `stl`: gap 0.02 and bevel 0.05 of a cell with interior
+chamfers, the sphere grid's balls at two recursions), each in one colour
+(no checker, no edge lines), as the original drew `styleSTL`; everything
+else as in the bevelled style (3D editing picks the cell under the
+pointer, the wire mode of a piece stays the wire frame). On the prism,
+rhombic and tetra-octa grids a large shape takes seconds the first time.
+
+## 11. Mapping to the original
 
 | UI | Original code (burrtools_rotations) |
 |---|---|
@@ -546,6 +629,7 @@ disc lies flat, the rods stand up).
 | Solutions list, sort, remove | `problem_c` solutions, `mainwindow.cpp` sort/delete callbacks |
 | Disassembly player | `disasmtomoves.cpp`, `voxelframe.cpp` animation |
 | Analyse disassembly | `mainwindow_solve.cpp` re-disassemble |
-| Export to STL | `stlexportsolution.cpp` (later in this project) |
+| Export to STL | `stlexportsolution.cpp` (section 10.2) |
+| File ▸ Export ▸ STL, the STL-like style | `stlexport.cpp`, `voxelframe.cpp`'s `styleSTL` (section 10) |
 | Rod sets, discs, stacks, the validity bar | `mainwindow_rods.cpp`, `BlockList.cpp` (`DiskSelector`, `RodSelector`, `RodStackList`), `rodbars.h` |
 | The stacking view, the player in transfers | `voxelframe.cpp` (`showRodSet`, `showStacking`, `showStackingAssembly`), `mainwindow_solve.cpp` (`animStep`) |

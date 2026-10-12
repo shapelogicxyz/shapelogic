@@ -128,6 +128,8 @@ export class SolverWorkspace {
   readonly explorer: Explorer;
   /** The debug statistics panel. */
   readonly stats: StatsPanel;
+  /** Solutions ▸ Export to STL: the exports' dialog for a solution (set by the app). */
+  exportStl: ((problem: string, row: SolutionRow) => void) | null = null;
   private readonly view3d: View3D;
   private readonly runCard: RunCard;
   private readonly solCard: SolutionsCard;

@@ -21,6 +21,7 @@ import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
 import type { FaceUniforms } from './material.ts';
+import { hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 import { Overlays } from './overlays.ts';
 import type { OverlayOptions } from './overlays.ts';
@@ -115,7 +116,7 @@ export class ShapeScene {
     u.uColourView.value = look.colourView ? 1 : 0;
     u.uLit.value = look.lit ? 1 : 0;
     // the checker is the bevelled style's and the wire frame's (drawShape's `checker`)
-    u.uChecker.value = look.style === 'flat' ? 0 : 1;
+    u.uChecker.value = hasChecker(look.style) ? 1 : 0;
     u.uDimAxis.value = look.dim === null ? -1 : look.dim.axis;
     u.uLayer.value = look.dim === null ? 0 : look.dim.layer;
     this.xray = look.xray;

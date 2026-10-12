@@ -2,8 +2,8 @@
 //
 // File ▸ Export (stage 7): Image (the view as a PNG at its size or twice
 // it), Vector Image (the view as an SVG over the flat meshes,
-// view3d/svg.ts), STL (a shape's flat mesh, an interim: stl.ts) and
-// Solution Animation (the solution the Solver shows as a .glb: glb.ts,
+// view3d/svg.ts), STL (the engine's STL meshes and files, deferred part 5:
+// stl-dialogs.ts, also Solutions ▸ Export to STL) and Solution Animation (the solution the Solver shows as a .glb: glb.ts,
 // with the original's dialog, gltfexportwindow.cpp). Each asks its
 // options, then the file (the main process's save dialog, which alone
 // gives a path the main process will write an export to), makes the
@@ -16,15 +16,15 @@ import type { SolutionRow } from '../../engine/api.generated.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { openDialog } from '../shell/dialog.ts';
-import { byId, esc } from '../shell/dom.ts';
+import { byId } from '../shell/dom.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { flash, reportError } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { positive } from './form.ts';
 import { ANIMATION_DEFAULTS, ANIMATION_SAMPLES, animationGlb } from './glb.ts';
 import type { AnimationOptions, AnimationPiece } from './glb.ts';
-import { STL_DEFAULTS, stlBytes } from './stl.ts';
-import type { StlOptions } from './stl.ts';
+import { shapeStlDialog, solutionStlDialog } from './stl-dialogs.ts';
+import type { StlContext } from './stl-dialogs.ts';
 
 /** The solution the Solver shows with its moves stored, as the animation needs it. */
 export interface AnimationSource {
@@ -64,7 +64,6 @@ export class Exports {
   private readonly host: ExportsHost;
   /** The choices of the last export of each kind, for the next. */
   private scale = 1;
-  private stl: StlOptions = { ...STL_DEFAULTS };
   private animationOptions: AnimationOptions = { ...ANIMATION_DEFAULTS };
   private written = 0;
 
@@ -151,69 +150,27 @@ export class Exports {
     }
   }
 
-  /** File ▸ Export ▸ STL: a shape's flat mesh (an interim until the STL meshes are ported). */
+  // what the STL dialogs need
+  private get stlContext(): StlContext {
+    return {
+      store: this.store,
+      app: this.app,
+      base: this.base,
+      write: (path, data) => this.write(path, data),
+    };
+  }
+
+  /** File ▸ Export ▸ STL: a shape's STL file, with the preview (stl-dialogs.ts). */
   async stlFile(): Promise<void> {
-    const snap = this.store.snapshot;
-    if (!this.ready() || snap === null) {
-      return;
+    if (this.ready()) {
+      await shapeStlDialog(this.stlContext);
     }
-    const shapes = snap.shapes.filter((s) => s.fixed + s.variable > 0);
-    if (shapes.length === 0) {
-      flash('There is no shape with cells to export');
-      return;
-    }
-    const first = shapes.find((s) => s.id === this.store.shape?.id) ?? shapes[0];
-    let chosen = first?.id ?? '';
-    let options = this.stl;
-    const go = await openDialog({
-      id: 'exportStl',
-      title: 'Export STL',
-      body: `<div class="form">
-<p>The shape’s flat faces, as the 3D view’s “flat faces with edges” style draws them: <b>an interim</b>. The STL meshes of the original, with bevelled edges and an offset for printing, come in a later version.</p>
-<label class="fl">Shape<select data-f="shape">${shapes.map((s) => `<option value="${esc(s.id)}" ${s === first ? 'selected' : ''}>${esc(s.label)}${s.name === '' ? '' : ` — ${esc(s.name)}`}</option>`).join('')}</select></label>
-<label class="fl" title="The size of one cell's unit (millimetres in most programs)">Unit Size<input data-f="unit" value="${String(this.stl.unit)}" inputmode="decimal"></label>
-<label><input type="checkbox" data-f="binary" ${this.stl.binary ? 'checked' : ''}> Binary STL</label></div>`,
-      buttons: [
-        { key: 'cancel', label: 'Cancel' },
-        { key: 'go', label: 'Export…', kind: 'pri', default: true },
-      ],
-      onAnswer: (k, el) => {
-        if (k !== 'go') {
-          return true;
-        }
-        const unit = positive(el.querySelector<HTMLInputElement>('[data-f="unit"]')?.value ?? '');
-        if (unit === null) {
-          flash('The unit size must be a number above 0', 4000);
-          return false;
-        }
-        chosen = el.querySelector<HTMLSelectElement>('[data-f="shape"]')?.value ?? chosen;
-        options = {
-          unit,
-          binary: el.querySelector<HTMLInputElement>('[data-f="binary"]')?.checked ?? true,
-        };
-        return true;
-      },
-    });
-    if (go !== 'go') {
-      return;
-    }
-    this.stl = options;
-    const shape = this.store.snapshot?.shapes.find((s) => s.id === chosen);
-    if (shape === undefined) {
-      return;
-    }
-    const proposed = shape.name.trim() === '' ? `${this.base} ${shape.label}` : shape.name.trim();
-    const path = await this.app.chooseSave('stl', `${proposed}.stl`);
-    if (path === null) {
-      return;
-    }
-    try {
-      const revision = this.store.snapshot?.revision ?? 0;
-      const reply = await this.view.meshCache.get(shape.id, 'flat', revision);
-      const name = shape.name.trim() === '' ? shape.label : shape.name.trim();
-      await this.write(path, stlBytes(meshArrays(reply), name, options));
-    } catch (e) {
-      reportError(e, 'Export the STL file');
+  }
+
+  /** Solutions ▸ Export to STL: the pieces of a solution, a file each, into a folder. */
+  async solutionStl(problem: string, solution: { id: string; index: number }): Promise<void> {
+    if (this.ready()) {
+      await solutionStlDialog(this.stlContext, problem, solution);
     }
   }
 

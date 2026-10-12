@@ -5,17 +5,30 @@
 // each the view's picture (compared with a screenshot of the view) and a
 // reference image; Vector Image of the same shape in the flat style, the
 // SVG drawn by the page like the view and a reference image of it; STL
-// of a shape, binary and text, its triangles the flat mesh's, the dialog
-// saying it is an interim; Solution Animation of a solution the Solver
+// of a shape (deferred part 5: the grid's parameters with the original's
+// labels, the preview and its volume, a refusal in the original's words,
+// the file the original writes, byte for byte, binary and text);
+// Solutions ▸ Export to STL (the pieces of CubeInCage's first solution
+// into a folder: the original's names and bytes, the question before
+// files are replaced); Solution Animation of a solution the Solver
 // shows, greyed without one, its .glb passing Khronos's validator with
 // the playback's pieces and the player's colours; an export refused for
 // a path no dialog gave and for a read-only file, which is left as it
 // was; Puzzlecad still greyed. The engine tests check the .glb's poses
 // against the player's and the STL's surface (tests/engine/exports.test.ts).
 
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -38,6 +51,12 @@ import {
 import { listRows, solverSettled, toSolver } from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
+
+/** What the original's STL exports wrote for CubeInCage (`oracle.py stl-solution`). */
+const RECORDED = resolve(
+  import.meta.dirname,
+  '../../../tests/data/stl_solution_by_original/CubeInCage',
+);
 
 /** The size of a PNG (its IHDR). */
 function pngSize(data: Buffer): { width: number; height: number } {
@@ -118,6 +137,30 @@ async function viewShot(page: Page): Promise<Buffer> {
       el.parentNode?.removeChild(el);
     });
   }
+}
+
+/**
+ * Two binary STL files alike: the header, the count, the corners and the
+ * attributes byte for byte, the facet normals within 1e-5 (an x86-64 build
+ * without fused multiply-add rounds them a little differently from the
+ * arm64 build the original's recording comes from).
+ */
+function sameStl(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length || !a.subarray(0, 84).equals(b.subarray(0, 84))) {
+    return false;
+  }
+  for (let t = 0; t < a.readUInt32LE(80); t++) {
+    const at = 84 + 50 * t;
+    if (!a.subarray(at + 12, at + 50).equals(b.subarray(at + 12, at + 50))) {
+      return false;
+    }
+    for (let k = 0; k < 3; k++) {
+      if (Math.abs(a.readFloatLE(at + 4 * k) - b.readFloatLE(at + 4 * k)) > 1e-5) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /** Waits for the n-th export written in this window. */
@@ -217,46 +260,71 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
     await openFixture(page, 'CubeInCage.xmpuzzle');
     const shape = (await shapes(page)).find((s) => s.label === 'S2');
     await selectShape(page, shape?.id ?? '');
-    const flat = await engineCall<{ triangles: number }>(page, 'shape.mesh', {
-      shape: shape?.id,
-      style: 'flat',
-    });
 
-    // STL: the dialog says it is an interim; binary, then text at another unit
+    // STL (stlexport.cpp): the parameters with the original's labels and values
     let n = 0;
-    const stl = join(dir, 'piece.stl');
+    const stl = join(dir, 'Frame1.stl');
+    await menu(page, 'export.stl');
+    const dlg = page.locator('#exportStl');
+    await expect(dlg).toBeVisible();
+    await expect(dlg.locator('[data-f="shape"]')).toHaveValue(shape?.id ?? '');
+    await expect(dlg.locator('label[title]')).toHaveText([
+      'Unit Size',
+      'Unit Size Y',
+      'Unit Size Z',
+      'Bevel',
+      'Offset',
+      'Interior chamfers',
+    ]);
+    await expect(dlg.locator('[data-p="0"]')).toHaveValue('10.00');
+    await expect(dlg.locator('[data-p="3"]')).toHaveValue('0.30');
+    await expect(dlg.locator('[data-p="4"]')).toHaveValue('0.01');
+    // the preview and its volume; plain cells of unit size 1 are the cells' volume
+    await expect(dlg).toHaveAttribute('data-busy', '0');
+    await expect(dlg.locator('[data-f="status"]')).toContainText('Volume: ');
+    const { fixed: cells } = await engineCall<{ fixed: number }>(page, 'shape.info', {
+      shape: shape?.id,
+    });
+    await dlg.locator('[data-p="0"]').fill('1');
+    await dlg.locator('[data-p="3"]').fill('0');
+    await dlg.locator('[data-p="4"]').fill('0');
+    await dlg.locator('[data-p="4"]').press('Tab');
+    await expect(dlg).toHaveAttribute('data-volume', cells.toFixed(1));
+    // a value out of range: the original's words, and nothing shown
+    await dlg.locator('[data-p="0"]').fill('0');
+    await dlg.locator('[data-p="0"]').press('Tab');
+    await expect(dlg.locator('[data-f="status"]')).toHaveText('Unit size too small');
+    await expect(dlg).not.toHaveAttribute('data-volume');
+    // the defaults again, and the file the original writes for this shape
+    await dlg.locator('[data-p="0"]').fill('10.00');
+    await dlg.locator('[data-p="3"]').fill('0.30');
+    await dlg.locator('[data-p="4"]').fill('0.01');
+    await dlg.locator('[data-p="4"]').press('Tab');
+    await expect(dlg.locator('[data-f="status"]')).toContainText('Volume: ');
     await answerDialogs(page, { save: stl });
-    await menu(page, 'export.stl');
-    await expect(page.locator('#exportStl')).toContainText('later version');
-    await expect(page.locator('#exportStl [data-f="shape"]')).toHaveValue(shape?.id ?? '');
-    await page.click('#exportStl [data-x="go"]');
+    await dlg.locator('[data-x="go"]').click();
     await exported(page, ++n);
-    const bin = readFileSync(stl);
-    expect(bin.length).toBe(84 + 50 * flat.triangles);
-    expect(bin.readUInt32LE(80)).toBe(flat.triangles);
-    await menu(page, 'export.stl');
-    await page.fill('#exportStl [data-f="unit"]', '0');
-    await page.click('#exportStl [data-x="go"]');
-    // a unit of 0 keeps the dialog open
-    await expect(page.locator('#exportStl')).toBeVisible();
-    await page.fill('#exportStl [data-f="unit"]', '2.5');
-    await page.uncheck('#exportStl [data-f="binary"]');
-    await page.click('#exportStl [data-x="go"]');
+    expect(sameStl(readFileSync(stl), readFileSync(join(RECORDED, 'Frame1.stl')))).toBe(true);
+    // the dialog stays open, as the original's; text this time
+    await dlg.locator('[data-f="binary"]').uncheck();
+    await dlg.locator('[data-x="go"]').click();
     await exported(page, ++n);
     const text = readFileSync(stl, 'utf8');
-    expect(text.startsWith('solid')).toBe(true);
-    expect(text.match(/facet normal/g)).toHaveLength(flat.triangles);
+    expect(text.startsWith('solid Frame1.stl\n  facet normal ')).toBe(true);
+    expect(text.endsWith('endsolid\n')).toBe(true);
+    await dlg.locator('[data-f="binary"]').check();
 
     // a read-only file is refused and left as it was
     const locked = join(dir, 'locked.stl');
     writeFileSync(locked, 'old');
     chmodSync(locked, 0o444);
     await answerDialogs(page, { save: locked });
-    await menu(page, 'export.stl');
-    await page.click('#exportStl [data-x="go"]');
+    await dlg.locator('[data-x="go"]').click();
     await expect(page.locator('#stText')).toContainText('read-only');
     expect(readFileSync(locked, 'utf8')).toBe('old');
     expect(statSync(locked).mode & 0o777).toBe(0o444);
+    await dlg.locator('[data-x="close"]').click();
+    await expect(dlg).toBeHidden();
     // a path no dialog gave is not written
     const stray = join(dir, 'stray.png');
     const refused = await page.evaluate(
@@ -311,6 +379,75 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
       expect(c).toHaveLength(4);
       expect(c[3]).toBe(1);
     }
+
+    // Solutions ▸ Export to STL (stlexportsolution.cpp): CubeInCage's first solution
+    const folder = join(dir, 'pieces');
+    mkdirSync(folder);
+    await page.click('#slvAct [data-a="stl"]');
+    const sd = page.locator('#exportStlSolution');
+    await expect(sd).toBeVisible();
+    await expect(sd.locator('[data-f="pieces"]')).toHaveText(
+      [
+        'Pieces placed in solution 1:',
+        '  S2  Frame1  ×1',
+        '  S3  Frame2  ×2',
+        '  S4  ×1',
+        '  S5  ×1',
+        '  S6  ×1',
+        'Total instances: 6',
+      ].join('\n'),
+    );
+    // no folder yet: nothing to export into
+    await expect(sd.locator('[data-x="go"]')).toBeDisabled();
+    await answerDialogs(page, { open: folder });
+    await sd.locator('[data-a="folder"]').click();
+    await expect(sd.locator('[data-f="folder"]')).toHaveText(folder);
+    await sd.locator('[data-x="go"]').click();
+    await expect(sd).toHaveAttribute('data-exported', '1');
+    await expect(sd.locator('[data-f="status"]')).toHaveText('Done — exported 5 piece type(s).');
+    // the original's names and bytes
+    const names = readFileSync(join(RECORDED, 'pieces.txt'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((l) => l.split(' ')[2] ?? '');
+    expect(readdirSync(folder).sort()).toEqual([...names].sort());
+    for (const name of names) {
+      expect(
+        sameStl(readFileSync(join(folder, name)), readFileSync(join(RECORDED, name))),
+        name,
+      ).toBe(true);
+    }
+    // again: the question first, Cancel writes nothing, Overwrite all
+    await sd.locator('[data-x="go"]').click();
+    await expect(page.locator('#stlOverwrite')).toContainText(
+      '5 output file(s) already exist. Overwrite?',
+    );
+    await page.click('#stlOverwrite [data-x="cancel"]');
+    await expect(sd).toHaveAttribute('data-exported', '1');
+    await sd.locator('[data-x="go"]').click();
+    await page.click('#stlOverwrite [data-x="overwrite"]');
+    await expect(sd).toHaveAttribute('data-exported', '2');
+    // a name the engine did not give is not written there, nor a folder no dialog gave
+    const sneaky = await page.evaluate(async (f) => {
+      const bytes = new Uint8Array([1]);
+      const tries = [
+        window.btApp.writeFolderExport(f, '../escape.stl', bytes),
+        window.btApp.writeFolderExport(f, 'x.xmpuzzle', bytes),
+        window.btApp.writeFolderExport(`${f}-other`, 'x.stl', bytes),
+      ];
+      return Promise.all(
+        tries.map((t) =>
+          t.then(
+            () => 'written',
+            (e: unknown) => String(e),
+          ),
+        ),
+      );
+    }, folder);
+    expect(sneaky.every((r) => r !== 'written')).toBe(true);
+    expect(readdirSync(dir).sort()).not.toContain('escape.stl');
+    await sd.locator('[data-x="close"]').click();
+    await expect(sd).toBeHidden();
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The 3D view draws every shape of every fixture in the three styles, and
-// one shape of each grid in each look (drawing, wireframe, flat, unlit,
-// orthographic, the colour view) as reference screenshots
+// one shape of each grid in each look (drawing, wireframe, flat, the
+// STL-like style of deferred part 5, unlit, orthographic, the colour view)
+// as reference screenshots
 // (tests/e2e/__screenshots__, compared with a tolerance; recorded with
 // `npx playwright test --update-snapshots` after a look beside the
 // original GUI, docs/handoff/web-1b.md).
@@ -139,6 +140,9 @@ for (const [name, file, label] of REFERENCES) {
     await shot('wireframe');
     await style(page, 'flat');
     await shot('flat');
+    // the STL-like style (deferred part 5): the STL mesher's pieces in one colour
+    await style(page, 'stl');
+    await shot('stl');
     await style(page, 'drawing');
     await setting3d(page, 'lights');
     await shot('unlit');

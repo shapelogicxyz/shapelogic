@@ -12,6 +12,7 @@ import base64
 import gzip
 import pathlib
 import shutil
+import struct
 import sys
 import tempfile
 import time
@@ -1287,6 +1288,22 @@ def stacking_import_refused_while_solving(e):
 
 # ---- the STL export ----------------------------------------------------------------------------
 
+def same_stl(a, b):
+    """Two binary STL files alike: the header, the count, every corner and attribute the
+    same bytes, the facet normals within 1e-5 (an x86-64 build without fused multiply-add
+    rounds them a little differently from the arm64 build the recording comes from)."""
+    if len(a) != len(b) or a[:84] != b[:84]:
+        return False
+    for t in range(struct.unpack_from("<I", a, 80)[0]):
+        at = 84 + 50 * t
+        if a[at + 12:at + 50] != b[at + 12:at + 50]:
+            return False
+        na, nb = struct.unpack_from("<3f", a, at), struct.unpack_from("<3f", b, at)
+        if any(abs(u - v) > 1e-5 for u, v in zip(na, nb)):
+            return False
+    return True
+
+
 @test
 def stl_exports(e):
     params = e.call("export.stlParameters", {"grid": "spheres"})["parameters"]
@@ -1315,7 +1332,7 @@ def stl_exports(e):
     for x in pieces:
         r = e.call("export.stl", {"shape": x["shape"], "name": x["fileName"]})
         data = bytes(e.frame(r["frame"]).array("file"))
-        check(data == (recorded / x["fileName"]).read_bytes(), f"{x['fileName']} as the original's")
+        check(same_stl(data, (recorded / x["fileName"]).read_bytes()), f"{x['fileName']} as the original's")
 
     # the preview and its volume; the text file
     preview = e.call("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": defaults})

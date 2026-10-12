@@ -27,6 +27,7 @@ import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
 import type { FaceUniforms } from './material.ts';
+import { hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 
 /** How a piece is shown (the piece chips: solid → wire frame → hidden). */
@@ -259,7 +260,7 @@ export class SolutionScene {
     for (const d of this.draws) {
       const wire = d.piece.mode === 'wire';
       // the checker is the bevelled style's and the wire frame's
-      d.uniforms.uChecker.value = !wire && look.style === 'flat' ? 0 : 1;
+      d.uniforms.uChecker.value = wire || hasChecker(look.style) ? 1 : 0;
       if (d.faces !== null) {
         const m = d.faces.material as ReturnType<typeof faceMaterial>;
         // wire frames over the solid pieces with x-ray (the mockup's second pass)

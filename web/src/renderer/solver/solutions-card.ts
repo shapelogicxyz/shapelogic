@@ -246,6 +246,8 @@ export class SolutionsCard {
     }
     this.renderPlayer();
     this.renderChips();
+    // Export to STL follows the choice
+    this.renderActions();
   }
 
   private renderSort(): void {
@@ -261,8 +263,8 @@ export class SolutionsCard {
 
   /**
    * The actions: Manage solutions, and Export to STL (the original's
-   * "Export Solution to STL", each piece's STL mesh: it comes with the STL
-   * meshes; File ▸ Export ▸ STL writes a shape's flat faces meanwhile).
+   * "Export Solution Pieces to STL": each piece the solution places, a file
+   * each, deferred part 5), with a solution chosen.
    */
   renderActions(): void {
     const ws = this.ws;
@@ -270,7 +272,7 @@ export class SolutionsCard {
     const busy = ws.running || ws.analysing || ws.calling;
     setHtml(
       byId('slvAct'),
-      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''}>Manage solutions ▾</button><button class="btn" data-a="stl" disabled title="Exporting a solution's pieces to STL comes with the STL meshes, in a later version; File ▸ Export ▸ STL writes a shape's flat faces">Export to STL</button>`,
+      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''}>Manage solutions ▾</button><button class="btn" data-a="stl" ${ws.selected === null ? 'disabled' : ''} title="Export each piece type used in the chosen solution as its own STL file, for 3D printing the pieces of this solution">Export to STL</button>`,
     );
     this.renderAnalysis();
   }
@@ -496,7 +498,17 @@ export class SolutionsCard {
     });
     byId('slvAct').addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLButtonElement>('button[data-a]');
-      if (b === null || b.disabled || b.dataset.a !== 'manage') {
+      if (b === null || b.disabled) {
+        return;
+      }
+      if (b.dataset.a === 'stl') {
+        const row = ws.selected;
+        if (ws.current !== null && row !== null) {
+          ws.exportStl?.(ws.current, row);
+        }
+        return;
+      }
+      if (b.dataset.a !== 'manage') {
         return;
       }
       this.menuOpen = true;

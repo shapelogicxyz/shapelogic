@@ -73,6 +73,15 @@ export interface BuiltMesh {
   source: MeshSource | null;
 }
 
+/**
+ * Whether a style shows the checker (drawShape's `checker`): the bevelled
+ * voxels and the wire frame; the flat style and the STL-like one paint a
+ * piece in one colour.
+ */
+export function hasChecker(style: MeshStyle): boolean {
+  return style === 'drawing' || style === 'wireframe';
+}
+
 /** The cell [x, y, z] of a cell index of a shape of this size. */
 export function cellOf(index: number, size: Size): [number, number, number] {
   const [sx, sy] = size;

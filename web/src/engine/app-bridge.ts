@@ -139,6 +139,16 @@ export interface BtApp {
    * file, a full disk, a path no dialog gave).
    */
   writeExport(path: string, data: Uint8Array): Promise<void>;
+  /** The folder dialog (a solution's STL files); null when cancelled. */
+  chooseFolder(): Promise<string | null>;
+  /** How many of these files the folder the folder dialog gave has already. */
+  existingExports(folder: string, names: readonly string[]): Promise<number>;
+  /**
+   * Writes a solution piece's STL file into the folder the folder dialog
+   * gave last, by a name as the engine's export.solutionPieces names it;
+   * rejects with the reason when it could not.
+   */
+  writeFolderExport(folder: string, name: string, data: Uint8Array): Promise<void>;
   /** The path of a file dropped on the window (Electron's webUtils), or '' when it has none. */
   pathOf(file: File): string;
   /** The stored settings and layouts, as the last session left them. */
@@ -192,6 +202,11 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
 ]);
 
 /** Whether a message from the main process is a command the renderer knows. */
+/** Whether a value is one of the 3D view's styles. */
+function isMeshStyle(v: unknown): v is MeshStyle {
+  return v === 'drawing' || v === 'flat' || v === 'wireframe' || v === 'stl';
+}
+
 export function isAppCommand(v: unknown): v is AppCommand {
   if (typeof v !== 'object' || v === null) {
     return false;
@@ -206,7 +221,7 @@ export function isAppCommand(v: unknown): v is AppCommand {
     case 'colourView':
       return typeof c.on === 'boolean';
     case 'style':
-      return c.style === 'drawing' || c.style === 'flat' || c.style === 'wireframe';
+      return isMeshStyle(c.style);
     default:
       return true;
   }
@@ -249,7 +264,7 @@ export function isMenuState(v: unknown): v is MenuState {
     (s.path === null || typeof s.path === 'string') &&
     label(s.undo) &&
     label(s.redo) &&
-    (s.style === 'drawing' || s.style === 'flat' || s.style === 'wireframe') &&
+    isMeshStyle(s.style) &&
     typeof s.keys === 'object' &&
     s.keys !== null &&
     Object.values(s.keys).every((k) => typeof k === 'string')

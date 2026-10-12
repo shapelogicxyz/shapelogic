@@ -8,8 +8,8 @@
 /// animation plays (forward, holds, and back again).
 /// Ported from src/lib/gltfexport.cpp (the sampler of solutionAnimation:
 /// evaluate, the poses of hidden pieces, the keyframe times, the
-/// quaternion hemispheres) over DisasmToMoves (stage 4). Writing glTF
-/// belongs to the exports, later.
+/// quaternion hemispheres) over DisasmToMoves (stage 4). The front end
+/// writes the glTF file (web stage 7).
 
 #include "bt/base/error.h"
 #include "bt/mesh/draw_mesh.h"

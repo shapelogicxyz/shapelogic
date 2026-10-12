@@ -8,7 +8,8 @@
 // `renderEditBtn` and the Minimal density's auto-hiding toolbar (shown near
 // the view's top edge, on focus, while its menu is open, briefly after a
 // mode key). Added: the render styles of the original (docs/webui-spec.md
-// section 7.4: bevelled voxels, flat with edges, and the wire frame) and
+// section 7.4: bevelled voxels, flat with edges, the wire frame, and from
+// deferred part 5 the STL-like one, section 10.3) and
 // "Show through solid pieces" (x-ray), which the mockup offered in the
 // Solver only. The Edit button shows the voxel editor's tool (stage 2).
 
@@ -176,6 +177,7 @@ export class Toolbar {
 <button data-k="drawing" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'drawing'}">${ck(d.style === 'drawing')}Bevelled voxels</button>
 <button data-k="flat" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'flat'}">${ck(d.style === 'flat')}Flat with edges</button>
 <button data-k="wireframe" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'wireframe'}">${ck(d.style === 'wireframe')}Wire frame</button>
+<button data-k="stl" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'stl'}" title="The pieces as the STL export makes them: chamfered, with a gap, in one colour">${ck(d.style === 'stl')}Like the STL export</button>
 <button data-k="xray" data-keep="1" role="menuitemcheckbox" aria-checked="${d.xray}">${ck(d.xray)}Show through solid pieces</button>`;
   }
 
@@ -197,6 +199,7 @@ export class Toolbar {
       case 'drawing':
       case 'flat':
       case 'wireframe':
+      case 'stl':
         d.style = k;
         break;
       case 'axes':
