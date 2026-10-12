@@ -221,8 +221,9 @@ class Document {
   [[nodiscard]] Result<Document> convertGrid(GridKind target) const;
 
   /// The Puzzlecad OpenSCAD file of a problem's pieces (cb_Export_Scad;
-  /// io::writePuzzlecad): `problem`'s distinct shapes but its result, or
-  /// every shape when it has none or no problem is given; `sourceName`,
+  /// io::writePuzzlecad): `problem`'s distinct shapes but its result (when
+  /// it has none, every other shape), or every shape when no problem is
+  /// given; `sourceName`,
   /// the puzzle's file (or the export's when it has none), is named in its
   /// header. InvalidArgument with the original's words for a puzzle not on
   /// the cube grid, without shapes, or without a cell to write.

@@ -53,10 +53,10 @@ inline constexpr std::uint64_t kMaxImportCells = std::uint64_t{1} << 27;
 
 /// The puzzlecad OpenSCAD file of a problem's pieces (saveOpenScadPuzzle;
 /// the original's MagellanTIC.scad layout): the distinct shapes of
-/// `problem`'s parts but its result, or, when that leaves none (or the
-/// problem is null), every shape of the puzzle but the result, each as its
-/// bounding box's layers in a `burr_plate`. `sourceName`'s last path component is named in the
-/// header comment ("unknown" when empty). Nothing (the original's false)
+/// `problem`'s parts but its result, or, when that leaves none, every
+/// shape of the puzzle but that result (every shape when the problem is
+/// null), each as its bounding box's layers in a `burr_plate`.
+/// `sourceName`'s last path component is named in the header comment ("unknown" when empty). Nothing (the original's false)
 /// when no shape has a filled or variable cell. Cube grid only: the
 /// caller refuses other grids.
 [[nodiscard]] std::optional<std::string> writePuzzlecad(const Puzzle& puzzle,
