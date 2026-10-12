@@ -30,6 +30,7 @@
 // "layout only").
 
 import type {
+  MeshStyle,
   Methods,
   MovementNode,
   Placement,
@@ -1046,8 +1047,7 @@ export class Explorer {
     const mode = this.mode;
     const items = this.items();
     const style = view.display.style;
-    const styleOf = (it: DrawItem): 'drawing' | 'wireframe' | 'flat' =>
-      it.mode === 'wire' ? 'wireframe' : style;
+    const styleOf = (it: DrawItem): MeshStyle => (it.mode === 'wire' ? 'wireframe' : style);
     const key = (it: DrawItem): string => `${it.shape}:${String(it.transformation)}:${styleOf(it)}`;
     try {
       const replies = await Promise.all(

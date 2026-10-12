@@ -23,6 +23,7 @@
 
 import type {
   BoardLayout,
+  MeshStyle,
   Placement,
   ProblemDetail,
   SolutionRow,
@@ -240,7 +241,7 @@ export class Player {
     return this.modes.get(piece) ?? 'solid';
   }
 
-  private styleOf(piece: number): 'drawing' | 'wireframe' | 'flat' {
+  private styleOf(piece: number): MeshStyle {
     return this.mode(piece) === 'wire' ? 'wireframe' : this.host.view.display.style;
   }
 

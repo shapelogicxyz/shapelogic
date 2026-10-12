@@ -97,7 +97,8 @@ const Names<app::ShapeTask>& shapeTaskNames() {
 const Names<mesh::MeshStyle>& meshStyleNames() {
   static const Names<mesh::MeshStyle> n = {{"drawing", mesh::MeshStyle::Drawing},
                                            {"wireframe", mesh::MeshStyle::Wireframe},
-                                           {"flat", mesh::MeshStyle::Flat}};
+                                           {"flat", mesh::MeshStyle::Flat},
+                                           {"stl", mesh::MeshStyle::Stl}};
   return n;
 }
 

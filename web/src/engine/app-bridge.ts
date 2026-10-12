@@ -11,6 +11,8 @@
 // own save dialog gave for that kind. Plain types and checks, free of
 // Electron and Node.
 
+import type { MeshStyle } from './api.generated.ts';
+
 /** A command of the menus (or the window: close), sent to the renderer. */
 export type AppCommand =
   | { cmd: 'new' }
@@ -35,7 +37,7 @@ export type AppCommand =
   | { cmd: 'settings' }
   | { cmd: 'statusWindow' }
   | { cmd: 'colourView'; on: boolean }
-  | { cmd: 'style'; style: 'drawing' | 'flat' | 'wireframe' }
+  | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
   | { cmd: 'keys' }
   | { cmd: 'about' };
@@ -64,7 +66,7 @@ export interface MenuState {
   /** The Solver shows a solution with its moves stored (Export ▸ Solution Animation). */
   animation: boolean;
   colourView: boolean;
-  style: 'drawing' | 'flat' | 'wireframe';
+  style: MeshStyle;
   focus3d: boolean;
   /** The menus' keys as the one keyboard table has them, by command (shown, not registered). */
   keys: Partial<Record<AppCommandName, string>>;

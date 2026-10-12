@@ -421,10 +421,15 @@ export type ShapeTask =
   | 'gridScale';
 
 /**
- * The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, or flat faces
- * with edge lines.
+ * The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with
+ * edge lines, or the STL export's mesh at the view's own parameters (the original's "Draw pieces
+ * like STL export": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere
+ * grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's
+ * cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew
+ * it in one colour. It is made with the Manifold library on the prism, rhombic and tetra-octa
+ * grids and takes a while for large shapes (seconds in a release build).
  */
-export type MeshStyle = 'drawing' | 'wireframe' | 'flat';
+export type MeshStyle = 'drawing' | 'wireframe' | 'flat' | 'stl';
 
 export type ChangeKind = 'shapes' | 'colours' | 'problems' | 'solutions' | 'notes' | 'rodSets';
 

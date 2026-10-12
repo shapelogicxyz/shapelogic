@@ -356,6 +356,8 @@ def shape_tasks_and_views(e):
         flat = e.call("shape.mesh", {"shape": s1, "style": "flat"})
         check(len(e.frame(flat["frame"]).array("edgeLines")) > 0, f"{grid}: edge lines")
         e.call("shape.mesh", {"shape": s1, "style": "wireframe"})
+        stl = e.call("shape.mesh", {"shape": s1, "style": "stl"})
+        check(stl["triangles"] > 0 and not e.frame(stl["frame"]).array("edgeLines"), f"{grid}: the STL style")
         info = e.call("shape.info", {"shape": s1})
         check(info["fixed"] == 1 and info["statusLine"], f"{grid}: info {info}")
         check(len(e.call("shape.table")["rows"]) == 1, f"{grid}: the table")
