@@ -13,6 +13,7 @@
 #include "bt/io/gzip_file.h"
 #include "bt/io/paused_solve.h"
 #include "bt/io/puzzle_file.h"
+#include "bt/mesh/stl.h"
 #include "bt/model/problem.h"
 #include "bt/model/sliding.h"
 #include "bt/model/solution.h"
@@ -1034,6 +1035,28 @@ std::optional<unsigned int> findSolution(const Problem& pr, Id solution) {
 }
 
 }  // namespace
+
+Result<mesh::Polyhedron> Document::stlMesh(Id shape, std::span<const double> values) const {
+  const Result<unsigned int> s = shapeIndex(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  return mesh::stlMesh(puzzle_->getShape(*s), values);
+}
+
+Result<std::vector<StlPiece>> Document::stlPieces(Id problem, Id solution) const {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  return readProblem(*p, [this, solution](const Problem& pr) -> Result<std::vector<StlPiece>> {
+    const std::optional<unsigned int> s = findSolution(pr, solution);
+    if (!s) {
+      return fail(Errc::NotFound, "there is no such solution");
+    }
+    return app::stlPieces(*puzzle_, pr, pr.getSavedSolution(*s));
+  });
+}
 
 Result<PlaybackSampler> Document::playback(Id problem, Id solution) const {
   const Result<unsigned int> p = problemIndex(problem);

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from mainWindow_c::StatProblemInfo and StatPieceInfo
 // (src/gui/mainwindow.cpp), statusWindow_c's table (src/gui/statuswindow.cpp)
-// and src/lib/millable.cpp, and the layout of voxelFrame_c::showRodSet
-// (src/gui/voxelframe.cpp). The verdict and the hole range of the fit are
+// and src/lib/millable.cpp, the layout of voxelFrame_c::showRodSet
+// (src/gui/voxelframe.cpp), and placedShapeCounts, safeName and the file
+// names of cb_Export (src/gui/stlexportsolution.cpp). The verdict and the hole range of the fit are
 // new (the web UI's fit summary); the status line is the original's.
 #include "bt/app/queries.h"
 
@@ -11,11 +12,14 @@
 #include "bt/grid/symmetries.h"
 #include "bt/grid/voxel.h"
 #include "bt/grid/voxel_table.h"
+#include "bt/model/assembly.h"
 #include "bt/model/problem.h"
 #include "bt/model/puzzle.h"
+#include "bt/model/solution.h"
 
 #include <algorithm>
 #include <cstdio>
+#include <map>
 #include <memory>
 
 namespace bt::app {
@@ -205,6 +209,55 @@ stacking::BoardLayout rodSetLayout(const Puzzle& puzzle, unsigned int rodSet) {
     lay.rodHeights.push_back(stacking::isPocket(board, r) ? board.pocketHeight : height);
   }
   return lay;
+}
+
+namespace {
+
+// A file-system-safe version of a name (safeName): anything but ASCII
+// letters, digits, '-' and '_' becomes '_' (isalnum of the C locale).
+std::string safeName(const std::string& name) {
+  std::string out = name;
+  for (char& c : out) {
+    const bool alnum = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    if (!alnum && c != '-' && c != '_') {
+      c = '_';
+    }
+  }
+  return out;
+}
+
+}  // namespace
+
+std::vector<StlPiece> stlPieces(const Puzzle& puzzle, const Problem& problem,
+                                const Solution& solution) {
+  // the shapes actually placed in the assembly, not the parts the problem
+  // allows
+  std::map<unsigned int, unsigned int> counts;
+  const Assembly& assm = solution.getAssembly();
+  for (unsigned int i = 0; i < assm.placementCount(); i++) {
+    if (!assm.isPlaced(i)) {
+      continue;
+    }
+    counts[problem.getShapeIdOfPart(problem.getPartIdToPieceId(i))]++;
+  }
+  std::vector<StlPiece> pieces;
+  for (const auto& [shape, count] : counts) {
+    std::string raw = puzzle.getShape(shape).getName();
+    if (raw.empty()) {
+      raw = "S" + std::to_string(shape + 1);
+    }
+    // Two pieces can share a name, or names that become the same file
+    // name: a second file would overwrite the first. They are told apart.
+    std::string base = safeName(raw);
+    for (const StlPiece& other : pieces) {
+      if (other.fileName == base + ".stl") {
+        base += "-S" + std::to_string(shape + 1);
+        break;
+      }
+    }
+    pieces.push_back({shape, count, base + ".stl"});
+  }
+  return pieces;
 }
 
 }  // namespace bt::app

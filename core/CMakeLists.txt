@@ -35,15 +35,19 @@ add_library(btcore STATIC
   bt/io/xml_document.cpp
   bt/io/xml_pull_parser.cpp
   bt/io/xml_writer.cpp
+  bt/mesh/cube_mesh.cpp
   bt/mesh/draw_mesh.cpp
   bt/mesh/grid_geometry.cpp
   bt/mesh/grid_geometry_0.cpp
   bt/mesh/grid_geometry_1.cpp
   bt/mesh/grid_geometry_3.cpp
   bt/mesh/grid_geometry_4.cpp
+  bt/mesh/mink_mesh.cpp
   bt/mesh/modifiers.cpp
   bt/mesh/polyhedron.cpp
   bt/mesh/sphere_mesh.cpp
+  bt/mesh/stl.cpp
+  bt/mesh/triangulate.cpp
   bt/mesh/vec3.cpp
   bt/mesh/voxel_mesh.cpp
   bt/model/assembly.cpp
@@ -85,5 +89,5 @@ add_library(btcore STATIC
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")
 target_compile_features(btcore PUBLIC cxx_std_23)
-target_link_libraries(btcore PRIVATE ZLIB::ZLIB)
+target_link_libraries(btcore PRIVATE ZLIB::ZLIB manifold::manifold)
 bt_set_warnings(btcore)

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The meshes. The first case is ported from the original's
-// test/test_halfedge.cpp (its STL mesh belongs to the exports, later); the
-// others are new: closed meshes and the cell tags on every grid, and the
+// test/test_halfedge.cpp; the others are new: closed meshes and the cell tags on every grid, and the
 // plain triangle lists. tests/unit/app/test_app_dump.cpp compares the
 // meshes of every fixture shape with the original's.
 #include "../grid/grid_test_helpers.h"
@@ -64,7 +63,8 @@ TEST_CASE("polyhedron: finalize gives every halfedge of a voxel mesh a twin", "[
 
   const Polyhedron flat = shapeMesh(*v, MeshStyle::Flat);
   const Polyhedron wire = shapeMesh(*v, MeshStyle::Wireframe);
-  for (const Polyhedron* m : {&flat, &wire}) {
+  const Polyhedron stl = shapeMesh(*v, MeshStyle::Stl);
+  for (const Polyhedron* m : {&flat, &wire, &stl}) {
     requireClosed(*m);
   }
   // the flat mesh is closed: closeSurface() had nothing to add

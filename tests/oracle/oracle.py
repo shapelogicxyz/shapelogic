@@ -870,6 +870,37 @@ def cmd_app_dump(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_stl_dump(args: argparse.Namespace) -> int:
+    """Record tests/data/stl_dump.txt: the original's STL meshes of the fixture shapes with each
+    grid's default parameters, the view's STL style and one text STL (deferred part 5)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "stl_dump_old"
+    if not build_against_old(args.old_repo, HERE / "stl_dump_old.cpp", exe):
+        return 2
+    files = sorted(FIXTURES.glob("*.xmpuzzle"))
+    out = HERE.parent / "data" / "stl_dump.txt"
+    with open(out, "w") as f:
+        subprocess.run([str(exe), *map(str, files)], stdout=f, check=True)
+    print(f"wrote {out}")
+    return 0
+
+
+def cmd_stl_solution(args: argparse.Namespace) -> int:
+    """Record tests/data/stl_solution_by_original/CubeInCage/: the files the original's Export
+    Solution Pieces to STL writes for CubeInCage's first solution, defaults, binary (deferred part 5)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "stl_solution_old"
+    if not build_against_old(args.old_repo, HERE / "stl_solution_old.cpp", exe):
+        return 2
+    out = HERE.parent / "data" / "stl_solution_by_original" / "CubeInCage"
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    subprocess.run([str(exe), str(FIXTURES / "CubeInCage.xmpuzzle"), "0", "0", str(out)], check=True)
+    print(f"wrote {out}: {', '.join(sorted(p.name for p in out.iterdir()))}")
+    return 0
+
+
 def cmd_record_saves(args: argparse.Namespace) -> int:
     """Record tests/data/saved_by_original/: what the original writes for each fixture puzzle."""
     WORK_DIR.mkdir(exist_ok=True)
@@ -1625,6 +1656,8 @@ def main() -> int:
     sub.add_parser("grid-dump", help="record tests/data/grid_dump.txt from the original's grid code")
     sub.add_parser("model-dump", help="record tests/data/model_dump.txt from the original's model code")
     sub.add_parser("app-dump", help="record tests/data/app_dump.txt: the original's meshes, status table, fit line and playback")
+    sub.add_parser("stl-dump", help="record tests/data/stl_dump.txt: the original's STL meshes of the fixture shapes")
+    sub.add_parser("stl-solution", help="record tests/data/stl_solution_by_original/: the original's solution STL export")
     sub.add_parser("record-saves", help="record tests/data/saved_by_original/ from the original's writer")
     sub.add_parser("record-analysed", help="record tests/data/analysed_by_original/: the original's Add disassembly")
     sub.add_parser("sliding-puzzles", help="make tests/data/puzzles/sliding/ with the original's sliding code")
@@ -1664,7 +1697,7 @@ def main() -> int:
             "compare-files": cmd_compare_files, "baseline-text": cmd_baseline_text,
             "compare-text": cmd_compare_text,
             "grid-dump": cmd_grid_dump, "roundtrip": cmd_roundtrip, "resume-check": cmd_resume_check,
-            "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "record-saves": cmd_record_saves,
+            "model-dump": cmd_model_dump, "app-dump": cmd_app_dump, "stl-dump": cmd_stl_dump, "stl-solution": cmd_stl_solution, "record-saves": cmd_record_saves,
             "record-analysed": cmd_record_analysed,
             "sliding-puzzles": cmd_sliding_puzzles, "record-slide-routes": cmd_record_slide_routes,
             "stacking-puzzles": cmd_stacking_puzzles, "panex-resume": cmd_panex_resume,

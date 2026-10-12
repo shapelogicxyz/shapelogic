@@ -2,6 +2,7 @@
 # Add a dependency here only in the stage that first needs it:
 #   zlib          stage 2 (.xmpuzzle files are gzip-compressed XML)
 #   nlohmann/json stage 7 (engine JSON-RPC)
+#   manifold      deferred part 5 (the STL meshes of the non-cube grids)
 include(FetchContent)
 
 # zlib: the system's when there is one (macOS, Linux), else built from the
@@ -35,6 +36,30 @@ FetchContent_Declare(nlohmann_json
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 set(JSON_Install OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(nlohmann_json)
+
+# Manifold: the boolean and hull engine behind the STL meshes of the prism,
+# rhombic and tetra-octa grids (core/bt/mesh/mink_mesh.cpp, deferred part
+# 5). The original's release, built as the original builds it: a static
+# library without its 2D cross sections (which would pull in Clipper2), its
+# tests, bindings or parallel backend, and optimised in every preset (the
+# original builds it Release; it sets -ffp-contract=off on itself, so its
+# answers do not depend on the optimisation). Its headers are system
+# headers: our warnings stay off them.
+FetchContent_Declare(manifold
+  URL https://github.com/elalish/manifold/archive/refs/tags/v3.5.2.tar.gz
+  URL_HASH SHA256=35cb5e0d78882f461ec39b17d8f09c2aceca761356f3ce948e3f3908289b8f2e
+  SYSTEM
+  EXCLUDE_FROM_ALL)
+set(MANIFOLD_CROSS_SECTION OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_TEST OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_PAR OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_PYBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_CBIND OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_DEBUG OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_DOWNLOADS OFF CACHE BOOL "" FORCE)
+set(MANIFOLD_OPTIMIZED ON CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(manifold)
 
 if(BT_BUILD_TESTS)
   # The same Catch2 release as the original BurrTools test suite.

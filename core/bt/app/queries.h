@@ -9,8 +9,9 @@
 /// its own.
 /// Ported from mainWindow_c::StatProblemInfo and StatPieceInfo
 /// (src/gui/mainwindow.cpp), the table of src/gui/statuswindow.cpp,
-/// isNotchable / isMillable (src/lib/millable.cpp), and the layout of
-/// voxelFrame_c::showRodSet (src/gui/voxelframe.cpp).
+/// isNotchable / isMillable (src/lib/millable.cpp), the layout of
+/// voxelFrame_c::showRodSet (src/gui/voxelframe.cpp), and the pieces of a
+/// solution's STL export (src/gui/stlexportsolution.cpp).
 
 #include "bt/grid/types.h"
 #include "bt/model/stacking.h"
@@ -22,6 +23,7 @@
 namespace bt {
 class Problem;
 class Puzzle;
+class Solution;
 class Voxel;
 }  // namespace bt
 
@@ -110,5 +112,20 @@ enum class ProblemKind : unsigned char { Brick, Sliding, Stacking };
 /// grow drawn 5 high, the spacing of the puzzle's largest disc, the pocket
 /// left of rod 1 with every x at 0 or more. `disks` is empty.
 [[nodiscard]] stacking::BoardLayout rodSetLayout(const Puzzle& puzzle, unsigned int rodSet);
+
+/// A shape placed in a solution, for the solution's STL export.
+struct StlPiece {
+  unsigned int shape = 0;  ///< the shape's index
+  unsigned int count = 0;  ///< how many copies the assembly places
+  std::string fileName;    ///< its file's name, safe and distinct
+};
+
+/// The shapes placed in the solution's assembly (not the problem's
+/// counts), in shape order, each with its file's name (placedShapeCounts
+/// and cb_Export): the shape's name, or S<n> without one, with every byte
+/// but ASCII letters, digits, '-' and '_' made '_', then "-S<n>" when an
+/// earlier piece's file has that name, then ".stl".
+[[nodiscard]] std::vector<StlPiece> stlPieces(const Puzzle& puzzle, const Problem& problem,
+                                              const Solution& solution);
 
 }  // namespace bt::app

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/halfedge/modifiers.cpp (fillPolyhedronHoles and its
-// helpers; copyright the BurrTools team). The original kept its sets of
+// helpers, scalePolyhedron, mergeCoplanarFaces and its helpers; copyright
+// the BurrTools team) and src/halfedge/volume.cpp (volume, get_area). The original kept its sets of
 // faces and vertices ordered by address; here they are ordered by the
 // order the faces and vertices were made.
 #include "bt/mesh/modifiers.h"
 
+#include "bt/base/assert.h"
 #include "bt/base/int_cast.h"
 #include "bt/mesh/polyhedron.h"
 
 #include <cmath>
+#include <cstddef>
 #include <map>
 #include <set>
 #include <utility>
@@ -486,6 +489,469 @@ void fillPolyhedronHoles(Polyhedron& poly, bool fillOutsides) {
 
   // join the edges of the caps
   poly.finalize();
+}
+
+void scalePolyhedron(Polyhedron& poly, float x, float y, float z) {
+  for (int i = 0; i < poly.numVertices(); i++) {
+    Vec3& p = poly.vertex(i).pos;
+    p = Vec3(p.x * x, p.y * y, p.z * z);
+  }
+}
+
+namespace {
+
+// A 2D point of the retriangulation of merged face groups.
+struct MergePoint {
+  double x;
+  double y;
+};
+
+// twice the signed area of the triangle a, b, c
+double triArea2(const MergePoint& a, const MergePoint& b, const MergePoint& c) {
+  return ((b.x - a.x) * (c.y - a.y)) - ((b.y - a.y) * (c.x - a.x));
+}
+
+bool samePoint(const MergePoint& a, const MergePoint& b) { return a.x == b.x && a.y == b.y; }
+
+// is p inside the closed ccw triangle a, b, c
+bool pointInTriangle(const MergePoint& p, const MergePoint& a, const MergePoint& b,
+                     const MergePoint& c, double eps) {
+  return triArea2(a, b, p) >= -eps && triArea2(b, c, p) >= -eps && triArea2(c, a, p) >= -eps;
+}
+
+// do the open segments a-b and c-d properly cross one another
+bool segmentsCross(const MergePoint& a, const MergePoint& b, const MergePoint& c,
+                   const MergePoint& d) {
+  const double d1 = triArea2(c, d, a);
+  const double d2 = triArea2(c, d, b);
+  const double d3 = triArea2(a, b, c);
+  const double d4 = triArea2(a, b, d);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+// Triangulates the weakly simple ccw polygon `poly` (indices into pts) by
+// ear clipping, appending index triples to tris. False when no ear can
+// be clipped any more though more than 2 corners are left.
+bool earClip(std::vector<int> poly, const std::vector<MergePoint>& pts, std::vector<int>& tris,
+             double eps, double fatEps) {
+  const auto pt = [&pts](int i) -> const MergePoint& { return pts[asUnsigned(i)]; };
+  unsigned int i = 0;
+  while (poly.size() > 2) {
+    bool clipped = false;
+    // First an ear with a decent area; only when there is none a sliver:
+    // that keeps nearly collinear corners from giving degenerate
+    // triangles when there is a better choice.
+    for (int pass = 0; pass < 2 && !clipped; pass++) {
+      const double minArea = pass == 0 ? fatEps : eps;
+      for (unsigned int tries = 0; tries < poly.size(); tries++, i++) {
+        const int ia = poly[i % poly.size()];
+        const int ib = poly[(i + 1) % poly.size()];
+        const int ic = poly[(i + 2) % poly.size()];
+        const MergePoint& a = pt(ia);
+        const MergePoint& b = pt(ib);
+        const MergePoint& c = pt(ic);
+        // the ear tip must be strictly convex
+        if (triArea2(a, b, c) <= minArea) {
+          continue;
+        }
+        // no other corner of the polygon may lie within the ear
+        bool blocked = false;
+        for (const int j : poly) {
+          const MergePoint& p = pt(j);
+          if (samePoint(p, a) || samePoint(p, b) || samePoint(p, c)) {
+            continue;
+          }
+          if (pointInTriangle(p, a, b, c, eps)) {
+            blocked = true;
+            break;
+          }
+        }
+        if (blocked) {
+          continue;
+        }
+        tris.push_back(ia);
+        tris.push_back(ib);
+        tris.push_back(ic);
+        poly.erase(poly.begin() + static_cast<std::ptrdiff_t>((i + 1) % poly.size()));
+        clipped = true;
+        break;
+      }
+    }
+    if (!clipped) {
+      return false;
+    }
+  }
+  return true;
+}
+
+float component(const Vec3& v, int i) { return i == 0 ? v.x : (i == 1 ? v.y : v.z); }
+
+// The corners of a face, from the end of its first half-edge on.
+std::vector<int> faceCorners(const Polyhedron& poly, int f) {
+  std::vector<int> corners;
+  int e = poly.face(f).edge;
+  const int sentinel = e;
+  do {
+    corners.push_back(poly.he(e).dst);
+    e = poly.he(e).next;
+  } while (e != sentinel);
+  return corners;
+}
+
+void copyAttributes(Face& dst, const Face& src) {
+  dst.flags = src.flags;
+  dst.colour = src.colour;
+  dst.voxel = src.voxel;
+  dst.voxelFace = src.voxelFace;
+}
+
+// copies one face of the source mesh into the destination
+void copyFace(Polyhedron& dst, VertexList& vl, const Polyhedron& src, int f) {
+  std::vector<int> corners;
+  for (const int c : faceCorners(src, f)) {
+    const Vec3& p = src.vertex(c).pos;
+    corners.push_back(vl.get(p.x, p.y, p.z));
+  }
+  const int f2 = dst.addFace(corners);
+  copyAttributes(dst.face(f2), src.face(f));
+}
+
+// Merges one group of connected coplanar faces into fewer, larger
+// triangles added to the destination. False when anything goes wrong;
+// nothing has been added then.
+bool mergeGroup(Polyhedron& dst, VertexList& vl, const Polyhedron& src,
+                const std::vector<int>& group, const std::set<int>& inGroup) {
+  // The boundary edges of the group: those whose face on the other side
+  // is not in the group, keyed by the vertex they start at to keep
+  // everything deterministic.
+  std::multimap<int, std::pair<int, int>> boundary;
+  for (const int f : group) {
+    int e = src.face(f).edge;
+    const int sentinel = e;
+    do {
+      const int tw = src.he(e).twin;
+      if (tw == kNone || src.he(tw).face == kNone || src.face(src.he(tw).face).hole ||
+          !inGroup.contains(src.he(tw).face)) {
+        const int from = src.he(src.prev(e)).dst;
+        boundary.insert({from, {from, src.he(e).dst}});
+      }
+      e = src.he(e).next;
+    } while (e != sentinel);
+  }
+
+  // the boundary edges assembled into closed loops
+  std::vector<std::vector<int>> loops;
+  while (!boundary.empty()) {
+    std::vector<int> loop;
+    const int start = boundary.begin()->second.first;
+    int cur = start;
+    do {
+      const auto it = boundary.find(cur);
+      if (it == boundary.end()) {
+        return false;
+      }
+      loop.push_back(cur);
+      cur = it->second.second;
+      boundary.erase(it);
+    } while (cur != start);
+    if (loop.size() < 3) {
+      return false;
+    }
+    loops.push_back(loop);
+  }
+  if (loops.empty()) {
+    return false;
+  }
+
+  // a projection onto the plane of the group that keeps the outline
+  // counter clockwise
+  const Vec3 n = src.faceNormal(group[0]);
+  int u = 0;
+  int v = 0;
+  if (std::fabs(n.x) >= std::fabs(n.y) && std::fabs(n.x) >= std::fabs(n.z)) {
+    u = 1;
+    v = 2;
+    if (n.x < 0) {
+      u = 2;
+      v = 1;
+    }
+  } else if (std::fabs(n.y) >= std::fabs(n.z)) {
+    u = 2;
+    v = 0;
+    if (n.y < 0) {
+      u = 0;
+      v = 2;
+    }
+  } else {
+    u = 0;
+    v = 1;
+    if (n.z < 0) {
+      u = 1;
+      v = 0;
+    }
+  }
+
+  // all loops projected to 2d
+  std::vector<MergePoint> pts;
+  std::vector<int> ptVertex;
+  std::vector<std::vector<int>> loops2;
+  std::vector<double> loopArea;
+  double totalArea = 0;
+  for (const std::vector<int>& loop : loops) {
+    std::vector<int> l2;
+    for (const int vx : loop) {
+      const Vec3& p = src.vertex(vx).pos;
+      l2.push_back(static_cast<int>(pts.size()));
+      pts.push_back({static_cast<double>(component(p, u)), static_cast<double>(component(p, v))});
+      ptVertex.push_back(vx);
+    }
+    double area = 0;
+    for (std::size_t i = 0; i < l2.size(); i++) {
+      const MergePoint& a = pts[asUnsigned(l2[i])];
+      const MergePoint& b = pts[asUnsigned(l2[(i + 1) % l2.size()])];
+      area += (a.x * b.y) - (b.x * a.y);
+    }
+    area /= 2;
+    loops2.push_back(l2);
+    loopArea.push_back(area);
+    totalArea += area;
+  }
+  if (totalArea <= 0) {
+    return false;
+  }
+
+  // the loop with the largest area is the outline; all other loops must
+  // be holes and run the other way around
+  std::size_t outer = 0;
+  for (std::size_t l = 1; l < loops2.size(); l++) {
+    if (loopArea[l] > loopArea[outer]) {
+      outer = l;
+    }
+  }
+  if (loopArea[outer] <= 0) {
+    return false;
+  }
+  for (std::size_t l = 0; l < loops2.size(); l++) {
+    if (l != outer && loopArea[l] >= 0) {
+      return false;
+    }
+  }
+  std::vector<int> polygon = loops2[outer];
+
+  // The holes connected to the outline with bridges: one big weakly
+  // simple polygon that the ear clipper can handle.
+  std::vector<std::size_t> holeIdx;
+  for (std::size_t l = 0; l < loops2.size(); l++) {
+    if (l != outer) {
+      holeIdx.push_back(l);
+    }
+  }
+  const auto pt = [&pts](int i) -> const MergePoint& { return pts[asUnsigned(i)]; };
+  for (std::size_t h = 0; h < holeIdx.size(); h++) {
+    const std::vector<int>& hole = loops2[holeIdx[h]];
+    // the closest pair of corners between the polygon so far and the hole
+    // whose connecting line crosses no edge
+    int bestP = -1;
+    int bestH = -1;
+    double bestDist = 0;
+    for (std::size_t a = 0; a < polygon.size(); a++) {
+      for (std::size_t b = 0; b < hole.size(); b++) {
+        const MergePoint& pa = pt(polygon[a]);
+        const MergePoint& pb = pt(hole[b]);
+        const double dist = ((pa.x - pb.x) * (pa.x - pb.x)) + ((pa.y - pb.y) * (pa.y - pb.y));
+        if (bestP != -1 && dist >= bestDist) {
+          continue;
+        }
+        // the bridge must not cross the polygon, this hole or any of the
+        // holes still waiting for their bridge
+        bool crosses = false;
+        for (std::size_t i = 0; i < polygon.size() && !crosses; i++) {
+          if (segmentsCross(pa, pb, pt(polygon[i]), pt(polygon[(i + 1) % polygon.size()]))) {
+            crosses = true;
+          }
+        }
+        for (std::size_t h2 = h; h2 < holeIdx.size() && !crosses; h2++) {
+          const std::vector<int>& hl = loops2[holeIdx[h2]];
+          for (std::size_t i = 0; i < hl.size() && !crosses; i++) {
+            if (segmentsCross(pa, pb, pt(hl[i]), pt(hl[(i + 1) % hl.size()]))) {
+              crosses = true;
+            }
+          }
+        }
+        if (!crosses) {
+          bestP = static_cast<int>(a);
+          bestH = static_cast<int>(b);
+          bestDist = dist;
+        }
+      }
+    }
+    if (bestP == -1) {
+      return false;
+    }
+    // the hole spliced into the polygon: the 2 bridge corners appear twice
+    std::vector<int> merged;
+    for (int i = 0; i <= bestP; i++) {
+      merged.push_back(polygon[asUnsigned(i)]);
+    }
+    for (std::size_t i = 0; i <= hole.size(); i++) {
+      merged.push_back(hole[(asUnsigned(bestH) + i) % hole.size()]);
+    }
+    for (std::size_t i = asUnsigned(bestP); i < polygon.size(); i++) {
+      merged.push_back(polygon[i]);
+    }
+    polygon = merged;
+  }
+
+  // triangulate
+  std::vector<int> tris;
+  double eps = 1e-12 * loopArea[outer];
+  if (eps < 1e-20) {
+    eps = 1e-20;
+  }
+  const double fatEps = 1e-7 * loopArea[outer];
+  if (!earClip(polygon, pts, tris, eps, fatEps)) {
+    return false;
+  }
+
+  // the areas of the triangles must add up to the area of the group
+  double triArea = 0;
+  for (std::size_t t = 0; t < tris.size(); t += 3) {
+    triArea += triArea2(pt(tris[t]), pt(tris[t + 1]), pt(tris[t + 2])) / 2;
+  }
+  if (std::fabs(triArea - totalArea) > 1e-4 * totalArea) {
+    return false;
+  }
+
+  // no triangle may be exactly degenerate: it would get a NaN normal
+  const auto pos = [&](int i) { return src.vertex(ptVertex[asUnsigned(i)]).pos; };
+  for (std::size_t t = 0; t < tris.size(); t += 3) {
+    const Vec3 a = pos(tris[t]);
+    const Vec3 b = pos(tris[t + 1]);
+    const Vec3 c = pos(tris[t + 2]);
+    const Vec3 cr = (b - a).cross(c - a);
+    if (cr.dot(cr) == 0) {
+      return false;
+    }
+  }
+
+  // all went well: the triangles added
+  for (std::size_t t = 0; t < tris.size(); t += 3) {
+    std::vector<int> corners;
+    for (std::size_t c = 0; c < 3; c++) {
+      const Vec3 p = pos(tris[t + c]);
+      corners.push_back(vl.get(p.x, p.y, p.z));
+    }
+    const int f2 = dst.addFace(corners);
+    copyAttributes(dst.face(f2), src.face(group[0]));
+  }
+  return true;
+}
+
+// The area of a face (get_area): the fan of its corners from the first.
+float faceArea(const Polyhedron& poly, int f) {
+  Vec3 sum;
+  int e = poly.face(f).edge;
+  const int sentinel = e;
+  const Vec3 p0 = poly.dstPos(e);
+  e = poly.he(e).next;
+  Vec3 v = poly.dstPos(e) - p0;
+  e = poly.he(e).next;
+  while (e != sentinel) {
+    const Vec3 v2 = poly.dstPos(e) - p0;
+    sum += v.cross(v2);
+    v = v2;
+    e = poly.he(e).next;
+  }
+  return static_cast<float>(sum.module() * 0.5);
+}
+
+}  // namespace
+
+Polyhedron mergeCoplanarFaces(const Polyhedron& src) {
+  // the groups of connected coplanar faces
+  std::map<int, std::size_t> groupOf;
+  std::vector<std::vector<int>> groups;
+  for (int i = 0; i < src.numFaces(); i++) {
+    const int f = src.faceAt(i);
+    if (src.face(f).hole || groupOf.contains(f)) {
+      continue;
+    }
+    const Vec3 n = src.faceNormal(f);
+    const auto d = static_cast<double>(n.dot(src.dstPos(src.face(f).edge)));
+    std::vector<int> group;
+    std::vector<int> stack;
+    groupOf[f] = groups.size();
+    stack.push_back(f);
+    while (!stack.empty()) {
+      const int cur = stack.back();
+      stack.pop_back();
+      group.push_back(cur);
+      int e = src.face(cur).edge;
+      const int sentinel = e;
+      do {
+        const int tw = src.he(e).twin;
+        if (tw != kNone && src.he(tw).face != kNone && !src.face(src.he(tw).face).hole &&
+            !groupOf.contains(src.he(tw).face)) {
+          const int cand = src.he(tw).face;
+          // the candidate belongs to the group when it lies in the same plane
+          if (static_cast<double>(n.dot(src.faceNormal(cand))) > 1 - 1e-6) {
+            bool inPlane = true;
+            int e2 = src.face(cand).edge;
+            const int sentinel2 = e2;
+            do {
+              if (std::fabs(static_cast<double>(n.dot(src.dstPos(e2))) - d) > 1e-5) {
+                inPlane = false;
+                break;
+              }
+              e2 = src.he(e2).next;
+            } while (e2 != sentinel2);
+            if (inPlane) {
+              groupOf[cand] = groups.size();
+              stack.push_back(cand);
+            }
+          }
+        }
+        e = src.he(e).next;
+      } while (e != sentinel);
+    }
+    groups.push_back(group);
+  }
+
+  // the new mesh
+  Polyhedron res;
+  VertexList vl(res);
+  for (const std::vector<int>& group : groups) {
+    if (group.size() > 1) {
+      const std::set<int> inGroup(group.begin(), group.end());
+      // a failed merge must not leave half a group behind
+      const int facesBefore = res.numFaces();
+      if (mergeGroup(res, vl, src, group, inGroup)) {
+        continue;
+      }
+      BT_ASSERT(res.numFaces() == facesBefore);
+    }
+    for (const int f : group) {
+      copyFace(res, vl, src, f);
+    }
+  }
+  return res;
+}
+
+float volume(const Polyhedron& poly) {
+  float vol = 0;
+  // a point, any point, as the reference
+  const Vec3 p0 = poly.dstPos(poly.halfEdgeAt(0));
+  // the pyramids from it over each face
+  for (int i = 0; i < poly.numFaces(); i++) {
+    const int f = poly.faceAt(i);
+    const Vec3 p = poly.dstPos(poly.face(f).edge) - p0;
+    const Vec3 n = poly.faceNormal(f);
+    // the dot product: the distance from the point to the plane
+    const float height = p.dot(n);
+    const float area = faceArea(poly, f);
+    vol += area * height;
+  }
+  return vol / 3;
 }
 
 }  // namespace bt::mesh

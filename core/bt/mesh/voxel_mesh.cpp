@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from voxel_c::getMeshInternal, getDrawingMesh, getWireframeMesh
-// and getFlatMesh (src/lib/voxel.cpp), and voxel_2_c::getDrawingMesh and
-// getWireframeMesh (src/lib/voxel_2_mesh.cpp).
+// and getFlatMesh (src/lib/voxel.cpp), voxel_2_c::getDrawingMesh and
+// getWireframeMesh (src/lib/voxel_2_mesh.cpp), and getSTLMesh of voxel_c,
+// voxel_0_c and voxel_2_c.
 #include "bt/mesh/voxel_mesh.h"
 
 #include "bt/base/assert.h"
 #include "bt/base/int_cast.h"
 #include "bt/grid/grid_type.h"
 #include "bt/grid/voxel.h"
+#include "bt/mesh/cube_mesh.h"
 #include "bt/mesh/grid_geometry.h"
+#include "bt/mesh/mink_mesh.h"
 #include "bt/mesh/modifiers.h"
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace bt::mesh {
@@ -178,6 +182,11 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
     if (style == MeshStyle::Flat) {
       return cellMesh(v, 0, 0, false);
     }
+    if (style == MeshStyle::Stl) {
+      // sphere radius, connection radius, round, offset, recursion, inner
+      // radius, hole diameter
+      return sphereMesh(v, 0.5F, 0.7F, 1, 0.02F, 2, 0, 0, false);
+    }
     // sphere radius, connection radius, round, offset, recursion, inner
     // radius, hole diameter
     return sphereMesh(v, 0.5F, 0.7F, 1, 0.01F, 1, 0, 0, true);
@@ -192,6 +201,23 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
     }
     case MeshStyle::Flat:
       return cellMesh(v, 0, 0, false);
+    case MeshStyle::Stl: {
+      // the defaults in cell units: gap 0.02, bevel 0.05, with the interior
+      // chamfers. A draw path must not fail: where the mesher does, the
+      // flat mesh of the edge-line style is shown (the original also said
+      // why on stderr).
+      const GridKind kind = v.getGridType().getType();
+      Result<Polyhedron> p = fail(Errc::Unsupported, "grid without a chamfer mesher");
+      if (kind == GridKind::Bricks || kind == GridKind::Sliding || kind == GridKind::Stacking) {
+        p = cubePolyhedron(v, 0.02, 0.05, true);
+      } else if (minkHandles(v)) {
+        p = minkPolyhedron(v, 0.02, 0.05, true);
+      }
+      if (p) {
+        return std::move(*p);
+      }
+      return cellMesh(v, 0, 0, false);
+    }
   }
   BT_ASSERT_MSG(false, "unknown mesh style");
   return {};

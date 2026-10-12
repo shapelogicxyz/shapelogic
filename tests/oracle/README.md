@@ -159,6 +159,8 @@ python3 tests/oracle/oracle.py app-dump      # tests/data/app_dump.txt (stage 6)
 python3 tests/oracle/oracle.py record-saves  # tests/data/saved_by_original/ (stage 2)
 python3 tests/oracle/oracle.py record-positions  # tests/data/positions_by_original.txt (stage 3)
 python3 tests/oracle/oracle.py record-analysed   # tests/data/analysed_by_original/ (stage 7)
+python3 tests/oracle/oracle.py stl-dump      # tests/data/stl_dump.txt (deferred part 5)
+python3 tests/oracle/oracle.py stl-solution  # tests/data/stl_solution_by_original/ (deferred part 5)
 ```
 
 `grid_dump_old.cpp` and `tests/unit/grid/test_grid_dump.cpp` run the same
@@ -295,3 +297,24 @@ programs (the same path and counts), then stopped at a sweep of depths in
 both (`panex_resume_old` and `bt_panex_resume`, `stopAtDepth`): the saved
 folders must be byte for byte alike (but for the solving time in
 `state.bin`), and each must carry on in both programs to the same path.
+
+## The STL meshes (deferred part 5)
+
+`stl-dump` builds `stl_dump_old.cpp` against the original's library and
+records, for every shape of the top-level fixtures with its grid's
+default parameters, the triangles the original's STL writer writes (its
+binary file read back: the distinct vertices and the triangles as index
+triples; for meshes of more than 5,000 triangles, the sphere grid's, the
+box and the sums), the faces of the view's "STL" style (their attributes
+as a hash, the box), and the text STL of the first small shape.
+`tests/unit/mesh/test_stl_dump.cpp` makes the same dump with the new core
+and compares it line by line, numbers within 1e-5 (the two programs write
+the same bytes on this Mac; the tolerance is for other compilers), and
+checks every file is a closed, consistently oriented surface. The large
+fixtures (12PieceSeparation, AugmentedSecondStellation, the BallRooms) are
+its `[slow]` case: the Minkowski mesher takes 50 s on one shape in the dev
+build. `stl-solution` records what the original's Export Solution Pieces
+to STL writes for CubeInCage's first solution (the dialog's naming copied
+from `stlexportsolution.cpp`, which is GUI code; the files written by the
+original's exporter): `tests/unit/app/test_stl_export.cpp` and the front
+end's e2e test compare the names and bytes.

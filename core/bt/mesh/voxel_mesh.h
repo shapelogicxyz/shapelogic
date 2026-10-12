@@ -5,8 +5,8 @@
 /// The meshes of a shape, as the original's 3D view drew them.
 /// Ported from voxel_c::getMeshInternal, getDrawingMesh, getWireframeMesh
 /// and getFlatMesh (src/lib/voxel.cpp) and from the sphere meshes of
-/// src/lib/voxel_2_mesh.cpp. The STL meshes (getSTLMesh: cubemesh.cpp,
-/// minkmesh.cpp with the manifold library) belong to the exports, later.
+/// src/lib/voxel_2_mesh.cpp, and getSTLMesh (voxel.cpp, voxel_0.cpp,
+/// voxel_2_mesh.cpp: the view's "Draw pieces like STL export").
 
 #include "bt/mesh/polyhedron.h"
 
@@ -29,6 +29,12 @@ enum class MeshStyle : unsigned char {
   /// Plain cells without bevel or gap, closed (getFlatMesh): the view's
   /// "edges" style.
   Flat,
+  /// The STL export's mesh at the view's own parameters (getSTLMesh: gap
+  /// 0.02, bevel 0.05 with interior chamfers on the cube, prism, rhombic
+  /// and tetra-octa grids; the sphere grid's balls at recursion 2), closed:
+  /// the view's "Draw pieces like STL export". Where the mesher fails,
+  /// the flat mesh.
+  Stl,
 };
 
 /// The mesh of a shape in its own coordinates (mesh units, see

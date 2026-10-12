@@ -1,0 +1,5 @@
+1 1 Frame1.stl
+2 2 Frame2.stl
+3 1 S4.stl
+4 1 S5.stl
+5 1 S6.stl

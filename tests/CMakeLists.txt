@@ -10,6 +10,7 @@ add_executable(bt_tests
   unit/app/test_document_solving.cpp
   unit/app/test_layer_geometry.cpp
   unit/app/test_playback_explorers.cpp
+  unit/app/test_stl_export.cpp
   unit/app/test_tools_queries.cpp
   unit/base/test_error.cpp
   unit/engine/test_engine.cpp
@@ -26,6 +27,8 @@ add_executable(bt_tests
   unit/io/test_roundtrip.cpp
   unit/io/test_xml.cpp
   unit/mesh/test_meshes.cpp
+  unit/mesh/test_stl.cpp
+  unit/mesh/test_stl_dump.cpp
   unit/model/test_model_dump.cpp
   unit/model/test_puzzle_model.cpp
   unit/solve/test_assembler.cpp
@@ -44,7 +47,7 @@ add_executable(bt_tests
   unit/solve/test_stacking_session.cpp
   unit/solve/test_work_stealing.cpp)
 
-target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain)
+target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain manifold::manifold)
 bt_set_warnings(bt_tests)
 
 # Run from the source root so fixtures resolve as tests/data/...

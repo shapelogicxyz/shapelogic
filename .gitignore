@@ -39,6 +39,7 @@ __rescue.xmpuzzle
 
 # Local generated test output (anchored: tests/data/puzzles/ holds tracked fixtures)
 *.stl
+!tests/data/stl_solution_by_original/**/*.stl
 /puzzles/
 /tictest/
 tmp/

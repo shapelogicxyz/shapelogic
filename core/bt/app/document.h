@@ -41,6 +41,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -542,6 +543,15 @@ class Document {
     }
     return std::forward<F>(f)(std::as_const(puzzle_->getProblem(index)));
   }
+
+  // ---- the STL export ----------------------------------------------------------
+
+  /// A shape's STL mesh for the values of its grid's parameters
+  /// (mesh::stlMesh; the export dialog's preview and file).
+  [[nodiscard]] Result<mesh::Polyhedron> stlMesh(Id shape, std::span<const double> values) const;
+  /// The pieces of a solution's STL export (stlPieces), read while its
+  /// solve does not move the solutions.
+  [[nodiscard]] Result<std::vector<StlPiece>> stlPieces(Id problem, Id solution) const;
 
   // ---- playback and explorers -------------------------------------------------
 
