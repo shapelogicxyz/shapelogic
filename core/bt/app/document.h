@@ -547,7 +547,9 @@ class Document {
   // ---- the STL export ----------------------------------------------------------
 
   /// A shape's STL mesh for the values of its grid's parameters
-  /// (mesh::stlMesh; the export dialog's preview and file).
+  /// (mesh::stlMesh; the export dialog's preview and file). A mesh that
+  /// fails one of the meshers' assertions is refused with the words the
+  /// original's dialog used (InvalidArgument), as the dialog caught them.
   [[nodiscard]] Result<mesh::Polyhedron> stlMesh(Id shape, std::span<const double> values) const;
   /// The pieces of a solution's STL export (stlPieces), read while its
   /// solve does not move the solutions.

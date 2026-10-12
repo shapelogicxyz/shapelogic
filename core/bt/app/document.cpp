@@ -1041,7 +1041,15 @@ Result<mesh::Polyhedron> Document::stlMesh(Id shape, std::span<const double> val
   if (!s) {
     return std::unexpected(s.error());
   }
-  return mesh::stlMesh(puzzle_->getShape(*s), values);
+  try {
+    return mesh::stlMesh(puzzle_->getShape(*s), values);
+  } catch (const InternalError&) {
+    // the dialog's catch (...): parameters that make a degenerate mesh
+    // (the sphere grid at 6 recursions, say); nothing outside the mesh
+    // being built is touched
+    return fail(Errc::InvalidArgument,
+                "The generated mesh is faulty in some way, try to tweak the parameter");
+  }
 }
 
 Result<std::vector<StlPiece>> Document::stlPieces(Id problem, Id solution) const {

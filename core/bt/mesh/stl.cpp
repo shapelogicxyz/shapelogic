@@ -24,6 +24,12 @@ namespace {
 
 constexpr double kEpsilon = 1.0e-5;
 
+// Each recursion of the sphere grid's balls makes four times the
+// triangles; at 6 and more the original's mesh asserts anyway (its
+// dialog then said it was faulty), and at 10 it needs tens of gigabytes
+// before it gets there. Not a limit of the original.
+constexpr double kMaxRecursions = 6;
+
 // stl_0: the cube grids, the prisms, the rhombic and tetra-octa grids
 constexpr std::array<StlParameter, 6> kStl0 = {{
     {"Unit Size", StlParameterType::PositiveDouble, 10,
@@ -150,6 +156,9 @@ Result<Polyhedron> stl2Mesh(const Voxel& v, std::span<const double> p) {
   if (holeDiam < 0 || holeDiam > 0.333334 * sphereRad) {
     return refuse(
         "The hole diameter cannot be negative or greater than 1/3 of the sphere radius");
+  }
+  if (recursion > kMaxRecursions) {
+    return refuse("More than 6 recursions make a mesh too large to build");
   }
   return sphereMesh(v, static_cast<float>(sphereRad), static_cast<float>(connectionRad),
                     static_cast<float>(round), static_cast<float>(offset),

@@ -51,7 +51,11 @@ struct StlParameter {
 /// The STL mesh of a shape (stlExporter_c::getMesh) for the given values,
 /// one per parameter of its grid, in mesh units scaled by the unit size.
 /// Refused (InvalidArgument) with the original's message for a shape with
-/// variable cells or a value out of range, or when the mesher fails.
+/// variable cells or a value out of range, or when the mesher fails; and,
+/// unlike the original, more than 6 recursions on the sphere grid (each
+/// makes four times the triangles; the original's mesh failed an
+/// assertion from 6 on). A mesh that comes out faulty raises an
+/// InternalError, as the original's assertions did.
 [[nodiscard]] Result<Polyhedron> stlMesh(const Voxel& v, std::span<const double> values);
 
 /// The STL file of a mesh (stlExporter_c::write after getMesh): its

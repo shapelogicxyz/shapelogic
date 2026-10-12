@@ -86,3 +86,18 @@ TEST_CASE("STL export: piece names are made safe and told apart", "[app][stl]") 
   REQUIRE_FALSE(none.has_value());
   CHECK(none.error().code == Errc::NotFound);
 }
+
+TEST_CASE("STL export: a faulty mesh is refused as the original's dialog said", "[app][stl]") {
+  Document d = test::openFixture("BallRoom.xmpuzzle");
+  std::vector<double> values = defaults(d);
+  values[4] = 6;  // recursions: the original's mesh fails an assertion
+  const Result<mesh::Polyhedron> faulty = d.stlMesh(d.shapeIds()[1], values);
+  REQUIRE_FALSE(faulty.has_value());
+  CHECK(faulty.error().code == Errc::InvalidArgument);
+  CHECK(faulty.error().message ==
+        "The generated mesh is faulty in some way, try to tweak the parameter");
+  values[4] = 7;  // not built at all
+  const Result<mesh::Polyhedron> large = d.stlMesh(d.shapeIds()[1], values);
+  REQUIRE_FALSE(large.has_value());
+  CHECK(large.error().message == "More than 6 recursions make a mesh too large to build");
+}
