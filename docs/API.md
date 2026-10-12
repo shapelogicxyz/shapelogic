@@ -192,7 +192,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 
 ## Document and history
 
-The puzzle being edited (one per engine): new, open, save, the notes, undo and redo. A new document drops every playback and explorer handle.
+The puzzle being edited (one per engine): new, open, import, save, the notes, undo and redo. A new document drops every playback and explorer handle.
 
 ### `document.new`
 
@@ -235,6 +235,22 @@ Params:
 Result: [Snapshot](#snapshot)
 
 Errors: `invalid_argument`, `parse_error`
+
+### `document.import`
+
+Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD)) as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its pieces one of each; Save then asks where to write the BurrTools file, never over the source. The file is read by its path or from its bytes, exactly one of the two, as it is (never decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is refused (parse_error), as is one the format's reader cannot take (the original's "Could not load puzzle, sorry!"). The open document goes as with document.new.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `format` | `"puzzleSolver3D"` \| `"puzzlecad"` | required | puzzleSolver3D: a PuzzleSolver3D file (.puz): PIECE and RESULT size lines, each followed by the shape's rows, its layers side by side. puzzlecad: a puzzlecad OpenSCAD file (.scad): the pieces of its burr_plate and burr_piece calls, its first packing_box as the result (else a cube of variable cells). |
+| `path` | string |  |  |
+| `data` | string |  | The file's bytes, base64. |
+
+Result: [Snapshot](#snapshot)
+
+Errors: `invalid_argument`, `io_error`, `parse_error`
 
 ### `document.save`
 

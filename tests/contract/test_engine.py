@@ -1366,6 +1366,34 @@ def stl_exports(e):
           "a ball at one recursion")
 
 
+IMPORTS = ROOT / "tests" / "data" / "imports"
+IMPORTED = ROOT / "tests" / "data" / "imports_by_original"
+
+
+@test
+def imports_exports_conversions(e):
+    """Other programs' files imported (deferred part 6): each the puzzle the original's import
+    saved, a new untitled document with unsaved changes."""
+    for name, fmt in (("pieces.puz", "puzzleSolver3D"), ("plate.scad", "puzzlecad")):
+        recorded = read_puzzle_bytes(IMPORTED / (name.replace(".", "_") + ".xmpuzzle"))
+        snap = e.call("document.import", {"format": fmt, "path": str(IMPORTS / name)})
+        check(snap["grid"] == "bricks" and snap["path"] is None and snap["dirty"], f"{name} imported {snap}")
+        check(not snap["canUndo"], "nothing to undo")
+        saved = base64.b64decode(e.call("document.saveBytes")["data"])
+        check(saved == recorded, f"{name} saves as the original's import")
+        data = base64.b64encode((IMPORTS / name).read_bytes()).decode()
+        e.call("document.import", {"format": fmt, "data": data})
+        check(base64.b64decode(e.call("document.saveBytes")["data"]) == recorded, f"{name} from its bytes")
+        e.fails("document.save", {}, "invalid_argument")  # Save asks where
+    e.fails("document.import", {"format": "puzzleSolver3D", "path": str(IMPORTS / "comma.puz")}, "parse_error")
+    e.fails("document.import", {"format": "puzzlecad", "path": str(IMPORTS / "nopieces.scad")}, "parse_error")
+    e.fails("document.import", {"format": "puzzlecad", "path": str(IMPORTS / "no such file.scad")}, "io_error")
+    e.fails("document.import", {"format": "puzzlecad"}, "invalid_argument")
+    e.fails("document.import", {"format": "puzzlecad", "path": "x", "data": ""}, "invalid_argument")
+    e.fails("document.import", {"format": "puzzlecad", "data": "%%%"}, "invalid_argument")
+    e.fails("document.import", {"format": "stl", "data": ""}, "invalid_params")
+
+
 @test
 def unsupported_and_failures(e):
     # what a stacking puzzle cannot do or does not have

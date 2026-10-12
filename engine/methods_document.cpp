@@ -45,6 +45,34 @@ Reply documentOpenBytes(State& s, Params& p) {
   return openedSnapshot(s);
 }
 
+Reply documentImport(State& s, Params& p) {
+  static const Names<app::ImportFormat> kFormats = {
+      {"puzzleSolver3D", app::ImportFormat::PuzzleSolver3D},
+      {"puzzlecad", app::ImportFormat::Puzzlecad}};
+  const app::ImportFormat format = p.choice("format", kFormats);
+  const std::optional<std::string> path = p.optString("path");
+  const std::optional<std::string> data = p.optString("data");
+  BTE_CHECK(p.finish());
+  if (path.has_value() == data.has_value()) {
+    return coreError(Errc::InvalidArgument, "give the file's 'path' or its 'data', one of the two");
+  }
+  const app::DocumentSettings settings{s.settings.undoDepth};
+  Result<app::Document> d = [&]() -> Result<app::Document> {
+    if (path) {
+      return app::Document::importFile(format, *path, settings);
+    }
+    const std::optional<std::string> bytes = base64Decode(*data);
+    if (!bytes) {
+      return fail(Errc::InvalidArgument, "'data' is not base64");
+    }
+    return app::Document::importBytes(format, *bytes, settings);
+  }();
+  BTE_CHECK(d);
+  // no path: Save must not write over the other program's file
+  s.replaceDocument(std::move(*d), std::nullopt);
+  return openedSnapshot(s);
+}
+
 Reply documentSave(State& s, Params& p) {
   const std::optional<std::string> given = p.optString("path");
   BTE_CHECK(p.finish());
@@ -112,6 +140,7 @@ void addDocumentMethods(MethodTable& t) {
   t["document.new"] = documentNew;
   t["document.open"] = documentOpen;
   t["document.openBytes"] = documentOpenBytes;
+  t["document.import"] = documentImport;
   t["document.save"] = documentSave;
   t["document.saveBytes"] = documentSaveBytes;
   t["document.get"] = documentGet;

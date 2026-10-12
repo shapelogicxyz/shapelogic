@@ -1293,6 +1293,33 @@ export interface Methods {
     errors: 'invalid_argument' | 'parse_error';
   };
   /**
+   * Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD))
+   * as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its
+   * pieces one of each; Save then asks where to write the BurrTools file, never over the source.
+   * The file is read by its path or from its bytes, exactly one of the two, as it is (never
+   * decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is
+   * refused (parse_error), as is one the format's reader cannot take (the original's "Could not
+   * load puzzle, sorry!"). The open document goes as with document.new.
+   * (document.json)
+   */
+  'document.import': {
+    params: {
+      /**
+       * puzzleSolver3D: a PuzzleSolver3D file (.puz): PIECE and RESULT size lines, each followed
+       * by the shape's rows, its layers side by side. puzzlecad: a puzzlecad OpenSCAD file
+       * (.scad): the pieces of its burr_plate and burr_piece calls, its first packing_box as the
+       * result (else a cube of variable cells).
+       */
+      format: 'puzzleSolver3D' | 'puzzlecad';
+      /** @minLength 1 */
+      path?: string;
+      /** The file's bytes, base64. */
+      data?: string;
+    };
+    result: Snapshot;
+    errors: 'invalid_argument' | 'io_error' | 'parse_error';
+  };
+  /**
    * Saves (gzip, as the original) to the path given, or to the document's path; the document is
    * clean afterwards. Refused while a solve runs: save at a save point (solve.savePoint).
    * (document.json)
@@ -3307,6 +3334,7 @@ export const METHOD_NAMES = [
   'colour.edit',
   'colour.list',
   'document.get',
+  'document.import',
   'document.new',
   'document.open',
   'document.openBytes',

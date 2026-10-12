@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "document.json",
   "title": "Document and history",
-  "description": "The puzzle being edited (one per engine): new, open, save, the notes, undo and redo. A new document drops every playback and explorer handle.",
+  "description": "The puzzle being edited (one per engine): new, open, import, save, the notes, undo and redo. A new document drops every playback and explorer handle.",
   "methods": {
     "document.new": {
       "summary": "A new empty puzzle on a grid; the grid never changes. The open document goes (as with document.open, document.openBytes and solve.importPaused): its solves pause and are waited for, its analyses stop, its handles are dropped, and after the reply its problems whose work the events were reporting get a last solve.state idle and solution.analyseEnded (stopped); the revision counts on.",
@@ -39,6 +39,21 @@
       },
       "result": {"$ref": "types.json#/$defs/Snapshot"},
       "errors": ["invalid_argument", "parse_error"]
+    },
+    "document.import": {
+      "summary": "Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD)) as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its pieces one of each; Save then asks where to write the BurrTools file, never over the source. The file is read by its path or from its bytes, exactly one of the two, as it is (never decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is refused (parse_error), as is one the format's reader cannot take (the original's \"Could not load puzzle, sorry!\"). The open document goes as with document.new.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "format": {"type": "string", "enum": ["puzzleSolver3D", "puzzlecad"], "description": "puzzleSolver3D: a PuzzleSolver3D file (.puz): PIECE and RESULT size lines, each followed by the shape's rows, its layers side by side. puzzlecad: a puzzlecad OpenSCAD file (.scad): the pieces of its burr_plate and burr_piece calls, its first packing_box as the result (else a cube of variable cells)."},
+          "path": {"type": "string", "minLength": 1},
+          "data": {"type": "string", "description": "The file's bytes, base64."}
+        },
+        "required": ["format"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Snapshot"},
+      "errors": ["invalid_argument", "io_error", "parse_error"]
     },
     "document.save": {
       "summary": "Saves (gzip, as the original) to the path given, or to the document's path; the document is clean afterwards. Refused while a solve runs: save at a save point (solve.savePoint).",

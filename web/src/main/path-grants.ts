@@ -3,8 +3,8 @@
 // The files a window's engine may be given (stage 8, the security
 // checklist: file paths only from dialogs and drops). The engine opens and
 // writes whatever path a call names, so the main process checks the calls
-// that name one (document.open, document.openBytes, document.save,
-// solve.importPaused, solve.exportPaused) against the paths it handed that
+// that name one (document.open, document.openBytes, document.import,
+// document.save, solve.importPaused, solve.exportPaused) against the paths it handed that
 // window itself: what its file dialogs gave, a file dropped on the window
 // (the preload's pathOf, which only a real dropped file answers), a file
 // the menus or the system opened with the app (Open Recent, the command
@@ -16,6 +16,7 @@
 const PATH_PARAMS: Readonly<Record<string, 'path'>> = {
   'document.open': 'path',
   'document.openBytes': 'path',
+  'document.import': 'path',
   'document.save': 'path',
   'solve.importPaused': 'path',
   'solve.exportPaused': 'path',
