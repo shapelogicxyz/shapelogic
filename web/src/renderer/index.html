@@ -109,10 +109,10 @@
               ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
             </div>
             <div class="pz-problems" id="pzProblems" role="listbox" aria-label="Problems"></div>
-            <div class="pz-note" id="pzKind"></div>
-            <div class="pzh">Result</div>
+            <div class="pzh" id="pzResultHead">Result</div>
             <div class="pz-result" id="pzResult"></div>
-            <div class="pzh">
+            <div class="pzboard" id="pzBoard"></div>
+            <div class="pzh" id="pzUsedHead">
               In this puzzle
               <span
                 class="chip"
@@ -135,7 +135,7 @@
                 style="background: var(--muted); min-width: 22px; height: 20px"
               ></span
               ><span class="sp"></span
-              ><span class="mute dhelp" style="font-size: 11px; font-weight: 400"
+              ><span class="mute dhelp" id="pzLibHint" style="font-size: 11px; font-weight: 400"
                 >drag, double-click or + to add</span
               ><button class="ib" id="pzLibTog" title="Show / hide the list"></button>
             </div>
@@ -149,7 +149,6 @@
               ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
             </div>
             <div class="pz-scroll">
-              <div class="pz-note" id="slvKind"></div>
               <div class="slv-sec">
                 <div class="slv-lab">Problem</div>
                 <button class="slv-prob" id="slvProb"></button>
@@ -220,11 +219,12 @@
           <section class="card ent" id="right">
             <div class="rfull">
               <div class="ch">
-                <span>Voxel editor</span><span class="vtchip" id="vtChip"></span
+                <span id="rightTitle">Voxel editor</span><span class="vtchip" id="vtChip"></span
                 ><span class="sp"></span>
                 <button class="ib" id="btnF2D" title="Focus 2D editor (Esc to exit)"></button>
                 <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
               </div>
+              <div class="rods" id="rodsPanel"></div>
               <div class="trayrow" id="trayRow"></div>
               <div class="stamprow" id="stampRow"></div>
               <div class="tools" id="toolStrip"></div>
@@ -266,10 +266,11 @@
 
           <section class="card puz" id="rightP">
             <div class="ch">
-              Selected piece<span class="sp"></span
+              <span id="pzRightTitle">Selected piece</span><span class="sp"></span
               ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
             </div>
             <div class="pz-scroll">
+              <div class="pzstacks" id="pzStacks"></div>
               <div class="pzs" id="pzSel"></div>
               <div id="pzGroupsSec">
                 <div class="pzh">Exclusive groups</div>

@@ -16,8 +16,8 @@
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
 import { newOrder } from './files-order.ts';
+import { sizeText } from '../state/stacking.ts';
 import { EngineError } from '../../engine/errors.ts';
-import { frontEndSolves } from '../state/kinds.ts';
 import type { Store } from '../state/store.ts';
 import { askChoice, dialogOpen, openDialog } from './dialog.ts';
 import { byId } from './dom.ts';
@@ -34,6 +34,8 @@ export interface FilesSolver {
   runsUnderWay(): boolean;
   /** Pauses the runs at a save point, saves, carries them on; the file, or null. */
   saveAtSavePoint(path?: string): Promise<string | null>;
+  /** The saved search of the stacking problem the Solver shows (null: none). */
+  readonly savedSearch: { levelBytes: number } | null;
 }
 
 function baseName(path: string): string {
@@ -142,10 +144,10 @@ export class Files {
         return;
       }
     }
-    // the grids this version solves, sliding second as in the original's
-    // grid selector (gridtypegui.cpp: Brick, Sliding, then the others)
+    // the grids this version solves, in the original's grid selector's
+    // order (gridtypegui.cpp: Brick, Sliding, Stacking, then the others)
     const grids = info.grids
-      .filter((g) => g.supported && frontEndSolves(g.grid))
+      .filter((g) => g.supported)
       .sort((a, b) => newOrder(a.grid) - newOrder(b.grid));
     const k = await openDialog({
       id: 'newPuzzle',
@@ -264,7 +266,9 @@ export class Files {
     const k = await askChoice(
       'savePoint',
       'A solve is running',
-      'The puzzle cannot be saved while a solve runs. Save at a save point? The solves pause where they can be saved, the puzzle is saved, and they carry on.',
+      this.store.snapshot?.grid === 'stacking'
+        ? 'The puzzle cannot be saved while a solve runs. Pause it to save? The search saves itself as it pauses, the puzzle is saved, and the search carries on.'
+        : 'The puzzle cannot be saved while a solve runs. Save at a save point? The solves pause where they can be saved, the puzzle is saved, and they carry on.',
       [
         { key: 'cancel', label: 'Cancel' },
         { key: 'save', label: 'Save at a save point', kind: 'pri', default: true },
@@ -369,9 +373,31 @@ export class Files {
     if (!this.ready() || problem === null || p === undefined) {
       return;
     }
-    if (p.state !== 'solving' || this.solver.runsUnderWay()) {
+    // a stacking problem is paused when its search is saved (problemPaused)
+    const saved = this.store.snapshot?.grid === 'stacking' ? this.solver.savedSearch : null;
+    const paused =
+      this.store.snapshot?.grid === 'stacking' ? saved !== null : p.state === 'solving';
+    if (!paused || this.solver.runsUnderWay()) {
       flash('Pause a solve first: the problem the Solver shows has no paused solve', 5000);
       return;
+    }
+    // the levels only when wanted, beyond 1 GB (cb_ExportPaused)
+    let withLevels = true;
+    if (saved !== null && saved.levelBytes > 1e9) {
+      const k = await askChoice(
+        'exportLevels',
+        'Export the paused solve',
+        `The saved search keeps ${sizeText(saved.levelBytes)} of levels for finding the path once the search is done.\n\nInclude them? Left out, the file is much smaller, but finding the path at the end takes longer.`,
+        [
+          { key: 'cancel', label: 'Cancel' },
+          { key: 'include', label: 'Include', kind: 'pri', default: true },
+          { key: 'leave', label: 'Leave Out' },
+        ],
+      );
+      if (k !== 'include' && k !== 'leave') {
+        return;
+      }
+      withLevels = k === 'include';
     }
     const base = this.name.replace(/\.xmpuzzle$/i, '');
     const path = await this.app.chooseSave('paused', `${base}.btsolve`);
@@ -379,7 +405,11 @@ export class Files {
       return;
     }
     try {
-      await this.store.engine.call('solve.exportPaused', { problem, path });
+      await this.store.engine.call('solve.exportPaused', {
+        problem,
+        path,
+        ...(withLevels ? {} : { withLevels }),
+      });
       flash(`Exported the paused solve of ${p.label} to ${baseName(path)}`);
     } catch (e) {
       reportError(e, 'Export the paused solve');

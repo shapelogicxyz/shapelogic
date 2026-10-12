@@ -215,7 +215,7 @@ Rotation turns each piece about its own centre.
    20 minutes, **Abort** (hard stop that clears the results, separate from
    Pause), paused-solve import/export, debug statistics panel.
 3. **Sliding and Stacking/Panex puzzles**: sliding in section 8 (deferred
-   part 2); stacking (later in this project): rods, disc sizes, start/goal
+   part 2); stacking in section 9 (deferred part 4): rods, disc sizes, start/goal
    trays, Panex columns, pocket column.
 4. **Display modes:** colour-constraint colours exist (`colorView`), anaglyph
    and the original's three render styles (bevelled voxels, flat with edges,
@@ -356,7 +356,178 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   order); a new sliding puzzle starts empty (add pieces, then New
   Start/Goal Positions).
 
-## 9. Mapping to the original
+## 9. Stacking and Panex puzzles (deferred part 4)
+
+The mockup has no stacking screens; the original GUI decides, fitted into
+the three workspaces. Its stacking branches (inventoried 2026-10-11):
+`mainwindow_rods.cpp` (the rod sets: `cb_NewRod`, `cb_DeleteRod`,
+`cb_CopyRod`, `cb_NameRod`, `cb_RodExchange`, `cb_RodField` with
+`syncPanexFields` and `loadRodFields`, `showSelectedRods`,
+`cb_ProblemRod`, `cb_StackMode`, `cb_StackRod`, `refreshStackSlider`,
+`refreshStackList`, `refreshStackValid`, `placeOneDisk`,
+`syncSolverTypeMenu`, `syncStackingChrome`), `mainwindow_layout.cpp`
+(the Rods panel with its fields and tooltips, the disc list, the
+Problems tab's rod list, the rod slider, Start/Goal, Stack Order, the
+validity strip), `rodbars.h` (`StackValidBar_c`: "Valid" or "Invalid -
+reason" on green or red; `RodIndexBar_c`: "Rod: N", the pocket "Rod: P"
+first), `BlockList.cpp` (`DiskSelector`: a row per disc, "S1 - name",
+"size:", the field, + and −, 1 to 100 and its message; `RodSelector`:
+"R1 - name" on 70,110,150; `RodStackList`: top of the rod first),
+`resultviewer.cpp` ("Result: R1 - name", "No Start/Goal Rods"),
+`mainwindow.cpp` (`cb_NewShape`'s disc, the Problems tab's stacking
+branches of Set Result, +1, −1, All +1, Clear All and the arrows,
+`activateProblem`'s `showStacking`, the solution slider in transfers,
+the Activity lines of the Panex and stacking searches, Solve's and
+Continue's tooltips, "Paused. The search is saved."),
+`mainwindow_solve.cpp` (Solve's question about a saved search,
+`cb_BtnCont`'s checks, `abortable`, the Abort question,
+`updateSolverOptionCheckboxes`' stacking rules, `animStep`),
+`mainwindow_file.cpp` (the export's question about the levels beyond
+1 GB, `problemPaused`), `mainwindow_help.cpp` (the two solvers' help) and
+`voxelframe.cpp` (`showRodSet`, `showStacking`, `showStackingAssembly`,
+`addPeg`, `addRodBase`, `addPanexV`, `tiltPlates`, `diskTint`). The
+`discTabs` ("Disc": "The 3D view shows this disc. It is one voxel
+thick.", "Size") are made hidden and never shown (dead code), and the
+layout's `diskSizeInput` (1 to 64) is read by nothing; the disc list's
+size field is the one in use. The plan's "START/GOAL trays" are the
+sliding view's: the original's stacking view shows one stacking at a
+time, the start or the goal, as the Start/Goal switch says.
+
+**What a stacking puzzle is** (decision 0015): its shapes are **discs**
+(a square of 2·size+1 cells, one thick, its centre empty); a **rod set**
+is a board (how many rods, their height, the rules of a move); a
+problem stands on one rod set and holds the discs of each rod at its
+**start** and its **goal**; its solution is the fewest rod transfers.
+Every stacking view is drawn tilted as the original's (`tiltPlates`: a
+disc lies flat, the rods stand up).
+
+### 9.1 Entities workspace
+- **Left card: the disc list** in the shapes list's place (`DiskSelector`):
+  a row per disc, its chip, "S1 - name", and "size" with its field and
+  − and + (1 to 100; another value is refused with "An invalid size was
+  entered, please pick a value between 1-100." and the size goes to 1, as
+  the original). New makes a disc of size 1 (`shape.create`); rename,
+  duplicate, delete (never the last), reorder and the shape's colour
+  stay; the weight is not shown (no take-apart). Clicking a disc shows
+  it in the view. The inspector (Transform, Fit & scale, Repair &
+  surface) is hidden: its tasks are the cell editor's.
+- **Right card: Rods** in the voxel editor's place (the original's Rods
+  panel; the voxel editor, the tool strip, the planes and the palette
+  are hidden). The rod sets ("R1 - name" chips) with **New** ("Add
+  another rod set"), **Delete** ("Delete the selected rod set"; the last
+  one stays: "Keep at least one rod set"), **Copy**, **Label** ("Name
+  the selected rod set"), ← and → ("Exchange with the previous/next rod
+  set"). Their Undo and Redo are the document's (Ctrl+Z), not a rod
+  history of their own. The fields of the selected rod set, with the
+  original's tooltips:
+  - **How many rods** (1 to 16; "Pegs on this board");
+  - **Grow to the height of all pieces** or **Defined height** n (1 to
+    64);
+  - **Disc size matters - no large on small** (off with Panex columns);
+  - **Disc can only move over 1 rod**;
+  - **Panex Style Columns**;
+  - **Add pocket column** n (with Panex columns; its height 1 to 64);
+  - **Extra outside channel** (with Panex columns and three rods or
+    more).
+  A change is `stacking.setRules` (the problems on the set lose their
+  solutions, as the original). Everything here is frozen while anything
+  solves (the original greyed the fields).
+- **3D view:** the disc selected (lying flat), or the selected rod set
+  drawn alone (`stacking.rodSetLayout`: grey pegs, a base, Panex
+  columns' Vs) once a rod set is chosen or edited, as the original's
+  `showSelectedRods`; choosing a disc shows the disc again.
+
+### 9.2 Puzzle workspace
+- **Problems:** as on the other grids (New, Copy, Delete, rename, order).
+- **Board** in the Result's place: "Result: R1 - name" on the rod sets'
+  blue, or "No Start/Goal Rods" in red; the rod sets to choose from and
+  **Set Start/Goal Rods** ("Set the selected rod set as this problem's
+  board", `stacking.setProblemRodSet`). Choosing another rod set than
+  the problem's shows it alone in the view (`cb_ProblemRod`).
+- **All pieces:** the discs; + or a double-click puts the disc on top of
+  the selected rod of the stacking edited (`stacking.placeDisc`: the
+  next copy not on it, or one more copy); a refusal's reason goes to the
+  status bar ("Choose a rod set with Set Start/Goal Rods"). "In this
+  puzzle", the counts, the ranges, the More menu and the fit summary are
+  hidden: a stacking problem's pieces are the discs on its rods.
+- **Right card: Stacks** in the selected piece's place: **Start** or
+  **Goal** ("Order the discs that start on the selected rod, bottom to
+  top" / "Order the discs the solver must reach on the selected rod"),
+  the **rod slider** ("Rod: 1", "Rod: P" for the pocket column, which
+  comes first; "Select which rod in the chosen rod set to stack discs
+  on"), **Stack Order** (the discs on that rod, the top first, in the
+  pieces' colours; one selected), and the original's buttons: ↑ and ↓
+  ("Move the selected disc up/down the rod", `stacking.moveDisc`), **+1**
+  (the selected piece onto the rod), **−1** (the selected disc off,
+  `stacking.removeDisc`: "That rod is empty"), **All +1** (every disc,
+  largest first, `stacking.placeAll`; why the next did not go in the
+  status bar), **Clear All** (the edited stacking emptied,
+  `stacking.clear`). Under them the **validity bar** ("Whether the start
+  and goal stackings obey the rod set's rules"): "Valid" in green or
+  "Invalid - <reason>" in red (`stacking.board`'s error). Exclusive
+  groups and colour rules are hidden.
+- **3D view:** the board with the discs of the stacking edited, start or
+  goal (`stacking.board`'s layout), each disc in its colour.
+- **Status line:** the problem's board and the validity's reason.
+
+### 9.3 Solver workspace
+- **What to check:** "Assemblies" or **"Find Solutions"** ("Search for a
+  shortest sequence of rod transfers from the start stacking to the
+  goal."), checked at first (`stackingDisasmDefaulted`); Just Levels
+  stays (it forces Find Solutions, and the search ignores it, as the
+  original's), Check Rotations is not shown.
+- **Search options:** Just count, **Enable High Memory** ("Let the
+  search hold up to half of this computer's memory…"), the **Solver
+  type** with one entry by the problem's board, as the original's menu:
+  "Panex Solver" for Panex columns, else "Stacking Solver"
+  (`engine.info.stackingSolvers`, `SolveOptions.stacking.solver`), with
+  the help of `mainwindow_help.cpp`; Keep every n-th, Limit, and
+  **Autosave every 20 min** (here: the search saves itself every 20
+  minutes; the original's PAR_PANEX_NO_AUTOSAVE without it). Keep
+  mirror, Keep rotated, the thorough check, Strict colours and the sort
+  are not shown.
+- **Run:** Solve, Continue, Pause, Abort; no Prepare (a stacking search
+  has nothing to build). Solve and Continue are off while the problem
+  has no board ("Choose a rod set with Set Start/Goal Rods") or its
+  stacks are invalid ("Fix the puzzle on the Puzzle tab first: <reason>"
+  as their tooltip). **Solve with a saved search** asks first: "This
+  problem has <a saved search …>. Continue it, or start over and discard
+  it?" with Cancel, Continue and Start Over (`solve.status.savedSearch`).
+  **Continue** is on whenever a saved search exists (its tooltip "Carry
+  on <a saved search …>"), and the Activity line then says "Paused. The
+  search is saved." **Abort** is on for a saved search too and asks as
+  for any solve. While the search runs the Activity line is the
+  original's: "Panex search, N moves deep. Found N stackings.",
+  "Panex search, tracing the path. Traced N of M moves.", or "Stacking
+  search. Scanned N stackings."; the solver's note comes in a message
+  box when a run ends (through, or paused: where it was saved). The
+  20-minute save point of the other grids is not used (the search saves
+  itself); File ▸ Save while a stacking solve runs offers to pause it (the
+  search saves itself as it pauses), saves, and carries it on.
+- **Solutions:** one at most, its moves the transfers; Analyse,
+  Movements, Placements and Step are not offered (no take-apart, no
+  assembler).
+- **Player:** the board's pegs around the discs, its steps the
+  transfers (each a lift, a move across and a drop), the poses centred
+  on the board (`stacking.board`'s centre).
+- **File ▸ Export ▸ Paused Solver State** of a stacking problem asks,
+  when the saved levels take more than 1 GB, "The saved search keeps
+  <size> of levels for finding the path once the search is done. Include
+  them? Left out, the file is much smaller, but finding the path at the
+  end takes longer." (Cancel, Include, Leave Out; `withLevels`).
+
+### 9.4 New, the saved searches' folder
+- **File ▸ New** offers **Stacking** third, after Brick and Sliding (the
+  original's order); a new stacking puzzle has one rod set (R1, three
+  rods that grow, size matters), no discs and no problem.
+- The app keeps saved searches in its own data folder (`panex` in the
+  app's data directory): the main process sets the engine's
+  `panexFolder` before the page may call it, and refuses a page's
+  `settings.set` that names a folder. A search paused in the app carries
+  on in the app (also after a restart); the `.btsolve` export carries it
+  to `bt` or the original.
+
+## 10. Mapping to the original
 
 | UI | Original code (burrtools_rotations) |
 |---|---|
@@ -376,3 +547,5 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
 | Disassembly player | `disasmtomoves.cpp`, `voxelframe.cpp` animation |
 | Analyse disassembly | `mainwindow_solve.cpp` re-disassemble |
 | Export to STL | `stlexportsolution.cpp` (later in this project) |
+| Rod sets, discs, stacks, the validity bar | `mainwindow_rods.cpp`, `BlockList.cpp` (`DiskSelector`, `RodSelector`, `RodStackList`), `rodbars.h` |
+| The stacking view, the player in transfers | `voxelframe.cpp` (`showRodSet`, `showStacking`, `showStackingAssembly`), `mainwindow_solve.cpp` (`animStep`) |

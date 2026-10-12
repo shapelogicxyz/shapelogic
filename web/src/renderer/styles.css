@@ -741,9 +741,6 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 #stage[data-tab=puzzle] .vtag{max-width:calc(50% - 140px)}
 #stage[data-tab=puzzle] .vtag>span{flex:none;white-space:nowrap}
 #stage[data-tab=puzzle] .vtag>.nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.pz-note{display:none;flex:none;margin:6px 10px 2px;padding:8px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.45}
-.pz-note.show{display:block}
-.pz-note b{color:var(--text)}
 .ut.mv{border-left:2px solid var(--accent)}
 .pzs .gw .step.sz{width:150px;flex:none;min-width:0}.pzs .gw .step.sz input.v{min-width:0;width:100%}
 .pzs .gseg button .gc{font-weight:500;opacity:.8;margin-left:3px}
@@ -855,3 +852,56 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 .traytags{position:absolute;inset:0;pointer-events:none;z-index:1}
 .traytags span{position:absolute;transform:translate(-50%,-100%);font-weight:700;font-size:13px;letter-spacing:.6px;color:var(--text);text-shadow:0 1px 2px var(--canvas)}
 #vp:has(.slidevalid.show) #vhint{display:none}
+
+/* stacking puzzles (deferred part 4, docs/webui-spec.md section 9): the disc list, the Rods card, the stacks, the validity bar */
+.row.disc .dsz{display:flex;align-items:center;gap:3px;flex:none;font-size:11.5px}
+.row.disc .dsz input.v{width:40px;height:24px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit;font-weight:600;padding:0 2px}
+.row.disc .dsz .ib{width:22px;height:24px;font-weight:700}
+#stage.stk #inspHead,#stage.stk #insp{display:none}
+#stage.stk .shapes{max-height:none;flex:1}
+#stage.stk #right .rfull>:not(.ch):not(#rodsPanel){display:none}
+#stage.stk #vhint .ent-only{display:none}
+.rods{display:none}
+#stage.stk .rods{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto}
+.rodbtns{display:flex;flex-wrap:wrap;gap:4px;padding:10px 10px 8px;flex:none}
+.rodbtns .btn{flex:1 1 auto;min-width:0}
+.rodlist{display:flex;flex-direction:column;gap:2px;padding:4px 6px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);max-height:170px;overflow:auto;flex:none}
+.rodrow{height:34px;display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.rodrow:hover{background:var(--panel2)}
+.rodrow.sel{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.rodrow .chip{min-width:34px}
+.rodrow .mute{font-size:11.5px;flex:none}
+.rodf{display:flex;flex-direction:column;gap:6px;padding:10px 12px;flex:none}
+.rodline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rodck{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px}
+.rodck input{margin:0;flex:none}
+.rodck:has(input:disabled){opacity:.5;cursor:default}
+.rodnum{width:58px;height:26px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;font:inherit;font-weight:600}
+.rodnum:disabled{opacity:.5}
+.rodnote{padding:4px 12px 12px;font-size:11.5px;line-height:1.45}
+#stage.stk #pzResult,#stage.stk #pzUsedHead,#stage.stk #pzUsed,#stage.stk #pzSummary{display:none}
+#stage.stk #pzSel,#stage.stk #pzGroupsSec,#stage.stk #pzRulesHead,#stage.stk #pzRules{display:none}
+.pzboard,.pzstacks{display:none}
+#stage.stk .pzboard,#stage.stk .pzstacks{display:flex;flex-direction:column;flex:none}
+.pzboard .rodlist{border-bottom:0;max-height:120px}
+.pzstacks{padding:10px 0 0;gap:8px}
+.pzstacks .stackmode{margin:0 12px}
+.pzstacks .stackmode button{flex:1}
+.pzstacks .pzh{border-top:1px solid var(--line);height:36px}
+.rodbar{display:flex;align-items:center;gap:10px;padding:0 12px}
+.rodbar .cap{flex:none;min-width:52px;font-weight:600;font-size:12.5px}
+.rodtrack{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.rodtrack input{width:100%;margin:0}
+.rodtrack .ticks{display:flex;justify-content:space-between;padding:0 6px;height:5px}
+.rodtrack .ticks i{width:2px;height:5px;background:var(--line2)}
+.stackbtns{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px}
+.stackbtns .btn{flex:1 1 auto;min-width:0}
+.stackvalid{margin:0 12px;padding:7px 10px;border-radius:8px;background:#2e8b57;color:#fff;font-weight:600;font-size:12.5px;line-height:1.35}
+.stackvalid.bad{background:#c02828}
+.stacklist{display:flex;flex-direction:column;gap:2px;padding:4px 6px 10px;min-height:60px}
+.stackrow{height:32px;display:flex;align-items:center;gap:8px;padding:0 6px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.stackrow:hover{background:var(--panel2)}
+.stackrow.sel{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.stackrow .chip{min-width:34px}
+.stackrow .mute{font-size:11.5px}
+#pzLib .lc .mute{font-size:11px;margin-left:4px}

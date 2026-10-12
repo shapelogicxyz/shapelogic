@@ -7,7 +7,7 @@
 // original's rules greying out what does not apply; Keep at most and Keep
 // every n-th are not stored, as in the original), and the run: Prepare,
 // Solve, Continue, Pause, Abort, the progress bar and the counters, a
-// failure, and the notice of a puzzle this version does not solve. From
+// failure. From
 // docs/mockup/index.html: `renderSolver` (the left card's sections, their
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
@@ -17,7 +17,12 @@
 // boxes and solvers instead (mainwindow_layout.cpp's tooltips,
 // mainwindow_help.cpp's solver help), "Find Solutions" for the second
 // mode, and Solve greyed while its start/goal shape is not valid
-// (mainwindow.cpp's Solve tooltip).
+// (mainwindow.cpp's Solve tooltip). A stacking puzzle (section 9.3): Find
+// Solutions with Just Levels, Just count, Enable High Memory and the one
+// solver of its board (syncSolverTypeMenu, mainwindow_help.cpp), no
+// Prepare, Solve and Continue greyed without a board or with invalid
+// stacks ("Fix the puzzle on the Puzzle tab first"), Continue on for a
+// saved search ("Carry on …").
 
 import { isActive } from '../state/solves.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
@@ -58,6 +63,24 @@ const TIP: Record<BoxName, string> = {
     'Twenty minutes into a solve and every twenty minutes after, the solve pauses where it can be saved, the puzzle is saved to its file, and the solve carries on.',
 };
 
+/** The stacking puzzles' tooltips where they differ (mainwindow_layout.cpp, mainwindow_solve.cpp). */
+const STACKING_TIP: Partial<Record<BoxName, string>> = {
+  disassemble:
+    'Search for a shortest sequence of rod transfers from the start stacking to the goal.',
+  highMemory:
+    'Let a stacking search hold up to half of this computer’s memory, instead of stopping at about 2 GB.',
+  autosave:
+    'Save the search 20 minutes into the run and every 20 minutes after, so a crash loses little: Continue carries it on. Unchecked, the search is saved only when you press Pause.',
+};
+
+/** The stacking solvers' help (mainwindow_help.cpp, their first lines). */
+const STACKING_SOLVER_TIP: Record<'stacking' | 'panex', string> = {
+  stacking:
+    'Finds the fewest rod transfers from the start stacking to the goal, following the rod set’s rules. Rod sets with Panex Style Columns use the Panex Solver instead.',
+  panex:
+    'Finds the fewest rod transfers for Panex Style Columns, built for large towers: it searches from both ends, uses every core, and Pause saves the search for Continue, even after quitting.',
+};
+
 /** The sliding solvers' help (mainwindow_help.cpp, its first lines). */
 const SLIDING_SOLVER_TIP =
   'Each start is searched for the fewest moves to the goal. Fast looks at up to 250,000 arrangements per start, Deep up to 1,000,000; Full has no limit: it either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
@@ -96,7 +119,6 @@ export class RunCard {
     this.renderMode();
     this.renderOptions();
     this.renderRun();
-    this.renderKind();
   }
 
   private renderProblem(): void {
@@ -112,7 +134,15 @@ export class RunCard {
       return;
     }
     const pieces = d?.parts.filter((x) => x.max > 0).length ?? 0;
-    const result = p.result === null ? 'No result' : `Result ${esc(ws.labelOf(p.result))}`;
+    // a stacking problem's board in the result's place (resultviewer.cpp)
+    const board = ws.store.snapshot?.rodSets.find((r) => r.id === p.rodSet);
+    const result = ws.stacking
+      ? board === undefined
+        ? 'No Start/Goal Rods'
+        : `Result ${esc(board.label)}`
+      : p.result === null
+        ? 'No result'
+        : `Result ${esc(ws.labelOf(p.result))}`;
     setHtml(
       el,
       `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="meta"><b>${esc(p.name) || 'Problem'}</b><span>${result} · ${String(pieces)} piece shape${pieces === 1 ? '' : 's'}</span></span>${ic('chevD', 16)}`,
@@ -122,8 +152,19 @@ export class RunCard {
   private renderMode(): void {
     const ws = this.ws;
     const o = ws.options;
-    const { disabled } = normalize(o, null, ws.sliding);
+    const { disabled } = normalize(o, null, ws.family);
     const dis = o.disassemble;
+    if (ws.stacking) {
+      // Find Solutions, with Just Levels (updateSolverOptionCheckboxes)
+      const sw = (k: BoxName): string =>
+        `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
+      setHtml(
+        byId('slvMode'),
+        `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemblies</b><span class="d">Check the start stacking only.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Find Solutions</b><span class="d">${STACKING_TIP.disassemble ?? ''}</span></div></button>` +
+          (dis ? `<div class="slv-opts" style="margin:4px 2px 0">${sw('justLevels')}</div>` : ''),
+      );
+      return;
+    }
     if (ws.sliding) {
       // the second mode is Find Solutions (updateSolverOptionCheckboxes)
       setHtml(
@@ -147,9 +188,10 @@ export class RunCard {
     const ws = this.ws;
     const o = ws.options;
     const lim = ws.limits;
-    const { disabled } = normalize(o, null, ws.sliding);
+    const { disabled } = normalize(o, null, ws.family);
+    const tip = (k: BoxName): string => (ws.stacking ? (STACKING_TIP[k] ?? TIP[k]) : TIP[k]);
     const sw = (k: BoxName): string =>
-      `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
+      `<div class="row2"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
     const changed = [
       o.justCount !== DEFAULT_OPTIONS.justCount,
       o.keepMirrors !== DEFAULT_OPTIONS.keepMirrors,
@@ -161,7 +203,7 @@ export class RunCard {
       o.autosave !== DEFAULT_OPTIONS.autosave,
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
-      ws.sliding && o.highMemory,
+      ws.family !== 'brick' && o.highMemory,
       ws.sliding && o.slidingSolver !== DEFAULT_OPTIONS.slidingSolver,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
       lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
@@ -179,6 +221,22 @@ export class RunCard {
     const limits =
       `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1">${ic('plus', 12)}</button></div></div>` +
       `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10">${ic('plus', 12)}</button></div></div>`;
+    if (ws.stacking) {
+      // High Memory in the symmetry options' place, the one solver of the board
+      const solver = ws.stackingSolver;
+      const label =
+        ws.store.info?.stackingSolvers.find((x) => x.solver === solver)?.label ??
+        (solver === 'panex' ? 'Panex Solver' : 'Stacking Solver');
+      setHtml(
+        opts,
+        sw('justCount') +
+          sw('highMemory') +
+          `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
+          limits +
+          sw('autosave'),
+      );
+      return;
+    }
     if (ws.sliding) {
       // the sliding boxes in the places of the symmetry options, its solvers
       const sliders = ws.store.info?.slidingSolvers ?? [
@@ -217,11 +275,17 @@ export class RunCard {
     const p = ws.problem;
     const s = ws.current === null ? 'idle' : ws.stateOf(ws.current);
     const busy = ws.calling || ws.running || ws.analysing;
-    // a sliding puzzle whose start/goal shape is not valid (Solve's tooltip in the original)
-    const why = ws.slideError;
-    const can = p !== null && ws.supported && p.result !== null && why === null;
+    // a sliding puzzle whose start/goal shape is not valid, a stacking one
+    // without a board or with invalid stacks (Solve's tooltip in the original)
+    const why = ws.slideError ?? ws.stackError;
+    const board = ws.stacking ? p?.rodSet !== null : p?.result !== null;
+    const can = p !== null && board && why === null;
     const canStart = can && !busy;
-    const canCont = canStart && (s === 'paused' || p.state === 'solving');
+    const saved = ws.savedSearch;
+    const canCont = canStart && (s === 'paused' || p.state === 'solving' || saved !== null);
+    const fix = ws.stacking
+      ? `Fix the puzzle on the Puzzle tab first: ${why ?? ''}`
+      : `Fix the start and goal on the Entities tab first: ${why ?? ''}`;
     const canPause =
       !ws.calling &&
       r !== null &&
@@ -233,22 +297,32 @@ export class RunCard {
       `<button data-r="${k}" class="${pri ? 'pri' : ''}" ${on ? '' : 'disabled'} title="${tip}">${label}</button>`;
     setHtml(
       byId('slvRun'),
-      btn(
-        'prepare',
-        'Prepare',
-        canStart,
-        'Build the search structures without solving; this removes old results',
-      ) +
+      // a stacking search has nothing to prepare
+      (ws.stacking
+        ? ''
+        : btn(
+            'prepare',
+            'Prepare',
+            canStart,
+            'Build the search structures without solving; this removes old results',
+          )) +
         btn(
           'start',
           'Solve',
           canStart,
-          why === null
-            ? 'Run the search from the start, removing old results'
-            : esc(`Fix the start and goal on the Entities tab first: ${why}`),
+          why === null ? 'Run the search from the start, removing old results' : esc(fix),
           true,
         ) +
-        btn('continue', 'Continue', canCont, 'Resume a paused search') +
+        btn(
+          'continue',
+          'Continue',
+          canCont,
+          why !== null
+            ? esc(fix)
+            : saved !== null
+              ? esc(`Carry on ${saved.description}`)
+              : 'Resume a paused search',
+        ) +
         btn('pause', 'Pause', canPause, 'Pause the search where it can be continued') +
         btn(
           'abort',
@@ -278,17 +352,6 @@ export class RunCard {
     leftCard.dataset.end = String(r?.endRevision ?? -1);
     leftCard.dataset.assemblies = c.assemblies === null ? '' : String(c.assemblies);
     leftCard.dataset.solutions = c.solutions === null ? '' : String(c.solutions);
-  }
-
-  private renderKind(): void {
-    const ws = this.ws;
-    const note = byId('slvKind');
-    const show = ws.problem !== null && !ws.supported;
-    note.classList.toggle('show', show);
-    note.innerHTML = show
-      ? '<b>Not solved in this version.</b> Stacking puzzles open, show and save here; solving them comes later.'
-      : '';
-    note.dataset.kind = ws.kind?.kind ?? '';
   }
 
   private wire(): void {

@@ -162,6 +162,9 @@ export const TRAY_VIEW: Rgb3 = [0.12, 0.12, 0.12];
 /** The 2D editor's tray tiles (slidingColors::EDIT_LIGHT and EDIT_DARK). */
 export const TRAY_EDIT = { light: '#323232', dark: '#1e1e1e' } as const;
 
+/** A stacking puzzle's rod set chip (BlockList.cpp's RodSelector: 70, 110, 150). */
+export const ROD_CHIP = '#466e96';
+
 /** What a shape's colour depends on (a ShapeSummary). */
 export interface ShapeLike {
   colour: string | null;

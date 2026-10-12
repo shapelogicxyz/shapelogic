@@ -37,8 +37,11 @@ playback in transfers, the paused-solve file's saved searches, decision
 0015); part 3b, stacking in the document's commands and the engine (rod
 sets, discs and stacks as undoable commands, the `stacking.*` methods,
 stacking solves in the engine with their saved searches in its Panex
-folder). Next: the audit of part 3 (3a and 3b), then part 4, the stacking
-front end.*
+folder), audited; part 4, the stacking front end (the disc list, the Rods
+card, the board and its stacks, the stacking solver options, the saved
+search's question, the player in transfers, every stacking view tilted as
+the original's, the saved searches in the app's own data folder;
+docs/webui-spec.md section 9). Next: part 5, the STL meshes and exports.*
 
 ## Big picture
 
@@ -1003,11 +1006,11 @@ What exists after stage 8:
     of shapes, colours and problems, and undo and redo, refused while
     anything solves and while a BurrTools 2 search is paused in memory
     (decision 0011: the engine would refuse it; the advice is to abort or
-    finish that solve). `state/kinds.ts`: `frontEndSolves`, the one rule
-    that keeps stacking puzzles as before in this front end (the engine
-    solves them since deferred part 3b; the Puzzle's and the Solver's
-    notices, the Solver disabled, New without the stacking grid) until
-    deferred part 4 brings their editor. `state/solves.ts`: `Solves`, the solve records,
+    finish that solve). `state/stacking.ts` (deferred part 4, DOM-free):
+    the disc list's bounds and message, a rod set's text and the fields
+    its rules grey out, the rod slider's places (the pocket first) and
+    captions, the validity bar's words, the paused export's size.
+    `state/solves.ts`: `Solves`, the solve records,
     one per problem (several may run), DOM-free: the state as the events
     tell it, a run's phase (none, active, ending), its end at the
     `document.changed` after its last `solve.state` (a run started here
@@ -1073,7 +1076,8 @@ What exists after stage 8:
     one table, searchable; About with the app's and the engine's
     versions; the Notes dialog, `document.setNotes`), `icons.ts`, `cursors.ts` (the tools'
     pictures and data-URL mouse cursors),
-    `piece-colours.ts` (the original's `pieceColor` table and jitter),
+    `piece-colours.ts` (the original's `pieceColor` table and jitter,
+    `ROD_CHIP`),
     `dom.ts` (with `setHtml`, which leaves a list's elements alone when a
     re-render would draw the same, so a double-click whose first click
     re-rendered still lands, and `markSelected`). `keys.ts` has the
@@ -1222,8 +1226,7 @@ What exists after stage 8:
     table, "All pieces", drag and drop in, out and between tiles (a move
     as one undo step: `movePart` in an edit group), the More menu and
     the bulk range dialog, the right-click menus, the fit summary from
-    `FitStats` (`#pzSummary[data-fit]`), the notice for a puzzle this
-    version does not solve (stacking)), `piece-card.ts` (`PieceCard`: the selected piece's
+    `FitStats` (`#pzSummary[data-fit]`)), `piece-card.ts` (`PieceCard`: the selected piece's
     copies or range with the switch, its group and the copies in it, the
     groups and their members, the colour rules over the constraint
     colours with the presets), `counts.ts` (a part's count as the chips
@@ -1251,7 +1254,7 @@ What exists after stage 8:
     keeps no mark); the keys; the status line and the tag), `run-card.ts`
     (the left card: the problem picker with each problem's solve, what to
     check, the search options, the run's buttons, progress and counters,
-    a failure, the notice of a puzzle this version does not solve),
+    a failure),
     `solutions-card.ts` (the right card: the list, virtual, its rows paged
     as it scrolls, sorted by a header's click (again the other way, a
     third time the saved order), or the slider; the player's controls; an
@@ -1373,6 +1376,48 @@ What exists after stage 8:
     `document.changed.notice` and an opened file's `Snapshot.notice`) in
     message boxes (`dialog.ts`'s `tell`, one at a time); File ▸ New's
     grids in the original's order (`shell/files-order.ts`).
+  - Stacking puzzles (deferred part 4, docs/webui-spec.md section 9, the
+    original GUI's stacking branches): the shapes list's rows are the disc
+    list on a stacking puzzle (`shapes-list.ts`: "size" with its field, +
+    and −, `stacking.setDiscSize`, the original's refusal of a size out of
+    1 to 100; no weight); `entities/rods-card.ts` (`RodsCard`, the Rods
+    panel in the voxel editor's card: the rod sets with New, Delete, Copy,
+    Label in a dialog and the arrows, the selected set's rules as
+    `stacking.setRules` takes them, greyed as `syncPanexFields` greyed
+    them, frozen while anything solves); the inspector and the voxel
+    editor hidden (`#stage.stk`); the view shows the disc chosen or the
+    rod set chosen alone (`stacking.rodSetLayout`); `puzzle/stacks-card.ts`
+    (`StacksCard`: the board in the result's place, "Result: R1 - name" or
+    "No Start/Goal Rods", the rod sets and Set Start/Goal Rods; in the
+    selected piece's card Start and Goal, the rod slider taken on release,
+    Stack Order top first with ↑ ↓ +1 −1 All +1 Clear All as the
+    `stacking.*` commands, refusals' reasons in the status bar, the
+    validity bar), the Puzzle workspace reading `stacking.board` for the
+    stacking edited (shown only once read for it: `boardGoal`) instead of
+    the fit, the library's + putting a disc on the rod, + − Del on the
+    stack; `view3d/board.ts` (`boardBoxes`: the original's pegs, base and
+    Panex Vs as lit boxes, `boardCentre` the engine's stackingCentre,
+    `discAt` a disc by its centre, `boardExtent`; `BoardScene`, `BoardView`
+    with the discs' meshes), drawn by `View3D.setBoard` in the Entities
+    and Puzzle workspaces (the Puzzle's pieces scene not used there) and
+    around the player's discs (`SolutionModel.board`); `ViewRenderer.tilt`,
+    the original's `tiltPlates` (-90° about X before the camera's turn) on
+    every stacking view; the Solver's stacking options (`settings.ts`'s
+    `Family`, `DEFAULT_STACKING` with Find Solutions, `normalize`'s
+    stacking rules, `stackingSolverOf` the board's one solver,
+    `SolveOptions.stacking`, `stackingActivity`), no Prepare, Solve and
+    Continue greyed without a board or with invalid stacks, Solve's
+    question about a saved search (Continue, Start Over), Continue and
+    Abort for a saved search (`solve.status.savedSearch`, read with the
+    problem), the note in a message box at a run's end; the player's
+    assembled view placed by the discs' centres around the board's middle
+    (`Player.frame`); no 20-minute save point on a stacking puzzle and a
+    save while its search runs pausing it (`autosave.ts`); the paused
+    export asking about levels beyond 1 GB (`files.ts`). The main process
+    gives each engine the app's saved-search folder before the page may
+    call it (`EngineHostOptions.setup`: `panex` in the app's data
+    directory) and refuses a page's `settings.set` naming a folder
+    (`path-grants.ts`'s `settingsRefusal`).
 - `fake-engine/`: `FakeEngine` replays a recorded session as a transport;
   `recordings/` holds the sessions of `tools/sessions.ts` (recorded with
   `npm run record`) and what the client saw in them; `solver-end` and
@@ -1394,7 +1439,8 @@ section 6, the piece colours against the original's, the mesh
 translation, the camera, the store and the mesh cache, a stroke's
 protocol, the planes, the quick tools, mirror and span; the Puzzle's
 counts, groups, layout and labels; the Solver's options and rules, the
-poses' interpolation and fade, the pager, the solve records; the movement
+poses' interpolation and fade, the pager, the solve records; the stacking
+options, Activity lines, board boxes and helpers (`stacking.test.ts`); the movement
 tree, the Alt-drag's direction, the debug report; and the
 replays of the recorded Solver sessions: a run's end at its revision,
 one between two polls (the active states taken out), an abort's two
@@ -1410,7 +1456,8 @@ UI reads them, every fixture's problems with a fit and a scene; the assembled vi
 placement (cellScale, gridExtent, the hotspot) against the player's
 first pose on every fixture of the five grids, the pager in every sort
 against one `solution.page`, the chunked poses against the engine's
-samples; the explorers' placements in the solutions' frame on the five
+samples, a stacking solution's discs placed by the boards and the player
+as the engine's first and last poses; the explorers' placements in the solutions' frame on the five
 grids, the stepped assembler's in the placements' frame, the movement
 tree against `explore.node`); by
 Playwright's Electron driver (`tests/e2e/`, the built app with the
@@ -1423,7 +1470,7 @@ editor; the problems of CubeInCage and DemoPieceGenerator rebuilt
 through the Puzzle's actions, the chips, the table, the fit and the
 scene checked against the engine after each, a click and an orbit in
 the scene, the problems list, the colour rules, the frozen problem, the
-stacking notice (none for sliding); the Solver: Bermuda solved with take-apart
+stacking board and stacks in the result's place; the Solver: Bermuda solved with take-apart
 with `bt --json`'s counts, played, stepped, jumped, the poses at every
 whole step the engine's, the list sorted every way and paged, its keys,
 every Remove variant with its confirmation, Analyse with the assemblies
@@ -1431,7 +1478,7 @@ that do not come apart marked and a stop that keeps what was done,
 pause, continue, a save at a save point, abort, Prepare then Continue,
 an error run with its failure, two problems at once, a paused BurrTools 2
 solve refusing the lists' changes, a sliding puzzle solved with `bt
---json`'s counts and played along its routes, a stacking one not solved; the
+--json`'s counts and played along its routes, a stacking one solved as bt; the
 explorers on Bermuda: every piece's placements counted and drawn where
 the engine says, the assembler stepped to its complete set as the
 engine's own, the movement tree's root, Analyse, Add move, an Alt-drag's
@@ -1516,7 +1563,17 @@ solvers with `bt --json`'s counts and moves, the problem then the
 fixture's; played with the walls drawn, every whole step's poses the
 engine's; the nested fixture with and without nested slides and a
 partially nested pocket as `bt`; the notices; reference screenshots of
-the tray in Walls, Start and Goal, the two trays and the walls).
+the tray in Walls, Start and Goal, the two trays and the walls). Deferred
+part 4: `tests/e2e/stacking.e2e.ts` (the Tower of Hanoi and a Panex swap
+of three-disc towers built from File ▸ New through the disc list, the
+Rods card and the Stacks card, saved byte for byte as the fixtures;
+solved by the Stacking and the Panex Solver as `bt --json`, played in
+transfers on the engine's poses with the board; a seven-disc Panex search
+paused, the app restarted on the same data, Solve's question answered
+Continue and the search carried on to its 2,189 transfers; the rod sets'
+commands, the rules' dependencies, frozen while solving, Abort of a
+saved search; reference screenshots of the board, the rod set and the
+player).
 
 ## Testing against the original
 

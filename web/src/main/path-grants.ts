@@ -34,6 +34,23 @@ export function callPath(method: string, params: unknown): string | null {
 /** The methods callPath looks at (for the tests: every schema method with a path). */
 export const PATH_METHODS: readonly string[] = Object.keys(PATH_PARAMS);
 
+/**
+ * The engine's settings that name a folder, which only the main process
+ * sets (the saved searches' folder in the app's data directory, deferred
+ * part 4): a search's folder is emptied and written by the engine, so a
+ * page must not point it anywhere.
+ */
+export const FOLDER_SETTINGS: readonly string[] = ['panexFolder', 'slideFolder'];
+
+/** Why a page's call may not set the engine's settings it names (a folder), or null. */
+export function settingsRefusal(method: string, params: unknown): string | null {
+  if (method !== 'settings.set' || typeof params !== 'object' || params === null) {
+    return null;
+  }
+  const named = FOLDER_SETTINGS.filter((k) => k in params);
+  return named.length === 0 ? null : `${named.join(' and ')}: the app sets the engine's folders`;
+}
+
 /** The paths each window's renderer was handed. */
 export class PathGrants<K extends WeakKey> {
   private readonly granted = new WeakMap<K, Set<string>>();

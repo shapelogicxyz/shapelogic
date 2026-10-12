@@ -13,7 +13,7 @@
 // the contract suite shown with its failure; two problems solved at once,
 // a paused BurrTools 2 solve refusing the lists' changes before any call;
 // a sliding puzzle solved as bt solves it and played along its routes, a
-// stacking one not solved. Each test's call log holds no refusal the
+// stacking one too (stacking.e2e.ts plays it in transfers). Each test's call log holds no refusal the
 // UI could have avoided (only the client's own superseded reads).
 
 import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
@@ -527,7 +527,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
   }
 });
 
-test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ€™ changes; sliding solved, stacking not', async () => {
+test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ€™ changes; sliding and stacking solved', async () => {
   test.setTimeout(180_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -617,7 +617,6 @@ test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ
     // default), and its solution plays along its routes
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     await toSolver(page);
-    await expect(page.locator('#slvKind')).not.toHaveClass(/show/);
     const sp = await shownProblem(page);
     await page.click('#slvMode [data-m="dis"]');
     await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
@@ -637,16 +636,21 @@ test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ
     await page.click('#splayer [data-t="end"]');
     await expectPosesAt(page, slide, 81);
     await expect(page.locator('#emptyMsg')).toHaveText('');
-    // a stacking puzzle opens, its solver disabled
+    // a stacking puzzle solves as bt solves it (the Stacking Solver, its board's)
     await openFixture(page, 'test_stacking_hanoi.xmpuzzle');
     await toSolver(page);
-    await expect(page.locator('#slvKind')).toHaveClass(/show/);
-    await expect(page.locator('#slvKind')).toHaveAttribute('data-kind', 'stacking');
-    await expect(page.locator('#slvRun [data-r="start"]')).toBeDisabled();
-    await expect(page.locator('#slvRun [data-r="prepare"]')).toBeDisabled();
-    await expect(page.locator('#emptyMsg')).toHaveText(
-      'This version does not solve stacking puzzles yet',
-    );
+    await expect(page.locator('#slvRun [data-r="prepare"]')).toHaveCount(0);
+    await expect(page.locator('#emptyMsg')).toHaveText('Run the solver to see solutions here');
+    await runButton(page, 'start');
+    await runEnded(page, 'finished');
+    const stacked = btJson(resolve(FIXTURES, 'test_stacking_hanoi.xmpuzzle'), [
+      '--solver',
+      'stacking',
+      '--panex-dir',
+      '',
+    ]);
+    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(stacked.solutions);
+    await expect(page.locator('#splayer')).toHaveAttribute('data-steps', '7');
     expectNoRefusal(log);
   } finally {
     await a.close();

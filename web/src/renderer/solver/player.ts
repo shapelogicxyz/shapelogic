@@ -16,9 +16,17 @@
 // wire frames or hidden (the chips) and fade when taken away (the
 // setting). From docs/mockup/index.html: `svSelect`, `svSeek`,
 // `svTogglePlay`, `svPlayLoop`, `svPlayerSync` and the player's handlers
-// in `svWire`.
+// in `svWire`. A stacking solution (docs/webui-spec.md, section 9.3) steps
+// in transfers (the engine's steps), its discs placed by their centres
+// (the original's ensureHotspot) around the board's middle, as the poses
+// are, with the board's pegs drawn around them (view3d/board.ts).
 
-import type { Placement, ProblemDetail, SolutionRow } from '../../engine/api.generated.ts';
+import type {
+  BoardLayout,
+  Placement,
+  ProblemDetail,
+  SolutionRow,
+} from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
@@ -27,6 +35,7 @@ import { pieceSubColour, shapeColour } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
+import { boardExtent } from '../view3d/board.ts';
 import { cellScale, gridExtent, placedAt } from '../view3d/extent.ts';
 import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
@@ -56,10 +65,10 @@ export interface PlayerHost {
   changed(): void;
   /** Whether an analysis of this session found the solution not to come apart. */
   inseparable(solution: string): boolean;
-  /** Whether this version plays the puzzle (stacking: not in this front end yet, state/kinds.ts). */
-  supported(): boolean;
   /** Whether the solution is still the one chosen, in a row of the list's newest version. */
   current(solution: string): boolean;
+  /** A stacking problem's board and the middle its poses are placed around (null: none). */
+  board(): { layout: BoardLayout; centre: [number, number, number] } | null;
 }
 
 /** How long a choice rests before its playback is opened (arrow keys run through quickly). */
@@ -246,10 +255,10 @@ export class Player {
       this.row = got.row;
       this.pieces = piecesOf(got.placements, this.host.detail(), store);
       this.host.changed();
-      const resultId = this.host.detail()?.result ?? null;
-      const result = snap.shapes.find((s) => s.id === resultId);
-      const extent = gridExtent(snap.grid, result?.size ?? [1, 1, 1]);
+      const { extent, centring } = this.frame();
       const scale = cellScale(snap.grid);
+      // a disc is placed by its centre (ensureHotspot), as the engine's poses place it
+      const discs = snap.grid === 'stacking';
       const cache = this.host.view.meshCache;
       const replies = await Promise.all(
         this.pieces.map((p) =>
@@ -275,8 +284,12 @@ export class Player {
         });
       });
       const poses: ScenePose[] = this.pieces.map((p, i) => {
+        const size = snap.shapes.find((s) => s.id === p.shape)?.disc ?? 1;
+        const hotspot: [number, number, number] = discs
+          ? [size, size, 0]
+          : [...(replies[i]?.hotspot ?? [0, 0, 0])];
         return {
-          t: placedAt(p.at, replies[i]?.hotspot ?? [0, 0, 0], scale, extent),
+          t: placedAt(p.at, hotspot, scale, centring),
           q: [0, 0, 0, 1],
           visible: true,
           opacity: 1,
@@ -290,11 +303,8 @@ export class Player {
         this.shown = 'assembled';
       }
       this.mark();
-      // the playback once the choice rests (not of a puzzle this version does not solve)
+      // the playback once the choice rests
       window.clearTimeout(this.openTimer);
-      if (!this.host.supported()) {
-        return;
-      }
       this.opening = 'timer';
       this.openTimer = window.setTimeout(() => {
         if (n !== this.token) {
@@ -399,9 +409,7 @@ export class Player {
     if (n !== this.token) {
       return;
     }
-    const resultId = this.host.detail()?.result ?? null;
-    const result = snap.shapes.find((s) => s.id === resultId);
-    this.setModel(n, gridExtent(snap.grid, result?.size ?? [1, 1, 1]), built, 'playback');
+    this.setModel(n, this.frame().extent, built, 'playback');
     this.shown = 'playback';
     this.disposeAssembled();
     this.pose();
@@ -414,6 +422,24 @@ export class Player {
         this.togglePlay();
       }
     }
+  }
+
+  /**
+   * What the view frames (the result's extent, a stacking board's) and what
+   * the pieces are centred on, as an extent (placedAt takes its half): the
+   * result's, or twice a stacking board's middle.
+   */
+  private frame(): { extent: [number, number, number]; centring: [number, number, number] } {
+    const snap = this.host.store.snapshot;
+    const board = this.host.board();
+    if (snap?.grid === 'stacking' && board !== null) {
+      const c = board.centre;
+      return { extent: boardExtent(board.layout), centring: [2 * c[0], 2 * c[1], 2 * c[2]] };
+    }
+    const resultId = this.host.detail()?.result ?? null;
+    const result = snap?.shapes.find((s) => s.id === resultId);
+    const extent = gridExtent(snap?.grid ?? 'bricks', result?.size ?? [1, 1, 1]);
+    return { extent, centring: extent };
   }
 
   // the model of the view: the pieces in the playback's order or the assembled view's
@@ -429,6 +455,7 @@ export class Player {
       key: `${String(this.generation)}:${this.problem ?? ''}:${this.row?.id ?? ''}:${kind}:${String(n)}`,
       extent,
       result: this.host.detail()?.result ?? null,
+      board: this.host.store.snapshot?.grid === 'stacking' ? this.host.board() : null,
       pieces: numbers.map((piece, i) => {
         const p = byPiece.get(piece);
         return {

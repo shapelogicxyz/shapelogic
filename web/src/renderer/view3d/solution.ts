@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
-import type { MeshStyle } from '../../engine/api.generated.ts';
+import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
 import type { FaceUniforms } from './material.ts';
@@ -51,6 +51,8 @@ export interface SolutionModel {
   pieces: ScenePiece[];
   /** The result shape's id (a sliding puzzle's tray: its walls are drawn); absent for none. */
   result?: string | null;
+  /** A stacking puzzle's board: its pegs are drawn around the discs, centred as the poses. */
+  board?: { layout: BoardLayout; centre: [number, number, number] } | null;
 }
 
 /** Where a piece is: translation, rotation (xyzw), shown, opacity. */

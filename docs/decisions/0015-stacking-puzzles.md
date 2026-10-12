@@ -190,9 +190,8 @@ rods and discs stand, the validity bar's sentence, the centre the
 playback's poses are placed around; `stacking.rodSetLayout`, the rod set
 drawn alone as showRodSet drew it), so a front end computes none of them.
 
-**The front end** keeps its stacking notices until part 4 builds the
-editor: `web/src/renderer/state/kinds.ts` holds the one rule (the Solver
-disabled, New not offering the grid), which part 4 removes.
+**The front end** kept its stacking notices until part 4 built the
+editor (`web/src/renderer/state/kinds.ts`, removed by part 4).
 
 ## The audit of part 3
 
@@ -226,4 +225,24 @@ which the run, stopping with the document it replaces, wrote over.
   `stacking.*`, `SolveOptions.stacking`, the Panex folder and disk budget,
   the saved search in `solve.status` and its abort without a session; the
   contract suite pauses a Panex solve, finds its saved search in another
-  engine and carries it on. Part 4 builds the front end on them.
+  engine and carries it on. Part 4 built the front end on them.
+
+## Part 4: the front end
+
+The stacking screens are the original GUI's, fitted into the three
+workspaces (docs/webui-spec.md, section 9): the disc list in the shapes
+list's place, the Rods card in the voxel editor's, the board and the
+Stacks card in the Puzzle's result and selected piece's places, the
+stacking options and the saved search's question in the Solver, every
+view tilted as the original's (a disc lies flat). **The app keeps saved
+searches in its own data folder**, `panex` in the app's data directory
+(the deferred plan's suggestion), not the user's cache folder the engine
+and `bt` default to: the main process sets the engine's `panexFolder` on
+every engine before the page may call it (`EngineHostOptions.setup`), and
+refuses a page's `settings.set` naming `panexFolder` or `slideFolder`
+(path-grants.ts, `settingsRefusal`): a search's folder is emptied and
+written by the engine, so the page must not point it anywhere (the stage 8
+security checklist's rule for paths). A search paused in the app carries
+on in the app, also after a restart; `.btsolve` exports carry it to `bt`
+and the original. Each e2e launch has its own data directory, so the
+tests' searches never reach the user's folders.

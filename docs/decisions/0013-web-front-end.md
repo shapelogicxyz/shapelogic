@@ -238,6 +238,23 @@ list; each also in its handoff):
 10. (deferred part 2) On a grid without a take-apart (sliding) the
    Movements explorer and Analyse are not offered (the engine refuses
    them); the original left the buttons and answered with a message.
+11. (deferred part 4) A stacking puzzle's editors take the places of the
+   cards the original hid for it: the disc list (DiskSelector) is the
+   shapes list's rows with their size, the Rods panel is the voxel
+   editor's card, the board (the result viewer and the rod list with Set
+   Start/Goal Rods) is the Puzzle's result, and Start/Goal, the rod
+   slider, Stack Order with its buttons and the validity strip are the
+   selected piece's card. The original's rod history is the document's
+   undo; the rod slider takes the rod when it is let go.
+12. (deferred part 4) On a grid without an assembler (stacking)
+   Placements and Step are not offered, nor Prepare (the engine refuses
+   them); a save while a stacking search runs pauses it (its search
+   saves itself) instead of asking for a save point, which a stacking
+   solve does not have, and the 20-minute autosave of the puzzle file is
+   not used (the search saves itself; the original did the same).
+13. (deferred part 4) The app sets the engine's `panexFolder` to its own
+   data directory and a page may not set the engine's folders (decision
+   0015, "Part 4").
 
 ## Consequences
 - Building the front end needs Node 22; the core does not.

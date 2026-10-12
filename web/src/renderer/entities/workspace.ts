@@ -14,7 +14,11 @@
 // edit mode, the starts and goals placed by a click (`sliding.place`,
 // `sliding.clearAt`, the outline from `sliding.preview`), the validity bar
 // under the view (the original's mainwindow_rods.cpp `refreshSlideValid`)
-// and the view's two trays.
+// and the view's two trays. A stacking puzzle (section 9.1): the disc list
+// in the shapes list's place, the Rods card (rods-card.ts) in the voxel
+// editor's, no inspector, and the view showing the disc chosen or the rod
+// set chosen alone (stacking.rodSetLayout; the original's
+// `showSelectedRods`).
 
 import type { CellTool } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
@@ -44,7 +48,10 @@ import type { TaskInfo } from './inspector.ts';
 import { LayerGeometries } from './layer-geometry.ts';
 import type { LayerGeometry } from './layer-geometry.ts';
 import { ShapeCells } from './shape-cells.ts';
+import { RodsCard } from './rods-card.ts';
+import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
+import { boardCentre } from '../view3d/board.ts';
 import { Stroke } from './stroke.ts';
 import { marksOf, outlineColour, stampPieces, stampsOf, TrayState, validity } from './tray.ts';
 
@@ -79,6 +86,11 @@ export class EntitiesWorkspace {
   /** The cell under the mouse while placing a start or goal. */
   private stampAt: Cell | null = null;
   private stampLoads = 0;
+  /** A stacking puzzle's rod sets (the right card). */
+  private readonly rods: RodsCard;
+  /** Whether the view shows the rod set chosen (true) or the disc chosen. */
+  private rodsShown = false;
+  private rodLoads = 0;
 
   constructor(store: Store, view: View3D, edits: Edits) {
     this.store = store;
@@ -95,6 +107,15 @@ export class EntitiesWorkspace {
       },
     );
     this.geos = new LayerGeometries(store.engine);
+    this.rods = new RodsCard({
+      store,
+      refuseList: () => this.edits.refuseList(),
+      mutate: (doing, call) => this.mutate(doing, call),
+      showRodSet: () => {
+        this.rodsShown = true;
+        this.showRodSet();
+      },
+    });
     const refuse = (): boolean => this.refuse();
     this.list = new ShapesList({
       store,
@@ -181,7 +202,7 @@ export class EntitiesWorkspace {
       cells: this.cells,
       view,
       refuse,
-      canEdit: () => !store.solving && tab === 'entities',
+      canEdit: () => !store.solving && tab === 'entities' && store.snapshot?.grid !== 'stacking',
       drawingHex: () => this.card.drawingHex(),
       badge: () => this.badge(),
       apply: (tool, cell) => this.apply3d(tool, cell),
@@ -266,7 +287,14 @@ export class EntitiesWorkspace {
       this.geoKey = '';
       this.edit3d.reset();
       this.cells.show(null, 0);
+      this.rodsShown = false;
     }
+    // a stacking puzzle: the disc list and the Rods card (section 9.1)
+    const stacking = snap?.grid === 'stacking';
+    byId('stage').classList.toggle('stk', stacking);
+    byId('rightTitle').textContent = stacking ? 'Rods' : 'Voxel editor';
+    this.rods.render();
+    this.showRodSet();
     if (
       this.state.colour !== null &&
       !(snap?.colours.some((c) => c.id === this.state.colour) ?? false)
@@ -290,6 +318,11 @@ export class EntitiesWorkspace {
   private selectionChanged(): void {
     this.state.box = null;
     this.stampAt = null;
+    // a disc chosen: the view shows it again (activateShape)
+    if (this.rodsShown) {
+      this.rodsShown = false;
+      this.showRodSet();
+    }
     this.clampLayer();
     this.showTray();
     this.list.render();
@@ -633,6 +666,45 @@ export class EntitiesWorkspace {
     }
   }
 
+  // ---- a stacking puzzle's rod set in the view ----
+
+  // the rod set chosen drawn alone (stacking.rodSetLayout), or the disc
+  private showRodSet(): void {
+    const store = this.store;
+    const set = this.rods.rodSet;
+    const n = ++this.rodLoads;
+    if (!this.rodsShown || set === null || store.snapshot?.grid !== 'stacking') {
+      this.view.setBoard(null, 'entities');
+      return;
+    }
+    const gen = store.generation;
+    const revision = store.snapshot.revision;
+    store.engine
+      .call('stacking.rodSetLayout', { rodSet: set.id }, { coalesce: 'stacking.rodSetLayout' })
+      .then(
+        (layout) => {
+          if (n !== this.rodLoads || gen !== store.generation) {
+            return;
+          }
+          this.view.setBoard(
+            {
+              key: `rods:${set.id}:${String(revision)}`,
+              layout,
+              centre: boardCentre(layout),
+              discs: [],
+              label: rodSetText(set),
+            },
+            'entities',
+          );
+        },
+        (e: unknown) => {
+          if (n === this.rodLoads && !(e instanceof EngineError && e.errc === 'superseded')) {
+            reportError(e, 'The rod set could not be drawn');
+          }
+        },
+      );
+  }
+
   // ---- a sliding puzzle's start/goal shape ----
 
   /** Whether the shape shown is a sliding start/goal shape. */
@@ -788,7 +860,10 @@ export class EntitiesWorkspace {
           if (!inEntities()) {
             return false;
           }
-          if (t.id === 'paint' && this.store.snapshot?.grid === 'sliding') {
+          if (
+            (t.id === 'paint' && this.store.snapshot?.grid === 'sliding') ||
+            this.store.snapshot?.grid === 'stacking'
+          ) {
             return true;
           }
           st.tool = t.id;
@@ -801,6 +876,10 @@ export class EntitiesWorkspace {
     onKey('edit3d', () => {
       if (!inEntities()) {
         return false;
+      }
+      // a disc is not edited by its cells
+      if (this.store.snapshot?.grid === 'stacking') {
+        return true;
       }
       this.edit3d.toggle();
       return true;
@@ -847,6 +926,12 @@ export function entitiesStatus(store: Store): string {
     return 'Shapes are frozen while a solve runs — <b>pause the solve first</b> to edit them';
   }
   const shape = store.shape;
+  if (store.snapshot?.grid === 'stacking') {
+    // a disc: its size (the disc list)
+    return shape === null
+      ? 'No discs — add one with <b>+ New</b>'
+      : `Disc <b>${esc(shape.label)}</b>${shape.name === '' ? '' : ` ${esc(shape.name)}`} has size <b>${String(shape.disc ?? 1)}</b>`;
+  }
   if (shape === null) {
     return 'No shapes';
   }

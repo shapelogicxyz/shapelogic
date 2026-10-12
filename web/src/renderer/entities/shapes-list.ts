@@ -10,7 +10,10 @@
 // docs/mockup/index.html: `renderShapes`, `selectShape`, `newShape`,
 // `shapeAction`, the list's click, dblclick, keydown, contextmenu and
 // drag handlers. Every action is a call; the list shows what the engine
-// says after it (the store's snapshot).
+// says after it (the store's snapshot). On a stacking puzzle (docs/webui-
+// spec.md, section 9.1) it is the original's disc list (BlockList.cpp's
+// DiskSelector): each disc's "size" field with − and + (1 to 100,
+// stacking.setDiscSize), no weight; New makes a disc of size 1.
 
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
@@ -21,6 +24,8 @@ import { onKey } from '../shell/keyboard.ts';
 import { layout, applyLayout, tab } from '../shell/layout.ts';
 import { chipColour, contrast, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
 import { openPopAt } from '../shell/popover.ts';
+import { DISC_MAX, DISC_MIN, DISC_SIZE_REFUSED, discSizeOf } from '../state/stacking.ts';
+import { tell } from '../shell/dialog.ts';
 import { flash } from '../shell/status.ts';
 
 /** What the list asks of the workspace. */
@@ -47,6 +52,8 @@ export class ShapesList {
   private readonly host: ListHost;
   private readonly list = byId('shapeList');
   private renaming: { id: string; input: HTMLInputElement; cancelled: boolean } | null = null;
+  /** A disc's size field being typed in (the list is not drawn over it meanwhile). */
+  private sizing: string | null = null;
   private dragFrom: string | null = null;
 
   constructor(host: ListHost) {
@@ -65,11 +72,27 @@ export class ShapesList {
     const shapes = this.shapes;
     byId('shapeCount').textContent = String(shapes.length);
     this.renderStartGoal();
-    if (this.renaming === null) {
+    const discs = store.snapshot?.grid === 'stacking';
+    byId('btnNew').title = discs ? 'New disc (size 1)' : 'New shape';
+    if (this.renaming === null && this.sizing === null) {
       this.list.innerHTML = shapes
         .map((s, i) => {
           const { bg, fg } = chipColours(s, i);
           const sel = s.id === store.selected;
+          if (discs) {
+            // the disc list's row: the name, then "size:" with its field, + and −
+            const size = s.disc ?? 1;
+            return `<div class="row disc ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
+  <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
+  <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
+  <span class="lbl">${esc(s.name)}</span>
+  <span class="dsz" title="Rank compared by the size rule, and the radius of the disc"><span class="mute">size</span><input class="v" data-dsize value="${String(size)}" aria-label="Disc size" inputmode="numeric"><button class="ib" data-a="dp" title="Size +1" ${size >= DISC_MAX ? 'disabled' : ''}>+</button><button class="ib" data-a="dm" title="Size −1" ${size <= DISC_MIN ? 'disabled' : ''}>−</button></span>
+  <span class="acts">
+   <button class="ib" data-a="label" title="Rename">${ic('edit', 14)}</button>
+   <button class="ib" data-a="copy" title="Duplicate (added as the last disc)">${ic('copy', 14)}</button>
+   <button class="ib del" data-a="del" title="Delete" ${shapes.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button>
+  </span></div>`;
+          }
           return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
   <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
   <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
@@ -215,6 +238,16 @@ export class ShapesList {
         }
         return;
       }
+      case 'dp':
+      case 'dm': {
+        // a size step: nothing past the bounds (DiskSelector::onDelta)
+        const now = s.disc ?? 1;
+        const size = now + (a === 'dp' ? 1 : -1);
+        if (size >= DISC_MIN && size <= DISC_MAX) {
+          await this.setDiscSize(id, size);
+        }
+        return;
+      }
       case 'wp':
       case 'wm': {
         const weight = Math.max(0, s.weight + (a === 'wp' ? 1 : -1));
@@ -240,6 +273,42 @@ export class ShapesList {
       case 'nocolour':
         await this.host.mutate('Colour', () => e.call('shape.setColour', { shape: id, rgb: null }));
         return;
+    }
+  }
+
+  /** A disc's size (stacking.setDiscSize); the disc selected, as the original's list did. */
+  async setDiscSize(id: string, size: number): Promise<void> {
+    this.select(id);
+    await this.host.mutate('Disc size', () =>
+      this.host.store.engine.call('stacking.setDiscSize', { shape: id, size }),
+    );
+  }
+
+  // a size typed in a disc's field: refused with the original's message, the size then 1
+  private sizeTyped(input: HTMLInputElement): void {
+    const id = input.closest<HTMLElement>('.row')?.dataset.id;
+    this.sizing = null;
+    const s = this.shapes.find((x) => x.id === id);
+    if (id === undefined || s === undefined) {
+      this.render();
+      return;
+    }
+    if (this.host.refuse()) {
+      this.render();
+      return;
+    }
+    const size = discSizeOf(input.value);
+    if (size === null) {
+      tell(DISC_SIZE_REFUSED);
+      // the field shows the size again (a disc of size 1 already is not changed)
+      this.render();
+      void this.setDiscSize(id, 1);
+      return;
+    }
+    if (size !== (s.disc ?? 1)) {
+      void this.setDiscSize(id, size);
+    } else {
+      this.render();
     }
   }
 
@@ -331,6 +400,26 @@ export class ShapesList {
         void this.deleteStartGoal();
       }
     });
+    // a disc's size field: typed, then Enter or leaving it
+    list.addEventListener('focusin', (e) => {
+      const t = e.target as Element;
+      if (t instanceof HTMLInputElement && t.dataset.dsize !== undefined) {
+        this.sizing = t.closest<HTMLElement>('.row')?.dataset.id ?? null;
+      }
+    });
+    list.addEventListener('keydown', (e) => {
+      const t = e.target as Element;
+      if (t instanceof HTMLInputElement && t.dataset.dsize !== undefined && e.key === 'Enter') {
+        e.preventDefault();
+        t.blur();
+      }
+    });
+    list.addEventListener('focusout', (e) => {
+      const t = e.target as Element;
+      if (t instanceof HTMLInputElement && t.dataset.dsize !== undefined) {
+        this.sizeTyped(t);
+      }
+    });
     const pick = byId<HTMLInputElement>('shapeColourPick');
     pick.addEventListener('change', () => {
       const shape = pick.dataset.shape;
@@ -350,7 +439,8 @@ export class ShapesList {
       }
       const b = t.closest<HTMLElement>('[data-a]');
       if (b === null) {
-        if (t.closest('input') === null) {
+        // a disc's size field chooses its disc too (the list is not drawn over the field)
+        if (t.closest('input') === null || t.closest('[data-dsize]') !== null) {
           this.select(id);
         }
         return;
@@ -386,7 +476,7 @@ export class ShapesList {
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label">Rename…<span class="kb">F2</span></button><button data-k="copy">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''}>Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''}>Move later<span class="kb">Alt ↓</span></button><hr><button data-k="wp">Weight +1 <span class="kb">W+</span></button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''}>Weight −1 <span class="kb">W−</span></button><hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''}>Colour…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''}>Default colour</button><hr><button data-k="del" ${n < 2 || isTray(s) ? 'disabled' : ''} style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label">Rename…<span class="kb">F2</span></button><button data-k="copy">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''}>Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''}>Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp">Weight +1 <span class="kb">W+</span></button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''}>Weight −1 <span class="kb">W−</span></button>`}<hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''}>Colour…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''}>Default colour</button><hr><button data-k="del" ${n < 2 || isTray(s) ? 'disabled' : ''} style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },

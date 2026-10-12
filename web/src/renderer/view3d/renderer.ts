@@ -8,15 +8,27 @@
 // pan as a shift of the picture), which replaces its canvas drawing.
 // Each render is measured ("view3d:render", performance.measure). The
 // view's picture as a PNG at a scale of its size (File ▸ Export ▸ Image,
-// stage 7) is a render at that pixel ratio, read back at once.
+// stage 7) is a render at that pixel ratio, read back at once. A stacking
+// puzzle's view is tilted as the original's (`tilt`).
 
-import { Group, OrthographicCamera, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
+import {
+  Group,
+  OrthographicCamera,
+  PerspectiveCamera,
+  Quaternion,
+  Scene,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
 import type { Camera as Camera3 } from 'three';
 
 import { EYE_DISTANCE, pixelsPerUnit } from './camera.ts';
 import type { Camera } from './camera.ts';
 
 type V3 = [number, number, number];
+
+/** -90° about X: voxel (x, y, z) to (x, z, -y), the original's tiltPlates. */
+const TILT = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -Math.PI / 2);
 
 export class ViewRenderer {
   readonly gl: WebGLRenderer;
@@ -29,6 +41,13 @@ export class ViewRenderer {
   private readonly ortho = new OrthographicCamera();
   /** Perspective (the mockup's default) or orthographic. */
   perspective = true;
+  /**
+   * A stacking puzzle's view: the model turned -90° about X before the
+   * camera's turn, voxel +Z (the stack) up the screen, so a disc lies flat
+   * (the original's voxelFrame_c::tiltPlates; its view cube does not share
+   * the tilt, nor does this one).
+   */
+  tilt = false;
   /** The viewport's size in CSS pixels. */
   width = 1;
   height = 1;
@@ -65,6 +84,9 @@ export class ViewRenderer {
   frame(cam: Camera, extent: V3): void {
     const sc = pixelsPerUnit(this.width, this.height, extent, cam.zoom);
     this.root.quaternion.copy(cam.q);
+    if (this.tilt) {
+      this.root.quaternion.multiply(TILT);
+    }
     this.model.position.set(-extent[0] / 2, -extent[1] / 2, -extent[2] / 2);
     this.place(cam, sc, EYE_DISTANCE, Math.hypot(...extent) + 2);
   }

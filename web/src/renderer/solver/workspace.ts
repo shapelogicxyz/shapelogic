@@ -15,8 +15,13 @@
 // invalid_state is refused first: the options of a problem being solved,
 // a pause with no run under way, an abort once the run has ended (the
 // button greys out, as the original's); the frozen document says "pause
-// the solve first". Stacking puzzles are shown but not solved
-// (problem.kind, engine.info's grids). From docs/mockup/index.html:
+// the solve first". A stacking puzzle (docs/webui-spec.md, section 9.3):
+// its options and its one solver by the board, Solve and Continue off
+// without a board or with invalid stacks, Solve asking about a saved
+// search first (Continue, Start Over: mainwindow_solve.cpp's cb_BtnStart),
+// Continue and Abort for a saved search (solve.status.savedSearch, the
+// original's abortable), the Panex or stacking search on the Activity
+// line, the board (stacking.board) for the player. From docs/mockup/index.html:
 // `renderSolver`, `svSelect`, `svManage`, `svTag`, `svStatus`, `svKey`
 // and the Solver keydown handlers, and `SV`.
 
@@ -30,12 +35,11 @@ import type {
 } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
-import { frontEndSolves } from '../state/kinds.ts';
 import { isActive } from '../state/solves.ts';
 import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
 import { askConfirm } from '../shell/confirm.ts';
-import { tell } from '../shell/dialog.ts';
+import { askChoice, tell } from '../shell/dialog.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { onKey } from '../shell/keyboard.ts';
@@ -54,19 +58,28 @@ import { RunCard } from './run-card.ts';
 import {
   DEFAULT_LIMITS,
   DEFAULT_OPTIONS,
-  DEFAULT_SLIDING,
+  defaultsOf,
+  familyOf,
   normalize,
   readOptions,
   slidingActivity,
   sameOptions,
   solveOptions,
+  stackingActivity,
+  stackingSolverOf,
   writeOptions,
 } from './settings.ts';
-import type { BoxName, Limits, SearchOptions } from './settings.ts';
+import type { BoxName, Family, Limits, SearchOptions } from './settings.ts';
 import { SolutionsCard } from './solutions-card.ts';
 import { StatsPanel } from './stats-panel.ts';
 
 export type ProblemKind = Methods['problem.kind']['result'];
+
+/** A stacking problem's board as the engine draws it (stacking.board). */
+export type Board = Methods['stacking.board']['result'];
+
+/** A stacking problem's saved search (solve.status.savedSearch). */
+export type SavedSearch = NonNullable<Methods['solve.status']['result']['savedSearch']>;
 
 /** What the Remove menu removes (solution.delete's `which`). */
 export type RemoveWhich = 'one' | 'before' | 'after' | 'withoutDisassembly' | 'all';
@@ -145,8 +158,12 @@ export class SolverWorkspace {
         this.renderTag();
       },
       inseparable: (id) => this.inseparable(id),
-      supported: () => this.supported,
       current: (id) => id === this.selId && this.pager?.current(this.sel, this.sel + 1) === true,
+      board: () => {
+        const layout = this.board?.layout ?? null;
+        const centre = this.board?.centre ?? null;
+        return layout === null || centre === null ? null : { layout, centre };
+      },
     });
     this.runCard = new RunCard(this);
     this.solCard = new SolutionsCard(this);
@@ -156,7 +173,7 @@ export class SolverWorkspace {
       (p) => this.launchOptions(p),
       (p) => {
         // a sliding run carried on after an autosave tells its note at its end too
-        if (this.sliding) {
+        if (this.family !== 'brick') {
           void this.tellNote(p);
         }
       },
@@ -166,7 +183,7 @@ export class SolverWorkspace {
       view,
       problem: () => this.current,
       detail: () => this.detail,
-      options: () => solveOptions(this.options, this.limits, this.sliding),
+      options: () => this.optionsNow(),
       solution: () =>
         this.selId !== null && this.player.row?.id === this.selId ? this.player.row : null,
       assemblyReady: () => this.current !== null && this.stateOf(this.current) === 'paused',
@@ -310,13 +327,47 @@ export class SolverWorkspace {
     return this.store.snapshot?.grid === 'sliding';
   }
 
-  /** Whether this version solves the problem shown (stacking: not in this front end yet). */
-  get supported(): boolean {
-    const snap = this.store.snapshot;
-    const grid = this.store.info?.grids.find((g) => g.grid === snap?.grid);
-    return (
-      (grid?.supported ?? true) && this.kind?.supported !== false && frontEndSolves(snap?.grid)
-    );
+  /** Whether the puzzle is a stacking one (its own options, decision 0015). */
+  get stacking(): boolean {
+    return this.store.snapshot?.grid === 'stacking';
+  }
+
+  /** The family of the puzzle's options. */
+  get family(): Family {
+    return familyOf(this.store.snapshot?.grid);
+  }
+
+  /** A stacking problem's board (null: none read, or another grid). */
+  board: Board | null = null;
+
+  /** A stacking problem's saved search, as the last read found it (null: none). */
+  savedSearch: SavedSearch | null = null;
+
+  /** The one solver of a stacking problem's board (syncSolverTypeMenu). */
+  get stackingSolver(): 'stacking' | 'panex' {
+    const id = this.detail?.rodSet ?? null;
+    const set = this.store.snapshot?.rodSets.find((r) => r.id === id);
+    return stackingSolverOf(set?.panexColumns ?? false);
+  }
+
+  /**
+   * Why a stacking problem cannot be solved as it stands (no board, a rule
+   * broken: Solve's and Continue's tooltip in the original); null when it
+   * can, or on other grids.
+   */
+  get stackError(): string | null {
+    if (!this.stacking || this.detail === null) {
+      return null;
+    }
+    if (this.detail.rodSet === null) {
+      return 'Choose a rod set with Set Start/Goal Rods';
+    }
+    return this.board?.error ?? null;
+  }
+
+  /** The SolveOptions of the options shown. */
+  private optionsNow(o: SearchOptions = this.options): ReturnType<typeof solveOptions> {
+    return solveOptions(o, this.limits, this.family, this.stackingSolver);
   }
 
   /** The label of a shape (S1...), or its id. */
@@ -342,6 +393,8 @@ export class SolverWorkspace {
     this.current = id;
     this.detail = null;
     this.kind = null;
+    this.board = null;
+    this.savedSearch = null;
     byId('leftS').dataset.revision = '';
     this.newPager(true);
     this.load();
@@ -386,9 +439,6 @@ export class SolverWorkspace {
     }
     if (this.player.row !== null || this.explorer.mode !== null) {
       return '';
-    }
-    if (!this.supported) {
-      return 'This version does not solve stacking puzzles yet';
     }
     if ((this.pager?.total ?? 0) > 0) {
       return 'Choose a solution in the list to see it here';
@@ -460,7 +510,16 @@ export class SolverWorkspace {
     }
     if (r !== null && r.phase !== 'none' && r.progress !== null) {
       const g = r.progress;
-      return g.stage === 'search' ? slidingActivity(g.searched, g.searchDepth) : g.activity;
+      if (g.stage === 'search') {
+        return this.stacking
+          ? stackingActivity(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
+          : slidingActivity(g.searched, g.searchDepth);
+      }
+      return g.activity;
+    }
+    // a stacking problem's search saved on disk (updateInterface)
+    if (this.savedSearch !== null) {
+      return 'Paused. The search is saved.';
     }
     if (r?.failure !== null && r?.failure !== undefined && this.stateOf(r.problem) === 'error') {
       return 'error';
@@ -487,6 +546,8 @@ export class SolverWorkspace {
       this.current = null;
       this.detail = null;
       this.kind = null;
+      this.board = null;
+      this.savedSearch = null;
       this.kinds.clear();
       this.inseparables.clear();
       this.analysisRun = null;
@@ -502,6 +563,8 @@ export class SolverWorkspace {
         this.current = snap.problems[0]?.id ?? null;
         this.detail = null;
         this.kind = null;
+        this.board = null;
+        this.savedSearch = null;
         this.newPager(true);
       }
     }
@@ -529,16 +592,36 @@ export class SolverWorkspace {
       snap.grid === 'sliding' && result !== null && isTray(snap.shapes.find((x) => x.id === result))
         ? result
         : null;
+    // a stacking problem's board (its validity, its centre for the player)
+    // and its saved search
+    const stacking = snap.grid === 'stacking';
     Promise.all([
       store.engine.call('problem.get', { problem: id }, { coalesce: 'solver:problem.get' }),
       this.kindOf(id),
       tray === null
         ? Promise.resolve(null)
         : store.engine.call('sliding.tray', { tray }, { coalesce: 'solver:sliding.tray' }),
+      stacking
+        ? store.engine.call(
+            'stacking.board',
+            { problem: id, goal: false },
+            { coalesce: 'solver:stacking.board' },
+          )
+        : Promise.resolve(null),
+      stacking
+        ? store.engine.call('solve.status', { problem: id }, { coalesce: 'solver:solve.status' })
+        : Promise.resolve(null),
     ]).then(
-      ([d, k, t]) => {
+      ([d, k, t, b, st]) => {
         if (id === this.current) {
           this.slideError = t?.error ?? null;
+          // a solution shown before the board came is placed again around its middle
+          const first = this.board === null && b !== null;
+          this.board = b;
+          if (first) {
+            this.player.restyle();
+          }
+          this.savedSearch = st?.savedSearch ?? null;
           this.loaded(n, revision, d, k);
         }
       },
@@ -585,10 +668,11 @@ export class SolverWorkspace {
     this.shown = revision;
     // the stored options, unless the problem's are being changed here
     if (d !== null && (before?.id !== d.id || !this.editingOptions)) {
-      this.options = readOptions(d.solverSettings, undefined, this.sliding);
+      this.options = readOptions(d.solverSettings, undefined, this.family);
     }
     if (d !== null) {
-      this.autosave.want(d.id, this.options.autosave);
+      // a stacking search saves itself (its own 20 minutes): no save point
+      this.autosave.want(d.id, this.options.autosave && !this.stacking);
     }
     const left = byId('leftS');
     left.dataset.problem = this.current ?? '';
@@ -757,7 +841,7 @@ export class SolverWorkspace {
       this.render();
       return;
     }
-    const next = normalize({ ...this.options, ...change }, box, this.sliding).options;
+    const next = normalize({ ...this.options, ...change }, box, this.family).options;
     if (sameOptions(next, this.options)) {
       this.render();
       return;
@@ -771,7 +855,7 @@ export class SolverWorkspace {
         () =>
           this.store.engine.call('problem.setSolverSettings', {
             problem,
-            settings: writeOptions(next, d.solverSettings, this.sliding),
+            settings: writeOptions(next, d.solverSettings, this.family),
           }),
         (r) => this.whenShown(r),
       );
@@ -779,15 +863,16 @@ export class SolverWorkspace {
       this.editingOptions = false;
     }
     if (this.detail !== null) {
-      this.options = readOptions(this.detail.solverSettings, undefined, this.sliding);
+      this.options = readOptions(this.detail.solverSettings, undefined, this.family);
     }
     this.render();
   }
 
   /**
-   * A sliding run's note when it is through (the original's bt_message of
-   * the solver note): whether a missing solution is proven or the search
-   * gave up at a limit. Not for a pause to autosave, which carries on.
+   * A sliding or stacking run's note when it ends (the original's
+   * bt_message of the solver note): whether a missing solution is proven,
+   * the search gave up at a limit, or (a stacking search paused) where it
+   * was saved. Not for a pause to autosave, which carries on.
    */
   private async tellNote(problem: string): Promise<void> {
     const gen = this.store.generation;
@@ -820,11 +905,7 @@ export class SolverWorkspace {
   launchOptions(problem: string): ReturnType<typeof solveOptions> {
     return (
       this.launched.get(problem) ??
-      solveOptions(
-        problem === this.current ? this.options : this.sliding ? DEFAULT_SLIDING : DEFAULT_OPTIONS,
-        this.limits,
-        this.sliding,
-      )
+      this.optionsNow(problem === this.current ? this.options : defaultsOf(this.family))
     );
   }
 
@@ -836,11 +917,28 @@ export class SolverWorkspace {
     if (problem === null || this.calling || this.running || this.analysing) {
       return;
     }
-    if (!this.supported) {
-      flash('This version does not solve stacking puzzles yet', 4000);
-      return;
+    // Solve starts afresh: a saved stacking search would be lost, so ask (cb_BtnStart)
+    const saved = this.savedSearch;
+    if (kind === 'start' && this.stacking && saved !== null) {
+      const k = await askChoice(
+        'savedSearch',
+        'A saved search',
+        `This problem has ${saved.description}.\n\nContinue it, or start over and discard it?`,
+        [
+          { key: 'cancel', label: 'Cancel' },
+          { key: 'continue', label: 'Continue', kind: 'pri', default: true },
+          { key: 'over', label: 'Start Over', kind: 'danger' },
+        ],
+      );
+      if (k === 'continue') {
+        await this.run('continue');
+        return;
+      }
+      if (k !== 'over' || problem !== this.current || this.busyNow()) {
+        return;
+      }
     }
-    const options = solveOptions(this.options, this.limits, this.sliding);
+    const options = this.optionsNow();
     const solver: Solver = options.solver ?? 'classic';
     const method =
       kind === 'start' ? 'solve.start' : kind === 'prepare' ? 'solve.prepare' : 'solve.continue';
@@ -858,7 +956,7 @@ export class SolverWorkspace {
           // before the run's events (decision 0012: the reply first)
           this.solves.launch(problem, solver);
           this.launched.set(problem, options);
-          if (this.sliding) {
+          if (this.family !== 'brick') {
             void this.tellNote(problem);
           }
           return r;
@@ -870,6 +968,11 @@ export class SolverWorkspace {
       this.calling = false;
       this.render();
     }
+  }
+
+  // read through a call: the checker keeps the flags narrowed across an await
+  private busyNow(): boolean {
+    return this.calling || this.running || this.analysing;
   }
 
   /** Pauses the run (refused with no run under way: the button is off then). */
@@ -891,13 +994,22 @@ export class SolverWorkspace {
     }
   }
 
-  /** Whether the solve shown can be aborted: a run under way, or paused in memory. */
+  /**
+   * Whether the solve shown can be aborted: a run under way, paused in
+   * memory, or a stacking problem's search saved on disk (abortable()).
+   */
   get abortable(): boolean {
     const r = this.record;
-    if (this.current === null || r === null || this.calling) {
+    if (this.current === null || this.calling) {
       return false;
     }
     const s = this.stateOf(this.current);
+    if (this.savedSearch !== null && (r === null || r.phase === 'none') && !isActive(s)) {
+      return true;
+    }
+    if (r === null) {
+      return false;
+    }
     return (r.phase === 'active' && isActive(s)) || (r.phase === 'none' && s === 'paused');
   }
 
@@ -1046,10 +1158,6 @@ export class SolverWorkspace {
       return;
     }
     if (this.edits.refuse(this.running)) {
-      return;
-    }
-    if (!this.supported) {
-      flash('This version does not solve stacking puzzles yet', 4000);
       return;
     }
     const run: AnalysisRun = {

@@ -13,7 +13,11 @@
 // not saved: it says so once a solve. `saveAtSavePoint` is the path a save
 // refused while solving offers (stage 6's Save and Save As, with a path). The interval is 20
 // minutes; BT_AUTOSAVE_SECONDS (the main process passes it in the page's
-// address) shortens it for the e2e tests.
+// address) shortens it for the e2e tests. A stacking puzzle is not
+// autosaved here (its search saves itself every 20 minutes, the original's
+// PAR_PANEX_NO_AUTOSAVE without the box), and a save while its search runs
+// pauses it (solve.pause: the search saves itself; a stacking solve has no
+// save point), saves, and carries it on.
 
 import type { SolveOptions } from '../../engine/api.generated.ts';
 import { isActive } from '../state/solves.ts';
@@ -82,7 +86,10 @@ export class Autosave {
     if (this.saving || now - this.since < this.every) {
       return;
     }
-    if (!active.some((p) => this.wanted.get(p) ?? true)) {
+    if (
+      !active.some((p) => this.wanted.get(p) ?? true) ||
+      this.store.snapshot?.grid === 'stacking'
+    ) {
       return;
     }
     this.since = now;
@@ -142,9 +149,11 @@ export class Autosave {
     const paused: string[] = [];
     try {
       const runs = this.activeRuns();
+      // a stacking search has no save point: it pauses, saving itself
+      const method = this.store.snapshot?.grid === 'stacking' ? 'solve.pause' : 'solve.savePoint';
       for (const p of runs) {
         try {
-          await e.call('solve.savePoint', { problem: p });
+          await e.call(method, { problem: p });
           paused.push(p);
         } catch {
           // the run ended meanwhile: nothing to pause

@@ -151,6 +151,37 @@ describe('the engine host', () => {
     expect(problems.map((p) => p.reason)).toEqual(['handler']);
   });
 
+  it('tells each engine its setup before the window may call it; a failed setup fails the start', async () => {
+    const seen: string[] = [];
+    const {
+      host: h,
+      engines,
+      statuses,
+    } = host({
+      setup: async (client) => {
+        seen.push('setup');
+        await client.call('settings.set', { panexFolder: '/data/panex' });
+        seen.push('set');
+      },
+    });
+    const started = h.start();
+    await until(() => engines[0]?.sent.some((m) => m.method === 'settings.set') === true);
+    // not running until the setup is through
+    expect(statuses).toEqual([]);
+    const set = engines[0]?.sent.find((m) => m.method === 'settings.set');
+    expect(set?.params).toEqual({ panexFolder: '/data/panex' });
+    engines[0]?.reply(set?.id as number, { undoDepth: 25, threads: 0 });
+    await started;
+    expect(seen).toEqual(['setup', 'set']);
+    expect(statuses).toEqual([{ state: 'running', version: '0.1.0', restarts: 0 }]);
+
+    const bad = host({
+      setup: () => Promise.reject(new Error('no folder')),
+    });
+    await expect(bad.host.start()).rejects.toThrow('no folder');
+    expect(bad.statuses.at(-1)).toEqual({ state: 'failed', reason: 'no folder' });
+  });
+
   it('starts one engine when start() is called twice', async () => {
     const engines: ScriptedTransport[] = [];
     const h = new EngineHost({

@@ -178,7 +178,7 @@ In this order:
     docs/handoff/deferred-3b.md, decision 0015 amended)
 - [x] Audit of part 3 (3a and 3b together) (2026-10-11; the Audit section of
   docs/handoff/deferred-3b.md: three findings fixed)
-- [ ] **Part 4**: stacking and Panex: front end
+- [x] **Part 4**: stacking and Panex: front end (2026-10-11; docs/handoff/deferred-4.md)
 - [ ] **Part 5**: STL meshes and exports
 - [ ] **Part 6**: imports, Puzzlecad export, grid conversion
 - [ ] **Part 7**: Python bindings

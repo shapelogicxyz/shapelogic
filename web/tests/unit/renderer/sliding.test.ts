@@ -52,14 +52,14 @@ const shape = (id: string, label: string, startGoal: number | null = null): Shap
 
 describe('the sliding options', () => {
   it('start with Find Solutions and the full search; read the sliding solver names', () => {
-    const o = readOptions({}, undefined, true);
+    const o = readOptions({}, undefined, 'sliding');
     expect(o).toMatchObject({ disassemble: true, slidingSolver: 'full', nestedSlides: false });
     // a brick puzzle's defaults are as they were
     expect(readOptions({}).disassemble).toBe(false);
     const s = readOptions(
       { solverType: 'deep', nestedSlides: true, partialNested: true, highMemory: true },
       undefined,
-      true,
+      'sliding',
     );
     expect(s).toMatchObject({
       slidingSolver: 'deep',
@@ -69,13 +69,17 @@ describe('the sliding options', () => {
       solver: 'classic',
     });
     // a brick solver's name on a sliding puzzle, and the reverse, keep the default
-    expect(readOptions({ solverType: 'bt2' }, undefined, true).slidingSolver).toBe('full');
+    expect(readOptions({ solverType: 'bt2' }, undefined, 'sliding').slidingSolver).toBe('full');
     expect(readOptions({ solverType: 'fast' }).solver).toBe('classic');
   });
 
   it('store the sliding boxes and solver with a sliding puzzle only', () => {
-    const o = readOptions({}, undefined, true);
-    const w = writeOptions({ ...o, slidingSolver: 'fast', highMemory: true }, { other: 'x' }, true);
+    const o = readOptions({}, undefined, 'sliding');
+    const w = writeOptions(
+      { ...o, slidingSolver: 'fast', highMemory: true },
+      { other: 'x' },
+      'sliding',
+    );
     expect(w).toMatchObject({
       solverType: 'fast',
       highMemory: true,
@@ -92,7 +96,7 @@ describe('the sliding options', () => {
 
   it('follow updateSolverOptionCheckboxes: no symmetry, levels or colours; partial needs nested', () => {
     const o = {
-      ...readOptions({}, undefined, true),
+      ...readOptions({}, undefined, 'sliding'),
       keepMirrors: true,
       keepRotations: true,
       deepSymmetry: true,
@@ -101,7 +105,7 @@ describe('the sliding options', () => {
       checkRotations: true,
       partialNested: true,
     };
-    const n = normalize(o, null, true);
+    const n = normalize(o, null, 'sliding');
     expect(n.options).toMatchObject({
       keepMirrors: false,
       keepRotations: false,
@@ -112,17 +116,17 @@ describe('the sliding options', () => {
       partialNested: true,
     });
     expect(n.disabled.has('partialNested')).toBe(true);
-    expect(normalize({ ...o, nestedSlides: true }, null, true).disabled.has('partialNested')).toBe(
-      false,
-    );
-    const counted = normalize({ ...o, justCount: true }, 'justCount', true);
+    expect(
+      normalize({ ...o, nestedSlides: true }, null, 'sliding').disabled.has('partialNested'),
+    ).toBe(false);
+    const counted = normalize({ ...o, justCount: true }, 'justCount', 'sliding');
     expect(counted.options.disassemble).toBe(false);
     expect(counted.disabled.has('disassemble')).toBe(true);
   });
 
   it('map to SolveOptions.sliding, partially nested only with nested', () => {
-    const o = { ...readOptions({}, undefined, true), partialNested: true, highMemory: true };
-    expect(solveOptions(o, DEFAULT_LIMITS, true)).toEqual({
+    const o = { ...readOptions({}, undefined, 'sliding'), partialNested: true, highMemory: true };
+    expect(solveOptions(o, DEFAULT_LIMITS, 'sliding')).toEqual({
       disassemble: true,
       justCount: false,
       keepAtMost: 100,
@@ -130,7 +134,7 @@ describe('the sliding options', () => {
       sliding: { solver: 'full', nestedSlides: false, partialNested: false, highMemory: true },
     });
     expect(
-      solveOptions({ ...o, nestedSlides: true }, DEFAULT_LIMITS, true).sliding?.partialNested,
+      solveOptions({ ...o, nestedSlides: true }, DEFAULT_LIMITS, 'sliding').sliding?.partialNested,
     ).toBe(true);
     expect(solveOptions(readOptions({}), DEFAULT_LIMITS).sliding).toBeUndefined();
   });

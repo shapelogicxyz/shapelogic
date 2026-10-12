@@ -15,7 +15,11 @@
 // solves (Snapshot.solving), a problem while it is solved or analysed
 // (ProblemSummary.solve, analysing). From docs/mockup/index.html:
 // `renderPuzzle`, `pzStatus`, `pzTag`, `pzAdd`, `pzBump`, `pzChanged`,
-// `puzClick`, the keydown handler's Puzzle row, and `PZ`.
+// `puzClick`, the keydown handler's Puzzle row, and `PZ`. A stacking
+// problem (docs/webui-spec.md, section 9.2): its board and stacks
+// (stacks-card.ts over stacking.board) in place of the result, the pieces
+// and the selected piece, the board with the discs of the start or the
+// goal in the view (view3d/board.ts) instead of the pieces scene.
 
 import type {
   FitStats,
@@ -31,7 +35,12 @@ import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
 import { chipColour, contrast, hex } from '../shell/piece-colours.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
+import { pieceSubColour, ROD_CHIP, shapeColour } from '../shell/piece-colours.ts';
+import { boardCentre } from '../view3d/board.ts';
 import type { View3D } from '../view3d/view.ts';
+import { rodSetText } from '../state/stacking.ts';
+import { rodAt, stackValidity } from '../state/stacking.ts';
+import { StacksCard } from './stacks-card.ts';
 import { nextCount, nextGroup, partOf, PROBLEM_CHIP, solveActive } from './counts.ts';
 import { puzLayout } from './layout.ts';
 import { PiecesCard } from './pieces-card.ts';
@@ -39,6 +48,9 @@ import { PieceCard } from './piece-card.ts';
 import { ProblemsList } from './problems.ts';
 
 export type ProblemKind = Methods['problem.kind']['result'];
+
+/** A stacking problem's board (stacking.board). */
+export type Board = Methods['stacking.board']['result'];
 
 export class PuzzleWorkspace {
   readonly store: Store;
@@ -57,6 +69,18 @@ export class PuzzleWorkspace {
   libOpen = true;
   /** The snapshot revision the cards show, or -1 while loading. */
   shown = -1;
+  /** A stacking problem: the stacking edited (Start or Goal), the board as the engine has it. */
+  goal = false;
+  board: Board | null = null;
+  /** The stacking the board was read for (Start or Goal): until it is the one chosen, it is not shown. */
+  boardGoal = false;
+  /** The rod slider's place, and the row chosen in Stack Order (the top first). */
+  rodPlace = 0;
+  stackRow = 0;
+  /** The rod set chosen in the board's list (the problem's own at first). */
+  boardSel: string | null = null;
+  private readonly stacks: StacksCard;
+  private rodLoads = 0;
   private readonly view3d: View3D;
   private readonly problems: ProblemsList;
   private readonly pieces: PiecesCard;
@@ -75,6 +99,7 @@ export class PuzzleWorkspace {
     this.problems = new ProblemsList(this);
     this.pieces = new PiecesCard(this);
     this.card = new PieceCard(this);
+    this.stacks = new StacksCard(this);
     view.puzzle = {
       pick: (shape) => {
         this.select(shape);
@@ -112,6 +137,41 @@ export class PuzzleWorkspace {
     return p !== null && (solveActive(p.solve) || p.analysing);
   }
 
+  /** Whether the puzzle is a stacking one. */
+  get stacking(): boolean {
+    return this.store.snapshot?.grid === 'stacking';
+  }
+
+  /** The stack map's rod the slider chooses. */
+  get rod(): number {
+    return rodAt(this.stacks.places, this.rodPlace);
+  }
+
+  /** Start or Goal (cb_StackMode): the board read again for it. */
+  setGoal(goal: boolean): void {
+    this.goal = goal;
+    this.stackRow = 0;
+    this.load();
+    this.render();
+  }
+
+  /** Another rod on the slider (cb_StackRod). */
+  setRodPlace(place: number): void {
+    this.rodPlace = Math.max(0, Math.round(place));
+    this.stackRow = 0;
+    this.render();
+  }
+
+  /** Runs a mutating call until the cards show its revision; a failure is thrown, not said. */
+  mutateQuiet<T extends { revision: number }>(call: () => Promise<T>): Promise<T> {
+    return this.edits.track(
+      call().then(async (r) => {
+        await this.whenShown(r.revision);
+        return r;
+      }),
+    );
+  }
+
   /** Whether a piece's count is shown as a range. */
   isRange(shape: string): boolean {
     const part = partOf(this.detail, shape);
@@ -141,6 +201,9 @@ export class PuzzleWorkspace {
     this.detail = null;
     this.fit = null;
     this.kind = null;
+    this.board = null;
+    this.boardSel = null;
+    this.stackRow = 0;
     // nothing of the new problem is shown until it is read
     byId('leftP').dataset.revision = '';
     this.load();
@@ -159,9 +222,11 @@ export class PuzzleWorkspace {
     const frozen = this.problemFrozen;
     stage.classList.toggle('pzfrozen', frozen);
     stage.dataset.pzfrozen = frozen ? '1' : '0';
+    byId('pzRightTitle').textContent = this.stacking ? 'Stacks' : 'Selected piece';
     this.problems.render();
     this.pieces.render();
     this.card.render();
+    this.stacks.render();
     this.renderScene();
     updateStatus();
   }
@@ -169,6 +234,12 @@ export class PuzzleWorkspace {
   private renderScene(): void {
     const d = this.detail;
     const snap = this.store.snapshot;
+    if (snap?.grid === 'stacking') {
+      this.view3d.setPieces(null);
+      this.renderBoard();
+      this.view3d.renderLabels();
+      return;
+    }
     if (d === null || snap === null || this.shown < 0) {
       this.view3d.setPieces(null);
     } else {
@@ -184,11 +255,95 @@ export class PuzzleWorkspace {
     this.view3d.renderLabels();
   }
 
+  // a stacking problem's board in the view: its start's or goal's discs
+  // (showStacking), or another rod set chosen in the list alone (cb_ProblemRod)
+  private renderBoard(): void {
+    const d = this.detail;
+    // the board read for the other stacking is not drawn as this one
+    const b = this.boardGoal === this.goal ? this.board : null;
+    const store = this.store;
+    const snap = store.snapshot;
+    const n = ++this.rodLoads;
+    if (d === null || snap === null || this.shown < 0) {
+      this.view3d.setBoard(null, 'puzzle');
+      return;
+    }
+    const other = this.boardSel !== null && this.boardSel !== d.rodSet ? this.boardSel : null;
+    if (other !== null) {
+      const gen = store.generation;
+      const set = snap.rodSets.find((r) => r.id === other);
+      store.engine
+        .call('stacking.rodSetLayout', { rodSet: other }, { coalesce: 'puzzle:rodSetLayout' })
+        .then(
+          (layout) => {
+            if (n === this.rodLoads && gen === store.generation) {
+              this.view3d.setBoard(
+                {
+                  key: `rods:${other}:${String(this.shown)}`,
+                  layout,
+                  centre: boardCentre(layout),
+                  discs: [],
+                  ...(set === undefined ? {} : { label: rodSetText(set) }),
+                },
+                'puzzle',
+              );
+            }
+          },
+          (e: unknown) => {
+            if (n === this.rodLoads && !(e instanceof EngineError && e.errc === 'superseded')) {
+              reportError(e, 'The rod set could not be drawn');
+            }
+          },
+        );
+      return;
+    }
+    const layout = b?.layout ?? null;
+    const centre = b?.centre ?? null;
+    if (layout === null || centre === null) {
+      this.view3d.setBoard(null, 'puzzle');
+      return;
+    }
+    const discs = layout.discs.flatMap((x) => {
+      if (x.at === null) {
+        return [];
+      }
+      const i = store.indexOf(x.shape);
+      const base = shapeColour(snap.shapes[i]?.colour ?? null, i);
+      return [
+        {
+          shape: x.shape,
+          size: x.size,
+          at: x.at,
+          colour: pieceSubColour(i, x.instance, base),
+        },
+      ];
+    });
+    this.view3d.setBoard(
+      {
+        // what is drawn, not when: a board read for Start or Goal may come at the same revision
+        key: `board:${d.id}:${String(layout.panex)}:${String(layout.pocket)}:${String(layout.maxSize)}:${layout.rodX.join(',')}:${layout.rodHeights.join(',')}:${discs.map((x) => `${x.shape}@${x.at.join(',')}`).join(' ')}`,
+        layout,
+        centre,
+        discs,
+      },
+      'puzzle',
+    );
+  }
+
   // the mockup's pzTag: the problem's chip and name, and its result
   private tag(): string {
     const p = this.problem;
     if (p === null) {
       return '';
+    }
+    if (this.stacking) {
+      // the board (resultviewer.cpp) and the stacking edited
+      const set = this.store.snapshot?.rodSets.find((r) => r.id === p.rodSet);
+      const res =
+        set === undefined
+          ? '<span class="mute">· No Start/Goal Rods</span>'
+          : `<span class="mute">· Result</span><span class="chip" style="background:${ROD_CHIP};color:#fff">${esc(set.label)}</span><span class="mute">· ${this.goal ? 'Goal' : 'Start'}</span>`;
+      return `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${res}`;
     }
     const r = p.result;
     const res =
@@ -207,6 +362,9 @@ export class PuzzleWorkspace {
       return 'No problems — add one with + New';
     }
     const d = this.detail;
+    if (this.stacking) {
+      return d !== null && d.rodSet === null ? 'Choose a rod set with Set Start/Goal Rods' : '';
+    }
     if (d !== null && d.result === null && d.parts.length === 0) {
       return 'Choose a result and add pieces';
     }
@@ -224,6 +382,15 @@ export class PuzzleWorkspace {
     }
     if (this.problemFrozen) {
       return `Problem <b>${esc(p.label)}</b> is being solved — <b>pause the solve first</b> to edit it`;
+    }
+    if (this.stacking) {
+      // the board and the validity bar's words (refreshStackValid)
+      const set = this.store.snapshot?.rodSets.find((r) => r.id === p.rodSet);
+      if (set === undefined) {
+        return `Problem <b>${esc(p.label)}</b> has no board — choose a rod set with <b>Set Start/Goal Rods</b>`;
+      }
+      const v = stackValidity(this.board?.error ?? null);
+      return `Problem <b>${esc(p.label)}</b> on ${esc(rodSetText(set))} · ${esc(v.text)}`;
     }
     const f = this.fit;
     if (f === null) {
@@ -249,6 +416,11 @@ export class PuzzleWorkspace {
       this.detail = null;
       this.fit = null;
       this.kind = null;
+      this.board = null;
+      this.boardSel = null;
+      this.goal = false;
+      this.rodPlace = 0;
+      this.stackRow = 0;
     }
     if (snap !== null) {
       const ids = snap.problems.map((p) => p.id);
@@ -259,6 +431,8 @@ export class PuzzleWorkspace {
         this.detail = null;
         this.fit = null;
         this.kind = null;
+        this.board = null;
+        this.boardSel = null;
       }
       if (this.sel !== null && !snap.shapes.some((s) => s.id === this.sel)) {
         this.sel = null;
@@ -286,13 +460,23 @@ export class PuzzleWorkspace {
       return;
     }
     const e = store.engine;
+    // a stacking problem has no fit (no result): its board instead
+    const stacking = snap.grid === 'stacking';
+    const goal = this.goal;
     Promise.all([
       e.call('problem.get', { problem: id }, { coalesce: 'problem.get' }),
-      e.call('problem.fit', { problem: id }, { coalesce: 'problem.fit' }),
+      stacking
+        ? Promise.resolve(null)
+        : e.call('problem.fit', { problem: id }, { coalesce: 'problem.fit' }),
       this.kindOf(id),
+      stacking
+        ? e.call('stacking.board', { problem: id, goal }, { coalesce: 'stacking.board' })
+        : Promise.resolve(null),
     ]).then(
-      ([d, f, k]) => {
+      ([d, f, k, b]) => {
         if (id === this.current) {
+          this.board = b;
+          this.boardGoal = goal;
           this.loaded(n, revision, d, f, k);
         }
       },
@@ -340,6 +524,11 @@ export class PuzzleWorkspace {
     this.fit = f;
     this.kind = k;
     this.shown = revision;
+    // the board's list starts on the problem's own rod set (selectProblemRod)
+    const sets = this.store.snapshot?.rodSets ?? [];
+    if (this.boardSel === null || !sets.some((r) => r.id === this.boardSel)) {
+      this.boardSel = d?.rodSet ?? sets[0]?.id ?? null;
+    }
     byId('leftP').dataset.problem = this.current ?? '';
     byId('leftP').dataset.revision = String(revision);
     this.render();
@@ -396,6 +585,11 @@ export class PuzzleWorkspace {
     }
     this.sel = shape;
     this.render();
+    if (this.stacking) {
+      // a disc goes on top of the rod chosen (the Problems tab's +1)
+      await this.stacks.add(shape);
+      return;
+    }
     await this.mutate('Add piece', () => this.engine.call('problem.addPiece', { problem, shape }));
   }
 
@@ -631,7 +825,20 @@ export class PuzzleWorkspace {
       void this.add(s);
       return true;
     });
+    // a stacking problem: − and Del take the disc chosen in Stack Order off
+    const offStack = (): boolean => {
+      if (tab !== 'puzzle' || !this.stacking) {
+        return false;
+      }
+      if (!this.refuse()) {
+        void this.stacks.remove();
+      }
+      return true;
+    };
     onKey('piece.fewer', () => {
+      if (offStack()) {
+        return true;
+      }
       const s = piece();
       if (s === null) {
         return false;
@@ -640,6 +847,9 @@ export class PuzzleWorkspace {
       return true;
     });
     onKey('delete', () => {
+      if (offStack()) {
+        return true;
+      }
       const s = piece();
       if (s === null) {
         return false;

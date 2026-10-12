@@ -7,10 +7,14 @@
 // pose does, on all five grids; the solutions pager, in every sort and
 // direction over pages, gives the rows one solution.page gives in one
 // piece; the poses of a solution read in chunks are the engine's samples at
-// every whole step.
+// every whole step. A stacking solution's discs (deferred part 4) stand,
+// assembled and at the end, where the boards the Puzzle draws put them
+// (stacking.board's layout, by their centres), in the frame the client
+// works the board's middle out in.
 
-import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -18,6 +22,7 @@ import { poseArrays } from '../../src/engine/frames.ts';
 import type { SortKey } from '../../src/renderer/solver/pager.ts';
 import { SolutionPager } from '../../src/renderer/solver/pager.ts';
 import { PoseTrack, SAMPLES } from '../../src/renderer/solver/poses.ts';
+import { boardCentre, discAt } from '../../src/renderer/view3d/board.ts';
 import { cellScale, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
 
@@ -87,6 +92,90 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
     }
     expect([...grids].sort()).toEqual(['bricks', 'prisms', 'rhombic', 'spheres', 'tetraOcta']);
     expect(pieces).toBeGreaterThan(100);
+  });
+
+  it('places a stacking solution’s discs where the boards and the player’s poses have them', async () => {
+    const c = s.client;
+    // the saved searches in a folder of the test's own, never the user's cache
+    const work = mkdtempSync(join(tmpdir(), 'bt-engine-panex-'));
+    await c.call('settings.set', { panexFolder: work });
+    let discs = 0;
+    try {
+      for (const f of [
+        'test_stacking_hanoi.xmpuzzle',
+        'stacking/stack_panex_swap_3.xmpuzzle',
+        'stacking/stack_panex_jr.xmpuzzle',
+        'stacking/stack_two_boards.xmpuzzle',
+        'stacking/stack_copies.xmpuzzle',
+      ]) {
+        const snap = await c.call('document.open', { path: `${FIXTURES}/${f}` });
+        const size = new Map(snap.shapes.map((x) => [x.id, x.disc ?? 1]));
+        for (const prob of snap.problems) {
+          const start = await c.call('stacking.board', { problem: prob.id, goal: false });
+          const goal = await c.call('stacking.board', { problem: prob.id, goal: true });
+          if (start.layout === null || start.centre === null || start.error !== null) {
+            continue;
+          }
+          // the client's middle of the board is the engine's
+          expect(boardCentre(start.layout), f).toEqual(start.centre);
+          const centre = start.centre;
+          await c.call('solve.start', { problem: prob.id, options: { disassemble: true } });
+          for (let i = 0; i < 400; i++) {
+            const st = await c.call('solve.status', { problem: prob.id });
+            if (st.state === 'finished' || st.state === 'error') {
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 25));
+          }
+          const page = await c.call('solution.page', { problem: prob.id, limit: 1 });
+          const row = page.rows[0];
+          if (row === undefined) {
+            continue;
+          }
+          const got = await c.call('solution.get', { problem: prob.id, solution: row.id });
+          const pb = await c.call('playback.open', { problem: prob.id, solution: row.id });
+          const poses = poseArrays(
+            await c.call('playback.poses', { handle: pb.handle, samplesPerStep: 1 }),
+            'step',
+          );
+          const n = pb.pieces.length;
+          const last = pb.steps;
+          for (const [i, piece] of pb.pieces.entries()) {
+            const pl = got.placements.find((q) => q.piece === piece.piece);
+            const r = size.get(piece.shape) ?? 1;
+            // assembled: the player's placedAt with the disc's centre, centred on the board
+            const at = placedAt(
+              pl?.at ?? [0, 0, 0],
+              [r, r, 0],
+              [1, 1, 1],
+              [2 * centre[0], 2 * centre[1], 2 * centre[2]],
+            );
+            // the start's and the goal's board put the disc where the first and the last pose do
+            const copy = piece.piece - pb.pieces.findIndex((q) => q.shape === piece.shape);
+            const onStart = start.layout.discs.find(
+              (d) => d.shape === piece.shape && d.instance === copy,
+            );
+            const onGoal = goal.layout?.discs.find(
+              (d) => d.shape === piece.shape && d.instance === copy,
+            );
+            const first = discAt(onStart?.at ?? [0, 0, 0], r, centre);
+            const end = discAt(onGoal?.at ?? [0, 0, 0], r, centre);
+            for (let k = 0; k < 3; k++) {
+              const pose0 = poses.translation[3 * i + k] ?? NaN;
+              const poseN = poses.translation[3 * (last * n + i) + k] ?? NaN;
+              expect(pose0, `${f} piece ${String(i)} assembled`).toBeCloseTo(at[k] ?? 0, 4);
+              expect(pose0, `${f} piece ${String(i)} on the start`).toBeCloseTo(first[k] ?? 0, 4);
+              expect(poseN, `${f} piece ${String(i)} on the goal`).toBeCloseTo(end[k] ?? 0, 4);
+            }
+            discs++;
+          }
+          await c.call('playback.close', { handle: pb.handle });
+        }
+      }
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+    expect(discs).toBeGreaterThan(15);
   });
 
   it('pages every sort and direction as one solution.page gives it', async () => {

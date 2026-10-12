@@ -523,7 +523,7 @@ PLAN.md's "Later" list.
 | Abort separate from Pause (§7.2) | `solve.abort`, refused once a run has ended | Grey the button out as the original did |
 | Autosave every 20 minutes (§7.2) | `solve.savePoint` then `document.save` then `solve.continue` | Client policy (stage 4) |
 | Debug statistics panel (§7.2) | `solve.status.stats` | Client (stage 5) |
-| Sliding and stacking puzzles (§7.3) | sliding: solved and played (`SolveOptions.sliding`, routes), start/goal shapes and stamps (`sliding.*`, deferred part 1); stacking: solved, paused, carried on and played (`SolveOptions.stacking`, saved searches in `panexFolder`), rod sets, discs and stacks (`stacking.*`, deferred part 3b) | Sliding: **done** (deferred part 2, webui-spec.md §8). Stacking shown with the solver disabled by the front end's own rule (`state/kinds.ts`) until deferred part 4 |
+| Sliding and stacking puzzles (§7.3) | sliding: solved and played (`SolveOptions.sliding`, routes), start/goal shapes and stamps (`sliding.*`, deferred part 1); stacking: solved, paused, carried on and played (`SolveOptions.stacking`, saved searches in `panexFolder`), rod sets, discs and stacks (`stacking.*`, deferred part 3b) | Sliding: **done** (deferred part 2, webui-spec.md §8). Stacking: **done** (deferred part 4, webui-spec.md §9) |
 | Anaglyph display (§7.4) | none | Client, three.js's anaglyph effect (cheap; decide in stage 6) |
 | Render styles (§7.4) | drawing, wireframe, flat | STL-like waits for the STL meshes |
 | Colour-constraint colour view (§7.4) | per-triangle `colour` in every mesh | Client (stage 1b) |

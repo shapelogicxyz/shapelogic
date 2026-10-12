@@ -16,15 +16,31 @@
 // nested slides) and Enable High Memory in the places of Keep Mirror,
 // Keep Rotated and Deep Symmetry Check, the three sliding solvers in the
 // Solver Type list, Find Solutions checked at first, and none of Just
-// Levels, Check Rotations, Strict Colours and the symmetry options.
+// Levels, Check Rotations, Strict Colours and the symmetry options. On a
+// stacking puzzle (section 9.3): Find Solutions checked at first
+// (stackingDisasmDefaulted), Just Levels kept (the search ignores it),
+// Enable High Memory, no Check Rotations, Strict Colours or symmetry
+// options, and one solver by the problem's board (syncSolverTypeMenu:
+// the Panex Solver for Panex columns, else the Stacking Solver), which the
+// original did not store.
 
 import type {
+  Grid,
   SlidingSolver,
   SolveOptions,
   Solver,
   SolverSettings,
   SortBy,
+  StackingSolver,
 } from '../../engine/api.generated.ts';
+
+/** The puzzles whose Solver shows its own options: brick (every assembling grid), sliding, stacking. */
+export type Family = 'brick' | 'sliding' | 'stacking';
+
+/** The family of a grid's puzzles. */
+export function familyOf(grid: Grid | undefined): Family {
+  return grid === 'sliding' ? 'sliding' : grid === 'stacking' ? 'stacking' : 'brick';
+}
 
 /** The check boxes this version shows, by their stored names. */
 export type BoxName =
@@ -55,7 +71,7 @@ export interface SearchOptions {
   nestedSlides: boolean;
   /** Sliding: and what is partly nested in it (Allow Partially Nested; needs nestedSlides). */
   partialNested: boolean;
-  /** Sliding: up to half the memory in arrangements (Enable High Memory). */
+  /** Sliding and stacking: up to half the memory (Enable High Memory). */
   highMemory: boolean;
   autosave: boolean;
   solver: Solver;
@@ -86,6 +102,18 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
 /** A sliding puzzle's defaults: Find Solutions checked (slidingDisasmDefaulted). */
 export const DEFAULT_SLIDING: Readonly<SearchOptions> = { ...DEFAULT_OPTIONS, disassemble: true };
 
+/** A stacking puzzle's defaults: Find Solutions checked (stackingDisasmDefaulted). */
+export const DEFAULT_STACKING: Readonly<SearchOptions> = { ...DEFAULT_OPTIONS, disassemble: true };
+
+/** The defaults of a family's problems. */
+export function defaultsOf(family: Family): Readonly<SearchOptions> {
+  return family === 'sliding'
+    ? DEFAULT_SLIDING
+    : family === 'stacking'
+      ? DEFAULT_STACKING
+      : DEFAULT_OPTIONS;
+}
+
 /** The boxes a sliding puzzle shows (updateSolverOptionCheckboxes' setVis). */
 export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'disassemble',
@@ -102,6 +130,24 @@ export const SLIDING_ONLY: ReadonlySet<BoxName> = new Set<BoxName>([
   'partialNested',
   'highMemory',
 ]);
+
+/** The boxes a stacking puzzle shows (updateSolverOptionCheckboxes' setVis). */
+export const STACKING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
+  'disassemble',
+  'justLevels',
+  'justCount',
+  'highMemory',
+  'autosave',
+]);
+
+/**
+ * The one solver the original offered a stacking problem
+ * (syncSolverTypeMenu): the Panex Solver on a board of Panex columns,
+ * else the Stacking Solver.
+ */
+export function stackingSolverOf(panexColumns: boolean): StackingSolver {
+  return panexColumns ? 'panex' : 'stacking';
+}
 
 const SOLVERS: readonly Solver[] = ['classic', 'crowell', 'bt2'];
 const SLIDING_SOLVERS: readonly SlidingSolver[] = ['fast', 'deep', 'full'];
@@ -124,9 +170,10 @@ export const SORT_CHOICES: readonly { value: SortBy; label: string; needsDisasse
 export function readOptions(
   stored: SolverSettings,
   base?: Readonly<SearchOptions>,
-  sliding = false,
+  family: Family = 'brick',
 ): SearchOptions {
-  const o: SearchOptions = { ...(base ?? (sliding ? DEFAULT_SLIDING : DEFAULT_OPTIONS)) };
+  const sliding = family === 'sliding';
+  const o: SearchOptions = { ...(base ?? defaultsOf(family)) };
   const boxes: BoxName[] = [
     'disassemble',
     'checkRotations',
@@ -152,14 +199,18 @@ export function readOptions(
     if (typeof st === 'string' && (SLIDING_SOLVERS as readonly string[]).includes(st)) {
       o.slidingSolver = st as SlidingSolver;
     }
-  } else if (typeof st === 'string' && (SOLVERS as readonly string[]).includes(st)) {
+  } else if (
+    family === 'brick' &&
+    typeof st === 'string' &&
+    (SOLVERS as readonly string[]).includes(st)
+  ) {
     o.solver = st as Solver;
   }
   const sb = stored.sortBy;
   if (typeof sb === 'string' && (SORTS as readonly string[]).includes(sb)) {
     o.sortBy = sb as SortBy;
   }
-  return normalize(o, null, sliding).options;
+  return normalize(o, null, family).options;
 }
 
 /**
@@ -171,8 +222,9 @@ export function readOptions(
 export function writeOptions(
   o: SearchOptions,
   stored: SolverSettings,
-  sliding = false,
+  family: Family = 'brick',
 ): SolverSettings {
+  const sliding = family === 'sliding';
   const out: SolverSettings = {
     ...stored,
     disassemble: o.disassemble,
@@ -184,13 +236,19 @@ export function writeOptions(
     keepRotations: o.keepRotations,
     strictColors: o.strictColors,
     autosave: o.autosave,
-    solverType: sliding ? o.slidingSolver : o.solver,
     sortBy: o.sortBy,
   };
-  // the sliding boxes go with a sliding puzzle's problems only
+  // a stacking puzzle's one solver was not stored (storeSolverOptions)
+  if (family !== 'stacking') {
+    out.solverType = sliding ? o.slidingSolver : o.solver;
+  }
+  // the sliding boxes go with a sliding puzzle's problems only, High Memory
+  // with the stacking ones too
   if (sliding) {
     out.nestedSlides = o.nestedSlides;
     out.partialNested = o.partialNested;
+  }
+  if (family !== 'brick') {
     out.highMemory = o.highMemory;
   }
   return out;
@@ -215,11 +273,37 @@ export interface Normalized {
 export function normalize(
   input: SearchOptions,
   changed: BoxName | null,
-  sliding = false,
+  family: Family = 'brick',
 ): Normalized {
   const o = { ...input };
   const disabled = new Set<BoxName>();
-  if (sliding) {
+  if (family === 'stacking') {
+    // updateSolverOptionCheckboxes: no Strict Colours, symmetry options or
+    // rotation take-apart; Just Count and Just Levels rule each other out,
+    // Just Levels keeps Find Solutions on (the search ignores it)
+    o.strictColors = false;
+    o.checkRotations = false;
+    o.deepSymmetry = false;
+    o.keepMirrors = false;
+    o.keepRotations = false;
+    o.nestedSlides = false;
+    o.partialNested = false;
+    if (changed === 'justLevels' && o.justLevels) {
+      o.justCount = false;
+    }
+    if (o.justCount) {
+      o.justLevels = false;
+      o.disassemble = false;
+      disabled.add('justLevels');
+      disabled.add('disassemble');
+    } else if (o.justLevels) {
+      o.disassemble = true;
+      disabled.add('justCount');
+      disabled.add('disassemble');
+    }
+    return { options: o, disabled };
+  }
+  if (family === 'sliding') {
     // updateSolverOptionCheckboxes: no Just Levels, Strict Colours,
     // symmetry options or rotation take-apart; partially nested needs
     // nested slides (greyed, its tick kept)
@@ -292,8 +376,24 @@ export const DEFAULT_LIMITS: Readonly<Limits> = { keepAtMost: 100, keepEach: 1 }
  * strictColors strictColours); the threads are left to the engine's
  * setting (the settings dialog's worker threads).
  */
-export function solveOptions(o: SearchOptions, limits: Limits, sliding = false): SolveOptions {
-  if (sliding) {
+export function solveOptions(
+  o: SearchOptions,
+  limits: Limits,
+  family: Family = 'brick',
+  stackingSolver: StackingSolver = 'stacking',
+): SolveOptions {
+  if (family === 'stacking') {
+    // the solve thread's flags (cb_BtnCont): Find Solutions or Just Count,
+    // high memory, the search's own autosave, the one solver of the board
+    return {
+      disassemble: o.disassemble,
+      justCount: o.justCount,
+      keepAtMost: Math.max(0, Math.round(limits.keepAtMost)),
+      keepEach: Math.max(1, Math.round(limits.keepEach)),
+      stacking: { solver: stackingSolver, highMemory: o.highMemory, autosave: o.autosave },
+    };
+  }
+  if (family === 'sliding') {
     // the session forces the rest (decision 0014): the original's flags
     return {
       disassemble: o.disassemble,
@@ -343,6 +443,25 @@ export function shortCount(n: number): string {
     step++;
   }
   return `${v.toFixed(step + 1)} ${names[step] ?? ''}`;
+}
+
+/**
+ * The Activity line while a stacking search runs (mainwindow.cpp's
+ * updateInterface): the Panex search's depth and stackings found, or its
+ * trace back; the Stacking Solver's own search its stackings scanned.
+ */
+export function stackingActivity(
+  panex: boolean,
+  searched: number,
+  depth: number,
+  traced: number,
+): string {
+  if (!panex) {
+    return `Stacking search. Scanned ${shortCount(searched)} stackings.`;
+  }
+  return traced > 0
+    ? `Panex search, tracing the path. Traced ${shortCount(traced)} of ${shortCount(depth)} moves.`
+    : `Panex search, ${shortCount(depth)} moves deep. Found ${shortCount(searched)} stackings.`;
 }
 
 /**

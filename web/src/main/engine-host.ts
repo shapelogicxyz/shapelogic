@@ -30,6 +30,12 @@ export interface EngineHostOptions {
   maxQuickDeaths?: number;
   /** The wait before restart n (1, 2, ...); default none for the first, then 250 ms doubling to 5 s. */
   restartDelayMs?: (attempt: number) => number;
+  /**
+   * What the host tells each engine after its hello and before the window
+   * may call it (the app's folders: settings.set {panexFolder}); a failure
+   * fails the start.
+   */
+  setup?: (client: EngineClient) => Promise<void>;
 }
 
 const defaultDelay = (attempt: number): number =>
@@ -251,6 +257,20 @@ export class EngineHost implements EngineApi {
     if (this.stopped()) {
       // stop() waits for this launch, then ends the engine as it would a running one
       throw new Error('the host was stopped while its engine started');
+    }
+    if (this.options.setup !== undefined) {
+      try {
+        await this.options.setup(client);
+      } catch (e) {
+        client.kill();
+        if (this.client_ === client) {
+          this.client_ = null;
+        }
+        throw e;
+      }
+      if (this.stopped()) {
+        throw new Error('the host was stopped while its engine started');
+      }
     }
     this.setStatus({ state: 'running', version: hello.version, restarts: this.restarts });
   }

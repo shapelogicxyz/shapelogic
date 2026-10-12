@@ -164,9 +164,16 @@ test('a click on a face names the cell and side the frame holds, on every fixtur
   await settle(page);
 
   const picked: string[] = [];
+  let discs = 0;
   for (const f of fixtures) {
     await openFixture(page, f);
     const doc = await engine.call('document.open', { path: `tests/data/puzzles/${f}` });
+    // a stacking puzzle's disc is drawn lying flat (the original's tilt) and
+    // is not edited by its cells: nothing to pick from the front
+    if (doc.grid === 'stacking') {
+      discs++;
+      continue;
+    }
     const box = await page.locator('#cv').boundingBox();
     if (box === null) {
       throw new Error('no view');
@@ -214,5 +221,6 @@ test('a click on a face names the cell and side the frame holds, on every fixtur
     }
     expect(done, `${f}: no clear face to click`).toBe(true);
   }
-  expect(picked).toHaveLength(fixtures.length);
+  expect(discs).toBe(1);
+  expect(picked).toHaveLength(fixtures.length - discs);
 });

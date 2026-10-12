@@ -9,8 +9,7 @@
 // dropped on another moves it there), the More menu (add one of each, set
 // range for all pieces…, remove all), the right-click menus (one more, one
 // fewer, remove, set as result; move earlier and later for a tile), the
-// fit summary (FitStats), and the notice for the puzzles this version
-// does not solve (problem.kind). From docs/mockup/index.html:
+// fit summary (FitStats). From docs/mockup/index.html:
 // `renderPuzzle`, `pzUsedTile`, `pzLibChip`, `pzMenu`, `pzBulkRange`,
 // `pzDragStart`, `pzDragEnd`, and the handlers of #pzResult, #pzViewSeg,
 // #pzUsed, #pzLib, #pzLibHead and #pzMore.
@@ -21,7 +20,6 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
 import { flash } from '../shell/status.ts';
-import { frontEndSolves } from '../state/kinds.ts';
 import { countText, groupOf, groupsOf, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
@@ -61,17 +59,12 @@ export class PiecesCard {
     const others = shapes.filter((s) => s.id !== result);
     const byShape = new Map(shapes.map((s) => [s.id, s]));
 
-    // the notice for a puzzle this version does not solve (stacking: the
-    // engine does, this front end not yet)
-    const k = ws.kind;
-    const unsolved = k !== null && (!k.supported || !frontEndSolves(k.kind));
-    const note = byId('pzKind');
-    note.classList.toggle('show', unsolved);
-    note.innerHTML =
-      k !== null && unsolved
-        ? `<b>${k.kind === 'sliding' ? 'Sliding' : 'Stacking'} puzzle</b> — it opens and shows here, but this version does not solve ${k.kind} puzzles yet; the Solver is disabled for it.`
-        : '';
-    note.dataset.kind = k?.kind ?? '';
+    // a stacking problem's pieces are the discs on its rods (stacks-card.ts):
+    // only the library shows here, its + putting a disc on the rod chosen
+    const stacking = ws.store.snapshot?.grid === 'stacking';
+    byId('pzLibHint').textContent = stacking
+      ? 'double-click or + to put on the rod'
+      : 'drag, double-click or + to add';
 
     // the result: a sliding puzzle's is its start/goal shape, for good
     const fixedResult = ws.store.snapshot?.grid === 'sliding';
@@ -144,7 +137,7 @@ export class PiecesCard {
     markSelected(ub, '[data-u]', 'u', ws.sel);
 
     // all pieces
-    setHtml(byId('pzLib'), others.map((s) => this.libChip(s, partOf(d, s.id))).join(''));
+    setHtml(byId('pzLib'), others.map((s) => this.libChip(s, partOf(d, s.id), stacking)).join(''));
     markSelected(byId('pzLib'), '.lc', 'u', ws.sel);
     byId('pzLib').classList.toggle('closed', !ws.libOpen);
     byId('pzLibTog').style.transform = ws.libOpen ? '' : 'rotate(-90deg)';
@@ -162,10 +155,14 @@ export class PiecesCard {
   }
 
   // the mockup's pzLibChip
-  private libChip(s: ShapeSummary, p: Part | undefined): string {
+  private libChip(s: ShapeSummary, p: Part | undefined, stacking = false): string {
     const n = p?.max ?? 0;
     const c = this.ws.chip(s.id);
     const req = p?.required ?? false;
+    if (stacking) {
+      // a disc: + or a double-click puts it on top of the rod chosen (the Problems tab's +1)
+      return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="false" title="${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''} · size ${String(s.disc ?? 1)} — double-click or press + to put it on the rod chosen"><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<span class="mute">size ${String(s.disc ?? 1)}</span><button class="la" data-add="1" title="Put one on top of the rod chosen">${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
+    }
     return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="${String(!req)}" title="${esc(this.title(s))}${req ? ` — ${REQUIRED}` : ' — drag into “In this puzzle”, double-click, or press + to add one'}"><span class="gripd">${ic('grip', 12)}</span><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<button class="la" data-add="1" ${req ? `disabled title="${REQUIRED}"` : 'title="Add one to the puzzle"'}>${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
   }
 
@@ -417,6 +414,9 @@ export class PiecesCard {
       }
     });
     lib.addEventListener('contextmenu', (e) => {
+      if (ws.store.snapshot?.grid === 'stacking') {
+        return;
+      }
       const u = (e.target as Element).closest<HTMLElement>('.lc')?.dataset.u;
       if (u !== undefined) {
         this.menu(e, u);

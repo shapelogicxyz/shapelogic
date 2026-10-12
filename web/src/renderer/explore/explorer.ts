@@ -216,7 +216,10 @@ export class Explorer {
       const grid = store.info?.grids.find((g) => g.grid === store.snapshot?.grid);
       return grid?.disassemble !== false && this.host.solution()?.disassembly === 'tree';
     }
-    return this.host.assemblyReady();
+    // a grid without an assembler (stacking) has no placements to browse or step
+    const store = this.host.store;
+    const grid = store.info?.grids.find((g) => g.grid === store.snapshot?.grid);
+    return grid?.assemble !== false && this.host.assemblyReady();
   }
 
   /** The Advanced section's buttons (the mockup's #slvAdv). */

@@ -175,6 +175,9 @@ export function startApp(saved: StoredState = {}): {
       },
       runsUnderWay,
       saveAtSavePoint: (path) => solver.autosave.saveAtSavePoint(path, true),
+      get savedSearch() {
+        return solver.savedSearch;
+      },
     },
     () => rescue.discard(),
   );
@@ -226,7 +229,12 @@ export function startApp(saved: StoredState = {}): {
       const p = solver.problem;
       return p === null
         ? null
-        : { paused: p.state === 'solving' && !isActive(solver.stateOf(p.id)) };
+        : {
+            // a stacking problem is paused when its search is saved (problemPaused)
+            paused:
+              (solver.stacking ? solver.savedSearch !== null : p.state === 'solving') &&
+              !isActive(solver.stateOf(p.id)),
+          };
     },
   });
   // the Solver's problem and its solve change the menus too: look now and then

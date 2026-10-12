@@ -492,29 +492,29 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await checkShown(page);
     expect(refusals(readCallLog(log))).toEqual([]);
 
-    // a sliding puzzle opens and shows, solved by this version: no notice;
-    // a stacking one has the notice
+    // a sliding puzzle opens and shows its pieces; a stacking one its board
+    // and stacks instead of the result, the pieces and the pieces scene
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     await pzSettled(page);
-    await expect(page.locator('#pzKind')).toBeHidden();
-    await expect(page.locator('#pzKind')).toHaveAttribute('data-kind', 'sliding');
     await checkShown(page);
     await openFixture(page, 'test_stacking_hanoi.xmpuzzle');
     await pzSettled(page);
-    await expect(page.locator('#pzKind')).toBeVisible();
-    await expect(page.locator('#pzKind')).toContainText('does not solve stacking puzzles');
-    await expect(page.locator('#pzKind')).toHaveAttribute('data-kind', 'stacking');
-    const hanoi = await checkShown(page);
-    expect(hanoi.result).toBeNull();
-    await expect(page.locator('#pzSummary')).toHaveAttribute('data-verdict', 'noResult');
-    await expect(page.locator('#vp')).toHaveAttribute(
-      'data-scene',
-      'piece:s1:1/1 piece:s2:1/1 piece:s3:1/1',
-    );
-    // a supported puzzle has no notice
+    await expect(page.locator('#pzBoard')).toContainText('Result: R1 - Hanoi');
+    await expect(page.locator('#pzUsed')).toBeHidden();
+    await expect(page.locator('#pzSel')).toBeHidden();
+    await expect(page.locator('#pzRightTitle')).toHaveText('Stacks');
+    await expect(page.locator('#pzStacks .stackrow')).toHaveText([/S3/, /S2/, /S1/]);
+    await expect(page.locator('#pzStackValid')).toHaveText('Valid');
+    await expect(page.locator('#vp')).toHaveAttribute('data-scene', '');
+    await expect
+      .poll(async () => ((await page.getAttribute('#vp', 'data-board')) ?? '').split(' ').length)
+      .toBe(3);
+    // the other grids show their result and pieces again
     await openFixture(page, 'CubeInCage.xmpuzzle');
     await pzSettled(page);
-    await expect(page.locator('#pzKind')).toBeHidden();
+    await expect(page.locator('#pzBoard')).toBeHidden();
+    await expect(page.locator('#pzUsed')).toBeVisible();
+    await checkShown(page);
     expect(refusals(readCallLog(log))).toEqual([]);
   } finally {
     await a.close();

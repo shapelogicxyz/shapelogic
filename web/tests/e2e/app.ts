@@ -273,7 +273,7 @@ export async function shapes(page: Page): Promise<{ id: string; label: string }[
 
 /** Shows a shape and waits until its mesh is drawn in the current style. */
 export async function selectShape(page: Page, id: string): Promise<void> {
-  await page.click(`#shapeList .row[data-id="${id}"]`);
+  await page.click(`#shapeList .row[data-id="${id}"] .chip`);
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`^${id}:`));
   await settle(page);
 }

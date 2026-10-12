@@ -65,7 +65,9 @@ export async function pzSettled(page: Page): Promise<void> {
       return page.evaluate((rev) => {
         const left = document.getElementById('leftP')?.dataset.revision;
         const scene = document.getElementById('vp')?.dataset.sceneKey ?? '';
-        return left === String(rev) && scene.split(':')[2] === String(rev);
+        // a stacking puzzle draws its board, not the pieces scene
+        const stacking = document.getElementById('stage')?.classList.contains('stk') === true;
+        return left === String(rev) && (stacking || scene.split(':')[2] === String(rev));
       }, snap.revision);
     })
     .toBe(true);

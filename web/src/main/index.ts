@@ -25,10 +25,13 @@
 // packaged); every request but the app's files cancelled; no permission
 // granted; no webview, no new window, no navigation; a call naming a file
 // the window was not handed refused before the engine sees it
-// (path-grants.ts); exports written only where the dialog said
+// (path-grants.ts), and so is a page's settings.set naming one of the
+// engine's folders: the main process sets the saved searches' folder
+// (`panex` in the app's data directory, deferred part 4) on every engine
+// before the page may call it; exports written only where the dialog said
 // (app-ipc.ts).
 //
-// For the e2e tests: BT_USER_DATA puts the app's data (the store, the
+// For the e2e tests: BT_USER_DATA puts the app's data (the store, the saved searches, the
 // rescue copy) in a directory of the test's own; with BT_CALL_LOG set
 // every call the renderer makes is written to that file with how it ended
 // (a JSON line: method, errc), so the tests can check that the UI never
@@ -39,7 +42,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session } from 'electron';
 import type { WebContents } from 'electron';
 import { appendFileSync, existsSync } from 'node:fs';
-import { extname, resolve } from 'node:path';
+import { extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
@@ -50,7 +53,7 @@ import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
 import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
-import { PathGrants } from './path-grants.ts';
+import { PathGrants, settingsRefusal } from './path-grants.ts';
 import { RescueStore } from './rescue.ts';
 import {
   allowedRequest,
@@ -237,6 +240,11 @@ function createWindow(first?: AppCommand): void {
       // one version for the app and the engine (CMakeLists.txt's)
       return NodeTransport.start(engine, { expectVersion: VERSION });
     },
+    // the saved searches of stacking solves in the app's data directory
+    // (deferred part 4), before the page may call the engine
+    setup: async (client) => {
+      await client.call('settings.set', { panexFolder: join(app.getPath('userData'), 'panex') });
+    },
   });
   const serve = (): ReturnType<typeof serveEngine> =>
     serveEngine(
@@ -247,7 +255,8 @@ function createWindow(first?: AppCommand): void {
         }
       },
       logCall,
-      (method, params) => paths.refusal(contents, method, params),
+      (method, params) =>
+        paths.refusal(contents, method, params) ?? settingsRefusal(method, params),
     );
   servers.set(id, serve());
   contents.on('did-start-navigation', (details) => {

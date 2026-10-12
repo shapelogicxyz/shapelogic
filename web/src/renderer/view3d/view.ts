@@ -13,8 +13,12 @@
 // scene instead (pieces.ts: the problem's result and pieces, one mesh per
 // shape; a click selects a piece through the puzzle host), in the Solver
 // workspace a solution (solution.ts: the pieces the Solver's player gives
-// it, posed, framed on the result). It renders only when something
-// changed.
+// it, posed, framed on the result). A stacking puzzle (docs/webui-spec.md,
+// section 9) is drawn tilted as the original's (renderer.ts), with its
+// board (board.ts): the rod set alone or a disc in the Entities workspace,
+// the board with the start's or the goal's discs in the Puzzle workspace
+// (instead of the pieces scene), the pegs around the player's discs. It
+// renders only when something changed.
 
 import { Raycaster, Vector2, Vector3 } from 'three';
 
@@ -24,12 +28,14 @@ import type { Store } from '../state/store.ts';
 import { byId, css, esc } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab, toggleFocus3d } from '../shell/layout.ts';
-import { chipColour, contrast, hex, viewColour } from '../shell/piece-colours.ts';
+import { chipColour, contrast, hex, ROD_CHIP, viewColour } from '../shell/piece-colours.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
 import { Camera, EYE_DISTANCE } from './camera.ts';
 import { gridExtent } from './extent.ts';
+import { BoardView } from './board.ts';
+import type { BoardModel } from './board.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 import { MeshCache } from './meshcache.ts';
@@ -155,6 +161,12 @@ export class View3D {
   private readonly trays: TrayView;
   private trayTags = '';
   private wallLoads = 0;
+  /** A stacking puzzle's board: the Entities' rod set, the Puzzle's stacking, the player's pegs. */
+  private readonly board: BoardView;
+  private readonly boards: { entities: BoardModel | null; puzzle: BoardModel | null } = {
+    entities: null,
+    puzzle: null,
+  };
   private readonly cube: ViewCube;
   private readonly toolbar: Toolbar;
   private readonly displayListeners = new Set<() => void>();
@@ -214,6 +226,30 @@ export class View3D {
       },
       this.renderer.model,
     );
+    this.board = new BoardView({
+      store,
+      cache: this.cache,
+      shapeRevision: (s) => this.shapeRevision(s),
+      style: () => this.display.style,
+      changed: () => {
+        const vp = byId('vp');
+        vp.dataset.board = this.board.describe();
+        vp.dataset.boardPoses = this.board.posesShown();
+        vp.dataset.boardBoxes = String(this.board.boxMeshes);
+        this.renderer.request();
+      },
+      failed: (e) => {
+        if (e instanceof EngineError && e.errc === 'superseded') {
+          queueMicrotask(() => {
+            this.board.load();
+          });
+          return;
+        }
+        reportError(e, 'The board could not be drawn');
+      },
+    });
+    this.board.group.visible = false;
+    this.renderer.root.add(this.board.group);
     this.pieces = new PiecesScene(byId('pzScene'));
     this.pieces.group.visible = false;
     this.renderer.scene.add(this.pieces.group);
@@ -410,6 +446,7 @@ export class View3D {
     this.solution.set(l.model);
     this.solution.setPoses(l.poses);
     this.loadWalls(l.model);
+    this.showBoard();
     const vp = byId('vp');
     vp.dataset.solution = l.model?.key ?? '';
     vp.dataset.solutionLayer = shown;
@@ -495,6 +532,44 @@ export class View3D {
     this.trays.set(model);
   }
 
+  /**
+   * A stacking puzzle's board in a workspace (null: none): the Entities'
+   * rod set shown alone instead of the disc, the Puzzle's start or goal.
+   */
+  setBoard(model: BoardModel | null, where: 'entities' | 'puzzle'): void {
+    this.boards[where] = model;
+    this.showBoard();
+    this.renderTag();
+    this.lookChanged();
+  }
+
+  /** Whether the Entities workspace shows a rod set instead of its disc. */
+  get rodSetShown(): boolean {
+    return tab === 'entities' && this.boards.entities !== null;
+  }
+
+  private get stacking(): boolean {
+    return this.store.snapshot?.grid === 'stacking';
+  }
+
+  // the board of the workspace shown (the player's: its pegs, no discs)
+  private showBoard(): void {
+    let model: BoardModel | null = null;
+    if (this.stacking) {
+      if (tab === 'entities') {
+        model = this.boards.entities;
+      } else if (tab === 'puzzle') {
+        model = this.boards.puzzle;
+      } else {
+        const b = this.solutionModel?.board ?? null;
+        model =
+          b === null ? null : { key: `solver:${this.solutionModel?.key ?? ''}`, ...b, discs: [] };
+      }
+    }
+    this.board.set(model);
+    this.board.group.visible = model !== null;
+  }
+
   /** The pieces scene's model (the Puzzle workspace); its meshes are loaded when shown. */
   setPieces(model: PiecesModel | null): void {
     this.piecesModel = model;
@@ -553,6 +628,7 @@ export class View3D {
     this.pieces.setResolution(vp.clientWidth, vp.clientHeight);
     this.solution.setResolution(vp.clientWidth, vp.clientHeight);
     this.trays.setResolution(vp.clientWidth, vp.clientHeight);
+    this.board.setResolution(vp.clientWidth, vp.clientHeight);
     this.renderer.request();
   }
 
@@ -568,6 +644,7 @@ export class View3D {
     const shape = store.shape;
     this.renderTag();
     this.trays.load();
+    this.board.load();
     if (snap === null || shape === null) {
       this.shownKey = '';
       this.scene.setMesh(null);
@@ -766,10 +843,21 @@ export class View3D {
   private lookChanged(): void {
     const puzzle = this.puzzleMode;
     const solver = this.solverMode;
-    this.renderer.root.visible = !puzzle;
-    this.renderer.model.visible = !solver;
-    this.pieces.group.visible = puzzle;
+    const stacking = this.stacking;
+    // a stacking puzzle's Puzzle workspace draws its board, not the pieces scene
+    this.renderer.tilt = stacking;
+    this.renderer.root.visible = !puzzle || stacking;
+    this.renderer.model.visible = !solver && !puzzle && !this.rodSetShown;
+    this.pieces.group.visible = puzzle && !stacking;
     this.solution.group.visible = solver;
+    this.showBoard();
+    this.board.setLook({
+      style: this.display.style,
+      colourView: false,
+      lit: prefs.lights,
+      xray: false,
+      palette: [],
+    });
     if (solver) {
       const snap0 = this.store.snapshot;
       this.solution.setLook({
@@ -781,7 +869,7 @@ export class View3D {
       });
       this.renderTag();
     }
-    if (puzzle) {
+    if (puzzle && !stacking) {
       this.pieces.setLook(this.piecesLook());
       this.loadPieces();
       this.renderTag();
@@ -810,8 +898,8 @@ export class View3D {
     const showSlab = this.display.layer && ed && snap !== null && shape !== null && !solver;
     this.scene.setOverlays({
       extent: this.extent,
-      axes: this.display.axes && shape !== null && tab === 'entities',
-      bounds: this.display.bounds && shape !== null && tab === 'entities',
+      axes: this.display.axes && shape !== null && tab === 'entities' && !this.rodSetShown,
+      bounds: this.display.bounds && shape !== null && tab === 'entities' && !this.rodSetShown,
       slab: showSlab
         ? layerSlab(
             snap.grid,
@@ -848,6 +936,12 @@ export class View3D {
       tag.innerHTML = this.solver.tag();
       return;
     }
+    const rods = this.boards.entities;
+    if (this.rodSetShown && rods !== null) {
+      // the rod set shown alone (showSelectedRods)
+      tag.innerHTML = `<span class="chip" style="background:${ROD_CHIP};color:#fff">${esc(rods.label ?? '')}</span><span>Rod set</span>`;
+      return;
+    }
     if (shape === null) {
       tag.innerHTML = '';
       return;
@@ -871,8 +965,10 @@ export class View3D {
       text = `The engine could not be started: ${s.status.reason}`;
     } else if (s.snapshot === null) {
       text = '';
+    } else if (this.rodSetShown) {
+      text = '';
     } else if (s.snapshot.shapes.length === 0) {
-      text = 'No shapes — add one with + New';
+      text = this.stacking ? 'No discs — add one with + New' : 'No shapes — add one with + New';
     } else if (s.shape !== null && s.shape.fixed + s.shape.variable === 0) {
       text = 'Empty shape — draw in the Voxel editor';
     }
@@ -882,7 +978,10 @@ export class View3D {
 
   private draw(): void {
     const moving = this.camera.step(performance.now());
-    if (this.puzzleMode) {
+    if (this.puzzleMode && this.stacking) {
+      this.renderer.frame(this.camera, this.board.extent ?? [1, 1, 1]);
+      this.renderer.render();
+    } else if (this.puzzleMode) {
       const r = this.renderer;
       const { sc, reach } = this.pieces.scale(r.width, r.height, this.camera.zoom);
       r.frameScene(this.camera, sc, Math.max(EYE_DISTANCE, 2.5 * reach), reach);
@@ -903,7 +1002,8 @@ export class View3D {
           .join(' ');
       }
     } else {
-      this.renderer.frame(this.camera, this.trays.extent ?? this.extent);
+      const ex = this.rodSetShown ? this.board.extent : this.trays.extent;
+      this.renderer.frame(this.camera, ex ?? this.extent);
       this.renderer.render();
     }
     // the trays' titles (START, GOAL) over the Entities view
