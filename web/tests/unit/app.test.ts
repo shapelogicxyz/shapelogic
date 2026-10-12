@@ -198,12 +198,9 @@ describe('the menus', () => {
       commandItems(build(NO_STATE, 'darwin').template);
     const items = commandItems(build(state, 'darwin').template);
     for (const id of [
-      'import.ps3d',
-      'import.scad',
       'export.scad',
       'export.stl',
       'export.glb',
-      'convertGrid',
       'anaglyph',
       'anaglyph.swapped',
       'redo',
@@ -223,6 +220,10 @@ describe('the menus', () => {
       'export.image',
       'export.vector',
       'style.stl',
+      // deferred part 6
+      'import.ps3d',
+      'import.scad',
+      'convertGrid',
     ]) {
       expect(items.get(id)?.enabled, id).toBe(true);
     }
@@ -235,7 +236,12 @@ describe('the menus', () => {
       build({ ...state, shapes: true, animation: true }, 'darwin').template,
     );
     expect(exports.get('export.stl')?.enabled).toBe(true);
+    expect(exports.get('export.scad')?.enabled).toBe(true);
     expect(exports.get('export.glb')?.enabled).toBe(true);
+    // the imports replace the document: offered with none open, as Open
+    expect(none().get('import.ps3d')?.enabled).toBe(true);
+    expect(none().get('import.scad')?.enabled).toBe(true);
+    expect(none().get('convertGrid')?.enabled).toBe(false);
     expect(none().get('export.image')?.enabled).toBe(false);
     expect(items.get('undo')?.label).toBe('Undo Rename shape');
     // nothing open: only New, Open and the like
@@ -246,6 +252,7 @@ describe('the menus', () => {
       build({ ...state, solving: true, paused: true }, 'darwin').template,
     );
     expect(solving.get('toShapes')?.enabled).toBe(false);
+    expect(solving.get('convertGrid')?.enabled).toBe(false);
     expect(solving.get('exportPaused')?.enabled).toBe(false);
     const paused = commandItems(build({ ...state, paused: true }, 'darwin').template);
     expect(paused.get('exportPaused')?.enabled).toBe(true);
@@ -448,7 +455,7 @@ describe('an export’s file, written as the core writes a puzzle', () => {
   });
 
   it('lets a window write only a path its dialog gave for an export, once, with the kind’s extension', () => {
-    const ext = { image: '.png', vector: '.svg', stl: '.stl', glb: '.glb' } as const;
+    const ext = { image: '.png', vector: '.svg', stl: '.stl', glb: '.glb', scad: '.scad' } as const;
     const grants = new ExportGrants<object>((k) => ext[k]);
     const a = {};
     const b = {};

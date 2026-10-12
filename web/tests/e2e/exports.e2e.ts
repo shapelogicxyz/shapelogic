@@ -14,7 +14,7 @@
 // shows, greyed without one, its .glb passing Khronos's validator with
 // the playback's pieces and the player's colours; an export refused for
 // a path no dialog gave and for a read-only file, which is left as it
-// was; Puzzlecad still greyed. The engine tests check the .glb's poses
+// was; Puzzlecad greyed without a shape (its export: imports.e2e.ts). The engine tests check the .glb's poses
 // against the player's and the STL's surface (tests/engine/exports.test.ts).
 
 import {

@@ -6,9 +6,8 @@
 // display modes and render styles, Help; About and Settings in the
 // application menu on macOS, at the foot of Help and Edit elsewhere) and
 // the mockup's placeholders (File, Toggle 3D, Export, Status, Edit comment,
-// Help, About). What this version cannot do yet is shown greyed: the
-// imports of PuzzleSolver3D and Puzzlecad, the Puzzlecad export, grid
-// conversion and the anaglyph modes. The keys shown
+// Help, About). What this version cannot do is shown greyed: the
+// anaglyph modes. The keys shown
 // are the one keyboard table's (renderer/shell/keys.ts, sent in the
 // state): the menus show them and do not register them, so a key press
 // reaches the page and is handled once, by the table. Free of Electron but
@@ -86,8 +85,6 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
           }),
     };
   };
-  // not in this version yet: greyed
-  const later = (id: string, label: string): MenuItemConstructorOptions => item(id, label, null);
   const radio = (
     id: string,
     label: string,
@@ -145,8 +142,8 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         id: 'import',
         label: 'Import',
         submenu: [
-          later('import.ps3d', 'PuzzleSolver3D…'),
-          later('import.scad', 'Puzzlecad (OpenSCAD)…'),
+          item('import.ps3d', 'PuzzleSolver3D…', { cmd: 'importPs3d' }),
+          item('import.scad', 'Puzzlecad (OpenSCAD)…', { cmd: 'importScad' }),
           item('importPaused', 'Paused Solver State…', { cmd: 'importPaused' }),
         ],
       },
@@ -154,7 +151,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         id: 'export',
         label: 'Export',
         submenu: [
-          later('export.scad', 'Puzzlecad (OpenSCAD)…'),
+          item('export.scad', 'Puzzlecad (OpenSCAD)…', { cmd: 'exportScad' }, doc && s.shapes),
           item('export.image', 'Image…', { cmd: 'exportImage' }, doc),
           item('export.vector', 'Vector Image…', { cmd: 'exportVector' }, doc),
           item('export.stl', 'STL…', { cmd: 'exportStl' }, doc && s.shapes),
@@ -199,7 +196,12 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
       { role: 'selectAll' },
       SEP,
       item('notes', 'Notes…', { cmd: 'notes' }, doc),
-      later('convertGrid', 'Convert Brick Grid Type to Other…'),
+      item(
+        'convertGrid',
+        'Convert Brick Grid Type to Other…',
+        { cmd: 'convertGrid' },
+        doc && !s.solving,
+      ),
       item(
         'toShapes',
         'Convert Assemblies to Pieces…',

@@ -44,8 +44,12 @@ the original's, the saved searches in the app's own data folder;
 docs/webui-spec.md section 9); part 5, the STL meshes of every grid (the
 cube grids' chamfer table and the Minkowski mesher on Manifold, the STL
 file as the original wrote it, the view's STL-like style; `export.*`;
-both STL dialogs; docs/webui-spec.md section 10). Next: part 6, the
-imports, the Puzzlecad export and grid conversion.*
+both STL dialogs; docs/webui-spec.md section 10); part 6, the imports
+of PuzzleSolver3D and Puzzlecad files, the Puzzlecad export and the
+conversion of cube-grid puzzles to the rhombic and tetra-octa grids
+(`document.import`, `document.exportPuzzlecad`, `document.convertGrid`;
+the File ▸ Import and Export items and Edit ▸ Convert; decision 0017,
+docs/webui-spec.md section 11). Next: part 7, the Python bindings.*
 
 ## Big picture
 
@@ -225,6 +229,12 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   `searchInput`, `pathSeparation`: three frames a transfer, lift, cross
   and drop; `logicalMoves`, `startAssembly`, `boardSpan`).
 
+- `grid_convert.h` (deferred part 6; `converter.cpp`): `convertGrid`, a
+  cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa
+  (3x3x3) grid, the colours, the notes and each problem's definition
+  copied (`copyDefinition`, with its name); `convertTargets` (what the
+  original's dialog offered); a budget of cells (`kMaxConvertedCells`).
+
 The model has no locks and no atomics (the original's problem had both for
 its solver thread). While a `SolveSession` runs, it alone writes its
 problem, under its own lock; others read through `readProblem()` (see
@@ -252,6 +262,13 @@ solve).
 - `blockpack.h` (deferred part 3a): files packed in chunks on a pool's
   threads, sorted 16-byte keys as variable-length gaps, byte for byte the
   original's packing.
+- `imports.h` (deferred part 6, decision 0017): other programs' files,
+  line for line the original's `ps3dloader.cpp` (`ps3d_file.cpp`:
+  `readPuzzleSolver3D`) and `scadloader.cpp` (`scad_file.cpp`:
+  `readPuzzlecad`, `writePuzzlecad`, puzzlecad's `burr_plate` of a
+  problem's pieces); a cube-grid puzzle with one problem, and a budget of
+  cells (`kMaxImportCells`) the original lacked. `gzip_file.h`'s
+  `readPlainFile` reads such a file as it is, never decompressed.
 
 Unknown attributes and elements of `<puzzle>`, `<problem>` and `<solution>`,
 and unknown `<voxel>` attributes, are kept and written back in place.
@@ -626,7 +643,12 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   failure, `readProblem`); the analyses; `poll()`, which puts in what
   background work did (an analysis's separations, the end of a run) as a
   revision of its own; the paused solve files (`exportPaused`,
-  `importPaused`, a new untitled document); playback and explorers. The
+  `importPaused`, a new untitled document); the imports (`importFile`,
+  `importBytes`: a new untitled document with unsaved changes), the
+  Puzzlecad export (`exportPuzzlecad`, the problem read through
+  `readProblem`, allowed while solving) and grid conversion
+  (`convertGrid`: a new document, refused while solving; deferred part
+  6); playback and explorers. The
   rules for edits while solving are decision 0011; they hold while an
   analysis runs too (`solving()` covers both). Sliding puzzles (decision
   0014; `document_sliding.cpp`): `addStartGoal`, `placeStamp` (the
@@ -758,7 +780,12 @@ schema in `api/`, documented in the generated `docs/API.md`.
   placements).
 - `methods_<area>.cpp`: one per schema file. `engine.hello` (the
   protocol a client speaks), `document.openBytes` (with the file the bytes
-  stand for and unsaved changes: a rescue copy, `Document::markUnsaved`), solving (`solve.*` on the document's solve
+  stand for and unsaved changes: a rescue copy, `Document::markUnsaved`),
+  the imports and grid conversion (deferred part 6: `document.import` by
+  path or bytes, without a path; `document.exportPuzzlecad`, the text,
+  naming the document's file or the export's; `document.convertGrid`,
+  which replaces the document and keeps its path, as the original kept
+  its file name; `engine.info`'s `grids[].convertsTo`), solving (`solve.*` on the document's solve
   calls; a pause, a save point and an abort only for a solve under way),
   solutions (`solution.page` sorts the saved list's indices under
   `readProblem` with `solutionSortOrder`, a view, with the problem's
@@ -1110,7 +1137,16 @@ What exists after stage 8:
     answered (a newer offer after another death took the question's
     place, the window closed) stays, as does one a close could not save
     because the engine was not running: offered at the next start;
-    `#stage[data-rescued]`), `dialog.ts`
+    `#stage[data-rescued]`), `imports.ts` (deferred part 6: `Imports`,
+    File ▸ Import ▸ PuzzleSolver3D and Puzzlecad (`document.import` by
+    the path the open dialog gave, the unsaved-changes question first,
+    the puzzle shown by the file's name without its extension, the
+    Entities workspace brought forward; the original's "Could not load
+    puzzle, sorry!"), File ▸ Export ▸ Puzzlecad (the engine asked before
+    the save dialog, so a refusal comes first in the original's words;
+    the text written through `writeExport`) and Edit ▸ Convert Brick Grid
+    Type to Other (`#convertGrid`: `engine.info`'s `convertsTo` as radio
+    buttons, Abort and Continue; `document.convertGrid`)), `dialog.ts`
     (modal dialogs in the `.cfm` look: buttons, a default, Esc and a click
     beside cancel unless the question must be answered, Tab kept inside,
     the focus given back; `askChoice`), `help.ts` (the F1 dialog over the
@@ -1653,6 +1689,14 @@ player).
   dump tool against the original's library (`oracle.py grid-dump`,
   `model-dump`, `app-dump`, `record-saves`, `record-positions`,
   `record-analysed`, `record-slide-routes`, writing into `tests/data/`).
+  The imports (deferred part 6): `oracle.py imports` runs the original's
+  loaders, Puzzlecad export and converter (`imports_old.cpp`) and the new
+  document's (`bt_imports`) on the committed inputs of
+  `tests/data/imports/`, the original's Puzzlecad files, and every corpus
+  puzzle (converted, exported for each problem, the exports imported
+  again, its shapes as a PuzzleSolver3D file), comparing the saves byte
+  for byte; `record-imports` keeps the original's results for the unit
+  tests in `tests/data/imports_by_original/`.
   The `sliding` tier (deferred part 1) has the sliding fixtures and
   puzzles built by the original's code (`oracle.py sliding-puzzles`, from
   its `test_sliding.cpp`), compared for each solver (`--solver

@@ -23,6 +23,10 @@ export type AppCommand =
   | { cmd: 'saveAs' }
   | { cmd: 'importPaused' }
   | { cmd: 'exportPaused' }
+  /** File ▸ Import ▸ PuzzleSolver3D, Puzzlecad; File ▸ Export ▸ Puzzlecad (deferred part 6). */
+  | { cmd: 'importPs3d' }
+  | { cmd: 'importScad' }
+  | { cmd: 'exportScad' }
   /** File ▸ Export ▸ Image, Vector Image, STL, Solution Animation (stage 7). */
   | { cmd: 'exportImage' }
   | { cmd: 'exportVector' }
@@ -33,6 +37,8 @@ export type AppCommand =
   | { cmd: 'undo' }
   | { cmd: 'redo' }
   | { cmd: 'toShapes' }
+  /** Edit ▸ Convert Brick Grid Type to Other (deferred part 6). */
+  | { cmd: 'convertGrid' }
   | { cmd: 'notes' }
   | { cmd: 'settings' }
   | { cmd: 'statusWindow' }
@@ -76,19 +82,24 @@ export interface MenuState {
 export type HelpLink = 'tutorial' | 'guide';
 
 /** The kinds of file the dialogs ask for. */
-export type FileKind = 'puzzle' | 'paused' | ExportKind;
+export type FileKind = OpenKind | ExportKind;
+
+/** The kinds of file the open dialog asks for (a Puzzlecad file is imported and exported). */
+export type OpenKind = 'puzzle' | 'paused' | 'ps3d' | 'scad';
 
 /** The kinds of file an export writes (through `writeExport`). */
-export type ExportKind = 'image' | 'vector' | 'stl' | 'glb';
+export type ExportKind = 'image' | 'vector' | 'stl' | 'glb' | 'scad';
 
 /** The kinds of file, for the checks. */
 export const FILE_KINDS: readonly FileKind[] = [
   'puzzle',
   'paused',
+  'ps3d',
   'image',
   'vector',
   'stl',
   'glb',
+  'scad',
 ];
 
 /** Whether a value is a kind of file. */
@@ -98,7 +109,12 @@ export function isFileKind(v: unknown): v is FileKind {
 
 /** Whether a kind of file is an export's. */
 export function isExportKind(v: unknown): v is ExportKind {
-  return v === 'image' || v === 'vector' || v === 'stl' || v === 'glb';
+  return v === 'image' || v === 'vector' || v === 'stl' || v === 'glb' || v === 'scad';
+}
+
+/** Whether a kind of file is one the open dialog asks for. */
+export function isOpenKind(v: unknown): v is OpenKind {
+  return v === 'puzzle' || v === 'paused' || v === 'ps3d' || v === 'scad';
 }
 
 /** A record of the rescue copy: what it stands for. */
@@ -130,7 +146,7 @@ export interface BtApp {
   /** The menus show this. */
   setMenuState(state: MenuState): void;
   /** The open dialog; null when cancelled. */
-  chooseOpen(kind: FileKind): Promise<string | null>;
+  chooseOpen(kind: OpenKind): Promise<string | null>;
   /** The save dialog with a name proposed; null when cancelled. */
   chooseSave(kind: FileKind, name: string): Promise<string | null>;
   /**
@@ -183,6 +199,9 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'saveAs',
   'importPaused',
   'exportPaused',
+  'importPs3d',
+  'importScad',
+  'exportScad',
   'exportImage',
   'exportVector',
   'exportStl',
@@ -191,6 +210,7 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'undo',
   'redo',
   'toShapes',
+  'convertGrid',
   'notes',
   'settings',
   'statusWindow',

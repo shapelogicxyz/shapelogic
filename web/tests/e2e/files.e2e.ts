@@ -750,8 +750,9 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
       'https://burrtools.sourceforge.net/gui-doc/GettingStarted.html',
     ]);
 
-    // greyed: what this version does not have yet
-    for (const id of ['import.ps3d', 'export.scad', 'convertGrid', 'anaglyph']) {
+    // greyed: what this version does not have (the imports and grid
+    // conversion came with deferred part 6: imports.e2e.ts)
+    for (const id of ['anaglyph', 'anaglyph.swapped']) {
       expect((await menuItem(page, id))?.enabled, id).toBe(false);
     }
 

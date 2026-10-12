@@ -27,7 +27,9 @@ the Panex solves paused and carried on from the app's own folder); the
 STL meshes of every grid (part 5: the cube grids' chamfer table and the
 Minkowski mesher on Manifold, the same files as the original's) are
 exported from both STL dialogs and drawn in the view's STL-like style;
-imports and Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
+PuzzleSolver3D and Puzzlecad files are imported, Puzzlecad files exported
+and cube-grid puzzles converted to the rhombic and tetra-octa grids as the
+original does (part 6); Python bindings come next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Building
 

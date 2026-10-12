@@ -610,7 +610,73 @@ else as in the bevelled style (3D editing picks the cell under the
 pointer, the wire mode of a piece stays the wire frame). On the prism,
 rhombic and tetra-octa grids a large shape takes seconds the first time.
 
-## 11. Mapping to the original
+## 11. Imports, the Puzzlecad export and grid conversion (deferred part 6)
+
+From the original's `mainwindow_file.cpp` (`cb_Load_Ps3d`,
+`cb_Load_Scad`, `cb_Export_Scad`, `cb_Convert`), `convertwindow.cpp` and
+`mainmenu.cpp`. The engine reads and writes the files and converts
+(`document.import`, `document.exportPuzzlecad`, `document.convertGrid`);
+the grids a puzzle converts to are `engine.info`'s `convertsTo`.
+
+### 11.1 File ▸ Import ▸ PuzzleSolver3D… and Puzzlecad (OpenSCAD)…
+
+- Enabled always, as Open. The unsaved-changes question first ("Save
+  before you import another puzzle?": Save, Don't Save, Cancel), as the
+  original's `confirmDiscard("import another puzzle")`.
+- The system's open dialog: "Import PuzzleSolver3D File" with
+  "PuzzleSolver3D Files (*.puz)", or "Import Puzzlecad File" with
+  "OpenSCAD Files (*.scad)"; All Files beside.
+- The puzzle replaces the open one: a new document without a file, with
+  unsaved changes, shown by the source's name without its extension
+  ("pieces●" for pieces.puz), so Save asks where to write it and proposes
+  "pieces.xmpuzzle" (the original's `setFileName("")`: never over the
+  source). The Entities workspace comes forward with the first shape, as
+  the original's `selectEntitiesTab` and `activateShape`. The status bar
+  says "Imported pieces.puz". The file does not go into Open Recent (it is
+  not a BurrTools file).
+- A file it cannot read: a message box with the original's "Could not
+  load puzzle, sorry!" and the engine's reason under it; the open puzzle
+  stays.
+
+### 11.2 File ▸ Export ▸ Puzzlecad (OpenSCAD)…
+
+- Enabled when the puzzle has a shape with cells, as Export ▸ STL (the
+  original enabled it with any shape and then said "Could not export
+  puzzlecad file." when none had a cell).
+- The pieces are those of the problem the Puzzle workspace shows (the
+  original's problem selector), the first problem when it shows none.
+- The engine is asked first: a puzzle it refuses gets the original's
+  message box before any file is asked for ("Puzzlecad export is only
+  available for cube-grid puzzles.", "Nothing to export.").
+- Then the system's save dialog "Export Puzzlecad File" with "OpenSCAD
+  Files (*.scad)", proposing "<puzzle name>.scad" beside the puzzle (the
+  original proposed the puzzle's own path); it asks before replacing a
+  file (the original's "File exists; overwrite?"), and ".scad" is added
+  when the name has no extension. The header comment names the puzzle's
+  file, or the export's when the puzzle has none, as the original. The
+  status bar says "Exported name.scad"; a file that cannot be written: a
+  message box "Could not export puzzlecad file." and the reason.
+
+### 11.3 Edit ▸ Convert Brick Grid Type to Other…
+
+- Enabled with a document; greyed while a solve or an analysis is active
+  (the engine refuses then: the original replaced the puzzle under its
+  solver thread).
+- A dialog "Convert Grid Type" (`#convertGrid`):
+  - when the puzzle's grid converts to others: "Please Select Target
+    grid", one radio button per grid (the labels New shows), the first
+    chosen; a line saying what follows ("The puzzle is replaced: its undo
+    history starts afresh and its solutions are dropped; Save writes it
+    over its file."); buttons **Abort** and **Continue**;
+  - otherwise: "There are no grids that this puzzle can be converted to,
+    sorry" and **Ok**.
+- Continue converts: the document is replaced (unsaved changes, nothing
+  to undo, the same file: Save writes the converted puzzle there, as the
+  original kept its file name), the Entities workspace comes forward with
+  the first shape, and the status bar says "Converted the puzzle to the
+  rhombic grid".
+
+## 12. Mapping to the original
 
 | UI | Original code (burrtools_rotations) |
 |---|---|
@@ -631,5 +697,6 @@ rhombic and tetra-octa grids a large shape takes seconds the first time.
 | Analyse disassembly | `mainwindow_solve.cpp` re-disassemble |
 | Export to STL | `stlexportsolution.cpp` (section 10.2) |
 | File ▸ Export ▸ STL, the STL-like style | `stlexport.cpp`, `voxelframe.cpp`'s `styleSTL` (section 10) |
+| File ▸ Import, File ▸ Export ▸ Puzzlecad, Edit ▸ Convert | `mainwindow_file.cpp` (`cb_Load_Ps3d`, `cb_Load_Scad`, `cb_Export_Scad`, `cb_Convert`), `convertwindow.cpp` (section 11) |
 | Rod sets, discs, stacks, the validity bar | `mainwindow_rods.cpp`, `BlockList.cpp` (`DiskSelector`, `RodSelector`, `RodStackList`), `rodbars.h` |
 | The stacking view, the player in transfers | `voxelframe.cpp` (`showRodSet`, `showStacking`, `showStackingAssembly`), `mainwindow_solve.cpp` (`animStep`) |

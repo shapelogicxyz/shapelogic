@@ -51,6 +51,10 @@ oracle-files *args: (build "release")
 oracle-text *args: (build "release")
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/bt compare-text {{args}}
 
+# Import, export to Puzzlecad and convert grids with the original and the new core, compare (deferred part 6)
+oracle-imports *args: (build "release")
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" imports {{args}}
+
 # Record the original burrTxt's answers for a corpus tier
 oracle-baseline *args:
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}

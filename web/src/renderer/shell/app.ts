@@ -27,6 +27,7 @@ import type { StoredState } from '../../engine/app-bridge.ts';
 import { installConfirm } from './confirm.ts';
 import { dialogOpen, installDialogs, tell } from './dialog.ts';
 import { Files } from './files.ts';
+import { Imports } from './imports.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
 import { keepState } from './persist.ts';
@@ -187,6 +188,18 @@ export function startApp(saved: StoredState = {}): {
     },
     animation: () => animationSource(solver),
   });
+  const imports = new Imports(store, app, {
+    get name() {
+      return files.name;
+    },
+    get problem() {
+      return puzzle.current;
+    },
+    confirmDiscard: (action) => files.confirmDiscard(action),
+    showEntities: () => {
+      setTab('entities');
+    },
+  });
   solver.exportStl = (problem, row) => {
     void exports.solutionStl(problem, row);
   };
@@ -203,6 +216,15 @@ export function startApp(saved: StoredState = {}): {
     exportPaused: () => {
       void files.exportPaused();
     },
+    importPs3d: () => {
+      void imports.importFile('puzzleSolver3D');
+    },
+    importScad: () => {
+      void imports.importFile('puzzlecad');
+    },
+    exportScad: () => {
+      void imports.exportScad();
+    },
     exportImage: () => {
       void exports.image();
     },
@@ -218,6 +240,9 @@ export function startApp(saved: StoredState = {}): {
     animation: () => animationSource(solver) !== null,
     toShapes: () => {
       openToShapes(store, edits, solver.current);
+    },
+    convertGrid: () => {
+      void imports.convertGrid();
     },
     notes: () => {
       openNotes(store);

@@ -21,8 +21,14 @@ import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent, WebContents } fro
 import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 
-import { isExportKind, isFileKind, isMenuState, isRescueInfo } from '../engine/app-bridge.ts';
-import type { FileKind, HelpLink, MenuState, StoredState } from '../engine/app-bridge.ts';
+import {
+  isExportKind,
+  isFileKind,
+  isMenuState,
+  isOpenKind,
+  isRescueInfo,
+} from '../engine/app-bridge.ts';
+import type { FileKind, HelpLink, MenuState, OpenKind, StoredState } from '../engine/app-bridge.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { RescueStore } from './rescue.ts';
@@ -68,10 +74,26 @@ export const KINDS: Readonly<
     filter: { name: 'glTF Binary', extensions: ['glb'] },
     title: 'Export Solution Animation',
   },
+  // deferred part 6: mainwindow_file.cpp's choosers
+  ps3d: {
+    ext: '.puz',
+    filter: { name: 'PuzzleSolver3D Files', extensions: ['puz'] },
+    title: 'Import PuzzleSolver3D File',
+  },
+  scad: {
+    ext: '.scad',
+    filter: { name: 'OpenSCAD Files', extensions: ['scad'] },
+    title: 'Export Puzzlecad File',
+  },
 };
 
-/** The kinds a file can be opened as (the exports are written only). */
-const isOpenKind = (v: unknown): v is 'puzzle' | 'paused' => v === 'puzzle' || v === 'paused';
+/** The open dialog's title of each kind it opens. */
+const OPEN_TITLES: Readonly<Record<OpenKind, string>> = {
+  puzzle: 'Open Puzzle',
+  paused: 'Open Paused Solver State',
+  ps3d: 'Import PuzzleSolver3D File',
+  scad: 'Import Puzzlecad File',
+};
 
 /** The paths the save dialog gave each window's renderer for an export: `bt:write-export` writes only these. */
 const grants = new ExportGrants<WebContents>((kind) => KINDS[kind].ext);
@@ -110,7 +132,7 @@ export function installAppIpc(h: AppIpcHost): void {
     }
     const k = KINDS[kind];
     const r = await dialog.showOpenDialog(win, {
-      title: kind === 'puzzle' ? 'Open Puzzle' : 'Open Paused Solver State',
+      title: OPEN_TITLES[kind],
       properties: ['openFile'],
       filters: [k.filter, { name: 'All Files', extensions: ['*'] }],
       ...(lastDir === null ? {} : { defaultPath: lastDir }),

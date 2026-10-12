@@ -10,14 +10,16 @@ the engine client with its host, bridge and proxy, the app's shell
 (top bar, workspace rail, cards, status bar, settings, keyboard map), the
 3D view in three.js, the Entities, Puzzle and Solver workspaces with the
 player and the explorers, and Electron's menus: File (New, Open, Open
-Recent, Save, Save As, the paused solver state, Close), Edit (Undo and
-Redo, Notes, Convert Assemblies to Pieces, Settings), View (the status
+Recent, Save, Save As, Import PuzzleSolver3D and Puzzlecad, the paused
+solver state, Close), Edit (Undo and Redo, Notes, Convert Brick Grid Type
+to Other, Convert Assemblies to Pieces, Settings), View (the status
 window, the display modes and styles), Help (the keyboard shortcuts on
 F1, the user guide, About). The settings and layouts are kept in the
 app's data directory, with the rescue copy of a puzzle with unsaved
 changes (`__rescue.xmpuzzle`), offered after the engine or the app died.
 The exports (stage 7): image, vector image, STL (the engine's STL meshes
-since deferred part 5, with Solutions ▸ Export to STL), solution animation.
+since deferred part 5, with Solutions ▸ Export to STL), solution animation,
+Puzzlecad (deferred part 6).
 Packaging (stage 8): electron-builder for macOS, Windows and Linux, the
 engine inside the app, the Electron security checklist.
 

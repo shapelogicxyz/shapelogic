@@ -443,7 +443,8 @@ the contract session's replies; the status window's rows equal
   styles, Toggle 3D), Help (Tutorial and User Guide links, the keyboard
   map on F1, About with the engine's version from `engine.info`).
   Import PuzzleSolver3D and Puzzlecad, Convert grid type and the STL
-  meshes stay greyed until the core has them.
+  meshes stay greyed until the core has them (the STL meshes came with
+  deferred part 5, the imports and the conversion with part 6).
 - **Files:** `document.new`, `open`, `save`, the title and dirty mark
   from `Snapshot`, close and quit asking about unsaved changes, recent
   files, drag and drop of a file onto the window, `.btsolve` import and
@@ -476,7 +477,8 @@ table); settings and layouts survive a restart. Windows by hand.
   (the bevelled STL meshes are a later core feature; say so in the
   dialog; replaced by the engine's STL meshes in deferred part 5), the
   **paused solver state** (stage 6). Puzzlecad export waits
-  for the core (its text needs the grid's cell geometry rules).
+  for the core (its text needs the grid's cell geometry rules; done in
+  deferred part 6).
 
 **Gate.** The GLB passes the glTF validator and, at sampled times, places
 each piece where the player does; the PNG and SVG of a fixture shape
@@ -515,10 +517,10 @@ PLAN.md's "Later" list.
 | "Drop below level" (§5) | does not exist in the original; `keepEach` keeps every n-th | The option becomes "Keep every n-th" |
 | Apply grid size to all shapes (§3) | `shape.resize toAll` grows the others, never shrinks (the original's rule) | Keep; the tooltip says so |
 | Menus: New, Open, Save, Save As, recent, notes, status window, about (§7.1) | `document.*`, `shape.table`, `engine.info` | Client (stage 6) |
-| Import PuzzleSolver3D, Puzzlecad; Convert grid type (§7.1) | none | Later (core) |
+| Import PuzzleSolver3D, Puzzlecad; Convert grid type (§7.1) | `document.import`, `document.convertGrid`, `engine.info`'s `convertsTo` (deferred part 6: `ps3dloader`, `scadloader`, `converter`) | **Done** in deferred part 6 (webui-spec.md §11) |
 | Export: image, vector image, GLB (§7.1) | `playback.track`, `playback.mesh` | Client (stage 7) |
 | Export: STL (§5, §7.1) | `export.stlParameters`, `export.stlMesh`, `export.stl`, `export.solutionPieces` (deferred part 5: `cubemesh`, `minkmesh` with Manifold) | Interim from the flat mesh (stage 7); **done** in deferred part 5: both STL dialogs (webui-spec.md §10) |
-| Export: Puzzlecad (§7.1) | none | Later |
+| Export: Puzzlecad (§7.1) | `document.exportPuzzlecad` (deferred part 6) | **Done** in deferred part 6 (webui-spec.md §11.2) |
 | Paused solver state import and export (§7.2) | `solve.importPaused`, `exportPaused` | Client (stage 6) |
 | This fork's solver options (§7.2) | `SolveOptions` has them all; High Memory is `SolveOptions.sliding.highMemory` (deferred part 1) | **Done** in deferred part 2: "Enable High Memory" with the sliding options (webui-spec.md §8.3) |
 | Abort separate from Pause (§7.2) | `solve.abort`, refused once a run has ended | Grey the button out as the original did |

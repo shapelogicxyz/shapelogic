@@ -27,6 +27,7 @@ just oracle-resume      # pause searches in one program, continue in the other
 just oracle-roundtrip   # load + save every corpus file in both programs, compare
 just oracle-files       # solve as burrTxt2 does, compare the solved files (stage 4)
 just oracle-text        # bt's text output against burrTxt's, byte for byte (stage 8)
+just oracle-imports     # imports, Puzzlecad export, grid conversion against the original's (deferred part 6)
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
 just format             # clang-format

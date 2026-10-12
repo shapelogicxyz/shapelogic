@@ -38,6 +38,8 @@ const DOCUMENT_COMMANDS: ReadonlySet<AppCommandName> = new Set([
   'open',
   'openPath',
   'importPaused',
+  'importPs3d',
+  'importScad',
 ]);
 
 /** The keys the menus show: the table's, for the commands that have one. */
@@ -62,6 +64,10 @@ export interface MenuHandlers {
   close(): void;
   importPaused(): void;
   exportPaused(): void;
+  /** File ▸ Import ▸ PuzzleSolver3D, Puzzlecad; File ▸ Export ▸ Puzzlecad (deferred part 6). */
+  importPs3d(): void;
+  importScad(): void;
+  exportScad(): void;
   /** File ▸ Export ▸ Image, Vector Image, STL, Solution Animation (stage 7). */
   exportImage(): void;
   exportVector(): void;
@@ -70,6 +76,8 @@ export interface MenuHandlers {
   /** Whether the Solver shows a solution with its moves stored (the animation's export). */
   animation(): boolean;
   toShapes(): void;
+  /** Edit ▸ Convert Brick Grid Type to Other (deferred part 6). */
+  convertGrid(): void;
   notes(): void;
   statusWindow(): void;
   about(): void;
@@ -201,6 +209,15 @@ export class Menus {
       case 'exportPaused':
         this.h.exportPaused();
         break;
+      case 'importPs3d':
+        this.h.importPs3d();
+        break;
+      case 'importScad':
+        this.h.importScad();
+        break;
+      case 'exportScad':
+        this.h.exportScad();
+        break;
       case 'exportImage':
         this.h.exportImage();
         break;
@@ -215,6 +232,9 @@ export class Menus {
         break;
       case 'toShapes':
         this.h.toShapes();
+        break;
+      case 'convertGrid':
+        this.h.convertGrid();
         break;
       case 'notes':
         this.h.notes();

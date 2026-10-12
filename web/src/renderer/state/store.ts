@@ -28,6 +28,9 @@ export interface EngineLink extends EngineApi {
 
 export type EngineInfo = Methods['engine.info']['result'];
 
+/** The other programs' files document.import reads. */
+export type ImportFormat = Methods['document.import']['params']['format'];
+
 /** What changed in the store. */
 export type StoreChange =
   | { kind: 'status' }
@@ -183,6 +186,22 @@ export class Store {
     const r = await this.engine.call('solve.importPaused', { path });
     this.replaced(r.document, null);
     return r.problem;
+  }
+
+  /**
+   * Imports another program's file (deferred part 6) as a new document
+   * without a file, shown as `name`.
+   */
+  async importFile(format: ImportFormat, path: string, name: string): Promise<void> {
+    const snap = await this.engine.call('document.import', { format, path });
+    this.replaced(snap, name);
+  }
+
+  /** The puzzle on another grid (deferred part 6): the document replaced, its file kept. */
+  async convertGrid(grid: Grid): Promise<void> {
+    const name = this.displayName;
+    const snap = await this.engine.call('document.convertGrid', { grid });
+    this.replaced(snap, snap.path === null ? name : null);
   }
 
   /** A new empty puzzle on a grid (the grid never changes). */
