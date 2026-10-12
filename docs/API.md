@@ -109,6 +109,7 @@ Result:
 | `grids.supported` | boolean | required | This version solves its puzzles: every grid (stacking since the deferred plan's part 3b). |
 | `grids.defaultSize` | integer | required | The size of a new shape in each direction, in cells. |
 | `grids.sizeUnit` | integer | required | shape.resize counts in blocks of this many cells. |
+| `grids.convertsTo` | [Grid](#grid)[] | required | The grids document.convertGrid converts its puzzles to (the original's Convert brick grid type to other): rhombic and tetraOcta for bricks, none for the others. |
 
 `solvers`:
 
@@ -192,7 +193,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 
 ## Document and history
 
-The puzzle being edited (one per engine): new, open, import, save, the Puzzlecad export, the notes, undo and redo. A new document drops every playback and explorer handle.
+The puzzle being edited (one per engine): new, open, import, save, the Puzzlecad export, grid conversion, the notes, undo and redo. A new document drops every playback and explorer handle.
 
 ### `document.new`
 
@@ -270,6 +271,20 @@ Result:
 | `text` | string | required |  |
 
 Errors: `invalid_argument`, `not_found`
+
+### `document.convertGrid`
+
+The puzzle on another grid (Edit ▸ Convert brick grid type to other): each cube of a cube-grid puzzle becomes the cells that fill it (5x5x5 on the rhombic grid, 3x3x3 on the tetra-octa grid), the shapes keep their names, the colours and the notes stay, and each problem's definition is copied with its name, without its solutions. As the original, the document is replaced: it has unsaved changes, nothing to undo, and keeps its path, so document.save writes the converted puzzle over the file it came from. The grids a puzzle converts to are engine.info's grids[].convertsTo; another is unsupported. Refused while solving (invalid_state), and when the converted shapes would hold more than 2^27 cells together (invalid_argument). The open document goes as with document.new.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
+
+Result: [Snapshot](#snapshot)
+
+Errors: `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `document.save`
 

@@ -1345,6 +1345,25 @@ export interface Methods {
     errors: 'invalid_argument' | 'not_found';
   };
   /**
+   * The puzzle on another grid (Edit ▸ Convert brick grid type to other): each cube of a cube-grid
+   * puzzle becomes the cells that fill it (5x5x5 on the rhombic grid, 3x3x3 on the tetra-octa
+   * grid), the shapes keep their names, the colours and the notes stay, and each problem's
+   * definition is copied with its name, without its solutions. As the original, the document is
+   * replaced: it has unsaved changes, nothing to undo, and keeps its path, so document.save writes
+   * the converted puzzle over the file it came from. The grids a puzzle converts to are
+   * engine.info's grids[].convertsTo; another is unsupported. Refused while solving
+   * (invalid_state), and when the converted shapes would hold more than 2^27 cells together
+   * (invalid_argument). The open document goes as with document.new.
+   * (document.json)
+   */
+  'document.convertGrid': {
+    params: {
+      grid: Grid;
+    };
+    result: Snapshot;
+    errors: 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
    * Saves (gzip, as the original) to the path given, or to the document's path; the document is
    * clean afterwards. Refused while a solve runs: save at a save point (solve.savePoint).
    * (document.json)
@@ -1503,6 +1522,11 @@ export interface Methods {
          * @minimum 1
          */
         sizeUnit: number;
+        /**
+         * The grids document.convertGrid converts its puzzles to (the original's Convert brick
+         * grid type to other): rhombic and tetraOcta for bricks, none for the others.
+         */
+        convertsTo: Grid[];
       })[];
       solvers: ({
         solver: Solver;
@@ -3358,6 +3382,7 @@ export const METHOD_NAMES = [
   'colour.delete',
   'colour.edit',
   'colour.list',
+  'document.convertGrid',
   'document.exportPuzzlecad',
   'document.get',
   'document.import',

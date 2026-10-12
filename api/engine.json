@@ -44,9 +44,10 @@
                 "disassemble": {"type": "boolean", "description": "It has a take-apart."},
                 "supported": {"type": "boolean", "description": "This version solves its puzzles: every grid (stacking since the deferred plan's part 3b)."},
                 "defaultSize": {"type": "integer", "minimum": 1, "description": "The size of a new shape in each direction, in cells."},
-                "sizeUnit": {"type": "integer", "minimum": 1, "description": "shape.resize counts in blocks of this many cells."}
+                "sizeUnit": {"type": "integer", "minimum": 1, "description": "shape.resize counts in blocks of this many cells."},
+                "convertsTo": {"type": "array", "items": {"$ref": "types.json#/$defs/Grid"}, "description": "The grids document.convertGrid converts its puzzles to (the original's Convert brick grid type to other): rhombic and tetraOcta for bricks, none for the others."}
               },
-              "required": ["grid", "label", "assemble", "disassemble", "supported", "defaultSize", "sizeUnit"],
+              "required": ["grid", "label", "assemble", "disassemble", "supported", "defaultSize", "sizeUnit", "convertsTo"],
               "additionalProperties": false
             }
           },

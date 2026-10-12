@@ -92,6 +92,16 @@ Reply documentExportPuzzlecad(State& s, Params& p) {
   return Json{{"text", std::move(text)}};
 }
 
+Reply documentConvertGrid(State& s, Params& p) {
+  const GridKind grid = p.choice("grid", gridNames());
+  BTE_CHECK(p.finish());
+  BTE_TRY(app::Document d, s.document().convertGrid(grid));
+  // the original kept the file name (cb_Convert): Save writes there
+  const std::optional<std::filesystem::path> path = s.path;
+  s.replaceDocument(std::move(d), path);
+  return snapshot(s);
+}
+
 Reply documentSave(State& s, Params& p) {
   const std::optional<std::string> given = p.optString("path");
   BTE_CHECK(p.finish());
@@ -161,6 +171,7 @@ void addDocumentMethods(MethodTable& t) {
   t["document.openBytes"] = documentOpenBytes;
   t["document.import"] = documentImport;
   t["document.exportPuzzlecad"] = documentExportPuzzlecad;
+  t["document.convertGrid"] = documentConvertGrid;
   t["document.save"] = documentSave;
   t["document.saveBytes"] = documentSaveBytes;
   t["document.get"] = documentGet;

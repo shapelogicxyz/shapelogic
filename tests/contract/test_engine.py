@@ -754,7 +754,9 @@ def pause_continue_and_the_guards(e):
     e.fails("solve.start", {"problem": p}, "invalid_state")
     e.fails("solution.analyse", {"problem": p, "which": "all"}, "invalid_state")
     e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.btsolve"}, "invalid_state")
+    e.fails("document.convertGrid", {"grid": "rhombic"}, "invalid_state")
     # and what goes on
+    check("burr_plate" in e.call("document.exportPuzzlecad", {"problem": p})["text"], "the Puzzlecad export")
     e.call("document.setNotes", {"text": "while solving"})
     e.call("colour.edit", {"colour": c1, "rgb": "#00ff00"})
     e.call("problem.rename", {"problem": other, "name": "not solving"})
@@ -1412,6 +1414,27 @@ def imports_exports_conversions(e):
     e.fails("document.exportPuzzlecad", {}, "invalid_argument")  # not the cube grid
     e.call("document.new", {"grid": "bricks"})
     e.fails("document.exportPuzzlecad", {}, "invalid_argument")  # no shapes
+
+    # grid conversion: the grids engine.info offers, the original's shapes
+    grids = {g["grid"]: g["convertsTo"] for g in e.call("engine.info")["grids"]}
+    check(grids["bricks"] == ["rhombic", "tetraOcta"] and all(v == [] for k, v in grids.items() if k != "bricks"),
+          f"the grids converted to {grids}")
+    with tempfile.TemporaryDirectory() as tmp:
+        copy = pathlib.Path(tmp) / "CubeInCage.xmpuzzle"
+        shutil.copy(FIXTURES / "CubeInCage.xmpuzzle", copy)
+        before = e.call("document.open", {"path": str(copy)})
+        for grid, name in (("rhombic", "rhombic"), ("tetraOcta", "tetra-octa")):
+            e.call("document.open", {"path": str(copy)})
+            snap = e.call("document.convertGrid", {"grid": grid})
+            check(snap["grid"] == grid and snap["dirty"] and not snap["canUndo"], f"converted {snap}")
+            check(snap["path"] == str(copy), "the path kept, as the original kept its file name")
+            check([x["name"] for x in snap["shapes"]] == [x["name"] for x in before["shapes"]], "the names")
+            check(base64.b64decode(e.call("document.saveBytes")["data"])
+                  == read_puzzle_bytes(IMPORTED / f"CubeInCage.{name}.xmpuzzle"), f"{grid} as the original's")
+        e.call("document.save")
+        check(e.call("document.open", {"path": str(copy)})["grid"] == "tetraOcta", "saved over its file")
+    e.fails("document.convertGrid", {"grid": "prisms"}, "unsupported")
+    e.fails("document.convertGrid", {"grid": "hexagons"}, "invalid_params")
 
 
 @test

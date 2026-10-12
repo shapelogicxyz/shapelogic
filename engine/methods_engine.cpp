@@ -7,6 +7,7 @@
 #include "bt/base/thread_pool.h"
 #include "bt/base/version.h"
 #include "bt/grid/grid_type.h"
+#include "bt/model/grid_convert.h"
 
 #include <limits>
 #include <string>
@@ -52,13 +53,18 @@ Reply engineInfo(State& s, Params& p) {
   Json grids = Json::array();
   for (const auto& [name, kind] : gridNames()) {
     const unsigned int caps = GridType(kind).getCapabilities();
+    Json convertsTo = Json::array();
+    for (const GridKind to : convertTargets(kind)) {
+      convertsTo.push_back(nameOf(gridNames(), to));
+    }
     grids.push_back(Json{{"grid", name},
                          {"label", toString(kind)},
                          {"assemble", (caps & kCapAssemble) != 0},
                          {"disassemble", (caps & kCapDisassemble) != 0},
                          {"supported", true},
                          {"defaultSize", app::defaultShapeSize(kind)},
-                         {"sizeUnit", app::sizeUnit(kind)}});
+                         {"sizeUnit", app::sizeUnit(kind)},
+                         {"convertsTo", std::move(convertsTo)}});
   }
   Json solvers = Json::array();
   for (const auto& [name, type] : solverNames()) {
