@@ -1320,6 +1320,31 @@ export interface Methods {
     errors: 'invalid_argument' | 'io_error' | 'parse_error';
   };
   /**
+   * The puzzlecad OpenSCAD file of a problem's pieces (File ▸ Export ▸ Puzzlecad (OpenSCAD)): the
+   * distinct shapes of its parts but the result (when that leaves none, every shape but the
+   * result), or every shape when no problem is given, each as the layers of its bounding box in
+   * one burr_plate, in the layout of puzzlecad's MagellanTIC.scad. The header comment names the
+   * document's file, or `name` when it has none ("unknown" without either). Only for cube-grid
+   * puzzles with shapes (the original's "Puzzlecad export is only available for cube-grid
+   * puzzles.", "Nothing to export."), and some shape must have a cell ("Could not export puzzlecad
+   * file."): invalid_argument. Allowed while solving.
+   * (document.json)
+   */
+  'document.exportPuzzlecad': {
+    params: {
+      problem?: ProblemId;
+      /**
+       * The file being written, for the header when the document has no file. At most 255 bytes,
+       * no control characters.
+       */
+      name?: string;
+    };
+    result: {
+      text: string;
+    };
+    errors: 'invalid_argument' | 'not_found';
+  };
+  /**
    * Saves (gzip, as the original) to the path given, or to the document's path; the document is
    * clean afterwards. Refused while a solve runs: save at a save point (solve.savePoint).
    * (document.json)
@@ -3333,6 +3358,7 @@ export const METHOD_NAMES = [
   'colour.delete',
   'colour.edit',
   'colour.list',
+  'document.exportPuzzlecad',
   'document.get',
   'document.import',
   'document.new',

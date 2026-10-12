@@ -192,7 +192,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 
 ## Document and history
 
-The puzzle being edited (one per engine): new, open, import, save, the notes, undo and redo. A new document drops every playback and explorer handle.
+The puzzle being edited (one per engine): new, open, import, save, the Puzzlecad export, the notes, undo and redo. A new document drops every playback and explorer handle.
 
 ### `document.new`
 
@@ -251,6 +251,25 @@ Params:
 Result: [Snapshot](#snapshot)
 
 Errors: `invalid_argument`, `io_error`, `parse_error`
+
+### `document.exportPuzzlecad`
+
+The puzzlecad OpenSCAD file of a problem's pieces (File ▸ Export ▸ Puzzlecad (OpenSCAD)): the distinct shapes of its parts but the result (when that leaves none, every shape but the result), or every shape when no problem is given, each as the layers of its bounding box in one burr_plate, in the layout of puzzlecad's MagellanTIC.scad. The header comment names the document's file, or `name` when it has none ("unknown" without either). Only for cube-grid puzzles with shapes (the original's "Puzzlecad export is only available for cube-grid puzzles.", "Nothing to export."), and some shape must have a cell ("Could not export puzzlecad file."): invalid_argument. Allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) |  | A problem; also names its solve and its analysis. |
+| `name` | string |  | The file being written, for the header when the document has no file. At most 255 bytes, no control characters. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `text` | string | required |  |
+
+Errors: `invalid_argument`, `not_found`
 
 ### `document.save`
 

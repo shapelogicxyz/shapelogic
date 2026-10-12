@@ -73,6 +73,25 @@ Reply documentImport(State& s, Params& p) {
   return openedSnapshot(s);
 }
 
+Reply documentExportPuzzlecad(State& s, Params& p) {
+  const std::optional<app::Id> problem = p.optId("problem", IdKind::Problem);
+  const std::string name = p.optString("name").value_or("");
+  BTE_CHECK(p.finish());
+  // the name goes into a comment line of the file
+  if (name.size() > 255) {
+    return coreError(Errc::InvalidArgument, "the name is longer than 255 bytes");
+  }
+  for (const char c : name) {
+    if (static_cast<unsigned char>(c) < 0x20 || c == 0x7F) {
+      return coreError(Errc::InvalidArgument, "the name cannot hold control characters");
+    }
+  }
+  // the puzzle's file, or the export's when it has none (cb_Export_Scad)
+  const std::string source = s.path ? s.path->string() : name;
+  BTE_TRY(std::string text, s.document().exportPuzzlecad(problem, source));
+  return Json{{"text", std::move(text)}};
+}
+
 Reply documentSave(State& s, Params& p) {
   const std::optional<std::string> given = p.optString("path");
   BTE_CHECK(p.finish());
@@ -141,6 +160,7 @@ void addDocumentMethods(MethodTable& t) {
   t["document.open"] = documentOpen;
   t["document.openBytes"] = documentOpenBytes;
   t["document.import"] = documentImport;
+  t["document.exportPuzzlecad"] = documentExportPuzzlecad;
   t["document.save"] = documentSave;
   t["document.saveBytes"] = documentSaveBytes;
   t["document.get"] = documentGet;

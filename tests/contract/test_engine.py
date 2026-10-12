@@ -1393,6 +1393,26 @@ def imports_exports_conversions(e):
     e.fails("document.import", {"format": "puzzlecad", "data": "%%%"}, "invalid_argument")
     e.fails("document.import", {"format": "stl", "data": ""}, "invalid_params")
 
+    # the Puzzlecad export: the text the original wrote, naming the puzzle's file
+    snap = e.call("document.open", {"path": str(FIXTURES / "PelikanBurr.xmpuzzle")})
+    p = snap["problems"][0]["id"]
+    text = e.call("document.exportPuzzlecad", {"problem": p, "name": "ignored.scad"})["text"]
+    check(text == (IMPORTED / "PelikanBurr.p0.scad").read_text(), "PelikanBurr's export as the original's")
+    check(e.call("document.exportPuzzlecad")["text"] == (IMPORTED / "PelikanBurr.p1.scad").read_text(),
+          "every shape without a problem")
+    # a document without a file names the export's
+    e.call("document.import", {"format": "puzzlecad", "path": str(IMPORTS / "plate.scad")})
+    text = e.call("document.exportPuzzlecad", {"name": "/some/where/plate.scad"})["text"]
+    check("// plate.scad\n" in text and text.count('    [ "') == 5, f"the header, the pieces and the box: {text}")
+    check("// unknown\n" in e.call("document.exportPuzzlecad")["text"], "no name")
+    e.fails("document.exportPuzzlecad", {"name": "a\nb"}, "invalid_argument")
+    e.fails("document.exportPuzzlecad", {"name": "x" * 256}, "invalid_argument")
+    e.fails("document.exportPuzzlecad", {"problem": "p99999"}, "not_found")
+    e.call("document.open", {"path": str(FIXTURES / "Bermuda.xmpuzzle")})
+    e.fails("document.exportPuzzlecad", {}, "invalid_argument")  # not the cube grid
+    e.call("document.new", {"grid": "bricks"})
+    e.fails("document.exportPuzzlecad", {}, "invalid_argument")  # no shapes
+
 
 @test
 def unsupported_and_failures(e):
