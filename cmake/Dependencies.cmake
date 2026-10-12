@@ -60,6 +60,15 @@ set(MANIFOLD_DOWNLOADS OFF CACHE BOOL "" FORCE)
 set(MANIFOLD_OPTIMIZED ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(manifold)
+# Under AddressSanitizer Manifold itself is left uninstrumented: in its
+# boolean's bookkeeping (CsgLeafNode::Compose, then SortGeometry's
+# ReindexFace) it reads a few half-edge tangents past the end of their
+# array, tangents nothing here uses (no smoothing), and does so in the
+# original's build too (docs/handoff/deferred-5.md, "Found in Manifold").
+# Our code, the meshers that call it included, stays checked.
+if(BT_SANITIZE MATCHES "address")
+  target_compile_options(manifold PRIVATE -fno-sanitize=all)
+endif()
 
 if(BT_BUILD_TESTS)
   # The same Catch2 release as the original BurrTools test suite.

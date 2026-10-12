@@ -1131,7 +1131,43 @@ void flipFlat(const std::vector<vec3>& pos, std::vector<std::uint64_t>& tri) {
   }
 }
 
+// Whether every directed edge of the triangles is used as often as the
+// other way round: what an oriented (even) manifold needs. Manifold 3.5.2
+// refuses a mesh without it (Status NotManifold), but on the way reads a
+// half-edge's pair that was never set, at an index far outside its
+// arrays (UBSan: vec_view.h, from Impl::IsManifold); so such a mesh is
+// not handed to it. Not in the original, which handed it over: the
+// outcome is the same refusal.
+bool balanced(const std::vector<std::uint64_t>& tri) {
+  std::map<std::pair<std::uint64_t, std::uint64_t>, long> uses;
+  for (std::size_t t = 0; t + 2 < tri.size(); t += 3) {
+    // a triangle with a corner twice is dropped by Manifold before it pairs
+    if (tri[t] == tri[t + 1] || tri[t + 1] == tri[t + 2] || tri[t + 2] == tri[t]) {
+      continue;
+    }
+    for (std::size_t c = 0; c < 3; c++) {
+      const std::uint64_t a = tri[t + c];
+      const std::uint64_t b = tri[t + ((c + 1) % 3)];
+      // one count per edge: up for a -> b with a < b, down for the reverse
+      if (a < b) {
+        uses[{a, b}]++;
+      } else {
+        uses[{b, a}]--;
+      }
+    }
+  }
+  for (const auto& [edge, n] : uses) {
+    if (n != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 Manifold fromTriangles(const std::vector<vec3>& pos, const std::vector<std::uint64_t>& tri) {
+  if (!balanced(tri)) {
+    return {};  // empty: rebuilt() takes it as refused
+  }
   manifold::MeshGL64 mesh;
   mesh.numProp = 3;
   mesh.vertProperties.reserve(pos.size() * 3);
