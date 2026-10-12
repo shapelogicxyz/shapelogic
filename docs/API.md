@@ -48,6 +48,7 @@ follows it.
 - [Solutions](#solutions)
 - [Playback](#playback)
 - [Explorers](#explorers)
+- [Exports](#exports)
 - [Types](#types)
 
 ## Engine and settings
@@ -2312,6 +2313,110 @@ Errors: `not_found`
 |---|---|---|---|
 | `handle` | [MovementExplorerHandle](#movementexplorerhandle) | required | A movement explorer opened by explore.openMovements. |
 | `node` | integer | required |  |
+
+## Exports
+
+The STL export (deferred part 5; the original's File ▸ Export STL and Export Solution Pieces to STL, src/lib/stl*.cpp, cubemesh, minkmesh): each grid's mesher parameters, a shape's STL mesh for the dialog's preview with its volume, the STL file as bytes (the client writes it where its user chose), and the pieces of a solution's export with their file names. The cube, prism, rhombic and tetra-octa grids share six parameters (the cube grids' mesh comes from a table of chamfered corners, the others' from Minkowski sums with the Manifold library, seconds for large shapes in a release build), the sphere grid has eight. Allowed while solving: they only read shapes.
+
+### `export.stlParameters`
+
+The STL parameters of a grid, in order, as the original's export dialog showed them: name, kind of value, default, tooltip. The values of export.stlMesh and export.stl follow this order.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `grid` | [Grid](#grid) |  | Default: the document's. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `parameters` | StlParameter[] | required |  |
+
+### `export.stlMesh`
+
+A shape's STL mesh for the parameter values, as a binary frame with the arrays of a MeshFrame (the export dialog's preview: the mesh before its coplanar faces are merged for the file), with the volume it encloses (the dialog's 'Volume: x cubic-units'). Refused with the original's words for a shape with variable cells, a value out of range, more than 6 recursions on the sphere grid (not a limit of the original: its mesh failed from 6 on), or a mesh that comes out faulty ('The generated mesh is faulty in some way, try to tweak the parameter').
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `parameters` | StlValues |  | One value per parameter of the document's grid, in export.stlParameters' order (another count: invalid_argument). Default: the defaults. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `frame` | [Frame](#frame) | required |  |
+| `triangles` | integer | required |  |
+| `vertices` | integer | required |  |
+| `lo` | number[] | required |  |
+| `hi` | number[] | required |  |
+| `hotspot` | [Cell](#cell) | required | A cell [x, y, z] in the grid's own coordinates. |
+| `volume` | number | required | In cubic units of the unit size (the mesh's own units). |
+
+Errors: `not_found`, `invalid_argument`
+
+### `export.stl`
+
+A shape's STL file, as a binary frame with one array, file (u8): the mesh for the parameter values with its coplanar faces merged and triangulated again, each face a fan of triangles, binary or text as the original wrote it. Refused as export.stlMesh.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `parameters` | StlValues |  | One value per parameter of the document's grid, in export.stlParameters' order (another count: invalid_argument). Default: the defaults. |
+| `binary` | boolean |  | Binary STL (the dialog's 'Binary STL'); default true. Otherwise text. |
+| `name` | string |  | What the file says its solid is: the binary header (its first 80 bytes) or the text's 'solid' line; the original wrote the file's name there. Default empty. No control characters, at most 255 bytes. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `frame` | [Frame](#frame) | required |  |
+
+Errors: `not_found`, `invalid_argument`
+
+### `export.solutionPieces`
+
+What the original's Export Solution Pieces to STL writes for a saved solution: the distinct shapes its assembly places (not the problem's counts), in shape order, with how many copies and their file's name: the shape's name, or S<n> without one, every byte but ASCII letters, digits, '-' and '_' made '_', '-S<n>' added when an earlier piece's file has that name, then '.stl'. Allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `solution` | [SolutionId](#solutionid) | required | A saved solution, unique within its problem. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `pieces` | object[] | required |  |
+
+`pieces`:
+
+| name | type | | description |
+|---|---|---|---|
+| `pieces.shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `pieces.count` | integer | required |  |
+| `pieces.fileName` | string | required |  |
+
+Errors: `not_found`
+
+#### StlParameter
+
+One parameter of a grid's STL mesher (stlExporter_c's getParameterName, getParameterType, getParameter of a new exporter, getParameterTooltip).
+
+| name | type | | description |
+|---|---|---|---|
+| `name` | string | required | The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers; on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole. |
+| `type` | `"number"` \| `"positiveNumber"` \| `"positiveInteger"` \| `"switch"` | required | The field: any number, a number of 0 or more, a whole number of 0 or more, or a check box (1 on, 0 off). |
+| `default` | number | required |  |
+| `tooltip` | string | required |  |
 
 ## Types
 

@@ -27,6 +27,7 @@ The JSON Schema of every `bt-engine` method and event (decisions 0003 and
 | `solution.json` | `solution.*` and the analysis events |
 | `playback.json` | `playback.*` |
 | `explore.json` | `explore.*` |
+| `export.json` | `export.*`: the STL export's parameters, meshes, files and a solution's pieces |
 | `apischema.py` | loads the files, checks them, validates messages |
 | `gen_api_md.py` | writes `docs/API.md` |
 

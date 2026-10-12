@@ -1285,6 +1285,70 @@ def stacking_import_refused_while_solving(e):
               f"the imported search {held} (exported {saved})")
 
 
+# ---- the STL export ----------------------------------------------------------------------------
+
+@test
+def stl_exports(e):
+    params = e.call("export.stlParameters", {"grid": "spheres"})["parameters"]
+    check([q["name"] for q in params] == ["Sphere radius", "Connection radius", "Curvature radius",
+                                           "Offset", "Recursions", "Inner radius", "Hole diameter",
+                                           "Square Hole"], f"the sphere grid's parameters {params}")
+    check(params[4]["type"] == "positiveInteger" and params[4]["default"] == 2, f"recursions {params[4]}")
+    e.fails("export.stlParameters", {"grid": "hexagons"}, "invalid_params")
+
+    recorded = ROOT / "tests" / "data" / "stl_solution_by_original" / "CubeInCage"
+    snap = e.call("document.open", {"path": str(FIXTURES / "CubeInCage.xmpuzzle")})
+    params = e.call("export.stlParameters")["parameters"]
+    check([q["name"] for q in params] == ["Unit Size", "Unit Size Y", "Unit Size Z", "Bevel", "Offset",
+                                           "Interior chamfers"], f"the cube grid's parameters {params}")
+    defaults = [q["default"] for q in params]
+    check(defaults == [10, 0, 0, 0.3, 0.01, 1], f"the defaults {defaults}")
+    shapes = [x["id"] for x in snap["shapes"]]
+
+    # the pieces of the first solution, and their files as the original wrote them
+    p = snap["problems"][0]["id"]
+    sol = e.call("solution.page", {"problem": p, "limit": 1})["rows"][0]["id"]
+    pieces = e.call("export.solutionPieces", {"problem": p, "solution": sol})["pieces"]
+    listed = (recorded / "pieces.txt").read_text().splitlines()
+    check([f"{shapes.index(x['shape'])} {x['count']} {x['fileName']}" for x in pieces] == listed,
+          f"the pieces {pieces}")
+    for x in pieces:
+        r = e.call("export.stl", {"shape": x["shape"], "name": x["fileName"]})
+        data = bytes(e.frame(r["frame"]).array("file"))
+        check(data == (recorded / x["fileName"]).read_bytes(), f"{x['fileName']} as the original's")
+
+    # the preview and its volume; the text file
+    preview = e.call("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": defaults})
+    check(preview["triangles"] > 0 and preview["volume"] > 0, f"the preview {preview}")
+    plain = e.call("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [1, 0, 0, 0, 0, 1]})
+    cells = e.call("shape.info", {"shape": pieces[0]["shape"]})["fixed"]
+    check(abs(plain["volume"] - cells) < 1e-3, f"plain cells of unit size: {plain['volume']} for {cells}")
+    r = e.call("export.stl", {"shape": pieces[0]["shape"], "binary": False, "name": "frame"})
+    text = bytes(e.frame(r["frame"]).array("file")).decode()
+    check(text.startswith("solid frame\n  facet normal ") and text.endswith("endsolid\n"), "a text STL")
+
+    # refusals
+    e.fails("export.stl", {"shape": shapes[0]}, "invalid_argument")  # the result has variable cells
+    e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [10, 0, 0]}, "invalid_argument")
+    e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [0, 0, 0, 0.3, 0.01, 1]},
+            "invalid_argument")
+    e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": ["10"]}, "invalid_params")
+    e.fails("export.stl", {"shape": pieces[0]["shape"], "name": "a\nb"}, "invalid_argument")
+    e.fails("export.stl", {"shape": pieces[0]["shape"], "name": "x" * 256}, "invalid_argument")
+    e.fails("export.stl", {"shape": "s999"}, "not_found")
+    e.fails("export.solutionPieces", {"problem": p, "solution": "sol99999"}, "not_found")
+
+    # the sphere grid: the original's mesh fails at 6 recursions, more are not built
+    snap = e.call("document.open", {"path": str(FIXTURES / "BallRoom.xmpuzzle")})
+    ball = snap["shapes"][1]["id"]
+    values = [q["default"] for q in e.call("export.stlParameters")["parameters"]]
+    values[4] = 6
+    e.fails("export.stlMesh", {"shape": ball, "parameters": values}, "invalid_argument")
+    values[4] = 1
+    check(e.call("export.stlMesh", {"shape": ball, "parameters": values})["triangles"] > 0,
+          "a ball at one recursion")
+
+
 @test
 def unsupported_and_failures(e):
     # what a stacking puzzle cannot do or does not have

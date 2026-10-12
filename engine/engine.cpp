@@ -96,6 +96,7 @@ Engine::Engine(std::ostream& out, std::ostream& log)
   addExploreMethods(methods_);
   addSlidingMethods(methods_);
   addStackingMethods(methods_);
+  addExportMethods(methods_);
 }
 
 namespace {

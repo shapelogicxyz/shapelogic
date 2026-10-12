@@ -8,6 +8,7 @@ add_library(btengine STATIC
   methods_document.cpp
   methods_engine.cpp
   methods_explore.cpp
+  methods_export.cpp
   methods_playback.cpp
   methods_problem.cpp
   methods_shape.cpp

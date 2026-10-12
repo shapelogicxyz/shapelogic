@@ -15,7 +15,8 @@ OUT = API_DIR.parent / "docs" / "API.md"
 
 # the areas in the order the reference lists them
 ORDER = ["engine.json", "document.json", "shape.json", "colour.json", "problem.json",
-         "sliding.json", "stacking.json", "solve.json", "solution.json", "playback.json", "explore.json"]
+         "sliding.json", "stacking.json", "solve.json", "solution.json", "playback.json", "explore.json",
+         "export.json"]
 
 HEADER = """# bt-engine API
 

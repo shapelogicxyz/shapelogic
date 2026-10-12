@@ -63,6 +63,35 @@ export interface NodeParam {
   node: number;
 }
 
+// ---- export.json: Exports ----
+
+/**
+ * One parameter of a grid's STL mesher (stlExporter_c's getParameterName, getParameterType,
+ * getParameter of a new exporter, getParameterTooltip).
+ */
+export interface StlParameter {
+  /**
+   * The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers;
+   * on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions,
+   * Inner radius, Hole diameter, Square Hole.
+   */
+  name: string;
+  /**
+   * The field: any number, a number of 0 or more, a whole number of 0 or more, or a check box (1
+   * on, 0 off).
+   */
+  type: 'number' | 'positiveNumber' | 'positiveInteger' | 'switch';
+  default: number;
+  tooltip: string;
+}
+
+/**
+ * One value per parameter of the document's grid, in export.stlParameters' order (another count:
+ * invalid_argument). Default: the defaults.
+ * @maxItems 16
+ */
+export type StlValues = number[];
+
 // ---- playback.json: Playback ----
 
 export interface Poses {
@@ -1666,6 +1695,106 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
+   * The STL parameters of a grid, in order, as the original's export dialog showed them: name,
+   * kind of value, default, tooltip. The values of export.stlMesh and export.stl follow this
+   * order.
+   * (export.json)
+   */
+  'export.stlParameters': {
+    params: {
+      /** Default: the document's. */
+      grid?: Grid;
+    };
+    result: {
+      parameters: StlParameter[];
+    };
+    errors: never;
+  };
+  /**
+   * A shape's STL mesh for the parameter values, as a binary frame with the arrays of a MeshFrame
+   * (the export dialog's preview: the mesh before its coplanar faces are merged for the file),
+   * with the volume it encloses (the dialog's 'Volume: x cubic-units'). Refused with the
+   * original's words for a shape with variable cells, a value out of range, more than 6 recursions
+   * on the sphere grid (not a limit of the original: its mesh failed from 6 on), or a mesh that
+   * comes out faulty ('The generated mesh is faulty in some way, try to tweak the parameter').
+   * (export.json)
+   */
+  'export.stlMesh': {
+    params: {
+      shape: ShapeId;
+      parameters?: StlValues;
+    };
+    result: {
+      frame: Frame;
+      /** @minimum 0 */
+      triangles: number;
+      /** @minimum 0 */
+      vertices: number;
+      /**
+       * @minItems 3
+       * @maxItems 3
+       */
+      lo: [number, number, number];
+      /**
+       * @minItems 3
+       * @maxItems 3
+       */
+      hi: [number, number, number];
+      hotspot: Cell;
+      /** In cubic units of the unit size (the mesh's own units). */
+      volume: number;
+    };
+    errors: 'not_found' | 'invalid_argument';
+  };
+  /**
+   * A shape's STL file, as a binary frame with one array, file (u8): the mesh for the parameter
+   * values with its coplanar faces merged and triangulated again, each face a fan of triangles,
+   * binary or text as the original wrote it. Refused as export.stlMesh.
+   * (export.json)
+   */
+  'export.stl': {
+    params: {
+      shape: ShapeId;
+      parameters?: StlValues;
+      /** Binary STL (the dialog's 'Binary STL'); default true. Otherwise text. */
+      binary?: boolean;
+      /**
+       * What the file says its solid is: the binary header (its first 80 bytes) or the text's
+       * 'solid' line; the original wrote the file's name there. Default empty. No control
+       * characters, at most 255 bytes.
+       */
+      name?: string;
+    };
+    result: {
+      frame: Frame;
+    };
+    errors: 'not_found' | 'invalid_argument';
+  };
+  /**
+   * What the original's Export Solution Pieces to STL writes for a saved solution: the distinct
+   * shapes its assembly places (not the problem's counts), in shape order, with how many copies
+   * and their file's name: the shape's name, or S<n> without one, every byte but ASCII letters,
+   * digits, '-' and '_' made '_', '-S<n>' added when an earlier piece's file has that name, then
+   * '.stl'. Allowed while solving.
+   * (export.json)
+   */
+  'export.solutionPieces': {
+    params: {
+      problem: ProblemId;
+      solution: SolutionId;
+    };
+    result: {
+      pieces: ({
+        shape: ShapeId;
+        /** @minimum 1 */
+        count: number;
+        /** @minLength 5 */
+        fileName: string;
+      })[];
+    };
+    errors: 'not_found';
+  };
+  /**
    * Opens the playback of a saved solution. With its moves stored the poses follow the steps;
    * without them (not taken apart, found not to come apart, or only the level summary kept) steps
    * is 0 and every pose is the assembled one, so every solution is shown through one path.
@@ -3202,6 +3331,10 @@ export const METHOD_NAMES = [
   'explore.placements',
   'explore.prune',
   'explore.step',
+  'export.solutionPieces',
+  'export.stl',
+  'export.stlMesh',
+  'export.stlParameters',
   'grid.geometry',
   'grid.neighbour',
   'playback.close',
@@ -3325,6 +3458,8 @@ export type Errc = keyof typeof ERROR_CODES;
 
 /** The methods whose result carries a binary frame, and the property that holds it. */
 export const FRAME_PATHS = {
+  'export.stl': 'frame',
+  'export.stlMesh': 'frame',
   'playback.mesh': 'frame',
   'playback.poses': 'frame',
   'playback.track': 'frame',

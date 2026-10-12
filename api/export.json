@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "export.json",
+  "title": "Exports",
+  "description": "The STL export (deferred part 5; the original's File ▸ Export STL and Export Solution Pieces to STL, src/lib/stl*.cpp, cubemesh, minkmesh): each grid's mesher parameters, a shape's STL mesh for the dialog's preview with its volume, the STL file as bytes (the client writes it where its user chose), and the pieces of a solution's export with their file names. The cube, prism, rhombic and tetra-octa grids share six parameters (the cube grids' mesh comes from a table of chamfered corners, the others' from Minkowski sums with the Manifold library, seconds for large shapes in a release build), the sphere grid has eight. Allowed while solving: they only read shapes.",
+  "methods": {
+    "export.stlParameters": {
+      "summary": "The STL parameters of a grid, in order, as the original's export dialog showed them: name, kind of value, default, tooltip. The values of export.stlMesh and export.stl follow this order.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "grid": {"$ref": "types.json#/$defs/Grid", "description": "Default: the document's."}
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "parameters": {"type": "array", "items": {"$ref": "#/$defs/StlParameter"}}
+        },
+        "required": ["parameters"],
+        "additionalProperties": false
+      },
+      "errors": []
+    },
+    "export.stlMesh": {
+      "summary": "A shape's STL mesh for the parameter values, as a binary frame with the arrays of a MeshFrame (the export dialog's preview: the mesh before its coplanar faces are merged for the file), with the volume it encloses (the dialog's 'Volume: x cubic-units'). Refused with the original's words for a shape with variable cells, a value out of range, more than 6 recursions on the sphere grid (not a limit of the original: its mesh failed from 6 on), or a mesh that comes out faulty ('The generated mesh is faulty in some way, try to tweak the parameter').",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "parameters": {"$ref": "#/$defs/StlValues"}
+        },
+        "required": ["shape"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "description": "A MeshFrame (its hotspot 0 0 0) and the volume.",
+        "properties": {
+          "frame": {"$ref": "types.json#/$defs/Frame"},
+          "triangles": {"type": "integer", "minimum": 0},
+          "vertices": {"type": "integer", "minimum": 0},
+          "lo": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+          "hi": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+          "hotspot": {"$ref": "types.json#/$defs/Cell"},
+          "volume": {"type": "number", "description": "In cubic units of the unit size (the mesh's own units)."}
+        },
+        "required": ["frame", "triangles", "vertices", "lo", "hi", "hotspot", "volume"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument"]
+    },
+    "export.stl": {
+      "summary": "A shape's STL file, as a binary frame with one array, file (u8): the mesh for the parameter values with its coplanar faces merged and triangulated again, each face a fan of triangles, binary or text as the original wrote it. Refused as export.stlMesh.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "parameters": {"$ref": "#/$defs/StlValues"},
+          "binary": {"type": "boolean", "description": "Binary STL (the dialog's 'Binary STL'); default true. Otherwise text."},
+          "name": {"type": "string", "description": "What the file says its solid is: the binary header (its first 80 bytes) or the text's 'solid' line; the original wrote the file's name there. Default empty. No control characters, at most 255 bytes."}
+        },
+        "required": ["shape"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "frame": {"$ref": "types.json#/$defs/Frame"}
+        },
+        "required": ["frame"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "invalid_argument"]
+    },
+    "export.solutionPieces": {
+      "summary": "What the original's Export Solution Pieces to STL writes for a saved solution: the distinct shapes its assembly places (not the problem's counts), in shape order, with how many copies and their file's name: the shape's name, or S<n> without one, every byte but ASCII letters, digits, '-' and '_' made '_', '-S<n>' added when an earlier piece's file has that name, then '.stl'. Allowed while solving.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "solution": {"$ref": "types.json#/$defs/SolutionId"}
+        },
+        "required": ["problem", "solution"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "pieces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "shape": {"$ref": "types.json#/$defs/ShapeId"},
+                "count": {"type": "integer", "minimum": 1},
+                "fileName": {"type": "string", "minLength": 5}
+              },
+              "required": ["shape", "count", "fileName"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["pieces"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    }
+  },
+  "events": {},
+  "$defs": {
+    "StlParameter": {
+      "type": "object",
+      "description": "One parameter of a grid's STL mesher (stlExporter_c's getParameterName, getParameterType, getParameter of a new exporter, getParameterTooltip).",
+      "properties": {
+        "name": {"type": "string", "description": "The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers; on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole."},
+        "type": {"enum": ["number", "positiveNumber", "positiveInteger", "switch"], "description": "The field: any number, a number of 0 or more, a whole number of 0 or more, or a check box (1 on, 0 off)."},
+        "default": {"type": "number"},
+        "tooltip": {"type": "string"}
+      },
+      "required": ["name", "type", "default", "tooltip"],
+      "additionalProperties": false
+    },
+    "StlValues": {
+      "type": "array",
+      "items": {"type": "number"},
+      "maxItems": 16,
+      "description": "One value per parameter of the document's grid, in export.stlParameters' order (another count: invalid_argument). Default: the defaults."
+    }
+  }
+}
