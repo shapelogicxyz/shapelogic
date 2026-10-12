@@ -12,7 +12,8 @@
 /// generalised to every edit), the callbacks of src/gui/mainwindow.cpp
 /// (shapes, colours, problems, pieces, groups, colour rules, solutions,
 /// changeShape / changeProblem), mainwindow_file.cpp (assemblies to
-/// shapes) and mainwindow_solve.cpp (deleting solutions), and for sliding
+/// shapes, the imports, the Puzzlecad export, grid conversion) and
+/// mainwindow_solve.cpp (deleting solutions), and for sliding
 /// puzzles mainwindow.cpp's and mainwindow_rods.cpp's start/goal shapes,
 /// stamps and the problems that follow them (decision 0014), and for
 /// stacking puzzles mainwindow_rods.cpp's rod sets, BlockList.cpp's disc
@@ -150,6 +151,12 @@ struct SavedSearchInfo {
   std::uint64_t levelBytes = 0;
 };
 
+/// The other programs' files File ▸ Import reads (bt/io/imports.h).
+enum class ImportFormat : std::uint8_t {
+  PuzzleSolver3D,  ///< a PuzzleSolver3D file (.puz)
+  Puzzlecad,       ///< a puzzlecad OpenSCAD file (.scad)
+};
+
 /// What placing every disc did (Document::placeAllDiscs): how many went on
 /// the rod before one would not, and why that one would not (empty when
 /// all went).
@@ -191,6 +198,36 @@ class Document {
   static Result<std::pair<Document, Id>> importPaused(const std::filesystem::path& path,
                                                       DocumentSettings settings = {},
                                                       const std::string& stackingWorkDir = {});
+
+  /// A puzzle from another program's file (cb_Load_Ps3d, cb_Load_Scad;
+  /// bt/io/imports.h): a new, untitled document with unsaved changes, so
+  /// Save asks where to write the BurrTools file and never writes over
+  /// the source. ParseError as the format's reader says (the original's
+  /// "Could not load puzzle, sorry!"), IoError when the file cannot be
+  /// read; the file is read as it is, at most io::kMaxInflatedBytes.
+  static Result<Document> importFile(ImportFormat format, const std::filesystem::path& path,
+                                     DocumentSettings settings = {});
+  /// The same from the file's bytes.
+  static Result<Document> importBytes(ImportFormat format, std::string_view bytes,
+                                      DocumentSettings settings = {});
+
+  /// The puzzle on another grid (cb_Convert; bt/model/grid_convert.h): a
+  /// new document with unsaved changes, the shapes converted, the problems'
+  /// definitions copied without their solutions. The original replaced its
+  /// puzzle so, its undo history gone and its file name kept (the caller
+  /// keeps the path). Unsupported for a grid this puzzle does not convert
+  /// to; refused while solving (the original replaced the puzzle under its
+  /// solver thread).
+  [[nodiscard]] Result<Document> convertGrid(GridKind target) const;
+
+  /// The Puzzlecad OpenSCAD file of a problem's pieces (cb_Export_Scad;
+  /// io::writePuzzlecad): `problem`'s distinct shapes but its result, or
+  /// every shape when it has none or no problem is given; `sourceName`,
+  /// the puzzle's file (or the export's when it has none), is named in its
+  /// header. InvalidArgument with the original's words for a puzzle not on
+  /// the cube grid, without shapes, or without a cell to write.
+  [[nodiscard]] Result<std::string> exportPuzzlecad(std::optional<Id> problem,
+                                                    std::string_view sourceName) const;
 
   /// Saves (gzip, as the original); the document is clean afterwards.
   /// Refused while a solve runs (save at a save point instead).

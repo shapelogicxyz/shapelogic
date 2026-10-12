@@ -14,6 +14,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <optional>
 #include <thread>
 
 using namespace bt;
@@ -132,10 +133,14 @@ TEST_CASE("document solving: while a run is active the puzzle is frozen but for 
     refusedWhileSolving(d, [](Document& x) { return x.undo(); });
     refusedWhileSolving(d, [](Document& x) { return x.saveBytes(); });
     refusedWhileSolving(d, [p](Document& x) { return x.solveStart(p, {}); });
+    // the original replaced the puzzle under its solver thread
+    refusedWhileSolving(d, [](Document& x) { return x.convertGrid(GridKind::Rhombic); });
     // these go on: the notes, how a colour looks, another problem
     CHECK(d.setNotes("noted while solving").has_value());
     CHECK(d.editColour(c, Rgb{9, 9, 9}).has_value());
     CHECK(d.renameProblem(other, "the other").has_value());
+    CHECK(d.exportPuzzlecad(other, "x").has_value());
+    CHECK(d.exportPuzzlecad(std::nullopt, "x").has_value());
     CHECK(isActive(d.solveState(p)));
   });
 

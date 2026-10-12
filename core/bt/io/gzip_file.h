@@ -28,6 +28,12 @@ inline constexpr std::size_t kMaxInflatedBytes = std::size_t{256} << 20;
 [[nodiscard]] Result<std::string> readMaybeGzipFile(const std::filesystem::path& path,
                                                     std::size_t maxBytes = kMaxInflatedBytes);
 
+/// The bytes of a file as they are, never decompressed (another
+/// program's file, read as the original's std::ifstream read it). IoErrors
+/// as readMaybeGzipFile; a file larger than `maxBytes` is a ParseError.
+[[nodiscard]] Result<std::string> readPlainFile(const std::filesystem::path& path,
+                                                std::size_t maxBytes = kMaxInflatedBytes);
+
 /// Writes `data` gzip-compressed (level 9, as the original), replacing the
 /// file only once the new one is whole: it is written to `<file>.tmp` beside
 /// the file `path` names (saveTarget) and renamed over it, so a failed save

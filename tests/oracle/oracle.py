@@ -1104,6 +1104,218 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+# Deferred part 6: the imports, the Puzzlecad export and grid conversion.
+IMPORT_INPUTS = HERE.parent / "data" / "imports"
+IMPORTS_BY_ORIGINAL = HERE.parent / "data" / "imports_by_original"
+# Puzzlecad files of the original repository, read in place (not copied).
+IMPORT_SCAD_EXTRA = ("tictest/openscad/MagellanTIC.scad", "tictest/openscad/HoleyTIC.scad")
+# The grids conversions are asked for: the two the original offers, and
+# one it refuses (both programs must refuse it).
+CONVERT_TARGETS = (("rhombic", 3), ("tetra-octa", 4), ("prisms", 1))
+VOXEL_CELL = re.compile(r"([_#+])(\d*)")
+
+
+def puzzle_shapes(path: Path):
+    """The grid, the shapes (x, y, z, states) and the first problem's result of a puzzle file."""
+    root = ET.fromstring(read_xml_bytes(path), parser=ET.XMLParser(encoding="iso-8859-1"))
+    grid = root.find("gridType")
+    shapes = []
+    for v in root.iterfind("shapes/voxel"):
+        states = [c for c, _ in VOXEL_CELL.findall(v.text or "")]
+        shapes.append((int(v.get("x")), int(v.get("y")), int(v.get("z")), states))
+    result = root.find("problems/problem/result")
+    problems = len(root.findall("problems/problem"))
+    return (int(grid.get("type")) if grid is not None else 0, shapes,
+            int(result.get("id")) if result is not None else None, problems)
+
+
+def ps3d_text(shapes, result) -> str:
+    """A PuzzleSolver3D file of the shapes (the loader's layout): each shape's Y rows, its Z
+    layers side by side, X cells and a separator each; variable cells are filled."""
+    out = []
+    for n, (x, y, z, states) in enumerate(shapes):
+        if x > 500 or y > 500 or z > 500 or len(states) != x * y * z:
+            continue
+        out.append(f"{'RESULT' if n == result else 'PIECE'} {x}x{y}x{z}")
+        for yy in range(y):
+            row = ""
+            for zz in range(z):
+                row += "".join("X" if states[xx + x * (yy + y * zz)] != "_" else " "
+                               for xx in range(x)) + " "
+            out.append(row.rstrip())
+    return "\n".join(out) + "\n"
+
+
+def run_pair_tool(argv: list[str], timeout: float) -> tuple[str, bytes]:
+    """("ok", stdout), ("refused", reason) or ("failed", reason)."""
+    try:
+        proc = subprocess.run(argv, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        return "failed", b"timeout"
+    if proc.returncode == 0:
+        return "ok", proc.stdout
+    lines = proc.stderr.decode("utf-8", "replace").strip().splitlines()
+    return ("refused" if proc.returncode == 3 else "failed"), (lines[-1] if lines else "").encode()
+
+
+def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: float) -> dict:
+    """One job of `oracle.py imports`: both programs, the same arguments, the outputs compared."""
+    mode, args = job[0], list(job[1:])
+    out.mkdir(parents=True, exist_ok=True)
+    saves = mode != "scad-export"
+    old_args = args + ([str(out / "old.xmpuzzle")] if saves else [])
+    new_args = args + ([str(out / "new.xmpuzzle")] if saves else [])
+    old = run_pair_tool([str(old_tool), mode, *old_args], timeout)
+    new = run_pair_tool([str(new_tool), mode, *new_args], timeout)
+    if old[0] == "failed" or new[0] == "failed":
+        return {"status": "MISMATCH", "detail": f"old: {old[0]} {old[1].decode()} | new: {new[0]} {new[1].decode()}"}
+    if old[0] != new[0]:
+        return {"status": "MISMATCH", "detail": f"old: {old[0]} {old[1].decode()} | new: {new[0]} {new[1].decode()}"}
+    if old[0] == "refused":
+        return {"status": "both refuse", "detail": f"old: {old[1].decode()} | new: {new[1].decode()}"}
+    if saves:
+        a, b = read_xml_bytes(out / "old.xmpuzzle"), read_xml_bytes(out / "new.xmpuzzle")
+        if a != b:
+            return {"status": "MISMATCH", "detail": "saves differ: " + first_difference(
+                semantic(out / "new.xmpuzzle"), semantic(out / "old.xmpuzzle"))}
+    elif old[1] != new[1]:
+        return {"status": "MISMATCH", "detail": "the exported texts differ"}
+    else:
+        (out / "export.scad").write_bytes(old[1])
+    return {"status": "ok"}
+
+
+def import_jobs(args: argparse.Namespace, gen_dir: Path) -> list[tuple[str, tuple]]:
+    """(label, job) for `oracle.py imports`: the committed inputs, the original's Puzzlecad files,
+    and for each corpus puzzle its conversions, its Puzzlecad exports and a PuzzleSolver3D file
+    made of its shapes."""
+    jobs: list[tuple[str, tuple]] = []
+    flt = args.filter
+    for f in sorted(IMPORT_INPUTS.iterdir()):
+        if f.suffix in (".puz", ".scad") and (not flt or flt in f.name):
+            jobs.append((f"input:{f.name}", ("ps3d" if f.suffix == ".puz" else "scad", str(f))))
+    for rel in IMPORT_SCAD_EXTRA:
+        if (args.old_repo / rel).exists() and (not flt or flt in rel):
+            jobs.append((rel, ("scad", str(args.old_repo / rel))))
+    seen = set()
+    files = [(e.rel, entry_path(args.old_repo, e.rel))
+             for e in select(load_corpus(args.old_repo), ["all", "sliding", "stacking"], flt)]
+    files += [(rel, args.old_repo / rel) for rel in ROUNDTRIP_EXTRA if not flt or flt in rel]
+    files += [(f"alpha:tests/data/puzzles/{p.name}", p) for p in sorted(FIXTURES.glob("*.xmpuzzle"))
+              if not flt or flt in p.name]
+    for n, (rel, src) in enumerate(files):
+        if src in seen:
+            continue
+        seen.add(src)
+        for name, grid in CONVERT_TARGETS:
+            jobs.append((f"{rel} convert {name}", ("convert", str(src), str(grid))))
+        try:
+            grid, shapes, result, problems = puzzle_shapes(src)
+        except Exception as exc:  # noqa: BLE001 - a file Python cannot read is reported, not fatal
+            print(f"note: {rel} not read by the harness: {exc}", file=sys.stderr)
+            continue
+        for prob in range(problems + 1):
+            jobs.append((f"{rel} scad-export p{prob}", ("scad-export", str(src), str(prob), src.name)))
+        if grid == 0 and shapes:
+            puz = gen_dir / f"{n:04d}.puz"
+            puz.write_text(ps3d_text(shapes, result))
+            jobs.append((f"{rel} as ps3d", ("ps3d", str(puz))))
+    return jobs
+
+
+def cmd_imports(args: argparse.Namespace) -> int:
+    """Import, export and convert with both programs and compare (deferred part 6): the committed
+    inputs and the original's Puzzlecad files imported, every corpus puzzle converted to each grid
+    and exported to Puzzlecad for each problem, those exports imported again, and a
+    PuzzleSolver3D file made of each cube-grid puzzle's shapes imported."""
+    WORK_DIR.mkdir(exist_ok=True)
+    old_tool = WORK_DIR / "imports_old"
+    if not build_against_old(args.old_repo, HERE / "imports_old.cpp", old_tool):
+        return 2
+    if not args.new_tool.exists():
+        print(f"new bt_imports not found at {args.new_tool}", file=sys.stderr)
+        return 2
+    out_root = WORK_DIR / "imports"
+    shutil.rmtree(out_root, ignore_errors=True)
+    gen_dir = out_root / "generated"
+    gen_dir.mkdir(parents=True)
+    jobs = import_jobs(args, gen_dir)
+
+    def run(batch):
+        results = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+            futures = {pool.submit(imports_one, old_tool, args.new_tool, job, out_root / tag, args.timeout): label
+                       for tag, (label, job) in batch}
+            for fut in concurrent.futures.as_completed(futures):
+                label = futures[fut]
+                try:
+                    results[label] = fut.result()
+                except Exception as exc:  # noqa: BLE001
+                    results[label] = {"status": "MISMATCH", "detail": f"harness error: {exc}"}
+        return results
+
+    batch = [(f"{n:05d}", j) for n, j in enumerate(jobs)]
+    results = run(batch)
+    # the original's exports, imported again by both
+    again = [(f"{tag}-again", (f"{label} imported again", ("scad", str(out_root / tag / "export.scad"))))
+             for tag, (label, job) in batch
+             if job[0] == "scad-export" and (out_root / tag / "export.scad").exists()]
+    results.update(run(again))
+
+    failures = 0
+    counts: dict[str, int] = {}
+    for label in sorted(results):
+        r = results[label]
+        counts[r["status"]] = counts.get(r["status"], 0) + 1
+        if r["status"] == "MISMATCH":
+            failures += 1
+        if r["status"] == "MISMATCH" or args.verbose:
+            print(f"{r['status']:12} {label}  {r.get('detail', '')}")
+    print(f"\n{len(results) - failures}/{len(results)} imports, exports and conversions the same as the original's"
+          + "".join(f"; {v} {k}" for k, v in sorted(counts.items())))
+    return 1 if failures else 0
+
+
+def cmd_record_imports(args: argparse.Namespace) -> int:
+    """Record tests/data/imports_by_original/ (deferred part 6): the original's save of each
+    committed input imported (<name>.xmpuzzle, or <name>.refused), and of each top-level cube-grid
+    fixture its conversions (<fixture>.<grid>.xmpuzzle) and its Puzzlecad exports
+    (<fixture>.p<N>.scad, one for each problem and one past the last)."""
+    WORK_DIR.mkdir(exist_ok=True)
+    exe = WORK_DIR / "imports_old"
+    if not build_against_old(args.old_repo, HERE / "imports_old.cpp", exe):
+        return 2
+    if IMPORTS_BY_ORIGINAL.exists():
+        shutil.rmtree(IMPORTS_BY_ORIGINAL)
+    IMPORTS_BY_ORIGINAL.mkdir()
+
+    def record(argv: list[str], out: Path, stdout: bool = False) -> None:
+        proc = subprocess.run([str(exe), *argv] + ([] if stdout else [str(out)]),
+                              capture_output=True, timeout=300, check=False)
+        if proc.returncode == 3:
+            out.with_suffix(".refused").write_text(proc.stderr.decode().strip() + "\n")
+        elif proc.returncode != 0:
+            raise RuntimeError(f"{argv}: {proc.stderr.decode().strip()}")
+        elif stdout:
+            out.write_bytes(proc.stdout)
+
+    for f in sorted(IMPORT_INPUTS.iterdir()):
+        if f.suffix in (".puz", ".scad"):
+            record(["ps3d" if f.suffix == ".puz" else "scad", str(f)],
+                   IMPORTS_BY_ORIGINAL / f"{f.stem}{f.suffix.replace('.', '_')}.xmpuzzle")
+    for src in sorted(FIXTURES.glob("*.xmpuzzle")):
+        grid, _, _, problems = puzzle_shapes(src)
+        if grid != 0:
+            continue
+        for name, g in CONVERT_TARGETS[:2]:
+            record(["convert", str(src), str(g)], IMPORTS_BY_ORIGINAL / f"{src.stem}.{name}.xmpuzzle")
+        for prob in range(problems + 1):
+            record(["scad-export", str(src), str(prob), src.name],
+                   IMPORTS_BY_ORIGINAL / f"{src.stem}.p{prob}.scad", stdout=True)
+    print(f"wrote {IMPORTS_BY_ORIGINAL}: {len(list(IMPORTS_BY_ORIGINAL.iterdir()))} files")
+    return 0
+
+
 # Puzzles for resume-check, with enough assemblies to pause in the middle,
 # solving in well under a second each: assembler 0 puzzles (searched with
 # the Classic solver and with BurrTools 2) and assembler 1 puzzles (the
@@ -1673,6 +1885,14 @@ def main() -> int:
     s.add_argument("--filter", help="only puzzles whose path contains this text")
     s.add_argument("--timeout", type=float, default=300.0, help="seconds per program run")
     s.add_argument("--verbose", "-v", action="store_true")
+    sub.add_parser("record-imports",
+                   help="record tests/data/imports_by_original/: the original's imports, Puzzlecad exports and conversions")
+    s = sub.add_parser("imports", help="import, export to Puzzlecad and convert grids with both programs and compare")
+    s.add_argument("--new-tool", type=Path, default=HERE.parent.parent / "build" / "release" / "tests" / "bt_imports")
+    s.add_argument("--filter", help="only files whose path contains this text")
+    s.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 4)
+    s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
+    s.add_argument("--verbose", "-v", action="store_true")
     sub.add_parser("record-slide-routes",
                    help="record tests/data/slide_solved_by_original/ and slide_routes.txt from the original")
     s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
@@ -1702,7 +1922,8 @@ def main() -> int:
             "sliding-puzzles": cmd_sliding_puzzles, "record-slide-routes": cmd_record_slide_routes,
             "stacking-puzzles": cmd_stacking_puzzles, "panex-resume": cmd_panex_resume,
             "blockpack-check": cmd_blockpack_check,
-            "record-positions": cmd_record_positions}[args.cmd](args)
+            "record-positions": cmd_record_positions,
+            "imports": cmd_imports, "record-imports": cmd_record_imports}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ add_executable(bt_tests
   unit/grid/test_symmetries.cpp
   unit/grid/test_voxel.cpp
   unit/grid/test_voxel_connect.cpp
+  unit/io/test_imports.cpp
   unit/io/test_puzzle_file.cpp
   unit/io/test_roundtrip.cpp
   unit/io/test_xml.cpp
@@ -90,6 +91,12 @@ bt_set_warnings(bt_panex_resume)
 add_executable(bt_blockpack tools/blockpack.cpp)
 target_link_libraries(bt_blockpack PRIVATE btcore)
 bt_set_warnings(bt_blockpack)
+
+# bt_imports: the imports, the Puzzlecad export and grid conversion, for
+# `oracle.py imports`.
+add_executable(bt_imports tools/imports.cpp)
+target_link_libraries(bt_imports PRIVATE btcore)
+bt_set_warnings(bt_imports)
 
 # bt_solutions: what a file holds of solving, for `oracle.py compare-files`
 # (which solves with `bt --save`, burrTxt2's mode).

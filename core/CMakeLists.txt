@@ -31,7 +31,9 @@ add_library(btcore STATIC
   bt/io/blockpack.cpp
   bt/io/gzip_file.cpp
   bt/io/paused_solve.cpp
+  bt/io/ps3d_file.cpp
   bt/io/puzzle_file.cpp
+  bt/io/scad_file.cpp
   bt/io/xml_document.cpp
   bt/io/xml_pull_parser.cpp
   bt/io/xml_writer.cpp
@@ -52,6 +54,7 @@ add_library(btcore STATIC
   bt/mesh/voxel_mesh.cpp
   bt/model/assembly.cpp
   bt/model/disassembly.cpp
+  bt/model/grid_convert.cpp
   bt/model/problem.cpp
   bt/model/puzzle.cpp
   bt/model/sliding.cpp

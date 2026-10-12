@@ -11,9 +11,11 @@
 #include "bt/base/int_cast.h"
 #include "bt/grid/voxel.h"
 #include "bt/io/gzip_file.h"
+#include "bt/io/imports.h"
 #include "bt/io/paused_solve.h"
 #include "bt/io/puzzle_file.h"
 #include "bt/mesh/stl.h"
+#include "bt/model/grid_convert.h"
 #include "bt/model/problem.h"
 #include "bt/model/sliding.h"
 #include "bt/model/solution.h"
@@ -90,6 +92,69 @@ Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::pa
   d.solveDirty_ = true;
   const Id problem = d.ids_.problems[ps->problem];
   return std::pair<Document, Id>(std::move(d), problem);
+}
+
+Result<Document> Document::importBytes(ImportFormat format, std::string_view bytes,
+                                       DocumentSettings settings) {
+  Result<Puzzle> p = format == ImportFormat::PuzzleSolver3D ? io::readPuzzleSolver3D(bytes)
+                                                            : io::readPuzzlecad(bytes);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  Document d(std::make_unique<Puzzle>(std::move(*p)), settings);
+  // no file name: the source is another format, which Save must not write
+  // over (cb_Load_Ps3d's setFileName("") and changed = true)
+  d.solveDirty_ = true;
+  return d;
+}
+
+Result<Document> Document::importFile(ImportFormat format, const std::filesystem::path& path,
+                                      DocumentSettings settings) {
+  const Result<std::string> bytes = io::readPlainFile(path);
+  if (!bytes) {
+    return std::unexpected(bytes.error());
+  }
+  return importBytes(format, *bytes, settings);
+}
+
+Result<Document> Document::convertGrid(GridKind target) const {
+  if (Result<void> r = checkNotSolving(); !r) {
+    return std::unexpected(r.error());
+  }
+  Result<Puzzle> p = bt::convertGrid(*puzzle_, target);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  Document d(std::make_unique<Puzzle>(std::move(*p)), settings_);
+  d.solveDirty_ = true;
+  return d;
+}
+
+Result<std::string> Document::exportPuzzlecad(std::optional<Id> problem,
+                                              std::string_view sourceName) const {
+  if (puzzle_->getGridType().getType() != GridKind::Bricks) {
+    return fail(Errc::InvalidArgument, "Puzzlecad export is only available for cube-grid puzzles.");
+  }
+  if (puzzle_->getNumberOfShapes() == 0) {
+    return fail(Errc::InvalidArgument, "Nothing to export.");
+  }
+  std::optional<std::string> text;
+  if (problem) {
+    const Result<unsigned int> p = problemIndex(*problem);
+    if (!p) {
+      return std::unexpected(p.error());
+    }
+    // a problem being solved keeps its parts; its solve writes the rest
+    text = readProblem(*p, [this, sourceName](const Problem& pr) {
+      return io::writePuzzlecad(*puzzle_, &pr, sourceName);
+    });
+  } else {
+    text = io::writePuzzlecad(*puzzle_, nullptr, sourceName);
+  }
+  if (!text) {
+    return fail(Errc::InvalidArgument, "Could not export puzzlecad file.");
+  }
+  return std::move(*text);
 }
 
 Result<void> Document::exportPaused(Id problem, const std::filesystem::path& path,

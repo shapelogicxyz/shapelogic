@@ -161,6 +161,7 @@ python3 tests/oracle/oracle.py record-positions  # tests/data/positions_by_origi
 python3 tests/oracle/oracle.py record-analysed   # tests/data/analysed_by_original/ (stage 7)
 python3 tests/oracle/oracle.py stl-dump      # tests/data/stl_dump.txt (deferred part 5)
 python3 tests/oracle/oracle.py stl-solution  # tests/data/stl_solution_by_original/ (deferred part 5)
+python3 tests/oracle/oracle.py record-imports  # tests/data/imports_by_original/ (deferred part 6)
 ```
 
 `grid_dump_old.cpp` and `tests/unit/grid/test_grid_dump.cpp` run the same
@@ -318,3 +319,32 @@ to STL writes for CubeInCage's first solution (the dialog's naming copied
 from `stlexportsolution.cpp`, which is GUI code; the files written by the
 original's exporter): `tests/unit/app/test_stl_export.cpp` and the front
 end's e2e test compare the names and bytes.
+
+## Imports, the Puzzlecad export and grid conversion (deferred part 6)
+
+`imports_old.cpp` (built against the original's library) and
+`tests/tools/imports.cpp` (`bt_imports`, through the new core's
+document) take the same arguments: `ps3d|scad <in> <out>` imports a file
+and saves the puzzle, `scad-export <puzzle> <problem> <name>` writes the
+Puzzlecad file (cb_Export_Scad's checks copied, as they are GUI code),
+`convert <puzzle> <grid> <out>` converts and saves; exit 3 is a refusal.
+
+```bash
+python3 tests/oracle/oracle.py imports         # both programs, compared (~10 s)
+python3 tests/oracle/oracle.py record-imports  # tests/data/imports_by_original/
+```
+
+`imports` runs both tools on the inputs of `tests/data/imports/` (small
+PuzzleSolver3D and Puzzlecad files made by hand for the loaders' corners),
+the original's `tictest/openscad/*.scad` (read in place), and every corpus
+puzzle (all tiers, sliding, stacking, the round trip's extras, the
+fixtures): converted to the rhombic and tetra-octa grids and to one the
+original refuses, exported to Puzzlecad for each problem and for none,
+each of the original's exports imported again, and a PuzzleSolver3D file
+made of each cube-grid puzzle's shapes (`ps3d_text`) imported. The saves
+must be the same bytes, the exports the same text, and a refusal must be a
+refusal in both. `record-imports` keeps the original's results for the
+committed inputs and the cube-grid fixtures in
+`tests/data/imports_by_original/` (saves gzip-compressed as the original
+wrote them, `<input>_<ext>.refused` for a refusal) for
+`tests/unit/io/test_imports.cpp`.

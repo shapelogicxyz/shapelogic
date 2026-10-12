@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <fstream>
 #include <memory>
 #include <ostream>
 #include <streambuf>
@@ -134,6 +135,30 @@ Result<std::string> readMaybeGzipFile(const std::filesystem::path& path, std::si
       return std::unexpected(tooLarge(maxBytes));
     }
     data.append(buf.data(), static_cast<std::size_t>(n));
+  }
+  return data;
+}
+
+Result<std::string> readPlainFile(const std::filesystem::path& path, std::size_t maxBytes) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in) {
+    return fail(Errc::IoError, "could not open " + describe(path));
+  }
+  std::string data;
+  std::array<char, 65536> buf{};
+  while (true) {
+    in.read(buf.data(), static_cast<std::streamsize>(buf.size()));
+    const auto n = static_cast<std::size_t>(in.gcount());
+    if (n == 0) {
+      break;
+    }
+    if (data.size() + n > maxBytes) {
+      return std::unexpected(tooLarge(maxBytes));
+    }
+    data.append(buf.data(), n);
+  }
+  if (in.bad()) {
+    return fail(Errc::IoError, "could not read " + describe(path));
   }
   return data;
 }
