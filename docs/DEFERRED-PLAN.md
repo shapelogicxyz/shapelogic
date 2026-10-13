@@ -181,7 +181,7 @@ In this order:
 - [x] **Part 4**: stacking and Panex: front end (2026-10-11; docs/handoff/deferred-4.md)
 - [x] **Part 5**: STL meshes and exports (2026-10-12; docs/handoff/deferred-5.md, decision 0016)
 - [x] **Part 6**: imports, Puzzlecad export, grid conversion (2026-10-12; docs/handoff/deferred-6.md, decision 0017)
-- [ ] **Part 7**: Python bindings
+- [x] **Part 7**: Python bindings (2026-10-12; docs/handoff/deferred-7.md, decision 0018)
 
 ## Part details
 

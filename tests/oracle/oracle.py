@@ -1276,6 +1276,78 @@ def cmd_imports(args: argparse.Namespace) -> int:
     return 1 if failures else 0
 
 
+def old_python_module(old_repo: Path) -> Path | None:
+    """The folder of the original's built Python module (its meson build
+    folder), or None."""
+    for folder in (old_repo / "build", old_repo / "build-rel"):
+        if list(folder.glob("burrtools*.so")) + list(folder.glob("burrtools*.pyd")):
+            return folder
+    return None
+
+
+def python_transcript(module_dir: Path, argv: list[str], timeout: float, old: bool,
+                      one_thread: bool) -> tuple[str, str]:
+    """python_transcript.py run with one module: (stdout, a failure or "")."""
+    env = {**os.environ, "PYTHONPATH": str(module_dir)}
+    if one_thread:
+        argv = [*argv, "--one-thread"]
+        if old:
+            env["BURRTOOLS_THREADS"] = "1"
+    try:
+        r = subprocess.run([sys.executable, str(HERE / "python_transcript.py"), *argv],
+                           capture_output=True, text=True, timeout=timeout, env=env)
+    except subprocess.TimeoutExpired:
+        return "", "timeout"
+    if r.returncode != 0:
+        return r.stdout, f"exit {r.returncode}: {r.stderr.strip()[-300:]}"
+    return r.stdout, ""
+
+
+def cmd_python(args: argparse.Namespace) -> int:
+    """The Python module against the original's (deferred part 7): the same transcript
+    (python_transcript.py) from both, for the error cases and puzzles built through the API, and
+    for each corpus puzzle of the tiers: read, and solved for assemblies and solutions, on one
+    thread in order (numbers and iterations too) and on all threads as sorted lists."""
+    old_dir = args.old_module or old_python_module(args.old_repo)
+    if old_dir is None:
+        print(f"the original's Python module is not built: run `meson compile -C build` in {args.old_repo}",
+              file=sys.stderr)
+        return 2
+    if not list(args.new_module.glob("burrtools*")):
+        print(f"the new Python module not found in {args.new_module}", file=sys.stderr)
+        return 2
+    jobs: list[tuple[str, list[str], bool]] = [
+        ("errors and generated puzzles", ["--errors", "--generated", str(args.generated)], True)]
+    for e in select(load_corpus(args.old_repo), args.tier, args.filter):
+        path = str(entry_path(args.old_repo, e.rel))
+        jobs.append((f"{e.rel} (one thread)", [path], True))
+        jobs.append((f"{e.rel} (all threads)", [path], False))
+
+    def one(job):
+        label, argv, one_thread = job
+        old, old_err = python_transcript(old_dir, argv, args.timeout, True, one_thread)
+        new, new_err = python_transcript(args.new_module, argv, args.timeout, False, one_thread)
+        if old_err or new_err:
+            return label, "MISMATCH" if old_err != new_err else "BOTH FAILED", \
+                f"original: {old_err or 'ok'}; new: {new_err or 'ok'}"
+        if old != new:
+            ol, nl = old.splitlines(), new.splitlines()
+            i = next((i for i, (a, b) in enumerate(zip(ol, nl)) if a != b), min(len(ol), len(nl)))
+            return label, "MISMATCH", (f"line {i + 1}: original {ol[i][:200] if i < len(ol) else '(end)'}"
+                                       f" | new {nl[i][:200] if i < len(nl) else '(end)'}")
+        return label, "OK", f"{len(new.splitlines())} lines"
+
+    failures = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        for label, status, detail in pool.map(one, jobs):
+            if status != "OK":
+                failures += 1
+            if status != "OK" or args.verbose:
+                print(f"{status:12} {label}  {detail}")
+    print(f"\n{len(jobs) - failures}/{len(jobs)} Python transcripts the same as the original module's")
+    return 1 if failures else 0
+
+
 def cmd_record_imports(args: argparse.Namespace) -> int:
     """Record tests/data/imports_by_original/ (deferred part 6): the original's save of each
     committed input imported (<name>.xmpuzzle, or <name>.refused), and of each top-level cube-grid
@@ -1893,6 +1965,16 @@ def main() -> int:
     s.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 4)
     s.add_argument("--timeout", type=float, default=120.0, help="seconds per program run")
     s.add_argument("--verbose", "-v", action="store_true")
+    s = sub.add_parser("python", help="the Python module's transcripts against the original module's")
+    s.add_argument("--new-module", type=Path, default=HERE.parent.parent / "build" / "release" / "python",
+                   help="the folder of the new burrtools module")
+    s.add_argument("--old-module", type=Path, help="the folder of the original's (default: its build folder)")
+    s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all"])
+    s.add_argument("--filter", help="only puzzles whose path contains this text")
+    s.add_argument("--generated", type=int, default=300, help="puzzles built through the API")
+    s.add_argument("--jobs", "-j", type=int, default=max(1, (os.cpu_count() or 4) // 2))
+    s.add_argument("--timeout", type=float, default=600.0, help="seconds per transcript")
+    s.add_argument("--verbose", "-v", action="store_true")
     sub.add_parser("record-slide-routes",
                    help="record tests/data/slide_solved_by_original/ and slide_routes.txt from the original")
     s = sub.add_parser("record-positions", help="record tests/data/positions_by_original.txt from the original's assembler")
@@ -1923,7 +2005,7 @@ def main() -> int:
             "stacking-puzzles": cmd_stacking_puzzles, "panex-resume": cmd_panex_resume,
             "blockpack-check": cmd_blockpack_check,
             "record-positions": cmd_record_positions,
-            "imports": cmd_imports, "record-imports": cmd_record_imports}[args.cmd](args)
+            "imports": cmd_imports, "record-imports": cmd_record_imports, "python": cmd_python}[args.cmd](args)
 
 
 if __name__ == "__main__":

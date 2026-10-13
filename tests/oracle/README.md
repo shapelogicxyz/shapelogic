@@ -56,6 +56,8 @@ just oracle-resume                # paused searches continue in the other progra
 just oracle-baseline --tier full  # re-record the original's answers
 python3 tests/oracle/oracle.py baseline-files --tier all    # solved files from burrTxt2, into work/
 just oracle-roundtrip             # the file round trip (stage 2 onward), see below
+just oracle-imports               # imports, Puzzlecad export, grid conversion (deferred part 6)
+just oracle-python                # the Python module against the original's (deferred part 7)
 ```
 
 ## Solved files (stage 4 onward)
@@ -348,3 +350,32 @@ committed inputs and the cube-grid fixtures in
 `tests/data/imports_by_original/` (saves gzip-compressed as the original
 wrote them, `<input>_<ext>.refused` for a refusal) for
 `tests/unit/io/test_imports.cpp`.
+
+## The Python module (deferred part 7)
+
+The original's own Python module is the oracle (its meson build folder,
+`burrtools*.so`: build it with `meson compile -C build` in the original's
+checkout). `python_transcript.py` writes one JSON line per thing it reads
+through the module on PYTHONPATH; `oracle.py python` runs it with each
+module and the two transcripts must be the same, line for line.
+
+```bash
+just oracle-python                          # the fast tier and 300 built puzzles (~35 s)
+just oracle-python --tier full --generated 0
+python3 tests/oracle/oracle.py python --new-module build/dev/python --filter Pelikan -v
+```
+
+A transcript holds: the error cases (each wrong call's exception type,
+and what the cells say after them); puzzles built through the API from a
+seeded generator (a box cut into pieces at random, some cells variable,
+a spare cube with a range of counts), their saved XML, and their solves;
+and for each corpus puzzle of the tiers (brick tiers only: the original's
+module assembled sliding and stacking puzzles as brick puzzles) every
+shape cell by cell, every problem with its piece counts, the reprs, and
+three solves of each problem (assemblies; solutions with their
+take-aparts; reduced with mirrors and rotations kept). Each is run twice:
+on one thread (the original's module held to it by `BURRTOOLS_THREADS=1`,
+the new one by `threads=1`), compared in order with the numbers and the
+search's iterations; and on all threads, compared as sorted lists without
+the numbers. A file's texts that are not UTF-8 (Prisgon's comment) raise
+`UnicodeDecodeError` in both modules; the transcript records that.

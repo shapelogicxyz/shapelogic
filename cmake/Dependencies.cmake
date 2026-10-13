@@ -3,6 +3,7 @@
 #   zlib          stage 2 (.xmpuzzle files are gzip-compressed XML)
 #   nlohmann/json stage 7 (engine JSON-RPC)
 #   manifold      deferred part 5 (the STL meshes of the non-cube grids)
+#   pybind11      deferred part 7 (the Python module, when it is built)
 include(FetchContent)
 
 # zlib: the system's when there is one (macOS, Linux), else built from the
@@ -68,6 +69,18 @@ FetchContent_MakeAvailable(manifold)
 # Our code, the meshers that call it included, stays checked.
 if(BT_SANITIZE MATCHES "address")
   target_compile_options(manifold PRIVATE -fno-sanitize=all)
+endif()
+
+# pybind11: the Python module (python/, deferred part 7), the original's
+# release (its subprojects/pybind11.wrap). Only when the module is built.
+if(BT_PYTHON_MODULE)
+  FetchContent_Declare(pybind11
+    URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.0.tar.gz
+    URL_HASH SHA256=453b1a3e2b266c3ae9da872411cadb6d693ac18063bd73226d96cfb7015a200c
+    SYSTEM
+    EXCLUDE_FROM_ALL)
+  set(PYBIND11_FINDPYTHON ON CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(pybind11)
 endif()
 
 if(BT_BUILD_TESTS)

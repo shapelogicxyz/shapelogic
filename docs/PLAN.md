@@ -14,8 +14,9 @@ moves; solutions; `.xmpuzzle` compatibility; the engine API; the `bt` CLI.
 **Later:** sliding puzzles, stacking/Panex, STL and GLB export, imports
 (PuzzleSolver3D, Puzzlecad), grid conversion, Python bindings. Lua scripting
 is dropped. Files with these features load and save without loss (0006).
-These are planned, core and front end together, in
-[DEFERRED-PLAN.md](DEFERRED-PLAN.md).
+These were planned, core and front end together, in
+[DEFERRED-PLAN.md](DEFERRED-PLAN.md), and are done (its parts 1 to 7,
+2026-10-10 to 2026-10-12), Lua and what it lists as dropped aside.
 
 ## Stages and sessions
 

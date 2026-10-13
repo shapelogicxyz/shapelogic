@@ -22,7 +22,7 @@ stacking/Panex editing and solving, STL export from the STL meshes, the
 imports (PuzzleSolver3D, Puzzlecad), grid conversion; a browser-only build
 (a WebSocket bridge or WebAssembly, decision 0003); localisation. The
 deferred features (sliding, stacking/Panex, the STL meshes, the imports,
-grid conversion, Python bindings) are planned in
+grid conversion, Python bindings) were planned and done in
 [DEFERRED-PLAN.md](DEFERRED-PLAN.md); the browser-only build and
 localisation are not planned yet.
 

@@ -72,6 +72,15 @@ add_test(NAME contract COMMAND Python3::Interpreter tests/contract/test_engine.p
 add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
          --bt $<TARGET_FILE:bt> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
+# The Python module (deferred part 7), when it is built: the original's
+# tests and the new ones in python/tests, on this build's module.
+if(TARGET burrtools)
+  add_test(NAME python COMMAND Python::Interpreter -m unittest discover -s python/tests -v
+           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+  set_tests_properties(python PROPERTIES
+    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:burrtools>" LABELS python TIMEOUT 600)
+endif()
+
 # bt_roundtrip: load and save one puzzle file, for `oracle.py roundtrip`.
 add_executable(bt_roundtrip tools/roundtrip.cpp)
 target_link_libraries(bt_roundtrip PRIVATE btcore)

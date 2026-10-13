@@ -49,7 +49,10 @@ of PuzzleSolver3D and Puzzlecad files, the Puzzlecad export and the
 conversion of cube-grid puzzles to the rhombic and tetra-octa grids
 (`document.import`, `document.exportPuzzlecad`, `document.convertGrid`;
 the File ▸ Import and Export items and Edit ▸ Convert; decision 0017,
-docs/webui-spec.md section 11). Next: part 7, the Python bindings.*
+docs/webui-spec.md section 11); part 7, the Python module (`python/`:
+the original module's classes and names over the new core, sliding and
+stacking solves through the solve session, part 6's imports and
+conversion, a wheel; decision 0018). The deferred plan is done.*
 
 ## Big picture
 
@@ -57,9 +60,9 @@ docs/webui-spec.md section 11). Next: part 7, the Python bindings.*
  web front end (web/: Electron + TypeScript + three.js; the client, the shell, the 3D view)
         │  JSON-RPC 2.0 over stdio, binary frames for meshes   (decisions 0003, 0012)
         ▼
- bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)
-        │                         │
-        └──────────┬──────────────┘
+ bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)    burrtools  (python/, the Python module)
+        │                         │                                                       │
+        └──────────┬──────────────┴───────────────────────────────────────────────────────┘
                    ▼
             libbtcore (core/)
    app     Document, undo/redo, editing commands, queries, playback, explorer
@@ -81,6 +84,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `core/bt/<module>/` | the library, headers and sources together; include as `"bt/<module>/x.h"` |
 | `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
 | `cli/` | `bt`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
+| `python/` | `burrtools`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `web/` | the web front end (Electron + TypeScript + three.js, decision 0013): the engine client, the host and bridge, the generated types, the app (shell, 3D view), its tests (unit, engine, e2e); see `web/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
@@ -91,7 +95,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, FRONTEND-PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, mockup/ (Girish Sharma's mockup, vendored), core-api.md (the draft API.md replaced) |
-| `cmake/` | warnings, sanitizers, dependencies |
+| `cmake/` | warnings, sanitizers, dependencies, whether the Python module is built (`Python.cmake`) |
 
 ## Modules
 
@@ -896,6 +900,43 @@ byte, `just oracle-files` solves with `--save`).
   The core never prints: what the original's library said on stderr
   (the assembler chosen, what reduce removed) the CLI prints from what the
   core returns.
+
+## python (deferred part 7, decision 0018)
+`burrtools`, the Python module: the original's `src/python` bindings
+ported over the new core with its names, so its scripts run unchanged.
+Built when `BT_PYTHON` is `ON`, or `AUTO` (the default) and CMake finds
+Python's headers outside sanitizer and cross-architecture builds
+(`cmake/Python.cmake`, which then makes the whole build position
+independent); pybind11 3.0.0, the original's, fetched.
+- `py_puzzle.h`, `py_shape.h`, `py_problem.h`: `PyPuzzle` (a
+  `shared_ptr<Puzzle>`; load, save, the grid, shapes and problems, and
+  part 6's imports, Puzzlecad export and grid conversion), `PyShape` and
+  `PyProblem` (the puzzle and an index, read afresh at each call, so they
+  see edits and raise `IndexError` once their shape or problem is gone).
+  Cell accessors check the cell (the original's assertion became a
+  `RuntimeError`, so that is what they raise).
+- `solution_iterator.h`: `SolutionIterator`, the solve behind
+  `Problem.solve`: a copy of the puzzle and a thread of its own. Brick
+  puzzles run as the original's iterator ran them (the Classic
+  assembler on every core, or `threads`; each assembly taken apart in the
+  callback, its levels on a pool of their own); sliding and stacking
+  puzzles through a `SolveSession` (the GUI's checks and set-up first),
+  their solutions yielded when the run ends, a stacking one counted in
+  transfers. Solutions pass through a queue of four; `next()` waits with
+  the GIL let go (before taking the queue's lock), looks for signals
+  every 50 ms (Ctrl-C stops the solve), and raises the solve's failure;
+  `stop()` and the destructor stop the run through its `StopSource` and
+  join the thread.
+- `module.cpp`: the module's classes, names, docstrings and reprs as the
+  original's; the new arguments are keywords.
+
+**Rules of the module:** Python sees only copies (solutions, placements)
+or the shared puzzle through an index; nothing the worker thread reads is
+reachable from Python; the module reads no environment variable (a
+search's folder is `work_dir`). Checked by the original's tests and new
+ones (`python/tests/`, ctest `python`), by `oracle.py python` against the
+original's module, and by hand under ThreadSanitizer and
+AddressSanitizer (docs/handoff/deferred-7.md says how).
 
 ## web (front-end stages 1a to 8, decision 0013)
 Electron + TypeScript in `web/`, built on Girish Sharma's mockup
@@ -1721,6 +1762,11 @@ player).
   carries them on in both (the saved folders byte for byte the same, the
   solving time aside); `oracle.py blockpack-check` packs with one
   program's blockpack and unpacks with the other's.
+- `oracle.py python` (deferred part 7): the Python module's transcript
+  (`python_transcript.py`: error cases, puzzles built through the API,
+  and each corpus puzzle read and solved, on one thread in order and on
+  all threads as sorted lists) against the original's module's, line for
+  line.
 - `tests/bench/bench.py` times `bt` against the original's `burrTxt`, back
   to back (decision 0007's speed rule; stage 8 is the gate).
 - The unit tests compare with those recordings (`test_grid_dump.cpp`,
@@ -1749,15 +1795,17 @@ See AGENTS.md for the full list. The load-bearing ones:
 `just build` / `just test` / `just test-all` / `just test-asan` /
 `just test-tsan` / `just oracle` / `just oracle-resume` /
 `just oracle-roundtrip` / `just oracle-files` / `just oracle-text` /
-`just check`; the front end's `just web-install` / `just web-gen` /
+`just oracle-imports` / `just oracle-python` / `just check`; the Python
+module's `just python-test` / `just python-wheel`; the front end's `just web-install` / `just web-gen` /
 `just web-check` / `just web-test` / `just web-dev` / `just web-e2e` /
 `just web-dist` / `just web-smoke`. ctest also runs `api-schema` (the schema checks itself),
 `api-docs` (`docs/API.md` is current), `contract` (the engine as a
-subprocess) and `cli` (`bt` as a subprocess).
+subprocess), `cli` (`bt` as a subprocess) and, when the module is built,
+`python` (its tests).
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
 `release` (and `release-x64`, `release-arm64`: macOS's release for one
 architecture, the packaged app's engine for the other kind of Mac). zlib comes from the system, or is built from a pinned release
 (`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only),
-Manifold 3.5.2 (pinned, the core's STL meshes; built optimised and without
+pybind11 3.0.0 (pinned, the Python module only), Manifold 3.5.2 (pinned, the core's STL meshes; built optimised and without
 its cross sections or parallel backend, as the original builds it; left
 uninstrumented under ASan, decision 0016) and Catch2 are fetched.

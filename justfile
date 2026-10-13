@@ -55,9 +55,29 @@ oracle-text *args: (build "release")
 oracle-imports *args: (build "release")
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" imports {{args}}
 
+# The Python module against the original's module: the same transcripts (deferred part 7)
+oracle-python *args: (build "release")
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" python {{args}}
+
 # Record the original burrTxt's answers for a corpus tier
 oracle-baseline *args:
     python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" baseline {{args}}
+
+# The Python module's tests (python/tests) on a preset's module (built when Python's headers are found)
+python-test preset="dev": (build preset)
+    PYTHONPATH=build/{{preset}}/python python3 -m unittest discover -s python/tests -v
+
+# The Python module's wheel in build/wheel (scikit-build-core), installed into a fresh venv and tested there
+python-wheel:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+    rm -rf build/wheel
+    python3 -m venv "$tmp/build" && "$tmp/build/bin/pip" -q install --upgrade pip
+    "$tmp/build/bin/pip" wheel ./python -w build/wheel
+    python3 -m venv "$tmp/try"
+    "$tmp/try/bin/pip" -q install build/wheel/burrtools-*.whl
+    cd python/tests && "$tmp/try/bin/python" -m unittest -q
 
 # clang-tidy over the project's own sources (needs LLVM: brew install llvm)
 check: (build "dev")

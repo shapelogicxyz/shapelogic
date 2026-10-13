@@ -28,6 +28,9 @@ just oracle-roundtrip   # load + save every corpus file in both programs, compar
 just oracle-files       # solve as burrTxt2 does, compare the solved files (stage 4)
 just oracle-text        # bt's text output against burrTxt's, byte for byte (stage 8)
 just oracle-imports     # imports, Puzzlecad export, grid conversion against the original's (deferred part 6)
+just oracle-python      # the Python module's transcripts against the original module's (deferred part 7)
+just python-test [preset] # the Python module's tests (python/tests; the module builds when Python's headers are found)
+just python-wheel       # its wheel in build/wheel, installed into a fresh venv and tested there
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
 just format             # clang-format
@@ -98,6 +101,10 @@ just web-smoke          # the packaged app's smoke test (after just web-dist --d
   races while real ones remain.
 - Fixtures live in `tests/data/`. Copy them from the original repo; do not
   read the original repo from unit tests (only the harness does that).
+- The Python module (`python/`, decision 0018): `python/tests/` (unittest;
+  ctest `python` when the module is built, so `just test-all` runs it),
+  the original's tests ported as they were plus new ones; the module
+  keeps the original module's names, so change them only with a reason.
 - The engine: `tests/unit/engine/` drives it in process; `tests/contract/`
   (ctest `contract`) drives `bt-engine` as a subprocess and checks every
   reply and event against `api/`. A new method needs its schema entry, a

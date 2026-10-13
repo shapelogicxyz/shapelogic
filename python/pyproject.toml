@@ -1,0 +1,27 @@
+# The wheel of the `burrtools` module (see README.md): the whole CMake
+# project one folder up, configured for the module alone.
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "burrtools"
+# the project version of ../CMakeLists.txt (test_alpha.py checks they agree)
+version = "0.1.0"
+description = "Python bindings for the BurrTools 3D interlocking puzzle library (BurrTools Alpha's core)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+
+[tool.scikit-build]
+cmake.source-dir = ".."
+cmake.build-type = "Release"
+build.targets = ["burrtools"]
+install.components = ["python"]
+wheel.packages = []
+sdist.cmake = false
+
+[tool.scikit-build.cmake.define]
+BT_PYTHON = "ON"
+BT_BUILD_TESTS = "OFF"
+
