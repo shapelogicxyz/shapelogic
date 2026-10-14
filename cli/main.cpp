@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// bt: the command line. For brick puzzles it is the original's burrTxt:
+// shapelogic_cli: the command line. For brick puzzles it is the original's burrTxt:
 // the same options and the same text on stdout (solving with -d, -p, -s,
 // -q, -n, -o, taking saved solutions apart again with -x, -a), and --json
 // as burrTxt --json, which the comparison harness (tests/oracle) reads.
@@ -122,7 +122,7 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
       return true;
     }
     std::fprintf(stderr,
-                 "bt: unknown solver '%s' for a sliding puzzle\n"
+                 "shapelogic_cli: unknown solver '%s' for a sliding puzzle\n"
                  "    use \"Sliding Fast Solver\", \"Sliding Deep Solver\" or \"Sliding Full "
                  "Solver\"\n"
                  "    (also: fast, deep, full)\n",
@@ -139,7 +139,7 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
       return true;
     }
     std::fprintf(stderr,
-                 "bt: unknown solver '%s' for a stacking puzzle\n"
+                 "shapelogic_cli: unknown solver '%s' for a stacking puzzle\n"
                  "    use \"Stacking Solver\" or \"Panex Solver\" (also: stacking, panex)\n",
                  name);
     return false;
@@ -149,7 +149,7 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
     return true;
   }
   std::fprintf(stderr,
-               "bt: unknown solver '%s' for a brick puzzle\n"
+               "shapelogic_cli: unknown solver '%s' for a brick puzzle\n"
                "    use \"Complete (ShapeLogic)\" or \"Fast (Crowell)\"\n"
                "    (also: classic, crowell)\n",
                name);
@@ -484,7 +484,7 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
   if (usePanex) {
     const std::string why = bt::panex::unsupported(puzzle, problem, !o.panexSolver);
     if (!why.empty()) {
-      std::fprintf(stderr, "bt: %s\n", why.c_str());
+      std::fprintf(stderr, "shapelogic_cli: %s\n", why.c_str());
       return kExitUsage;
     }
     px.anyRules = !o.panexSolver;
@@ -616,7 +616,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     }
     // the original's assemblers failed an assertion on this
     if (!problem.resultValid()) {
-      std::fprintf(stderr, "bt: problem %u (%s) has no result shape\n", pr,
+      std::fprintf(stderr, "shapelogic_cli: problem %u (%s) has no result shape\n", pr,
                    problem.getName().c_str());
       return kExitUsage;
     }
@@ -793,7 +793,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
         search, bt::StopToken{});
     ticker.stop();
     if (end != bt::RunEnd::Finished) {
-      std::fprintf(stderr, "bt: the search stopped before its end\n");
+      std::fprintf(stderr, "shapelogic_cli: the search stopped before its end\n");
       return kExitError;
     }
 
@@ -969,7 +969,7 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
     const InterruptStops ctrlC(nullptr);
     if (const bt::Result<void> r = o.restart ? session.start() : session.resume(); !r) {
       std::printf("Could not start Solver\n");
-      std::fprintf(stderr, "bt: %s\n", r.error().message.c_str());
+      std::fprintf(stderr, "shapelogic_cli: %s\n", r.error().message.c_str());
       exitCode = kExitError;
       continue;
     }
@@ -983,7 +983,7 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
     if (session.state() == bt::SolveState::Error) {
       std::printf("error in solver\n");
       if (const auto f = session.failure()) {
-        std::fprintf(stderr, "bt: %s\n", f->message.c_str());
+        std::fprintf(stderr, "shapelogic_cli: %s\n", f->message.c_str());
       }
       exitCode = kExitError;
     } else if (!o.quiet) {
@@ -998,7 +998,7 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
   }
 
   if (const bt::Result<void> written = bt::io::savePuzzle(puzzle, o.saveTo); !written) {
-    std::fprintf(stderr, "bt: %s\n", written.error().message.c_str());
+    std::fprintf(stderr, "shapelogic_cli: %s\n", written.error().message.c_str());
     return kExitUsage;
   }
   return exitCode;
@@ -1068,7 +1068,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     bt::SolveSession session(puzzle, problem, so);
     if (const bt::Result<void> r = session.resume(); !r) {
       std::printf("Could not start Solver\n");
-      std::fprintf(stderr, "bt: %s\n", r.error().message.c_str());
+      std::fprintf(stderr, "shapelogic_cli: %s\n", r.error().message.c_str());
       exitCode = kExitError;
       continue;
     }
@@ -1097,7 +1097,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
     if (session.state() == bt::SolveState::Error) {
       std::printf("error in solver\n");
       if (const auto f = session.failure()) {
-        std::fprintf(stderr, "bt: %s\n", f->message.c_str());
+        std::fprintf(stderr, "shapelogic_cli: %s\n", f->message.c_str());
       }
       exitCode = kExitError;
     } else if (!o.quiet) {
@@ -1113,7 +1113,7 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
   }
 
   if (const bt::Result<void> saved = bt::io::savePuzzle(puzzle, o.saveTo); !saved) {
-    std::fprintf(stderr, "bt: %s\n", saved.error().message.c_str());
+    std::fprintf(stderr, "shapelogic_cli: %s\n", saved.error().message.c_str());
     return kExitUsage;
   }
   return exitCode;
@@ -1132,7 +1132,7 @@ int main(int argc, char** argv) {
     if (loaded.error().code == bt::Errc::IoError) {
       std::printf("could not open input file \"%s\"\n", o.file);
     } else {
-      std::fprintf(stderr, "bt: could not read \"%s\": %s\n", o.file,
+      std::fprintf(stderr, "shapelogic_cli: could not read \"%s\": %s\n", o.file,
                    loaded.error().message.c_str());
     }
     return kExitUsage;
@@ -1141,18 +1141,18 @@ int main(int argc, char** argv) {
 
   const PuzzleKind kind = puzzleKind(puzzle);
   if (o.nestedSlides && kind != PuzzleKind::Sliding) {
-    std::fprintf(stderr, "bt: %s is for sliding puzzles; this is a %s puzzle\n",
+    std::fprintf(stderr, "shapelogic_cli: %s is for sliding puzzles; this is a %s puzzle\n",
                  o.partialNested ? "--partial-nested" : "--nested-slides", kindName(kind));
     return kExitUsage;
   }
   if (o.highMemory && kind == PuzzleKind::Brick) {
     std::fprintf(stderr,
-                 "bt: --high-memory is for sliding and stacking puzzles; this is a %s puzzle\n",
+                 "shapelogic_cli: --high-memory is for sliding and stacking puzzles; this is a %s puzzle\n",
                  kindName(kind));
     return kExitUsage;
   }
   if ((o.rotations || o.strictColors) && kind != PuzzleKind::Brick) {
-    std::fprintf(stderr, "bt: -R and -C are for brick puzzles; this is a %s puzzle\n",
+    std::fprintf(stderr, "shapelogic_cli: -R and -C are for brick puzzles; this is a %s puzzle\n",
                  kindName(kind));
     return kExitUsage;
   }
@@ -1163,7 +1163,7 @@ int main(int argc, char** argv) {
   // the others' goes with --save (burrTxt2's)
   if (o.restart && o.saveTo == nullptr && kind != PuzzleKind::Stacking) {
     std::fputs(
-        "bt: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
+        "shapelogic_cli: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
         "    --drop-disassemblies go with --save\n",
         stderr);
     return kExitUsage;
@@ -1174,7 +1174,7 @@ int main(int argc, char** argv) {
   }
 
   if (!o.allProblems && o.problem >= puzzle.getNumberOfProblems()) {
-    std::fprintf(stderr, "bt: there is no problem %u; the file has %u (numbered from 0)\n",
+    std::fprintf(stderr, "shapelogic_cli: there is no problem %u; the file has %u (numbered from 0)\n",
                  o.problem, puzzle.getNumberOfProblems());
     return kExitUsage;
   }

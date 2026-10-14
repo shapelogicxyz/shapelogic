@@ -66,9 +66,9 @@ add_test(NAME api-docs COMMAND Python3::Interpreter api/gen_api_md.py --check
 add_test(NAME contract COMMAND Python3::Interpreter tests/contract/test_engine.py
          --engine $<TARGET_FILE:bt-engine> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
-# The bt command line: burrTxt's option rules, the refusals, --save, -a, -x.
+# The shapelogic_cli command line: burrTxt's option rules, the refusals, --save, -a, -x.
 add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
-         --bt $<TARGET_FILE:bt> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+         --bt $<TARGET_FILE:shapelogic_cli> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # The Python module (deferred part 7), when it is built: the original's
 # tests and the new ones in python/tests, on this build's module.
@@ -106,7 +106,7 @@ target_link_libraries(bt_imports PRIVATE btcore)
 bt_set_warnings(bt_imports)
 
 # bt_solutions: what a file holds of solving, for `oracle.py compare-files`
-# (which solves with `bt --save`, burrTxt2's mode).
+# (which solves with `shapelogic_cli --save`, burrTxt2's mode).
 add_executable(bt_solutions tools/solutions.cpp)
 target_link_libraries(bt_solutions PRIVATE btcore)
 bt_set_warnings(bt_solutions)

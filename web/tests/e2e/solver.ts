@@ -3,7 +3,7 @@
 // What the Solver's e2e tests share: the workspace reached and settled,
 // a run waited for by its end (the card's data-phase none, its end's
 // revision shown), the rows the list draws, the engine's own answers
-// (solution.page, playback.poses with its frame, bt --json), a box of
+// (solution.page, playback.poses with its frame, shapelogic_cli --json), a box of
 // dominoes made through the bridge.
 
 import { execFileSync } from 'node:child_process';
@@ -14,13 +14,13 @@ import type { Page } from '@playwright/test';
 
 import { engineCall, ROOT } from './app.ts';
 
-/** bt's summary of a fixture (`bt -q -n -d --json`): its assemblies and solutions. */
+/** the CLI's summary of a fixture (`shapelogic_cli -q -n -d --json`): its assemblies and solutions. */
 export function btJson(
   file: string,
   extra: string[] = [],
 ): { assemblies: number; solutions: number } {
   const out = execFileSync(
-    resolve(ROOT, 'build/release/cli/bt'),
+    resolve(ROOT, 'build/release/cli/shapelogic_cli'),
     ['-q', '-n', '-d', '--json', ...extra, file],
     { encoding: 'utf8' },
   );

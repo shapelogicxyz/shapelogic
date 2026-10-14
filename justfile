@@ -33,7 +33,7 @@ test-tsan: (build "tsan")
 
 # Compare the new bt against the original burrTxt (see tests/oracle/README.md)
 oracle *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/bt compare {{args}}
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/shapelogic_cli compare {{args}}
 
 # Load and save every corpus file with the original and the new core, compare the XML
 oracle-roundtrip *args: (build "release")
@@ -49,7 +49,7 @@ oracle-files *args: (build "release")
 
 # Compare bt's text output with the original burrTxt's (after `oracle.py baseline-text`)
 oracle-text *args: (build "release")
-    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/bt compare-text {{args}}
+    python3 tests/oracle/oracle.py --old-repo "{{old_repo}}" --new-bt build/release/cli/shapelogic_cli compare-text {{args}}
 
 # Import, export to Puzzlecad and convert grids with the original and the new core, compare (deferred part 6)
 oracle-imports *args: (build "release")

@@ -11,7 +11,7 @@ layer: the document with its undo history and commands, the queries, the
 layer drawing of the grid editors, the analysis of saved assemblies, the
 paused solve files, the playback sampler and the explorers; `bt-engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
-tests; `bt`, the original's burrTxt and burrTxt2 for brick puzzles; every
+tests; `shapelogic_cli`, the original's burrTxt and burrTxt2 for brick puzzles; every
 benchmark as fast as the original or faster). The web front end
 (docs/FRONTEND-PLAN.md) has all its stages, 1a to 8: the toolchain in
 `web/`, the TypeScript types generated from `api/`, the engine client with
@@ -83,13 +83,13 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 |---|---|
 | `core/shapelogic/<module>/` | the library, headers and sources together; include as `"shapelogic/<module>/x.h"` |
 | `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
-| `cli/` | `bt`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
+| `cli/` | `shapelogic_cli`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
 | `python/` | `shapelogic`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `web/` | the web front end (Electron + TypeScript + three.js, decision 0013): the engine client, the host and bridge, the generated types, the app (shell, 3D view), its tests (unit, engine, e2e); see `web/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
 | `tests/contract/` | the engine's contract tests: `bt-engine` driven as a subprocess, every message checked against `api/` |
-| `tests/cli/` | `test_cli.py` (ctest `cli`): `bt`'s options, refusals and modes on the fixtures |
+| `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
 | `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
@@ -846,7 +846,7 @@ another engine from its saved search, Hanoi built through `stacking.*`;
 run against the dev, ASan and TSan engines).
 
 ## cli (stage 8)
-`bt` is the command line. Ported from `src/burrTxt.cpp` and
+`shapelogic_cli` is the command line. Ported from `src/burrTxt.cpp` and
 `src/burrTxt2.cpp`; checked by the harness (`just oracle` reads its
 `--json`, `just oracle-text` compares its text with burrTxt's byte for
 byte, `just oracle-files` solves with `--save`).

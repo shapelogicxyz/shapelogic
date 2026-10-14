@@ -49,7 +49,7 @@ bool parseCount(const char* s, unsigned int* out) {
 
 void usage(HelpKind kind) {
   std::fputs(
-      "bt [options] file [options]\n\n"
+      "shapelogic_cli [options] file [options]\n\n"
       "  file: puzzle file with the puzzle definition to solve\n"
       "  The file's puzzle type (brick, sliding or stacking) decides which solvers\n"
       "  and options apply. Brick covers every assembly and take-apart grid.\n\n"
@@ -97,7 +97,7 @@ void usage(HelpKind kind) {
   if (kind == HelpKind::Any) {
     std::fputs(
         "\n  For the options and solvers of one puzzle type:\n"
-        "    bt -h brick      bt -h sliding      bt -h stacking\n",
+        "    shapelogic_cli -h brick      shapelogic_cli -h sliding      shapelogic_cli -h stacking\n",
         stdout);
     return;
   }
@@ -223,7 +223,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       usage(k);
       return kExitOk;
     } else if (a == "--version") {
-      std::printf("bt %.*s\n", static_cast<int>(kVersion.size()), kVersion.data());
+      std::printf("shapelogic_cli %.*s\n", static_cast<int>(kVersion.size()), kVersion.data());
       return kExitOk;
     } else if (a == "--solver") {
       if (!hasValue) {
@@ -249,7 +249,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       if (std::string_view(argv[i + 1]) == "all") {
         o.allProblems = true;
       } else if (!parseCount(argv[i + 1], &o.problem)) {
-        std::fprintf(stderr, "bt: -o takes a problem number (from 0) or all, not '%s'\n",
+        std::fprintf(stderr, "shapelogic_cli: -o takes a problem number (from 0) or all, not '%s'\n",
                      argv[i + 1]);
         return kExitUsage;
       }
@@ -273,7 +273,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       i++;
     } else if (a == "--save") {
       if (!hasValue) {
-        std::fputs("bt: --save requires the file to write\n", stderr);
+        std::fputs("shapelogic_cli: --save requires the file to write\n", stderr);
         return kExitUsage;
       }
       o.saveTo = argv[++i];
@@ -290,7 +290,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
     } else if (a == "--limit" || a == "--vector-memory") {
       if (!hasValue ||
           !parseCount(argv[i + 1], a == "--limit" ? &o.solutionLimit : &o.vectorMemoryMb)) {
-        std::fprintf(stderr, "bt: %s requires a non-negative number\n", argv[i]);
+        std::fprintf(stderr, "shapelogic_cli: %s requires a non-negative number\n", argv[i]);
         return kExitUsage;
       }
       i++;
@@ -323,14 +323,14 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideTrace = true;
     } else if (a == "--panex-dir") {
       if (!hasValue) {
-        std::fputs("bt: --panex-dir requires a folder\n", stderr);
+        std::fputs("shapelogic_cli: --panex-dir requires a folder\n", stderr);
         return kExitUsage;
       }
       o.panexDir = argv[++i];
     } else if (a == "--panex-disk") {
       // burrTxt read it with atof
       if (!hasValue) {
-        std::fputs("bt: --panex-disk requires a number of GB\n", stderr);
+        std::fputs("shapelogic_cli: --panex-disk requires a number of GB\n", stderr);
         return kExitUsage;
       }
       o.panexDiskGB = std::atof(argv[++i]);
@@ -339,7 +339,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
     } else if (a == "--panex-log") {
       o.panexLog = true;
     } else if (a.size() > 1 && a[0] == '-' && a[1] == '-') {
-      std::fprintf(stderr, "bt: unknown option %s\n", argv[i]);
+      std::fprintf(stderr, "shapelogic_cli: unknown option %s\n", argv[i]);
       return kExitUsage;
     } else if (a.size() > 1 && a[0] == '-') {
       for (const char c : a.substr(1)) {
@@ -376,10 +376,10 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
             break;
           case 'o':
           case 'a':
-            std::fprintf(stderr, "bt: -%c cannot be clustered; give it as its own argument\n", c);
+            std::fprintf(stderr, "shapelogic_cli: -%c cannot be clustered; give it as its own argument\n", c);
             return kExitUsage;
           default:
-            std::fprintf(stderr, "bt: unknown option -%c\n", c);
+            std::fprintf(stderr, "shapelogic_cli: unknown option -%c\n", c);
             usage();
             return kExitUsage;
         }
@@ -387,7 +387,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
     } else if (o.file == nullptr) {
       o.file = argv[i];
     } else {
-      std::fputs("bt: more than one file given\n", stderr);
+      std::fputs("shapelogic_cli: more than one file given\n", stderr);
       return kExitUsage;
     }
   }
@@ -399,12 +399,12 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
 
   if (o.json && (o.ask != Ask::None || !o.assemble || o.allProblems || o.printDisassembly ||
                  o.printAssembly)) {
-    std::fputs("bt: --json cannot be combined with -a, -x, -o all, -p, or -s\n", stderr);
+    std::fputs("shapelogic_cli: --json cannot be combined with -a, -x, -o all, -p, or -s\n", stderr);
     return kExitUsage;
   }
   if (o.saveTo != nullptr && (o.json || o.ask != Ask::None || !o.assemble ||
                               o.printDisassembly || o.printAssembly)) {
-    std::fputs("bt: --save cannot be combined with --json, -a, -x, -p, or -s\n", stderr);
+    std::fputs("shapelogic_cli: --save cannot be combined with --json, -a, -x, -p, or -s\n", stderr);
     return kExitUsage;
   }
   // --restart of a stacking puzzle goes without --save too: checked once
@@ -412,7 +412,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
   if (o.saveTo == nullptr && (o.countOnly || o.keepMirrors || o.keepRotations ||
                               o.dropDisassemblies || o.solutionLimit != 10)) {
     std::fputs(
-        "bt: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
+        "shapelogic_cli: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
         "    --drop-disassemblies go with --save\n",
         stderr);
     return kExitUsage;

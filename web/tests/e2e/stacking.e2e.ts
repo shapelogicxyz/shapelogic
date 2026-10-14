@@ -5,7 +5,7 @@
 // three-disc towers built from File ▸ New (discs in the disc list, the rod
 // set's rules in the Rods card, the board, the start and the goal in the
 // Puzzle's Stacks card), saved byte for byte as the fixtures; solved by the
-// Stacking and the Panex Solver as `bt --json`; played in transfers on the
+// Stacking and the Panex Solver as `shapelogic_cli --json`; played in transfers on the
 // engine's poses with the board's pegs; a seven-disc Panex search paused, the
 // app restarted on the same data and the search carried on from where it
 // was saved (Solve's question: Continue); the rod sets' commands and the

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The `bt` command line on the fixtures: options, refusals, the modes.
+"""The `shapelogic_cli` command line on the fixtures: options, refusals, the modes.
 
 What it prints is compared with the original burrTxt by the harness
 (`just oracle-text`, tests/oracle); this checks what holds without the
 original repo: burrTxt's option rules and exit codes, sliding and stacking
 puzzles solved with their options, and --save followed by -a and -x.
 
-    python3 tests/cli/test_cli.py --bt build/dev/cli/bt
+    python3 tests/cli/test_cli.py --bt build/dev/cli/shapelogic_cli
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def check(name: str, cond: bool, detail: str = "") -> None:
 
 def test_help_and_mistakes() -> None:
     r = run("-h")
-    check("help", r.returncode == 0 and r.stdout.startswith("bt [options] file"), r.stdout[:80])
+    check("help", r.returncode == 0 and r.stdout.startswith("shapelogic_cli [options] file"), r.stdout[:80])
     check("help brick", "brick puzzles:" in run("-h", "brick").stdout)
     r = run("--help", "slider")
     check("help sliding", "sliding puzzles:" in r.stdout and "--nested-slides" in r.stdout and
@@ -49,7 +49,7 @@ def test_help_and_mistakes() -> None:
     check("help stacking", "stacking puzzles:" in r.stdout and "Panex Solver" in r.stdout and
           "--panex-dir" in r.stdout and "--restart" in r.stdout, r.stdout[-200:])
     r = run()
-    check("no file", r.returncode == 1 and "bt [options]" in r.stdout, str(r.returncode))
+    check("no file", r.returncode == 1 and "shapelogic_cli [options]" in r.stdout, str(r.returncode))
     for args, text in ((["--json", "-x"], "--json cannot be combined"),
                        (["-oa"], "cannot be clustered"),
                        (["-dz"], "unknown option -z"),

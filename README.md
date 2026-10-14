@@ -13,13 +13,13 @@ the same answers on a corpus of 180 puzzles before it counts as done.
 8 are done: grids, model and file format, the assemblers, the take-apart
 (with rotation moves), the solve session, the app layer (document, undo,
 commands, meshes, playback, explorers), `bt-engine`, the JSON-RPC engine
-the front end talks to, `bt`, which solves and takes apart as the
+the front end talks to, `shapelogic_cli`, which solves and takes apart as the
 original's `burrTxt` and `burrTxt2`, and the Electron front end in `web/`.
 The deferred features follow part by part
 ([docs/DEFERRED-PLAN.md](docs/DEFERRED-PLAN.md)): sliding puzzles are
-solved in the core, the engine and `bt` (part 1) and made, edited, solved
+solved in the core, the engine and `shapelogic_cli` (part 1) and made, edited, solved
 and played in the front end (part 2); stacking and Panex puzzles are solved
-in the core and `bt` (part 3a: the stacking search, the Panex search with
+in the core and `shapelogic_cli` (part 3a: the stacking search, the Panex search with
 its saved searches) and edited and solved through the document and the
 engine (part 3b: rod sets, discs and stacks, `stacking.*`, saved searches
 in the engine's Panex folder) and made, edited, solved and played in the
@@ -48,7 +48,7 @@ just oracle       # compare with the original BurrTools (needs ../burrtools_rota
 ```
 
 Outputs: `build/<preset>/engine/bt-engine` (the engine: JSON-RPC 2.0 on
-stdin and stdout), `build/<preset>/cli/bt` (command-line solver),
+stdin and stdout), `build/<preset>/cli/shapelogic_cli` (command-line solver),
 `build/<preset>/python/shapelogic.*.so` (the Python module, when CMake
 finds Python's headers; `just python-wheel` makes its wheel),
 `build/<preset>/tests/bt_tests`.

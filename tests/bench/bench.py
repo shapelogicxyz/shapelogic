@@ -112,7 +112,7 @@ def main() -> int:
     p.add_argument("--old-repo", type=Path,
                    default=Path(os.environ.get("BT_OLD_REPO", ROOT.parent / "burrtools_rotations")))
     p.add_argument("--old-bin", type=Path, help="the original burrTxt (default: its build-rel, else build)")
-    p.add_argument("--new-bin", type=Path, default=ROOT / "build" / "release" / "cli" / "bt")
+    p.add_argument("--new-bin", type=Path, default=ROOT / "build" / "release" / "cli" / "shapelogic_cli")
     p.add_argument("--set", choices=["default", "glar"], default="default")
     p.add_argument("--threads", type=int, nargs="+", default=[1, os.cpu_count() or 1])
     p.add_argument("--repeat", type=int, default=5)

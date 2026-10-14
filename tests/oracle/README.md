@@ -1,7 +1,7 @@
 # Comparison harness ("oracle")
 
 The original BurrTools is the specification. This harness runs the original
-`burrTxt` and the new `bt` on the same puzzles and compares their answers.
+`burrTxt` and the new `shapelogic_cli` on the same puzzles and compares their answers.
 A solver stage is done only when the harness reports no differences
 (docs/decisions/0007-port-against-the-original.md).
 
@@ -9,7 +9,7 @@ A solver stage is done only when the harness reports no differences
 
 - The original checkout at `../burrtools_rotations` (or `BT_OLD_REPO`), built
   with `just build` there, so `build/burrTxt` and `build/burrTxt2` exist.
-- The new `bt` is built by `just oracle` itself (release preset).
+- The new `shapelogic_cli` is built by `just oracle` itself (release preset).
 
 ## Corpus and tiers
 
@@ -80,12 +80,12 @@ keep the solve thread's limit of ten).
 
 ## Text output (stage 8 onward)
 
-`bt` prints what burrTxt prints. `baseline-text` runs the original's
+`shapelogic_cli` prints what burrTxt prints. `baseline-text` runs the original's
 `burrTxt` (build/, one thread) on every corpus puzzle in several ways and
 records each run's stdout, stderr and exit code: the hashes in
 `baseline/text-<tier>[-<solver>].json` (committed), the text itself under
 `work/text-old*` (to show where a later run differs). `compare-text`
-(`just oracle-text`) runs `bt` the same way and compares byte for byte,
+(`just oracle-text`) runs `shapelogic_cli` the same way and compares byte for byte,
 with the solve time blanked. The runs (`text_runs` in oracle.py):
 
 | run | arguments | input |
@@ -104,9 +104,9 @@ SIGABRT) when it draws a take-apart (`-p`) of an assembly with a piece
 that is not placed (Demo Mirror Paradox, Demo Piece Generator, Solid Six
 Piece Burrs: piece ranges), since its `print()` transforms every piece;
 such a run is recorded by what it wrote before it died, and bt's output
-must begin with those bytes (and bt must end normally). Further, `bt` runs with `--original-drawings`, which
+must begin with those bytes (and bt must end normally). Further, `shapelogic_cli` runs with `--original-drawings`, which
 draws the take-apart's parts as burrTxt did (with the wrong shapes below
-the first separation; `bt` draws each piece as itself otherwise); and the
+the first separation; `shapelogic_cli` draws each piece as itself otherwise); and the
 original's assembler 1 line "range optimisation used min …, max …" on
 stderr is dropped (bt does not print it). One thread, because the order in
 which solutions are printed is the order the search hands them over.
@@ -236,7 +236,7 @@ the assemblies before the pause) for `test_positions.cpp`: assembler 0 and
 BurrTools 2 on Pelikan and Dracula, assembler 1 on Cube in Cage and Demo
 Piece Generator.
 
-`bt` exited with code 3 when a problem needed a part not ported yet (stage
+`shapelogic_cli` exited with code 3 when a problem needed a part not ported yet (stage
 3a); since stage 3b every problem has its assembler, and `compare` keeps its
 `--allow-unported` for later parts.
 
@@ -287,7 +287,7 @@ and are compared state by state with `bt --save`'s. Flag `L`
 all` text run; flag `I` (a setup that is not ready) leaves out the solved
 files, since the GUI refused to solve it. burrTxt's `-a s1` dies on a
 solved stacking file (it draws the assembly into a result shape the
-problem does not have); `bt` prints what it printed before and no drawing,
+problem does not have); `shapelogic_cli` prints what it printed before and no drawing,
 which the text comparison accounts for as it does the other crashes.
 
 `panex-resume` runs five Panex searches (the 5-disc swap, Panex Jr, the
