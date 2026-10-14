@@ -46,6 +46,8 @@ export type AppCommand =
   | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
   | { cmd: 'keys' }
+  /** ShapeLogic ▸ Command Line Tool… (Help on Windows and Linux): the dialog that explains and installs shapelogic_cli. */
+  | { cmd: 'cliTool' }
   | { cmd: 'about' };
 
 /** The names of the commands. */
@@ -77,6 +79,28 @@ export interface MenuState {
   /** The menus' keys as the one keyboard table has them, by command (shown, not registered). */
   keys: Partial<Record<AppCommandName, string>>;
 }
+
+/**
+ * Where the command line tool (`shapelogic_cli`) is and whether it is
+ * linked into the shell's path. The main process knows the paths; the
+ * renderer only shows them.
+ */
+export interface CliToolInfo {
+  /** The executable inside this install, or null when this build has none. */
+  path: string | null;
+  /** Where Install links it (`/usr/local/bin/shapelogic_cli`), or null when this platform has no Install yet. */
+  link: string | null;
+  /**
+   * `none`: nothing at the link; `linked`: the link is this install's tool;
+   * `stale`: a link to another copy of the tool (the app moved, or an older
+   * one); `other`: a file or another link, which Install never replaces.
+   */
+  state: 'none' | 'linked' | 'stale' | 'other';
+}
+
+/** The answer to installing or removing the tool: the new state, or why not. */
+export type CliToolResult =
+  { ok: true; info: CliToolInfo } | { ok: false; error: string; cancelled?: boolean };
 
 /** The links of the Help menu (the main process holds the addresses). */
 export type HelpLink = 'tutorial' | 'guide';
@@ -183,6 +207,12 @@ export interface BtApp {
   clearRescue(): Promise<void>;
   /** Opens a help page in the system's browser. */
   openHelp(link: HelpLink): void;
+  /** Where the command line tool is, and whether it is linked into the path. */
+  cliToolInfo(): Promise<CliToolInfo>;
+  /** Links the tool into the path (the system asks for the administrator's password where it must). */
+  installCliTool(): Promise<CliToolResult>;
+  /** Removes the link Install made. */
+  uninstallCliTool(): Promise<CliToolResult>;
   /** Closes the window: the renderer answered a `close` command (nothing to save, or saved or given up). */
   closeWindow(): void;
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */
@@ -218,6 +248,7 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'style',
   'focus3d',
   'keys',
+  'cliTool',
   'about',
 ]);
 

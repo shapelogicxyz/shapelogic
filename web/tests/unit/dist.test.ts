@@ -23,7 +23,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { engineFile, findEngine } from '../../src/main/engine-path.ts';
-import { binaryArch, distConfig, releaseEngine } from '../../tools/dist.ts';
+import { binaryArch, distConfig, releaseCli, releaseEngine } from '../../tools/dist.ts';
 import { projectVersion, REPO_ROOT } from '../../tools/project-version.ts';
 
 const WEB = resolve(import.meta.dirname, '../..');
@@ -49,6 +49,27 @@ describe('the version', () => {
       `bt-engine ${projectVersion()}`,
     );
     expect(binaryArch(engine)).toBe(process.arch);
+  });
+
+  it('is what the release command line tool says, when it is built', () => {
+    const engine = releaseEngine(process.platform, process.arch === 'arm64' ? 'arm64' : 'x64');
+    const cli = releaseCli(engine);
+    expect(cli).toBe(
+      resolve(
+        engine,
+        '..',
+        '..',
+        'cli',
+        process.platform === 'win32' ? 'shapelogic_cli.exe' : 'shapelogic_cli',
+      ),
+    );
+    if (!existsSync(cli)) {
+      return;
+    }
+    expect(execFileSync(cli, ['--version'], { encoding: 'utf8' }).trim()).toBe(
+      `shapelogic_cli ${projectVersion()}`,
+    );
+    expect(binaryArch(cli)).toBe(process.arch);
   });
 
   it('is put into the main process at build', () => {
@@ -81,11 +102,19 @@ describe('the configuration', () => {
   const c = distConfig('1.2.3', '/b/release/engine/bt-engine', 'darwin');
 
   it('packs the bundles and the version, with the engine beside them', () => {
-    expect(c.files).toEqual(['out/**/*', 'package.json', '!**/*.map']);
+    expect(c.files).toEqual(['out/**/*', 'packaging/icon.png', 'package.json', '!**/*.map']);
     expect(c.extraMetadata).toEqual({ version: '1.2.3', main: './out/main/index.js' });
-    expect(c.extraResources).toEqual([{ from: '/b/release/engine/bt-engine', to: 'bt-engine' }]);
-    expect(distConfig('1.2.3', 'C:\\e.exe', 'win32').extraResources).toEqual([
-      { from: 'C:\\e.exe', to: 'bt-engine.exe' },
+    // the engine, and the command line tool of the same build beside it
+    expect(c.extraResources).toEqual([
+      { from: '/b/release/engine/bt-engine', to: 'bt-engine' },
+      { from: '/b/release/cli/shapelogic_cli', to: 'shapelogic_cli' },
+    ]);
+    expect(distConfig('1.2.3', 'C:\\e\\engine\\bt-engine.exe', 'win32').extraResources).toEqual([
+      { from: 'C:\\e\\engine\\bt-engine.exe', to: 'bt-engine.exe' },
+      {
+        from: resolve('C:\\e\\engine\\bt-engine.exe', '..', '..', 'cli', 'shapelogic_cli.exe'),
+        to: 'shapelogic_cli.exe',
+      },
     ]);
     expect(c.asar).toBe(true);
     expect(c.publish).toBeNull();

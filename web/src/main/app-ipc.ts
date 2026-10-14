@@ -4,8 +4,9 @@
 // the file dialogs (a name without the kind's extension gets it, and a
 // file that then exists is asked about, as the original's Save As did),
 // the store of settings, layouts and recent files, the rescue copy, the
-// help links (the addresses are the main process's: the renderer names a
-// link, never a URL), the menus' state and the window's close; from stage
+// command line tool (cli-tool.ts: the renderer names an operation, never a
+// path), the help links (the addresses are the main process's: the renderer
+// names a link, never a URL), the menus' state and the window's close; from stage
 // 7 the exports' files, written here (export-file.ts) and only to a path
 // this process's save dialog gave the same window for that kind, once,
 // and from deferred part 5 into the folder its folder dialog gave last,
@@ -28,8 +29,16 @@ import {
   isOpenKind,
   isRescueInfo,
 } from '../engine/app-bridge.ts';
-import type { FileKind, HelpLink, MenuState, OpenKind, StoredState } from '../engine/app-bridge.ts';
+import type {
+  CliToolResult,
+  FileKind,
+  HelpLink,
+  MenuState,
+  OpenKind,
+  StoredState,
+} from '../engine/app-bridge.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
+import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { RescueStore } from './rescue.ts';
 import { HELP_URLS } from './security.ts';
@@ -106,6 +115,10 @@ export interface AppIpcHost {
   /** The files each window's engine may be given. */
   paths: PathGrants<WebContents>;
   version: string;
+  /** The command line tool in this install (cli-tool.ts), or null when there is none. */
+  cliPath: string | null;
+  /** Where Install links it, or null where this platform has no Install. */
+  cliLink: string | null;
   /** The app's window of a renderer, or null (not ours: not answered). */
   window(sender: WebContents): BrowserWindow | null;
   setMenu(sender: WebContents, state: MenuState): void;
@@ -347,6 +360,23 @@ export function installAppIpc(h: AppIpcHost): void {
   ipcMain.on('bt:help', (e, link: unknown) => {
     if (ours(e) !== null && (link === 'tutorial' || link === 'guide')) {
       openHelp(link);
+    }
+  });
+
+  // the command line tool: the renderer names an operation, never a path
+  ipcMain.handle('bt:cli-tool', async (e, op: unknown): Promise<CliToolResult> => {
+    if (ours(e) === null) {
+      return { ok: false, error: 'not a ShapeLogic window' };
+    }
+    switch (op) {
+      case 'info':
+        return { ok: true, info: cliInfo(h.cliPath, h.cliLink) };
+      case 'install':
+        return installCli(h.cliPath, h.cliLink, macPrivileged);
+      case 'uninstall':
+        return uninstallCli(h.cliPath, h.cliLink, macPrivileged);
+      default:
+        return { ok: false, error: 'unknown operation' };
     }
   });
 

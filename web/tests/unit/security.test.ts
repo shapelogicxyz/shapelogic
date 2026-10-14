@@ -13,7 +13,7 @@
 // them: each answers only the app's windows and grants only what its
 // dialog gave.
 
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -86,7 +86,7 @@ describe('the window', () => {
   it('is made in one place, with those options, and nothing in src turns them off', () => {
     expect(occurrences(/new BrowserWindow\(/g)).toEqual(['src/main/index.ts']);
     const index = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
-    expect(index).toMatch(/new BrowserWindow\(\s*windowOptions\(/);
+    expect(index).toMatch(/new BrowserWindow\(\{\s*\.\.\.windowOptions\(/);
     for (const bad of [
       /nodeIntegration\w*:\s*true/g,
       /contextIsolation:\s*false/g,
@@ -495,6 +495,8 @@ describe('the IPC handlers', () => {
       },
       paths,
       version: '0.0.0',
+      cliPath: join(dir, 'tool', 'shapelogic_cli'),
+      cliLink: join(dir, 'bin', 'shapelogic_cli'),
       window: (sender: object) => (sender === ours ? {} : null),
       setMenu: () => undefined,
       closeTaken: () => undefined,
@@ -534,12 +536,37 @@ describe('the IPC handlers', () => {
     electron.on.get('bt:dropped')?.({ sender: foreign }, join(dir, 'd.xmpuzzle'));
     electron.on.get('bt:help')?.({ sender: foreign }, 'guide');
     expect(electron.opened).toEqual([]);
+    // nor does a foreign window install the command line tool
+    expect(await invoke('bt:cli-tool', foreign, 'install')).toMatchObject({ ok: false });
+    expect(existsSync(join(dir, 'bin'))).toBe(false);
     for (const p of ['a', 'b', 'r', 'd']) {
       expect(paths.allows(foreign, join(dir, `${p}.xmpuzzle`))).toBe(false);
       expect(paths.allows(ours, join(dir, `${p}.xmpuzzle`))).toBe(false);
     }
   });
 
+  it('install and remove the command line tool by its operation’s name, never a path', async () => {
+    const tool = join(dir, 'tool', 'shapelogic_cli');
+    const link = join(dir, 'bin', 'shapelogic_cli');
+    expect(await invoke('bt:cli-tool', ours, 'info')).toEqual({
+      ok: true,
+      info: { path: tool, link, state: 'none' },
+    });
+    // a page cannot name what to link, or what to remove: extra arguments are not read
+    expect(await invoke('bt:cli-tool', ours, 'install', '/bin/ls', '/etc/passwd')).toEqual({
+      ok: true,
+      info: { path: tool, link, state: 'linked' },
+    });
+    expect(readlinkSync(link)).toBe(tool);
+    expect(await invoke('bt:cli-tool', ours, 'rm -rf')).toMatchObject({ ok: false });
+    expect(await invoke('bt:cli-tool', ours, { op: 'uninstall' })).toMatchObject({ ok: false });
+    expect(readlinkSync(link)).toBe(tool);
+    expect(await invoke('bt:cli-tool', ours, 'uninstall', '/etc/passwd')).toEqual({
+      ok: true,
+      info: { path: tool, link, state: 'none' },
+    });
+    expect(() => readlinkSync(link)).toThrow();
+  });
   it('grant the window what its dialogs, its rescue record and its drops gave', async () => {
     electron.openPaths = [join(dir, 'a.xmpuzzle')];
     expect(await invoke('bt:choose-open', ours, 'puzzle')).toBe(join(dir, 'a.xmpuzzle'));

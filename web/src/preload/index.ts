@@ -11,7 +11,13 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 
 import { isAppCommand } from '../engine/app-bridge.ts';
-import type { AppCommand, BtApp, RescueInfo, StoredState } from '../engine/app-bridge.ts';
+import type {
+  AppCommand,
+  BtApp,
+  CliToolResult,
+  RescueInfo,
+  StoredState,
+} from '../engine/app-bridge.ts';
 import type { BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
 
 const bridge: BtBridge = {
@@ -140,6 +146,19 @@ const btApp: BtApp = {
   },
   openHelp(link) {
     ipcRenderer.send('bt:help', link);
+  },
+  async cliToolInfo() {
+    const r = (await ipcRenderer.invoke('bt:cli-tool', 'info')) as CliToolResult;
+    if (!r.ok) {
+      throw new Error(r.error);
+    }
+    return r.info;
+  },
+  installCliTool() {
+    return ipcRenderer.invoke('bt:cli-tool', 'install') as Promise<CliToolResult>;
+  },
+  uninstallCliTool() {
+    return ipcRenderer.invoke('bt:cli-tool', 'uninstall') as Promise<CliToolResult>;
   },
   closeWindow() {
     ipcRenderer.send('bt:close', 'close');

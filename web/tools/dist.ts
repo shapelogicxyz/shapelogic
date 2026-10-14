@@ -72,20 +72,31 @@ export function releaseEngine(platform: NodeJS.Platform, arch: 'x64' | 'arm64'):
   return resolve(REPO_ROOT, 'build', preset, 'engine', exe);
 }
 
-/** The engine is there, of that architecture and version; else why not. */
-function checkEngine(path: string, arch: 'x64' | 'arm64', version: string): void {
+/** The command line tool beside an engine in the same build (`build/<preset>/cli/`). */
+export function releaseCli(engine: string): string {
+  const exe = engine.endsWith('.exe') ? 'shapelogic_cli.exe' : 'shapelogic_cli';
+  return resolve(engine, '..', '..', 'cli', exe);
+}
+
+/** A program is there, of that architecture and version; else why not. */
+function checkEngine(
+  path: string,
+  arch: 'x64' | 'arm64',
+  version: string,
+  program = 'bt-engine',
+): void {
   const preset = path.split(/[\\/]/).at(-3) ?? 'release';
   if (!existsSync(path)) {
-    throw new Error(`no engine at ${path}: run \`just build ${preset}\` first`);
+    throw new Error(`no ${program} at ${path}: run \`just build ${preset}\` first`);
   }
   const built = binaryArch(path);
   if (built !== arch) {
     throw new Error(`${path} is built for ${built ?? 'an unknown architecture'}, not ${arch}`);
   }
   const said = execFileSync(path, ['--version'], { encoding: 'utf8', timeout: 10_000 }).trim();
-  if (said !== `bt-engine ${version}`) {
+  if (said !== `${program} ${version}`) {
     throw new Error(
-      `${path} says "${said}", not "bt-engine ${version}" (CMakeLists.txt): build it again`,
+      `${path} says "${said}", not "${program} ${version}" (CMakeLists.txt): build it again`,
     );
   }
 }
@@ -95,8 +106,10 @@ export function distConfig(
   version: string,
   engine: string,
   platform: NodeJS.Platform,
+  cli: string = releaseCli(engine),
 ): Configuration {
   const exe = platform === 'win32' ? 'bt-engine.exe' : 'bt-engine';
+  const cliExe = platform === 'win32' ? 'shapelogic_cli.exe' : 'shapelogic_cli';
   const signed = (process.env.CSC_NAME ?? '') !== '' || (process.env.CSC_LINK ?? '') !== '';
   return {
     appId: 'xyz.shapelogic.app',
@@ -110,7 +123,12 @@ export function distConfig(
     asar: true,
     npmRebuild: false,
     publish: null,
-    extraResources: [{ from: engine, to: exe }],
+    // the engine, and the command line tool the app can link into the path
+    // (src/main/cli-tool.ts)
+    extraResources: [
+      { from: engine, to: exe },
+      { from: cli, to: cliExe },
+    ],
     fileAssociations: [
       {
         ext: 'xmpuzzle',
@@ -182,6 +200,7 @@ async function main(): Promise<void> {
   }
   const engine = releaseEngine(platform, arch);
   checkEngine(engine, arch, version);
+  checkEngine(releaseCli(engine), arch, version, 'shapelogic_cli');
   const target =
     platform === 'darwin' ? Platform.MAC : platform === 'win32' ? Platform.WINDOWS : Platform.LINUX;
   const config = distConfig(version, engine, platform);

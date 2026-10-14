@@ -48,6 +48,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
 import { installAppIpc, openHelp } from './app-ipc.ts';
+import { cliLink, findCli } from './cli-tool.ts';
 import { findEngine } from './engine-path.ts';
 import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
@@ -453,6 +454,12 @@ void app.whenReady().then(() => {
     rescue,
     paths,
     version: VERSION,
+    cliPath: findCli({
+      packaged: app.isPackaged,
+      resources: process.resourcesPath,
+      webDir: WEB_DIR,
+    }),
+    cliLink: cliLink(process.platform),
     window: (sender) => windows.get(sender.id)?.win ?? null,
     setMenu: (sender, state) => {
       const w = windows.get(sender.id);

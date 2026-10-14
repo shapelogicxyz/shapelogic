@@ -154,13 +154,26 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
   expect(files).toContain('/out/preload/index.cjs');
   expect(files).toContain('/out/renderer/index.html');
   expect(
-    files.filter((f) => !/^\/(out|out\/(main|preload|renderer)(\/.*)?|package\.json)$/.test(f)),
+    files.filter(
+      (f) =>
+        !/^\/(out|out\/(main|preload|renderer)(\/.*)?|package\.json|packaging|packaging\/icon\.png)$/.test(
+          f,
+        ),
+    ),
   ).toEqual([]);
   expect(files.filter((f) => f.endsWith('.map'))).toEqual([]);
 
   // the engine in the resources: the project's version
   expect(execFileSync(ENGINE, ['--version'], { encoding: 'utf8' }).trim()).toBe(
     `bt-engine ${VERSION}`,
+  );
+  // and the command line tool the app can link into the path, the same version
+  const cli = join(
+    APP.resources,
+    process.platform === 'win32' ? 'shapelogic_cli.exe' : 'shapelogic_cli',
+  );
+  expect(execFileSync(cli, ['--version'], { encoding: 'utf8' }).trim()).toBe(
+    `shapelogic_cli ${VERSION}`,
   );
 
   // started as a user would, with a fixture, and every development switch

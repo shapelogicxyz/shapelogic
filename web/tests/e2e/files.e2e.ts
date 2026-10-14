@@ -732,6 +732,23 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     await expect(page.locator('#about')).toContainText(`bt-engine ${info.version}`);
     await page.keyboard.press('Escape');
 
+    // the command line tool's dialog: what it is, its options, where it is,
+    // the command; Install is never pressed here (it would link the tool
+    // into /usr/local/bin of the machine running the test)
+    await appOf(page).evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', { cmd: 'cliTool' });
+    });
+    const cli = page.locator('#cliTool');
+    await expect(cli).toContainText('shapelogic_cli');
+    await expect(cli).toContainText('burrTxt');
+    await expect(cli).toContainText('--json');
+    await expect(cli).toContainText('Where it is');
+    await expect(cli).toContainText('/cli/shapelogic_cli');
+    await expect(cli.locator('[data-x="install"], [data-x="uninstall"]')).toHaveCount(1);
+    await expect(cli.locator('[data-x="cancel"], [data-x="close"]')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(cli).toHaveCount(0);
+
     // the help links: the main process's addresses, in the system's browser
     await app.evaluate(({ shell }) => {
       const opened: string[] = [];

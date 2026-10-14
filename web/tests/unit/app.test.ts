@@ -191,6 +191,14 @@ describe('the menus', () => {
     const winItems = commandItems(build(state, 'win32').template);
     expect(winItems.has('about')).toBe(true);
     expect(winItems.has('settings')).toBe(true);
+    // the command line tool's dialog: the app menu on macOS, Help elsewhere
+    expect(winItems.get('cliTool')?.label).toBe('Command Line Tool…');
+    const macItems = commandItems(build(state, 'darwin').template);
+    expect(macItems.get('cliTool')?.label).toBe('Install Command Line Tool…');
+    const sends = build(state, 'darwin');
+    (commandItems(sends.template).get('cliTool')?.click as () => void)();
+    expect(sends.sent).toContainEqual({ cmd: 'cliTool' });
+    expect(isAppCommand({ cmd: 'cliTool' })).toBe(true);
   });
 
   it('greys what this version cannot do, and what the state does not allow', () => {

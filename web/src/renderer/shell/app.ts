@@ -28,6 +28,7 @@ import { installConfirm } from './confirm.ts';
 import { dialogOpen, installDialogs, tell } from './dialog.ts';
 import { Files } from './files.ts';
 import { Imports } from './imports.ts';
+import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
 import { keepState } from './persist.ts';
@@ -252,6 +253,9 @@ export function startApp(saved: StoredState = {}): {
     },
     about: () => {
       openAbout(store, app.version);
+    },
+    cliTool: () => {
+      void openCliTool(app);
     },
     solverProblem: () => {
       const p = solver.problem;

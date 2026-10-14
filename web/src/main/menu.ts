@@ -282,7 +282,13 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
           h.openHelp('guide');
         },
       },
-      ...(mac ? [] : [SEP, item('about', `About ${h.name}`, { cmd: 'about' })]),
+      ...(mac
+        ? []
+        : [
+            SEP,
+            item('cliTool', 'Command Line Tool…', { cmd: 'cliTool' }),
+            item('about', `About ${h.name}`, { cmd: 'about' }),
+          ]),
     ],
   };
 
@@ -293,6 +299,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
       item('about', `About ${h.name}`, { cmd: 'about' }),
       SEP,
       item('settings', 'Settings…', { cmd: 'settings' }, true, 'settings'),
+      item('cliTool', 'Install Command Line Tool…', { cmd: 'cliTool' }),
       SEP,
       { role: 'services' },
       SEP,
