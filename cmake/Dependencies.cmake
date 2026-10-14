@@ -39,7 +39,7 @@ set(JSON_Install OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(nlohmann_json)
 
 # Manifold: the boolean and hull engine behind the STL meshes of the prism,
-# rhombic and tetra-octa grids (core/bt/mesh/mink_mesh.cpp, deferred part
+# rhombic and tetra-octa grids (core/shapelogic/mesh/mink_mesh.cpp, deferred part
 # 5). The original's release, built as the original builds it: a static
 # library without its 2D cross sections (which would pull in Clipper2), its
 # tests, bindings or parallel backend, and optimised in every preset (the

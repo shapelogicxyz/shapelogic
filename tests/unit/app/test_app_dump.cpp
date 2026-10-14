@@ -14,15 +14,15 @@
 
 #include "app_test_helpers.h"
 
-#include "bt/app/playback.h"
-#include "bt/app/queries.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/mesh/voxel_mesh.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
+#include "shapelogic/app/playback.h"
+#include "shapelogic/app/queries.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/mesh/voxel_mesh.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
 

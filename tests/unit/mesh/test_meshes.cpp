@@ -5,12 +5,12 @@
 // meshes of every fixture shape with the original's.
 #include "../grid/grid_test_helpers.h"
 
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
-#include "bt/mesh/draw_mesh.h"
-#include "bt/mesh/grid_geometry.h"
-#include "bt/mesh/polyhedron.h"
-#include "bt/mesh/voxel_mesh.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/mesh/draw_mesh.h"
+#include "shapelogic/mesh/grid_geometry.h"
+#include "shapelogic/mesh/polyhedron.h"
+#include "shapelogic/mesh/voxel_mesh.h"
 
 #include <catch2/catch_test_macros.hpp>
 

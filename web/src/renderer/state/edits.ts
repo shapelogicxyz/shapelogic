@@ -35,22 +35,10 @@ export class Edits {
 
   /**
    * Refuses a change of the lists of shapes, colours or problems, and undo
-   * and redo: while anything solves ("pause first"), and while a
-   * BurrTools 2 search is paused in memory, which such a change would lose
-   * (decision 0011: the engine refuses it as invalid_state; pausing is no
-   * help there, aborting or finishing it is).
+   * and redo, while anything solves ("pause first").
    */
   refuseList(): boolean {
-    if (this.refuse(this.store.solving)) {
-      return true;
-    }
-    const p = this.solves?.pausedBt2() ?? null;
-    if (p !== null) {
-      const label = this.store.snapshot?.problems.find((q) => q.id === p)?.label ?? p;
-      flash(`Abort or finish the paused BurrTools 2 solve of ${label} first`, 5000);
-      return true;
-    }
-    return false;
+    return this.refuse(this.store.solving);
   }
 
   /**

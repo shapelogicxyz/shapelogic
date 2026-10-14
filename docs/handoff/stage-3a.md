@@ -7,12 +7,12 @@ a new session at extra high effort. The brief is at the end.
 - **Decision record 0009** (`docs/decisions/0009-assembler-run-layer.md`):
   one run layer for every assembler, one thread pool per solve, A/B
   switches as options. ARCHITECTURE.md describes the `solve` module.
-- `core/bt/base/thread_pool.h`: `ThreadPool` (port of `helperPool_c`:
+- `core/shapelogic/base/thread_pool.h`: `ThreadPool` (port of `helperPool_c`:
   `run(n, job)` on the caller plus lent threads, `addLoad`, nesting without
   deadlock), `kMaxThreads`, `hardwareThreads()`, `splitThreads()`. No
-  process-wide limit, no `BURRTOOLS_THREADS`. `stop.h` gained
+  process-wide limit, no `SHAPELOGIC_THREADS`. `stop.h` gained
   `StopSource(const StopToken& parent)`.
-- `core/bt/solve/`:
+- `core/shapelogic/solve/`:
   - `search_run.h`: `SearchRun` (a run's own stop source under the
     caller's token; serialised hand-over; `deliverOnce` with signatures),
     `TaskProgress`, `runTasks()`, `effectiveThreads()`.
@@ -106,9 +106,9 @@ a new session at extra high effort. The brief is at the end.
 10. **Threads:** a split search's threads are lent by the pool (fewer when
     it is busy) instead of always `workers - 1` new threads; the task split
     still follows the requested count. No process-wide limit and no
-    `BURRTOOLS_THREADS`; the CLI's `-t` sets the count and the pool size.
+    `SHAPELOGIC_THREADS`; the CLI's `-t` sets the count and the pool size.
 11. **Environment switches are options:** `SearchOptions::vectorSearch`
-    (`BURRTOOLS_NO_SIMD`) and `SimdKernels` (`NO_AVX2`, `NO_AVX512`,
+    (`SHAPELOGIC_NO_SIMD`) and `SimdKernels` (`NO_AVX2`, `NO_AVX512`,
     `NO_NEON`); the CLI has `--no-simd`. `SimdExactCover` reports its
     kernel too (the original only had it on the Huang cover).
 12. **`reduce()` returns `ReduceStats`** instead of printing "removed ...
@@ -181,7 +181,7 @@ take, 19 of the corpus):
   the original test "a parallel search saved by an older version carries
   on" builds a flag 2 text by hand.
 - `simdHuangMemoryEstimate` / `simdHuangFitsMemory` and
-  `BURRTOOLS_HUANG_MEM_MB` become a `SearchOptions` field (decision 0009).
+  `SHAPELOGIC_HUANG_MEM_MB` become a `SearchOptions` field (decision 0009).
 - Its `getFinished()` reads `finished_a` / `finished_b` under a mutex while
   the search pushes and pops them: publish the fraction instead, as
   assembler 0's plain search does.

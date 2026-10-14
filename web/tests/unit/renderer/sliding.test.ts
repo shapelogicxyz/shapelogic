@@ -69,7 +69,7 @@ describe('the sliding options', () => {
       solver: 'classic',
     });
     // a brick solver's name on a sliding puzzle, and the reverse, keep the default
-    expect(readOptions({ solverType: 'bt2' }, undefined, 'sliding').slidingSolver).toBe('full');
+    expect(readOptions({ solverType: 'crowell' }, undefined, 'sliding').slidingSolver).toBe('full');
     expect(readOptions({ solverType: 'fast' }).solver).toBe('classic');
   });
 

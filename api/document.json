@@ -41,7 +41,7 @@
       "errors": ["invalid_argument", "parse_error"]
     },
     "document.import": {
-      "summary": "Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD)) as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its pieces one of each; Save then asks where to write the BurrTools file, never over the source. The file is read by its path or from its bytes, exactly one of the two, as it is (never decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is refused (parse_error), as is one the format's reader cannot take (the original's \"Could not load puzzle, sorry!\"). The open document goes as with document.new.",
+      "summary": "Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD)) as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its pieces one of each; Save then asks where to write the ShapeLogic file, never over the source. The file is read by its path or from its bytes, exactly one of the two, as it is (never decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is refused (parse_error), as is one the format's reader cannot take (the original's \"Could not load puzzle, sorry!\"). The open document goes as with document.new.",
       "params": {
         "type": "object",
         "properties": {

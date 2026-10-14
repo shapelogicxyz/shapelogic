@@ -101,7 +101,7 @@ front end's notices, the documents).
   per ending, the original's notes after the summary; `-x` (the saved
   solutions' routes again), `--save` (a `SolveSession`; `-d` allowed:
   see the differences), `--json`.
-- `BURRTOOLS_SLIDE_DIR` and `BURRTOOLS_SLIDE_DISK_GB` read by the CLI
+- `SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_SLIDE_DISK_GB` read by the CLI
   into the options.
 - Stacking stays refused; `--panex-dir`/`--panex-disk` refused with a
   message saying so.

@@ -33,7 +33,7 @@ describe('the search options', () => {
       strictColors: true,
       justLevels: false,
       autosave: false,
-      solverType: 'bt2',
+      solverType: 'crowell',
       sortBy: 'level',
     });
     expect(o).toMatchObject({
@@ -41,7 +41,7 @@ describe('the search options', () => {
       deepSymmetry: true,
       strictColors: true,
       autosave: false,
-      solver: 'bt2',
+      solver: 'crowell',
       sortBy: 'level',
     });
     // an unknown solver type (a sliding one) or sort keeps the default
@@ -383,22 +383,6 @@ describe('the solve records', () => {
     bus.emit('solve.state', { problem: 'p2', state: 'paused' });
     bus.emit('solve.state', { problem: 'p2', state: 'idle' });
     expect(t.get('p2').phase).toBe('none');
-  });
-
-  it('know a paused BurrTools 2 search, which a change of the lists would lose', () => {
-    const bus = eventBus();
-    const s = new Solves(bus);
-    s.launch('p1', 'bt2');
-    bus.emit('solve.state', { problem: 'p1', state: 'paused' });
-    expect(s.pausedBt2()).toBeNull();
-    bus.emit('document.changed', { revision: 2, what: [], shapes: [], problems: ['p1'] });
-    expect(s.pausedBt2()).toBe('p1');
-    s.launch('p2', 'classic');
-    bus.emit('solve.state', { problem: 'p2', state: 'paused' });
-    bus.emit('document.changed', { revision: 3, what: [], shapes: [], problems: [] });
-    expect(s.pausedBt2()).toBe('p1');
-    bus.emit('solve.state', { problem: 'p1', state: 'idle' });
-    expect(s.pausedBt2()).toBeNull();
   });
 
   it('wait for a launched run before its first state, and keep a failure until the next launch', async () => {

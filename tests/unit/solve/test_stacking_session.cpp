@@ -6,16 +6,16 @@
 // search cannot hold, Just Count, and the progress.
 #include "../model/model_test_helpers.h"
 
-#include "bt/base/solve_state.h"
-#include "bt/grid/grid_type.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
-#include "bt/model/stacking.h"
-#include "bt/solve/panex_search.h"
-#include "bt/solve/solve_progress.h"
-#include "bt/solve/solve_session.h"
+#include "shapelogic/base/solve_state.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/panex_search.h"
+#include "shapelogic/solve/solve_progress.h"
+#include "shapelogic/solve/solve_session.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -206,7 +206,7 @@ TEST_CASE("stacking session: a paused Panex search carries on to a shortest path
       CHECK(pr.getNumberOfSavedSolutions() == 0);
       CHECK(s.note().starts_with("Paused "));
       CHECK(s.note().ends_with(" moves deep. The search is saved: press Continue to carry on, "
-                               "even after quitting BurrTools."));
+                               "even after quitting ShapeLogic."));
       CHECK_FALSE(panex::savedSearch(puz, pr, workDir()).empty());
       REQUIRE(s.resume().has_value());
       s.wait();

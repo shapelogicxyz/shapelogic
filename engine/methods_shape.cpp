@@ -3,12 +3,12 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/app/layer_geometry.h"
-#include "bt/app/queries.h"
-#include "bt/app/shape_tools.h"
-#include "bt/base/int_cast.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
+#include "shapelogic/app/layer_geometry.h"
+#include "shapelogic/app/queries.h"
+#include "shapelogic/app/shape_tools.h"
+#include "shapelogic/base/int_cast.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
 
 #include <limits>
 #include <string>

@@ -11,7 +11,7 @@ DerivePointerAlignment: false
 PointerAlignment: Left
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: '^"bt/'
+  - Regex: '^"shapelogic/'
     Priority: 1
   - Regex: '^<catch2/'
     Priority: 2

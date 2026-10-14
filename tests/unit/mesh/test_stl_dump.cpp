@@ -15,11 +15,11 @@
 // (docs/handoff/deferred-5.md, "Found in the original").
 // Keep the two dumps in step.
 
-#include "bt/grid/voxel.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/mesh/stl.h"
-#include "bt/mesh/voxel_mesh.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/mesh/stl.h"
+#include "shapelogic/mesh/voxel_mesh.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <catch2/catch_test_macros.hpp>
 

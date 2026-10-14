@@ -1,7 +1,7 @@
 # Web UI specification
 
 What the future web front end does, screen by screen, mapped to the original
-BurrTools features, with the gaps the design still has to fill. The engine
+ShapeLogic features, with the gaps the design still has to fill. The engine
 API ([core-api.md](core-api.md)) is derived from this document: every action
 here must map to an API call.
 
@@ -209,7 +209,7 @@ Rotation turns each piece about its own centre.
    Puzzlecad, paused solver state); Convert grid type; Convert assemblies to
    pieces; puzzle notes/comment; Status window (per-shape table: cells,
    identical shapes, symmetry, connectedness); tutorial, user guide, about.
-2. **This fork's solver options:** solver type (Classic, Crowell, BT2),
+2. **This fork's solver options:** solver type (Complete (ShapeLogic), Fast (Crowell)),
    Check Rotations (rotation take-apart), Just Levels, Strict Color
    Restrictions, Deep Symmetry Check, Enable High Memory, Autosave every
    20 minutes, **Abort** (hard stop that clears the results, separate from
@@ -633,7 +633,7 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
   source). The Entities workspace comes forward with the first shape, as
   the original's `selectEntitiesTab` and `activateShape`. The status bar
   says "Imported pieces.puz". The file does not go into Open Recent (it is
-  not a BurrTools file).
+  not a ShapeLogic file).
 - A file it cannot read: a message box with the original's "Could not
   load puzzle, sorry!" and the engine's reason under it; the open puzzle
   stays.

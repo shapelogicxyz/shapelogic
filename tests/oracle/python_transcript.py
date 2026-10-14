@@ -11,7 +11,7 @@ puzzles through the API from a seeded generator (saving them, solving
 them), and calls the API with wrong arguments (the exception's type).
 
 With --one-thread the solves run on one thread (the original's module from
-BURRTOOLS_THREADS=1, which the harness sets, the new one from threads=1):
+SHAPELOGIC_THREADS=1, which the harness sets, the new one from threads=1):
 the assemblies and solutions are then compared in the order they come, with
 their numbers and the search's iterations. Otherwise they are compared as
 sorted lists without their numbers (the order depends on the threads).
@@ -25,7 +25,10 @@ import random
 import sys
 import tempfile
 
-import burrtools
+try:
+    import shapelogic as burrtools
+except ImportError:
+    import burrtools
 
 ONE_THREAD = False
 
@@ -39,7 +42,7 @@ def solve(problem, **kw):
         try:
             return problem.solve(threads=1, **kw)
         except TypeError:
-            # the original's module: BURRTOOLS_THREADS=1 holds it to one
+            # the original's module: SHAPELOGIC_THREADS=1 holds it to one
             pass
     return problem.solve(**kw)
 

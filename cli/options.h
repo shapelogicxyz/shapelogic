@@ -6,9 +6,9 @@
 /// solve-and-save mode under --save (src/burrTxt2.cpp), and the A/B
 /// switches for benchmarks.
 
-#include "bt/solve/sliding_search.h"
-#include "bt/solve/solver_type.h"
-#include "bt/solve/stack_search.h"
+#include "shapelogic/solve/sliding_search.h"
+#include "shapelogic/solve/solver_type.h"
+#include "shapelogic/solve/stack_search.h"
 
 #include <optional>
 
@@ -52,7 +52,7 @@ struct Options {
   // burrTxt's stacking options (--high-memory and --restart too)
   bool panexSolver = false;          ///< --solver of a stacking puzzle: the Panex Solver
   const char* panexDir = nullptr;    ///< --panex-dir DIR
-  double panexDiskGB = 0;            ///< --panex-disk GB (0: BURRTOOLS_PANEX_DISK_GB or half the free space)
+  double panexDiskGB = 0;            ///< --panex-disk GB (0: SHAPELOGIC_PANEX_DISK_GB or half the free space)
 
   // burrTxt2's mode
   const char* saveTo = nullptr;       ///< --save FILE
@@ -73,12 +73,12 @@ struct Options {
   bool rotationAnchor = true;
   unsigned int vectorMemoryMb = 256;
   bool originalDrawings = false;  ///< --original-drawings
-  // the slide search's (the original's BURRTOOLS_SLIDE_* switches)
+  // the slide search's (the original's SHAPELOGIC_SLIDE_* switches)
   bool slideLegacy = false;  ///< --slide-legacy: the search over text keys
   bool slideApart = false;   ///< --slide-apart: like pieces told apart
   bool slideQueue = false;   ///< --slide-queue: a full search through the queue
   bool slideTrace = false;   ///< --slide-trace: each level of a full search on stderr
-  // the Panex search's (BURRTOOLS_NO_TOWER_RULE, BURRTOOLS_PANEX_LOG)
+  // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)
   bool noTowerRule = false;  ///< --no-tower-rule: the classic tower searched too
   bool panexLog = false;     ///< --panex-log: each level of a Panex search on stderr
 

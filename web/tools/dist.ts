@@ -99,13 +99,13 @@ export function distConfig(
   const exe = platform === 'win32' ? 'bt-engine.exe' : 'bt-engine';
   const signed = (process.env.CSC_NAME ?? '') !== '' || (process.env.CSC_LINK ?? '') !== '';
   return {
-    appId: 'io.github.burrtools.alpha',
-    productName: 'BurrTools Alpha',
-    copyright: 'GPL-3.0-or-later; BurrTools by Andreas Röver and others',
+    appId: 'xyz.shapelogic.app',
+    productName: 'ShapeLogic',
+    copyright: 'GPL-3.0-or-later; a fork of BurrTools by Andreas Röver and others',
     directories: { output: 'dist', buildResources: 'packaging' },
     // the bundles electron-vite made, and nothing else: three.js is in the
     // renderer's bundle, the main process needs no package
-    files: ['out/**/*', 'package.json', '!**/*.map'],
+    files: ['out/**/*', 'packaging/icon.png', 'package.json', '!**/*.map'],
     extraMetadata: { version, main: './out/main/index.js' },
     asar: true,
     npmRebuild: false,
@@ -114,15 +114,15 @@ export function distConfig(
     fileAssociations: [
       {
         ext: 'xmpuzzle',
-        name: 'BurrTools Puzzle',
-        description: 'BurrTools Puzzle',
+        name: 'ShapeLogic Puzzle',
+        description: 'ShapeLogic Puzzle',
         role: 'Editor',
         icon: 'document',
       },
       {
         ext: 'btsolve',
-        name: 'BurrTools Paused Solve',
-        description: 'BurrTools Paused Solve',
+        name: 'ShapeLogic Paused Solve',
+        description: 'ShapeLogic Paused Solve',
         role: 'Editor',
         icon: 'document',
       },
@@ -147,15 +147,15 @@ export function distConfig(
       // ad hoc unless a certificate is named (then hardened and notarised)
       ...(signed ? { hardenedRuntime: true } : { identity: '-', hardenedRuntime: false }),
     },
-    dmg: { title: 'BurrTools Alpha ${version}' },
+    dmg: { title: 'ShapeLogic ${version}' },
     win: { target: 'nsis', icon: 'packaging/icon.png' },
     nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true },
     linux: {
       target: ['AppImage', 'deb'],
-      executableName: 'burrtools-alpha',
+      executableName: 'shapelogic',
       category: 'Game',
       icon: 'packaging/icon.png',
-      maintainer: 'BurrTools Alpha',
+      maintainer: 'ShapeLogic',
       synopsis: 'Design and solve interlocking puzzles',
     },
   };
@@ -185,7 +185,7 @@ async function main(): Promise<void> {
   const target =
     platform === 'darwin' ? Platform.MAC : platform === 'win32' ? Platform.WINDOWS : Platform.LINUX;
   const config = distConfig(version, engine, platform);
-  console.log(`dist: BurrTools Alpha ${version} for ${platform} ${arch}, with ${engine}`);
+  console.log(`dist: ShapeLogic ${version} for ${platform} ${arch}, with ${engine}`);
   await build({
     projectDir: WEB,
     targets: target.createTarget(

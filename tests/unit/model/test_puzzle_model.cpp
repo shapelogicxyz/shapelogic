@@ -7,9 +7,9 @@
 #include "../grid/grid_test_helpers.h"
 #include "model_test_helpers.h"
 
-#include "bt/base/assert.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/base/assert.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <catch2/catch_test_macros.hpp>
 

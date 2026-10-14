@@ -1,6 +1,6 @@
 # 0005: Ownership, errors and invariants
 
-**Status:** accepted (stage 0); `core/bt/base/error.h`, `core/bt/base/assert.h`
+**Status:** accepted (stage 0); `core/shapelogic/base/error.h`, `core/shapelogic/base/assert.h`
 
 ## Context
 The original returns raw owning pointers (`gridType_c::getVoxel()`), writes

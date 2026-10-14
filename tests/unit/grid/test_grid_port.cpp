@@ -3,16 +3,16 @@
 // places where the port deliberately differs from the original (see
 // docs/handoff/stage-1.md).
 
-#include "bt/grid/bitfield.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/symmetries.h"
-#include "bt/grid/voxel.h"
-#include "bt/grid/voxel_bricks.h"
-#include "bt/grid/voxel_prisms.h"
-#include "bt/grid/voxel_rhombic.h"
-#include "bt/grid/voxel_spheres.h"
-#include "bt/grid/voxel_table.h"
-#include "bt/grid/voxel_tetra_octa.h"
+#include "shapelogic/grid/bitfield.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/symmetries.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/grid/voxel_bricks.h"
+#include "shapelogic/grid/voxel_prisms.h"
+#include "shapelogic/grid/voxel_rhombic.h"
+#include "shapelogic/grid/voxel_spheres.h"
+#include "shapelogic/grid/voxel_table.h"
+#include "shapelogic/grid/voxel_tetra_octa.h"
 #include "grid_test_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>

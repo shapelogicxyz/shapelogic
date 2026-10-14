@@ -34,7 +34,6 @@ add_executable(bt_tests
   unit/model/test_puzzle_model.cpp
   unit/solve/test_assembler.cpp
   unit/solve/test_assembler_1.cpp
-  unit/solve/test_assembler_bt2.cpp
   unit/solve/test_disassembly.cpp
   unit/solve/test_grouping.cpp
   unit/solve/test_positions.cpp
@@ -45,8 +44,7 @@ add_executable(bt_tests
   unit/solve/test_sliding_session.cpp
   unit/solve/test_solve_session.cpp
   unit/solve/test_stacking.cpp
-  unit/solve/test_stacking_session.cpp
-  unit/solve/test_work_stealing.cpp)
+  unit/solve/test_stacking_session.cpp)
 
 target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain manifold::manifold)
 bt_set_warnings(bt_tests)
@@ -74,11 +72,11 @@ add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py
 
 # The Python module (deferred part 7), when it is built: the original's
 # tests and the new ones in python/tests, on this build's module.
-if(TARGET burrtools)
+if(TARGET shapelogic)
   add_test(NAME python COMMAND Python::Interpreter -m unittest discover -s python/tests -v
            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
   set_tests_properties(python PROPERTIES
-    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:burrtools>" LABELS python TIMEOUT 600)
+    ENVIRONMENT "PYTHONPATH=$<TARGET_FILE_DIR:shapelogic>" LABELS python TIMEOUT 600)
 endif()
 
 # bt_roundtrip: load and save one puzzle file, for `oracle.py roundtrip`.

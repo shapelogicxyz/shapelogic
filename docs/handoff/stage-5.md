@@ -9,7 +9,7 @@ session at high effort. The brief is at the end.
 ### The audit of stage 4 (its own commit, 60dc717)
 The three findings of `tmp/audit/stage4report.txt` (local) are fixed, each
 with a test that fails without the fix. All three are bugs of the original
-(1 and 2 of upstream BurrTools too) and change no answer on the corpus:
+(1 and 2 of upstream ShapeLogic too) and change no answer on the corpus:
 1. Groups are registered under the part index, as the take-apart asks for
    them (the original registered the shape id: pieces in several groups
    were never grouped, or grouped by another part's counts).
@@ -26,9 +26,9 @@ saved position was refused, as burrTxt2 (4a; the tool now runs the
 session, which does the same); the Disassembler says its shapes and
 hotspots must not change while it exists (4c; the session makes new ones
 on every run). Before that commit, the pending renaming of the documents
-to "BurrTools Alpha" went in on its own (836f0b1).
+to "ShapeLogic" went in on its own (836f0b1).
 
-### The session (`core/bt/solve/`, decision 0010)
+### The session (`core/shapelogic/solve/`, decision 0010)
 - `solve_session.{h,cpp}`: `SolveSession` (port of `solveThread_c` and of
   the GUI's Solve, Prepare, Continue, Abort, autosave pause and
   recordSearchStats), `SolveOptions` (the PAR_ flags, `SolutionOrder`, the
@@ -169,7 +169,7 @@ ASan (the 33-cube probe no longer stops it), and the fast tier of `oracle`
     queue, so the levels could not borrow them (decision 0010, the one
     exception to decision 0009's one pool per solve).
 13. **Thread counts:** `SolveOptions::threads` is the original's thread
-    limit (0: none); `takeApartWorkers` is `BURRTOOLS_DISASM_WORKERS`. The
+    limit (0: none); `takeApartWorkers` is `SHAPELOGIC_DISASM_WORKERS`. The
     choices are the original's (`splitThreads`, `chooseDisasmWorkerCount`,
     `bt2Threads`).
 14. **A changed solver between runs** applies to the take-apart; the
@@ -232,8 +232,8 @@ app layer must offer the engine), decisions 0003, 0004, 0005 and 0006, and
 this note. Effort: high. If a separate audit of stage 5 has been done,
 apply its findings first, as their own commit.
 
-**Scope** (PLAN.md, stage 6): a new module `core/bt/app/` (it may use
-everything below it; nothing below uses it) and `core/bt/mesh/`.
+**Scope** (PLAN.md, stage 6): a new module `core/shapelogic/app/` (it may use
+everything below it; nothing below uses it) and `core/shapelogic/mesh/`.
 - `Document`: a `Puzzle` with its undo history (the original's
   `shapeHistory_c`, `src/gui/shapehistory.cpp`, generalised to every
   edit), a revision number bumped by every change, a dirty flag,
@@ -263,7 +263,7 @@ everything below it; nothing below uses it) and `core/bt/mesh/`.
   `StatProblemInfo`/`StatPieceInfo` in `mainwindow.cpp` around line 1796,
   and the status window `statuswindow.cpp`: cells, symmetry,
   connectedness, identical shapes), `problem.kind`.
-- **Meshes** (`core/bt/mesh/`): the drawing meshes of every grid as the
+- **Meshes** (`core/shapelogic/mesh/`): the drawing meshes of every grid as the
   original's 3D view draws them: `src/halfedge/` (polyhedron, faces,
   modifiers: port as value types, no owning raw pointers),
   `voxel_c::getMeshInternal` / `getDrawingMesh` / `getWireframeMesh` /

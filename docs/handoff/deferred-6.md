@@ -13,9 +13,9 @@ after this part, as the plan says. Next: part 7, the Python bindings.
 
 Six commits, in order:
 - `c0574ba` **Core: the imports of PuzzleSolver3D and Puzzlecad files,
-  the Puzzlecad export, grid conversion**: `core/bt/io/imports.h`
+  the Puzzlecad export, grid conversion**: `core/shapelogic/io/imports.h`
   (`ps3d_file.cpp` from ps3dloader.cpp, `scad_file.cpp` from
-  scadloader.cpp), `core/bt/model/grid_convert.h` (converter.cpp),
+  scadloader.cpp), `core/shapelogic/model/grid_convert.h` (converter.cpp),
   `io::readPlainFile`, `Document::importFile`, `importBytes`,
   `convertGrid`, `exportPuzzlecad`; the harness (`imports_old.cpp`,
   `tests/tools/imports.cpp` = `bt_imports`, `oracle.py imports` and

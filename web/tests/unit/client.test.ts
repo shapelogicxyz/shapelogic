@@ -56,9 +56,9 @@ describe('engine.hello', () => {
     // ids are given when a call is made; replies come in the order sent
     expect(t.sent.map((m) => m.id)).toEqual([2, 1, 3]);
     t.reply(1, { undoDepth: 25, threads: 0, solver: 'classic' });
-    t.reply(3, { undoDepth: 25, threads: 0, solver: 'bt2' });
+    t.reply(3, { undoDepth: 25, threads: 0, solver: 'crowell' });
     expect((await info).solver).toBe('classic');
-    expect((await settings).solver).toBe('bt2');
+    expect((await settings).solver).toBe('crowell');
   });
 
   it('refuses an engine that speaks another protocol, and fails the calls waiting', async () => {

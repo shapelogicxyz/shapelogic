@@ -8,23 +8,21 @@
 // SolidSixPieceBurrs are [slow] at -O0; each has a quick twin on Demo Piece
 // Generator (928 assemblies, 927 solutions). The cases after the ported ones
 // are new: random pauses, a pause-delay sweep, stops before a run starts,
-// abort, errors, the order of the saved solutions, BurrTools 2 paused while
-// it drains, and the [parallel] cases ThreadSanitizer runs.
+// abort, errors, the order of the saved solutions, and the [parallel] cases ThreadSanitizer runs.
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
 
-#include "bt/base/solve_state.h"
-#include "bt/base/stop.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/assembly.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
-#include "bt/solve/assembler_bt2.h"
-#include "bt/solve/solve_progress.h"
-#include "bt/solve/solve_session.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/base/solve_state.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/solve/solve_progress.h"
+#include "shapelogic/solve/solve_session.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -322,7 +320,7 @@ TEST_CASE("solve progress: asked for all through a solve, it only goes forward",
   // The picture of a running solve can be asked for at any time; the
   // overall figure never goes back and ends at 1. With EnigmaTIC's
   // separation of 3R1.1R1.3R0.2R1 (9 slides and 3 turns), whichever solver.
-  for (const SolverType type : {SolverType::Classic, SolverType::Crowell, SolverType::Bt2}) {
+  for (const SolverType type : {SolverType::Classic, SolverType::Crowell}) {
     INFO(solverTypeLabel(type));
     Puzzle p = fresh("test_rotation_solvers.xmpuzzle");
     SolveOptions o = takeApart();
@@ -413,11 +411,10 @@ TEST_CASE("solve session: a pause-delay sweep over the whole solve loses nothing
   struct Case {
     const char* file;
     SolverType solver;
-    bool throughSaves;  // BurrTools 2 cannot carry on a saved search
+    bool throughSaves;
   };
   for (const Case c : {Case{"DemoPieceGenerator.xmpuzzle", SolverType::Classic, true},
-                       Case{"DraculasDentalDesaster.xmpuzzle", SolverType::Classic, true},
-                       Case{"DraculasDentalDesaster.xmpuzzle", SolverType::Bt2, false}}) {
+                       Case{"DraculasDentalDesaster.xmpuzzle", SolverType::Classic, true}}) {
     INFO(c.file << ", " << solverTypeLabel(c.solver));
     SolveOptions o = takeApart(4);
     o.solver = c.solver;
@@ -440,7 +437,7 @@ TEST_CASE("solve session: random pauses, in memory and through saves, find every
   // Many short runs: each is paused at a random moment of its search from
   // another thread (now and then at a save point), and carried on in the same
   // session or, every few runs, in a new one on the puzzle saved and
-  // loaded again. Assembler 0 and 1, and BurrTools 2 in memory.
+  // loaded again. Assembler 0 and 1.
   struct Case {
     const char* file;
     SolverType solver;
@@ -448,8 +445,7 @@ TEST_CASE("solve session: random pauses, in memory and through saves, find every
   };
   std::mt19937 rng(20261007);
   for (const Case c : {Case{"DemoPieceGenerator.xmpuzzle", SolverType::Classic, true},
-                       Case{"DraculasDentalDesaster.xmpuzzle", SolverType::Classic, true},
-                       Case{"DraculasDentalDesaster.xmpuzzle", SolverType::Bt2, false}}) {
+                       Case{"DraculasDentalDesaster.xmpuzzle", SolverType::Classic, true}}) {
     INFO(c.file << ", " << solverTypeLabel(c.solver));
     SolveOptions o = takeApart(4);
     o.solver = c.solver;
@@ -743,47 +739,6 @@ TEST_CASE("solve session: the kept solutions do not depend on which worker finis
   }
 }
 
-TEST_CASE("solve session: BurrTools 2 paused while the last take-aparts run survives a reload",
-          "[solve][session][resume]") {
-  // BurrTools 2 cannot carry on a saved search, but one that is through is
-  // saved as through: a pause while what it found is still being taken
-  // apart must keep it all when the puzzle is loaded again.
-  SolveOptions o = takeApart(2);
-  o.solver = SolverType::Bt2;
-  o.checkRotations = true;
-  const Totals expected = straight("test_rotation_solvers.xmpuzzle", o);
-
-  bool landed = false;
-  for (int attempt = 0; attempt < 5 && !landed; attempt++) {
-    Puzzle p = fresh("test_rotation_solvers.xmpuzzle");
-    {
-      SolveSession s(p, p.getProblem(0), o);
-      REQUIRE(s.start().has_value());
-      while (s.state() == SolveState::Preparing || s.state() == SolveState::Assembling) {
-        std::this_thread::yield();
-      }
-      s.pause();
-      s.wait();
-      landed = s.state() == SolveState::Paused;
-    }
-    if (!landed) {
-      continue;
-    }
-    // BurrTools 2's search, saved as through: after the last piece
-    const Problem& pr = p.getProblem(0);
-    REQUIRE(pr.getPending().size() == 1);
-    CHECK(pr.getAssemblerVersion() == AssemblerBt2::kVersion);
-    CHECK(pr.getAssemblerState().starts_with(std::to_string(pr.getNumberOfPieces() + 1) + " "));
-    Puzzle q = reloaded(p);
-    SolveSession s(q, q.getProblem(0), o);
-    REQUIRE(s.resume().has_value());
-    s.wait();
-    REQUIRE(s.state() == SolveState::Finished);
-    CHECK(totals(q.getProblem(0)) == expected);
-  }
-  CHECK(landed);
-}
-
 TEST_CASE("solve session: take-apart workers, level threads and progress from another thread",
           "[solve][session][parallel]") {
   // For ThreadSanitizer: a solve with take-apart workers whose levels are
@@ -799,7 +754,6 @@ TEST_CASE("solve session: take-apart workers, level threads and progress from an
   for (const Case c : {Case{"test_rotation_solvers.xmpuzzle", true, SolverType::Classic},
                        Case{"test_rotation_solvers.xmpuzzle", true, SolverType::Crowell},
                        Case{"Bermuda.xmpuzzle", false, SolverType::Classic},
-                       Case{"Bermuda.xmpuzzle", false, SolverType::Bt2},
                        Case{"DemoPieceGenerator.xmpuzzle", false, SolverType::Classic}}) {
     INFO(c.file << ", " << solverTypeLabel(c.solver));
     SolveOptions o = takeApart(1);

@@ -7,8 +7,8 @@
 /// which reads the fields a method takes and refuses missing, mistyped and
 /// unknown ones as the schema does.
 
-#include "bt/app/document.h"
-#include "bt/base/error.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/base/error.h"
 
 #include <nlohmann/json.hpp>
 

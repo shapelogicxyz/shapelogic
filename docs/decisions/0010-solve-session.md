@@ -1,7 +1,7 @@
 # 0010: The solve session
 
-**Status:** accepted (stage 5); `core/bt/solve/solve_session.h`,
-`core/bt/solve/solve_progress.h`
+**Status:** accepted (stage 5); `core/shapelogic/solve/solve_session.h`,
+`core/shapelogic/solve/solve_progress.h`
 
 ## Context
 The original ran each solve run in a `solveThread_c`, made anew for every

@@ -1,21 +1,21 @@
 # 0014: Sliding puzzles in the core, the engine and the CLI
 
-**Status:** accepted (deferred part 1); `core/bt/model/sliding.h`,
-`core/bt/solve/sliding_search.h`, `core/bt/solve/slide_levels.h`,
-`core/bt/app/document_sliding.cpp`, `engine/methods_sliding.cpp`,
+**Status:** accepted (deferred part 1); `core/shapelogic/model/sliding.h`,
+`core/shapelogic/solve/sliding_search.h`, `core/shapelogic/solve/slide_levels.h`,
+`core/shapelogic/app/document_sliding.cpp`, `engine/methods_sliding.cpp`,
 `api/sliding.json`
 
 ## Context
 The original's sliding puzzles (`src/lib/sliding.{h,cpp}`,
 `slidelevels.h`, the sliding branches of `solvethread.cpp` and of the GUI)
-were the newest part of BurrTools: a start/goal shape is a tray whose
+were the newest part of ShapeLogic: a start/goal shape is a tray whose
 empty cells are walls and whose variable cells are corridors; each cell's
 colour is the start mark of a piece (its shape index + 1) and its goal
 mark the goal of one; each start/goal shape has a problem of its own. The
 solve thread's assembler found the start layouts (the pieces painted in
 the colours of their starts), and inside its callback a breadth-first
 slide search took each layout to the goal. The original read
-`BURRTOOLS_SLIDE_DIR` and `BURRTOOLS_SLIDE_DISK_GB` from the environment,
+`SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_SLIDE_DISK_GB` from the environment,
 traced on stderr, ran the full search on threads of its own and changed
 the puzzle (start locks, the maximum of holes) from the GUI as a solve
 started. Decisions 0004, 0010 and 0011 rule out all four as they were.
@@ -48,8 +48,8 @@ and gives the original's summary as `note()`. The search polls only its
 `ThreadPool` and gives the same path on any number of threads.
 
 **No environment and no printing in the core.** The work folder and the
-disk budget are options: `bt` reads `BURRTOOLS_SLIDE_DIR` and
-`BURRTOOLS_SLIDE_DISK_GB` (the cache folder's `sliding` by default, from
+disk budget are options: `bt` reads `SHAPELOGIC_SLIDE_DIR` and
+`SHAPELOGIC_SLIDE_DISK_GB` (the cache folder's `sliding` by default, from
 `base/system`'s `userCacheDirectory()`), the engine has the settings
 `slideFolder` and `slideDiskGB`. The original's level trace is a callback
 (`SlideSearch::onLevel`); `bt --slide-trace` prints it.

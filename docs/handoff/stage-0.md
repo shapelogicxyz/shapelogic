@@ -6,7 +6,7 @@
 - Repository: git (`main`), CMake presets `dev` / `release` / `asan` /
   `tsan`, justfile, `.clang-format`, `.clang-tidy`, `.editorconfig`,
   GPL-3.0-or-later (COPYING, SPDX headers), AUTHORS, README.
-- `core/bt/base`: `StopSource`/`StopToken`/`StopKind`, `SolveState` +
+- `core/shapelogic/base`: `StopSource`/`StopToken`/`StopKind`, `SolveState` +
   `SolveStateCell` with the transition table, `Result<T>`/`Error`/`Errc`,
   `BT_ASSERT`/`InternalError`, `kVersion`. These implement decisions 0004
   and 0005 and are what every later stage builds on.
@@ -54,7 +54,7 @@ Work in `/Users/colin/git/burr-tools-rotations/burrtools_alpha`; the original
 is `../burrtools_rotations`. Read AGENTS.md, docs/ARCHITECTURE.md,
 docs/PLAN.md (stage details 1 and 2), this note, and decisions 0005 to 0007.
 
-**Stage 1, grids and symmetry** (`core/bt/grid/`):
+**Stage 1, grids and symmetry** (`core/shapelogic/grid/`):
 - Port the grid types and voxel spaces from the original `src/lib/`:
   `voxel.{h,cpp}`, `voxel_0` to `voxel_4`, `gridtype.cpp`, `voxeltable.cpp`,
   `symmetries_0/1/2` and the `tabs_0` to `tabs_4` tables (copy the generated
@@ -72,7 +72,7 @@ docs/PLAN.md (stage details 1 and 2), this note, and decisions 0005 to 0007.
   check symmetry results and transforms against values dumped from the
   original for every grid type.
 
-**Stage 2, model and file format** (`core/bt/model/`, `core/bt/io/`):
+**Stage 2, model and file format** (`core/shapelogic/model/`, `core/shapelogic/io/`):
 - Port `puzzle.cpp`, `problem.cpp`, `solution.cpp`, `assembly.cpp` and the
   data part of `disassembly.cpp` (`separation_c`, `state_c`; the take-apart
   algorithms are stage 4), and `tools/xml.cpp` + `tools/gzstream.cpp`. Add

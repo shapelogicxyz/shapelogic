@@ -13,7 +13,7 @@ import tempfile
 import time
 import unittest
 
-import burrtools
+import shapelogic
 
 DATA = os.path.join(os.path.dirname(__file__), "..", "..", "tests", "data")
 PUZZLES = os.path.join(DATA, "puzzles")
@@ -40,7 +40,7 @@ def recorded_xml(name):
 
 def dominoes(sx, sy, sz):
     """A box filled with 2x1x1 dominoes: many assemblies, a long search."""
-    puzzle = burrtools.Puzzle()
+    puzzle = shapelogic.Puzzle()
     box = puzzle.add_shape(sx, sy, sz, name="box")
     box.fill([(x, y, z) for x in range(sx) for y in range(sy) for z in range(sz)])
     domino = puzzle.add_shape(2, 1, 1, name="domino")
@@ -58,36 +58,36 @@ def placements(solutions):
 
 class TestGrids(unittest.TestCase):
     def test_default_grid_is_bricks(self):
-        self.assertEqual(burrtools.Puzzle().grid, "bricks")
-        self.assertEqual(burrtools.load(puzzle_path("PelikanBurr.xmpuzzle")).grid, "bricks")
+        self.assertEqual(shapelogic.Puzzle().grid, "bricks")
+        self.assertEqual(shapelogic.load(puzzle_path("PelikanBurr.xmpuzzle")).grid, "bricks")
 
     def test_every_grid(self):
         for grid in ("bricks", "triangular prisms", "spheres", "rhombic", "tetra-octa",
                      "sliding", "stacking"):
-            self.assertEqual(burrtools.Puzzle(grid).grid, grid)
-            self.assertEqual(burrtools.Puzzle(grid=grid).grid, grid)
+            self.assertEqual(shapelogic.Puzzle(grid).grid, grid)
+            self.assertEqual(shapelogic.Puzzle(grid=grid).grid, grid)
 
     def test_unknown_grid(self):
         with self.assertRaises(ValueError):
-            burrtools.Puzzle("hexagons")
+            shapelogic.Puzzle("hexagons")
 
     def test_grid_is_saved(self):
-        puzzle = burrtools.Puzzle("spheres")
+        puzzle = shapelogic.Puzzle("spheres")
         puzzle.add_shape(2, 2, 2).fill([(0, 0, 0)])
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "s.xmpuzzle")
             puzzle.save(path)
-            self.assertEqual(burrtools.load(path).grid, "spheres")
+            self.assertEqual(shapelogic.load(path).grid, "spheres")
 
     def test_version(self):
         # the wheel's version (pyproject.toml) is the project's (CMake's)
         with open(os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")) as f:
-            self.assertIn(f'version = "{burrtools.__version__}"', f.read())
+            self.assertIn(f'version = "{shapelogic.__version__}"', f.read())
 
 
 class TestSolve(unittest.TestCase):
     def setUp(self):
-        self.puzzle = burrtools.load(puzzle_path("PelikanBurr.xmpuzzle"))
+        self.puzzle = shapelogic.load(puzzle_path("PelikanBurr.xmpuzzle"))
         self.problem = self.puzzle.problems[0]
 
     def test_threads_find_the_same_assemblies(self):
@@ -172,7 +172,7 @@ class TestSolve(unittest.TestCase):
         self.assertEqual(child.returncode, 0)
 
     def test_errors_come_from_next(self):
-        puzzle = burrtools.Puzzle()
+        puzzle = shapelogic.Puzzle()
         box = puzzle.add_shape(2, 2, 2)
         box.fill([(0, 0, 0)])
         piece = puzzle.add_shape(1, 1, 1)
@@ -195,7 +195,7 @@ class TestSolve(unittest.TestCase):
 class TestSliding(unittest.TestCase):
     def test_sliding_solver(self):
         # 81 moves, as the original's burrTxt (the oracle's baseline)
-        puzzle = burrtools.load(puzzle_path("test_sliding_solver.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("test_sliding_solver.xmpuzzle"))
         self.assertEqual(puzzle.grid, "sliding")
         for solver in ("fast", "deep", "full"):
             solutions = list(puzzle.problems[0].solve(sliding_solver=solver))
@@ -206,7 +206,7 @@ class TestSliding(unittest.TestCase):
             self.assertEqual(solutions[0].total_moves, 81)
 
     def test_start_layouts_without_the_search(self):
-        puzzle = burrtools.load(puzzle_path("test_sliding_solver.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("test_sliding_solver.xmpuzzle"))
         layouts = list(puzzle.problems[0].solve(disassemble=False))
         self.assertEqual(len(layouts), 1)
         self.assertFalse(layouts[0].has_disassembly)
@@ -215,14 +215,14 @@ class TestSliding(unittest.TestCase):
         # the original's burrTxt -d with and without --nested-slides
         for name, plain, nested in (("test_sliding_nested", [], ["47"]),
                                     ("slide_fuzz_05", ["12"], ["8"])):
-            problem = burrtools.load(puzzle_path("sliding", name + ".xmpuzzle")).problems[0]
+            problem = shapelogic.load(puzzle_path("sliding", name + ".xmpuzzle")).problems[0]
             self.assertEqual([s.moves_text for s in problem.solve()], plain, name)
             self.assertEqual([s.moves_text for s in problem.solve(nested_slides=True)], nested, name)
 
 
 class TestStacking(unittest.TestCase):
     def test_hanoi(self):
-        puzzle = burrtools.load(puzzle_path("test_stacking_hanoi.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("test_stacking_hanoi.xmpuzzle"))
         self.assertEqual(puzzle.grid, "stacking")
         solutions = list(puzzle.problems[0].solve())
         self.assertEqual([s.moves_text for s in solutions], ["7"])
@@ -230,13 +230,13 @@ class TestStacking(unittest.TestCase):
         self.assertEqual(solutions[0].level, 7)
 
     def test_panex_swap(self):
-        puzzle = burrtools.load(puzzle_path("stacking", "stack_panex_swap_3.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("stacking", "stack_panex_swap_3.xmpuzzle"))
         for solver in ("stacking", "panex"):
             solutions = list(puzzle.problems[0].solve(stacking_solver=solver))
             self.assertEqual([s.moves_text for s in solutions], ["42"], solver)
 
     def test_panex_with_a_work_folder(self):
-        puzzle = burrtools.load(puzzle_path("stacking", "stack_panex_jr.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("stacking", "stack_panex_jr.xmpuzzle"))
         with tempfile.TemporaryDirectory() as tmp:
             solutions = list(puzzle.problems[0].solve(stacking_solver="panex", work_dir=tmp))
         self.assertEqual([s.moves_text for s in solutions], ["143"])
@@ -244,24 +244,24 @@ class TestStacking(unittest.TestCase):
 
 class TestImports(unittest.TestCase):
     def test_puzzlesolver3d(self):
-        puzzle = burrtools.import_puzzlesolver3d(os.path.join(DATA, "imports", "pieces.puz"))
+        puzzle = shapelogic.import_puzzlesolver3d(os.path.join(DATA, "imports", "pieces.puz"))
         self.assertEqual(saved_xml(puzzle), recorded_xml("pieces_puz.xmpuzzle"))
 
     def test_puzzlecad(self):
         for name in ("cube", "plate"):
-            puzzle = burrtools.import_puzzlecad(os.path.join(DATA, "imports", name + ".scad"))
+            puzzle = shapelogic.import_puzzlecad(os.path.join(DATA, "imports", name + ".scad"))
             self.assertEqual(saved_xml(puzzle), recorded_xml(name + "_scad.xmpuzzle"))
 
     def test_refused_imports(self):
         with self.assertRaises(RuntimeError):
-            burrtools.import_puzzlesolver3d(os.path.join(DATA, "imports", "comma.puz"))
+            shapelogic.import_puzzlesolver3d(os.path.join(DATA, "imports", "comma.puz"))
         with self.assertRaises(RuntimeError):
-            burrtools.import_puzzlecad(os.path.join(DATA, "imports", "nopieces.scad"))
+            shapelogic.import_puzzlecad(os.path.join(DATA, "imports", "nopieces.scad"))
         with self.assertRaises(RuntimeError):
-            burrtools.import_puzzlecad("/nonexistent/x.scad")
+            shapelogic.import_puzzlecad("/nonexistent/x.scad")
 
     def test_export_puzzlecad(self):
-        puzzle = burrtools.load(puzzle_path("PelikanBurr.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("PelikanBurr.xmpuzzle"))
         with open(os.path.join(BY_ORIGINAL, "PelikanBurr.p0.scad")) as f:
             self.assertEqual(puzzle.export_puzzlecad(0, name="PelikanBurr.xmpuzzle"), f.read())
         with open(os.path.join(BY_ORIGINAL, "PelikanBurr.p1.scad")) as f:
@@ -270,18 +270,18 @@ class TestImports(unittest.TestCase):
 
     def test_export_refusals(self):
         with self.assertRaisesRegex(RuntimeError, "only available for cube-grid"):
-            burrtools.load(puzzle_path("Bermuda.xmpuzzle")).export_puzzlecad()
+            shapelogic.load(puzzle_path("Bermuda.xmpuzzle")).export_puzzlecad()
         with self.assertRaisesRegex(RuntimeError, "Nothing to export"):
-            burrtools.Puzzle().export_puzzlecad()
-        empty = burrtools.Puzzle()
+            shapelogic.Puzzle().export_puzzlecad()
+        empty = shapelogic.Puzzle()
         empty.add_shape(1, 1, 1)
         with self.assertRaisesRegex(RuntimeError, "Could not export"):
             empty.export_puzzlecad()
         with self.assertRaises(IndexError):
-            burrtools.load(puzzle_path("PelikanBurr.xmpuzzle")).export_puzzlecad(5)
+            shapelogic.load(puzzle_path("PelikanBurr.xmpuzzle")).export_puzzlecad(5)
 
     def test_convert_grid(self):
-        puzzle = burrtools.load(puzzle_path("CubeInCage.xmpuzzle"))
+        puzzle = shapelogic.load(puzzle_path("CubeInCage.xmpuzzle"))
         self.assertEqual(puzzle.convert_targets, ["rhombic", "tetra-octa"])
         for grid in puzzle.convert_targets:
             converted = puzzle.convert_grid(grid)
@@ -291,12 +291,12 @@ class TestImports(unittest.TestCase):
         self.assertEqual(puzzle.grid, "bricks")
 
     def test_convert_refusals(self):
-        bermuda = burrtools.load(puzzle_path("Bermuda.xmpuzzle"))
+        bermuda = shapelogic.load(puzzle_path("Bermuda.xmpuzzle"))
         self.assertEqual(bermuda.convert_targets, [])
         with self.assertRaises(RuntimeError):
             bermuda.convert_grid("rhombic")
         with self.assertRaises(ValueError):
-            burrtools.Puzzle().convert_grid("hexagons")
+            shapelogic.Puzzle().convert_grid("hexagons")
 
 
 if __name__ == "__main__":

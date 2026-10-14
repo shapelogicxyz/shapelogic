@@ -7,11 +7,11 @@
 #include "../grid/grid_test_helpers.h"
 #include "app_test_helpers.h"
 
-#include "bt/app/document.h"
-#include "bt/base/int_cast.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/problem.h"
-#include "bt/model/solution.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/base/int_cast.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -487,7 +487,7 @@ TEST_CASE("document: the stored solver settings", "[app][document]") {
   Document d = openFixture("PelikanBurr.xmpuzzle");
   const Id p = firstProblem(d);
   const unsigned int saved = problem0(d).getNumberOfSavedSolutions();
-  const std::map<std::string, std::string> o = {{"disassemble", "1"}, {"solverType", "bt2"}};
+  const std::map<std::string, std::string> o = {{"disassemble", "1"}, {"solverType", "crowell"}};
   roundTrip(d, [p, &o](Document& x) { return x.setSolverOptions(p, o); });
   CHECK(problem0(d).getSolverOptions() == o);
   // only stored: the solutions stay

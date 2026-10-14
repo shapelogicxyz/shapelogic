@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Writing an exported file (stage 7: the image, the vector image, the STL
-// and the animation), the way the core writes a puzzle (core/bt/io/
+// and the animation), the way the core writes a puzzle (core/shapelogic/io/
 // gzip_file.cpp: saveTarget and replaceWith, since the web stage 6 audit):
 // the bytes go to `<file>.tmp` beside the file and are renamed over it
 // once whole, so a failed write leaves the old file; the place is the file

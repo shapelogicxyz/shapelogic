@@ -7,18 +7,18 @@
 // movement analysator's calls for the GUI.
 #include "../model/model_test_helpers.h"
 
-#include "bt/base/stop.h"
-#include "bt/base/thread_pool.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/assembly.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/disassembler.h"
-#include "bt/solve/movement_analysator.h"
-#include "bt/solve/rotation_rules.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/movement_analysator.h"
+#include "shapelogic/solve/rotation_rules.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -132,11 +132,10 @@ void requireEnigmaRotationSolution(SolverType type) {
 
 }  // namespace
 
-TEST_CASE("EnigmaTIC with Check Rotations: Classic, Crowell, and BurrTools 2 agree",
+TEST_CASE("EnigmaTIC with Check Rotations: Classic and Crowell agree",
           "[solve][disasm][rotations]") {
-  SECTION("BurrTools Classic") { requireEnigmaRotationSolution(SolverType::Classic); }
-  SECTION("Andrew Crowell") { requireEnigmaRotationSolution(SolverType::Crowell); }
-  SECTION("BurrTools 2") { requireEnigmaRotationSolution(SolverType::Bt2); }
+  SECTION("Complete (ShapeLogic)") { requireEnigmaRotationSolution(SolverType::Classic); }
+  SECTION("Fast (Crowell)") { requireEnigmaRotationSolution(SolverType::Crowell); }
 }
 
 namespace {

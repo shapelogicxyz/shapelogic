@@ -1,6 +1,6 @@
 # 0004: One cancellation model and one solve state machine
 
-**Status:** accepted (stage 0); `core/bt/base/stop.h`, `core/bt/base/solve_state.h`
+**Status:** accepted (stage 0); `core/shapelogic/base/stop.h`, `core/shapelogic/base/solve_state.h`
 
 ## Context
 In the original BurrTools, stopping a solve went through three mechanisms at

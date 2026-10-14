@@ -65,7 +65,7 @@ One commit, "Deferred 7: …": no `Engine:` or `Core:` commit (nothing in
   sorted lists. The original's module comes from its meson build folder.
 
 ### Tests
-- `python/tests/test_burrtools.py`: the original's eight tests, unchanged
+- `python/tests/test_shapelogic.py`: the original's eight tests, unchanged
   but for the fixture's place.
 - `python/tests/test_alpha.py` (28): the grids; the version against
   `pyproject.toml`; threads give the same assemblies; the arguments after

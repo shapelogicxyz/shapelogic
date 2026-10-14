@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "convert.h"
 
-#include "bt/app/shape_tools.h"
-#include "bt/base/thread_pool.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/sliding.h"
-#include "bt/model/stacking.h"
+#include "shapelogic/app/shape_tools.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/sliding.h"
+#include "shapelogic/model/stacking.h"
 
 #include <array>
 #include <charconv>
@@ -27,7 +27,7 @@ const Names<GridKind>& gridNames() {
 
 const Names<SolverType>& solverNames() {
   static const Names<SolverType> n = {
-      {"classic", SolverType::Classic}, {"crowell", SolverType::Crowell}, {"bt2", SolverType::Bt2}};
+      {"classic", SolverType::Classic}, {"crowell", SolverType::Crowell}};
   return n;
 }
 

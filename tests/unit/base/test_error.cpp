@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "bt/base/assert.h"
-#include "bt/base/error.h"
-#include "bt/base/version.h"
+#include "shapelogic/base/assert.h"
+#include "shapelogic/base/error.h"
+#include "shapelogic/base/version.h"
 
 #include <catch2/catch_test_macros.hpp>
 

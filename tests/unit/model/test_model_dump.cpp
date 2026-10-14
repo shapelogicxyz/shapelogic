@@ -4,8 +4,8 @@
 // (tests/data/model_dump.txt, `oracle.py model-dump`). Keep the two dumps in
 // step.
 
-#include "bt/io/puzzle_file.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <catch2/catch_test_macros.hpp>
 

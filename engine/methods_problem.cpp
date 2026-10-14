@@ -3,7 +3,7 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/app/queries.h"
+#include "shapelogic/app/queries.h"
 
 namespace bt::engine {
 

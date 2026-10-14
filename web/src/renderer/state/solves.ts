@@ -218,16 +218,6 @@ export class Solves {
     });
   }
 
-  /** A problem whose BurrTools 2 search is paused in memory (decision 0011), or null. */
-  pausedBt2(): string | null {
-    for (const r of this.records.values()) {
-      if (r.state === 'paused' && r.phase === 'none' && r.solver === 'bt2') {
-        return r.problem;
-      }
-    }
-    return null;
-  }
-
   /** Whether any run is under way or ending (or launched and not yet told). */
   get running(): boolean {
     for (const r of this.records.values()) {

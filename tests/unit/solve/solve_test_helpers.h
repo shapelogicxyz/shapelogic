@@ -5,13 +5,13 @@
 // runs as multisets, AGENTS.md), runs with a pool, and the pentomino puzzle
 // of the original's test_solver.cpp.
 
-#include "bt/base/stop.h"
-#include "bt/base/thread_pool.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/assembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/solve/assembler.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/solve/assembler.h"
 
 #include <catch2/catch_test_macros.hpp>
 

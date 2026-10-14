@@ -5,12 +5,12 @@
 // separation tree (as text: pieces, every state, both branches). Both
 // programs' solved files go through it for `oracle.py compare-files`.
 
-#include "bt/io/puzzle_file.h"
-#include "bt/model/assembly.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
 
 #include <cstdio>
 #include <sstream>

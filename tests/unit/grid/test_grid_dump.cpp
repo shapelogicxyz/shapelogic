@@ -3,10 +3,10 @@
 // grid dump (grid_dump.h) of the original is in tests/data/grid_dump.txt,
 // recorded by tests/oracle/grid_dump_old.cpp.
 
-#include "bt/grid/grid_type.h"
-#include "bt/grid/symmetries.h"
-#include "bt/grid/voxel.h"
-#include "bt/grid/voxel_table.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/symmetries.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/grid/voxel_table.h"
 #include "grid_dump.h"
 
 #include <catch2/catch_test_macros.hpp>

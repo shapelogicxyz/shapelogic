@@ -33,7 +33,7 @@ Decision 0009 says so. `.gitignore` is the one of `burrtools_rotations`
 (with `/puzzles/` anchored, so `tests/data/puzzles/` stays tracked, and this
 repository's own entries kept).
 
-### The take-apart (`core/bt/solve/`)
+### The take-apart (`core/shapelogic/solve/`)
 - `disassembler.{h,cpp}`: `Disassembler` (port of `disassembler_c`,
   `disassembler_a_c`, `disassembler_0_c`, `disassembler_crowell_c` and
   `createDisassembler`), `DisassemblerOptions`, `TakeApartResult`,
@@ -121,11 +121,11 @@ a stop from another thread, the A/B switches give the same trees,
 2. **Threads:** `DisassemblerOptions::pool` (the solve's `ThreadPool`)
    instead of `setHelperPool`; `levelThreadCostUs` is per disassembler (the
    original's process-wide atomic, set by its tests); `levelThreads`
-   (`BURRTOOLS_NO_DISASM_PAR`).
+   (`SHAPELOGIC_NO_DISASM_PAR`).
 3. **Environment switches are options:** `analysis.fast`
-   (`BURRTOOLS_NO_DISASM_FAST`), `analysis.rotations.fast`
-   (`BURRTOOLS_NO_ROT_FAST`), `analysis.rotations.anchor`
-   (`BURRTOOLS_NO_ROT_ANCHOR`). `BT_ROT_DEBUG` and `BT_ROT_DUMP` are gone
+   (`SHAPELOGIC_NO_DISASM_FAST`), `analysis.rotations.fast`
+   (`SHAPELOGIC_NO_ROT_FAST`), `analysis.rotations.anchor`
+   (`SHAPELOGIC_NO_ROT_ANCHOR`). `BT_ROT_DEBUG` and `BT_ROT_DUMP` are gone
    (core/ does not print); `collectDebugConflictCells` stays for the GUI.
 4. **One class:** `Disassembler` is `disassembler_c` (the interface),
    `disassembler_a_c`, `disassembler_0_c`, `disassembler_crowell_c` and the

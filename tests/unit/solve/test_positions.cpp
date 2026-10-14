@@ -2,15 +2,13 @@
 // Saved search positions against the original (decision 0006): searches the
 // original paused (tests/data/positions_by_original.txt, recorded by
 // `oracle.py record-positions`) continue here to the same assemblies, and a
-// search paused here on one thread saves the very same text. Assembler 0,
-// assembler 1 and BurrTools 2, whose positions are refused once its search
-// has started (docs/handoff/stage-3b.md). The harness (`just
-// oracle-resume`) checks both directions against the running original on
+// search paused here on one thread saves the very same text. Assembler 0
+// and assembler 1. The harness (`just oracle-resume`) checks both directions against the running original on
 // more puzzles.
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
 
-#include "bt/solve/solver_type.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -81,7 +79,6 @@ TEST_CASE("positions: searches the original paused continue here",
   const std::vector<RecordedPause> recording = readRecording();
   REQUIRE(recording.size() >= 30);
 
-  unsigned int bt2 = 0;
   unsigned int assembler1 = 0;
   for (const RecordedPause& r : recording) {
     INFO(r.fixture << ", " << solverTypeLabel(r.solver) << ", " << r.threads << " threads"
@@ -89,7 +86,6 @@ TEST_CASE("positions: searches the original paused continue here",
     ThreadPool pool(r.threads);
     const SearchOptions options = test::searchOptions(r.threads, &pool, !r.plain);
     const Puzzle p = test::loadFixture(r.fixture);
-    const bool isBt2 = chooseAssembler(p.getProblem(0), r.solver) == AssemblerKind::Bt2;
     assembler1 += chooseAssembler(p.getProblem(0), r.solver) == AssemblerKind::Assembler1 ? 1 : 0;
 
     Fingerprints all;
@@ -100,21 +96,13 @@ TEST_CASE("positions: searches the original paused continue here",
     REQUIRE(r.before.size() == r.stopAfter);
 
     auto a = prepared(p, r.solver, r.reduce);
-    if (isBt2) {
-      // a started BurrTools 2 search cannot be taken up: refused, so that
-      // a solve starts over without what it had found
-      CHECK(a->restorePosition(r.position.text, r.position.version) ==
-            AssemblerError::CannotRestoreInterrupted);
-      bt2++;
-    } else {
-      // the original's position continues here to the same assemblies
-      REQUIRE(a->restorePosition(r.position.text, r.position.version) == AssemblerError::None);
-      const test::RunResult rest = test::runOnce(*a, options);
-      CHECK(rest.end == RunEnd::Finished);
-      Fingerprints both = r.before;
-      both.insert(rest.found.begin(), rest.found.end());
-      CHECK(both == all);
-    }
+    // the original's position continues here to the same assemblies
+    REQUIRE(a->restorePosition(r.position.text, r.position.version) == AssemblerError::None);
+    const test::RunResult rest = test::runOnce(*a, options);
+    CHECK(rest.end == RunEnd::Finished);
+    Fingerprints both = r.before;
+    both.insert(rest.found.begin(), rest.found.end());
+    CHECK(both == all);
 
     // paused here on one thread, the same text and the same assemblies
     if (r.threads == 1) {
@@ -126,6 +114,5 @@ TEST_CASE("positions: searches the original paused continue here",
       CHECK(mine.text == r.position.text);
     }
   }
-  CHECK(bt2 >= 6);
   CHECK(assembler1 >= 15);
 }

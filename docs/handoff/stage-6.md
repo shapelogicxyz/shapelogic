@@ -37,7 +37,7 @@ solution numbers depend on timing (7b, 7c: the original's design); a
 position that trips an assertion on restore errors on every resume (7d,
 as the original).
 
-### The meshes (`core/bt/mesh/`)
+### The meshes (`core/shapelogic/mesh/`)
 Ported from `src/halfedge/`, `voxel_c::getMeshInternal`,
 `getDrawingMesh`, `getWireframeMesh`, `getFlatMesh`, the face geometry of
 `voxel_0` to `voxel_4` (`getConnectionFace`, `calculateSize`,
@@ -47,7 +47,7 @@ half-edge structure refers by number, not pointer; faces and half-edges
 keep the original's list order. `DrawMesh` is the plain output for a
 binary frame. See ARCHITECTURE.md ("mesh").
 
-### The app layer (`core/bt/app/`, decision 0011)
+### The app layer (`core/shapelogic/app/`, decision 0011)
 - `Document`: the puzzle, ids, revision, dirty flag, undo history
   (generalised `shapeHistory_c`: each step keeps the parts it changed and
   swaps them back and forth; groups; depth), every command of core-api.md
@@ -197,7 +197,7 @@ implementation (PLAN.md); split the stage in two sessions if it runs long
 7b solving, events, frames, paging and the contract tests).
 
 **Scope** (PLAN.md, stage 7): `engine/` (`bt-engine`, JSON-RPC 2.0 over
-stdio, decision 0003) over `core/bt/app`, and `api/` (the JSON Schema).
+stdio, decision 0003) over `core/shapelogic/app`, and `api/` (the JSON Schema).
 - **Design first, in a decision record (0012):** the JSON library (a
   pinned one through `cmake/Dependencies.cmake`, or a small reader and
   writer of our own: decide), the message framing (one JSON message per
@@ -222,7 +222,7 @@ stdio, decision 0003) over `core/bt/app`, and `api/` (the JSON Schema).
   `solution.delete`, `solution.toShapes`), playback (`PlaybackSampler`:
   `playback.open/poses/close`, pose tracks as frames) and the explorers
   (`AssemblyExplorer`, `MovementExplorer` behind handles).
-- **Left from stage 6, to port in `core/bt/app` first (with tests and,
+- **Left from stage 6, to port in `core/shapelogic/app` first (with tests and,
   where it computes, values recorded from the original):**
   `grid.geometry` (the 2D cell outlines of a layer for every grid: the
   drawing of `src/gui/grideditor_0.cpp` to `grideditor_4.cpp`, as plain

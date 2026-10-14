@@ -115,7 +115,7 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `solvers.solver` | [Solver](#solver) | required | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solvers.solver` | [Solver](#solver) | required | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
 | `solvers.label` | string | required |  |
 
 `slidingSolvers`:
@@ -162,7 +162,7 @@ Params:
 |---|---|---|---|
 | `undoDepth` | integer |  |  |
 | `threads` | integer |  |  |
-| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solver` | [Solver](#solver) |  | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
 | `slideFolder` | string |  |  |
 | `slideDiskGB` | number |  |  |
 | `panexFolder` | string |  |  |
@@ -186,10 +186,10 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `undoDepth` | integer | required | Undo steps kept (default 25). |
 | `threads` | integer | required | The threads of a solve when its options do not say; 0 every hardware thread (default). |
 | `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
-| `slideFolder` | string | required | Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
-| `slideDiskGB` | number | required | The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it. |
-| `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's BURRTOOLS_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
-| `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (BURRTOOLS_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. |
+| `slideFolder` | string | required | Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
+| `slideDiskGB` | number | required | The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it. |
+| `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
+| `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. |
 
 ## Document and history
 
@@ -239,7 +239,7 @@ Errors: `invalid_argument`, `parse_error`
 
 ### `document.import`
 
-Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD)) as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its pieces one of each; Save then asks where to write the BurrTools file, never over the source. The file is read by its path or from its bytes, exactly one of the two, as it is (never decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is refused (parse_error), as is one the format's reader cannot take (the original's "Could not load puzzle, sorry!"). The open document goes as with document.new.
+Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD)) as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its pieces one of each; Save then asks where to write the ShapeLogic file, never over the source. The file is read by its path or from its bytes, exactly one of the two, as it is (never decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is refused (parse_error), as is one the format's reader cannot take (the original's "Could not load puzzle, sorry!"). The open document goes as with document.new.
 
 Params:
 
@@ -1955,7 +1955,7 @@ Params:
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
 | `which` | `"all"` \| `"missing"` \| `"one"` | required |  |
 | `solution` | [SolutionId](#solutionid) |  | For one. |
-| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solver` | [Solver](#solver) |  | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
 | `rotations` | boolean |  | Try 90 degree turns. |
 | `threads` | integer |  |  |
 
@@ -2172,7 +2172,7 @@ Params:
 | name | type | | description |
 |---|---|---|---|
 | `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
-| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solver` | [Solver](#solver) |  | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
 | `keepMirrors` | boolean |  |  |
 | `keepRotations` | boolean |  |  |
 | `completeRotations` | boolean |  |  |
@@ -2570,9 +2570,9 @@ The grid of a puzzle, fixed for its life.
 
 ### Solver
 
-BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2.
+Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart.
 
-`"classic"` \| `"crowell"` \| `"bt2"`
+`"classic"` \| `"crowell"`
 
 ### SlidingSolver
 
@@ -2859,7 +2859,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `partialNested` | boolean |  |  |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
-| `solverType` | string |  | classic, crowell, bt2 (sliding: fast, deep, full). |
+| `solverType` | string |  | classic, crowell (sliding: fast, deep, full). |
 | `sortBy` | string |  | unsorted, moves, level, rotations. |
 | *other* | string | | |
 
@@ -2918,7 +2918,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 
 | name | type | | description |
 |---|---|---|---|
-| `solver` | [Solver](#solver) |  | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solver` | [Solver](#solver) |  | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
 | `disassemble` | boolean |  | Take each assembly apart; only those that come apart are solutions. |
 | `checkRotations` | boolean |  | Try 90 degree turns while taking apart. |
 | `justCount` | boolean |  | Count, keep no solutions. |
@@ -3009,7 +3009,7 @@ The debug statistics panel.
 | name | type | | description |
 |---|---|---|---|
 | `state` | [SolveState](#solvestate) | required | decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage). |
-| `solver` | [Solver](#solver) | required | BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. |
+| `solver` | [Solver](#solver) | required | Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. |
 | `disassemblyEnabled` | boolean | required |  |
 | `rotationsEnabled` | boolean | required |  |
 | `hardwareThreads` | integer | required |  |

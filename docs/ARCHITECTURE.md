@@ -1,6 +1,6 @@
 # Architecture
 
-BurrTools Alpha is the core of the BurrTools puzzle designer and solver,
+ShapeLogic is the core of the ShapeLogic puzzle designer and solver,
 rebuilt so a web front end can drive it. This document describes **what
 exists now** and the rules that hold everywhere. Each stage updates it.
 
@@ -60,7 +60,7 @@ conversion, a wheel; decision 0018). The deferred plan is done.*
  web front end (web/: Electron + TypeScript + three.js; the client, the shell, the 3D view)
         │  JSON-RPC 2.0 over stdio, binary frames for meshes   (decisions 0003, 0012)
         ▼
- bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)    burrtools  (python/, the Python module)
+ bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)    shapelogic  (python/, the Python module)
         │                         │                                                       │
         └──────────┬──────────────┴───────────────────────────────────────────────────────┘
                    ▼
@@ -81,10 +81,10 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 
 | Path | Contents |
 |---|---|
-| `core/bt/<module>/` | the library, headers and sources together; include as `"bt/<module>/x.h"` |
+| `core/shapelogic/<module>/` | the library, headers and sources together; include as `"shapelogic/<module>/x.h"` |
 | `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
 | `cli/` | `bt`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
-| `python/` | `burrtools`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
+| `python/` | `shapelogic`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `web/` | the web front end (Electron + TypeScript + three.js, decision 0013): the engine client, the host and bridge, the generated types, the app (shell, 3D view), its tests (unit, engine, e2e); see `web/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
@@ -118,7 +118,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
   `run(n, job)` runs a job on the caller and on lent threads, `addLoad()`
   for work on threads of its own; nesting cannot deadlock. `kMaxThreads`
   (256), `hardwareThreads()`, `splitThreads()` (assembly / take-apart share
-  of a budget). No process-wide limit, no `BURRTOOLS_THREADS` (decision 0009).
+  of a budget). No process-wide limit, no `SHAPELOGIC_THREADS` (decision 0009).
 - `stop.h` also makes a source from a token (`StopSource(const StopToken&)`):
   each search run stops itself through one without a flag of its own.
 
@@ -149,7 +149,7 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
   of a grid (`transAdd`, `minimizeTransformation`, `calculateSymmetry`, …).
   `symmetries_impl.h` is the one table-driven implementation; `symmetries_0/1/2.cpp`
   instantiate it over the generated tables in `tabs_0/1/2/` (copied as they
-  are; see `core/bt/grid/TABLES.md`). The instances are immutable,
+  are; see `core/shapelogic/grid/TABLES.md`). The instances are immutable,
   constant-initialized statics (`constinit`: no guard on use, which the
   assemblers' rotation checks call in their inner loops), reached through
   constant-initialised pointers so that `GridType::getSymmetries()` is an
@@ -298,8 +298,7 @@ The assemblers, on one run layer (decision 0009), and the take-apart. Ported fro
 `assembler_bt2.cpp`, `bt2_dancingcells.cpp`, `bt2_assemble.cpp`,
 `simd_exact_cover.cpp`, `simd_huang_cover.cpp`, `solvertype.h` and the
 assembler part of `gridtype.cpp`; checked against the original by the
-harness (assembly counts on every tier, 1 and all threads, Classic and
-BurrTools 2; iteration counts of the deterministic searches equal; saved
+harness (assembly counts on every tier, 1 and all threads; iteration counts of the deterministic searches equal; saved
 positions continue in both programs).
 - `assembler.h`: `Assembler`, the interface: `createMatrix(MatrixOptions)`,
   `reduce(stop)`, `assemble(callback, SearchOptions, stop) -> RunEnd`,
@@ -315,23 +314,18 @@ positions continue in both programs).
   `warmShapeCaches()` before threads.
 - `search_run.h`: the run layer. `SearchRun` (one `assemble()` call: its own
   stop source under the caller's token, the serialised hand-over to the
-  callback: `deliver`, `deliverOnce` with signatures, `deliverFound` for
-  searches that never find an assembly twice), `TaskProgress` (weighted
+  callback: `deliver`, `deliverOnce` with signatures), `TaskProgress` (weighted
   task units, lock-free), `runTasks()` (unfinished tasks over the pool's
   threads; completed only when searched to the end without a stop; the
   first exception aborts the rest and comes back), `effectiveThreads()`.
-- `work_stealing.h`: the second driver, `runWorkStealing()` (BurrTools 2's):
-  a search split into branches searched a slice at a time, busy threads
-  splitting off work for waiting ones, unfinished branches parked across a
-  stop. The search provides the `WorkStealingSearch` concept.
 - `resume_state.h`: `SplitSearchState<Task>` (tasks, completion, reported
   signatures, the vector search's skip count) and the saved-position tail
   (`K` / `T C S`), byte-compatible with the original.
 - `rotation_filter.h`: `RotationFilter`, the check every assembler makes on
   the assemblies it finds (rotated or mirrored copies dropped), with the
   settings of a solve.
-- `dlx_matrix.h`: `DlxMatrix` (the dancing links matrix of assembler 0 and
-  BurrTools 2, built node for node as the original: `build`, `reduce`,
+- `dlx_matrix.h`: `DlxMatrix` (the dancing links matrix of assembler 0,
+  built node for node as the original: `build`, `reduce`,
   `clumpify`, the placement browser) and `DlxNodes` (the four node arrays
   with the cover operations, which a thread copies to search on its own).
   `everyPartOnePiece()`, the problems it can describe.
@@ -348,13 +342,6 @@ positions continue in both programs).
   or in each task, refused past `vectorMemoryBudget` (flag 3). A saved
   position is checked against the matrix before it is used. The plain
   search's progress is published by its thread every 4096 steps.
-- `dancing_cells.h`: `DancingCells`, Knuth's dancing cells (exact cover with
-  secondary items over sparse sets), searched in slices and split.
-- `assembler_bt2.h`: `AssemblerBt2` (BurrTools 2: `DlxMatrix` searched by
-  `DancingCells`; one thread searches the root in slices, more split it
-  through `runWorkStealing`). `bt2Threads()`, its thread count. Its saved
-  position is the original's start position; a started search is refused
-  on restore (decision 0009).
 - `placement_finder.h`: `PlacementFinder`, the placements of a rotated piece
   in the result, in the original's order.
 - `simd_bitset.h`, `simd_exact_cover.h`, `simd_huang_cover.h`: the vector
@@ -363,17 +350,17 @@ positions continue in both programs).
   columns, AVX2/AVX-512/NEON kernels behind runtime checks with a scalar
   fallback, chosen through `SimdKernels`. Read only during a search; threads
   search subtrees of one solver.
-- `solver_type.h`: `SolverType` (Classic, Crowell, BT2) and its names,
-  `chooseAssembler()` / `makeAssembler()` (findAssembler: assembler 0, or
-  BurrTools 2's with BT2, when every part is one piece, else assembler 1).
+- `solver_type.h`: `SolverType` (Classic, Crowell; labelled Complete (ShapeLogic) and
+  Fast (Crowell)) and its names, `chooseAssembler()` / `makeAssembler()`
+  (findAssembler: assembler 0 when every part is one piece, else assembler 1).
+  The original's BurrTools 2 solver (dancing cells) was not carried over.
 
 **Rules of a run** (decision 0009): the search polls only its run's token;
 a callback answering false pauses the run, an exception aborts it; nothing
 is reset, the next `assemble()` carries on; `RunEnd::Finished` only from the
 search itself; a stopped split or vector search continues the way it ran.
 A search may hand over assemblies it reaches after the pause was asked for
-(assembler 1's plain search until it stands where it can be saved, BT2's
-other threads): those are not found again. The assembler never writes into
+(assembler 1's plain search until it stands where it can be saved): those are not found again. The assembler never writes into
 the `Problem` (results go to the callback; the CLI or the session owns
 the problem).
 
@@ -381,7 +368,7 @@ the problem).
 `disassemblernode`, `disassemblerhashes`, `movementcache*`,
 `movementanalysator`, `grouping`, `rotationrules`, `rotationmoves_*` and
 `disasmtomoves`; checked against the original by the harness (every field of
-the summary on all 180 corpus puzzles, Classic, Crowell and BurrTools 2, 1
+the summary on all 180 corpus puzzles, Classic and Crowell, 1
 and all threads; the solved files solution by solution, `compare-files`).
 - `disassembler.h`: `Disassembler`, the take-apart of one problem's
   assemblies: `disassemble(assembly, stop) -> TakeApartResult` (the
@@ -389,7 +376,7 @@ and all threads; the solved files solution by solution, `compare-files`).
   (`DisassemblyProgress`, from any thread), the search times.
   `DisassemblerOptions`: rotations, the solver (Crowell takes at most
   `kCrowellMaxSuccessors` new positions from each position and has its own
-  turn generator; Classic and BurrTools 2 are complete), the `ThreadPool`
+  turn generator; Classic is complete), the `ThreadPool`
   a level is spread over (`levelThreadCostUs`: only when what is left of a
   level is reckoned to take longer), and the A/B switches.
   `canDisassemble()`: cubes and prisms. The search is breadth first, level
@@ -552,9 +539,7 @@ after that only the run's thread writes the state. One `StopSource` per
 run with a child for the assembly (save points); waits on the queue wake
 on a stop (requested under the queue's mutex). Assemblies handed over after
 a pause are kept as pending, not counted. A paused session carries on with
-the same assembler; a session on a reloaded file restores the position
-(BurrTools 2 cannot, except for a search that is through: Error, then a
-fresh start). A run that ends with counted assemblies still waiting (it
+the same assembler; a session on a reloaded file restores the position. A run that ends with counted assemblies still waiting (it
 did not take apart) ends Paused, not Finished.
 
 **Lock order** (outer before inner; nothing takes a session lock under an
@@ -562,7 +547,7 @@ assembler's or disassembler's, so there is no inversion): the owner's
 control lock around the results, run and failure locks; the results lock
 around `beginSolving` (an assembler 1 replay included, which holds up
 `readProblem` and `progress()` for that time) and `storePosition`
-(BurrTools 2's peer lock); the run lock around the published assembler's
+the run lock around the published assembler's
 `finished()`/`iterations()` and the disassemblers' progress and times
 (their own locks); the queue lock around a stop request. Mirror and
 rotation filter flags are applied to a kept assembler at every run.
@@ -805,16 +790,16 @@ schema in `api/`, documented in the generated `docs/API.md`.
   a prism's x step is 2), sliding puzzles (`sliding.*`: the start/goal
   editor's actions and reads; a sliding solve's options in
   `SolveOptions.sliding`, its note in `solve.status`; `Settings`'
-  `slideFolder` and `slideDiskGB`, the original's BURRTOOLS_SLIDE_DIR and
-  BURRTOOLS_SLIDE_DISK_GB, go into every sliding solve's options),
+  `slideFolder` and `slideDiskGB`, the original's SHAPELOGIC_SLIDE_DIR and
+  SHAPELOGIC_SLIDE_DISK_GB, go into every sliding solve's options),
   stacking puzzles (`stacking.*`, deferred part 3b: the rod sets, discs
   and stacks commands and the reads of the board, `stacking.board` and
   `stacking.rodSetLayout`; rod sets in the snapshot, a problem's board
   and stacks in its summary and detail, a shape's disc size; a stacking
   solve's options in `SolveOptions.stacking`, the solver defaulting to the
   one the original's menu offered for the board; `Settings`'
-  `panexFolder` and `panexDiskGB`, the original's BURRTOOLS_PANEX_DIR and
-  BURRTOOLS_PANEX_DISK_GB, go into every stacking solve and into
+  `panexFolder` and `panexDiskGB`, the original's SHAPELOGIC_PANEX_DIR and
+  SHAPELOGIC_PANEX_DISK_GB, go into every stacking solve and into
   `solve.status.savedSearch`, `solve.abort` of a saved search no session
   holds, and the paused solve's export (`withLevels`) and import (refused
   while the open document is a stacking puzzle being solved: the import
@@ -888,12 +873,12 @@ byte, `just oracle-files` solves with `--save`).
   `-d` finds each start layout's slide path, with the original's notes
   after the summary; `-x` and `--save` too, through a `SolveSession`);
   the full search's folder and disk budget come from
-  `BURRTOOLS_SLIDE_DIR` and `BURRTOOLS_SLIDE_DISK_GB`, which the CLI reads
+  `SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_SLIDE_DISK_GB`, which the CLI reads
   (the core reads no environment). Stacking puzzles solve as burrTxt
   solved them (deferred part 3a: `--solver` stacking or panex,
   `--high-memory`, `--restart` throwing a saved search away,
-  `--panex-dir` and `--panex-disk`, else `BURRTOOLS_PANEX_DIR` and
-  `BURRTOOLS_PANEX_DISK_GB`, else the cache folder's `panex`; Ctrl-C stops
+  `--panex-dir` and `--panex-disk`, else `SHAPELOGIC_PANEX_DIR` and
+  `SHAPELOGIC_PANEX_DISK_GB`, else the cache folder's `panex`; Ctrl-C stops
   a Panex search, which saves itself, and a second quits; the summary and
   search lines, `-p` the transfer plan, `-x`, `--save` through a session;
   the A/B switches `--no-tower-rule` and `--panex-log`).
@@ -902,7 +887,7 @@ byte, `just oracle-files` solves with `--save`).
   core returns.
 
 ## python (deferred part 7, decision 0018)
-`burrtools`, the Python module: the original's `src/python` bindings
+`shapelogic`, the Python module: the original's `src/python` bindings
 ported over the new core with its names, so its scripts run unchanged.
 Built when `BT_PYTHON` is `ON`, or `AUTO` (the default) and CMake finds
 Python's headers outside sanitizer and cross-architecture builds
@@ -1113,9 +1098,7 @@ What exists after stage 8:
     "Pause the solve first" before any call), and the count of edits
     under way as `#stage[data-busy]`; `refuseList`: a change of the lists
     of shapes, colours and problems, and undo and redo, refused while
-    anything solves and while a BurrTools 2 search is paused in memory
-    (decision 0011: the engine would refuse it; the advice is to abort or
-    finish that solve). `state/stacking.ts` (deferred part 4, DOM-free):
+    anything solves. `state/stacking.ts` (deferred part 4, DOM-free):
     the disc list's bounds and message, a rod set's text and the fields
     its rules grey out, the rod slider's places (the pocket first) and
     captions, the validity bar's words, the paused export's size.
@@ -1602,8 +1585,7 @@ whole step the engine's, the list sorted every way and paged, its keys,
 every Remove variant with its confirmation, Analyse with the assemblies
 that do not come apart marked and a stop that keeps what was done,
 pause, continue, a save at a save point, abort, Prepare then Continue,
-an error run with its failure, two problems at once, a paused BurrTools 2
-solve refusing the lists' changes, a sliding puzzle solved with `bt
+an error run with its failure, two problems at once, a sliding puzzle solved with `bt
 --json`'s counts and played along its routes, a stacking one solved as bt; the
 explorers on Bermuda: every piece's placements counted and drawn where
 the engine says, the assembler stepped to its complete set as the
@@ -1712,7 +1694,7 @@ player).
 
 - `tests/oracle/` runs the original programs (decision 0007): the summary
   comparison of `bt` with `burrTxt` (`just oracle`; `--fields`, `--threads`,
-  `--solver crowell|bt2` against the original's own baselines for those),
+  `--solver crowell` against the original's own baselines for those),
   the text comparison (`just oracle-text`: `bt` and burrTxt run the same
   ways on every corpus puzzle, stdout, stderr and the exit code compared
   byte for byte against the original's recorded runs),
@@ -1722,7 +1704,7 @@ player).
   tree, level text, move counts), the
   saved-position check (`just oracle-resume`: assembler 0 and 1 searches
   paused by one program continue in the other, single-thread pauses save the
-  same text; BurrTools 2 pauses save the same text and are refused), the
+  same text), the
   file round trip
   (`just oracle-roundtrip`: every corpus file, the sliding/stacking/rotation
   fixtures and the original's solved files are loaded and saved by both

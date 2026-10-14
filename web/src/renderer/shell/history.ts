@@ -5,9 +5,8 @@
 // bar says what was undone or redone. Refused while a solve or an analysis
 // runs ("pause the solve first", never sent: the engine would answer
 // invalid_state) and while a drag is under way (its step is not finished);
-// a drag just released is waited for (its group closes first); refused
-// too while a BurrTools 2 search is paused (decision 0011: an undo would
-// lose it). The mockup had no undo; the original's Edit menu
+// a drag just released is waited for (its group closes first).
+// The mockup had no undo; the original's Edit menu
 // named the steps the same way (so do the Edit menu's items, stage 6:
 // menus.ts runs these handlers).
 

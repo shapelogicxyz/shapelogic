@@ -4,7 +4,7 @@
 1+2 session was split here because it ran long; the brief is at the end.
 
 ## Done
-- `core/bt/grid/`: `GridType`/`GridKind`, the abstract `Voxel` and the five
+- `core/shapelogic/grid/`: `GridType`/`GridKind`, the abstract `Voxel` and the five
   grid classes (`VoxelBricks`, `VoxelPrisms`, `VoxelSpheres`, `VoxelRhombic`,
   `VoxelTetraOcta`), `Symmetries` with one table-driven implementation over
   the three generated table sets, `VoxelTable`, `Bitfield<N>`. Ported from
@@ -13,8 +13,8 @@
   `bt/io` in stage 2).
 - Generated tables `tabs_0/1/2/*.inc` copied unchanged; the `symcalc.inc`
   decision trees converted from hand-made `new`/`delete` to `same(t)` calls
-  by a checked sed pass (`core/bt/grid/TABLES.md`).
-- `core/bt/base/int_cast.h` (`asInt`, `asUnsigned`) for the conversions the
+  by a checked sed pass (`core/shapelogic/grid/TABLES.md`).
+- `core/shapelogic/base/int_cast.h` (`asInt`, `asUnsigned`) for the conversions the
   original left implicit.
 - Tests: the original's `test_voxel.cpp`, `test_voxel_connect.cpp`,
   `test_symmetries.cpp`, `test_grid_invariants.cpp` ported (51 cases, all
@@ -83,7 +83,7 @@ Work in `/Users/colin/git/burr-tools-rotations/burrtools_alpha`; the original
 is `../burrtools_rotations`. Read AGENTS.md, docs/ARCHITECTURE.md,
 docs/PLAN.md (stage 2 details), this note, and decisions 0005 to 0007.
 
-**Scope** (`core/bt/model/`, `core/bt/io/`): port `puzzle.cpp`,
+**Scope** (`core/shapelogic/model/`, `core/shapelogic/io/`): port `puzzle.cpp`,
 `problem.cpp`, `solution.cpp`, `assembly.cpp`, the data part of
 `disassembly.cpp` (`separation_c`, `separationInfo_c`, `state_c`, including
 the rotation fields `dt` / `rotation` that stage 4 needs; the take-apart

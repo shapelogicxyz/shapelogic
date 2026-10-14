@@ -15,26 +15,25 @@
 #include "options.h"
 #include "text_print.h"
 
-#include "bt/base/solve_state.h"
-#include "bt/base/stop.h"
-#include "bt/base/system.h"
-#include "bt/base/thread_pool.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/sliding.h"
-#include "bt/model/solution.h"
-#include "bt/model/stacking.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/assembler_bt2.h"
-#include "bt/solve/disassembler.h"
-#include "bt/solve/panex_search.h"
-#include "bt/solve/sliding_search.h"
-#include "bt/solve/solve_session.h"
-#include "bt/solve/solver_type.h"
-#include "bt/solve/stack_search.h"
+#include "shapelogic/base/solve_state.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/base/system.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/sliding.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/panex_search.h"
+#include "shapelogic/solve/sliding_search.h"
+#include "shapelogic/solve/solve_session.h"
+#include "shapelogic/solve/solver_type.h"
+#include "shapelogic/solve/stack_search.h"
 
 #include <atomic>
 #include <chrono>
@@ -151,20 +150,17 @@ bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
   }
   std::fprintf(stderr,
                "bt: unknown solver '%s' for a brick puzzle\n"
-               "    use \"BurrTools Classic\", \"Andrew Crowell\", or \"BurrTools 2\"\n"
-               "    (also: classic, crowell, bt2)\n",
+               "    use \"Complete (ShapeLogic)\" or \"Fast (Crowell)\"\n"
+               "    (also: classic, crowell)\n",
                name);
   return false;
 }
 
 // What findAssembler said on stderr about its choice.
-const char* assemblerLine(bt::AssemblerKind kind, bt::SolverType solver) {
+const char* assemblerLine(bt::AssemblerKind kind) {
   switch (kind) {
-    case bt::AssemblerKind::Bt2:
-      return "using assembler bt2 (dancing cells)";
     case bt::AssemblerKind::Assembler1:
-      return solver == bt::SolverType::Bt2 ? "using assembler 1 (serial fallback)"
-                                           : "using assembler 1";
+      return "using assembler 1";
     case bt::AssemblerKind::Assembler0:
       break;
   }
@@ -229,14 +225,14 @@ class InterruptStops {
   void (*was_)(int) = nullptr;
 };
 
-// Where Panex searches are saved: --panex-dir, else $BURRTOOLS_PANEX_DIR,
+// Where Panex searches are saved: --panex-dir, else $SHAPELOGIC_PANEX_DIR,
 // else the user's cache folder's "panex" (the original's library read the
 // variable; the core takes the folder as an option).
 std::string panexWorkDir(const Options& o) {
   if (o.panexDir != nullptr) {
     return o.panexDir;
   }
-  if (const char* dir = std::getenv("BURRTOOLS_PANEX_DIR")) {
+  if (const char* dir = std::getenv("SHAPELOGIC_PANEX_DIR")) {
     return dir;
   }
   if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
@@ -246,11 +242,11 @@ std::string panexWorkDir(const Options& o) {
 }
 
 // The disk saved levels may take: --panex-disk, else
-// $BURRTOOLS_PANEX_DISK_GB, else 0 (half the free space, at most 200 GB).
+// $SHAPELOGIC_PANEX_DISK_GB, else 0 (half the free space, at most 200 GB).
 std::uint64_t panexDiskBudget(const Options& o) {
   double gb = o.panexDiskGB;
   if (gb <= 0) {
-    if (const char* e = std::getenv("BURRTOOLS_PANEX_DISK_GB")) {
+    if (const char* e = std::getenv("SHAPELOGIC_PANEX_DISK_GB")) {
       gb = std::atof(e);
     }
   }
@@ -312,8 +308,8 @@ void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
 }
 
 // The slide search the command line asks for: burrTxt's flags, and where a
-// full search keeps its older levels: $BURRTOOLS_SLIDE_DIR, or else the
-// user's cache folder, and $BURRTOOLS_SLIDE_DISK_GB (the original's
+// full search keeps its older levels: $SHAPELOGIC_SLIDE_DIR, or else the
+// user's cache folder, and $SHAPELOGIC_SLIDE_DISK_GB (the original's
 // library read them; the core takes them as options).
 bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   bt::sliding::SlidingOptions s;
@@ -321,12 +317,12 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.nested = o.nestedSlides;
   s.partialNested = o.partialNested;
   s.highMemory = o.highMemory;
-  if (const char* dir = std::getenv("BURRTOOLS_SLIDE_DIR")) {
+  if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR")) {
     s.workDir = dir;
   } else if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
     s.workDir = (std::filesystem::path(cache) / "sliding").string();
   }
-  if (const char* gb = std::getenv("BURRTOOLS_SLIDE_DISK_GB")) {
+  if (const char* gb = std::getenv("SHAPELOGIC_SLIDE_DISK_GB")) {
     s.diskBudget = static_cast<std::uint64_t>(std::atof(gb) * 1e9);
   }
   s.legacy = o.slideLegacy;
@@ -634,7 +630,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     const bt::AssemblerKind kind = bt::chooseAssembler(problem, o.solver);
     if (!o.json) {
-      std::fprintf(stderr, "%s\n", assemblerLine(kind, o.solver));
+      std::fprintf(stderr, "%s\n", assemblerLine(kind));
     }
     std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, o.solver);
 
@@ -668,10 +664,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     bt::ThreadPool pool(budget);
     bt::SearchOptions search;
-    // BurrTools 2 picks its own count when none is given (bt2Threads), as
-    // burrTxt's bt2ChooseAssemblerWorkers did
-    search.threads =
-        kind == bt::AssemblerKind::Bt2 ? bt::bt2Threads(o.threads) : o.threads;
+    search.threads = o.threads;
     search.pool = &pool;
     setSearchSwitches(o, search);
 

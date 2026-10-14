@@ -41,11 +41,9 @@ just oracle --tier fast full      # several tiers
 just oracle --filter Pelikan -v   # one puzzle, show matches too
 just oracle --tier all --threads 1
                                   # every field, bt -t 1
-just oracle --tier all --solver bt2
-                                  # BurrTools 2 against the original's BT2
 just oracle --tier all --solver crowell
                                   # Andrew Crowell's take-apart against the original's
-just oracle-baseline --tier fast --solver bt2
+just oracle-baseline --tier fast --solver crowell
                                   # record those (baseline/<tier>-<solver>.json)
 python3 tests/oracle/oracle.py baseline-files --tier all   # solved files from burrTxt2 -R, into work/old
 python3 tests/oracle/oracle.py compare-files --tier all -j 4
@@ -78,7 +76,7 @@ list, and each solution the original kept must be in the new file with the
 same assembly, separation tree (every state of every node), level text and
 move counts. `A` puzzles compare the counts only (their saved assemblies
 keep the solve thread's limit of ten).
-`--solver crowell|bt2` uses `work/old-<solver>` and `work/new-<solver>`.
+`--solver crowell` uses `work/old-<solver>` and `work/new-<solver>`.
 
 ## Text output (stage 8 onward)
 
@@ -208,7 +206,7 @@ with `-v`.
 
 `just oracle-resume` builds `resume_old.cpp` against the original's library
 and runs it beside `bt_resume` (`tests/tools/resume.cpp`, the same commands
-on the new core; both take the solver: `classic` or `bt2`, the assembler
+on the new core; both take the solver: `classic`, the assembler
 being the one `findAssembler` picks). For each puzzle it pauses at three
 points in each program and continues the position in the other: what was
 reported before the pause and after must be every assembly exactly once.
@@ -260,7 +258,7 @@ back on the same machine; numbers in the baseline files are only a guide.
 `--tier all` leaves the `stacking` tier out too: run it by name. The
 default solver is the Stacking Solver (burrTxt's); `--solver panex` runs
 the Panex Solver on the puzzles it takes (flag `Q` marks the others). Each
-run gets a Panex folder of its own (`BURRTOOLS_PANEX_DIR` under
+run gets a Panex folder of its own (`SHAPELOGIC_PANEX_DIR` under
 `work/panex-tmp`), so the user's cache and other runs' saved searches are
 never touched:
 
@@ -374,7 +372,7 @@ module assembled sliding and stacking puzzles as brick puzzles) every
 shape cell by cell, every problem with its piece counts, the reprs, and
 three solves of each problem (assemblies; solutions with their
 take-aparts; reduced with mirrors and rotations kept). Each is run twice:
-on one thread (the original's module held to it by `BURRTOOLS_THREADS=1`,
+on one thread (the original's module held to it by `SHAPELOGIC_THREADS=1`,
 the new one by `threads=1`), compared in order with the numbers and the
 search's iterations; and on all threads, compared as sorted lists without
 the numbers. A file's texts that are not UTF-8 (Prisgon's comment) raise

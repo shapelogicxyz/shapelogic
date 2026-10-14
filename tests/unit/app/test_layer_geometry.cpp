@@ -6,9 +6,9 @@
 // grideditor_4.cpp and the corner sums of grideditor_0/1's
 // drawTileFrame) are copied below as they are, with the FLTK calls left
 // out, so the comparison needs no GUI.
-#include "bt/app/layer_geometry.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
+#include "shapelogic/app/layer_geometry.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
 
 #include <catch2/catch_test_macros.hpp>
 

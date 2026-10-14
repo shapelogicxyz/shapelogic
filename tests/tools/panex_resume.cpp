@@ -8,12 +8,12 @@
 //   bt_panex_resume pause  ... <stopAtDepth>
 //   bt_panex_resume resume ...
 
-#include "bt/io/puzzle_file.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/stacking.h"
-#include "bt/solve/panex_search.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/panex_search.h"
 
 #include <cstdio>
 #include <cstdlib>

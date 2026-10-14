@@ -51,7 +51,7 @@ export const CONVERT_NOTE =
 
 /** A message box of the original's words and, under them, the reason. */
 function alertBox(id: string, text: string, reason?: string): Promise<string | null> {
-  return askChoice(id, 'BurrTools', reason === undefined ? text : `${text}\n${reason}`, [
+  return askChoice(id, 'ShapeLogic', reason === undefined ? text : `${text}\n${reason}`, [
     { key: 'ok', label: 'OK', kind: 'pri', default: true },
   ]);
 }

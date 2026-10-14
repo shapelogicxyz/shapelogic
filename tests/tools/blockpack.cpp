@@ -6,7 +6,7 @@
 //   bt_blockpack pack   <file> <packed> <keys 0|1> [chunkBytes]
 //   bt_blockpack unpack <packed> <file>
 
-#include "bt/io/blockpack.h"
+#include "shapelogic/io/blockpack.h"
 
 #include <cstdint>
 #include <cstdio>

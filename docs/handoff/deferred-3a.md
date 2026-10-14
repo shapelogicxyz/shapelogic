@@ -83,8 +83,8 @@ recordings, the documents).
 ### `bt` (this part's commit)
 burrTxt's stacking branch: `--solver` Stacking Solver or Panex Solver,
 `--high-memory`, `--restart` (also without `--save` on a stacking
-puzzle), `--panex-dir` and `--panex-disk` (else `BURRTOOLS_PANEX_DIR`,
-`BURRTOOLS_PANEX_DISK_GB`, else the cache folder), "continuing a saved
+puzzle), `--panex-dir` and `--panex-disk` (else `SHAPELOGIC_PANEX_DIR`,
+`SHAPELOGIC_PANEX_DISK_GB`, else the cache folder), "continuing a saved
 search …", Ctrl-C saving the search (a second quits), the summary and the
 "panex search:" / "stack search:" lines and their notes word for word,
 `-p` the transfer plan, `--json`, `-x`; `--save` through a session (a

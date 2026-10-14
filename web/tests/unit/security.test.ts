@@ -78,7 +78,7 @@ describe('the window', () => {
       webviewTag: false,
       navigateOnDragDrop: false,
     });
-    const w = windowOptions('/p.cjs', 'BurrTools Alpha', { width: 10, height: 20, x: 1, y: 2 });
+    const w = windowOptions('/p.cjs', 'ShapeLogic', { width: 10, height: 20, x: 1, y: 2 });
     expect(w).toMatchObject({ width: 10, height: 20, x: 1, y: 2, show: false });
     expect(w.webPreferences).toEqual(webPreferences('/p.cjs'));
   });
@@ -242,7 +242,7 @@ describe('the requests the session lets through', () => {
       'https://example.com/',
       'http://localhost:5173/',
       'ws://localhost:5173/',
-      'https://burrtools.sourceforge.net/gui-doc/toc.html',
+      'https://shapelogic.xyz/gui-doc/toc.html',
       'not a url',
       'chrome-extension://abc/x.js',
     ]) {
@@ -326,7 +326,7 @@ describe('the addresses opened outside the app', () => {
     for (const url of Object.values(HELP_URLS)) {
       const u = new URL(url);
       expect(u.protocol).toBe('https:');
-      expect(u.hostname).toBe('burrtools.sourceforge.net');
+      expect(u.hostname).toBe('shapelogic.xyz');
     }
     expect(occurrences(/openExternal\(/g)).toEqual(['src/main/app-ipc.ts']);
     const ipc = SRC.find((s) => s.file === 'src/main/app-ipc.ts')?.text ?? '';

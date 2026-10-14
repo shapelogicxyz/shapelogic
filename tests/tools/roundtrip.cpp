@@ -3,7 +3,7 @@
 // counterpart of tests/oracle/roundtrip_old.cpp, which does the same with the
 // original's library; `oracle.py roundtrip` compares the two.
 
-#include "bt/io/puzzle_file.h"
+#include "shapelogic/io/puzzle_file.h"
 
 #include <cstdio>
 

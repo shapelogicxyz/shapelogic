@@ -6,13 +6,13 @@
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
 
-#include "bt/base/thread_pool.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/assembler_0.h"
-#include "bt/solve/dlx_matrix.h"
-#include "bt/solve/rotation_filter.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/assembler_0.h"
+#include "shapelogic/solve/dlx_matrix.h"
+#include "shapelogic/solve/rotation_filter.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -811,7 +811,6 @@ TEST_CASE("Assembler 0: errors of createMatrix", "[solve][assembler]") {
     Assembler0 a(p, pr);
     CHECK(a.createMatrix({}) == AssemblerError::PuzzleUnhandable);
     CHECK(chooseAssembler(pr, SolverType::Classic) == AssemblerKind::Assembler1);
-    CHECK(chooseAssembler(pr, SolverType::Bt2) == AssemblerKind::Assembler1);
   }
   SECTION("too many units") {
     Puzzle p = test::pentominoPuzzle(10, 5);
@@ -873,19 +872,21 @@ TEST_CASE("Assembler 0: placements, the debugger and the current assembly",
 }
 
 TEST_CASE("solver types: names and the assembler each gets", "[solve]") {
+  CHECK(solverTypeFromName("Complete (ShapeLogic)") == SolverType::Classic);
   CHECK(solverTypeFromName("BurrTools Classic") == SolverType::Classic);
   CHECK(solverTypeFromName("classic") == SolverType::Classic);
   CHECK(solverTypeFromName("Andrew-Crowell") == SolverType::Crowell);
   CHECK(solverTypeFromName("fortran") == SolverType::Crowell);
-  CHECK(solverTypeFromName("BurrTools_2") == SolverType::Bt2);
+  CHECK(solverTypeFromName("Fast (Crowell)") == SolverType::Crowell);
+  CHECK_FALSE(solverTypeFromName("bt2").has_value());
   CHECK_FALSE(solverTypeFromName("").has_value());
   CHECK_FALSE(solverTypeFromName("dlx").has_value());
   CHECK(solverTypeFromIndex(7) == SolverType::Classic);
-  CHECK(solverTypeLabel(SolverType::Bt2) == "BurrTools 2");
+  CHECK(solverTypeLabel(SolverType::Classic) == "Complete (ShapeLogic)");
+  CHECK(solverTypeLabel(SolverType::Crowell) == "Fast (Crowell)");
 
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   CHECK(chooseAssembler(p.getProblem(0), SolverType::Classic) == AssemblerKind::Assembler0);
   CHECK(chooseAssembler(p.getProblem(0), SolverType::Crowell) == AssemblerKind::Assembler0);
-  CHECK(chooseAssembler(p.getProblem(0), SolverType::Bt2) == AssemblerKind::Bt2);
   CHECK(makeAssembler(p, p.getProblem(0), SolverType::Classic) != nullptr);
 }

@@ -1,4 +1,4 @@
-# BurrTools Alpha. `just` lists the recipes.
+# ShapeLogic. `just` lists the recipes.
 # Builds go to build/<preset> (see CMakePresets.json).
 
 set shell := ["bash", "-uc"]
@@ -76,7 +76,7 @@ python-wheel:
     python3 -m venv "$tmp/build" && "$tmp/build/bin/pip" -q install --upgrade pip
     "$tmp/build/bin/pip" wheel ./python -w build/wheel
     python3 -m venv "$tmp/try"
-    "$tmp/try/bin/pip" -q install build/wheel/burrtools-*.whl
+    "$tmp/try/bin/pip" -q install build/wheel/shapelogic-*.whl
     cd python/tests && "$tmp/try/bin/python" -m unittest -q
 
 # clang-tidy over the project's own sources (needs LLVM: brew install llvm)

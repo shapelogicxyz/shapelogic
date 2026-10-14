@@ -5,12 +5,12 @@
 // gzip they need.
 #include "app_test_helpers.h"
 
-#include "bt/app/document.h"
-#include "bt/io/gzip_file.h"
-#include "bt/io/paused_solve.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/problem.h"
-#include "bt/model/solution.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/io/gzip_file.h"
+#include "shapelogic/io/paused_solve.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
 

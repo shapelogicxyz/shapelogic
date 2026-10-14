@@ -1,14 +1,14 @@
-# Plan: rebuilding the BurrTools core
+# Plan: rebuilding the ShapeLogic core
 
 ## Goal
-A clean, maintainable C++ core for BurrTools, designed for a web front end
+A clean, maintainable C++ core for ShapeLogic, designed for a web front end
 from the start, that gives the same answers as the original application.
 The original (`../burrtools_rotations`) is the reference throughout.
 
 **In scope (first complete version):** all five grids (cubes, triangular
 prisms, spheres, rhombic tetrahedra, tetrahedra-octahedra); shapes and
 colours; problems (result, piece counts and ranges, groups, colour rules);
-the Classic, Crowell and BT2 assemblers; disassembly including rotation
+the Classic and Crowell solvers; disassembly including rotation
 moves; solutions; `.xmpuzzle` compatibility; the engine API; the `bt` CLI.
 
 **Later:** sliding puzzles, stacking/Panex, STL and GLB export, imports

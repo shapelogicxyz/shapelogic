@@ -33,7 +33,7 @@ export interface ListHost {
   store: Store;
   /** Whether editing is refused now (a solve runs); says so when it is. */
   refuse(): boolean;
-  /** Whether a change of the list is refused now (also a paused BurrTools 2 solve); says so. */
+  /** Whether a change of the list is refused now; says so. */
   refuseList(): boolean;
   /** Runs a mutating call and waits for its revision; reports a failure. */
   mutate<T extends { revision: number }>(doing: string, call: () => Promise<T>): Promise<T | null>;

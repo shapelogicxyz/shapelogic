@@ -1,18 +1,19 @@
-# burrtools: the Python module
+# shapelogic: the Python module
 
-Python bindings for the BurrTools Alpha core: load, build, save and solve
+Python bindings for the ShapeLogic core: load, build, save and solve
 puzzles from Python. The module keeps the classes, functions and names of
 the original BurrTools module (`src/python` there), so scripts written for
-it keep working; what is new is listed below.
+it keep working once the import reads `import shapelogic as burrtools`; what is
+new is listed below.
 
 ```python
-import burrtools
+import shapelogic
 
-puzzle = burrtools.load("tests/data/puzzles/PelikanBurr.xmpuzzle")
+puzzle = shapelogic.load("tests/data/puzzles/PelikanBurr.xmpuzzle")
 for sol in puzzle.problems[0].solve(disassemble=True):
     print(sol.level, sol.moves_text, len(sol.placements))   # 98 99.3.4.2 7
 
-puzzle = burrtools.Puzzle()
+puzzle = shapelogic.Puzzle()
 box = puzzle.add_shape(2, 2, 2, name="cube")
 box.fill([(x, y, z) for x in range(2) for y in range(2) for z in range(2)])
 slab = puzzle.add_shape(1, 2, 2, name="slab")
@@ -53,7 +54,7 @@ As the original's:
 New here:
 - `Puzzle(grid)`: any grid by name (`"bricks"`, `"triangular prisms"`,
   `"spheres"`, `"rhombic"`, `"tetra-octa"`, `"sliding"`, `"stacking"`),
-  and `Puzzle.grid`; `burrtools.__version__`.
+  and `Puzzle.grid`; `shapelogic.__version__`.
 - `solve(..., *, threads=0)`: the solve's threads (0, the default, every
   core, as the original's module ran).
 - Sliding and stacking puzzles solve as the GUI solves them (through the
@@ -87,9 +88,9 @@ skips it; sanitizer builds and builds for another architecture skip it
 under `AUTO`). pybind11 3.0.0 is fetched, the original's release.
 
 ```bash
-just build release           # build/release/python/burrtools.*.so
+just build release           # build/release/python/shapelogic.*.so
 just python-test             # the tests in python/tests, on that module
-PYTHONPATH=build/release/python python3 -c "import burrtools"
+PYTHONPATH=build/release/python python3 -c "import shapelogic"
 ```
 
 `just test-all` (ctest) runs the same tests when the module is built.
@@ -104,8 +105,8 @@ CMake project (one folder up), configured for the module alone:
 ```bash
 python3 -m venv /tmp/bt-venv
 /tmp/bt-venv/bin/pip wheel ./python -w dist/      # from the repository root
-/tmp/bt-venv/bin/pip install dist/burrtools-*.whl
-/tmp/bt-venv/bin/python -c "import burrtools; print(burrtools.__version__)"
+/tmp/bt-venv/bin/pip install dist/shapelogic-*.whl
+/tmp/bt-venv/bin/python -c "import shapelogic; print(shapelogic.__version__)"
 ```
 
 `just python-wheel` does the first two and checks the installed module

@@ -10,8 +10,7 @@
 // apart marked, and with progress and a stop that keeps what was done;
 // pause, continue and abort on a box of dominoes, a save at a save point
 // then carrying on (the autosave), Prepare then Continue, the error run of
-// the contract suite shown with its failure; two problems solved at once,
-// a paused BurrTools 2 solve refusing the lists' changes before any call;
+// the contract suite shown with its failure; two problems solved at once;
 // a sliding puzzle solved as bt solves it and played along its routes, a
 // stacking one too (stacking.e2e.ts plays it in transfers). Each test's call log holds no refusal the
 // UI could have avoided (only the client's own superseded reads).
@@ -527,7 +526,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
   }
 });
 
-test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ€™ changes; sliding and stacking solved', async () => {
+test('two problems solved at once; sliding and stacking solved', async () => {
   test.setTimeout(180_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -539,11 +538,8 @@ test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ
     const two = await dominoBox(page, 2, 4, 5);
     await toSolver(page);
     expect(await shownProblem(page)).toBe(one.problem);
-    // the first with BurrTools 2 and take-apart
+    // the first with take-apart
     await page.click('#slvMode [data-m="dis"]');
-    await solverSettled(page);
-    await page.click('#slvOptHead');
-    await page.selectOption('#slvOpts select[data-o="solver"]', 'bt2');
     await solverSettled(page);
     await runButton(page, 'start');
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
@@ -563,36 +559,12 @@ test('two problems solved at once; a paused BurrTools 2 solve refuses the listsâ
     expect(s1.state).toBe('assembling');
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
-    // the first still runs; paused it is a BurrTools 2 search in memory
+    // the first still runs
     await page.click('#slvProb');
     await page.click(`#pop [data-k="${one.problem}"]`);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
-
-    // the lists' changes are refused before any call, with the advice that helps
-    const mark = readCallLog(log).length;
-    await page.keyboard.press('Control+2');
-    await page.click('#pzNew');
-    await expect(page.locator('#stText')).toContainText(
-      'Abort or finish the paused BurrTools 2 solve',
-    );
-    await page.keyboard.press('Control+z');
-    await expect(page.locator('#stText')).toContainText(
-      'Abort or finish the paused BurrTools 2 solve',
-    );
-    await page.keyboard.press('Control+1');
-    await page.click(`#shapeList .row[data-id="${one.box}"]`);
-    await page.keyboard.press('Delete');
-    await expect(page.locator('#stText')).toContainText(
-      'Abort or finish the paused BurrTools 2 solve',
-    );
-    const sent = readCallLog(log)
-      .slice(mark)
-      .map((c) => c.method);
-    expect(sent.filter((m) => ['problem.create', 'edit.undo', 'shape.delete'].includes(m))).toEqual(
-      [],
-    );
 
     // aborted, the lists can change again
     await toSolver(page);

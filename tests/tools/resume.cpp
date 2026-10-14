@@ -4,12 +4,12 @@
 // which does the same with the original's library; see there for the
 // commands and the output. Keep the two in step.
 
-#include "bt/base/stop.h"
-#include "bt/base/thread_pool.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/assembly.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <cstdio>
 #include <cstdlib>

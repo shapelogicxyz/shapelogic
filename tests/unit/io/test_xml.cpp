@@ -3,10 +3,10 @@
 // reader (xml_document.h). The writer reports misuse with BT_ASSERT, so the
 // cases that expected xmlWriterException_c expect InternalError.
 
-#include "bt/base/assert.h"
-#include "bt/io/xml_document.h"
-#include "bt/io/xml_pull_parser.h"
-#include "bt/io/xml_writer.h"
+#include "shapelogic/base/assert.h"
+#include "shapelogic/io/xml_document.h"
+#include "shapelogic/io/xml_pull_parser.h"
+#include "shapelogic/io/xml_writer.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>

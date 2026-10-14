@@ -5,8 +5,8 @@
 /// Helpers for the grid tests. Ported from test/test_helpers.h of the
 /// original (the voxel part; the puzzle comparison comes with stage 2).
 
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
 
 #include <initializer_list>
 #include <memory>

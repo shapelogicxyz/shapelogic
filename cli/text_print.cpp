@@ -3,12 +3,12 @@
 // Ported from src/lib/print.cpp.
 #include "text_print.h"
 
-#include "bt/base/assert.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/assembly.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/base/assert.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <memory>
 #include <vector>

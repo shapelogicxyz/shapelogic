@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../burrtools_rotations"
+    ],
+    "allow": [
+      "Bash(just:*)",
+      "Bash(cmake:*)",
+      "Bash(ctest:*)",
+      "Bash(ninja:*)",
+      "Bash(meson:*)",
+      "Bash(python3 tests/oracle/:*)",
+      "Bash(python3 /Users/colin/git/burr-tools-rotations/burrtools_alpha/tests/oracle/:*)",
+      "Bash(./build/:*)",
+      "Bash(build/:*)",
+      "Bash(/Users/colin/git/burr-tools-rotations/burrtools_alpha/build/:*)",
+      "Bash(../burrtools_rotations/build:*)",
+      "Bash(/Users/colin/git/burr-tools-rotations/burrtools_rotations/build:*)",
+      "Bash(clang-tidy:*)",
+      "Bash(clang-format:*)",
+      "Bash(run-clang-tidy:*)",
+      "Bash(cppcheck:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git blame:*)",
+      "Bash(git grep:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(diff:*)",
+      "Bash(cmp:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(which:*)",
+      "Bash(sysctl -n hw.ncpu)"
+    ]
+  }
+}

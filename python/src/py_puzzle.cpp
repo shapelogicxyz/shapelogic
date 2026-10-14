@@ -3,15 +3,15 @@
 // and the grid conversion are new (the core's of deferred part 6).
 #include "py_puzzle.h"
 
-#include "bt/base/error.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/gzip_file.h"
-#include "bt/io/imports.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/grid_convert.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/base/error.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/gzip_file.h"
+#include "shapelogic/io/imports.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/grid_convert.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <filesystem>
 #include <stdexcept>

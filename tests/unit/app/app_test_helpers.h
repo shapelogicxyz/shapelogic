@@ -5,11 +5,11 @@
 // round trip every command is checked with, and a disassembly given the
 // orientations a file without <dt> dropped.
 
-#include "bt/app/document.h"
-#include "bt/base/clone_ptr.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/assembly.h"
-#include "bt/model/disassembly.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/base/clone_ptr.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/disassembly.h"
 
 #include <catch2/catch_test_macros.hpp>
 

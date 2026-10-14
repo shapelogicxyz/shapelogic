@@ -4,7 +4,7 @@
 extra high effort. The brief is at the end.
 
 ## Done
-- `core/bt/model/`: `Puzzle`, `Problem` (parts, groups, colour rules,
+- `core/shapelogic/model/`: `Puzzle`, `Problem` (parts, groups, colour rules,
   result/goal, state and counts, saved search position, pending
   assemblies, solutions and their sorting, solver options), `Solution`,
   `Assembly` with `Placement` and `MirrorInfo` (including `transform`,
@@ -12,8 +12,8 @@ extra high effort. The brief is at the end.
   `Separation`, `SeparationInfo` (the data part; the searches are stage 4),
   `XmlElement` / `PreservedXml`. Ported from `puzzle.cpp`, `problem.cpp`,
   `solution.cpp`, `assembly.cpp`, `disassembly.cpp`. All value types;
-  `Puzzle` copies deeply (`ClonePtr`, new in `core/bt/base/clone_ptr.h`).
-- `core/bt/io/`: the original's pull parser (`xml_pull_parser`), a tree
+  `Puzzle` copies deeply (`ClonePtr`, new in `core/shapelogic/base/clone_ptr.h`).
+- `core/shapelogic/io/`: the original's pull parser (`xml_pull_parser`), a tree
   reader on top of it (`xml_document`), the original's writer
   (`xml_writer`), zlib file access (`gzip_file`, replaces `gzstream`), and
   the `.xmpuzzle` reader/writer (`puzzle_file`), ported from the load and
@@ -129,8 +129,8 @@ for pause/resume, instead of each assembler's own copy: work splitting
 (`splitSearch`, `clonePrepared`, `remainingSearchWork`, parked searches),
 iteration accounting and progress, the stop token polled in the search
 loops (no assembler keeps a stop flag; nothing resets a token), and a
-thread pool with a global thread budget in `core/bt/base` (replacing
-`helperpool.cpp` and `BURRTOOLS_THREADS`). Write the design down in
+thread pool with a global thread budget in `core/shapelogic/base` (replacing
+`helperpool.cpp` and `SHAPELOGIC_THREADS`). Write the design down in
 ARCHITECTURE.md (and a decision record if it settles something lasting)
 before porting the assemblers onto it. Read how the original's
 `solvethread.cpp` drives the assemblers, but leave the session itself to

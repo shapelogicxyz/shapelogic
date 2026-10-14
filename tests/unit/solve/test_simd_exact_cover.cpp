@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from test/test_simd_exact_cover.cpp of the original. The abort
-// flag is a StopToken now, and the BURRTOOLS_NO_* variables are SimdKernels.
-#include "bt/base/assert.h"
-#include "bt/base/stop.h"
-#include "bt/solve/simd_exact_cover.h"
-#include "bt/solve/simd_huang_cover.h"
+// flag is a StopToken now, and the SHAPELOGIC_NO_* variables are SimdKernels.
+#include "shapelogic/base/assert.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/solve/simd_exact_cover.h"
+#include "shapelogic/solve/simd_huang_cover.h"
 
 #include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -483,7 +483,7 @@ TEMPLATE_TEST_CASE("SimdHuangCover extended sizes duplicate pieces exact cover",
 
 // The kernel switches must reach the kernel that runs. Every kernel gives
 // the same answers, so only the dispatch decision itself can show it. (In
-// the original, gating only AVX2 on BURRTOOLS_NO_AVX2 left AVX-512 on.)
+// the original, gating only AVX2 on SHAPELOGIC_NO_AVX2 left AVX-512 on.)
 TEMPLATE_TEST_CASE("SimdHuangCover: the kernel switches turn every kernel off",
                    "[solve][simd][huang][dispatch]", SimdHuangCover256, SimdHuangCover512,
                    SimdHuangCover1024, SimdHuangCover4096, SimdHuangCover32768) {

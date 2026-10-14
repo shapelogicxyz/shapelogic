@@ -56,8 +56,6 @@ Stage 3b, 2026-10-07, same machine, assembly only (best of 3):
 |---|---|---|---|---|
 | pentomino 6x10 (-r) | 1 | 0.949 | 0.956 | 1.01 |
 | pentomino 6x10 (-r) | 10 | 0.193 | 0.198 | 1.03 |
-| pentomino 6x10 (-r, bt2) | 1 | 1.595 | 1.595 | 1.00 |
-| pentomino 6x10 (-r, bt2) | 10 | 0.292 | 0.303 | 1.04 |
 | CornerCube (-r) | 1 | 0.013 | 0.013 | 1.00 |
 | CornerCube (-r) | 10 | 0.015 | 0.015 | 1.00 |
 | SolidSixPieceBurrs (-r) | 1 | 0.083 | 0.077 | 0.93 |
@@ -85,8 +83,6 @@ Stage 4, 2026-10-07, same machine, best of 5; the take-apart rows (`-d`,
 | SolidSixPieceBurrs (-rd) | 10 | 0.032 | 0.030 | 0.94 |
 | pentomino 6x10 (-r) | 1 | 0.948 | 0.976 | 1.03 |
 | pentomino 6x10 (-r) | 10 | 0.185 | 0.186 | 1.01 |
-| pentomino 6x10 (-r, bt2) | 1 | 1.581 | 1.578 | 1.00 |
-| pentomino 6x10 (-r, bt2) | 10 | 0.287 | 0.282 | 0.98 |
 
 A best of 3 just before, on a machine warm from the sanitizer runs, had the
 pentomino rows at 1.04 to 1.09: compare back to back, best of 5.
@@ -109,8 +105,6 @@ answer changes (the oracle is green).
 |---|---|---|---|---|
 | pentomino 6x10 (-r) | 1 | 0.980 | 0.939 | 0.96 |
 | pentomino 6x10 (-r) | 10 | 0.185 | 0.179 | 0.97 |
-| pentomino 6x10 (-r, bt2) | 1 | 1.597 | 1.580 | 0.99 |
-| pentomino 6x10 (-r, bt2) | 10 | 0.270 | 0.277 | 1.03 |
 | CoverUp3 (-r) | 1 | 0.050 | 0.050 | 1.00 |
 | CornerCube (-r) | 10 | 0.015 | 0.015 | 1.00 |
 | SolidSixPieceBurrs (-r) | 1 | 0.082 | 0.066 | 0.80 |
@@ -126,8 +120,6 @@ answer changes (the oracle is green).
 | **plain search** (`--plain`) | | | | |
 | pentomino 6x10 (-r) | 1 | 1.479 | 1.430 | 0.97 |
 | pentomino 6x10 (-r) | 10 | 0.273 | 0.258 | 0.95 |
-| pentomino 6x10 (-r, bt2) | 1 | 1.601 | 1.585 | 0.99 |
-| pentomino 6x10 (-r, bt2) | 10 | 0.268 | 0.272 | 1.01 |
 | SolidSixPieceBurrs (-r) | 1 | 0.286 | 0.268 | 0.94 |
 | SolidSixPieceBurrs (-r) | 10 | 0.056 | 0.054 | 0.96 |
 | CoverUp3 (-rdR) | 1 | 5.104 | 4.862 | 0.95 |

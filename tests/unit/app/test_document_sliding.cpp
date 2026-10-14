@@ -7,12 +7,12 @@
 // is checked to undo and redo byte for byte.
 #include "app_test_helpers.h"
 
-#include "bt/app/document.h"
-#include "bt/app/shape_tools.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/sliding.h"
-#include "bt/model/solution.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/app/shape_tools.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/sliding.h"
+#include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -442,7 +442,7 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
 
   // its placements can be explored, as the solve makes them
   const Result<AssemblyExplorer> ex =
-      d.exploreAssembly(p, SolverType::Bt2, MatrixOptions{}, true);
+      d.exploreAssembly(p, SolverType::Classic, MatrixOptions{}, true);
   REQUIRE(ex.has_value());
   REQUIRE(ex->placementsSupported());
   CHECK(ex->placements(0).size() == 1);

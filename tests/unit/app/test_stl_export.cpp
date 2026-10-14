@@ -6,10 +6,10 @@
 // stl-solution`), and the names made safe and distinct.
 #include "app_test_helpers.h"
 
-#include "bt/app/document.h"
-#include "bt/mesh/stl.h"
-#include "bt/model/problem.h"
-#include "bt/model/solution.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/mesh/stl.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
 

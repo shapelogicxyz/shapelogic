@@ -22,7 +22,7 @@ function render(store: Store): void {
   if (snap === null) {
     el.textContent = '';
     el.removeAttribute('title');
-    document.title = 'BurrTools Alpha';
+    document.title = 'ShapeLogic';
     stage.dataset.dirty = '';
     return;
   }
@@ -30,7 +30,7 @@ function render(store: Store): void {
   el.innerHTML =
     esc(name) + (snap.dirty ? '<span class="dirty" title="Unsaved changes">●</span>' : '');
   el.title = snap.path ?? name;
-  document.title = `${snap.dirty ? '• ' : ''}${name} — BurrTools Alpha`;
+  document.title = `${snap.dirty ? '• ' : ''}${name} — ShapeLogic`;
   // what the page shows, readable from outside (the e2e tests)
   stage.dataset.dirty = snap.dirty ? '1' : '0';
   stage.dataset.path = snap.path ?? '';

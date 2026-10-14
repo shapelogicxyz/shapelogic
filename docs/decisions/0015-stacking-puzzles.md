@@ -1,27 +1,27 @@
 # 0015: Stacking and Panex puzzles in the core and the CLI
 
 **Status:** accepted (deferred part 3a; amended by part 3b: the document
-and the engine); `core/bt/model/stacking.h`,
-`core/bt/model/stacking_types.h`, `core/bt/solve/stack_search.h`,
-`core/bt/solve/panex_search.h`, `core/bt/io/blockpack.h`, the stacking run
-of `core/bt/solve/solve_session.cpp`, `core/bt/io/paused_solve.h`,
-`core/bt/app/document_stacking.cpp`, `engine/methods_stacking.cpp`,
+and the engine); `core/shapelogic/model/stacking.h`,
+`core/shapelogic/model/stacking_types.h`, `core/shapelogic/solve/stack_search.h`,
+`core/shapelogic/solve/panex_search.h`, `core/shapelogic/io/blockpack.h`, the stacking run
+of `core/shapelogic/solve/solve_session.cpp`, `core/shapelogic/io/paused_solve.h`,
+`core/shapelogic/app/document_stacking.cpp`, `engine/methods_stacking.cpp`,
 `api/stacking.json`.
 
 ## Context
 The original's stacking puzzles (`src/lib/stacking.{h,cpp}`, `panex.{h,cpp}`,
 `blockpack.{h,cpp}`, the solve thread's `runStacking`, the GUI's Solve,
 Continue and Abort branches, the BTSOLVE2 `searchz/` sections of its
-paused-solve export) were the last solver of BurrTools: discs on rods,
+paused-solve export) were the last solver of ShapeLogic: discs on rods,
 moved one top disc at a time, solved by a breadth-first search over
 stackings. The Panex search searches from both ends, keeps only the newest
 levels in memory, saves every few levels on disk, traces its path back
 between them, and stops and carries on from a folder per puzzle. The
 original's Stacking Solver runs on that same search whenever the puzzle
 fits it (eight rods, 25 symbols), and on its own `findStackPath`
-otherwise. The original read `BURRTOOLS_PANEX_DIR`,
-`BURRTOOLS_PANEX_DISK_GB`, `BURRTOOLS_PANEX_LOG` and
-`BURRTOOLS_NO_TOWER_RULE` from the environment, ran its steps on threads
+otherwise. The original read `SHAPELOGIC_PANEX_DIR`,
+`SHAPELOGIC_PANEX_DISK_GB`, `SHAPELOGIC_PANEX_LOG` and
+`SHAPELOGIC_NO_TOWER_RULE` from the environment, ran its steps on threads
 of its own, and its solve thread ended every stacking run Finished, a
 stopped search too. Decisions 0004, 0009 and 0010 rule out all three as
 they were. Until this part the new core kept rod sets and stacks as
@@ -78,7 +78,7 @@ is the search's folder, not the problem.
 
 **No environment, no raw threads, no printing in the core.** The work
 folder and the disk budget are options: `bt` takes `--panex-dir` and
-`--panex-disk`, else `BURRTOOLS_PANEX_DIR` and `BURRTOOLS_PANEX_DISK_GB`,
+`--panex-disk`, else `SHAPELOGIC_PANEX_DIR` and `SHAPELOGIC_PANEX_DISK_GB`,
 else the user's cache folder's `panex`; an empty folder saves nothing
 (the search still solves, by halves when its levels outgrow memory). The
 level log is a callback (`bt --panex-log`), the tower rule a switch (`bt

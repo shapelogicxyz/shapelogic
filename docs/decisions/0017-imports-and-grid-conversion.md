@@ -1,8 +1,8 @@
 # 0017: The imports, the Puzzlecad export and grid conversion
 
-**Status:** accepted (deferred part 6); `core/bt/io/imports.h`
-(`ps3d_file.cpp`, `scad_file.cpp`), `core/bt/model/grid_convert.h`,
-`core/bt/app/document.h` (`importFile`, `importBytes`, `convertGrid`,
+**Status:** accepted (deferred part 6); `core/shapelogic/io/imports.h`
+(`ps3d_file.cpp`, `scad_file.cpp`), `core/shapelogic/model/grid_convert.h`,
+`core/shapelogic/app/document.h` (`importFile`, `importBytes`, `convertGrid`,
 `exportPuzzlecad`), `engine/methods_document.cpp`, `api/document.json`,
 `api/engine.json` (`grids[].convertsTo`),
 `web/src/renderer/shell/imports.ts`.

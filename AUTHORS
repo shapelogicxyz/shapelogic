@@ -1,5 +1,6 @@
-BurrTools Alpha is a rebuild of the BurrTools core. The algorithms it ports
-were written by the authors of BurrTools:
+ShapeLogic is a fork of BurrTools, the designer and solver for interlocking
+(burr) puzzles, and is built on the work of its authors. The algorithms it
+ports were written by the authors of BurrTools:
 
 Andreas Röver (original author, 2003-2011)
 

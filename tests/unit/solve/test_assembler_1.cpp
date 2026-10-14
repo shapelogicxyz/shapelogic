@@ -7,12 +7,12 @@
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
 
-#include "bt/base/thread_pool.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/assembler_1.h"
-#include "bt/solve/simd_huang_cover.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/assembler_1.h"
+#include "shapelogic/solve/simd_huang_cover.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -73,7 +73,6 @@ TEST_CASE("Assembler 1: regression counts of the examples", "[solve][assembler]"
     INFO(c.file);
     const Puzzle p = test::loadFixture(c.file);
     CHECK(chooseAssembler(p.getProblem(0), SolverType::Classic) == AssemblerKind::Assembler1);
-    CHECK(chooseAssembler(p.getProblem(0), SolverType::Bt2) == AssemblerKind::Assembler1);
     auto a = made(p);
     const test::RunResult r = runOnce(*a, searchOptions(1, nullptr));
     CHECK(r.end == RunEnd::Finished);
@@ -903,7 +902,7 @@ TEST_CASE("Assembler 1: errors of createMatrix", "[solve][assembler]") {
     Problem& pr = p.getProblem(0);
     pr.setShapeMaximum(p, pr.getShapeIdOfPart(0), 2);
     CHECK(dynamic_cast<Assembler1*>(makeAssembler(p, pr, SolverType::Classic).get()) != nullptr);
-    CHECK(dynamic_cast<Assembler1*>(makeAssembler(p, pr, SolverType::Bt2).get()) != nullptr);
+    CHECK(dynamic_cast<Assembler1*>(makeAssembler(p, pr, SolverType::Crowell).get()) != nullptr);
   }
 }
 

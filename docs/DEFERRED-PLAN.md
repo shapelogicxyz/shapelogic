@@ -6,7 +6,7 @@ Finish what docs/PLAN.md put under "Later" and docs/FRONTEND-PLAN.md under
 exports, the imports (PuzzleSolver3D, Puzzlecad), Puzzlecad export, grid
 conversion, and Python bindings**. Each feature lands **complete**: core
 port, engine methods, front end, tests, all with the same discipline as
-the core and web stages. After the last part, BurrTools Alpha does
+the core and web stages. After the last part, ShapeLogic does
 everything the original BurrTools does, apart from what is deliberately
 dropped (end of this document).
 
@@ -117,7 +117,7 @@ Read first, in this order:
     runs go through `SolveSession`, not a side path;
   - edits are undoable and refused while solving (decision 0011);
   - no global state or environment switches in `core/` (the original's
-    `BURRTOOLS_PANEX_DIR` and `BURRTOOLS_PANEX_DISK_GB` become options set
+    `SHAPELOGIC_PANEX_DIR` and `SHAPELOGIC_PANEX_DISK_GB` become options set
     by the engine, the CLI and the settings);
   - `core/` never prints.
 - **Engine additions**:
@@ -446,7 +446,7 @@ when the module is built.
 ## Prompt template for a part's session
 > Do part N of docs/DEFERRED-PLAN.md in
 > /Users/colin/git/burr-tools-rotations/burrtools_alpha (the original
-> BurrTools is ../burrtools_rotations). First read AGENTS.md,
+> ShapeLogic is ../burrtools_rotations). First read AGENTS.md,
 > docs/ARCHITECTURE.md, docs/DEFERRED-PLAN.md, the previous handoff
 > (docs/handoff/deferred-<N-1>.md, or web-8.md and stage-8.md for part 1),
 > docs/API.md, api/README.md and the decisions the plan names. Follow

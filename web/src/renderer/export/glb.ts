@@ -11,7 +11,7 @@
 // piece turns, scale 0 or 1 as STEP when it is hidden at some time). The
 // sampling (the holds on the assembled and the apart puzzle, the moves
 // backwards to reassemble, the poses of hidden pieces, the quaternions'
-// hemispheres) is the engine's playback.track (core/bt/app/playback.cpp,
+// hemispheres) is the engine's playback.track (core/shapelogic/app/playback.cpp,
 // ported from the same function); the meshes are playback.mesh's. The
 // file is written by three.js's GLTFExporter, not by hand as the original
 // did. DOM-free: the engine tests build and check it in Node.

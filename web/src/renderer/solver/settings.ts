@@ -149,7 +149,7 @@ export function stackingSolverOf(panexColumns: boolean): StackingSolver {
   return panexColumns ? 'panex' : 'stacking';
 }
 
-const SOLVERS: readonly Solver[] = ['classic', 'crowell', 'bt2'];
+const SOLVERS: readonly Solver[] = ['classic', 'crowell'];
 const SLIDING_SOLVERS: readonly SlidingSolver[] = ['fast', 'deep', 'full'];
 const SORTS: readonly SortBy[] = ['unsorted', 'moves', 'level', 'rotations'];
 

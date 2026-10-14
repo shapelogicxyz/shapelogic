@@ -2,7 +2,7 @@
 //
 // The rescue copy (stage 6), as the original's `__rescue.xmpuzzle`: the
 // document's bytes as the engine writes them (document.saveBytes, plain
-// XML, which BurrTools opens as any puzzle file), kept in the app's data
+// XML, which ShapeLogic opens as any puzzle file), kept in the app's data
 // directory while the document has unsaved changes, with a record of what
 // it stands for (`__rescue.json`: the document's file, its name, the
 // revision, the time, and a hash of the bytes). After an engine's death,

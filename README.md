@@ -1,7 +1,8 @@
-# BurrTools Alpha
+# ShapeLogic
 
-A rebuild of the core of [BurrTools](https://burrtools.sourceforge.net/), the
-designer and solver for interlocking (burr) puzzles: the puzzle model, the
+A fork of [BurrTools](https://burrtools.sourceforge.net/) (the original is by
+Andreas Röver and contributors; see AUTHORS) with a rebuilt core: the
+designer and solver for interlocking (burr) puzzles, with the puzzle model, the
 `.xmpuzzle` file format, the assembly and disassembly solvers, and an engine
 process that a new web front end will drive.
 
@@ -29,7 +30,7 @@ Minkowski mesher on Manifold, the same files as the original's) are
 exported from both STL dialogs and drawn in the view's STL-like style;
 PuzzleSolver3D and Puzzlecad files are imported, Puzzlecad files exported
 and cube-grid puzzles converted to the rhombic and tetra-octa grids as the
-original does (part 6); and the `burrtools` Python module keeps the
+original does (part 6); and the `shapelogic` Python module keeps the
 original module's API over the new core, sliding and stacking puzzles
 included (part 7, [python/README.md](python/README.md)). See
 [docs/PLAN.md](docs/PLAN.md).
@@ -48,7 +49,7 @@ just oracle       # compare with the original BurrTools (needs ../burrtools_rota
 
 Outputs: `build/<preset>/engine/bt-engine` (the engine: JSON-RPC 2.0 on
 stdin and stdout), `build/<preset>/cli/bt` (command-line solver),
-`build/<preset>/python/burrtools.*.so` (the Python module, when CMake
+`build/<preset>/python/shapelogic.*.so` (the Python module, when CMake
 finds Python's headers; `just python-wheel` makes its wheel),
 `build/<preset>/tests/bt_tests`.
 

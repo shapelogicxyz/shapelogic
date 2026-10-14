@@ -101,7 +101,7 @@ the web directory is the bundle's `../..`.
   test).
 - **`shell.openExternal`** is called in one place, on `HELP_URLS[link]`
   (now in security.ts): the renderer names a link (`guide`, `tutorial`),
-  never an address; both are https on burrtools.sourceforge.net.
+  never an address; both are https on shapelogic.xyz.
 - **The environment's switches** (`switches`): a packaged app takes
   `BT_USER_DATA` only (its data directory; the smoke test keeps the user's
   apart). `BT_ENGINE` (another program to run), `ELECTRON_RENDERER_URL`
@@ -229,7 +229,7 @@ stages pass unchanged (the packaging touches no drawing).
    (`node_modules/app-builder-lib/templates/entitlements.mac.plist`:
    allow-jit, allow-unsigned-executable-memory,
    disable-library-validation), notarises with notarytool and staples.
-4. Check: `codesign --verify --deep --strict --verbose=2 "dist/mac-arm64/BurrTools Alpha.app"`,
+4. Check: `codesign --verify --deep --strict --verbose=2 "dist/mac-arm64/ShapeLogic.app"`,
    `spctl -a -vv -t exec` on it (says "Notarized Developer ID"),
    `xcrun stapler validate` on the .dmg; then the smoke test with
    `BT_PACKAGED_APP` on the mounted .dmg's app.
@@ -243,7 +243,7 @@ it in System Settings ▸ Privacy & Security.
 installer with signtool (an EV certificate on a token, or Azure Trusted
 Signing, needs `win.signtoolOptions` or `win.azureSignOptions` in
 `tools/dist.ts`'s configuration). Check with
-`signtool verify /pa /v "dist\BurrTools Alpha Setup 0.1.0.exe"`.
+`signtool verify /pa /v "dist\ShapeLogic Setup 0.1.0.exe"`.
 Unsigned, SmartScreen warns ("Windows protected your PC" ▸ More info ▸ Run
 anyway).
 
@@ -301,12 +301,12 @@ take it in (its step 5's checks are in step 6 here).
    unpacked app in `dist\win-unpacked`), then
    `npx playwright test -c playwright.smoke.config.ts`: 1 passed (it skips
    the check of which engine runs, done by hand in step 6). Then
-   `npm run dist`: `dist\BurrTools Alpha Setup 0.1.0.exe`.
+   `npm run dist`: `dist\ShapeLogic Setup 0.1.0.exe`.
 5. Run the installer (SmartScreen: More info ▸ Run anyway); it installs
    for the user; the app starts from the Start menu.
 6. In the installed app: the status bar leaves "Starting the engine…"; in
    Task Manager the app's `bt-engine.exe` is the one under
-   `%LOCALAPPDATA%\Programs\BurrTools Alpha\resources\`; Help ▸ About says
+   `%LOCALAPPDATA%\Programs\ShapeLogic\resources\`; Help ▸ About says
    0.1.0; the menu bar in the window with Ctrl keys; File ▸ Open…
    `tests\data\puzzles\Bermuda.xmpuzzle`: shapes listed and drawn; every
    style; the Solver: Solve with take-apart, the solution plays; edit
@@ -342,14 +342,14 @@ take it in (its step 5's checks are in step 6 here).
    `sudo chown root:root dist/linux-unpacked/chrome-sandbox && sudo chmod 4755 dist/linux-unpacked/chrome-sandbox`
    and run the test again. Then `npm run dist`: the AppImage and the
    `.deb` in `dist/`.
-5. `sudo apt install ./dist/burrtools-alpha-web_0.1.0_amd64.deb`; start
-   BurrTools Alpha from the applications menu; and the AppImage
+5. `sudo apt install ./dist/shapelogic-web_0.1.0_amd64.deb`; start
+   ShapeLogic from the applications menu; and the AppImage
    (`chmod +x`, run it; note whether it needs `--no-sandbox`).
 6. The checks of the Windows step 6, with Files for Explorer and
    `ps -ef | grep bt-engine` for Task Manager (the engine is the one
-   under `/opt/BurrTools Alpha/resources/`); `chmod a-w` for read-only;
+   under `/opt/ShapeLogic/resources/`); `chmod a-w` for read-only;
    double-click a `.xmpuzzle` in Files (the .deb's file association).
-   Remove with `sudo apt remove burrtools-alpha-web`.
+   Remove with `sudo apt remove shapelogic-web`.
 7. Write down what happened, as for Windows.
 
 ## Known issues and notes
@@ -388,7 +388,7 @@ take it in (its step 5's checks are in step 6 here).
 - `dist/` holds about 130 MB per installer (ignored by git). The first
   `web-dist` downloads Electron's zip for the platform into
   electron-builder's cache (network needed).
-- The `.deb`'s maintainer is "BurrTools Alpha" without an address;
+- The `.deb`'s maintainer is "ShapeLogic" without an address;
   `package.json` has no `author` (electron-builder warns).
 - From stage 7 and earlier, still open: as web-7.md's and web-6.md's
   "Known issues" list them.

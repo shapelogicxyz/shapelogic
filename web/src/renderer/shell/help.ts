@@ -64,10 +64,10 @@ export function openAbout(store: Store, appVersion: string): void {
       : `${esc(info.name)} ${esc(info.version)}, protocol ${info.protocol}`;
   void openDialog({
     id: 'about',
-    title: 'About BurrTools Alpha',
+    title: 'About ShapeLogic',
     wide: true,
-    body: `<p><b>BurrTools Alpha ${esc(appVersion)}</b><br>Engine: ${engine}</p>
-<p>A rebuild of BurrTools, the puzzle solver of Andreas Röver (2003–2011), with thanks, from its AUTHORS file, to Bill Cutler, André van Kamen and Don E. Knuth (algorithms), Ronald Kint-Bruynseels, Dic Sonneveld, Derek Bosch, Markus Götz, Lee Krasnow, Volker Grabsch, George Bell and Barry Downes.</p>
+    body: `<p><b>ShapeLogic ${esc(appVersion)}</b><br>Engine: ${engine}</p>
+<p>A fork of BurrTools, the puzzle solver of Andreas Röver (2003–2011), with thanks, from its AUTHORS file, to Bill Cutler, André van Kamen and Don E. Knuth (algorithms), Ronald Kint-Bruynseels, Dic Sonneveld, Derek Bosch, Markus Götz, Lee Krasnow, Volker Grabsch, George Bell and Barry Downes.</p>
 <p>The interface is built on Girish Sharma’s mockup of a BurrTools web GUI.</p>
 <p>This program is free software under the GNU General Public License, version 3 or later; it comes with no warranty.</p>`,
     buttons: [{ key: 'close', label: 'Close', kind: 'pri', default: true }],

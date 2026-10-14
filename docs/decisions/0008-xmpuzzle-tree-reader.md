@@ -1,6 +1,6 @@
 # 0008: Read .xmpuzzle files into a tree, keep what is not modelled
 
-**Status:** accepted (stage 2); `core/bt/io/`, `core/bt/model/xml_element.h`
+**Status:** accepted (stage 2); `core/shapelogic/io/`, `core/shapelogic/model/xml_element.h`
 
 ## Context
 Decision 0006 asks that content the new core does not model (stacking rod

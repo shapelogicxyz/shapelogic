@@ -51,7 +51,7 @@ and close paths is done ("Audit" below).
   normally with shape colour, with colour constraint colours, the two
   anaglyph modes; the styles: each voxel separately, flat faces with
   edges, wire frames, like STL export), **Help** (Keyboard Shortcuts,
-  Tutorial, BurrTools User Guide; About off macOS), and on macOS the
+  Tutorial, ShapeLogic User Guide; About off macOS), and on macOS the
   application menu (About, Settings…, Services, Hide, Quit). Greyed until
   the core or a later stage has them: the two imports, the exports but
   the paused solver state (stage 7), grid conversion, the anaglyph modes,
@@ -72,7 +72,7 @@ and close paths is done ("Audit" below).
   ms after a change to `state.json.tmp` renamed over it, flushed at quit;
   a file that is not JSON, or values of the wrong kind, read as absent.
 - `rescue.ts` (`RescueStore`): `__rescue.xmpuzzle` (the document's bytes
-  from `document.saveBytes`: plain XML, which BurrTools opens as any
+  from `document.saveBytes`: plain XML, which ShapeLogic opens as any
   puzzle) and `__rescue.json` (its file, name, revision, time and the
   SHA-256 of the bytes), the record written first, each by rename; a copy
   whose record does not match (the app died between the two) is offered
@@ -252,7 +252,7 @@ question, the save point's offer, Notes, Convert, About, F1).
    start** when a session died (the original wrote `__rescue.xmpuzzle`
    when it crashed; here the app's own death is the same case as the
    engine's). It lives in the app's data directory
-   (`~/Library/Application Support/BurrTools Alpha/` on macOS), not the
+   (`~/Library/Application Support/ShapeLogic/` on macOS), not the
    working directory as the original's.
 3. **The close question is the page's**, with the original's three
    answers (its `confirmDiscard`); the main process asks natively only
@@ -676,7 +676,7 @@ things are:
   `app-ipc.ts`'s `KINDS`), written beside and renamed as the core now
   does (since the audit: through a symbolic link to the file it names, a
   read-only file refused, the replaced file's permissions kept:
-  `saveTarget` and `replaceWith` in `core/bt/io/gzip_file.cpp`); the
+  `saveTarget` and `replaceWith` in `core/shapelogic/io/gzip_file.cpp`); the
   renderer never gets a path any other way.
 - The view: `view3d/renderer.ts` (`ViewRenderer`, render on demand),
   `view3d/view.ts`; the player's poses `solver/poses.ts`; the solution

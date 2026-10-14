@@ -2,8 +2,8 @@
 // Ported from src/python/py_shape.cpp.
 #include "py_shape.h"
 
-#include "bt/grid/voxel.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <stdexcept>
 #include <utility>

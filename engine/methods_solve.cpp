@@ -3,7 +3,7 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/model/stacking.h"
+#include "shapelogic/model/stacking.h"
 
 #include <optional>
 

@@ -50,17 +50,17 @@ function packaged(): { exe: string; resources: string } {
     const app = join(
       dist,
       process.arch === 'arm64' ? 'mac-arm64' : 'mac',
-      'BurrTools Alpha.app',
+      'ShapeLogic.app',
       'Contents',
     );
-    return { exe: join(app, 'MacOS', 'BurrTools Alpha'), resources: join(app, 'Resources') };
+    return { exe: join(app, 'MacOS', 'ShapeLogic'), resources: join(app, 'Resources') };
   }
   if (process.platform === 'win32') {
     const dir = join(dist, 'win-unpacked');
-    return { exe: join(dir, 'BurrTools Alpha.exe'), resources: join(dir, 'resources') };
+    return { exe: join(dir, 'ShapeLogic.exe'), resources: join(dir, 'resources') };
   }
   const dir = join(dist, 'linux-unpacked');
-  return { exe: join(dir, 'burrtools-alpha'), resources: join(dir, 'resources') };
+  return { exe: join(dir, 'shapelogic'), resources: join(dir, 'resources') };
 }
 
 /** A fuse's states in the wire: the characters '0' and '1' (@electron/fuses's FuseState, not exported). */

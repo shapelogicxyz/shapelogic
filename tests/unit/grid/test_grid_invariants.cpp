@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from test/test_grid_invariants.cpp of the original.
 
-#include "bt/grid/grid_type.h"
-#include "bt/grid/symmetries.h"
-#include "bt/grid/voxel.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/symmetries.h"
+#include "shapelogic/grid/voxel.h"
 #include "grid_test_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>

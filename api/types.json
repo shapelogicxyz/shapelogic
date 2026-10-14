@@ -26,7 +26,7 @@
     "Size": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 3, "maxItems": 3, "description": "A size [x, y, z]."},
     "Point2": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "A point [x, y] of a layer drawing, y up."},
     "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life."},
-    "Solver": {"enum": ["classic", "crowell", "bt2"], "description": "BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2."},
+    "Solver": {"enum": ["classic", "crowell"], "description": "Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart."},
     "SlidingSolver": {"enum": ["fast", "deep", "full"], "description": "How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default)."},
     "StackingSolver": {"enum": ["stacking", "panex"], "description": "The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it, which pauses, carries on and saves itself, else a search of its own) or the Panex Solver (the Panex search alone, for rod sets with Panex columns; a puzzle it cannot take is refused with its reason)."},
     "SolveState": {"enum": ["idle", "preparing", "assembling", "draining", "paused", "finished", "error"], "description": "decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage)."},
@@ -273,7 +273,7 @@
         "partialNested": {"type": "boolean"},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
-        "solverType": {"type": "string", "description": "classic, crowell, bt2 (sliding: fast, deep, full)."},
+        "solverType": {"type": "string", "description": "classic, crowell (sliding: fast, deep, full)."},
         "sortBy": {"type": "string", "description": "unsorted, moves, level, rotations."}
       },
       "additionalProperties": {"type": "string"}

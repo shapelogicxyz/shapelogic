@@ -13,7 +13,7 @@ conversion.
 ## Done
 
 Six commits, in order:
-- `d7e8094` **Core: the STL meshes** (`core/bt/mesh/`): `triangulate.h`
+- `d7e8094` **Core: the STL meshes** (`core/shapelogic/mesh/`): `triangulate.h`
   (cubeMesh::triangulateLoops), `cube_mesh.h` (cubemesh.cpp with the
   tables `tabs_cube/cubetable*.inc` copied unchanged, cubepoly.cpp),
   `mink_mesh.h` (minkmesh.cpp), `stl.h` (stl.cpp, stl_0.cpp, stl_2.cpp,

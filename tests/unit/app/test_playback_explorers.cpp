@@ -6,18 +6,18 @@
 // compared with the original's sampler in test_app_dump.cpp.
 #include "app_test_helpers.h"
 
-#include "bt/app/document.h"
-#include "bt/app/explorers.h"
-#include "bt/app/playback.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/mesh/grid_geometry.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
-#include "bt/model/stacking.h"
-#include "bt/solve/disassembler.h"
-#include "bt/solve/solve_session.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/app/explorers.h"
+#include "shapelogic/app/playback.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/mesh/grid_geometry.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/solve_session.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>

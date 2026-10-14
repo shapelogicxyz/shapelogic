@@ -10,10 +10,10 @@
 #include "output.h"
 #include "rpc.h"
 
-#include "bt/app/document.h"
-#include "bt/app/explorers.h"
-#include "bt/app/playback.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/app/explorers.h"
+#include "shapelogic/app/playback.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <chrono>
 #include <cstdint>
@@ -39,14 +39,14 @@ struct Settings {
   /// Where a full sliding search keeps its older levels (empty: in
   /// memory), and the disk they may take in GB (0: automatic). The folder
   /// starts as the user's cache folder's "sliding" (the original's default
-  /// for BURRTOOLS_SLIDE_DIR).
+  /// for SHAPELOGIC_SLIDE_DIR).
   std::string slideFolder = defaultSlideFolder();
   double slideDiskGB = 0;
   /// Where a stacking solve's Panex search is saved (empty: nothing is
   /// saved, and a search that outgrows memory solves by halves), and the
   /// disk its levels may take in GB (0: automatic). The folder starts as
   /// the user's cache folder's "panex" (the original's default for
-  /// BURRTOOLS_PANEX_DIR). A paused stacking solve is its saved search
+  /// SHAPELOGIC_PANEX_DIR). A paused stacking solve is its saved search
   /// there: solve.continue, solve.abort, solve.status and the paused
   /// solve's export and import look for it there.
   std::string panexFolder = defaultPanexFolder();

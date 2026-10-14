@@ -1,9 +1,9 @@
 # 0009: One run layer for the assemblers, one thread pool for a solve
 
 **Status:** accepted (stage 3a), completed in stage 3b;
-`core/bt/solve/search_run.h`, `core/bt/solve/work_stealing.h`,
-`core/bt/solve/resume_state.h`, `core/bt/solve/assembler.h`,
-`core/bt/base/thread_pool.h`
+`core/shapelogic/solve/search_run.h`, `core/shapelogic/solve/work_stealing.h`,
+`core/shapelogic/solve/resume_state.h`, `core/shapelogic/solve/assembler.h`,
+`core/shapelogic/base/thread_pool.h`
 
 ## Context
 In the original, assembler_0, assembler_1 and the BT2 driver each carried
@@ -12,10 +12,10 @@ their own copy of the parallel search: an `abbort` flag cleared on entry
 completion flags and reported signatures, the progress counters, and the
 code that writes these into a saved position. The copies had drifted apart
 three times. Thread counts came from a process-wide limit
-(`setSolveThreadLimit`), the `BURRTOOLS_THREADS` variable and `-t`, and A/B
+(`setSolveThreadLimit`), the `SHAPELOGIC_THREADS` variable and `-t`, and A/B
 switches from environment variables read inside the library
-(`BURRTOOLS_NO_SIMD`, `NO_AVX2`, `NO_AVX512`, `NO_NEON`,
-`BURRTOOLS_HUANG_MEM_MB`). Decision 0004 asked for one shared layer.
+(`SHAPELOGIC_NO_SIMD`, `NO_AVX2`, `NO_AVX512`, `NO_NEON`,
+`SHAPELOGIC_HUANG_MEM_MB`). Decision 0004 asked for one shared layer.
 
 ## Decision
 **A run.** Every `Assembler::assemble(callback, options, stopToken)` call is
@@ -64,9 +64,9 @@ to `kMaxThreads` (256) before any thread is made. Shapes are warmed
 (`Voxel::warmCaches`) before a search spreads over threads.
 
 **A/B switches** are fields of `SearchOptions`: `vectorSearch`
-(`BURRTOOLS_NO_SIMD`), `SimdKernels` (`NO_AVX2`, `NO_AVX512`, `NO_NEON`) and
+(`SHAPELOGIC_NO_SIMD`), `SimdKernels` (`NO_AVX2`, `NO_AVX512`, `NO_NEON`) and
 `vectorMemoryBudget`, the memory assembler 1's vector search may take
-(`BURRTOOLS_HUANG_MEM_MB`).
+(`SHAPELOGIC_HUANG_MEM_MB`).
 
 **BT2** uses the same run, hand-over and pool. Its work stealing
 (`bt2Assemble`: split a search, run slices, give branches to idle threads,

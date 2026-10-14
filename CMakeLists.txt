@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(BurrToolsNext
+project(ShapeLogic
   VERSION 0.1.0
-  DESCRIPTION "BurrTools core: puzzle model, solvers and the engine the web front end talks to"
+  DESCRIPTION "ShapeLogic core: puzzle model, solvers and the engine the web front end talks to"
   LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)

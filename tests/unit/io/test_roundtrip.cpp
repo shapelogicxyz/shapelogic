@@ -5,8 +5,8 @@
 #include "../grid/grid_test_helpers.h"
 #include "../model/model_test_helpers.h"
 
-#include "bt/io/gzip_file.h"
-#include "bt/io/puzzle_file.h"
+#include "shapelogic/io/gzip_file.h"
+#include "shapelogic/io/puzzle_file.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -142,7 +142,7 @@ TEST_CASE("problem: Solver tab settings are saved per problem", "[io][roundtrip]
   const unsigned int withOpts = original.addProblem();
   const unsigned int withoutOpts = original.addProblem();
   const std::map<std::string, std::string> opts = {
-      {"disassemble", "1"}, {"justCount", "0"}, {"solverType", "bt2"}, {"sortBy", "level"}};
+      {"disassemble", "1"}, {"justCount", "0"}, {"solverType", "crowell"}, {"sortBy", "level"}};
   original.getProblem(withOpts).setSolverOptions(opts);
 
   Puzzle restored = reloaded(original);

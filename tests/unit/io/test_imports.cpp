@@ -5,13 +5,13 @@
 // committed inputs of tests/data/imports/ and the cube-grid fixtures
 // against what the original made of them (tests/data/imports_by_original/,
 // `oracle.py record-imports`), through the document as the engine calls it.
-#include "bt/app/document.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/gzip_file.h"
-#include "bt/io/imports.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/grid_convert.h"
-#include "bt/model/problem.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/gzip_file.h"
+#include "shapelogic/io/imports.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/grid_convert.h"
+#include "shapelogic/model/problem.h"
 
 #include <catch2/catch_test_macros.hpp>
 

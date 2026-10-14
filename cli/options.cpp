@@ -4,7 +4,7 @@
 // burrTxt2's options (src/burrTxt2.cpp) as long options for --save.
 #include "options.h"
 
-#include "bt/base/version.h"
+#include "shapelogic/base/version.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -111,10 +111,9 @@ void usage(HelpKind kind) {
         "          (a colored voxel does not also fit a neutral one, and a neutral voxel\n"
         "          fits only a neutral result voxel)\n"
         "  -t n    set number of worker threads for assembler (0 = auto)\n"
-        "  --solver TYPE   (default: BurrTools Classic)\n"
-        "            \"BurrTools Classic\"  complete take-apart (also: classic)\n"
-        "            \"Andrew Crowell\"     90° take-apart heuristics (also: crowell)\n"
-        "            \"BurrTools 2\"        Classic take-apart + dancing-cells assembly (also: bt2)\n"
+        "  --solver TYPE   (default: Complete (ShapeLogic))\n"
+        "            \"Complete (ShapeLogic)\"  complete take-apart (also: classic)\n"
+        "            \"Fast (Crowell)\"         90° take-apart heuristics (also: crowell)\n"
         "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
         "  --no-simd            the plain search and scalar loops only\n"
         "  --no-level-threads   take apart on one thread per assembly\n"
@@ -154,8 +153,8 @@ void usage(HelpKind kind) {
         "                                   rest on disk, so free disk space limits it\n"
         "                                   (also: full)\n"
         "  The Sliding Full Solver keeps its first 256 MB of older moves in memory, then\n"
-        "  writes to $BURRTOOLS_SLIDE_DIR, or the user's cache folder, and deletes its\n"
-        "  files when done. BURRTOOLS_SLIDE_DISK_GB limits the disk it may take (default:\n"
+        "  writes to $SHAPELOGIC_SLIDE_DIR, or the user's cache folder, and deletes its\n"
+        "  files when done. SHAPELOGIC_SLIDE_DISK_GB limits the disk it may take (default:\n"
         "  all but 2 GB or a twentieth of the disk, but at least 1 GB or half the free\n"
         "  space, whichever is less).\n"
         "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
@@ -184,9 +183,9 @@ void usage(HelpKind kind) {
       "  Panex Solver searches are saved when stopped (Ctrl-C), when they run out\n"
       "  of memory, and every 20 minutes; the same command carries a saved search on.\n"
       "  --restart       discard a saved search and start over\n"
-      "  --panex-dir DIR keep saved searches in DIR (default: $BURRTOOLS_PANEX_DIR, or\n"
+      "  --panex-dir DIR keep saved searches in DIR (default: $SHAPELOGIC_PANEX_DIR, or\n"
       "                  the user's cache folder)\n"
-      "  --panex-disk GB disk saved levels may take (default: $BURRTOOLS_PANEX_DISK_GB,\n"
+      "  --panex-disk GB disk saved levels may take (default: $SHAPELOGIC_PANEX_DISK_GB,\n"
       "                  or half the free space, at most 200); less disk makes tracing\n"
       "                  the path back slower\n"
       "  With --save, -d searches the transfers as the GUI's Solve did (burrTxt2 had\n"

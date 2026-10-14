@@ -8,7 +8,7 @@ later" and whose repository ships the GPLv3 text (COPYING). The web front-end
 design by Girish Sharma is published under GPL-3.0.
 
 ## Decision
-BurrTools Alpha is licensed **GPL-3.0-or-later**. Every source file starts with
+ShapeLogic is licensed **GPL-3.0-or-later**. Every source file starts with
 `// SPDX-License-Identifier: GPL-3.0-or-later`. COPYING holds the GPLv3 text;
 AUTHORS credits the original authors and the front-end designer.
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The thread pool that replaces the original's helperPool_c and its global
 // thread limit (helperpool.cpp; the thread-limit case of test_solver.cpp).
-#include "bt/base/thread_pool.h"
+#include "shapelogic/base/thread_pool.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -3,7 +3,7 @@
 ## Goal
 A desktop application, **Electron + TypeScript + three.js**, that drives
 `bt-engine` over JSON-RPC (decisions 0003 and 0012) and gives the original
-BurrTools GUI's functions for everything the core solves, laid out as
+ShapeLogic GUI's functions for everything the core solves, laid out as
 Girish Sharma's mockup (docs/webui-spec.md). The mockup is the **basis**:
 its HTML, CSS and interaction code are taken over and reworked, section by
 section, not designed again. The engine is the reference for what an
@@ -28,7 +28,7 @@ localisation are not planned yet.
 
 ## The mockup as the basis
 - **Source:** `index.html` on the `gh-pages` branch of `grssam/burr-tools`,
-  commit `d7afb3ed` (2026-10-04), GPL-3.0; BurrTools Alpha is
+  commit `d7afb3ed` (2026-10-04), GPL-3.0; ShapeLogic is
   GPL-3.0-or-later, so the code can be taken over. The Pages URL
   (https://grssam.github.io/burr-tools/) answered 404 on 2026-10-08; the
   file is read from the branch. Stage 1 vendors it as

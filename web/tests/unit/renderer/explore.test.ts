@@ -155,14 +155,14 @@ describe('the debug statistics report', () => {
   });
 
   it('has the original’s rows and values for a finished run with take-apart', () => {
-    const r = statsReport(STATS, (s) => (s === 'classic' ? 'BurrTools Classic' : s));
+    const r = statsReport(STATS, (s) => (s === 'classic' ? 'Complete (ShapeLogic)' : s));
     const rows = Object.fromEntries(
       r.sections.flatMap((s) => s.rows).map((x) => [x.label, x.value]),
     );
     expect(r.sections.map((s) => s.title)).toEqual([null, 'Assembly', 'Disassembly']);
     expect(rows).toMatchObject({
       'Solver:': 'Finished',
-      'Solver Type:': 'BurrTools Classic',
+      'Solver Type:': 'Complete (ShapeLogic)',
       'Assemblies considered:': '50',
       'Valid (disassemblable):': '5',
       'Inseparable assemblies:': '45',

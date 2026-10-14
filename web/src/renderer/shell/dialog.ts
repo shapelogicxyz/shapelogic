@@ -205,7 +205,7 @@ function showTold(): void {
   }
   void openDialog({
     id: 'notice',
-    title: 'BurrTools',
+    title: 'ShapeLogic',
     body: `<p>${esc(text)}</p>`,
     buttons: [{ key: 'ok', label: 'OK', kind: 'pri', default: true }],
   }).then(() => {

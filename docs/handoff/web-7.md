@@ -20,7 +20,7 @@ as written).
 ### The main process (`web/src/main/`)
 - `export-file.ts` (new): `writeFileSafely`, an export written the way the
   core now writes a puzzle (`saveTarget` and `replaceWith` in
-  `core/bt/io/gzip_file.cpp`, since the stage 6 audit): `<file>.tmp` beside
+  `core/shapelogic/io/gzip_file.cpp`, since the stage 6 audit): `<file>.tmp` beside
   the file, renamed over it once whole; a symbolic link followed (at most
   40) so the link stays and the file it names is written; a read-only file
   refused ("… is read-only"), where a rename would replace it; the replaced

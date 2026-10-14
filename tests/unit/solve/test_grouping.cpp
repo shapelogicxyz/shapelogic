@@ -3,16 +3,16 @@
 // numbers its comments cite are those of the original grouping.cpp. The
 // cases at the end (groups in the take-apart) are new, from the stage 4
 // audit.
-#include "bt/base/stop.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/assembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/disassembler.h"
-#include "bt/solve/grouping.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/grouping.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_test_macros.hpp>
 

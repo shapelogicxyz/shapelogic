@@ -5,10 +5,10 @@
 // ThreadSanitizer), and the autosave flow. New.
 #include "app_test_helpers.h"
 
-#include "bt/app/document.h"
-#include "bt/base/solve_state.h"
-#include "bt/model/problem.h"
-#include "bt/model/solution.h"
+#include "shapelogic/app/document.h"
+#include "shapelogic/base/solve_state.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/solution.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -197,25 +197,6 @@ TEST_CASE("document solving: a paused solve survives a change of the lists", "[a
   solveToEnd(d, p, takeApart(1));
   CHECK(totals(d, 0) == want);
   (void)q;
-}
-
-TEST_CASE("document solving: a paused BurrTools 2 search blocks a change of the lists",
-          "[app][solving]") {
-  // it can be carried on in memory only (decision 0009): ending its
-  // session would lose it, so the change is refused until it is aborted
-  Document d = fresh("DraculasDentalDesaster.xmpuzzle");
-  const Id p = d.problemIds().front();
-  SolveOptions o = takeApart();
-  o.solver = SolverType::Bt2;
-  REQUIRE(d.solvePrepare(p, o).has_value());
-  REQUIRE(d.solveWait(p).has_value());
-  REQUIRE(d.solveState(p) == SolveState::Paused);
-  test::refused(d, Errc::InvalidState, [](Document& x) { return x.createProblem(); });
-  test::refused(d, Errc::InvalidState, [](Document& x) { return x.addColour(Rgb{}); });
-  // a new shape at the end is fine
-  CHECK(d.createShape().has_value());
-  REQUIRE(d.solveAbort(p).has_value());
-  CHECK(d.createProblem().has_value());
 }
 
 TEST_CASE("document solving: the autosave flow and saving", "[app][solving][resume]") {

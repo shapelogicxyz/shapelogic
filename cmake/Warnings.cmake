@@ -1,4 +1,4 @@
-# bt_set_warnings(<target>): the warning set every BurrTools target builds with.
+# bt_set_warnings(<target>): the warning set every ShapeLogic target builds with.
 # Third-party code never goes through this function.
 function(bt_set_warnings target)
   if(MSVC)

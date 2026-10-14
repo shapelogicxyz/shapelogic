@@ -24,7 +24,7 @@ rod did not count; a regression test), then the part's "Deferred 3b: …"
 documents).
 
 ### The document (`e6ab98f`)
-`core/bt/app/document_stacking.cpp`, from mainwindow_rods.cpp (cb_NewRod,
+`core/shapelogic/app/document_stacking.cpp`, from mainwindow_rods.cpp (cb_NewRod,
 cb_DeleteRod, cb_CopyRod, cb_NameRod, cb_RodExchange, cb_RodField with
 syncPanexFields), BlockList.cpp's disc list (DiskSelector::applySize,
 onDelta, onSize) with cb_DiskList, cb_NewShape's stacking branch, and the

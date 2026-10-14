@@ -8,7 +8,7 @@
 //   bt_imports convert <puzzle> <grid> <out.xmpuzzle>
 // Exit 3 when refused, with the reason on stderr.
 
-#include "bt/app/document.h"
+#include "shapelogic/app/document.h"
 
 #include <cstdio>
 #include <cstdlib>

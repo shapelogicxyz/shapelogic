@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from test/test_symmetries.cpp of the original.
 
-#include "bt/grid/grid_type.h"
-#include "bt/grid/symmetries.h"
-#include "bt/grid/voxel.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/symmetries.h"
+#include "shapelogic/grid/voxel.h"
 #include "grid_test_helpers.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -26,7 +26,7 @@ namespace {
  * actually asymmetric: it has one non-empty cell one step out along each
  * of the three axes from a shared corner, so it is invariant under the
  * 120-degree rotation about the corner's space diagonal that cyclically
- * permutes x/y/z. BurrTools correctly detects that symmetry
+ * permutes x/y/z. ShapeLogic correctly detects that symmetry
  * (selfSymmetries comes back non-trivial for it), so using it would have
  * made a test that relies on trivial symmetry assert something false.
  * This shape is a genuine spiral with no repeated arm lengths, which has

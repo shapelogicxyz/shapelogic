@@ -9,7 +9,7 @@
 //   resume_old resume <puzzle> <solver> <threads> <plain> <reduce> <positionFile>
 //
 // <solver> is classic or bt2 (the assembler is the one findAssembler picks
-// for it); <plain> 1 runs without the vector search (BURRTOOLS_NO_SIMD).
+// for it); <plain> 1 runs without the vector search (SHAPELOGIC_NO_SIMD).
 // BurrTools 2 searches over several threads through bt2Assemble, as burrTxt
 // does. pause prints "VERSION v" and "TEXT t" (the saved position) after
 // the assemblies; a position file holds those two lines. Every assembly
@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
   const bool bt2 = std::strcmp(argv[3], "bt2") == 0;
   const unsigned int threads = (unsigned int)std::atoi(argv[4]);
   if (std::atoi(argv[5]) != 0)
-    setenv("BURRTOOLS_NO_SIMD", "1", 1);
+    setenv("SHAPELOGIC_NO_SIMD", "1", 1);
   const bool reduce = std::atoi(argv[6]) != 0;
 
   auto p = puzzle_c::load(argv[2]);

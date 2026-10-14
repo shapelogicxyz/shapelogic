@@ -5,7 +5,7 @@
 // (solveThread_c, as the GUI's Solve ran it: the hotspots set as Solve
 // set them, PAR_PANEX_RESUME, the Panex Solver when asked) and saves the
 // puzzle. burrTxt2 has no stacking solver: the solve thread is what solved
-// such puzzles. The harness points BURRTOOLS_PANEX_DIR at a folder of its
+// such puzzles. The harness points SHAPELOGIC_PANEX_DIR at a folder of its
 // own. Built by `oracle.py baseline-files --tier stacking` against the
 // original's build/libburr_core.a; `bt --save` is the new side.
 

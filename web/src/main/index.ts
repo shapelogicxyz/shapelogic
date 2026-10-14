@@ -66,7 +66,7 @@ import {
 } from './security.ts';
 import { StateStore } from './state-store.ts';
 
-const APP_NAME = 'BurrTools Alpha';
+const APP_NAME = 'ShapeLogic';
 /** The project's version (CMakeLists.txt's, put in at build): the app's and its engine's. */
 const VERSION = __BT_VERSION__;
 /** The web/ directory, where development looks for the repository's engine builds. */
@@ -205,13 +205,16 @@ async function askNatively(w: WindowState): Promise<void> {
 
 function createWindow(first?: AppCommand): void {
   const bounds = store.bounds;
-  const win = new BrowserWindow(
-    windowOptions(fileURLToPath(new URL('../preload/index.cjs', import.meta.url)), APP_NAME, {
+  const icon = join(WEB_DIR, 'packaging', 'icon.png');
+  const win = new BrowserWindow({
+    ...windowOptions(fileURLToPath(new URL('../preload/index.cjs', import.meta.url)), APP_NAME, {
       width: bounds?.width ?? 1280,
       height: bounds?.height ?? 800,
       ...(bounds === undefined || windows.size > 0 ? {} : { x: bounds.x, y: bounds.y }),
     }),
-  );
+    // The window icon of Windows and Linux; macOS takes the app's.
+    ...(existsSync(icon) ? { icon } : {}),
+  });
   const contents = win.webContents;
   const id = contents.id;
   const w: WindowState = {

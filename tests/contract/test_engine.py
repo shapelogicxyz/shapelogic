@@ -79,9 +79,9 @@ def engine_info_and_settings(e):
     check(panex == "" or panex.endswith("panex"), f"the Panex folder {panex!r}")
     check(s == {"undoDepth": 25, "threads": 0, "solver": "classic", "slideDiskGB": 0,
                 "panexDiskGB": 0}, f"default settings {s}")
-    s = e.call("settings.set", {"undoDepth": 2, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5,
+    s = e.call("settings.set", {"undoDepth": 2, "solver": "crowell", "slideFolder": "", "slideDiskGB": 1.5,
                                 "panexFolder": "", "panexDiskGB": 2})
-    check(s == {"undoDepth": 2, "threads": 0, "solver": "bt2", "slideFolder": "", "slideDiskGB": 1.5,
+    check(s == {"undoDepth": 2, "threads": 0, "solver": "crowell", "slideFolder": "", "slideDiskGB": 1.5,
                 "panexFolder": "", "panexDiskGB": 2}, f"settings after set {s}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")
@@ -448,7 +448,7 @@ def problems(e):
     check(len(e.call("problem.get", {"problem": p1})["colourRules"]) == 4, "all")
 
     # the stored solver settings
-    settings = {"disassemble": True, "justCount": False, "solverType": "bt2", "sortBy": "level"}
+    settings = {"disassemble": True, "justCount": False, "solverType": "crowell", "sortBy": "level"}
     e.call("problem.setSolverSettings", {"problem": p1, "settings": settings})
     check(e.call("problem.get", {"problem": p1})["solverSettings"] == settings, "solver settings")
     e.fails("problem.setSolverSettings", {"problem": p1, "settings": {"disassemble": "yes"}}, "invalid_params")

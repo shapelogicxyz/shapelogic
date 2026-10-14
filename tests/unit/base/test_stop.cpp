@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "bt/base/stop.h"
+#include "shapelogic/base/stop.h"
 
 #include <catch2/catch_test_macros.hpp>
 

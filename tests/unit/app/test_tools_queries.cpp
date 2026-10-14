@@ -6,12 +6,12 @@
 #include "../grid/grid_test_helpers.h"
 #include "../model/model_test_helpers.h"
 
-#include "bt/app/queries.h"
-#include "bt/app/shape_tools.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/app/queries.h"
+#include "shapelogic/app/shape_tools.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <catch2/catch_test_macros.hpp>
 

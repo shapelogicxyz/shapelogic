@@ -7,19 +7,19 @@
 // fall away, and trees are values.
 #include "../model/model_test_helpers.h"
 
-#include "bt/grid/grid_type.h"
-#include "bt/model/assembly.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
-#include "bt/solve/assembler.h"
-#include "bt/solve/disasm_to_moves.h"
-#include "bt/solve/disassembler.h"
-#include "bt/solve/disassembler_node.h"
-#include "bt/solve/movement_cache.h"
-#include "bt/solve/node_hash.h"
-#include "bt/solve/solver_type.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/solve/assembler.h"
+#include "shapelogic/solve/disasm_to_moves.h"
+#include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/disassembler_node.h"
+#include "shapelogic/solve/movement_cache.h"
+#include "shapelogic/solve/node_hash.h"
+#include "shapelogic/solve/solver_type.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>

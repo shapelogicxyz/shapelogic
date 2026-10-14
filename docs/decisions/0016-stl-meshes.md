@@ -1,9 +1,9 @@
 # 0016: The STL meshes and their export
 
-**Status:** accepted (deferred part 5); `core/bt/mesh/cube_mesh.h`,
-`core/bt/mesh/mink_mesh.h`, `core/bt/mesh/triangulate.h`,
-`core/bt/mesh/stl.h`, `core/bt/mesh/modifiers.h`,
-`core/bt/app/queries.h` (`stlPieces`), `engine/methods_export.cpp`,
+**Status:** accepted (deferred part 5); `core/shapelogic/mesh/cube_mesh.h`,
+`core/shapelogic/mesh/mink_mesh.h`, `core/shapelogic/mesh/triangulate.h`,
+`core/shapelogic/mesh/stl.h`, `core/shapelogic/mesh/modifiers.h`,
+`core/shapelogic/app/queries.h` (`stlPieces`), `engine/methods_export.cpp`,
 `api/export.json`, `web/src/renderer/export/stl-*.ts`,
 `web/src/main/export-file.ts` (`FolderGrants`).
 

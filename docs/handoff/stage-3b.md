@@ -5,7 +5,7 @@
 extra high effort. The brief is at the end.
 
 ## Done
-- **Assembler 1** (`core/bt/solve/assembler_1.{h,cpp}`, port of
+- **Assembler 1** (`core/shapelogic/solve/assembler_1.{h,cpp}`, port of
   `assembler_1_c`, version "2.1"): the matrix with weights, minima and
   maxima (piece counts, ranges with the range column, holes), `reduce`,
   `clumpify`, the plain search (`iterative`, a state machine that stops
@@ -15,7 +15,7 @@ extra high effort. The brief is at the end.
   alone or in each task), saved positions with flags 0, 2 (older row-order
   signatures), 3 and 4, byte for byte. The memory budget of the vector
   search is `SearchOptions::vectorMemoryBudget`
-  (`BURRTOOLS_HUANG_MEM_MB`); `makeSimdHuangCover`,
+  (`SHAPELOGIC_HUANG_MEM_MB`); `makeSimdHuangCover`,
   `simdHuangMemoryEstimate` and `simdHuangFitsMemory` are in
   `simd_huang_cover.h`.
 - **BurrTools 2**: `dancing_cells.{h,cpp}` (`DancingCells`, port of
@@ -209,9 +209,9 @@ playback sampler). About 7900 lines; the model side (`Separation`,
 - `setHelperPool(helperPool_c*)` becomes the solve's `ThreadPool`, passed
   in; `levelThreadCostUs` (a process-wide atomic in `disassembler_a.cpp`)
   becomes per disassembler or an option.
-- Environment switches become option fields: `BURRTOOLS_NO_DISASM_PAR`,
-  `BURRTOOLS_NO_DISASM_FAST`, `BURRTOOLS_NO_ROT_FAST`,
-  `BURRTOOLS_NO_ROT_ANCHOR`; `BT_ROT_DEBUG` / `BT_ROT_DUMP` print, so they
+- Environment switches become option fields: `SHAPELOGIC_NO_DISASM_PAR`,
+  `SHAPELOGIC_NO_DISASM_FAST`, `SHAPELOGIC_NO_ROT_FAST`,
+  `SHAPELOGIC_NO_ROT_ANCHOR`; `BT_ROT_DEBUG` / `BT_ROT_DUMP` print, so they
   go (or become a callback).
 - Progress (`getProgress`, atomics) stays readable from any thread.
 

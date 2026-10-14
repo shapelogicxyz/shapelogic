@@ -1,6 +1,6 @@
-# The mockup: Girish Sharma's BurrTools web UI
+# The mockup: Girish Sharma's ShapeLogic web UI
 
-`index.html` is Girish Sharma's mockup of a web BurrTools GUI, the basis
+`index.html` is Girish Sharma's mockup of a web ShapeLogic GUI, the basis
 of the web front end (docs/FRONTEND-PLAN.md, decision 0013): its layout,
 CSS, wording, keyboard map and shell logic are taken over as TypeScript
 modules under `web/src/renderer/`, each citing this file.
@@ -12,7 +12,7 @@ modules under `web/src/renderer/`, each citing this file.
   (https://grssam.github.io/burr-tools/) answered 404 on 2026-10-08; the
   file was fetched from the branch at that commit
   (`https://raw.githubusercontent.com/grssam/burr-tools/d7afb3ed7899c57a5af476340f599a53d98cddbe/index.html`).
-- **Licence:** GPL-3.0 (the repository's `COPYING`); BurrTools Alpha is
+- **Licence:** GPL-3.0 (the repository's `COPYING`); ShapeLogic is
   GPL-3.0-or-later. The author is credited in AUTHORS.
 - **Unmodified:** 240,443 bytes, 2,275 lines, git blob
   `ac44c8eb04b559adcc9631efca7937249396f8b2` (the blob GitHub lists for

@@ -277,7 +277,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
       },
       {
         id: 'guide',
-        label: 'BurrTools User Guide',
+        label: 'ShapeLogic User Guide',
         click: () => {
           h.openHelp('guide');
         },

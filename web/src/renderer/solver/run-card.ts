@@ -215,7 +215,7 @@ export class RunCard {
     const opts = byId('slvOpts');
     opts.style.display = ws.optOpen ? '' : 'none';
     const solvers = ws.store.info?.solvers ?? [
-      { solver: 'classic' as const, label: 'BurrTools Classic' },
+      { solver: 'classic' as const, label: 'Complete (ShapeLogic)' },
     ];
     const sort = effectiveSort(o);
     const limits =
@@ -261,7 +261,7 @@ export class RunCard {
         sw('keepRotations') +
         sw('deepSymmetry') +
         sw('strictColors') +
-        `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: BurrTools Classic, Andrew Crowell’s or BurrTools 2 (its own assembly search too).</small></div><select data-o="solver">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
+        `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell).</small></div><select data-o="solver">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
         `<div class="row2 wrap"><div class="t">Sort found solutions by<small>Order the solver keeps them in${o.disassemble ? '' : ' — moves, level and rotations need the disassembly check'}</small></div><select data-o="sortBy">${SORT_CHOICES.map((c) => `<option value="${c.value}" ${sort === c.value ? 'selected' : ''} ${c.needsDisassembly && !o.disassemble ? 'disabled' : ''}>${c.label}${c.needsDisassembly && !o.disassemble ? ' (needs disassembly)' : ''}</option>`).join('')}</select></div>` +
         limits +
         sw('autosave'),

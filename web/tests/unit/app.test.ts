@@ -173,7 +173,7 @@ describe('the menus', () => {
     const sent: AppCommand[] = [];
     const template = menuTemplate(s, {
       platform,
-      name: 'BurrTools Alpha',
+      name: 'ShapeLogic',
       recent,
       dev: false,
       send: (c) => sent.push(c),

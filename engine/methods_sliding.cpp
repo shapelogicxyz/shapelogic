@@ -4,8 +4,8 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/grid/voxel.h"
-#include "bt/model/sliding.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/sliding.h"
 
 #include <array>
 #include <string>

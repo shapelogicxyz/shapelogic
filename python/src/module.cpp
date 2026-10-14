@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The `burrtools` Python module: the original module's classes, functions
+// The `shapelogic` Python module: the original module's classes, functions
 // and names over the new core, so its scripts keep working; the grid of a
 // new puzzle, the solve's threads and the sliding and stacking options,
 // the imports, the Puzzlecad export and grid conversion are new.
@@ -10,8 +10,8 @@
 #include "py_solution.h"
 #include "solution_iterator.h"
 
-#include "bt/base/version.h"
-#include "bt/grid/voxel.h"
+#include "shapelogic/base/version.h"
+#include "shapelogic/grid/voxel.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -57,8 +57,8 @@ enum class VoxelState : int {
 
 }  // namespace
 
-PYBIND11_MODULE(burrtools, m) {
-  m.doc() = "Python bindings for the BurrTools 3D interlocking puzzle library";
+PYBIND11_MODULE(shapelogic, m) {
+  m.doc() = "Python bindings for the ShapeLogic 3D interlocking puzzle library";
   m.attr("__version__") = std::string(bt::kVersion);
 
   // Voxel state enum
@@ -227,7 +227,7 @@ PYBIND11_MODULE(burrtools, m) {
 
   // Puzzle
   py::class_<PyPuzzle, std::shared_ptr<PyPuzzle>>(
-      m, "Puzzle", "A BurrTools puzzle definition containing shapes and problems")
+      m, "Puzzle", "A ShapeLogic puzzle definition containing shapes and problems")
       .def(py::init<const std::string&>(), py::arg("grid") = "bricks",
            "Create a new empty puzzle; grid: 'bricks' (the standard 3D cubic grid), "
            "'triangular prisms', 'spheres', 'rhombic', 'tetra-octa', 'sliding' or 'stacking'")

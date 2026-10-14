@@ -65,7 +65,6 @@ def puzzle_sets(old_repo: Path, tmp: Path) -> dict[str, list[tuple[str, Path, li
     pentomino = pentomino_file(10, 6, tmp / "pentomino_6x10.xmpuzzle")
     default = [
         ("pentomino 6x10 (-r)", pentomino, ["-r"]),
-        ("pentomino 6x10 (-r, bt2)", pentomino, ["-r", "--solver", "bt2"]),
         ("Climburr_OldVer (-r)", tic / "5x5x5_TICs" / "Crowell_Lohe_Burrs" / "Climburr_OldVer.xmpuzzle", ["-r"]),
         ("CoverUp3 (-r)", tic / "ARCparent_Cubes" / "CoverUp3.xmpuzzle", ["-r"]),
         ("CornerCube (-r)", tic / "ARCparent_Cubes" / "CornerCube.xmpuzzle", ["-r"]),
@@ -94,7 +93,7 @@ def run(binary: Path, puzzle: Path, threads: int, extra: list[str], plain: bool,
     env = dict(os.environ)
     if plain:
         if old:
-            env["BURRTOOLS_NO_SIMD"] = "1"
+            env["SHAPELOGIC_NO_SIMD"] = "1"
         else:
             argv.append("--no-simd")
     argv.append(str(puzzle))
@@ -117,7 +116,7 @@ def main() -> int:
     p.add_argument("--set", choices=["default", "glar"], default="default")
     p.add_argument("--threads", type=int, nargs="+", default=[1, os.cpu_count() or 1])
     p.add_argument("--repeat", type=int, default=5)
-    p.add_argument("--plain", action="store_true", help="without the vector search (BURRTOOLS_NO_SIMD / --no-simd)")
+    p.add_argument("--plain", action="store_true", help="without the vector search (SHAPELOGIC_NO_SIMD / --no-simd)")
     p.add_argument("--timeout", type=float, default=1800.0)
     args = p.parse_args()
 

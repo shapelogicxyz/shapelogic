@@ -746,8 +746,8 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     expect(
       await app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened),
     ).toEqual([
-      'https://burrtools.sourceforge.net/gui-doc/toc.html',
-      'https://burrtools.sourceforge.net/gui-doc/GettingStarted.html',
+      'https://shapelogic.xyz/gui-doc/toc.html',
+      'https://shapelogic.xyz/gui-doc/GettingStarted.html',
     ]);
 
     // greyed: what this version does not have (the imports and grid

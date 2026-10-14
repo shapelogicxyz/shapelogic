@@ -3,11 +3,11 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/app/shape_tools.h"
-#include "bt/base/thread_pool.h"
-#include "bt/base/version.h"
-#include "bt/grid/grid_type.h"
-#include "bt/model/grid_convert.h"
+#include "shapelogic/app/shape_tools.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/base/version.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/model/grid_convert.h"
 
 #include <limits>
 #include <string>

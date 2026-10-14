@@ -110,7 +110,7 @@ STACKING_SOLVERS = ("panex",)
 @contextlib.contextmanager
 def panex_env(entry: "Entry"):
     """The environment of a run: for a stacking puzzle, a Panex folder of
-    the run's own (BURRTOOLS_PANEX_DIR), removed afterwards, so neither the
+    the run's own (SHAPELOGIC_PANEX_DIR), removed afterwards, so neither the
     user's cache nor another run's saved search is ever touched or carried
     on. None for other puzzles (the inherited environment)."""
     if entry.tier != "stacking":
@@ -120,7 +120,7 @@ def panex_env(entry: "Entry"):
     root.mkdir(parents=True, exist_ok=True)
     folder = Path(tempfile.mkdtemp(dir=root))
     try:
-        yield {**os.environ, "BURRTOOLS_PANEX_DIR": str(folder)}
+        yield {**os.environ, "SHAPELOGIC_PANEX_DIR": str(folder)}
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 
@@ -140,7 +140,7 @@ def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
         if e.tier not in wanted or (name_filter and name_filter not in e.rel):
             continue
         if e.tier == "sliding":
-            if solver in ("crowell", "bt2", *STACKING_SOLVERS):
+            if solver in ("crowell", *STACKING_SOLVERS):
                 continue
             if "L" in e.flags and solver in ("classic", "full"):
                 continue
@@ -1292,7 +1292,7 @@ def python_transcript(module_dir: Path, argv: list[str], timeout: float, old: bo
     if one_thread:
         argv = [*argv, "--one-thread"]
         if old:
-            env["BURRTOOLS_THREADS"] = "1"
+            env["SHAPELOGIC_THREADS"] = "1"
     try:
         r = subprocess.run([sys.executable, str(HERE / "python_transcript.py"), *argv],
                            capture_output=True, text=True, timeout=timeout, env=env)
@@ -1313,7 +1313,7 @@ def cmd_python(args: argparse.Namespace) -> int:
         print(f"the original's Python module is not built: run `meson compile -C build` in {args.old_repo}",
               file=sys.stderr)
         return 2
-    if not list(args.new_module.glob("burrtools*")):
+    if not list(args.new_module.glob("shapelogic*")):
         print(f"the new Python module not found in {args.new_module}", file=sys.stderr)
         return 2
     jobs: list[tuple[str, list[str], bool]] = [
@@ -1409,10 +1409,8 @@ RESUME_SET_ASSEMBLER1 = (
 
 # (solver, threads, plain). Classic: the plain search on one thread (flag 0),
 # the vector search on one thread (flag 3), and the split search with and
-# without it (assembler 0 flag 2, assembler 1 flag 4). BurrTools 2: one
-# thread and four (its position never moves from the start, see below).
+# without it (assembler 0 flag 2, assembler 1 flag 4).
 RESUME_MODES = (("classic", 1, 1), ("classic", 1, 0), ("classic", 4, 0), ("classic", 4, 1))
-RESUME_MODES_BT2 = (("bt2", 1, 0), ("bt2", 4, 0))
 
 # AssemblerError::CannotRestoreInterrupted in the new core (assembler.h).
 ERR_INTERRUPTED = "6"
@@ -1450,10 +1448,10 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
     tools = {"old": old_tool, "new": args.new_tool}
     pos_file = WORK_DIR / "resume_position.txt"
 
-    runs = [(rel, mode) for rel in RESUME_SET for mode in RESUME_MODES + RESUME_MODES_BT2]
+    runs = [(rel, mode) for rel in RESUME_SET for mode in RESUME_MODES]
     runs += [(rel, mode) for rel in RESUME_SET_ASSEMBLER1 for mode in RESUME_MODES]
 
-    checks = failures = same_text = known = bt2_refused = 0
+    checks = failures = same_text = known = 0
     for rel, (solver, threads, plain) in runs:
         if args.filter and args.filter not in rel:
             continue
@@ -1477,36 +1475,6 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
                 failures += 1
                 continue
             version = paused["new"]["version"]
-
-            # BurrTools 2 saves the original's dancing links position, which
-            # its dancing cells search never moves: "0 <iterations> (0 0)".
-            # The original takes it up as a search from the start and reports
-            # everything again; the new core refuses it (start over, the
-            # partial results dropped: docs/handoff/stage-3b.md). One thread
-            # must still save the same text in both (the same iterations).
-            if version == "2.0-bt2":
-                if threads == 1:
-                    checks += 1
-                    if paused["old"].get("text") != paused["new"]["text"] or \
-                            paused["old"]["assemblies"] != paused["new"]["assemblies"]:
-                        print(f"MISMATCH     {rel} [{mode}] stop {stop_after}: positions differ\n"
-                              f"  old: {paused['old'].get('text', '')[:120]}\n  new: {paused['new']['text'][:120]}")
-                        failures += 1
-                    else:
-                        same_text += 1
-                for src in ("old", "new"):
-                    if "text" not in paused[src]:
-                        continue
-                    checks += 1
-                    pos_file.write_text(paused[src]["version"] + "\n" + paused[src]["text"] + "\n")
-                    rest = run_resume_tool(tools["new"], ["resume", *base, str(pos_file)], args.timeout)
-                    if rest.get("err") != ERR_INTERRUPTED:
-                        print(f"MISMATCH     {rel} [{mode}] stop {stop_after}: a BurrTools 2 position paused "
-                              f"by {src} was not refused by the new program")
-                        failures += 1
-                    else:
-                        bt2_refused += 1
-                continue
 
             # Known bug of the original: an assembler 0 plain search stopped
             # right after placing the last piece stands at pos == pieces, and
@@ -1561,20 +1529,15 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
     if known:
         print(f"{known} pauses stood after the last piece, which the original cannot save "
               "(a known bug, see docs/handoff/stage-3a.md); those were continued by the new program only")
-    if bt2_refused:
-        print(f"{bt2_refused} BurrTools 2 positions were refused by the new program as they should be "
-              "(a started search cannot be continued; see docs/handoff/stage-3b.md)")
     return 1 if failures else 0
 
 
 # Fixtures whose paused positions record-positions takes from the original:
-# (fixture, solver, modes). Assembler 0 and BurrTools 2 on the first two,
+# (fixture, solver, modes). Assembler 0 on the first two,
 # assembler 1 on the others.
 POSITION_FIXTURES = (
     ("PelikanBurr.xmpuzzle", "classic", ((1, 1), (1, 0), (4, 0))),
     ("DraculasDentalDesaster.xmpuzzle", "classic", ((1, 1), (1, 0), (4, 0))),
-    ("PelikanBurr.xmpuzzle", "bt2", ((1, 0),)),
-    ("DraculasDentalDesaster.xmpuzzle", "bt2", ((1, 0),)),
     ("CubeInCage.xmpuzzle", "classic", ((1, 1), (1, 0), (4, 0), (4, 1))),
     ("DemoPieceGenerator.xmpuzzle", "classic", ((1, 1), (4, 1))),
 )
@@ -1918,7 +1881,7 @@ def main() -> int:
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
-        s.add_argument("--solver", choices=["classic", "crowell", "bt2", *SLIDING_SOLVERS, *STACKING_SOLVERS],
+        s.add_argument("--solver", choices=["classic", "crowell", *SLIDING_SOLVERS, *STACKING_SOLVERS],
                        default="classic",
                        help="the solver both programs run (baselines of another than classic are "
                             "baseline/<tier>-<solver>.json, solved files work/old-<solver>); "
@@ -1967,7 +1930,7 @@ def main() -> int:
     s.add_argument("--verbose", "-v", action="store_true")
     s = sub.add_parser("python", help="the Python module's transcripts against the original module's")
     s.add_argument("--new-module", type=Path, default=HERE.parent.parent / "build" / "release" / "python",
-                   help="the folder of the new burrtools module")
+                   help="the folder of the new shapelogic module")
     s.add_argument("--old-module", type=Path, help="the folder of the original's (default: its build folder)")
     s.add_argument("--tier", nargs="+", default=["fast"], choices=["fast", "full", "slow", "all"])
     s.add_argument("--filter", help="only puzzles whose path contains this text")

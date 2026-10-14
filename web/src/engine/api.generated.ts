@@ -27,19 +27,19 @@ export interface Settings {
   solver: Solver;
   /**
    * Where a full sliding search keeps its older levels while it runs, in a folder of its own that
-   * goes when it ends (the original's BURRTOOLS_SLIDE_DIR); empty keeps them in memory. Default:
+   * goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default:
    * the user's cache folder's sliding folder.
    */
   slideFolder: string;
   /**
-   * The disk those levels may take, in GB (BURRTOOLS_SLIDE_DISK_GB); 0, the default: all the free
+   * The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: all the free
    * space but a margin, and at least a little of it.
    * @minimum 0
    */
   slideDiskGB: number;
   /**
    * Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's
-   * BURRTOOLS_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue
+   * SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue
    * carries on (also after the engine or the document ended), solve.start and solve.abort throw
    * away, solve.status describes, and the paused solve's export and import carry. Empty saves
    * nothing (a search that outgrows its memory then finds its path by solving halves again).
@@ -47,7 +47,7 @@ export interface Settings {
    */
   panexFolder: string;
   /**
-   * The disk a saved search's levels may take, in GB (BURRTOOLS_PANEX_DISK_GB); 0, the default:
+   * The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default:
    * half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the
    * longer finding the path at the end takes.
    * @minimum 0
@@ -347,8 +347,8 @@ export type Grid =
   | 'sliding'
   | 'stacking';
 
-/** BurrTools Classic, Andrew Crowell's take-apart, BurrTools 2. */
-export type Solver = 'classic' | 'crowell' | 'bt2';
+/** Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. */
+export type Solver = 'classic' | 'crowell';
 
 /**
  * How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full
@@ -802,7 +802,7 @@ export interface SolverSettings {
   partialNested?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
-  /** classic, crowell, bt2 (sliding: fast, deep, full). */
+  /** classic, crowell (sliding: fast, deep, full). */
   solverType?: string;
   /** unsorted, moves, level, rotations. */
   sortBy?: string;
@@ -1295,7 +1295,7 @@ export interface Methods {
   /**
    * Imports another program's puzzle file (File ▸ Import ▸ PuzzleSolver3D or Puzzlecad (OpenSCAD))
    * as a new, untitled document with unsaved changes: a cube-grid puzzle with one problem, its
-   * pieces one of each; Save then asks where to write the BurrTools file, never over the source.
+   * pieces one of each; Save then asks where to write the ShapeLogic file, never over the source.
    * The file is read by its path or from its bytes, exactly one of the two, as it is (never
    * decompressed), at most 256 MiB; one whose shapes would hold more than 2^27 cells together is
    * refused (parse_error), as is one the format's reader cannot take (the original's "Could not

@@ -180,7 +180,7 @@ and `Problem`'s version and newest id have a model test.
 Not done from the concerns, deliberately: the engine still reads the
 stored check boxes as `"1"` (the original's text; I), `document.save`'s
 reply has no `dirty` (I), and `solve.continue` on a solved problem keeps
-the core's message naming `start()` (I; `core/bt/solve` was not touched).
+the core's message naming `start()` (I; `core/shapelogic/solve` was not touched).
 
 ## Gate results
 | Check | Result |
@@ -198,7 +198,7 @@ the core's message naming `start()` (I; `core/bt/solve` was not touched).
 | `oracle.py record-analysed` | recorded twice, identical; matched byte for byte |
 | `just check` | **not run: LLVM still not installed** |
 
-After the audit's fixes (nothing in `core/bt/solve`, `grid` or `model`
+After the audit's fixes (nothing in `core/shapelogic/solve`, `grid` or `model`
 changes behaviour; `model/problem` gained a runtime counter and a getter):
 
 | Check | Result |

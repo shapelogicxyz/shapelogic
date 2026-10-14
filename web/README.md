@@ -1,4 +1,4 @@
-# BurrTools Alpha: the web front end
+# ShapeLogic: the web front end
 
 An Electron + TypeScript application that drives `bt-engine` over JSON-RPC
 (decisions 0003, 0012 and 0013), built in stages on Girish Sharma's mockup

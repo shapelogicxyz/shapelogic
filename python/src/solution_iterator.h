@@ -7,9 +7,9 @@
 
 #include "py_solution.h"
 
-#include "bt/base/stop.h"
-#include "bt/solve/sliding_search.h"
-#include "bt/solve/stack_search.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/solve/sliding_search.h"
+#include "shapelogic/solve/stack_search.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -40,7 +40,7 @@ struct IteratorOptions {
   bool keepRotations = false;
   bool keepMirror = false;
   /// The threads of the solve; 0 for every hardware thread (the original's
-  /// default, without BURRTOOLS_THREADS).
+  /// default, without SHAPELOGIC_THREADS).
   unsigned int threads = 0;
   /// A sliding puzzle's search (the GUI's sliding solvers and boxes).
   sliding::SlidingOptions sliding;

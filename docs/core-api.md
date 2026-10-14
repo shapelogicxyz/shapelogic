@@ -117,8 +117,7 @@ Events: `document.changed {revision, what: [shapes|colours|problems|solutions|no
 | `solve.status {problem}` | state, progress, stats | `getStats`, `solveStats_c` |
 | `solve.exportPaused {problem}` / `solve.importPaused` | carry a paused solve between machines | `cb_ExportPaused`, BTSOLVE2 |
 
-Options: mode (assemble / assemble+disassemble), solver (classic, crowell,
-bt2), justCount, justLevels, keepMirror, keepRotated, completeRotations
+Options: mode (assemble / assemble+disassemble), solver (classic, crowell), justCount, justLevels, keepMirror, keepRotated, completeRotations
 (thorough rotation check), checkRotations (rotation take-apart),
 strictColours, deepSymmetryCheck, highMemory, dropBelowLevel, keepAtMost,
 dontKeepDisassemblies, sortBy, autosaveMinutes, threads.

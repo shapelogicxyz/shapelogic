@@ -1,6 +1,6 @@
-# AGENTS.md: working on BurrTools Alpha
+# AGENTS.md: working on ShapeLogic
 
-BurrTools Alpha is a rebuild of the BurrTools puzzle solver's core (C++23)
+ShapeLogic is a rebuild of the ShapeLogic puzzle solver's core (C++23)
 with an engine process for a future web front end. The original application
 (`../burrtools_rotations`, override with `BT_OLD_REPO`) is the **reference**:
 ported code must give the same answers on the comparison corpus.
@@ -125,7 +125,7 @@ Every stage ends with, in this order:
 1. `just test-all`, `just test-asan` (and `just test-tsan` from stage 3),
    `just oracle` for what is ported (from stage 3 on the fast, full and slow
    tiers, with all threads and with `--threads 1`; from stage 4 every field,
-   for `--solver classic`, `crowell` and `bt2`), `just oracle-resume`
+   for `--solver classic` and `crowell`), `just oracle-resume`
    (from stage 3), `just oracle-files --tier all` (from stage 4),
    `just oracle-text --tier all` (from stage 8; after
    `oracle.py baseline-text --tier all`),

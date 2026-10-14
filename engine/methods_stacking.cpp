@@ -5,10 +5,10 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/app/playback.h"
-#include "bt/app/queries.h"
-#include "bt/grid/voxel.h"
-#include "bt/model/stacking.h"
+#include "shapelogic/app/playback.h"
+#include "shapelogic/app/queries.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/stacking.h"
 
 #include <string>
 #include <utility>

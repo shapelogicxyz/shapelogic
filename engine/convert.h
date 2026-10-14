@@ -8,15 +8,15 @@
 
 #include "engine.h"
 
-#include "bt/app/queries.h"
-#include "bt/base/solve_state.h"
-#include "bt/mesh/draw_mesh.h"
-#include "bt/model/assembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/solution.h"
-#include "bt/model/puzzle.h"
-#include "bt/solve/solve_progress.h"
-#include "bt/solve/solve_session.h"
+#include "shapelogic/app/queries.h"
+#include "shapelogic/base/solve_state.h"
+#include "shapelogic/mesh/draw_mesh.h"
+#include "shapelogic/model/assembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/solve/solve_progress.h"
+#include "shapelogic/solve/solve_session.h"
 
 #include <map>
 #include <optional>

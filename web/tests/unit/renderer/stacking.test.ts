@@ -83,7 +83,7 @@ describe('the stacking solver options', () => {
     expect(o.disassemble).toBe(true);
     expect(readOptions({}).disassemble).toBe(false);
     // a stored solver type is not a stacking one
-    expect(readOptions({ solverType: 'bt2' }, undefined, 'stacking').solver).toBe('classic');
+    expect(readOptions({ solverType: 'crowell' }, undefined, 'stacking').solver).toBe('classic');
     const w = writeOptions(
       { ...o, highMemory: true },
       { solverType: 'kept', other: 'x' },

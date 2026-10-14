@@ -29,8 +29,8 @@ import type { HelpLink } from '../engine/app-bridge.ts';
  * (shell.openExternal). The renderer names a link, never a URL.
  */
 export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
-  guide: 'https://burrtools.sourceforge.net/gui-doc/toc.html',
-  tutorial: 'https://burrtools.sourceforge.net/gui-doc/GettingStarted.html',
+  guide: 'https://shapelogic.xyz/gui-doc/toc.html',
+  tutorial: 'https://shapelogic.xyz/gui-doc/GettingStarted.html',
 };
 
 /** The scheme the renderer's page is served on: standard and secure, the app's own. */

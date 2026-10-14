@@ -1,7 +1,7 @@
 # 0011: The document: undo by saved parts, ids, and edits while solving
 
-**Status:** accepted (stage 6); `core/bt/app/document.h`,
-`core/bt/app/document_internal.h`
+**Status:** accepted (stage 6); `core/shapelogic/app/document.h`,
+`core/shapelogic/app/document_internal.h`
 
 ## Context
 The front end edits one puzzle through commands (core-api.md, sections 1

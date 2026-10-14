@@ -6,14 +6,14 @@
 // every move's route (sliding::slideRoute) and the positions its solution
 // slider gave at quarter steps with the routes applied. The playback
 // sampler is checked to move the pieces the same way.
-#include "bt/app/playback.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/solution.h"
-#include "bt/solve/disasm_to_moves.h"
-#include "bt/solve/sliding_search.h"
+#include "shapelogic/app/playback.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/solution.h"
+#include "shapelogic/solve/disasm_to_moves.h"
+#include "shapelogic/solve/sliding_search.h"
 
 #include <catch2/catch_test_macros.hpp>
 

@@ -2,25 +2,25 @@
 // Stacking puzzles: rod sets, discs, the stacks, the two searches and the
 // packer of a saved search. Ported from the original's test/test_stacking.cpp,
 // every case in its order. Its scratch folders are this process's own: a
-// search the original left to BURRTOOLS_PANEX_DIR (pointed into the scratch
+// search the original left to SHAPELOGIC_PANEX_DIR (pointed into the scratch
 // folder) is given that folder as its workDir here; its environment
 // switches are the search's options; the solve thread's case runs a
 // SolveSession; its undo case is the document's (test_document_stacking.cpp).
 #include "../model/model_test_helpers.h"
 
-#include "bt/base/stop.h"
-#include "bt/base/thread_pool.h"
-#include "bt/grid/grid_type.h"
-#include "bt/grid/voxel.h"
-#include "bt/io/blockpack.h"
-#include "bt/io/puzzle_file.h"
-#include "bt/model/disassembly.h"
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
-#include "bt/model/stacking.h"
-#include "bt/solve/panex_search.h"
-#include "bt/solve/solve_session.h"
-#include "bt/solve/stack_search.h"
+#include "shapelogic/base/stop.h"
+#include "shapelogic/base/thread_pool.h"
+#include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/blockpack.h"
+#include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/disassembly.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/panex_search.h"
+#include "shapelogic/solve/solve_session.h"
+#include "shapelogic/solve/stack_search.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -72,7 +72,7 @@ const ScratchRoot& scratchRoot() {
 
 std::filesystem::path scratch(const char* name) { return scratchRoot().root / name; }
 
-// Where the original's searches without a workDir went: BURRTOOLS_PANEX_DIR,
+// Where the original's searches without a workDir went: SHAPELOGIC_PANEX_DIR,
 // which its tests pointed into their scratch folder.
 std::string cacheDir() { return (scratchRoot().root / "cache").string(); }
 
@@ -477,7 +477,7 @@ Problem& makePanexSwap(Puzzle& puz, unsigned int n) {
 }
 
 // A Panex search as the original's tests ran one: saved to the process's
-// scratch cache (their BURRTOOLS_PANEX_DIR).
+// scratch cache (their SHAPELOGIC_PANEX_DIR).
 panex::PanexSearch panexSearch() {
   panex::PanexSearch s;
   s.workDir = cacheDir();
@@ -869,7 +869,7 @@ TEST_CASE("panex: the classic tower needs no search", "[stacking][panex]") {
     // No search: only the path's own stackings were made.
     CHECK(direct.found == (std::uint64_t{1} << n));
 
-    // BURRTOOLS_NO_TOWER_RULE=1 in the original
+    // SHAPELOGIC_NO_TOWER_RULE=1 in the original
     panex::PanexSearch searched;
     searched.anyRules = true;
     searched.towerRule = false;

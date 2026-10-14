@@ -6,10 +6,10 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "bt/app/queries.h"
-#include "bt/mesh/draw_mesh.h"
-#include "bt/mesh/modifiers.h"
-#include "bt/mesh/stl.h"
+#include "shapelogic/app/queries.h"
+#include "shapelogic/mesh/draw_mesh.h"
+#include "shapelogic/mesh/modifiers.h"
+#include "shapelogic/mesh/stl.h"
 
 #include <cstdint>
 #include <span>

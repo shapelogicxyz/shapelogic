@@ -92,9 +92,9 @@ describe('the proxy', () => {
       undoDepth: 25,
       threads: 0,
       solver: 'classic',
-      slideFolder: '/home/user/Library/Caches/BurrTools/sliding',
+      slideFolder: '/home/user/Library/Caches/ShapeLogic/sliding',
       slideDiskGB: 0,
-      panexFolder: '/home/user/Library/Caches/BurrTools/panex',
+      panexFolder: '/home/user/Library/Caches/ShapeLogic/panex',
       panexDiskGB: 0,
     });
     const snap = await proxy.call('document.open', { path: 'tests/data/puzzles/Bermuda.xmpuzzle' });

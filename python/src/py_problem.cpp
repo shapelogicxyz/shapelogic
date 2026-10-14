@@ -4,8 +4,8 @@
 
 #include "py_shape.h"
 
-#include "bt/model/problem.h"
-#include "bt/model/puzzle.h"
+#include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle.h"
 
 #include <stdexcept>
 #include <utility>

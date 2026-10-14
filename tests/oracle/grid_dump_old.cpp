@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Records tests/data/grid_dump.txt from the ORIGINAL BurrTools: the grid
+// Records tests/data/grid_dump.txt from the ORIGINAL ShapeLogic: the grid
 // dump of tests/unit/grid/grid_dump.h, run against the original's library.
 // Build and run with `python3 tests/oracle/oracle.py grid-dump` (needs the
 // original built, so build/libburr_core.a exists there).
