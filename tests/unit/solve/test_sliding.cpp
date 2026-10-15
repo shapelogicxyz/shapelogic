@@ -1008,6 +1008,80 @@ TEST_CASE("sliding: a piece sticking out of a pocket rides along only when parti
   }
 }
 
+TEST_CASE("sliding: partial nesting still lets a piece leave a partly nested one behind",
+          "[sliding]") {
+  // A 5x3 tray. The outer piece is a C, open to the left, in columns 1-3,
+  // with a two-cell pocket:
+  //   ###
+  //   ..#
+  //   ###
+  // A 1x1 sits wholly in the pocket at column 2; a 2x1 has one cell in the
+  // pocket at column 1 and one sticking out at column 0. The goal moves the
+  // C and the 1x1 one column right and leaves the 2x1 where it is: one move
+  // with nesting. Partial nesting must keep that move, not only the one that
+  // also takes the 2x1 along (which then has to come back).
+  Puzzle puz = slidingPuzzle();
+  ensureSetup(puz, 5, 3);
+
+  const unsigned int outer = puz.addShape(3, 3, 1);
+  for (const std::pair<unsigned int, unsigned int> c :
+       std::vector<std::pair<unsigned int, unsigned int>>{
+           {0, 0}, {1, 0}, {2, 0}, {2, 1}, {0, 2}, {1, 2}, {2, 2}}) {
+    puz.getShape(outer).setState(c.first, c.second, 0, kFilled);
+  }
+  const unsigned int inner = puz.addShape(1, 1, 1);
+  puz.getShape(inner).setState(0, 0, 0, kFilled);
+  const unsigned int stub = puz.addShape(2, 1, 1);
+  puz.getShape(stub).setState(0, 0, 0, kFilled);
+  puz.getShape(stub).setState(1, 0, 0, kFilled);
+  Problem& pr = puz.getProblem(0);
+  pr.setShapeMaximum(puz, outer, 1);
+  pr.setShapeMaximum(puz, inner, 1);
+  pr.setShapeMaximum(puz, stub, 1);
+  REQUIRE(placeGoal(puz, pr, outer, 2, 0));
+  REQUIRE(placeGoal(puz, pr, inner, 3, 1));
+  REQUIRE(placeGoal(puz, pr, stub, 0, 1));
+  REQUIRE(placeStart(puz, pr, outer, 1, 0));
+  REQUIRE(placeStart(puz, pr, inner, 2, 1));
+  REQUIRE(placeStart(puz, pr, stub, 0, 1));
+
+  Assembly start(puz.getGridType());
+  start.addPlacement(0, 1, 0, 0);
+  start.addPlacement(0, 2, 1, 0);
+  start.addPlacement(0, 0, 1, 0);
+
+  for (int legacy = 0; legacy < 2; legacy++) {
+    for (const std::uint64_t states : {kSearchStates, kFullSearch}) {
+      INFO("legacy " << legacy << ", states " << states);
+      SlideSearch plain;
+      plain.maxStates = states;
+      plain.legacy = legacy != 0;
+      std::optional<Separation> path = findSlidePath(puz, pr, start, plain);
+      REQUIRE(path.has_value());
+      CHECK(path->getMoves() == 2);
+
+      SlideSearch nested;
+      nested.maxStates = states;
+      nested.legacy = legacy != 0;
+      nested.nested = true;
+      path = findSlidePath(puz, pr, start, nested);
+      REQUIRE(path.has_value());
+      CHECK(path->getMoves() == 1);
+
+      SlideSearch partial;
+      partial.maxStates = states;
+      partial.legacy = legacy != 0;
+      partial.partialNested = true;
+      path = findSlidePath(puz, pr, start, partial);
+      REQUIRE(path.has_value());
+      REQUIRE(path->getMoves() == 1);
+      std::vector<unsigned int> movers;
+      (void)slideRoute(puz, pr, *path, 0, &movers);
+      CHECK(movers == std::vector<unsigned int>{0, 1});
+    }
+  }
+}
+
 #ifdef __SIZEOF_INT128__
 namespace {
 __extension__ typedef unsigned __int128 Wide;

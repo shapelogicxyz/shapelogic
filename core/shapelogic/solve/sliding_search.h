@@ -89,7 +89,8 @@ struct SlideSearch {
   bool nested = false;
   /// Let a piece also carry what is partly nested in its outline: a piece
   /// with at least one cell in the outline, the rest sticking out of it.
-  /// Implies nested.
+  /// A further move: the moves that leave such pieces behind stay. Implies
+  /// nested.
   bool partialNested = false;
   /// Polled as the search runs; a stop request ends it (Stopped).
   StopToken stop;

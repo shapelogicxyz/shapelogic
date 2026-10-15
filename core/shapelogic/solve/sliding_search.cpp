@@ -491,10 +491,19 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
     for (unsigned int pi = 0; pi < n && !found; pi++) {
       std::vector<std::vector<unsigned int>> moverSets{{pi}};
       if (nested) {
-        std::vector<unsigned int> group =
-            nestedGroup(cells, outlines, cur, pi, search.partialNested);
-        if (group.size() > 1) {
+        // Partial nesting adds a larger group; it does not replace the
+        // wholly nested one, or moves that leave a partly nested piece
+        // behind would be lost.
+        std::vector<unsigned int> group = nestedGroup(cells, outlines, cur, pi, false);
+        const std::size_t whole = group.size();
+        if (whole > 1) {
           moverSets.push_back(std::move(group));
+        }
+        if (search.partialNested) {
+          std::vector<unsigned int> wider = nestedGroup(cells, outlines, cur, pi, true);
+          if (wider.size() > whole) {
+            moverSets.push_back(std::move(wider));
+          }
         }
       }
       for (const std::vector<unsigned int>& movers : moverSets) {
@@ -829,7 +838,8 @@ struct SlideSpace {
   std::size_t words = 0;
   unsigned int n = 0;
   bool nested = false;
-  // With nested: a piece partly in a member's outline joins its group too.
+  // With nested: a piece partly in a member's outline joins a larger group
+  // too, as a further move.
   bool partial = false;
   int trayW = 0;
   int trayH = 0;
@@ -1014,64 +1024,79 @@ class SlideMover {
       if (!s_.nested) {
         continue;
       }
-      std::array<unsigned int, 64> group{};
-      unsigned int members = 0;
-      const std::uint64_t inGroup = groupAt(pos_.data(), pi, group.data(), members);
-      if (members < 2) {
-        continue;
-      }
-      lastOuter_ = pi;
-      lastGroup_ = inGroup;
-      others_ = occupied_;
-      for (unsigned int g = 0; g < members; g++) {
-        const unsigned int m = group[g];
-        const std::uint64_t* gm = &t[m].mask[idx(pos_[m]) * words];
-        for (std::size_t w = 0; w < words; w++) {
-          others_[w] &= ~gm[w];
+      // The wholly nested group, then with partial nesting the larger group
+      // that also takes the partly nested pieces: both are moves, so that
+      // partial nesting only adds to what plain nesting can do.
+      std::uint64_t whole = 0;
+      for (const bool wide : {false, true}) {
+        if (wide && !s_.partial) {
+          break;
         }
-      }
-      // The group's key at shift (dx, dy), or false when it does not fit.
-      auto shifted = [&](int dx, int dy, Key& key) {
-        key = cur;
+        std::array<unsigned int, 64> group{};
+        unsigned int members = 0;
+        const std::uint64_t inGroup = groupAt(pos_.data(), pi, group.data(), members, wide);
+        if (!wide) {
+          whole = inGroup;
+        } else if (inGroup == whole) {
+          continue;
+        }
+        if (members < 2) {
+          continue;
+        }
+        lastOuter_ = pi;
+        lastGroup_ = inGroup;
+        lastWide_ = wide;
+        others_ = occupied_;
         for (unsigned int g = 0; g < members; g++) {
           const unsigned int m = group[g];
-          const int p = t[m].at(t[m].px[idx(pos_[m])] + dx, t[m].py[idx(pos_[m])] + dy);
-          if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
-            return false;
+          const std::uint64_t* gm = &t[m].mask[idx(pos_[m]) * words];
+          for (std::size_t w = 0; w < words; w++) {
+            others_[w] &= ~gm[w];
           }
-          key = (key & ~(static_cast<Key>(t[m].bits) << t[m].shift)) |
-                (static_cast<Key>(p) << t[m].shift);
         }
-        return true;
-      };
-      // a flood over the shifts the group can make, as for one piece
-      if (++shiftEpoch_ == 0) {
-        std::fill(shiftSeen_.begin(), shiftSeen_.end(), 0);
-        shiftEpoch_ = 1;
-      }
-      const int trayW = s_.trayW;
-      const int trayH = s_.trayH;
-      auto seenAt = [&](int dx, int dy) -> unsigned int& {
-        return shiftSeen_[idx((dy + trayH) * (2 * trayW + 1) + (dx + trayW))];
-      };
-      seenAt(0, 0) = shiftEpoch_;
-      shiftQueue_.assign(1, {0, 0});
-      for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
-        const std::pair<int, int> c = shiftQueue_[head];
-        for (int d = 0; d < 4; d++) {
-          const std::pair<int, int> nb{c.first + kDx[d], c.second + kDy[d]};
-          // a shift as wide as the tray fits nothing
-          if (nb.first < -trayW || nb.first > trayW || nb.second < -trayH || nb.second > trayH) {
-            continue;
+        // The group's key at shift (dx, dy), or false when it does not fit.
+        auto shifted = [&](int dx, int dy, Key& key) {
+          key = cur;
+          for (unsigned int g = 0; g < members; g++) {
+            const unsigned int m = group[g];
+            const int p = t[m].at(t[m].px[idx(pos_[m])] + dx, t[m].py[idx(pos_[m])] + dy);
+            if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
+              return false;
+            }
+            key = (key & ~(static_cast<Key>(t[m].bits) << t[m].shift)) |
+                  (static_cast<Key>(p) << t[m].shift);
           }
-          Key key = 0;
-          if (seenAt(nb.first, nb.second) == shiftEpoch_ || !shifted(nb.first, nb.second, key)) {
-            continue;
-          }
-          seenAt(nb.first, nb.second) = shiftEpoch_;
-          shiftQueue_.push_back(nb);
-          if (emit(key, true)) {
-            return true;
+          return true;
+        };
+        // a flood over the shifts the group can make, as for one piece
+        if (++shiftEpoch_ == 0) {
+          std::fill(shiftSeen_.begin(), shiftSeen_.end(), 0);
+          shiftEpoch_ = 1;
+        }
+        const int trayW = s_.trayW;
+        const int trayH = s_.trayH;
+        auto seenAt = [&](int dx, int dy) -> unsigned int& {
+          return shiftSeen_[idx((dy + trayH) * (2 * trayW + 1) + (dx + trayW))];
+        };
+        seenAt(0, 0) = shiftEpoch_;
+        shiftQueue_.assign(1, {0, 0});
+        for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
+          const std::pair<int, int> c = shiftQueue_[head];
+          for (int d = 0; d < 4; d++) {
+            const std::pair<int, int> nb{c.first + kDx[d], c.second + kDy[d]};
+            // a shift as wide as the tray fits nothing
+            if (nb.first < -trayW || nb.first > trayW || nb.second < -trayH || nb.second > trayH) {
+              continue;
+            }
+            Key key = 0;
+            if (seenAt(nb.first, nb.second) == shiftEpoch_ || !shifted(nb.first, nb.second, key)) {
+              continue;
+            }
+            seenAt(nb.first, nb.second) = shiftEpoch_;
+            shiftQueue_.push_back(nb);
+            if (emit(key, true)) {
+              return true;
+            }
           }
         }
       }
@@ -1088,7 +1113,7 @@ class SlideMover {
     }
     std::array<unsigned int, 64> group{};
     unsigned int members = 0;
-    return groupAt(backPos_.data(), lastOuter_, group.data(), members) == lastGroup_;
+    return groupAt(backPos_.data(), lastOuter_, group.data(), members, lastWide_) == lastGroup_;
   }
 
  private:
@@ -1103,10 +1128,10 @@ class SlideMover {
 
   // outer and everything nested inside it (see nestedGroup) with the
   // pieces at at[]: a piece is nested in a member when its cells all lie in
-  // that member's outline, or with s_.partial, when any of them does. Into
+  // that member's outline, or with `partial`, when any of them does. Into
   // group, and as a bit set.
   std::uint64_t groupAt(const int* at, unsigned int outer, unsigned int* group,
-                        unsigned int& members) const {
+                        unsigned int& members, bool partial) const {
     const std::vector<PosTable>& t = s_.t;
     members = 0;
     std::uint64_t inGroup = std::uint64_t{1} << outer;
@@ -1120,7 +1145,7 @@ class SlideMover {
         }
         const std::uint64_t* inner = &t[b].mask[idx(at[b]) * s_.words];
         bool joins = false;
-        if (s_.partial) {
+        if (partial) {
           for (std::size_t w = 0; w < s_.words && !joins; w++) {
             joins = (inner[w] & out[w]) != 0;
           }
@@ -1155,6 +1180,8 @@ class SlideMover {
   // The group move being reported.
   unsigned int lastOuter_ = 0;
   std::uint64_t lastGroup_ = 0;
+  // Whether that group takes partly nested pieces too.
+  bool lastWide_ = false;
 };
 
 // The path for chain, the arrangements from start to goal as the search
