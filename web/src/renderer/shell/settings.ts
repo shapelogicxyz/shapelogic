@@ -139,22 +139,22 @@ function rowHtml(r: Row): string {
   let c = '';
   switch (r.type) {
     case 'sw':
-      c = `<div class="switch ${v === true ? 'on' : ''}" role="switch" aria-checked="${v === true}" aria-label="${esc(r.t)}" tabindex="0" data-k="${r.k}"><span class="tr"></span></div>`;
+      c = `<div class="switch ${v === true ? 'on' : ''}" role="switch" aria-checked="${v === true}" aria-label="${esc(r.t)}" title="${esc(r.d)}" tabindex="0" data-k="${r.k}"><span class="tr"></span></div>`;
       break;
     case 'select': {
       const opts = r.opts.includes(v as number)
         ? r.opts
         : [...r.opts, v as number].sort((a, b) => a - b);
-      c = `<select class="dd" data-k="${r.k}" aria-label="${esc(r.t)}">${opts.map((o) => `<option value="${o}" ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+      c = `<select class="dd" data-k="${r.k}" aria-label="${esc(r.t)}" title="${esc(r.d)}">${opts.map((o) => `<option value="${o}" ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
       break;
     }
     case 'slider': {
       const shown = threadsShown();
-      c = `<div style="display:flex;align-items:center;gap:10px;width:230px"><input type="range" min="${r.min}" max="${maxThreads()}" value="${shown}" data-k="${r.k}" aria-label="${esc(r.t)}" style="flex:1;accent-color:var(--accent)"><b style="width:26px;text-align:right">${shown}</b></div>`;
+      c = `<div style="display:flex;align-items:center;gap:10px;width:230px"><input type="range" min="${r.min}" max="${maxThreads()}" value="${shown}" data-k="${r.k}" aria-label="${esc(r.t)}" title="${esc(r.d)}" style="flex:1;accent-color:var(--accent)"><b style="width:26px;text-align:right">${shown}</b></div>`;
       break;
     }
     case 'seg':
-      c = `<div class="seg">${r.opts.map((o) => `<button class="${o === v ? 'on' : ''}" data-k="${r.k}" data-o="${esc(o)}" aria-pressed="${o === v}">${esc(o)}</button>`).join('')}</div>`;
+      c = `<div class="seg">${r.opts.map((o) => `<button class="${o === v ? 'on' : ''}" data-k="${r.k}" data-o="${esc(o)}" aria-pressed="${o === v}" title="${esc(`${r.t}: ${o}`)}">${esc(o)}</button>`).join('')}</div>`;
       break;
   }
   return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div>${c}</div>`;
@@ -191,9 +191,9 @@ export function renderSettings(): void {
   byId('setNav').innerHTML =
     SET.map(
       (p) =>
-        `<button class="${query === '' && p.id === page ? 'on' : ''}" data-p="${p.id}">${esc(p.name)}</button>`,
+        `<button class="${query === '' && p.id === page ? 'on' : ''}" data-p="${p.id}" title="${esc(`Show the ${p.name} settings`)}">${esc(p.name)}</button>`,
     ).join('') +
-    `<button class="${query === '' && page === 'keys' ? 'on' : ''}" data-p="keys">Keyboard shortcuts</button>`;
+    `<button class="${query === '' && page === 'keys' ? 'on' : ''}" data-p="keys" title="Show every keyboard shortcut">Keyboard shortcuts</button>`;
   let h = '';
   if (query !== '') {
     const q = query.toLowerCase();
@@ -228,7 +228,7 @@ export function renderSettings(): void {
     const p = SET.find((x) => x.id === page) ?? SET[0];
     if (p !== undefined) {
       h =
-        `<div class="pgh"><h3>${esc(p.name)}</h3><button class="btn sm" data-reset="${p.id}">Reset section</button></div>` +
+        `<div class="pgh"><h3>${esc(p.name)}</h3><button class="btn sm" data-reset="${p.id}" title="Restore this section’s settings to their default values">Reset section</button></div>` +
         p.rows.map(rowHtml).join('');
     }
   }

@@ -123,8 +123,8 @@ test('a puzzle file whose names hold markup shows them as text everywhere', asyn
     await expect(page.locator('#pop [data-k="s2"]')).toContainText(probe('s2'));
     await nothingInjected(page, 'the result menu');
     await page.keyboard.press('Escape');
-    await page.click('#pzViewSeg [data-v=table]');
-    await expect(page.locator('#pzUsed tr[data-u="s2"]')).toContainText(probe('s2'));
+    await page.click('#pzGrpHead');
+    await expect(page.locator('#pzGrpTable tr[data-u="s2"]')).toContainText(probe('s2'));
     await nothingInjected(page, 'the table');
 
     // the Solver: the problem, a solve, the list, Manage, the convert dialog, the explorers

@@ -333,6 +333,10 @@ class Document {
   /// scale, fillHoles, surface); with `toAll` and a task that allows it,
   /// on every shape. Returns what it did to this shape.
   Result<TaskOutcome> shapeTask(Id shape, ShapeTask task, bool toAll = false);
+  /// The drawing mesh of a shape as `shapeTask` would leave it, on a copy:
+  /// nothing changes (shape.taskPreview). The same refusals as `shapeTask`
+  /// (a nudge out of the grid is InvalidArgument), but allowed while solving.
+  [[nodiscard]] Result<mesh::DrawMesh> shapeTaskPreview(Id shape, ShapeTask task) const;
 
   // ---- colours ----------------------------------------------------------------
 

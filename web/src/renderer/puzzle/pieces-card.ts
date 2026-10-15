@@ -2,17 +2,19 @@
 //
 // The pieces of the Puzzle workspace's left card: the result (its cells
 // and "can hold n–m" from problem.fit, Change…), the pieces in the puzzle
-// as chips or a table (the problem's parts in their order: count or range,
-// group; −/+ are the original's one fewer / one more, minimum and maximum
-// both), "All pieces" (every shape but the result: drag a chip in,
+// as chips (the problem's parts in their order; −/+ are the original's
+// one fewer / one more, minimum and maximum both) with All +1 and Clear All,
+// the Groups section (a table of count or range and group, and "Set range
+// for all pieces"; collapsed at first), "All pieces" (every shape but the result: drag a chip in,
 // double-click it or press its +; drag a tile out to take it out; a tile
-// dropped on another moves it there), the More menu (add one of each, set
-// range for all pieces…, remove all), the right-click menus (one more, one
+// dropped on another moves it there), the right-click menus (one more, one
 // fewer, remove, set as result; move earlier and later for a tile), the
 // fit summary (FitStats). From docs/mockup/index.html:
 // `renderPuzzle`, `pzUsedTile`, `pzLibChip`, `pzMenu`, `pzBulkRange`,
-// `pzDragStart`, `pzDragEnd`, and the handlers of #pzResult, #pzViewSeg,
-// #pzUsed, #pzLib, #pzLibHead and #pzMore.
+// `pzDragStart`, `pzDragEnd`, and the handlers of #pzResult, #pzUsed, #pzLib,
+// #pzLibHead, #pzAll and #pzClear; the Groups section (the mockup's table
+// view, now a collapsed section of its own) holds the table and "Set range
+// for all pieces".
 
 import type { Part, ShapeSummary } from '../../engine/api.generated.ts';
 import { $$, byId, esc, markSelected, setHtml } from '../shell/dom.ts';
@@ -27,7 +29,7 @@ const cells = (s: ShapeSummary): number => s.fixed + s.variable;
 
 /** Why a sliding piece's count cannot change (Part.required). */
 const REQUIRED =
-  'Its start or goal on the start/goal shape needs exactly this piece: place or clear it on the Entities workspace';
+  'Its start or goal on the start/goal shape needs exactly this piece: place or clear it on the Shapes workspace';
 
 export class PiecesCard {
   private readonly ws: PuzzleWorkspace;
@@ -36,7 +38,7 @@ export class PiecesCard {
 
   constructor(ws: PuzzleWorkspace) {
     this.ws = ws;
-    byId('pzMore').innerHTML = ic('more');
+    byId('pzGrpTog').innerHTML = ic('chevD', 16);
     byId('pzLibTog').innerHTML = ic('chevD', 16);
     this.install();
   }
@@ -68,7 +70,9 @@ export class PiecesCard {
 
     // the result: a sliding puzzle's is its start/goal shape, for good
     const fixedResult = ws.store.snapshot?.grid === 'sliding';
-    const change = fixedResult ? '' : '<button class="btn sm" id="pzChange">Change…</button>';
+    const change = fixedResult
+      ? ''
+      : '<button class="btn sm" id="pzChange" title="Choose another shape as this problem’s result">Change…</button>';
     const R = result === null ? undefined : byShape.get(result);
     const f = ws.fit;
     if (d === null) {
@@ -87,17 +91,13 @@ export class PiecesCard {
     // the pieces in the puzzle
     byId('pzPieceCount').textContent = String(parts.length);
     byId('pzLibCount').textContent = String(others.length);
-    for (const b of $$('#pzViewSeg button')) {
-      b.classList.toggle('on', b.dataset.v === ws.view);
-    }
     const ub = byId('pzUsed');
-    ub.classList.toggle('tbl', ws.view === 'table');
     if (parts.length === 0) {
       setHtml(
         ub,
-        '<div class="pz-empty" style="padding:6px">No pieces yet. Add them from <b>All pieces</b> below — drag, double-click, or press +.</div>',
+        '<div class="pz-empty" style="padding:6px">No pieces yet. Add them from <b>All pieces</b> above — drag, double-click, or press +.</div>',
       );
-    } else if (ws.view === 'chips') {
+    } else {
       setHtml(
         ub,
         parts
@@ -107,10 +107,17 @@ export class PiecesCard {
           })
           .join(''),
       );
+    }
+    // the Groups section: every piece's count, range and group
+    byId('pzGrpBody').classList.toggle('closed', !ws.groupsOpen);
+    byId('pzGrpTog').style.transform = ws.groupsOpen ? '' : 'rotate(-90deg)';
+    const gt = byId('pzGrpTable');
+    if (parts.length === 0) {
+      setHtml(gt, '');
     } else {
       const groups = groupsOf(d);
       setHtml(
-        ub,
+        gt,
         `<table class="pzt"><thead><tr><th class="l">Shape</th><th>Count</th><th title="Allow a min–max range">Range</th><th>Group</th></tr></thead><tbody>${parts
           .map((p) => {
             const s = byShape.get(p.shape);
@@ -123,18 +130,19 @@ export class PiecesCard {
             // a piece a start or goal needs keeps its count (the engine refuses)
             const off = p.required ? `disabled title="${REQUIRED}"` : '';
             const count = rg
-              ? `<input type="number" min="0" data-f="min" value="${String(p.min)}" aria-label="Minimum" ${off}><span class="dash">–</span><input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Maximum" ${off}>`
-              : `<input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Copies" ${off}>`;
+              ? `<input type="number" min="0" data-f="min" value="${String(p.min)}" aria-label="Minimum" title="The fewest copies of this piece a solution may use" ${off}><span class="dash">–</span><input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Maximum" title="The most copies of this piece a solution may use" ${off}>`
+              : `<input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Copies" title="How many copies of this piece the puzzle uses" ${off}>`;
             // a sliding puzzle has no groups
             const grp = fixedResult
               ? '–'
-              : `<select data-grp aria-label="Group"><option value="">–</option>${groups.map((x) => `<option value="${String(x)}" ${g === x ? 'selected' : ''}>G${String(x)}</option>`).join('')}<option value="new">+ New</option></select>`;
-            return `<tr data-u="${s.id}"><td class="sh" style="background:${c.bg};color:${c.fg}" title="${esc(this.title(s))}">${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''}</td><td class="cn">${count}</td><td><input type="checkbox" data-range ${rg ? 'checked' : ''} aria-label="Range" ${off}></td><td>${grp}</td></tr>`;
+              : `<select data-grp aria-label="Group" title="Pieces of the same group may stay together: the disassembly is complete when only groups are left"><option value="">–</option>${groups.map((x) => `<option value="${String(x)}" ${g === x ? 'selected' : ''}>G${String(x)}</option>`).join('')}<option value="new">+ New</option></select>`;
+            return `<tr data-u="${s.id}"><td class="sh" style="background:${c.bg};color:${c.fg}" title="${esc(this.title(s))}">${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''}</td><td class="cn">${count}</td><td><input type="checkbox" data-range ${rg ? 'checked' : ''} aria-label="Range" title="Use a range of copies, a minimum and a maximum, instead of a fixed count" ${off}></td><td>${grp}</td></tr>`;
           })
           .join('')}</tbody></table>`,
       );
     }
     markSelected(ub, '[data-u]', 'u', ws.sel);
+    markSelected(gt, '[data-u]', 'u', ws.sel);
 
     // all pieces
     setHtml(byId('pzLib'), others.map((s) => this.libChip(s, partOf(d, s.id), stacking)).join(''));
@@ -204,12 +212,12 @@ export class PiecesCard {
     const i = parts.findIndex((p) => p.shape === u);
     const inPuzzle = i >= 0;
     const moves = inPuzzle
-      ? `<hr><button data-k="earlier" ${i === 0 ? 'disabled' : ''}>Move earlier</button><button data-k="later" ${i === parts.length - 1 ? 'disabled' : ''}>Move later</button>`
+      ? `<hr><button data-k="earlier" ${i === 0 ? 'disabled' : ''} title="Move this piece one place earlier in the puzzle">Move earlier</button><button data-k="later" ${i === parts.length - 1 ? 'disabled' : ''} title="Move this piece one place later in the puzzle">Move later</button>`
       : '';
     openPopAt(
       e.clientX,
       e.clientY,
-      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'}>One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'}>Remove from puzzle<span class="kb">Del</span></button>${moves}<hr><button data-k="res">Set as result</button>`,
+      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${moves}<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>`,
       (k) => {
         switch (k) {
           case 'up':
@@ -335,22 +343,29 @@ export class PiecesCard {
         `<div class="ph">Use as result</div>${this.shapes
           .map((s) => {
             const c = ws.chip(s.id);
-            return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''}><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:10px">${esc(s.label)}</span>${esc(s.name) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
+            return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''} title="Make this shape the problem’s result"><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:10px">${esc(s.label)}</span>${esc(s.name) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
           })
           .join('')}`,
         (k) => void ws.setResult(k),
       );
     });
-    byId('pzViewSeg').addEventListener('click', (e) => {
-      const b = (e.target as Element).closest<HTMLElement>('button');
-      if (b?.dataset.v === 'chips' || b?.dataset.v === 'table') {
-        ws.view = b.dataset.v;
-        ws.render();
-      }
+    const groups = byId('pzGrpTable');
+    byId('pzGrpHead').addEventListener('click', () => {
+      ws.groupsOpen = !ws.groupsOpen;
+      ws.render();
+    });
+    byId('pzRangeAll').addEventListener('click', () => {
+      this.bulkRange();
+    });
+    byId('pzAll').addEventListener('click', () => {
+      void ws.addOneOfEach();
+    });
+    byId('pzClear').addEventListener('click', () => {
+      void ws.removeAllPieces();
     });
 
-    // the table's fields
-    used.addEventListener('change', (e) => {
+    // the groups table's fields
+    groups.addEventListener('change', (e) => {
       const i = e.target as HTMLInputElement | HTMLSelectElement;
       const u = i.closest<HTMLElement>('tr')?.dataset.u;
       if (u === undefined) {
@@ -366,15 +381,15 @@ export class PiecesCard {
         void ws.setGroup(u, v === 'new' ? 'new' : v === '' ? 0 : Number(v));
       }
     });
+    groups.addEventListener('click', (e) => {
+      const t = e.target as Element;
+      const u = t.closest<HTMLElement>('tr[data-u]')?.dataset.u;
+      if (u !== undefined && t.closest('input,select') === null) {
+        ws.select(u);
+      }
+    });
     used.addEventListener('click', (e) => {
       const t = e.target as Element;
-      const tr = t.closest<HTMLElement>('tr[data-u]');
-      if (tr?.dataset.u !== undefined) {
-        if (t.closest('input,select') === null) {
-          ws.select(tr.dataset.u);
-        }
-        return;
-      }
       const u = t.closest<HTMLElement>('.ut')?.dataset.u;
       if (u === undefined) {
         return;
@@ -407,12 +422,14 @@ export class PiecesCard {
         void ws.add(u);
       }
     });
-    used.addEventListener('contextmenu', (e) => {
-      const u = (e.target as Element).closest<HTMLElement>('.ut,tr[data-u]')?.dataset.u;
-      if (u !== undefined) {
-        this.menu(e, u);
-      }
-    });
+    for (const el of [used, groups]) {
+      el.addEventListener('contextmenu', (e) => {
+        const u = (e.target as Element).closest<HTMLElement>('.ut,tr[data-u]')?.dataset.u;
+        if (u !== undefined) {
+          this.menu(e, u);
+        }
+      });
+    }
     lib.addEventListener('contextmenu', (e) => {
       if (ws.store.snapshot?.grid === 'stacking') {
         return;
@@ -426,23 +443,6 @@ export class PiecesCard {
       ws.libOpen = !ws.libOpen;
       ws.render();
     });
-    byId('pzMore').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openPop(
-        e.currentTarget as Element,
-        '<button data-k="all">Add one of each piece</button><button data-k="range">Set range for all pieces…</button><button data-k="clr">Remove all pieces</button>',
-        (k) => {
-          if (k === 'all') {
-            void ws.addOneOfEach();
-          } else if (k === 'range') {
-            this.bulkRange();
-          } else if (k === 'clr') {
-            void ws.removeAllPieces();
-          }
-        },
-      );
-    });
-
     // drag and drop between "All pieces" and "In this puzzle" (the mockup's
     // pzDragStart, pzDragEnd and drop handlers), and within the puzzle
     const start = (e: DragEvent, u: string, from: 'lib' | 'used'): void => {

@@ -468,10 +468,10 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
 
     // aborted: asked first, the results thrown away, Abort greyed once over
     await runButton(page, 'abort');
-    await confirm(page, /^Abort the solve\?$/, false);
+    await confirm(page, /^Clear the solve\?$/, false);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
     await runButton(page, 'abort');
-    await confirm(page, /^Abort the solve\?$/, true);
+    await confirm(page, /^Clear the solve\?$/, true);
     await runEnded(page, 'idle');
     await expect(page.locator('#slvRun [data-r="abort"]')).toBeDisabled();
     await expect(page.locator('#slvCount')).toHaveText('0');
@@ -569,7 +569,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     // aborted, the lists can change again
     await toSolver(page);
     await runButton(page, 'abort');
-    await confirm(page, /^Abort the solve\?$/, true);
+    await confirm(page, /^Clear the solve\?$/, true);
     await runEnded(page, 'idle');
     await page.keyboard.press('Control+2');
     const before = (await engineCall<{ problems: unknown[] }>(page, 'document.get')).problems

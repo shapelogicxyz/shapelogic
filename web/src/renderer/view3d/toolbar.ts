@@ -162,23 +162,23 @@ export class Toolbar {
     const show =
       tab === 'entities'
         ? `<div class="ph">Show</div>
-<button data-k="axes" data-keep="1" role="menuitemcheckbox" aria-checked="${d.axes}">${ck(d.axes)}Axes</button>
-<button data-k="bounds" data-keep="1" role="menuitemcheckbox" aria-checked="${d.bounds}">${ck(d.bounds)}Grid boundary</button>
-<button data-k="layer" data-keep="1" role="menuitemcheckbox" aria-checked="${d.layer}" ${ed ? '' : 'disabled'}>${ck(d.layer)}Active layer slab${needs}</button>
-<button data-k="dim" data-keep="1" role="menuitemcheckbox" aria-checked="${d.dim}" ${ed ? '' : 'disabled'}>${ck(d.dim)}Dim other layers${needs}</button><hr>`
+<button data-k="axes" data-keep="1" title="Show the x, y and z axes at the grid’s corner" role="menuitemcheckbox" aria-checked="${d.axes}">${ck(d.axes)}Axes</button>
+<button data-k="bounds" data-keep="1" title="Outline the shape’s grid box" role="menuitemcheckbox" aria-checked="${d.bounds}">${ck(d.bounds)}Grid boundary</button>
+<button data-k="layer" data-keep="1" title="Show the layer being edited as a slab in the 3D view" role="menuitemcheckbox" aria-checked="${d.layer}" ${ed ? '' : 'disabled'}>${ck(d.layer)}Active layer slab${needs}</button>
+<button data-k="dim" data-keep="1" title="Fade the layers other than the one being edited" role="menuitemcheckbox" aria-checked="${d.dim}" ${ed ? '' : 'disabled'}>${ck(d.dim)}Dim other layers${needs}</button><hr>`
         : '';
     return `${show}<div class="ph">Projection</div>
-<button data-k="persp" data-keep="1" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>
-<button data-k="ortho" data-keep="1" role="menuitemradio" aria-checked="${!d.persp}">${ck(!d.persp)}Orthographic</button><hr>
-<div class="ph">Voxel colour</div>
-<button data-k="cpiece" data-keep="1" role="menuitemradio" aria-checked="${!d.colourView}">${ck(!d.colourView)}Piece colour</button>
-<button data-k="cvox" data-keep="1" role="menuitemradio" aria-checked="${d.colourView}">${ck(d.colourView)}Voxel colour</button><hr>
+<button data-k="persp" data-keep="1" title="Far things look smaller, as a camera sees them" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>
+<button data-k="ortho" data-keep="1" title="Parallel lines stay parallel: no perspective" role="menuitemradio" aria-checked="${!d.persp}">${ck(!d.persp)}Orthographic</button><hr>
+<div class="ph">Voxel color</div>
+<button data-k="cpiece" data-keep="1" title="Display normally, each piece in its shape’s color" role="menuitemradio" aria-checked="${!d.colourView}">${ck(!d.colourView)}Piece color</button>
+<button data-k="cvox" data-keep="1" title="Display each voxel in its color constraint color" role="menuitemradio" aria-checked="${d.colourView}">${ck(d.colourView)}Voxel color</button><hr>
 <div class="ph">Style</div>
-<button data-k="drawing" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'drawing'}">${ck(d.style === 'drawing')}Bevelled voxels</button>
-<button data-k="flat" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'flat'}">${ck(d.style === 'flat')}Flat with edges</button>
-<button data-k="wireframe" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'wireframe'}">${ck(d.style === 'wireframe')}Wire frame</button>
-<button data-k="stl" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'stl'}" title="The pieces as the STL export makes them: chamfered, with a gap, in one colour">${ck(d.style === 'stl')}Like the STL export</button>
-<button data-k="xray" data-keep="1" role="menuitemcheckbox" aria-checked="${d.xray}">${ck(d.xray)}Show through solid pieces</button>`;
+<button data-k="drawing" data-keep="1" title="Draw each voxel separately, with bevelled edges" role="menuitemradio" aria-checked="${d.style === 'drawing'}">${ck(d.style === 'drawing')}Bevelled voxels</button>
+<button data-k="flat" data-keep="1" title="Draw flat faces with edges" role="menuitemradio" aria-checked="${d.style === 'flat'}">${ck(d.style === 'flat')}Flat with edges</button>
+<button data-k="wireframe" data-keep="1" title="Draw wire frames" role="menuitemradio" aria-checked="${d.style === 'wireframe'}">${ck(d.style === 'wireframe')}Wire frame</button>
+<button data-k="stl" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'stl'}" title="The pieces as the STL export makes them: chamfered, with a gap, in one color">${ck(d.style === 'stl')}Like the STL export</button>
+<button data-k="xray" data-keep="1" title="See the pieces behind solid pieces" role="menuitemcheckbox" aria-checked="${d.xray}">${ck(d.xray)}Show through solid pieces</button>`;
   }
 
   private choose(k: string): void {

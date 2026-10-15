@@ -670,6 +670,21 @@ Result:
 
 Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
+### `shape.taskPreview`
+
+The mesh (as shape.mesh, the drawing style) the shape would have after shape.task, worked out on a copy: nothing changes. The client draws it as a ghost over the shape while the pointer is on a tool tab button. The same refusals as shape.task (a nudge out of the grid is invalid_argument), but allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `task` | [ShapeTask](#shapetask) | required | A button of the tool tabs; what the numbered ones do depends on the grid (shape.taskSet gives each one's group and label). |
+
+Result: [MeshFrame](#meshframe)
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
 ### `shape.info`
 
 The status window's row for one shape, with its status line.

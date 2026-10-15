@@ -110,7 +110,7 @@ export const KEY_MAP: readonly KeyRow[] = [
   {
     group: 'Everywhere',
     keys: 'Ctrl+1 / Ctrl+2 / Ctrl+3',
-    does: 'Switch to Entities / Puzzle / Solver',
+    does: 'Switch to Shapes / Puzzle / Solver',
     chords: [
       { chord: mod('1', 'Digit1'), action: 'workspace.entities' },
       { chord: mod('2', 'Digit2'), action: 'workspace.puzzle' },
@@ -229,7 +229,7 @@ export const KEY_MAP: readonly KeyRow[] = [
   },
 
   {
-    group: 'Entities',
+    group: 'Shapes',
     sub: 'drawing',
     keys: '1 / 2 / 3 / 4',
     does: 'Tool: Fixed / Variable / Erase / Paint',
@@ -241,30 +241,30 @@ export const KEY_MAP: readonly KeyRow[] = [
     ],
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     keys: 'E',
     does: '3D edit mode (toggle) — a plain click uses the active tool',
     chords: [{ chord: { key: 'e' }, action: 'edit3d' }],
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     keys: 'Shift+@Click',
     does: 'Quick tool 1 — fixed voxel (3D view and 2D grid)',
   },
-  { group: 'Entities', keys: 'Alt+@Click', does: 'Quick tool 2 — variable voxel (⌘ on macOS)' },
-  { group: 'Entities', keys: 'Ctrl+@Click', does: 'Quick tool 3 — erase voxel' },
+  { group: 'Shapes', keys: 'Alt+@Click', does: 'Quick tool 2 — variable voxel (⌘ on macOS)' },
+  { group: 'Shapes', keys: 'Ctrl+@Click', does: 'Quick tool 3 — erase voxel' },
   {
-    group: 'Entities',
+    group: 'Shapes',
     keys: '@Right-click / @Right-drag',
     does: '2D grid: erase, whatever tool is active',
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     keys: '@Drag across cells',
     does: '2D grid: apply the tool to every cell entered (one undo step)',
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     keys: 'PgUp / PgDn',
     does: 'Next / previous layer',
     chords: [
@@ -274,7 +274,7 @@ export const KEY_MAP: readonly KeyRow[] = [
   },
 
   {
-    group: 'Entities',
+    group: 'Shapes',
     sub: 'shapes list',
     keys: '↑ / ↓',
     does: 'Previous / next shape (list focused)',
@@ -284,7 +284,7 @@ export const KEY_MAP: readonly KeyRow[] = [
     ],
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     sub: 'shapes list',
     keys: 'Alt+↑ / Alt+↓',
     does: 'Move the shape earlier / later — shapes renumber',
@@ -294,7 +294,7 @@ export const KEY_MAP: readonly KeyRow[] = [
     ],
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     sub: 'shapes list',
     keys: 'F2 / Enter / @Double-click',
     does: 'Rename the shape label; Enter commits, Esc cancels',
@@ -304,21 +304,21 @@ export const KEY_MAP: readonly KeyRow[] = [
     ],
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     sub: 'shapes list',
     keys: 'Del',
     does: 'Delete the shape',
     chords: [{ chord: { key: 'Delete' }, action: 'delete' }],
   },
   {
-    group: 'Entities',
+    group: 'Shapes',
     sub: 'shapes list',
     keys: 'Ctrl+D',
     does: 'Duplicate the shape',
     chords: [{ chord: mod('d', 'KeyD'), action: 'shape.duplicate' }],
   },
-  { group: 'Entities', sub: 'shapes list', keys: '@Right-click a row', does: 'Shape menu' },
-  { group: 'Entities', sub: 'shapes list', keys: '@Drag a row', does: 'Reorder' },
+  { group: 'Shapes', sub: 'shapes list', keys: '@Right-click a row', does: 'Shape menu' },
+  { group: 'Shapes', sub: 'shapes list', keys: '@Drag a row', does: 'Reorder' },
 
   {
     group: 'Puzzle',

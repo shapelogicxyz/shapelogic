@@ -316,6 +316,28 @@ TEST_CASE("document: every tool-tab task of every grid round-trips", "[app][docu
   }
 }
 
+TEST_CASE("document: a task's preview is the mesh the task makes, and changes nothing",
+          "[app][document]") {
+  Document d(GridKind::Bricks);
+  const Id s = d.createShape(std::array<unsigned int, 3>{2, 3, 4}).value();
+  REQUIRE(d.editCells(s, CellTool::Fixed, 0, 0, {{1, 0, 0}, {0, 1, 0}}).has_value());
+  for (const ShapeTask t : {ShapeTask::Nudge0, ShapeTask::Rotate6, ShapeTask::Flip12}) {
+    const std::string base = io::writePuzzle(d.puzzle());
+    const Result<mesh::DrawMesh> got = d.shapeTaskPreview(s, t);
+    if (!got) {
+      // a nudge out of the grid: the task refuses the same
+      CHECK(d.shapeTask(s, t, false).error().code == got.error().code);
+      continue;
+    }
+    CHECK(io::writePuzzle(d.puzzle()) == base);
+    REQUIRE(d.shapeTask(s, t, false).has_value());
+    CHECK(got->positions == d.shapeMesh(s, mesh::MeshStyle::Drawing).value().positions);
+    REQUIRE(d.undo().has_value());
+  }
+  CHECK(d.shapeTaskPreview(s, ShapeTask::Nudge27).error().code == Errc::Unsupported);
+  CHECK(d.shapeTaskPreview(4242, ShapeTask::Nudge0).error().code == Errc::NotFound);
+}
+
 TEST_CASE("document: a nudge out of the grid is refused, a task the grid lacks too",
           "[app][document]") {
   Document d(GridKind::Bricks);
@@ -598,7 +620,12 @@ TEST_CASE("document: groups of edits are one step; depth, dirty and history", "[
   CHECK(d.revision() == still + 1);
   CHECK(d.beginGroup("again").error().code == Errc::InvalidState);
   CHECK(d.undo().error().code == Errc::InvalidState);
+  // the step reaches the undo stack at the end: that is a revision, or a
+  // client would never read its label (and canUndo) again
+  const std::uint64_t open = d.revision();
   REQUIRE(d.endGroup().has_value());
+  CHECK(d.revision() == open + 1);
+  CHECK(d.lastChange().what == 0);
   CHECK(d.history().undo.size() == steps + 1);
   CHECK(d.history().undo.back() == "Draw");
   const std::string after = io::writePuzzle(d.puzzle());
@@ -611,7 +638,9 @@ TEST_CASE("document: groups of edits are one step; depth, dirty and history", "[
 
   // an empty group leaves no step
   REQUIRE(d.beginGroup("nothing").has_value());
+  const std::uint64_t quiet = d.revision();
   REQUIRE(d.endGroup().has_value());
+  CHECK(d.revision() == quiet);
   CHECK(d.history().undo.size() == steps + 1);
 
   // a new edit after an undo drops the redo

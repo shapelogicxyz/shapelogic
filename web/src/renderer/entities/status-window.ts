@@ -62,12 +62,12 @@ export class StatusWindow {
       p.el.classList.add('stw');
       p.foot.innerHTML =
         '<button class="btn sm" data-a="refresh" title="Reload piece information">Refresh</button>' +
-        '<button class="btn sm" data-a="close">Close</button>' +
-        '<button class="btn sm danger" data-a="remove">Remove selected</button>' +
+        '<button class="btn sm" data-a="close" title="Close the window">Close</button>' +
+        '<button class="btn sm danger" data-a="remove" title="Delete the ticked shapes from the puzzle">Remove selected</button>' +
         '<span class="sp"></span>' +
         '<button class="btn sm" data-a="holes" title="Select all shapes that have 2D or 3D holes">Select holes</button>' +
-        '<button class="btn sm" data-a="shape" title="Select shapes that match another shape ignoring colour">Select Identical Shapes</button>' +
-        '<button class="btn sm" data-a="complete" title="Select shapes that match another shape including colour">Select Identical Complete</button>' +
+        '<button class="btn sm" data-a="shape" title="Select shapes that match another shape ignoring color">Select Identical Shapes</button>' +
+        '<button class="btn sm" data-a="complete" title="Select shapes that match another shape including color">Select Identical Complete</button>' +
         '<button class="btn sm" data-a="mirror" title="Select shapes that match another shape as a mirror image">Select Identical Mirror</button>';
       p.foot.addEventListener('click', (e) => {
         const b = (e.target as Element).closest<HTMLElement>('[data-a]');
@@ -164,7 +164,7 @@ export class StatusWindow {
           x ? `<span class="chip" style="background:${hex(c)};color:${contrast(c)}">X</span>` : '';
         return (
           `<tr data-shape="${esc(r.shape)}" title="${esc(r.statusLine)}">` +
-          `<td><input type="checkbox"${this.selected.has(r.shape) ? ' checked' : ''} aria-label="Select ${esc(name)}"></td>` +
+          `<td><input type="checkbox"${this.selected.has(r.shape) ? ' checked' : ''} aria-label="Select ${esc(name)}" title="Tick to select this shape"></td>` +
           `<td><span class="chip" style="background:${hex(c)};color:${contrast(c)}">${esc(name)}</span></td>` +
           `<td data-k="fixed">${String(r.fixed)}</td><td data-k="variable">${String(r.variable)}</td><td data-k="total">${String(r.fixed + r.variable)}</td>` +
           `<td data-k="identicalMirror">${chip(r.identicalMirror)}</td><td data-k="identicalShape">${chip(r.identicalShape)}</td><td data-k="identicalComplete">${chip(r.identicalComplete)}</td>` +

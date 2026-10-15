@@ -2486,6 +2486,21 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
+   * The mesh (as shape.mesh, the drawing style) the shape would have after shape.task, worked out
+   * on a copy: nothing changes. The client draws it as a ghost over the shape while the pointer is
+   * on a tool tab button. The same refusals as shape.task (a nudge out of the grid is
+   * invalid_argument), but allowed while solving.
+   * (shape.json)
+   */
+  'shape.taskPreview': {
+    params: {
+      shape: ShapeId;
+      task: ShapeTask;
+    };
+    result: MeshFrame;
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
    * The status window's row for one shape, with its status line.
    * (shape.json)
    */
@@ -3462,6 +3477,7 @@ export const METHOD_NAMES = [
   'shape.setWeight',
   'shape.table',
   'shape.task',
+  'shape.taskPreview',
   'shape.taskSet',
   'sliding.addStartGoal',
   'sliding.clearAt',
@@ -3543,6 +3559,7 @@ export const FRAME_PATHS = {
   'playback.poses': 'frame',
   'playback.track': 'frame',
   'shape.mesh': 'frame',
+  'shape.taskPreview': 'frame',
 } as const satisfies Partial<Record<keyof Methods, string>>;
 
 /** A method whose result carries a binary frame. */

@@ -126,8 +126,11 @@ describe.skipIf(ENGINE === null)('the voxel editor and the engine', () => {
     expect(stroke.batches).toBeGreaterThan(1);
     await s.drain();
     const changes = s.events.slice(from).filter((e) => e.event === 'document.changed');
-    expect(changes.length).toBe(stroke.batches);
+    // a change per batch, and one for the step reaching the undo stack
+    // (edit.end), which names nothing: the menus read the history again
+    expect(changes.length).toBe(stroke.batches + 1);
     expect(changes.at(-1)?.params.revision).toBe(revision);
+    expect(changes.at(-1)?.params.what).toEqual([]);
     const h = await c.call('edit.history');
     expect(h.undo.length).toBe(before + 1);
     expect(h.undo.at(-1)).toBe('Draw variable voxels');

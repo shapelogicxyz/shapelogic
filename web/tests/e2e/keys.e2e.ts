@@ -72,7 +72,7 @@ test('Ctrl+, opens the settings, F1 the shortcuts, Esc closes; Tab stays in the 
   for (const g of [
     'Everywhere',
     '3D view',
-    'Entities',
+    'Shapes',
     'Puzzle',
     'Solver',
     'Explorers',

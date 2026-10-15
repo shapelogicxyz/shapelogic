@@ -154,10 +154,14 @@ test('a click on a face names the cell and side the frame holds, on every fixtur
   const { page } = a;
   await openFixture(page, fixtures[0] ?? '');
   // the front view: the view cube's +Z face, where the cube draws it at the home view
+  // (the canvas has 16 pixels of room left of the cube, viewcube.ts's PAD)
   const cube = await page.locator('#vcube').boundingBox();
   const n = toView(quatOf(HOME), [0, 0, 1]);
   const k = 5.5 / (5.5 - n.z);
-  await page.mouse.click((cube?.x ?? 0) + 78 + n.x * 30 * k, (cube?.y ?? 0) + 100 - n.y * 30 * k);
+  await page.mouse.click(
+    (cube?.x ?? 0) + 16 + 78 + n.x * 30 * k,
+    (cube?.y ?? 0) + 100 - n.y * 30 * k,
+  );
   await settle(page);
   expect((await camera(page)).slice(0, 3)).toEqual([0, 0, 0]);
   await display(page, 'ortho');

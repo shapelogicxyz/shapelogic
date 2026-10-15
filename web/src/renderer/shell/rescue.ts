@@ -219,8 +219,14 @@ export class Rescue {
           ? `The engine stopped and was started again with an empty puzzle. The unsaved changes of ${what} were kept in a rescue copy (${ago(info.time)}).\nReopen it?`
           : `ShapeLogic did not close properly. The unsaved changes of ${what} were kept in a rescue copy (${ago(info.time)}).\nReopen it?`,
         [
-          { key: 'drop', label: 'Discard', kind: 'danger' },
-          { key: 'open', label: 'Reopen', kind: 'pri', default: true },
+          { key: 'drop', label: 'Discard', kind: 'danger', tip: 'Throw the rescue copy away' },
+          {
+            key: 'open',
+            label: 'Reopen',
+            kind: 'pri',
+            default: true,
+            tip: 'Open the rescue copy with its last changes',
+          },
         ],
         true,
       );

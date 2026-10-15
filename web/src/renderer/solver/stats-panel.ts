@@ -71,7 +71,7 @@ export class StatsPanel {
       });
       p.el.classList.add('dbg');
       p.foot.innerHTML =
-        '<span class="mute" id="statsFor"></span><span class="sp"></span><button class="btn sm" data-a="refresh">Refresh</button><button class="btn sm" data-a="close">Close</button>';
+        '<span class="mute" id="statsFor"></span><span class="sp"></span><button class="btn sm" data-a="refresh" title="Read the statistics again">Refresh</button><button class="btn sm" data-a="close" title="Close the window">Close</button>';
       p.foot.addEventListener('click', (e) => {
         const a = (e.target as Element).closest<HTMLElement>('[data-a]')?.dataset.a;
         if (a === 'refresh') {

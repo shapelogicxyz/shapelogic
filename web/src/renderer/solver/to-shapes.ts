@@ -53,7 +53,13 @@ export function openToShapes(store: Store, edits: Edits, shown: string | null): 
 <label class="fl">Shape size from<input data-f="minCells" value="0" inputmode="numeric"></label><label class="fl">to<input data-f="maxCells" value="1000000" inputmode="numeric"></label> cells</fieldset></div>`,
     buttons: [
       { key: 'cancel', label: 'Cancel' },
-      { key: 'go', label: 'Convert', kind: 'pri', default: true },
+      {
+        key: 'go',
+        label: 'Convert',
+        kind: 'pri',
+        default: true,
+        tip: 'Make the chosen assemblies into shapes',
+      },
     ],
     onAnswer: (k, el) => {
       if (k !== 'go') {

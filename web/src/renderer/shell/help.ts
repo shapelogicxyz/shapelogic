@@ -42,7 +42,7 @@ export function openKeys(): void {
     id: 'helpKeys',
     title: 'Keyboard shortcuts',
     wide: true,
-    body: `<div class="kbnote">Grouped by workspace. Keys act when the focus is not in a text field (the File menu’s keys act there too).</div><input class="kbsearch" placeholder="Search shortcuts" autocomplete="off" data-focus aria-label="Search shortcuts"><div class="kblist">${keysHtml('')}</div>`,
+    body: `<div class="kbnote">Grouped by workspace. Keys act when the focus is not in a text field (the File menu’s keys act there too).</div><input class="kbsearch" title="Type part of a key or an action to find its shortcut" placeholder="Search shortcuts" autocomplete="off" data-focus aria-label="Search shortcuts"><div class="kblist">${keysHtml('')}</div>`,
     buttons: [{ key: 'close', label: 'Close', kind: 'pri', default: true }],
   });
   const el = topDialog();
@@ -85,10 +85,15 @@ export function openNotes(store: Store): void {
     id: 'notes',
     title: 'Notes',
     wide: true,
-    body: `<p class="mute">The puzzle’s notes, saved with it.</p><textarea class="notes" rows="12" data-focus aria-label="Notes">${esc(snap.notes)}</textarea>`,
+    body: `<p class="mute">The puzzle’s notes, saved with it.</p><textarea class="notes" rows="12" title="The puzzle’s notes: its name, designer and anything else, saved with it" data-focus aria-label="Notes">${esc(snap.notes)}</textarea>`,
     buttons: [
       { key: 'cancel', label: 'Cancel' },
-      { key: 'save', label: 'Save notes', kind: 'pri' },
+      {
+        key: 'save',
+        label: 'Save notes',
+        kind: 'pri',
+        tip: 'Save the current notes with the puzzle',
+      },
     ],
     onAnswer: (k, el) => {
       if (k !== 'save') {

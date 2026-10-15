@@ -25,6 +25,8 @@ import {
   MeshBasicMaterial,
 } from 'three';
 
+import type { MeshArrays } from '../../engine/frames.ts';
+import { FLAG } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 
 type V3 = [number, number, number];
@@ -35,6 +37,8 @@ export type Ghost =
   | { kind: 'box'; at: V3; fill: string; edge: string; alpha: number; dashed: boolean }
   /** A cell the mesh has, by its index. */
   | { kind: 'cell'; voxel: number; fill: string; alpha: number }
+  /** A whole shape from a frame of its own (what a tool tab button would make of it). */
+  | { kind: 'frame'; arrays: MeshArrays; fill: string; alpha: number }
   /** One side of a cell the mesh has (voxelFace), by its index. */
   | {
       kind: 'face';
@@ -77,6 +81,29 @@ export function cellTriangles(
   return g;
 }
 
+/**
+ * The faces of a frame that show a shape's outline: the gaps between cells,
+ * the inner sides of a hollow shape and the variable marks are left out.
+ */
+export function frameTriangles(arrays: MeshArrays): BufferGeometry | null {
+  const { positions, normals, indices, flags } = arrays;
+  const skip = FLAG.gap | FLAG.inside | FLAG.variableMark | FLAG.variableFace;
+  const kept: number[] = [];
+  for (let t = 0; t < flags.length; t++) {
+    if (((flags[t] ?? 0) & skip) === 0) {
+      kept.push(indices[3 * t] ?? 0, indices[3 * t + 1] ?? 0, indices[3 * t + 2] ?? 0);
+    }
+  }
+  if (kept.length === 0) {
+    return null;
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(positions, 3));
+  g.setAttribute('normal', new BufferAttribute(normals, 3));
+  g.setIndex(kept);
+  return g;
+}
+
 export class Preview {
   readonly group = new Group();
   private readonly owned: { dispose(): void }[] = [];
@@ -91,6 +118,11 @@ export class Preview {
     for (const g of ghosts) {
       if (g.kind === 'box') {
         this.box(g);
+      } else if (g.kind === 'frame') {
+        const geo = frameTriangles(g.arrays);
+        if (geo !== null) {
+          this.faces(geo, g.fill, g.alpha);
+        }
       } else if (mesh !== null) {
         const geo =
           g.kind === 'face'

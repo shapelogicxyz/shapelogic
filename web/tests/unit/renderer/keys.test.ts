@@ -181,8 +181,8 @@ describe('the keyboard map', () => {
       [
         'Everywhere',
         '3D view (every workspace)',
-        'Entities (drawing)',
-        'Entities (shapes list)',
+        'Shapes (drawing)',
+        'Shapes (shapes list)',
         'Puzzle',
         'Solver (focus on the solutions list, solution slider or move seekbar)',
         'Explorers (Solver; focus in the explorer below the 3D view)',

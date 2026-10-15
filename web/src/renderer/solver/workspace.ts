@@ -119,7 +119,7 @@ export class SolverWorkspace {
   /** The solution selected: its place in the sorted list and its id. */
   sel = -1;
   selId: string | null = null;
-  /** A run call under way (Solve, Prepare, Continue, Pause, Abort). */
+  /** A run call under way (Solve, Prepare, Continue, Pause, Clear). */
   calling = false;
   /** The snapshot revision the cards show, or -1 while loading. */
   shown = -1;
@@ -928,8 +928,19 @@ export class SolverWorkspace {
         `This problem has ${saved.description}.\n\nContinue it, or start over and discard it?`,
         [
           { key: 'cancel', label: 'Cancel' },
-          { key: 'continue', label: 'Continue', kind: 'pri', default: true },
-          { key: 'over', label: 'Start Over', kind: 'danger' },
+          {
+            key: 'continue',
+            label: 'Continue',
+            kind: 'pri',
+            default: true,
+            tip: 'Carry on the saved search',
+          },
+          {
+            key: 'over',
+            label: 'Start Over',
+            kind: 'danger',
+            tip: 'Throw the saved search away and solve from the start',
+          },
         ],
       );
       if (k === 'continue') {
@@ -1015,16 +1026,16 @@ export class SolverWorkspace {
     return (r.phase === 'active' && isActive(s)) || (r.phase === 'none' && s === 'paused');
   }
 
-  /** Abort: the hard stop, asked first (it cannot be undone, as in the original). */
+  /** Clear (the original's Abort): the hard stop, asked first (it cannot be undone, as in the original). */
   abort(): void {
     const problem = this.current;
     if (problem === null || !this.abortable) {
       return;
     }
     askConfirm(
-      'Abort the solve?',
-      'Abort the solve of this problem and throw away all of it: its solutions, the paused state and any saved search. This cannot be undone.',
-      'Abort',
+      'Clear the solve?',
+      'Stop the solve of this problem if it is running and throw away all of it: its solutions, the paused state and any saved search. This cannot be undone.',
+      'Clear',
       () => {
         void this.doAbort(problem);
       },
@@ -1041,9 +1052,9 @@ export class SolverWorkspace {
     try {
       const r = await this.edits.track(this.store.engine.call('solve.abort', { problem }));
       await this.whenShown(r.revision);
-      flash('Solve aborted');
+      flash('Solve cleared');
     } catch (e) {
-      reportError(e, 'Abort');
+      reportError(e, 'Clear');
     } finally {
       this.calling = false;
       this.render();

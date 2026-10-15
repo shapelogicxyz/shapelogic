@@ -174,25 +174,27 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     await checkShown(page);
 
     // the table: S4's count typed, S5 as a range and back, S4 in a new group and out
-    await page.click('#pzViewSeg [data-v=table]');
-    await fillAndLeave(page, '#pzUsed tr[data-u="s4"] [data-f=max]', '3');
+    await page.click('#pzGrpHead');
+    await expect(page.locator('#pzGrpBody')).toBeVisible();
+    await fillAndLeave(page, '#pzGrpTable tr[data-u="s4"] [data-f=max]', '3');
     await checkShown(page);
-    await fillAndLeave(page, '#pzUsed tr[data-u="s4"] [data-f=max]', '1');
+    await fillAndLeave(page, '#pzGrpTable tr[data-u="s4"] [data-f=max]', '1');
     await checkShown(page);
-    await page.check('#pzUsed tr[data-u="s5"] [data-range]');
-    await expect(page.locator('#pzUsed tr[data-u="s5"] [data-f=min]')).toBeVisible();
-    await fillAndLeave(page, '#pzUsed tr[data-u="s5"] [data-f=min]', '0');
+    await page.check('#pzGrpTable tr[data-u="s5"] [data-range]');
+    await expect(page.locator('#pzGrpTable tr[data-u="s5"] [data-f=min]')).toBeVisible();
+    await fillAndLeave(page, '#pzGrpTable tr[data-u="s5"] [data-f=min]', '0');
     p = await checkShown(page);
     expect(p.parts[3]).toMatchObject({ shape: 's5', min: 0, max: 1 });
-    await page.uncheck('#pzUsed tr[data-u="s5"] [data-range]');
+    await page.uncheck('#pzGrpTable tr[data-u="s5"] [data-range]');
     p = await checkShown(page);
     expect(p.parts[3]).toMatchObject({ shape: 's5', min: 1, max: 1 });
-    await page.selectOption('#pzUsed tr[data-u="s4"] [data-grp]', 'new');
+    await page.selectOption('#pzGrpTable tr[data-u="s4"] [data-grp]', 'new');
     p = await checkShown(page);
     expect(p.parts[2]?.groups).toEqual([{ group: 2, count: 1 }]);
-    await page.selectOption('#pzUsed tr[data-u="s4"] [data-grp]', '');
+    await page.selectOption('#pzGrpTable tr[data-u="s4"] [data-grp]', '');
     await checkShown(page);
-    await page.click('#pzViewSeg [data-v=chips]');
+    await page.click('#pzGrpHead');
+    await expect(page.locator('#pzGrpBody')).toBeHidden();
 
     // the scene: a click on a piece selects it; an orbit turns each piece in its place
     const boxes = async (): Promise<string[]> =>
@@ -264,16 +266,14 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
     await menu(page, lib('s3'), 'res');
     expect((await checkShown(page)).result).toBe('s3');
     await expect(page.locator(lib('s3'))).toHaveCount(0);
-    // More: add one of each, remove all
-    await page.click('#pzMore');
-    await page.click('#pop [data-k="all"]');
+    // All +1 (one of each), Clear All
+    await page.click('#pzAll');
     p = await checkShown(page);
     expect(p.parts.map((x) => [x.shape, x.min, x.max])).toEqual([
       ['s1', 1, 1],
       ['s2', 1, 1],
     ]);
-    await page.click('#pzMore');
-    await page.click('#pop [data-k="clr"]');
+    await page.click('#pzClear');
     expect((await checkShown(page)).parts).toEqual([]);
     // S1 by the library's +, S2 dragged in
     await page.click(`${lib('s1')} .la`);
@@ -281,8 +281,8 @@ test('DemoPieceGenerator’s piece range built through the UI', async () => {
     await page.dragAndDrop(`${lib('s2')} b`, '#pzUsed');
     await checkShown(page);
     // one range for all: 0 to 10
-    await page.click('#pzMore');
-    await page.click('#pop [data-k="range"]');
+    await page.click('#pzGrpHead');
+    await page.click('#pzRangeAll');
     await expect(page.locator('#pzBulk')).toBeVisible();
     await fillAndLeave(page, '#pzBulk [data-r="mx"]', '10');
     await expect(page.locator('#pzBulk [data-r="mx"]')).toHaveValue('10');

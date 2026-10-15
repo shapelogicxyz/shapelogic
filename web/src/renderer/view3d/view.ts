@@ -24,6 +24,7 @@ import { Raycaster, Vector2, Vector3 } from 'three';
 
 import { EngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
+import type { MeshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId, css, esc } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
@@ -595,6 +596,13 @@ export class View3D {
   setPreview(ghosts: readonly Ghost[]): void {
     this.scene.setPreview(ghosts);
     byId('vp').dataset.preview = String(this.scene.preview.size);
+    this.renderer.request();
+  }
+
+  /** Shows the shape as a tool tab button would leave it, over the shape (null: none). */
+  setTaskGhost(arrays: MeshArrays | null): void {
+    this.scene.setTaskGhost(arrays);
+    byId('vp').dataset.taskGhost = String(this.scene.taskGhost.size);
     this.renderer.request();
   }
 

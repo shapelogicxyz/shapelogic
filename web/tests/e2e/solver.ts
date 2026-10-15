@@ -50,12 +50,12 @@ export async function solverSettled(page: Page): Promise<void> {
     .toBe(true);
 }
 
-/** Clicks a run button (Solve, Prepare, Continue, Pause, Abort). */
+/** Clicks a run button (Solve, Prepare, Continue, Pause, Clear: `abort`), in Run or, Prepare, the explorer's section. */
 export async function runButton(
   page: Page,
   k: 'start' | 'prepare' | 'continue' | 'pause' | 'abort',
 ): Promise<void> {
-  const b = page.locator(`#slvRun [data-r="${k}"]`);
+  const b = page.locator(`#leftS [data-r="${k}"]`);
   await expect(b).toBeEnabled();
   await b.click();
 }

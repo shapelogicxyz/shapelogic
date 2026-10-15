@@ -399,7 +399,8 @@ export async function newDocument(page: Page, grid: string): Promise<void> {
   const before = await page.locator('#stage').getAttribute('data-generation');
   await menu(page, 'new');
   await dropChanges(page);
-  await page.click(`#newPuzzle [data-x="${grid}"]`);
+  await page.click(`#newPuzzle [data-grid="${grid}"]`);
+  await page.click('#newPuzzle [data-x="ok"]');
   await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
   await expect(page.locator('#shapeList .row')).toHaveCount(0);
 }

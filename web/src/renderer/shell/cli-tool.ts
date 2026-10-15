@@ -101,7 +101,13 @@ function buttons(info: CliToolInfo): DialogButton[] {
   }
   return [
     { key: 'cancel', label: 'Cancel' },
-    { key: 'install', label: 'Install', kind: 'pri', default: true },
+    {
+      key: 'install',
+      label: 'Install',
+      kind: 'pri',
+      default: true,
+      tip: 'Link shapelogic_cli into the command path',
+    },
   ];
 }
 

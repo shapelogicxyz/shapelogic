@@ -275,6 +275,7 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
       'Bevel',
       'Offset',
       'Interior chamfers',
+      'Binary STL',
     ]);
     await expect(dlg.locator('[data-p="0"]')).toHaveValue('10.00');
     await expect(dlg.locator('[data-p="3"]')).toHaveValue('0.30');

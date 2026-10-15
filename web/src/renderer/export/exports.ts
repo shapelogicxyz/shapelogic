@@ -98,7 +98,7 @@ export class Exports {
     const w = this.view.gl.width;
     const h = this.view.gl.height;
     const radio = (scale: number, label: string): string =>
-      `<label><input type="radio" name="scale" value="${String(scale)}" ${scale === this.scale ? 'checked' : ''}> ${label} (${String(w * scale)} × ${String(h * scale)} pixels)</label>`;
+      `<label><input type="radio" name="scale" value="${String(scale)}" ${scale === this.scale ? 'checked' : ''} title="Export the image at this size"> ${label} (${String(w * scale)} × ${String(h * scale)} pixels)</label>`;
     let scale = this.scale;
     const go = await openDialog({
       id: 'exportImage',
@@ -106,7 +106,13 @@ export class Exports {
       body: `<div class="form"><p>The 3D view as it is now, as a PNG image.</p><fieldset><legend>Size</legend>${radio(1, 'The view’s size')}${radio(2, 'Twice the view’s size')}</fieldset></div>`,
       buttons: [
         { key: 'cancel', label: 'Cancel' },
-        { key: 'go', label: 'Export…', kind: 'pri', default: true },
+        {
+          key: 'go',
+          label: 'Export…',
+          kind: 'pri',
+          default: true,
+          tip: 'Choose a file and save the view to it as a PNG image',
+        },
       ],
       onAnswer: (k, el) => {
         if (k === 'go') {
@@ -203,10 +209,16 @@ export class Exports {
 <label class="fl" title="Edge length of one cell. AR viewers show the puzzle at this size">Cell size (mm)<input data-f="cell" value="${(o.cellSize * 1000).toFixed(1)}" inputmode="decimal"></label>
 <label title="Play the moves backwards at the end, so the looping animation goes apart and back together"><input type="checkbox" data-f="reassemble" ${o.reassemble ? 'checked' : ''}> Reassemble after the disassembly</label>
 <label title="Off gives plain blocks and a much smaller file"><input type="checkbox" data-f="bevel" ${o.bevel ? 'checked' : ''}> Bevelled edges, as in the 3D view</label>
-<p>${String(pb.steps)} steps. Pieces keep their solution colours.</p></div>`,
+<p>${String(pb.steps)} steps. Pieces keep their solution colors.</p></div>`,
         buttons: [
           { key: 'cancel', label: 'Cancel' },
-          { key: 'go', label: 'Export…', kind: 'pri', default: true },
+          {
+            key: 'go',
+            label: 'Export…',
+            kind: 'pri',
+            default: true,
+            tip: 'Choose a file and save the animation to it as GLB',
+          },
         ],
         onAnswer: (k, el) => {
           if (k !== 'go') {

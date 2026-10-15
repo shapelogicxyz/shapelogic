@@ -109,7 +109,7 @@ export async function chips(page: Page): Promise<Shown[]> {
 
 /** What the table shows, in order. */
 export async function table(page: Page): Promise<Shown[]> {
-  return page.$$eval('#pzUsed tr[data-u]', (els) =>
+  return page.$$eval('#pzGrpTable tr[data-u]', (els) =>
     els.map((e) => {
       const v = (sel: string): string => e.querySelector<HTMLInputElement>(sel)?.value ?? '';
       const range = e.querySelector<HTMLInputElement>('[data-range]')?.checked ?? false;
@@ -166,15 +166,9 @@ export async function checkShown(page: Page): Promise<Problem> {
     problem: id,
   });
   const want = expected(p);
-  const tableShown = (await page.locator('#pzViewSeg [data-v=table].on').count()) > 0;
-  const other = tableShown ? 'chips' : 'table';
-  const back = tableShown ? 'table' : 'chips';
-  const first = tableShown ? await table(page) : await chips(page);
-  await page.click(`#pzViewSeg [data-v=${other}]`);
-  const second = tableShown ? await chips(page) : await table(page);
-  await page.click(`#pzViewSeg [data-v=${back}]`);
-  expect(first).toEqual(want);
-  expect(second).toEqual(want);
+  // the chips and the Groups table (drawn when collapsed too) show the same
+  expect(await chips(page)).toEqual(want);
+  expect(await table(page)).toEqual(want);
   expect(JSON.parse((await page.locator('#pzSummary').getAttribute('data-fit')) ?? 'null')).toEqual(
     fit,
   );

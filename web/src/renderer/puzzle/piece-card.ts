@@ -129,14 +129,14 @@ export class PieceCard {
     }
     if (colours.length === 0) {
       el.innerHTML =
-        '<div class="cap">No constraint colours in this puzzle: a piece cell may sit on any result cell. Colours are added in the Entities palette.</div>';
+        '<div class="cap">No constraint colors in this puzzle: a piece cell may sit on any result cell. Colors are added in the Shapes palette.</div>';
       return;
     }
     const cols = `grid-template-columns:30px repeat(${String(colours.length)},34px)`;
-    el.innerHTML = `<div class="cap">Columns = <b>result</b> colour, rows = <b>piece</b> colour. A ticked cell lets a piece voxel of the row colour sit on a result voxel of the column colour.</div><div class="mx"><div class="mxr" style="${cols}"><span></span>${colours.map((c) => sw(c, 'Result colour')).join('')}</div>${colours
+    el.innerHTML = `<div class="cap">Columns = <b>result</b> color, rows = <b>piece</b> color. A ticked cell lets a piece voxel of the row color sit on a result voxel of the column color.</div><div class="mx"><div class="mxr" style="${cols}"><span></span>${colours.map((c) => sw(c, 'Result color')).join('')}</div>${colours
       .map(
         (c) =>
-          `<div class="mxr" style="${cols}">${sw(c, 'Piece colour')}${colours
+          `<div class="mxr" style="${cols}">${sw(c, 'Piece color')}${colours
             .map((r) => {
               const a = on(c.id, r.id);
               return `<button class="mxc ${a ? 'on' : ''}" data-p="${c.id}" data-r="${r.id}" aria-pressed="${a}" title="Piece ${esc(c.label)} on result ${esc(r.label)}: ${a ? 'allowed' : 'not allowed'}"></button>`;
@@ -145,7 +145,7 @@ export class PieceCard {
       )
       .join(
         '',
-      )}</div><div class="btnrow"><button class="btn sm" data-rule="eachOnItself">Each colour on itself</button><button class="btn sm" data-rule="allowAll">Allow all</button><button class="btn sm" data-rule="clear">Clear</button></div>`;
+      )}</div><div class="btnrow"><button class="btn sm" data-rule="eachOnItself" title="Tick only the diagonal: a piece voxel of each color sits only on a result voxel of the same color">Each color on itself</button><button class="btn sm" data-rule="allowAll" title="Tick every cell: any piece color may sit on any result color">Allow all</button><button class="btn sm" data-rule="clear" title="Untick every cell: a colored piece voxel then fits no colored result voxel">Clear</button></div>`;
   }
 
   // ---- events ----

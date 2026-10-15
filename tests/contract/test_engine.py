@@ -347,6 +347,17 @@ def shape_tasks_and_views(e):
                 check(getattr(x, "errc", None) == "invalid_argument", f"{grid} {t}: {x}")
                 results.append("refused")
         check("refused" in results and True in results, f"{grid}: nudges {results}")
+        before = e.call("shape.mesh", {"shape": s1})
+        preview_ok = 0
+        for t in nudges:
+            try:
+                pv = e.call("shape.taskPreview", {"shape": s1, "task": t})
+                check(pv["triangles"] > 0, f"{grid} {t}: the preview has faces")
+                preview_ok += 1
+            except Exception as x:  # noqa: BLE001
+                check(getattr(x, "errc", None) == "invalid_argument", f"{grid} {t} preview: {x}")
+        check(preview_ok > 0, f"{grid}: no nudge previewed")
+        check(e.call("shape.mesh", {"shape": s1})["vertices"] == before["vertices"], f"{grid}: a preview changed the shape")
         mesh = e.call("shape.mesh", {"shape": s1})
         f = e.frame(mesh["frame"])
         indices = f.array("indices")

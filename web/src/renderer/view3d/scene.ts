@@ -12,6 +12,7 @@
 // The edge lines are black, 2 px, as voxelFrame_c::drawShape drew them.
 
 import { Mesh, MeshBasicMaterial, Vector2 } from 'three';
+import type { MeshArrays } from '../../engine/frames.ts';
 import type { Group } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -46,6 +47,8 @@ export class ShapeScene {
   readonly overlays = new Overlays();
   /** What a 3D edit would do (the Entities workspace). */
   readonly preview = new Preview();
+  /** What a tool tab button would make of the shape (its own ghost: the 3D edit's mouse clears the other). */
+  readonly taskGhost = new Preview();
   private readonly uniforms: FaceUniforms = faceUniforms();
   private readonly mNormal = faceMaterial(this.uniforms, 'normal');
   private readonly mInside = faceMaterial(this.uniforms, 'inside');
@@ -65,6 +68,7 @@ export class ShapeScene {
     this.parent = parent;
     parent.add(this.overlays.group);
     parent.add(this.preview.group);
+    parent.add(this.taskGhost.group);
     this.edgeMaterial.resolution = new Vector2(1, 1);
   }
 
@@ -133,6 +137,14 @@ export class ShapeScene {
     this.preview.set(ghosts, this.built);
   }
 
+  /** Shows the shape as a tool tab button would leave it (null: none). */
+  setTaskGhost(arrays: MeshArrays | null): void {
+    this.taskGhost.set(
+      arrays === null ? [] : [{ kind: 'frame', arrays, fill: '#2f9bff', alpha: 0.5 }],
+      null,
+    );
+  }
+
   /** The overlays' options. */
   setOverlays(o: OverlayOptions): void {
     this.overlays.update(o);
@@ -164,6 +176,7 @@ export class ShapeScene {
     this.clearMesh();
     this.overlays.clear();
     this.preview.clear();
+    this.taskGhost.clear();
     for (const m of [
       this.mNormal,
       this.mInside,

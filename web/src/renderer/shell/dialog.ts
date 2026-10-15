@@ -23,6 +23,21 @@ export interface DialogButton {
   kind?: 'pri' | 'danger';
   /** Enter in a field presses it, and it has the focus first unless a field takes it. */
   default?: boolean;
+  /** Its tooltip; Cancel, Close and OK have one of their own when it is left out. */
+  tip?: string;
+}
+
+/** The tooltips of the buttons most dialogs share. */
+const SHARED_TIPS: Readonly<Record<string, string>> = {
+  Cancel: 'Close this dialog without doing anything',
+  Close: 'Close this window',
+  OK: 'Accept and close this dialog',
+  Ok: 'Close this message',
+};
+
+/** A dialog button's tooltip. */
+function tipOf(b: DialogButton): string {
+  return b.tip ?? SHARED_TIPS[b.label] ?? '';
 }
 
 export interface DialogOptions {
@@ -94,7 +109,7 @@ export function openDialog(options: DialogOptions): Promise<string | null> {
     const el = document.createElement('div');
     el.className = 'cfm-scrim dlg-scrim';
     el.id = options.id;
-    el.innerHTML = `<div class="cfm${options.wide === true ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(options.title)}"><h3>${esc(options.title)}</h3><div class="cb">${options.body}</div><div class="bt">${options.buttons.map((b) => `<button class="btn${b.kind === undefined ? '' : ` ${b.kind}`}" data-x="${esc(b.key)}">${esc(b.label)}</button>`).join('')}</div></div>`;
+    el.innerHTML = `<div class="cfm${options.wide === true ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(options.title)}"><h3>${esc(options.title)}</h3><div class="cb">${options.body}</div><div class="bt">${options.buttons.map((b) => `<button class="btn${b.kind === undefined ? '' : ` ${b.kind}`}" data-x="${esc(b.key)}" title="${esc(tipOf(b))}">${esc(b.label)}</button>`).join('')}</div></div>`;
     byId('stage').appendChild(el);
     const o: Open = {
       el,

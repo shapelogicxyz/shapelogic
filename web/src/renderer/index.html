@@ -57,11 +57,15 @@
                 tabindex="0"
                 role="listbox"
                 aria-label="Shapes"
+                title="Select the shape that you want to edit"
               ></div>
               <div class="ch" style="border-top: 1px solid var(--line)" id="inspHead"></div>
               <div class="insp" id="insp">
                 <div class="sec" id="secTf">
-                  <button class="sh">
+                  <button
+                    class="sh"
+                    title="Show or hide the transform tools: flip, rotate and nudge"
+                  >
                     <span class="chev"></span>Transform<span class="sum"
                       >Flip · Rotate · Nudge</span
                     >
@@ -69,7 +73,7 @@
                   <div class="sb"><div id="tmat"></div></div>
                 </div>
                 <div class="sec closed" id="secFit">
-                  <button class="sh">
+                  <button class="sh" title="Show or hide the fit tools: prune, center and scale">
                     <span class="chev"></span>Fit &amp; scale<span class="sum"
                       >Prune · Center · Scale</span
                     >
@@ -77,7 +81,10 @@
                   <div class="sb" id="fitBody"></div>
                 </div>
                 <div class="sec closed" id="secTools">
-                  <button class="sh">
+                  <button
+                    class="sh"
+                    title="Show or hide the repair tools: fill holes, inner and outer voxels"
+                  >
                     <span class="chev"></span>Repair &amp; surface<span class="sum"
                       >Fill · Inner / Outer</span
                     >
@@ -109,25 +116,13 @@
                 +<span class="lt"> New</span></button
               ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
             </div>
-            <div class="pz-problems" id="pzProblems" role="listbox" aria-label="Problems"></div>
-            <div class="pzh" id="pzResultHead">Result</div>
-            <div class="pz-result" id="pzResult"></div>
-            <div class="pzboard" id="pzBoard"></div>
-            <div class="pzh" id="pzUsedHead">
-              In this puzzle
-              <span
-                class="chip"
-                id="pzPieceCount"
-                style="background: var(--muted); min-width: 22px; height: 20px"
-              ></span
-              ><span class="sp"></span>
-              <div class="seg" id="pzViewSeg">
-                <button data-v="chips" class="on">Chips</button
-                ><button data-v="table">Table</button>
-              </div>
-              <button class="ib" id="pzMore" title="More piece actions"></button>
-            </div>
-            <div class="pz-used" id="pzUsed"></div>
+            <div
+              class="pz-problems"
+              id="pzProblems"
+              role="listbox"
+              aria-label="Problems"
+              title="Select the problem to edit"
+            ></div>
             <div class="pzh" id="pzLibHead" style="cursor: pointer">
               All pieces
               <span
@@ -141,6 +136,42 @@
               ><button class="ib" id="pzLibTog" title="Show / hide the list"></button>
             </div>
             <div class="pz-lib" id="pzLib"></div>
+            <div class="pzh" id="pzResultHead">Result</div>
+            <div class="pz-result" id="pzResult"></div>
+            <div class="pzboard" id="pzBoard"></div>
+            <div class="pzh" id="pzUsedHead">
+              In this puzzle
+              <span
+                class="chip"
+                id="pzPieceCount"
+                style="background: var(--muted); min-width: 22px; height: 20px"
+              ></span
+              ><span class="sp"></span>
+              <button
+                class="btn sm"
+                id="pzAll"
+                title="Add one of every shape that is not in the puzzle yet"
+              >
+                All +1</button
+              ><button class="btn sm" id="pzClear" title="Take every piece out of the puzzle">
+                Clear All
+              </button>
+            </div>
+            <div class="pz-used" id="pzUsed"></div>
+            <div class="pzh" id="pzGrpHead" style="cursor: pointer">
+              Groups<span class="sp"></span
+              ><button class="ib" id="pzGrpTog" title="Show / hide the groups"></button>
+            </div>
+            <div class="pz-grp closed" id="pzGrpBody">
+              <button
+                class="btn sm"
+                id="pzRangeAll"
+                title="Give every piece the same minimum and maximum count"
+              >
+                Set range for all pieces
+              </button>
+              <div id="pzGrpTable"></div>
+            </div>
             <div class="pz-sum" id="pzSummary"></div>
           </section>
 
@@ -152,14 +183,18 @@
             <div class="pz-scroll">
               <div class="slv-sec">
                 <div class="slv-lab">Problem</div>
-                <button class="slv-prob" id="slvProb"></button>
+                <button class="slv-prob" id="slvProb" title="Select the problem to solve"></button>
               </div>
               <div class="slv-sec slv-optsec">
                 <div class="slv-lab">What to check</div>
                 <div class="slv-mode" id="slvMode"></div>
               </div>
               <div class="slv-sec slv-optsec">
-                <div class="slv-lab click" id="slvOptHead"></div>
+                <div
+                  class="slv-lab click"
+                  id="slvOptHead"
+                  title="Show or hide the search options"
+                ></div>
                 <div class="slv-opts" id="slvOpts"></div>
               </div>
               <div class="slv-sec">
@@ -171,6 +206,10 @@
                 </div>
                 <div class="slv-stat" id="slvStat"></div>
               </div>
+              <div class="slv-sec slv-optsec slv-sortsec" id="slvSortSec">
+                <div class="slv-lab">Sort by</div>
+                <div id="slvSortBy"></div>
+              </div>
               <div class="slv-sec">
                 <div class="slv-lab">
                   Step-by-step explorer<span class="sp"></span
@@ -180,10 +219,14 @@
                     >advanced</span
                   >
                 </div>
-                <div class="slv-adv" id="slvAdv"></div>
+                <div class="slv-adv">
+                  <div id="slvPrep" style="display: contents"></div>
+                  <div id="slvAdv" style="display: contents"></div>
+                </div>
                 <div class="advnote">
-                  Placements browses the assembly search; Movements browses the disassembly search;
-                  Step advances the assembler one step.
+                  Prepare builds the search and pauses before it starts; Placements browses the
+                  assembly search; Movements browses the disassembly search; Step advances the
+                  assembler one step.
                 </div>
                 <button
                   class="btn sm slv-dbg"
@@ -277,7 +320,7 @@
                 <div class="pzh">Exclusive groups</div>
                 <div id="pzGroups" style="padding-top: 10px"></div>
               </div>
-              <div class="pzh" id="pzRulesHead">Colour rules</div>
+              <div class="pzh" id="pzRulesHead">Color rules</div>
               <div class="pzr" id="pzRules"></div>
             </div>
           </section>
@@ -306,7 +349,13 @@
             <div class="slv-act" id="slvAct"></div>
             <div class="pzh">
               Piece display <span class="sp"></span
-              ><button class="btn sm" id="slvShowAll">Show all</button>
+              ><button
+                class="btn sm"
+                id="slvShowAll"
+                title="Show every piece normally again, undoing hidden and see-through pieces"
+              >
+                Show all
+              </button>
             </div>
             <div class="slv-pcs" id="slvPcs"></div>
           </section>
@@ -335,7 +384,12 @@
                   <circle cx="11" cy="11" r="6" />
                   <path d="M20 20l-4.5-4.5" />
                 </svg>
-                <input id="setSearch" placeholder="Search settings" autocomplete="off" />
+                <input
+                  id="setSearch"
+                  placeholder="Search settings"
+                  autocomplete="off"
+                  title="Type part of a setting or a shortcut to find it"
+                />
               </div>
               <span class="sp"></span><button class="ib" id="setX" title="Close  (Esc)"></button>
             </div>
@@ -343,8 +397,13 @@
             <div class="pg" id="setPg"></div>
             <div class="df">
               <span class="mute">Changes apply immediately</span><span class="sp"></span
-              ><button class="btn" id="setDefaults">Restore all defaults</button
-              ><button class="btn pri" id="setDone">Done</button>
+              ><button
+                class="btn"
+                id="setDefaults"
+                title="Restore all settings to their default values"
+              >
+                Restore all defaults</button
+              ><button class="btn pri" id="setDone" title="Close the settings">Done</button>
             </div>
           </div>
         </div>

@@ -29,10 +29,10 @@ export const TOOLS: readonly { id: Tool; n: string; short: string; k: string; ti
   { id: 'erase', n: 'Erase voxel', short: 'Erase', k: '3', tip: 'Erase the voxel' },
   {
     id: 'paint',
-    n: 'Paint colour',
+    n: 'Paint color',
     short: 'Paint',
     k: '4',
-    tip: 'Apply the drawing colour to an existing voxel',
+    tip: 'Apply the drawing color to an existing voxel',
   },
 ];
 

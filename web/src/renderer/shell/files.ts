@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The File menu's work (stage 6), from the original's mainwindow_file.cpp:
-// New (the grid chosen once: cb_New's selector), Open, a recent file or a
+// New (the grid chosen once: cb_New's selector, its list and preview), Open, a recent file or a
 // file dropped on the window (document.open by its path; a .btsolve file
 // is imported), Save and Save As (document.save; the original's
 // confirmDiscard before anything that replaces the puzzle: Save, Don't
@@ -16,6 +16,7 @@
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
 import { newOrder } from './files-order.ts';
+import { newGridBody, newGridInfoHtml } from './new-grids.ts';
 import { sizeText } from '../state/stacking.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';
@@ -116,8 +117,8 @@ export class Files {
       `The puzzle “${this.name}” has unsaved changes.\nSave before you ${action}?`,
       [
         { key: 'cancel', label: 'Cancel' },
-        { key: 'drop', label: 'Don’t Save', kind: 'danger' },
-        { key: 'save', label: 'Save', kind: 'pri', default: true },
+        { key: 'drop', label: 'Don’t Save', kind: 'danger', tip: 'Throw the unsaved changes away' },
+        { key: 'save', label: 'Save', kind: 'pri', default: true, tip: 'Save the puzzle first' },
       ],
     );
     if (k === 'drop') {
@@ -148,26 +149,61 @@ export class Files {
     // order (gridtypegui.cpp: Brick, Sliding, Stacking, then the others)
     const grids = info.grids
       .filter((g) => g.supported)
-      .sort((a, b) => newOrder(a.grid) - newOrder(b.grid));
-    const k = await openDialog({
+      .sort((a, b) => newOrder(a.grid) - newOrder(b.grid))
+      .map((g) => g.grid);
+    const first = grids[0];
+    if (first === undefined) {
+      return;
+    }
+    let chosen: Grid = first;
+    const answer = openDialog({
       id: 'newPuzzle',
       title: 'New puzzle',
-      body: '<p>Choose the grid of its shapes. It cannot be changed later.</p>',
+      wide: true,
+      body: newGridBody(grids),
       buttons: [
         { key: '', label: 'Cancel' },
-        ...grids.map((g, i) => ({
-          key: g.grid,
-          label: g.label,
-          kind: 'pri' as const,
-          ...(i === 0 ? { default: true } : {}),
-        })),
+        {
+          key: 'ok',
+          label: 'OK',
+          kind: 'pri',
+          default: true,
+          tip: 'Start a new puzzle on the grid chosen',
+        },
       ],
     });
-    if (k === null || k === '') {
+    // openDialog adds its element before it returns
+    const dlg = byId('newPuzzle');
+    const show = (g: Grid): void => {
+      chosen = g;
+      for (const b of dlg.querySelectorAll<HTMLElement>('[data-grid]')) {
+        b.setAttribute('aria-selected', String(b.dataset.grid === g));
+      }
+      byId('newInfo').innerHTML = newGridInfoHtml(g);
+    };
+    dlg.addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('[data-grid]');
+      if (b !== null) {
+        show(b.dataset.grid as Grid);
+      }
+    });
+    dlg.addEventListener('keydown', (e) => {
+      const i = grids.indexOf(chosen);
+      const next = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : i;
+      const g = grids[next];
+      if (next !== i && g !== undefined && (e.target as Element).closest('[data-grid]') !== null) {
+        e.preventDefault();
+        show(g);
+        dlg.querySelector<HTMLElement>(`[data-grid="${g}"]`)?.focus();
+      }
+    });
+    show(chosen);
+    const k = await answer;
+    if (k !== 'ok') {
       return;
     }
     try {
-      await this.store.newDocument(k as Grid);
+      await this.store.newDocument(chosen);
       flash('A new, empty puzzle');
     } catch (e) {
       reportError(e, 'New puzzle');
@@ -271,7 +307,13 @@ export class Files {
         : 'The puzzle cannot be saved while a solve runs. Save at a save point? The solves pause where they can be saved, the puzzle is saved, and they carry on.',
       [
         { key: 'cancel', label: 'Cancel' },
-        { key: 'save', label: 'Save at a save point', kind: 'pri', default: true },
+        {
+          key: 'save',
+          label: 'Save at a save point',
+          kind: 'pri',
+          default: true,
+          tip: 'Pause the solves where they can be saved, save the puzzle, and carry on',
+        },
       ],
     );
     if (k !== 'save') {
@@ -315,7 +357,12 @@ export class Files {
           `The puzzle “${this.name}” has unsaved changes and cannot be saved now: the engine is not running.\nIts last changes are kept in the rescue copy, offered when the app starts again. Close the window?`,
           [
             { key: 'cancel', label: 'Cancel', default: true },
-            { key: 'drop', label: 'Close', kind: 'danger' },
+            {
+              key: 'drop',
+              label: 'Close',
+              kind: 'danger',
+              tip: 'Close without saving; the rescue copy keeps the last changes',
+            },
           ],
         );
         if (k !== 'drop') {
@@ -329,8 +376,19 @@ export class Files {
           `The puzzle “${this.name}” has unsaved changes.\nSave before you close the window?`,
           [
             { key: 'cancel', label: 'Cancel' },
-            { key: 'drop', label: 'Don’t Save', kind: 'danger' },
-            { key: 'save', label: 'Save', kind: 'pri', default: true },
+            {
+              key: 'drop',
+              label: 'Don’t Save',
+              kind: 'danger',
+              tip: 'Throw the unsaved changes away',
+            },
+            {
+              key: 'save',
+              label: 'Save',
+              kind: 'pri',
+              default: true,
+              tip: 'Save the puzzle first',
+            },
           ],
         );
         if (k === 'save') {
@@ -390,8 +448,14 @@ export class Files {
         `The saved search keeps ${sizeText(saved.levelBytes)} of levels for finding the path once the search is done.\n\nInclude them? Left out, the file is much smaller, but finding the path at the end takes longer.`,
         [
           { key: 'cancel', label: 'Cancel' },
-          { key: 'include', label: 'Include', kind: 'pri', default: true },
-          { key: 'leave', label: 'Leave Out' },
+          {
+            key: 'include',
+            label: 'Include',
+            kind: 'pri',
+            default: true,
+            tip: 'Include the levels in the file',
+          },
+          { key: 'leave', label: 'Leave Out', tip: 'Leave the levels out: a much smaller file' },
         ],
       );
       if (k !== 'include' && k !== 'leave') {

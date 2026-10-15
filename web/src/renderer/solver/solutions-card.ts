@@ -38,7 +38,7 @@ const SORTS: readonly [SortKey, string, string, string][] = [
 
 /** The Manage menu (the mockup's SVMENU). */
 const MENU =
-  '<div class="ph">Remove assemblies</div><button data-k="at">This solution only<span class="kb">At</span></button><button data-k="before">All before this one<span class="kb">Before</span></button><button data-k="after">All after this one<span class="kb">After</span></button><button data-k="nda">All without a disassembly<span class="kb">w/o DA</span></button><button data-k="all">All solutions<span class="kb">All</span></button><hr><div class="ph">Disassemblies</div><button data-k="ddc">Delete the disassembly of this solution<span class="kb">D DA</span></button><button data-k="dda">Delete all disassemblies<span class="kb">D A DA</span></button><button data-k="adc">Analyse this assembly’s disassembly<span class="kb">A DA</span></button><button data-k="ada">Analyse the disassembly of every assembly<span class="kb">A A DA</span></button><button data-k="adm">Analyse only the missing disassemblies<span class="kb">A M DA</span></button>';
+  '<div class="ph">Remove assemblies</div><button data-k="at" title="Remove the chosen solution">This solution only<span class="kb">At</span></button><button data-k="before" title="Remove every solution listed before the chosen one">All before this one<span class="kb">Before</span></button><button data-k="after" title="Remove every solution listed after the chosen one">All after this one<span class="kb">After</span></button><button data-k="nda" title="Remove every solution that has no stored disassembly">All without a disassembly<span class="kb">w/o DA</span></button><button data-k="all" title="Remove all the solutions of this problem">All solutions<span class="kb">All</span></button><hr><div class="ph">Disassemblies</div><button data-k="ddc" title="Throw away the stored moves of the chosen solution, keeping the solution">Delete the disassembly of this solution<span class="kb">D DA</span></button><button data-k="dda" title="Throw away the stored moves of every solution, keeping the solutions">Delete all disassemblies<span class="kb">D A DA</span></button><button data-k="adc" title="Work out how the chosen assembly comes apart, and keep its disassembly">Analyse this assembly’s disassembly<span class="kb">A DA</span></button><button data-k="ada" title="Work out the disassembly of every assembly again">Analyse the disassembly of every assembly<span class="kb">A A DA</span></button><button data-k="adm" title="Work out the disassembly of the assemblies that have none stored">Analyse only the missing disassemblies<span class="kb">A M DA</span></button>';
 
 /** The player's buttons (the mockup's TG). */
 const TG = {
@@ -136,7 +136,7 @@ export class SolutionsCard {
       return '<b>Searching…</b>Solutions appear here as they are found.';
     }
     if (p?.state === 'solved' && (p.assemblies ?? 0) === 0) {
-      return '<b>No assemblies found</b>The pieces cannot fill the result with the current ranges and colour rules. Review the Puzzle tab.';
+      return '<b>No assemblies found</b>The pieces cannot fill the result with the current ranges and color rules. Review the Puzzle tab.';
     }
     if (p !== null && (p.assemblies ?? 0) > 0 && ws.options.disassemble) {
       return `<b>No solutions to show</b>${String(p.assemblies)} assembl${p.assemblies === 1 ? 'y was' : 'ies were'} found, but none can be disassembled.`;
@@ -151,7 +151,7 @@ export class SolutionsCard {
     if (list === null || !box.contains(list)) {
       // drawn here, not by setHtml: the slider or the empty card must draw again after it
       forgetHtml(box);
-      box.innerHTML = `<div class="lhead" id="slvHead"></div><div class="lbody" id="slvList" tabindex="0" role="listbox" aria-label="Solutions"><div class="lspace" id="slvSpace"></div></div><div class="lfoot"><span id="slvFoot"></span><span>↑↓ solution · ←→ move · Space play</span></div>`;
+      box.innerHTML = `<div class="lhead" id="slvHead"></div><div class="lbody" id="slvList" tabindex="0" role="listbox" aria-label="Solutions" title="Select one solution"><div class="lspace" id="slvSpace"></div></div><div class="lfoot"><span id="slvFoot"></span><span>↑↓ solution · ←→ move · Space play</span></div>`;
       list = byId('slvList');
       list.addEventListener('scroll', () => {
         this.renderRows();
@@ -272,7 +272,7 @@ export class SolutionsCard {
     const busy = ws.running || ws.analysing || ws.calling;
     setHtml(
       byId('slvAct'),
-      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''}>Manage solutions ▾</button><button class="btn" data-a="stl" ${ws.selected === null ? 'disabled' : ''} title="Export each piece type used in the chosen solution as its own STL file, for 3D printing the pieces of this solution">Export to STL</button>`,
+      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''} title="Delete solutions, or analyse or delete their disassemblies">Manage solutions ▾</button><button class="btn" data-a="stl" ${ws.selected === null ? 'disabled' : ''} title="Export each piece type used in the chosen solution as its own STL file, for 3D printing the pieces of this solution">Export to STL</button>`,
     );
     this.renderAnalysis();
   }
@@ -330,7 +330,7 @@ export class SolutionsCard {
       setHtml(
         el,
         head() +
-          `<div class="msg"><span>${txt}</span>${insep || ws.family !== 'brick' ? '' : `<button class="btn sm" data-a="analyse" ${ws.analysing || ws.running ? 'disabled' : ''}>Analyse disassembly</button>`}</div>`,
+          `<div class="msg"><span>${txt}</span>${insep || ws.family !== 'brick' ? '' : `<button class="btn sm" data-a="analyse" ${ws.analysing || ws.running ? 'disabled' : ''} title="Work out how this assembly comes apart, and keep its disassembly">Analyse disassembly</button>`}</div>`,
       );
       return;
     }
@@ -354,7 +354,7 @@ export class SolutionsCard {
         )
         .join(
           '',
-        )}</select></div><div class="tr2"><input type="range" id="slvMove" min="0" max="${String(steps)}" step="0.05" value="${String(t)}" ${off}></div>`;
+        )}</select></div><div class="tr2"><input type="range" id="slvMove" title="Drag to any point of the disassembly" min="0" max="${String(steps)}" step="0.05" value="${String(t)}" ${off}></div>`;
     // keep the seek bar being dragged and the focus (the mockup's svKeepFocus)
     const focused = document.activeElement?.id;
     setHtml(el, html);

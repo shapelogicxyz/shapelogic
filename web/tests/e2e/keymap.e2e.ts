@@ -50,13 +50,13 @@ const MOUSE: Readonly<Record<string, string>> = {
   '3D view|@Wheel': 'keys.e2e.ts: a drag orbits … (the wheel zooms)',
   '3D view|@Click view-cube face, edge or corner': 'view.e2e.ts',
   '3D view|@Double-click a view-cube face': 'view.e2e.ts',
-  'Entities|Shift+@Click': 'entities.e2e.ts: the quick tools',
-  'Entities|Alt+@Click': 'entities.e2e.ts: the quick tools',
-  'Entities|Ctrl+@Click': 'entities.e2e.ts: the quick tools',
-  'Entities|@Right-click / @Right-drag': 'entities.e2e.ts: the right button',
-  'Entities|@Drag across cells': 'entities.e2e.ts: a drag is one undo step',
-  'Entities|@Right-click a row': 'shapes.e2e.ts: the menu',
-  'Entities|@Drag a row': 'shapes.e2e.ts: dragging a row onto another',
+  'Shapes|Shift+@Click': 'entities.e2e.ts: the quick tools',
+  'Shapes|Alt+@Click': 'entities.e2e.ts: the quick tools',
+  'Shapes|Ctrl+@Click': 'entities.e2e.ts: the quick tools',
+  'Shapes|@Right-click / @Right-drag': 'entities.e2e.ts: the right button',
+  'Shapes|@Drag across cells': 'entities.e2e.ts: a drag is one undo step',
+  'Shapes|@Right-click a row': 'shapes.e2e.ts: the menu',
+  'Shapes|@Drag a row': 'shapes.e2e.ts: dragging a row onto another',
   'Puzzle|@Drag a chip in / @Drag a tile out': 'puzzle.e2e.ts',
   'Puzzle|@Right-click a tile or chip': 'puzzle.e2e.ts',
   'Puzzle|@Click a piece in the 3D view': 'puzzle.e2e.ts: a click in the scene',
@@ -315,7 +315,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     await page.keyboard.press('Escape');
   },
 
-  'Entities|1 / 2 / 3 / 4': async (c) => {
+  'Shapes|1 / 2 / 3 / 4': async (c) => {
     await use(c, 'bermuda');
     for (const [k, t] of [
       ['2', 'variable'],
@@ -327,13 +327,13 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
       await expect(c.page.locator(`#toolStrip [data-t="${t}"]`)).toHaveClass(/\bon\b/);
     }
   },
-  'Entities|E': async (c) => {
+  'Shapes|E': async (c) => {
     await c.page.keyboard.press('e');
     await expect(c.page.locator('#bEdit')).toHaveClass(/\bon\b/);
     await c.page.keyboard.press('e');
     await expect(c.page.locator('#bEdit')).not.toHaveClass(/\bon\b/);
   },
-  'Entities|PgUp / PgDn': async (c) => {
+  'Shapes|PgUp / PgDn': async (c) => {
     const { page } = c;
     // a shape of more than one layer: Bermuda's result
     const big = await page.$$eval('#shapeList .row', (rows) => rows.length);
@@ -344,7 +344,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     await page.keyboard.press('PageDown');
     await expect(page.locator('#lstrip .lchip[data-l="0"]')).toHaveClass(/\bon\b/);
   },
-  'Entities|↑ / ↓': async (c) => {
+  'Shapes|↑ / ↓': async (c) => {
     const { page } = c;
     const ids = (await snapshot(page)).shapes.map((s) => s.id);
     await page.click(`#shapeList .row[data-id="${ids[0] ?? ''}"] .chip`);
@@ -354,7 +354,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     await page.keyboard.press('ArrowUp');
     await expect(page.locator('#shapeList .row.sel')).toHaveAttribute('data-id', ids[0] ?? '');
   },
-  'Entities|Alt+↑ / Alt+↓': async (c) => {
+  'Shapes|Alt+↑ / Alt+↓': async (c) => {
     const { page } = c;
     const ids = (await snapshot(page)).shapes.map((s) => s.id);
     await page.keyboard.press('Alt+ArrowDown');
@@ -366,7 +366,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     await expect.poll(async () => (await snapshot(page)).shapes.map((s) => s.id)).toEqual(ids);
     await settled(page);
   },
-  'Entities|F2 / Enter / @Double-click': async (c) => {
+  'Shapes|F2 / Enter / @Double-click': async (c) => {
     const { page } = c;
     for (const k of ['F2', 'Enter']) {
       await page.locator('#shapeList').focus();
@@ -376,7 +376,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
       await expect(page.locator('#shapeList .lbl input')).toHaveCount(0);
     }
   },
-  'Entities|Del': async (c) => {
+  'Shapes|Del': async (c) => {
     const { page } = c;
     const n = (await snapshot(page)).shapes.length;
     await page.locator('#shapeList').focus();
@@ -387,7 +387,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     await expect(page.locator('#shapeList .row')).toHaveCount(n);
     await settled(page);
   },
-  'Entities|Ctrl+D': async (c) => {
+  'Shapes|Ctrl+D': async (c) => {
     const { page } = c;
     const n = (await snapshot(page)).shapes.length;
     await page.locator('#shapeList').focus();

@@ -255,6 +255,14 @@ Reply shapeTask(State& s, Params& p) {
   return Json{{"revision", s.revision()}, {"changed", o.changed}, {"cellsChanged", o.cellsChanged}};
 }
 
+Reply shapeTaskPreview(State& s, Params& p) {
+  const app::Id shape = p.id("shape", IdKind::Shape);
+  const app::ShapeTask task = p.choice("task", shapeTaskNames());
+  BTE_CHECK(p.finish());
+  BTE_TRY(const mesh::DrawMesh m, s.document().shapeTaskPreview(shape, task));
+  return meshReply(s, m);
+}
+
 Reply shapeInfo(State& s, Params& p) {
   const app::Id shape = p.id("shape", IdKind::Shape);
   BTE_CHECK(p.finish());
@@ -368,6 +376,7 @@ void addShapeMethods(MethodTable& t) {
   t["shape.resize"] = shapeResize;
   t["shape.taskSet"] = shapeTaskSet;
   t["shape.task"] = shapeTask;
+  t["shape.taskPreview"] = shapeTaskPreview;
   t["shape.info"] = shapeInfo;
   t["shape.table"] = shapeTable;
   t["shape.mesh"] = shapeMesh;

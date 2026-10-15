@@ -143,7 +143,7 @@ export class RodsCard {
     }
     setHtml(
       this.el,
-      `<div class="rodbtns">${buttons}</div><div class="rodlist" role="listbox" aria-label="Rod sets">${list}</div>${fields}<div class="rodnote mute">Undo and Redo (Ctrl+Z) take rod changes back too. The 3D view shows the rod set chosen, or the disc chosen in the list.</div>`,
+      `<div class="rodbtns">${buttons}</div><div class="rodlist" role="listbox" aria-label="Rod sets" title="Select the rod set to edit">${list}</div>${fields}<div class="rodnote mute">Undo and Redo (Ctrl+Z) take rod changes back too. The 3D view shows the rod set chosen, or the disc chosen in the list.</div>`,
     );
     this.el.dataset.rodSet = this.selected ?? '';
   }
@@ -243,7 +243,7 @@ export class RodsCard {
       body: `<p>Enter name for the rod set</p><input class="v" id="rodNameIn" value="${esc(r.name)}" aria-label="Rod set name" style="width:100%">`,
       buttons: [
         { key: 'cancel', label: 'Cancel' },
-        { key: 'ok', label: 'OK', kind: 'pri', default: true },
+        { key: 'ok', label: 'OK', kind: 'pri', default: true, tip: 'Give the rod set this name' },
       ],
       onAnswer: (_key, el) => {
         name = el.querySelector<HTMLInputElement>('#rodNameIn')?.value ?? name;

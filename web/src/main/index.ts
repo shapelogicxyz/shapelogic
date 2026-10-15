@@ -427,6 +427,12 @@ void app.whenReady().then(() => {
     // a second start: quitting, its files handed to the first
     return;
   }
+  // Development runs Electron's own bundle, whose Dock icon is Electron's;
+  // a packaged app has its icon in its bundle already.
+  const dockIcon = join(WEB_DIR, 'packaging', 'icon.png');
+  if (!app.isPackaged && process.platform === 'darwin' && existsSync(dockIcon)) {
+    app.dock?.setIcon(dockIcon);
+  }
   store = new StateStore(app.getPath('userData'));
   rescue = new RescueStore(app.getPath('userData'));
   pendingOpen.push(...argFiles());

@@ -557,6 +557,11 @@ Result<void> Document::endGroup() {
   grouping_ = false;
   if (!open_->parts.empty()) {
     pushStep(std::move(*open_));
+    // the step is on the undo stack only now: a revision of its own, so
+    // that a client told of the group's edits reads canUndo and the step's
+    // label again (the edits changed what they changed, this changes none)
+    lastChange_ = ChangeSet{};
+    changed(0);
   }
   open_.reset();
   return {};

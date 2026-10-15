@@ -16,6 +16,8 @@
 
 import type { Grid, Methods, ShapeTask } from '../../engine/api.generated.ts';
 import { isEngineError } from '../../engine/errors.ts';
+import { meshArrays } from '../../engine/frames.ts';
+import type { MeshArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { $$, byId, esc } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
@@ -39,6 +41,8 @@ export interface InspectorHost {
   applyAllChanged(): void;
   /** Counts a call as an edit under way until it settles. */
   track<T>(p: Promise<T>): Promise<T>;
+  /** Shows the shape as a button would leave it, over the shape in the 3D view (null: none). */
+  showGhost(arrays: MeshArrays | null): void;
 }
 
 // where each grid draws its transform tasks (the mockup's renderTransform)
@@ -53,8 +57,8 @@ const MATRIX: Row[] = [
     a: 'x',
     flip: 'flip12',
     rot: [
-      ['rotate7', '−90°', -1],
-      ['rotate6', '+90°', 1],
+      ['rotate6', '−90°', -1],
+      ['rotate7', '+90°', 1],
     ],
     nudge: ['nudge1', 'nudge0'],
   },
@@ -62,8 +66,8 @@ const MATRIX: Row[] = [
     a: 'y',
     flip: 'flip13',
     rot: [
-      ['rotate8', '−90°', -1],
-      ['rotate9', '+90°', 1],
+      ['rotate9', '−90°', -1],
+      ['rotate8', '+90°', 1],
     ],
     nudge: ['nudge3', 'nudge2'],
   },
@@ -71,8 +75,8 @@ const MATRIX: Row[] = [
     a: 'z',
     flip: 'flip14',
     rot: [
-      ['rotate11', '−90°', -1],
-      ['rotate10', '+90°', 1],
+      ['rotate10', '−90°', -1],
+      ['rotate11', '+90°', 1],
     ],
     nudge: ['nudge5', 'nudge4'],
   },
@@ -190,7 +194,7 @@ const ABTN: Partial<Record<ShapeTask, { g: () => string; t: string; sm: string; 
 const SURF: [SurfOp, string, string, ShapeTask, ShapeTask][] = [
   ['fixed', 'Make fixed', 'solid', 'insideFixed', 'outsideFixed'],
   ['variable', 'Make variable', 'optional', 'insideVariable', 'outsideVariable'],
-  ['clear', 'Clear colour', 'remove paint', 'insideDecolour', 'outsideDecolour'],
+  ['clear', 'Clear color', 'remove paint', 'insideDecolour', 'outsideDecolour'],
 ];
 
 function layoutOf(grid: Grid): 'matrix' | 'spheres' | 'prisms' {
@@ -200,6 +204,9 @@ function layoutOf(grid: Grid): 'matrix' | 'spheres' | 'prisms' {
 export class Inspector {
   private readonly host: InspectorHost;
   private placed = new Set<ShapeTask>();
+  /** The Transform button the pointer is on, and the newest preview asked for. */
+  private hovered: ShapeTask | null = null;
+  private ghostToken = 0;
 
   constructor(host: InspectorHost) {
     this.host = host;
@@ -227,6 +234,36 @@ export class Inspector {
     byId('tmat').innerHTML = this.transformHtml(grid, byTask);
     byId('fitBody').innerHTML = this.fitHtml(byTask, shape.fixed + shape.variable === 0);
     byId('toolsBody').innerHTML = this.toolsHtml(byTask);
+    // the buttons were drawn again under the pointer (a click changed the
+    // shape): the preview goes on with what the same button would do now
+    const under = byId('tmat').querySelector<HTMLButtonElement>('button[data-task]:hover');
+    this.preview((under?.dataset.task as ShapeTask | undefined) ?? null);
+  }
+
+  /** Previews a Transform button's task in the 3D view (null: ends the preview). */
+  private preview(task: ShapeTask | null): void {
+    const shape = this.host.store.selected;
+    const token = ++this.ghostToken;
+    this.hovered = task;
+    if (task === null || shape === null) {
+      this.host.showGhost(null);
+      return;
+    }
+    this.host.store.engine
+      .call('shape.taskPreview', { shape, task }, { coalesce: 'shape.taskPreview' })
+      .then(
+        (r) => {
+          if (token === this.ghostToken) {
+            this.host.showGhost(meshArrays(r));
+          }
+        },
+        () => {
+          // a preview is advisory: a nudge the grid refuses shows nothing
+          if (token === this.ghostToken) {
+            this.host.showGhost(null);
+          }
+        },
+      );
   }
 
   private btn(t: TaskInfo | undefined, glyph: string, cap: string): string {
@@ -416,6 +453,19 @@ export class Inspector {
       }
       const sh = t.closest<HTMLElement>('.sec>button.sh');
       sh?.parentElement?.classList.toggle('closed');
+    });
+    const tmat = byId('tmat');
+    tmat.addEventListener('mouseover', (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-task]');
+      if (b !== null && !b.disabled && b.dataset.task !== this.hovered) {
+        this.preview(b.dataset.task as ShapeTask);
+      }
+    });
+    tmat.addEventListener('mouseout', (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-task]');
+      if (b !== null && !b.contains(e.relatedTarget as Node | null)) {
+        this.preview(null);
+      }
     });
     byId('insp').addEventListener('keydown', (e) => {
       if (

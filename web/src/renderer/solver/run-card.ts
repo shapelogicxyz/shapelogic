@@ -5,9 +5,9 @@
 // (assemblies, or assemblies and their disassembly, with Just Levels and
 // Check Rotations), the search options (stored with the problem, the
 // original's rules greying out what does not apply; Keep at most and Keep
-// every n-th are not stored, as in the original), and the run: Prepare,
-// Solve, Continue, Pause, Abort, the progress bar and the counters, a
-// failure. From
+// every n-th are not stored, as in the original), the run: Solve, Pause,
+// Continue, Clear (the original's Abort), the progress bar and the
+// counters, a failure; Prepare in the explorers' section, and Sort by. From
 // docs/mockup/index.html: `renderSolver` (the left card's sections, their
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
@@ -52,7 +52,7 @@ const TIP: Record<BoxName, string> = {
   keepRotations: 'Do not remove solutions that are only rotations of others.',
   deepSymmetry: 'More thorough, slower check for duplicate (rotated) solutions.',
   strictColors:
-    'A voxel with a colour fits only a result voxel of that same colour, not a neutral one; a voxel with no colour fits only a result voxel that also has none.',
+    'A voxel with a color fits only a result voxel of that same color, not a neutral one; a voxel with no color fits only a result voxel that also has none.',
   nestedSlides:
     'A piece may slide together with the pieces nested inside its outline, such as a piece in another piece’s pocket. Pieces that only touch never slide together.',
   partialNested:
@@ -93,7 +93,7 @@ const LABEL: Record<BoxName, string> = {
   keepMirrors: 'Keep mirror solutions',
   keepRotations: 'Keep rotated solutions',
   deepSymmetry: 'Thorough rotation check',
-  strictColors: 'Strict colours',
+  strictColors: 'Strict colors',
   nestedSlides: 'Allow Nested Slides',
   partialNested: 'Allow Partially Nested',
   highMemory: 'Enable High Memory',
@@ -117,8 +117,13 @@ export class RunCard {
     left.dataset.frozen = frozen ? '1' : '0';
     this.renderProblem();
     this.renderMode();
+    // each mode's card says what it does as its tooltip too
+    for (const m of byId('slvMode').querySelectorAll<HTMLElement>('.mcard')) {
+      m.title = m.querySelector('.d')?.textContent ?? '';
+    }
     this.renderOptions();
     this.renderRun();
+    this.renderSort();
   }
 
   private renderProblem(): void {
@@ -155,13 +160,10 @@ export class RunCard {
     const { disabled } = normalize(o, null, ws.family);
     const dis = o.disassemble;
     if (ws.stacking) {
-      // Find Solutions, with Just Levels (updateSolverOptionCheckboxes)
-      const sw = (k: BoxName): string =>
-        `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
+      // Find Solutions (updateSolverOptionCheckboxes; Just Levels is in the search options)
       setHtml(
         byId('slvMode'),
-        `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemblies</b><span class="d">Check the start stacking only.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Find Solutions</b><span class="d">${STACKING_TIP.disassemble ?? ''}</span></div></button>` +
-          (dis ? `<div class="slv-opts" style="margin:4px 2px 0">${sw('justLevels')}</div>` : ''),
+        `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Check the start stacking only.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Find Solutions</b><span class="d">${STACKING_TIP.disassemble ?? ''}</span></div></button>`,
       );
       return;
     }
@@ -169,7 +171,7 @@ export class RunCard {
       // the second mode is Find Solutions (updateSolverOptionCheckboxes)
       setHtml(
         byId('slvMode'),
-        `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm"><i class="rd"></i><div><b>Assemblies</b><span class="d">Find the start layouts: every way the pieces fit their starts.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Find Solutions</b><span class="d">Keep a placement only when each marked piece can slide from its start cell to its goal cell.</span></div></button>`,
+        `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm"><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find the start layouts: every way the pieces fit their starts.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Find Solutions</b><span class="d">Keep a placement only when each marked piece can slide from its start cell to its goal cell.</span></div></button>`,
       );
       return;
     }
@@ -177,10 +179,8 @@ export class RunCard {
       `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
     setHtml(
       byId('slvMode'),
-      `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemblies</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Assemblies and disassembly</b><span class="d">Also check that each assembly can be taken apart, moving pieces along the voxel axes.</span></div></button>` +
-        (dis
-          ? `<div class="slv-opts" style="margin:4px 2px 0">${sw('justLevels')}${sw('checkRotations')}</div>`
-          : ''),
+      `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble and Disassemble</b><span class="d">Also check that each assembly can be taken apart, moving pieces along the voxel axes.</span></div></button>` +
+        (dis ? `<div class="slv-opts" style="margin:8px 2px 0">${sw('checkRotations')}</div>` : ''),
     );
   }
 
@@ -194,12 +194,12 @@ export class RunCard {
       `<div class="row2"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
     const changed = [
       o.justCount !== DEFAULT_OPTIONS.justCount,
+      o.justLevels !== DEFAULT_OPTIONS.justLevels,
       o.keepMirrors !== DEFAULT_OPTIONS.keepMirrors,
       o.keepRotations !== DEFAULT_OPTIONS.keepRotations,
       o.deepSymmetry !== DEFAULT_OPTIONS.deepSymmetry,
       o.strictColors !== DEFAULT_OPTIONS.strictColors,
       o.solver !== DEFAULT_OPTIONS.solver,
-      o.sortBy !== DEFAULT_OPTIONS.sortBy,
       o.autosave !== DEFAULT_OPTIONS.autosave,
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
@@ -217,10 +217,9 @@ export class RunCard {
     const solvers = ws.store.info?.solvers ?? [
       { solver: 'classic' as const, label: 'Complete (ShapeLogic)' },
     ];
-    const sort = effectiveSort(o);
     const limits =
-      `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1">${ic('plus', 12)}</button></div></div>` +
-      `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10">${ic('plus', 12)}</button></div></div>`;
+      `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1" title="Keep more of the solutions: skip one fewer between kept ones">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" title="1 keeps every solution; a higher number skips that many before the next one is kept" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1" title="Keep fewer of the solutions: skip one more between kept ones">${ic('plus', 12)}</button></div></div>` +
+      `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10" title="Keep 10 fewer solutions">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" title="Keep at most this many solutions (0: all)" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10" title="Keep 10 more solutions">${ic('plus', 12)}</button></div></div>`;
     if (ws.stacking) {
       // High Memory in the symmetry options' place, the one solver of the board
       const solver = ws.stackingSolver;
@@ -230,6 +229,7 @@ export class RunCard {
       setHtml(
         opts,
         sw('justCount') +
+          sw('justLevels') +
           sw('highMemory') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
           limits +
@@ -248,7 +248,7 @@ export class RunCard {
           sw('nestedSlides') +
           sw('partialNested') +
           sw('highMemory') +
-          `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
+          `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
           limits +
           sw('autosave'),
       );
@@ -257,14 +257,34 @@ export class RunCard {
     setHtml(
       opts,
       sw('justCount') +
+        sw('justLevels') +
         sw('keepMirrors') +
         sw('keepRotations') +
         sw('deepSymmetry') +
         sw('strictColors') +
-        `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell).</small></div><select data-o="solver">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
-        `<div class="row2 wrap"><div class="t">Sort found solutions by<small>Order the solver keeps them in${o.disassemble ? '' : ' — moves, level and rotations need the disassembly check'}</small></div><select data-o="sortBy">${SORT_CHOICES.map((c) => `<option value="${c.value}" ${sort === c.value ? 'selected' : ''} ${c.needsDisassembly && !o.disassemble ? 'disabled' : ''}>${c.label}${c.needsDisassembly && !o.disassemble ? ' (needs disassembly)' : ''}</option>`).join('')}</select></div>` +
+        `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell).</small></div><select data-o="solver" title="Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell)">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
         limits +
         sw('autosave'),
+    );
+  }
+
+  // Sort by: the order the solver keeps the solutions in (brick puzzles only;
+  // moves, level and rotations need the disassembly check)
+  private renderSort(): void {
+    const ws = this.ws;
+    const o = ws.options;
+    const sec = byId('slvSortSec');
+    sec.style.display = ws.sliding || ws.stacking ? 'none' : '';
+    if (ws.sliding || ws.stacking) {
+      return;
+    }
+    const sort = effectiveSort(o);
+    const tip = o.disassemble
+      ? 'The order the solver keeps the solutions in'
+      : 'The order the solver keeps the solutions in; moves, level and rotations need the disassembly check';
+    setHtml(
+      byId('slvSortBy'),
+      `<select data-o="sortBy" aria-label="Sort by" title="${esc(tip)}">${SORT_CHOICES.map((c) => `<option value="${c.value}" ${sort === c.value ? 'selected' : ''} ${c.needsDisassembly && !o.disassemble ? 'disabled' : ''}>${c.label}${c.needsDisassembly && !o.disassemble ? ' (needs disassembly)' : ''}</option>`).join('')}</select>`,
     );
   }
 
@@ -285,7 +305,7 @@ export class RunCard {
     const canCont = canStart && (s === 'paused' || p.state === 'solving' || saved !== null);
     const fix = ws.stacking
       ? `Fix the puzzle on the Puzzle tab first: ${why ?? ''}`
-      : `Fix the start and goal on the Entities tab first: ${why ?? ''}`;
+      : `Fix the start and goal on the Shapes tab first: ${why ?? ''}`;
     const canPause =
       !ws.calling &&
       r !== null &&
@@ -297,22 +317,14 @@ export class RunCard {
       `<button data-r="${k}" class="${pri ? 'pri' : ''}" ${on ? '' : 'disabled'} title="${tip}">${label}</button>`;
     setHtml(
       byId('slvRun'),
-      // a stacking search has nothing to prepare
-      (ws.stacking
-        ? ''
-        : btn(
-            'prepare',
-            'Prepare',
-            canStart,
-            'Build the search structures without solving; this removes old results',
-          )) +
-        btn(
-          'start',
-          'Solve',
-          canStart,
-          why === null ? 'Run the search from the start, removing old results' : esc(fix),
-          true,
-        ) +
+      btn(
+        'start',
+        'Solve',
+        canStart,
+        why === null ? 'Run the search from the start, removing old results' : esc(fix),
+        true,
+      ) +
+        btn('pause', 'Pause', canPause, 'Pause the search where it can be continued') +
         btn(
           'continue',
           'Continue',
@@ -323,13 +335,24 @@ export class RunCard {
               ? esc(`Carry on ${saved.description}`)
               : 'Resume a paused search',
         ) +
-        btn('pause', 'Pause', canPause, 'Pause the search where it can be continued') +
         btn(
           'abort',
-          'Abort',
+          'Clear',
           canAbort,
           'Stop at once and throw away everything kept of this problem’s solve: its results, the paused state and a saved search',
         ),
+    );
+    // Prepare sits with the explorers it serves; a stacking search has nothing to prepare
+    setHtml(
+      byId('slvPrep'),
+      ws.stacking
+        ? ''
+        : btn(
+            'prepare',
+            'Prepare',
+            canStart,
+            'Build the search (the placements of every piece) and pause before the first step, so Placements and Step have a search to show; this removes old results',
+          ),
     );
     const c = ws.counts();
     const pct = Math.max(0, Math.min(1, c.overall)) * 100;
@@ -365,7 +388,7 @@ export class RunCard {
         .map((q) => {
           const st = ws.stateOf(q.id);
           const note = isActive(st) ? ' · solving' : st === 'paused' ? ' · paused' : '';
-          return `<button data-k="${q.id}"><span class="chip" style="background:${PROBLEM_CHIP};color:#fff;min-width:30px;height:20px;font-size:10px">${esc(q.label)}</span>${esc(q.name) || 'Problem'}<span class="kb">${note}</span></button>`;
+          return `<button data-k="${q.id}" title="Solve this problem"><span class="chip" style="background:${PROBLEM_CHIP};color:#fff;min-width:30px;height:20px;font-size:10px">${esc(q.label)}</span>${esc(q.name) || 'Problem'}<span class="kb">${note}</span></button>`;
         })
         .join('');
       openPop(e.currentTarget as Element, `<div class="ph">Solve problem</div>${rows}`, (k) => {
@@ -403,8 +426,6 @@ export class RunCard {
         void ws.setOption({ solver: t.value as SearchOptions['solver'] });
       } else if (t.dataset.o === 'slidingSolver') {
         void ws.setOption({ slidingSolver: t.value as SearchOptions['slidingSolver'] });
-      } else if (t.dataset.o === 'sortBy') {
-        void ws.setOption({ sortBy: t.value as SearchOptions['sortBy'] });
       } else if (t.dataset.sti !== undefined) {
         const k = t.dataset.sti as 'keepEach' | 'keepAtMost';
         ws.setLimits({ [k]: Math.round(Number(t.value)) || 0 });
@@ -418,7 +439,7 @@ export class RunCard {
         }
       });
     }
-    byId('slvRun').addEventListener('click', (e) => {
+    const runClicked = (e: MouseEvent): void => {
       const b = (e.target as Element).closest<HTMLButtonElement>('button[data-r]');
       if (b === null || b.disabled) {
         return;
@@ -439,6 +460,14 @@ export class RunCard {
         case 'abort':
           ws.abort();
           break;
+      }
+    };
+    byId('slvRun').addEventListener('click', runClicked);
+    byId('slvPrep').addEventListener('click', runClicked);
+    byId('slvSortBy').addEventListener('change', (e) => {
+      const t = e.target as HTMLSelectElement;
+      if (t.dataset.o === 'sortBy') {
+        void ws.setOption({ sortBy: t.value as SearchOptions['sortBy'] });
       }
     });
   }

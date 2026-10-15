@@ -346,6 +346,14 @@ for (const grid of GRIDS) {
         const want = await onCopy(page, s1, 'shape.task', { task: t.task });
         const steps0 = (await history(page)).undo.length;
         const before = await shapeGet(page, s1);
+        if (['Flip', 'Rotate', 'Nudge'].includes(t.group)) {
+          // the pointer on a Transform button shows the shape as it would leave it
+          await page.hover(`#insp [data-task="${t.task}"]`);
+          await expect(page.locator('#vp'), t.task).toHaveAttribute(
+            'data-task-ghost',
+            want === 'refused' ? '0' : '1',
+          );
+        }
         await page.click(`#insp [data-task="${t.task}"]`);
         await settled(page);
         if (want === 'refused') {
@@ -429,6 +437,23 @@ for (const grid of GRIDS) {
       await expect.poll(async () => (await colours()).length).toBe(0);
       expect((await shapeGet(page, s3)).cells.every((c) => c.colour === undefined)).toBe(true);
       await expect(page.locator('#colFoot .sw.def')).toHaveClass(/\bon\b/);
+      // Edit color works on Default too: it is the shape's own color
+      await page.click('#cMore');
+      await expect(page.locator('#pop [data-k="edit"]')).toBeEnabled();
+      await expect(page.locator('#pop [data-k="rm"]')).toBeDisabled();
+      await page.keyboard.press('Escape');
+      await page.locator('#cPick').fill('#336699');
+      await expect
+        .poll(
+          async () =>
+            (
+              await engineCall<{ shapes: { id: string; colour: string | null }[] }>(
+                page,
+                'shape.list',
+              )
+            ).shapes.find((x) => x.id === s3)?.colour,
+        )
+        .toBe('#336699');
 
       // ---- 3D editing: a face's cell (erase) and the cell across it (fixed) ----
       await clearShape(page, s3);
@@ -517,8 +542,11 @@ for (const grid of GRIDS) {
       // the engine refused nothing the UI asked for, but the blocked nudges
       // (refused as invalid_argument, by design: "the shape would leave the
       // grid"), one per blocked click
+      // (its preview too, which asks first: that refusal shows no ghost)
       const refused = readCallLog(log).filter(
-        (c) => c.errc === 'invalid_state' || c.errc === 'invalid_argument',
+        (c) =>
+          (c.errc === 'invalid_state' || c.errc === 'invalid_argument') &&
+          c.method !== 'shape.taskPreview',
       );
       const nudges = refused.filter(
         (c) => c.method === 'shape.task' && c.errc === 'invalid_argument',

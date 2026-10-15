@@ -196,12 +196,18 @@ export class Imports {
       body: `<p>Please Select Target grid</p><div class="form">${targets
         .map(
           (g, i) =>
-            `<label><input type="radio" name="target" value="${esc(g)}" ${i === 0 ? 'checked' : ''}> ${esc(label(g))}</label>`,
+            `<label title="Convert the puzzle to this grid"><input type="radio" name="target" value="${esc(g)}" ${i === 0 ? 'checked' : ''}> ${esc(label(g))}</label>`,
         )
         .join('')}</div><p>${esc(CONVERT_NOTE)}</p>`,
       buttons: [
-        { key: 'abort', label: 'Abort' },
-        { key: 'go', label: 'Continue', kind: 'pri', default: true },
+        { key: 'abort', label: 'Abort', tip: 'Keep the puzzle as it is' },
+        {
+          key: 'go',
+          label: 'Continue',
+          kind: 'pri',
+          default: true,
+          tip: 'Convert the puzzle to the grid chosen',
+        },
       ],
       onAnswer: (key, el) => {
         if (key === 'go') {

@@ -63,8 +63,8 @@ export class PuzzleWorkspace {
   kind: ProblemKind | null = null;
   /** The piece selected (a shape), or null. */
   sel: string | null = null;
-  /** Chips or table. */
-  view: 'chips' | 'table' = 'chips';
+  /** Whether the Groups section is open (collapsed at first). */
+  groupsOpen = false;
   /** Whether "All pieces" is open. */
   libOpen = true;
   /** The snapshot revision the cards show, or -1 while loading. */
@@ -765,7 +765,7 @@ export class PuzzleWorkspace {
     if (problem === null || this.refuse()) {
       return;
     }
-    await this.mutate('Colour rule', () =>
+    await this.mutate('Color rule', () =>
       this.engine.call('problem.setColourRule', { problem, pieceColour, resultColour, allowed }),
     );
   }
@@ -775,7 +775,7 @@ export class PuzzleWorkspace {
     if (problem === null || this.refuse()) {
       return;
     }
-    await this.mutate('Colour rules', () =>
+    await this.mutate('Color rules', () =>
       this.engine.call('problem.setColourRules', { problem, preset }),
     );
   }

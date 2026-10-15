@@ -54,6 +54,8 @@ export interface CardHost {
   fillBox(clear: boolean): void;
   addColour(): void;
   editColour(id: string, rgb: string): void;
+  /** The shape's own color, which Default draws in (shape.setColour). */
+  setShapeColour(shape: string, rgb: string): void;
   deleteColour(id: string): void;
   /** What the engine says of the tray shown (null: no tray, or not read yet). */
   tray(): TrayReply | null;
@@ -248,7 +250,7 @@ export class EditorCard {
     const snap = this.host.store.snapshot;
     const pieces = stampPieces(snap?.shapes ?? []);
     const chosen = pieces.find((p) => p.id === st.stampPiece) ?? null;
-    pick.innerHTML = `<div class="sglist" role="listbox" aria-label="Pieces">${
+    pick.innerHTML = `<div class="sglist" role="listbox" aria-label="Pieces" title="Select the piece whose start or goal to place">${
       pieces.length === 0
         ? '<div class="mute">No pieces yet: add shapes with + New</div>'
         : pieces
@@ -322,7 +324,7 @@ export class EditorCard {
     const b = byId('selbar');
     b.classList.toggle('show', box !== null);
     b.innerHTML = `<span><b>${n}</b> cell${n === 1 ? '' : 's'} selected</span><span class="sep"></span>
-  <button class="btn sm" data-x="fill" title="Fill the box with fixed voxels in the drawing colour (mirror and span apply)">Fill</button><button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)">Clear</button><button class="ib" data-x="x" title="Deselect (Esc)">${ic('close', 14)}</button>`;
+  <button class="btn sm" data-x="fill" title="Fill the box with fixed voxels in the drawing color (mirror and span apply)">Fill</button><button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)">Clear</button><button class="ib" data-x="x" title="Deselect (Esc)">${ic('close', 14)}</button>`;
   }
 
   renderSize(): void {
@@ -360,27 +362,34 @@ export class EditorCard {
     const cur = st.colour === null ? undefined : cols.find((c) => c.id === st.colour);
     const name = cur?.label ?? 'Default';
     byId('colFoot').innerHTML =
-      `<div class="bigsw" style="background:${chex}"></div><div class="colmeta"><small>Drawing colour</small><b>${esc(name)}</b></div>
-  <div class="pal"><button class="sw ${st.colour === null ? 'on' : ''} def" data-c="" style="background:${own}" title="Default — the piece’s own colour"></button>${cols
+      `<div class="bigsw" style="background:${chex}"></div><div class="colmeta"><small>Drawing color</small><b>${esc(name)}</b></div>
+  <div class="pal"><button class="sw ${st.colour === null ? 'on' : ''} def" data-c="" style="background:${own}" title="Default — the piece’s own color"></button>${cols
     .map(
       (c) =>
         `<button class="sw ${c.id === st.colour ? 'on' : ''}" data-c="${c.id}" style="background:${c.rgb}" title="${esc(c.label)}"></button>`,
     )
     .join('')}
-  <button class="ib" id="cAdd" title="Add colour">${ic('plus')}</button><button class="ib" id="cMore" title="Edit / remove the current colour">${ic('more')}</button></div>
+  <button class="ib" id="cAdd" title="Add color">${ic('plus')}</button><button class="ib" id="cMore" title="Edit / remove the current color">${ic('more')}</button></div>
   <input type="color" id="cPick" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">`;
     byId('rrail').innerHTML =
       `<button class="ib" id="btnRE" title="Expand Voxel editor">${ic('panelR')}</button><div class="bigsw" style="background:${chex};width:28px;height:28px;border-radius:8px"></div><span class="vt2">Voxel editor</span>`;
   }
 
   private colourMenu(): string {
-    const off = this.host.state.colour === null ? 'disabled' : '';
-    return `<button data-k="edit" ${off}>Edit colour…</button><button data-k="rm" ${off}>Remove colour</button>`;
+    const def = this.host.state.colour === null;
+    return `<button data-k="edit" ${def && this.shape === null ? 'disabled' : ''} title="${def ? 'Change this shape’s own color, which Default draws in' : 'Change the current drawing color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove the current drawing color from the puzzle">Remove color</button>`;
   }
 
   private colourAction(k: string): void {
     const id = this.host.state.colour;
     if (id === null) {
+      // Default is the shape's own color: edit that
+      const s = this.shape;
+      if (k === 'edit' && s !== null) {
+        const pick = byId<HTMLInputElement>('cPick');
+        pick.value = hex(shapeColour(s.colour, this.host.store.indexOf(s.id)));
+        pick.click();
+      }
       return;
     }
     if (k === 'edit') {
@@ -498,8 +507,13 @@ export class EditorCard {
     foot.addEventListener('change', (e) => {
       const pick = e.target as HTMLInputElement;
       const id = st.colour;
-      if (pick.id === 'cPick' && id !== null) {
+      if (pick.id !== 'cPick') {
+        return;
+      }
+      if (id !== null) {
         this.host.editColour(id, pick.value.toLowerCase());
+      } else if (this.shape !== null) {
+        this.host.setShapeColour(this.shape.id, pick.value.toLowerCase());
       }
     });
     foot.addEventListener('contextmenu', (e) => {

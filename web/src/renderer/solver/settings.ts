@@ -80,7 +80,7 @@ export interface SearchOptions {
   sortBy: SortBy;
 }
 
-/** The defaults of a problem that stored none (the original's widgets as made). */
+/** The defaults of a problem that stored none (the original's widgets as made, but Strict colors on). */
 export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   disassemble: false,
   checkRotations: false,
@@ -89,7 +89,7 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   deepSymmetry: false,
   keepMirrors: false,
   keepRotations: false,
-  strictColors: false,
+  strictColors: true,
   nestedSlides: false,
   partialNested: false,
   highMemory: false,

@@ -132,6 +132,9 @@ export class EntitiesWorkspace {
         this.state.changed();
       },
       track: (p) => this.track(p),
+      showGhost: (arrays) => {
+        this.view.setTaskGhost(arrays);
+      },
     });
     this.card = new EditorCard({
       store,
@@ -157,9 +160,9 @@ export class EntitiesWorkspace {
       fillBox: (clear) => void this.fillBox(clear),
       addColour: () => void this.addColour(),
       editColour: (id, rgb) =>
-        void this.mutate('Edit colour', () =>
-          store.engine.call('colour.edit', { colour: id, rgb }),
-        ),
+        void this.mutate('Edit color', () => store.engine.call('colour.edit', { colour: id, rgb })),
+      setShapeColour: (shape, rgb) =>
+        void this.mutate('Color', () => store.engine.call('shape.setColour', { shape, rgb })),
       deleteColour: (id) => void this.deleteColour(id),
       tray: () => (this.onTray ? this.trays.reply : null),
       trayChanged: () => {
@@ -644,7 +647,7 @@ export class EntitiesWorkspace {
       return;
     }
     const n = this.store.snapshot?.colours.length ?? 0;
-    const r = await this.mutate('Add colour', () =>
+    const r = await this.mutate('Add color', () =>
       this.store.engine.call('colour.add', { rgb: nextColour(n) }),
     );
     if (r !== null) {
@@ -657,7 +660,7 @@ export class EntitiesWorkspace {
     if (this.edits.refuseList()) {
       return;
     }
-    const r = await this.mutate('Remove colour', () =>
+    const r = await this.mutate('Remove color', () =>
       this.store.engine.call('colour.delete', { colour: id }),
     );
     if (r !== null) {

@@ -26,7 +26,7 @@ const remembered: Partial<Record<Workspace, { lc: boolean; rc: boolean }>> = {};
 const listeners = new Set<() => void>();
 
 const RAIL: readonly [Workspace, string, IconName, string][] = [
-  ['entities', 'Entities', 'cube', 'Entities — create and edit pieces'],
+  ['entities', 'Shapes', 'cube', 'Shapes — create and edit shapes'],
   ['puzzle', 'Puzzle', 'puzzle', 'Puzzle — choose the result, the pieces and the rules'],
   ['solver', 'Solver', 'play', 'Solver — run and browse solutions'],
 ];

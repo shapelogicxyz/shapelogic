@@ -218,6 +218,20 @@
       },
       "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
     },
+    "shape.taskPreview": {
+      "summary": "The mesh (as shape.mesh, the drawing style) the shape would have after shape.task, worked out on a copy: nothing changes. The client draws it as a ghost over the shape while the pointer is on a tool tab button. The same refusals as shape.task (a nudge out of the grid is invalid_argument), but allowed while solving.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "task": {"$ref": "types.json#/$defs/ShapeTask"}
+        },
+        "required": ["shape", "task"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/MeshFrame"},
+      "errors": ["not_found", "unsupported", "invalid_argument"]
+    },
     "shape.info": {
       "summary": "The status window's row for one shape, with its status line.",
       "params": {"$ref": "#/$defs/ShapeParam"},

@@ -17,6 +17,14 @@ import { anglesOf, dirToView, quatOf, toView, toWorld } from './camera.ts';
 import type { Camera } from './camera.ts';
 
 const VC = { w: 156, h: 170, cx: 78, cy: 100, s: 30, t: 0.56, D: 5.5 };
+/**
+ * The canvas's extra room left of and below the cube (styles.css's #vcube is
+ * as large): the axes' lines and labels point any way from the corner there,
+ * and must not be cut off at the canvas's edge.
+ */
+const PAD = { l: 16, b: 16 };
+/** The axes' origin (in the canvas's own pixels), their lines' length and their labels' distance. */
+const AXES = { x: 18 + PAD.l, y: 152, len: 20, label: 28 };
 const HOME_C = [26, 40] as const;
 const ROLLS = [
   { sg: -1, x: 103, y: 40 },
@@ -101,7 +109,7 @@ export class ViewCube {
     this.host = host;
     const pos = (e: MouseEvent): P2 => {
       const r = canvas.getBoundingClientRect();
-      return [e.clientX - r.left, e.clientY - r.top];
+      return [e.clientX - r.left - PAD.l, e.clientY - r.top];
     };
     canvas.addEventListener('pointermove', (e) => {
       const [px, py] = pos(e);
@@ -351,8 +359,8 @@ export class ViewCube {
       return;
     }
     const r = window.devicePixelRatio || 1;
-    const bw = Math.round(VC.w * r);
-    const bh = Math.round(VC.h * r);
+    const bw = Math.round((VC.w + PAD.l) * r);
+    const bh = Math.round((VC.h + PAD.b) * r);
     if (c.width !== bw || c.height !== bh) {
       c.width = bw;
       c.height = bh;
@@ -364,7 +372,8 @@ export class ViewCube {
       return;
     }
     g.setTransform(r, 0, 0, r, 0, 0);
-    g.clearRect(0, 0, VC.w, VC.h);
+    g.clearRect(0, 0, VC.w + PAD.l, VC.h + PAD.b);
+    g.translate(PAD.l, 0);
     const dark = this.host.dark();
     const ink = dark ? '#e7eaf0' : '#2a2f3a';
     const faceC = dark ? '#4a5262' : '#d9dde4';
@@ -497,6 +506,7 @@ export class ViewCube {
         ViewCube.rollIcon(g, rl.sg, hover?.type === 'roll' && hover.sg === rl.sg ? hi : ink);
       }
     }
+    g.translate(-PAD.l, 0);
     const q = this.host.camera.q;
     for (const [n, e, cv] of [
       ['X', [1, 0, 0], '--ax'],
@@ -507,14 +517,14 @@ export class ViewCube {
       g.strokeStyle = css(cv);
       g.lineWidth = 2;
       g.beginPath();
-      g.moveTo(18, 152);
-      g.lineTo(18 + v.x * 24, 152 - v.y * 24);
+      g.moveTo(AXES.x, AXES.y);
+      g.lineTo(AXES.x + v.x * AXES.len, AXES.y - v.y * AXES.len);
       g.stroke();
       g.fillStyle = css(cv);
       g.font = '700 10px sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(n, 18 + v.x * 33, 152 - v.y * 33);
+      g.fillText(n, AXES.x + v.x * AXES.label, AXES.y - v.y * AXES.label);
     }
   }
 }

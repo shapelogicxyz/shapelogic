@@ -173,6 +173,17 @@ async function rescued(page: Page): Promise<number> {
   return rev;
 }
 
+/** The names New lists the grids by (the original's grid selector). */
+const NEW_NAMES: Record<string, string> = {
+  bricks: 'Brick',
+  sliding: 'Sliding',
+  stacking: 'Stacking',
+  prisms: 'Triangular Prism',
+  spheres: 'Spheres',
+  rhombic: 'Rhombic',
+  tetraOcta: 'Tetrahedra-Octahedra',
+};
+
 test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', async () => {
   const a = await launch();
   try {
@@ -189,19 +200,33 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
     await menu(page, 'new');
     expect(
       await page
-        .locator('#newPuzzle [data-x]')
-        .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.x).filter((x) => x !== '')),
+        .locator('#newPuzzle [data-grid]')
+        .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.grid)),
     ).toEqual(['bricks', 'sliding', 'stacking', 'prisms', 'spheres', 'rhombic', 'tetraOcta']);
     for (const g of grids) {
-      await expect(page.locator(`#newPuzzle [data-x="${g.grid}"]`)).toHaveText(g.label);
+      await expect(page.locator(`#newPuzzle [data-grid="${g.grid}"]`)).toHaveText(
+        NEW_NAMES[g.grid] ?? '',
+      );
     }
+    // the first grid is selected, with its description and picture; OK and Cancel, nothing else
+    await expect(page.locator('#newPuzzle [data-grid="bricks"]')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(page.locator('#newInfo')).toContainText('Pieces are made of cubes.');
+    await expect(page.locator('#newInfo img')).toBeVisible();
+    await page.click('#newPuzzle [data-grid="spheres"]');
+    await expect(page.locator('#newInfo')).toContainText('Pieces are made of balls.');
+    await expect(page.locator('#newInfo')).toContainText('Warning:');
+    expect(await page.locator('#newPuzzle .bt button').allTextContents()).toEqual(['Cancel', 'OK']);
     await page.keyboard.press('Escape');
     await expect(page.locator('#newPuzzle')).toHaveCount(0);
     expect((await docOf(page)).grid).toBe('prisms');
     for (const g of grids) {
       const gen = await page.getAttribute('#stage', 'data-generation');
       await page.keyboard.press('Control+n');
-      await page.click(`#newPuzzle [data-x="${g.grid}"]`);
+      await page.click(`#newPuzzle [data-grid="${g.grid}"]`);
+      await page.click('#newPuzzle [data-x="ok"]');
       await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', gen ?? '');
       const snap = await docOf(page);
       expect(snap.grid).toBe(g.grid);
@@ -584,7 +609,7 @@ test('a save while solving at a save point; the paused solver state exported and
   try {
     const { page } = a;
     await page.keyboard.press('Control+n');
-    await page.click('#newPuzzle [data-x="bricks"]');
+    await page.click('#newPuzzle [data-x="ok"]');
     await expect(page.locator('#fname')).toHaveText('Untitled');
     // one thread (the setting): the 2x4x6 box of dominoes runs for minutes
     await page.keyboard.press('Control+,');

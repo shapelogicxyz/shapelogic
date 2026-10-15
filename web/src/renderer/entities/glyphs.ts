@@ -18,12 +18,12 @@ const SL: Record<Axis, [[number, number], [number, number]]> = {
     [17, 20],
   ],
   y: [
-    [6, 21],
-    [13, 14],
-  ],
-  z: [
     [8, 21],
     [8, 9],
+  ],
+  z: [
+    [6, 21],
+    [13, 14],
   ],
 };
 
@@ -31,7 +31,7 @@ const gsv = (inner: string, sz: number): string =>
   `<svg class="gx" width="${sz}" height="${sz}" viewBox="0 0 32 32" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const FRAME =
-  '<path d="M4 28V3" stroke="var(--az)" stroke-width="1.7"/><path d="M4 28H29" stroke="var(--ax)" stroke-width="1.7"/><path d="M4 28L15 17" stroke="var(--ay)" stroke-width="1.7"/>';
+  '<path d="M4 28V3" stroke="var(--ay)" stroke-width="1.7"/><path d="M4 28H29" stroke="var(--ax)" stroke-width="1.7"/><path d="M4 28L15 17" stroke="var(--az)" stroke-width="1.7"/>';
 
 function gbox(x: number, y: number, w: number, h: number, e: number, c: string | null): string {
   const F = `M${x} ${y}h${w}v${h}h-${w}z`;
@@ -44,7 +44,12 @@ function gbox(x: number, y: number, w: number, h: number, e: number, c: string |
 }
 
 const mline = (a: Axis): string =>
-  `<path d="${a === 'x' ? 'M16.5 9V27' : a === 'y' ? 'M8 16L18 26' : 'M5 18.5H28'}" stroke="currentColor" stroke-opacity=".7" stroke-width="1.3" stroke-dasharray="2 2"/>`;
+  `<path d="${a === 'x' ? 'M16.5 9V27' : a === 'y' ? 'M5 18.5H28' : 'M8 16L18 26'}" stroke="currentColor" stroke-opacity=".7" stroke-width="1.3" stroke-dasharray="2 2"/>`;
+
+// The part of a Transform glyph that travels to where the button sends it:
+// styles.css moves it on hover, so the button previews its own movement.
+const moving = (from: [number, number], to: [number, number], inner: string): string =>
+  `<g class="mv" style="--dx:${to[0] - from[0]}px;--dy:${to[1] - from[1]}px">${inner}</g>`;
 
 const PENCIL =
   '<path d="M3 29l2-8L23 3l6 6L11 27z" fill="#f5b942" stroke="#7a4a00" stroke-width="1.6"/><path d="M3 29l2-8 6 6z" fill="#f6dfb2" stroke="#7a4a00" stroke-width="1.2"/>';
@@ -87,7 +92,10 @@ export const G = {
     const s = SL[a];
     const [so, gh] = v !== 0 ? [s[1], s[0]] : [s[0], s[1]];
     return gsv(
-      FRAME + mline(a) + gbox(gh[0], gh[1], 7, 7, 3, null) + gbox(so[0], so[1], 7, 7, 3, CUBEC[a]),
+      FRAME +
+        mline(a) +
+        gbox(gh[0], gh[1], 7, 7, 3, null) +
+        moving(so, gh, gbox(so[0], so[1], 7, 7, 3, CUBEC[a])),
       sz,
     );
   },
@@ -95,7 +103,9 @@ export const G = {
     const s = SL[a];
     const [so, gh] = sg > 0 ? [s[0], s[1]] : [s[1], s[0]];
     return gsv(
-      FRAME + gbox(gh[0], gh[1], 7, 7, 3, null) + gbox(so[0], so[1], 7, 7, 3, CUBEC[a]),
+      FRAME +
+        gbox(gh[0], gh[1], 7, 7, 3, null) +
+        moving(so, gh, gbox(so[0], so[1], 7, 7, 3, CUBEC[a])),
       sz,
     );
   },
@@ -105,9 +115,14 @@ export const G = {
       a === 'x'
         ? gbox(6, 19, 16, 6, 3, c)
         : a === 'y'
-          ? gbox(8, 22, 6, 6, 10, c)
-          : gbox(12, 9, 6, 17, 3, c);
-    return gsv(FRAME + bar + arcArrow(17, 17, 10, sg, 'currentColor'), sz);
+          ? gbox(12, 9, 6, 17, 3, c)
+          : gbox(8, 22, 6, 6, 10, c);
+    return gsv(
+      FRAME +
+        bar +
+        `<g class="spin" style="--rot:${sg > 0 ? 75 : -75}deg">${arcArrow(17, 17, 10, sg, 'currentColor')}</g>`,
+      sz,
+    );
   },
   mirror(a: Axis, sz = 30): string {
     const s = SL[a];
@@ -125,13 +140,13 @@ export const G = {
         (a === 'x'
           ? gbox(6, 20, 21, 7, 3, CUBEC[a])
           : a === 'y'
-            ? gbox(6, 23, 7, 5, 11, CUBEC[a])
-            : gbox(9, 6, 7, 21, 3, CUBEC[a])),
+            ? gbox(9, 6, 7, 21, 3, CUBEC[a])
+            : gbox(6, 23, 7, 5, 11, CUBEC[a])),
       sz,
     );
   },
   plane(p: Plane, sz = 30): string {
-    const d = { XY: 'M4 28H22L29 21H11Z', XZ: 'M4 28H22V8H4Z', YZ: 'M4 28L12 20V4L4 12Z' }[p];
+    const d = { XY: 'M4 28H22V8H4Z', XZ: 'M4 28H22L29 21H11Z', YZ: 'M4 28L12 20V4L4 12Z' }[p];
     return gsv(
       `<path d="${d}" fill="var(--accent)" fill-opacity=".32" stroke="var(--accent)" stroke-width="1.3"/>` +
         FRAME,

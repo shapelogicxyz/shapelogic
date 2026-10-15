@@ -845,8 +845,13 @@ export class Explorer {
       return;
     }
     const m = this.mode;
+    const segTip: Record<ExplorerMode, string> = {
+      placements: 'Browse the placements of each piece',
+      step: 'Advance the assembler one step at a time',
+      movements: 'Browse the disassembly search of the selected solution',
+    };
     const seg = (k: ExplorerMode, label: string): string =>
-      `<button data-ex="${k}" class="${m === k ? 'on' : ''}" ${this.allowed(k) || m === k ? '' : 'disabled'}>${label}</button>`;
+      `<button data-ex="${k}" class="${m === k ? 'on' : ''}" ${this.allowed(k) || m === k ? '' : 'disabled'} title="${segTip[k]}">${label}</button>`;
     const sub =
       m === 'placements'
         ? 'Every placement of each piece, in the assembler’s order'
@@ -863,7 +868,7 @@ export class Explorer {
     // the parts kept, their contents set: the list keeps the keyboard focus
     if (d.querySelector('.dl') === null) {
       d.innerHTML =
-        '<div class="dh"></div><div class="db"><div class="dl" tabindex="0" aria-label="Explorer list"></div><div class="dr"></div></div>';
+        '<div class="dh"></div><div class="db"><div class="dl" tabindex="0" aria-label="Explorer list" title="Select a piece; ↑ ↓ and ← → move through the list"></div><div class="dr"></div></div>';
     }
     setHtml(d.querySelector<HTMLElement>('.dh') ?? d, head);
     setHtml(d.querySelector<HTMLElement>('.dl') ?? d, list);
@@ -902,7 +907,7 @@ export class Explorer {
     } else {
       const q = pl[this.selPlacement];
       right =
-        `<div class="ctl"><button class="btn sm" data-exa="prev" ${this.selPlacement > 0 ? '' : 'disabled'}>◀ Back</button><button class="btn sm pri" data-exa="next" ${this.selPlacement < pl.length - 1 ? '' : 'disabled'}>Next ▶</button><input type="range" data-f="placement" min="0" max="${String(pl.length - 1)}" value="${String(this.selPlacement)}" aria-label="Placement"></div>` +
+        `<div class="ctl"><button class="btn sm" data-exa="prev" ${this.selPlacement > 0 ? '' : 'disabled'} title="The previous placement of this piece">◀ Back</button><button class="btn sm pri" data-exa="next" ${this.selPlacement < pl.length - 1 ? '' : 'disabled'} title="The next placement of this piece">Next ▶</button><input type="range" data-f="placement" title="Drag through the placements of this piece" min="0" max="${String(pl.length - 1)}" value="${String(this.selPlacement)}" aria-label="Placement"></div>` +
         `<div class="info"><b>${esc(p?.label ?? '')}</b> · placement ${String(this.selPlacement + 1)} of ${String(pl.length)} · orientation ${String(q?.transformation ?? 0)} at (${(q?.at ?? []).join(', ')})</div>` +
         '<div class="info">The view shows the result as a wire frame and the piece in this placement. ↑ ↓ the placement, ← → the piece.</div>';
     }
@@ -923,7 +928,7 @@ export class Explorer {
     const busy = this.busy > 0 || this.axStep === null;
     const dis = busy ? 'disabled' : '';
     const right =
-      `<div class="ctl"><button class="btn sm pri" data-exa="step" data-n="1" ${dis}>Step ▶</button><button class="btn sm" data-exa="step" data-n="10" ${dis}>10 ▶</button><button class="btn sm" data-exa="step" data-n="100" ${dis}>100 ▶</button><button class="btn sm" data-exa="step" data-n="1000" ${dis}>Run ▶▶</button><button class="btn sm" data-exa="reset" ${dis}>Reset</button></div>` +
+      `<div class="ctl"><button class="btn sm pri" data-exa="step" data-n="1" ${dis} title="Advance the assembler one step">Step ▶</button><button class="btn sm" data-exa="step" data-n="10" ${dis} title="Advance the assembler ten steps">10 ▶</button><button class="btn sm" data-exa="step" data-n="100" ${dis} title="Advance the assembler a hundred steps">100 ▶</button><button class="btn sm" data-exa="step" data-n="1000" ${dis} title="Advance the assembler a thousand steps">Run ▶▶</button><button class="btn sm" data-exa="reset" ${dis} title="Take the assembler back to its start">Reset</button></div>` +
       `<div class="info">${String(placed.size)} of ${String(this.pieces.length)} pieces placed · ${String(this.stepsTaken)} step${this.stepsTaken === 1 ? '' : 's'} taken · search ${(this.finished * 100).toFixed(1)} % done${this.finished >= 1 ? ' (through)' : ''}</div>` +
       `<div class="tree">${this.pieces.map((p) => `<i class="${placed.has(p.piece) ? 'on' : ''}">${esc(p.label)}</i>`).join('')}</div>` +
       '<div class="info" style="margin-top:auto">An assembler of its own, prepared with the search options shown: stepping it never moves the solve. Space steps once.</div>';

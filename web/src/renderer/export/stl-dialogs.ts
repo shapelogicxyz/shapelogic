@@ -209,13 +209,18 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
     wide: true,
     body: `<div class="stl-dlg"><div class="form stl-side">
 <div class="stl-params">${parameterRows(params, fields)}</div>
-<label><input type="checkbox" data-f="binary" ${binaryChosen ? 'checked' : ''}> Binary STL</label>
-<label class="fl">Shape<select data-f="shape">${shapes.map((s) => `<option value="${esc(s.id)}" ${s === first ? 'selected' : ''}>${esc(s.label)}${s.name === '' ? '' : ` — ${esc(s.name)}`}</option>`).join('')}</select></label></div>
+<label title="A binary STL file is smaller; a text STL file can be read in an editor"><input type="checkbox" data-f="binary" ${binaryChosen ? 'checked' : ''}> Binary STL</label>
+<label class="fl">Shape<select data-f="shape" title="The shape to export">${shapes.map((s) => `<option value="${esc(s.id)}" ${s === first ? 'selected' : ''}>${esc(s.label)}${s.name === '' ? '' : ` — ${esc(s.name)}`}</option>`).join('')}</select></label></div>
 <div class="stl-look"><canvas class="stl-view" data-f="view"></canvas>
 <div class="stl-bar"><div class="stl-status" data-f="status"></div><div class="seg"><button data-mode="normal" class="on" title="Display STL object normally">Normal</button><button data-mode="insides" title="Display the insides of the STL object">Insides</button></div></div></div></div>`,
     buttons: [
       { key: 'close', label: 'Close' },
-      { key: 'go', label: 'Export STL…', kind: 'pri' },
+      {
+        key: 'go',
+        label: 'Export STL…',
+        kind: 'pri',
+        tip: 'Choose a file and write the shape to it as STL',
+      },
     ],
     onAnswer: (k, el) => {
       if (k === 'go') {
@@ -331,7 +336,13 @@ export async function solutionStlDialog(
           overwriteQuestion(existing),
           [
             { key: 'cancel', label: 'Cancel' },
-            { key: 'overwrite', label: 'Overwrite', kind: 'danger', default: true },
+            {
+              key: 'overwrite',
+              label: 'Overwrite',
+              kind: 'danger',
+              default: true,
+              tip: 'Replace the files that are already there',
+            },
           ],
         );
         if (answer !== 'overwrite') {
@@ -370,13 +381,18 @@ export async function solutionStlDialog(
     title: 'Export Solution Pieces to STL',
     body: `<div class="form">
 <div class="stl-params">${parameterRows(params, fields)}</div>
-<div class="fl">Output folder<span class="stl-folder" data-f="folder"></span><button class="btn sm" data-a="folder">Choose…</button></div>
-<label><input type="checkbox" data-f="binary" ${binaryChosen ? 'checked' : ''}> Binary STL</label>
+<div class="fl">Output folder<span class="stl-folder" data-f="folder"></span><button class="btn sm" data-a="folder" title="Choose the folder the STL files are written to">Choose…</button></div>
+<label title="A binary STL file is smaller; a text STL file can be read in an editor"><input type="checkbox" data-f="binary" ${binaryChosen ? 'checked' : ''}> Binary STL</label>
 <pre class="stl-pieces" data-f="pieces">${esc(lines.join('\n'))}</pre>
 <div class="stl-status" data-f="status"></div></div>`,
     buttons: [
       { key: 'close', label: 'Close' },
-      { key: 'go', label: 'Export All', kind: 'pri' },
+      {
+        key: 'go',
+        label: 'Export All',
+        kind: 'pri',
+        tip: 'Write each piece of the solution to its own STL file',
+      },
     ],
     onAnswer: (k, el) => {
       if (k === 'go') {

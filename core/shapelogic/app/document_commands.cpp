@@ -529,6 +529,30 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   return mine;
 }
 
+Result<mesh::DrawMesh> Document::shapeTaskPreview(Id shape, ShapeTask task) const {
+  const Result<unsigned int> s = shapeIndex(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking puzzle's shapes are discs: the tool tabs do not change them");
+      !r) {
+    return std::unexpected(r.error());
+  }
+  const std::vector<ShapeTaskInfo> set = taskSet(puzzle_->getGridType().getType());
+  if (std::none_of(set.begin(), set.end(),
+                   [task](const ShapeTaskInfo& t) { return t.task == task; })) {
+    return fail(Errc::Unsupported, "this grid has no such shape operation");
+  }
+  const std::unique_ptr<Voxel> copy = puzzle_->getShape(*s).clone();
+  if (task == ShapeTask::Minimize) {
+    minimizeShapes({copy.get()});
+  } else if (const Result<TaskOutcome> o = applyTask(*copy, task); !o) {
+    return std::unexpected(o.error());
+  }
+  return mesh::shapeDrawMesh(*copy, mesh::MeshStyle::Drawing);
+}
+
 // ---- colours -----------------------------------------------------------------------
 
 Result<Id> Document::addColour(Rgb rgb) {

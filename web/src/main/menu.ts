@@ -230,11 +230,11 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         },
       },
       SEP,
-      radio('colourView.off', 'Display Normally with Shape Colour', !s.colourView, {
+      radio('colourView.off', 'Display Normally with Shape Color', !s.colourView, {
         cmd: 'colourView',
         on: false,
       }),
-      radio('colourView.on', 'Display with Colour Constraint Colours', s.colourView, {
+      radio('colourView.on', 'Display with Color Constraint Colors', s.colourView, {
         cmd: 'colourView',
         on: true,
       }),

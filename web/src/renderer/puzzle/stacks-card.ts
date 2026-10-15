@@ -80,7 +80,7 @@ export class StacksCard {
     const frozen = ws.problemFrozen;
     setHtml(
       el,
-      `<div class="pz-result">${head}<button class="btn sm" id="pzSetRods" title="Set the selected rod set as this problem's board" ${ws.boardSel === null || ws.boardSel === ws.detail.rodSet || frozen ? 'disabled' : ''}>Set Start/Goal Rods</button></div><div class="rodlist" role="listbox" aria-label="Rods">${rows}</div>`,
+      `<div class="pz-result">${head}<button class="btn sm" id="pzSetRods" title="Set the selected rod set as this problem's board" ${ws.boardSel === null || ws.boardSel === ws.detail.rodSet || frozen ? 'disabled' : ''}>Set Start/Goal Rods</button></div><div class="rodlist" role="listbox" aria-label="Rods" title="Rod sets that can be this problem’s board">${rows}</div>`,
     );
     el.dataset.rodSet = ws.detail.rodSet ?? '';
   }
@@ -131,7 +131,7 @@ export class StacksCard {
         `<div class="pzh">Stack Order</div>` +
         `<div class="stackbtns"><button class="btn sm" data-s="up" title="Move the selected disc up the rod" ${on(row > 0 && row < depth)}>↑</button><button class="btn sm" data-s="down" title="Move the selected disc down the rod" ${on(row + 1 < depth)}>↓</button><button class="btn sm" data-s="add" title="Add another one of the selected shape" ${on(ws.sel !== null, false)}>+1</button><button class="btn sm" data-s="remove" title="Remove one of the selected shapes" ${on(depth > 0)}>−1</button><button class="btn sm" data-s="all" title="Add one of all shapes except result" ${on(shapes.length > 0, false)}>All +1</button><button class="btn sm" data-s="clear" title="Remove all pieces" ${on(true)}>Clear All</button></div>` +
         `<div class="stackvalid ${v.valid ? '' : 'bad'}" id="pzStackValid" role="status" title="Whether the start and goal stackings obey the rod set's rules" data-valid="${v.valid ? '1' : '0'}">${esc(v.text)}</div>` +
-        `<div class="stacklist" role="listbox" aria-label="Discs on the selected rod, top of the list is the top of the stack">${list}</div>`,
+        `<div class="stacklist" role="listbox" aria-label="Discs on the selected rod, top of the list is the top of the stack" title="Discs on the selected rod, top of the list is the top of the stack">${list}</div>`,
     );
     el.dataset.rod = String(ws.rod);
     el.dataset.goal = ws.goal ? '1' : '0';
