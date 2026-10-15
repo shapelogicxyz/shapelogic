@@ -226,7 +226,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 58,
+     "elapsedMs": 55,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,

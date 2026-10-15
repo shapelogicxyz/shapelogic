@@ -667,6 +667,12 @@ export interface ShapeSummary {
    * @minimum 1
    */
   disc: number | null;
+  /**
+   * A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view
+   * draws the disc in (the original's diskTint); null for a disc without one, or for any other
+   * shape.
+   */
+  discColour: ColourId | null;
 }
 
 export interface Colour {

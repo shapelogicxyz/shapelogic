@@ -3,8 +3,9 @@
 // The default colours of the shapes, by shape number, and the varied
 // colours of a piece's copies. Ported from src/gui/piececolor.cpp of the
 // original (pieceColorR/G/B, pieceColorRi/Gi/Bi, the jitter of the
-// multi-pieces, darkPieceColor, lightPieceColor, contrastPieceColor). A
-// shape with a colour of its own (ShapeSummary.colour) uses that instead.
+// multi-pieces, darkPieceColor, lightPieceColor, contrastPieceColor) and
+// diskTint of src/gui/voxelframe.cpp. A shape with a colour of its own
+// (ShapeSummary.colour) uses that instead.
 
 /** A colour as three numbers from 0 to 1. */
 export type Rgb3 = readonly [number, number, number];
@@ -170,6 +171,31 @@ export interface ShapeLike {
   colour: string | null;
   /** A sliding start/goal shape's number; null (or absent) for any other shape. */
   startGoal?: number | null;
+}
+
+/** A palette colour (a Colour of the snapshot). */
+export interface PaletteColour {
+  id: string;
+  rgb: string;
+}
+
+/**
+ * The colour of copy `sub` of shape number `index` in a solution or on a
+ * stacking board: a disc's palette colour when its cells carry one (the
+ * original's diskTint, so a Panex tower's discs are shades the file
+ * chose), else the copy's.
+ */
+export function copyColour(
+  s: (ShapeLike & { discColour?: string | null }) | undefined,
+  index: number,
+  sub: number,
+  palette: readonly PaletteColour[],
+): Rgb3 {
+  const disc = s?.discColour ?? null;
+  const rgb = disc === null ? undefined : palette.find((c) => c.id === disc)?.rgb;
+  return rgb === undefined
+    ? pieceSubColour(index, sub, shapeColour(s?.colour ?? null, index))
+    : fromHex(rgb);
 }
 
 /** A shape's chip colour: a tray's black, else its own or its number's. */

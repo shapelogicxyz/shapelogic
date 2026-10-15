@@ -35,7 +35,7 @@ import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
 import { chipColour, contrast, hex } from '../shell/piece-colours.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
-import { pieceSubColour, ROD_CHIP, shapeColour } from '../shell/piece-colours.ts';
+import { copyColour, ROD_CHIP } from '../shell/piece-colours.ts';
 import { boardCentre } from '../view3d/board.ts';
 import type { View3D } from '../view3d/view.ts';
 import { rodSetText } from '../state/stacking.ts';
@@ -308,20 +308,19 @@ export class PuzzleWorkspace {
         return [];
       }
       const i = store.indexOf(x.shape);
-      const base = shapeColour(snap.shapes[i]?.colour ?? null, i);
       return [
         {
           shape: x.shape,
           size: x.size,
           at: x.at,
-          colour: pieceSubColour(i, x.instance, base),
+          colour: copyColour(snap.shapes[i], i, x.instance, snap.colours),
         },
       ];
     });
     this.view3d.setBoard(
       {
         // what is drawn, not when: a board read for Start or Goal may come at the same revision
-        key: `board:${d.id}:${String(layout.panex)}:${String(layout.pocket)}:${String(layout.maxSize)}:${layout.rodX.join(',')}:${layout.rodHeights.join(',')}:${discs.map((x) => `${x.shape}@${x.at.join(',')}`).join(' ')}`,
+        key: `board:${d.id}:${String(layout.panex)}:${String(layout.pocket)}:${String(layout.maxSize)}:${layout.rodX.join(',')}:${layout.rodHeights.join(',')}:${discs.map((x) => `${x.shape}@${x.at.join(',')}:${hex(x.colour)}`).join(' ')}`,
         layout,
         centre,
         discs,

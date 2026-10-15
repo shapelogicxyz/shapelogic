@@ -32,7 +32,7 @@ import { EngineError } from '../../engine/errors.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
-import { pieceSubColour, shapeColour } from '../shell/piece-colours.ts';
+import { copyColour } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
@@ -732,7 +732,6 @@ function piecesOf(
   for (const part of parts) {
     const i = store.indexOf(part.shape);
     const s = snap?.shapes[i];
-    const base = shapeColour(s?.colour ?? null, i);
     for (let q = 0; q < part.max; q++) {
       const pl = placements[first + q];
       if (pl?.placed === true) {
@@ -740,7 +739,7 @@ function piecesOf(
           piece: pl.piece,
           shape: part.shape,
           label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
-          colour: pieceSubColour(i, q, base),
+          colour: copyColour(s, i, q, snap?.colours ?? []),
           transformation: pl.transformation,
           at: [pl.at[0], pl.at[1], pl.at[2]],
         });

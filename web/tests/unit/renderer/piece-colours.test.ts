@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bytes,
   contrast,
+  copyColour,
   dark,
   hex,
   light,
@@ -65,5 +66,24 @@ describe('piece colours', () => {
     expect(light([0, 1, 0.5])[2]).toBeCloseTo(0.55);
     expect(hex(shapeColour('#12ab34', 3))).toBe('#12ab34');
     expect(hex(shapeColour(null, 2))).toBe('#ff0000');
+  });
+
+  it("give a disc its palette colour, else the copy's (diskTint)", () => {
+    const palette = [
+      { id: 'c1', rgb: '#ffdc5a' },
+      { id: 'c2', rgb: '#aa1919' },
+    ];
+    const disc = { colour: null, discColour: 'c2' };
+    expect(hex(copyColour(disc, 0, 0, palette))).toBe('#aa1919');
+    expect(hex(copyColour(disc, 0, 3, palette))).toBe('#aa1919');
+    const plain = { colour: '#12ab34', discColour: null };
+    expect(copyColour(plain, 4, 2, palette)).toEqual(
+      pieceSubColour(4, 2, shapeColour('#12ab34', 4)),
+    );
+    // a colour the palette no longer has: the copy's
+    expect(copyColour({ colour: null, discColour: 'c9' }, 7, 1, palette)).toEqual(
+      pieceSubColour(7, 1),
+    );
+    expect(copyColour(undefined, 7, 1, palette)).toEqual(pieceSubColour(7, 1));
   });
 });
