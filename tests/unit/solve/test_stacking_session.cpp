@@ -375,7 +375,7 @@ TEST_CASE("stacking session: what Solve refuses, and the notes", "[stacking]") {
     CHECK(r.error().code == Errc::Unsupported);
     CHECK(r.error().message.find("Panex Style Columns") != std::string::npos);
     // the Stacking Solver takes it
-    o.stacking.solver = StackingSolver::Stacking;
+    o.stacking.solver = StackingSolver::Shortest;
     REQUIRE(s.setOptions(o).has_value());
     REQUIRE(s.start().has_value());
     s.wait();

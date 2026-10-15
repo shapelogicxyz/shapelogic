@@ -40,7 +40,7 @@ bt::sliding::SlidingSolver slidingSolverByName(const std::string& name) {
 
 bt::stacking::StackingSolver stackingSolverByName(const std::string& name) {
   if (name == "stacking") {
-    return bt::stacking::StackingSolver::Stacking;
+    return bt::stacking::StackingSolver::Shortest;
   }
   if (name == "panex") {
     return bt::stacking::StackingSolver::Panex;

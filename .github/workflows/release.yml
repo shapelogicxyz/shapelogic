@@ -69,9 +69,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: web/package-lock.json
+      # GCC (Linux, MinGW) warns where clang does not (docs: the project's -Werror
+      # was only ever run with clang), so these two builds keep the warnings
+      # in the log but do not fail on them.
       - name: Build the engine
         run: |
-          cmake --preset release
+          cmake --preset release -DBT_WERROR=OFF
           cmake --build --preset release
       - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
         run: ctest --preset release -LE slow
@@ -114,7 +117,7 @@ jobs:
       - name: Build the engine
         shell: msys2 {0}
         run: |
-          cmake --preset release
+          cmake --preset release -DBT_WERROR=OFF
           cmake --build --preset release
       - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
         shell: msys2 {0}
@@ -146,8 +149,6 @@ jobs:
             preset: release-x64
             dist_dir: mac
     env:
-      CSC_LINK: ${{ secrets.MACOS_CERT_P12_BASE64 }}
-      CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
       # electron-builder notarises only when APPLE_API_KEY, APPLE_API_KEY_ID and
       # APPLE_API_ISSUER are all set, so a manual run leaves them out
       NOTARISE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.notarise }}
@@ -170,6 +171,28 @@ jobs:
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
+      # electron-builder's own import of CSC_LINK fails on this runner (it unlocks
+      # its temporary keychain with the .p12's password, not the keychain's), so
+      # the certificate goes into a keychain here and dist.ts is given CSC_NAME.
+      - name: Import the Developer ID certificate
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          keychain="${RUNNER_TEMP}/signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          printf '%s' "${MACOS_CERT_P12_BASE64}" | base64 --decode > "${RUNNER_TEMP}/cert.p12"
+          curl -fsSL -o "${RUNNER_TEMP}/DeveloperIDG2CA.cer" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          security create-keychain -p "${keychain_password}" "${keychain}"
+          security set-keychain-settings -lut 21600 "${keychain}"
+          security unlock-keychain -p "${keychain_password}" "${keychain}"
+          security import "${RUNNER_TEMP}/DeveloperIDG2CA.cer" -k "${keychain}"
+          security import "${RUNNER_TEMP}/cert.p12" -k "${keychain}" -P "${MACOS_CERT_PASSWORD}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${keychain_password}" "${keychain}" > /dev/null
+          security list-keychains -d user -s "${keychain}" $(security list-keychains -d user | tr -d '"')
+          rm -f "${RUNNER_TEMP}/cert.p12"
+          security find-identity -v -p codesigning "${keychain}"
+          echo "CSC_NAME=$(security find-identity -v -p codesigning "${keychain}" | sed -nE 's/.*"(Developer ID Application: [^"]+)".*/\1/p' | head -1)" >> "${GITHUB_ENV}"
       - name: Put the notarisation key in a file
         if: env.NOTARISE == 'true'
         env:
@@ -197,9 +220,11 @@ jobs:
         run: |
           spctl -a -vv -t exec "dist/${{ matrix.dist_dir }}/ShapeLogic.app"
           for dmg in dist/*.dmg; do xcrun stapler validate "${dmg}"; done
-      - name: Remove the notarisation key
-        if: always() && env.NOTARISE == 'true'
-        run: rm -f "${APPLE_API_KEY}"
+      - name: Remove the keychain and the notarisation key
+        if: always()
+        run: |
+          security delete-keychain "${RUNNER_TEMP}/signing.keychain-db" || true
+          rm -f "${APPLE_API_KEY:-}"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}

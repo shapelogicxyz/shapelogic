@@ -69,7 +69,7 @@ struct StackSearch {
 enum class StackingSolver : std::uint8_t {
   /// "Stacking Solver": the fewest transfers; it runs on the Panex search
   /// when the puzzle fits that one, else on findStackPath.
-  Stacking,
+  Shortest,
   /// "Panex Solver": the Panex search alone (Panex columns only).
   Panex,
 };
@@ -78,7 +78,7 @@ enum class StackingSolver : std::uint8_t {
 /// flags: PAR_PANEX_SOLVER, PAR_HIGH_MEMORY, PAR_PANEX_NO_AUTOSAVE), and
 /// where a Panex search is saved.
 struct StackingOptions {
-  StackingSolver solver = StackingSolver::Stacking;
+  StackingSolver solver = StackingSolver::Shortest;
   bool highMemory = false;
   /// The Panex search saves itself every 20 minutes; false saves it only
   /// when it stops (the GUI's Autosave box off).

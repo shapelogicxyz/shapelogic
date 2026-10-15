@@ -39,7 +39,7 @@ const Names<sliding::SlidingSolver>& slidingSolverNames() {
 }
 
 const Names<stacking::StackingSolver>& stackingSolverNames() {
-  static const Names<stacking::StackingSolver> n = {{"stacking", stacking::StackingSolver::Stacking},
+  static const Names<stacking::StackingSolver> n = {{"stacking", stacking::StackingSolver::Shortest},
                                                     {"panex", stacking::StackingSolver::Panex}};
   return n;
 }

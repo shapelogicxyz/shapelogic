@@ -257,7 +257,7 @@ std::uint64_t panexDiskBudget(const Options& o) {
 bt::stacking::StackingOptions stackingOptions(const Options& o) {
   bt::stacking::StackingOptions s;
   s.solver = o.panexSolver ? bt::stacking::StackingSolver::Panex
-                           : bt::stacking::StackingSolver::Stacking;
+                           : bt::stacking::StackingSolver::Shortest;
   s.highMemory = o.highMemory;
   s.workDir = panexWorkDir(o);
   s.diskBudget = panexDiskBudget(o);
