@@ -1055,6 +1055,7 @@ def stacking_rod_sets_discs_and_stacks(e):
     check(ev["what"] == ["shapes"] and ev["shapes"] == [discs[-1]], f"the size's change {ev}")
     shapes = e.call("document.get")["shapes"]
     check([x["disc"] for x in shapes] == [3, 2, 1] and shapes[0]["size"] == [7, 7, 1], f"the discs {shapes}")
+    check([x["discColour"] for x in shapes] == [None] * 3, f"no disc colours {shapes}")
     e.fails("shape.create", {"size": [3, 3, 1]}, "invalid_argument")
     e.fails("shape.setCells", {"shape": discs[0], "tool": "erase", "cells": [[0, 0, 0]]}, "invalid_argument")
     e.fails("stacking.setDiscSize", {"shape": discs[0], "size": 101}, "invalid_params")
@@ -1172,6 +1173,21 @@ def panex_swap(n):
             f'     <rod pieces="{right}"/>\n     <rod/>\n     <rod pieces="{left}"/>\n'
             '    </goal>\n   </stacking>\n   <bitmap/>\n  </problem>\n </problems>\n'
             ' <comment/>\n</puzzle>\n')
+
+
+@test
+def stacking_disc_colours(e):
+    """A disc's colour is its first coloured cell's palette colour (the
+    original's diskTint; the Panex example's shades)."""
+    tower = read_puzzle_bytes(FIXTURES / "stacking" / "stack_tower_2.xmpuzzle").decode()
+    tower = (tower.replace("<colors/>", '<colors><color red="255" green="220" blue="90"/>'
+                           '<color red="170" green="25" blue="25"/></colors>')
+             .replace(">############_############<", ">" + "#2" * 12 + "_" + "#2" * 12 + "<")
+             .replace(">####_####<", ">####_####1<"))
+    tinted = e.call("document.openBytes", {"data": base64.b64encode(tower.encode()).decode()})
+    colours = [c["id"] for c in tinted["colours"]]
+    check([x["discColour"] for x in tinted["shapes"]] == [colours[1], colours[0]],
+          f"the discs' colours {tinted['shapes']}")
 
 
 @test

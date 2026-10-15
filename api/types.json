@@ -158,9 +158,10 @@
         "weight": {"type": "integer"},
         "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."},
         "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."},
-        "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."}
+        "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."},
+        "discColour": {"oneOf": [{"$ref": "#/$defs/ColourId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal", "disc"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal", "disc", "discColour"],
       "additionalProperties": false
     },
     "Colour": {

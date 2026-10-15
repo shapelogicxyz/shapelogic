@@ -187,6 +187,19 @@ Json shapeColour(const Voxel& v) {
                      static_cast<std::uint8_t>(u)});
 }
 
+// A disc's colour from the palette: its first coloured cell's, the colour
+// the original's 3D view drew it in (diskTint in voxelframe.cpp). The
+// original looked no further than that cell.
+Json discColour(const State& s, const Voxel& v) {
+  for (unsigned int i = 0; i < v.getXYZ(); i++) {
+    if (v.getState(i) != Voxel::kEmpty && v.getColor(i) != 0) {
+      const unsigned int c = v.getColor(i);
+      return c <= s.document().colourIds().size() ? Json(colourId(s, c - 1)) : Json(nullptr);
+    }
+  }
+  return nullptr;
+}
+
 Json optionalCount(bool known, std::uint64_t value) {
   return known ? Json(value) : Json(nullptr);
 }
@@ -228,6 +241,7 @@ Json shapeSummary(const State& s, unsigned int index) {
   j["startGoal"] = startGoal ? Json(sliding::startGoalNumber(&v)) : Json(nullptr);
   const bool disc = stacking::isStacking(s.document().puzzle()) && v.getDiskSize() > 0;
   j["disc"] = disc ? Json(v.getDiskSize()) : Json(nullptr);
+  j["discColour"] = disc ? discColour(s, v) : Json(nullptr);
   return j;
 }
 

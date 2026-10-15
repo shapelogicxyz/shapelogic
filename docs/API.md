@@ -2770,6 +2770,7 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `colour` | [Rgb](#rgb) or null | required | The shape's own colour, or null for the default one. |
 | `startGoal` | integer or null | required | A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape. |
 | `disc` | integer or null | required | A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape. |
+| `discColour` | [ColourId](#colourid) or null | required | A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape. |
 
 ### Colour
 
