@@ -118,8 +118,12 @@ std::unique_ptr<typename A::Voxel> makeShape(int g, int i) {
   if (g == 2) {
     v->initHotspot();
   } else {
-    v->setHotspot(static_cast<int>(r.below(sx)), static_cast<int>(r.below(sy)),
-                  static_cast<int>(r.below(sz)));
+    // drawn in this order (the order of arguments is unspecified: GCC on x86 takes them
+    // right to left, and the recorded dump was made left to right)
+    const auto hx = static_cast<int>(r.below(sx));
+    const auto hy = static_cast<int>(r.below(sy));
+    const auto hz = static_cast<int>(r.below(sz));
+    v->setHotspot(hx, hy, hz);
   }
   return v;
 }
