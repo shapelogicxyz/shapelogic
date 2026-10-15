@@ -20,7 +20,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { engineFile, findEngine } from '../../src/main/engine-path.ts';
 import { binaryArch, distConfig, releaseCli, releaseEngine } from '../../tools/dist.ts';
@@ -95,6 +95,40 @@ describe('the version', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the macOS signing', () => {
+  const was = { name: process.env.CSC_NAME, link: process.env.CSC_LINK };
+  const put = (key: 'CSC_NAME' | 'CSC_LINK', v: string | undefined): void => {
+    if (v === undefined) {
+      Reflect.deleteProperty(process.env, key);
+    } else {
+      process.env[key] = v;
+    }
+  };
+  afterEach(() => {
+    put('CSC_NAME', was.name);
+    put('CSC_LINK', was.link);
+  });
+
+  it('is ad hoc without a certificate, and hardened with allow-jit only with one', () => {
+    put('CSC_NAME', undefined);
+    put('CSC_LINK', undefined);
+    const adhoc = distConfig('1.2.3', '/b/release/engine/bt-engine', 'darwin').mac;
+    expect(adhoc).toMatchObject({ identity: '-', hardenedRuntime: false });
+    expect(adhoc).not.toHaveProperty('entitlements');
+    process.env.CSC_NAME = 'Developer ID Application: Someone (ABCDE12345)';
+    const signed = distConfig('1.2.3', '/b/release/engine/bt-engine', 'darwin').mac;
+    expect(signed).toMatchObject({
+      hardenedRuntime: true,
+      entitlements: 'packaging/entitlements.mac.plist',
+      entitlementsInherit: 'packaging/entitlements.mac.plist',
+    });
+    const plist = readFileSync(resolve(WEB, 'packaging/entitlements.mac.plist'), 'utf8');
+    expect([...plist.matchAll(/<key>([^<]+)<\/key>/g)].map((m) => m[1])).toEqual([
+      'com.apple.security.cs.allow-jit',
+    ]);
   });
 });
 

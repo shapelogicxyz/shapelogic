@@ -163,7 +163,14 @@ export function distConfig(
       category: 'public.app-category.puzzle-games',
       icon: 'packaging/icon.icns',
       // ad hoc unless a certificate is named (then hardened and notarised)
-      ...(signed ? { hardenedRuntime: true } : { identity: '-', hardenedRuntime: false }),
+      // with the project's own entitlements (allow-jit only), for the app and its helpers
+      ...(signed
+        ? {
+            hardenedRuntime: true,
+            entitlements: 'packaging/entitlements.mac.plist',
+            entitlementsInherit: 'packaging/entitlements.mac.plist',
+          }
+        : { identity: '-', hardenedRuntime: false }),
     },
     dmg: { title: 'ShapeLogic ${version}' },
     win: { target: 'nsis', icon: 'packaging/icon.png' },
