@@ -62,6 +62,29 @@ struct GroupRef {
   const unsigned char* minimizer;
 };
 
+/// The lock that guards appending to the registry. Not a std::mutex: the
+/// instance below is constant-initialized, and std::mutex's constructor is
+/// not constexpr on MinGW (winpthreads). Appending is rare (a memo of a pure
+/// function), so waiting on an atomic flag costs nothing that matters.
+class GrowLock {
+ public:
+  constexpr GrowLock() = default;
+
+  void lock() {
+    while (flag_.test_and_set(std::memory_order_acquire)) {
+      flag_.wait(true, std::memory_order_relaxed);
+    }
+  }
+
+  void unlock() {
+    flag_.clear(std::memory_order_release);
+    flag_.notify_one();
+  }
+
+ private:
+  std::atomic_flag flag_;
+};
+
 /// The sphere grid's Symmetries: the generated tables, and the lists met at
 /// run time appended after them. The registry is a memo of a pure function
 /// (a shape's list), only ever appended to, so it is the one piece of
@@ -173,7 +196,7 @@ class SphereSymmetries final : public Symmetries {
       return static_cast<Symmetry>(i);
     }
 
-    const std::lock_guard<std::mutex> lock(grow_);
+    const std::lock_guard<GrowLock> lock(grow_);
     // another thread may have appended it in the meantime
     const unsigned int m = count_.load(std::memory_order_relaxed);
     i = scan(s, n, m);
@@ -208,7 +231,7 @@ class SphereSymmetries final : public Symmetries {
   // the blocks of appended lists, as kept by owners_ (guarded by grow_)
   mutable std::array<std::atomic<Group*>, kBlocks> blocks_{};
   mutable std::atomic<unsigned int> count_{NUM_SYMMETRY_GROUPS};
-  mutable std::mutex grow_;
+  mutable GrowLock grow_;
   mutable std::vector<std::unique_ptr<Group[]>> owners_;
 };
 

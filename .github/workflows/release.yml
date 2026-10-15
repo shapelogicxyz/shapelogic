@@ -192,7 +192,7 @@ jobs:
           security list-keychains -d user -s "${keychain}" $(security list-keychains -d user | tr -d '"')
           rm -f "${RUNNER_TEMP}/cert.p12"
           security find-identity -v -p codesigning "${keychain}"
-          echo "CSC_NAME=$(security find-identity -v -p codesigning "${keychain}" | sed -nE 's/.*"(Developer ID Application: [^"]+)".*/\1/p' | head -1)" >> "${GITHUB_ENV}"
+          echo "CSC_NAME=$(security find-identity -v -p codesigning "${keychain}" | sed -nE 's/.*"Developer ID Application: ([^"]+)".*/\1/p' | head -1)" >> "${GITHUB_ENV}"
       - name: Put the notarisation key in a file
         if: env.NOTARISE == 'true'
         env:
