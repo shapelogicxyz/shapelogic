@@ -435,12 +435,19 @@ TEST_CASE("a take-apart says how far it is, and stops when told to",
       }
     });
 
+    // The node count goes up only as a batch is done and back to 0 when the
+    // next take-apart starts, so a watcher that gets little time (a busy CI
+    // machine) can miss every moment it is above 0. Go round again until it
+    // has seen one.
     bool any = false;
-    for (const Assembly& a : assemblies) {
-      if (d.disassemble(a).separation) {
-        any = true;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    do {
+      for (const Assembly& a : assemblies) {
+        if (d.disassemble(a).separation) {
+          any = true;
+        }
       }
-    }
+    } while (mostNodes.load() == 0 && std::chrono::steady_clock::now() < deadline);
     done.store(true);
     watcher.join();
 
