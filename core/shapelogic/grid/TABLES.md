@@ -14,14 +14,20 @@ that made them still live:
 | `unifiedsym.inc` | the groups used for symmetry intersection |
 | `transformmini.inc` | `minimizeTransformation` per group |
 | `uniquesym.inc` | `isTransformationUnique` per group |
-| `symcalc.inc` | the decision tree that finds a shape's group |
+| `symcalc.inc` | the decision tree that finds a shape's group (not for spheres) |
+
+`tabs_2` has no `symcalc.inc` (removed, as in the original): the sphere
+transformations do not form a group, so the generated groups are not every
+list a shape can have, and the tree answered wrongly for one outside them.
+`symmetries_2.cpp` works out a shape's whole list and looks it up in a
+registry seeded from these tables, appending a list it has not met with
+its tables derived by the generator's rules (`deriveSphereTables`).
 
 `symcalc.inc` is the only file changed, and only in syntax. The original
 trees create and delete voxel spaces by hand; here every test node is
 `if (same(t)) {`, where `same` is defined by the including function with the
 original's exact check (transform a copy by `t`, compare it with
-`identicalInBB`; for spheres a failed transform counts as "not the same", as
-in the original `tabs_2` tree). The conversion was done with sed and checked
+`identicalInBB`). The conversion was done with sed and checked
 to keep every transformation number, every result and the brace structure in
 the same order. The mesh tables (`meshverts.inc`, `tabs_3`, `tabs_4`) come
 over with the meshes in stage 6.

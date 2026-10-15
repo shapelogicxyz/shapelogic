@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<puzzle version="2">
+ <gridType type="2"/>
+ <colors>
+  <color red="255" green="0" blue="9"/>
+  <color red="52" green="255" blue="0"/>
+ </colors>
+ <shapes>
+  <voxel x="5" y="5" z="5" hx="2" hy="1" hz="1" name="Tetrahedron" type="0">____#1___#2___#1___#2___#1_______#2___#2_#2_#2_#2_#2_#2___#2_____#1___#2_#2_#1___#1_#2_#2___#1___#2___#2_#2___#2_#2___#2_#2___#2_#1_____#2_____#1_____#2_____#1</voxel>
+  <voxel x="3" y="3" z="4" hx="1" hy="1" hz="2" name="red" type="0">______________________#1_____________</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="orange" type="0">__________________#2___#1_____________</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="yellow" type="0">__________________#2___#1___#2_________</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="green" type="0">__________________#2___#1___________#2_</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="aqua" type="0">__________________#2___#1_____#2_______</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="blue" type="0">__________________#2___#1_____#2_#2_____</voxel>
+  <voxel x="3" y="3" z="4" hx="1" hy="1" hz="2" name="purple" type="0">______________________#1_____#2_#2___#2_</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="brown" type="0">__________________#2___#1_#2_________#2_</voxel>
+  <voxel x="3" y="3" z="4" hx="1" hy="1" hz="2" name="gray" type="0">____________________#2_#1_____#2_#2___#2_</voxel>
+  <voxel x="3" y="3" z="4" hz="2" name="white" type="0">__________________#2_#2_#1_____#2_#2_____</voxel>
+ </shapes>
+ <problems>
+  <problem name="Geapple" state="0">
+   <shapes>
+    <shape id="1" count="1"/>
+    <shape id="2" count="1"/>
+    <shape id="3" count="1"/>
+    <shape id="4" count="1"/>
+    <shape id="5" count="1"/>
+    <shape id="6" count="1"/>
+    <shape id="7" count="1"/>
+    <shape id="8" count="1"/>
+    <shape id="9" count="1"/>
+    <shape id="10" count="1"/>
+   </shapes>
+   <result id="0"/>
+   <bitmap>
+    <pair piece="0" result="0"/>
+    <pair piece="1" result="1"/>
+   </bitmap>
+  </problem>
+ </problems>
+ <comment/>
+</puzzle>

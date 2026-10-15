@@ -4228,6 +4228,16 @@ solver sort 0 0/0
 solver sort 1 0/0
 solver sort 2 0/0
 solver sort 3 0/0
+puzzle test_sphere_symmetry.xmpuzzle grid 2 shapes 11 problems 1 colors 2
+problem 0 state 0 parts 10 pieces 10 solutions 0
+sort 0
+sort 1
+sort 2
+sort 3
+solver sort 0
+solver sort 1
+solver sort 2
+solver sort 3
 puzzle test_stacking_hanoi.xmpuzzle grid 6 shapes 3 problems 1 colors 0
 problem 0 state 0 parts 3 pieces 3 solutions 0
 sort 0

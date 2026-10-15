@@ -87,6 +87,45 @@ TEST_CASE("Assembler 0: regression counts of the examples", "[solve][assembler]"
   }
 }
 
+// The orange piece of this sphere puzzle has a symmetry list the generated
+// tables never contained; before the sphere grid learned to register new
+// lists, createMatrix() failed an assertion on it. The counts come from an
+// independent brute-force tiling of the puzzle (the original's): 48
+// assemblies with every piece rotated freely, 12 rotations of the result
+// shape that map it onto itself, so 4 distinct assemblies (mirroring adds
+// none, so keeping mirrors changes nothing).
+TEST_CASE("Spheres: a piece with an unlisted symmetry assembles", "[solve][assembler][spheres]") {
+  const Puzzle p = test::loadFixture("test_sphere_symmetry.xmpuzzle");
+  for (const bool keepMirrors : {false, true}) {
+    INFO("keep mirrors " << keepMirrors);
+    std::unique_ptr<Assembler> a = makeAssembler(p, p.getProblem(0), SolverType::Classic);
+    REQUIRE(a != nullptr);
+    MatrixOptions m;
+    m.keepMirrors = keepMirrors;
+    REQUIRE(a->createMatrix(m) == AssemblerError::None);
+    const test::RunResult r = runOnce(*a, searchOptions(1, nullptr));
+    REQUIRE(r.end == RunEnd::Finished);
+    CHECK(r.found.size() == 4);
+  }
+}
+
+// The same puzzle split over threads: the rotation checks then read the
+// appended symmetry list from the workers.
+TEST_CASE("Spheres: an unlisted symmetry split over threads finds what one thread finds",
+          "[solve][assembler][spheres][parallel]") {
+  const Puzzle p = test::loadFixture("test_sphere_symmetry.xmpuzzle");
+  ThreadPool pool(4);
+  std::unique_ptr<Assembler> one = makeAssembler(p, p.getProblem(0), SolverType::Classic);
+  REQUIRE(one->createMatrix({}) == AssemblerError::None);
+  const test::RunResult serial = runOnce(*one, searchOptions(1, nullptr));
+  std::unique_ptr<Assembler> four = makeAssembler(p, p.getProblem(0), SolverType::Classic);
+  REQUIRE(four->createMatrix({}) == AssemblerError::None);
+  const test::RunResult split = runOnce(*four, searchOptions(4, &pool));
+  REQUIRE(split.end == RunEnd::Finished);
+  CHECK(split.found == serial.found);
+  CHECK(serial.found.size() == 4);
+}
+
 TEST_CASE("Assembler 0: a callback that answers false stops the run", "[solve][assembler]") {
   const Puzzle p = test::loadFixture("PelikanBurr.xmpuzzle");
   Assembler0 a(p, p.getProblem(0));

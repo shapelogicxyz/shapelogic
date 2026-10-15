@@ -2,13 +2,13 @@
 #pragma once
 
 /// @file
-/// The table-driven Symmetries implementation shared by the three table
-/// sets (internal to the grid module). Ported from src/lib/symmetries_0.cpp,
-/// symmetries_1.cpp and symmetries_2.cpp, which are the same code over
-/// different tables; the sphere tables need more than 64 bits per group.
+/// The table-driven Symmetries implementation shared by the cube and prism
+/// table sets (internal to the grid module). Ported from
+/// src/lib/symmetries_0.cpp and symmetries_1.cpp, which are the same code
+/// over different tables. The sphere grid has its own (symmetries_2.cpp):
+/// its table of groups grows at run time.
 
 #include "shapelogic/base/assert.h"
-#include "shapelogic/grid/bitfield.h"
 #include "shapelogic/grid/symmetries.h"
 #include "shapelogic/grid/voxel.h"
 
@@ -17,20 +17,12 @@
 
 namespace bt::detail {
 
-/// Bit operations over the two mask types the tables use.
+/// Bit operations over the tables' masks.
 inline bool maskGet(std::uint64_t m, unsigned int t) { return (m & (std::uint64_t{1} << t)) != 0; }
-template <int N>
-bool maskGet(const Bitfield<N>& m, unsigned int t) {
-  return m.get(t);
-}
 inline unsigned int maskCount(std::uint64_t m) { return static_cast<unsigned int>(std::popcount(m)); }
-template <int N>
-unsigned int maskCount(const Bitfield<N>& m) {
-  return m.countBits();
-}
 
-/// The tables of one grid, as compile-time arrays. `Mask` is uint64_t for
-/// grids with at most 64 transformations, Bitfield<240> for spheres.
+/// The tables of one grid, as compile-time arrays. `Mask` is uint64_t: these
+/// grids have at most 64 transformations.
 template <class Mask, unsigned int kNumTrans, unsigned int kNumTransMirror, unsigned int kNumGroups,
           class TransMultEntry>
 struct SymmetryTableSet {
@@ -135,10 +127,6 @@ class TableSymmetries final : public Symmetries {
 
  private:
   static void setBit(std::uint64_t& m, unsigned int t) { m |= std::uint64_t{1} << t; }
-  template <int N>
-  static void setBit(Bitfield<N>& m, unsigned int t) {
-    m.set(t);
-  }
 
   Tables t_;
   CalcFn calc_;

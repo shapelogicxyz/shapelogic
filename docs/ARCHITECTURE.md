@@ -147,10 +147,13 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original").
   6-aligned super-grid over cubes.
 - `symmetries.h`: `Symmetries`, the transformation and symmetry-group tables
   of a grid (`transAdd`, `minimizeTransformation`, `calculateSymmetry`, …).
-  `symmetries_impl.h` is the one table-driven implementation; `symmetries_0/1/2.cpp`
-  instantiate it over the generated tables in `tabs_0/1/2/` (copied as they
-  are; see `core/shapelogic/grid/TABLES.md`). The instances are immutable,
-  constant-initialized statics (`constinit`: no guard on use, which the
+  `symmetries_impl.h` is the table-driven implementation; `symmetries_0/1.cpp`
+  instantiate it over the generated tables in `tabs_0/1/` (copied as they
+  are; see `core/shapelogic/grid/TABLES.md`). Spheres have their own
+  (`symmetries_2.h/.cpp`, decision 0020): the generated groups in `tabs_2/`
+  are not every list a sphere shape can have, so a registry appends the
+  ones met at run time (lock-free reads, `Symmetry` is 16 bits). The
+  instances are constant-initialized statics (`constinit`: no guard on use, which the
   assemblers' rotation checks call in their inner loops), reached through
   constant-initialised pointers so that `GridType::getSymmetries()` is an
   inline load (stage 8: the rotation check of every assembly asks for it).

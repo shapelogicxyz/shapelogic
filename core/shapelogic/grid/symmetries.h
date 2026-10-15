@@ -8,8 +8,9 @@
 /// A transformation rotates (and maybe mirrors) a shape within its grid; it
 /// is just a number. The lower numbers are the plain rotations, the upper
 /// ones all contain a mirror. A symmetry group is the set of transformations
-/// that map a shape onto itself; every possible set is listed in a
-/// generated table, and shapes only carry the index into it (`Symmetry`).
+/// that map a shape onto itself; the sets are listed in a generated table
+/// (for spheres, extended at run time: grid/symmetries_2.h), and shapes
+/// only carry the index into it (`Symmetry`).
 /// A shape's group depends on its orientation.
 
 #include "shapelogic/grid/types.h"
@@ -67,7 +68,8 @@ class Symmetries {
   [[nodiscard]] virtual Symmetry calculateSymmetry(const Voxel& v) const = 0;
 
   /// True when the shape's group is one of the tabulated ones. A check that
-  /// the tables are complete; calculateSymmetry asserts it.
+  /// the tables are complete; calculateSymmetry asserts it. Always true for
+  /// spheres, whose table grows to hold every group.
   [[nodiscard]] virtual bool symmetryKnown(const Voxel& v) const = 0;
 };
 

@@ -16,11 +16,14 @@ using VoxelType = std::uint8_t;
 
 /// The number of a symmetry group: an index into the grid's table of all
 /// possible sets of transformations that map a shape onto itself (see
-/// Symmetries). Spheres have the most, 241.
-using Symmetry = std::uint8_t;
+/// Symmetries). The brick and prism grids have a fixed table; the sphere
+/// grid starts from a generated one of 241 and appends the list of any
+/// shape it has not met before (grid/symmetries_2.h), so the number leaves
+/// room for more than 256.
+using Symmetry = std::uint16_t;
 
 /// The symmetry value meaning "not calculated yet".
-inline constexpr Symmetry kSymmetryInvalid = 0xFF;
+inline constexpr Symmetry kSymmetryInvalid = 0xFFFF;
 
 /// Transformation result meaning "this combination does not exist" (TND in
 /// the original's tables).
