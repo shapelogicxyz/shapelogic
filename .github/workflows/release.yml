@@ -1,0 +1,232 @@
+# Builds ShapeLogic for Linux, Windows and macOS (Apple silicon and Intel) and
+# attaches the installers to a draft GitHub Release.
+#
+# A push to main, or a run by hand from the Actions tab, builds and keeps the
+# files as workflow artifacts: the macOS builds are signed but not notarised
+# (tick "Notarise" on a manual run to notarise), and no Release is made.
+# Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`) builds,
+# notarises and drafts a Release.
+#
+# The macOS builds are signed with the Developer ID certificate and notarised
+# when these repository secrets are set (web/tools/dist.ts reads them):
+#   MACOS_CERT_P12_BASE64  the .p12 (certificate and private key), base64
+#   MACOS_CERT_PASSWORD    the .p12's password
+#   APPLE_API_KEY_P8       the text of the App Store Connect AuthKey_XXXX.p8
+#   APPLE_API_KEY_ID       that key's id
+#   APPLE_API_ISSUER       the issuer id
+# Windows and Linux are not signed (docs/handoff/web-8.md).
+
+name: Release
+
+on:
+  push:
+    branches: [main] # a build to test: signed, not notarised, no Release
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      notarise:
+        description: 'Also notarise the macOS builds (a tag push always does)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  # The tag must be the project's version (CMakeLists.txt, web/package.json),
+  # or the packaged files would carry a different number from the Release's.
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag matches the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cmake_version=$(sed -nE 's/.*project\(.* VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt | head -1)
+          pkg_version=$(node -p "require('./web/package.json').version")
+          echo "tag ${GITHUB_REF_NAME}, CMakeLists.txt ${cmake_version}, web/package.json ${pkg_version}"
+          test "${GITHUB_REF_NAME}" = "v${cmake_version}"
+          test "${cmake_version}" = "${pkg_version}"
+
+  linux:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev xvfb
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build the engine
+        run: |
+          cmake --preset release
+          cmake --build --preset release
+      - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
+        run: ctest --preset release -LE slow
+      - name: Install the front end's packages
+        run: npm ci
+        working-directory: web
+      - name: Package (AppImage and deb)
+        run: npm run dist
+        working-directory: web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          if-no-files-found: error
+          path: |
+            web/dist/*.AppImage
+            web/dist/*.deb
+
+  windows:
+    needs: version
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: MinGW-w64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-python
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build the engine
+        shell: msys2 {0}
+        run: |
+          cmake --preset release
+          cmake --build --preset release
+      - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
+        shell: msys2 {0}
+        run: ctest --preset release -LE slow
+      - name: Install the front end's packages
+        run: npm ci
+        working-directory: web
+      - name: Package (NSIS installer, unsigned)
+        run: npm run dist
+        working-directory: web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          if-no-files-found: error
+          path: web/dist/*.exe
+
+  macos:
+    needs: version
+    runs-on: macos-latest # Apple silicon
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            preset: release
+            dist_dir: mac-arm64
+          - arch: x64
+            preset: release-x64
+            dist_dir: mac
+    env:
+      CSC_LINK: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+      CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      # electron-builder notarises only when APPLE_API_KEY, APPLE_API_KEY_ID and
+      # APPLE_API_ISSUER are all set, so a manual run leaves them out
+      NOTARISE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.notarise }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build tools
+        run: brew install ninja
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build the engine (${{ matrix.arch }})
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }}
+      - name: Unit tests (Apple silicon only, the Intel engine cannot run natively here)
+        if: matrix.arch == 'arm64'
+        run: ctest --preset release -LE slow
+      - name: Install the front end's packages
+        run: npm ci
+        working-directory: web
+      - name: Put the notarisation key in a file
+        if: env.NOTARISE == 'true'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          key_file="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s\n' "${APPLE_API_KEY_P8}" > "${key_file}"
+          chmod 600 "${key_file}"
+          {
+            echo "APPLE_API_KEY=${key_file}"
+            echo "APPLE_API_KEY_ID=${APPLE_API_KEY_ID}"
+            echo "APPLE_API_ISSUER=${APPLE_API_ISSUER}"
+          } >> "${GITHUB_ENV}"
+      - name: Package and sign (${{ matrix.arch }}), notarising when asked
+        run: npm run dist -- --arch ${{ matrix.arch }}
+        working-directory: web
+      - name: Check the signature
+        working-directory: web
+        run: codesign --verify --deep --strict --verbose=2 "dist/${{ matrix.dist_dir }}/ShapeLogic.app"
+      - name: Check the notarisation and the staple
+        if: env.NOTARISE == 'true'
+        working-directory: web
+        run: |
+          spctl -a -vv -t exec "dist/${{ matrix.dist_dir }}/ShapeLogic.app"
+          for dmg in dist/*.dmg; do xcrun stapler validate "${dmg}"; done
+      - name: Remove the notarisation key
+        if: always() && env.NOTARISE == 'true'
+        run: rm -f "${APPLE_API_KEY}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          if-no-files-found: error
+          path: |
+            web/dist/*.dmg
+            web/dist/*.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Draft the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l artifacts
+          gh release create "${GITHUB_REF_NAME}" artifacts/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "ShapeLogic ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            --draft
