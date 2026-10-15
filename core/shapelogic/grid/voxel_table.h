@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <unordered_map>
+#include <vector>
 
 namespace bt {
 
@@ -50,7 +51,11 @@ class VoxelTable {
   };
 
   FindSpace findSpace_;
-  std::unordered_multimap<std::uint64_t, Entry> hashTable_;
+  // The entries of one hash in the order they were added: getSpace returns
+  // the first match, so that order is part of the answer. (An
+  // unordered_multimap orders equal keys as its library likes: libc++ and
+  // libstdc++ differ.)
+  std::unordered_map<std::uint64_t, std::vector<Entry>> hashTable_;
 };
 
 }  // namespace bt

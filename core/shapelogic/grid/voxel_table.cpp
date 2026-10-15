@@ -44,9 +44,11 @@ bool VoxelTable::getSpace(const Voxel& v, unsigned int* index, unsigned char* tr
   const std::uint64_t hash = calcHashValue(v, (params & kParColour) != 0);
   const unsigned int numPlain = v.getGridType().getSymmetries().getNumTransformations();
 
-  auto range = hashTable_.equal_range(hash);
-  for (auto it = range.first; it != range.second; ++it) {
-    const Entry& n = it->second;
+  const auto found = hashTable_.find(hash);
+  if (found == hashTable_.end()) {
+    return false;
+  }
+  for (const Entry& n : found->second) {
     if ((params & kParMirror) || n.transformation < numPlain) {
       auto v2 = findSpace_(n.index).clone();
       if (v2->transform(n.transformation) && v.identicalInBB(*v2, false)) {
@@ -76,8 +78,8 @@ void VoxelTable::addSpace(unsigned int index, unsigned int params) {
     if (symm.isTransformationUnique(sym, trans)) {
       auto v2 = v.clone();
       if (v2->transform(trans)) {
-        hashTable_.emplace(calcHashValue(*v2, (params & kParColour) != 0),
-                           Entry{index, static_cast<unsigned char>(trans)});
+        hashTable_[calcHashValue(*v2, (params & kParColour) != 0)].push_back(
+            Entry{index, static_cast<unsigned char>(trans)});
       }
     }
   }
