@@ -1,9 +1,9 @@
-# bt-engine API
+# shapelogic_engine API
 
 *Generated from `api/*.json` by `api/gen_api_md.py`; do not edit. The schema
 is the contract (decision 0012); this page is its reference.*
 
-`bt-engine` speaks JSON-RPC 2.0 over stdio: one request per line on stdin,
+`shapelogic_engine` speaks JSON-RPC 2.0 over stdio: one request per line on stdin,
 one response or notification per line on stdout, logs on stderr. Binary
 data (meshes, poses) comes as a **frame**: the notification
 `{"jsonrpc":"2.0","method":"frame","params":{"frame":N,"bytes":L}}`, then
@@ -70,7 +70,7 @@ Result:
 | name | type | | description |
 |---|---|---|---|
 | `protocol` | integer | required |  |
-| `name` | `"bt-engine"` | required |  |
+| `name` | `"shapelogic_engine"` | required |  |
 | `version` | string | required |  |
 
 Errors: `unsupported`
@@ -87,7 +87,7 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `name` | `"bt-engine"` | required |  |
+| `name` | `"shapelogic_engine"` | required |  |
 | `version` | string | required |  |
 | `protocol` | integer | required | Raised when a change breaks clients. |
 | `grids` | object[] | required |  |
@@ -1761,7 +1761,7 @@ Errors: `not_found`
 
 ### `solve.exportPaused`
 
-Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere. A stacking problem is paused when its search is saved (solve.status.savedSearch): the file carries the search, packed.
+Writes a paused solve as a .slsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere. A stacking problem is paused when its search is saved (solve.status.savedSearch): the file carries the search, packed.
 
 Params:
 
@@ -1777,7 +1777,7 @@ Errors: `not_found`, `invalid_state`, `io_error`
 
 ### `solve.importPaused`
 
-Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error), and so is any import (invalid_state) while the open document is a stacking puzzle being solved, whose search would write the same folder as it stops.
+Opens a .slsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error), and so is any import (invalid_state) while the open document is a stacking puzzle being solved, whose search would write the same folder as it stops.
 
 Params:
 

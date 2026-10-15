@@ -59,8 +59,8 @@ export const KINDS: Readonly<
     title: 'Save Puzzle As',
   },
   paused: {
-    ext: '.btsolve',
-    filter: { name: 'Paused Solver State', extensions: ['btsolve'] },
+    ext: '.slsolve',
+    filter: { name: 'Paused Solver State', extensions: ['slsolve'] },
     title: 'Save Paused Solver State As',
   },
   image: {

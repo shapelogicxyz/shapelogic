@@ -56,7 +56,7 @@ add_test(NAME unit-slow COMMAND bt_tests "[slow]" --allow-running-no-tests
 set_tests_properties(unit-slow PROPERTIES LABELS slow)
 
 # The engine's contract (decision 0012): the schema checks itself, docs/API.md
-# is what api/gen_api_md.py makes of it, and bt-engine, driven as a
+# is what api/gen_api_md.py makes of it, and shapelogic_engine, driven as a
 # subprocess, answers as the schema says.
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME api-schema COMMAND Python3::Interpreter api/apischema.py
@@ -64,7 +64,7 @@ add_test(NAME api-schema COMMAND Python3::Interpreter api/apischema.py
 add_test(NAME api-docs COMMAND Python3::Interpreter api/gen_api_md.py --check
          WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 add_test(NAME contract COMMAND Python3::Interpreter tests/contract/test_engine.py
-         --engine $<TARGET_FILE:bt-engine> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+         --engine $<TARGET_FILE:shapelogic_engine> WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # The shapelogic_cli command line: burrTxt's option rules, the refusals, --save, -a, -x.
 add_test(NAME cli COMMAND Python3::Interpreter tests/cli/test_cli.py

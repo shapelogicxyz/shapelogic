@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The packaged app (stage 8, `just web-dist`): electron-builder over the
-// build in out/ (electron-vite), with bt-engine from the release preset in
+// build in out/ (electron-vite), with shapelogic_engine from the release preset in
 // the bundle's resources and one version for both, CMakeLists.txt's.
 //
 //   node tools/dist.ts [--dir] [--arch x64|arm64]
@@ -13,7 +13,7 @@
 // test's), else the installers: macOS a .dmg and a .zip, Windows an NSIS
 // installer, Linux an AppImage and a .deb. Before packing it checks that the
 // engine is there, built for that architecture, and says the project's
-// version (`bt-engine --version`), and that package.json says it too.
+// version (`shapelogic_engine --version`), and that package.json says it too.
 //
 // Signing (docs/handoff/web-8.md, "Signing and notarisation"): on macOS the
 // app is signed ad hoc unless CSC_NAME or CSC_LINK names a Developer ID
@@ -66,7 +66,7 @@ export function binaryArch(path: string): 'x64' | 'arm64' | null {
 
 /** The release engine for a platform and architecture. */
 export function releaseEngine(platform: NodeJS.Platform, arch: 'x64' | 'arm64'): string {
-  const exe = platform === 'win32' ? 'bt-engine.exe' : 'bt-engine';
+  const exe = platform === 'win32' ? 'shapelogic_engine.exe' : 'shapelogic_engine';
   // the macOS host builds its own architecture in `release`, Intel in `release-x64`
   const preset = platform === 'darwin' && arch !== process.arch ? `release-${arch}` : 'release';
   return resolve(REPO_ROOT, 'build', preset, 'engine', exe);
@@ -83,7 +83,7 @@ function checkEngine(
   path: string,
   arch: 'x64' | 'arm64',
   version: string,
-  program = 'bt-engine',
+  program = 'shapelogic_engine',
 ): void {
   const preset = path.split(/[\\/]/).at(-3) ?? 'release';
   if (!existsSync(path)) {
@@ -108,7 +108,7 @@ export function distConfig(
   platform: NodeJS.Platform,
   cli: string = releaseCli(engine),
 ): Configuration {
-  const exe = platform === 'win32' ? 'bt-engine.exe' : 'bt-engine';
+  const exe = platform === 'win32' ? 'shapelogic_engine.exe' : 'shapelogic_engine';
   const cliExe = platform === 'win32' ? 'shapelogic_cli.exe' : 'shapelogic_cli';
   const signed = (process.env.CSC_NAME ?? '') !== '' || (process.env.CSC_LINK ?? '') !== '';
   return {
@@ -138,7 +138,7 @@ export function distConfig(
         icon: 'document',
       },
       {
-        ext: 'btsolve',
+        ext: 'slsolve',
         name: 'ShapeLogic Paused Solve',
         description: 'ShapeLogic Paused Solve',
         role: 'Editor',

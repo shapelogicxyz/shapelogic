@@ -13,7 +13,7 @@ dropped (end of this document).
 ## Where things stand (2026-10-10)
 - Core stages 0 to 8 are done (docs/PLAN.md): every brick grid, all three
   assemblers, disassembly with rotations, the solve session, the app layer,
-  the engine (`bt-engine`, JSON-RPC, `api/*.json`, docs/API.md) and the
+  the engine (`shapelogic_engine`, JSON-RPC, `api/*.json`, docs/API.md) and the
   `bt` CLI. They match the original on the whole corpus and are as fast
   or faster.
 - Front-end stages 1a to 8 are done (docs/FRONTEND-PLAN.md): Electron +

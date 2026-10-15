@@ -4,7 +4,7 @@
 // the renderer by Vite. The preload is CommonJS: a sandboxed preload cannot
 // be an ES module. The main process gets the project's one version,
 // CMakeLists.txt's, read here at build (__BT_VERSION__): the version it
-// reports and the one it requires of bt-engine.
+// reports and the one it requires of shapelogic_engine.
 
 import { resolve } from 'node:path';
 

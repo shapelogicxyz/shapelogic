@@ -22,7 +22,7 @@ export type RecordingEntry =
 
 /** A recorded session (a JSON file under web/fake-engine/recordings/). */
 export interface Recording {
-  format: 'bt-engine-recording';
+  format: 'shapelogic_engine-recording';
   version: 1;
   /** The engine's `--version`. */
   engine: string;
@@ -77,7 +77,13 @@ export class RecordingTransport implements Transport {
 
   /** The session so far. */
   recording(engine: string, note: string): Recording {
-    return { format: 'bt-engine-recording', version: 1, engine, note, entries: [...this.entries] };
+    return {
+      format: 'shapelogic_engine-recording',
+      version: 1,
+      engine,
+      note,
+      entries: [...this.entries],
+    };
   }
 
   private now(): number {

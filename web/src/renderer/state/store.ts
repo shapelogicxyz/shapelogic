@@ -181,7 +181,7 @@ export class Store {
     this.replaced(snap, path === null ? name : null);
   }
 
-  /** Opens a paused solve (.btsolve) as a new, untitled document; its problem. */
+  /** Opens a paused solve (.slsolve) as a new, untitled document; its problem. */
   async importPaused(path: string): Promise<string> {
     const r = await this.engine.call('solve.importPaused', { path });
     this.replaced(r.document, null);

@@ -6,7 +6,7 @@ rule, the event order, a document's end, the solutions version,
 `engine.hello`, the names); `engine/`, `api/`, `docs/API.md`
 
 ## Context
-Decision 0003 put the core in its own process, `bt-engine`, speaking
+Decision 0003 put the core in its own process, `shapelogic_engine`, speaking
 JSON-RPC 2.0 over stdio with binary frames for meshes, and the method list
 in JSON Schema under `api/`. Stage 6 built the app layer the engine wraps:
 one `Document` called from one thread (decision 0011), solves that run on
@@ -192,7 +192,7 @@ small validator of our own checks (`api/apischema.py`: `type`,
 `const`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`,
 `minLength`, `oneOf`, `$ref`), so the tests need no packages. `docs/API.md` is
 generated from it (`api/gen_api_md.py`; a test fails when it is stale).
-The contract tests start `bt-engine`, check every reply and event against
+The contract tests start `shapelogic_engine`, check every reply and event against
 the schema, and check that the engine's methods are the schema's.
 
 **Sliding and stacking puzzles.** Sliding puzzles are solved and played

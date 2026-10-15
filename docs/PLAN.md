@@ -32,7 +32,7 @@ handoff note, and ends with the "Finishing a stage" steps in AGENTS.md.
 | 4 | 4 | Disassembly, rotation moves, movement caches | extra high | summary **and** file comparison match on fast + full + slow |
 | 5 | 5 | SolveSession: prepare, pause, continue, abort, workers, stats | extra high | random pause/continue stress, pause-delay sweep, TSan clean, harness still green |
 | 6 | 6 | App layer: Document, undo/redo, editing commands, fit stats, meshes, playback, explorer | high | unit tests per command; undo/redo round-trips; mesh checks |
-| 7 | 7 | Engine: JSON-RPC, schema, events, binary frames, paging | extra high (API design), high (implementation) | contract tests drive bt-engine as a subprocess; scripted session passes |
+| 7 | 7 | Engine: JSON-RPC, schema, events, binary frames, paging | extra high (API design), high (implementation) | contract tests drive shapelogic_engine as a subprocess; scripted session passes |
 | 7 | 8 | `bt` CLI, benchmarks, performance pass | high | burrTxt-compatible `--json`; within 5% of the original's speed or faster |
 
 Stage 3 is split in two sessions: 3a (the shared run layer, `assembler_0`,
@@ -111,7 +111,7 @@ grid editors' 2D cells), `solution.analyse` and the export of paused solves
 moved to stage 7 (docs/handoff/stage-6.md).
 
 ### Stage 7: engine
-JSON Schema in `api/`, `bt-engine` JSON-RPC dispatcher, events, binary
+JSON Schema in `api/`, `shapelogic_engine` JSON-RPC dispatcher, events, binary
 frames, paged solution lists, generated `docs/API.md`, contract tests.
 Done in one session (decision 0012), with what stage 6 left: the grid
 editors' layer drawing, the analysis of saved assemblies, the paused

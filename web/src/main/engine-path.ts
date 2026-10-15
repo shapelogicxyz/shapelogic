@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Where the app finds bt-engine. A packaged app runs the copy in its own
+// Where the app finds shapelogic_engine. A packaged app runs the copy in its own
 // resources (electron-builder's extraResources, tools/dist.ts) and nothing
 // else: no environment variable makes it run another program
 // (security.ts). In development: BT_ENGINE, else the repository's dev
@@ -11,7 +11,7 @@ import { join, resolve } from 'node:path';
 
 /** The engine's file name on a platform. */
 export function engineFile(platform: NodeJS.Platform): string {
-  return platform === 'win32' ? 'bt-engine.exe' : 'bt-engine';
+  return platform === 'win32' ? 'shapelogic_engine.exe' : 'shapelogic_engine';
 }
 
 /** Where the app runs from, as findEngine needs it. */

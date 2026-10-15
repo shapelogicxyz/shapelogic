@@ -1,6 +1,6 @@
 # ShapeLogic: the web front end
 
-An Electron + TypeScript application that drives `bt-engine` over JSON-RPC
+An Electron + TypeScript application that drives `shapelogic_engine` over JSON-RPC
 (decisions 0003, 0012 and 0013), built in stages on Girish Sharma's mockup
 (`../docs/mockup/`). The plan is `../docs/FRONTEND-PLAN.md`; what exists is
 the `web` section of `../docs/ARCHITECTURE.md`.
@@ -57,7 +57,7 @@ just web-smoke         # the smoke test of the unpacked app (after `just web-dis
 ```
 
 `tools/dist.ts` builds for the platform it runs on only (the engine is
-built natively); it puts `build/release/engine/bt-engine` (on macOS
+built natively); it puts `build/release/engine/shapelogic_engine` (on macOS
 `build/release-<arch>/` for the other architecture) into the app's
 resources, after checking its architecture and that `--version` says
 CMakeLists.txt's version, which the app takes too (read at build). The
@@ -84,12 +84,12 @@ None of this is automated; docs/handoff/web-8.md has the steps.
 
 ## Where the engine comes from
 
-- The tests run `build/release/engine/bt-engine`, or `BT_ENGINE` when it is
+- The tests run `build/release/engine/shapelogic_engine`, or `BT_ENGINE` when it is
   set, from the repository's root (fixtures are opened by relative path).
   Without one the engine tests are skipped and the run says so; so are the
   e2e tests, which also need `npm run build` (`just web-e2e` builds).
 - The app in development (`src/main/engine-path.ts`) runs `BT_ENGINE`,
-  else `build/dev/engine/bt-engine`, else the release one. A packaged app
+  else `build/dev/engine/shapelogic_engine`, else the release one. A packaged app
   runs the copy in its resources and nothing else: it ignores `BT_ENGINE`,
   `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS` and electron-vite's
   `ELECTRON_RENDERER_URL` (`src/main/security.ts`); only `BT_USER_DATA`

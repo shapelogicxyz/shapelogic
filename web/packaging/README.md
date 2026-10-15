@@ -12,6 +12,6 @@ original BurrTools's (`../burrtools_rotations/mac/`, GPL-3.0):
 - `icon.png`: the same, 512 by 512, for Windows (electron-builder makes
   the .ico) and Linux.
 - `document.icns`: `mac/BurrToolsDoc.icns`, the icon of `.xmpuzzle` and
-  `.btsolve` files on macOS.
+  `.slsolve` files on macOS.
 - `document.ico`: `mac/icon-source-doc.png` at 256 by 256
   (`sips -s format ico -Z 256`), the same on Windows.

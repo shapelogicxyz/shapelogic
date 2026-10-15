@@ -525,7 +525,7 @@ disc lies flat, the rods stand up).
   app's data directory): the main process sets the engine's
   `panexFolder` before the page may call it, and refuses a page's
   `settings.set` that names a folder. A search paused in the app carries
-  on in the app (also after a restart); the `.btsolve` export carries it
+  on in the app (also after a restart); the `.slsolve` export carries it
   to `bt` or the original.
 
 ## 10. The STL export and the STL-like style (deferred part 5)

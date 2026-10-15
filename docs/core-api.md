@@ -2,7 +2,7 @@
 
 Every operation and data feed the web front end needs from the core, derived
 from [webui-spec.md](webui-spec.md). Stages 1 to 6 build the C++ side of
-these; stage 7 turns them into the JSON-RPC methods of `bt-engine`
+these; stage 7 turns them into the JSON-RPC methods of `shapelogic_engine`
 (decision 0003) and replaces this draft with a JSON Schema in `api/` and a
 generated `docs/API.md`. Names below are the planned JSON-RPC method names;
 the C++ app layer mirrors them (`Document::setVoxels`…).

@@ -2,7 +2,7 @@
 #pragma once
 
 /// @file
-/// bt-engine: JSON-RPC 2.0 over stdio around one app::Document (decisions
+/// shapelogic_engine: JSON-RPC 2.0 over stdio around one app::Document (decisions
 /// 0003 and 0012). The main thread runs the requests one at a time and
 /// polls the document's background work for events; a reader thread only
 /// queues the lines of stdin.

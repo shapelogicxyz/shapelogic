@@ -2,7 +2,7 @@
 #pragma once
 
 /// @file
-/// A paused solve as one file (*.btsolve), to carry it on later or on
+/// A paused solve as one file (*.slsolve), to carry it on later or on
 /// another machine: the original's BTSOLVE2 format. "BTSOLVE2", then
 /// sections, each a 32-bit name length, the name, a 64-bit size and the
 /// bytes (little-endian): "puzzle", the puzzle gzip-compressed as it is
@@ -26,14 +26,14 @@
 
 namespace bt::io {
 
-/// What a .btsolve file holds.
+/// What a .slsolve file holds.
 struct PausedSolve {
   Puzzle puzzle;
   /// The paused problem's number in the puzzle.
   unsigned int problem = 0;
 };
 
-/// A stacking solve's saved search to put into a .btsolve file.
+/// A stacking solve's saved search to put into a .slsolve file.
 struct SavedSearchFiles {
   /// The folder of the problem's saved search (panex::searchFolder).
   std::filesystem::path folder;
@@ -42,9 +42,9 @@ struct SavedSearchFiles {
   bool withLevels = true;
 };
 
-/// The bytes of a .btsolve file (without a saved search's files).
+/// The bytes of a .slsolve file (without a saved search's files).
 [[nodiscard]] std::string writePausedSolve(const Puzzle& puzzle, unsigned int problem);
-/// Writes a .btsolve file, replacing it; with `search`, a stacking solve's
+/// Writes a .slsolve file, replacing it; with `search`, a stacking solve's
 /// saved search goes into it too (state.bin, then the levels in name
 /// order), packed on up to `threads` threads (0: every hardware thread).
 [[nodiscard]] Result<void> savePausedSolve(const Puzzle& puzzle, unsigned int problem,
@@ -63,12 +63,12 @@ using SavedSearchFolder =
 /// asked whether to put them into an export when they were over 1 GB).
 [[nodiscard]] std::uint64_t savedLevelBytes(const std::filesystem::path& folder);
 
-/// Reads .btsolve bytes: ParseError when they are not one (the original's
+/// Reads .slsolve bytes: ParseError when they are not one (the original's
 /// "not a paused solver state exported by ShapeLogic", "could not be read
 /// completely"), or the puzzle cannot be read, or the problem is not one
 /// of it.
 [[nodiscard]] Result<PausedSolve> parsePausedSolve(std::string_view bytes);
-/// Reads a .btsolve file. With `searchFolder`, a stacking puzzle's saved
+/// Reads a .slsolve file. With `searchFolder`, a stacking puzzle's saved
 /// search (its "searchz/" sections after the "puzzle" and "problem" ones)
 /// is unpacked into the folder it names, emptied first; on threads as
 /// savePausedSolve. Without, those sections are skipped.

@@ -6,7 +6,7 @@
 //
 //   node tools/record-sessions.ts [names...]     (npm run record)
 //
-// The engine is BT_ENGINE or build/release/engine/bt-engine, run from the
+// The engine is BT_ENGINE or build/release/engine/shapelogic_engine, run from the
 // repository's root (the sessions open fixtures by relative path), with a
 // neutral home (its default folders name the user's cache folder).
 
@@ -38,7 +38,7 @@ async function record(name: string, engine: string): Promise<void> {
     });
     client.close();
   });
-  const recording = transport.recording(`bt-engine ${node.version ?? '?'}`, script.note);
+  const recording = transport.recording(`shapelogic_engine ${node.version ?? '?'}`, script.note);
   writeFileSync(resolve(RECORDINGS_DIR, `${name}.json`), recordingJson(recording));
   writeFileSync(
     resolve(RECORDINGS_DIR, `${name}.transcript.json`),
@@ -48,7 +48,7 @@ async function record(name: string, engine: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const engine = process.env.BT_ENGINE ?? resolve(ROOT, 'build/release/engine/bt-engine');
+  const engine = process.env.BT_ENGINE ?? resolve(ROOT, 'build/release/engine/shapelogic_engine');
   // The engine's default folders (settings.get's slideFolder, panexFolder)
   // are in the user's cache folder, which it finds from these: a neutral
   // home keeps the recording user's paths out of the recordings.

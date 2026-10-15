@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The real engine for the engine tests: build/release/engine/bt-engine (or
+// The real engine for the engine tests: build/release/engine/shapelogic_engine (or
 // BT_ENGINE), run from the repository's root so fixture paths are relative.
 
 import { existsSync } from 'node:fs';
@@ -20,7 +20,7 @@ export const ENGINE: string | null = (() => {
   if (fromEnv !== undefined && fromEnv !== '') {
     return resolve(fromEnv);
   }
-  const path = resolve(ROOT, 'build/release/engine/bt-engine');
+  const path = resolve(ROOT, 'build/release/engine/shapelogic_engine');
   return existsSync(path) ? path : null;
 })();
 

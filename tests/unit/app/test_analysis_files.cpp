@@ -250,7 +250,7 @@ TEST_CASE("gzip in memory: as the files are written", "[io]") {
 TEST_CASE("paused solves: BTSOLVE2 both ways", "[io][app][analysis]") {
   Document d = dominoBox();
   const Id p = firstProblem(d);
-  const std::filesystem::path file = std::filesystem::temp_directory_path() / "bt_paused.btsolve";
+  const std::filesystem::path file = std::filesystem::temp_directory_path() / "bt_paused.slsolve";
   CHECK(d.exportPaused(p, file).error().code == Errc::InvalidState);  // nothing paused
   REQUIRE(d.solvePrepare(p, SolveOptions{}).has_value());
   REQUIRE(d.solveWait(p).has_value());

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The project's one version: CMakeLists.txt's `project(... VERSION x.y.z)`,
-// which bt-engine --version prints (core/shapelogic/base/version.h). The packaged
+// which shapelogic_engine --version prints (core/shapelogic/base/version.h). The packaged
 // app takes it at build (tools/dist.ts); a unit test keeps package.json's
 // version, which the app reports in development, equal to it.
 

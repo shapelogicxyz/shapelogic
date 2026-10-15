@@ -65,7 +65,7 @@ describe('the engine host', () => {
     const seen: string[] = [];
     h.on('solve.state', (p) => seen.push(p.state));
     const call = h.call('engine.info');
-    engines[0]?.stderr('bt-engine: oops\n');
+    engines[0]?.stderr('shapelogic_engine: oops\n');
     engines[0]?.exit({ code: null, signal: 'SIGKILL' });
     const e = (await call.catch((x: unknown) => x)) as EngineError;
     expect(e.errc).toBe('disconnected');
@@ -78,7 +78,7 @@ describe('the engine host', () => {
       state: 'exited',
       code: null,
       signal: 'SIGKILL',
-      stderr: 'bt-engine: oops',
+      stderr: 'shapelogic_engine: oops',
     });
     expect(statuses[2]).toEqual({ state: 'running', version: '0.1.0', restarts: 1 });
     // the subscriptions carry over to the new engine

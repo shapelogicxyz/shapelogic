@@ -45,7 +45,7 @@ Reply engineHello(State& s, Params& p) {
     return coreError(Errc::Unsupported, "this engine speaks protocol " + std::to_string(kProtocol) +
                                             ", not " + std::to_string(protocol));
   }
-  return Json{{"protocol", kProtocol}, {"name", "bt-engine"}, {"version", kVersion}};
+  return Json{{"protocol", kProtocol}, {"name", "shapelogic_engine"}, {"version", kVersion}};
 }
 
 Reply engineInfo(State& s, Params& p) {
@@ -83,7 +83,7 @@ Reply engineInfo(State& s, Params& p) {
     methods.push_back(name);
   }
   Json j = Json::object();
-  j["name"] = "bt-engine";
+  j["name"] = "shapelogic_engine";
   j["version"] = kVersion;
   j["protocol"] = kProtocol;
   j["grids"] = std::move(grids);

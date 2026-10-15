@@ -3,7 +3,7 @@
 **Status:** accepted (web stage 1a); `web/`, `docs/mockup/`
 
 ## Context
-Decision 0003 put the core in `bt-engine` behind JSON-RPC so a web front
+Decision 0003 put the core in `shapelogic_engine` behind JSON-RPC so a web front
 end could drive it; decision 0012 settled the protocol. The front end's
 plan (docs/FRONTEND-PLAN.md) builds it in stages on Girish Sharma's mockup
 (docs/webui-spec.md), whose layout, wording and keyboard map the spec had
@@ -30,7 +30,7 @@ generator, the session recorder), `tests/` (`unit/`, `engine/` against the
 real engine, `e2e/` from stage 1b), `fake-engine/` (recorded sessions
 replayed).
 
-**Process model.** One `bt-engine` per window, owned by an `EngineHost` in
+**Process model.** One `shapelogic_engine` per window, owned by an `EngineHost` in
 the main process. The renderer is sandboxed (`sandbox`, `contextIsolation`
 on, `nodeIntegration` off) and reaches the engine only through
 `window.bt`, which the preload exposes: calls go one way (`bt:call`),
@@ -149,13 +149,13 @@ bundled into the renderer, so the packaged app has no runtime package.
 
 **Recipes:** `just web-install`, `web-gen`, `web-check` (both type checks,
 ESLint, Prettier), `web-test` (unit; the engine tests against
-`build/release/engine/bt-engine` or `BT_ENGINE`, skipped with a message
+`build/release/engine/shapelogic_engine` or `BT_ENGINE`, skipped with a message
 without one); `web-dev` and `web-e2e` (stage 1b; both clear
 `ELECTRON_RUN_AS_NODE`, which an editor's terminal may set); `web-dist`
 and `web-smoke` (stage 8: the packaged app and its smoke test).
 
 **Packaging and the security checklist** (stage 8). The packaged app runs
-the `bt-engine` in its resources only, which must say the project's one
+the `shapelogic_engine` in its resources only, which must say the project's one
 version (CMakeLists.txt's, put into the main bundle at build); it ignores
 the development switches (`BT_ENGINE`, `BT_CALL_LOG`,
 `BT_AUTOSAVE_SECONDS`, `ELECTRON_RENDERER_URL`), and its fuses ignore

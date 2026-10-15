@@ -189,7 +189,7 @@ class Document {
   /// Pauses the solves and waits for them.
   ~Document();
 
-  /// Opens a paused solve exported as a .btsolve file (cb_ImportPaused): a
+  /// Opens a paused solve exported as a .slsolve file (cb_ImportPaused): a
   /// new, untitled document (dirty: it has no file yet) and the paused
   /// problem, which solveResume() carries on. A stacking solve's saved
   /// search goes into its folder in `stackingWorkDir` (where the solves'
@@ -541,7 +541,7 @@ class Document {
   /// hold for both).
   [[nodiscard]] bool solving() const;
 
-  /// Writes a paused solve of a problem as a .btsolve file
+  /// Writes a paused solve of a problem as a .slsolve file
   /// (cb_ExportPaused): refused unless the problem holds a solve that can
   /// be carried on (Solving, no run active; a stacking problem: a saved
   /// search in the work folder) and while anything runs.

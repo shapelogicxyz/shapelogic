@@ -2,7 +2,7 @@
 //
 // The File menu's work (stage 6), from the original's mainwindow_file.cpp:
 // New (the grid chosen once: cb_New's selector, its list and preview), Open, a recent file or a
-// file dropped on the window (document.open by its path; a .btsolve file
+// file dropped on the window (document.open by its path; a .slsolve file
 // is imported), Save and Save As (document.save; the original's
 // confirmDiscard before anything that replaces the puzzle: Save, Don't
 // Save, Cancel), the window's close with the same question, and the
@@ -43,7 +43,7 @@ function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-const isPaused = (path: string): boolean => /\.btsolve$/i.test(path);
+const isPaused = (path: string): boolean => /\.slsolve$/i.test(path);
 
 export class Files {
   private readonly store: Store;
@@ -464,7 +464,7 @@ export class Files {
       withLevels = k === 'include';
     }
     const base = this.name.replace(/\.xmpuzzle$/i, '');
-    const path = await this.app.chooseSave('paused', `${base}.btsolve`);
+    const path = await this.app.chooseSave('paused', `${base}.slsolve`);
     if (path === null) {
       return;
     }

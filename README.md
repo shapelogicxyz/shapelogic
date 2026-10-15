@@ -12,7 +12,7 @@ the same answers on a corpus of 180 puzzles before it counts as done.
 **Status:** the core's stages 0 to 8 and the web front end's stages 1a to
 8 are done: grids, model and file format, the assemblers, the take-apart
 (with rotation moves), the solve session, the app layer (document, undo,
-commands, meshes, playback, explorers), `bt-engine`, the JSON-RPC engine
+commands, meshes, playback, explorers), `shapelogic_engine`, the JSON-RPC engine
 the front end talks to, `shapelogic_cli`, which solves and takes apart as the
 original's `burrTxt` and `burrTxt2`, and the Electron front end in `web/`.
 The deferred features follow part by part
@@ -47,7 +47,7 @@ just test         # unit tests
 just oracle       # compare with the original BurrTools (needs ../burrtools_rotations built)
 ```
 
-Outputs: `build/<preset>/engine/bt-engine` (the engine: JSON-RPC 2.0 on
+Outputs: `build/<preset>/engine/shapelogic_engine` (the engine: JSON-RPC 2.0 on
 stdin and stdout), `build/<preset>/cli/shapelogic_cli` (command-line solver),
 `build/<preset>/python/shapelogic.*.so` (the Python module, when CMake
 finds Python's headers; `just python-wheel` makes its wheel),

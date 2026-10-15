@@ -243,6 +243,6 @@ refuses a page's `settings.set` naming `panexFolder` or `slideFolder`
 (path-grants.ts, `settingsRefusal`): a search's folder is emptied and
 written by the engine, so the page must not point it anywhere (the stage 8
 security checklist's rule for paths). A search paused in the app carries
-on in the app, also after a restart; `.btsolve` exports carry it to `bt`
+on in the app, also after a restart; `.slsolve` exports carry it to `bt`
 and the original. Each e2e launch has its own data directory, so the
 tests' searches never reach the user's folders.

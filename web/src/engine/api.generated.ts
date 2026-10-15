@@ -1487,7 +1487,7 @@ export interface Methods {
     result: {
       /** @minimum 1 */
       protocol: number;
-      name: 'bt-engine';
+      name: 'shapelogic_engine';
       version: string;
     };
     errors: 'unsupported';
@@ -1499,7 +1499,7 @@ export interface Methods {
   'engine.info': {
     params: Record<string, never>;
     result: {
-      name: 'bt-engine';
+      name: 'shapelogic_engine';
       version: string;
       /**
        * Raised when a change breaks clients.
@@ -2973,7 +2973,7 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the
+   * Writes a paused solve as a .slsolve file (the original's BTSOLVE2: the puzzle and the
    * problem's number) to carry it on elsewhere. A stacking problem is paused when its search is
    * saved (solve.status.savedSearch): the file carries the search, packed.
    * (solve.json)
@@ -2993,7 +2993,7 @@ export interface Methods {
     errors: 'not_found' | 'invalid_state' | 'io_error';
   };
   /**
-   * Opens a .btsolve file as a new, untitled document (the open one goes as with document.new);
+   * Opens a .slsolve file as a new, untitled document (the open one goes as with document.new);
    * solve.continue on the problem carries the solve on. A stacking search it carries goes into its
    * folder in the engine's panexFolder, replacing what was there; without a panexFolder such a
    * file is refused (parse_error), and so is any import (invalid_state) while the open document is

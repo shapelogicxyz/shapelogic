@@ -9,7 +9,7 @@ editing, solving and playback. Options considered: a Node add-on (N-API)
 loaded into Electron, or a separate process.
 
 ## Decision
-- The core runs in its own process, **`bt-engine`**, speaking **JSON-RPC 2.0
+- The core runs in its own process, **`shapelogic_engine`**, speaking **JSON-RPC 2.0
   over stdio**: one JSON message per line on stdin/stdout, stderr for logs.
 - Requests are calls (`shape.setVoxels`, `solve.start`…); **notifications**
   flow back for changes and progress (`document.changed`, `solve.progress`…).

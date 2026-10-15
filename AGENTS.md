@@ -106,7 +106,7 @@ just web-smoke          # the packaged app's smoke test (after just web-dist --d
   the original's tests ported as they were plus new ones; the module
   keeps the original module's names, so change them only with a reason.
 - The engine: `tests/unit/engine/` drives it in process; `tests/contract/`
-  (ctest `contract`) drives `bt-engine` as a subprocess and checks every
+  (ctest `contract`) drives `shapelogic_engine` as a subprocess and checks every
   reply and event against `api/`. A new method needs its schema entry, a
   contract call that succeeds (the coverage check) and
   `python3 api/gen_api_md.py` (ctest `api-docs` fails on a stale
@@ -144,7 +144,7 @@ Every stage ends with, in this order:
 
 ## The web front end (`web/`)
 
-Electron + TypeScript over `bt-engine` (decisions 0003, 0012, 0013), built
+Electron + TypeScript over `shapelogic_engine` (decisions 0003, 0012, 0013), built
 in the stages of [docs/FRONTEND-PLAN.md](docs/FRONTEND-PLAN.md) on Girish
 Sharma's mockup ([docs/mockup/](docs/mockup/)). Read before a front-end
 task: this file, docs/ARCHITECTURE.md (its `web` section), the plan,

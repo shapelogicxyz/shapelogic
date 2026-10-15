@@ -52,7 +52,7 @@ describe.skipIf(ENGINE === null)('the engine', () => {
   it('answers hello, and refuses another protocol', async () => {
     expect(s.client.engine).toEqual({
       protocol: 1,
-      name: 'bt-engine',
+      name: 'shapelogic_engine',
       version: await engineVersion(ENGINE ?? ''),
     });
     expectCode(await failure(s.client.call('engine.hello', { protocol: 2 })), 'unsupported');
@@ -131,7 +131,7 @@ describe.skipIf(ENGINE === null)('the engine', () => {
     expect((await before).undoDepth).toBe(25);
     const e = await failure(long);
     expect([e.code, e.errc, e.detail]).toEqual([-32600, 'invalid_request', 'the line is too long']);
-    expect((await after).name).toBe('bt-engine');
+    expect((await after).name).toBe('shapelogic_engine');
     expect((await loose.call('document.get')).notes).toBe('');
     await new Promise<void>((done) => {
       loose.onExit(() => {

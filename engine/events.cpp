@@ -99,7 +99,7 @@ void pollAnalysis(State& s, app::Id id, State::Watch& w,
     return;
   }
   if (a->failure) {
-    s.log << "bt-engine: the analysis of " << problemName(id) << " failed: " << *a->failure << '\n';
+    s.log << "shapelogic_engine: the analysis of " << problemName(id) << " failed: " << *a->failure << '\n';
   }
   s.out.notify("solution.analyseEnded", analyseEvent(id, *a));
   w.analysing = false;

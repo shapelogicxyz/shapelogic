@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The contract tests of bt-engine (decision 0012): start the engine as a
+"""The contract tests of shapelogic_engine (decision 0012): start the engine as a
 subprocess, drive it through scripted sessions, and check every reply and
 event against the schema in api/. Run by ctest:
 
-    python3 tests/contract/test_engine.py --engine build/dev/engine/bt-engine [names...]
+    python3 tests/contract/test_engine.py --engine build/dev/engine/shapelogic_engine [names...]
 """
 
 import argparse
@@ -50,7 +50,7 @@ def changed_event(e, revision):
 @test
 def engine_info_and_settings(e):
     hello = e.call("engine.hello", {"protocol": 1})
-    check(hello["protocol"] == 1 and hello["name"] == "bt-engine", f"hello {hello}")
+    check(hello["protocol"] == 1 and hello["name"] == "shapelogic_engine", f"hello {hello}")
     e.fails("engine.hello", {"protocol": 2}, "unsupported")
     e.fails("engine.hello", {"protocol": 0}, "invalid_params")
     info = e.call("engine.info")
@@ -764,7 +764,7 @@ def pause_continue_and_the_guards(e):
     e.fails("document.saveBytes", {}, "invalid_state")
     e.fails("solve.start", {"problem": p}, "invalid_state")
     e.fails("solution.analyse", {"problem": p, "which": "all"}, "invalid_state")
-    e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.btsolve"}, "invalid_state")
+    e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.slsolve"}, "invalid_state")
     e.fails("document.convertGrid", {"grid": "rhombic"}, "invalid_state")
     # and what goes on
     check("burr_plate" in e.call("document.exportPuzzlecad", {"problem": p})["text"], "the Puzzlecad export")
@@ -810,12 +810,12 @@ def pause_continue_and_the_guards(e):
 @test
 def prepare_export_import(e):
     p, _, _ = domino_box(e, 2, 4, 4)
-    e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.btsolve"}, "invalid_state")
+    e.fails("solve.exportPaused", {"problem": p, "path": "/tmp/never.slsolve"}, "invalid_state")
     start = len(e.events)
     e.call("solve.prepare", {"problem": p})
     check(wait_state(e, p, ("paused", "error"), start) == "paused", "prepared")
     with tempfile.TemporaryDirectory() as tmp:
-        path = str(pathlib.Path(tmp) / "carry.btsolve")
+        path = str(pathlib.Path(tmp) / "carry.slsolve")
         e.call("solve.exportPaused", {"problem": p, "path": path})
         check(pathlib.Path(path).read_bytes().startswith(b"BTSOLVE2"), "the file's magic")
         imported = e.call("solve.importPaused", {"path": path})
@@ -829,7 +829,7 @@ def prepare_export_import(e):
         detail = e.call("problem.get", {"problem": q})
         check(detail["assemblies"] == 2856 and detail["solutions"] == 2856, f"the whole search {detail}")
         e.fails("solve.importPaused", {"path": str(FIXTURES / "PelikanBurr.xmpuzzle")}, "parse_error")
-        e.fails("solve.importPaused", {"path": str(pathlib.Path(tmp) / "none.btsolve")}, "io_error")
+        e.fails("solve.importPaused", {"path": str(pathlib.Path(tmp) / "none.slsolve")}, "io_error")
 
 
 @test
@@ -1226,8 +1226,8 @@ def stacking_solve_pause_saved_search_continue(e):
         detail = e.call("problem.get", {"problem": p})
         check(detail["state"] == "solved" and detail["saved"] == 0, f"the problem as the original wrote it {detail}")
 
-        with_levels = str(pathlib.Path(tmp) / "with.btsolve")
-        without = str(pathlib.Path(tmp) / "without.btsolve")
+        with_levels = str(pathlib.Path(tmp) / "with.slsolve")
+        without = str(pathlib.Path(tmp) / "without.slsolve")
         e.call("solve.exportPaused", {"problem": p, "path": with_levels})
         e.call("solve.exportPaused", {"problem": p, "path": without, "withLevels": False})
         check(pathlib.Path(without).stat().st_size < pathlib.Path(with_levels).stat().st_size,
@@ -1297,7 +1297,7 @@ def stacking_import_refused_while_solving(e):
         e.call("solve.pause", {"problem": p})
         check(wait_state(e, p, ("paused", "finished", "error"), start) == "paused", "paused")
         saved = e.call("solve.status", {"problem": p})["savedSearch"]
-        exported = str(pathlib.Path(tmp) / "swap6.btsolve")
+        exported = str(pathlib.Path(tmp) / "swap6.slsolve")
         e.call("solve.exportPaused", {"problem": p, "path": exported})
 
         # the same puzzle carried on: no import while its search runs

@@ -14,7 +14,7 @@ export interface ExitInfo {
 }
 
 /**
- * One bt-engine's stdio. The client attaches its handlers right after the
+ * One shapelogic_engine's stdio. The client attaches its handlers right after the
  * transport is made, before any data can arrive (the engine never speaks
  * first). `onExit` is called once, after the last stdout chunk.
  */

@@ -5,7 +5,7 @@
 /// Compressing large files on every core, in the spirit of pigz: the data
 /// is cut into chunks that are packed and unpacked independently and in
 /// parallel, a few at a time, so memory stays bounded however large the
-/// file. Used for a stacking search's saved files in a .btsolve export
+/// file. Used for a stacking search's saved files in a .slsolve export
 /// (bt/io/paused_solve.h).
 ///
 /// A file of sorted 16-byte keys (a search level) packs far smaller as the

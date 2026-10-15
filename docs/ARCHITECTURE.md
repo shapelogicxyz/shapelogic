@@ -9,7 +9,7 @@ and all three assemblers; the take-apart with rotation moves, Classic and
 Crowell; the solve session; the drawing meshes of every grid; the app
 layer: the document with its undo history and commands, the queries, the
 layer drawing of the grid editors, the analysis of saved assemblies, the
-paused solve files, the playback sampler and the explorers; `bt-engine`,
+paused solve files, the playback sampler and the explorers; `shapelogic_engine`,
 the JSON-RPC engine, with the schema of its API in `api/` and contract
 tests; `shapelogic_cli`, the original's burrTxt and burrTxt2 for brick puzzles; every
 benchmark as fast as the original or faster). The web front end
@@ -60,7 +60,7 @@ conversion, a wheel; decision 0018). The deferred plan is done.*
  web front end (web/: Electron + TypeScript + three.js; the client, the shell, the 3D view)
         │  JSON-RPC 2.0 over stdio, binary frames for meshes   (decisions 0003, 0012)
         ▼
- bt-engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)    shapelogic  (python/, the Python module)
+ shapelogic_engine  (engine/)        bt  (cli/, batch solving, burrTxt-compatible --json)    shapelogic  (python/, the Python module)
         │                         │                                                       │
         └──────────┬──────────────┴───────────────────────────────────────────────────────┘
                    ▼
@@ -82,13 +82,13 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | Path | Contents |
 |---|---|
 | `core/shapelogic/<module>/` | the library, headers and sources together; include as `"shapelogic/<module>/x.h"` |
-| `engine/` | `bt-engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
+| `engine/` | `shapelogic_engine`: JSON-RPC 2.0 over stdio around one `Document` (decision 0012); `btengine`, the same as a library for the unit tests |
 | `cli/` | `shapelogic_cli`: the original's burrTxt for brick puzzles (the same options and text, `--json`), and burrTxt2's solve-and-save mode (`--save`) |
 | `python/` | `shapelogic`, the Python module (pybind11, decision 0018): `src/` the bindings, `tests/` its tests, `pyproject.toml` its wheel; see `python/README.md` |
 | `api/` | the JSON Schema of the engine's methods and events, its validator (`apischema.py`) and the generator of `docs/API.md`; see `api/README.md` |
 | `web/` | the web front end (Electron + TypeScript + three.js, decision 0013): the engine client, the host and bridge, the generated types, the app (shell, 3D view), its tests (unit, engine, e2e); see `web/README.md` |
 | `tests/unit/<module>/` | Catch2 tests, one binary `bt_tests` (`app`, `base`, `engine`, `grid`, `io`, `mesh`, `model`, `solve`) |
-| `tests/contract/` | the engine's contract tests: `bt-engine` driven as a subprocess, every message checked against `api/` |
+| `tests/contract/` | the engine's contract tests: `shapelogic_engine` driven as a subprocess, every message checked against `api/` |
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
@@ -258,7 +258,7 @@ solve).
 - `xml_writer.h`: `XmlWriter`, the original's output layout.
 - `gzip_file.h`: whole-file reading and writing through zlib (level 9),
   and the same in memory (`gzipCompress`, `gunzipIfCompressed`).
-- `paused_solve.h`: the paused solve file (`.btsolve`, the original's
+- `paused_solve.h`: the paused solve file (`.slsolve`, the original's
   BTSOLVE2: the gzip-compressed puzzle, the paused problem's number, and a
   stacking solve's saved search as `searchz/<name>` sections packed by
   blockpack, in little-endian sections; other sections skipped), both
@@ -745,7 +745,7 @@ about); `Problem::solutionsVersion()` moves with every change of a saved
 list, so a reader can tell two reads apart.
 
 ## engine (stage 7, decision 0012)
-`bt-engine` speaks JSON-RPC 2.0 over stdio: one request per line in, one
+`shapelogic_engine` speaks JSON-RPC 2.0 over stdio: one request per line in, one
 reply or notification per line out, binary frames (an announcement line,
 then the bytes) for meshes and poses, logs on stderr. The methods are the
 schema in `api/`, documented in the generated `docs/API.md`.
@@ -974,7 +974,7 @@ What exists after stage 8:
   goes on once it closes, a close of the window's own meanwhile does not
   give it up; the window's bounds kept;
   files the system opens with the app (macOS's `open-file`, a command
-  line's `.xmpuzzle` or `.btsolve`); in development the renderer's
+  line's `.xmpuzzle` or `.slsolve`); in development the renderer's
   warnings and errors are echoed to the terminal; `BT_USER_DATA` moves the
   app's data directory (the e2e tests give each launch its own); with
   `BT_CALL_LOG` set every call of the renderer is written to that file
@@ -1042,7 +1042,7 @@ What exists after stage 8:
   CMakeLists.txt's, is put into the main bundle at build
   (`__BT_VERSION__`, electron.vite.config.ts): the version the app reports
   and the one `NodeTransport.start` requires of the engine.
-  `engine-path.ts`: a packaged app runs `bt-engine` from its resources
+  `engine-path.ts`: a packaged app runs `shapelogic_engine` from its resources
   (`process.resourcesPath`) and nothing else; development runs
   `BT_ENGINE`, else the repository's dev build, else its release build.
   `src/preload/index.ts` exposes `window.bt` and `window.btApp`; it keeps
@@ -1054,13 +1054,13 @@ What exists after stage 8:
 - Packaging (stage 8): `tools/dist.ts` (`just web-dist`) runs
   electron-builder over `out/` for the platform it runs on: the bundles
   and `package.json` only in `app.asar` (three.js is in the renderer's
-  bundle; the app has no runtime package), `bt-engine` from the release
+  bundle; the app has no runtime package), `shapelogic_engine` from the release
   preset as an extra resource (on macOS the other architecture's from
   `release-x64` or `release-arm64`), checked first for its architecture
   (`binaryArch`, the Mach-O, ELF or PE header) and its `--version`; the
   version CMakeLists.txt's (`tools/project-version.ts`, given as
   `extraMetadata`; a unit test keeps `package.json`'s equal); the file
-  types `.xmpuzzle` and `.btsolve`; Electron's fuses (no
+  types `.xmpuzzle` and `.slsolve`; Electron's fuses (no
   `ELECTRON_RUN_AS_NODE`, no `NODE_OPTIONS`, no `--inspect`, the app only
   from `app.asar`, checked against its hash, no extra privileges for
   `file:` pages: the page is on the app's scheme); macOS a .dmg and a .zip,
@@ -1144,7 +1144,7 @@ What exists after stage 8:
     of the table runs that key's handlers (`keyboard.ts`'s `runAction`),
     the others go to their handlers), `files.ts` (`Files`: New with the
     grid chosen in a dialog, Open, a path (recent, the system's, a drop;
-    `.btsolve` imported), Save, Save As, the window's close, each asking
+    `.slsolve` imported), Save, Save As, the window's close, each asking
     about unsaved changes first (the original's `confirmDiscard`: Save,
     Don't Save, Cancel); while the engine is not running the close says
     the puzzle cannot be saved and keeps the rescue copy; another close

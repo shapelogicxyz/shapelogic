@@ -8,7 +8,7 @@ import { BUILT, ENGINE } from './app.ts';
 export default function setup(): void {
   if (ENGINE === null) {
     console.log(
-      'e2e: no engine (build/release/engine/bt-engine or BT_ENGINE): the tests are skipped',
+      'e2e: no engine (build/release/engine/shapelogic_engine or BT_ENGINE): the tests are skipped',
     );
   } else if (!BUILT) {
     console.log('e2e: no app build (out/main/index.js): run `npm run build` first');

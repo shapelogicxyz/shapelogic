@@ -29,7 +29,7 @@ export const ENGINE: string | null = (() => {
   if (fromEnv !== undefined && fromEnv !== '') {
     return resolve(fromEnv);
   }
-  const path = resolve(ROOT, 'build/release/engine/bt-engine');
+  const path = resolve(ROOT, 'build/release/engine/shapelogic_engine');
   return existsSync(path) ? path : null;
 })();
 
@@ -408,7 +408,7 @@ export async function newDocument(page: Page, grid: string): Promise<void> {
 /** The engines an app's main process runs (their pids). */
 export function engines(mainPid: number): number[] {
   try {
-    return execFileSync('pgrep', ['-P', String(mainPid), 'bt-engine'], { encoding: 'utf8' })
+    return execFileSync('pgrep', ['-P', String(mainPid), 'shapelogic_engine'], { encoding: 'utf8' })
       .split('\n')
       .filter((l) => l.trim() !== '')
       .map(Number);

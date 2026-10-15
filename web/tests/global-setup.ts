@@ -11,7 +11,7 @@ export default function setup(): void {
   const engine =
     fromEnv !== undefined && fromEnv !== ''
       ? resolve(fromEnv)
-      : resolve(import.meta.dirname, '../../build/release/engine/bt-engine');
+      : resolve(import.meta.dirname, '../../build/release/engine/shapelogic_engine');
   if (!existsSync(engine)) {
     process.stderr.write(
       `\nthe engine tests are SKIPPED: ${engine} does not exist (run \`just build release\` or set BT_ENGINE)\n\n`,

@@ -29,7 +29,7 @@ test-asan: (test-all "asan")
 # then the contract suite against the TSan-built engine
 test-tsan: (build "tsan")
     TSAN_OPTIONS=halt_on_error=1 ./build/tsan/tests/bt_tests "[parallel]"
-    TSAN_OPTIONS=halt_on_error=1 python3 tests/contract/test_engine.py --engine build/tsan/engine/bt-engine
+    TSAN_OPTIONS=halt_on_error=1 python3 tests/contract/test_engine.py --engine build/tsan/engine/shapelogic_engine
 
 # Compare the new bt against the original burrTxt (see tests/oracle/README.md)
 oracle *args: (build "release")

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The engine host: owns one bt-engine (one per window, decision 0013) and
+// The engine host: owns one shapelogic_engine (one per window, decision 0013) and
 // starts it again when it dies. The window is told through the status
 // (the renderer then offers the rescue copy: renderer/shell/rescue.ts); calls made while there is no
 // engine fail as `disconnected` at once, never queued for the next engine,
@@ -192,7 +192,7 @@ export class EngineHost implements EngineApi {
 
   private report(p: ClientProblem): void {
     if (this.problemHandlers.size === 0) {
-      console.error(`bt-engine: ${p.reason}: ${p.detail}`);
+      console.error(`shapelogic_engine: ${p.reason}: ${p.detail}`);
     }
     for (const h of [...this.problemHandlers]) {
       h(p);

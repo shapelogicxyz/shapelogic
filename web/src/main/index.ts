@@ -237,8 +237,8 @@ function createWindow(first?: AppCommand): void {
       if (engine === null) {
         throw new Error(
           app.isPackaged
-            ? 'no bt-engine in the app'
-            : 'no bt-engine: build one (just build) or set BT_ENGINE',
+            ? 'no shapelogic_engine in the app'
+            : 'no shapelogic_engine: build one (just build) or set BT_ENGINE',
         );
       }
       // one version for the app and the engine (CMakeLists.txt's)
@@ -333,7 +333,7 @@ function createWindow(first?: AppCommand): void {
     }
   });
   host.start().catch((e: unknown) => {
-    console.error(`bt-engine did not start: ${String(e)}`);
+    console.error(`shapelogic_engine did not start: ${String(e)}`);
   });
   const devUrl = env.rendererUrl;
   if (devUrl !== undefined) {
@@ -361,7 +361,7 @@ ipcMain.on('bt:call', (event, call: unknown) => {
 function argFiles(): string[] {
   return process.argv
     .slice(app.isPackaged ? 1 : 2)
-    .filter((a) => ['.xmpuzzle', '.btsolve'].includes(extname(a).toLowerCase()) && existsSync(a))
+    .filter((a) => ['.xmpuzzle', '.slsolve'].includes(extname(a).toLowerCase()) && existsSync(a))
     .map((a) => resolve(a));
 }
 

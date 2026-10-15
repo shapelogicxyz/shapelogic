@@ -374,8 +374,8 @@ describe('the files a window’s engine may be given', () => {
     expect(g.refusal(a, 'document.save', { path: '/docs/../docs/a.xmpuzzle' })).toBe(
       'a.xmpuzzle was not chosen in a file dialog or dropped on the window',
     );
-    expect(g.refusal(b, 'solve.exportPaused', { problem: 'p1', path: '/etc/x.btsolve' })).toBe(
-      'x.btsolve was not chosen in a file dialog or dropped on the window',
+    expect(g.refusal(b, 'solve.exportPaused', { problem: 'p1', path: '/etc/x.slsolve' })).toBe(
+      'x.slsolve was not chosen in a file dialog or dropped on the window',
     );
   });
 
@@ -570,8 +570,8 @@ describe('the IPC handlers', () => {
   it('grant the window what its dialogs, its rescue record and its drops gave', async () => {
     electron.openPaths = [join(dir, 'a.xmpuzzle')];
     expect(await invoke('bt:choose-open', ours, 'puzzle')).toBe(join(dir, 'a.xmpuzzle'));
-    electron.openPaths = [join(dir, 'p.btsolve')];
-    expect(await invoke('bt:choose-open', ours, 'paused')).toBe(join(dir, 'p.btsolve'));
+    electron.openPaths = [join(dir, 'p.slsolve')];
+    expect(await invoke('bt:choose-open', ours, 'paused')).toBe(join(dir, 'p.slsolve'));
     // the exports cannot be opened
     expect(await invoke('bt:choose-open', ours, 'image')).toBeNull();
     electron.savePath = join(dir, 'b');
@@ -580,7 +580,7 @@ describe('the IPC handlers', () => {
     await invoke('bt:rescue', ours, 'read');
     electron.on.get('bt:dropped')?.({ sender: ours }, join(dir, 'd.xmpuzzle'));
     electron.on.get('bt:dropped')?.({ sender: ours }, 42);
-    for (const p of ['a.xmpuzzle', 'p.btsolve', 'b.xmpuzzle', 'r.xmpuzzle', 'd.xmpuzzle']) {
+    for (const p of ['a.xmpuzzle', 'p.slsolve', 'b.xmpuzzle', 'r.xmpuzzle', 'd.xmpuzzle']) {
       expect(paths.allows(ours, join(dir, p)), p).toBe(true);
       expect(paths.allows(foreign, join(dir, p)), p).toBe(false);
     }

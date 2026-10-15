@@ -75,7 +75,7 @@
       "errors": ["not_found"]
     },
     "solve.exportPaused": {
-      "summary": "Writes a paused solve as a .btsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere. A stacking problem is paused when its search is saved (solve.status.savedSearch): the file carries the search, packed.",
+      "summary": "Writes a paused solve as a .slsolve file (the original's BTSOLVE2: the puzzle and the problem's number) to carry it on elsewhere. A stacking problem is paused when its search is saved (solve.status.savedSearch): the file carries the search, packed.",
       "params": {
         "type": "object",
         "properties": {
@@ -90,7 +90,7 @@
       "errors": ["not_found", "invalid_state", "io_error"]
     },
     "solve.importPaused": {
-      "summary": "Opens a .btsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error), and so is any import (invalid_state) while the open document is a stacking puzzle being solved, whose search would write the same folder as it stops.",
+      "summary": "Opens a .slsolve file as a new, untitled document (the open one goes as with document.new); solve.continue on the problem carries the solve on. A stacking search it carries goes into its folder in the engine's panexFolder, replacing what was there; without a panexFolder such a file is refused (parse_error), and so is any import (invalid_state) while the open document is a stacking puzzle being solved, whose search would write the same folder as it stops.",
       "params": {
         "type": "object",
         "properties": {"path": {"type": "string", "minLength": 1}},

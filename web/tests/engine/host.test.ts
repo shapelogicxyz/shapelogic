@@ -53,7 +53,7 @@ describe.skipIf(ENGINE === null)('the engine host', () => {
     expect(statuses[2]).toEqual({ state: 'running', version: transports[1]?.version, restarts: 1 });
     expect(transports[1]?.pid).not.toBe(transports[0]?.pid);
     // the new engine works, on a new document
-    expect((await host.call('engine.info')).name).toBe('bt-engine');
+    expect((await host.call('engine.info')).name).toBe('shapelogic_engine');
     expect((await host.call('document.get')).shapes).toEqual([]);
 
     await host.stop();
@@ -65,6 +65,6 @@ describe.skipIf(ENGINE === null)('the engine host', () => {
     await expect(NodeTransport.start(ENGINE ?? '', { expectVersion: '999.0.0' })).rejects.toThrow(
       /999\.0\.0/,
     );
-    await expect(NodeTransport.start('/no/such/bt-engine')).rejects.toThrow(/--version/);
+    await expect(NodeTransport.start('/no/such/shapelogic_engine')).rejects.toThrow(/--version/);
   });
 });

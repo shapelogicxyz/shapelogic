@@ -665,7 +665,7 @@ class Store {
 
   // With layers false, only the header: enough to describe the search.
   // A layer's count is checked against what the file holds before room is
-  // made for it: a damaged or crafted file (one imported from a .btsolve,
+  // made for it: a damaged or crafted file (one imported from a .slsolve,
   // say) could otherwise claim terabytes, which the original allocated and
   // filled (an audit finding). Such a state is no saved search.
   bool loadState(SavedState& st, std::uint64_t fingerprint, bool layers) const {

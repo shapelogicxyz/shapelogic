@@ -51,7 +51,7 @@ describe('engine.hello', () => {
       { jsonrpc: '2.0', id: 2, method: 'engine.hello', params: { protocol: 1 } },
     ]);
     t.greet();
-    expect(await hello).toEqual({ protocol: 1, name: 'bt-engine', version: '0.1.0' });
+    expect(await hello).toEqual({ protocol: 1, name: 'shapelogic_engine', version: '0.1.0' });
     expect(client.engine?.version).toBe('0.1.0');
     // ids are given when a call is made; replies come in the order sent
     expect(t.sent.map((m) => m.id)).toEqual([2, 1, 3]);
@@ -429,7 +429,7 @@ describe('the end of the engine', () => {
     const sent = client.call('engine.info');
     const queued = client.call('settings.get');
     const waiting = client.call('shape.get', { shape: 's1' }, { coalesce: 'k' });
-    t.stderr('bt-engine: assertion failed: x\n');
+    t.stderr('shapelogic_engine: assertion failed: x\n');
     t.exit({ code: null, signal: 'SIGSEGV' });
     for (const p of [sent, queued, waiting]) {
       const e = await rejection(p);

@@ -75,7 +75,7 @@ function tmp(): string {
   return mkdtempSync(join(tmpdir(), 'bt-e2e-files-'));
 }
 
-/** The engine's own save of a puzzle file: a bt-engine of the test's own opens it and saves it. */
+/** The engine's own save of a puzzle file: a shapelogic_engine of the test's own opens it and saves it. */
 function engineSave(file: string, out: string): void {
   const line = (id: number, method: string, params: unknown): string =>
     JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
@@ -659,10 +659,10 @@ test('a save while solving at a save point; the paused solver state exported and
     const paused = join(dir, 'dominoes');
     await answerDialogs(page, { save: paused });
     await menu(page, 'exportPaused');
-    await expect.poll(() => existsSync(`${paused}.btsolve`)).toBe(true);
+    await expect.poll(() => existsSync(`${paused}.slsolve`)).toBe(true);
 
     // Import â–¸ Paused Solver State: a new, untitled document; Continue carries it on
-    await answerDialogs(page, { open: `${paused}.btsolve` });
+    await answerDialogs(page, { open: `${paused}.slsolve` });
     await menu(page, 'importPaused');
     // the document has unsaved changes (the solve since the save): asked first
     await page.click('#discard [data-x="drop"]');
@@ -754,7 +754,7 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     await appOf(page).evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', { cmd: 'about' });
     });
-    await expect(page.locator('#about')).toContainText(`bt-engine ${info.version}`);
+    await expect(page.locator('#about')).toContainText(`shapelogic_engine ${info.version}`);
     await page.keyboard.press('Escape');
 
     // the command line tool's dialog: what it is, its options, where it is,
@@ -1100,7 +1100,7 @@ test('a file the window was not handed is refused before the engine; the dialogâ
     for (const [method, params] of [
       ['document.open', { path: file }],
       ['document.save', { path: join(dir, 'new.xmpuzzle') }],
-      ['solve.importPaused', { path: join(dir, 'x.btsolve') }],
+      ['solve.importPaused', { path: join(dir, 'x.slsolve') }],
     ] as const) {
       await expect(engineCall(page, method, params), method).rejects.toThrow(
         /invalid_argument: \S+ was not chosen in a file dialog or dropped on the window/,

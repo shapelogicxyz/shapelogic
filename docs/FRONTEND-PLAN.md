@@ -2,7 +2,7 @@
 
 ## Goal
 A desktop application, **Electron + TypeScript + three.js**, that drives
-`bt-engine` over JSON-RPC (decisions 0003 and 0012) and gives the original
+`shapelogic_engine` over JSON-RPC (decisions 0003 and 0012) and gives the original
 ShapeLogic GUI's functions for everything the core solves, laid out as
 Girish Sharma's mockup (docs/webui-spec.md). The mockup is the **basis**:
 its HTML, CSS and interaction code are taken over and reworked, section by
@@ -66,9 +66,9 @@ localisation are not planned yet.
   storage), `web/src/preload/` (the bridge), `web/src/renderer/`
   (the app: `shell/`, `view3d/`, `entities/`, `puzzle/`, `solver/`,
   `explore/`, `state/`), `web/tools/gen-api.ts`, `web/tests/` (`unit/`,
-  `engine/` against the real `bt-engine`, `e2e/` Playwright),
+  `engine/` against the real `shapelogic_engine`, `e2e/` Playwright),
   `web/fake-engine/` (recorded sessions replayed for fast tests).
-- **Process model:** one `bt-engine` per window, spawned by the main
+- **Process model:** one `shapelogic_engine` per window, spawned by the main
   process; the renderer is sandboxed (`contextIsolation` on,
   `nodeIntegration` off, `sandbox` on) and reaches the engine through a
   proxy over IPC that has the client's interface, frames crossing as
@@ -93,7 +93,7 @@ localisation are not planned yet.
 - **Recipes** (`justfile`): `web-install`, `web-gen` (the types),
   `web-dev` (the app against `build/dev` or `BT_ENGINE`), `web-check`
   (`tsc --noEmit`, eslint), `web-test` (unit; the engine tests when
-  `build/release/engine/bt-engine` exists), `web-e2e`, `web-dist`.
+  `build/release/engine/shapelogic_engine` exists), `web-e2e`, `web-dist`.
 - **Prerequisites on this machine:** Node 22 (installed: 22.23.3,
   Homebrew); Playwright's Electron driver needs no browser download; the
   engine tests need `just build release`.
@@ -116,7 +116,7 @@ model column is the recommendation of "Models, effort and audits".
 | 6 | 5 | Explorers (placements, movements, step), the debug statistics panel, the status window | Opus 5.5 | medium | placements and positions drawn where the engine says (hotspot); the movement tree's analyse / add / find / prune round-trip the contract session |
 | 7 | 6 | Menus and files: new (grid choice), open, save, save as, recent, close with changes, notes, paused solves, F1 map, about; settings and layout persistence; engine crash recovery | Opus 5.5 | high | open and save of every fixture leaves the document clean and the bytes the engine's; every keyboard map entry fires; an engine killed mid-edit is restarted and the rescue copy reloaded; Windows run by hand |
 | 8 | 7 | Exports needing no core work: image, vector image (SVG), GLB animation, interim STL from the flat mesh | Opus 5.5 | medium | the GLB validates and matches the player at sampled times; STL of a cube is closed |
-| 9 | 8 | Packaging: electron-builder, the engine bundled per platform, versions tied, security checklist, smoke test of the built app | Opus 5.5 | medium | the packaged app on macOS opens and solves a fixture; `bt-engine --version` equals the app's; Windows and Linux builds run by hand |
+| 9 | 8 | Packaging: electron-builder, the engine bundled per platform, versions tied, security checklist, smoke test of the built app | Opus 5.5 | medium | the packaged app on macOS opens and solves a fixture; `shapelogic_engine --version` equals the app's; Windows and Linux builds run by hand |
 
 Engine additions the stages need (the "What the API lacks" table) are
 made in the stage that needs them, each as its own commit on the C++
@@ -447,7 +447,7 @@ the contract session's replies; the status window's rows equal
   deferred part 5, the imports and the conversion with part 6).
 - **Files:** `document.new`, `open`, `save`, the title and dirty mark
   from `Snapshot`, close and quit asking about unsaved changes, recent
-  files, drag and drop of a file onto the window, `.btsolve` import and
+  files, drag and drop of a file onto the window, `.slsolve` import and
   export (`solve.importPaused`, `exportPaused`); a save refused while
   solving offers the save-point path.
 - **Notes** (`document.setNotes`, allowed while solving), the F1 dialog
@@ -486,7 +486,7 @@ match the view (reference images); the STL of a one-cell cube is a closed
 surface and a fixture shape's STL loads in a viewer.
 
 ### Stage 8: packaging
-electron-builder for macOS (arm64, x64), Windows and Linux; `bt-engine`
+electron-builder for macOS (arm64, x64), Windows and Linux; `shapelogic_engine`
 from the release preset in the bundle's resources (the host finds it
 there, or `BT_ENGINE`); one version for the app and the engine
 (`CMakeLists.txt`'s, read at build); `just web-dist`; the Electron
@@ -497,7 +497,7 @@ notarisation documented, not automated; a smoke e2e against the packaged
 app.
 
 **Gate.** The packaged app on this Mac opens and solves a fixture;
-`bt-engine --version` in the bundle equals the app's version; the
+`shapelogic_engine --version` in the bundle equals the app's version; the
 security test passes; Windows and Linux builds made and run once by hand.
 
 ## What the API lacks for webui-spec.md

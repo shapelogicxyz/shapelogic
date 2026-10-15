@@ -16,7 +16,7 @@
         "type": "object",
         "properties": {
           "protocol": {"type": "integer", "minimum": 1},
-          "name": {"const": "bt-engine"},
+          "name": {"const": "shapelogic_engine"},
           "version": {"type": "string"}
         },
         "required": ["protocol", "name", "version"],
@@ -30,7 +30,7 @@
       "result": {
         "type": "object",
         "properties": {
-          "name": {"const": "bt-engine"},
+          "name": {"const": "shapelogic_engine"},
           "version": {"type": "string"},
           "protocol": {"type": "integer", "minimum": 1, "description": "Raised when a change breaks clients."},
           "grids": {

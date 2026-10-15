@@ -97,7 +97,7 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
   it('places a stacking solution’s discs where the boards and the player’s poses have them', async () => {
     const c = s.client;
     // the saved searches in a folder of the test's own, never the user's cache
-    const work = mkdtempSync(join(tmpdir(), 'bt-engine-panex-'));
+    const work = mkdtempSync(join(tmpdir(), 'shapelogic_engine-panex-'));
     await c.call('settings.set', { panexFolder: work });
     let discs = 0;
     try {

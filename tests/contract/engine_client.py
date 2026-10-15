@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""A client of bt-engine for the contract tests: starts the engine, sends
+"""A client of shapelogic_engine for the contract tests: starts the engine, sends
 requests, reads replies, events and binary frames (decision 0012), and
 checks every message against the schema in api/ as it arrives."""
 
@@ -76,7 +76,7 @@ class Frame:
 
 
 class Engine:
-    """bt-engine as a subprocess."""
+    """shapelogic_engine as a subprocess."""
 
     def __init__(self, path, api=None, cwd=ROOT):
         self.api = api or Api()

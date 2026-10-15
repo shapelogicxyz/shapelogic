@@ -68,7 +68,10 @@ const DISABLE = 48;
 const ENABLE = 49;
 
 const APP = packaged();
-const ENGINE = join(APP.resources, process.platform === 'win32' ? 'bt-engine.exe' : 'bt-engine');
+const ENGINE = join(
+  APP.resources,
+  process.platform === 'win32' ? 'shapelogic_engine.exe' : 'shapelogic_engine',
+);
 const VERSION = projectVersion();
 
 test.skip(!existsSync(APP.exe), `no packaged app at ${APP.exe}: run \`just web-dist --dir\``);
@@ -165,7 +168,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
 
   // the engine in the resources: the project's version
   expect(execFileSync(ENGINE, ['--version'], { encoding: 'utf8' }).trim()).toBe(
-    `bt-engine ${VERSION}`,
+    `shapelogic_engine ${VERSION}`,
   );
   // and the command line tool the app can link into the path, the same version
   const cli = join(
@@ -207,7 +210,7 @@ test('the packaged app: its fuses, its engine, its page, a fixture solved', asyn
 
     // the engine the app runs is the one in its resources, not BT_ENGINE
     if (process.platform !== 'win32' && child.pid !== undefined) {
-      const engines = children(child.pid).filter((c) => c.includes('bt-engine'));
+      const engines = children(child.pid).filter((c) => c.includes('shapelogic_engine'));
       expect(engines).toEqual([ENGINE]);
     }
 

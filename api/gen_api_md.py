@@ -18,12 +18,12 @@ ORDER = ["engine.json", "document.json", "shape.json", "colour.json", "problem.j
          "sliding.json", "stacking.json", "solve.json", "solution.json", "playback.json", "explore.json",
          "export.json"]
 
-HEADER = """# bt-engine API
+HEADER = """# shapelogic_engine API
 
 *Generated from `api/*.json` by `api/gen_api_md.py`; do not edit. The schema
 is the contract (decision 0012); this page is its reference.*
 
-`bt-engine` speaks JSON-RPC 2.0 over stdio: one request per line on stdin,
+`shapelogic_engine` speaks JSON-RPC 2.0 over stdio: one request per line on stdin,
 one response or notification per line on stdout, logs on stderr. Binary
 data (meshes, poses) comes as a **frame**: the notification
 `{"jsonrpc":"2.0","method":"frame","params":{"frame":N,"bytes":L}}`, then

@@ -46,7 +46,7 @@ describe('the version', () => {
       return;
     }
     expect(execFileSync(engine, ['--version'], { encoding: 'utf8' }).trim()).toBe(
-      `bt-engine ${projectVersion()}`,
+      `shapelogic_engine ${projectVersion()}`,
     );
     expect(binaryArch(engine)).toBe(process.arch);
   });
@@ -115,11 +115,11 @@ describe('the macOS signing', () => {
   it('is ad hoc without a certificate, and hardened with allow-jit only with one', () => {
     put('CSC_NAME', undefined);
     put('CSC_LINK', undefined);
-    const adhoc = distConfig('1.2.3', '/b/release/engine/bt-engine', 'darwin').mac;
+    const adhoc = distConfig('1.2.3', '/b/release/engine/shapelogic_engine', 'darwin').mac;
     expect(adhoc).toMatchObject({ identity: '-', hardenedRuntime: false });
     expect(adhoc).not.toHaveProperty('entitlements');
     process.env.CSC_NAME = 'Developer ID Application: Someone (ABCDE12345)';
-    const signed = distConfig('1.2.3', '/b/release/engine/bt-engine', 'darwin').mac;
+    const signed = distConfig('1.2.3', '/b/release/engine/shapelogic_engine', 'darwin').mac;
     expect(signed).toMatchObject({
       hardenedRuntime: true,
       entitlements: 'packaging/entitlements.mac.plist',
@@ -133,20 +133,28 @@ describe('the macOS signing', () => {
 });
 
 describe('the configuration', () => {
-  const c = distConfig('1.2.3', '/b/release/engine/bt-engine', 'darwin');
+  const c = distConfig('1.2.3', '/b/release/engine/shapelogic_engine', 'darwin');
 
   it('packs the bundles and the version, with the engine beside them', () => {
     expect(c.files).toEqual(['out/**/*', 'packaging/icon.png', 'package.json', '!**/*.map']);
     expect(c.extraMetadata).toEqual({ version: '1.2.3', main: './out/main/index.js' });
     // the engine, and the command line tool of the same build beside it
     expect(c.extraResources).toEqual([
-      { from: '/b/release/engine/bt-engine', to: 'bt-engine' },
+      { from: '/b/release/engine/shapelogic_engine', to: 'shapelogic_engine' },
       { from: '/b/release/cli/shapelogic_cli', to: 'shapelogic_cli' },
     ]);
-    expect(distConfig('1.2.3', 'C:\\e\\engine\\bt-engine.exe', 'win32').extraResources).toEqual([
-      { from: 'C:\\e\\engine\\bt-engine.exe', to: 'bt-engine.exe' },
+    expect(
+      distConfig('1.2.3', 'C:\\e\\engine\\shapelogic_engine.exe', 'win32').extraResources,
+    ).toEqual([
+      { from: 'C:\\e\\engine\\shapelogic_engine.exe', to: 'shapelogic_engine.exe' },
       {
-        from: resolve('C:\\e\\engine\\bt-engine.exe', '..', '..', 'cli', 'shapelogic_cli.exe'),
+        from: resolve(
+          'C:\\e\\engine\\shapelogic_engine.exe',
+          '..',
+          '..',
+          'cli',
+          'shapelogic_cli.exe',
+        ),
         to: 'shapelogic_cli.exe',
       },
     ]);
@@ -174,7 +182,7 @@ describe('the configuration', () => {
   it('opens the puzzle files', () => {
     expect(c.fileAssociations).toEqual([
       expect.objectContaining({ ext: 'xmpuzzle' }),
-      expect.objectContaining({ ext: 'btsolve' }),
+      expect.objectContaining({ ext: 'slsolve' }),
     ]);
   });
 });
@@ -221,19 +229,19 @@ describe('where the app finds its engine', () => {
   it('packaged: its own copy, never BT_ENGINE or a build', () => {
     put(dev);
     expect(
-      findEngine({ packaged: true, resources, webDir: web, engine: '/x/bt-engine' }),
+      findEngine({ packaged: true, resources, webDir: web, engine: '/x/shapelogic_engine' }),
     ).toBeNull();
     put(join(resources, engineFile(process.platform)));
-    expect(findEngine({ packaged: true, resources, webDir: web, engine: '/x/bt-engine' })).toBe(
-      join(resources, engineFile(process.platform)),
-    );
+    expect(
+      findEngine({ packaged: true, resources, webDir: web, engine: '/x/shapelogic_engine' }),
+    ).toBe(join(resources, engineFile(process.platform)));
     expect(findEngine({ packaged: true, resources, webDir: web, platform: 'win32' })).toBeNull();
   });
 
   it('in development: BT_ENGINE, else the dev build, else the release build', () => {
-    expect(findEngine({ packaged: false, resources, webDir: web, engine: '/x/bt-engine' })).toBe(
-      '/x/bt-engine',
-    );
+    expect(
+      findEngine({ packaged: false, resources, webDir: web, engine: '/x/shapelogic_engine' }),
+    ).toBe('/x/shapelogic_engine');
     expect(findEngine({ packaged: false, resources, webDir: web })).toBe(dev);
     rmSync(dev);
     put(release);

@@ -363,17 +363,17 @@ TEST_CASE("puzzle file: a save replaces the file only once the new one is whole"
   CHECK(readText(file) == before);
 
   // a paused solve's file the same way
-  const std::filesystem::path solve = dir / "s.btsolve";
-  std::filesystem::create_directories(dir / "s.btsolve.tmp");
+  const std::filesystem::path solve = dir / "s.slsolve";
+  std::filesystem::create_directories(dir / "s.slsolve.tmp");
   {
     std::ofstream out(solve, std::ios::binary);
     out << "old";
   }
   CHECK_FALSE(io::savePausedSolve(a, 0, solve).has_value());
   CHECK(readText(solve) == "old");
-  std::filesystem::remove_all(dir / "s.btsolve.tmp");
+  std::filesystem::remove_all(dir / "s.slsolve.tmp");
   REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
-  CHECK_FALSE(std::filesystem::exists(dir / "s.btsolve.tmp"));
+  CHECK_FALSE(std::filesystem::exists(dir / "s.slsolve.tmp"));
   CHECK(io::loadPausedSolve(solve).has_value());
   std::filesystem::remove_all(dir);
 }
@@ -405,10 +405,10 @@ TEST_CASE("puzzle file: a save through a symbolic link writes the file it names"
   CHECK_FALSE(std::filesystem::exists(dir / "links" / "p.xmpuzzle.tmp"));
 
   // a paused solve's file the same way
-  const std::filesystem::path solve = dir / "real" / "s.btsolve";
-  const std::filesystem::path solveLink = dir / "links" / "s.btsolve";
+  const std::filesystem::path solve = dir / "real" / "s.slsolve";
+  const std::filesystem::path solveLink = dir / "links" / "s.slsolve";
   REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
-  std::filesystem::create_symlink(std::filesystem::path("..") / "real" / "s.btsolve", solveLink);
+  std::filesystem::create_symlink(std::filesystem::path("..") / "real" / "s.slsolve", solveLink);
   REQUIRE(io::savePausedSolve(b, 0, solveLink).has_value());
   CHECK(std::filesystem::is_symlink(solveLink));
   const Result<io::PausedSolve> ps = io::loadPausedSolve(solve);
@@ -448,12 +448,12 @@ TEST_CASE("puzzle file: a save never writes through a planted temporary file", "
   CHECK_FALSE(std::filesystem::exists(dir / "p.xmpuzzle.tmp"));
 
   // a paused solve's file the same way
-  const std::filesystem::path solve = dir / "s.btsolve";
-  std::filesystem::create_symlink("victim", dir / "s.btsolve.tmp");
+  const std::filesystem::path solve = dir / "s.slsolve";
+  std::filesystem::create_symlink("victim", dir / "s.slsolve.tmp");
   REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
   CHECK(readText(victim) == "untouched");
   CHECK(std::filesystem::is_regular_file(std::filesystem::symlink_status(solve)));
-  CHECK_FALSE(std::filesystem::exists(std::filesystem::symlink_status(dir / "s.btsolve.tmp")));
+  CHECK_FALSE(std::filesystem::exists(std::filesystem::symlink_status(dir / "s.slsolve.tmp")));
   CHECK(io::loadPausedSolve(solve).has_value());
   std::filesystem::remove_all(dir);
 }
@@ -482,7 +482,7 @@ TEST_CASE("puzzle file: a save refuses a read-only file and leaves it as it was"
   CHECK_FALSE(std::filesystem::exists(dir / "p.xmpuzzle.tmp"));
 
   // a paused solve's file the same way
-  const std::filesystem::path solve = dir / "s.btsolve";
+  const std::filesystem::path solve = dir / "s.slsolve";
   REQUIRE(io::savePausedSolve(a, 0, solve).has_value());
   const std::string solveBefore = readText(solve);
   std::filesystem::permissions(solve, readOnly);

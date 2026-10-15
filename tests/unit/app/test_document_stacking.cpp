@@ -136,7 +136,7 @@ TEST_CASE("stacking document: a paused Panex solve exported and imported carries
   const std::filesystem::path there = work.path / "there";
   Document d = openFixture("stacking/stack_panex_swap_5.xmpuzzle");
   const Id p = d.problemIds().front();
-  const std::filesystem::path file = work.path / "swap.btsolve";
+  const std::filesystem::path file = work.path / "swap.slsolve";
 
   // nothing paused: refused
   CHECK(d.exportPaused(p, file, {here.string(), true}).error().code == Errc::InvalidState);

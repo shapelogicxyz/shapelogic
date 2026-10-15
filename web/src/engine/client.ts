@@ -197,7 +197,7 @@ export class EngineClient implements EngineApi {
     if (
       !isRecord(answer) ||
       answer.protocol !== PROTOCOL ||
-      answer.name !== 'bt-engine' ||
+      answer.name !== 'shapelogic_engine' ||
       typeof answer.version !== 'string'
     ) {
       const e = new EngineError(
@@ -530,14 +530,14 @@ export class EngineClient implements EngineApi {
   private problem(reason: ClientProblem['reason'], detail: string): void {
     const p: ClientProblem = { reason, detail };
     if (this.problemHandlers.size === 0) {
-      console.error(`bt-engine client: ${reason}: ${detail}`);
+      console.error(`shapelogic_engine client: ${reason}: ${detail}`);
       return;
     }
     for (const h of [...this.problemHandlers]) {
       try {
         h(p);
       } catch (e) {
-        console.error(`bt-engine client: a problem handler threw: ${String(e)}`);
+        console.error(`shapelogic_engine client: a problem handler threw: ${String(e)}`);
       }
     }
   }

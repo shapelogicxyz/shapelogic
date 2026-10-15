@@ -1801,7 +1801,7 @@ def cmd_panex_resume(args: argparse.Namespace) -> int:
 
 def cmd_blockpack_check(args: argparse.Namespace) -> int:
     """Pack files with one program's blockpack and unpack them with the
-    other's: a saved Panex search's state and levels (as a .btsolve export
+    other's: a saved Panex search's state and levels (as a .slsolve export
     holds them), and odd files; the packed bytes compared too."""
     WORK_DIR.mkdir(exist_ok=True)
     old_tool = WORK_DIR / "blockpack_old"

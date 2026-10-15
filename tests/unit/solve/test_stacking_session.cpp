@@ -272,7 +272,7 @@ TEST_CASE("stacking session: abort throws the saved search away", "[stacking][pa
 }
 
 // A saved search's state is trusted no further than its file: a damaged or
-// crafted state.bin (one imported from a .btsolve) claimed a layer of 2^60
+// crafted state.bin (one imported from a .slsolve) claimed a layer of 2^60
 // keys, which the search set out to make room for (an audit finding; a
 // claim of a few terabytes had the process killed). It is no saved search:
 // the search starts afresh.

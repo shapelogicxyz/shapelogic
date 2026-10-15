@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A fake bt-engine for fast tests: it answers a client with a recorded
+// A fake shapelogic_engine for fast tests: it answers a client with a recorded
 // session (src/engine/recorder.ts), the same stdout bytes in the same
 // chunks, each run of output after the request that came before it in the
 // recording. The client must make the recorded requests in the recorded

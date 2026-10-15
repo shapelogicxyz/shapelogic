@@ -489,7 +489,7 @@ TEST_CASE("engine: engine.hello names the protocol", "[engine]") {
   Harness h;
   const Json r = h.result("engine.hello", {{"protocol", 1}});
   CHECK(r["protocol"] == 1);
-  CHECK(r["name"] == "bt-engine");
+  CHECK(r["name"] == "shapelogic_engine");
   CHECK(h.errc("engine.hello", {{"protocol", 2}}) == "unsupported");
   CHECK(h.errc("engine.hello", {{"protocol", 0}}) == "invalid_params");
   CHECK(h.errc("engine.hello") == "invalid_params");

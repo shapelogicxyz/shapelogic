@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The TypeScript types of bt-engine's API, generated from the schema in
+// The TypeScript types of shapelogic_engine's API, generated from the schema in
 // api/*.json (decisions 0003 and 0012), into src/engine/api.generated.ts:
 //
 //   node tools/gen-api.ts           writes the file (`just web-gen`)

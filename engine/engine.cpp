@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The dispatcher and the run loop of bt-engine (decision 0012).
+// The dispatcher and the run loop of shapelogic_engine (decision 0012).
 #include "engine.h"
 
 #include "shapelogic/base/assert.h"
@@ -229,7 +229,7 @@ void Engine::handleLine(std::string_view line) {
 
   if (request->notification) {
     if (!reply) {
-      log_ << "bt-engine: " << request->method << ": " << reply.error().message << '\n';
+      log_ << "shapelogic_engine: " << request->method << ": " << reply.error().message << '\n';
     }
   } else if (reply) {
     Json m = Json::object();

@@ -94,7 +94,7 @@ export class ScriptedTransport implements Transport {
     if (hello?.method !== 'engine.hello') {
       throw new Error(`the first request is ${JSON.stringify(hello)}`);
     }
-    this.reply(hello.id as number, { protocol, name: 'bt-engine', version: '0.1.0' });
+    this.reply(hello.id as number, { protocol, name: 'shapelogic_engine', version: '0.1.0' });
   }
 }
 

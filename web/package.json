@@ -2,7 +2,7 @@
   "name": "shapelogic-web",
   "version": "0.1.0",
   "private": true,
-  "description": "The web front end of ShapeLogic: Electron + TypeScript over bt-engine (docs/FRONTEND-PLAN.md)",
+  "description": "The web front end of ShapeLogic: Electron + TypeScript over shapelogic_engine (docs/FRONTEND-PLAN.md)",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "./out/main/index.js",

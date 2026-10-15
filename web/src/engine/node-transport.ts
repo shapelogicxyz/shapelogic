@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// bt-engine as a child process of Node (Electron's main process, the
+// shapelogic_engine as a child process of Node (Electron's main process, the
 // tests): its stdin, stdout and stderr as a Transport.
 
 import { execFile, spawn } from 'node:child_process';
@@ -15,7 +15,7 @@ export interface NodeTransportOptions {
   expectVersion?: string;
 }
 
-/** What `bt-engine --version` says: "bt-engine 0.1.0" gives "0.1.0". */
+/** What `shapelogic_engine --version` says: "shapelogic_engine 0.1.0" gives "0.1.0". */
 export function engineVersion(enginePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(enginePath, ['--version'], { timeout: 10_000 }, (error, stdout) => {
@@ -23,11 +23,11 @@ export function engineVersion(enginePath: string): Promise<string> {
         reject(new Error(`${enginePath} --version: ${error.message}`));
         return;
       }
-      const m = /^bt-engine (\S+)\s*$/.exec(stdout);
+      const m = /^shapelogic_engine (\S+)\s*$/.exec(stdout);
       if (m?.[1] === undefined) {
         reject(
           new Error(
-            `${enginePath} --version said ${JSON.stringify(stdout.slice(0, 80))}, not "bt-engine <version>"`,
+            `${enginePath} --version said ${JSON.stringify(stdout.slice(0, 80))}, not "shapelogic_engine <version>"`,
           ),
         );
         return;
@@ -37,7 +37,7 @@ export function engineVersion(enginePath: string): Promise<string> {
   });
 }
 
-/** One bt-engine process. */
+/** One shapelogic_engine process. */
 export class NodeTransport implements Transport {
   /** The engine's version, as `--version` said (start() asks it). */
   readonly version: string | undefined;

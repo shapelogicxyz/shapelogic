@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "types.json",
   "title": "Shared definitions",
-  "description": "The types the methods and events of bt-engine share (decision 0012).",
+  "description": "The types the methods and events of shapelogic_engine share (decision 0012).",
   "$defs": {
     "ShapeId": {"type": "string", "pattern": "^s[1-9][0-9]*$", "description": "A shape, stable while the document is open."},
     "ColourId": {"type": "string", "pattern": "^c[1-9][0-9]*$", "description": "A constraint colour."},
