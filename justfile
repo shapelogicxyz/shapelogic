@@ -129,6 +129,20 @@ web-dist *args: (build "release")
 web-smoke:
     cd web && env -u ELECTRON_RUN_AS_NODE npx playwright test -c playwright.smoke.config.ts
 
+# ---- the website and user guide (site/, site/README.md; needs Node 22.22+) ----
+
+# Run the site with live reload on http://localhost:4321
+site-dev:
+    cd site && npm ci && npm run dev
+
+# Build the site and check its links and the app's Help URLs
+site-build:
+    cd site && npm ci && npm run build && npm test
+
+# Retake the user guide's screenshots from the built app (site/src/assets/screens; after `just build release`)
+docs-screenshots:
+    cd web && env -u ELECTRON_RUN_AS_NODE npm run docs-shots
+
 # Remove all build directories
 clean:
     rm -rf build

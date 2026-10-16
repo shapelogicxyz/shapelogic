@@ -8,6 +8,8 @@
   "include": [
     "playwright.config.ts",
     "playwright.smoke.config.ts",
+    "playwright.docs.config.ts",
+    "tests/docs/**/*.ts",
     "tests/e2e/**/*.ts",
     "tools/project-version.ts",
     "src/renderer/env.d.ts"

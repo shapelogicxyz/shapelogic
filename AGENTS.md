@@ -42,6 +42,9 @@ just web-dev            # run the app (electron-vite dev)
 just web-e2e            # build the app, run its Playwright e2e tests
 just web-dist [--dir]   # the packaged app for this platform (electron-builder), in web/dist
 just web-smoke          # the packaged app's smoke test (after just web-dist --dir)
+just site-build         # the website and user guide (site/): build, link check, the Help URLs
+just site-dev           # the site with live reload
+just docs-screenshots   # retake the guide's screenshots from the built app
 ```
 
 ## How to port code from the original

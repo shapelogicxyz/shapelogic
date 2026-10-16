@@ -787,10 +787,7 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
     await menu(page, 'tutorial');
     expect(
       await app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened),
-    ).toEqual([
-      'https://shapelogic.xyz/gui-doc/toc.html',
-      'https://shapelogic.xyz/gui-doc/GettingStarted.html',
-    ]);
+    ).toEqual(['https://shapelogic.xyz/docs/', 'https://shapelogic.xyz/docs/getting-started/']);
 
     // greyed: what this version does not have (the imports and grid
     // conversion came with deferred part 6: imports.e2e.ts)

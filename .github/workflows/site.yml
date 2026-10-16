@@ -1,0 +1,38 @@
+# Builds the website (site/: the landing page and the user guide), checks its
+# links and that the pages the app's Help menu opens exist. Cloudflare builds
+# and deploys the site itself from main (see site/README.md); this only
+# keeps a broken page out of a merge.
+
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'web/src/main/security.ts', '.github/workflows/site.yml']
+  pull_request:
+    paths: ['site/**', 'web/src/main/security.ts', '.github/workflows/site.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - name: Build (fails on a broken internal link)
+        run: npm run build
+        working-directory: site
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+      - name: The app's Help URLs are pages of the site
+        run: npm test
+        working-directory: site
