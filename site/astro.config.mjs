@@ -25,6 +25,11 @@ export default defineConfig({
       sidebar: [
         { label: 'User guide', link: '/docs/' },
         {
+          label: 'Download',
+          link: 'https://github.com/shapelogicxyz/shapelogic/releases/latest',
+          attrs: { target: '_blank' },
+        },
+        {
           label: 'Start here',
           items: [
             { label: 'Install', slug: 'docs/install' },
