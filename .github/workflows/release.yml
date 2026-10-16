@@ -58,12 +58,27 @@ jobs:
 
   linux:
     needs: version
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
       - name: Build tools
         run: sudo apt-get update && sudo apt-get install -y ninja-build zlib1g-dev xvfb
+      # electron-builder's bundled fpm (it makes the .deb) is x86-64 only
+      - name: System fpm (arm64 only)
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+          echo "USE_SYSTEM_FPM=true" >> "${GITHUB_ENV}"
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -76,7 +91,7 @@ jobs:
         run: |
           cmake --preset release -DBT_WERROR=OFF
           cmake --build --preset release
-      - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
+      - name: Unit tests (x64 is a real x86-64 machine, so the AVX2 kernels run)
         continue-on-error: true # failures show in the log but do not stop the installers
         run: ctest --preset release -LE slow
       - name: Install the front end's packages
@@ -87,7 +102,7 @@ jobs:
         working-directory: web
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-x64
+          name: linux-${{ matrix.arch }}
           if-no-files-found: error
           path: |
             web/dist/*.AppImage
