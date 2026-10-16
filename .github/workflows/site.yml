@@ -1,14 +1,13 @@
 # Builds the website (site/: the landing page and the user guide), checks its
 # links and that the pages the app's Help menu opens exist. Cloudflare builds
 # and deploys the site itself from main (see site/README.md); this only
-# keeps a broken page out of a merge.
+# keeps a broken page out of a merge. It runs on pull requests and by hand
+# (Actions tab > Site > Run workflow), not on a push to main.
 
 name: Site
 
 on:
-  push:
-    branches: [main]
-    paths: ['site/**', 'web/src/main/security.ts', '.github/workflows/site.yml']
+  workflow_dispatch:
   pull_request:
     paths: ['site/**', 'web/src/main/security.ts', '.github/workflows/site.yml']
 

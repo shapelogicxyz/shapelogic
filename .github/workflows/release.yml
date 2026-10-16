@@ -1,11 +1,13 @@
 # Builds ShapeLogic for Linux, Windows and macOS (Apple silicon and Intel) and
 # attaches the installers to a draft GitHub Release.
 #
-# A push to main, or a run by hand from the Actions tab, builds and keeps the
-# files as workflow artifacts: the macOS builds are signed but not notarised
-# (tick "Notarise" on a manual run to notarise), and no Release is made.
-# Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`) builds,
-# notarises and drafts a Release.
+# Runs only when asked: a push to main does not start it.
+# - By hand (Actions tab > Release > Run workflow, or `gh workflow run
+#   release.yml`): builds and keeps the files as workflow artifacts; the macOS
+#   builds are signed but not notarised (tick "Notarise" to notarise), and no
+#   Release is made.
+# - Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`):
+#   builds, notarises and drafts a Release.
 #
 # The macOS builds are signed with the Developer ID certificate and notarised
 # when these repository secrets are set (web/tools/dist.ts reads them):
@@ -20,7 +22,6 @@ name: Release
 
 on:
   push:
-    branches: [main] # a build to test: signed, not notarised, no Release
     tags: ['v*']
   workflow_dispatch:
     inputs:
