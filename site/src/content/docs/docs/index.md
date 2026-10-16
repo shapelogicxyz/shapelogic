@@ -10,6 +10,9 @@ New here? [Install](/docs/install/) the app, then follow
 [Getting started](/docs/getting-started/) for a tour of the three workspaces
 and a first solve.
 
+Then read about the [puzzle types](/docs/puzzle-types/): Brick, Triangular
+Prism, Spheres, Rhombic, Tetrahedra-Octahedra, Sliding and Stacking.
+
 :::note
 This guide is new and still growing. It follows the old
 [BurrTools user guide](https://burrtools.sourceforge.net/gui-doc/toc.html)

@@ -7,12 +7,12 @@
 // the guide shows.
 
 import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { BUILT, ENGINE, launch, openFixture, ROOT, settle } from '../e2e/app.ts';
+import { BUILT, command, ENGINE, FIXTURES, launch, openFixture, ROOT, settle } from '../e2e/app.ts';
 import { runButton, runEnded, toSolver } from '../e2e/solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -46,3 +46,36 @@ test('the guide screenshots', async () => {
     await app.close();
   }
 });
+
+/** Opens a fixture in a folder of tests/data/puzzles (openFixture takes top-level names only). */
+async function openNested(page: Page, name: string): Promise<void> {
+  const before = await page.locator('#stage').getAttribute('data-generation');
+  await command(page, { cmd: 'openPath', path: resolve(FIXTURES, name) });
+  await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
+  await expect(page.locator('#fname')).toHaveText(basename(name));
+  await settle(page);
+}
+
+for (const [kind, fixture] of [
+  ['sliding', 'sliding/slide_klotski.xmpuzzle'],
+  ['stacking', 'stacking/stack_hanoi_3.xmpuzzle'],
+] as const) {
+  test(`the ${kind} screenshots`, async () => {
+    mkdirSync(OUT, { recursive: true });
+    const app = await launch();
+    const { page } = app;
+    try {
+      await openNested(page, fixture);
+      await shot(page, `${kind}-entities`);
+      await page.keyboard.press('Control+2');
+      await expect(page.locator('#stage')).toHaveAttribute('data-tab', 'puzzle');
+      await shot(page, `${kind}-puzzle`);
+      await toSolver(page);
+      await runButton(page, 'start');
+      await runEnded(page, 'finished');
+      await shot(page, `${kind}-solver`);
+    } finally {
+      await app.close();
+    }
+  });
+}

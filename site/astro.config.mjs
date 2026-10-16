@@ -9,6 +9,8 @@ import starlightLinksValidator from 'starlight-links-validator';
 // fails the build check if they go missing.
 export default defineConfig({
   site: 'https://shapelogic.xyz',
+  // the landing page's inline links need the spaces around them kept
+  compressHTML: false,
   integrations: [
     starlight({
       title: 'ShapeLogic',
@@ -34,6 +36,19 @@ export default defineConfig({
           items: [
             { label: 'Install', slug: 'docs/install' },
             { label: 'Getting started', slug: 'docs/getting-started' },
+          ],
+        },
+        {
+          label: 'Puzzle types',
+          items: [
+            { label: 'Overview', slug: 'docs/puzzle-types' },
+            { label: 'Brick', slug: 'docs/puzzle-types/brick' },
+            { label: 'Triangular Prism', slug: 'docs/puzzle-types/triangular-prism' },
+            { label: 'Spheres', slug: 'docs/puzzle-types/spheres' },
+            { label: 'Rhombic', slug: 'docs/puzzle-types/rhombic' },
+            { label: 'Tetrahedra-Octahedra', slug: 'docs/puzzle-types/tetra-octa' },
+            { label: 'Sliding', slug: 'docs/puzzle-types/sliding' },
+            { label: 'Stacking', slug: 'docs/puzzle-types/stacking' },
           ],
         },
       ],
