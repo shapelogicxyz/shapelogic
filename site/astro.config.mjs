@@ -36,6 +36,7 @@ export default defineConfig({
           items: [
             { label: 'Install', slug: 'docs/install' },
             { label: 'Getting started', slug: 'docs/getting-started' },
+            { label: 'Command Line Tool', slug: 'docs/command-line' },
           ],
         },
         {
