@@ -1,0 +1,73 @@
+---
+// The landing page of shapelogic.xyz, kept as the original static page
+// (shapelogic.xyz repository); the user guide under /docs/ is Starlight.
+import '../styles/landing.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ShapeLogic</title>
+    <meta
+      name="description"
+      content="ShapeLogic is an open source puzzle solver, a from-scratch successor to BurrTools written with AI."
+    />
+    <link rel="icon" href="/assets/puzzle_icon.jpg" />
+  </head>
+  <body>
+    <header class="banner">
+      <img src="/assets/banner.png" alt="ShapeLogic" width="2000" height="666" />
+    </header>
+
+    <main>
+      <p class="status">Coming soon</p>
+      <h1>A fast-moving, open source puzzle solver.</h1>
+      <p class="lead">
+        ShapeLogic is a small open source tool for designing and solving interlocking and packing
+        puzzles. It started as a fork of
+        <a href="https://burrtools.sourceforge.net/">BurrTools</a>, the puzzle software created by
+        Andreas Röver, and has since been rewritten from the ground up.
+      </p>
+
+      <div class="links">
+        <a class="primary" href="/docs/getting-started/">Get started</a>
+        <a href="/docs/">User guide</a>
+        <a href="https://github.com/shapelogicxyz/shapelogic/releases/latest">Download</a>
+      </div>
+
+      <section class="cards">
+        <div class="card">
+          <h2>Built by AI</h2>
+          <p>The new version was written almost entirely by Claude AI (Opus 5.5 and Fable 5.1).</p>
+        </div>
+        <div class="card">
+          <h2>A new frontend</h2>
+          <p>
+            The interface is built on a web framework inspired by the amazing work of
+            <a href="https://github.com/grssam">Girish Sharma</a>.
+          </p>
+        </div>
+        <div class="card">
+          <h2>Rapidly evolving</h2>
+          <p>
+            The goal is a BurrTools-like tool that is developed quickly and gains new features and
+            modes often.
+          </p>
+        </div>
+      </section>
+
+      <p class="note">
+        The first version is still in development. Follow along with the project on GitHub at
+        <a href="https://github.com/shapelogicxyz/shapelogic">github.com/shapelogicxyz/shapelogic</a>
+        and watch for a release of version 1 in the next few days.
+      </p>
+    </main>
+
+    <footer>
+      <img src="/assets/puzzle_icon.jpg" alt="" width="40" height="40" />
+      <p>ShapeLogic is free software. Based on BurrTools by Andreas Röver.</p>
+    </footer>
+  </body>
+</html>
