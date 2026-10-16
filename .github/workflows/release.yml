@@ -236,6 +236,17 @@ jobs:
       - name: Check the signature
         working-directory: web
         run: codesign --verify --deep --strict --verbose=2 "dist/${{ matrix.dist_dir }}/ShapeLogic.app"
+      # electron-builder notarises and staples the .app, not the .dmg around it.
+      - name: Notarise and staple the disk images
+        if: env.NOTARISE == 'true'
+        working-directory: web
+        run: |
+          for dmg in dist/*.dmg; do
+            xcrun notarytool submit "${dmg}" \
+              --key "${APPLE_API_KEY}" --key-id "${APPLE_API_KEY_ID}" --issuer "${APPLE_API_ISSUER}" \
+              --wait
+            xcrun stapler staple "${dmg}"
+          done
       - name: Check the notarisation and the staple
         if: env.NOTARISE == 'true'
         working-directory: web
