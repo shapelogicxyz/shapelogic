@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The STL dump of tests/oracle/stl_dump_old.cpp, made with the new core,
-// compared line by line with the original's recording
-// (tests/data/stl_dump.txt, `oracle.py stl-dump`): the triangles the STL
-// writer writes for every fixture shape with its grid's default
-// parameters (positions within 1e-5, the same triangles), the view's STL
-// style (its faces' attributes exactly), and one text STL. Every written
+// compared with the original's recording (tests/data/stl_dump.txt,
+// `oracle.py stl-dump`): the triangles the STL writer writes for every
+// fixture shape with its grid's default parameters, the view's STL style,
+// and one text STL. What is compared is each mesh's box, area and volume
+// (stl_invariants.h), not its triangles: the merge of coplanar faces
+// triangulates a few shapes differently on another compiler or with another
+// fused multiply-add, with the same shape. Every written
 // mesh is also checked to be a closed, consistently oriented surface
 // (every edge used as often one way as the other), and a manifold one
 // (each directed edge once) but for one shape: the Minkowski mesher leaves
@@ -14,6 +16,8 @@
 // (two of them without area). The original writes the same file
 // (docs/handoff/deferred-5.md, "Found in the original").
 // Keep the two dumps in step.
+
+#include "stl_invariants.h"
 
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/puzzle_file.h"
@@ -316,6 +320,105 @@ bool sameLine(const std::string& a, const std::string& b) {
   return true;
 }
 
+// One shape's lines of a dump, by what they are.
+struct ShapeLines {
+  std::vector<std::string> other;  // everything not listed below, compared as lines
+  std::string summary;             // a large mesh: its count, box and sums
+  std::string view;                // the view's STL style
+  std::vector<test::StlTriangle> triangles;  // the dumped vertices and triangle indices
+  std::vector<test::StlTriangle> text;       // the text STL, when this shape has it
+};
+
+// The dump's lines as shapes, keyed by "file name / shape n" in order.
+std::vector<std::pair<std::string, ShapeLines>> shapesOf(const std::vector<std::string>& lines) {
+  std::vector<std::pair<std::string, ShapeLines>> out;
+  std::string file;
+  std::vector<std::array<double, 3>> verts;
+  std::string textBody;
+  bool inText = false;
+  const auto finish = [&] {
+    if (!out.empty() && inText) {
+      out.back().second.text = test::textStlTriangles(textBody);
+    }
+    inText = false;
+    textBody.clear();
+  };
+  for (const std::string& line : lines) {
+    if (line.starts_with("file ")) {
+      finish();
+      file = line.substr(5);
+      continue;
+    }
+    if (line.starts_with("shape ")) {
+      finish();
+      out.emplace_back(file + " " + line, ShapeLines{});
+      verts.clear();
+      continue;
+    }
+    if (out.empty()) {
+      continue;
+    }
+    ShapeLines& s = out.back().second;
+    if (inText) {
+      textBody += line + "\n";
+    } else if (line.starts_with("text ")) {
+      inText = true;
+    } else if (line.starts_with("triangles ")) {
+      // the count follows the triangulation, which may differ
+    } else if (line.starts_with("summary ")) {
+      s.summary = line;
+    } else if (line.starts_with("view ")) {
+      s.view = line;
+    } else if (line.starts_with("v ")) {
+      std::array<double, 3> v{};
+      std::istringstream in(line.substr(2));
+      in >> v[0] >> v[1] >> v[2];
+      verts.push_back(v);
+    } else if (line.starts_with("t ")) {
+      std::size_t a = 0;
+      std::size_t b = 0;
+      std::size_t c = 0;
+      std::istringstream in(line.substr(2));
+      in >> a >> b >> c;
+      if (std::max({a, b, c}) < verts.size()) {
+        s.triangles.push_back({verts[a], verts[b], verts[c]});
+      }
+    } else {
+      s.other.push_back(line);
+    }
+  }
+  finish();
+  return out;
+}
+
+// The part of a line from `word` on ("lo ... hi ..." of a summary or a view).
+std::string fromWord(const std::string& line, const std::string& word) {
+  const std::size_t at = line.find(" " + word + " ");
+  return at == std::string::npos ? line : line.substr(at);
+}
+
+// The first summary words up to "sum": count and box (the sums depend on how
+// the faces were triangulated).
+std::string summaryBox(const std::string& line) {
+  const std::string from = fromWord(line, "lo");
+  const std::size_t sum = from.find(" sum ");
+  return sum == std::string::npos ? from : from.substr(0, sum);
+}
+
+// The meshes are the same shapes, not the same triangles (stl_invariants.h).
+void compareMeshes(const std::string& what, const std::vector<test::StlTriangle>& theirs,
+                   const std::vector<test::StlTriangle>& ours) {
+  INFO(what);
+  CHECK(theirs.empty() == ours.empty());
+  if (theirs.empty() || ours.empty()) {
+    return;
+  }
+  std::string why;
+  const bool same = test::sameMeasures(test::measure(ours), test::measure(theirs), why);
+  INFO(why);
+  CHECK(same);
+}
+
 void compareWithRecording(const std::vector<std::string>& names, bool& textDone) {
   const Dumped mine = dumpFiles(names, textDone);
   for (const std::string& s : mine.open) {
@@ -328,25 +431,33 @@ void compareWithRecording(const std::vector<std::string>& names, bool& textDone)
       CHECK(s == kKnownNonManifold);
     }
   }
-  const std::vector<std::string> theirs = recorded(names);
-  const std::vector<std::string> ours = splitLines(mine.text);
-  REQUIRE(!theirs.empty());
-  std::size_t differ = 0;
-  std::string context;
-  for (std::size_t i = 0; i < std::max(theirs.size(), ours.size()); i++) {
-    const std::string a = i < theirs.size() ? theirs[i] : "<missing>";
-    const std::string b = i < ours.size() ? ours[i] : "<missing>";
-    if (a.starts_with("file ") || a.starts_with("shape ")) {
-      context = a;
+  const std::vector<std::string> theirsLines = recorded(names);
+  REQUIRE(!theirsLines.empty());
+  const auto theirs = shapesOf(theirsLines);
+  const auto ours = shapesOf(splitLines(mine.text));
+  REQUIRE(theirs.size() == ours.size());
+  for (std::size_t i = 0; i < theirs.size(); i++) {
+    const auto& [key, a] = theirs[i];
+    const auto& [ourKey, b] = ours[i];
+    INFO(key);
+    REQUIRE(key == ourKey);
+    // errors and anything else the dump says, line by line
+    REQUIRE(a.other.size() == b.other.size());
+    for (std::size_t k = 0; k < a.other.size(); k++) {
+      CHECK(sameLine(a.other[k], b.other[k]));
     }
-    if (!sameLine(a, b)) {
-      if (differ < 10) {
-        UNSCOPED_INFO(context << " line " << i << "\n  original: " << a << "\n  new:      " << b);
-      }
-      differ++;
+    compareMeshes(key + " (triangles)", a.triangles, b.triangles);
+    compareMeshes(key + " (text STL)", a.text, b.text);
+    CHECK(a.summary.empty() == b.summary.empty());
+    if (!a.summary.empty() && !b.summary.empty()) {
+      CHECK(sameLine(summaryBox(a.summary), summaryBox(b.summary)));
+    }
+    // the view's box; its faces' attributes follow the triangulation
+    CHECK(a.view.empty() == b.view.empty());
+    if (!a.view.empty() && !b.view.empty()) {
+      CHECK(sameLine(fromWord(a.view, "lo"), fromWord(b.view, "lo")));
     }
   }
-  CHECK(differ == 0);
 }
 
 const std::vector<std::string> kQuickFiles = {

@@ -5,6 +5,7 @@
 // CubeInCage (tests/data/stl_solution_by_original/, `oracle.py
 // stl-solution`), and the names made safe and distinct.
 #include "app_test_helpers.h"
+#include "../mesh/stl_invariants.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/mesh/stl.h"
@@ -63,7 +64,17 @@ TEST_CASE("STL export: a solution's pieces and files equal the original's for Cu
     INFO(p.fileName);
     const Result<mesh::Polyhedron> m = d.stlMesh(d.shapeIds()[p.shape], defaults(d));
     REQUIRE(m);
-    CHECK(mesh::stlFile(*m, p.fileName, true) == readBytes(kRecorded + p.fileName));
+    // the same box, area and volume as the original's file; its triangles
+    // may differ between compilers (stl_invariants.h)
+    const std::vector<std::uint8_t> mine = mesh::stlFile(*m, p.fileName, true);
+    const std::vector<std::uint8_t> theirsFile = readBytes(kRecorded + p.fileName);
+    const std::vector<test::StlTriangle> recordedMesh = test::binaryStlTriangles(theirsFile);
+    REQUIRE_FALSE(recordedMesh.empty());
+    std::string why;
+    const bool same = test::sameMeasures(test::measure(test::binaryStlTriangles(mine)),
+                                         test::measure(recordedMesh), why);
+    INFO(why);
+    CHECK(same);
   }
 }
 
