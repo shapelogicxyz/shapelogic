@@ -9,12 +9,14 @@
 // fused multiply-add, with the same shape. Every written
 // mesh is also checked to be a closed, consistently oriented surface
 // (every edge used as often one way as the other), and a manifold one
-// (each directed edge once) but for one shape: the Minkowski mesher leaves
-// a needle triangle on Bermuda's shape 22 where a side face meets a bevel,
-// and the merge of the coplanar faces triangulates the bevel's outline with
-// the same needle the other way round, so one edge carries four triangles
-// (two of them without area). The original writes the same file
-// (docs/handoff/deferred-5.md, "Found in the original").
+// (each directed edge once, counting the triangles with an area) but for one
+// shape: the Minkowski mesher leaves a needle triangle on Bermuda's shape 22
+// where a side face meets a bevel, and the merge of the coplanar faces
+// triangulates the bevel's outline with the same needle the other way
+// round, so one edge carries four triangles (two of them without area). The
+// original writes the same file (docs/handoff/deferred-5.md, "Found in the
+// original"). Which shapes get such a pair of needles depends on the
+// compiler's float rounding (12PieceSeparation's shape 0 has one on Linux).
 // Keep the two dumps in step.
 
 #include "stl_invariants.h"
@@ -83,6 +85,9 @@ class Out {
   std::string text_;
 };
 
+// Below this a triangle is a needle (three nearly collinear points).
+constexpr double kNeedleArea = 1e-6;
+
 // what surface a mesh's triangles make (dumpBinary)
 enum class Surface : std::uint8_t { Manifold, Closed, Open };
 
@@ -127,6 +132,31 @@ Surface dumpBinary(Out& out, const std::vector<std::uint8_t>& b) {
       edges[{tris[t + c], tris[t + ((c + 1) % 3)]}]++;
     }
   }
+  // The edges as the triangles with an area use them: a needle (a triangle
+  // of three nearly collinear points, area under kNeedleArea) closes a
+  // T-junction, and may lie on an edge beside the real triangle, once each
+  // way, which is no fault of the surface.
+  std::map<std::pair<std::size_t, std::size_t>, int> shownEdges;
+  for (std::size_t t = 0; t < tris.size(); t += 3) {
+    const auto& p0 = verts[tris[t]];
+    const auto& p1 = verts[tris[t + 1]];
+    const auto& p2 = verts[tris[t + 2]];
+    const double ux = static_cast<double>(p1[0]) - static_cast<double>(p0[0]);
+    const double uy = static_cast<double>(p1[1]) - static_cast<double>(p0[1]);
+    const double uz = static_cast<double>(p1[2]) - static_cast<double>(p0[2]);
+    const double wx = static_cast<double>(p2[0]) - static_cast<double>(p0[0]);
+    const double wy = static_cast<double>(p2[1]) - static_cast<double>(p0[1]);
+    const double wz = static_cast<double>(p2[2]) - static_cast<double>(p0[2]);
+    const double nx = (uy * wz) - (uz * wy);
+    const double ny = (uz * wx) - (ux * wz);
+    const double nz = (ux * wy) - (uy * wx);
+    if (0.5 * std::sqrt((nx * nx) + (ny * ny) + (nz * nz)) < kNeedleArea) {
+      continue;
+    }
+    for (std::size_t k = 0; k < 3; k++) {
+      shownEdges[{tris[t + k], tris[t + ((k + 1) % 3)]}]++;
+    }
+  }
   Surface surface = Surface::Manifold;
   for (const auto& [e, n] : edges) {
     const auto rev = edges.find({e.second, e.first});
@@ -135,7 +165,10 @@ Surface dumpBinary(Out& out, const std::vector<std::uint8_t>& b) {
       break;
     }
     if (n != 1) {
-      surface = Surface::Closed;
+      const auto shown = shownEdges.find(e);
+      if (shown != shownEdges.end() && shown->second > 1) {
+        surface = Surface::Closed;
+      }
     }
   }
   if (count > kFullTriangles) {
