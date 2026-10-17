@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "The web front end of ShapeLogic: Electron + TypeScript over shapelogic_engine (docs/FRONTEND-PLAN.md)",
+  "homepage": "https://shapelogic.xyz",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "./out/main/index.js",

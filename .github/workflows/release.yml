@@ -101,6 +101,11 @@ jobs:
       - name: Package (AppImage and deb)
         run: npm run dist
         working-directory: web
+      - name: Check both installers were made
+        working-directory: web
+        run: |
+          ls -l dist
+          ls dist/*.AppImage dist/*.deb
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}

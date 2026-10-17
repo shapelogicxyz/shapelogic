@@ -226,6 +226,7 @@ async function main(): Promise<void> {
 if (import.meta.filename === resolve(process.argv[1] ?? '')) {
   main().catch((e: unknown) => {
     console.error(`dist: ${e instanceof Error ? e.message : String(e)}`);
-    process.exitCode = 1;
+    // exit at once: a packaging failure must fail the CI step, not be lost to exitCode
+    process.exit(1);
   });
 }
