@@ -35,6 +35,7 @@ export default defineConfig({
           label: 'Start here',
           items: [
             { label: 'Install', slug: 'docs/install' },
+            { label: 'Linux and graphics', slug: 'docs/linux' },
             { label: 'Getting started', slug: 'docs/getting-started' },
             { label: 'Command Line Tool', slug: 'docs/command-line' },
           ],

@@ -34,6 +34,14 @@ export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
   tutorial: 'https://shapelogic.xyz/docs/getting-started/',
 };
 
+/**
+ * The page shown when WebGL2 is not available (gpu-check.ts), also handed to
+ * the system's browser; the site has the page too (site/tests/help-urls).
+ */
+export const SYSTEM_URLS = {
+  linuxGraphics: 'https://shapelogic.xyz/docs/linux/',
+} as const;
+
 /** The scheme the renderer's page is served on: standard and secure, the app's own. */
 export const APP_SCHEME = 'bt-app';
 /** The one host of that scheme. */

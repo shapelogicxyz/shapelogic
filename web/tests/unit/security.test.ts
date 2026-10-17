@@ -29,6 +29,7 @@ import {
   appFile,
   appUrl,
   HELP_URLS,
+  SYSTEM_URLS,
   permissionAllowed,
   switches,
   webPreferences,
@@ -323,14 +324,17 @@ describe('the page', () => {
 
 describe('the addresses opened outside the app', () => {
   it('are the help links, https on the original guide, opened in one place', () => {
-    for (const url of Object.values(HELP_URLS)) {
+    for (const url of [...Object.values(HELP_URLS), ...Object.values(SYSTEM_URLS)]) {
       const u = new URL(url);
       expect(u.protocol).toBe('https:');
       expect(u.hostname).toBe('shapelogic.xyz');
     }
-    expect(occurrences(/openExternal\(/g)).toEqual(['src/main/app-ipc.ts']);
+    // the renderer's links, and the start-up page about WebGL2 (gpu-check.ts)
+    expect(occurrences(/openExternal\(/g)).toEqual(['src/main/app-ipc.ts', 'src/main/index.ts']);
     const ipc = SRC.find((s) => s.file === 'src/main/app-ipc.ts')?.text ?? '';
     expect(ipc).toContain('shell.openExternal(HELP_URLS[link])');
+    const main = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
+    expect(main).toContain('shell.openExternal(SYSTEM_URLS.linuxGraphics)');
   });
 });
 
