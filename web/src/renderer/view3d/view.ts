@@ -20,7 +20,7 @@
 // (instead of the pieces scene), the pegs around the player's discs. It
 // renders only when something changed.
 
-import { Raycaster, Vector2, Vector3 } from 'three';
+import { Box3, Raycaster, Vector2, Vector3 } from 'three';
 
 import { EngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
@@ -97,8 +97,12 @@ export type SolutionLayer = 'player' | 'explorer';
 
 /** What 3D editing does with the view's points (the Entities workspace). */
 export interface EditHost {
-  /** The face under the mouse changed, or the modifiers did (null: none). */
-  hover(pick: Pick | null, mods: ViewMods): void;
+  /**
+   * The face under the mouse changed, or the modifiers did (null: none);
+   * `over` says whether the mouse is over the shape's space (its grid box,
+   * the empty cells too).
+   */
+  hover(pick: Pick | null, mods: ViewMods, over: boolean): void;
   /** A click (no drag) on a face, or on nothing; true when it was taken. */
   click(pick: Pick | null, mods: ViewMods): boolean;
   /** The Edit button. */
@@ -146,6 +150,8 @@ export class View3D {
   layer = 0;
   /** The last pick under the mouse, or null. */
   lastPick: Pick | null = null;
+  /** Whether the mouse was last over the shape's space (its grid box). */
+  private overSpace = false;
   /** 3D editing, when a workspace does it. */
   edit: EditHost | null = null;
   /** The Puzzle workspace, once it is there. */
@@ -620,7 +626,7 @@ export class View3D {
   modsChanged(m: ViewMods): void {
     this.mods = m;
     if (this.hoverAt !== null && this.drag === null) {
-      this.edit?.hover(this.lastPick, m);
+      this.edit?.hover(this.lastPick, m, this.overSpace);
     }
   }
 
@@ -1074,24 +1080,52 @@ export class View3D {
     if (target === null || mesh === null) {
       return null;
     }
+    return pickAt(
+      this.ndcAt(clientX, clientY),
+      this.renderer.camera,
+      target,
+      mesh,
+      this.scene.insideShown,
+    );
+  }
+
+  // a point of the canvas in normalised device coordinates, the shape framed
+  private ndcAt(clientX: number, clientY: number): Vector2 {
     const r = this.canvas.getBoundingClientRect();
-    const ndc = new Vector2(
+    this.renderer.frame(this.camera, this.extent);
+    return new Vector2(
       ((clientX - r.left) / r.width) * 2 - 1,
       -(((clientY - r.top) / r.height) * 2 - 1),
     );
-    this.renderer.frame(this.camera, this.extent);
-    return pickAt(ndc, this.renderer.camera, target, mesh, this.scene.insideShown);
   }
 
-  private showPick(p: Pick | null): void {
+  // whether a point is over the shape's space (its grid box), where an
+  // empty cell may be: 3D editing's cursor shows there, not only on faces
+  private spaceAtClient(clientX: number, clientY: number): boolean {
+    if (this.puzzleMode || this.solverMode || this.rodSetShown || this.store.shape === null) {
+      return false;
+    }
+    const ray = new Raycaster();
+    ray.setFromCamera(this.ndcAt(clientX, clientY), this.renderer.camera);
+    ray.ray.applyMatrix4(this.renderer.model.matrixWorld.clone().invert());
+    return ray.ray.intersectsBox(new Box3(new Vector3(0, 0, 0), new Vector3(...this.extent)));
+  }
+
+  private showPick(p: Pick | null, over: boolean): void {
     this.lastPick = p;
+    this.overSpace = over;
     setCursor(p === null ? '' : describePick(p));
-    this.edit?.hover(p, this.mods);
+    this.edit?.hover(p, this.mods, over);
+  }
+
+  // the face and the space under a point
+  private showPickAt(clientX: number, clientY: number): void {
+    this.showPick(this.pickAtClient(clientX, clientY), this.spaceAtClient(clientX, clientY));
   }
 
   private repick(): void {
     if (this.hoverAt !== null && this.drag === null) {
-      this.showPick(this.pickAtClient(this.hoverAt.x, this.hoverAt.y));
+      this.showPickAt(this.hoverAt.x, this.hoverAt.y);
     }
   }
 
@@ -1143,7 +1177,7 @@ export class View3D {
           byId('vp').dataset.hoverPiece = hp === null ? '' : String(hp);
           this.canvas.style.cursor = hp !== null && this.mods.alt ? 'grab' : '';
         }
-        this.showPick(this.pickAtClient(e.clientX, e.clientY));
+        this.showPickAt(e.clientX, e.clientY);
         return;
       }
       if (!d.moved) {
@@ -1152,7 +1186,7 @@ export class View3D {
         }
         d.moved = true;
         // a drag navigates: no edit preview while it lasts
-        this.edit?.hover(null, this.mods);
+        this.edit?.hover(null, this.mods, false);
         d.x = e.clientX;
         d.y = e.clientY;
         if (d.m === 'orbit' && prefs.rot === 'Arc-ball') {
@@ -1198,7 +1232,7 @@ export class View3D {
         // a click: the cell and side under it, edited when the workspace edits
         const p = this.pickAtClient(e.clientX, e.clientY);
         this.edit?.click(p, this.mods);
-        this.showPick(p);
+        this.showPick(p, this.spaceAtClient(e.clientX, e.clientY));
       } else if (was?.moved === true) {
         this.repick();
       }
@@ -1207,7 +1241,7 @@ export class View3D {
       if (this.drag === null) {
         this.hoverAt = null;
         this.hoverPiece(null);
-        this.showPick(null);
+        this.showPick(null, false);
       }
     });
     cv.addEventListener(

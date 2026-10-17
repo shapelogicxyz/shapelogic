@@ -457,6 +457,22 @@ for (const grid of GRIDS) {
 
       // ---- 3D editing: a face's cell (erase) and the cell across it (fixed) ----
       await clearShape(page, s3);
+      const vp = await page.locator('#cv').boundingBox();
+      if (vp === null) {
+        throw new Error('no view');
+      }
+      // with Edit on, the tool's cursor shows over the space's empty cells
+      // too (no face under the mouse), the navigation's outside the space
+      await page.keyboard.press('e');
+      await expect(page.locator('#bEdit')).toHaveClass(/\bon\b/);
+      const cvCursor = (): Promise<string> =>
+        page.locator('#cv').evaluate((el) => (el as HTMLElement).style.cursor);
+      await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
+      await expect.poll(cvCursor).toContain('url(');
+      await page.mouse.move(vp.x + 4, vp.y + 4);
+      await expect.poll(cvCursor).toBe('');
+      await page.keyboard.press('e');
+      await expect(page.locator('#bEdit')).not.toHaveClass(/\bon\b/);
       for (const c of geo3.slice(0, Math.min(8, geo3.length))) {
         await clickCell(page, c.at);
       }
@@ -464,10 +480,6 @@ for (const grid of GRIDS) {
       if (!cube) {
         await page.keyboard.press('e');
         await expect(page.locator('#bEdit')).toHaveClass(/\bon\b/);
-      }
-      const vp = await page.locator('#cv').boundingBox();
-      if (vp === null) {
-        throw new Error('no view');
       }
       const size1 = (await shapeGet(page, s3)).shape.size;
       let added = false;

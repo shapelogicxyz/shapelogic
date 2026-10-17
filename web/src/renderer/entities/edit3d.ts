@@ -68,6 +68,8 @@ export class Edit3D implements EditHost {
   private readonly neighbours = new Map<string, Promise<Cell | null>>();
   private token = 0;
   private lastPick: Pick | null = null;
+  /** Whether the mouse is over the shape's space (its grid box). */
+  private lastOver = false;
   private lastMods: ViewMods = { ctrl: false, shift: false, alt: false };
   /** The 2D grid's hover, previewed while the mouse is not over the view. */
   private from2d: { cell: Cell; tool: Tool } | null = null;
@@ -80,6 +82,7 @@ export class Edit3D implements EditHost {
   reset(): void {
     this.neighbours.clear();
     this.lastPick = null;
+    this.lastOver = false;
     this.from2d = null;
     this.show();
   }
@@ -92,9 +95,10 @@ export class Edit3D implements EditHost {
     this.host.state.changed();
   }
 
-  hover(pick: Pick | null, mods: ViewMods): void {
+  hover(pick: Pick | null, mods: ViewMods, over: boolean): void {
     this.lastPick = pick;
     this.lastMods = mods;
+    this.lastOver = over;
     this.show();
   }
 
@@ -144,7 +148,11 @@ export class Edit3D implements EditHost {
       enabled: tab === 'entities' && host.store.shape !== null,
     });
     const canEdit = act !== null && host.canEdit();
-    host.view.setCursor(canEdit && this.lastPick !== null ? cursorFor(act, host.badge()) : '');
+    // the tool's cursor over the shape's space, its empty cells too (the
+    // mockup's showed it all over the view): a drag there still navigates
+    host.view.setCursor(
+      canEdit && (this.lastPick !== null || this.lastOver) ? cursorFor(act, host.badge()) : '',
+    );
     const n = ++this.token;
     if (canEdit && this.lastPick !== null) {
       void this.target(act, this.lastPick).then((t) => {
