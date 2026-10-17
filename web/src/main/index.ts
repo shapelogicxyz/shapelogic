@@ -39,7 +39,7 @@
 // Solver's autosave (20 minutes), passed in the page's address. A
 // packaged app takes BT_USER_DATA only (security.ts's switches).
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell } from 'electron';
 import type { WebContents } from 'electron';
 import { appendFileSync, existsSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
@@ -54,6 +54,7 @@ import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
 import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
+import { gpuAction, retryArgs } from './gpu-check.ts';
 import { PathGrants, settingsRefusal } from './path-grants.ts';
 import { RescueStore } from './rescue.ts';
 import {
@@ -63,6 +64,7 @@ import {
   appUrl,
   permissionAllowed,
   switches,
+  SYSTEM_URLS,
   windowOptions,
 } from './security.ts';
 import { StateStore } from './state-store.ts';
@@ -422,9 +424,56 @@ app.on('will-quit', () => {
   }
 });
 
-void app.whenReady().then(() => {
+/**
+ * WebGL2 is checked before the first window (gpu-check.ts): a start again
+ * with the blocklist overridden, else an explanation. True when the app goes on.
+ */
+async function webglReady(): Promise<boolean> {
+  await app.getGPUInfo('basic').catch(() => null);
+  const action = gpuAction(
+    app.getGPUFeatureStatus().webgl2,
+    process.argv,
+    process.platform,
+    app.isPackaged,
+  );
+  if (action === 'continue') {
+    return true;
+  }
+  if (action === 'retry') {
+    // an AppImage is started again through its own file, not the unpacked binary
+    const execPath = process.env.APPIMAGE;
+    app.relaunch({
+      ...(execPath !== undefined ? { execPath } : {}),
+      args: retryArgs(process.argv),
+    });
+    app.exit(0);
+    return false;
+  }
+  const { response } = await dialog.showMessageBox({
+    type: 'error',
+    title: APP_NAME,
+    message: 'ShapeLogic cannot draw its 3D views on this computer.',
+    detail:
+      'WebGL2 is not available, even with the graphics blocklist overridden. ' +
+      'This happens in virtual machines without 3D acceleration and with some graphics drivers. ' +
+      `The page below explains what to try:\n\n${SYSTEM_URLS.linuxGraphics}`,
+    buttons: ['Open the help page', 'Quit'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0) {
+    await shell.openExternal(SYSTEM_URLS.linuxGraphics);
+  }
+  app.exit(0);
+  return false;
+}
+
+void app.whenReady().then(async () => {
   if (!primary) {
     // a second start: quitting, its files handed to the first
+    return;
+  }
+  if (!(await webglReady())) {
     return;
   }
   // Development runs Electron's own bundle, whose Dock icon is Electron's;
