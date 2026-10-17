@@ -1,5 +1,5 @@
 ---
-title: Puzzle types
+title: Puzzle Types
 description: The seven kinds of puzzle ShapeLogic handles, and how to choose one.
 ---
 

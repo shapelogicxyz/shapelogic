@@ -25,7 +25,7 @@ export default defineConfig({
       },
       plugins: [starlightLinksValidator()],
       sidebar: [
-        { label: 'User guide', link: '/docs/' },
+        { label: 'User Guide', link: '/docs/' },
         {
           label: 'Download',
           link: 'https://github.com/shapelogicxyz/shapelogic/releases/latest',
@@ -34,14 +34,32 @@ export default defineConfig({
         {
           label: 'Start here',
           items: [
-            { label: 'Install', slug: 'docs/install' },
-            { label: 'Linux and graphics', slug: 'docs/linux' },
+            {
+              label: 'Install',
+              items: [
+                { label: 'Overview', slug: 'docs/install' },
+                { label: 'Windows', slug: 'docs/windows' },
+                { label: 'macOS', slug: 'docs/macos' },
+                { label: 'Linux', slug: 'docs/linux' },
+              ],
+            },
             { label: 'Getting started', slug: 'docs/getting-started' },
-            { label: 'Command Line Tool', slug: 'docs/command-line' },
           ],
         },
         {
-          label: 'Puzzle types',
+          label: 'Using ShapeLogic',
+          items: [
+            { label: '3D Model Viewer', slug: 'docs/viewer' },
+            { label: 'Shapes Tab Options', slug: 'docs/shapes-tab' },
+            { label: 'Puzzle Tab Options', slug: 'docs/puzzle-tab' },
+            { label: 'Solver Tab Options', slug: 'docs/solver-tab' },
+            { label: 'Keyboard Shortcuts', slug: 'docs/keyboard-shortcuts' },
+            { label: 'Imports', slug: 'docs/imports' },
+            { label: 'Exports', slug: 'docs/exports' },
+          ],
+        },
+        {
+          label: 'Puzzle Types',
           items: [
             { label: 'Overview', slug: 'docs/puzzle-types' },
             { label: 'Brick', slug: 'docs/puzzle-types/brick' },
@@ -51,6 +69,15 @@ export default defineConfig({
             { label: 'Tetrahedra-Octahedra', slug: 'docs/puzzle-types/tetra-octa' },
             { label: 'Sliding', slug: 'docs/puzzle-types/sliding' },
             { label: 'Stacking', slug: 'docs/puzzle-types/stacking' },
+          ],
+        },
+        {
+          label: 'Advanced Topics',
+          items: [
+            { label: 'Color Restrictions', slug: 'docs/color-restrictions' },
+            { label: 'Piece Rotations (TIC)', slug: 'docs/piece-rotations' },
+            { label: 'Solve Notation', slug: 'docs/solve-notation' },
+            { label: 'Command Line Tool', slug: 'docs/command-line' },
           ],
         },
       ],

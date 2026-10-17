@@ -1,10 +1,11 @@
 ---
-title: Linux and graphics
+title: Linux
 description: Install ShapeLogic on Linux, and what to do when it says it cannot draw its 3D views.
 ---
 
-ShapeLogic draws its puzzles with WebGL2. This page covers the Linux downloads
-and what to try when the app tells you WebGL2 is not available.
+ShapeLogic has a Linux based GUI that has been tested on Ubuntu Desktop. This
+page covers the Linux downloads and what to try when the app tells you WebGL2
+is not available.
 
 ## Which download to use
 

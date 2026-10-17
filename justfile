@@ -117,6 +117,8 @@ web-test:
 web-dev:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
 
+alias app-dev := web-dev
+
 # Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE)
 web-e2e *args:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}

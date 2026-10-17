@@ -50,7 +50,8 @@ const TIP: Record<BoxName, string> = {
   keepMirrors:
     'Do not remove solutions that are mirror images of others (useful with piece ranges).',
   keepRotations: 'Do not remove solutions that are only rotations of others.',
-  deepSymmetry: 'More thorough, slower check for duplicate (rotated) solutions.',
+  deepSymmetry:
+    'A more thorough, slower check for duplicate solutions: removes translations and rotations that are not in the symmetry of the result shape.',
   strictColors:
     'A voxel with a color fits only a result voxel of that same color, not a neutral one; a voxel with no color fits only a result voxel that also has none.',
   nestedSlides:
@@ -85,15 +86,16 @@ const STACKING_SOLVER_TIP: Record<'stacking' | 'panex', string> = {
 const SLIDING_SOLVER_TIP =
   'Each start is searched for the fewest moves to the goal. Fast looks at up to 250,000 arrangements per start, Deep up to 1,000,000; Full has no limit: it either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
 
+/** The switches' names: the original's (mainwindow_layout.cpp), so they match its documentation. */
 const LABEL: Record<BoxName, string> = {
   disassemble: 'Assemblies and disassembly',
-  justLevels: 'Don’t keep the disassemblies',
-  checkRotations: 'Check rotations',
-  justCount: 'Just count',
-  keepMirrors: 'Keep mirror solutions',
-  keepRotations: 'Keep rotated solutions',
-  deepSymmetry: 'Thorough rotation check',
-  strictColors: 'Strict colors',
+  justLevels: 'Just Levels',
+  checkRotations: 'Check Rotations',
+  justCount: 'Just Count',
+  keepMirrors: 'Keep Mirror Solutions',
+  keepRotations: 'Keep Rotated Solutions',
+  deepSymmetry: 'Deep Symmetry Check',
+  strictColors: 'Strict Color Restrictions',
   nestedSlides: 'Allow Nested Slides',
   partialNested: 'Allow Partially Nested',
   highMemory: 'Enable High Memory',
