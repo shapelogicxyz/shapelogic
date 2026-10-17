@@ -231,6 +231,7 @@ jobs:
             echo "APPLE_API_ISSUER=${APPLE_API_ISSUER}"
           } >> "${GITHUB_ENV}"
       - name: Package and sign (${{ matrix.arch }}), notarising when asked
+        timeout-minutes: 60 # electron-builder waits on Apple for the app; stop before the job's limit
         run: npm run dist -- --arch ${{ matrix.arch }}
         working-directory: web
       - name: Check the signature
@@ -240,11 +241,18 @@ jobs:
       - name: Notarise and staple the disk images
         if: env.NOTARISE == 'true'
         working-directory: web
+        timeout-minutes: 35 # Apple's queue can stall; fail with a clear message, not at the job's limit
         run: |
-          for dmg in dist/*.dmg; do
+          shopt -s nullglob
+          dmgs=(dist/*.dmg)
+          if [ "${#dmgs[@]}" -eq 0 ]; then
+            echo "::error::no disk image in web/dist: packaging did not produce one"
+            exit 1
+          fi
+          for dmg in "${dmgs[@]}"; do
             xcrun notarytool submit "${dmg}" \
               --key "${APPLE_API_KEY}" --key-id "${APPLE_API_KEY_ID}" --issuer "${APPLE_API_ISSUER}" \
-              --wait
+              --wait --timeout 30m
             xcrun stapler staple "${dmg}"
           done
       - name: Check the notarisation and the staple
