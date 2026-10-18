@@ -5,6 +5,6 @@
     "types": [],
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.web.tsbuildinfo"
   },
-  "include": ["src/renderer/**/*.ts", "src/engine/**/*.ts"],
+  "include": ["src/renderer/**/*.ts", "src/engine/**/*.ts", "src/demo/**/*.ts"],
   "exclude": ["src/engine/node-transport.ts"]
 }

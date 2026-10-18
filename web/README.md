@@ -85,6 +85,20 @@ docs/handoff/web-8.md has the steps by hand. In CI, Release
 `.dmg` for notarisation without waiting for Apple; Staple (`staple.yml`,
 given that run's id) staples the tickets once Apple has accepted them.
 
+## The website's demo
+
+`npm run demo` (`just site-demo`) builds the renderer for the browser
+(`demo.vite.config.ts`, entry `src/demo/main.ts`) into
+`../site/public/demo/`, then records `session.json` there
+(`tools/record-demo.ts`): Chrome opens the page with the release engine
+behind its bridge, through a Playwright binding, and a tour goes through
+what the demo offers (every shape in every style, the tabs, the
+solution's disassembly played through). The page on the site answers from
+that recording (`src/demo/replay-bridge.ts`): a call it does not have
+fails as `superseded`, and one that would change the puzzle says the demo
+is read-only. `npm run demo -- --check` replays the built demo through
+the same tour and lists the calls it misses; `--headed` shows the browser.
+
 ## Where the engine comes from
 
 - The tests run `build/release/engine/shapelogic_engine`, or `BT_ENGINE` when it is

@@ -7,6 +7,7 @@
   },
   "include": [
     "electron.vite.config.ts",
+    "demo.vite.config.ts",
     "vitest.config.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
@@ -15,5 +16,5 @@
     "fake-engine/**/*.ts",
     "tests/**/*.ts"
   ],
-  "exclude": ["tests/e2e/**", "tests/docs/**"]
+  "exclude": ["tests/e2e/**", "tests/docs/**", "tools/record-demo.ts"]
 }

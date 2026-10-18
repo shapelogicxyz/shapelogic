@@ -20,6 +20,12 @@ npm test          # the app's Help URLs are pages of dist/ (build first)
   (needs `just build release`) drives the built app and writes
   `src/assets/screens/*.png`. Run it when the UI changes and commit the PNGs.
   They are not regenerated in CI: font rendering differs between systems.
+- `public/demo/` is the app itself running in the browser over a recorded
+  engine (served at `/demo/`), with the solved `public/examples/PelikanBurr.xmpuzzle`.
+  It is generated: `just site-demo` (needs `just build release` and Google
+  Chrome) builds the app's page and records `session.json`, the engine's
+  replies to what a visitor can do. Rerun it after a change to the app and
+  commit the result. Changes are refused there and nothing is kept.
 - Installers are not stored here. Download links point at the GitHub
   Release (`/releases/latest`).
 

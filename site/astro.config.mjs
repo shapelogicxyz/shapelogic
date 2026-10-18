@@ -7,8 +7,24 @@ import starlightLinksValidator from 'starlight-links-validator';
 // /docs/ and /docs/getting-started/ (web/src/main/security.ts HELP_URLS):
 // renaming those pages breaks the Help menu, and site/tests/help-urls.test.mjs
 // fails the build check if they go missing.
+// public/demo/ is the app's demo (web/tools/record-demo.ts), a static page
+// of its own: the built site serves /demo/ from its index.html, the dev
+// server serves public files only by their full name, so it is told.
+const demoIndex = {
+  name: 'demo-index',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url === '/demo' || req.url === '/demo/') {
+        req.url = '/demo/index.html';
+      }
+      next();
+    });
+  },
+};
+
 export default defineConfig({
   site: 'https://shapelogic.xyz',
+  vite: { plugins: [demoIndex] },
   // the landing page's inline links need the spaces around them kept
   compressHTML: false,
   integrations: [

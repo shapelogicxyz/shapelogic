@@ -55,7 +55,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['src/renderer/**/*.ts'],
+    files: ['src/renderer/**/*.ts', 'src/demo/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

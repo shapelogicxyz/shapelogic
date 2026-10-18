@@ -12,6 +12,7 @@
     "tests/docs/**/*.ts",
     "tests/e2e/**/*.ts",
     "tools/project-version.ts",
+    "tools/record-demo.ts",
     "src/renderer/env.d.ts"
   ]
 }
