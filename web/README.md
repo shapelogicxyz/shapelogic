@@ -80,7 +80,10 @@ with the hardened runtime, and notarises when `APPLE_API_KEY` (the .p8
 file), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER` are set. On Windows the
 installer is unsigned (SmartScreen warns) unless `CSC_LINK` (or
 `WIN_CSC_LINK`) and `CSC_KEY_PASSWORD` name a code-signing certificate.
-None of this is automated; docs/handoff/web-8.md has the steps.
+docs/handoff/web-8.md has the steps by hand. In CI, Release
+(`.github/workflows/release.yml`) signs the macOS builds and sends the
+`.dmg` for notarisation without waiting for Apple; Staple (`staple.yml`,
+given that run's id) staples the tickets once Apple has accepted them.
 
 ## Where the engine comes from
 
