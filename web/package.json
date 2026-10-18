@@ -24,7 +24,7 @@
     "e2e": "electron-vite build && playwright test",
     "dist": "electron-vite build && node tools/dist.ts",
     "docs-shots": "electron-vite build && playwright test -c playwright.docs.config.ts",
-    "demo": "node tools/record-demo.ts"
+    "demo": "node tools/build-demo.ts"
   },
   "devDependencies": {
     "@electron/asar": "3.4.1",

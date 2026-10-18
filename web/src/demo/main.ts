@@ -1,31 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The demo page's entry (site/public/demo/, built by demo.vite.config.ts):
-// the app's renderer as it is, over the recorded engine (replay-bridge.ts)
-// and the demo's app (demo-app.ts) in place of the preload's window.bt
-// and window.btApp, with the demo puzzle opened as File ▸ Open Recent
-// would. While tools/record-demo.ts records, the bridge is its real
-// engine instead (live-bridge.ts).
+// The demo page's entry (site/public/demo/, built by demo.vite.config.ts
+// through tools/build-demo.ts): the app's renderer as it is, over the
+// engine compiled to WebAssembly (engine/wasm_main.cpp, wasm-transport.ts,
+// engine-bridge.ts) and the demo's app (demo-app.ts) in place of the
+// preload's window.bt and window.btApp. The demo puzzle is opened from the
+// site as a dropped file would be, with the Solver set to check
+// disassembly; the Solve buttons do nothing (a search would hold the
+// page's one thread), and the bridge refuses a search that gets past them.
+// Nothing is kept: a reload starts again.
 
-import type { BtBridge } from '../engine/bridge.ts';
+import { EngineClient } from '../engine/client.ts';
 import { startApp } from '../renderer/shell/app.ts';
 import { flash } from '../renderer/shell/status.ts';
 import { demoApp } from './demo-app.ts';
-import { LiveBridge, liveRecording } from './live-bridge.ts';
-import { ReplayBridge } from './replay-bridge.ts';
-import type { DemoSession } from './session.ts';
+import { EngineBridge } from './engine-bridge.ts';
+import createEngine from './engine/shapelogic_engine.js';
+import { WasmTransport } from './wasm-transport.ts';
 
-declare const __BT_DEMO_BASE__: string;
+/** The puzzle the demo opens, on the site. */
+const PUZZLE_URL = '/examples/PelikanBurr.xmpuzzle';
+const PUZZLE_NAME = 'PelikanBurr.xmpuzzle';
 
-/** What the status bar says when the demo refuses a change. */
-const REFUSED = 'This is a demo: changes are off. Download ShapeLogic to edit and solve puzzles.';
-
-interface DemoWindow {
-  /** Set by the recorder: the puzzle to open and the engine's version. */
-  __btDemo?: { puzzle: string; version: string };
-  /** The replay, for a look from the console at what the recording misses. */
-  __btDemoReplay?: ReplayBridge;
-}
+const SOLVE_REFUSED =
+  'This is a demo: searches run in the app. Download ShapeLogic to solve puzzles.';
 
 function stageReady(): Promise<void> {
   const stage = document.getElementById('stage');
@@ -46,12 +44,15 @@ function stageReady(): Promise<void> {
   });
 }
 
-// the top bar says what this is, beside the file's name
+// the top bar says what this is, beside the file's name, with a way back
+// to the solved puzzle (an edited piece drops its solutions, as in the app)
 function badge(): void {
   const right = document.querySelector('.top .right');
   if (right === null) {
     return;
   }
+  const chip =
+    'text-decoration:none;color:var(--accent);background:var(--accentSoft);font-weight:600;padding:2px 10px;margin-right:8px;font-size:11px;cursor:pointer';
   const a = document.createElement('a');
   a.className = 'chip';
   a.id = 'demoBadge';
@@ -59,41 +60,66 @@ function badge(): void {
   a.target = '_top';
   a.textContent = 'Demo';
   a.title =
-    'A demo with a recorded engine: look around, play the solution. Changes are off and nothing is kept (reload to start again). Click to download ShapeLogic.';
-  a.style.cssText =
-    'text-decoration:none;color:var(--accent);background:var(--accentSoft);font-weight:600;padding:2px 10px;margin-right:8px;font-size:11px';
-  right.prepend(a);
+    'The app in your browser: edit shapes, build problems, play the solution. Searches are off and nothing is kept. Click to download ShapeLogic.';
+  a.style.cssText = chip;
+  const reset = document.createElement('button');
+  reset.className = 'chip';
+  reset.id = 'demoReset';
+  reset.textContent = 'Reset';
+  reset.title = 'Start the demo again with the solved puzzle (your changes are dropped)';
+  reset.style.cssText = `${chip};border:0;font:inherit;font-size:11px;font-weight:600`;
+  reset.addEventListener('click', () => {
+    window.location.reload();
+  });
+  right.prepend(a, reset);
+}
+
+// Solve, Prepare and Continue do nothing: taken before the Solver's own
+// handler (which would close the player and ask the engine)
+function stopSearches(): void {
+  document.addEventListener(
+    'click',
+    (e) => {
+      const b = (e.target as Element | null)?.closest<HTMLButtonElement>(
+        '#leftS button[data-r="start"], #leftS button[data-r="prepare"], #leftS button[data-r="continue"]',
+      );
+      if (b !== null && b !== undefined) {
+        e.stopPropagation();
+        e.preventDefault();
+        flash(SOLVE_REFUSED, 5000);
+      }
+    },
+    true,
+  );
 }
 
 async function main(): Promise<void> {
-  const w = window as DemoWindow;
-  let bridge: BtBridge;
-  let puzzle: string;
-  let version: string;
-  if (liveRecording() && w.__btDemo !== undefined) {
-    bridge = new LiveBridge();
-    ({ puzzle, version } = w.__btDemo);
-  } else {
-    const r = await fetch(`${__BT_DEMO_BASE__}session.json`);
-    if (!r.ok) {
-      throw new Error(`the demo's recording: ${String(r.status)} ${r.statusText}`);
-    }
-    const session = (await r.json()) as DemoSession;
-    const replay = new ReplayBridge(session, () => {
-      flash(REFUSED, 5000);
-    });
-    w.__btDemoReplay = replay;
-    bridge = replay;
-    puzzle = session.puzzle;
-    version = session.status.state === 'running' ? session.status.version : '';
-  }
-  const app = demoApp(version);
-  Object.defineProperty(window, 'bt', { value: bridge });
+  const m = await createEngine();
+  const client = new EngineClient(new WasmTransport(m));
+  const hello = await client.hello();
+  const app = demoApp(hello.version);
+  Object.defineProperty(window, 'bt', { value: new EngineBridge(client, hello.version) });
   Object.defineProperty(window, 'btApp', { value: app });
   badge();
-  startApp();
+  stopSearches();
+  const { store, solver } = startApp();
   await stageReady();
-  app.command({ cmd: 'openPath', path: puzzle });
+  const r = await fetch(PUZZLE_URL);
+  if (!r.ok) {
+    throw new Error(`the demo puzzle: ${String(r.status)} ${r.statusText}`);
+  }
+  await store.openBytes(PUZZLE_NAME, new Uint8Array(await r.arrayBuffer()));
+  // the Solver shows Assemble and Disassemble (the file does not say)
+  const problem = store.snapshot?.problems[0]?.id;
+  if (problem !== undefined) {
+    const settings = (await store.engine.call('problem.get', { problem })).solverSettings;
+    const set = await store.engine.call('problem.setSolverSettings', {
+      problem,
+      settings: { ...settings, disassemble: true },
+    });
+    await store.whenRevision(set.revision);
+    solver.selectProblem(problem);
+  }
 }
 
 void main();

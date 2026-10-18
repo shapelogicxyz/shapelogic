@@ -2,9 +2,9 @@
 //
 // The website's demo of the app (site/public/demo/, served at /demo/):
 // the renderer's page built by Vite with src/demo/main.ts as its entry
-// (the recorded engine in place of Electron's), its CSP letting the page
-// fetch the recording from the site. tools/record-demo.ts builds it and
-// records session.json beside it.
+// (the engine compiled to WebAssembly in place of Electron's), its CSP
+// letting the page run WebAssembly and fetch the puzzle from the site.
+// tools/build-demo.ts runs it (`npm run demo`, `just site-demo`).
 
 import { resolve } from 'node:path';
 
@@ -28,10 +28,15 @@ export default defineConfig({
         order: 'pre',
         handler(html) {
           const page = html
+            .replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
             .replace("connect-src 'none'", "connect-src 'self'")
             .replace('<title>ShapeLogic</title>', '<title>ShapeLogic demo</title>')
             .replace('src="./main.ts"', 'src="../demo/main.ts"');
-          if (!page.includes('../demo/main.ts') || !page.includes("connect-src 'self'")) {
+          if (
+            !page.includes('../demo/main.ts') ||
+            !page.includes("connect-src 'self'") ||
+            !page.includes('wasm-unsafe-eval')
+          ) {
             throw new Error('src/renderer/index.html changed: update demo.vite.config.ts');
           }
           return page;

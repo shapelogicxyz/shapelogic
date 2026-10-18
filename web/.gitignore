@@ -1,5 +1,8 @@
 node_modules/
 out/
 dist/
+# the engine for the browser, copied from build/wasm by tools/build-demo.ts
+src/demo/engine/*
+!src/demo/engine/shapelogic_engine.d.ts
 test-results/
 playwright-report/

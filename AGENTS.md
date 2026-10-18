@@ -45,7 +45,7 @@ just web-smoke          # the packaged app's smoke test (after just web-dist --d
 just site-build         # the website and user guide (site/): build, link check, the Help URLs
 just site-dev           # the site with live reload
 just docs-screenshots   # retake the guide's screenshots from the built app
-just site-demo          # rebuild the site's demo (site/public/demo/) and record its session
+just site-demo          # rebuild the site's demo (site/public/demo/): the engine as WebAssembly under the renderer (needs Emscripten)
 ```
 
 ## How to port code from the original

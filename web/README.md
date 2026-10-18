@@ -87,17 +87,22 @@ given that run's id) staples the tickets once Apple has accepted them.
 
 ## The website's demo
 
-`npm run demo` (`just site-demo`) builds the renderer for the browser
-(`demo.vite.config.ts`, entry `src/demo/main.ts`) into
-`../site/public/demo/`, then records `session.json` there
-(`tools/record-demo.ts`): Chrome opens the page with the release engine
-behind its bridge, through a Playwright binding, and a tour goes through
-what the demo offers (every shape in every style, the tabs, the
-solution's disassembly played through). The page on the site answers from
-that recording (`src/demo/replay-bridge.ts`): a call it does not have
-fails as `superseded`, and one that would change the puzzle says the demo
-is read-only. `npm run demo -- --check` replays the built demo through
-the same tour and lists the calls it misses; `--headed` shows the browser.
+`just site-demo` builds the app for the browser into `../site/public/demo/`
+(served at shapelogic.xyz/demo/): the engine compiled to WebAssembly by
+the `wasm` CMake preset (`../engine/wasm_main.cpp`; needs Emscripten,
+`brew install emscripten`), then `npm run demo` (`tools/build-demo.ts`)
+copies it into `src/demo/engine/` and builds the renderer's page with
+`src/demo/main.ts` as its entry (`demo.vite.config.ts`). In the page,
+`src/demo/wasm-transport.ts` is the engine's stdio, `engine-bridge.ts`
+serves the client to the renderer as the main process does (it refuses a
+solve, an analysis or an explorer: a search would hold the page's one
+thread), and `demo-app.ts` stands in for Electron's menus, dialogs and
+files. The demo opens `../site/public/examples/PelikanBurr.xmpuzzle` and
+takes every edit; nothing is kept. `manifest.json` records a hash of the
+demo's inputs: `site/tests/demo.test.mjs` (run by `just site-build`)
+fails when the app changed since, so the demo is rebuilt and committed
+with the change. `just site-demo --check` drives the built demo in Google
+Chrome (`--headed` shows it).
 
 ## Where the engine comes from
 

@@ -21,6 +21,7 @@
 #include "shapelogic/solve/panex_search.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
 #include <string>
 #include <utility>
@@ -297,7 +298,7 @@ Result<void> Document::deleteRodSet(Id rodSet) {
     }
   }
   puzzle_->removeRodSet(*r);
-  ids_.rodSets.erase(ids_.rodSets.begin() + *r);
+  ids_.rodSets.erase(ids_.rodSets.begin() + static_cast<std::ptrdiff_t>(*r));
   lastChange_.problems = std::move(lost);
   g.commit(kChangeRodSets | (lastChange_.problems.empty() ? 0U : kChangeProblems));
   return {};

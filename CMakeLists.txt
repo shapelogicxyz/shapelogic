@@ -29,7 +29,10 @@ include(Dependencies)
 
 add_subdirectory(core)
 add_subdirectory(engine)
-add_subdirectory(cli)
+if(NOT EMSCRIPTEN)
+  # the browser build (the wasm preset) is the engine alone
+  add_subdirectory(cli)
+endif()
 if(BT_PYTHON_MODULE)
   add_subdirectory(python)
 endif()

@@ -30,6 +30,7 @@
 #include "shapelogic/model/stacking.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -180,7 +181,7 @@ Result<void> Document::deleteShape(Id shape) {
     sliding::noteShapeRemoved(*puzzle_, *s);
   }
   puzzle_->removeShape(*s);
-  ids_.shapes.erase(ids_.shapes.begin() + *s);
+  ids_.shapes.erase(ids_.shapes.begin() + static_cast<std::ptrdiff_t>(*s));
   if (slidingPuzzle) {
     syncSliding();
   }
@@ -622,7 +623,7 @@ Result<void> Document::deleteColour(Id colour) {
     }
   }
   puzzle_->removeColor(col);
-  ids_.colours.erase(ids_.colours.begin() + *c);
+  ids_.colours.erase(ids_.colours.begin() + static_cast<std::ptrdiff_t>(*c));
   g.commit(kChangeColours | kChangeShapes | kChangeProblems | lastChange_.what);
   return {};
 }
@@ -696,7 +697,7 @@ Result<void> Document::deleteProblem(Id problem) {
   touchWhole();
   endSessions();
   puzzle_->removeProblem(*p);
-  ids_.problems.erase(ids_.problems.begin() + *p);
+  ids_.problems.erase(ids_.problems.begin() + static_cast<std::ptrdiff_t>(*p));
   g.commit(kChangeProblems);
   return {};
 }

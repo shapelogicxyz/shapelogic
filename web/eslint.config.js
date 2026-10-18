@@ -12,7 +12,14 @@ const nodeModules = ['node:*', 'fs', 'path', 'child_process', 'os', 'url', 'elec
 
 export default defineConfig(
   {
-    ignores: ['node_modules/', 'out/', 'dist/', 'src/engine/api.generated.ts', 'eslint.config.js'],
+    ignores: [
+      'node_modules/',
+      'out/',
+      'dist/',
+      'src/engine/api.generated.ts',
+      'src/demo/engine/*.js',
+      'eslint.config.js',
+    ],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -55,7 +62,20 @@ export default defineConfig(
     },
   },
   {
-    files: ['src/renderer/**/*.ts', 'src/demo/**/*.ts'],
+    // src/demo/ (the website's demo) is the renderer over the engine in the
+    // page: it may take the host's server (main/engine-ipc.ts, free of
+    // Electron), never Node
+    files: ['src/demo/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: nodeModules, message: 'the demo runs in a browser' }] },
+      ],
+      'no-restricted-globals': ['error', 'process', 'Buffer', 'require', '__dirname'],
+    },
+  },
+  {
+    files: ['src/renderer/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

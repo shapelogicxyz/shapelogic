@@ -141,9 +141,11 @@ site-dev:
 site-build:
     cd site && npm ci && npm run build && npm test
 
-# Rebuild the site's demo of the app (site/public/demo/: the renderer over a recorded engine) and record its session with the release engine (needs Google Chrome)
-site-demo: (build "release")
-    cd web && npm run demo
+# Rebuild the site's demo of the app (site/public/demo/): the engine compiled to WebAssembly (needs Emscripten: brew install emscripten) under the renderer built for the browser; `--check` drives the result in Google Chrome
+site-demo *args:
+    emcmake cmake --preset wasm > /dev/null
+    cmake --build --preset wasm
+    cd web && npm run demo -- {{args}}
 
 # Retake the user guide's screenshots from the built app (site/src/assets/screens; after `just build release`)
 docs-screenshots:

@@ -16,5 +16,5 @@
     "fake-engine/**/*.ts",
     "tests/**/*.ts"
   ],
-  "exclude": ["tests/e2e/**", "tests/docs/**", "tools/record-demo.ts"]
+  "exclude": ["tests/e2e/**", "tests/docs/**", "tools/build-demo.ts"]
 }

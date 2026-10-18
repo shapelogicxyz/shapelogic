@@ -20,12 +20,14 @@ npm test          # the app's Help URLs are pages of dist/ (build first)
   (needs `just build release`) drives the built app and writes
   `src/assets/screens/*.png`. Run it when the UI changes and commit the PNGs.
   They are not regenerated in CI: font rendering differs between systems.
-- `public/demo/` is the app itself running in the browser over a recorded
-  engine (served at `/demo/`), with the solved `public/examples/PelikanBurr.xmpuzzle`.
-  It is generated: `just site-demo` (needs `just build release` and Google
-  Chrome) builds the app's page and records `session.json`, the engine's
-  replies to what a visitor can do. Rerun it after a change to the app and
-  commit the result. Changes are refused there and nothing is kept.
+- `public/demo/` is the app running in the browser (served at `/demo/`):
+  its engine compiled to WebAssembly under its own interface, opening the
+  solved `public/examples/PelikanBurr.xmpuzzle`. It is generated and
+  committed: `just site-demo` (needs Emscripten, `brew install emscripten`)
+  rebuilds it, and `npm test` fails when the app's sources changed since
+  it was built (`tests/demo.test.mjs` checks `manifest.json`), so rebuild
+  and commit it with a change to the app. Searches are refused there
+  (a solve would hold the page's one thread) and nothing is kept.
 - Installers are not stored here. Download links point at the GitHub
   Release (`/releases/latest`).
 

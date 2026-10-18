@@ -4,6 +4,9 @@ dist/
 package-lock.json
 src/engine/api.generated.ts
 fake-engine/recordings/
+# the engine for the browser, as Emscripten generates it
+src/demo/engine/*.js
+src/demo/engine/*.wasm
 # kept in the mockup's compact form (see its header)
 src/renderer/styles.css
 # Playwright's output
