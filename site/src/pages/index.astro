@@ -22,7 +22,6 @@ import '../styles/landing.css';
     </header>
 
     <main>
-      <p class="status">Coming soon</p>
       <h1>A fast-moving, open source puzzle solver.</h1>
       <p class="lead">
         ShapeLogic is a small open source tool for designing and solving interlocking and packing
@@ -59,11 +58,66 @@ import '../styles/landing.css';
         </div>
       </section>
 
+      <section class="blog" aria-labelledby="post-title">
+        <h2 class="blog-heading">News</h2>
+        <article class="post">
+          <p class="post-meta">
+            <time datetime="2026-10-19">19 October 2026</time> · Release
+          </p>
+          <h3 id="post-title">ShapeLogic v1.0: the initial release</h3>
+          <p>
+            Today is the first public release of ShapeLogic, a designer and solver for interlocking,
+            burr, sliding and stacking puzzles. It is a complete rewrite, with a new solver core, a
+            new interface and a new documentation site.
+          </p>
+          <p>
+            ShapeLogic is based on BurrTools, and its algorithms are ported from it. It reads and
+            writes the same <code>.xmpuzzle</code> files. It is not meant to replace BurrTools.
+          </p>
+          <ul>
+            <li>
+              <strong>One interface everywhere.</strong> Built with web technologies and run in
+              Electron, it behaves the same on macOS, Windows and Linux.
+            </li>
+            <li>
+              <strong>A fast solver.</strong> A C++23 engine runs as a separate process, so the
+              interface stays responsive. Choose Complete (exhaustive search) or Fast (Andrew
+              Crowell&rsquo;s take-apart).
+            </li>
+            <li>
+              <strong>New puzzle types.</strong> Sliding puzzles, stacking puzzles and Panex
+              puzzles. Long Panex searches can be paused and resumed.
+            </li>
+            <li>
+              <strong>Import and export.</strong> Import PuzzleSolver3D and Puzzlecad files, export
+              to Puzzlecad, and export STL meshes for 3D printing. Cube-grid puzzles can be
+              converted to rhombic and tetra-octa grids.
+            </li>
+            <li>
+              <strong>Well tested.</strong> Hundreds of unit and contract tests, end-to-end
+              interface tests, and a harness that checks the solver&rsquo;s answers against the
+              original on 180 puzzles.
+            </li>
+          </ul>
+          <p>
+            Downloads are available for macOS (Apple silicon and Intel), Windows (64-bit) and Linux
+            (x64 and ARM64). The macOS app is signed and notarised. The Windows installer is not
+            code-signed yet, so SmartScreen may warn you.
+          </p>
+          <p>
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.0">Read the full release notes on GitHub</a>
+          </p>
+        </article>
+      </section>
+
     </main>
 
     <footer>
       <img src="/assets/puzzle_icon.jpg" alt="" width="40" height="40" />
-      <p>ShapeLogic is free open-source software.</p>
+      <p>
+        ShapeLogic is free open-source software, built and maintained by Colin Deisenroth.<br />
+        Contact: <a href="mailto:shapelogic.xyz@gmail.com">shapelogic.xyz@gmail.com</a>
+      </p>
     </footer>
   </body>
 </html>
