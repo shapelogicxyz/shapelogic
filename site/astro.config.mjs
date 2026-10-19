@@ -39,7 +39,8 @@ export default defineConfig({
       editLink: {
         baseUrl: 'https://github.com/shapelogicxyz/shapelogic/edit/main/site/',
       },
-      plugins: [starlightLinksValidator()],
+      // /demo/ is a static page of public/ (the app's demo), not one of Starlight's
+      plugins: [starlightLinksValidator({ exclude: ['/demo/'] })],
       sidebar: [
         { label: 'User Guide', link: '/docs/' },
         {
@@ -47,6 +48,7 @@ export default defineConfig({
           link: 'https://github.com/shapelogicxyz/shapelogic/releases/latest',
           attrs: { target: '_blank' },
         },
+        { label: 'Demo App', slug: 'docs/demo-app' },
         {
           label: 'Start here',
           items: [

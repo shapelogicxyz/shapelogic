@@ -26,8 +26,10 @@ npm test          # the app's Help URLs are pages of dist/ (build first)
   committed: `just site-demo` (needs Emscripten, `brew install emscripten`)
   rebuilds it, and `npm test` fails when the app's sources changed since
   it was built (`tests/demo.test.mjs` checks `manifest.json`), so rebuild
-  and commit it with a change to the app. Searches are refused there
-  (a solve would hold the page's one thread) and nothing is kept.
+  and commit it with a change to the app. Its Solve plays a run of a few
+  seconds and brings the file's solution back (a real search would hold
+  the page's one thread; the other searches are refused), and nothing is
+  kept.
 - Installers are not stored here. Download links point at the GitHub
   Release (`/releases/latest`).
 

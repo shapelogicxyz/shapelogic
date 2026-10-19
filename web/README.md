@@ -95,10 +95,14 @@ copies it into `src/demo/engine/` and builds the renderer's page with
 `src/demo/main.ts` as its entry (`demo.vite.config.ts`). In the page,
 `src/demo/wasm-transport.ts` is the engine's stdio, `engine-bridge.ts`
 serves the client to the renderer as the main process does (it refuses a
-solve, an analysis or an explorer: a search would hold the page's one
-thread), and `demo-app.ts` stands in for Electron's menus, dialogs and
-files. The demo opens `../site/public/examples/PelikanBurr.xmpuzzle` and
-takes every edit; nothing is kept. `manifest.json` records a hash of the
+search: an analysis, an explorer or another problem's solve would hold
+the page's one thread), and `demo-app.ts` stands in for Electron's menus,
+dialogs and files. The demo opens `../site/public/examples/PelikanBurr.xmpuzzle`
+and takes every edit; nothing is kept. Its problem's Solve plays a run
+without a search (the bridge answers `solve.start` and `main.ts` sends a
+run's events for about three seconds), then opens the puzzle again with
+the file's pieces and problem (its saved solution) among the visitor's
+other shapes, problems and colours, spliced into the saved document. `manifest.json` records a hash of the
 demo's inputs: `site/tests/demo.test.mjs` (run by `just site-build`)
 fails when the app changed since, so the demo is rebuilt and committed
 with the change. `just site-demo --check` drives the built demo in Google

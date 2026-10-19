@@ -12,8 +12,8 @@
 //   node tools/build-demo.ts [--check] [--headed]     (npm run demo; just site-demo)
 //
 // --check then opens the built demo in Google Chrome (Playwright's `chrome`
-// channel) and drives it through its tabs, an edit and the solution's
-// disassembly, failing on an error of the page.
+// channel) and drives it through its tabs, the solution's disassembly, a
+// played Solve and an edit, failing on an error of the page.
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -125,21 +125,25 @@ async function check(headed: boolean): Promise<void> {
       null,
       { timeout: 30_000 },
     );
-    // Solve does nothing: the solution stays
+    // Solve plays a run of about three seconds, then the solution is back
     await page.click('#leftS [data-r="start"]');
-    await page.waitForTimeout(500);
-    if ((await page.getAttribute('#splayer', 'data-ready')) !== '1') {
-      throw new Error('Solve closed the player');
-    }
+    await page.waitForFunction(
+      () => (document.getElementById('stText')?.textContent ?? '').includes('Activity: prepare'),
+      null,
+      { timeout: 5_000 },
+    );
+    await page.waitForSelector('#splayer[data-ready="1"]', { timeout: 15_000 });
     await page.keyboard.press('Control+2');
     await page.waitForSelector('#stage[data-tab="puzzle"][data-busy="0"]');
-    // an edit: the third shape's first cell in the voxel editor (as in the
+    // an edit: the third shape's first cells in the voxel editor (as in the
     // app, a changed piece drops its problem's solutions)
     await page.keyboard.press('Control+1');
     await page.waitForSelector('#stage[data-tab="entities"][data-busy="0"]');
     await page.locator('#shapeList .row').nth(2).locator('.chip').click();
     const before = await page.locator('#stText').textContent();
-    await page.locator('svg .cell').first().click();
+    for (let i = 0; i < 6; i++) {
+      await page.locator('svg .cell').nth(i).click();
+    }
     await page.waitForFunction((b) => document.getElementById('stText')?.textContent !== b, before);
     mkdirSync(resolve(WEB, 'test-results'), { recursive: true });
     await page.screenshot({ path: resolve(WEB, 'test-results/demo.png') });
