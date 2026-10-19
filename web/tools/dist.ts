@@ -119,7 +119,15 @@ export function distConfig(
     // the bundles electron-vite made, and nothing else: three.js is in the
     // renderer's bundle, the main process needs no package
     files: ['out/**/*', 'packaging/icon.png', 'package.json', '!**/*.map'],
-    extraMetadata: { version, main: './out/main/index.js' },
+    // desktopName: Electron's Wayland app_id and X11 WM_CLASS, which the
+    // desktop matches to shapelogic.desktop for the dock's icon; the
+    // description is the launcher's tooltip (package.json's is for developers)
+    extraMetadata: {
+      version,
+      main: './out/main/index.js',
+      desktopName: 'shapelogic.desktop',
+      description: 'Design and solve interlocking puzzles',
+    },
     asar: true,
     npmRebuild: false,
     publish: null,
@@ -178,6 +186,7 @@ export function distConfig(
     linux: {
       target: ['AppImage', 'deb'],
       executableName: 'shapelogic',
+      syncDesktopName: true,
       category: 'Game',
       icon: 'packaging/icon.png',
       maintainer: 'ShapeLogic',

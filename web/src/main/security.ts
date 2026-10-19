@@ -85,10 +85,10 @@ export function appFile(url: string, rendererDir: string): string | null {
   return r !== '' && !r.startsWith('..') && !isAbsolute(r) ? path : null;
 }
 
-/** The renderer's web preferences, given the preload script's path. */
-export function webPreferences(preload: string): WebPreferences {
+/** The renderer's web preferences, given the preload script's path (null: none). */
+export function webPreferences(preload: string | null): WebPreferences {
   return {
-    preload,
+    ...(preload !== null ? { preload } : {}),
     sandbox: true,
     contextIsolation: true,
     nodeIntegration: false,
@@ -107,7 +107,7 @@ export function webPreferences(preload: string): WebPreferences {
 
 /** A window's options: its size and place, its title, the web preferences. */
 export function windowOptions(
-  preload: string,
+  preload: string | null,
   title: string,
   bounds: { width: number; height: number; x?: number; y?: number },
 ): BrowserWindowConstructorOptions {

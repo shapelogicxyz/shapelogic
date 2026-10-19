@@ -54,7 +54,7 @@ import { EngineHost } from './engine-host.ts';
 import { serveEngine } from './engine-ipc.ts';
 import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
-import { gpuAction, retryArgs } from './gpu-check.ts';
+import { gpuAction, probeFailure, retryArgs, WEBGL2_PROBE } from './gpu-check.ts';
 import { PathGrants, settingsRefusal } from './path-grants.ts';
 import { RescueStore } from './rescue.ts';
 import {
@@ -121,6 +121,12 @@ let rescue: RescueStore;
 let quitting = false;
 /** Files the system asked to open before a window could take them. */
 const pendingOpen: string[] = [];
+/**
+ * The start-up is done (the store made, the first window asked for). Before
+ * that, a second start (a file from the file manager, the launcher clicked
+ * again during the WebGL2 check) only queues its files for the first window.
+ */
+let started = false;
 
 /** The page's parameters: the autosave's interval when BT_AUTOSAVE_SECONDS sets one. */
 const query: Record<string, string> = env.autosave !== undefined ? { autosave: env.autosave } : {};
@@ -373,9 +379,9 @@ function openFiles(paths: readonly string[]): void {
     return;
   }
   const w = current();
-  if (w === undefined || !app.isReady()) {
+  if (w === undefined || !started) {
     pendingOpen.push(...paths);
-    if (app.isReady()) {
+    if (started) {
       createWindow();
     }
     return;
@@ -419,27 +425,75 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
-  if (primary) {
+  // a quit during the start-up (the WebGL2 check) has no store yet
+  if (primary && started) {
     store.flush();
   }
 });
 
+/** True while the hidden WebGL2 probe's window is the only one (its close does not quit). */
+let probing = false;
+
+/** `p`'s value, or `fallback` once `ms` have passed (a GPU process that hangs never answers). */
+async function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((done) => {
+      setTimeout(() => {
+        done(fallback);
+      }, ms);
+    }),
+  ]);
+}
+
+/** The renderer of a hidden page's WebGL2 context (gpu-check.ts); null without one, or after 15 s. */
+async function webgl2Renderer(): Promise<string | null> {
+  probing = true;
+  // the app window's options, never shown, without the preload (its
+  // bt:app-info would wait on the IPC installed after this); a blank page only
+  const win = new BrowserWindow({
+    ...windowOptions(null, APP_NAME, { width: 64, height: 64 }),
+  });
+  try {
+    const probe = win
+      .loadURL('about:blank')
+      .then(() => win.webContents.executeJavaScript(WEBGL2_PROBE) as Promise<string | null>);
+    return await within(probe, 15_000, null);
+  } catch {
+    return null;
+  } finally {
+    win.destroy();
+    probing = false;
+  }
+}
+
 /**
- * WebGL2 is checked before the first window (gpu-check.ts): a start again
- * with the blocklist overridden, else an explanation. True when the app goes on.
+ * WebGL2 is checked before the first window (gpu-check.ts): a real context
+ * asked for, then a start again with the blocklist overridden, else an
+ * explanation. True when the app goes on.
  */
 async function webglReady(): Promise<boolean> {
-  await app.getGPUInfo('basic').catch(() => null);
-  const action = gpuAction(
-    app.getGPUFeatureStatus().webgl2,
-    process.argv,
-    process.platform,
-    app.isPackaged,
+  await within(
+    app.getGPUInfo('basic').catch(() => null),
+    5_000,
+    null,
   );
+  const status = app.getGPUFeatureStatus().webgl2;
+  const action = gpuAction(status, process.argv, process.platform, app.isPackaged);
   if (action === 'continue') {
     return true;
   }
-  if (action === 'retry') {
+  const renderer = await webgl2Renderer();
+  console.error(
+    `ShapeLogic: WebGL2 status ${status}; context in a page: ${renderer === null ? 'no' : `yes (renderer: ${renderer})`}`,
+  );
+  if (renderer !== null) {
+    return true;
+  }
+  if (probeFailure(process.argv) === 'retry') {
+    // the new start can come up while this one is still exiting: holding the
+    // lock, this one would take it for a second start and the new one would quit
+    app.releaseSingleInstanceLock();
     // an AppImage is started again through its own file, not the unpacked binary
     const execPath = process.env.APPIMAGE;
     app.relaunch({
@@ -456,7 +510,8 @@ async function webglReady(): Promise<boolean> {
     detail:
       'WebGL2 is not available, even with the graphics blocklist overridden. ' +
       'This happens in virtual machines without 3D acceleration and with some graphics drivers. ' +
-      `The page below explains what to try:\n\n${SYSTEM_URLS.linuxGraphics}`,
+      `The page below explains what to try:\n\n${SYSTEM_URLS.linuxGraphics}\n\n` +
+      `(WebGL2 status: ${status})`,
     buttons: ['Open the help page', 'Quit'],
     defaultId: 0,
     cancelId: 1,
@@ -546,6 +601,7 @@ void app.whenReady().then(async () => {
   });
   store.onRecent(updateMenu);
   updateMenu();
+  started = true;
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -563,7 +619,7 @@ app.on('web-contents-created', (_e, contents) => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && !probing) {
     app.quit();
   }
 });

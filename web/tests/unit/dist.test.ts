@@ -137,7 +137,12 @@ describe('the configuration', () => {
 
   it('packs the bundles and the version, with the engine beside them', () => {
     expect(c.files).toEqual(['out/**/*', 'packaging/icon.png', 'package.json', '!**/*.map']);
-    expect(c.extraMetadata).toEqual({ version: '1.2.3', main: './out/main/index.js' });
+    expect(c.extraMetadata).toEqual({
+      version: '1.2.3',
+      main: './out/main/index.js',
+      desktopName: 'shapelogic.desktop',
+      description: 'Design and solve interlocking puzzles',
+    });
     // the engine, and the command line tool of the same build beside it
     expect(c.extraResources).toEqual([
       { from: '/b/release/engine/shapelogic_engine', to: 'shapelogic_engine' },

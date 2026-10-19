@@ -82,12 +82,17 @@ describe('the window', () => {
     const w = windowOptions('/p.cjs', 'ShapeLogic', { width: 10, height: 20, x: 1, y: 2 });
     expect(w).toMatchObject({ width: 10, height: 20, x: 1, y: 2, show: false });
     expect(w.webPreferences).toEqual(webPreferences('/p.cjs'));
+    // the WebGL2 check's window: the same options, no preload
+    const probe = webPreferences(null);
+    expect(probe).not.toHaveProperty('preload');
+    expect(probe).toMatchObject({ sandbox: true, contextIsolation: true, nodeIntegration: false });
   });
 
   it('is made in one place, with those options, and nothing in src turns them off', () => {
-    expect(occurrences(/new BrowserWindow\(/g)).toEqual(['src/main/index.ts']);
+    // the app's windows, and the hidden one that checks WebGL2 at start-up (gpu-check.ts)
+    expect(occurrences(/new BrowserWindow\(/g)).toEqual(['src/main/index.ts', 'src/main/index.ts']);
     const index = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
-    expect(index).toMatch(/new BrowserWindow\(\{\s*\.\.\.windowOptions\(/);
+    expect(index.match(/new BrowserWindow\(\{\s*\.\.\.windowOptions\(/g)).toHaveLength(2);
     for (const bad of [
       /nodeIntegration\w*:\s*true/g,
       /contextIsolation:\s*false/g,
@@ -109,13 +114,19 @@ describe('the window', () => {
   });
 
   it('loads its own page on the app’s scheme, and another only from a dev server, never when packaged', () => {
-    // the two loadURLs: the app's own page, and the dev server's, which only
-    // an unpackaged app takes; nothing is loaded from file:
-    expect(occurrences(/\.loadURL\(/g)).toEqual(['src/main/index.ts', 'src/main/index.ts']);
+    // the three loadURLs: the app's own page, the dev server's, which only
+    // an unpackaged app takes, and the WebGL2 check's blank page; nothing is
+    // loaded from file:
+    expect(occurrences(/\.loadURL\(/g)).toEqual([
+      'src/main/index.ts',
+      'src/main/index.ts',
+      'src/main/index.ts',
+    ]);
     expect(occurrences(/\.loadFile\(/g)).toEqual([]);
     const index = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
     expect(index).toContain("win.loadURL(appUrl('index.html', query))");
     expect(index).toContain('const devUrl = env.rendererUrl;');
+    expect(index).toContain(".loadURL('about:blank')");
     expect(occurrences(/process\.env\.ELECTRON_RENDERER_URL/g)).toEqual([]);
     // the scheme is registered before the app is ready and served from the renderer's directory only
     expect(index).toMatch(
