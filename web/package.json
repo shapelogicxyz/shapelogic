@@ -1,6 +1,6 @@
 {
-  "name": "shapelogic-web",
-  "version": "0.1.0",
+  "name": "shapelogic",
+  "version": "1.0.0",
   "private": true,
   "description": "The web front end of ShapeLogic: Electron + TypeScript over shapelogic_engine (docs/FRONTEND-PLAN.md)",
   "homepage": "https://shapelogic.xyz",

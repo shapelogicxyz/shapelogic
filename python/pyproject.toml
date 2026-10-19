@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "shapelogic"
 # the project version of ../CMakeLists.txt (test_alpha.py checks they agree)
-version = "0.1.0"
+version = "1.0.0"
 description = "Python bindings for the ShapeLogic 3D interlocking puzzle library (ShapeLogic's core)"
 readme = "README.md"
 requires-python = ">=3.10"
