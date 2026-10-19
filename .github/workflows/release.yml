@@ -5,9 +5,10 @@
 # - By hand (Actions tab > Release > Run workflow, or `gh workflow run
 #   release.yml`): builds and keeps the files as workflow artifacts; the macOS
 #   builds are signed but not notarised (tick "Notarise" to notarise), and no
-#   Release is made.
+#   Release is made. Untick a platform's box to leave that build out.
 # - Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`):
-#   builds, sends the macOS builds for notarisation and drafts a Release.
+#   builds every platform, sends the macOS builds for notarisation and drafts
+#   a Release.
 #
 # No run waits for Apple: the macOS jobs send the signed .dmg to the notary
 # service and finish. The job summary and the notarisation-macos-<arch>
@@ -31,6 +32,26 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
+      linux_x64:
+        description: 'Linux x64 (AppImage and deb)'
+        type: boolean
+        default: true
+      linux_arm64:
+        description: 'Linux arm64 (AppImage and deb)'
+        type: boolean
+        default: true
+      windows_x64:
+        description: 'Windows x64 (installer)'
+        type: boolean
+        default: true
+      macos_arm64:
+        description: 'macOS Apple silicon (dmg and zip)'
+        type: boolean
+        default: true
+      macos_x64:
+        description: 'macOS Intel (dmg and zip)'
+        type: boolean
+        default: true
       notarise:
         description: 'Also send the macOS builds for notarisation (a tag push always does)'
         type: boolean
@@ -49,10 +70,44 @@ env:
 jobs:
   # The tag must be the project's version (CMakeLists.txt, web/package.json),
   # or the packaged files would carry a different number from the Release's.
+  # It also turns the run's boxes into the build jobs' matrices (a tag's run
+  # builds everything).
   version:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    outputs:
+      linux: ${{ steps.platforms.outputs.linux }}
+      macos: ${{ steps.platforms.outputs.macos }}
+      windows: ${{ steps.platforms.outputs.windows }}
     steps:
+      - name: The platforms to build
+        id: platforms
+        env:
+          ALL: ${{ github.event_name == 'push' }}
+          LINUX_X64: ${{ inputs.linux_x64 }}
+          LINUX_ARM64: ${{ inputs.linux_arm64 }}
+          WINDOWS_X64: ${{ inputs.windows_x64 }}
+          MACOS_ARM64: ${{ inputs.macos_arm64 }}
+          MACOS_X64: ${{ inputs.macos_x64 }}
+        run: |
+          on() { [ "${ALL}" = true ] || [ "$1" = true ]; }
+          linux='[]'
+          on "${LINUX_X64}" && linux=$(jq -c '. + [{arch: "x64", runner: "ubuntu-24.04"}]' <<< "${linux}")
+          on "${LINUX_ARM64}" && linux=$(jq -c '. + [{arch: "arm64", runner: "ubuntu-24.04-arm"}]' <<< "${linux}")
+          macos='[]'
+          on "${MACOS_ARM64}" && macos=$(jq -c '. + [{arch: "arm64", preset: "release", dist_dir: "mac-arm64"}]' <<< "${macos}")
+          on "${MACOS_X64}" && macos=$(jq -c '. + [{arch: "x64", preset: "release-x64", dist_dir: "mac"}]' <<< "${macos}")
+          windows=false
+          on "${WINDOWS_X64}" && windows=true
+          {
+            echo "linux=${linux}"
+            echo "macos=${macos}"
+            echo "windows=${windows}"
+          } | tee -a "${GITHUB_OUTPUT}"
+          if [ "${linux}" = '[]' ] && [ "${macos}" = '[]' ] && [ "${windows}" = false ]; then
+            echo "::error::no platform ticked: nothing to build"
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - name: The tag matches the version
         if: startsWith(github.ref, 'refs/tags/v')
@@ -65,16 +120,13 @@ jobs:
 
   linux:
     needs: version
+    if: needs.version.outputs.linux != '[]'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJSON(needs.version.outputs.linux) }}
     steps:
       - uses: actions/checkout@v4
       - name: Build tools
@@ -122,6 +174,7 @@ jobs:
 
   windows:
     needs: version
+    if: needs.version.outputs.windows == 'true'
     runs-on: windows-2022
     timeout-minutes: 60
     steps:
@@ -168,18 +221,13 @@ jobs:
 
   macos:
     needs: version
+    if: needs.version.outputs.macos != '[]'
     runs-on: macos-latest # Apple silicon
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: arm64
-            preset: release
-            dist_dir: mac-arm64
-          - arch: x64
-            preset: release-x64
-            dist_dir: mac
+        include: ${{ fromJSON(needs.version.outputs.macos) }}
     env:
       # whether to send the .dmg to Apple's notary service (a manual run asks)
       NOTARISE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.notarise }}

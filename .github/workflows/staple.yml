@@ -13,7 +13,8 @@
 # the .dmg and .zip in that tag's draft Release.
 #
 # A submission still In Progress, or Invalid, fails the job with its status
-# (and for Invalid, Apple's log); nothing is stapled.
+# (and for Invalid, Apple's log); nothing is stapled. An architecture the run
+# did not build (its box unticked) is skipped.
 
 name: Staple
 
@@ -43,11 +44,19 @@ jobs:
       ARCH: ${{ matrix.arch }}
     steps:
       - name: Download the run's build and its notarisation record
+        id: download
         run: |
           if ! [[ "${RUN_ID}" =~ ^[0-9]+$ ]]; then
             echo "::error::run_id is the number in the run's URL, not '${RUN_ID}'"
             exit 1
           fi
+          artifacts="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" --paginate --jq '.artifacts[].name')"
+          if ! grep -qx "macos-${ARCH}" <<< "${artifacts}"; then
+            echo "run ${RUN_ID} did not build macOS ${ARCH}: skipped" | tee -a "${GITHUB_STEP_SUMMARY}"
+            echo "built=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "built=true" >> "${GITHUB_OUTPUT}"
           gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" -n "macos-${ARCH}" -D build
           if ! gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" -n "notarisation-macos-${ARCH}" -D record; then
             echo "::error::run ${RUN_ID} has no notarisation record for ${ARCH}: it was not sent for notarisation (a manual run without Notarise ticked)"
@@ -55,6 +64,7 @@ jobs:
           fi
           ls -l build record
       - name: Ask Apple, then staple
+        if: steps.download.outputs.built == 'true'
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -121,6 +131,7 @@ jobs:
         if: always()
         run: rm -f "${RUNNER_TEMP}"/AuthKey_*.p8
       - uses: actions/upload-artifact@v4
+        if: steps.download.outputs.built == 'true'
         with:
           name: macos-${{ matrix.arch }}-notarised
           if-no-files-found: error
@@ -128,6 +139,7 @@ jobs:
             build/*.dmg
             build/*.zip
       - name: Replace the files in the tag's draft Release
+        if: steps.download.outputs.built == 'true'
         run: |
           read -r event ref < <(gh run view "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --json event,headBranch --jq '"\(.event) \(.headBranch)"')
           if [ "${event}" != push ] || [[ "${ref}" != v* ]]; then
