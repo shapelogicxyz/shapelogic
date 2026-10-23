@@ -58,13 +58,52 @@ import '../styles/landing.css';
         </div>
       </section>
 
-      <section class="blog" aria-labelledby="post-title">
-        <h2 class="blog-heading">News</h2>
-        <article class="post">
+      <section class="blog" aria-labelledby="news-heading">
+        <h2 class="blog-heading" id="news-heading">News</h2>
+        <article class="post" aria-labelledby="post-v1-1">
+          <p class="post-meta">
+            <time datetime="2026-10-22">22 October 2026</time> · Release
+          </p>
+          <h3 id="post-v1-1">ShapeLogic v1.1: sliding puzzles with more than one layer</h3>
+          <p>
+            In sliding puzzles, pieces and trays can now have more than one layer. Before, a
+            sliding shape was always flat, and a file with a deeper one was flattened when it
+            opened. Now the layers are kept, and the <strong>Z</strong> size can be changed like
+            on any other puzzle.
+          </p>
+          <ul>
+            <li>
+              <strong>Pieces move up and down.</strong> On a tray with more than one layer, a piece
+              can be lifted out of a box, carried over the other pieces and put down somewhere
+              else. The solver finds these moves, and the player shows them.
+            </li>
+            <li>
+              <strong>Placing pieces by layer.</strong> Show a layer of the tray and click: the
+              piece sits as low as it can while still fitting.
+            </li>
+            <li>
+              <strong>Flat puzzles are unchanged.</strong> Puzzles with one-layer trays are solved
+              exactly as before, with the same answers.
+            </li>
+          </ul>
+          <p>
+            The voxel editor&rsquo;s color area is also reworked, with clear Shape color and
+            Restriction color labels, direct add, edit and remove buttons, and a built-in color
+            picker. Spheres, rhombic and tetra-octa puzzles now default to Assemble Only, and the
+            last shape in a puzzle can be deleted.
+          </p>
+          <p>
+            <a href="/docs/puzzle-types/sliding/#trays-with-more-than-one-layer">How multi-layer trays work</a>
+            ·
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.1">Release notes and downloads on GitHub</a>
+          </p>
+        </article>
+
+        <article class="post" aria-labelledby="post-v1-0">
           <p class="post-meta">
             <time datetime="2026-10-19">19 October 2026</time> · Release
           </p>
-          <h3 id="post-title">ShapeLogic v1.0: the initial release</h3>
+          <h3 id="post-v1-0">ShapeLogic v1.0: the initial release</h3>
           <p>
             Today is the first public release of ShapeLogic, a designer and solver for interlocking,
             burr, sliding and stacking puzzles. It is a complete rewrite, with a new solver core, a

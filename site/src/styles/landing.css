@@ -59,3 +59,4 @@ footer p { margin: 0; }
 .post ul { margin: 0 0 14px; padding-left: 22px; }
 .post li { margin-bottom: 8px; }
 .post > :last-child { margin-bottom: 0; }
+.post + .post { margin-top: 20px; }
