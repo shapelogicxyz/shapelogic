@@ -70,14 +70,19 @@ std::map<std::string, std::vector<Recorded>> readDump() {
 std::string routeLine(const Puzzle& puzzle, const Problem& pr, const Separation& sep,
                       unsigned int step) {
   std::vector<unsigned int> movers;
-  const std::vector<std::pair<int, int>> route = sliding::slideRoute(puzzle, pr, sep, step, &movers);
+  const std::vector<sliding::SlideShift> route =
+      sliding::slideRoute(puzzle, pr, sep, step, &movers);
   std::string s = "ROUTE " + std::to_string(step) + " movers";
   for (const unsigned int m : movers) {
     s += " " + std::to_string(m);
   }
   s += " corners";
-  for (const std::pair<int, int>& c : route) {
-    s += " " + std::to_string(c.first) + "," + std::to_string(c.second);
+  // the original's trays are one layer: its corners are x,y
+  for (const sliding::SlideShift& c : route) {
+    s += " " + std::to_string(c[0]) + "," + std::to_string(c[1]);
+    if (c[2] != 0) {
+      s += "," + std::to_string(c[2]);
+    }
   }
   return s;
 }

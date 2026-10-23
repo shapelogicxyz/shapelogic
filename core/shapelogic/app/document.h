@@ -239,8 +239,7 @@ class Document {
   /// reopened after the engine died): dirty until it is saved.
   void markUnsaved() { solveDirty_ = true; }
   /// What opening the file changed and said (the original's load
-  /// message): a sliding shape of more than one layer made flat, which
-  /// leaves the document dirty. Empty mostly.
+  /// message), to tell the user. Empty mostly.
   [[nodiscard]] const std::string& openNotice() const { return openNotice_; }
 
   // ---- reading ----------------------------------------------------------------
@@ -411,18 +410,19 @@ class Document {
   // shapes, as the original GUI did. Refused (Unsupported) on other grids.
 
   /// Adds a start/goal shape of `size` cells (sliding.addStartGoal, the
-  /// GUI's New Start/Goal): one layer, all floor, numbered after the
-  /// others, with its problem.
-  Result<Id> addStartGoal(std::array<unsigned int, 2> size);
+  /// GUI's New Start/Goal): all floor, numbered after the others, with its
+  /// problem.
+  Result<Id> addStartGoal(std::array<unsigned int, 3> size);
   /// The start/goal editor's click (sliding.place): the whole of a piece as
-  /// its start (goal false) or its goal, its top-left cell at (x, y), y
-  /// rising upwards; a piece that is exactly there already is taken off.
-  /// Refused (InvalidArgument) with the reason when it does not fit.
-  /// Returns whether the piece is there now.
-  Result<bool> placeStamp(Id tray, Id piece, int x, int y, bool goal);
-  /// Takes off the start or goal that covers (x, y) (the right click);
+  /// its start (goal false) or its goal, from a click on (x, y) of layer z,
+  /// y rising upwards (sliding::stampPiece: the piece's slice on layer z
+  /// under the mouse, as low as it fits); a piece that is exactly there
+  /// already is taken off. Refused (InvalidArgument) with the reason when
+  /// it does not fit. Returns whether the piece is there now.
+  Result<bool> placeStamp(Id tray, Id piece, int x, int y, int z, bool goal);
+  /// Takes off the start or goal that covers (x, y, z) (the right click);
   /// false when there is none.
-  Result<bool> clearStampAt(Id tray, int x, int y, bool goal);
+  Result<bool> clearStampAt(Id tray, int x, int y, int z, bool goal);
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //
@@ -667,9 +667,6 @@ class Document {
   /// A sliding piece with a start or goal on the problem's start/goal
   /// shape: its count follows them.
   [[nodiscard]] bool slidingRequired(unsigned int problem, unsigned int shape) const;
-  /// Flattens the shapes of a sliding puzzle just opened (the original's
-  /// load), with the notice.
-  void flattenOnOpen();
 
   // stacking puzzles
   /// Unsupported on other grids.

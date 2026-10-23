@@ -210,7 +210,7 @@
         "colours": {"type": "array", "items": {"$ref": "#/$defs/Colour"}},
         "problems": {"type": "array", "items": {"$ref": "#/$defs/ProblemSummary"}},
         "rodSets": {"type": "array", "items": {"$ref": "#/$defs/RodSet"}, "description": "A stacking puzzle's boards (at least one); empty on other grids."},
-        "notice": {"type": "string", "description": "What opening the file changed, to tell the user (the original's load message: a sliding shape of more than one layer made flat, which leaves the document dirty). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell."}
+        "notice": {"type": "string", "description": "What opening the file changed, to tell the user (the original's load message). Only in the result of document.open, document.openBytes and solve.importPaused, and only when there is something to tell."}
       },
       "required": ["revision", "dirty", "grid", "path", "notes", "canUndo", "canRedo", "solving", "shapes", "colours", "problems", "rodSets"],
       "additionalProperties": false

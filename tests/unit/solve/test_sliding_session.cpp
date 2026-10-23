@@ -405,7 +405,7 @@ TEST_CASE("sliding playback: a move round a corner follows its route", "[sliding
   const Separation& path = *pr.getSavedSolution(0).getDisassembly();
   REQUIRE(path.getMoves() == 1);
   std::vector<unsigned int> movers;
-  const std::vector<std::pair<int, int>> route = slideRoute(puz, pr, path, 0, &movers);
+  const std::vector<SlideShift> route = slideRoute(puz, pr, path, 0, &movers);
   REQUIRE(route.size() == 3);
 
   Result<app::PlaybackSampler> pb = app::PlaybackSampler::make(puz, 0, 0);
@@ -419,8 +419,8 @@ TEST_CASE("sliding playback: a move round a corner follows its route", "[sliding
   // one axis (a cell is one unit on this grid), not half way across
   const float dx = (*half)[0].translation[0] - (*p0)[0].translation[0];
   const float dy = (*half)[0].translation[1] - (*p0)[0].translation[1];
-  CHECK(dx == static_cast<float>(route[1].first));
-  CHECK(dy == static_cast<float>(route[1].second));
+  CHECK(dx == static_cast<float>(route[1][0]));
+  CHECK(dy == static_cast<float>(route[1][1]));
   CHECK((*p1)[0].translation[0] - (*p0)[0].translation[0] == 1.0F);
   CHECK((*p1)[0].translation[1] - (*p0)[0].translation[1] == 1.0F);
 }

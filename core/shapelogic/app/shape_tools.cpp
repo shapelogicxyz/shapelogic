@@ -390,28 +390,6 @@ std::vector<ShapeTaskInfo> taskSet(GridKind grid) {
   if (grid != GridKind::Spheres && grid != GridKind::TetraOcta) {
     v.push_back(kGridScale);
   }
-  // sliding shapes lie flat: what would give one more layers or move it
-  // along Z is not offered (the original's ToolTab_0::lockZ greyed out
-  // the nudges along Z, the turns about X and Y, double, triple and the
-  // grid scale)
-  if (grid == GridKind::Sliding) {
-    std::erase_if(v, [](const ShapeTaskInfo& t) {
-      switch (t.task) {
-        case ShapeTask::Nudge4:
-        case ShapeTask::Nudge5:
-        case ShapeTask::Rotate6:
-        case ShapeTask::Rotate7:
-        case ShapeTask::Rotate8:
-        case ShapeTask::Rotate9:
-        case ShapeTask::Double:
-        case ShapeTask::Triple:
-        case ShapeTask::GridScale:
-          return true;
-        default:
-          return false;
-      }
-    });
-  }
   return v;
 }
 

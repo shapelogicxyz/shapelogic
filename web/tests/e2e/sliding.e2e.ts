@@ -105,7 +105,7 @@ async function idOf(page: Page, label: string): Promise<string> {
   return s?.id ?? '';
 }
 
-/** A new piece (+ New: 6 by 6, one layer) with cells drawn. */
+/** A new piece (+ New: 6 by 6, one layer to begin with) with cells drawn. */
 async function piece(page: Page, cells: [number, number][]): Promise<string> {
   const n = (await shapes(page)).length;
   await page.click('#btnNew');
@@ -159,9 +159,14 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await expect(page.locator('#sgRow [data-sg="del"]')).toBeEnabled();
     await expect(page.locator('#shapeList .row.sel [data-a="del"]')).toBeDisabled();
     await expect(page.locator('#trayRow')).toHaveClass(/show/);
-    await expect(page.locator('#colFoot')).toBeHidden();
+    // no constraint colours: the shape's own color, with only the pencil
+    await expect(page.locator('#cEdit')).toBeVisible();
+    await expect(page.locator('#cAdd')).toHaveCount(0);
+    await expect(page.locator('#cRm')).toHaveCount(0);
     await expect(page.locator('#toolStrip [data-t="paint"]')).toHaveCount(0);
-    await expect(page.locator('#sizeSteppers [data-d="2"]').first()).toBeDisabled();
+    // one layer to begin with; more may be added
+    await expect(page.locator('#sizeSteppers [data-d="2"][data-s="-1"]')).toBeDisabled();
+    await expect(page.locator('#sizeSteppers [data-d="2"][data-s="1"]')).toBeEnabled();
     for (const [d, n] of [
       [0, 2],
       [1, 1],
@@ -414,27 +419,25 @@ test('notices in message boxes; what the original greyed out is not offered or i
   const a = await launch();
   const page = a.page;
   try {
-    // a sliding shape of two layers is made flat on open, and the user told
+    // a sliding shape of two layers keeps them on open, and nothing is said
     const deep = join(dir, 'two-layers.xmpuzzle');
     writeFileSync(
       deep,
       '<?xml version="1.0"?>\n<puzzle version="2"><gridType type="5"/><colors/><shapes><voxel x="2" y="1" z="2" type="0">####</voxel></shapes><problems/></puzzle>\n',
     );
     await openPath(page, deep);
-    await expect(page.locator('#notice')).toBeVisible();
-    await expect(page.locator('#notice .cb')).toContainText(
-      'Sliding shapes are one layer deep. S1 had more than one layer',
-    );
-    await page.click('#notice [data-x="ok"]');
+    await settled(page);
     await expect(page.locator('#notice')).toHaveCount(0);
+    const opened = await engineCall<{ shapes: { size: number[] }[] }>(page, 'document.get', {});
+    expect(opened.shapes[0]?.size).toEqual([2, 1, 2]);
 
     // a stamped piece whose shape changes loses its start: told in a message box
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     const s3 = await idOf(page, 'S3');
     await selectShape(page, s3);
-    await expect(page.locator('#colFoot')).toBeHidden();
-    // no task that adds layers is offered
-    await expect(page.locator('#tmat [data-task="rotate6"]')).toHaveCount(0);
+    await expect(page.locator('#cAdd')).toHaveCount(0);
+    // the tasks that add layers are offered
+    await expect(page.locator('#tmat [data-task="rotate6"]')).toHaveCount(1);
     await clickCell(page, [1, 4, 0]);
     await expect(page.locator('#notice .cb')).toContainText(
       'S3 changed shape: its start and goal were removed from S1.',

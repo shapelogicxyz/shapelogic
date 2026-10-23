@@ -5,14 +5,17 @@
 // strip (marks on the layers that hold cells; PgUp and PgDn), the box
 // selection's bar (Fill, Clear, deselect), the grid size steppers in the
 // grid's units with "Apply to all shapes", the palette (Default is the
-// shape's own colour; add, edit, remove) and the collapsed card's rail.
+// shape's own colour; add, edit, remove; the constraint colours on rows
+// below, one row shown at a time) and the collapsed card's rail.
 // From docs/mockup/index.html: `renderTools`, `renderMod`, `renderPlane`,
 // `renderLayers`, `renderSelbar`, `renderInsp`'s size steppers and the
 // applyAll switch, `renderColors` and their handlers. The engine changes
 // the shape; the card shows the editor's state and the engine's answers.
 // On a sliding puzzle (docs/webui-spec.md, section 8.1) there is no Paint
-// tool and no palette (a cell's colour is a start mark), the Z size is
-// locked (one layer), and a start/goal shape has the "Tray edit" switch
+// tool and no constraint colour (a cell's colour is a start mark: the
+// palette keeps only the shape's own colour, as on a stacking one), the shapes are
+// edited in the XY plane, layer by layer, and a start/goal shape has the
+// "Tray edit" switch
 // (Walls, Start, Goal: the labels of the original's unused
 // ToolTab_Sliding, for its Start/Goal tab) with the piece list and the
 // chosen piece drawn flat (tooltabs.cpp: `refreshPieceList`,
@@ -25,8 +28,11 @@ import type { Tool } from '../shell/cursors.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { applyLayout, layout } from '../shell/layout.ts';
-import { contrast, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
-import { openPop, openPopAt } from '../shell/popover.ts';
+import { contrast, fromHex, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
+import type { Rgb3 } from '../shell/piece-colours.ts';
+import { flash } from '../shell/status.ts';
+import { openColourPicker } from '../shell/colour-picker.ts';
+import { openPopAt } from '../shell/popover.ts';
 import type { Axis, EditorState, PlaneMap, TrayMode } from './editor-state.ts';
 import { TOOLS } from './editor-state.ts';
 import { G } from './glyphs.ts';
@@ -54,8 +60,8 @@ export interface CardHost {
   fillBox(clear: boolean): void;
   addColour(): void;
   editColour(id: string, rgb: string): void;
-  /** The shape's own color, which Default draws in (shape.setColour). */
-  setShapeColour(shape: string, rgb: string): void;
+  /** The shape's own color, which Default draws in (shape.setColour; null: back to the default one). */
+  setShapeColour(shape: string, rgb: string | null): void;
   deleteColour(id: string): void;
   /** What the engine says of the tray shown (null: no tray, or not read yet). */
   tray(): TrayReply | null;
@@ -77,11 +83,38 @@ const TRAY_MODES: readonly { id: TrayMode; label: string; tip: string }[] = [
   { id: 'goal', label: 'Goal', tip: 'Place or clear a piece’s goal position on the tray' },
 ];
 
-const EXTRA = ['#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#f97316'];
+// the colours + may add: hues round the wheel at three lightnesses, two saturations
+const CANDIDATES: readonly Rgb3[] = [0.5, 0.38, 0.62].flatMap((l) =>
+  [0.9, 0.6].flatMap((sat) => Array.from({ length: 24 }, (_, i) => hsl(i * 15, sat, l))),
+);
 
-/** The next colour the palette's + adds (the mockup's list). */
-export function nextColour(count: number): string {
-  return EXTRA[(count + 1) % EXTRA.length] ?? '#ef4444';
+function hsl(h: number, s: number, l: number): Rgb3 {
+  const k = (n: number): number => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number): number => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+  return [f(0), f(8), f(4)];
+}
+
+// how far apart two colours look ("redmean": RGB weighted by the red level)
+function distance(a: Rgb3, b: Rgb3): number {
+  const r = (a[0] + b[0]) / 2;
+  const [dr, dg, db] = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  return (2 + r) * dr * dr + 4 * dg * dg + (3 - r) * db * db;
+}
+
+/** The next colour the palette's + adds: the one least like the colours already there. */
+export function nextColour(existing: readonly string[]): string {
+  const have = existing.map(fromHex);
+  let best = CANDIDATES[0] ?? [1, 0, 0];
+  let far = -1;
+  for (const c of CANDIDATES) {
+    const d = Math.min(Infinity, ...have.map((h) => distance(c, h)));
+    if (d > far) {
+      best = c;
+      far = d;
+    }
+  }
+  return hex(best);
 }
 
 export class EditorCard {
@@ -89,6 +122,10 @@ export class EditorCard {
   /** The chosen piece's cells as last read (the flat drawing), by piece and revision. */
   private preview: { key: string; cells: [number, number][] } | null = null;
   private previewLoads = 0;
+  /** The palette's colour row shown (one at a time; the arrows step through them). */
+  private palRow = 0;
+  /** The drawing colour and document the palette was last drawn for (a new choice shows its row). */
+  private palSeen: { colour: string | null; generation: number } | null = null;
 
   constructor(host: CardHost) {
     this.host = host;
@@ -99,8 +136,15 @@ export class EditorCard {
     return this.host.store.shape;
   }
 
+  // none where the puzzle type has no constraint colours
   private get colours(): Colour[] {
-    return this.host.store.snapshot?.colours ?? [];
+    return this.ownOnly ? [] : (this.host.store.snapshot?.colours ?? []);
+  }
+
+  /** Whether the puzzle type has no constraint colours (sliding, stacking): the palette is the shape's own. */
+  private get ownOnly(): boolean {
+    const g = this.host.store.snapshot?.grid;
+    return g === 'sliding' || g === 'stacking';
   }
 
   /** The drawing colour as #rrggbb (Default: the shape's own). */
@@ -337,13 +381,9 @@ export class EditorCard {
         : (['X', 'Y', 'Z'] as const)
             .map((a, i) => {
               const v = Math.ceil((s.size[i] ?? 1) / u);
-              // sliding shapes are one layer deep (the original's lockZ)
-              const flat = this.sliding && i === 2;
               const tip = (what: string): string =>
-                flat
-                  ? 'Sliding shapes are one layer deep'
-                  : `${what} ${a}${u > 1 ? ` (blocks of ${String(u)} cells)` : ''}`;
-              return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-d="${i}" data-s="-1" title="${tip('Decrease')}" ${v <= 1 || flat ? 'disabled' : ''}>${ic('minus', 12)}</button><span class="v" data-v="${i}">${v}</span><button data-d="${i}" data-s="1" title="${tip('Increase')}" ${flat ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
+                `${what} ${a}${u > 1 ? ` (blocks of ${String(u)} cells)` : ''}`;
+              return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-d="${i}" data-s="-1" title="${tip('Decrease')}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><span class="v" data-v="${i}">${v}</span><button data-d="${i}" data-s="1" title="${tip('Increase')}">${ic('plus', 12)}</button></div>`;
             })
             .join('');
     const sw = byId('applyAll');
@@ -353,31 +393,79 @@ export class EditorCard {
 
   renderColours(): void {
     const st = this.host.state;
-    // a sliding puzzle has no constraint colours (the original hid the group)
-    byId('colFoot').style.display = this.sliding ? 'none' : '';
     const cols = this.colours;
     const s = this.shape;
     const own = hex(shapeColour(s?.colour ?? null, s === null ? 0 : this.host.store.indexOf(s.id)));
     const chex = this.drawingHex();
     const cur = st.colour === null ? undefined : cols.find((c) => c.id === st.colour);
-    const name = cur?.label ?? 'Default';
+    const def = cur === undefined;
+    // the shape's own colour is Default until it is given one (Custom)
+    const name = cur?.label ?? (s?.colour == null ? 'Default' : 'Custom');
+    const what = def ? 'Shape color' : 'Restriction color';
+    // sliding and stacking have no constraint colours to add or remove
+    const btns =
+      (this.ownOnly
+        ? ''
+        : `<button class="ib" id="cAdd" title="Add color">${ic('plus', 22)}</button>`) +
+      `<button class="ib" id="cEdit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">${ic('edit', 22)}</button>` +
+      (this.ownOnly
+        ? ''
+        : `<button class="ib" id="cRm" ${def ? 'disabled' : ''} title="${def ? 'Choose a restriction color to remove it from the puzzle' : 'Remove this restriction color from the puzzle'}">${ic('trash', 22)}</button>`);
+    // Default and the constraint colours on rows below, once there is one
+    const rows =
+      cols.length === 0
+        ? ''
+        : `<div class="colrow"><div class="palv" id="palView"><div class="pal"><button class="sw ${def ? 'on' : ''} def" data-c="" style="background:${own}" title="The shape’s own color (no restriction)"></button>${cols
+            .map(
+              (c) =>
+                `<button class="sw c ${c.id === st.colour ? 'on' : ''}" data-c="${c.id}" style="background:${c.rgb};color:${contrast(fromHex(c.rgb))}" title="${esc(c.label)}">${esc(c.label)}</button>`,
+            )
+            .join(
+              '',
+            )}</div></div><div class="palnav" id="palNav"><button class="ib" data-pr="-1" title="Previous row of colors">${ic('chevU', 12)}</button><button class="ib" data-pr="1" title="Next row of colors">${ic('chevD', 12)}</button></div></div>`;
     byId('colFoot').innerHTML =
-      `<div class="bigsw" style="background:${chex}"></div><div class="colmeta"><small>Drawing color</small><b>${esc(name)}</b></div>
-  <div class="pal"><button class="sw ${st.colour === null ? 'on' : ''} def" data-c="" style="background:${own}" title="Default — the piece’s own color"></button>${cols
-    .map(
-      (c) =>
-        `<button class="sw ${c.id === st.colour ? 'on' : ''}" data-c="${c.id}" style="background:${c.rgb}" title="${esc(c.label)}"></button>`,
-    )
-    .join('')}
-  <button class="ib" id="cAdd" title="Add color">${ic('plus')}</button><button class="ib" id="cMore" title="Edit / remove the current color">${ic('more')}</button></div>
-  <input type="color" id="cPick" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">`;
+      `<div class="colhead"><div class="bigsw" style="background:${chex}"></div><div class="colmeta"><small>${what}</small><b>${esc(name)}</b></div><div class="colbtns">${btns}</div></div>${rows}`;
     byId('rrail').innerHTML =
       `<button class="ib" id="btnRE" title="Expand Voxel editor">${ic('panelR')}</button><div class="bigsw" style="background:${chex};width:28px;height:28px;border-radius:8px"></div><span class="vt2">Voxel editor</span>`;
+    // another document starts on the first row; a colour chosen (or added) shows its own
+    const gen = this.host.store.generation;
+    const seen = this.palSeen;
+    this.palSeen = { colour: st.colour, generation: gen };
+    if (seen?.generation !== gen) {
+      this.palRow = 0;
+      this.showPalRow(false);
+    } else {
+      this.showPalRow(seen.colour !== st.colour && st.colour !== null);
+    }
+  }
+
+  // the palette's rows are where its swatches wrap: one is scrolled into
+  // view, and the arrows show once there are two
+  private showPalRow(toChosen: boolean): void {
+    const view = document.getElementById('palView');
+    // not laid out (the card collapsed): the row stays as it was
+    if (!view?.offsetParent) {
+      return;
+    }
+    const sws = [...view.querySelectorAll<HTMLElement>('.sw')];
+    const tops = [...new Set(sws.map((b) => b.offsetTop))];
+    if (toChosen) {
+      const on = sws.find((b) => b.classList.contains('on'));
+      this.palRow = on === undefined ? this.palRow : tops.indexOf(on.offsetTop);
+    }
+    this.palRow = Math.max(0, Math.min(this.palRow, tops.length - 1));
+    view.scrollTop = (tops[this.palRow] ?? 0) - (tops[0] ?? 0);
+    const nav = byId('palNav');
+    nav.classList.toggle('show', tops.length > 1);
+    for (const b of nav.querySelectorAll<HTMLButtonElement>('[data-pr]')) {
+      const up = b.dataset.pr === '-1';
+      b.disabled = up ? this.palRow === 0 : this.palRow >= tops.length - 1;
+    }
   }
 
   private colourMenu(): string {
     const def = this.host.state.colour === null;
-    return `<button data-k="edit" ${def && this.shape === null ? 'disabled' : ''} title="${def ? 'Change this shape’s own color, which Default draws in' : 'Change the current drawing color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove the current drawing color from the puzzle">Remove color</button>`;
+    return `<button data-k="edit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove this restriction color from the puzzle">Remove color</button>`;
   }
 
   private colourAction(k: string): void {
@@ -385,17 +473,32 @@ export class EditorCard {
     if (id === null) {
       // Default is the shape's own color: edit that
       const s = this.shape;
-      if (k === 'edit' && s !== null) {
-        const pick = byId<HTMLInputElement>('cPick');
-        pick.value = hex(shapeColour(s.colour, this.host.store.indexOf(s.id)));
-        pick.click();
+      if (k !== 'edit') {
+        return;
       }
+      if (s === null) {
+        flash('Add a shape first: Default is the shape’s own color');
+        return;
+      }
+      openColourPicker(byId('cEdit'), {
+        rgb: hex(shapeColour(s.colour, this.host.store.indexOf(s.id))),
+        onPick: (rgb) => {
+          this.host.setShapeColour(s.id, rgb);
+        },
+        onDefault: () => {
+          this.host.setShapeColour(s.id, null);
+        },
+        isDefault: s.colour === null,
+      });
       return;
     }
     if (k === 'edit') {
-      const pick = byId<HTMLInputElement>('cPick');
-      pick.value = this.colours.find((c) => c.id === id)?.rgb ?? '#000000';
-      pick.click();
+      openColourPicker(byId('cEdit'), {
+        rgb: this.colours.find((c) => c.id === id)?.rgb ?? '#000000',
+        onPick: (rgb) => {
+          this.host.editColour(id, rgb);
+        },
+      });
     } else if (k === 'rm') {
       this.host.deleteColour(id);
     }
@@ -497,25 +600,42 @@ export class EditorCard {
         this.host.changed();
       } else if (t.closest('#cAdd') !== null) {
         this.host.addColour();
-      } else if (t.closest('#cMore') !== null) {
-        openPop(byId('cMore'), this.colourMenu(), (k) => {
-          this.colourAction(k);
-        });
+      } else if (t.closest('#cEdit') !== null) {
+        this.colourAction('edit');
+      } else if (t.closest('#cRm') !== null) {
+        this.colourAction('rm');
+      } else {
+        const step = t.closest<HTMLElement>('[data-pr]');
+        if (step !== null) {
+          this.palRow += Number(step.dataset.pr);
+          this.showPalRow(false);
+        }
       }
     });
-    // the colour picker edits the drawing colour (the system's dialog says when)
-    foot.addEventListener('change', (e) => {
-      const pick = e.target as HTMLInputElement;
-      const id = st.colour;
-      if (pick.id !== 'cPick') {
-        return;
-      }
-      if (id !== null) {
-        this.host.editColour(id, pick.value.toLowerCase());
-      } else if (this.shape !== null) {
-        this.host.setShapeColour(this.shape.id, pick.value.toLowerCase());
-      }
-    });
+    // a swatch focused on a hidden row scrolls it in: that row is the one shown
+    foot.addEventListener(
+      'scroll',
+      (e) => {
+        const view = e.target as HTMLElement;
+        if (view.id !== 'palView') {
+          return;
+        }
+        const tops = [
+          ...new Set([...view.querySelectorAll<HTMLElement>('.sw')].map((b) => b.offsetTop)),
+        ];
+        const at = view.scrollTop + (tops[0] ?? 0);
+        const row = tops.findIndex((y) => y >= at - 1);
+        if (row >= 0 && row !== this.palRow) {
+          this.palRow = row;
+          this.showPalRow(false);
+        }
+      },
+      true,
+    );
+    // a wider or narrower card wraps the swatches into other rows
+    new ResizeObserver(() => {
+      this.showPalRow(false);
+    }).observe(foot);
     foot.addEventListener('contextmenu', (e) => {
       const sw = (e.target as Element).closest<HTMLElement>('.sw');
       if (sw === null) {

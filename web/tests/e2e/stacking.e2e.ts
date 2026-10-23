@@ -204,6 +204,10 @@ test('the Tower of Hanoi built from File ▸ New, saved as the fixture', async (
     await expect(page.locator('#rightTitle')).toHaveText('Rods');
     await expect(page.locator('#insp')).toBeHidden();
     await expect(page.locator('#garea')).toBeHidden();
+    // the drawing color stays, with only the pencil (no constraint colors here)
+    await expect(page.locator('#cEdit')).toBeVisible();
+    await expect(page.locator('#cAdd')).toHaveCount(0);
+    await expect(page.locator('#cRm')).toHaveCount(0);
     for (const size of [3, 2, 1]) {
       await disc(page, size);
     }

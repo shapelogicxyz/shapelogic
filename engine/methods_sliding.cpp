@@ -37,13 +37,14 @@ RpcResult<unsigned int> trayIndex(const State& s, app::Id tray) {
 }
 
 Reply slidingAddStartGoal(State& s, Params& p) {
-  std::array<unsigned int, 2> size{6, 6};
+  std::array<unsigned int, 3> size{6, 6, 1};
   if (p.has("size")) {
-    const std::array<int, 2> c = p.point("size");
-    if (c[0] < 1 || c[1] < 1) {
+    const std::array<int, 3> c = p.pointOrCell("size", 1);
+    if (c[0] < 1 || c[1] < 1 || c[2] < 1) {
       p.fail("'size' must be at least 1 in each direction");
     } else {
-      size = {static_cast<unsigned int>(c[0]), static_cast<unsigned int>(c[1])};
+      size = {static_cast<unsigned int>(c[0]), static_cast<unsigned int>(c[1]),
+              static_cast<unsigned int>(c[2])};
     }
   }
   BTE_CHECK(p.finish());
@@ -54,19 +55,19 @@ Reply slidingAddStartGoal(State& s, Params& p) {
 Reply slidingPlace(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const app::Id piece = p.id("piece", IdKind::Shape);
-  const std::array<int, 2> at = p.point("at");
+  const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool placed, s.document().placeStamp(tray, piece, at[0], at[1], goal));
+  BTE_TRY(const bool placed, s.document().placeStamp(tray, piece, at[0], at[1], at[2], goal));
   return Json{{"placed", placed}, {"revision", s.revision()}};
 }
 
 Reply slidingClearAt(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
-  const std::array<int, 2> at = p.point("at");
+  const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool cleared, s.document().clearStampAt(tray, at[0], at[1], goal));
+  BTE_TRY(const bool cleared, s.document().clearStampAt(tray, at[0], at[1], at[2], goal));
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
 
@@ -106,7 +107,7 @@ Reply slidingTray(State& s, Params& p) {
 Reply slidingPreview(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const app::Id piece = p.id("piece", IdKind::Shape);
-  const std::array<int, 2> at = p.point("at");
+  const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int t, trayIndex(s, tray));
@@ -118,12 +119,14 @@ Reply slidingPreview(State& s, Params& p) {
     return coreError(Errc::InvalidArgument, "a start/goal shape is no piece");
   }
   Json cells = Json::array();
-  for (const auto& [x, y] : sliding::stampCells(&pieceShape, at[0], at[1])) {
-    cells.push_back(Json::array({x, y}));
+  for (const sliding::TrayCell& c :
+       sliding::stampCells(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal)) {
+    cells.push_back(Json::array({c[0], c[1], c[2]}));
   }
-  const bool there = sliding::stampIsAt(&trayShape, &pieceShape, i, at[0], at[1], goal);
-  const std::string why =
-      there ? std::string() : sliding::stampFits(&trayShape, &pieceShape, i, at[0], at[1], goal);
+  const bool there = sliding::stampIsAt(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal);
+  const std::string why = there ? std::string()
+                                : sliding::stampFits(&trayShape, &pieceShape, i, at[0], at[1],
+                                                     at[2], goal);
   return Json{{"cells", std::move(cells)},
               {"fits", why.empty()},
               {"why", why.empty() ? Json(nullptr) : Json(why)},

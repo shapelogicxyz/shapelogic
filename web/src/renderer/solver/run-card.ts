@@ -159,7 +159,7 @@ export class RunCard {
   private renderMode(): void {
     const ws = this.ws;
     const o = ws.options;
-    const { disabled } = normalize(o, null, ws.family);
+    const { disabled } = normalize(o, null, ws.family, ws.canDisassemble);
     const dis = o.disassemble;
     if (ws.stacking) {
       // Find Solutions (updateSolverOptionCheckboxes; Just Levels is in the search options)
@@ -181,7 +181,7 @@ export class RunCard {
       `<div class="row2"><div class="t">${LABEL[k]}<small>${TIP[k]}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(TIP[k])}"><span class="tr"></span></div></div>`;
     setHtml(
       byId('slvMode'),
-      `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble and Disassemble</b><span class="d">Also check that each assembly can be taken apart, moving pieces along the voxel axes.</span></div></button>` +
+      `<button class="mcard ${!dis ? 'on' : ''}" data-m="asm" ${o.justLevels ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble Only</b><span class="d">Find every way the pieces fit the result.</span></div></button><button class="mcard ${dis ? 'on' : ''}" data-m="dis" ${o.justCount || !ws.canDisassemble ? 'disabled' : ''}><i class="rd"></i><div><b>Assemble and Disassemble</b><span class="d">${ws.canDisassemble ? 'Also check that each assembly can be taken apart, moving pieces along the voxel axes.' : 'This space grid has no disassembler: the solver finds the assemblies only.'}</span></div></button>` +
         (dis ? `<div class="slv-opts" style="margin:8px 2px 0">${sw('checkRotations')}</div>` : ''),
     );
   }
@@ -190,7 +190,7 @@ export class RunCard {
     const ws = this.ws;
     const o = ws.options;
     const lim = ws.limits;
-    const { disabled } = normalize(o, null, ws.family);
+    const { disabled } = normalize(o, null, ws.family, ws.canDisassemble);
     const tip = (k: BoxName): string => (ws.stacking ? (STACKING_TIP[k] ?? TIP[k]) : TIP[k]);
     const sw = (k: BoxName): string =>
       `<div class="row2"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;

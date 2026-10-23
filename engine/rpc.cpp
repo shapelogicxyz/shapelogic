@@ -222,6 +222,17 @@ std::array<int, 2> Params::point(std::string_view name) {
   return c;
 }
 
+std::array<int, 3> Params::pointOrCell(std::string_view name, int z) {
+  std::array<int, 3> c{0, 0, z};
+  const Json* f = field(name);
+  if (f != nullptr && f->is_array() && f->size() == 2) {
+    integers(name, std::span<int>(c.data(), 2), "[x, y] or [x, y, z]");
+  } else {
+    integers(name, c, "[x, y] or [x, y, z]");
+  }
+  return c;
+}
+
 void Params::integers(std::string_view name, std::span<int> out, std::string_view shape) {
   const Json* f = field(name);
   if (f == nullptr) {

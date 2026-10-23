@@ -155,7 +155,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.resize": {
-      "summary": "Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink). Sliding shapes are one layer deep: another Z is refused (invalid_argument). Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
+      "summary": "Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside. With toAll the other shapes grow by as much (they never shrink). Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {
         "type": "object",
         "properties": {

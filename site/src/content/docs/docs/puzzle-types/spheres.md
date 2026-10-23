@@ -14,9 +14,9 @@ market. This grid is good for pyramid and ball packing puzzles.
 :::caution
 This space grid has no disassembler. The solver finds every assembly, every
 way the pieces fill the result, but cannot check whether an assembly can be
-taken apart, or show how. Untick **Assemble and Disassemble** on the Solver
-workspace before solving. The Solutions count then stays empty and the
-assemblies are what you get.
+taken apart, or show how. The Solver workspace offers **Assemble Only**;
+**Assemble and Disassemble** is greyed out. The Solutions count stays empty
+and the assemblies are what you get.
 :::
 
 ## What is different

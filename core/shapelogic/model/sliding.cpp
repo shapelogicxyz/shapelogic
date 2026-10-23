@@ -23,6 +23,7 @@ constexpr const char* kGoalShapeName = "__sliding_goal__";
 constexpr const char* kStartGoalPrefix = "sg:";
 constexpr const char* kHiddenPrefix = "__sggoal:";
 
+// The older goal-map model's trays are one layer: their floor is z = 0.
 bool isFloor(const Voxel& tray, int x, int y) {
   if (x < 0 || y < 0 || asUnsigned(x) >= tray.getX() || asUnsigned(y) >= tray.getY()) {
     return false;
@@ -177,45 +178,70 @@ bool findColorAnchor(const Voxel& tray, const Voxel& piece, unsigned int color, 
   return false;
 }
 
-// Top row first, as the grid editor shows it (y rises upwards), and left to
-// right in a row: the first cell is the top-left one, where a click places
-// a piece.
-bool topLeftFirst(const std::pair<int, int>& a, const std::pair<int, int>& b) {
-  return a.second != b.second ? a.second > b.second : a.first < b.first;
+// The lowest layer first, then the top row of a layer, as the grid editor
+// shows it (y rises upwards), and left to right in a row: the first cell
+// is the top-left one of the lowest layer, where a click places a piece.
+bool topLeftFirst(const TrayCell& a, const TrayCell& b) {
+  if (a[2] != b[2]) {
+    return a[2] < b[2];
+  }
+  return a[1] != b[1] ? a[1] > b[1] : a[0] < b[0];
 }
 
-// The cells of a piece, all layers seen from above, top-left first.
-std::vector<std::pair<int, int>> footprint(const Voxel& piece) {
-  std::vector<std::pair<int, int>> cells;
-  for (unsigned int y = 0; y < piece.getY(); y++) {
-    for (unsigned int x = 0; x < piece.getX(); x++) {
-      for (unsigned int z = 0; z < piece.getZ(); z++) {
+// The filled cells of a piece, every layer.
+std::vector<TrayCell> pieceCells(const Voxel& piece) {
+  std::vector<TrayCell> cells;
+  for (unsigned int z = 0; z < piece.getZ(); z++) {
+    for (unsigned int y = 0; y < piece.getY(); y++) {
+      for (unsigned int x = 0; x < piece.getX(); x++) {
         if (piece.getState(x, y, z) != Voxel::kEmpty) {
-          cells.emplace_back(asInt(x), asInt(y));
-          break;
+          cells.push_back({asInt(x), asInt(y), asInt(z)});
         }
       }
     }
   }
-  std::sort(cells.begin(), cells.end(), topLeftFirst);
   return cells;
 }
 
-// The cells moved so that the top-left one is at (0, 0).
-std::vector<std::pair<int, int>> fromFirst(std::vector<std::pair<int, int>> cells) {
+// The cells moved so that the first one (topLeftFirst) is at (0, 0, 0).
+std::vector<TrayCell> fromFirst(std::vector<TrayCell> cells) {
   std::sort(cells.begin(), cells.end(), topLeftFirst);
   if (!cells.empty()) {
-    const std::pair<int, int> o = cells[0];
-    for (std::pair<int, int>& c : cells) {
-      c.first -= o.first;
-      c.second -= o.second;
+    const TrayCell o = cells[0];
+    for (TrayCell& c : cells) {
+      for (std::size_t a = 0; a < 3; a++) {
+        c[a] -= o[a];
+      }
     }
   }
   return cells;
 }
 
+// The cells of a tray marked with shape id, as its start or goal.
+std::vector<TrayCell> stampedCells(const Voxel& tray, unsigned int id, bool goal);
+
 unsigned int stampOf(const Voxel& tray, unsigned int i, bool goal) {
   return goal ? tray.getGoalPiece(i) : tray.getColor(i);
+}
+
+std::vector<TrayCell> stampedCells(const Voxel& tray, unsigned int id, bool goal) {
+  std::vector<TrayCell> cells;
+  for (unsigned int z = 0; z < tray.getZ(); z++) {
+    for (unsigned int y = 0; y < tray.getY(); y++) {
+      for (unsigned int x = 0; x < tray.getX(); x++) {
+        if (stampOf(tray, tray.getIndex(x, y, z), goal) == id) {
+          cells.push_back({asInt(x), asInt(y), asInt(z)});
+        }
+      }
+    }
+  }
+  return cells;
+}
+
+// The tray holds (x, y, z).
+bool inTray(const Voxel& tray, int x, int y, int z) {
+  return x >= 0 && y >= 0 && z >= 0 && x < asInt(tray.getX()) && y < asInt(tray.getY()) &&
+         z < asInt(tray.getZ());
 }
 
 void paintPieceLock(Voxel& piece, unsigned int color) {
@@ -291,7 +317,8 @@ std::string displayName(const Voxel* v) {
   return tag + " " + user;
 }
 
-unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy) {
+unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
+                               unsigned int sz) {
   int next = 1;
   for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
     const int n = startGoalNumber(&puzzle.getShape(i));
@@ -301,12 +328,15 @@ unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy)
   }
   sx = std::max(sx, 1U);
   sy = std::max(sy, 1U);
-  const unsigned int id = puzzle.addShape(sx, sy, 1);
+  sz = std::max(sz, 1U);
+  const unsigned int id = puzzle.addShape(sx, sy, sz);
   Voxel& v = puzzle.getShape(id);
-  for (unsigned int y = 0; y < v.getY(); y++) {
-    for (unsigned int x = 0; x < v.getX(); x++) {
-      if (v.validCoordinate(asInt(x), asInt(y), 0)) {
-        v.setState(x, y, 0, Voxel::kFilled);
+  for (unsigned int z = 0; z < v.getZ(); z++) {
+    for (unsigned int y = 0; y < v.getY(); y++) {
+      for (unsigned int x = 0; x < v.getX(); x++) {
+        if (v.validCoordinate(asInt(x), asInt(y), asInt(z))) {
+          v.setState(x, y, z, Voxel::kFilled);
+        }
       }
     }
   }
@@ -380,15 +410,12 @@ std::vector<unsigned int> noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned
   return lost;
 }
 
-bool toggleCellMark(Voxel* tray, int x, int y, unsigned int shapeId, bool goal) {
-  if (tray == nullptr || x < 0 || y < 0 || asUnsigned(x) >= tray->getX() ||
-      asUnsigned(y) >= tray->getY()) {
+bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool goal) {
+  if (tray == nullptr || !inTray(*tray, x, y, z) || !tray->validCoordinate(x, y, z)) {
     return false;
   }
-  if (!tray->validCoordinate(x, y, 0)) {
-    return false;
-  }
-  if (tray->getState(asUnsigned(x), asUnsigned(y), 0) == Voxel::kEmpty) {
+  const unsigned int i = tray->getIndex(asUnsigned(x), asUnsigned(y), asUnsigned(z));
+  if (tray->getState(i) == Voxel::kEmpty) {
     return false;
   }
   const unsigned int id = shapeId + 1;
@@ -396,53 +423,30 @@ bool toggleCellMark(Voxel* tray, int x, int y, unsigned int shapeId, bool goal) 
     return false;
   }
   if (goal) {
-    const unsigned int cur = tray->getGoalPiece(asUnsigned(x), asUnsigned(y), 0);
-    tray->setGoalPiece(tray->getIndex(asUnsigned(x), asUnsigned(y), 0), cur == id ? 0 : id);
+    tray->setGoalPiece(i, tray->getGoalPiece(i) == id ? 0 : id);
   } else {
-    const unsigned int cur = tray->getColor(asUnsigned(x), asUnsigned(y), 0);
-    tray->setColor(asUnsigned(x), asUnsigned(y), 0, cur == id ? 0 : id);
+    tray->setColor(i, tray->getColor(i) == id ? 0 : id);
   }
   return true;
 }
 
-std::vector<std::pair<int, int>> stampCells(const Voxel* piece, int x, int y) {
-  std::vector<std::pair<int, int>> cells;
-  if (piece == nullptr) {
-    return cells;
-  }
-  cells = fromFirst(footprint(*piece));
-  for (std::pair<int, int>& c : cells) {
-    c.first += x;
-    c.second += y;
-  }
-  return cells;
-}
+namespace {
 
-std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y,
-                      bool goal) {
-  if (tray == nullptr || piece == nullptr) {
-    return "No piece is chosen.";
-  }
-  const unsigned int id = shapeId + 1;
-  if (id > 63) {
-    return "Only the first 63 shapes can be placed.";
-  }
-  const std::vector<std::pair<int, int>> cells = stampCells(piece, x, y);
-  if (cells.empty()) {
-    return "The piece has no cells.";
-  }
-  for (const std::pair<int, int>& c : cells) {
-    const int tx = c.first;
-    const int ty = c.second;
-    if (tx < 0 || ty < 0 || tx >= asInt(tray->getX()) || ty >= asInt(tray->getY()) ||
-        tray->getState(asUnsigned(tx), asUnsigned(ty), 0) == Voxel::kEmpty) {
+// Why cells marked for shape id would not do, or empty when they would.
+std::string cellsFit(const Voxel& tray, const std::vector<TrayCell>& cells, unsigned int id,
+                     bool goal) {
+  for (const TrayCell& c : cells) {
+    if (!inTray(tray, c[0], c[1], c[2])) {
       return "The piece does not fit there: part of it would be off the floor.";
     }
-    if (goal && tray->getState(asUnsigned(tx), asUnsigned(ty), 0) == Voxel::kVariable) {
+    const unsigned int i = tray.getIndex(asUnsigned(c[0]), asUnsigned(c[1]), asUnsigned(c[2]));
+    if (tray.getState(i) == Voxel::kEmpty) {
+      return "The piece does not fit there: part of it would be off the floor.";
+    }
+    if (goal && tray.getState(i) == Voxel::kVariable) {
       return "A goal cannot be on a variable cell: pieces may cross those, not stop on them.";
     }
-    const unsigned int other =
-        stampOf(*tray, tray->getIndex(asUnsigned(tx), asUnsigned(ty), 0), goal);
+    const unsigned int other = stampOf(tray, i, goal);
     if (other != 0 && other != id) {
       return std::string("The piece would cover the ") + (goal ? "goal" : "start") + " of S" +
              std::to_string(other) + ".";
@@ -451,16 +455,88 @@ std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeI
   return std::string();
 }
 
-std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y,
+}  // namespace
+
+std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece, unsigned int shapeId,
+                                 int x, int y, int z, bool goal) {
+  std::vector<TrayCell> none;
+  if (piece == nullptr) {
+    return none;
+  }
+  // the piece's cells, its lowest layer at 0
+  std::vector<TrayCell> cells = pieceCells(*piece);
+  if (cells.empty()) {
+    return none;
+  }
+  int low = cells[0][2];
+  int high = low;
+  for (const TrayCell& c : cells) {
+    low = std::min(low, c[2]);
+    high = std::max(high, c[2]);
+  }
+  for (TrayCell& c : cells) {
+    c[2] -= low;
+  }
+  const int height = high - low + 1;
+
+  // Each height that puts a layer of the piece on layer z, lowest first:
+  // the slice of the piece there goes with its top-left cell at (x, y). The
+  // lowest that fits wins, else the lowest with a slice there.
+  std::vector<TrayCell> first;
+  for (int base = std::max(0, z - height + 1); base <= z; base++) {
+    const int layer = z - base;
+    std::vector<TrayCell> slice;
+    for (const TrayCell& c : cells) {
+      if (c[2] == layer) {
+        slice.push_back(c);
+      }
+    }
+    if (slice.empty()) {
+      continue;
+    }
+    const TrayCell anchor = *std::min_element(slice.begin(), slice.end(), topLeftFirst);
+    std::vector<TrayCell> placed = cells;
+    for (TrayCell& c : placed) {
+      c = {c[0] - anchor[0] + x, c[1] - anchor[1] + y, c[2] + base};
+    }
+    std::sort(placed.begin(), placed.end(), topLeftFirst);
+    if (tray == nullptr || cellsFit(*tray, placed, shapeId + 1, goal).empty()) {
+      return placed;
+    }
+    if (first.empty()) {
+      first = std::move(placed);
+    }
+  }
+  return first;
+}
+
+std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y,
+                      int z, bool goal) {
+  if (tray == nullptr || piece == nullptr) {
+    return "No piece is chosen.";
+  }
+  const unsigned int id = shapeId + 1;
+  if (id > 63) {
+    return "Only the first 63 shapes can be placed.";
+  }
+  const std::vector<TrayCell> cells = stampCells(tray, piece, shapeId, x, y, z, goal);
+  if (cells.empty()) {
+    return pieceCells(*piece).empty() ? "The piece has no cells."
+                                      : "The piece has no cells on this layer there.";
+  }
+  return cellsFit(*tray, cells, id, goal);
+}
+
+std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
                        bool goal) {
-  std::string why = stampFits(tray, piece, shapeId, x, y, goal);
+  std::string why = stampFits(tray, piece, shapeId, x, y, z, goal);
   if (!why.empty()) {
     return why;
   }
   const unsigned int id = shapeId + 1;
   clearStamp(tray, shapeId, goal);
-  for (const std::pair<int, int>& c : stampCells(piece, x, y)) {
-    const unsigned int i = tray->getIndex(asUnsigned(c.first), asUnsigned(c.second), 0);
+  for (const TrayCell& c : stampCells(tray, piece, shapeId, x, y, z, goal)) {
+    const unsigned int i = tray->getIndex(asUnsigned(c[0]), asUnsigned(c[1]), asUnsigned(c[2]));
     if (goal) {
       tray->setGoalPiece(i, id);
     } else {
@@ -468,20 +544,6 @@ std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, in
     }
   }
   return std::string();
-}
-
-std::vector<unsigned int> flattenPieces(Puzzle& puzzle) {
-  std::vector<unsigned int> changed;
-  for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
-    Voxel& v = puzzle.getShape(s);
-    if (isHiddenSlidingShape(&v) || v.getZ() <= 1) {
-      continue;
-    }
-    v.resize(v.getX(), v.getY(), 1, Voxel::kEmpty);
-    v.setHotspot(v.getHx(), v.getHy(), 0);
-    changed.push_back(s);
-  }
-  return changed;
 }
 
 std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId) {
@@ -493,7 +555,7 @@ std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId
   if (isStartGoalShape(&piece) || isHiddenSlidingShape(&piece)) {
     return trays;
   }
-  const std::vector<std::pair<int, int>> shape = fromFirst(footprint(piece));
+  const std::vector<TrayCell> shape = fromFirst(pieceCells(piece));
   const unsigned int id = shapeId + 1;
   for (unsigned int t = 0; t < puzzle.getNumberOfShapes(); t++) {
     Voxel& tray = puzzle.getShape(t);
@@ -502,14 +564,7 @@ std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId
     }
     bool dropped = false;
     for (int goal = 0; goal < 2; goal++) {
-      std::vector<std::pair<int, int>> cells;
-      for (unsigned int y = 0; y < tray.getY(); y++) {
-        for (unsigned int x = 0; x < tray.getX(); x++) {
-          if (stampOf(tray, tray.getIndex(x, y, 0), goal != 0) == id) {
-            cells.emplace_back(asInt(x), asInt(y));
-          }
-        }
-      }
+      const std::vector<TrayCell> cells = stampedCells(tray, id, goal != 0);
       if (!cells.empty() && fromFirst(cells) != shape) {
         dropped = clearStamp(&tray, shapeId, goal != 0) || dropped;
       }
@@ -521,21 +576,13 @@ std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId
   return trays;
 }
 
-bool stampIsAt(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y,
+bool stampIsAt(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
                bool goal) {
   if (tray == nullptr || piece == nullptr) {
     return false;
   }
-  const unsigned int id = shapeId + 1;
-  std::vector<std::pair<int, int>> now;
-  for (unsigned int ty = 0; ty < tray->getY(); ty++) {
-    for (unsigned int tx = 0; tx < tray->getX(); tx++) {
-      if (stampOf(*tray, tray->getIndex(tx, ty, 0), goal) == id) {
-        now.emplace_back(asInt(tx), asInt(ty));
-      }
-    }
-  }
-  std::vector<std::pair<int, int>> there = stampCells(piece, x, y);
+  std::vector<TrayCell> now = stampedCells(*tray, shapeId + 1, goal);
+  std::vector<TrayCell> there = stampCells(tray, piece, shapeId, x, y, z, goal);
   std::sort(now.begin(), now.end());
   std::sort(there.begin(), there.end());
   return !now.empty() && now == there;
@@ -560,12 +607,12 @@ bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal) {
   return had;
 }
 
-unsigned int stampAt(const Voxel* tray, int x, int y, bool goal) {
-  if (tray == nullptr || x < 0 || y < 0 || x >= asInt(tray->getX()) ||
-      y >= asInt(tray->getY())) {
+unsigned int stampAt(const Voxel* tray, int x, int y, int z, bool goal) {
+  if (tray == nullptr || !inTray(*tray, x, y, z)) {
     return static_cast<unsigned int>(-1);
   }
-  const unsigned int id = stampOf(*tray, tray->getIndex(asUnsigned(x), asUnsigned(y), 0), goal);
+  const unsigned int id =
+      stampOf(*tray, tray->getIndex(asUnsigned(x), asUnsigned(y), asUnsigned(z)), goal);
   return id == 0 ? static_cast<unsigned int>(-1) : id - 1;
 }
 
@@ -582,20 +629,9 @@ std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape) {
       continue;
     }
     const unsigned int id = s + 1;
-    std::vector<std::pair<int, int>> starts;
-    std::vector<std::pair<int, int>> goals;
-    for (unsigned int y = 0; y < tray.getY(); y++) {
-      for (unsigned int x = 0; x < tray.getX(); x++) {
-        const unsigned int i = tray.getIndex(x, y, 0);
-        if (tray.getColor(i) == id) {
-          starts.emplace_back(asInt(x), asInt(y));
-        }
-        if (tray.getGoalPiece(i) == id) {
-          goals.emplace_back(asInt(x), asInt(y));
-        }
-      }
-    }
-    const std::vector<std::pair<int, int>> shape = fromFirst(footprint(piece));
+    const std::vector<TrayCell> starts = stampedCells(tray, id, false);
+    const std::vector<TrayCell> goals = stampedCells(tray, id, true);
+    const std::vector<TrayCell> shape = fromFirst(pieceCells(piece));
     const std::string name = "S" + std::to_string(id);
     if (!starts.empty() && fromFirst(starts) != shape) {
       return "The start of " + name + " is not the whole piece. Place it again.";

@@ -199,6 +199,7 @@ export class Grid2D {
     input.geo.cells.forEach((c, i) => {
       b += this.shapeOf(c, ey, `class="cell sp" data-i="${i}" data-at="${c.at.join(',')}"`);
     });
+    b += '<g class="cmarks" pointer-events="none"></g>';
     const axis = (a: 'X' | 'Y' | 'Z'): string => `var(--a${a.toLowerCase()})`;
     const X0 = this.X(0).toFixed(1);
     const Y0 = this.Y(0, ey).toFixed(1);
@@ -221,9 +222,39 @@ export class Grid2D {
     this.overlay = this.area.querySelector<SVGGElement>('.ovl');
   }
 
+  // a quarter of a cell at its top left (the cell shrunk to half towards
+  // that corner: a square's top-left quarter, and inside any other cell)
+  private corner(
+    c: { polygon?: P2[]; circle?: { centre: P2; radius: number } },
+    h: number,
+    attrs: string,
+  ): string {
+    if (c.circle !== undefined) {
+      const r = c.circle.radius * this.sc;
+      const d = r / 2 / Math.SQRT2;
+      const cx = this.X(c.circle.centre[0]) - d;
+      const cy = this.Y(c.circle.centre[1], h) - d;
+      return `<circle ${attrs} cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r / 2).toFixed(1)}"/>`;
+    }
+    const pts = (c.polygon ?? []).map((q): P2 => [this.X(q[0]), this.Y(q[1], h)]);
+    const at = pts.reduce<P2 | null>(
+      (a, q) => (a === null || q[0] + q[1] < a[0] + a[1] ? q : a),
+      null,
+    );
+    if (at === null) {
+      return '';
+    }
+    const half = pts
+      .map((q) => `${((q[0] + at[0]) / 2).toFixed(1)},${((q[1] + at[1]) / 2).toFixed(1)}`)
+      .join(' ');
+    return `<polygon ${attrs} points="${half}"/>`;
+  }
+
   // each cell's look from the engine's cells (the mockup's fill: a variable
-  // cell half filled with a dashed border, the cell's colour or the shape's)
+  // cell half filled with a dashed border, in the shape's colour; a
+  // constraint colour as a box in the top-left quarter)
   private paint(input: GridInput): void {
+    let marks = '';
     input.geo.cells.forEach((c, i) => {
       const el = this.cellEls[i];
       if (el === undefined) {
@@ -231,12 +262,15 @@ export class Grid2D {
       }
       const v = input.cells.get(key(c.at));
       const vr = v?.state === 'variable';
-      let col =
-        v === undefined
-          ? 'var(--panel)'
-          : v.colour === null
-            ? input.shapeColour
-            : (input.palette.get(v.colour) ?? input.shapeColour);
+      let col = v === undefined ? 'var(--panel)' : input.shapeColour;
+      const cc = v?.colour == null ? undefined : input.palette.get(v.colour);
+      if (cc !== undefined && input.tray == null) {
+        marks += this.corner(
+          c,
+          input.geo.height,
+          `class="cmark" data-at="${c.at.join(',')}" fill="${cc}" stroke="var(--line2)" stroke-width="1"`,
+        );
+      }
       const tray = input.tray;
       if (tray != null && v !== undefined) {
         // the tray's chequer, a marked cell in its piece's (grideditor.cpp)
@@ -260,6 +294,10 @@ export class Grid2D {
       }
       el.dataset.state = v?.state ?? '';
     });
+    const g = this.svg?.querySelector('.cmarks');
+    if (g != null) {
+      g.innerHTML = marks;
+    }
     if (this.svg !== null) {
       this.svg.dataset.cells = String(input.cells.size);
     }
@@ -307,8 +345,12 @@ export class Grid2D {
     // the piece to place: each of its cells on the grid outlined (drawStampPreview)
     const st = this.host.stamping() ? this.stamp : null;
     if (st !== null) {
-      for (const [x, y] of st.cells) {
-        const i = input.geo.index.get(key([x, y, input.layer]));
+      // the cells on the layer shown
+      for (const [x, y, z] of st.cells) {
+        if (z !== input.layer) {
+          continue;
+        }
+        const i = input.geo.index.get(key([x, y, z]));
         const c = i === undefined ? undefined : input.geo.cells[i];
         if (c !== undefined) {
           b += this.shapeOf(c, h, `fill="none" stroke="${st.colour}" stroke-width="3"`);

@@ -165,12 +165,14 @@ export const SORT_CHOICES: readonly { value: SortBy; label: string; needsDisasse
 /**
  * The options a problem stored (applySolverOptions): a missing setting
  * keeps the default, an unknown solver type or sort the default too. A
- * sliding puzzle's solver type is a sliding solver's name.
+ * sliding puzzle's solver type is a sliding solver's name. On a grid
+ * without a take-apart (canDisassemble false) the solve only assembles.
  */
 export function readOptions(
   stored: SolverSettings,
   base?: Readonly<SearchOptions>,
   family: Family = 'brick',
+  canDisassemble = true,
 ): SearchOptions {
   const sliding = family === 'sliding';
   const o: SearchOptions = { ...(base ?? defaultsOf(family)) };
@@ -210,7 +212,7 @@ export function readOptions(
   if (typeof sb === 'string' && (SORTS as readonly string[]).includes(sb)) {
     o.sortBy = sb as SortBy;
   }
-  return normalize(o, null, family).options;
+  return normalize(o, null, family, canDisassemble).options;
 }
 
 /**
@@ -268,12 +270,15 @@ export interface Normalized {
  * rotation filter off, so the thorough check and Keep Mirror go with it;
  * the thorough check rules Keep Rotated out. The sort by moves, level or
  * rotations needs the take-apart (the mockup's rule): without it the solve
- * keeps them unsorted.
+ * keeps them unsorted. A grid without a take-apart (canDisassemble false:
+ * spheres, rhombic, tetra-octa) only assembles, so the take-apart, Just
+ * Levels and Check Rotations are off and greyed.
  */
 export function normalize(
   input: SearchOptions,
   changed: BoxName | null,
   family: Family = 'brick',
+  canDisassemble = true,
 ): Normalized {
   const o = { ...input };
   const disabled = new Set<BoxName>();
@@ -321,6 +326,12 @@ export function normalize(
       disabled.add('partialNested');
     }
     return { options: o, disabled };
+  }
+  if (!canDisassemble) {
+    o.disassemble = false;
+    o.justLevels = false;
+    disabled.add('disassemble');
+    disabled.add('justLevels');
   }
   if (changed === 'justLevels' && o.justLevels) {
     o.checkRotations = false;

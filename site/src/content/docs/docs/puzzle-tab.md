@@ -104,7 +104,7 @@ Select a piece (in the lists, or in the 3D view) to see it on the right:
 
 The color rules decide which piece colors may sit on which result colors.
 They appear when the puzzle has constraint colors; the colors are added with
-the voxel editor's palette on the [Shapes tab](/docs/shapes-tab/#drawing-color).
+the voxel editor's palette on the [Shapes tab](/docs/shapes-tab/#shape-and-restriction-colors).
 
 ![The color rules: a grid of piece colors against result colors, with Each color on itself, Allow all and Clear.](../../../assets/screens/guide/colors-rules.png)
 

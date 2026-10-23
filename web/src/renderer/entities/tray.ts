@@ -22,9 +22,9 @@ export type TrayReply = Methods['sliding.tray']['result'];
 /** What `sliding.preview` answers. */
 export type PreviewReply = Methods['sliding.preview']['result'];
 
-/** The piece outlined under the mouse: its cells [x, y] and the outline's colour. */
+/** The piece outlined under the mouse: its cells [x, y, z] and the outline's colour. */
 export interface StampOutline {
-  cells: [number, number][];
+  cells: [number, number, number][];
   colour: string;
 }
 
@@ -89,15 +89,15 @@ export function marksOf(
  * there, by piece. A stamp is the whole piece moved, so its cells' lowest
  * corner and the piece's place it.
  */
-export function stampsOf(t: TrayReply, goal: boolean): Map<string, [number, number][]> {
-  const out = new Map<string, [number, number][]>();
+export function stampsOf(t: TrayReply, goal: boolean): Map<string, [number, number, number][]> {
+  const out = new Map<string, [number, number, number][]>();
   const [X, Y] = t.size;
   (goal ? t.goals : t.starts).forEach((id, i) => {
     if (id === null) {
       return;
     }
     const cells = out.get(id) ?? [];
-    cells.push([i % X, Math.trunc(i / X) % Y]);
+    cells.push([i % X, Math.trunc(i / X) % Y, Math.trunc(i / (X * Y))]);
     out.set(id, cells);
   });
   return out;

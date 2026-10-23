@@ -413,6 +413,8 @@ for (const grid of GRIDS) {
       const [c1] = await colours();
       expect(c1).toBeDefined();
       await expect(page.locator(`#colFoot .sw[data-c="${c1?.id}"]`)).toHaveClass(/\bon\b/);
+      await expect(page.locator(`#colFoot .sw[data-c="${c1?.id}"]`)).toHaveText('C1');
+      await expect(page.locator('#cRm')).toBeEnabled();
       await page.keyboard.press('4');
       await clickCell(page, P);
       expect((await shapeGet(page, s3)).cells[0]?.colour).toBe(c1?.id);
@@ -423,26 +425,35 @@ for (const grid of GRIDS) {
         (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(Q))?.colour,
       ).toBe(c1?.id);
       await page.click('#colFoot .sw.def');
+      await expect(page.locator('#cRm')).toBeDisabled();
       await clickCell(page, R);
       expect(
         (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(R))?.colour,
       ).toBeUndefined();
       // edit the colour, then remove it: its cells go back to the shape's own
       await page.click(`#colFoot .sw[data-c="${c1?.id}"]`);
-      // (the menu's "Edit colour…" opens the system's picker, which a test cannot drive)
-      await page.locator('#cPick').fill('#123456');
+      await expect(page.locator('#colFoot .colmeta small')).toHaveText('Restriction color');
+      // a restriction color has no default to restore
+      await page.click('#cEdit');
+      await expect(page.locator('#pop [data-k="default"]')).toHaveCount(0);
+      await page.locator('#pop .cpk-hex').fill('#123456');
+      await page.locator('#pop .cpk-hex').press('Enter');
       await expect.poll(async () => (await colours())[0]?.rgb).toBe('#123456');
-      await page.click('#cMore');
-      await page.click('#pop [data-k="rm"]');
+      await page.keyboard.press('Escape');
+      await page.click('#cRm');
       await expect.poll(async () => (await colours()).length).toBe(0);
       expect((await shapeGet(page, s3)).cells.every((c) => c.colour === undefined)).toBe(true);
-      await expect(page.locator('#colFoot .sw.def')).toHaveClass(/\bon\b/);
-      // Edit color works on Default too: it is the shape's own color
-      await page.click('#cMore');
-      await expect(page.locator('#pop [data-k="edit"]')).toBeEnabled();
-      await expect(page.locator('#pop [data-k="rm"]')).toBeDisabled();
-      await page.keyboard.press('Escape');
-      await page.locator('#cPick').fill('#336699');
+      await expect(page.locator('#colFoot .colmeta small')).toHaveText('Shape color');
+      await expect(page.locator('#colFoot .colmeta b')).toHaveText('Default');
+      // no constraint colour left: one row; the pencil works on Default too (the shape's own color)
+      await expect(page.locator('#palView')).toHaveCount(0);
+      await expect(page.locator('#cEdit')).toBeEnabled();
+      await expect(page.locator('#cRm')).toBeDisabled();
+      await page.click('#cEdit');
+      await expect(page.locator('#pop [data-k="default"]')).toBeDisabled();
+      await page.locator('#pop .cpk-hex').fill('#336699');
+      await page.locator('#pop .cpk-hex').press('Enter');
+      await expect(page.locator('#pop [data-k="default"]')).toBeEnabled();
       await expect
         .poll(
           async () =>
@@ -454,6 +465,10 @@ for (const grid of GRIDS) {
             ).shapes.find((x) => x.id === s3)?.colour,
         )
         .toBe('#336699');
+      await expect(page.locator('#colFoot .colmeta b')).toHaveText('Custom');
+      // Restore Default: the shape's own color again
+      await page.click('#pop [data-k="default"]');
+      await expect(page.locator('#colFoot .colmeta b')).toHaveText('Default');
 
       // ---- 3D editing: a face's cell (erase) and the cell across it (fixed) ----
       await clearShape(page, s3);
@@ -571,3 +586,63 @@ for (const grid of GRIDS) {
     }
   });
 }
+
+test('the palette shows its colors one row at a time', async () => {
+  const a: App = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'bricks');
+    await newShape(page);
+    // one row until a color is added, then Default and C1 on a second
+    await expect(page.locator('#palView')).toHaveCount(0);
+    await page.click('#cAdd');
+    await settled(page);
+    await expect(page.locator('#palView .sw')).toHaveCount(2);
+    await expect(page.locator('#palNav')).toBeHidden();
+    // more colors than a row holds: the view follows the new one, and the arrows show
+    let n = 1;
+    while (!(await page.locator('#palNav').isVisible())) {
+      expect(n).toBeLessThan(40);
+      await page.click('#cAdd');
+      await settled(page);
+      n++;
+    }
+    const last = page.locator('#palView .sw').last();
+    await expect(last).toHaveText(`C${String(n)}`);
+    await expect(last).toHaveClass(/\bon\b/);
+    await expect(last).toBeInViewport();
+    await expect(page.locator('#palNav [data-pr="1"]')).toBeDisabled();
+    await page.click('#palNav [data-pr="-1"]');
+    await expect(page.locator('#palNav [data-pr="-1"]')).toBeDisabled();
+    await expect(page.locator('#palNav [data-pr="1"]')).toBeEnabled();
+    // removing a color moves to the one before it, on its row
+    await page.click('#cAdd');
+    await settled(page);
+    await page.click('#cRm');
+    await settled(page);
+    const tail = page.locator('#palView .sw').last();
+    await expect(tail).toHaveText(`C${String(n)}`);
+    await expect(tail).toHaveClass(/\bon\b/);
+    await expect(tail).toBeInViewport();
+    await page.click('#palNav [data-pr="-1"]');
+    await page.click('#palView .sw:text-is("C2")');
+    await page.click('#cRm');
+    await settled(page);
+    await expect(page.locator('#palView .sw:text-is("C1")')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#colFoot .colmeta small')).toHaveText('Restriction color');
+    // the colors added are all different
+    const rgbs = (await engineCall<{ colours: { rgb: string }[] }>(page, 'colour.list')).colours;
+    expect(new Set(rgbs.map((c) => c.rgb)).size).toBe(rgbs.length);
+    // Default is on the first row: choosing it leaves nothing to remove, the pencil stays
+    await page.click('#palView .sw.def');
+    await expect(page.locator('#cRm')).toBeDisabled();
+    await expect(page.locator('#cEdit')).toBeEnabled();
+    // a restricted voxel keeps the shape's color, with the restriction in its top-left quarter
+    await page.click('#palView .sw:text-is("C1")');
+    await page.click('#garea .cell >> nth=0');
+    await settled(page);
+    await expect(page.locator('#garea .cmark')).toHaveCount(1);
+  } finally {
+    await a.close();
+  }
+});

@@ -72,7 +72,7 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 - **Shapes list**: id chip (S1, S2…, renumbered by order), optional label,
   **weight** (W−/W+; in the solver heavier shapes stay in place, lighter ones
   move), rename (F2, Enter, double-click), duplicate (`Ctrl+D`, added last),
-  delete (`Del`, not the last shape), reorder by drag or `Alt+↑/↓` (ids
+  delete (`Del`, the last shape too), reorder by drag or `Alt+↑/↓` (ids
   follow the order), right-click menu with the same actions.
 - **Transform** (Flip · Rotate · Nudge), per axis X/Y/Z: flip (mirror across
   the plane), rotate −90°/+90°, nudge −1/+1. Blocked with a message when the
@@ -103,9 +103,21 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   bases).
 - **Grid size** steppers X/Y/Z with **Apply to all shapes**; shrinking removes
   cells outside.
-- **Colour palette**: Default (the piece's own colour) plus constraint
-  colours; add, edit (colour picker), remove (cells using it revert to
-  Default). The current drawing colour shows as a large swatch.
+- **Colour palette**: the current drawing colour as a large swatch,
+  labelled **Shape color** (the shape's own: **Default**, or **Custom**
+  once set) or **Restriction color** (C1, C2, ...), then + (add: the
+  candidate colour least like those there and the shape's own), the
+  pencil (edit: an in-app picker in the popover, a saturation and
+  brightness square, a hue slider and a hex field; for the shape's own
+  colour **Restore Default** below it) and the trash can (remove: cells
+  using it revert to the shape's colour; off on the shape's colour; the
+  drawing colour moves to the one before). Once there is a constraint
+  colour, a row below holds the shape's colour and the constraint
+  colours, one row shown at a time: a full row starts another, the view
+  follows a colour chosen or added, and small up and down arrows on the
+  right step through the rows once there are two. In the grid a cell
+  with a constraint colour is drawn in the shape's colour with the
+  constraint colour as a box in its top-left quarter.
 - **3D edit mode** (`E`): plain clicks in the 3D view apply the active tool;
   the cursor shows the tool.
 
@@ -246,9 +258,9 @@ list). `ToolTab_Sliding` ("Tray edit", "Walls", Start, Goal) is never
 made by the original (dead code); its labels name the right card's mode
 switch below.
 
-**What a sliding puzzle is** (decision 0014): pieces are shapes of one
-layer; a **start/goal shape** (a tray) is a shape of one layer whose
-fixed cells are floor, variable cells corridors (pieces cross them but do
+**What a sliding puzzle is** (decision 0014): pieces are shapes, one
+layer or more; a **start/goal shape** (a tray) is a shape, one layer or
+more, whose fixed cells are floor, variable cells corridors (pieces cross them but do
 not stop on them) and empty cells walls; each piece may have a start and
 a goal stamped on a tray, the whole piece at a time; each tray has its
 own problem, "START/GOAL n", whose pieces follow the stamps.
@@ -258,21 +270,20 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   user's name (`BlockList.cpp`); its chip is black (`slidingColors::LIST`).
   Above the list, on sliding puzzles only, a row of two buttons:
   **New Start/Goal Positions** ("Add a shape that holds start and goal
-  positions": `sliding.addStartGoal`, the size of the selected shape's
-  X and Y, else 6 by 6, as `cb_NewStartGoal`) and **Delete Start/Goal
+  positions": `sliding.addStartGoal`, the size of the selected shape,
+  else 6 by 6 by 1, as `cb_NewStartGoal`) and **Delete Start/Goal
   Positions** ("Delete the selected start/goal shape"; only on a tray).
   The list's Delete (and `Del`) is greyed on a tray, as the original's
   Delete Shape: the tray goes with its own button. A name beginning
   "sg:" is refused (the engine).
 - **Inspector:** the shape's colour button is off on a tray (it shows the
-  pieces' colours). The tasks that would give a shape more layers are
-  not offered (`lockZ`: nudge along Z, rotate about X and Y, double,
-  triple, grid scale; the engine's task set leaves them out).
-- **Voxel editor (right card):** the Z size stepper is off (one layer);
-  the plane is XY only. The **Paint colour** tool and the **colour
-  palette** are hidden (a sliding puzzle has no constraint colours: a
-  cell's colour is a start mark, and the colour group was hidden in the
-  original). On a tray, a segmented **Tray edit** switch above the tool
+  pieces' colours). The tasks are the bricks' (the original's `lockZ`
+  left out those that add layers; sliding shapes may have them now).
+- **Voxel editor (right card):** the Z size stepper is on (a new shape
+  is one layer); the plane is XY only, the layers one at a time. The **Paint colour** tool is hidden and the
+  **colour palette** keeps only the drawing colour (the shape's own) and
+  the pencil (a sliding puzzle has no constraint colours: a cell's colour
+  is a start mark, and the colour group was hidden in the original). On a tray, a segmented **Tray edit** switch above the tool
   strip: **Walls** ("Toggle floor and wall cells on the tray": the
   ordinary tools, Fixed = floor, Variable = corridor, Erase = wall; the
   tiles drawn dark, `EDIT_LIGHT`/`EDIT_DARK`), **Start** ("Place or
@@ -285,8 +296,9 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   - the grid shows each marked cell in its piece's colour (the
     chequer's light and dark variants), the start marks in Start, the
     goal marks in Goal;
-  - the chosen piece follows the mouse with its top-left cell under it,
-    outlined green where it fits, red where it does not, orange where it
+  - the chosen piece follows the mouse, its slice on the layer shown
+    outlined with the slice's top-left cell under the mouse, at the
+    lowest height that fits (on a tray of layers), green where it fits, red where it does not, orange where it
     already is (`drawStampPreview`; `sliding.preview`);
   - a left click places it (or takes it off when it is exactly there),
     a right click takes off the piece under the mouse
@@ -300,8 +312,8 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   switch take the same green or red (the tab's colour).
 - **3D view of a tray** (`showSingleShape`): two trays side by side,
   **START** and **GOAL** (dark grey, `VIEW_GREY` 0.12, a gap of 4 units),
-  each piece placed on a tray standing one layer above it in its own
-  colour. The START tray is the editable shape (3D edit works on it).
+  each piece placed on a tray standing on it in its own colour (on a
+  tray of layers, as many layers higher as its stamp is). The START tray is the editable shape (3D edit works on it).
 
 ### 8.2 Puzzle workspace
 - **Problems:** New, Copy and Delete problem are hidden (the engine
@@ -351,7 +363,7 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
 ### 8.4 Notices and New
 - A change's `document.changed.notice` and an opened file's
   `Snapshot.notice` come in a message box, as the original's `bt_message`
-  ("Sliding shapes are one layer deep. …", "S3 changed shape: its start
+  ("S3 changed shape: its start
   and goal were removed from S1.", "Only the first 63 shapes …").
 - **File ▸ New** offers **Sliding** second, after Brick (the original's
   order); a new sliding puzzle starts empty (add pieces, then New
@@ -413,8 +425,9 @@ disc lies flat, the rods stand up).
   it in the view. The inspector (Transform, Fit & scale, Repair &
   surface) is hidden: its tasks are the cell editor's.
 - **Right card: Rods** in the voxel editor's place (the original's Rods
-  panel; the voxel editor, the tool strip, the planes and the palette
-  are hidden). The rod sets ("R1 - name" chips) with **New** ("Add
+  panel; the voxel editor, the tool strip and the planes are hidden;
+  the palette keeps only the drawing colour, the disc's own, and the
+  pencil). The rod sets ("R1 - name" chips) with **New** ("Add
   another rod set"), **Delete** ("Delete the selected rod set"; the last
   one stays: "Keep at least one rod set"), **Copy**, **Label** ("Name
   the selected rod set"), ← and → ("Exchange with the previous/next rod

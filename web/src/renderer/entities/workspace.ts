@@ -148,7 +148,8 @@ export class EntitiesWorkspace {
         return this.cells.layersWithCells(p === 'XY' ? 2 : p === 'XZ' ? 1 : 0);
       },
       unit: () => this.unit(),
-      // sliding shapes are one layer: the XY plane only
+      // a sliding puzzle is edited layer by layer in the XY plane: the
+      // start/goal editor places a piece's lowest layer on the layer shown
       allPlanes: () => isCube(store.snapshot?.grid) && store.snapshot?.grid !== 'sliding',
       setPlane: (p) => {
         this.setPlane(p);
@@ -646,9 +647,14 @@ export class EntitiesWorkspace {
     if (this.edits.refuseList()) {
       return;
     }
-    const n = this.store.snapshot?.colours.length ?? 0;
+    // unlike the colours there and the shape's own (Default)
+    const have = (this.store.snapshot?.colours ?? []).map((c) => c.rgb);
+    const s = this.store.shape;
+    if (s !== null) {
+      have.push(hex(shapeColour(s.colour, this.store.indexOf(s.id))));
+    }
     const r = await this.mutate('Add color', () =>
-      this.store.engine.call('colour.add', { rgb: nextColour(n) }),
+      this.store.engine.call('colour.add', { rgb: nextColour(have) }),
     );
     if (r !== null) {
       this.state.colour = r.colour;
@@ -660,11 +666,13 @@ export class EntitiesWorkspace {
     if (this.edits.refuseList()) {
       return;
     }
+    const at = this.store.snapshot?.colours.findIndex((c) => c.id === id) ?? -1;
     const r = await this.mutate('Remove color', () =>
       this.store.engine.call('colour.delete', { colour: id }),
     );
+    // the drawing colour moves to the one before (Default before the first)
     if (r !== null) {
-      this.state.colour = null;
+      this.state.colour = at > 0 ? (this.store.snapshot?.colours[at - 1]?.id ?? null) : null;
       this.state.changed();
     }
   }
@@ -753,8 +761,8 @@ export class EntitiesWorkspace {
 
   /** What the view's two trays show (null: the shape shown is no tray, or not read yet). */
   private trayModel(): {
-    starts: Map<string, [number, number][]>;
-    goals: Map<string, [number, number][]>;
+    starts: Map<string, [number, number, number][]>;
+    goals: Map<string, [number, number, number][]>;
   } | null {
     const r = this.onTray ? this.trays.reply : null;
     return r === null ? null : { starts: stampsOf(r, false), goals: stampsOf(r, true) };
@@ -790,7 +798,7 @@ export class EntitiesWorkspace {
     this.store.engine
       .call(
         'sliding.preview',
-        { tray, piece, at: [cell[0], cell[1]], goal: this.state.tray === 'goal' },
+        { tray, piece, at: cell, goal: this.state.tray === 'goal' },
         { coalesce: 'sliding.preview' },
       )
       .then(
@@ -824,7 +832,7 @@ export class EntitiesWorkspace {
       return;
     }
     const goal = st.tray === 'goal';
-    const at: [number, number] = [cell[0], cell[1]];
+    const at = cell;
     const piece = st.stampPiece;
     if (!right && piece === null) {
       flash('Choose a piece in the list first', 4000);

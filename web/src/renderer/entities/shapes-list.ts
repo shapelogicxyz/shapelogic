@@ -88,9 +88,9 @@ export class ShapesList {
   <span class="lbl">${esc(s.name)}</span>
   <span class="dsz" title="Rank compared by the size rule, and the radius of the disc"><span class="mute">size</span><input class="v" data-dsize value="${String(size)}" aria-label="Disc size" inputmode="numeric"><button class="ib" data-a="dp" title="Size +1" ${size >= DISC_MAX ? 'disabled' : ''}>+</button><button class="ib" data-a="dm" title="Size −1" ${size <= DISC_MIN ? 'disabled' : ''}>−</button></span>
   <span class="acts">
-   <button class="ib" data-a="label" title="Rename">${ic('edit', 14)}</button>
-   <button class="ib" data-a="copy" title="Duplicate (added as the last disc)">${ic('copy', 14)}</button>
-   <button class="ib del" data-a="del" title="Delete" ${shapes.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button>
+   <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
+   <button class="ib" data-a="copy" title="Duplicate (added as the last disc)">${ic('copy', 17)}</button>
+   <button class="ib del" data-a="del" title="Delete">${ic('trash', 17)}</button>
   </span></div>`;
           }
           return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
@@ -99,11 +99,11 @@ export class ShapesList {
   <span class="lbl">${isTray(s) ? `<b class="sgtag">(START/GOAL ${String(s.startGoal)})</b> ` : ''}${esc(s.name)}</span>
   ${s.weight !== 1 ? `<span class="wbadge">W${s.weight}</span>` : ''}
   <span class="acts">
-   <button class="ib" data-a="label" title="Rename">${ic('edit', 14)}</button>
-   <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 14)}</button>
+   <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
+   <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 17)}</button>
    <button class="ib w" data-a="wm" title="Weight −1 — in the Solver, heavier shapes stay in place and lighter ones move" ${s.weight <= 0 ? 'disabled' : ''}><span class="wtxt">W−</span></button>
    <button class="ib w" data-a="wp" title="Weight +1 — in the Solver, heavier shapes stay in place and lighter ones move"><span class="wtxt">W+</span></button>
-   <button class="ib del" data-a="del" title="${isTray(s) ? 'A start/goal shape goes with Delete Start/Goal Positions' : 'Delete'}" ${shapes.length < 2 || isTray(s) ? 'disabled' : ''}>${ic('trash', 14)}</button>
+   <button class="ib del" data-a="del" title="${isTray(s) ? 'A start/goal shape goes with Delete Start/Goal Positions' : 'Delete'}" ${isTray(s) ? 'disabled' : ''}>${ic('trash', 17)}</button>
   </span></div>`;
         })
         .join('');
@@ -144,13 +144,14 @@ export class ShapesList {
     );
   }
 
-  /** New Start/Goal Positions: a tray of the selected shape's X and Y (else 6 by 6), selected. */
+  /** New Start/Goal Positions: a tray of the selected shape's size (else 6 by 6 by 1), selected. */
   async newStartGoal(): Promise<void> {
     if (this.host.refuseList()) {
       return;
     }
     const sel = this.host.store.shape;
-    const size: [number, number] = sel === null ? [6, 6] : [sel.size[0], sel.size[1]];
+    const size: [number, number, number] =
+      sel === null ? [6, 6, 1] : [sel.size[0], sel.size[1], sel.size[2]];
     const r = await this.host.mutate('New Start/Goal Positions', () =>
       this.host.store.engine.call('sliding.addStartGoal', { size }),
     );
@@ -165,7 +166,7 @@ export class ShapesList {
     const shapes = this.shapes;
     const i = shapes.findIndex((s) => s.id === store.selected);
     const s = shapes[i];
-    if (s === undefined || !isTray(s) || shapes.length < 2 || this.host.refuseList()) {
+    if (s === undefined || !isTray(s) || this.host.refuseList()) {
       return;
     }
     const next = (shapes[i + 1] ?? shapes[i - 1])?.id;
@@ -226,7 +227,7 @@ export class ShapesList {
       }
       case 'del': {
         // a tray goes with its own button (the original greyed Delete Shape there)
-        if (shapes.length < 2 || isTray(s) || this.host.refuseList()) {
+        if (isTray(s) || this.host.refuseList()) {
           return;
         }
         // the mockup's choice: the shape now in the deleted one's place
@@ -476,7 +477,7 @@ export class ShapesList {
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1 <span class="kb">W+</span></button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1 <span class="kb">W−</span></button>`}<hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''} title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" ${n < 2 || isTray(s) ? 'disabled' : ''} title="Delete this shape from the puzzle" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1 <span class="kb">W+</span></button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1 <span class="kb">W−</span></button>`}<hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''} title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" ${isTray(s) ? 'disabled' : ''} title="Delete this shape from the puzzle" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },

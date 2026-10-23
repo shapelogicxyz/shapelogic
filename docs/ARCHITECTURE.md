@@ -219,7 +219,7 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   following the stamps), the start locks (`refreshStartLocks`: pieces
   painted in the colours of their starts, so the assembler finds only
   start layouts), `startGoalError`, `stampOverflowMessage`,
-  `flattenPieces`, the older goal-map model the solver still reads
+  the older goal-map model the solver still reads
   (`ensureSetup`, `placeStart`, `placeGoal`), and `prepareForSolving`
   (the maximum of holes and the start locks, what the solve thread set up
   as a run started).
@@ -434,7 +434,8 @@ the solved files state by state, the text, the routes).
 - `sliding_search.h`: `findSlidePath(puzzle, problem, start, SlideSearch&)`,
   the fewest moves from a start layout (an assembly) to the goal: a piece,
   or with nested slides the pieces it carries, slides cell by cell,
-  crossing corridors; positions keyed in 64 or 128 bits (the original's
+  crossing corridors, and on a tray of several layers up and down too
+  (lifted out and put back); positions keyed in 64 or 128 bits (the original's
   text keys with `legacy`; puzzles of more than 64 pieces with nested
   slides use those, where the original overran its tables); copies of
   like pieces searched as one. `SlideSearch` holds the limit
@@ -648,8 +649,8 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   problems in step (deleting, moving, duplicating and renaming a
   start/goal shape; an edit that changes a stamped piece's shape takes its
   stamps off and says so in `ChangeSet::notice`, as does moving a stamped
-  piece past the 63rd place, a mark being six bits); a sliding shape of
-  more than one layer is made flat on open (`openNotice()`, dirty); what
+  piece past the 63rd place, a mark being six bits); sliding shapes may
+  have more than one layer and keep them on open (decision 0014); what
   the original greyed out or hid is refused (the result, groups, the count
   of a piece a stamp requires, new, copied and deleted problems, deleted
   colours); `solveLaunch` sets up the start locks as part of the run (no

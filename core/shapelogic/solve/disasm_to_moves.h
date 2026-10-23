@@ -9,6 +9,7 @@
 
 #include "shapelogic/model/disassembly.h"
 
+#include <array>
 #include <map>
 #include <optional>
 #include <utility>
@@ -69,11 +70,11 @@ class DisasmToMoves final : public PiecePositions {
   /// apart stays in the middle and the others are hidden.
   void setStep(float step, bool fadeOut = true, bool centerActive = false);
 
-  /// Pieces follow a bent route between states `step` and step + 1: x/y
+  /// Pieces follow a bent route between states `step` and step + 1: x/y/z
   /// corner points relative to each piece's place at `step`, start and end
   /// included. Without one a piece moves in a straight line.
   void setRoute(unsigned int step, const std::vector<unsigned int>& pieces,
-                const std::vector<std::pair<float, float>>& offsets);
+                const std::vector<std::array<float, 3>>& offsets);
 
   [[nodiscard]] float getX(unsigned int piece) const override;
   [[nodiscard]] float getY(unsigned int piece) const override;
@@ -87,12 +88,12 @@ class DisasmToMoves final : public PiecePositions {
  private:
   struct Route {
     std::vector<unsigned int> pieces;
-    std::vector<std::pair<float, float>> offsets;
+    std::vector<std::array<float, 3>> offsets;
   };
 
   int doRecursive(const Separation* tree, int step, float* array, unsigned int* orientsOut,
                   bool centerActive, int cx, int cy, int cz);
-  bool routeAt(int step, unsigned int piece, float frac, float* x, float* y) const;
+  bool routeAt(int step, unsigned int piece, float frac, float* xyz) const;
   bool findRotationArrival(int step, unsigned int pieceName, int* pvx, int* pvy, int* pvz,
                            unsigned int* axis, unsigned int* sense) const;
   bool findRotationArrivalRec(const Separation* t, int step, unsigned int pieceName, int* pvx,

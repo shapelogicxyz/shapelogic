@@ -101,8 +101,7 @@ void DisasmToMoves::setStep(float step, bool fadeOut, bool centerActive) {
         }
         orients_[i] = orients2[i];
       }
-    } else if (routeAt(s, i, frac, &moves_[b + 0], &moves_[b + 1])) {
-      moves_[b + 2] = (1 - frac) * moves_[b + 2] + frac * moves2[b + 2];
+    } else if (routeAt(s, i, frac, &moves_[b + 0])) {
       moves_[b + 3] = (1 - frac) * moves_[b + 3] + frac * moves2[b + 3];
     } else {
       for (std::size_t k = 0; k < 4; k++) {
@@ -121,7 +120,7 @@ void DisasmToMoves::setStep(float step, bool fadeOut, bool centerActive) {
 }
 
 void DisasmToMoves::setRoute(unsigned int step, const std::vector<unsigned int>& pieces,
-                             const std::vector<std::pair<float, float>>& offsets) {
+                             const std::vector<std::array<float, 3>>& offsets) {
   if (offsets.size() < 2 || pieces.empty()) {
     routes_.erase(step);
   } else {
@@ -129,7 +128,7 @@ void DisasmToMoves::setRoute(unsigned int step, const std::vector<unsigned int>&
   }
 }
 
-bool DisasmToMoves::routeAt(int step, unsigned int piece, float frac, float* x, float* y) const {
+bool DisasmToMoves::routeAt(int step, unsigned int piece, float frac, float* xyz) const {
   if (step < 0) {
     return false;
   }
@@ -141,28 +140,32 @@ bool DisasmToMoves::routeAt(int step, unsigned int piece, float frac, float* x, 
   if (std::find(on.begin(), on.end(), piece) == on.end()) {
     return false;
   }
-  const std::vector<std::pair<float, float>>& o = it->second.offsets;
+  const std::vector<std::array<float, 3>>& o = it->second.offsets;
+  auto length = [&o](std::size_t k) {
+    return std::fabs(o[k][0] - o[k - 1][0]) + std::fabs(o[k][1] - o[k - 1][1]) +
+           std::fabs(o[k][2] - o[k - 1][2]);
+  };
   // at the same speed along the bends: frac by length travelled
   float total = 0;
   for (std::size_t k = 1; k < o.size(); k++) {
-    total += std::fabs(o[k].first - o[k - 1].first) + std::fabs(o[k].second - o[k - 1].second);
+    total += length(k);
   }
   float want = frac * total;
-  float ox = o.back().first;
-  float oy = o.back().second;
+  std::array<float, 3> off = o.back();
   for (std::size_t k = 1; k < o.size(); k++) {
-    const float len =
-        std::fabs(o[k].first - o[k - 1].first) + std::fabs(o[k].second - o[k - 1].second);
+    const float len = length(k);
     if (want <= len && len > 0) {
       const float t = want / len;
-      ox = o[k - 1].first + t * (o[k].first - o[k - 1].first);
-      oy = o[k - 1].second + t * (o[k].second - o[k - 1].second);
+      for (std::size_t a = 0; a < 3; a++) {
+        off[a] = o[k - 1][a] + t * (o[k][a] - o[k - 1][a]);
+      }
       break;
     }
     want -= len;
   }
-  *x += ox;
-  *y += oy;
+  for (std::size_t a = 0; a < 3; a++) {
+    xyz[a] += off[a];
+  }
   return true;
 }
 

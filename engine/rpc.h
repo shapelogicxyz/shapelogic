@@ -144,6 +144,8 @@ class Params {
   std::array<int, 3> cell(std::string_view name);
   /// [x, y].
   std::array<int, 2> point(std::string_view name);
+  /// [x, y] or [x, y, z]; z is `z` when it is left out.
+  std::array<int, 3> pointOrCell(std::string_view name, int z);
 
   // optional fields: the default when absent
   std::optional<std::string> optString(std::string_view name);

@@ -25,11 +25,11 @@ don't use them.
 ## Painting constraint colors
 
 Constraint colors are painted onto voxels in the
-[voxel editor](/docs/shapes-tab/#drawing-color) on the Shapes tab.
+[voxel editor](/docs/shapes-tab/#shape-and-restriction-colors) on the Shapes tab.
 
-![The Drawing color row of the voxel editor, with the puzzle's two constraint colors in the palette.](../../../assets/screens/guide/colors-palette.png)
+![The color area of the voxel editor, with the puzzle's two constraint colors in the palette.](../../../assets/screens/guide/colors-palette.png)
 
-1. Click **+** beside the palette to add a color. Each color you add is a
+1. Click **+** beside the big color swatch to add a color. Each color you add is a
    constraint color of the whole puzzle.
 2. Click the color in the palette to make it the **drawing color**.
 3. Use the **Paint** tool (`4`) to color existing voxels, or draw new voxels

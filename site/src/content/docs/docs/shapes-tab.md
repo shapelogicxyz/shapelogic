@@ -129,22 +129,42 @@ With **Apply to all shapes** on, a size change is applied to every shape:
 the others grow by the same amount, but never shrink. The switch also makes
 the **Fit & scale** tools work on every shape.
 
-### Drawing color
+### Shape and restriction colors
 
-![The Drawing color row: the current color, the palette, and the add and more buttons.](../../../assets/screens/guide/editor-colors.png)
+![The color area: the current color with the add, edit and remove buttons, and the palette below.](../../../assets/screens/guide/editor-colors.png)
 
-The big swatch shows the **drawing color** that **Fixed**, **Variable** and
-**Paint** use. **Default** is the shape's own color, which means "no
-constraint color".
+The big swatch shows the color that **Fixed**, **Variable** and **Paint**
+draw in (the **drawing color**). Its label says which kind it is:
 
-- Click a swatch in the palette to draw in that color.
-- **+** adds a new color to the puzzle.
-- **…** opens **Edit color…** (change the current color) and **Remove**
-  (delete it from the puzzle).
+- **Shape color**: the shape's own color, which means "no restriction".
+  Under the label it says **Default** for the color ShapeLogic gives the
+  shape, or **Custom** once you have chosen one.
+- **Restriction color**: one of the puzzle's constraint colors, **C1**,
+  **C2** and so on.
 
-Colors in the palette are **constraint colors**. They limit where a piece can
-go; see [Color Restrictions](/docs/color-restrictions/). Sliding puzzles have
-no constraint colors, so this row is hidden for them.
+The buttons beside it:
+
+- **+** adds a new restriction color to the puzzle, as different as it can
+  be from the colors already there. The palette opens on a second row, with
+  the shape's color first and the restriction colors after it.
+- The pencil opens a color picker for the current color. For the shape's
+  color it has **Restore Default** at the bottom, which goes back from
+  **Custom** to **Default**.
+- The trash can removes the current restriction color from the puzzle, and
+  the color before it in the palette becomes the drawing color. It is off
+  while the shape's color is chosen.
+
+Click a swatch in the palette to draw in that color. The palette shows one
+row at a time. When a row is full, the next color starts a new row and the
+palette moves to it; the small arrows at the right step between the rows.
+
+In the grid, a voxel with a restriction color keeps the shape's color, with
+a small box in the restriction color in its top-left corner.
+
+Restriction colors limit where a piece can go; see
+[Color Restrictions](/docs/color-restrictions/). Sliding and stacking
+puzzles have no restriction colors, so for them the area has only the
+shape's color and the pencil.
 
 ## Drawing in the 3D view
 

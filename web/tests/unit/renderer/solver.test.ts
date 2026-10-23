@@ -123,6 +123,19 @@ describe('the search options', () => {
     expect(n.disabled.has('keepRotations')).toBe(true);
   });
 
+  it('only assemble on a grid without a take-apart (spheres, rhombic, tetra-octa)', () => {
+    const base = { ...DEFAULT_OPTIONS, disassemble: true, checkRotations: true, justLevels: true };
+    const n = normalize(base, null, 'brick', false);
+    expect(n.options).toMatchObject({
+      disassemble: false,
+      justLevels: false,
+      checkRotations: false,
+    });
+    expect([...n.disabled].sort()).toEqual(['checkRotations', 'disassemble', 'justLevels']);
+    // a stored take-apart is read as Assemble Only
+    expect(readOptions({ disassemble: true }, undefined, 'brick', false).disassemble).toBe(false);
+  });
+
   it('place cells by the original’s recalcSpaceCoordinates spacing', () => {
     expect(cellScale('bricks')).toEqual([1, 1, 1]);
     expect(cellScale('prisms')).toEqual([0.5, Math.sqrt(3) / 2, 1]);

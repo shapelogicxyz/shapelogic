@@ -7,8 +7,11 @@
 ///
 /// One move is one piece going anywhere it can reach while the others stay
 /// put, round corners included; with nested slides a piece may carry what
-/// is nested in its outline. A limited search (the Fast and Deep solvers)
-/// goes breadth first through a queue and stops at a number of
+/// is nested in its outline. On a tray more than one layer deep a piece
+/// may also go up and down (lifted out of a box and put back elsewhere);
+/// on a tray one layer deep it stays in its layer, as in the original. A
+/// limited search (the Fast and Deep solvers) goes breadth first through a
+/// queue and stops at a number of
 /// arrangements; the full search goes level by level, keeps only the
 /// newest levels in memory and the older ones in files, and spreads each
 /// level over threads. Both find a path with the fewest moves, the same
@@ -25,6 +28,7 @@
 #include "shapelogic/base/stop.h"
 #include "shapelogic/model/disassembly.h"
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <functional>
@@ -42,6 +46,9 @@ class ThreadPool;
 }  // namespace bt
 
 namespace bt::sliding {
+
+/// A shift of a piece or a group of pieces in cells, (dx, dy, dz).
+using SlideShift = std::array<int, 3>;
 
 /// Arrangements the Fast and the Deep solvers visit at most.
 inline constexpr std::uint64_t kSearchStates = 250000;
@@ -200,11 +207,9 @@ struct SlidingOptions {
 /// fewest straight runs. *movers gets the pieces that move: one, or an
 /// outer piece and what is nested in it. Empty when the step is not such a
 /// slide.
-[[nodiscard]] std::vector<std::pair<int, int>> slideRoute(const Puzzle& puzzle,
-                                                          const Problem& problem,
-                                                          const Separation& path,
-                                                          unsigned int step,
-                                                          std::vector<unsigned int>* movers);
+[[nodiscard]] std::vector<SlideShift> slideRoute(const Puzzle& puzzle, const Problem& problem,
+                                                 const Separation& path, unsigned int step,
+                                                 std::vector<unsigned int>* movers);
 
 /// Makes anim follow each move's route, so a move that turns a corner does
 /// not cut across it.

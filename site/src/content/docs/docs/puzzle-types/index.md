@@ -31,9 +31,9 @@ and shows how.
 
 For **Spheres**, **Rhombic** and **Tetrahedra-Octahedra** puzzles there is no
 disassembler. The solver finds every assembly but cannot check whether it can
-be taken apart. Untick **Assemble and Disassemble** on the Solver workspace
-before solving; the Solutions count then stays empty and the assemblies are
-what you get.
+be taken apart. The Solver workspace offers **Assemble Only** (**Assemble and
+Disassemble** is greyed out); the Solutions count stays empty and the
+assemblies are what you get.
 
 **Sliding** and **Stacking** puzzles are solved a different way: the solver
 finds the fewest moves from a start position to a goal position.

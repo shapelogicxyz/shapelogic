@@ -102,7 +102,7 @@ button{font:inherit;color:inherit}
 .wbadge{font-size:11px;font-weight:700;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px;flex:none}
 .acts{display:none;gap:0;flex:none}
 .row:hover .acts,.row.sel .acts{display:flex}
-.acts .ib{width:24px;height:24px}
+.acts .ib{width:28px;height:28px}
 .acts .ib.w{width:30px}
 .acts .ib.del:hover{color:var(--danger)}
 .acts .wtxt{font-size:11px;font-weight:700;width:26px}
@@ -180,13 +180,23 @@ button{font:inherit;color:inherit}
 .crul span{display:flex;justify-content:center}
 .selbar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:none;align-items:center;gap:4px;padding:5px 6px 5px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:3;white-space:nowrap}
 .selbar.show{display:flex}
-.colfoot{flex:none;border-top:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:12px}
+.colfoot{flex:none;border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.colhead{display:flex;align-items:center;gap:12px}
+.colbtns{display:flex;align-items:center;gap:2px}
+.colbtns .ib{width:34px;height:34px;border-radius:8px}
 .bigsw{width:40px;height:40px;border-radius:10px;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--line2);flex:none}
 .colmeta{min-width:78px}
 .colmeta small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
-.pal{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+/* the constraint colours, one row shown at a time (the 4px pad leaves room for the chosen ring) */
+.colrow{display:flex;align-items:center;gap:4px;margin-left:-4px}
+.palv{position:relative;flex:1;min-width:0;height:34px;overflow:hidden}
+.pal{display:flex;gap:8px 6px;flex-wrap:wrap;align-items:center;padding:4px}
+.palnav{display:none;flex-direction:column;gap:2px;flex:none}
+.palnav.show{display:flex}
+.palnav .ib{width:22px;height:15px;border-radius:4px}
 .sw{width:26px;height:26px;border-radius:7px;border:1px solid rgba(0,0,0,.25);cursor:pointer;position:relative}
 .sw.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.sw.c{display:grid;place-items:center;padding:0;font-family:inherit;font-size:10px;font-weight:700;line-height:1}
 .rrail .vt2{writing-mode:vertical-rl;color:var(--muted);font-weight:600;letter-spacing:.5px;margin-top:6px}
 
 /* status */
@@ -204,6 +214,15 @@ kbd{font:11px/1 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--lin
 #pop hr{border:0;border-top:1px solid var(--line);margin:4px 0}
 #pop .ph{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:4px 10px}
 #pop .kb{margin-left:auto;color:var(--muted);font-size:11px}
+/* the colour picker (shell/colour-picker.ts) */
+.cpk{display:flex;flex-direction:column;gap:8px;padding:4px;width:200px}
+.cpk-sv{position:relative;height:130px;border-radius:6px;background-image:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,rgba(255,255,255,0));cursor:crosshair;touch-action:none}
+.cpk-knob{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none}
+.cpk-hue{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:6px;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);margin:0;cursor:pointer}
+.cpk-hue::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid rgba(0,0,0,.4);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.cpk-row{display:flex;gap:8px;align-items:center}
+.cpk-prev{width:28px;height:28px;border-radius:6px;border:1px solid var(--line2);flex:none}
+.cpk-hex{flex:1;min-width:0;height:28px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--text);padding:0 8px;font:12px ui-monospace,Menlo,Consolas,monospace}
 
 
 .btn:disabled{opacity:.4;cursor:default}
@@ -549,10 +568,9 @@ html[data-density=standard] .abtn{min-height:40px;padding:3px 8px}
 html[data-density=standard] .subbar{padding:6px 10px}
 html[data-density=standard] .colfoot{padding:7px 10px}
 html[data-density=standard] .bigsw{width:32px;height:32px;border-radius:8px}
-html[data-density=standard] .colfoot{gap:10px}
+html[data-density=standard] .colhead{gap:10px}
 html[data-density=standard] .colmeta{flex:none;min-width:0}
 html[data-density=standard] .colmeta small{white-space:nowrap}
-html[data-density=standard] .pal{flex-wrap:nowrap;gap:5px;margin-left:auto}
 html[data-density=standard] .lstrip{width:48px;padding:6px 0}
 html[data-density=standard] .lchip{width:32px;height:24px;border-radius:6px}
 html[data-density=standard] .tbn{width:48px;height:44px;border-radius:8px}
@@ -627,7 +645,8 @@ html[data-density=minimal] .surf .gbtn,html[data-density=minimal] .two .gbtn{hei
 html[data-density=minimal] .abtn{min-height:32px;width:36px;padding:2px;justify-content:center;display:inline-flex;margin:0 4px 4px 0;vertical-align:top}
 html[data-density=minimal] .two{display:inline-flex;gap:0;margin:0!important}
 html[data-density=minimal] .subbar{padding:4px 8px;gap:6px}
-html[data-density=minimal] .colfoot{padding:5px 8px;gap:8px}
+html[data-density=minimal] .colfoot{padding:5px 8px}
+html[data-density=minimal] .colhead{gap:8px}
 html[data-density=minimal] .bigsw{width:26px;height:26px;border-radius:6px}
 html[data-density=minimal] .lstrip{width:40px;padding:4px 0;gap:3px}
 html[data-density=minimal] .lchip{width:30px;height:22px;border-radius:5px;font-size:11px}
@@ -867,7 +886,7 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 .row.disc .dsz .ib{width:22px;height:24px;font-weight:700}
 #stage.stk #inspHead,#stage.stk #insp{display:none}
 #stage.stk .shapes{max-height:none;flex:1}
-#stage.stk #right .rfull>:not(.ch):not(#rodsPanel){display:none}
+#stage.stk #right .rfull>:not(.ch):not(#rodsPanel):not(#colFoot){display:none}
 #stage.stk #vhint .ent-only{display:none}
 .rods{display:none}
 #stage.stk .rods{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto}

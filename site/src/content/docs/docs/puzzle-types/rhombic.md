@@ -14,8 +14,8 @@ by Stewart Coffin.
 
 :::caution
 This space grid has no disassembler. The solver finds every assembly but cannot
-check whether an assembly can be taken apart. Untick **Assemble and
-Disassemble** on the Solver workspace before solving.
+check whether an assembly can be taken apart. The Solver workspace offers
+**Assemble Only**; **Assemble and Disassemble** is greyed out.
 :::
 
 ## How the grid is built

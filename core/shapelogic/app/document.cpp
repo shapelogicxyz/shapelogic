@@ -53,7 +53,6 @@ Result<Document> Document::open(const std::filesystem::path& path, DocumentSetti
     return std::unexpected(p.error());
   }
   Document d(std::make_unique<Puzzle>(std::move(*p)), settings);
-  d.flattenOnOpen();
   return d;
 }
 
@@ -68,7 +67,6 @@ Result<Document> Document::openBytes(std::string_view bytes, DocumentSettings se
     return std::unexpected(p.error());
   }
   Document d(std::make_unique<Puzzle>(std::move(*p)), settings);
-  d.flattenOnOpen();
   return d;
 }
 
@@ -86,7 +84,6 @@ Result<std::pair<Document, Id>> Document::importPaused(const std::filesystem::pa
     return std::unexpected(ps.error());
   }
   Document d(std::make_unique<Puzzle>(std::move(ps->puzzle)), settings);
-  d.flattenOnOpen();
   // a new, untitled puzzle: it is not saved anywhere yet
   d.solveDirty_ = true;
   const Id problem = d.ids_.problems[ps->problem];

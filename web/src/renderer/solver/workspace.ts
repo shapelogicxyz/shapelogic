@@ -339,6 +339,12 @@ export class SolverWorkspace {
     return familyOf(this.store.snapshot?.grid);
   }
 
+  /** Whether the puzzle's grid has a take-apart (spheres, rhombic and tetra-octa have none). */
+  get canDisassemble(): boolean {
+    const grid = this.store.snapshot?.grid;
+    return this.store.info?.grids.find((g) => g.grid === grid)?.disassemble !== false;
+  }
+
   /** A stacking problem's board (null: none read, or another grid). */
   board: Board | null = null;
 
@@ -670,7 +676,7 @@ export class SolverWorkspace {
     this.shown = revision;
     // the stored options, unless the problem's are being changed here
     if (d !== null && (before?.id !== d.id || !this.editingOptions)) {
-      this.options = readOptions(d.solverSettings, undefined, this.family);
+      this.options = readOptions(d.solverSettings, undefined, this.family, this.canDisassemble);
     }
     if (d !== null) {
       // a stacking search saves itself (its own 20 minutes): no save point
@@ -843,7 +849,12 @@ export class SolverWorkspace {
       this.render();
       return;
     }
-    const next = normalize({ ...this.options, ...change }, box, this.family).options;
+    const next = normalize(
+      { ...this.options, ...change },
+      box,
+      this.family,
+      this.canDisassemble,
+    ).options;
     if (sameOptions(next, this.options)) {
       this.render();
       return;
@@ -865,7 +876,12 @@ export class SolverWorkspace {
       this.editingOptions = false;
     }
     if (this.detail !== null) {
-      this.options = readOptions(this.detail.solverSettings, undefined, this.family);
+      this.options = readOptions(
+        this.detail.solverSettings,
+        undefined,
+        this.family,
+        this.canDisassemble,
+      );
     }
     this.render();
   }

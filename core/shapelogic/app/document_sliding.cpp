@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from the sliding parts of the original GUI: cb_NewStartGoal
 // (mainwindow_rods.cpp), the start/goal editor's click (cb_pieceEdit,
-// RS_SLIDING_CLICK), changeShape's dropChangedStamps, the load's
-// flattenPieces (mainwindow.cpp), and the syncSlidingProblems that follow
-// them.
+// RS_SLIDING_CLICK), changeShape's dropChangedStamps, and the
+// syncSlidingProblems that follow them. The original made sliding shapes
+// one layer deep on load (flattenPieces); here they keep their layers.
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/document_internal.h"
 #include "shapelogic/grid/voxel.h"
@@ -117,34 +117,21 @@ bool Document::slidingRequired(unsigned int problem, unsigned int shape) const {
          sliding::shapeIsRequired(*puzzle_, puzzle_->getProblem(problem), shape);
 }
 
-void Document::flattenOnOpen() {
-  if (!sliding::isSliding(*puzzle_)) {
-    return;
-  }
-  // sliding pieces are one layer deep: the first of any more is kept
-  const std::vector<unsigned int> flattened = sliding::flattenPieces(*puzzle_);
-  if (flattened.empty()) {
-    return;
-  }
-  openNotice_ = "Sliding shapes are one layer deep. " + shapeList(flattened) +
-                " had more than one layer: only the first layer was kept. Save the puzzle to "
-                "keep this change.";
-  solveDirty_ = true;
-}
-
-Result<Id> Document::addStartGoal(std::array<unsigned int, 2> size) {
+Result<Id> Document::addStartGoal(std::array<unsigned int, 3> size) {
   if (!sliding::isSliding(*puzzle_)) {
     return fail(Errc::Unsupported, "only sliding puzzles have start/goal shapes");
   }
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  if (size[0] == 0 || size[1] == 0 || size[0] > 1024 || size[1] > 1024) {
-    return fail(Errc::InvalidArgument, "a start/goal shape is 1 to 1024 cells wide and high");
+  if (size[0] == 0 || size[1] == 0 || size[2] == 0 || size[0] > 1024 || size[1] > 1024 ||
+      size[2] > 1024) {
+    return fail(Errc::InvalidArgument,
+                "a start/goal shape is 1 to 1024 cells wide, high and deep");
   }
   StepGuard g(*this, "New start/goal");
   touchWhole();
-  (void)sliding::addStartGoalShape(*puzzle_, size[0], size[1]);
+  (void)sliding::addStartGoalShape(*puzzle_, size[0], size[1], size[2]);
   const Id id = newId();
   ids_.shapes.push_back(id);
   syncSliding();
@@ -152,7 +139,7 @@ Result<Id> Document::addStartGoal(std::array<unsigned int, 2> size) {
   return id;
 }
 
-Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, bool goal) {
+Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, int z, bool goal) {
   if (!sliding::isSliding(*puzzle_)) {
     return fail(Errc::Unsupported, "only sliding puzzles have starts and goals");
   }
@@ -177,9 +164,9 @@ Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, bool goal) {
   }
   // A whole piece at a time: it goes with its top-left cell there, moving
   // it if it was elsewhere, or is taken off when it is exactly there.
-  const bool there = sliding::stampIsAt(&trayShape, &pieceShape, *s, x, y, goal);
+  const bool there = sliding::stampIsAt(&trayShape, &pieceShape, *s, x, y, z, goal);
   if (!there) {
-    const std::string why = sliding::stampFits(&trayShape, &pieceShape, *s, x, y, goal);
+    const std::string why = sliding::stampFits(&trayShape, &pieceShape, *s, x, y, z, goal);
     if (!why.empty()) {
       return fail(Errc::InvalidArgument, why);
     }
@@ -190,7 +177,7 @@ Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, bool goal) {
   if (there) {
     (void)sliding::clearStamp(&v, *s, goal);
   } else {
-    const std::string why = sliding::stampPiece(&v, &puzzle_->getShape(*s), *s, x, y, goal);
+    const std::string why = sliding::stampPiece(&v, &puzzle_->getShape(*s), *s, x, y, z, goal);
     BT_ASSERT_MSG(why.empty(), "a stamp that fit did not");
   }
   syncSliding();
@@ -205,7 +192,7 @@ Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, bool goal) {
   return !there;
 }
 
-Result<bool> Document::clearStampAt(Id tray, int x, int y, bool goal) {
+Result<bool> Document::clearStampAt(Id tray, int x, int y, int z, bool goal) {
   if (!sliding::isSliding(*puzzle_)) {
     return fail(Errc::Unsupported, "only sliding puzzles have starts and goals");
   }
@@ -219,7 +206,7 @@ Result<bool> Document::clearStampAt(Id tray, int x, int y, bool goal) {
   if (!sliding::isStartGoalShape(&puzzle_->getShape(*t))) {
     return fail(Errc::InvalidArgument, "Choose a start/goal shape.");
   }
-  const unsigned int under = sliding::stampAt(&puzzle_->getShape(*t), x, y, goal);
+  const unsigned int under = sliding::stampAt(&puzzle_->getShape(*t), x, y, z, goal);
   if (under == static_cast<unsigned int>(-1)) {
     return false;
   }

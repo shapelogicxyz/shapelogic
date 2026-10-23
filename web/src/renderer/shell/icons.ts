@@ -12,6 +12,7 @@ export const ICONS = {
   tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
   grip: '<circle cx="9" cy="6" r="1.2" fill="currentColor"/><circle cx="15" cy="6" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/><circle cx="9" cy="18" r="1.2" fill="currentColor"/><circle cx="15" cy="18" r="1.2" fill="currentColor"/>',
   chevD: '<path d="M6 9l6 6 6-6"/>',
+  chevU: '<path d="M6 15l6-6 6 6"/>',
   solid: '<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/>',
   dashed: '<rect x="5" y="5" width="14" height="14" rx="2" stroke-dasharray="3 3"/>',
   eraser:
@@ -49,7 +50,7 @@ export const ICONS = {
   minus: '<path d="M5 12h14"/>',
   brush: '<path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5 0 2 1 3 3 3 3 0 5-2 5-5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  gear: '<path d="M18.7 10.0 L21.5 10.3 L21.5 13.7 L18.7 14.0 L18.2 15.3 L19.9 17.5 L17.5 19.9 L15.3 18.2 L14.0 18.7 L13.7 21.5 L10.3 21.5 L10.0 18.7 L8.7 18.2 L6.5 19.9 L4.1 17.5 L5.8 15.3 L5.3 14.0 L2.5 13.7 L2.5 10.3 L5.3 10.0 L5.8 8.7 L4.1 6.5 L6.5 4.1 L8.7 5.8 L10.0 5.3 L10.3 2.5 L13.7 2.5 L14.0 5.3 L15.3 5.8 L17.5 4.1 L19.9 6.5 L18.2 8.7Z"/><circle cx="12" cy="12" r="3"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   puzzle:
     '<path d="M10 4.5a2 2 0 1 1 4 0V7h3a1 1 0 0 1 1 1v3h-1.5a2 2 0 1 0 0 4H18v3a1 1 0 0 1-1 1h-3v-1.5a2 2 0 1 0-4 0V19H7a1 1 0 0 1-1-1v-3h1.5a2 2 0 1 0 0-4H6V8a1 1 0 0 1 1-1h3z"/>',

@@ -2,9 +2,9 @@
 // Sliding puzzles through the document: start/goal shapes and stamps as
 // the original GUI made them (its New Start/Goal, the start/goal editor's
 // clicks), the problems that follow them, the shape commands that keep the
-// marks in step, the buttons it greyed out, the checks of its Solve, the
-// flattening of its load, and a sliding solve played back. Every command
-// is checked to undo and redo byte for byte.
+// marks in step, the buttons it greyed out, the checks of its Solve, shapes
+// of more than one layer, and a sliding solve played back. Every command is
+// checked to undo and redo byte for byte.
 #include "app_test_helpers.h"
 
 #include "shapelogic/app/document.h"
@@ -59,7 +59,7 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
   // file's problem lists them, the 2x2 block's goal at the bottom centre
   Document d(GridKind::Sliding);
   const Id tray = roundTrip(d, [](Document& x) {
-                    return x.addStartGoal({4, 5});
+                    return x.addStartGoal({4, 5, 1});
                   }).value();
   REQUIRE(d.problemIds().size() == 1);
   CHECK(d.puzzle().getProblem(0).getName() == "START/GOAL 1");
@@ -85,11 +85,13 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
     const Id s = shape;
     const int x = at[0];
     const int y = at[1];
-    CHECK(roundTrip(d, [=](Document& z) { return z.placeStamp(tray, s, x, y, false); }).value());
+    CHECK(roundTrip(d, [=](Document& z) { return z.placeStamp(tray, s, x, y, 0, false); }).value());
   }
   // a goal without which the shape is not valid yet
   CHECK_FALSE(sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
-  CHECK(roundTrip(d, [=](Document& z) { return z.placeStamp(tray, block, 1, 1, true); }).value());
+  CHECK(roundTrip(d, [=](Document& z) {
+          return z.placeStamp(tray, block, 1, 1, 0, true);
+        }).value());
   CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
 
   // the problem and the marks are the file's
@@ -130,56 +132,59 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
 
 TEST_CASE("sliding document: stamps are placed, moved, taken off and checked", "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({5, 3}).value();
+  const Id tray = d.addStartGoal({5, 3, 1}).value();
   const Id L = piece(d, 2, 2, {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}});
   const Id U = piece(d, 1, 1, {{0, 0, 0}});
 
   // placed, then placed again at the same place: taken off
-  CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 1, 1, false); }).value());
+  CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 1, 1, 0, false); }).value());
   CHECK_FALSE(
-      roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 1, 1, false); }).value());
-  CHECK(d.placeStamp(tray, L, 1, 1, false).value());
+      roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 1, 1, 0, false); }).value());
+  CHECK(d.placeStamp(tray, L, 1, 1, 0, false).value());
   // elsewhere: moved
-  CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 0, 2, false); }).value());
-  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 2, false) == index(d, L));
+  CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 0, 2, 0, false); }).value());
+  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 2, 0, false) == index(d, L));
 
   // what does not fit is refused with the reason, nothing changed
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(tray, L, 4, 0, false); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(tray, U, 0, 1, false); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return x.placeStamp(tray, L, 4, 0, 0, false); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return x.placeStamp(tray, U, 0, 1, 0, false); });
   // a start/goal shape is no piece, and a piece is no start/goal shape
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(tray, tray, 0, 0, true); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(U, L, 0, 0, true); });
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return x.placeStamp(tray, tray, 0, 0, 0, true); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(U, L, 0, 0, 0, true); });
 
   // the right click: what is under the cell comes off; nothing there:
   // false (the L at (0,2) covers (0,2), (0,1) and (1,1))
-  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(tray, 1, 1, false); }).value());
-  CHECK_FALSE(d.clearStampAt(tray, 1, 1, false).value());
-  CHECK_FALSE(d.clearStampAt(tray, 1, 2, false).value());
+  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(tray, 1, 1, 0, false); }).value());
+  CHECK_FALSE(d.clearStampAt(tray, 1, 1, 0, false).value());
+  CHECK_FALSE(d.clearStampAt(tray, 1, 2, 0, false).value());
 
   // not on other grids
   Document bricks(GridKind::Bricks);
-  refused(bricks, Errc::Unsupported, [](Document& x) { return x.addStartGoal({3, 3}); });
+  refused(bricks, Errc::Unsupported, [](Document& x) { return x.addStartGoal({3, 3, 1}); });
 }
 
 TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({4, 3}).value();
+  const Id tray = d.addStartGoal({4, 3, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id b = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, b, 2, 2, false).value());
-  REQUIRE(d.placeStamp(tray, b, 0, 2, true).value());
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, b, 2, 2, 0, false).value());
+  REQUIRE(d.placeStamp(tray, b, 0, 2, 0, true).value());
   const unsigned int ia = index(d, a);
   const unsigned int ib = index(d, b);
 
   SECTION("delete: the marks of the shapes above move down, the shape's own go") {
     roundTrip(d, [=](Document& x) { return x.deleteShape(a); });
     const Voxel& t = d.puzzle().getShape(index(d, tray));
-    CHECK(sliding::stampAt(&t, 0, 0, false) == static_cast<unsigned int>(-1));
+    CHECK(sliding::stampAt(&t, 0, 0, 0, false) == static_cast<unsigned int>(-1));
     // b is a shape lower now, and so is its mark
     CHECK(index(d, b) == ib - 1);
-    CHECK(sliding::stampAt(&t, 2, 2, false) == index(d, b));
-    CHECK(sliding::stampAt(&t, 0, 2, true) == index(d, b));
+    CHECK(sliding::stampAt(&t, 2, 2, 0, false) == index(d, b));
+    CHECK(sliding::stampAt(&t, 0, 2, 0, true) == index(d, b));
     // and the problem keeps b alone
     REQUIRE(d.puzzle().getProblem(0).getNumberOfParts() == 1);
     CHECK(d.puzzle().getProblem(0).getShapeIdOfPart(0) == index(d, b));
@@ -187,9 +192,9 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
   SECTION("move: the marks follow") {
     roundTrip(d, [=](Document& x) { return x.moveShape(b, 0); });
     const Voxel& t = d.puzzle().getShape(index(d, tray));
-    CHECK(sliding::stampAt(&t, 2, 2, false) == index(d, b));
-    CHECK(sliding::stampAt(&t, 0, 0, false) == index(d, a));
-    CHECK(sliding::stampAt(&t, 0, 2, true) == index(d, b));
+    CHECK(sliding::stampAt(&t, 2, 2, 0, false) == index(d, b));
+    CHECK(sliding::stampAt(&t, 0, 0, 0, false) == index(d, a));
+    CHECK(sliding::stampAt(&t, 0, 2, 0, true) == index(d, b));
   }
   SECTION("duplicate a start/goal shape: the next number, and a problem") {
     const Id copy = roundTrip(d, [=](Document& x) { return x.duplicateShape(tray); }).value();
@@ -219,9 +224,9 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
           "S" + std::to_string(ib + 1) + " changed shape: its start and goal were removed from S" +
               std::to_string(index(d, tray) + 1) + ".");
     const Voxel& t = d.puzzle().getShape(index(d, tray));
-    CHECK(sliding::stampAt(&t, 2, 2, false) == static_cast<unsigned int>(-1));
-    CHECK(sliding::stampAt(&t, 0, 2, true) == static_cast<unsigned int>(-1));
-    CHECK(sliding::stampAt(&t, 0, 0, false) == ia);
+    CHECK(sliding::stampAt(&t, 2, 2, 0, false) == static_cast<unsigned int>(-1));
+    CHECK(sliding::stampAt(&t, 0, 2, 0, true) == static_cast<unsigned int>(-1));
+    CHECK(sliding::stampAt(&t, 0, 0, 0, false) == ia);
     // b keeps its part (the original's sync only adds parts), not its lock
     CHECK(d.puzzle().getProblem(0).getShapeMaximum(ib) == 1);
     CHECK(sliding::pieceColor(d.puzzle(), ib) == 0);
@@ -238,7 +243,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     roundTrip(d, [=](Document& x) {
       return x.editCells(tray, CellTool::Erase, 0, 0, {{0, 0, 0}});
     });
-    CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 0, false) ==
+    CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
           static_cast<unsigned int>(-1));
     CHECK(sliding::pieceColor(d.puzzle(), ia) == 0);
     CHECK(sliding::pieceColor(d.puzzle(), ib) == ib + 1);
@@ -248,10 +253,10 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
 
 TEST_CASE("sliding document: what the original greyed out is refused", "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({4, 3}).value();
+  const Id tray = d.addStartGoal({4, 3, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
   const Id free = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
   const Id p = d.problemIds()[0];
 
   // the result is the start/goal shape; a stamped piece keeps its count
@@ -294,42 +299,24 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
         sliding::startGoalError(before, index(d, tray)));
 }
 
-TEST_CASE("sliding document: shapes stay one layer deep, pieces keep plain names",
+TEST_CASE("sliding document: shapes may have layers, pieces keep plain names",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({4, 3}).value();
+  const Id tray = d.addStartGoal({4, 3, 1}).value();
   const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
 
-  // the tool tab's buttons ToolTab_0::lockZ greyed out are not offered, nor done
+  // the original locked Z (ToolTab_0::lockZ); here sliding shapes may have
+  // layers, so the tool tab is the bricks'
   const std::vector<ShapeTaskInfo> set = taskSet(GridKind::Sliding);
-  const auto offered = [&set](ShapeTask t) {
-    return std::any_of(set.begin(), set.end(), [t](const ShapeTaskInfo& i) { return i.task == t; });
-  };
-  for (const ShapeTask t : {ShapeTask::Nudge4, ShapeTask::Nudge5, ShapeTask::Rotate6,
-                            ShapeTask::Rotate7, ShapeTask::Rotate8, ShapeTask::Rotate9,
-                            ShapeTask::Double, ShapeTask::Triple, ShapeTask::GridScale}) {
-    INFO(static_cast<int>(t));
-    CHECK_FALSE(offered(t));
-    refused(d, Errc::Unsupported, [=](Document& x) { return x.shapeTask(a, t, false); });
-  }
-  // what keeps a shape flat stays (the bricks' set less those)
-  for (const ShapeTask t : {ShapeTask::Nudge0, ShapeTask::Nudge3, ShapeTask::Rotate10,
-                            ShapeTask::Rotate11, ShapeTask::Minimize, ShapeTask::Prune}) {
-    CHECK(offered(t));
-  }
-  CHECK(set.size() + 9 == taskSet(GridKind::Bricks).size());
+  CHECK(set.size() == taskSet(GridKind::Bricks).size());
   CHECK(taskSet(GridKind::Bricks).size() == taskSet(GridKind::Stacking).size());
-  CHECK(roundTrip(d, [=](Document& x) { return x.shapeTask(a, ShapeTask::Rotate10, false); })
-            .has_value());
-  CHECK(d.puzzle().getShape(index(d, a)).getZ() == 1);
 
-  // the Z size is locked; X and Y are not, alone or for all shapes
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.resizeShape(a, 3, 3, 2, false); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.resizeShape(tray, 5, 3, 2, true); });
-  CHECK(roundTrip(d, [=](Document& x) { return x.resizeShape(tray, 5, 4, 1, true); }).has_value());
-  for (unsigned int s = 0; s < d.puzzle().getNumberOfShapes(); s++) {
-    CHECK(d.puzzle().getShape(s).getZ() == 1);
-  }
+  // Z grows as X and Y do, alone or for all shapes
+  CHECK(roundTrip(d, [=](Document& x) { return x.resizeShape(a, 2, 1, 2, false); }).has_value());
+  CHECK(d.puzzle().getShape(index(d, a)).getZ() == 2);
+  CHECK(roundTrip(d, [=](Document& x) { return x.resizeShape(tray, 5, 4, 3, true); }).has_value());
+  CHECK(d.puzzle().getShape(index(d, tray)).getZ() == 3);
+  CHECK(d.puzzle().getShape(index(d, a)).getZ() == 4);
 
   // a piece named "sg:…" would turn into a start/goal shape at the next sync
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.renameShape(a, "sg:2:x"); });
@@ -354,7 +341,7 @@ TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, 
   // 64th place; here the marks come off, with a notice, and the puzzle
   // stays whole
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({4, 3}).value();
+  const Id tray = d.addStartGoal({4, 3, 1}).value();
   std::vector<Id> pieces;
   for (int k = 0; k < 64; k++) {
     pieces.push_back(piece(d, 1, 1, {{0, 0, 0}}));
@@ -362,15 +349,15 @@ TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, 
   // the 63rd shape (mark 63) is the last that can be stamped
   const Id last = pieces[61];
   REQUIRE(index(d, last) == 62);
-  REQUIRE(d.placeStamp(tray, last, 0, 0, false).value());
-  REQUIRE(d.placeStamp(tray, last, 2, 0, true).value());
+  REQUIRE(d.placeStamp(tray, last, 0, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, last, 2, 0, 0, true).value());
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(tray, pieces[62], 1, 0, false); });
+          [=](Document& x) { return x.placeStamp(tray, pieces[62], 1, 0, 0, false); });
   const unsigned int it = index(d, tray);
   const auto cleared = [&] {
     const Voxel& t = d.puzzle().getShape(it);
-    return sliding::stampAt(&t, 0, 0, false) == static_cast<unsigned int>(-1) &&
-           sliding::stampAt(&t, 2, 0, true) == static_cast<unsigned int>(-1) &&
+    return sliding::stampAt(&t, 0, 0, 0, false) == static_cast<unsigned int>(-1) &&
+           sliding::stampAt(&t, 2, 0, 0, true) == static_cast<unsigned int>(-1) &&
            sliding::pieceColor(d.puzzle(), index(d, last)) == 0;
   };
 
@@ -391,7 +378,7 @@ TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, 
   // back in the 63rd place and stamped again, another shape moved down
   // across it takes it past the place too
   REQUIRE(d.moveShape(last, 62).has_value());
-  REQUIRE(d.placeStamp(tray, last, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, last, 0, 0, 0, false).value());
   roundTrip(d, [&](Document& x) {
     const Result<void> r = x.moveShape(pieces[63], 1);
     notice = x.lastChange().notice;
@@ -408,16 +395,16 @@ TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, 
 TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the locks",
           "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({3, 1}).value();
+  const Id tray = d.addStartGoal({3, 1, 1}).value();
   const Id a = piece(d, 1, 1, {{0, 0, 0}});
-  REQUIRE(d.placeStamp(tray, a, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
   const Id p = d.problemIds()[0];
   SolveOptions o;
   o.disassemble = true;
 
   // a start without a goal: the original's message
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.solveStart(p, o); });
-  REQUIRE(d.placeStamp(tray, a, 2, 0, true).value());
+  REQUIRE(d.placeStamp(tray, a, 2, 0, 0, true).value());
 
   // locks lost (an older file): set up again by the solve, with the change told
   Puzzle q = d.puzzle();
@@ -448,19 +435,14 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
   CHECK(ex->placements(0).size() == 1);
 }
 
-TEST_CASE("sliding document: opening a file makes deeper shapes flat", "[app][sliding]") {
+TEST_CASE("sliding document: opening a file keeps deeper shapes", "[app][sliding]") {
+  // the original made them flat on load; here they keep their layers
   Puzzle p = test::openFixture("test_sliding_solver.xmpuzzle").puzzle();
   p.getShape(1).resize(2, 2, 3, 0);
   p.getShape(1).setState(0, 0, 2, Voxel::kFilled);
   Result<Document> d = Document::openBytes(io::writePuzzle(p));
   REQUIRE(d.has_value());
-  CHECK(d->puzzle().getShape(1).getZ() == 1);
-  CHECK(d->openNotice() ==
-        "Sliding shapes are one layer deep. S2 had more than one layer: only the first layer was "
-        "kept. Save the puzzle to keep this change.");
-  CHECK(d->dirty());
-  // a flat file says nothing
-  const Document flat = openFixture("test_sliding_solver.xmpuzzle");
-  CHECK(flat.openNotice().empty());
-  CHECK_FALSE(flat.dirty());
+  CHECK(d->puzzle().getShape(1).getZ() == 3);
+  CHECK(d->openNotice().empty());
+  CHECK_FALSE(d->dirty());
 }

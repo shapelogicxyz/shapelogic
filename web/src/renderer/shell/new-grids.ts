@@ -30,9 +30,8 @@ export interface GridInfo {
 
 const noDisassembler =
   'This space grid has no disassembler. The solver finds every assembly, every way the pieces fill ' +
-  'the result, but cannot check whether an assembly can be taken apart, or show how. Untick ' +
-  'Disassemble on the Solver tab before solving; the Solutions count then stays empty and the ' +
-  'assemblies are what you get.';
+  'the result, but cannot check whether an assembly can be taken apart, or show how. The Solver ' +
+  'tab offers Assemble Only; the Solutions count stays empty and the assemblies are what you get.';
 
 /** Every grid's information, by grid. */
 export const gridInfo: Readonly<Record<Grid, GridInfo>> = {

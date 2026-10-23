@@ -19,11 +19,12 @@ a Klotski-style puzzle of ten pieces that the solver finishes in 81 moves.
 
 A sliding puzzle has two kinds of shape:
 
-- **Pieces** are shapes one layer thick. They are the things that slide.
-- A **Start/Goal shape**, or **tray**, is a one-layer shape that describes the
-  board. Its **fixed** cells are floor, its **variable** cells are corridors
-  (pieces can cross them but not stop on them) and its **empty** cells are
-  walls.
+- **Pieces** are shapes, usually one layer thick. They are the things that
+  slide.
+- A **Start/Goal shape**, or **tray**, is a shape that describes the board,
+  usually one layer. Its **fixed** cells are floor, its **variable** cells are
+  corridors (pieces can cross them but not stop on them) and its **empty**
+  cells are walls.
 
 Each piece gets a **start** and a **goal** position, stamped onto a tray: the
 whole piece at a time. A tray is listed as `S1 (START/GOAL 1)` and has a
@@ -33,9 +34,9 @@ problem of its own.
 
 ![The Shapes workspace for a sliding puzzle: a tray with its start and goal views, and the Tray edit switch.](../../../../assets/screens/sliding-entities.png)
 
-1. Draw each piece on its own shape, one layer thick.
+1. Draw each piece on its own shape, one layer thick unless it needs more.
 2. Press **New Start/Goal Positions** above the shapes list to add a tray. It
-   takes the size of the selected shape's X and Y, or 6 by 6 if there isn't
+   takes the size of the selected shape, or 6 by 6 by 1 if there isn't
    one. **Delete Start/Goal Positions** removes a tray.
 3. With the tray selected, the right card has a **Tray edit** switch:
    - **Walls** draws the tray with the usual tools: **Fixed** is floor,
@@ -48,7 +49,22 @@ problem of its own.
    under it reads green (*Valid Start/Goal positions…*) or red (*Invalid
    Start/Goal positions - …*, with the reason).
 
-Sliding puzzles use the XY plane only, and have no colour constraints.
+Sliding puzzles are edited in the XY plane, one layer at a time, and have no
+colour constraints.
+
+## Trays with more than one layer
+
+Pieces and trays can have more than one layer: add layers with the **Z**
+size stepper. A piece's start or goal covers every cell of the piece in every
+layer. To place one, show a layer of the tray: the outline under the mouse is
+the piece's slice on that layer, and the piece sits as low as it can while
+still fitting.
+
+On a tray with more than one layer, pieces can also move up and down. A piece
+can be lifted out of a box over the others and put down somewhere else, as
+long as the tray has floor cells above for it to pass through. This counts as
+one move. Pieces never turn, so a goal that needs a piece turned around
+cannot be reached.
 
 ## Puzzle: nothing to choose
 

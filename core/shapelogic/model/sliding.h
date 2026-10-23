@@ -10,8 +10,10 @@
 /// cells are walls, whose variable cells are corridors a piece may cross
 /// but not stop on, with each cell's colour the start mark of a piece
 /// (shape index + 1) and its goal mark (Voxel::getGoalPiece) the goal of
-/// one. Each start/goal shape has a problem of its own with that shape as
-/// its result (syncSlidingProblems); the assembler finds the start layout,
+/// one. Trays and pieces may be more than one layer deep; a start or goal
+/// marks every cell its piece fills, in every layer. Each start/goal shape
+/// has a problem of its own with that shape as its result
+/// (syncSlidingProblems); the assembler finds the start layout,
 /// whose pieces the colours lock to their starts (refreshStartLocks), and
 /// the slide search (bt/solve/sliding_search.h) takes it to the goal.
 ///
@@ -22,9 +24,9 @@
 /// Ported from src/lib/sliding.{h,cpp} (the tray and start/goal part; the
 /// search is in bt/solve/sliding_search.h).
 
+#include <array>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace bt {
@@ -34,6 +36,9 @@ class Voxel;
 }  // namespace bt
 
 namespace bt::sliding {
+
+/// A cell of a tray, (x, y, z).
+using TrayCell = std::array<int, 3>;
 
 /// True when the puzzle is on the sliding grid.
 [[nodiscard]] bool isSliding(const Puzzle& puzzle);
@@ -57,9 +62,10 @@ void setStartGoalUserName(Voxel* v, const std::string& user);
 /// one ("sg:" or "__sggoal:" at its start): a rename gives a piece no such name.
 [[nodiscard]] bool isReservedName(std::string_view name);
 
-/// Adds a start/goal shape of sx by sy cells, one layer, all filled, with
-/// the next free number. Returns its index.
-unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy);
+/// Adds a start/goal shape of sx by sy by sz cells (one layer unless
+/// asked), all filled, with the next free number. Returns its index.
+unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
+                               unsigned int sz = 1);
 
 /// One problem per start/goal shape, its result locked to that shape: the
 /// problems of no start/goal shape go, a missing one is added
@@ -75,26 +81,34 @@ void syncSlidingProblems(Puzzle& puzzle);
 /// Toggles the mark of shapeId on one cell of a start/goal shape, the
 /// start or (goal) the goal. False when the cell is not floor or the shape
 /// is beyond the 63 that can be marked.
-bool toggleCellMark(Voxel* tray, int x, int y, unsigned int shapeId, bool goal);
+bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool goal);
 
 /// Marks the whole of a piece as its start (goal false) or its goal on a
-/// start/goal shape, as the piece is drawn: its anchor cell, the leftmost
-/// cell of its top row (y rises upwards, as in the grid editor), at (x, y).
-/// Replaces the piece's earlier start or goal. Empty on success, else why
-/// it does not fit, and nothing changes.
-std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y,
+/// start/goal shape, as the piece is drawn, from a click on cell (x, y) of
+/// layer z (y rises upwards, as in the grid editor): the slice of the piece
+/// on layer z has its top-left cell there, at the lowest height that puts
+/// a layer of the piece on layer z and fits (stampCells). On a tray of one
+/// layer that is the piece's top-left cell at (x, y). Replaces the piece's
+/// earlier start or goal. Empty on success, else why it does not fit, and
+/// nothing changes.
+std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
                        bool goal);
 
-/// The tray cells stampPiece would mark, whether they fit or not.
-[[nodiscard]] std::vector<std::pair<int, int>> stampCells(const Voxel* piece, int x, int y);
+/// The tray cells stampPiece would mark: at the lowest height that fits, or
+/// when none does, the lowest that puts a layer of the piece on layer z
+/// (then stampFits says why). Empty when no height does that. Sorted lowest
+/// layer first, top row first, left to right.
+[[nodiscard]] std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece,
+                                               unsigned int shapeId, int x, int y, int z,
+                                               bool goal);
 
 /// Why stampPiece would refuse, or empty when the piece fits; changes nothing.
 [[nodiscard]] std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeId,
-                                    int x, int y, bool goal);
+                                    int x, int y, int z, bool goal);
 
 /// True when shapeId's start or goal is exactly where stampPiece would put it.
 [[nodiscard]] bool stampIsAt(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x,
-                             int y, bool goal);
+                             int y, int z, bool goal);
 
 /// After piece shapeId was edited: removes its start and goal from every
 /// start/goal shape where they are no longer the piece's shape. Returns the
@@ -105,8 +119,8 @@ std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId
 /// Removes shapeId's start or goal; true when it had one.
 bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal);
 
-/// The piece whose start or goal covers (x, y), or ~0u.
-[[nodiscard]] unsigned int stampAt(const Voxel* tray, int x, int y, bool goal);
+/// The piece whose start or goal covers (x, y, z), or ~0u.
+[[nodiscard]] unsigned int stampAt(const Voxel* tray, int x, int y, int z, bool goal);
 
 /// Empty when the start/goal shape trayShape describes a puzzle that can be
 /// solved, else what is wrong: a start or goal that is not the whole piece,
@@ -169,11 +183,6 @@ void syncMaxHoles(const Puzzle& puzzle, Problem& problem);
 /// Empty when every start and goal stamp set fits inside its piece; else
 /// a message naming each piece marked on more cells than it has.
 [[nodiscard]] std::string stampOverflowMessage(const Puzzle& puzzle, const Problem& problem);
-
-/// Makes every shape of a sliding puzzle one layer deep, pieces and
-/// start/goal shapes alike, keeping the first layer (z = 0): pieces slide
-/// flat on a flat tray. Returns the shapes that were changed.
-std::vector<unsigned int> flattenPieces(Puzzle& puzzle);
 
 /// The number of floor (non-empty) cells of a tray.
 [[nodiscard]] unsigned int floorCells(const Voxel& tray);

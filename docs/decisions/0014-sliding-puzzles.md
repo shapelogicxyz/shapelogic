@@ -25,7 +25,7 @@ started. Decisions 0004, 0010 and 0011 rule out all four as they were.
 (`model/sliding.h`) holds what a puzzle file holds and the GUI edited:
 start/goal shapes and their user names, stamps, `syncSlidingProblems`,
 the start locks, the checks (`startGoalError`, `stampOverflowMessage`),
-`flattenPieces`, the older goal-map model the solver still reads, and
+the older goal-map model the solver still reads, and
 `prepareForSolving` (the maximum of holes and the start locks).
 `solve/sliding_search.h` holds the search (`findSlidePath`, the three
 limits, the memory budget, nested and partially nested slides), the full
@@ -64,8 +64,8 @@ from the user's name, an edit that changes a stamped piece's shape taking
 its stamps off with a notice); what the GUI greyed out or hid is refused
 (choosing the result, groups, the count of a piece a stamp requires, new,
 copied and deleted problems, deleted colours: the cell colours are the
-start marks); a sliding shape of more than one
-layer is made flat on open (dirty, with a notice). Solve's setup
+start marks); a sliding shape keeps its layers on open (see
+"Shapes of more than one layer" below). Solve's setup
 (`prepareForSolving`) is part of the launch, not an undo step, as it was
 part of the original's solve: it runs after every check that can refuse,
 so a refused launch changes nothing.
@@ -99,6 +99,27 @@ original:
    an ending depends on the order the starts arrive in. The new core is
    faithful to that; the harness compares such puzzles on one thread (the
    corpus flag `O`).
+
+**Shapes of more than one layer** (added after the port). The original
+locked a sliding shape to one layer (the GUI's `lockZ`, `flattenPieces`
+on load), though its search already took a tray of several layers with
+each piece kept on its own layer. Sliding shapes now keep their layers:
+nothing is flattened on open, the Z size and the tasks that add layers
+are offered, and a new shape or start/goal shape is still one layer to
+begin with. A stamp marks every cell of its piece, in every layer. A
+click on a layer places the piece by what that layer shows: its slice
+there with the slice's top-left cell under the mouse, at the lowest
+height that puts a layer of the piece there and fits (`stampPiece` and
+the `sliding.*` methods take [x, y, z]; [x, y] is layer 0; on a tray of
+one layer this is the original's rule). On a tray of
+several layers a move may also go up and down (six directions, not
+four), so a piece can be lifted out of a box over the others and put
+down elsewhere; routes and the player follow it in z. On a tray one
+layer deep a step up or down never fits, so every flat puzzle is
+searched, and answered, as the original searched it; the corpus's two
+trays of two layers hold a piece as tall as the tray, so their answers
+stay too. Pieces still only translate: a puzzle whose goal needs a piece
+turned has no sliding path.
 
 ## Consequences
 - The oracle harness has a `sliding` tier: the fixtures and puzzles built

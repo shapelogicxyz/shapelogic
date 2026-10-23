@@ -183,21 +183,38 @@ describe('a start/goal shape', () => {
       [
         's2',
         [
-          [0, 0],
-          [1, 0],
+          [0, 0, 0],
+          [1, 0, 0],
         ],
       ],
-      ['s3', [[2, 1]]],
+      ['s3', [[2, 1, 0]]],
     ]);
     expect([...stampsOf(tray, true)]).toEqual([
       [
         's2',
         [
-          [1, 1],
-          [2, 1],
+          [1, 1, 0],
+          [2, 1, 0],
         ],
       ],
     ]);
+    // a tray of layers: a piece two layers high, on the second and third
+    const deep = {
+      ...tray,
+      size: [1, 1, 3] as [number, number, number],
+      starts: [null, 's2', 's2'],
+      goals: [null, null, null],
+    };
+    expect([...stampsOf(deep, false)]).toEqual([
+      [
+        's2',
+        [
+          [0, 0, 1],
+          [0, 0, 2],
+        ],
+      ],
+    ]);
+    expect([...marksOf(deep, false, shapes).keys()]).toEqual(['0,0,1', '0,0,2']);
   });
 
   it('lists the pieces but the trays; colours, outline and validity as the original', () => {

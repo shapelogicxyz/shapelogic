@@ -23,10 +23,10 @@ import type { MeshCache } from './meshcache.ts';
 import { SolutionScene } from './solution.ts';
 import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
 
-/** Where the pieces stand on a tray: each piece's cells [x, y], on START and on GOAL. */
+/** Where the pieces stand on a tray: each piece's cells [x, y, z], on START and on GOAL. */
 export interface TrayModel {
-  starts: ReadonlyMap<string, readonly (readonly [number, number])[]>;
-  goals: ReadonlyMap<string, readonly (readonly [number, number])[]>;
+  starts: ReadonlyMap<string, readonly (readonly [number, number, number])[]>;
+  goals: ReadonlyMap<string, readonly (readonly [number, number, number])[]>;
 }
 
 /** The gap between the two trays, in cells (showSingleShape's). */
@@ -181,9 +181,12 @@ export class TrayView {
             continue;
           }
           const i = shapes.findIndex((s) => s.id === id);
-          // the whole piece moved: its lowest corner onto the stamp's (one layer up)
+          // the whole piece moved: its lowest corner onto the stamp's, standing
+          // on the tray (a tray of layers is drawn whole, so the pieces stand
+          // over it, each as many layers up as its stamp)
           const x = Math.min(...cells.map((c) => c[0])) - Math.round(m.lo[0] ?? 0);
           const y = Math.min(...cells.map((c) => c[1])) - Math.round(m.lo[1] ?? 0);
+          const z = Math.min(...cells.map((c) => c[2])) - Math.round(m.lo[2] ?? 0);
           pieces.push({
             piece: pieces.length,
             shape: id,
@@ -191,7 +194,7 @@ export class TrayView {
             mode: 'solid',
             built: m.b,
           });
-          poses.push(pose([dx + x, y, size[2]]));
+          poses.push(pose([dx + x, y, size[2] + z]));
         }
       };
       place(model.starts, 0);

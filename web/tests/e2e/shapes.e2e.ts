@@ -61,15 +61,17 @@ test('the shapes list', async () => {
   const page = a.page;
   try {
     await newDocument(page, 'bricks');
-    // the last shape cannot be deleted
+    // the only shape can be deleted too
     await page.click('#btnNew');
     await sameAsEngine(page);
-    await expect(page.locator('#shapeList .row [data-a="del"]')).toBeDisabled();
+    await expect(page.locator('#shapeList .row [data-a="del"]')).toBeEnabled();
     await page.locator('#shapeList').focus();
     await page.keyboard.press('Delete');
-    await settled(page);
-    expect((await order(page)).length).toBe(1);
+    await sameAsEngine(page);
+    expect((await order(page)).length).toBe(0);
     // new, duplicate: added last and selected
+    await page.click('#btnNew');
+    await sameAsEngine(page);
     await page.click('#btnNew');
     await sameAsEngine(page);
     const [s1, s2] = await order(page);
@@ -176,7 +178,7 @@ test('the shapes list', async () => {
     await page.click('#pop [data-k="del"]');
     await sameAsEngine(page);
     expect(await order(page)).toEqual([s1]);
-    await expect(page.locator('#shapeList .row [data-a="del"]')).toBeDisabled();
+    await expect(page.locator('#shapeList .row [data-a="del"]')).toBeEnabled();
     // the collapsed card's chips select and add
     await page.click('#left [data-collapse="L"]');
     await page.click('#lrail #btnLN');

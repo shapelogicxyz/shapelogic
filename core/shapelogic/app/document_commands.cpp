@@ -111,6 +111,8 @@ Result<Id> Document::createShape(std::optional<std::array<unsigned int, 3>> size
   if (size) {
     s = *size;
   } else {
+    // sliding puzzles are mostly flat: a new shape is one layer, and may
+    // be given more
     const unsigned int d = defaultShapeSize(grid);
     s = {d, d, grid == GridKind::Sliding ? 1U : d};
   }
@@ -401,10 +403,6 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
   const unsigned int factor = sizeUnit(puzzle_->getGridType().getType());
   if (Result<void> r = checkSize(factor * x, factor * y, factor * z); !r) {
     return r;
-  }
-  // sliding shapes are one layer deep (the original locked the Z size)
-  if (sliding::isSliding(*puzzle_) && z != 1) {
-    return fail(Errc::InvalidArgument, "sliding shapes are one layer deep");
   }
   const Voxel& sel = puzzle_->getShape(*s);
 

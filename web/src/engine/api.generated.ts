@@ -141,18 +141,18 @@ export interface CellsChanged {
 // ---- sliding.json: Sliding puzzles ----
 
 /**
- * A cell [x, y] of a start/goal shape's layer, y up.
+ * A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0).
  * @minItems 2
- * @maxItems 2
+ * @maxItems 3
  */
-export type Cell2 = [number, number];
+export type TrayCell = number[];
 
 /**
- * A size [x, y] in cells.
+ * A size [x, y, z] in cells; [x, y] is one layer.
  * @minItems 2
- * @maxItems 2
+ * @maxItems 3
  */
-export type Size2 = [number, number];
+export type TraySize = number[];
 
 // ---- solution.json: Solutions ----
 
@@ -732,10 +732,9 @@ export interface Snapshot {
   /** A stacking puzzle's boards (at least one); empty on other grids. */
   rodSets: RodSet[];
   /**
-   * What opening the file changed, to tell the user (the original's load message: a sliding shape
-   * of more than one layer made flat, which leaves the document dirty). Only in the result of
-   * document.open, document.openBytes and solve.importPaused, and only when there is something to
-   * tell.
+   * What opening the file changed, to tell the user (the original's load message). Only in the
+   * result of document.open, document.openBytes and solve.importPaused, and only when there is
+   * something to tell.
    */
   notice?: string;
 }
@@ -2432,9 +2431,8 @@ export interface Methods {
   };
   /**
    * Sets the size in the editor's units (engine.info's sizeUnit); shrinking drops cells outside.
-   * With toAll the other shapes grow by as much (they never shrink). Sliding shapes are one layer
-   * deep: another Z is refused (invalid_argument). Refused (invalid_argument) on a stacking
-   * puzzle, whose shapes are discs (stacking.setDiscSize).
+   * With toAll the other shapes grow by as much (they never shrink). Refused (invalid_argument) on
+   * a stacking puzzle, whose shapes are discs (stacking.setDiscSize).
    * (shape.json)
    */
   'shape.resize': {
@@ -2603,14 +2601,14 @@ export interface Methods {
     errors: 'invalid_argument';
   };
   /**
-   * Adds a start/goal shape (the original's New Start/Goal): one layer of 'size' cells (default 6
-   * by 6, the original took the selected shape's), all floor, numbered after the others, with its
-   * problem.
+   * Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1,
+   * the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after
+   * the others, with its problem.
    * (sliding.json)
    */
   'sliding.addStartGoal': {
     params: {
-      size?: Size2;
+      size?: TraySize;
     };
     result: {
       shape: ShapeId;
@@ -2619,19 +2617,21 @@ export interface Methods {
     errors: 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, its
-   * top-left cell at 'at' (y rises upwards, as in the grid editor), moved there if it was
-   * elsewhere; a piece that is exactly there already is taken off. Refused (invalid_argument) with
-   * the original's reason when it does not fit: off the floor, on another piece's start or goal, a
-   * goal on a corridor. The problems of the start/goal shape lose what they had found. One undo
-   * step.
+   * The start/goal editor's click: the whole of a piece as its start (goal false) or its goal,
+   * placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice
+   * on that layer with its top-left cell there, at the lowest height that puts a layer of the
+   * piece on that layer and fits (on a tray of one layer, the piece's top-left cell there), moved
+   * there if it was elsewhere; a piece that is exactly there already is taken off. Refused
+   * (invalid_argument) with the original's reason when it does not fit: off the floor, on another
+   * piece's start or goal, a goal on a corridor. The problems of the start/goal shape lose what
+   * they had found. One undo step.
    * (sliding.json)
    */
   'sliding.place': {
     params: {
       tray: ShapeId;
       piece: ShapeId;
-      at: Cell2;
+      at: TrayCell;
       goal: boolean;
     };
     result: {
@@ -2649,7 +2649,7 @@ export interface Methods {
   'sliding.clearAt': {
     params: {
       tray: ShapeId;
-      at: Cell2;
+      at: TrayCell;
       goal: boolean;
     };
     result: {
@@ -2685,20 +2685,21 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument';
   };
   /**
-   * Where sliding.place would put a piece: the cells, whether it fits (and the original's reason
-   * when not), and whether it is exactly there already (then the click takes it off). Changes
-   * nothing.
+   * Where sliding.place would put a piece: the cells, every layer (when no height fits, the lowest
+   * that puts a layer of the piece on the layer of 'at'; none when no layer of the piece can be
+   * there), whether it fits (and the original's reason when not), and whether it is exactly there
+   * already (then the click takes it off). Changes nothing.
    * (sliding.json)
    */
   'sliding.preview': {
     params: {
       tray: ShapeId;
       piece: ShapeId;
-      at: Cell2;
+      at: TrayCell;
       goal: boolean;
     };
     result: {
-      cells: Cell2[];
+      cells: Cell[];
       fits: boolean;
       why: string | null;
       there: boolean;

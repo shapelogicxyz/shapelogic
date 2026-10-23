@@ -940,12 +940,10 @@ def sliding_start_goal_shapes(e):
     check(len(snap["problems"]) == 1, f"its problem {snap['problems']}")
     p = snap["problems"][0]["id"]
     e.call("shape.rename", {"shape": tray, "name": "Corner"})
-    # one layer deep: no task that adds layers, no other Z, no piece named as a tray
+    # shapes may have layers: the tasks that add them are offered; no piece named as a tray
     tasks = {t["task"] for t in e.call("shape.taskSet")["tasks"]}
     deep = {"nudge4", "nudge5", "rotate6", "rotate7", "rotate8", "rotate9", "double", "triple", "gridScale"}
-    check(not tasks & deep and {"nudge0", "nudge1", "rotate10", "rotate11"} <= tasks, f"flat tasks {tasks}")
-    e.fails("shape.task", {"shape": two, "task": "rotate6"}, "unsupported")
-    e.fails("shape.resize", {"shape": two, "size": [2, 1, 2]}, "invalid_argument")
+    check(deep <= tasks, f"the tasks {tasks}")
     e.fails("shape.rename", {"shape": two, "name": "sg:2:"}, "invalid_argument")
     t = e.call("sliding.tray", {"tray": tray})
     check(t["number"] == 1 and t["name"] == "Corner" and t["floor"] == 12, f"the tray {t}")
@@ -957,7 +955,7 @@ def sliding_start_goal_shapes(e):
 
     # the editor's preview and click
     pv = e.call("sliding.preview", {"tray": tray, "piece": two, "at": [2, 2], "goal": False})
-    check(pv["cells"] == [[2, 2], [3, 2]] and not pv["fits"] and pv["why"] and not pv["there"],
+    check(pv["cells"] == [[2, 2, 0], [3, 2, 0]] and not pv["fits"] and pv["why"] and not pv["there"],
           f"onto the wall {pv}")
     e.fails("sliding.place", {"tray": tray, "piece": two, "at": [2, 2], "goal": False}, "invalid_argument")
     pv = e.call("sliding.preview", {"tray": tray, "piece": two, "at": [0, 0], "goal": False})
@@ -1012,16 +1010,29 @@ def sliding_start_goal_shapes(e):
     e.fails("sliding.clearAt", {"tray": one, "at": [0, 0], "goal": True}, "invalid_argument")
     e.fails("sliding.tray", {"tray": "s999"}, "not_found")
     e.fails("sliding.addStartGoal", {"size": [0, 3]}, "invalid_params")
-    e.fails("sliding.place", {"tray": tray, "piece": one, "at": [0, 0, 0], "goal": False}, "invalid_params")
+    e.fails("sliding.place", {"tray": tray, "piece": one, "at": [0, 0, 0, 0], "goal": False}, "invalid_params")
+    e.fails("sliding.addStartGoal", {"size": [2, 2, 0]}, "invalid_params")
 
-    # opening a file whose sliding shape is deeper than a layer flattens it
+    # a tray of layers: a stamp marks every layer of its piece, at [x, y, z]
     deep = e.call("shape.create", {"size": [1, 1, 2]})["shape"]
     e.call("shape.setCells", {"shape": deep, "tool": "fixed", "cells": [[0, 0, 0], [0, 0, 1]]})
+    box = e.call("sliding.addStartGoal", {"size": [2, 1, 3]})["shape"]
+    # a click on the top layer: the piece's top there, the lowest height that fits
+    pv = e.call("sliding.preview", {"tray": box, "piece": deep, "at": [1, 0, 2], "goal": False})
+    check(pv["fits"] and pv["cells"] == [[1, 0, 1], [1, 0, 2]], f"from the top layer {pv}")
+    pv = e.call("sliding.preview", {"tray": box, "piece": deep, "at": [2, 0, 2], "goal": False})
+    check(not pv["fits"] and pv["cells"] == [[2, 0, 1], [2, 0, 2]], f"off the side {pv}")
+    e.call("sliding.place", {"tray": box, "piece": deep, "at": [1, 0, 2], "goal": False})
+    t = e.call("sliding.tray", {"tray": box})
+    check(t["size"] == [2, 1, 3] and t["floor"] == 6, f"the box {t}")
+    check([i for i, s in enumerate(t["starts"]) if s == deep] == [3, 5], f"both layers {t['starts']}")
+    check(e.call("sliding.clearAt", {"tray": box, "at": [1, 0, 2], "goal": False})["cleared"], "cleared")
+
+    # opening a file keeps a sliding shape's layers, and says nothing
     data = e.call("document.saveBytes")["data"]
     snap = e.call("document.openBytes", {"data": data})
-    check(snap.get("notice", "").startswith("Sliding shapes are one layer deep. S4 had more than one layer")
-          and snap["dirty"], f"the open notice {snap.get('notice')!r}")
-    check("notice" not in e.call("document.get"), "only the opening tells it")
+    row = snap["shapes"][3]  # S4; reopened shapes have new ids
+    check("notice" not in snap and not snap["dirty"] and row["size"] == [1, 1, 2], f"the open {row}")
 
     # other grids have none
     e.call("document.new", {"grid": "bricks"})
