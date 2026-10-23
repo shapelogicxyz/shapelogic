@@ -5,7 +5,7 @@
 // the cell and side the frame's arrays hold for the triangle under it. The
 // expected triangle is found in the frame's arrays, taken from an engine of
 // the test's own through the client's views (meshArrays), as the front-most
-// triangle at a point well inside it.
+// triangle at a point well inside its cell's side.
 
 import { readdirSync } from 'node:fs';
 
@@ -63,10 +63,49 @@ function zAt(a: MeshArrays, t: number, x: number, y: number): number | null {
   return l1 * p[2] + l2 * q[2] + l3 * r[2];
 }
 
+/** The front-most triangle at (x, y) seen along -z, and how many lie within 1e-3 of it in z. */
+function frontAt(
+  a: MeshArrays,
+  box: Float64Array,
+  x: number,
+  y: number,
+): { t: number; close: number } {
+  const zs: number[] = [];
+  let best = -Infinity;
+  let bestT = -1;
+  for (let t = 0; t < a.flags.length; t++) {
+    if (
+      ((a.flags[t] ?? 0) & FLAG.inside) !== 0 ||
+      x < (box[4 * t] ?? 0) ||
+      x > (box[4 * t + 1] ?? 0) ||
+      y < (box[4 * t + 2] ?? 0) ||
+      y > (box[4 * t + 3] ?? 0)
+    ) {
+      continue;
+    }
+    const z = zAt(a, t, x, y);
+    if (z !== null) {
+      zs.push(z);
+      if (z > best) {
+        best = z;
+        bestT = t;
+      }
+    }
+  }
+  return { t: bestT, close: zs.filter((z) => Math.abs(z - best) < 1e-3).length };
+}
+
+/** How far around the point (pixels) the same cell and side must be front-most. */
+const AROUND = 4;
+
 /**
  * A point (mesh units) and the triangle a ray along -z hits first there: a
- * face towards the viewer, large on screen, unambiguous (no other triangle
- * within 1e-3 in z at the point), near the middle of the view.
+ * face towards the viewer, near the middle of the view, unambiguous (no
+ * other triangle within 1e-3 in z at the point) and well inside its cell's
+ * side: at AROUND pixels in eight directions the front-most triangle is
+ * again unambiguous and of the same cell and side. A cube's side is two
+ * large triangles; a sphere's is many small ones, so the click may land on
+ * any of them and still name the same cell and side.
  */
 function target(
   a: MeshArrays,
@@ -75,7 +114,16 @@ function target(
   allowed: (x: number, y: number) => boolean,
 ): { t: number; x: number; y: number } | null {
   const tris = a.flags.length;
-  const cands: { t: number; x: number; y: number; z: number; d: number }[] = [];
+  // each triangle's x and y bounds, so a ray skips most of them at once
+  const box = new Float64Array(4 * tris);
+  for (let t = 0; t < tris; t++) {
+    const [p, q, r] = [corner(a, t, 0), corner(a, t, 1), corner(a, t, 2)];
+    box[4 * t] = Math.min(p[0], q[0], r[0]);
+    box[4 * t + 1] = Math.max(p[0], q[0], r[0]);
+    box[4 * t + 2] = Math.min(p[1], q[1], r[1]);
+    box[4 * t + 3] = Math.max(p[1], q[1], r[1]);
+  }
+  const cands: { x: number; y: number; z: number; d: number }[] = [];
   for (let t = 0; t < tris; t++) {
     if (
       ((a.flags[t] ?? 0) & FLAG.inside) !== 0 ||
@@ -84,17 +132,12 @@ function target(
       continue;
     }
     const [p, q, r] = [corner(a, t, 0), corner(a, t, 1), corner(a, t, 2)];
-    const area = Math.abs((q[0] - p[0]) * (r[1] - p[1]) - (r[0] - p[0]) * (q[1] - p[1])) / 2;
-    if (area * ppu * ppu < 40) {
-      continue;
-    }
     const x = (p[0] + q[0] + r[0]) / 3;
     const y = (p[1] + q[1] + r[1]) / 3;
     if (!allowed(x, y)) {
       continue;
     }
     cands.push({
-      t,
       x,
       y,
       z: (p[2] + q[2] + r[2]) / 3,
@@ -102,31 +145,24 @@ function target(
     });
   }
   cands.sort((u, v) => v.z - u.z || u.d - v.d);
-  for (const c of cands.slice(0, 200)) {
-    let best = -Infinity;
-    let bestT = -1;
-    let close = 0;
-    const zs: { t: number; z: number }[] = [];
-    for (let t = 0; t < tris; t++) {
-      if (((a.flags[t] ?? 0) & FLAG.inside) !== 0) {
-        continue;
-      }
-      const z = zAt(a, t, c.x, c.y);
-      if (z !== null) {
-        zs.push({ t, z });
-        if (z > best) {
-          best = z;
-          bestT = t;
-        }
-      }
+  const step = AROUND / ppu;
+  const ring = Array.from({ length: 8 }, (_, i): [number, number] => [
+    Math.cos((i * Math.PI) / 4) * step,
+    Math.sin((i * Math.PI) / 4) * step,
+  ]);
+  const same = (t: number, u: number): boolean =>
+    a.voxel[t] === a.voxel[u] && a.voxelFace[t] === a.voxelFace[u];
+  for (const c of cands.slice(0, 400)) {
+    const f = frontAt(a, box, c.x, c.y);
+    if (f.close !== 1 || f.t < 0) {
+      continue;
     }
-    for (const { z } of zs) {
-      if (Math.abs(z - best) < 1e-3) {
-        close++;
-      }
-    }
-    if (close === 1 && bestT >= 0) {
-      return { t: bestT, x: c.x, y: c.y };
+    const clear = ring.every(([dx, dy]) => {
+      const g = frontAt(a, box, c.x + dx, c.y + dy);
+      return g.close === 1 && g.t >= 0 && same(f.t, g.t);
+    });
+    if (clear) {
+      return { t: f.t, x: c.x, y: c.y };
     }
   }
   return null;

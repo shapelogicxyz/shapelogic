@@ -17,6 +17,7 @@ import {
   BUILT,
   display,
   ENGINE,
+  engineCall,
   FIXTURES,
   launch,
   openFixture,
@@ -66,9 +67,13 @@ test('every shape of every fixture is drawn in every style', async () => {
   test.setTimeout(600_000);
   const { page } = a;
   let checked = 0;
+  // every shape the engine holds, in each of the three styles (counted from
+  // the engine, so a fixture added to the folder is counted too)
+  let want = 0;
   for (const s of ['drawing', 'wireframe', 'flat'] as const) {
     for (const f of fixtures) {
       await openFixture(page, f);
+      want += (await engineCall<{ shapes: unknown[] }>(page, 'shape.list')).shapes.length;
       if (s !== 'drawing') {
         // the style is the view's: a new document keeps it
         await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`:${s}$`));
@@ -87,7 +92,8 @@ test('every shape of every fixture is drawn in every style', async () => {
       await style(page, s === 'drawing' ? 'wireframe' : 'flat');
     }
   }
-  expect(checked).toBe(3 * 170);
+  expect(want).toBeGreaterThan(0);
+  expect(checked).toBe(want);
 });
 
 test('every fixture is drawn unlit, orthographic and in its colours', async () => {

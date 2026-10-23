@@ -682,8 +682,17 @@ test('a save while solving at a save point; the paused solver state exported and
     await runButton(page, 'abort');
     await page.locator('.cfm [data-x="1"]').click();
     await runEnded(page, 'idle');
+    // refusals the app asks for and shows nothing of: a hover preview of a
+    // task the shape cannot take (the mouse rests on the Shapes tab's tools
+    // when the New dialog closes), and a solution's playback asked as the
+    // document changes (the player treats not_found as gone)
     const refused = readCallLog(log).filter(
-      (c) => c.errc !== null && c.errc !== 'superseded' && c.method !== 'document.save',
+      (c) =>
+        c.errc !== null &&
+        c.errc !== 'superseded' &&
+        c.method !== 'document.save' &&
+        c.method !== 'shape.taskPreview' &&
+        !(c.method === 'playback.open' && c.errc === 'not_found'),
     );
     expect(refused).toEqual([]);
     // the one refusal: Save while solving, asked of the engine only after the check

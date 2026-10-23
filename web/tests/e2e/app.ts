@@ -58,6 +58,9 @@ export function appOf(page: Page): ElectronApplication {
   return app;
 }
 
+/** The stylesheet that hides every scrollbar in the app under test. */
+const NO_SCROLLBARS = '::-webkit-scrollbar{display:none}';
+
 /**
  * Launches the app and waits for its engine to run; `callLog` is
  * BT_CALL_LOG's file, `autosave` the Solver's autosave interval in seconds
@@ -84,8 +87,10 @@ export async function launch(
   }
   const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
   env.BT_USER_DATA = userData;
+  // the reference screenshots are taken in sRGB whatever display the window
+  // lands on (Playwright's own Chromium does the same)
   const app = await electron.launch({
-    args: [resolve(WEB, 'out/main/index.js'), ...(opts.args ?? [])],
+    args: ['--force-color-profile=srgb', resolve(WEB, 'out/main/index.js'), ...(opts.args ?? [])],
     cwd: WEB,
     env,
   });
@@ -105,6 +110,22 @@ export async function launch(
   await app.evaluate(({ BrowserWindow }, size) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
   }, WINDOW);
+  // no scrollbars: macOS shows them taking room, or only while scrolling,
+  // by its setting and whether a mouse is connected, so a page laid out
+  // with them would depend on the host (every window, also those opened later)
+  await app.evaluate(({ app, BrowserWindow }, css) => {
+    const hide = (wc: Electron.WebContents): void => {
+      void wc.insertCSS(css);
+    };
+    for (const w of BrowserWindow.getAllWindows()) {
+      hide(w.webContents);
+    }
+    app.on('web-contents-created', (_e, wc) => {
+      wc.on('dom-ready', () => {
+        hide(wc);
+      });
+    });
+  }, NO_SCROLLBARS);
   await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
   // the first document shown
   await expect(page.locator('#stage')).toHaveAttribute('data-revision', /\d/);
