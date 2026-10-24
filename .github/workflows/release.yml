@@ -1,20 +1,18 @@
 # Builds ShapeLogic for Linux, Windows and macOS (Apple silicon and Intel) and
-# attaches the installers to a draft GitHub Release.
+# keeps the installers as workflow artifacts.
 #
-# Runs only when asked: a push to main does not start it.
-# - By hand (Actions tab > Release > Run workflow, or `gh workflow run
-#   release.yml`): builds and keeps the files as workflow artifacts; the macOS
-#   builds are signed but not notarised (tick "Notarise" to notarise), and no
-#   Release is made. Untick a platform's box to leave that build out.
-# - Pushing a version tag (`git tag v0.1.0 && git push origin v0.1.0`):
-#   builds every platform, sends the macOS builds for notarisation and drafts
-#   a Release.
+# Runs only by hand (Actions tab > Release > Run workflow, or `gh workflow
+# run release.yml`): neither a push to main nor a tag starts it, so
+# publishing a GitHub Release (which makes its tag) runs nothing. The macOS
+# builds are signed but not notarised (tick "Notarise" to notarise). Untick
+# a platform's box to leave that build out. No Release is made: the files
+# are downloaded and uploaded to the Release by hand.
 #
 # No run waits for Apple: the macOS jobs send the signed .dmg to the notary
 # service and finish. The job summary and the notarisation-macos-<arch>
 # artifact give the submission id. Once `xcrun notarytool info <id>` says
 # Accepted, the Staple workflow (staple.yml) staples the tickets onto that
-# run's .dmg and .zip and, for a tag's run, replaces them in the Release.
+# run's .dmg and .zip.
 #
 # The macOS builds are signed with the Developer ID certificate and sent for
 # notarisation with these repository secrets (staple.yml uses the APPLE_API_* ones too):
@@ -28,8 +26,6 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       linux_x64:
@@ -53,7 +49,7 @@ on:
         type: boolean
         default: true
       notarise:
-        description: 'Also send the macOS builds for notarisation (a tag push always does)'
+        description: 'Also send the macOS builds for notarisation'
         type: boolean
         default: false
 
@@ -68,10 +64,7 @@ env:
   NODE_VERSION: '24'
 
 jobs:
-  # The tag must be the project's version (CMakeLists.txt, web/package.json),
-  # or the packaged files would carry a different number from the Release's.
-  # It also turns the run's boxes into the build jobs' matrices (a tag's run
-  # builds everything).
+  # Turns the run's boxes into the build jobs' matrices.
   version:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -83,14 +76,13 @@ jobs:
       - name: The platforms to build
         id: platforms
         env:
-          ALL: ${{ github.event_name == 'push' }}
           LINUX_X64: ${{ inputs.linux_x64 }}
           LINUX_ARM64: ${{ inputs.linux_arm64 }}
           WINDOWS_X64: ${{ inputs.windows_x64 }}
           MACOS_ARM64: ${{ inputs.macos_arm64 }}
           MACOS_X64: ${{ inputs.macos_x64 }}
         run: |
-          on() { [ "${ALL}" = true ] || [ "$1" = true ]; }
+          on() { [ "$1" = true ]; }
           linux='[]'
           on "${LINUX_X64}" && linux=$(jq -c '. + [{arch: "x64", runner: "ubuntu-24.04"}]' <<< "${linux}")
           on "${LINUX_ARM64}" && linux=$(jq -c '. + [{arch: "arm64", runner: "ubuntu-24.04-arm"}]' <<< "${linux}")
@@ -108,15 +100,6 @@ jobs:
             echo "::error::no platform ticked: nothing to build"
             exit 1
           fi
-      - uses: actions/checkout@v4
-      - name: The tag matches the version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cmake_version=$(sed -nE 's/.*project\(.* VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt | head -1)
-          pkg_version=$(node -p "require('./web/package.json').version")
-          echo "tag ${GITHUB_REF_NAME}, CMakeLists.txt ${cmake_version}, web/package.json ${pkg_version}"
-          test "${GITHUB_REF_NAME}" = "v${cmake_version}"
-          test "${cmake_version}" = "${pkg_version}"
 
   linux:
     needs: version
@@ -229,8 +212,8 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.version.outputs.macos) }}
     env:
-      # whether to send the .dmg to Apple's notary service (a manual run asks)
-      NOTARISE: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.notarise }}
+      # whether to send the .dmg to Apple's notary service
+      NOTARISE: ${{ inputs.notarise }}
     steps:
       - uses: actions/checkout@v4
       - name: Build tools
@@ -364,28 +347,3 @@ jobs:
         run: |
           security delete-keychain "${RUNNER_TEMP}/signing.keychain-db" || true
           rm -f "${RUNNER_TEMP}"/AuthKey_*.p8
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, windows, macos]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-      - name: Draft the Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # the notarisation records are for the Staple workflow, not the Release
-          rm -f artifacts/notarisation-*.json
-          ls -l artifacts
-          gh release create "${GITHUB_REF_NAME}" artifacts/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "ShapeLogic ${GITHUB_REF_NAME#v}" \
-            --generate-notes \
-            --draft

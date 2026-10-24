@@ -9,8 +9,7 @@
 # checks that the run's .dmg is the file Apple was sent (its sha256 against
 # Apple's log of the submission), staples the .dmg and the app inside the
 # .zip, checks Gatekeeper accepts the app as notarised, and keeps the files
-# as the macos-<arch>-notarised artifact. For a tag's run it also replaces
-# the .dmg and .zip in that tag's draft Release.
+# as the macos-<arch>-notarised artifact.
 #
 # A submission still In Progress, or Invalid, fails the job with its status
 # (and for Invalid, Apple's log); nothing is stapled. An architecture the run
@@ -28,7 +27,7 @@ on:
 
 permissions:
   actions: read # the run's artifacts
-  contents: write # the tag's draft Release
+  contents: read
 
 jobs:
   staple:
@@ -138,12 +137,3 @@ jobs:
           path: |
             build/*.dmg
             build/*.zip
-      - name: Replace the files in the tag's draft Release
-        if: steps.download.outputs.built == 'true'
-        run: |
-          read -r event ref < <(gh run view "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --json event,headBranch --jq '"\(.event) \(.headBranch)"')
-          if [ "${event}" != push ] || [[ "${ref}" != v* ]]; then
-            echo "run ${RUN_ID} was not a tag's run (${event} on ${ref}): no Release to update"
-            exit 0
-          fi
-          gh release upload "${ref}" build/*.dmg build/*.zip --repo "${GITHUB_REPOSITORY}" --clobber
