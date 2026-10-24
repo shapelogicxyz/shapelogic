@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Generated from api/*.json by web/tools/gen-api.ts: do not edit. `just web-gen`
+// Generated from api/*.json by web/tools/gen-api.ts: do not edit. `just app-gen`
 // writes it; a unit test fails when it is stale.
 //
 // Every $defs entry is a named type: types.json's under their own names, an area
@@ -790,9 +790,10 @@ export interface Part {
  * The Solver tab's settings stored with a problem (saved in the file, the original's names; the
  * front end decides what they mean). Settings of other versions are kept as strings. These names
  * are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations,
- * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested and
- * highMemory are sliding's nestedSlides, partialNested and highMemory, solverType fast, deep or
- * full its solver). highMemory belongs to the stacking solvers too.
+ * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested,
+ * verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and
+ * highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking
+ * solvers too.
  */
 export interface SolverSettings {
   disassemble?: boolean;
@@ -805,6 +806,7 @@ export interface SolverSettings {
   strictColors?: boolean;
   nestedSlides?: boolean;
   partialNested?: boolean;
+  verticalMoves?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
   /** classic, crowell (sliding: fast, deep, full). */
@@ -943,6 +945,11 @@ export interface SlidingOptions {
   nestedSlides?: boolean;
   /** And what is partly nested in it (Allow Partially Nested); implies nestedSlides. */
   partialNested?: boolean;
+  /**
+   * On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves);
+   * off (the default), every piece stays in its layer.
+   */
+  verticalMoves?: boolean;
   /** Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). */
   highMemory?: boolean;
 }

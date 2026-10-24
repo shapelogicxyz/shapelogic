@@ -105,7 +105,7 @@ async function idOf(page: Page, label: string): Promise<string> {
   return s?.id ?? '';
 }
 
-/** A new piece (+ New: 6 by 6, one layer to begin with) with cells drawn. */
+/** A new piece (+ New Piece: 6 by 6, one layer to begin with) with cells drawn. */
 async function piece(page: Page, cells: [number, number][]): Promise<string> {
   const n = (await shapes(page)).length;
   await page.click('#btnNew');
@@ -146,18 +146,26 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     const fxProblem = await problemGet(page, fxSnap.problems[0]?.id ?? '');
     const fxTray = await engineCall<Tray>(page, 'sliding.tray', { tray: fxSnap.shapes[0]?.id });
 
-    // File ▸ New ▸ Sliding: empty, the start/goal row offered, no palette, no paint
+    // File ▸ New ▸ Sliding: empty, + New Piece and + New Board offered, no palette, no paint
     await newDocument(page, 'sliding');
-    await expect(page.locator('#sgRow')).toHaveClass(/show/);
-    await expect(page.locator('#sgRow [data-sg="del"]')).toBeDisabled();
+    await expect(page.locator('#btnNew')).toHaveText('+ New Piece');
+    await expect(page.locator('#btnNewBoard')).toBeVisible();
 
-    // New Start/Goal Positions: 6 by 6 (nothing selected), made 4 by 5
-    await page.click('#sgRow [data-sg="new"]');
+    // + New Board: 6 by 6 (nothing selected); its trash deletes it, then
+    // another, made 4 by 5
+    await page.click('#btnNewBoard');
     await expect(page.locator('#shapeList .row')).toHaveCount(1);
     await settled(page);
     await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(START/GOAL 1)');
-    await expect(page.locator('#sgRow [data-sg="del"]')).toBeEnabled();
-    await expect(page.locator('#shapeList .row.sel [data-a="del"]')).toBeDisabled();
+    await page.click('#shapeList .row.sel [data-a="del"]');
+    await expect(page.locator('#shapeList .row')).toHaveCount(0);
+    await settled(page);
+    // the Solver's pager read the gone problem's list once more (not_found, ignored there)
+    const deleted = readCallLog(log).length;
+    await page.click('#btnNewBoard');
+    await expect(page.locator('#shapeList .row')).toHaveCount(1);
+    await settled(page);
+    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(START/GOAL 1)');
     await expect(page.locator('#trayRow')).toHaveClass(/show/);
     // no constraint colours: the shape's own color, with only the pencil
     await expect(page.locator('#cEdit')).toBeVisible();
@@ -307,6 +315,11 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await expect(page.locator('#slvOpts [data-o="keepMirrors"]')).toHaveCount(0);
     await expect(page.locator('#slvOpts [data-o="highMemory"]')).toHaveCount(1);
     await expect(page.locator('#slvOpts [data-o="partialNested"]')).toHaveClass(/\boff\b/);
+    // pieces stay in their layers unless Allow Vertical Moves is on
+    await expect(page.locator('#slvOpts [data-o="verticalMoves"]')).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
     for (const solver of ['fast', 'deep', 'full'] as const) {
       await page.selectOption('#slvOpts select[data-o="slidingSolver"]', solver);
       await solverSettled(page);
@@ -347,7 +360,11 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
       await expectPosesAt(page, poses, s);
     }
     const bad = readCallLog(log).filter(
-      (c) => c.errc !== null && c.errc !== 'superseded' && c.method !== 'sliding.place',
+      (c, i) =>
+        c.errc !== null &&
+        c.errc !== 'superseded' &&
+        c.method !== 'sliding.place' &&
+        !(i < deleted && c.method === 'solution.page' && c.errc === 'not_found'),
     );
     expect(bad).toEqual([]);
   } finally {

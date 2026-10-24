@@ -193,6 +193,19 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     expect(p.parts[2]?.groups).toEqual([{ group: 2, count: 1 }]);
     await page.selectOption('#pzGrpTable tr[data-u="s4"] [data-grp]', '');
     await checkShown(page);
+    // S4's weight up and back: the tile shows it while it is not 1
+    const weight = async (): Promise<number | undefined> =>
+      (
+        await engineCall<{ shapes: { id: string; weight: number }[] }>(page, 'shape.list')
+      ).shapes.find((s) => s.id === 's4')?.weight;
+    await page.click('#pzGrpTable tr[data-u="s4"] [data-w="1"]');
+    await expect.poll(weight).toBe(2);
+    await expect(page.locator('#pzGrpTable tr[data-u="s4"] td.wt .v')).toHaveText('2');
+    await expect(page.locator('#pzUsed .ut[data-u="s4"] .t3')).toHaveText('Weight: 2');
+    await page.click('#pzGrpTable tr[data-u="s4"] [data-w="-1"]');
+    await expect.poll(weight).toBe(1);
+    await expect(page.locator('#pzUsed .ut[data-u="s4"] .t3')).toHaveCount(0);
+    await checkShown(page);
     await page.click('#pzGrpHead');
     await expect(page.locator('#pzGrpBody')).toBeHidden();
 

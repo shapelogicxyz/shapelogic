@@ -1084,6 +1084,11 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
     } else if (!o.sliding.partialNested) {
       msg += " If a piece can carry pieces that stick out of it, try Allow Partially Nested.";
     }
+    // the original's trays were one layer deep, so its text stays for those
+    if (!o.sliding.verticalMoves && problem_.resultValid() &&
+        problem_.resultShape(puzzle_).getZ() > 1) {
+      msg += " If a piece can be lifted over the others, try Allow Vertical Moves.";
+    }
     return msg;
   }
   return "";

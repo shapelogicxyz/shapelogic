@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The Entities workspace's right card around the grid: the tool strip
-// (with the box selection's tool), mirror and span, the planes, the layer
+// (its last button switches between drawing and the box selection: it reads
+// Select while drawing, Paint while selecting), mirror and span, the planes, the layer
 // strip (marks on the layers that hold cells; PgUp and PgDn), the box
 // selection's bar (Fill, Clear, deselect), the grid size steppers in the
 // grid's units with "Apply to all shapes", the palette (Default is the
-// shape's own colour; add, edit, remove; the constraint colours on rows
-// below, one row shown at a time) and the collapsed card's rail.
+// shape's own colour; add, edit, remove, and the Paint tool's brush while a
+// constraint colour is chosen; the constraint colours on rows below, one row
+// shown at a time) and the collapsed card's rail.
 // From docs/mockup/index.html: `renderTools`, `renderMod`, `renderPlane`,
 // `renderLayers`, `renderSelbar`, `renderInsp`'s size steppers and the
 // applyAll switch, `renderColors` and their handlers. The engine changes
 // the shape; the card shows the editor's state and the engine's answers.
-// On a sliding puzzle (docs/webui-spec.md, section 8.1) there is no Paint
-// tool and no constraint colour (a cell's colour is a start mark: the
+// On a sliding puzzle (docs/webui-spec.md, section 8.1) there is no
+// constraint colour, so no Paint (a cell's colour is a start mark: the
 // palette keeps only the shape's own colour, as on a stacking one), the shapes are
 // edited in the XY plane, layer by layer, and a start/goal shape has the
 // "Tray edit" switch
@@ -149,8 +151,12 @@ export class EditorCard {
 
   /** The drawing colour as #rrggbb (Default: the shape's own). */
   drawingHex(): string {
-    const st = this.host.state;
-    const c = st.colour === null ? undefined : this.colours.find((x) => x.id === st.colour);
+    return this.colourHex(this.host.state.colour);
+  }
+
+  /** A constraint colour's #rrggbb (null, or one gone: the shape's own). */
+  colourHex(colour: string | null): string {
+    const c = colour === null ? undefined : this.colours.find((x) => x.id === colour);
     if (c !== undefined) {
       return c.rgb;
     }
@@ -188,19 +194,22 @@ export class EditorCard {
     const st = this.host.state;
     const stamping = this.stamping;
     const tray = this.onTray;
-    // no paint on a sliding puzzle: a cell's colour is a start mark there
-    const tools = this.sliding ? TOOLS.filter((t) => t.id !== 'paint') : TOOLS;
-    for (const id of ['toolStrip', 'modRow', 'boxSeg']) {
+    // Paint is the restriction color's brush, by the palette
+    const tools = TOOLS.filter((t) => t.id !== 'paint');
+    for (const id of ['toolStrip', 'modRow']) {
       byId(id).style.display = stamping ? 'none' : '';
     }
-    byId('toolStrip').innerHTML = tools
-      .map(
-        (t) =>
-          `<button class="gbtn ${st.tool === t.id && !st.boxMode ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${t.k})" aria-pressed="${st.tool === t.id && !st.boxMode}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${t.k}</i></button>`,
-      )
-      .join('');
-    byId('boxSeg').innerHTML =
-      `<button class="ib ${st.boxMode ? 'on' : ''}" data-box="1" title="Box selection — drag a rectangle in the grid, then Fill or Clear it (Esc deselects)" aria-pressed="${st.boxMode}">${ic('selbox', 18)}</button>`;
+    // the last button names the mode it switches to
+    const toggle = st.boxMode
+      ? `<button class="gbtn" data-box="1" title="Back to drawing with the tools" aria-pressed="true">${G.tool('paint', 30)}<span>Paint</span></button>`
+      : `<button class="gbtn" data-box="1" title="Box selection — drag a rectangle in the grid, then Fill or Clear it (Esc deselects)" aria-pressed="false">${G.select(30)}<span>Select</span></button>`;
+    byId('toolStrip').innerHTML =
+      tools
+        .map(
+          (t) =>
+            `<button class="gbtn ${st.tool === t.id && !st.boxMode ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${t.k})" aria-pressed="${st.tool === t.id && !st.boxMode}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${t.k}</i></button>`,
+        )
+        .join('') + toggle;
   }
 
   renderMod(): void {
@@ -294,6 +303,8 @@ export class EditorCard {
     const snap = this.host.store.snapshot;
     const pieces = stampPieces(snap?.shapes ?? []);
     const chosen = pieces.find((p) => p.id === st.stampPiece) ?? null;
+    // the list is drawn again on each change: it stays scrolled where it was
+    const scrolled = pick.querySelector('.sglist')?.scrollTop ?? 0;
     pick.innerHTML = `<div class="sglist" role="listbox" aria-label="Pieces" title="Select the piece whose start or goal to place">${
       pieces.length === 0
         ? '<div class="mute">No pieces yet: add shapes with + New</div>'
@@ -306,6 +317,10 @@ export class EditorCard {
             })
             .join('')
     }</div><div class="sgprev" id="sgPrev" title="The piece chosen in the list">${this.previewSvg(chosen)}</div>`;
+    const list = pick.querySelector('.sglist');
+    if (list !== null) {
+      list.scrollTop = scrolled;
+    }
   }
 
   // the chosen piece drawn flat, its cells in its colour (slidePiecePreview_c)
@@ -402,6 +417,7 @@ export class EditorCard {
     // the shape's own colour is Default until it is given one (Custom)
     const name = cur?.label ?? (s?.colour == null ? 'Default' : 'Custom');
     const what = def ? 'Shape color' : 'Restriction color';
+    const paint = st.tool === 'paint' && !st.boxMode;
     // sliding and stacking have no constraint colours to add or remove
     const btns =
       (this.ownOnly
@@ -410,7 +426,11 @@ export class EditorCard {
       `<button class="ib" id="cEdit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">${ic('edit', 22)}</button>` +
       (this.ownOnly
         ? ''
-        : `<button class="ib" id="cRm" ${def ? 'disabled' : ''} title="${def ? 'Choose a restriction color to remove it from the puzzle' : 'Remove this restriction color from the puzzle'}">${ic('trash', 22)}</button>`);
+        : `<button class="ib" id="cRm" ${def ? 'disabled' : ''} title="${def ? 'Choose a restriction color to remove it from the puzzle' : 'Remove this restriction color from the puzzle'}">${ic('trash', 22)}</button>`) +
+      // the Paint tool, with a restriction color to paint
+      (def
+        ? ''
+        : `<button class="ib ${paint ? 'on' : ''}" id="cPaint" title="Paint: give existing voxels this restriction color  (4)" aria-pressed="${String(paint)}">${ic('brush', 22)}</button>`);
     // Default and the constraint colours on rows below, once there is one
     const rows =
       cols.length === 0
@@ -507,10 +527,14 @@ export class EditorCard {
   private install(): void {
     const st = this.host.state;
     byId('toolStrip').addEventListener('click', (e) => {
-      const b = (e.target as Element).closest<HTMLElement>('[data-t]');
+      const t = e.target as Element;
+      const b = t.closest<HTMLElement>('[data-t]');
       if (b !== null) {
         st.tool = b.dataset.t as Tool;
         st.boxMode = false;
+        this.host.changed();
+      } else if (t.closest('[data-box]') !== null) {
+        st.boxMode = !st.boxMode;
         this.host.changed();
       }
     });
@@ -528,12 +552,6 @@ export class EditorCard {
       if (b?.dataset.sp !== undefined) {
         st.stampPiece = b.dataset.sp;
         this.host.trayChanged();
-      }
-    });
-    byId('boxSeg').addEventListener('click', (e) => {
-      if ((e.target as Element).closest('[data-box]') !== null) {
-        st.boxMode = !st.boxMode;
-        this.host.changed();
       }
     });
     byId('modRow').addEventListener('click', (e) => {
@@ -604,6 +622,11 @@ export class EditorCard {
         this.colourAction('edit');
       } else if (t.closest('#cRm') !== null) {
         this.colourAction('rm');
+      } else if (t.closest('#cPaint') !== null) {
+        // the brush toggles: off again goes back to Fixed
+        st.tool = st.tool === 'paint' && !st.boxMode ? 'fixed' : 'paint';
+        st.boxMode = false;
+        this.host.changed();
       } else {
         const step = t.closest<HTMLElement>('[data-pr]');
         if (step !== null) {

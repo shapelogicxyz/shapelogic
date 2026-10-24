@@ -434,8 +434,8 @@ the solved files state by state, the text, the routes).
 - `sliding_search.h`: `findSlidePath(puzzle, problem, start, SlideSearch&)`,
   the fewest moves from a start layout (an assembly) to the goal: a piece,
   or with nested slides the pieces it carries, slides cell by cell,
-  crossing corridors, and on a tray of several layers up and down too
-  (lifted out and put back); positions keyed in 64 or 128 bits (the original's
+  crossing corridors, in its layer; with `verticalMoves`, on a tray of
+  several layers, up and down too (lifted out and put back); positions keyed in 64 or 128 bits (the original's
   text keys with `legacy`; puzzles of more than 64 pieces with nested
   slides use those, where the original overran its tables); copies of
   like pieces searched as one. `SlideSearch` holds the limit
@@ -1052,7 +1052,7 @@ What exists after stage 8:
   stored settings) and hands them to the first handler a task later, in
   order; the renderer's menus hold a command that replaces the document
   until the first document is shown.
-- Packaging (stage 8): `tools/dist.ts` (`just web-dist`) runs
+- Packaging (stage 8): `tools/dist.ts` (`just app-dist`) runs
   electron-builder over `out/` for the platform it runs on: the bundles
   and `package.json` only in `app.asar` (three.js is in the renderer's
   bundle; the app has no runtime package), `shapelogic_engine` from the release
@@ -1465,8 +1465,9 @@ What exists after stage 8:
     size and the XZ/YZ planes off on sliding puzzles (`EditorState.tray`,
     `stampPiece`; `GridInput.tray`, the grid's stamping host calls);
     the shapes list's "(START/GOAL n)" rows with their black chips and
-    the New/Delete Start/Goal Positions row (`#sgRow`, `sliding.addStartGoal`
-    of the selected shape's size), the tray's Delete and colour greyed;
+    the header's + New Piece and + New Board (`#btnNewBoard`,
+    `sliding.addStartGoal` of the selected shape's size), a tray deleted
+    with its problem by the list's Delete, its colour greyed;
     the validity bar under the view (`#slideValid`); `view3d/trays.ts`
     (`TrayView`: the GOAL tray and the pieces standing on both trays as
     the original's `showSingleShape`, through a `SolutionScene` in the
@@ -1664,7 +1665,7 @@ file whose names hold markup (an element, a quote that would close an
 attribute, a style sheet; the notes a closing `</textarea>`) shown as
 text in every card, menu, dialog and explorer, nothing injected; and the
 smoke test of the packaged app (`tests/e2e/packaged.smoke.ts`, `just
-web-smoke`, over Chromium's DevTools protocol: the fuses, the archive, the
+app-smoke`, over Chromium's DevTools protocol: the fuses, the archive, the
 engine's version, the development switches and Node's overrides ignored,
 the page on the app's scheme, sandboxed, with its CSP, a script and an
 image from `file:` refused by Chromium itself, no file outside the
@@ -1782,9 +1783,9 @@ See AGENTS.md for the full list. The load-bearing ones:
 `just test-tsan` / `just oracle` / `just oracle-resume` /
 `just oracle-roundtrip` / `just oracle-files` / `just oracle-text` /
 `just oracle-imports` / `just oracle-python` / `just check`; the Python
-module's `just python-test` / `just python-wheel`; the front end's `just web-install` / `just web-gen` /
-`just web-check` / `just web-test` / `just web-dev` / `just web-e2e` /
-`just web-dist` / `just web-smoke`. ctest also runs `api-schema` (the schema checks itself),
+module's `just python-test` / `just python-wheel`; the front end's `just app-install` / `just app-gen` /
+`just app-check` / `just app-test` / `just app-dev` / `just app-e2e` /
+`just app-dist` / `just app-smoke`. ctest also runs `api-schema` (the schema checks itself),
 `api-docs` (`docs/API.md` is current), `contract` (the engine as a
 subprocess), `cli` (`bt` as a subprocess) and, when the module is built,
 `python` (its tests).

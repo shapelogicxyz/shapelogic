@@ -137,14 +137,21 @@ test('the shapes list', async () => {
     await expect(page.locator('#stText')).toContainText('Rename:');
     expect(await nameOf(s2)).toBe('Box');
 
-    // weight − and +, the badge
-    await page.click(`#shapeList .row[data-id="${s2}"] [data-a="wp"]`);
+    // weight − and + from the menu (the row has no weight buttons or badge)
+    await expect(page.locator(`#shapeList .row[data-id="${s2}"] [data-a="wp"]`)).toHaveCount(0);
+    const weightMenu = async (k: 'wp' | 'wm'): Promise<void> => {
+      await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
+      await page.click(`#pop [data-k="${k}"]`);
+      await settled(page);
+    };
+    await weightMenu('wp');
     await expect.poll(async () => (await list(page)).find((s) => s.id === s2)?.weight).toBe(2);
-    await expect(page.locator(`#shapeList .row[data-id="${s2}"] .wbadge`)).toHaveText('W2');
-    await page.click(`#shapeList .row[data-id="${s2}"] [data-a="wm"]`);
-    await page.click(`#shapeList .row[data-id="${s2}"] [data-a="wm"]`);
+    await weightMenu('wm');
+    await weightMenu('wm');
     await expect.poll(async () => (await list(page)).find((s) => s.id === s2)?.weight).toBe(0);
-    await expect(page.locator(`#shapeList .row[data-id="${s2}"] [data-a="wm"]`)).toBeDisabled();
+    await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });
+    await expect(page.locator('#pop [data-k="wm"]')).toBeDisabled();
+    await page.keyboard.press('Escape');
 
     // the shape's own colour (the picker's answer), and back to the default
     await page.click(`#shapeList .row[data-id="${s2}"]`, { button: 'right' });

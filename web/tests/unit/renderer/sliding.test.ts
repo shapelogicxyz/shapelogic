@@ -54,11 +54,22 @@ const shape = (id: string, label: string, startGoal: number | null = null): Shap
 describe('the sliding options', () => {
   it('start with Find Solutions and the full search; read the sliding solver names', () => {
     const o = readOptions({}, undefined, 'sliding');
-    expect(o).toMatchObject({ disassemble: true, slidingSolver: 'full', nestedSlides: false });
+    expect(o).toMatchObject({
+      disassemble: true,
+      slidingSolver: 'full',
+      nestedSlides: false,
+      verticalMoves: false,
+    });
     // a brick puzzle's defaults are as they were
     expect(readOptions({}).disassemble).toBe(false);
     const s = readOptions(
-      { solverType: 'deep', nestedSlides: true, partialNested: true, highMemory: true },
+      {
+        solverType: 'deep',
+        nestedSlides: true,
+        partialNested: true,
+        verticalMoves: true,
+        highMemory: true,
+      },
       undefined,
       'sliding',
     );
@@ -66,6 +77,7 @@ describe('the sliding options', () => {
       slidingSolver: 'deep',
       nestedSlides: true,
       partialNested: true,
+      verticalMoves: true,
       highMemory: true,
       solver: 'classic',
     });
@@ -77,7 +89,7 @@ describe('the sliding options', () => {
   it('store the sliding boxes and solver with a sliding puzzle only', () => {
     const o = readOptions({}, undefined, 'sliding');
     const w = writeOptions(
-      { ...o, slidingSolver: 'fast', highMemory: true },
+      { ...o, slidingSolver: 'fast', verticalMoves: true, highMemory: true },
       { other: 'x' },
       'sliding',
     );
@@ -86,6 +98,7 @@ describe('the sliding options', () => {
       highMemory: true,
       nestedSlides: false,
       partialNested: false,
+      verticalMoves: true,
       other: 'x',
     });
     const b = writeOptions(readOptions({}), { highMemory: true });
@@ -93,6 +106,7 @@ describe('the sliding options', () => {
     // a brick puzzle keeps what it stored of them
     expect(b.highMemory).toBe(true);
     expect('nestedSlides' in b).toBe(false);
+    expect('verticalMoves' in b).toBe(false);
   });
 
   it('follow updateSolverOptionCheckboxes: no symmetry, levels or colours; partial needs nested', () => {
@@ -132,8 +146,17 @@ describe('the sliding options', () => {
       justCount: false,
       keepAtMost: 100,
       keepEach: 1,
-      sliding: { solver: 'full', nestedSlides: false, partialNested: false, highMemory: true },
+      sliding: {
+        solver: 'full',
+        nestedSlides: false,
+        partialNested: false,
+        verticalMoves: false,
+        highMemory: true,
+      },
     });
+    expect(
+      solveOptions({ ...o, verticalMoves: true }, DEFAULT_LIMITS, 'sliding').sliding?.verticalMoves,
+    ).toBe(true);
     expect(
       solveOptions({ ...o, nestedSlides: true }, DEFAULT_LIMITS, 'sliding').sliding?.partialNested,
     ).toBe(true);

@@ -476,11 +476,12 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
 
 namespace {
 
-// The original's check boxes (mainwindow_solve.cpp's optionNames).
-constexpr std::array<std::string_view, 12> kSolverBoxes = {
-    "disassemble",   "checkRotations", "justCount",     "justLevels",
-    "deepSymmetry",  "keepMirrors",    "keepRotations", "strictColors",
-    "nestedSlides",  "partialNested",  "highMemory",    "autosave"};
+// The original's check boxes (mainwindow_solve.cpp's optionNames), and
+// verticalMoves, which sliding trays of several layers added.
+constexpr std::array<std::string_view, 13> kSolverBoxes = {
+    "disassemble",  "checkRotations", "justCount",     "justLevels",    "deepSymmetry",
+    "keepMirrors",  "keepRotations",  "strictColors",  "nestedSlides",  "partialNested",
+    "verticalMoves", "highMemory",    "autosave"};
 
 bool isBox(std::string_view name) {
   for (const std::string_view b : kSolverBoxes) {
@@ -573,6 +574,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
       o.sliding.solver = sp.optChoice("solver", slidingSolverNames()).value_or(o.sliding.solver);
       o.sliding.nested = sp.optBoolean("nestedSlides", o.sliding.nested);
       o.sliding.partialNested = sp.optBoolean("partialNested", o.sliding.partialNested);
+      o.sliding.verticalMoves = sp.optBoolean("verticalMoves", o.sliding.verticalMoves);
       o.sliding.highMemory = sp.optBoolean("highMemory", o.sliding.highMemory);
       if (RpcResult<void> r = sp.finish(); !r) {
         RpcError e = r.error();

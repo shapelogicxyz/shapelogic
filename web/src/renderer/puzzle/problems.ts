@@ -16,7 +16,7 @@ import { $$, byId, esc, forgetHtml, markSelected, setHtml } from '../shell/dom.t
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { flash } from '../shell/status.ts';
-import { PROBLEM_CHIP, solveActive } from './counts.ts';
+import { problemChipStyle, solveActive } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
 export class ProblemsList {
@@ -64,7 +64,7 @@ export class ProblemsList {
       problems
         .map((q, n) => {
           const busy = solveActive(q.solve) || q.analysing;
-          return `<div class="row" draggable="true" role="option" aria-selected="false" data-id="${q.id}" data-i="${n}" title="Drag the handle to reorder — double-click to rename${busy ? ' — being solved' : ''}"><span class="grip" title="Drag to reorder">${ic('grip', 14)}</span><span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(q.label)}</span><span class="lbl">${esc(q.name)}</span><span class="acts"><button class="ib" data-a="rename" title="Rename">${ic('edit', 14)}</button>${fixed ? '' : `<button class="ib" data-a="dup" title="Duplicate">${ic('copy', 14)}</button><button class="ib del" data-a="del" title="Delete" ${problems.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button>`}</span></div>`;
+          return `<div class="row" draggable="true" role="option" aria-selected="false" data-id="${q.id}" data-i="${n}" title="Drag the handle to reorder — double-click to rename${busy ? ' — being solved' : ''}"><span class="grip" title="Drag to reorder">${ic('grip', 14)}</span><span class="chip" style="${problemChipStyle(n)}">${esc(q.label)}</span><span class="lbl">${esc(q.name)}</span><span class="acts"><button class="ib" data-a="rename" title="Rename">${ic('edit', 14)}</button>${fixed ? '' : `<button class="ib" data-a="dup" title="Duplicate">${ic('copy', 14)}</button><button class="ib del" data-a="del" title="Delete" ${problems.length < 2 ? 'disabled' : ''}>${ic('trash', 14)}</button>`}</span></div>`;
         })
         .join(''),
     );

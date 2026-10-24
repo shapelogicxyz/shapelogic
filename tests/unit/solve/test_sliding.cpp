@@ -1588,8 +1588,9 @@ TEST_CASE("sliding: a stamp on a tray of layers marks the whole piece", "[slidin
   CHECK(startGoalError(puz, trayId).find("not the whole piece") != std::string::npos);
 }
 
-// On a tray of layers a piece may move up and down too: here a cube is
-// lifted over another and put down on the far side, one move.
+// On a tray of layers, with vertical moves, a piece may move up and down
+// too: here a cube is lifted over another and put down on the far side, one
+// move. Without them it stays in its layer and cannot get past.
 TEST_CASE("sliding: a piece is lifted over another on a tray of layers", "[sliding]") {
   const auto build = [](unsigned int layers) {
     SlideFixture f = slideFixture(3, 1, {{1, 1, 0, 0, 2, 0}, {1, 1, 1, 0, 1, 0}});
@@ -1599,8 +1600,14 @@ TEST_CASE("sliding: a piece is lifted over another on a tray of layers", "[slidi
   for (int legacy = 0; legacy < 2; legacy++) {
     INFO("legacy " << legacy);
     SlideFixture f = build(2);
+    SlideSearch inLayer;
+    inLayer.legacy = legacy != 0;
+    CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, inLayer).has_value());
+    CHECK(inLayer.outcome == SlideOutcome::NoPath);
+
     SlideSearch search;
     search.legacy = legacy != 0;
+    search.verticalMoves = true;
     const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
     REQUIRE(path.has_value());
     REQUIRE(path->getMoves() == 1);
@@ -1623,7 +1630,9 @@ TEST_CASE("sliding: a piece is lifted over another on a tray of layers", "[slidi
 
   // one layer: no way past
   SlideFixture flat = build(1);
-  CHECK_FALSE(findSlidePath(flat.puz, flat.pr(), *flat.start).has_value());
+  SlideSearch vertical;
+  vertical.verticalMoves = true;
+  CHECK_FALSE(findSlidePath(flat.puz, flat.pr(), *flat.start, vertical).has_value());
 }
 
 // A piece whose shape changes loses its start and goal; one that is only

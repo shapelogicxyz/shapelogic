@@ -29,15 +29,15 @@ Needs Node 22 (`brew install node@22`) and, for the engine tests, the
 release engine (`just build release`). From the repository's root:
 
 ```bash
-just web-install   # npm ci: the pinned packages
-just web-gen       # src/engine/api.generated.ts from api/*.json (after a schema change)
-just web-check     # type checks (node and renderer projects), ESLint, Prettier
-just web-test      # unit tests; the engine tests too when the release engine exists
-just web-dev       # the app (electron-vite dev, reloads on change)
-just web-e2e       # build, then the end-to-end tests (Playwright's Electron driver)
+just app-install   # npm ci: the pinned packages
+just app-gen       # src/engine/api.generated.ts from api/*.json (after a schema change)
+just app-check     # type checks (node and renderer projects), ESLint, Prettier
+just app-test      # unit tests; the engine tests too when the release engine exists
+just app-dev       # the app (electron-vite dev, reloads on change)
+just app-e2e       # build, then the end-to-end tests (Playwright's Electron driver)
 ```
 
-`just web-e2e -g picking` passes arguments to Playwright;
+`just app-e2e -g picking` passes arguments to Playwright;
 `--update-snapshots` records the reference screenshots again (look at them
 first: `tests/e2e/__screenshots__`). The e2e tests open windows on the
 screen, one at a time. Both recipes clear `ELECTRON_RUN_AS_NODE`, which
@@ -50,10 +50,10 @@ fake engine's sessions again (after a change to what the engine sends),
 ## Packaging
 
 ```bash
-just web-dist          # the installers for this machine: macOS .dmg and .zip, Windows NSIS, Linux AppImage and .deb
-just web-dist --dir    # the unpacked app only (dist/mac-arm64/, dist/win-unpacked/, dist/linux-unpacked/)
-just build release-x64 && just web-dist --arch x64   # an Intel Mac's app, on an Apple silicon Mac
-just web-smoke         # the smoke test of the unpacked app (after `just web-dist --dir`)
+just app-dist          # the installers for this machine: macOS .dmg and .zip, Windows NSIS, Linux AppImage and .deb
+just app-dist --dir    # the unpacked app only (dist/mac-arm64/, dist/win-unpacked/, dist/linux-unpacked/)
+just build release-x64 && just app-dist --arch x64   # an Intel Mac's app, on an Apple silicon Mac
+just app-smoke         # the smoke test of the unpacked app (after `just app-dist --dir`)
 ```
 
 `tools/dist.ts` builds for the platform it runs on only (the engine is
@@ -61,7 +61,7 @@ built natively); it puts `build/release/engine/shapelogic_engine` (on macOS
 `build/release-<arch>/` for the other architecture) into the app's
 resources, after checking its architecture and that `--version` says
 CMakeLists.txt's version, which the app takes too (read at build). The
-output is in `dist/`. `web-smoke` starts the unpacked app as a user would,
+output is in `dist/`. `app-smoke` starts the unpacked app as a user would,
 with a fixture on its command line, and drives its page over Chromium's
 DevTools protocol (the app's fuses turn `--inspect` off, so Playwright's
 Electron driver cannot reach it): the fuses, the archive, the engine's
@@ -113,7 +113,7 @@ Chrome (`--headed` shows it).
 - The tests run `build/release/engine/shapelogic_engine`, or `BT_ENGINE` when it is
   set, from the repository's root (fixtures are opened by relative path).
   Without one the engine tests are skipped and the run says so; so are the
-  e2e tests, which also need `npm run build` (`just web-e2e` builds).
+  e2e tests, which also need `npm run build` (`just app-e2e` builds).
 - The app in development (`src/main/engine-path.ts`) runs `BT_ENGINE`,
   else `build/dev/engine/shapelogic_engine`, else the release one. A packaged app
   runs the copy in its resources and nothing else: it ignores `BT_ENGINE`,

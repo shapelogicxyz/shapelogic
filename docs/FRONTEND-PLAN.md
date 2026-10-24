@@ -90,10 +90,10 @@ localisation are not planned yet.
   framework:** the mockup is plain DOM with template strings and
   re-renders a card from state; porting it to React would be a rewrite.
   Revisit after stage 2 if the pattern hurts.
-- **Recipes** (`justfile`): `web-install`, `web-gen` (the types),
-  `web-dev` (the app against `build/dev` or `BT_ENGINE`), `web-check`
-  (`tsc --noEmit`, eslint), `web-test` (unit; the engine tests when
-  `build/release/engine/shapelogic_engine` exists), `web-e2e`, `web-dist`.
+- **Recipes** (`justfile`): `app-install`, `app-gen` (the types),
+  `app-dev` (the app against `build/dev` or `BT_ENGINE`), `app-check`
+  (`tsc --noEmit`, eslint), `app-test` (unit; the engine tests when
+  `build/release/engine/shapelogic_engine` exists), `app-e2e`, `app-dist`.
 - **Prerequisites on this machine:** Node 22 (installed: 22.23.3,
   Homebrew); Playwright's Electron driver needs no browser download; the
   engine tests need `just build release`.
@@ -109,7 +109,7 @@ model column is the recommendation of "Models, effort and audits".
 | Session | Stage | Work | Model | Effort | Gate |
 |---|---|---|---|---|---|
 | 1 | 1a | Toolchain; TypeScript types generated from `api/`; the engine client: framing, frames, typed calls, events, `engine.hello`, restart | Opus 5.5 | extra high | framing replays byte-identical at every chunk size; the generated types are current and name every `engine.info` method; the client passes the scripted session against the real engine; events in decision 0012's order |
-| 2 | 1b | The shell from the mockup; the 3D view in three.js drawing `shape.mesh` frames; picking; the view cube | Opus 5.5 | high | every shape of every fixture drawn in all styles on all five grids (reference screenshots); a click names the cell and side the frame says; the keyboard map's shell rows work; `web-e2e` runs |
+| 2 | 1b | The shell from the mockup; the 3D view in three.js drawing `shape.mesh` frames; picking; the view cube | Opus 5.5 | high | every shape of every fixture drawn in all styles on all five grids (reference screenshots); a click names the cell and side the frame says; the keyboard map's shell rows work; `app-e2e` runs |
 | 3 | 2 | Entities workspace: shapes list, 2D editor on `grid.geometry`, tools, drags as one undo step, planes and layers, size, palette, transforms, 3D edit, undo/redo | Opus 5.5 | high | a fixture's shapes rebuilt through the editor equal its cells; a drag is one undo step; every `shape.taskSet` button works on every grid; nothing refused by the engine during the scenario |
 | 4 | 3 | Puzzle workspace: problems, result, pieces, counts and ranges, groups, colour rules, fit, the pieces scene | Opus 5.5 | medium | a fixture's problem rebuilt through the UI equals `problem.get`; the fit line equals `problem.fit` |
 | 5 | 4 | Solver workspace: options, Solve / Prepare / Continue / Pause / Abort, progress, solutions list and slider, remove, analyse, the player on `playback.*`, autosave; the dt-less orientation fix in the core | Opus 5.5 | extra high | counts equal `bt --json`'s on the fixtures; the list in every sort equals `solution.page`; the player's poses equal `playback.poses`; pause, continue, abort, save point, error run; fake-engine replays of every event-order rule |
@@ -121,7 +121,7 @@ model column is the recommendation of "Models, effort and audits".
 Engine additions the stages need (the "What the API lacks" table) are
 made in the stage that needs them, each as its own commit on the C++
 side following api/README.md's "Adding a method" (schema, handler,
-contract call, `gen_api_md.py`, then `just web-gen`), never silently.
+contract call, `gen_api_md.py`, then `just app-gen`), never silently.
 
 **Recommended audits** (by the highest available model, max effort, given
 the diff, the gate results and this plan, reporting findings with
@@ -195,7 +195,7 @@ test regenerates into memory and fails when the committed file is stale
   reload); `preload.ts` exposes `window.bt`; `renderer/engine-proxy.ts`
   has `EngineClient`'s interface.
 
-**Gate.** `just web-check` clean. Framing: recordings of the real engine
+**Gate.** `just app-check` clean. Framing: recordings of the real engine
 replayed in chunks of 1, 7, 4096 bytes and whole give the same messages
 and frames; a 0-byte frame; a line that is not JSON; the engine closing
 mid-frame; a 64 MiB line refused and the engine going on. Engine tests
@@ -258,7 +258,7 @@ and side the frame's arrays hold (an e2e over `tests/data/puzzles`).
 The shell rows of the keyboard map work (Ctrl+1/2/3, Ctrl+,, Ctrl+[ ],
 Ctrl+Space, Esc, O/P, Home, F). Orbiting the largest fixture mesh stays
 at the display's rate; the mesh build of a 1,000-cell shape under 10 ms
-(measured, in the handoff). `just web-e2e` runs under Playwright.
+(measured, in the handoff). `just app-e2e` runs under Playwright.
 
 ### Stage 2: the Entities workspace
 From the mockup's `renderShapes`, `renderInsp`, `renderTransform`,
@@ -489,7 +489,7 @@ surface and a fixture shape's STL loads in a viewer.
 electron-builder for macOS (arm64, x64), Windows and Linux; `shapelogic_engine`
 from the release preset in the bundle's resources (the host finds it
 there, or `BT_ENGINE`); one version for the app and the engine
-(`CMakeLists.txt`'s, read at build); `just web-dist`; the Electron
+(`CMakeLists.txt`'s, read at build); `just app-dist`; the Electron
 security checklist (sandbox, context isolation, no remote content, a
 CSP, no `shell.openExternal` on untrusted strings, file paths only from
 dialogs and drops) as a unit test over the window options; signing and
@@ -541,12 +541,12 @@ event of docs/API.md; the stage details name them.
 
 ## Finishing a front-end stage
 Every stage ends with, in this order:
-1. `just web-check`, `just web-test` (with the release engine built, so
-   the engine tests run), `just web-e2e`, each three times (a flaky e2e
+1. `just app-check`, `just app-test` (with the release engine built, so
+   the engine tests run), `just app-e2e`, each three times (a flaky e2e
    is a bug of the stage); after a core or engine change, the C++
    finishing steps of AGENTS.md for what changed (`just test-all`, the
    contract tests, `python3 api/gen_api_md.py`, the oracle tiers it
-   could touch), then `just web-gen` and the staleness test.
+   could touch), then `just app-gen` and the staleness test.
 2. The reference screenshots reviewed when they changed.
 3. `docs/ARCHITECTURE.md` updated (the `web` section: what exists).
 4. `docs/handoff/web-N.md`: what was done, gate results, what the mockup

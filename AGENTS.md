@@ -34,14 +34,14 @@ just python-wheel       # its wheel in build/wheel, installed into a fresh venv 
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check              # clang-tidy (needs LLVM installed)
 just format             # clang-format
-just web-install        # the web front end's packages (npm ci; Node 22)
-just web-gen            # web/src/engine/api.generated.ts from api/*.json
-just web-check          # the front end's type checks, ESLint, Prettier
-just web-test           # its unit tests, and engine tests against build/release
-just web-dev            # run the app (electron-vite dev); alias: just app-dev
-just web-e2e            # build the app, run its Playwright e2e tests
-just web-dist [--dir]   # the packaged app for this platform (electron-builder), in web/dist
-just web-smoke          # the packaged app's smoke test (after just web-dist --dir)
+just app-install        # the web front end's packages (npm ci; Node 22)
+just app-gen            # web/src/engine/api.generated.ts from api/*.json
+just app-check          # the front end's type checks, ESLint, Prettier
+just app-test           # its unit tests, and engine tests against build/release
+just app-dev            # run the app (electron-vite dev)
+just app-e2e            # build the app, run its Playwright e2e tests
+just app-dist [--dir]   # the packaged app for this platform (electron-builder), in web/dist
+just app-smoke          # the packaged app's smoke test (after just app-dist --dir)
 just site-build         # the website and user guide (site/): build, link check, the Help URLs
 just site-dev           # the site with live reload
 just docs-screenshots   # retake the guide's screenshots from the built app
@@ -173,7 +173,7 @@ docs/webui-spec.md, docs/API.md, decisions 0012 and 0013, and the newest
   ported C++ does.
 - An engine addition a stage needs is its own commit on the C++ side
   (`Engine: <method>`), following api/README.md's "Adding a method", then
-  `just web-gen`; never silently.
+  `just app-gen`; never silently.
 
 **Code.** TypeScript, strict (`noUncheckedIndexedAccess` on); ESLint's
 strict type-checked rules and Prettier decide the rest. Relative imports
@@ -194,12 +194,12 @@ to the release build (the 2x4x5 dominoes box runs about 9 s on one
 thread).
 
 **Finishing a front-end stage**, in this order:
-1. `just web-check`, `just web-test` (with the release engine built, so
-   the engine tests run) and `just web-e2e` (from stage 1b), each three
+1. `just app-check`, `just app-test` (with the release engine built, so
+   the engine tests run) and `just app-e2e` (from stage 1b), each three
    times (a flaky test is a bug of the stage); after a core or engine
    change, the C++ finishing steps above for what changed (`just
    test-all`, the contract tests, `python3 api/gen_api_md.py`, the oracle
-   tiers it could touch), then `just web-gen` and the staleness test.
+   tiers it could touch), then `just app-gen` and the staleness test.
 2. The reference screenshots reviewed when they changed (from stage 1b).
 3. `docs/ARCHITECTURE.md` updated (its `web` section: what exists).
 4. `docs/handoff/web-N.md`: what was done, gate results, what the mockup

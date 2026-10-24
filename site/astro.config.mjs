@@ -93,9 +93,23 @@ export default defineConfig({
           label: 'Advanced Topics',
           items: [
             { label: 'Color Restrictions', slug: 'docs/color-restrictions' },
+            { label: 'Piece Weights', slug: 'docs/piece-weights' },
             { label: 'Piece Rotations (TIC)', slug: 'docs/piece-rotations' },
             { label: 'Solve Notation', slug: 'docs/solve-notation' },
             { label: 'Command Line Tool', slug: 'docs/command-line' },
+          ],
+        },
+        {
+          label: 'Code Base',
+          items: [
+            { label: 'Overview', slug: 'docs/code-base' },
+            { label: 'Languages and Tools', slug: 'docs/code-base/stack' },
+            { label: 'Repository Layout', slug: 'docs/code-base/file-structure' },
+            { label: 'Build, Test and Tool Commands', slug: 'docs/code-base/commands' },
+            { label: 'Where the Code Lives', slug: 'docs/code-base/core-functions' },
+            { label: 'Engine Protocol', slug: 'docs/code-base/engine-protocol' },
+            { label: 'Example Solve Flow', slug: 'docs/code-base/example-solve-flow' },
+            { label: 'Conventions and Further Reading', slug: 'docs/code-base/conventions' },
           ],
         },
       ],

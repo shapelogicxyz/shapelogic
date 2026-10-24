@@ -28,6 +28,7 @@ function place(x: number, y: number, above: number | null): void {
   const stage = byId('stage').getBoundingClientRect();
   p.style.left = '0px';
   p.style.top = '0px';
+  p.style.maxHeight = `${String(Math.max(120, stage.height - 16))}px`;
   const pw = p.offsetWidth;
   const ph = p.offsetHeight;
   let left = Math.max(8, Math.min(x - stage.left, stage.width - pw - 8));

@@ -43,14 +43,20 @@ namespace bt::sliding {
 namespace {
 
 // The six steps a piece can take: in its layer first, then down and up.
-// On a tray one layer deep the last two never fit, so a flat puzzle is
-// searched exactly as the original searched it.
+// Down and up are taken only with vertical moves (SlideSearch); on a tray
+// one layer deep they never fit, so a flat puzzle is searched exactly as
+// the original searched it either way.
 constexpr int kDirs = 6;
+constexpr int kLayerDirs = 4;
 constexpr int kDx[kDirs] = {0, 0, -1, 1, 0, 0};
 constexpr int kDy[kDirs] = {-1, 1, 0, 0, 0, 0};
 constexpr int kDz[kDirs] = {0, 0, 0, 0, -1, 1};
 
 std::size_t idx(int v) { return static_cast<std::size_t>(v); }
+
+// The steps of kDx/kDy/kDz a piece may take: all six with vertical moves,
+// else the four in its layer.
+int dirsFor(bool vertical) { return vertical ? kDirs : kLayerDirs; }
 
 bool isFloor(const Voxel& tray, int x, int y, int z) {
   if (x < 0 || y < 0 || z < 0 || asUnsigned(x) >= tray.getX() || asUnsigned(y) >= tray.getY() ||
@@ -336,7 +342,8 @@ bool groupFits(const FreeGrid& g, const std::vector<Cell3List>& cells, const Sli
 // Every shift the movers can reach as one group while the others stay put.
 // One move of the solver is a jump to any of them, whatever the route.
 ShiftList reachableShifts(const Voxel& tray, const std::vector<Cell3List>& cells,
-                          const SlideState& s, const std::vector<unsigned int>& movers) {
+                          const SlideState& s, const std::vector<unsigned int>& movers,
+                          bool vertical) {
   const FreeGrid g = freeCells(tray, cells, s, movers);
   std::set<SlideShift> seen{{0, 0, 0}};
   ShiftList out;
@@ -345,7 +352,7 @@ ShiftList reachableShifts(const Voxel& tray, const std::vector<Cell3List>& cells
   while (!q.empty()) {
     const SlideShift c = q.front();
     q.pop();
-    for (int d = 0; d < kDirs; d++) {
+    for (int d = 0; d < dirsFor(vertical); d++) {
       const SlideShift n{c[0] + kDx[d], c[1] + kDy[d], c[2] + kDz[d]};
       if (seen.count(n) != 0 || !groupFits(g, cells, s, movers, n)) {
         continue;
@@ -360,9 +367,10 @@ ShiftList reachableShifts(const Voxel& tray, const std::vector<Cell3List>& cells
 
 // The corner points, as shifts from the start, of a route with the fewest
 // straight runs that takes the movers to shift `to`, start and end
-// included. Empty when unreachable.
+// included, in their layer only unless `vertical`. Empty when unreachable.
 ShiftList fewestTurns(const Voxel& tray, const std::vector<Cell3List>& cells, const SlideState& s,
-                      const std::vector<unsigned int>& movers, const SlideShift& to) {
+                      const std::vector<unsigned int>& movers, const SlideShift& to,
+                      bool vertical) {
   const FreeGrid g = freeCells(tray, cells, s, movers);
   const SlideShift from{0, 0, 0};
   std::map<SlideShift, SlideShift> came{{from, from}};
@@ -371,7 +379,7 @@ ShiftList fewestTurns(const Voxel& tray, const std::vector<Cell3List>& cells, co
   while (!q.empty() && came.count(to) == 0) {
     const SlideShift c = q.front();
     q.pop();
-    for (int d = 0; d < kDirs; d++) {
+    for (int d = 0; d < dirsFor(vertical); d++) {
       SlideShift n = c;
       for (;;) {
         n[0] += kDx[d];
@@ -515,7 +523,8 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
         }
       }
       for (const std::vector<unsigned int>& movers : moverSets) {
-        for (const SlideShift& shift : reachableShifts(tray, cells, cur, movers)) {
+        for (const SlideShift& shift :
+             reachableShifts(tray, cells, cur, movers, search.verticalMoves)) {
           SlideState next = cur;
           for (const unsigned int m : movers) {
             next.places[m].x += shift[0];
@@ -612,6 +621,8 @@ struct PosTable {
   // wholly inside.
   std::vector<std::uint64_t> outline;
   std::vector<char> atGoal;
+  // Whether a piece may stop at each position (SlideSearch::step).
+  std::vector<char> rest;
   // Where this piece's position number sits in a packed arrangement.
   unsigned int shift = 0;
   std::uint64_t bits = 0;
@@ -633,8 +644,8 @@ struct PosTable {
 // overran its fixed arrays there) more than 64 pieces with nested slides.
 bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
                  const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
-                 const GoalCheck& goals, unsigned int keyBits, std::size_t& words,
-                 std::vector<PosTable>& tables) {
+                 const GoalCheck& goals, unsigned int keyBits, bool vertical, int step,
+                 std::size_t& words, std::vector<PosTable>& tables) {
   const int W = asInt(tray.getX());
   const int H = asInt(tray.getY());
   const int D = asInt(tray.getZ());
@@ -717,6 +728,7 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
             }
           }
           t.atGoal.push_back(goals.piece(i, Place{x, y, home.trans, z}) ? 1 : 0);
+          t.rest.push_back((x - home.x) % step == 0 && (y - home.y) % step == 0 ? 1 : 0);
         }
       }
     }
@@ -728,7 +740,9 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
     t.next.resize(count);
     for (std::size_t k = 0; k < count; k++) {
       for (int d = 0; d < kDirs; d++) {
-        t.next[k][idx(d)] = t.at(t.px[k] + kDx[d], t.py[k] + kDy[d], t.pz[k] + kDz[d]);
+        t.next[k][idx(d)] = d < dirsFor(vertical)
+                                ? t.at(t.px[k] + kDx[d], t.py[k] + kDy[d], t.pz[k] + kDz[d])
+                                : -1;
       }
     }
 
@@ -873,13 +887,18 @@ struct SlideSpace {
   std::vector<std::vector<unsigned int>> copies;
   Key startKey = 0;
   Key startCanon = 0;
+  // SlideSearch::verticalMoves and step.
+  bool vertical = false;
+  int step = 1;
 
   // False when the tables cannot hold this search.
   bool build(const Voxel& tray, const std::vector<Cell3List>& cells,
              const std::vector<Cell3List>& outlines, bool nest, const SlideState& init,
-             const GoalCheck& goals, bool likePiecesApart) {
+             const GoalCheck& goals, bool likePiecesApart, bool verticalMoves, int stopStep) {
+    vertical = verticalMoves;
+    step = std::max(1, stopStep);
     if (!buildTables(tray, cells, outlines, nest, init, goals,
-                     static_cast<unsigned int>(8 * sizeof(Key)), words, t)) {
+                     static_cast<unsigned int>(8 * sizeof(Key)), vertical, step, words, t)) {
       return false;
     }
     n = static_cast<unsigned int>(init.places.size());
@@ -1046,6 +1065,9 @@ class SlideMover {
           }
           seen_[pi][idx(nb)] = epoch_;
           fill_.push_back(nb);
+          if (tp.rest[idx(nb)] == 0) {
+            continue;
+          }
           if (emit(clear | (static_cast<Key>(nb) << tp.shift), false)) {
             return true;
           }
@@ -1117,7 +1139,7 @@ class SlideMover {
         shiftQueue_.assign(1, {0, 0, 0});
         for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
           const SlideShift c = shiftQueue_[head];
-          for (int d = 0; d < kDirs; d++) {
+          for (int d = 0; d < dirsFor(s_.vertical); d++) {
             const SlideShift nb{c[0] + kDx[d], c[1] + kDy[d], c[2] + kDz[d]};
             // a shift as wide as the tray fits nothing
             if (nb[0] < -trayW || nb[0] > trayW || nb[1] < -trayH || nb[1] > trayH ||
@@ -1130,6 +1152,9 @@ class SlideMover {
             }
             seenAt(nb) = shiftEpoch_;
             shiftQueue_.push_back(nb);
+            if (nb[0] % s_.step != 0 || nb[1] % s_.step != 0) {
+              continue;
+            }
             if (emit(key, true)) {
               return true;
             }
@@ -2001,7 +2026,8 @@ bool tableSearch(const Voxel& tray, const std::vector<Cell3List>& cells,
                  const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
                  const GoalCheck& goals, SlideSearch& search, std::vector<SlideState>& path) {
   SlideSpace<Key> space;
-  if (!space.build(tray, cells, outlines, nested, initial, goals, search.likePiecesApart)) {
+  if (!space.build(tray, cells, outlines, nested, initial, goals, search.likePiecesApart,
+                   search.verticalMoves, search.step)) {
     return false;
   }
   space.partial = nested && search.partialNested;
@@ -2070,6 +2096,8 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   s.legacy = options.legacy;
   s.likePiecesApart = options.likePiecesApart;
   s.fullThroughQueue = options.fullThroughQueue;
+  s.verticalMoves = options.verticalMoves;
+  s.step = options.step;
   return s;
 }
 
@@ -2233,7 +2261,16 @@ std::vector<SlideShift> slideRoute(const Puzzle& puzzle, const Problem& problem,
   if (movers != nullptr) {
     *movers = moving;
   }
-  return fewestTurns(problem.resultShape(puzzle), cells, st, moving, shift);
+  // a move that ends in its layer is drawn in it when it can be, which it
+  // always can when the search kept the pieces in their layers
+  const Voxel& tray = problem.resultShape(puzzle);
+  if (shift[2] == 0) {
+    ShiftList flat = fewestTurns(tray, cells, st, moving, shift, false);
+    if (!flat.empty()) {
+      return flat;
+    }
+  }
+  return fewestTurns(tray, cells, st, moving, shift, true);
 }
 
 void applySlideRoutes(const Puzzle& puzzle, const Problem& problem, const Separation& path,

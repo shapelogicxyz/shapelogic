@@ -44,6 +44,7 @@ struct Options {
   // burrTxt's sliding options
   bool nestedSlides = false;   ///< --nested-slides
   bool partialNested = false;  ///< --partial-nested (implies --nested-slides)
+  bool verticalMoves = false;  ///< --vertical-moves: sliding pieces may move up and down
   bool highMemory = false;     ///< --high-memory
   /// --solver of a sliding puzzle: the full search unless it says (burrTxt's
   /// and the GUI's default).
@@ -76,6 +77,7 @@ struct Options {
   // the slide search's (the original's SHAPELOGIC_SLIDE_* switches)
   bool slideLegacy = false;  ///< --slide-legacy: the search over text keys
   bool slideApart = false;   ///< --slide-apart: like pieces told apart
+  int slideStep = 1;         ///< --slide-step N: pieces stop only N cells apart in x and y
   bool slideQueue = false;   ///< --slide-queue: a full search through the queue
   bool slideTrace = false;   ///< --slide-trace: each level of a full search on stderr
   // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)

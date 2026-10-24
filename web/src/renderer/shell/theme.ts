@@ -4,10 +4,12 @@
 // (data-theme on the document; System follows the operating system),
 // `isDarkTheme`, `applyDensity` (data-density; Minimal hides captions, so
 // `svDensityTitles` gives every such control its caption as a tooltip),
-// and the "Show tooltips" setting (titles held back while it is off).
+// and the "Show tooltips" setting (titles held back while it is off). The
+// tips themselves are drawn by the page (tooltip.ts).
 
 import { $$ } from './dom.ts';
 import { onPrefs, prefs } from './prefs.ts';
+import { installTooltips, releaseTip } from './tooltip.ts';
 
 const themeListeners = new Set<() => void>();
 
@@ -58,7 +60,13 @@ function densityTitles(): void {
     return;
   }
   const set = (el: HTMLElement, text: string | null | undefined): void => {
-    if (el.title === '' && el.dataset.tip === undefined && text !== null && text !== undefined) {
+    if (
+      el.title === '' &&
+      el.dataset.tip === undefined &&
+      el.dataset.hoverTitle === undefined &&
+      text !== null &&
+      text !== undefined
+    ) {
       const t = text.replace(/\s+/g, ' ').trim();
       if (t !== '') {
         el.title = t;
@@ -77,6 +85,7 @@ function densityTitles(): void {
 
 // "Show tooltips" off: titles move to data-tip, and back when it is on
 function applyTips(root: ParentNode = document): void {
+  releaseTip();
   if (prefs.tips) {
     for (const el of $$('[data-tip]', root)) {
       el.title = el.dataset.tip ?? '';
@@ -94,6 +103,7 @@ function applyTips(root: ParentNode = document): void {
 
 /** Applies theme, density and tooltips now and whenever they change. */
 export function installTheme(): void {
+  installTooltips();
   applyTheme();
   applyDensity();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {

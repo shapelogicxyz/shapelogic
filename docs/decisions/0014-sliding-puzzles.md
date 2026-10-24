@@ -121,6 +121,21 @@ trays of two layers hold a piece as tall as the tray, so their answers
 stay too. Pieces still only translate: a puzzle whose goal needs a piece
 turned has no sliding path.
 
+**Vertical moves are an option, off by default** (added later). A tray
+of several layers is often a flat puzzle whose pieces have parts in more
+than one layer, not a box to lift pieces out of; and an open layer above
+lets every flat piece park almost anywhere, which multiplies the
+arrangements (an 8x8 tray of two layers with eight 2x2 pieces: about 4.7
+times more each move, past 16 GB by the eighth move; in their layers the
+pieces reach about 500,000 arrangements and the 33 moves are found in
+under a second).
+So a piece stays in its layer unless `SlidingOptions::verticalMoves` is
+on: the Solver's Allow Vertical Moves, stored with the problem as the
+setting `verticalMoves`, `bt --vertical-moves`, the Python module's
+`vertical_moves`. A move that ends in its layer is drawn in it when it can
+be. With the option off a tray of several layers that has no solution
+says to try it; one layer deep, nothing changes.
+
 ## Consequences
 - The oracle harness has a `sliding` tier: the fixtures and puzzles built
   with the original's code from its `test_sliding.cpp`

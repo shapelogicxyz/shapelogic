@@ -163,6 +163,13 @@ export const G = {
       sz,
     );
   },
+  /** The tool strip's Select: a dotted square, the pointer at its bottom right. */
+  select(sz = 30): string {
+    return gsv(
+      '<rect x="3" y="3" width="20" height="20" rx="1.5" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 2.5"/><path d="M17 16l11 4.6-4.6 1.6-1.6 4.6z" fill="currentColor" stroke="var(--panel2)" stroke-width="1.2"/>',
+      sz,
+    );
+  },
   surf(op: SurfOp, part: 'inner' | 'outer', sz = 30): string {
     let c = '';
     const ring = (i: number, j: number): boolean => i === 0 || j === 0 || i === 3 || j === 3;

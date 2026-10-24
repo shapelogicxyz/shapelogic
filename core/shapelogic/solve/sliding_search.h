@@ -7,9 +7,9 @@
 ///
 /// One move is one piece going anywhere it can reach while the others stay
 /// put, round corners included; with nested slides a piece may carry what
-/// is nested in its outline. On a tray more than one layer deep a piece
-/// may also go up and down (lifted out of a box and put back elsewhere);
-/// on a tray one layer deep it stays in its layer, as in the original. A
+/// is nested in its outline. A piece stays in its layer; with vertical
+/// moves, on a tray more than one layer deep, it may also go up and down
+/// (lifted out of a box and put back elsewhere). A
 /// limited search (the Fast and Deep solvers) goes breadth first through a
 /// queue and stops at a number of
 /// arrangements; the full search goes level by level, keeps only the
@@ -99,6 +99,9 @@ struct SlideSearch {
   /// A further move: the moves that leave such pieces behind stay. Implies
   /// nested.
   bool partialNested = false;
+  /// On a tray more than one layer deep, let a piece also move up and
+  /// down; off, every piece stays in its layer.
+  bool verticalMoves = false;
   /// Polled as the search runs; a stop request ends it (Stopped).
   StopToken stop;
   /// When set, kept up to date with the arrangements visited so far.
@@ -130,6 +133,11 @@ struct SlideSearch {
   bool legacy = false;
   bool likePiecesApart = false;
   bool fullThroughQueue = false;
+  /// Coarse moves: a piece may stop only where it is a multiple of this
+  /// many cells from its start in x and in y (it still passes through the
+  /// cells between). 1 searches every stop. Above 1 the search is a
+  /// restriction: a path it finds is real, but NoPath proves nothing.
+  int step = 1;
   /// Told each level a full search finishes; empty for none.
   SlideLevelTrace onLevel;
 
@@ -160,14 +168,17 @@ enum class SlidingSolver : std::uint8_t {
 
 /// What a sliding solve asks of each search (the solve thread's sliding
 /// flags: PAR_DEEP_SEARCH, PAR_FULL_SEARCH, PAR_NESTED_SLIDES,
-/// PAR_PARTIAL_NESTED, PAR_HIGH_MEMORY), and where a full search keeps its
-/// levels.
+/// PAR_PARTIAL_NESTED, PAR_HIGH_MEMORY; and vertical moves, which the
+/// original, whose trays were one layer deep, did not have), and where a
+/// full search keeps its levels.
 struct SlidingOptions {
   /// The GUI's default is the full search.
   SlidingSolver solver = SlidingSolver::Full;
   bool nested = false;
   /// Implies nested.
   bool partialNested = false;
+  /// SlideSearch::verticalMoves.
+  bool verticalMoves = false;
   bool highMemory = false;
   /// SlideSearch::workDir and diskBudget: set by the program (the CLI from
   /// SHAPELOGIC_SLIDE_DIR or the user's cache folder, the engine from its
@@ -178,14 +189,16 @@ struct SlidingOptions {
   bool legacy = false;
   bool likePiecesApart = false;
   bool fullThroughQueue = false;
+  /// SlideSearch::step.
+  int step = 1;
 };
 
 /// The arrangements a solver visits at most (kFullSearch for Full).
 [[nodiscard]] std::uint64_t maxStatesOf(SlidingSolver solver);
 
 /// A search set up as the options say (maxStates, nested, partialNested,
-/// highMemory, workDir, diskBudget, the switches); the rest is the
-/// caller's.
+/// verticalMoves, highMemory, workDir, diskBudget, the switches); the rest
+/// is the caller's.
 [[nodiscard]] SlideSearch slideSearchFor(const SlidingOptions& options);
 
 /// A path with the fewest moves from the start assembly to the goal of

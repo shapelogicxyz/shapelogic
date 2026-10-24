@@ -35,7 +35,7 @@ import { flash, reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
 import type { View3D } from '../view3d/view.ts';
 import type { Plane } from '../view3d/overlays.ts';
-import { Edit3D } from './edit3d.ts';
+import { Edit3D, editHelp } from './edit3d.ts';
 import { EditorCard, nextColour } from './editor-card.ts';
 import { axesOf, EditorState, expand, planeMap, TOOLS } from './editor-state.ts';
 import type { Cell, PlaneMap } from './editor-state.ts';
@@ -208,8 +208,9 @@ export class EntitiesWorkspace {
       refuse,
       canEdit: () => !store.solving && tab === 'entities' && store.snapshot?.grid !== 'stacking',
       drawingHex: () => this.card.drawingHex(),
+      colourHex: (c) => this.card.colourHex(c),
       badge: () => this.badge(),
-      apply: (tool, cell) => this.apply3d(tool, cell),
+      apply: (tool, cell, colour) => this.apply3d(tool, cell, colour),
       track: (p) => this.track(p),
     });
     view.edit = this.edit3d;
@@ -282,10 +283,6 @@ export class EntitiesWorkspace {
       if (!isCube(snap?.grid) || snap?.grid === 'sliding') {
         this.state.plane = 'XY';
       }
-      // no paint on a sliding puzzle (no colours there)
-      if (snap?.grid === 'sliding' && this.state.tool === 'paint') {
-        this.state.tool = 'fixed';
-      }
       this.geos.clear();
       this.geo = null;
       this.geoKey = '';
@@ -305,6 +302,7 @@ export class EntitiesWorkspace {
     ) {
       this.state.colour = null;
     }
+    this.state.dropPaint();
     this.loadTasks();
     this.clampLayer();
     this.chooseStampPiece();
@@ -531,7 +529,7 @@ export class EntitiesWorkspace {
     this.closing = done;
   }
 
-  private async apply3d(tool: CellTool, cell: Cell): Promise<void> {
+  private async apply3d(tool: CellTool, cell: Cell, colour?: string | null): Promise<void> {
     const shape = this.store.selected;
     if (shape === null) {
       return;
@@ -539,12 +537,13 @@ export class EntitiesWorkspace {
     const st = this.state;
     const mirror = axesOf(st.mirror);
     const span = axesOf(st.span);
+    const c = colour === undefined ? st.colour : colour;
     await this.mutate('The voxel could not be changed', () =>
       this.store.engine.call('shape.setCells', {
         shape,
         tool,
         cells: [cell],
-        ...(tool !== 'erase' && st.colour !== null ? { colour: st.colour } : {}),
+        ...(tool !== 'erase' && c !== null ? { colour: c } : {}),
         ...(mirror.length === 0 ? {} : { mirror }),
         ...(span.length === 0 ? {} : { span }),
       }),
@@ -575,6 +574,7 @@ export class EntitiesWorkspace {
         on: this.state.edit3d,
         tmp: true,
         enabled: true,
+        help: editHelp(tool, grid),
       });
     }
   }
@@ -871,8 +871,9 @@ export class EntitiesWorkspace {
           if (!inEntities()) {
             return false;
           }
+          // Paint only with a restriction colour chosen (where its brush shows)
           if (
-            (t.id === 'paint' && this.store.snapshot?.grid === 'sliding') ||
+            (t.id === 'paint' && st.colour === null) ||
             this.store.snapshot?.grid === 'stacking'
           ) {
             return true;

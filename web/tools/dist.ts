@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The packaged app (stage 8, `just web-dist`): electron-builder over the
+// The packaged app (stage 8, `just app-dist`): electron-builder over the
 // build in out/ (electron-vite), with shapelogic_engine from the release preset in
 // the bundle's resources and one version for both, CMakeLists.txt's.
 //

@@ -4,7 +4,8 @@
 // and "can hold n–m" from problem.fit, Change…), the pieces in the puzzle
 // as chips (the problem's parts in their order; −/+ are the original's
 // one fewer / one more, minimum and maximum both) with All +1 and Clear All,
-// the Groups section (a table of count or range and group, and "Set range
+// the Groups section (a table of count or range, group and weight (−/+;
+// shown on a tile as "Weight: n" when not 1), and "Set range
 // for all pieces"; collapsed at first), "All pieces" (every shape but the result: drag a chip in,
 // double-click it or press its +; drag a tile out to take it out; a tile
 // dropped on another moves it there), the right-click menus (one more, one
@@ -26,6 +27,9 @@ import { countText, groupOf, groupsOf, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
 const cells = (s: ShapeSummary): number => s.fixed + s.variable;
+
+/** What a shape's weight does (the Groups table's tips). */
+const WEIGHT = 'in the Solver, heavier shapes stay in place and lighter ones move';
 
 /** Why a sliding piece's count cannot change (Part.required). */
 const REQUIRED =
@@ -79,7 +83,7 @@ export class PiecesCard {
       byId('pzResult').innerHTML = '';
     } else if (R === undefined) {
       byId('pzResult').innerHTML =
-        `<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b>No result</b><span>Choose the shape the pieces fill</span></div>${change}`;
+        `<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b>Result piece <span class="req">(required)</span></b><span>Choose the shape the pieces fill</span></div>${change}`;
     } else {
       const c = ws.chip(R.id);
       const hold = f === null ? '' : ` · can hold ${rng(f.resultMin, f.resultMax)}`;
@@ -116,9 +120,11 @@ export class PiecesCard {
       setHtml(gt, '');
     } else {
       const groups = groupsOf(d);
+      // a stacking puzzle's discs have no weight
+      const weighs = !stacking;
       setHtml(
         gt,
-        `<table class="pzt"><thead><tr><th class="l">Shape</th><th>Count</th><th title="Allow a min–max range">Range</th><th>Group</th></tr></thead><tbody>${parts
+        `<table class="pzt"><thead><tr><th class="l">Shape</th><th>Count</th><th title="Allow a min–max range">Range</th><th>Group</th>${weighs ? `<th title="${WEIGHT}">Weight</th>` : ''}</tr></thead><tbody>${parts
           .map((p) => {
             const s = byShape.get(p.shape);
             if (s === undefined) {
@@ -136,7 +142,10 @@ export class PiecesCard {
             const grp = fixedResult
               ? '–'
               : `<select data-grp aria-label="Group" title="Pieces of the same group may stay together: the disassembly is complete when only groups are left"><option value="">–</option>${groups.map((x) => `<option value="${String(x)}" ${g === x ? 'selected' : ''}>G${String(x)}</option>`).join('')}<option value="new">+ New</option></select>`;
-            return `<tr data-u="${s.id}"><td class="sh" style="background:${c.bg};color:${c.fg}" title="${esc(this.title(s))}">${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''}</td><td class="cn">${count}</td><td><input type="checkbox" data-range ${rg ? 'checked' : ''} aria-label="Range" title="Use a range of copies, a minimum and a maximum, instead of a fixed count" ${off}></td><td>${grp}</td></tr>`;
+            const wt = weighs
+              ? `<td class="wt"><button data-w="-1" title="Weight −1 — ${WEIGHT}" ${s.weight <= 0 ? 'disabled' : ''}>W−</button><span class="v">${String(s.weight)}</span><button data-w="1" title="Weight +1 — ${WEIGHT}">W+</button></td>`
+              : '';
+            return `<tr data-u="${s.id}"><td class="sh" style="background:${c.bg};color:${c.fg}" title="${esc(this.title(s))}">${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''}</td><td class="cn">${count}</td><td><input type="checkbox" data-range ${rg ? 'checked' : ''} aria-label="Range" title="Use a range of copies, a minimum and a maximum, instead of a fixed count" ${off}></td><td>${grp}</td>${wt}</tr>`;
           })
           .join('')}</tbody></table>`,
       );
@@ -159,7 +168,7 @@ export class PiecesCard {
     const c = this.ws.chip(s.id);
     // a piece a start or goal needs keeps its count (the engine refuses)
     const off = p.required ? `disabled title="${REQUIRED}"` : '';
-    return `<div class="ut" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${off || 'title="One fewer (at 0 the piece leaves the puzzle)"'}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" ${off || 'title="One more"'}>+</button></div></div></div>`;
+    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${off || 'title="One fewer (at 0 the piece leaves the puzzle)"'}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" ${off || 'title="One more"'}>+</button></div>${s.weight !== 1 ? `<div class="t3">Weight: ${String(s.weight)}</div>` : ''}</div></div>`;
   }
 
   // the mockup's pzLibChip
@@ -384,7 +393,13 @@ export class PiecesCard {
     groups.addEventListener('click', (e) => {
       const t = e.target as Element;
       const u = t.closest<HTMLElement>('tr[data-u]')?.dataset.u;
-      if (u !== undefined && t.closest('input,select') === null) {
+      if (u === undefined) {
+        return;
+      }
+      const w = t.closest<HTMLElement>('button[data-w]');
+      if (w !== null) {
+        void ws.stepWeight(u, Number(w.dataset.w));
+      } else if (t.closest('input,select') === null) {
         ws.select(u);
       }
     });

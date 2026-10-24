@@ -17,9 +17,11 @@
 //   it started one (`launch`), or the state moved between two ends (idle
 //   to finished), so it waits all the same. An abort of a run yields two
 //   document.changed: the abort's own comes while the run is still active
-//   here and does not end it; the run's end comes after its idle. An abort
-//   of a solve paused in memory ends no run (one document.changed, before
-//   the idle): paused to idle, not launched, is no run.
+//   here and does not end it; the run's end comes after its idle. A move
+//   to idle from a state that is not active, not launched, ends no run: an
+//   abort of a solve paused in memory or finished, or an edit of the
+//   problem that drops its results, has one document.changed, before the
+//   idle, so waiting for another would wait for ever.
 // - A new document ends the old one's work: its problems get a last idle
 //   and analyseEnded {stopped} after the replacing call's reply, when the
 //   store already shows the new document (whose ids may be the same); the
@@ -256,10 +258,12 @@ export class Solves {
       r.phase = 'active';
     } else if (r.phase === 'active' || r.launched) {
       r.phase = 'ending';
-    } else if (wasTold && before !== state && !(before === 'paused' && state === 'idle')) {
+    } else if (wasTold && before !== state && state !== 'idle') {
       // the state moved between two ends: a run started and ended between
-      // two polls (not an abort of a solve paused in memory, which ends no
-      // run; a state told again, as a replaced document's last idle, is none)
+      // two polls. Not a move to idle: a run unseen here never ends there
+      // (an abort ends a run seen or launched), so it is a solve cleared or
+      // its problem edited, which ends no run; a state told again, as a
+      // replaced document's last idle, is none either
       r.phase = 'ending';
     }
     if (!isActive(state)) {

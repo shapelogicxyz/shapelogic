@@ -141,6 +141,9 @@ void usage(HelpKind kind) {
         "          with --nested-slides, a piece also carries the pieces partly nested\n"
         "          in its outline: some of their cells inside it, the rest sticking out.\n"
         "          Implies --nested-slides.\n"
+        "  --vertical-moves\n"
+        "          on a tray more than one layer deep, a piece may also move up and\n"
+        "          down; without it every piece stays in its layer\n"
         "  --high-memory\n"
         "          let the search hold up to half of this computer's memory in\n"
         "          arrangements, instead of stopping at about 2 GB\n"
@@ -161,7 +164,10 @@ void usage(HelpKind kind) {
         "  --slide-legacy   the original search over text keys\n"
         "  --slide-apart    like pieces told apart instead of searched as one\n"
         "  --slide-queue    the full search through the queue, not level by level\n"
-        "  --slide-trace    each level of a full search on stderr\n",
+        "  --slide-trace    each level of a full search on stderr\n"
+        "  --slide-step N   pieces stop only where they are a multiple of N cells from\n"
+        "                   their start in x and y (a smaller search; a path it finds is\n"
+        "                   real, but no solution then proves nothing)\n",
         stdout);
     return;
   }
@@ -311,6 +317,8 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
     } else if (a == "--partial-nested") {
       o.nestedSlides = true;
       o.partialNested = true;
+    } else if (a == "--vertical-moves") {
+      o.verticalMoves = true;
     } else if (a == "--high-memory") {
       o.highMemory = true;
     } else if (a == "--slide-legacy") {
@@ -319,6 +327,14 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideApart = true;
     } else if (a == "--slide-queue") {
       o.slideQueue = true;
+    } else if (a == "--slide-step") {
+      unsigned int step = 0;
+      if (!hasValue || !parseCount(argv[i + 1], &step) || step == 0) {
+        std::fprintf(stderr, "shapelogic_cli: %s requires a positive number\n", argv[i]);
+        return kExitUsage;
+      }
+      o.slideStep = static_cast<int>(step);
+      i++;
     } else if (a == "--slide-trace") {
       o.slideTrace = true;
     } else if (a == "--panex-dir") {

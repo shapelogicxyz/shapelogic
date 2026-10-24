@@ -3,7 +3,7 @@
 // The TypeScript types of shapelogic_engine's API, generated from the schema in
 // api/*.json (decisions 0003 and 0012), into src/engine/api.generated.ts:
 //
-//   node tools/gen-api.ts           writes the file (`just web-gen`)
+//   node tools/gen-api.ts           writes the file (`just app-gen`)
 //   node tools/gen-api.ts --check   fails when the committed file is stale
 //
 // It reads the subset of JSON Schema that api/README.md lists and nothing
@@ -429,7 +429,7 @@ export function generate(apiDir: string = API_DIR): string {
   out.push(
     '// SPDX-License-Identifier: GPL-3.0-or-later\n' +
       '//\n' +
-      '// Generated from api/*.json by web/tools/gen-api.ts: do not edit. `just web-gen`\n' +
+      '// Generated from api/*.json by web/tools/gen-api.ts: do not edit. `just app-gen`\n' +
       '// writes it; a unit test fails when it is stale.\n' +
       '//\n' +
       "// Every $defs entry is a named type: types.json's under their own names, an area\n" +
@@ -603,7 +603,7 @@ function main(): number {
   }
   if (check) {
     if (current !== text) {
-      console.error('gen-api: src/engine/api.generated.ts is stale: run `just web-gen`');
+      console.error('gen-api: src/engine/api.generated.ts is stale: run `just app-gen`');
       return 1;
     }
     return 0;

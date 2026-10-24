@@ -70,10 +70,12 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 
 ### Left card: object scope ("which shape, and what happens to all of it")
 - **Shapes list**: id chip (S1, S2…, renumbered by order), optional label,
-  **weight** (W−/W+; in the solver heavier shapes stay in place, lighter ones
-  move), rename (F2, Enter, double-click), duplicate (`Ctrl+D`, added last),
+  rename (F2, Enter, double-click), duplicate (`Ctrl+D`, added last),
   delete (`Del`, the last shape too), reorder by drag or `Alt+↑/↓` (ids
-  follow the order), right-click menu with the same actions.
+  follow the order), right-click menu with the same actions and **weight**
+  −1/+1 (in the solver heavier shapes stay in place, lighter ones move; the
+  row has no weight buttons or badge: those are in the Puzzle workspace's
+  Groups table, and a tile there shows "Weight: n" when it is not 1).
 - **Transform** (Flip · Rotate · Nudge), per axis X/Y/Z: flip (mirror across
   the plane), rotate −90°/+90°, nudge −1/+1. Blocked with a message when the
   piece would leave the grid. Non-cube grids have their own transform sets:
@@ -89,7 +91,12 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   outer: make fixed, make variable, clear colour.
 
 ### Right card: voxel scope ("tool, plane, layer, grid size and colour together")
-- **Tools:** Fixed (`1`), Variable (`2`), Erase (`3`), Paint colour (`4`).
+- **Tools:** Fixed (`1`), Variable (`2`), Erase (`3`), and a last button
+  that switches to the box selection ("Select", a dotted square with a
+  pointer; while selecting it reads "Paint" with the brush and goes back
+  to drawing). Paint colour (`4`) is a brush beside the palette's trash
+  can, shown only while a constraint colour is the drawing colour
+  (Default chosen: the tool goes back to Fixed, and `4` does nothing).
   Quick tools with modifiers in both 2D and 3D: Shift+click fixed,
   Alt/⌘+click variable, Ctrl+click erase. Right-click/right-drag erases in 2D.
 - **Mirror** X/Y/Z (also place the mirrored cell) and **Span** X/Y/Z (fill
@@ -119,7 +126,13 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   with a constraint colour is drawn in the shape's colour with the
   constraint colour as a box in its top-left quarter.
 - **3D edit mode** (`E`): plain clicks in the 3D view apply the active tool;
-  the cursor shows the tool.
+  the cursor shows the tool, and the view's hint gains lines on what a
+  click does. With fixed or variable, a face's left half adds the cell
+  across it, its top-right quarter (as the screen shows the face) gives
+  its own cell the tool's state (its colour kept; nothing if it has it),
+  its bottom-right quarter erases its cell (previewed in the danger colour
+  at 0.25); a click on no face adds the editor's layer's cell under the
+  mouse on the cube grids. A refused target is shown in the muted colour.
 
 ## 4. Puzzle workspace: problems
 
@@ -268,19 +281,20 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
 ### 8.1 Entities workspace
 - **Shapes list:** a tray reads "S1 (START/GOAL 1)" and, after a dash, the
   user's name (`BlockList.cpp`); its chip is black (`slidingColors::LIST`).
-  Above the list, on sliding puzzles only, a row of two buttons:
-  **New Start/Goal Positions** ("Add a shape that holds start and goal
-  positions": `sliding.addStartGoal`, the size of the selected shape,
-  else 6 by 6 by 1, as `cb_NewStartGoal`) and **Delete Start/Goal
-  Positions** ("Delete the selected start/goal shape"; only on a tray).
-  The list's Delete (and `Del`) is greyed on a tray, as the original's
-  Delete Shape: the tray goes with its own button. A name beginning
-  "sg:" is refused (the engine).
+  On sliding puzzles the list's header has **+ New Piece** (the other
+  grids' **+ New**) and, beside it, **+ New Board** (the original's New
+  Start/Goal Positions: "a shape that holds start and goal positions",
+  `sliding.addStartGoal`, the size of the selected shape, else 6 by 6
+  by 1, as `cb_NewStartGoal`). A tray is deleted, with its problem, by
+  the list's Delete (the trash, the right-click menu and `Del`), which
+  stands in for the original's Delete Start/Goal Positions. A name
+  beginning "sg:" is refused (the engine).
 - **Inspector:** the shape's colour button is off on a tray (it shows the
   pieces' colours). The tasks are the bricks' (the original's `lockZ`
   left out those that add layers; sliding shapes may have them now).
 - **Voxel editor (right card):** the Z size stepper is on (a new shape
-  is one layer); the plane is XY only, the layers one at a time. The **Paint colour** tool is hidden and the
+  is one layer); the plane is XY only, the layers one at a time. There is no **Paint colour** (no
+  constraint colour to paint) and the
   **colour palette** keeps only the drawing colour (the shape's own) and
   the pencil (a sliding puzzle has no constraint colours: a cell's colour
   is a start mark, and the colour group was hidden in the original). On a tray, a segmented **Tray edit** switch above the tool
@@ -366,8 +380,8 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   ("S3 changed shape: its start
   and goal were removed from S1.", "Only the first 63 shapes …").
 - **File ▸ New** offers **Sliding** second, after Brick (the original's
-  order); a new sliding puzzle starts empty (add pieces, then New
-  Start/Goal Positions).
+  order); a new sliding puzzle starts empty (add pieces with + New Piece,
+  then a board with + New Board).
 
 ## 9. Stacking and Panex puzzles (deferred part 4)
 

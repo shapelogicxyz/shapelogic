@@ -98,6 +98,15 @@ function badge(): void {
   exit.title = 'Leave the demo for the ShapeLogic website (nothing is kept)';
   exit.style.cssText = chip;
   right.prepend(reset, exit);
+  // the brand at the top left does the same as Exit
+  const brand = document.querySelector<HTMLElement>('.top .brand');
+  if (brand !== null) {
+    brand.style.cursor = 'pointer';
+    brand.title = exit.title;
+    brand.addEventListener('click', () => {
+      exit.click();
+    });
+  }
 }
 
 // ---- the puzzle's file -----------------------------------------------------------------

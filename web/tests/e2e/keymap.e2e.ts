@@ -320,12 +320,18 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     for (const [k, t] of [
       ['2', 'variable'],
       ['3', 'erase'],
-      ['4', 'paint'],
       ['1', 'fixed'],
     ] as const) {
       await c.page.keyboard.press(k);
       await expect(c.page.locator(`#toolStrip [data-t="${t}"]`)).toHaveClass(/\bon\b/);
     }
+    // Paint is the brush by a restriction color (the document is dirty after: reopened)
+    await c.page.click('#cAdd');
+    await settled(c.page);
+    await c.page.keyboard.press('4');
+    await expect(c.page.locator('#cPaint')).toHaveClass(/\bon\b/);
+    await c.page.keyboard.press('1');
+    await expect(c.page.locator('#toolStrip [data-t="fixed"]')).toHaveClass(/\bon\b/);
   },
   'Shapes|E': async (c) => {
     await c.page.keyboard.press('e');

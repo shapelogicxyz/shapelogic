@@ -52,12 +52,14 @@ The pieces this problem uses, as tiles:
 - **All +1** adds one copy of every shape that isn't in the puzzle yet.
 - **Clear All** takes every piece out.
 - Drag a tile out of the card to remove it, or press `Del` with it selected.
+- A tile whose shape has a weight other than 1 shows it at the bottom, such
+  as **Weight: 2** (see [Piece Weights](/docs/piece-weights/)).
 - Right-click a tile for **Move earlier**, **Move later**, one more, one
   fewer, **Remove from puzzle** and **Set as result**.
 
 ## Groups
 
-![The Groups table: each shape with its count, a Range check box and a Group menu.](../../../assets/screens/guide/puzzle-groups.png)
+![The Groups table: each piece with its count, a Range check box, a Group menu and its weight with W− and W+.](../../../assets/screens/guide/puzzle-groups.png)
 
 The **Groups** section lists every piece in a table:
 
@@ -66,6 +68,9 @@ The **Groups** section lists every piece in a table:
   count. The solver then tries every count in the range. Use it for puzzles
   like "make this shape from any of these pieces".
 - **Group**: puts the piece in a numbered group.
+- **Weight**: **W−** and **W+** make the shape lighter or heavier. When a
+  disassembly splits the pieces into two groups, the heavier group stays in
+  place and the lighter one moves. See [Piece Weights](/docs/piece-weights/).
 - **Set range for all pieces** gives every piece the same minimum and
   maximum.
 

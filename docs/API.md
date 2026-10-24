@@ -1246,7 +1246,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides. Each start/goal shape has a problem of its own (named START/GOAL n), whose parts and colour locks follow its stamps; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). Each start/goal shape has a problem of its own (named START/GOAL n), whose parts and colour locks follow its stamps; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
@@ -2859,7 +2859,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested and highMemory are sliding's nestedSlides, partialNested and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.
 
 | name | type | | description |
 |---|---|---|---|
@@ -2873,6 +2873,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `strictColors` | boolean |  |  |
 | `nestedSlides` | boolean |  |  |
 | `partialNested` | boolean |  |  |
+| `verticalMoves` | boolean |  |  |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
 | `solverType` | string |  | classic, crowell (sliding: fast, deep, full). |
@@ -2961,6 +2962,7 @@ A sliding puzzle's search (the solve thread's sliding flags). A sliding solve al
 | `solver` | [SlidingSolver](#slidingsolver) |  | How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default). |
 | `nestedSlides` | boolean |  | A piece may carry what is nested in its outline (Allow Nested Slides). |
 | `partialNested` | boolean |  | And what is partly nested in it (Allow Partially Nested); implies nestedSlides. |
+| `verticalMoves` | boolean |  | On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer. |
 | `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). |
 
 ### StackingOptions

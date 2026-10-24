@@ -1,6 +1,6 @@
 ---
 title: Solver Tab Options
-description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow Nested Slides, Allow Partially Nested and Enable High Memory; Sort by, the step-by-step explorer and the solutions list."
+description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow Nested Slides, Allow Partially Nested, Allow Vertical Moves and Enable High Memory; Sort by, the step-by-step explorer and the solutions list."
 ---
 
 The **Solver** tab (`Ctrl+3`, `⌘3` on a Mac) searches for the ways the pieces
@@ -136,6 +136,9 @@ symmetry and color ones:
 - **Allow Partially Nested**: with **Allow Nested Slides** on, a piece may
   also slide together with a piece that sits partly in its outline and sticks
   out of it.
+- **Allow Vertical Moves**: on a tray with more than one layer, a piece may
+  also move up and down, lifted over the other pieces and put down somewhere
+  else. Off (the default), every piece slides only in its own layer.
 - **Enable High Memory**: lets the search use up to half of the computer's
   memory, instead of stopping at about 2 GB.
 - **Solver type**: each start is searched for the fewest moves to the goal.

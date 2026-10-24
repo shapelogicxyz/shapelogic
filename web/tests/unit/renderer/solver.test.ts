@@ -398,6 +398,25 @@ describe('the solve records', () => {
     expect(t.get('p2').phase).toBe('none');
   });
 
+  it('end no run when a finished solve goes back to idle (its problem edited, or cleared)', async () => {
+    const bus = eventBus();
+    const s = new Solves(bus);
+    s.launch('p1', 'classic');
+    bus.emit('solve.state', { problem: 'p1', state: 'finished' });
+    bus.emit('document.changed', { revision: 3, what: [], shapes: [], problems: ['p1'] });
+    await settle();
+    expect(s.get('p1')).toMatchObject({ phase: 'none', endRevision: 3 });
+    // the edit's document.changed comes first, then the poll's idle
+    bus.emit('document.changed', { revision: 4, what: ['problems'], shapes: [], problems: ['p1'] });
+    bus.emit('solve.state', { problem: 'p1', state: 'idle' });
+    expect(s.get('p1').phase).toBe('none');
+    expect(s.running).toBe(false);
+    // and an error cleared the same way
+    bus.emit('solve.state', { problem: 'p2', state: 'error' });
+    bus.emit('solve.state', { problem: 'p2', state: 'idle' });
+    expect(s.get('p2').phase).toBe('none');
+  });
+
   it('wait for a launched run before its first state, and keep a failure until the next launch', async () => {
     const bus = eventBus();
     const s = new Solves(bus);

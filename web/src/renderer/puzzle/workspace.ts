@@ -41,7 +41,7 @@ import type { View3D } from '../view3d/view.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { rodAt, stackValidity } from '../state/stacking.ts';
 import { StacksCard } from './stacks-card.ts';
-import { nextCount, nextGroup, partOf, PROBLEM_CHIP, solveActive } from './counts.ts';
+import { nextCount, nextGroup, partOf, problemChipStyle, solveActive } from './counts.ts';
 import { puzLayout } from './layout.ts';
 import { PiecesCard } from './pieces-card.ts';
 import { PieceCard } from './piece-card.ts';
@@ -186,6 +186,11 @@ export class PuzzleWorkspace {
   }
 
   /** A shape's chip colours. */
+  /** A problem's chip style, by its place in the list. */
+  private probChip(p: ProblemSummary): string {
+    return problemChipStyle(this.store.snapshot?.problems.findIndex((q) => q.id === p.id) ?? 0);
+  }
+
   chip(shape: string): { bg: string; fg: string } {
     const i = this.store.indexOf(shape);
     const c = chipColour(this.store.snapshot?.shapes[i], i);
@@ -342,14 +347,14 @@ export class PuzzleWorkspace {
         set === undefined
           ? '<span class="mute">· No Start/Goal Rods</span>'
           : `<span class="mute">· Result</span><span class="chip" style="background:${ROD_CHIP};color:#fff">${esc(set.label)}</span><span class="mute">· ${this.goal ? 'Goal' : 'Start'}</span>`;
-      return `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${res}`;
+      return `<span class="chip" style="${this.probChip(p)}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${res}`;
     }
     const r = p.result;
     const res =
       r === null
         ? '<span class="mute">· No result</span>'
         : `<span class="mute">· Result</span><span class="chip" style="background:${this.chip(r).bg};color:${this.chip(r).fg}">${esc(this.labelOf(r))}</span>`;
-    return `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${res}`;
+    return `<span class="chip" style="${this.probChip(p)}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${res}`;
   }
 
   private emptyText(): string {
@@ -734,6 +739,20 @@ export class PuzzleWorkspace {
     await this.mutate('Group', () =>
       this.engine.call('problem.setGroup', { problem, shape, group: g }),
     );
+  }
+
+  /** A shape's weight one step up or down (never below 0): in the disassembly the heavier group stays in place. */
+  async stepWeight(shape: string, delta: number): Promise<void> {
+    const s = this.store.snapshot?.shapes.find((x) => x.id === shape);
+    if (s === undefined || this.refuse()) {
+      return;
+    }
+    const weight = Math.max(0, s.weight + delta);
+    if (weight === s.weight) {
+      return;
+    }
+    this.sel = shape;
+    await this.mutate('Weight', () => this.engine.call('shape.setWeight', { shape, weight }));
   }
 
   /** Puts `count` copies of a piece in a group (the original's groups editor). */

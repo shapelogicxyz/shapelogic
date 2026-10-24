@@ -460,12 +460,26 @@ export class ViewCube {
         vx = -vx;
         vy = -vy;
       }
+      // turned by quarter turns on the face to whichever reads most upright
+      // on screen (its x along the screen's right, its y along the screen's
+      // down), so no turn of the view shows it sideways or upside down
+      type M = [number, number, number, number];
+      const upright = ([ax, ay, bx, by]: M): number =>
+        ax / (Math.hypot(ax, ay) || 1) + by / (Math.hypot(bx, by) || 1);
+      let m: M = [ux, uy, vx, vy];
+      for (let i = 0, t = m; i < 3; i++) {
+        // a quarter turn on: x takes y's place, y takes −x's
+        t = [t[2], t[3], -t[0], -t[1]];
+        if (upright(t) > upright(m)) {
+          m = t;
+        }
+      }
       const single =
         hd !== null &&
         hd[f.k] === f.sg &&
         Math.abs(hd[0]) + Math.abs(hd[1]) + Math.abs(hd[2]) === 1;
       g.save();
-      g.transform(ux, uy, vx, vy, C[0], C[1]);
+      g.transform(...m, C[0], C[1]);
       g.font = '800 .5px system-ui,sans-serif';
       g.textAlign = 'center';
       g.textBaseline = 'middle';

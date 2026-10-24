@@ -48,7 +48,7 @@ import { isTray } from '../shell/piece-colours.ts';
 import { onPrefs } from '../shell/prefs.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
-import { PROBLEM_CHIP } from '../puzzle/counts.ts';
+import { problemChipStyle } from '../puzzle/counts.ts';
 import { Explorer } from '../explore/explorer.ts';
 import { Autosave } from './autosave.ts';
 import { SolutionPager } from './pager.ts';
@@ -424,6 +424,11 @@ export class SolverWorkspace {
     this.view3d.renderLabels();
   }
 
+  /** The shown problem's chip style, by its place in the list. */
+  probChip(id: string | undefined = this.problem?.id): string {
+    return problemChipStyle(this.store.snapshot?.problems.findIndex((q) => q.id === id) ?? 0);
+  }
+
   // the mockup's svTag: the problem's chip and name, and the solution shown
   private tagHtml(): string {
     const p = this.problem;
@@ -433,7 +438,7 @@ export class SolverWorkspace {
     const n = this.pager?.total ?? 0;
     const cur = this.player.row !== null && this.sel >= 0 && n > 0;
     const ex = this.explorer.tag();
-    return `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : ''}`;
+    return `<span class="chip" style="${this.probChip()}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : ''}`;
   }
 
   // the mockup's renderSolverScene's message over an empty scene

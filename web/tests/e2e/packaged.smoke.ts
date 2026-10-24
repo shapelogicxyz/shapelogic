@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The smoke test of the packaged app (stage 8, `just web-smoke` after
-// `just web-dist --dir`): the app electron-builder made, as a user starts
+// The smoke test of the packaged app (stage 8, `just app-smoke` after
+// `just app-dist --dir`): the app electron-builder made, as a user starts
 // it, with a fixture on its command line. Its fuses turn --inspect off, so
 // Playwright's Electron driver cannot reach its main process: the test
 // drives the page over Chromium's DevTools protocol (--remote-debugging-port)
@@ -74,7 +74,7 @@ const ENGINE = join(
 );
 const VERSION = projectVersion();
 
-test.skip(!existsSync(APP.exe), `no packaged app at ${APP.exe}: run \`just web-dist --dir\``);
+test.skip(!existsSync(APP.exe), `no packaged app at ${APP.exe}: run \`just app-dist --dir\``);
 
 /** Starts the packaged app with these arguments; resolves with its DevTools address. */
 function start(

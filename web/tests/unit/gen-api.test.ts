@@ -14,7 +14,7 @@ import type { Events, Methods } from '../../src/engine/api.generated.ts';
 import { API_DIR, generate, GenError, OUTPUT_PATH } from '../../tools/gen-api.ts';
 
 describe('the generated types', () => {
-  it('are current: run `just web-gen` after changing api/', () => {
+  it('are current: run `just app-gen` after changing api/', () => {
     expect(readFileSync(OUTPUT_PATH, 'utf8')).toBe(generate(API_DIR));
   });
 

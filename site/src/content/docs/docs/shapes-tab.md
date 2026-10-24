@@ -36,13 +36,12 @@ the voxel editor show it, and **Edit shape** works on it.
 
 The selected row has buttons of its own:
 
-![The selected shape's row: Rename, Duplicate, W−, W+ and Delete.](../../../assets/screens/guide/shapes-row.png)
+![The selected shape's row: Rename, Duplicate and Delete.](../../../assets/screens/guide/shapes-row.png)
 
 | Button | What it does |
 |---|---|
 | Pencil (**Rename**) | Gives the shape a name. `F2`, `Enter` or a double-click does the same. |
 | Two squares (**Duplicate**) | Adds a copy of the shape at the end of the list (`Ctrl+D`). |
-| **W−** / **W+** | Makes the shape lighter or heavier. When a disassembly splits the pieces into two groups, the heavier group stays in place and the lighter one moves. It changes which pieces move in a disassembly, not whether a solution is found. |
 | Bin (**Delete**) | Deletes the shape (`Del`). |
 
 Drag a row by its grip (the dots on the left) to reorder the list. The shapes
@@ -70,14 +69,18 @@ goes back), and **Collapse sidebar** (`Ctrl+]`).
 
 ### Tools
 
-![The four tools: Fixed, Variable, Erase and Paint, with their keys 1 to 4.](../../../assets/screens/guide/editor-tools.png)
+![The tools Fixed, Variable and Erase, with their keys 1 to 3, and the Select button.](../../../assets/screens/guide/editor-tools.png)
 
 | Tool | Key | What a click does |
 |---|---|---|
 | **Fixed** | `1` | Places a fixed (solid) voxel. |
 | **Variable** | `2` | Places a variable (optional) voxel. |
 | **Erase** | `3` | Removes the voxel. |
-| **Paint** | `4` | Gives an existing voxel the **drawing color**, without changing whether it is fixed or variable. Colors are used for [color restrictions](/docs/color-restrictions/). |
+| **Paint** | `4` | Gives an existing voxel the current **restriction color**, without changing whether it is fixed or variable. Its paintbrush is beside the trash can in the [color area](#shape-and-restriction-colors), and shows only while a restriction color is chosen. |
+
+The last button, **Select**, switches to [box selection](#planes-box-selection-and-layers).
+While you select, the button reads **Paint** with a paintbrush: click it to
+go back to drawing with the tools.
 
 Drag across the grid to apply the tool to every cell you pass over. The whole
 drag is one undo step. A right-click or right-drag always erases, whatever
@@ -102,14 +105,16 @@ Mirror and span work together, and with the box selection below.
 
 ### Planes, box selection and layers
 
-![The plane buttons XY, XZ and YZ, the box selection button, and the layer count.](../../../assets/screens/guide/editor-planes.png)
+![The plane buttons XY, XZ and YZ, and the layer count.](../../../assets/screens/guide/editor-planes.png)
 
 - **XY**, **XZ** and **YZ** choose which slice of the shape the grid shows.
   XY shows horizontal layers stacked along Z. XZ and YZ show upright slices.
   Only the cube-style grids offer all three; the other grids draw in XY.
-- The dotted square is **Box selection**. Drag a rectangle in the grid, then
-  click **Fill** to fill it with fixed voxels in the drawing color, or
-  **Clear** to empty it. Mirror and span apply. `Esc` cancels the selection.
+- **Select** in the tool strip turns on **box selection**. Drag a rectangle
+  in the grid, then click **Fill** to fill it with fixed voxels in the
+  drawing color, or **Clear** to empty it. Mirror and span apply. `Esc`
+  cancels the selection, and **Paint** (the same button) goes back to
+  drawing.
 - **Layer 1 of 7** tells you which layer the grid shows.
 
 ![The layer strip: one button per layer, with a dot on layers that hold voxels.](../../../assets/screens/guide/editor-layers.png)
@@ -133,8 +138,8 @@ the **Fit & scale** tools work on every shape.
 
 ![The color area: the current color with the add, edit and remove buttons, and the palette below.](../../../assets/screens/guide/editor-colors.png)
 
-The big swatch shows the color that **Fixed**, **Variable** and **Paint**
-draw in (the **drawing color**). Its label says which kind it is:
+The big swatch shows the color that **Fixed** and **Variable** (and
+**Paint**, for a restriction color) draw in (the **drawing color**). Its label says which kind it is:
 
 - **Shape color**: the shape's own color, which means "no restriction".
   Under the label it says **Default** for the color ShapeLogic gives the
@@ -153,6 +158,9 @@ The buttons beside it:
 - The trash can removes the current restriction color from the puzzle, and
   the color before it in the palette becomes the drawing color. It is off
   while the shape's color is chosen.
+- The paintbrush is the **Paint** tool (`4`): a click on an existing voxel
+  gives it the restriction color. It shows only while a restriction color
+  is chosen; choosing the shape's color goes back to **Fixed**.
 
 Click a swatch in the palette to draw in that color. The palette shows one
 row at a time. When a row is full, the next color starts a new row and the
@@ -172,7 +180,16 @@ You can also draw straight onto the shape in the 3D view:
 
 - Press `E`, or click **Edit** in the 3D view's toolbar, to turn on 3D edit
   mode. A plain click then uses the voxel editor's active tool on the face
-  under the mouse. Press `E` again to leave it.
+  under the mouse. Press `E` again to leave it. While it is on, the bottom
+  left corner of the view says what a click does.
+- With **Fixed** or **Variable** active, each face of a voxel has three
+  parts. A click on its left half adds a voxel beside it. A click on its top
+  right quarter makes the voxel fixed or variable, as the tool is (it keeps
+  its color; a voxel that already is does not change). A click on its bottom
+  right quarter, shown in transparent red, deletes the voxel. The view
+  previews what a click would do.
+- On a cube grid, a click where there is no face adds a voxel to the voxel
+  editor's active layer, so you can start an empty shape in the 3D view.
 - Without edit mode, hold `Shift` and click to add a fixed voxel, `Alt` (`⌘`
   on a Mac) to add a variable one, and `Ctrl` to erase. A drag without a
   modifier still turns the view.

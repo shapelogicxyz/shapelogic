@@ -260,7 +260,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested and highMemory are sliding's nestedSlides, partialNested and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},
@@ -272,6 +272,7 @@
         "strictColors": {"type": "boolean"},
         "nestedSlides": {"type": "boolean"},
         "partialNested": {"type": "boolean"},
+        "verticalMoves": {"type": "boolean"},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
         "solverType": {"type": "string", "description": "classic, crowell (sliding: fast, deep, full)."},
@@ -376,6 +377,7 @@
         "solver": {"$ref": "#/$defs/SlidingSolver"},
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},
+        "verticalMoves": {"type": "boolean", "description": "On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer."},
         "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory)."}
       },
       "additionalProperties": false

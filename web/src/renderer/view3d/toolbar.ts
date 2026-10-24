@@ -71,6 +71,8 @@ export interface EditButton {
   /** A modifier's quick tool is shown for now. */
   tmp: boolean;
   enabled: boolean;
+  /** The view's hint lines while edit mode is on (HTML). */
+  help: readonly string[];
 }
 
 export class Toolbar {
@@ -145,7 +147,11 @@ export class Toolbar {
       on: false,
       tmp: false,
       enabled: false,
+      help: [],
     };
+    const hint = byId('editHint');
+    hint.hidden = !(s.on && s.enabled) || s.help.length === 0;
+    hint.innerHTML = s.help.map((l) => `<div>${l}</div>`).join('');
     b.innerHTML = `${toolIcon(s.tool, s.colour)}<span>Edit</span><i class="kb">${s.key}</i>`;
     b.disabled = !s.enabled;
     b.classList.toggle('on', s.on);

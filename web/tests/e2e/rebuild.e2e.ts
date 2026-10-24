@@ -87,9 +87,8 @@ async function rebuild(page: Page, want: ShapeGet): Promise<string> {
   }
   while ((await shapeGet(page, id)).shape.weight !== want.shape.weight) {
     const w = (await shapeGet(page, id)).shape.weight;
-    await page.click(
-      `#shapeList .row[data-id="${id}"] [data-a="${w < want.shape.weight ? 'wp' : 'wm'}"]`,
-    );
+    await page.click(`#shapeList .row[data-id="${id}"]`, { button: 'right' });
+    await page.click(`#pop [data-k="${w < want.shape.weight ? 'wp' : 'wm'}"]`);
     await settled(page);
   }
   const layers = [...new Set(want.cells.map((c) => c.at[2]))].sort((a, b) => a - b);

@@ -123,7 +123,7 @@ Read first, in this order:
 - **Engine additions**:
   - each in its own commit, `Engine: <method>`, following api/README.md
     (schema, handler, contract call, `python3 api/gen_api_md.py`, then
-    `just web-gen` and the staleness test);
+    `just app-gen` and the staleness test);
   - additive where possible; a breaking change bumps nothing silently and
     is named in the handoff;
   - core changes outside the feature in their own commits (`Core: …`).
@@ -148,9 +148,9 @@ In this order:
    `just test-asan`, `just test-tsan` (solver parts), the oracle tiers the
    part touches plus `just oracle --tier fast` (nothing else moved),
    `just oracle-roundtrip`, `just check` if LLVM is installed.
-2. **Front-end gates**, three times each: `just web-check`, `just web-test`
-   with the release engine built, and `just web-e2e`. Run
-   `just web-dist --dir` and `just web-smoke` when packaging could be
+2. **Front-end gates**, three times each: `just app-check`, `just app-test`
+   with the release engine built, and `just app-e2e`. Run
+   `just app-dist --dir` and `just app-smoke` when packaging could be
    affected (new resources, a new dependency).
 3. ARCHITECTURE.md and docs/API.md updated, and webui-spec.md for front-end
    parts.

@@ -28,7 +28,7 @@ import { isActive } from '../state/solves.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop } from '../shell/popover.ts';
-import { PROBLEM_CHIP } from '../puzzle/counts.ts';
+import { problemChipStyle } from '../puzzle/counts.ts';
 import {
   DEFAULT_LIMITS,
   DEFAULT_OPTIONS,
@@ -58,6 +58,8 @@ const TIP: Record<BoxName, string> = {
     'A piece may slide together with the pieces nested inside its outline, such as a piece in another piece’s pocket. Pieces that only touch never slide together.',
   partialNested:
     'With Allow Nested Slides: a piece may also slide together with a piece that sits partly in its outline, such as a piece in another piece’s pocket that sticks out of it. Pieces that only touch never slide together.',
+  verticalMoves:
+    'On a tray more than one layer deep, a piece may also move up and down: lifted out over the other pieces and put down somewhere else. Off, every piece slides only in its own layer.',
   highMemory:
     'Let a sliding search hold up to half of this computer’s memory in arrangements, instead of stopping at about 2 GB. The Sliding Full Solver keeps older moves on disk and needs memory only for the widest move.',
   autosave:
@@ -98,6 +100,7 @@ const LABEL: Record<BoxName, string> = {
   strictColors: 'Strict Color Restrictions',
   nestedSlides: 'Allow Nested Slides',
   partialNested: 'Allow Partially Nested',
+  verticalMoves: 'Allow Vertical Moves',
   highMemory: 'Enable High Memory',
   autosave: 'Autosave every 20 min',
 };
@@ -152,7 +155,7 @@ export class RunCard {
         : `Result ${esc(ws.labelOf(p.result))}`;
     setHtml(
       el,
-      `<span class="chip" style="background:${PROBLEM_CHIP};color:#fff">${esc(p.label)}</span><span class="meta"><b>${esc(p.name) || 'Problem'}</b><span>${result} · ${String(pieces)} piece shape${pieces === 1 ? '' : 's'}</span></span>${ic('chevD', 16)}`,
+      `<span class="chip" style="${ws.probChip(p.id)}">${esc(p.label)}</span><span class="meta"><b>${esc(p.name) || 'Problem'}</b><span>${result} · ${String(pieces)} piece shape${pieces === 1 ? '' : 's'}</span></span>${ic('chevD', 16)}`,
     );
   }
 
@@ -205,6 +208,7 @@ export class RunCard {
       o.autosave !== DEFAULT_OPTIONS.autosave,
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
+      ws.sliding && o.verticalMoves,
       ws.family !== 'brick' && o.highMemory,
       ws.sliding && o.slidingSolver !== DEFAULT_OPTIONS.slidingSolver,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
@@ -249,6 +253,7 @@ export class RunCard {
         sw('justCount') +
           sw('nestedSlides') +
           sw('partialNested') +
+          sw('verticalMoves') +
           sw('highMemory') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
           limits +
@@ -387,10 +392,10 @@ export class RunCard {
         return;
       }
       const rows = snap.problems
-        .map((q) => {
+        .map((q, n) => {
           const st = ws.stateOf(q.id);
           const note = isActive(st) ? ' · solving' : st === 'paused' ? ' · paused' : '';
-          return `<button data-k="${q.id}" title="Solve this problem"><span class="chip" style="background:${PROBLEM_CHIP};color:#fff;min-width:30px;height:20px;font-size:10px">${esc(q.label)}</span>${esc(q.name) || 'Problem'}<span class="kb">${note}</span></button>`;
+          return `<button data-k="${q.id}" title="Solve this problem"><span class="chip" style="${problemChipStyle(n)};min-width:30px;height:20px;font-size:10px">${esc(q.label)}</span>${esc(q.name) || 'Problem'}<span class="kb">${note}</span></button>`;
         })
         .join('');
       openPop(e.currentTarget as Element, `<div class="ph">Solve problem</div>${rows}`, (k) => {

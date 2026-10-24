@@ -100,11 +100,12 @@ export interface EditHost {
   /**
    * The face under the mouse changed, or the modifiers did (null: none);
    * `over` says whether the mouse is over the shape's space (its grid box,
-   * the empty cells too).
+   * the empty cells too), and `layerCell` is the cell of the editor's layer
+   * under it (the cube grids; null: none), where a click on no face adds.
    */
-  hover(pick: Pick | null, mods: ViewMods, over: boolean): void;
+  hover(pick: Pick | null, mods: ViewMods, over: boolean, layerCell: V3 | null): void;
   /** A click (no drag) on a face, or on nothing; true when it was taken. */
-  click(pick: Pick | null, mods: ViewMods): boolean;
+  click(pick: Pick | null, mods: ViewMods, layerCell: V3 | null): boolean;
   /** The Edit button. */
   toggle(): void;
 }
@@ -152,6 +153,8 @@ export class View3D {
   lastPick: Pick | null = null;
   /** Whether the mouse was last over the shape's space (its grid box). */
   private overSpace = false;
+  /** The editor's layer's cell last under the mouse (the cube grids). */
+  private lastLayerCell: V3 | null = null;
   /** 3D editing, when a workspace does it. */
   edit: EditHost | null = null;
   /** The Puzzle workspace, once it is there. */
@@ -626,7 +629,7 @@ export class View3D {
   modsChanged(m: ViewMods): void {
     this.mods = m;
     if (this.hoverAt !== null && this.drag === null) {
-      this.edit?.hover(this.lastPick, m, this.overSpace);
+      this.edit?.hover(this.lastPick, m, this.overSpace, this.lastLayerCell);
     }
   }
 
@@ -982,7 +985,11 @@ export class View3D {
     } else if (this.rodSetShown) {
       text = '';
     } else if (s.snapshot.shapes.length === 0) {
-      text = this.stacking ? 'No discs — add one with + New' : 'No shapes — add one with + New';
+      text = this.stacking
+        ? 'No discs — add one with + New'
+        : s.snapshot.grid === 'sliding'
+          ? 'No shapes — add one with + New Piece or + New Board'
+          : 'No shapes — add one with + New';
     } else if (s.shape !== null && s.shape.fixed + s.shape.variable === 0) {
       text = 'Empty shape — draw in the Voxel editor';
     }
@@ -1111,16 +1118,63 @@ export class View3D {
     return ray.ray.intersectsBox(new Box3(new Vector3(0, 0, 0), new Vector3(...this.extent)));
   }
 
-  private showPick(p: Pick | null, over: boolean): void {
-    this.lastPick = p;
-    this.overSpace = over;
-    setCursor(p === null ? '' : describePick(p));
-    this.edit?.hover(p, this.mods, over);
+  // the cell of the editor's layer under a point, on the cube grids (whose
+  // mesh units are cells): the middle of the ray's run through the layer's
+  // slab, so a shape with no cells there yet can be drawn on in 3D
+  private layerCellAt(clientX: number, clientY: number): V3 | null {
+    const grid = this.store.snapshot?.grid;
+    if (
+      this.puzzleMode ||
+      this.solverMode ||
+      this.rodSetShown ||
+      this.store.shape === null ||
+      (grid !== 'bricks' && grid !== 'sliding' && grid !== 'stacking')
+    ) {
+      return null;
+    }
+    const ai = layerAxis(this.plane);
+    const lo = new Vector3(0, 0, 0);
+    const hi = new Vector3(...this.extent);
+    if (this.layer >= hi.getComponent(ai)) {
+      return null;
+    }
+    lo.setComponent(ai, this.layer);
+    hi.setComponent(ai, this.layer + 1);
+    const slab = new Box3(lo, hi);
+    const ray = new Raycaster();
+    ray.setFromCamera(this.ndcAt(clientX, clientY), this.renderer.camera);
+    ray.ray.applyMatrix4(this.renderer.model.matrixWorld.clone().invert());
+    const enter = ray.ray.intersectBox(slab, new Vector3());
+    if (enter === null) {
+      return null;
+    }
+    // the way out: the same line from beyond the slab, backwards
+    const far = slab.getSize(new Vector3()).length() + enter.distanceTo(ray.ray.origin) + 1;
+    ray.ray.origin.addScaledVector(ray.ray.direction, far);
+    ray.ray.direction.negate();
+    const leave = ray.ray.intersectBox(slab, new Vector3()) ?? enter;
+    const mid = enter.add(leave).multiplyScalar(0.5);
+    const cell = (i: number): number =>
+      Math.min(Math.max(Math.floor(mid.getComponent(i)), 0), hi.getComponent(i) - 1);
+    return [cell(0), cell(1), cell(2)];
   }
 
-  // the face and the space under a point
+  private showPick(p: Pick | null, over: boolean, layerCell: V3 | null): void {
+    this.lastPick = p;
+    this.overSpace = over;
+    this.lastLayerCell = layerCell;
+    setCursor(p === null ? '' : describePick(p));
+    byId('vp').dataset.quarter = p?.quarter ?? '';
+    this.edit?.hover(p, this.mods, over, layerCell);
+  }
+
+  // the face, the space and the layer's cell under a point
   private showPickAt(clientX: number, clientY: number): void {
-    this.showPick(this.pickAtClient(clientX, clientY), this.spaceAtClient(clientX, clientY));
+    this.showPick(
+      this.pickAtClient(clientX, clientY),
+      this.spaceAtClient(clientX, clientY),
+      this.layerCellAt(clientX, clientY),
+    );
   }
 
   private repick(): void {
@@ -1186,7 +1240,7 @@ export class View3D {
         }
         d.moved = true;
         // a drag navigates: no edit preview while it lasts
-        this.edit?.hover(null, this.mods, false);
+        this.edit?.hover(null, this.mods, false, null);
         d.x = e.clientX;
         d.y = e.clientY;
         if (d.m === 'orbit' && prefs.rot === 'Arc-ball') {
@@ -1231,8 +1285,9 @@ export class View3D {
       } else if (was !== null && was.btn === 0 && !was.moved) {
         // a click: the cell and side under it, edited when the workspace edits
         const p = this.pickAtClient(e.clientX, e.clientY);
-        this.edit?.click(p, this.mods);
-        this.showPick(p, this.spaceAtClient(e.clientX, e.clientY));
+        const lc = this.layerCellAt(e.clientX, e.clientY);
+        this.edit?.click(p, this.mods, lc);
+        this.showPick(p, this.spaceAtClient(e.clientX, e.clientY), lc);
       } else if (was?.moved === true) {
         this.repick();
       }
@@ -1241,7 +1296,7 @@ export class View3D {
       if (this.drag === null) {
         this.hoverAt = null;
         this.hoverPiece(null);
-        this.showPick(null, false);
+        this.showPick(null, false, null);
       }
     });
     cv.addEventListener(

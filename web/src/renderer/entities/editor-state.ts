@@ -85,8 +85,16 @@ export class EditorState {
 
   /** Tells the views the state changed. */
   changed(): void {
+    this.dropPaint();
     for (const l of [...this.listeners]) {
       l();
+    }
+  }
+
+  /** Paint goes with a restriction colour (its brush shows by one): back to Fixed under Default. */
+  dropPaint(): void {
+    if (this.tool === 'paint' && this.colour === null) {
+      this.tool = 'fixed';
     }
   }
 }

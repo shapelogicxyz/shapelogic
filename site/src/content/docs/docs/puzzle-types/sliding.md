@@ -60,11 +60,13 @@ layer. To place one, show a layer of the tray: the outline under the mouse is
 the piece's slice on that layer, and the piece sits as low as it can while
 still fitting.
 
-On a tray with more than one layer, pieces can also move up and down. A piece
-can be lifted out of a box over the others and put down somewhere else, as
-long as the tray has floor cells above for it to pass through. This counts as
-one move. Pieces never turn, so a goal that needs a piece turned around
-cannot be reached.
+By default every piece stays in its layer: it slides across the tray but
+never up or down, even where the layer above is open. Turn on **Allow
+Vertical Moves** in the Solver's search options to let pieces move up and
+down too. A piece can then be lifted out of a box over the others and put
+down somewhere else, as long as the tray has floor cells above for it to
+pass through. This counts as one move. Pieces never turn, so a goal that
+needs a piece turned around cannot be reached.
 
 ## Puzzle: nothing to choose
 

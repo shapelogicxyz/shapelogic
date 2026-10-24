@@ -98,38 +98,46 @@ format:
 # ---- the web front end (web/, docs/FRONTEND-PLAN.md; needs Node 22) ----
 
 # Install the web front end's packages from its lockfile
-web-install:
+app-install:
     cd web && npm ci
 
 # Generate web/src/engine/api.generated.ts from api/*.json
-web-gen:
+app-gen:
     cd web && npm run gen
 
 # Type check (node, renderer and e2e projects), lint and format check the web front end
-web-check:
+app-check:
     cd web && npm run check
 
 # The web front end's tests; the engine tests need `just build release` (or BT_ENGINE)
-web-test:
+app-test:
     cd web && npm test
 
 # Run the app (electron-vite dev) with build/dev's engine, else build/release's, or BT_ENGINE (clears ELECTRON_RUN_AS_NODE, which turns Electron into Node)
-web-dev:
+app-dev:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
 
-alias app-dev := web-dev
-
 # Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE)
-web-e2e *args:
+app-e2e *args:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
 
 # Package the app (electron-builder, web/tools/dist.ts) for this platform with the release engine: `--dir` the unpacked app only, `--arch x64` an Intel Mac's (after `just build release-x64`)
-web-dist *args: (build "release")
+app-dist *args: (build "release")
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dist -- {{args}}
 
-# The packaged app's smoke test (after `just web-dist --dir`; BT_PACKAGED_APP names another executable)
-web-smoke:
+# The packaged app's smoke test (after `just app-dist --dir`; BT_PACKAGED_APP names another executable)
+app-smoke:
     cd web && env -u ELECTRON_RUN_AS_NODE npx playwright test -c playwright.smoke.config.ts
+
+# The older web-* names
+alias web-install := app-install
+alias web-gen := app-gen
+alias web-check := app-check
+alias web-test := app-test
+alias web-dev := app-dev
+alias web-e2e := app-e2e
+alias web-dist := app-dist
+alias web-smoke := app-smoke
 
 # ---- the website and user guide (site/, site/README.md; needs Node 22.22+) ----
 

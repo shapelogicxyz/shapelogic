@@ -316,6 +316,7 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.solver = o.slidingSolver;
   s.nested = o.nestedSlides;
   s.partialNested = o.partialNested;
+  s.verticalMoves = o.verticalMoves;
   s.highMemory = o.highMemory;
   if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR")) {
     s.workDir = dir;
@@ -328,6 +329,7 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
   s.fullThroughQueue = o.slideQueue;
+  s.step = o.slideStep;
   return s;
 }
 
@@ -822,6 +824,9 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                              : (o.slidingSolver == bt::sliding::SlidingSolver::Full
                                     ? ""
                                     : " (try --solver full)"));
+        } else if (solutions == 0 && assemblies > 0 && o.slideStep > 1) {
+          std::printf("no solution with --slide-step %d; one may need stops in between\n",
+                      o.slideStep);
         } else if (solutions == 0 && assemblies > 0) {
           std::printf("every reachable arrangement was searched: no solution%s\n",
                       !o.nestedSlides     ? " (without --nested-slides)"
@@ -1140,6 +1145,11 @@ int main(int argc, char** argv) {
   bt::Puzzle& puzzle = *loaded;
 
   const PuzzleKind kind = puzzleKind(puzzle);
+  if ((o.verticalMoves || o.slideStep > 1) && kind != PuzzleKind::Sliding) {
+    std::fprintf(stderr, "shapelogic_cli: %s is for sliding puzzles; this is a %s puzzle\n",
+                 o.verticalMoves ? "--vertical-moves" : "--slide-step", kindName(kind));
+    return kExitUsage;
+  }
   if (o.nestedSlides && kind != PuzzleKind::Sliding) {
     std::fprintf(stderr, "shapelogic_cli: %s is for sliding puzzles; this is a %s puzzle\n",
                  o.partialNested ? "--partial-nested" : "--nested-slides", kindName(kind));

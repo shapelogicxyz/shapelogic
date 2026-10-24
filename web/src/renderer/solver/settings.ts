@@ -16,7 +16,9 @@
 // nested slides) and Enable High Memory in the places of Keep Mirror,
 // Keep Rotated and Deep Symmetry Check, the three sliding solvers in the
 // Solver Type list, Find Solutions checked at first, and none of Just
-// Levels, Check Rotations, Strict Colours and the symmetry options. On a
+// Levels, Check Rotations, Strict Colours and the symmetry options; and
+// Allow Vertical Moves, which the original (trays one layer deep) did not
+// have, off by default so that a piece stays in its layer. On a
 // stacking puzzle (section 9.3): Find Solutions checked at first
 // (stackingDisasmDefaulted), Just Levels kept (the search ignores it),
 // Enable High Memory, no Check Rotations, Strict Colours or symmetry
@@ -54,6 +56,7 @@ export type BoxName =
   | 'strictColors'
   | 'nestedSlides'
   | 'partialNested'
+  | 'verticalMoves'
   | 'highMemory'
   | 'autosave';
 
@@ -71,6 +74,8 @@ export interface SearchOptions {
   nestedSlides: boolean;
   /** Sliding: and what is partly nested in it (Allow Partially Nested; needs nestedSlides). */
   partialNested: boolean;
+  /** Sliding: on a tray of several layers a piece may also move up and down (Allow Vertical Moves). */
+  verticalMoves: boolean;
   /** Sliding and stacking: up to half the memory (Enable High Memory). */
   highMemory: boolean;
   autosave: boolean;
@@ -92,6 +97,7 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   strictColors: true,
   nestedSlides: false,
   partialNested: false,
+  verticalMoves: false,
   highMemory: false,
   autosave: true,
   solver: 'classic',
@@ -120,6 +126,7 @@ export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'justCount',
   'nestedSlides',
   'partialNested',
+  'verticalMoves',
   'highMemory',
   'autosave',
 ]);
@@ -128,6 +135,7 @@ export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
 export const SLIDING_ONLY: ReadonlySet<BoxName> = new Set<BoxName>([
   'nestedSlides',
   'partialNested',
+  'verticalMoves',
   'highMemory',
 ]);
 
@@ -187,6 +195,7 @@ export function readOptions(
     'strictColors',
     'nestedSlides',
     'partialNested',
+    'verticalMoves',
     'highMemory',
     'autosave',
   ];
@@ -249,6 +258,7 @@ export function writeOptions(
   if (sliding) {
     out.nestedSlides = o.nestedSlides;
     out.partialNested = o.partialNested;
+    out.verticalMoves = o.verticalMoves;
   }
   if (family !== 'brick') {
     out.highMemory = o.highMemory;
@@ -293,6 +303,7 @@ export function normalize(
     o.keepRotations = false;
     o.nestedSlides = false;
     o.partialNested = false;
+    o.verticalMoves = false;
     if (changed === 'justLevels' && o.justLevels) {
       o.justCount = false;
     }
@@ -415,6 +426,7 @@ export function solveOptions(
         solver: o.slidingSolver,
         nestedSlides: o.nestedSlides,
         partialNested: o.nestedSlides && o.partialNested,
+        verticalMoves: o.verticalMoves,
         highMemory: o.highMemory,
       },
     };

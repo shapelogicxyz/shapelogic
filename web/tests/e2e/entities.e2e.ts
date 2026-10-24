@@ -259,7 +259,10 @@ for (const grid of GRIDS) {
 
       // ---- the box selection: fill and clear (shape.setBox), Esc ----
       await clearShape(page, s1);
-      await page.click('#boxSeg [data-box]');
+      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
+      await page.click('#toolStrip [data-box]');
+      // the button names the mode it goes back to
+      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Paint');
       const corner0 = run[0] ?? A;
       const corner1 = run.at(-1) ?? A;
       await dragCells(page, [corner0, corner1]);
@@ -278,7 +281,8 @@ for (const grid of GRIDS) {
       expect((await shapeGet(page, s1)).cells).toEqual([]);
       await page.keyboard.press('Escape');
       await expect(page.locator('#selbar')).not.toHaveClass(/\bshow\b/);
-      await page.click('#boxSeg [data-box]');
+      await page.click('#toolStrip [data-box]');
+      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
 
       // ---- layers: PgUp and PgDn, the chips' marks ----
       await page.locator('#garea').hover();
@@ -415,7 +419,15 @@ for (const grid of GRIDS) {
       await expect(page.locator(`#colFoot .sw[data-c="${c1?.id}"]`)).toHaveClass(/\bon\b/);
       await expect(page.locator(`#colFoot .sw[data-c="${c1?.id}"]`)).toHaveText('C1');
       await expect(page.locator('#cRm')).toBeEnabled();
-      await page.keyboard.press('4');
+      // the Paint tool is the brush by a restriction color
+      await expect(page.locator('#toolStrip [data-t="paint"]')).toHaveCount(0);
+      await page.click('#cPaint');
+      await expect(page.locator('#cPaint')).toHaveClass(/\bon\b/);
+      // a second click turns it off: back to Fixed
+      await page.click('#cPaint');
+      await expect(page.locator('#cPaint')).not.toHaveClass(/\bon\b/);
+      await expect(page.locator('#toolStrip [data-t="fixed"]')).toHaveClass(/\bon\b/);
+      await page.click('#cPaint');
       await clickCell(page, P);
       expect((await shapeGet(page, s3)).cells[0]?.colour).toBe(c1?.id);
       // a new voxel takes the drawing colour; Default is the shape's own
@@ -424,8 +436,13 @@ for (const grid of GRIDS) {
       expect(
         (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(Q))?.colour,
       ).toBe(c1?.id);
+      await page.keyboard.press('4');
+      await expect(page.locator('#cPaint')).toHaveClass(/\bon\b/);
+      // Default has no brush: the tool goes back to Fixed
       await page.click('#colFoot .sw.def');
       await expect(page.locator('#cRm')).toBeDisabled();
+      await expect(page.locator('#cPaint')).toHaveCount(0);
+      await expect(page.locator('#toolStrip [data-t="fixed"]')).toHaveClass(/\bon\b/);
       await clickCell(page, R);
       expect(
         (await shapeGet(page, s3)).cells.find((c: EngineCell) => key(c.at) === key(R))?.colour,
@@ -506,7 +523,9 @@ for (const grid of GRIDS) {
           const m = /^Cell (\d+), (\d+), (\d+) · side (\d+)$/.exec(
             (await page.locator('#stCursor').textContent()) ?? '',
           );
-          if (m === null) {
+          // the left half of a face adds across it (the right half works on its own cell)
+          const quarter = await page.locator('#vp').getAttribute('data-quarter');
+          if (m === null || (quarter !== 'tl' && quarter !== 'bl')) {
             continue;
           }
           const cell: Cell = [Number(m[1]), Number(m[2]), Number(m[3])];
@@ -525,9 +544,9 @@ for (const grid of GRIDS) {
           if (cube) {
             // the client's table agrees with the engine's
             await page.keyboard.down('Shift');
-            await page.mouse.move(x + 1, y);
+            await page.mouse.move(x - 1, y);
             await expect(page.locator('#vp')).not.toHaveAttribute('data-preview', '0');
-            await page.mouse.click(x + 1, y);
+            await page.mouse.click(x - 1, y);
             await page.keyboard.up('Shift');
           } else {
             await expect(page.locator('#vp')).not.toHaveAttribute('data-preview', '0');
@@ -642,6 +661,78 @@ test('the palette shows its colors one row at a time', async () => {
     await page.click('#garea .cell >> nth=0');
     await settled(page);
     await expect(page.locator('#garea .cmark')).toHaveCount(1);
+  } finally {
+    await a.close();
+  }
+});
+
+test('3D edit mode adds on an empty layer, and a face’s right half changes or deletes its voxel', async () => {
+  const a: App = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'bricks');
+    const s = await newShape(page);
+    await clearShape(page, s);
+    const vp = await page.locator('#cv').boundingBox();
+    if (vp === null) {
+      throw new Error('no view');
+    }
+    await page.keyboard.press('e');
+    await expect(page.locator('#bEdit')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#editHint')).toBeVisible();
+    await expect(page.locator('#editHint')).toContainText('left half');
+    // the first point of the view where the hover is as wanted
+    const find = async (
+      want: (cursor: string, quarter: string, preview: string) => boolean,
+    ): Promise<{ x: number; y: number }> => {
+      for (let iy = 0; iy < 21; iy++) {
+        for (let ix = 0; ix < 21; ix++) {
+          const x = vp.x + vp.width * (0.15 + 0.035 * ix);
+          const y = vp.y + vp.height * (0.15 + 0.035 * iy);
+          await page.mouse.move(x, y);
+          const cursor = (await page.locator('#stCursor').textContent()) ?? '';
+          const quarter = (await page.locator('#vp').getAttribute('data-quarter')) ?? '';
+          const preview = (await page.locator('#vp').getAttribute('data-preview')) ?? '0';
+          if (want(cursor, quarter, preview)) {
+            return { x, y };
+          }
+        }
+      }
+      throw new Error('no point found');
+    };
+
+    // no face under the mouse: a click adds the active layer's cell
+    const empty = await find((cursor, _q, preview) => cursor === '' && preview !== '0');
+    await page.mouse.click(empty.x, empty.y);
+    await settled(page);
+    let cells = (await shapeGet(page, s)).cells;
+    expect(cells.length).toBe(1);
+    expect(cells[0]?.at[2]).toBe(0);
+    expect(cells[0]?.state).toBe('fixed');
+
+    // the top right quarter of a face makes its voxel of the tool's state
+    await tool(page, 'variable');
+    const tr = await find((cursor, quarter) => cursor.includes('side') && quarter === 'tr');
+    await expect(page.locator('#vp')).not.toHaveAttribute('data-preview', '0');
+    await page.mouse.click(tr.x, tr.y);
+    await settled(page);
+    cells = (await shapeGet(page, s)).cells;
+    expect(cells.length).toBe(1);
+    expect(cells[0]?.state).toBe('variable');
+    // already variable: nothing previewed
+    await page.mouse.move(vp.x + 4, vp.y + 4);
+    await page.mouse.move(tr.x, tr.y);
+    await expect(page.locator('#vp')).toHaveAttribute('data-preview', '0');
+
+    // the bottom right quarter deletes it
+    const br = await find((cursor, quarter) => cursor.includes('side') && quarter === 'br');
+    await expect(page.locator('#vp')).not.toHaveAttribute('data-preview', '0');
+    await page.mouse.click(br.x, br.y);
+    await settled(page);
+    expect((await shapeGet(page, s)).cells.length).toBe(0);
+
+    await page.keyboard.press('e');
+    await expect(page.locator('#editHint')).toBeHidden();
   } finally {
     await a.close();
   }
