@@ -20,6 +20,7 @@ import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop } from '../shell/popover.ts';
 import { hex } from '../shell/piece-colours.ts';
+import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import type { SortKey } from './pager.ts';
 import type { RemoveWhich, SolverWorkspace } from './workspace.ts';
 
@@ -216,6 +217,21 @@ export class SolutionsCard {
             const has = row.disassembly !== 'none';
             return `<div><small>Assembly</small><b>#${String(row.assembly + 1)}</b></div><div><small>Level</small><b title="${esc(row.movesText ?? '')}">${has ? esc(row.movesText ?? '') : '—'}</b></div><div><small>Moves</small><b>${has ? movesOf(row) : '—'}</b></div><div><small>Pieces</small><b>${String(row.pieces)}</b></div><div><small>Disassembly</small><b title="${da[2]}">${row.disassembly === 'tree' ? 'stored' : row.disassembly === 'summary' ? 'level only' : ws.inseparable(row.id) ? 'none exists' : 'not checked'}</b></div><div><small>Position</small><b>${String(i + 1)} / ${String(n)}</b></div>`;
           })();
+    const slider = document.getElementById('slvSlider') as HTMLInputElement | null;
+    if (slider !== null && box.contains(slider)) {
+      // updated in place: a slider drawn again drops the drag under way
+      forgetHtml(box);
+      byId('slvNavT').textContent = `Solution ${String(i + 1)}`;
+      byId('slvNavO').textContent = `of ${String(n)}${ws.options.disassemble ? '' : ' assemblies'}`;
+      slider.max = String(n);
+      slider.value = String(i + 1);
+      slider.disabled = n < 2;
+      for (const b of box.querySelectorAll<HTMLButtonElement>('button[data-n]')) {
+        b.disabled = b.dataset.n === '-1' ? i <= 0 : i >= n - 1;
+      }
+      setHtml(byId('slvMeta'), meta);
+      return;
+    }
     setHtml(
       box,
       `<div class="slv-nav"><div class="big"><b id="slvNavT">Solution ${String(i + 1)}</b><span id="slvNavO">of ${String(n)}${ws.options.disassemble ? '' : ' assemblies'}</span></div><div class="ctl"><button class="nb" data-n="-1" title="Previous solution" ${i <= 0 ? 'disabled' : ''}><span style="display:grid;transform:rotate(90deg)">${ic('chevD', 14)}</span></button><input type="range" id="slvSlider" min="1" max="${String(n)}" value="${String(i + 1)}" ${n < 2 ? 'disabled' : ''}><button class="nb" data-n="1" title="Next solution" ${i >= n - 1 ? 'disabled' : ''}><span style="display:grid;transform:rotate(-90deg)">${ic('chevD', 14)}</span></button></div></div><div class="slv-meta" id="slvMeta">${meta}</div>`,
@@ -373,12 +389,20 @@ export class SolutionsCard {
   renderChips(): void {
     const pl = this.ws.player;
     const focused = (document.activeElement as HTMLElement | null)?.dataset.p;
+    // Full: "S2 - name" for a piece with a name; Compact: the label alone
+    const compact = prefs.pieceCompact;
+    const cb = byId('slvCompact');
+    cb.textContent = compact ? 'Full' : 'Compact';
+    cb.title = compact
+      ? 'Show each piece’s name after its label, as “S2 - name”'
+      : 'Show only each piece’s label, as “S2”';
     setHtml(
       byId('slvPcs'),
       pl.pieces
         .map((p) => {
           const m = pl.modes.get(p.piece) ?? 'solid';
-          return `<div class="pvc ${m === 'wire' ? 'wire' : m === 'hidden' ? 'hid' : ''}" data-p="${String(p.piece)}" data-mode="${m}" style="--c:${hex(p.colour)}" tabindex="0" role="button" title="${esc(p.label)} — ${m === 'wire' ? 'wireframe' : m}. Click, Space or Enter to cycle: solid → wireframe → hidden"><i class="sq"></i>${esc(p.label)}</div>`;
+          const full = p.name === '' ? p.label : `${p.label} - ${p.name}`;
+          return `<div class="pvc ${m === 'wire' ? 'wire' : m === 'hidden' ? 'hid' : ''}" data-p="${String(p.piece)}" data-mode="${m}" style="--c:${hex(p.colour)}" tabindex="0" role="button" title="${esc(full)} — ${m === 'wire' ? 'wireframe' : m}. Click, Space or Enter to cycle: solid → wireframe → hidden"><i class="sq"></i>${esc(compact ? p.label : full)}</div>`;
         })
         .join(''),
     );
@@ -555,6 +579,14 @@ export class SolutionsCard {
     });
     byId('slvShowAll').addEventListener('click', () => {
       ws.player.showAll();
+    });
+    byId('slvCompact').addEventListener('click', () => {
+      setPrefs({ pieceCompact: !prefs.pieceCompact });
+    });
+    onPrefs((changed) => {
+      if (changed.includes('pieceCompact')) {
+        this.renderChips();
+      }
     });
     const player = byId('splayer');
     // the buttons do not take the focus from the list or the slider (svWire's mousedown)

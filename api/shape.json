@@ -71,7 +71,7 @@
       "errors": ["not_found", "invalid_state"]
     },
     "shape.move": {
-      "summary": "Moves a shape to a place in the list; labels renumber. On a sliding puzzle the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.",
+      "summary": "Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay above the pieces (a move across them is refused, invalid_argument), the boards are numbered by place again, and the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.",
       "params": {
         "type": "object",
         "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "toIndex": {"type": "integer", "minimum": 0}},
@@ -82,7 +82,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "shape.rename": {
-      "summary": "The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's part (its START/GOAL number stays), and a piece's name may not begin with \"sg:\" or \"__sggoal:\" (invalid_argument).",
+      "summary": "The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's part (its START/GOAL number stays; the name '(START/GOAL n)' it shows without one leaves it empty), its problem is named so, and a piece's name may not begin with \"sg:\" or \"__sggoal:\" (invalid_argument).",
       "params": {
         "type": "object",
         "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "name": {"type": "string"}},

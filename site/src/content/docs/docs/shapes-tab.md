@@ -29,7 +29,9 @@ The list holds every shape in the puzzle, named **S1**, **S2** and so on, with
 an optional name after the label. Click a shape to select it: the 3D view and
 the voxel editor show it, and **Edit shape** works on it.
 
-- **+ New** adds an empty shape.
+- **+ New** adds an empty shape, the same size (X, Y and Z) as the selected
+  shape. With no shape selected it uses the **New shape size** setting
+  ([Settings ▸ Grid editor](#grid-editor-settings)).
 - The panel icon at the top right collapses the card to a narrow strip
   (`Ctrl+[`). The strip still shows each shape's chip, so you can switch
   shapes.
@@ -78,9 +80,10 @@ goes back), and **Collapse sidebar** (`Ctrl+]`).
 | **Erase** | `3` | Removes the voxel. |
 | **Paint** | `4` | Gives an existing voxel the current **restriction color**, without changing whether it is fixed or variable. Its paintbrush is beside the trash can in the [color area](#shape-and-restriction-colors), and shows only while a restriction color is chosen. |
 
-The last button, **Select**, switches to [box selection](#planes-box-selection-and-layers).
-While you select, the button reads **Paint** with a paintbrush: click it to
-go back to drawing with the tools.
+One of Fixed, Variable and Erase is always chosen. The last button,
+**Select**, switches to [box selection](#planes-box-selection-and-layers),
+which works with the chosen tool. While you select, the button reads
+**Paint** with a paintbrush: click it to go back to drawing with the tools.
 
 Drag across the grid to apply the tool to every cell you pass over. The whole
 drag is one undo step. A right-click or right-drag always erases, whatever
@@ -108,13 +111,20 @@ Mirror and span work together, and with the box selection below.
 ![The plane buttons XY, XZ and YZ, and the layer count.](../../../assets/screens/guide/editor-planes.png)
 
 - **XY**, **XZ** and **YZ** choose which slice of the shape the grid shows.
-  XY shows horizontal layers stacked along Z. XZ and YZ show upright slices.
-  Only the cube-style grids offer all three; the other grids draw in XY.
+  XY shows layers stacked along Z, XZ layers along Y, and YZ layers along X.
+  Each slice is drawn as you would see it from the positive end of its layer
+  axis. In XZ, X 0 and Z 0 are at the top left: X counts up to the right and
+  Z counts up going down. In YZ the numbers along the bottom run from right
+  to left.
+  Only the cube-style grids offer all three; the other grids draw in XY. The
+  plane a puzzle starts in is the **Grid plane** setting
+  ([Settings ▸ Grid editor](#grid-editor-settings)).
 - **Select** in the tool strip turns on **box selection**. Drag a rectangle
-  in the grid, then click **Fill** to fill it with fixed voxels in the
-  drawing color, or **Clear** to empty it. Mirror and span apply. `Esc`
-  cancels the selection, and **Paint** (the same button) goes back to
-  drawing.
+  in the grid, then click **Fill** to fill it with the chosen tool: fixed or
+  variable voxels in the drawing color, or, with Erase chosen, nothing (the
+  same as **Clear**). **Clear** always empties it. You can change the tool
+  while the box stays selected. Mirror and span apply. `Esc` cancels the
+  selection, and **Paint** (the same button) goes back to drawing.
 - **Layer 1 of 7** tells you which layer the grid shows.
 
 ![The layer strip: one button per layer, with a dot on layers that hold voxels.](../../../assets/screens/guide/editor-layers.png)
@@ -173,6 +183,21 @@ Restriction colors limit where a piece can go; see
 [Color Restrictions](/docs/color-restrictions/). Sliding and stacking
 puzzles have no restriction colors, so for them the area has only the
 shape's color and the pencil.
+
+## Grid editor settings
+
+**Settings ▸ Grid editor** (`Ctrl+,`, or `⌘,` on a Mac) holds the voxel
+editor's settings:
+
+- **Grid plane**: the plane the grid starts in, as the **XY**, **XZ** and
+  **YZ** buttons above it choose. The grid goes to it when a puzzle is opened
+  or made, and when you change the setting; the buttons still switch the
+  plane at any time.
+- **New shape size**: the X, Y and Z size of a shape made with **+ New** when
+  no shape is selected, 4 by 4 by 4 unless you change it. It counts as the
+  [Grid size](#grid-size) steppers do, so on grids that size in blocks it is
+  a number of blocks. With a shape selected, **+ New** copies that shape's
+  size instead. A stacking puzzle's new disc is always size 1.
 
 ## Drawing in the 3D view
 

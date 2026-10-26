@@ -2,21 +2,26 @@
 //
 // The 3D view's camera: an orientation, a zoom and a pan. From
 // docs/mockup/index.html: `cam`, `HOME`, the pointer handlers' orbit and
-// pan (the "Drag" method: yaw and pitch from the drag, pitch held inside
-// ±89°, the roll respected), `zoomBy` / `zStep` (smooth wheel zoom, 0.3 to
+// pan (the "Top Up" method, the mockup's "Drag": yaw and pitch from the
+// drag, pitch held inside ±89°, the roll respected), `zoomBy` / `zStep` (smooth wheel zoom, 0.3 to
 // 4), `animateTo` (cubic ease in and out, 360 ms), `homeView`, `fitView`,
-// `dirToView`, `viewToWorld`, `mkRot`. The "Arc-ball" method is the
-// original's (src/gui/arcball.cpp, arcBall_c: the drag's start and end on a
+// `dirToView`, `viewToWorld`, `mkRot`. The "Free Spin" method is the
+// original's arc-ball (src/gui/arcball.cpp, arcBall_c: the drag's start and end on a
 // virtual ball, their rotation added in front of the last). three.js's own
 // controls follow neither map, so the logic is ported.
 //
 // The orientation is one quaternion `q` turning world (the mesh's
 // coordinates) into view space (x right, y up, z towards the viewer); the
 // mockup's yaw, pitch and roll are its Euler angles in the order Z, X, Y
-// (view = Rz(roll) Rx(pitch) Ry(yaw) world), so both methods turn the same
-// camera and the view cube reads it.
+// (view = Rz(roll) Rx(pitch) Ry(yaw) B world), so both methods turn the same
+// camera and the view cube reads it. B is the "Z axis direction" setting's
+// turn of the world into the upright frame, whose Y is up: the home view
+// and the Top Up method's spin are about it. It is a turn, never a mirror,
+// so the pieces keep their handedness.
 
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
+
+import type { ZAxis } from '../shell/prefs.ts';
 
 /** The mockup's camera angles, in degrees. */
 export interface Angles {
@@ -42,6 +47,18 @@ export const HOME: Readonly<Angles & { zoom: number; px: number; py: number }> =
   px: 0,
   py: 0,
 };
+
+/** World to the upright frame of a "Z axis direction" (its Y is up, its Z towards the viewer). */
+export function baseOf(z: ZAxis): Quaternion {
+  const turn = (x: number, y: number, z: number, deg: number): Quaternion =>
+    new Quaternion().setFromAxisAngle(new Vector3(x, y, z), MathUtils.degToRad(deg));
+  switch (z) {
+    case 'Z Towards':
+      return new Quaternion();
+    case 'Z Up':
+      return turn(1, 0, 0, -90);
+  }
+}
 
 /** The zoom's range. */
 export const ZOOM_MIN = 0.3;
@@ -126,6 +143,8 @@ interface Animation {
 
 /** The camera's state and its moves; the view renders after `step()` says it moved. */
 export class Camera {
+  /** World to the upright frame (baseOf); the angles are measured in it. */
+  private base = new Quaternion();
   /** World to view. */
   q = quatOf(HOME);
   zoom = HOME.zoom;
@@ -138,9 +157,40 @@ export class Camera {
   private zoomLast = 0;
   private arc: { start: Vector3; q0: Quaternion; w: number; h: number } | null = null;
 
-  /** The mockup's angles of the orientation now. */
+  /** The mockup's angles of the orientation now, in the upright frame. */
   get angles(): Angles {
-    return anglesOf(this.q);
+    return anglesOf(this.q.clone().multiply(this.base.clone().invert()));
+  }
+
+  /** The orientation of angles in the upright frame. */
+  fromAngles(a: Angles): Quaternion {
+    return quatOf(a).multiply(this.base);
+  }
+
+  /** A direction of the world in the upright frame (for dirToView). */
+  upright(v: readonly [number, number, number]): [number, number, number] {
+    const u = new Vector3(v[0], v[1], v[2]).applyQuaternion(this.base);
+    return [u.x, u.y, u.z];
+  }
+
+  /**
+   * Another upright frame: the view goes home in it, animated from `now`,
+   * or at once without a time (the first view).
+   */
+  setBase(b: Quaternion, now?: number): void {
+    if (b.equals(this.base)) {
+      return;
+    }
+    this.base = b.clone();
+    if (now === undefined) {
+      this.stop();
+      this.q = this.fromAngles(HOME);
+      this.zoom = HOME.zoom;
+      this.px = HOME.px;
+      this.py = HOME.py;
+    } else {
+      this.home(now);
+    }
   }
 
   /** Whether an animation or a smooth zoom is under way. */
@@ -154,13 +204,13 @@ export class Camera {
     this.zoomTarget = null;
   }
 
-  /** The "Drag" orbit by a drag of (dx, dy) pixels (the mockup's pointermove). */
+  /** The "Top Up" orbit by a drag of (dx, dy) pixels (the mockup's "Drag" pointermove). */
   orbit(dx: number, dy: number): void {
     const a = this.angles;
     const rr = MathUtils.degToRad(a.roll);
     const cr = Math.cos(rr);
     const sr = Math.sin(rr);
-    this.q = quatOf({
+    this.q = this.fromAngles({
       yaw: a.yaw + (dx * cr - dy * sr) * 0.5,
       pitch: Math.max(-89, Math.min(89, a.pitch + (dx * sr + dy * cr) * 0.5)),
       roll: a.roll,
@@ -219,7 +269,7 @@ export class Camera {
 
   /** The home view, animated. */
   home(now: number): void {
-    this.animateTo({ q: quatOf(HOME), zoom: HOME.zoom, px: HOME.px, py: HOME.py }, now);
+    this.animateTo({ q: this.fromAngles(HOME), zoom: HOME.zoom, px: HOME.px, py: HOME.py }, now);
   }
 
   /** Framed again, the orientation kept (the mockup's fitView). */

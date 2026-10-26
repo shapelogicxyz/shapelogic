@@ -151,17 +151,14 @@ for (const grid of GRIDS) {
       const g = info.grids.find((x) => x.grid === grid);
       const unit = g?.sizeUnit ?? 1;
       const s1 = await newShape(page);
-      expect((await shapeGet(page, s1)).shape.size).toEqual([
-        g?.defaultSize,
-        g?.defaultSize,
-        g?.defaultSize,
-      ]);
+      // no shape selected: the New shape size setting's 4 by 4 by 4, in blocks
+      expect((await shapeGet(page, s1)).shape.size).toEqual([4 * unit, 4 * unit, 4 * unit]);
       await expect(page.locator('#vtChip')).not.toBeEmpty();
       // the size steppers count in the grid's blocks, rounded up as the
       // original's (a tetrahedra-octahedra shape of 4 cells shows 2 blocks of 3)
       const blocks = async (id: string): Promise<number[]> =>
         (await shapeGet(page, id)).shape.size.map((v) => Math.ceil(v / unit));
-      await expect(page.locator('#sizeSteppers .v[data-v="0"]')).toHaveText(
+      await expect(page.locator('#sizeSteppers .v[data-v="0"]')).toHaveValue(
         String((await blocks(s1))[0]),
       );
       if (grid === 'spheres') {
@@ -259,10 +256,10 @@ for (const grid of GRIDS) {
 
       // ---- the box selection: fill and clear (shape.setBox), Esc ----
       await clearShape(page, s1);
-      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
-      await page.click('#toolStrip [data-box]');
-      // the button names the mode it goes back to
       await expect(page.locator('#toolStrip [data-box]')).toHaveText('Paint');
+      await page.click('#toolStrip [data-box]');
+      // the button names the mode in use
+      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
       const corner0 = run[0] ?? A;
       const corner1 = run.at(-1) ?? A;
       await dragCells(page, [corner0, corner1]);
@@ -279,10 +276,31 @@ for (const grid of GRIDS) {
       await page.click('#selbar [data-x="clear"]');
       await settled(page);
       expect((await shapeGet(page, s1)).cells).toEqual([]);
+      // a voxel tool is always chosen: another one keeps the box, and Fill puts it in
+      await expect(page.locator('#toolStrip [data-t="fixed"]')).toHaveClass(/\bon\b/);
+      await page.click('#toolStrip [data-t="variable"]');
+      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
+      await expect(page.locator('#selbar')).toHaveClass(/\bshow\b/);
+      const varied = await onCopy(page, s1, 'shape.setBox', { tool: 'variable', from: lo, to: hi });
+      await page.click('#selbar [data-x="fill"]');
+      await settled(page);
+      expect(cellsOf(await shapeGet(page, s1))).toEqual(varied);
+      // under Erase, Fill clears as Clear does
+      await page.click('#toolStrip [data-t="erase"]');
+      await page.click('#selbar [data-x="fill"]');
+      await settled(page);
+      expect((await shapeGet(page, s1)).cells).toEqual([]);
+      await page.click('#toolStrip [data-t="fixed"]');
       await page.keyboard.press('Escape');
       await expect(page.locator('#selbar')).not.toHaveClass(/\bshow\b/);
+      await expect(page.locator('#garea svg')).toHaveAttribute('data-selected', '0');
+      // back to drawing clears a box still selected
+      await dragCells(page, [corner0, corner1]);
+      await expect(page.locator('#selbar')).toHaveClass(/\bshow\b/);
       await page.click('#toolStrip [data-box]');
-      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
+      await expect(page.locator('#toolStrip [data-box]')).toHaveText('Paint');
+      await expect(page.locator('#selbar')).not.toHaveClass(/\bshow\b/);
+      await expect(page.locator('#garea svg')).toHaveAttribute('data-selected', '0');
 
       // ---- layers: PgUp and PgDn, the chips' marks ----
       await page.locator('#garea').hover();
@@ -404,6 +422,10 @@ for (const grid of GRIDS) {
 
       // ---- the palette and paint (on a new shape: the tasks pruned this one) ----
       const s3 = await newShape(page);
+      // + New copied the selected shape's size, grown above: back to the 4 by 4 by 4 (in blocks)
+      // a puzzle's first shape has, so the cells drawn below fill the 3D view
+      await engineCall(page, 'shape.resize', { shape: s3, size: [4, 4, 4] });
+      await settled(page);
       const geo3 = await geometry(page, (await shapeGet(page, s3)).shape.size, 0);
       const [P, Q, R] = chain(geo3, 3);
       if (P === undefined || Q === undefined || R === undefined) {

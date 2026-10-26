@@ -277,6 +277,17 @@ export class SolverWorkspace {
       if (changed.includes('fade')) {
         this.player.restyle();
       }
+      // the Default solver type: shown at once for a problem that stored none
+      const d = this.detail;
+      if (
+        changed.includes('solverType') &&
+        d !== null &&
+        this.family === 'brick' &&
+        d.solverSettings.solverType === undefined
+      ) {
+        this.options = readOptions(d.solverSettings, undefined, this.family, this.canDisassemble);
+        this.render();
+      }
     });
     this.installKeys();
     this.documentChanged();

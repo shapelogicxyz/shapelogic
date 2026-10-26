@@ -44,7 +44,7 @@ import {
 import { commandItems, menuTemplate, NO_STATE, recentLabel } from '../../src/main/menu.ts';
 import { RescueStore } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
-import { DEFAULTS, validPrefs } from '../../src/renderer/shell/prefs.ts';
+import { DEFAULTS, NEW_SIZE_MAX, validPrefs } from '../../src/renderer/shell/prefs.ts';
 import { toShapesParams } from '../../src/renderer/solver/to-shapes-form.ts';
 
 const dirs: string[] = [];
@@ -69,6 +69,7 @@ describe('the store of settings, layouts and recent files', () => {
     s.set('layout', { tab: 'solver' });
     s.setBounds({ x: 1, y: 2, width: 900, height: 700 });
     s.addRecent('/a.xmpuzzle');
+    s.setLastDir('/puzzles');
     expect(existsSync(join(d, 'state.json'))).toBe(false);
     vi.advanceTimersByTime(100);
     expect(existsSync(join(d, 'state.json.tmp'))).toBe(false);
@@ -77,6 +78,7 @@ describe('the store of settings, layouts and recent files', () => {
     expect(back.layout).toEqual({ tab: 'solver' });
     expect(back.bounds).toEqual({ x: 1, y: 2, width: 900, height: 700 });
     expect(back.recent).toEqual(['/a.xmpuzzle']);
+    expect(back.lastDir).toBe('/puzzles');
   });
 
   it('keeps the recent files newest first, once each, at most ten', () => {
@@ -107,13 +109,20 @@ describe('the store of settings, layouts and recent files', () => {
     expect(new StateStore(d).prefs).toBeUndefined();
     writeFileSync(
       join(d, 'state.json'),
-      JSON.stringify({ prefs: [1], recent: ['/ok', 3, ''], bounds: { x: 'a' }, layout: {} }),
+      JSON.stringify({
+        prefs: [1],
+        recent: ['/ok', 3, ''],
+        bounds: { x: 'a' },
+        layout: {},
+        lastDir: 7,
+      }),
     );
     const s = new StateStore(d);
     expect(s.prefs).toBeUndefined();
     expect(s.recent).toEqual(['/ok']);
     expect(s.bounds).toBeUndefined();
     expect(s.layout).toEqual({});
+    expect(s.lastDir).toBeUndefined();
   });
 });
 
@@ -336,10 +345,20 @@ describe('the stored settings read back', () => {
         threads: -1,
         tips: false,
         cube: 'yes',
-        rot: 'Arc-ball',
+        rot: 'Top Up',
+        zAxis: 'Z Up',
+        gridPlane: 'XW',
         gone: 1,
       }),
-    ).toEqual({ theme: 'Dark', undo: 100, tips: false, rot: 'Arc-ball' });
+    ).toEqual({ theme: 'Dark', undo: 100, tips: false, rot: 'Top Up', zAxis: 'Z Up' });
+    // the rotation methods' names before Free Spin and Top Up: back to the default
+    expect(validPrefs({ rot: 'Arc-ball' })).toEqual({});
+    // Z Up's name before, and the Z axis directions dropped since: back to the default
+    expect(validPrefs({ zAxis: 'Z Up + Y Away' })).toEqual({ zAxis: 'Z Up' });
+    expect(validPrefs({ zAxis: 'Z Away' })).toEqual({});
+    expect(validPrefs({ zAxis: 'Z Up + Y Towards' })).toEqual({});
+    // a new shape's size: whole, 1 to NEW_SIZE_MAX
+    expect(validPrefs({ newX: 0, newY: 7, newZ: NEW_SIZE_MAX + 1 })).toEqual({ newY: 7 });
     expect(validPrefs({ ...DEFAULTS })).toEqual(DEFAULTS);
   });
 });

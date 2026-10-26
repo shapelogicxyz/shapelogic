@@ -62,7 +62,7 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
                     return x.addStartGoal({4, 5, 1});
                   }).value();
   REQUIRE(d.problemIds().size() == 1);
-  CHECK(d.puzzle().getProblem(0).getName() == "START/GOAL 1");
+  CHECK(d.puzzle().getProblem(0).getName() == "(START/GOAL 1)");
   CHECK(d.puzzle().getShape(index(d, tray)).getName() == "sg:1:");
 
   const Id block = piece(d, 2, 2, {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}});
@@ -190,7 +190,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     CHECK(d.puzzle().getProblem(0).getShapeIdOfPart(0) == index(d, b));
   }
   SECTION("move: the marks follow") {
-    roundTrip(d, [=](Document& x) { return x.moveShape(b, 0); });
+    roundTrip(d, [=](Document& x) { return x.moveShape(b, ia); });
     const Voxel& t = d.puzzle().getShape(index(d, tray));
     CHECK(sliding::stampAt(&t, 2, 2, 0, false) == index(d, b));
     CHECK(sliding::stampAt(&t, 0, 0, 0, false) == index(d, a));
@@ -200,7 +200,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     const Id copy = roundTrip(d, [=](Document& x) { return x.duplicateShape(tray); }).value();
     CHECK(d.puzzle().getShape(index(d, copy)).getName() == "sg:2:");
     REQUIRE(d.problemIds().size() == 2);
-    CHECK(d.puzzle().getProblem(1).getName() == "START/GOAL 2");
+    CHECK(d.puzzle().getProblem(1).getName() == "(START/GOAL 2)");
     CHECK(d.puzzle().getProblem(1).getResultId() == index(d, copy));
     // a copy of a piece is a plain copy
     const Id pc = roundTrip(d, [=](Document& x) { return x.duplicateShape(a); }).value();
@@ -210,7 +210,9 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
   SECTION("rename a start/goal shape: the user's part") {
     roundTrip(d, [=](Document& x) { return x.renameShape(tray, "Klotski"); });
     CHECK(d.puzzle().getShape(index(d, tray)).getName() == "sg:1:Klotski");
-    CHECK(sliding::displayName(&d.puzzle().getShape(index(d, tray))) == "(START/GOAL 1) Klotski");
+    CHECK(sliding::displayName(&d.puzzle().getShape(index(d, tray))) == "Klotski");
+    // its problem is named so
+    CHECK(d.puzzle().getProblem(0).getName() == "Klotski");
   }
   SECTION("edit a piece: moved in its grid it keeps its marks, changed it loses them") {
     const std::string before = marks(d, tray);
@@ -221,8 +223,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     const test::DocState was = test::state(d);
     REQUIRE(d.editCells(b, CellTool::Fixed, 0, 0, {{0, 1, 0}}).has_value());
     CHECK(d.lastChange().notice ==
-          "S" + std::to_string(ib + 1) + " changed shape: its start and goal were removed from S" +
-              std::to_string(index(d, tray) + 1) + ".");
+          "S2 changed shape: its start and goal were removed from B1.");
     const Voxel& t = d.puzzle().getShape(index(d, tray));
     CHECK(sliding::stampAt(&t, 2, 2, 0, false) == static_cast<unsigned int>(-1));
     CHECK(sliding::stampAt(&t, 0, 2, 0, true) == static_cast<unsigned int>(-1));
@@ -371,8 +372,8 @@ TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, 
   CHECK(index(d, last) == 63);
   CHECK(cleared());
   CHECK(notice ==
-        "Only the first 63 shapes can have a start or goal: S64 moved past the 63rd place and "
-        "its start and goal were removed from S1.");
+        "Only the first 63 shapes can have a start or goal: S63 moved past the 63rd place and "
+        "its start and goal were removed from B1.");
   CHECK_FALSE(sliding::shapeIsRequired(d.puzzle(), d.puzzle().getProblem(0), 63));
 
   // back in the 63rd place and stamped again, another shape moved down
@@ -386,7 +387,7 @@ TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, 
   });
   CHECK(index(d, last) == 63);
   CHECK(cleared());
-  CHECK(notice.starts_with("Only the first 63 shapes can have a start or goal: S64 moved"));
+  CHECK(notice.starts_with("Only the first 63 shapes can have a start or goal: S63 moved"));
   // a move that crosses no stamped piece says nothing
   REQUIRE(d.moveShape(pieces[0], 5).has_value());
   CHECK(d.lastChange().notice.empty());
@@ -445,4 +446,57 @@ TEST_CASE("sliding document: opening a file keeps deeper shapes", "[app][sliding
   CHECK(d->puzzle().getShape(1).getZ() == 3);
   CHECK(d->openNotice().empty());
   CHECK_FALSE(d->dirty());
+}
+
+TEST_CASE("sliding document: the boards stay on top, numbered by place, named as they show",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id b1 = d.addStartGoal({4, 3, 1}).value();
+  const Id p1 = piece(d, 1, 1, {{0, 0, 0}});
+  const Id b2 = d.addStartGoal({4, 3, 1}).value();
+  const Id p2 = piece(d, 1, 1, {{0, 0, 0}});
+  const Id b3 = roundTrip(d, [=](Document& x) { return x.duplicateShape(b1); }).value();
+  // a new board goes below the boards, above the pieces
+  CHECK(index(d, b1) == 0);
+  CHECK(index(d, b2) == 1);
+  CHECK(index(d, b3) == 2);
+  CHECK(index(d, p1) == 3);
+  CHECK(index(d, p2) == 4);
+  // the labels: B and S by place among their kind
+  CHECK(d.shapeLabelOf(index(d, b3)) == "B3");
+  CHECK(d.shapeLabelOf(index(d, p1)) == "S1");
+  CHECK(d.shapeLabelOf(index(d, p2)) == "S2");
+  CHECK(Document(GridKind::Bricks).shapeLabelOf(0) == "S1");
+
+  // a board deleted: the ones after it are numbered one lower, and their problems named so
+  roundTrip(d, [=](Document& x) { return x.deleteShape(b1); });
+  CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, b2))) == 1);
+  CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, b3))) == 2);
+  REQUIRE(d.puzzle().getNumberOfProblems() == 2);
+  CHECK(d.puzzle().getProblem(0).getName() == "(START/GOAL 1)");
+  CHECK(d.puzzle().getProblem(1).getName() == "(START/GOAL 2)");
+
+  // a board moves among the boards only, a piece among the pieces
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.moveShape(b2, 2); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.moveShape(p1, 1); });
+  roundTrip(d, [=](Document& x) { return x.moveShape(b3, 0); });
+  CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, b3))) == 1);
+  CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, b2))) == 2);
+
+  // the name shown without one keeps none; the problem's name renames the board
+  roundTrip(d, [=](Document& x) { return x.renameShape(b2, "Level two"); });
+  CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:Level two");
+  const Id pb2 = d.problemIds()[d.puzzle().getProblem(0).getResultId() == index(d, b2) ? 0 : 1];
+  CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getName() == "Level two");
+  roundTrip(d, [=](Document& x) { return x.renameShape(b2, "(START/GOAL 2)"); });
+  CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:");
+  roundTrip(d, [=](Document& x) { return x.renameProblem(pb2, "Hard"); });
+  CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:Hard");
+  CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getName() == "Hard");
+
+  // a board is no piece of a problem
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.addPiece(pb2, b3); });
+  roundTrip(d, [=](Document& x) { return x.addOneOfEach(pb2); });
+  CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getShapeMaximum(index(d, b3)) == 0);
+  CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getShapeMaximum(index(d, p1)) == 1);
 }

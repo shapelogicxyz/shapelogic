@@ -18,6 +18,7 @@
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/sliding.h"
 #include "shapelogic/model/solution.h"
 #include "shapelogic/model/stacking.h"
 #include "shapelogic/solve/sliding_search.h"
@@ -285,7 +286,7 @@ Result<PlaybackSampler> PlaybackSampler::make(const Puzzle& puzzle, unsigned int
       info.shape = pr.getShapeIdOfPart(p);
       info.name = puzzle.getShape(info.shape).getName();
       if (info.name.empty()) {
-        info.name = "S" + std::to_string(info.shape + 1);
+        info.name = sliding::shapeLabel(puzzle, info.shape);
       }
       if (pr.getPartMaximum(p) > 1) {
         info.name += " #" + std::to_string(q + 1);

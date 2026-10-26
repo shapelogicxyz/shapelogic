@@ -27,8 +27,17 @@ A sliding puzzle has two kinds of shape:
   cells are walls.
 
 Each piece gets a **start** and a **goal** position, stamped onto a tray: the
-whole piece at a time. A tray is listed as `S1 (START/GOAL 1)` and has a
-problem of its own.
+whole piece at a time. Trays are also called **boards**. They always stay at
+the top of the shapes list and are labelled `B1`, `B2` and so on, while the
+pieces below them are `S1`, `S2` and so on. When you delete or move a board,
+the boards after it are numbered again, so there is never a gap.
+
+Each board has a problem of its own, named after the board. A board without
+a name shows `(START/GOAL 1)`. When you rename it, the field starts with
+that text, which you can change or delete. The new name also shows in the
+**Puzzle** tab's problems list, and renaming the problem there renames the
+board. Boards are never pieces: the Puzzle tab's **All pieces** list leaves
+them out.
 
 ## Shapes: build the tray and place the pieces
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The settings dialog: searchable, three pages and the keyboard shortcuts,
+// The settings dialog: searchable, four pages and the keyboard shortcuts,
 // "Reset section", "Restore all defaults", changes applied at once. From
 // docs/mockup/index.html: `SET`, `rowHtml`, `kbKeys`, `kbRow`,
 // `renderSettings`, `openSettings`, `closeSettings` and the dialog's
@@ -17,7 +17,7 @@ import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
 import type { KeyRow } from './keys.ts';
-import { DEFAULTS, prefs, setPrefs } from './prefs.ts';
+import { DEFAULTS, NEW_SIZE_MAX, prefs, setPrefs } from './prefs.ts';
 import type { Prefs } from './prefs.ts';
 import { reportError } from './status.ts';
 
@@ -25,7 +25,14 @@ type Row =
   | { k: keyof Prefs; t: string; d: string; type: 'sw' }
   | { k: keyof Prefs; t: string; d: string; type: 'seg'; opts: readonly string[] }
   | { k: keyof Prefs; t: string; d: string; type: 'select'; opts: readonly number[] }
-  | { k: keyof Prefs; t: string; d: string; type: 'slider'; min: number };
+  | { k: keyof Prefs; t: string; d: string; type: 'slider'; min: number }
+  | { k: readonly [XyzKey, XyzKey, XyzKey]; t: string; d: string; type: 'xyz' };
+
+/** The settings an X, Y and Z row sets. */
+type XyzKey = 'newX' | 'newY' | 'newZ';
+
+/** The settings of a row. */
+const keysOf = (r: Row): readonly (keyof Prefs)[] => (typeof r.k === 'string' ? [r.k] : r.k);
 
 interface Page {
   id: string;
@@ -68,6 +75,25 @@ const SET: readonly Page[] = [
     ],
   },
   {
+    id: 'grid',
+    name: 'Grid editor',
+    rows: [
+      {
+        k: 'gridPlane',
+        t: 'Grid plane',
+        d: 'The plane the voxel editor’s grid starts in: the XY, XZ and YZ buttons above the grid. XY shows the shape in layers along Z, XZ in layers along Y, YZ in layers along X. The grid is set to it when a puzzle is opened or made, and when you change it here; the buttons still switch the plane at any time. Grids other than cubes have only XY.',
+        type: 'seg',
+        opts: ['XY', 'XZ', 'YZ'],
+      },
+      {
+        k: ['newX', 'newY', 'newZ'],
+        t: 'New shape size',
+        d: `The size of a shape made with + New when no shape is selected, in X, Y and Z, as the size steppers count it (blocks on grids that size in blocks). With a shape selected, + New copies that shape’s size. A disc of a stacking puzzle is always size 1. From 1 to ${String(NEW_SIZE_MAX)} in each direction.`,
+        type: 'xyz',
+      },
+    ],
+  },
+  {
     id: 'view',
     name: '3D view',
     rows: [
@@ -86,9 +112,16 @@ const SET: readonly Page[] = [
       {
         k: 'rot',
         t: 'Rotation method',
-        d: 'Drag is the newer click-and-drag rotation. Arc-ball is the original method.',
+        d: 'Free Spin has no limits: the shape turns whichever way you drag it, as far as you like, and can end up upside down (the original’s arc-ball). Top Up spins the shape around its vertical axis without limit, but tilts it only until you look straight down or straight up, so it never turns upside down. The vertical axis is the one Z axis direction stands up.',
         type: 'seg',
-        opts: ['Drag', 'Arc-ball'],
+        opts: ['Free Spin', 'Top Up'],
+      },
+      {
+        k: 'zAxis',
+        t: 'Z axis direction',
+        d: 'Which way the axes point in the home view (the view cube’s house, or Home) and in the first view when the app starts. Z Towards: X across, Y up, Z coming towards you. Z Up: X across, Z up, Y going away from you. The home view looks from a little above and to one side. A stacking puzzle always stands its stack up.',
+        type: 'seg',
+        opts: ['Z Towards', 'Z Up'],
       },
       {
         k: 'lights',
@@ -106,7 +139,7 @@ const SET: readonly Page[] = [
   },
   {
     id: 'perf',
-    name: 'Performance',
+    name: 'Solver',
     rows: [
       {
         k: 'threads',
@@ -114,6 +147,13 @@ const SET: readonly Page[] = [
         d: 'Threads used for assembling and disassembling. Both stages share this pool, so raising it speeds up both.',
         type: 'slider',
         min: 1,
+      },
+      {
+        k: 'solverType',
+        t: 'Default solver type',
+        d: 'The Solver type a problem starts with when it has none saved: Complete (ShapeLogic) or Fast (Crowell). A problem that saved its own keeps it. Sliding and stacking puzzles have solvers of their own.',
+        type: 'seg',
+        opts: ['Complete', 'Fast'],
       },
     ],
   },
@@ -135,6 +175,16 @@ function threadsShown(): number {
 }
 
 function rowHtml(r: Row): string {
+  if (r.type === 'xyz') {
+    const steps = r.k
+      .map((k, i) => {
+        const a = 'XYZ'[i] ?? '';
+        const v = prefs[k];
+        return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-n="${k}" data-s="-1" title="Decrease ${a}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-n="${k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(`${r.t} ${a}`)}" title="Type the size in ${a}"><button data-n="${k}" data-s="1" title="Increase ${a}" ${v >= NEW_SIZE_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
+      })
+      .join('');
+    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div><div class="size3" style="width:260px;flex:none">${steps}</div></div>`;
+  }
   const v = prefs[r.k];
   let c = '';
   switch (r.type) {
@@ -157,7 +207,9 @@ function rowHtml(r: Row): string {
       c = `<div class="seg">${r.opts.map((o) => `<button class="${o === v ? 'on' : ''}" data-k="${r.k}" data-o="${esc(o)}" aria-pressed="${o === v}" title="${esc(`${r.t}: ${o}`)}">${esc(o)}</button>`).join('')}</div>`;
       break;
   }
-  return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div>${c}</div>`;
+  // more than three choices do not fit beside the text: they go under it
+  const under = r.type === 'seg' && r.opts.length > 3;
+  return `<div class="setrow${under ? ' under' : ''}"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div>${c}</div>`;
 }
 
 /** The keys of a row as kbd chips (the mockup's kbKeys). */
@@ -292,8 +344,11 @@ function change(c: Partial<Prefs>): void {
   }
 }
 
+/** A new shape size held to the settings' range. */
+const newSize = (n: number): number => Math.min(NEW_SIZE_MAX, Math.max(1, n));
+
 function defaultsOf(rows: readonly Row[]): Partial<Prefs> {
-  return Object.fromEntries(rows.map((r) => [r.k, DEFAULTS[r.k]]));
+  return Object.fromEntries(rows.flatMap(keysOf).map((k) => [k, DEFAULTS[k]]));
 }
 
 /** Wires the dialog; the engine's settings come from the store. */
@@ -353,7 +408,11 @@ export function installSettings(s: Store): void {
     if (b === null) {
       return;
     }
-    if (b.dataset.reset !== undefined) {
+    if (b.dataset.n !== undefined && b.dataset.s !== undefined) {
+      const k = b.dataset.n as XyzKey;
+      change({ [k]: newSize(prefs[k] + Number(b.dataset.s)) });
+      pg.querySelector<HTMLElement>(`button[data-n="${k}"][data-s="${b.dataset.s}"]`)?.focus();
+    } else if (b.dataset.reset !== undefined) {
       const p = SET.find((x) => x.id === b.dataset.reset);
       if (p !== undefined) {
         change(defaultsOf(p.rows));
@@ -364,6 +423,15 @@ export function installSettings(s: Store): void {
   });
   pg.addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement | HTMLSelectElement;
+    if (t.dataset.n !== undefined) {
+      // a size typed in: whole, 1 to NEW_SIZE_MAX; anything else shows the size again
+      const n = Number(t.value.trim());
+      if (t.value.trim() !== '' && Number.isFinite(n)) {
+        change({ [t.dataset.n]: newSize(Math.round(n)) });
+      }
+      renderSettings();
+      return;
+    }
     if (t.dataset.k !== undefined && (t.tagName === 'SELECT' || t.type === 'range')) {
       change({ [t.dataset.k]: Number(t.value) });
     }
@@ -375,6 +443,11 @@ export function installSettings(s: Store): void {
     }
   });
   pg.addEventListener('keydown', (e) => {
+    const v = (e.target as Element).closest<HTMLInputElement>('input[data-n]');
+    if (v !== null && e.key === 'Enter') {
+      v.blur();
+      return;
+    }
     const sw = (e.target as Element).closest<HTMLElement>('.switch');
     if (sw !== null && (e.key === ' ' || e.key === 'Enter')) {
       e.preventDefault();

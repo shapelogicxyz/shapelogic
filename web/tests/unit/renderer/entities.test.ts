@@ -235,7 +235,12 @@ describe('the editor', () => {
         }
       }
     });
-    expect(g.index.get('2,1,1')).toBe(5);
+    // seen from +Y: the columns run along +X, the rows down +Z (X 0, Z 0 at the top left)
+    expect(g.index.get('2,1,1')).toBe(2);
+    expect(g.cells[0]?.at).toEqual([0, 1, 1]);
+    expect(g.cells[5]?.at).toEqual([2, 1, 0]);
+    // and YZ from +X: its columns run along -Z
+    expect(squareLayer('YZ', [3, 4, 2], 0).cells[0]?.at).toEqual([0, 0, 1]);
   });
 
   it('takes the quick tools as the mockup: Ctrl erase, Alt variable, Shift fixed', () => {

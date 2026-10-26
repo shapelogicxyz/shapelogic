@@ -509,10 +509,11 @@ test('the status window: its rows are shape.table’s on every fixture; select a
     await expect(page.locator('#statusWin')).toBeVisible();
     for (const f of files) {
       await openFixture(page, f);
-      const snap = await engineCall<{ revision: number; grid: string; shapes: { id: string }[] }>(
-        page,
-        'document.get',
-      );
+      const snap = await engineCall<{
+        revision: number;
+        grid: string;
+        shapes: { id: string; label: string }[];
+      }>(page, 'document.get');
       await expect(page.locator('#statusWin')).toHaveAttribute(
         'data-revision',
         String(snap.revision),
@@ -543,7 +544,8 @@ test('the status window: its rows are shape.table’s on every fixture; select a
         if (id === null) {
           return '';
         }
-        return `S${String(snap.shapes.findIndex((s) => s.id === id) + 1)}`;
+        // the engine's label (a sliding puzzle's boards are B1…, its pieces S1… after them)
+        return snap.shapes.find((s) => s.id === id)?.label ?? '';
       };
       const shown = await page.$$eval('#statusWin tbody tr', (trs) =>
         trs.map((tr) => ({

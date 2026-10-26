@@ -535,8 +535,19 @@ test('settings and layouts survive a restart', async () => {
     await page.click('#setPg [data-k="density"][data-o="Minimal"]');
     await page.selectOption('#setPg select[data-k="undo"]', '100');
     await page.click('#setNav [data-p="view"]');
-    await page.click('#setPg [data-k="rot"][data-o="Arc-ball"]');
+    // the defaults of a new data folder
+    await expect(page.locator('#setPg [data-k="rot"][data-o="Free Spin"]')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#setPg [data-k="zAxis"][data-o="Z Towards"]')).toHaveClass(/\bon\b/);
+    await page.click('#setPg [data-k="rot"][data-o="Top Up"]');
+    await page.click('#setPg [data-k="zAxis"][data-o="Z Up"]');
     await page.click('#setPg .switch[data-k="cube"]');
+    await page.click('#setNav [data-p="grid"]');
+    await expect(page.locator('#setPg [data-k="gridPlane"][data-o="XY"]')).toHaveClass(/\bon\b/);
+    for (const k of ['newX', 'newY', 'newZ']) {
+      await expect(page.locator(`#setPg input[data-n="${k}"]`)).toHaveValue('4');
+    }
+    await page.click('#setPg button[data-n="newZ"][data-s="-1"]');
+    await expect(page.locator('#setPg input[data-n="newZ"]')).toHaveValue('3');
     await page.click('#setNav [data-p="perf"]');
     await page.locator('#setPg input[type=range]').fill('1');
     await page.keyboard.press('Escape');
@@ -583,8 +594,11 @@ test('settings and layouts survive a restart', async () => {
     expect(await engineCall(page, 'settings.get')).toMatchObject({ undoDepth: 100, threads: 1 });
     await page.keyboard.press('Control+,');
     await page.click('#setNav [data-p="view"]');
-    await expect(page.locator('#setPg [data-k="rot"][data-o="Arc-ball"]')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#setPg [data-k="rot"][data-o="Top Up"]')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#setPg [data-k="zAxis"][data-o="Z Up"]')).toHaveClass(/\bon\b/);
     await expect(page.locator('#setPg .switch[data-k="cube"]')).not.toHaveClass(/\bon\b/);
+    await page.click('#setNav [data-p="grid"]');
+    await expect(page.locator('#setPg input[data-n="newZ"]')).toHaveValue('3');
     await page.keyboard.press('Escape');
   } finally {
     await b.close();

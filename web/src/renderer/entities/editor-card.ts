@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The Entities workspace's right card around the grid: the tool strip
-// (its last button switches between drawing and the box selection: it reads
-// Select while drawing, Paint while selecting), mirror and span, the planes, the layer
+// (Fixed, Variable or Erase, one always chosen; its last button switches
+// between drawing and the box selection, whose Fill puts the chosen tool
+// in the box: it reads Select while drawing, Paint while selecting), mirror and span, the planes, the layer
 // strip (marks on the layers that hold cells; PgUp and PgDn), the box
 // selection's bar (Fill, Clear, deselect), the grid size steppers in the
 // grid's units with "Apply to all shapes", the palette (Default is the
@@ -26,8 +27,7 @@
 import type { Colour, ShapeSummary } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Store } from '../state/store.ts';
-import type { Tool } from '../shell/cursors.ts';
-import { byId, esc } from '../shell/dom.ts';
+import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { applyLayout, layout } from '../shell/layout.ts';
 import { contrast, fromHex, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
@@ -35,7 +35,7 @@ import type { Rgb3 } from '../shell/piece-colours.ts';
 import { flash } from '../shell/status.ts';
 import { openColourPicker } from '../shell/colour-picker.ts';
 import { openPopAt } from '../shell/popover.ts';
-import type { Axis, EditorState, PlaneMap, TrayMode } from './editor-state.ts';
+import type { Axis, EditorState, PlaneMap, TrayMode, VoxelTool } from './editor-state.ts';
 import { TOOLS } from './editor-state.ts';
 import { G } from './glyphs.ts';
 import { pieceText, stampPieces, validity } from './tray.ts';
@@ -199,15 +199,15 @@ export class EditorCard {
     for (const id of ['toolStrip', 'modRow']) {
       byId(id).style.display = stamping ? 'none' : '';
     }
-    // the last button names the mode it switches to
+    // the last button names the mode in use; a press cycles to the next
     const toggle = st.boxMode
-      ? `<button class="gbtn" data-box="1" title="Back to drawing with the tools" aria-pressed="true">${G.tool('paint', 30)}<span>Paint</span></button>`
-      : `<button class="gbtn" data-box="1" title="Box selection — drag a rectangle in the grid, then Fill or Clear it (Esc deselects)" aria-pressed="false">${G.select(30)}<span>Select</span></button>`;
+      ? `<button class="gbtn cyc" data-box="1" title="Box selection — drag a rectangle in the grid, then Fill it with the chosen tool or Clear it (Esc deselects). Click to go back to drawing" aria-pressed="true">${G.select(30)}<span>Select</span></button>`
+      : `<button class="gbtn cyc" data-box="1" title="Drawing: a click or a drag in the grid uses the chosen tool. Click for box selection" aria-pressed="false">${G.tool('paint', 30)}<span>Paint</span></button>`;
     byId('toolStrip').innerHTML =
       tools
         .map(
           (t) =>
-            `<button class="gbtn ${st.tool === t.id && !st.boxMode ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${t.k})" aria-pressed="${st.tool === t.id && !st.boxMode}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${t.k}</i></button>`,
+            `<button class="gbtn ${st.voxel === t.id ? 'on' : ''}" data-t="${t.id}" title="${tray ? (WALL_TIP[t.id] ?? t.tip) : t.tip}  (${t.k})" aria-pressed="${st.voxel === t.id}">${G.tool(t.id, 30)}<span>${t.short}</span><i class="kb">${t.k}</i></button>`,
         )
         .join('') + toggle;
   }
@@ -379,18 +379,25 @@ export class EditorCard {
 
   renderSelbar(): void {
     const n = Number(byId('garea').querySelector('svg')?.dataset.selected ?? '0');
-    const box = this.host.state.box;
+    const st = this.host.state;
+    const box = st.box;
     const b = byId('selbar');
     b.classList.toggle('show', box !== null);
+    const fillTip =
+      st.voxel === 'erase'
+        ? 'Erase the voxels of the box, as Clear does: the Erase tool is chosen (mirror and span apply)'
+        : `Fill the box with ${st.voxel} voxels in the drawing color (mirror and span apply)`;
     b.innerHTML = `<span><b>${n}</b> cell${n === 1 ? '' : 's'} selected</span><span class="sep"></span>
-  <button class="btn sm" data-x="fill" title="Fill the box with fixed voxels in the drawing color (mirror and span apply)">Fill</button><button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)">Clear</button><button class="ib" data-x="x" title="Deselect (Esc)">${ic('close', 14)}</button>`;
+  <button class="btn sm" data-x="fill" title="${fillTip}">Fill</button><button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)">Clear</button><button class="ib" data-x="x" title="Deselect (Esc)">${ic('close', 14)}</button>`;
   }
 
   renderSize(): void {
     const s = this.shape;
     const st = this.host.state;
     const u = this.host.unit();
-    byId('sizeSteppers').innerHTML =
+    // setHtml: a re-render while a size is being typed keeps its field
+    setHtml(
+      byId('sizeSteppers'),
       s === null
         ? ''
         : (['X', 'Y', 'Z'] as const)
@@ -398,9 +405,10 @@ export class EditorCard {
               const v = Math.ceil((s.size[i] ?? 1) / u);
               const tip = (what: string): string =>
                 `${what} ${a}${u > 1 ? ` (blocks of ${String(u)} cells)` : ''}`;
-              return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-d="${i}" data-s="-1" title="${tip('Decrease')}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><span class="v" data-v="${i}">${v}</span><button data-d="${i}" data-s="1" title="${tip('Increase')}">${ic('plus', 12)}</button></div>`;
+              return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-d="${i}" data-s="-1" title="${tip('Decrease')}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-v="${i}" value="${v}" inputmode="numeric" aria-label="Size ${a}" title="${tip('Type the size')}"><button data-d="${i}" data-s="1" title="${tip('Increase')}">${ic('plus', 12)}</button></div>`;
             })
-            .join('');
+            .join(''),
+    );
     const sw = byId('applyAll');
     sw.classList.toggle('on', st.applyAll);
     sw.setAttribute('aria-checked', String(st.applyAll));
@@ -530,8 +538,8 @@ export class EditorCard {
       const t = e.target as Element;
       const b = t.closest<HTMLElement>('[data-t]');
       if (b !== null) {
-        st.tool = b.dataset.t as Tool;
-        st.boxMode = false;
+        // the box selection stays: the tool is what its Fill puts in
+        st.setVoxel(b.dataset.t as VoxelTool);
         this.host.changed();
       } else if (t.closest('[data-box]') !== null) {
         st.boxMode = !st.boxMode;
@@ -598,6 +606,42 @@ export class EditorCard {
         this.host.resize(Number(b.dataset.d), Number(b.dataset.s));
       }
     });
+    byId('sizeSteppers').addEventListener('change', (e) => {
+      const i = e.target as HTMLInputElement;
+      const s = this.shape;
+      if (i.dataset.v === undefined || s === null) {
+        return;
+      }
+      const axis = Number(i.dataset.v);
+      const was = Math.ceil((s.size[axis] ?? 1) / this.host.unit());
+      const n = Math.round(Number(i.value));
+      if (Number.isFinite(n) && n >= 1 && n !== was) {
+        // drawn again after the resize, even one refused
+        forgetHtml(byId('sizeSteppers'));
+        this.host.resize(axis, n - was);
+      } else {
+        // nothing to change: the field shows the size again
+        forgetHtml(byId('sizeSteppers'));
+        this.renderSize();
+      }
+    });
+    byId('sizeSteppers').addEventListener('focusin', (e) => {
+      (e.target as Element).closest<HTMLInputElement>('input.v')?.select();
+    });
+    byId('sizeSteppers').addEventListener('keydown', (e) => {
+      const i = (e.target as Element).closest<HTMLInputElement>('input.v');
+      if (i === null) {
+        return;
+      }
+      if (e.key === 'Enter') {
+        i.blur();
+      } else if (e.key === 'Escape') {
+        // back to the size shown, without resizing
+        e.preventDefault();
+        forgetHtml(byId('sizeSteppers'));
+        this.renderSize();
+      }
+    });
     const toggleAll = (): void => {
       st.applyAll = !st.applyAll;
       this.host.changed();
@@ -623,8 +667,8 @@ export class EditorCard {
       } else if (t.closest('#cRm') !== null) {
         this.colourAction('rm');
       } else if (t.closest('#cPaint') !== null) {
-        // the brush toggles: off again goes back to Fixed
-        st.tool = st.tool === 'paint' && !st.boxMode ? 'fixed' : 'paint';
+        // the brush toggles: off again goes back to the voxel tool
+        st.tool = st.tool === 'paint' && !st.boxMode ? st.voxel : 'paint';
         st.boxMode = false;
         this.host.changed();
       } else {

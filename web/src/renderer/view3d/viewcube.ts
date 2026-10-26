@@ -8,12 +8,14 @@
 // double-clicked stands its label upright, the house goes home, and when a
 // face looks straight at the viewer arrows turn by 90° and two arcs roll.
 // It is driven by the camera's quaternion (camera.ts) instead of the
-// mockup's yaw, pitch and roll.
+// mockup's yaw, pitch and roll; its turns are measured in the camera's
+// upright frame (the Z axis direction), so a face view keeps that frame's
+// up axis up.
 
 import { Quaternion } from 'three';
 
 import { css } from '../shell/dom.ts';
-import { anglesOf, dirToView, quatOf, toView, toWorld } from './camera.ts';
+import { dirToView, toView, toWorld } from './camera.ts';
 import type { Camera } from './camera.ts';
 
 const VC = { w: 156, h: 170, cx: 78, cy: 100, s: 30, t: 0.56, D: 5.5 };
@@ -143,12 +145,12 @@ export class ViewCube {
         return;
       }
       const cam = this.host.camera;
-      const v = dirToView(h.dir, cam.angles.yaw);
+      const v = dirToView(cam.upright(h.dir), cam.angles.yaw);
       const u: V3 = [0, 0, 0];
       u[h.f.ua] = 1;
-      const q = toView(quatOf(v), u);
+      const q = toView(cam.fromAngles(v), u);
       v.roll = Math.round((-Math.atan2(q.y, q.x) * 180) / Math.PI / 90) * 90;
-      this.go(quatOf(v));
+      this.go(cam.fromAngles(v));
     });
     canvas.addEventListener('click', (e) => {
       const [px, py] = pos(e);
@@ -161,10 +163,10 @@ export class ViewCube {
         cam.home(performance.now());
         this.host.moved();
       } else if (h.type === 'face') {
-        this.go(quatOf(dirToView(h.dir, cam.angles.yaw)));
+        this.go(cam.fromAngles(dirToView(cam.upright(h.dir), cam.angles.yaw)));
       } else if (h.type === 'roll') {
         const a = cam.angles;
-        this.go(quatOf({ ...a, roll: a.roll + (h.sg < 0 ? 90 : -90) }));
+        this.go(cam.fromAngles({ ...a, roll: a.roll + (h.sg < 0 ? 90 : -90) }));
       } else {
         const v: V3 = {
           up: [0, 1, 0] as V3,
@@ -174,7 +176,12 @@ export class ViewCube {
         }[h.nm];
         const w = toWorld(cam.q, v);
         this.go(
-          quatOf(dirToView([Math.round(w.x), Math.round(w.y), Math.round(w.z)], cam.angles.yaw)),
+          cam.fromAngles(
+            dirToView(
+              cam.upright([Math.round(w.x), Math.round(w.y), Math.round(w.z)]),
+              cam.angles.yaw,
+            ),
+          ),
         );
       }
     });
@@ -252,8 +259,8 @@ export class ViewCube {
 
   // a face looking straight at the viewer, the roll left out
   private aligned(): boolean {
-    const a = anglesOf(this.host.camera.q);
-    const q = quatOf({ ...a, roll: 0 });
+    const cam = this.host.camera;
+    const q = cam.fromAngles({ ...cam.angles, roll: 0 });
     for (const k of [0, 1, 2]) {
       for (const sg of [1, -1]) {
         const n: V3 = [0, 0, 0];

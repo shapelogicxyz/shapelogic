@@ -38,19 +38,22 @@ original GUI decides (section 7).
 - **Theme:** Light, Dark, System.
 
 ### Settings dialog
-Searchable, three pages, "Restore all defaults", changes apply immediately.
+Searchable, four pages, "Restore all defaults", changes apply immediately.
 | Page | Setting | Values (default) |
 |---|---|---|
 | General | Interface density | Standard / Minimal (Standard) |
 | | Theme | Light / Dark / System (System) |
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
+| Grid editor | Grid plane | XY / XZ / YZ (XY) |
+| | New shape size | X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4) |
 | 3D view | Show view cube | on |
 | | Reverse scroll zoom direction | off |
 | | Rotation method | Drag / Arc-ball (Drag) |
 | | Lighting | on |
 | | Fade out removed pieces | on |
-| Performance | Worker threads | 1-32 (machine dependent) |
+| Solver | Worker threads | 1-32 (machine dependent) |
+| | Default solver type | Complete / Fast (Complete) |
 
 The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 

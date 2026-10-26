@@ -644,9 +644,15 @@ export interface BoardLayout {
 
 export interface ShapeSummary {
   id: ShapeId;
-  /** S1, S2, ... by place. */
+  /**
+   * S1, S2, ... by place; on a sliding puzzle B1, B2, ... for the start/goal shapes (boards) and
+   * S1, S2, ... for the pieces, each by place among its kind.
+   */
   label: string;
-  /** A start/goal shape's is the user's part (shown as '(START/GOAL n) name'). */
+  /**
+   * A start/goal shape's is the user's part: the board shows it, or '(START/GOAL n)' while it is
+   * empty.
+   */
   name: string;
   size: Size;
   /** @minimum 0 */
@@ -2059,7 +2065,8 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * The problem's name.
+   * The problem's name. A sliding board's problem is named as its board: the board is renamed
+   * (shape.rename).
    * (problem.json)
    */
   'problem.rename': {
@@ -2084,7 +2091,7 @@ export interface Methods {
   /**
    * The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become
    * unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks
-   * (stacking.json).
+   * (stacking.json), and for a sliding puzzle's board, which is no piece.
    * (problem.json)
    */
   'problem.setPieceCount': {
@@ -2345,9 +2352,10 @@ export interface Methods {
     errors: 'not_found' | 'invalid_state';
   };
   /**
-   * Moves a shape to a place in the list; labels renumber. On a sliding puzzle the starts and
-   * goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told
-   * in document.changed.notice.
+   * Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay
+   * above the pieces (a move across them is refused, invalid_argument), the boards are numbered by
+   * place again, and the starts and goals follow; a stamped piece moved past the 63rd place (a
+   * mark is six bits) loses them, told in document.changed.notice.
    * (shape.json)
    */
   'shape.move': {
@@ -2361,7 +2369,8 @@ export interface Methods {
   };
   /**
    * The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's
-   * part (its START/GOAL number stays), and a piece's name may not begin with "sg:" or "__sggoal:"
+   * part (its START/GOAL number stays; the name '(START/GOAL n)' it shows without one leaves it
+   * empty), its problem is named so, and a piece's name may not begin with "sg:" or "__sggoal:"
    * (invalid_argument).
    * (shape.json)
    */
@@ -2679,7 +2688,9 @@ export interface Methods {
     result: {
       /** @minimum 0 */
       number: number;
-      /** The user's part of its name; shown as '(START/GOAL n) name'. */
+      /**
+       * The user's part of its name; the board shows it, or '(START/GOAL n)' while it is empty.
+       */
       name: string;
       size: Size;
       starts: (ShapeId | null)[];

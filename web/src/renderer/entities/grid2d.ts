@@ -201,17 +201,22 @@ export class Grid2D {
     });
     b += '<g class="cmarks" pointer-events="none"></g>';
     const axis = (a: 'X' | 'Y' | 'Z'): string => `var(--a${a.toLowerCase()})`;
+    const { flipped, rowsFlipped } = input.plane;
+    // the axes meet at the origin: on the right where the columns are
+    // flipped, at the top where the rows are
     const X0 = this.X(0).toFixed(1);
-    const Y0 = this.Y(0, ey).toFixed(1);
-    b += `<line x1="${X0}" y1="${Y0}" x2="${this.X(ex).toFixed(1)}" y2="${Y0}" stroke="${axis(input.plane.ca)}" stroke-width="3" pointer-events="none"/><line x1="${X0}" y1="${Y0}" x2="${X0}" y2="${this.Y(ey, ey).toFixed(1)}" stroke="${axis(input.plane.ra)}" stroke-width="3" pointer-events="none"/>`;
-    // the cube editor's rulers: the column and row numbers
+    const XO = this.X(flipped ? ex : 0).toFixed(1);
+    const YO = this.Y(rowsFlipped ? ey : 0, ey).toFixed(1);
+    b += `<line x1="${X0}" y1="${YO}" x2="${this.X(ex).toFixed(1)}" y2="${YO}" stroke="${axis(input.plane.ca)}" stroke-width="3" pointer-events="none"/><line x1="${XO}" y1="${this.Y(0, ey).toFixed(1)}" x2="${XO}" y2="${this.Y(ey, ey).toFixed(1)}" stroke="${axis(input.plane.ra)}" stroke-width="3" pointer-events="none"/>`;
+    // the cube editor's rulers: the column and row numbers, the columns' along the origin's edge
     if (input.grid === 'bricks' || input.grid === 'sliding' || input.grid === 'stacking') {
       let t = '';
+      const cy = rowsFlipped ? this.Y(ey, ey) - 7 : this.Y(0, ey) + 15;
       for (let c = 0; c < ex; c++) {
-        t += `<text x="${this.X(c + 0.5).toFixed(1)}" y="${(this.Y(0, ey) + 15).toFixed(1)}">${c}</text>`;
+        t += `<text x="${this.X(c + 0.5).toFixed(1)}" y="${cy.toFixed(1)}">${flipped ? ex - 1 - c : c}</text>`;
       }
       for (let r = 0; r < ey; r++) {
-        t += `<text x="${(this.X(0) - 9).toFixed(1)}" y="${(this.Y(r + 0.5, ey) + 4).toFixed(1)}">${r}</text>`;
+        t += `<text x="${(this.X(0) - 9).toFixed(1)}" y="${(this.Y(r + 0.5, ey) + 4).toFixed(1)}">${rowsFlipped ? ey - 1 - r : r}</text>`;
       }
       b += `<g class="rul" text-anchor="middle" font-size="11" fill="var(--muted)" pointer-events="none">${t}</g>`;
     }

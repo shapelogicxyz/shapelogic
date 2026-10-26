@@ -23,8 +23,16 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { layout, applyLayout, tab } from '../shell/layout.ts';
-import { chipColour, contrast, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
+import {
+  chipColour,
+  contrast,
+  hex,
+  isTray,
+  shapeColour,
+  shownName,
+} from '../shell/piece-colours.ts';
 import { openPopAt } from '../shell/popover.ts';
+import { prefs } from '../shell/prefs.ts';
 import { DISC_MAX, DISC_MIN, DISC_SIZE_REFUSED, discSizeOf } from '../state/stacking.ts';
 import { tell } from '../shell/dialog.ts';
 import { flash } from '../shell/status.ts';
@@ -100,7 +108,7 @@ export class ShapesList {
           return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
   <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
   <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
-  <span class="lbl">${isTray(s) ? `<b class="sgtag">(START/GOAL ${String(s.startGoal)})</b> ` : ''}${esc(s.name)}</span>
+  <span class="lbl">${isTray(s) && s.name === '' ? `<b class="sgtag">${esc(shownName(s))}</b>` : esc(s.name)}</span>
   <span class="acts">
    <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
    <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 17)}</button>
@@ -118,7 +126,7 @@ export class ShapesList {
             s.id === store.selected
               ? 'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);'
               : '';
-          return `<button class="chip" data-id="${s.id}" title="${esc(s.label)} ${esc(s.name)}" style="background:${bg};color:${fg};border:0;cursor:pointer;min-width:34px;${ring}">${esc(s.label)}</button>`;
+          return `<button class="chip" data-id="${s.id}" title="${esc(s.label)} ${esc(shownName(s))}" style="background:${bg};color:${fg};border:0;cursor:pointer;min-width:34px;${ring}">${esc(s.label)}</button>`;
         })
         .join('') +
       `<button class="ib" id="btnLN" title="New shape">${ic('plus')}</button>`;
@@ -151,14 +159,29 @@ export class ShapesList {
 
   // ---- the actions (the mockup's shapeAction) ----
 
-  /** A new empty shape of the grid's default size, selected. */
+  /**
+   * A new empty shape of the selected shape's size, else of the New shape
+   * size setting (in the size steppers' blocks), selected. A stacking
+   * puzzle's disc takes no size.
+   */
   async create(): Promise<void> {
     if (this.host.refuse()) {
       return;
     }
-    const r = await this.host.mutate('New shape', () =>
-      this.host.store.engine.call('shape.create', {}),
-    );
+    const store = this.host.store;
+    const grid = store.snapshot?.grid;
+    const sel = store.shape;
+    const u = store.info?.grids.find((g) => g.grid === grid)?.sizeUnit ?? 1;
+    const params: { size?: [number, number, number] } =
+      grid === 'stacking'
+        ? {}
+        : {
+            size:
+              sel === null
+                ? [prefs.newX * u, prefs.newY * u, prefs.newZ * u]
+                : [sel.size[0], sel.size[1], sel.size[2]],
+          };
+    const r = await this.host.mutate('New shape', () => store.engine.call('shape.create', params));
     if (r !== null) {
       this.select(r.shape);
     }
@@ -225,7 +248,7 @@ export class ShapesList {
       case 'up':
       case 'down': {
         const to = i + (a === 'up' ? -1 : 1);
-        if (to >= 0 && to < shapes.length && !this.host.refuseList()) {
+        if (this.canMove(i, to) && !this.host.refuseList()) {
           await this.move(id, to);
         }
         return;
@@ -278,13 +301,30 @@ export class ShapesList {
     }
   }
 
+  /** Whether the shape at a place may go to another: a sliding puzzle's boards stay above its pieces. */
+  private canMove(from: number, to: number): boolean {
+    const shapes = this.shapes;
+    if (to < 0 || to >= shapes.length || to === from) {
+      return false;
+    }
+    if (this.host.store.snapshot?.grid !== 'sliding') {
+      return true;
+    }
+    const boards = shapes.filter(isTray).length;
+    return isTray(shapes[from]) ? to < boards : to >= boards;
+  }
+
   private async move(id: string, toIndex: number): Promise<void> {
     const r = await this.host.mutate('Move', () =>
       this.host.store.engine.call('shape.move', { shape: id, toIndex }),
     );
     if (r !== null) {
       this.select(id);
-      flash(`Order changed — shapes renumbered S1…S${this.shapes.length}`);
+      flash(
+        this.host.store.snapshot?.grid === 'sliding'
+          ? 'Order changed — boards and pieces renumbered'
+          : `Order changed — shapes renumbered S1…S${this.shapes.length}`,
+      );
     }
   }
 
@@ -309,7 +349,8 @@ export class ShapesList {
     if (this.host.refuse()) {
       return;
     }
-    lbl.innerHTML = `<input value="${esc(s.name)}" placeholder="Label" aria-label="Shape name">`;
+    // a board without a name starts from the one it shows, to change or delete
+    lbl.innerHTML = `<input value="${esc(shownName(s))}" placeholder="Label" aria-label="Shape name">`;
     const input = lbl.querySelector('input');
     if (input === null) {
       return;
@@ -337,7 +378,7 @@ export class ShapesList {
     this.renaming = null;
     const name = r.input.value;
     const s = this.shapes.find((x) => x.id === r.id);
-    if (!cancel && !r.cancelled && s !== undefined && name !== s.name) {
+    if (!cancel && !r.cancelled && s !== undefined && name !== shownName(s)) {
       void this.host.mutate('Rename', () =>
         this.host.store.engine.call('shape.rename', { shape: r.id, name }),
       );
@@ -428,11 +469,10 @@ export class ShapesList {
       if (s === undefined) {
         return;
       }
-      const n = shapes.length;
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${i === 0 ? 'disabled' : ''} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${i === n - 1 ? 'disabled' : ''} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''} title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''} title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },
@@ -449,7 +489,9 @@ export class ShapesList {
     });
     list.addEventListener('dragover', (e) => {
       const row = (e.target as Element).closest<HTMLElement>('.row');
-      if (row !== null && this.dragFrom !== null) {
+      const from = this.shapes.findIndex((s) => s.id === this.dragFrom);
+      // no drop where the shape may not go (a board below a piece)
+      if (row !== null && this.dragFrom !== null && this.canMove(from, Number(row.dataset.i))) {
         e.preventDefault();
         for (const r of $$('.row', list)) {
           r.classList.toggle('dragover', r === row);
@@ -466,7 +508,7 @@ export class ShapesList {
       e.preventDefault();
       const to = Number(row.dataset.i);
       const i = this.shapes.findIndex((s) => s.id === from);
-      if (i !== to && !this.host.refuseList()) {
+      if (this.canMove(i, to) && !this.host.refuseList()) {
         void this.move(from, to);
       }
     });

@@ -1094,6 +1094,8 @@ export class Explorer {
             colour: it.colour,
             mode: it.mode,
             built: built[i] ?? null,
+            // the result drawn around the pieces (piece -1) has none
+            ...(it.piece < 0 ? {} : { label: this.labelOf(it.piece) }),
           })),
         };
         this.modelKey = modelKey;

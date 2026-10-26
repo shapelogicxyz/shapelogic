@@ -20,7 +20,7 @@
 // (instead of the pieces scene), the pegs around the player's discs. It
 // renders only when something changed.
 
-import { Box3, Raycaster, Vector2, Vector3 } from 'three';
+import { Box3, Quaternion, Raycaster, Vector2, Vector3 } from 'three';
 
 import { EngineError } from '../../engine/errors.ts';
 import { meshArrays } from '../../engine/frames.ts';
@@ -33,7 +33,7 @@ import { chipColour, contrast, hex, ROD_CHIP, viewColour } from '../shell/piece-
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
-import { Camera, EYE_DISTANCE } from './camera.ts';
+import { baseOf, Camera, EYE_DISTANCE, pixelsPerUnit } from './camera.ts';
 import { gridExtent } from './extent.ts';
 import { BoardView } from './board.ts';
 import type { BoardModel } from './board.ts';
@@ -45,6 +45,7 @@ import type { Plane } from './overlays.ts';
 import { describePick, pickAt } from './picking.ts';
 import { PiecesScene } from './pieces.ts';
 import type { PieceMesh, PiecesModel } from './pieces.ts';
+import { labelSprite } from './labels.ts';
 import { SolutionScene } from './solution.ts';
 import type { ScenePose, SolutionModel } from './solution.ts';
 import type { Pick } from './picking.ts';
@@ -189,7 +190,7 @@ export class View3D {
   private hoverAt: { x: number; y: number } | null = null;
   private readonly pieces: PiecesScene;
   private piecesModel: PiecesModel | null = null;
-  private readonly solution = new SolutionScene();
+  private readonly solution = new SolutionScene(labelSprite);
   private solutionModel: SolutionModel | null = null;
   /** What each layer would show; the explorer's over the player's while it has a model. */
   private readonly layers: Record<
@@ -209,6 +210,8 @@ export class View3D {
 
   constructor(store: Store) {
     this.store = store;
+    // the settings are read before the view is made: the first view is the home of theirs
+    this.camera.setBase(this.upright());
     this.cache = new MeshCache(store.engine);
     this.canvas = byId<HTMLCanvasElement>('cv');
     this.renderer = new ViewRenderer(this.canvas);
@@ -336,11 +339,15 @@ export class View3D {
         this.cube.setVisible(prefs.cube);
         this.cube.draw();
       }
-      if (changed.includes('lights')) {
+      if (changed.includes('lights') || changed.includes('pieceLabels')) {
         this.lookChanged();
       }
       if (changed.includes('density')) {
         this.toolbar.reset();
+      }
+      if (changed.includes('zAxis')) {
+        this.camera.setBase(this.upright(), performance.now());
+        this.renderer.request();
       }
     });
     onKey('view.orbit', () => {
@@ -560,6 +567,12 @@ export class View3D {
 
   private get stacking(): boolean {
     return this.store.snapshot?.grid === 'stacking';
+  }
+
+  // the upright frame: the Z axis direction's, but a stacking puzzle's view
+  // is tilted to stand its stack up (renderer.ts) and keeps its own
+  private upright(): Quaternion {
+    return this.stacking ? new Quaternion() : baseOf(prefs.zAxis);
   }
 
   // the board of the workspace shown (the player's: its pegs, no discs)
@@ -863,6 +876,7 @@ export class View3D {
     const stacking = this.stacking;
     // a stacking puzzle's Puzzle workspace draws its board, not the pieces scene
     this.renderer.tilt = stacking;
+    this.camera.setBase(this.upright(), performance.now());
     this.renderer.root.visible = !puzzle || stacking;
     this.renderer.model.visible = !solver && !puzzle && !this.rodSetShown;
     this.pieces.group.visible = puzzle && !stacking;
@@ -884,6 +898,7 @@ export class View3D {
         xray: this.display.xray,
         palette: snap0?.colours.map((c) => c.rgb) ?? [],
       });
+      this.solution.setLabels(prefs.pieceLabels);
       this.renderTag();
     }
     if (puzzle && !stacking) {
@@ -1010,8 +1025,13 @@ export class View3D {
       r.render();
       this.pieces.place(r.camera, r.width, r.height, sc);
     } else if (this.solverMode) {
-      this.renderer.frame(this.camera, this.solutionModel?.extent ?? [1, 1, 1]);
-      this.renderer.render();
+      const r = this.renderer;
+      const extent = this.solutionModel?.extent ?? [1, 1, 1];
+      r.frame(this.camera, extent);
+      this.solution.setLabelScale(pixelsPerUnit(r.width, r.height, extent, this.camera.zoom));
+      r.render();
+      // the labels drawn, readable from outside (the e2e tests)
+      byId('vp').dataset.pieceLabels = this.solution.labelsShown();
       if (this.solver?.movesPieces() === true) {
         // where each piece is on the screen (the e2e tests drag them)
         byId('vp').dataset.pieceScreen = (this.solutionModel?.pieces ?? [])
@@ -1243,7 +1263,7 @@ export class View3D {
         this.edit?.hover(null, this.mods, false, null);
         d.x = e.clientX;
         d.y = e.clientY;
-        if (d.m === 'orbit' && prefs.rot === 'Arc-ball') {
+        if (d.m === 'orbit' && prefs.rot === 'Free Spin') {
           const r = cv.getBoundingClientRect();
           this.camera.arcStart(d.sx - r.left, d.sy - r.top, r.width, r.height);
         }
@@ -1256,7 +1276,7 @@ export class View3D {
         return;
       }
       if (d.m === 'orbit') {
-        if (prefs.rot === 'Arc-ball') {
+        if (prefs.rot === 'Free Spin') {
           const r = cv.getBoundingClientRect();
           this.camera.arcDrag(e.clientX - r.left, e.clientY - r.top);
         } else {

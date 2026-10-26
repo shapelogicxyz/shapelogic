@@ -136,7 +136,8 @@ directions in color: x red, y green, z blue.
 - **Double-click a face** to turn the view so the face's label stands
   upright.
 - **Click the house** (Home) to go back to the default view, with the model
-  fitted to the window. `Home` on the keyboard does the same.
+  fitted to the window. `Home` on the keyboard does the same. Which way the
+  axes point in it is the **Z axis direction** setting (below).
 - When you are looking straight at a face, **arrows** appear around the cube.
   Click one to turn the view by 90° to the next face. The two **curved
   arrows** at the top right roll the view by 90° clockwise or
@@ -152,9 +153,17 @@ behaves:
 
 - **Show view cube**: show or hide the view cube.
 - **Reverse scroll zoom direction**: swap which way the mouse wheel zooms.
-- **Rotation method**: **Drag** (the default) turns the model as you drag;
-  **Arc-ball** is the original BurrTools method, where the model turns as if
-  you were rolling a ball under it.
+- **Rotation method**: **Free Spin** (the default) has no limits: the model
+  turns whichever way you drag it, as far as you like, and can end up upside
+  down. It is the original BurrTools method, where the model turns as if you
+  were rolling a ball under it. **Top Up** spins the model around its
+  vertical axis as far as you like, but tilts it only until you look straight
+  down or straight up, so it never turns upside down.
+- **Z axis direction**: which way the axes point in the home view and in the
+  first view when ShapeLogic starts. **Z Towards** (the default): X across, Y
+  up, Z coming towards you. **Z Up**: X across, Z up, Y going away from you.
+  The axis that points up is the one Top Up keeps up. A stacking puzzle
+  always stands its stack up.
 - **Lighting**: shade the pieces so they look solid. Off gives a flat, unlit
   look.
 - **Fade out removed pieces**: in a disassembly animation, pieces that come

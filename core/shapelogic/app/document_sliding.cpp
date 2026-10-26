@@ -20,11 +20,11 @@ namespace {
 constexpr std::uint32_t kChangeAll =
     kChangeShapes | kChangeColours | kChangeProblems | kChangeSolutions;
 
-// "S1, S3": shapes by their labels.
-std::string shapeList(const std::vector<unsigned int>& shapes) {
+// "B1, B3": shapes by their labels.
+std::string shapeList(const Puzzle& puzzle, const std::vector<unsigned int>& shapes) {
   std::string names;
   for (const unsigned int s : shapes) {
-    names += (names.empty() ? "S" : ", S") + std::to_string(s + 1);
+    names += (names.empty() ? "" : ", ") + sliding::shapeLabel(puzzle, s);
   }
   return names;
 }
@@ -34,6 +34,22 @@ std::string shapeList(const std::vector<unsigned int>& shapes) {
 void Document::syncSliding() {
   touchWhole();
   endSessions();
+  // the boards (start/goal shapes) stay above the pieces: one below a
+  // piece moves up, one place at a time as moveShape moves, the marks and
+  // problems following each swap
+  bool lost = false;
+  unsigned int top = 0;
+  for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+    if (!sliding::isStartGoalShape(&puzzle_->getShape(i))) {
+      continue;
+    }
+    for (unsigned int at = i; at > top; at--) {
+      lost = !sliding::noteShapeSwap(*puzzle_, at - 1, at).empty() || lost;
+      puzzle_->exchangeShapes(at - 1, at);
+      std::swap(ids_.shapes[at - 1], ids_.shapes[at]);
+    }
+    top++;
+  }
   // The problems of no start/goal shape go; the others keep their places
   // and their ids, and the new ones come at the end (syncSlidingProblems).
   std::vector<Id> kept;
@@ -57,6 +73,11 @@ void Document::syncSliding() {
   lastChange_.shapes.clear();
   lastChange_.problems.clear();
   lastChange_.what |= kChangeAll;
+  if (lost) {
+    lastChange_.notice =
+        "Only the first 63 shapes can have a start or goal: the boards moved above the pieces, "
+        "and the pieces moved past the 63rd place lost their starts and goals.";
+  }
 }
 
 void Document::slidingShapeChanged(unsigned int shape) {
@@ -91,9 +112,9 @@ void Document::slidingShapeChanged(unsigned int shape) {
     return;
   }
   syncSliding();
-  lastChange_.notice = "S" + std::to_string(shape + 1) +
-                       " changed shape: its start and goal were removed from " + shapeList(trays) +
-                       ".";
+  lastChange_.notice = shapeLabelOf(shape) +
+                       " changed shape: its start and goal were removed from " +
+                       shapeList(*puzzle_, trays) + ".";
 }
 
 void Document::slidingMarksLost(Id shape, const std::vector<Id>& trays) {
@@ -106,10 +127,10 @@ void Document::slidingMarksLost(Id shape, const std::vector<Id>& trays) {
   }
   std::sort(indices.begin(), indices.end());
   syncSliding();
-  lastChange_.notice = "Only the first 63 shapes can have a start or goal: S" +
-                       std::to_string(shapeIndex(shape).value() + 1) +
+  lastChange_.notice = "Only the first 63 shapes can have a start or goal: " +
+                       shapeLabelOf(shapeIndex(shape).value()) +
                        " moved past the 63rd place and its start and goal were removed from " +
-                       shapeList(indices) + ".";
+                       shapeList(*puzzle_, indices) + ".";
 }
 
 bool Document::slidingRequired(unsigned int problem, unsigned int shape) const {

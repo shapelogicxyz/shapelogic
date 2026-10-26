@@ -302,6 +302,8 @@ void setStartGoalUserName(Voxel* v, const std::string& user) {
   v->setName(std::string(kStartGoalPrefix) + std::to_string(num) + ":" + user);
 }
 
+std::string defaultStartGoalName(int n) { return "(START/GOAL " + std::to_string(n) + ")"; }
+
 std::string displayName(const Voxel* v) {
   if (v == nullptr) {
     return std::string();
@@ -310,11 +312,35 @@ std::string displayName(const Voxel* v) {
     return v->getName();
   }
   const std::string user = startGoalUserName(v);
-  const std::string tag = "(START/GOAL " + std::to_string(startGoalNumber(v)) + ")";
-  if (user.empty()) {
-    return tag;
+  return user.empty() ? defaultStartGoalName(startGoalNumber(v)) : user;
+}
+
+std::string shapeLabel(const Puzzle& puzzle, unsigned int shape) {
+  if (!isSliding(puzzle) || shape >= puzzle.getNumberOfShapes()) {
+    return "S" + std::to_string(shape + 1);
   }
-  return tag + " " + user;
+  const bool board = isStartGoalShape(&puzzle.getShape(shape));
+  unsigned int place = 1;
+  for (unsigned int i = 0; i < shape; i++) {
+    if (isStartGoalShape(&puzzle.getShape(i)) == board) {
+      place++;
+    }
+  }
+  return (board ? "B" : "S") + std::to_string(place);
+}
+
+void renumberStartGoalShapes(Puzzle& puzzle) {
+  int n = 0;
+  for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
+    Voxel& v = puzzle.getShape(i);
+    if (!isStartGoalShape(&v)) {
+      continue;
+    }
+    n++;
+    if (startGoalNumber(&v) != n) {
+      v.setName(std::string(kStartGoalPrefix) + std::to_string(n) + ":" + startGoalUserName(&v));
+    }
+  }
 }
 
 unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
@@ -632,7 +658,7 @@ std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape) {
     const std::vector<TrayCell> starts = stampedCells(tray, id, false);
     const std::vector<TrayCell> goals = stampedCells(tray, id, true);
     const std::vector<TrayCell> shape = fromFirst(pieceCells(piece));
-    const std::string name = "S" + std::to_string(id);
+    const std::string name = shapeLabel(puzzle, s);
     if (!starts.empty() && fromFirst(starts) != shape) {
       return "The start of " + name + " is not the whole piece. Place it again.";
     }
@@ -711,6 +737,7 @@ void syncSlidingProblems(Puzzle& puzzle) {
   if (!isSliding(puzzle)) {
     return;
   }
+  renumberStartGoalShapes(puzzle);
 
   // drop the problems that are not tied to a start/goal shape
   for (int p = asInt(puzzle.getNumberOfProblems()) - 1; p >= 0; p--) {
@@ -736,13 +763,20 @@ void syncSlidingProblems(Puzzle& puzzle) {
       found = puzzle.addProblem();
       Problem& pr = puzzle.getProblem(found);
       pr.setResultId(puzzle, s);
-      pr.setName("START/GOAL " + std::to_string(startGoalNumber(&puzzle.getShape(s))));
     } else if (puzzle.getProblem(found).getResultId() != s) {
       puzzle.getProblem(found).setResultId(puzzle, s);
     }
 
     Problem& pr = puzzle.getProblem(found);
     const Voxel& tray = puzzle.getShape(s);
+    // the problem is named as its start/goal shape shows, and no start/goal
+    // shape is a piece of it
+    pr.setName(displayName(&tray));
+    for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
+      if (i != s && isStartGoalShape(&puzzle.getShape(i)) && pr.getShapeMaximum(i) > 0) {
+        pr.setShapeMaximum(puzzle, i, 0);
+      }
+    }
     for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
       if (isStartGoalShape(&puzzle.getShape(i)) || isHiddenSlidingShape(&puzzle.getShape(i))) {
         continue;

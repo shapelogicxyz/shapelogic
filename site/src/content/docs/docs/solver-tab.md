@@ -104,6 +104,10 @@ Which take-apart search the solve uses:
 Both find the same assemblies; only the take-apart differs. See
 [Piece Rotations (TIC)](/docs/piece-rotations/#the-two-solver-types).
 
+A problem that has no solver type saved starts with the **Default solver
+type** setting (**Settings ▸ Solver**, `Ctrl+,` or `⌘,` on a Mac), Complete
+unless you change it. The type you choose here is saved with the problem.
+
 ### Keep every n-th
 
 Keeps a sample of a large number of solutions. **1** keeps every solution;
@@ -140,7 +144,7 @@ symmetry and color ones:
   also move up and down, lifted over the other pieces and put down somewhere
   else. Off (the default), every piece slides only in its own layer.
 - **Enable High Memory**: lets the search use up to half of the computer's
-  memory, instead of stopping at about 2 GB.
+  memory, instead of stopping at about 2 GB. On by default.
 - **Solver type**: each start is searched for the fewest moves to the goal.
   **Sliding Fast Solver (250k depth)** looks at up to 250,000 arrangements
   per start, **Sliding Deep Solver (1mil depth)** up to 1,000,000, and
@@ -154,7 +158,7 @@ A [stacking puzzle](/docs/puzzle-types/stacking/) shows **Find Solutions**
 
 - **Just Count** and **Just Levels**, as above.
 - **Enable High Memory**: lets the search use up to half of the computer's
-  memory, instead of stopping at about 2 GB.
+  memory, instead of stopping at about 2 GB. On by default.
 - **Solver type**: the **Stacking Solver**, or the **Panex Solver** for rod
   sets with Panex style columns. The board decides which; it can't be
   changed. The Panex Solver searches from both ends on every core, and
@@ -292,7 +296,10 @@ file, for 3D printing. See [Exports](/docs/exports/#export-solution-pieces-to-st
 
 ![The piece chips of the Piece display section.](../../../assets/screens/guide/solutions-pieces.png)
 
-One chip per piece of the solution. Click a chip (or press `Space` or `Enter`
-on it) to cycle the piece through **solid**, **wireframe** and **hidden**,
-so you can see the pieces inside. **Show all** puts every piece back to
-solid.
+One chip per piece of the solution, showing its label and, if the shape has
+a name, the name after it (`S2 - my_label`). Click a chip (or press `Space`
+or `Enter` on it) to cycle the piece through **solid**, **wireframe** and
+**hidden**, so you can see the pieces inside. **Show all** puts every piece
+back to solid. **Compact** shows the labels alone (`S2`); the button then
+reads **Full**, which brings the names back. ShapeLogic remembers the
+choice.

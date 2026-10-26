@@ -29,6 +29,7 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { installHistory } from '../shell/history.ts';
 import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
+import { onPrefs, prefs } from '../shell/prefs.ts';
 import { editorVisible, onLayout, tab } from '../shell/layout.ts';
 import { hex, isTray, shapeColour } from '../shell/piece-colours.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
@@ -240,6 +241,12 @@ export class EntitiesWorkspace {
     onTheme(() => {
       this.edit3d.show();
     });
+    // the Grid plane setting: the grid goes to it at once (where the grid has it)
+    onPrefs((changed) => {
+      if (changed.includes('gridPlane')) {
+        this.setPlane(prefs.gridPlane);
+      }
+    });
     this.installKeys();
     installHistory(
       store,
@@ -280,9 +287,8 @@ export class EntitiesWorkspace {
       this.state.colour = null;
       this.state.tray = 'walls';
       this.state.stampPiece = null;
-      if (!isCube(snap?.grid) || snap?.grid === 'sliding') {
-        this.state.plane = 'XY';
-      }
+      // the Grid plane setting's plane, where the grid has more than XY
+      this.state.plane = !isCube(snap?.grid) || snap?.grid === 'sliding' ? 'XY' : prefs.gridPlane;
       this.geos.clear();
       this.geo = null;
       this.geoKey = '';
@@ -556,9 +562,10 @@ export class EntitiesWorkspace {
     if (cell === null || s === null) {
       setCursor('');
     } else if (isCube(grid)) {
+      // the cell's coordinates, not its column and row (which run backwards on a flipped axis)
       const p = planeMap(this.state.plane, s.size);
-      const [c, r, l] = p.crl(cell);
-      setCursor(`Cursor ${p.ca}${c} ${p.ra}${r} · ${p.la}${l}`);
+      const at = (a: 'X' | 'Y' | 'Z'): string => `${a}${String(cell['XYZ'.indexOf(a)] ?? 0)}`;
+      setCursor(`Cursor ${at(p.ca)} ${at(p.ra)} · ${at(p.la)}`);
     } else {
       setCursor(`Cell ${cell.join(', ')}`);
     }
@@ -618,13 +625,16 @@ export class EntitiesWorkspace {
     this.state.changed();
   }
 
-  private async fillBox(clear: boolean): Promise<void> {
+  // Fill puts the chosen voxel tool in the box: under Erase it clears, as Clear does
+  private async fillBox(clearing: boolean): Promise<void> {
     const s = this.store.shape;
     const box = this.state.box;
     if (s === null || box === null || this.refuse()) {
       return;
     }
     const st = this.state;
+    const tool = clearing ? 'erase' : st.voxel;
+    const clear = tool === 'erase';
     const p = planeMap(st.plane, s.size);
     const from = p.xyz(Math.min(box.c0, box.c1), Math.min(box.r0, box.r1), st.layer);
     const to = p.xyz(Math.max(box.c0, box.c1), Math.max(box.r0, box.r1), st.layer);
@@ -633,7 +643,7 @@ export class EntitiesWorkspace {
     await this.mutate(clear ? 'Clear' : 'Fill', () =>
       this.store.engine.call('shape.setBox', {
         shape: s.id,
-        tool: clear ? 'erase' : 'fixed',
+        tool,
         from,
         to,
         ...(!clear && st.colour !== null ? { colour: st.colour } : {}),
@@ -878,8 +888,13 @@ export class EntitiesWorkspace {
           ) {
             return true;
           }
-          st.tool = t.id;
-          st.boxMode = false;
+          // a voxel tool keeps the box selection (its Fill uses it); the brush draws
+          if (t.id === 'paint') {
+            st.tool = 'paint';
+            st.boxMode = false;
+          } else {
+            st.setVoxel(t.id);
+          }
           st.changed();
           return true;
         });

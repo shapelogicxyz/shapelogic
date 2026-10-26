@@ -228,7 +228,7 @@ Json shapeSummary(const State& s, unsigned int index) {
   const Voxel& v = s.document().puzzle().getShape(index);
   Json j = Json::object();
   j["id"] = shapeId(s, index);
-  j["label"] = app::Document::shapeLabel(index);
+  j["label"] = s.document().shapeLabelOf(index);
   // a start/goal shape's name holds its number ("sg:<n>:"): the number
   // goes apart, the name is the user's part
   const bool startGoal = sliding::isSliding(s.document().puzzle()) && sliding::isStartGoalShape(&v);

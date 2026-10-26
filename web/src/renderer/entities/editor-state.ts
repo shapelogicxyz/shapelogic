@@ -52,10 +52,19 @@ export interface Box {
   r1: number;
 }
 
+/** The voxel tools: one of them is always chosen. */
+export type VoxelTool = 'fixed' | 'variable' | 'erase';
+
 /** The editor's state; the views render it and say when they change it. */
 export class EditorState {
+  /** The tool a press uses: the voxel tool, or the restriction colour's brush ('paint'). */
   tool: Tool = 'fixed';
-  /** A drag in the 2D grid selects a box instead of drawing. */
+  /** The voxel tool chosen: lit while the brush or the box selection is on, and what Fill puts in a box. */
+  voxel: VoxelTool = 'fixed';
+  /**
+   * A drag in the 2D grid selects a box instead of drawing (the Select/Paint
+   * toggle); the voxel tool stays chosen through it.
+   */
   boxMode = false;
   plane: Plane = 'XY';
   layer = 0;
@@ -86,22 +95,36 @@ export class EditorState {
   /** Tells the views the state changed. */
   changed(): void {
     this.dropPaint();
+    // a box lives in the box mode: back to drawing clears it
+    if (!this.boxMode) {
+      this.box = null;
+    }
     for (const l of [...this.listeners]) {
       l();
     }
   }
 
-  /** Paint goes with a restriction colour (its brush shows by one): back to Fixed under Default. */
+  /** Chooses a voxel tool; the brush is put down. */
+  setVoxel(v: VoxelTool): void {
+    this.voxel = v;
+    this.tool = v;
+  }
+
+  /** Paint goes with a restriction colour (its brush shows by one): back to the voxel tool under Default. */
   dropPaint(): void {
     if (this.tool === 'paint' && this.colour === null) {
-      this.tool = 'fixed';
+      this.tool = this.voxel;
     }
   }
 }
 
 /**
  * A plane of a space (the mockup's P()): its columns, rows and layers, the
- * axes they run along, and the cell of a column, row and layer.
+ * axes they run along, and the cell of a column, row and layer. Each plane
+ * is seen from the positive side of its layer axis, as the 3D view shows it
+ * from there: XY's columns run along +X and its rows up +Y; XZ's columns
+ * along +X and its rows down +Z (`rowsFlipped`), so X 0, Z 0 is the top
+ * left; YZ's columns along -Z (`flipped`) and its rows up +Y.
  */
 export interface PlaneMap {
   cols: number;
@@ -110,6 +133,10 @@ export interface PlaneMap {
   ca: 'X' | 'Y' | 'Z';
   ra: 'X' | 'Y' | 'Z';
   la: 'X' | 'Y' | 'Z';
+  /** The columns run from the axis's highest coordinate down (column 0 is the last). */
+  flipped: boolean;
+  /** The rows run from the axis's highest coordinate down (row 0, the bottom one, is the last). */
+  rowsFlipped: boolean;
   xyz(c: number, r: number, l: number): Cell;
   /** The column, row and layer of a cell. */
   crl(cell: readonly number[]): [number, number, number];
@@ -126,6 +153,8 @@ export function planeMap(plane: Plane, d: Size): PlaneMap {
       ca: 'X',
       ra: 'Y',
       la: 'Z',
+      flipped: false,
+      rowsFlipped: false,
       xyz: (c, r, l) => [c, r, l],
       crl: (p) => [p[0] ?? 0, p[1] ?? 0, p[2] ?? 0],
     };
@@ -138,8 +167,10 @@ export function planeMap(plane: Plane, d: Size): PlaneMap {
       ca: 'X',
       ra: 'Z',
       la: 'Y',
-      xyz: (c, r, l) => [c, l, r],
-      crl: (p) => [p[0] ?? 0, p[2] ?? 0, p[1] ?? 0],
+      flipped: false,
+      rowsFlipped: true,
+      xyz: (c, r, l) => [c, l, z - 1 - r],
+      crl: (p) => [p[0] ?? 0, z - 1 - (p[2] ?? 0), p[1] ?? 0],
     };
   }
   return {
@@ -149,8 +180,10 @@ export function planeMap(plane: Plane, d: Size): PlaneMap {
     ca: 'Z',
     ra: 'Y',
     la: 'X',
-    xyz: (c, r, l) => [l, r, c],
-    crl: (p) => [p[2] ?? 0, p[1] ?? 0, p[0] ?? 0],
+    flipped: true,
+    rowsFlipped: false,
+    xyz: (c, r, l) => [l, r, z - 1 - c],
+    crl: (p) => [z - 1 - (p[2] ?? 0), p[1] ?? 0, p[0] ?? 0],
   };
 }
 

@@ -277,6 +277,11 @@ class Document {
   [[nodiscard]] Result<unsigned int> solutionIndex(Id problem, Id solution) const;
   /// The labels the front end shows: "S1", "C1", "P1" by place.
   [[nodiscard]] static std::string shapeLabel(unsigned int index);
+  /// The label of a shape of this puzzle: shapeLabel, but on a sliding
+  /// puzzle "B1, B2, ..." for the boards (start/goal shapes) and "S1,
+  /// S2, ..." for the pieces, each by place among its kind
+  /// (sliding::shapeLabel).
+  [[nodiscard]] std::string shapeLabelOf(unsigned int index) const;
   [[nodiscard]] static std::string colourLabel(unsigned int index);
   [[nodiscard]] static std::string problemLabel(unsigned int index);
   /// "R1": a rod set's label (the original's rod-set list).

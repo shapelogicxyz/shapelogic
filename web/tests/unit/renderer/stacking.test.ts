@@ -81,6 +81,7 @@ describe('the stacking solver options', () => {
     expect(familyOf('prisms')).toBe('brick');
     const o = readOptions({}, undefined, 'stacking');
     expect(o.disassemble).toBe(true);
+    expect(o.highMemory).toBe(true);
     expect(readOptions({}).disassemble).toBe(false);
     // a stored solver type is not a stacking one
     expect(readOptions({ solverType: 'crowell' }, undefined, 'stacking').solver).toBe('classic');

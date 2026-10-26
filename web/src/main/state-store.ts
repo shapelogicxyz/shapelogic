@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The main process's store (stage 6): the renderer's settings and layouts,
-// the recent files and the window's bounds, kept in one JSON file in the
+// the recent files, the window's bounds and the folder a file dialog gave
+// last, kept in one JSON file in the
 // app's data directory (`state.json`). Read once when the app starts (a
 // file that is missing or not JSON is an empty store); written a moment
 // after a change, whole, to a temporary file renamed over the old one, so
@@ -27,6 +28,7 @@ interface Data {
   layout?: Record<string, unknown>;
   recent?: string[];
   bounds?: Bounds;
+  lastDir?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -65,6 +67,9 @@ function parse(text: string): Data {
   if (isBounds(v.bounds)) {
     d.bounds = v.bounds;
   }
+  if (typeof v.lastDir === 'string' && v.lastDir !== '') {
+    d.lastDir = v.lastDir;
+  }
   return d;
 }
 
@@ -102,6 +107,11 @@ export class StateStore {
     return this.data.bounds;
   }
 
+  /** The folder a file dialog gave last (app-ipc.ts starts the next dialog there). */
+  get lastDir(): string | undefined {
+    return this.data.lastDir;
+  }
+
   /** The recent files, the newest first. */
   get recent(): readonly string[] {
     return this.data.recent ?? [];
@@ -124,6 +134,13 @@ export class StateStore {
   setBounds(bounds: Bounds): void {
     this.data.bounds = bounds;
     this.schedule();
+  }
+
+  setLastDir(dir: string): void {
+    if (dir !== this.data.lastDir) {
+      this.data.lastDir = dir;
+      this.schedule();
+    }
   }
 
   /** A file opened or saved goes first in the recent files. */

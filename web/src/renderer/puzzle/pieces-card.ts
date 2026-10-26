@@ -22,6 +22,7 @@ import { $$, byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
+import { isTray, shownName } from '../shell/piece-colours.ts';
 import { flash } from '../shell/status.ts';
 import { countText, groupOf, groupsOf, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
@@ -52,7 +53,8 @@ export class PiecesCard {
   }
 
   private title(s: ShapeSummary): string {
-    return `${s.label}${s.name !== '' ? ` – ${s.name}` : ''} · ${String(cells(s))} voxels`;
+    const name = shownName(s);
+    return `${s.label}${name !== '' ? ` – ${name}` : ''} · ${String(cells(s))} voxels`;
   }
 
   /** Draws the result, the pieces, the library, the summary (the mockup's renderPuzzle). */
@@ -62,7 +64,8 @@ export class PiecesCard {
     const shapes = this.shapes;
     const result = d?.result ?? null;
     const parts = d?.parts ?? [];
-    const others = shapes.filter((s) => s.id !== result);
+    // a sliding puzzle's boards are no pieces: only the problems show them
+    const others = shapes.filter((s) => s.id !== result && !isTray(s));
     const byShape = new Map(shapes.map((s) => [s.id, s]));
 
     // a stacking problem's pieces are the discs on its rods (stacks-card.ts):
@@ -88,7 +91,7 @@ export class PiecesCard {
       const c = ws.chip(R.id);
       const hold = f === null ? '' : ` · can hold ${rng(f.resultMin, f.resultMax)}`;
       byId('pzResult').innerHTML =
-        `<span class="chip" style="background:${c.bg};color:${c.fg}">${esc(R.label)}</span><div class="meta"><b>${esc(R.name) || 'Result piece'}</b><span>${String(cells(R))} voxels${hold}</span></div>${change}`;
+        `<span class="chip" style="background:${c.bg};color:${c.fg}">${esc(R.label)}</span><div class="meta"><b>${esc(shownName(R)) || 'Result piece'}</b><span>${String(cells(R))} voxels${hold}</span></div>${change}`;
     }
     byId('pzResult').dataset.shape = result ?? '';
 

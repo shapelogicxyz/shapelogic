@@ -6,6 +6,9 @@
 // Since stage 6 they are kept across sessions (persist.ts), read back
 // through `validPrefs`.
 
+/** Which way the axes point in the home view (the 3D view's "Z axis direction"). */
+export type ZAxis = 'Z Towards' | 'Z Up';
+
 /** The settings and their values. */
 export interface Prefs {
   density: 'Standard' | 'Minimal';
@@ -14,11 +17,25 @@ export interface Prefs {
   tips: boolean;
   cube: boolean;
   rev: boolean;
-  rot: 'Drag' | 'Arc-ball';
+  /** Free Spin: the arc-ball, no limits; Top Up: the drag that keeps the vertical axis up. */
+  rot: 'Free Spin' | 'Top Up';
+  zAxis: ZAxis;
+  /** The cube grid editor's plane when a puzzle is opened or made. */
+  gridPlane: 'XY' | 'XZ' | 'YZ';
+  /** A new shape's size when none is selected, in the size steppers' units. */
+  newX: number;
+  newY: number;
+  newZ: number;
   lights: boolean;
   fade: boolean;
+  /** The Solver's 3D view: each piece's label drawn on it (Search options). */
+  pieceLabels: boolean;
+  /** The Solver's Piece display: labels only (Compact), not "S2 - name" (Full). */
+  pieceCompact: boolean;
   /** Worker threads; 0 until the engine said (its 0 is every hardware thread). */
   threads: number;
+  /** The Solver type of a problem that stored none (not sliding or stacking): classic or crowell. */
+  solverType: 'Complete' | 'Fast';
 }
 
 /** The defaults (the engine's for undo depth and threads). */
@@ -29,10 +46,18 @@ export const DEFAULTS: Readonly<Prefs> = {
   tips: true,
   cube: true,
   rev: false,
-  rot: 'Drag',
+  rot: 'Free Spin',
+  zAxis: 'Z Towards',
+  gridPlane: 'XY',
+  newX: 4,
+  newY: 4,
+  newZ: 4,
   lights: true,
   fade: true,
+  pieceLabels: false,
+  pieceCompact: false,
   threads: 0,
+  solverType: 'Complete',
 };
 
 /** The settings now. */
@@ -68,21 +93,35 @@ export function onPrefs(listener: (changed: (keyof Prefs)[]) => void): () => voi
 const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
   density: ['Standard', 'Minimal'],
   theme: ['Light', 'Dark', 'System'],
-  rot: ['Drag', 'Arc-ball'],
+  // the names before Free Spin and Top Up are dropped: back to the default
+  rot: ['Free Spin', 'Top Up'],
+  // Z Away and Z Up + Y Towards are dropped: back to the default
+  zAxis: ['Z Towards', 'Z Up'],
+  gridPlane: ['XY', 'XZ', 'YZ'],
+  solverType: ['Complete', 'Fast'],
 };
+
+/** The largest new shape size the settings take, in each direction. */
+export const NEW_SIZE_MAX = 100;
+
+/** The new shape size settings, each 1 to NEW_SIZE_MAX. */
+const NEW_SIZE: readonly (keyof Prefs)[] = ['newX', 'newY', 'newZ'];
 
 /** The stored settings that are well formed. */
 export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
   const out: Partial<Record<keyof Prefs, unknown>> = {};
   for (const k of Object.keys(DEFAULTS) as (keyof Prefs)[]) {
-    const v = saved[k];
+    // Z Up was called Z Up + Y Away
+    const v = k === 'zAxis' && saved[k] === 'Z Up + Y Away' ? 'Z Up' : saved[k];
     const choices = CHOICES[k];
     const ok =
       choices !== undefined
         ? choices.includes(v)
-        : typeof DEFAULTS[k] === 'number'
-          ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
-          : typeof v === typeof DEFAULTS[k];
+        : NEW_SIZE.includes(k)
+          ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= NEW_SIZE_MAX
+          : typeof DEFAULTS[k] === 'number'
+            ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
+            : typeof v === typeof DEFAULTS[k];
     if (ok) {
       out[k] = v;
     }

@@ -127,12 +127,15 @@ export interface AppIpcHost {
   cancelQuit(sender: WebContents): void;
 }
 
-/** Where a save dialog starts: beside the document's file, else the documents folder. */
-let lastDir: string | null = null;
-
 /** Installs the handlers. */
 export function installAppIpc(h: AppIpcHost): void {
   const ours = (e: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null => h.window(e.sender);
+  // where a dialog starts: the folder a dialog gave last, kept across runs
+  // (the store), unless it is gone since; else the documents folder
+  const lastDir = (): string | null => {
+    const d = h.store.lastDir;
+    return d !== undefined && existsSync(d) ? d : null;
+  };
 
   ipcMain.on('bt:app-info', (e) => {
     e.returnValue = ours(e) === null ? null : { platform: process.platform, version: h.version };
@@ -148,13 +151,13 @@ export function installAppIpc(h: AppIpcHost): void {
       title: OPEN_TITLES[kind],
       properties: ['openFile'],
       filters: [k.filter, { name: 'All Files', extensions: ['*'] }],
-      ...(lastDir === null ? {} : { defaultPath: lastDir }),
+      defaultPath: lastDir() ?? defaultDir(),
     });
     const path = r.canceled ? undefined : r.filePaths[0];
     if (path === undefined) {
       return null;
     }
-    lastDir = dirname(path);
+    h.store.setLastDir(dirname(path));
     h.paths.grant(e.sender, path);
     return path;
   });
@@ -168,7 +171,7 @@ export function installAppIpc(h: AppIpcHost): void {
     const proposed = basename(name) === '' ? `puzzle${k.ext}` : basename(name);
     const r = await dialog.showSaveDialog(win, {
       title: k.title,
-      defaultPath: join(lastDir ?? defaultDir(), proposed),
+      defaultPath: join(lastDir() ?? defaultDir(), proposed),
       filters: [k.filter],
       properties: ['showOverwriteConfirmation', 'createDirectory'],
     });
@@ -192,7 +195,7 @@ export function installAppIpc(h: AppIpcHost): void {
         }
       }
     }
-    lastDir = dirname(path);
+    h.store.setLastDir(dirname(path));
     if (isExportKind(kind)) {
       grants.grant(e.sender, path, kind);
     } else {
@@ -227,13 +230,13 @@ export function installAppIpc(h: AppIpcHost): void {
     const r = await dialog.showOpenDialog(win, {
       title: 'Choose the Output Folder',
       properties: ['openDirectory', 'createDirectory'],
-      defaultPath: lastDir ?? defaultDir(),
+      defaultPath: lastDir() ?? defaultDir(),
     });
     const folder = r.canceled ? undefined : r.filePaths[0];
     if (folder === undefined) {
       return null;
     }
-    lastDir = folder;
+    h.store.setLastDir(folder);
     folders.grant(e.sender, folder);
     return folder;
   });
@@ -313,7 +316,7 @@ export function installAppIpc(h: AppIpcHost): void {
       // only a file the window was handed: Open Recent hands it back (path-grants.ts)
       if (h.paths.allows(e.sender, path)) {
         h.store.addRecent(path);
-        lastDir = dirname(path);
+        h.store.setLastDir(dirname(path));
       }
     } else if (op === 'remove') {
       h.store.removeRecent(path);

@@ -205,6 +205,17 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   if (toIndex == *s) {
     return {};
   }
+  // a sliding puzzle's boards stay above its pieces
+  if (sliding::isSliding(*puzzle_)) {
+    unsigned int boards = 0;
+    for (unsigned int i = 0; i < puzzle_->getNumberOfShapes(); i++) {
+      boards += sliding::isStartGoalShape(&puzzle_->getShape(i)) ? 1 : 0;
+    }
+    const bool board = sliding::isStartGoalShape(&puzzle_->getShape(*s));
+    if (board ? toIndex >= boards : toIndex < boards) {
+      return fail(Errc::InvalidArgument, "the boards stay above the pieces");
+    }
+  }
   StepGuard g(*this, "Move shape");
   touchWhole();
   endSessions();
@@ -233,6 +244,9 @@ Result<void> Document::moveShape(Id shape, unsigned int toIndex) {
   }
   if (!lostTrays.empty()) {
     slidingMarksLost(unmarked, lostTrays);
+  } else if (slidingPuzzle) {
+    // the boards are numbered by place, their problems named so
+    syncSliding();
   }
   g.commit(kChangeShapes | kChangeProblems | lastChange_.what);
   return {};
@@ -259,18 +273,34 @@ Result<void> Document::renameShape(Id shape, std::string name) {
     return fail(Errc::InvalidArgument,
                 "a piece's name cannot begin with \"sg:\" or \"__sggoal:\" on a sliding puzzle");
   }
+  // a board given the name it shows without one keeps none, so that the
+  // name follows its number
+  if (startGoal && name == sliding::defaultStartGoalName(sliding::startGoalNumber(&named))) {
+    name.clear();
+  }
   if ((startGoal ? sliding::startGoalUserName(&named) : named.getName()) == name) {
     return {};
   }
   StepGuard g(*this, "Rename shape");
   touchShape(*s);
+  std::uint32_t what = kChangeShapes;
   if (startGoal) {
     sliding::setStartGoalUserName(&puzzle_->getShape(*s), name);
+    // its problem is named as the board shows (syncSlidingProblems)
+    for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
+      Problem& pr = puzzle_->getProblem(p);
+      if (pr.resultValid() && pr.getResultId() == *s) {
+        touchProblem(p);
+        pr.setName(sliding::displayName(&puzzle_->getShape(*s)));
+        lastChange_.problems = {ids_.problems[p]};
+        what |= kChangeProblems;
+      }
+    }
   } else {
     puzzle_->getShape(*s).setName(name);
   }
   lastChange_.shapes = {shape};
-  g.commit(kChangeShapes);
+  g.commit(what);
   return {};
 }
 
@@ -739,6 +769,12 @@ Result<void> Document::renameProblem(Id problem, std::string name) {
   if (Result<void> r = checkText(name, true, "a name"); !r) {
     return r;
   }
+  // a sliding board's problem is named as its board: the board is renamed
+  if (const Problem& pr = puzzle_->getProblem(*p);
+      sliding::isSliding(*puzzle_) && pr.resultValid() &&
+      sliding::isStartGoalShape(&puzzle_->getShape(pr.getResultId()))) {
+    return renameShape(ids_.shapes[pr.getResultId()], std::move(name));
+  }
   if (puzzle_->getProblem(*p).getName() == name) {
     return {};
   }
@@ -811,11 +847,15 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
   if (max > 0 && pr.resultValid() && pr.getResultId() == *s) {
     return fail(Errc::InvalidArgument, "the result cannot be a piece");
   }
+  if (max > 0 && sliding::isSliding(*puzzle_) &&
+      sliding::isStartGoalShape(&puzzle_->getShape(*s))) {
+    return fail(Errc::InvalidArgument, "a board cannot be a piece");
+  }
   if (pr.getShapeMinimum(*s) == min && pr.getShapeMaximum(*s) == max) {
     return {};
   }
   if (slidingRequired(*p, *s)) {
-    return fail(Errc::InvalidArgument, "S" + std::to_string(*s + 1) +
+    return fail(Errc::InvalidArgument, shapeLabelOf(*s) +
                                            " has a start or goal on this problem's start/goal "
                                            "shape: its count follows them");
   }
@@ -912,8 +952,9 @@ Result<void> Document::addOneOfEach(Id problem) {
   StepGuard g(*this, "Add one of each");
   touchProblem(*p);
   for (unsigned int j = 0; j < puzzle_->getNumberOfShapes(); j++) {
-    // not the result, nor a sliding piece with a start or goal
-    if ((pr.resultValid() && j == pr.getResultId()) || slidingRequired(*p, j)) {
+    // not the result, nor a sliding piece with a start or goal, nor a board
+    if ((pr.resultValid() && j == pr.getResultId()) || slidingRequired(*p, j) ||
+        (sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&puzzle_->getShape(j)))) {
       continue;
     }
     pr.setShapeMaximum(*puzzle_, j, pr.getShapeMaximum(j) + 1);

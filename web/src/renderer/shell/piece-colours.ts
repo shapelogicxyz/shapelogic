@@ -212,3 +212,15 @@ export function viewColour(s: ShapeLike | undefined, index: number): Rgb3 {
 export function isTray(s: ShapeLike | null | undefined): boolean {
   return s?.startGoal !== undefined && s.startGoal !== null;
 }
+
+/** The name a board (start/goal shape) shows while it has none (the engine's defaultStartGoalName). */
+export function trayDefaultName(n: number): string {
+  return `(START/GOAL ${String(n)})`;
+}
+
+/** The name a shape shows: its name, or a board's default while it has none. */
+export function shownName(s: { name: string; startGoal?: number | null }): string {
+  return s.name === '' && s.startGoal !== undefined && s.startGoal !== null
+    ? trayDefaultName(s.startGoal)
+    : s.name;
+}

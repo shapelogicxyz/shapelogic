@@ -28,10 +28,12 @@ import { isActive } from '../state/solves.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop } from '../shell/popover.ts';
+import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import {
   DEFAULT_LIMITS,
   DEFAULT_OPTIONS,
+  defaultsOf,
   effectiveSort,
   normalize,
   SORT_CHOICES,
@@ -197,6 +199,7 @@ export class RunCard {
     const tip = (k: BoxName): string => (ws.stacking ? (STACKING_TIP[k] ?? TIP[k]) : TIP[k]);
     const sw = (k: BoxName): string =>
       `<div class="row2"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
+    const def = defaultsOf(ws.family);
     const changed = [
       o.justCount !== DEFAULT_OPTIONS.justCount,
       o.justLevels !== DEFAULT_OPTIONS.justLevels,
@@ -204,12 +207,12 @@ export class RunCard {
       o.keepRotations !== DEFAULT_OPTIONS.keepRotations,
       o.deepSymmetry !== DEFAULT_OPTIONS.deepSymmetry,
       o.strictColors !== DEFAULT_OPTIONS.strictColors,
-      o.solver !== DEFAULT_OPTIONS.solver,
+      o.solver !== def.solver,
       o.autosave !== DEFAULT_OPTIONS.autosave,
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
       ws.sliding && o.verticalMoves,
-      ws.family !== 'brick' && o.highMemory,
+      ws.family !== 'brick' && o.highMemory !== def.highMemory,
       ws.sliding && o.slidingSolver !== DEFAULT_OPTIONS.slidingSolver,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
       lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
@@ -226,6 +229,10 @@ export class RunCard {
     const limits =
       `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1" title="Keep more of the solutions: skip one fewer between kept ones">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" title="1 keeps every solution; a higher number skips that many before the next one is kept" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1" title="Keep fewer of the solutions: skip one more between kept ones">${ic('plus', 12)}</button></div></div>` +
       `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10" title="Keep 10 fewer solutions">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" title="Keep at most this many solutions (0: all)" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10" title="Keep 10 more solutions">${ic('plus', 12)}</button></div></div>`;
+    // not a search option: a setting of the app, kept across sessions (prefs.ts)
+    const labelTip =
+      'Draw each piece’s label from the Shapes tab on it in the 3D view, always facing you';
+    const labels = `<div class="row2"><div class="t">Show piece labels<small>${labelTip}</small></div><div class="switch ${prefs.pieceLabels ? 'on' : ''}" data-pref="pieceLabels" role="switch" tabindex="0" aria-checked="${String(prefs.pieceLabels)}" title="${esc(labelTip)}"><span class="tr"></span></div></div>`;
     if (ws.stacking) {
       // High Memory in the symmetry options' place, the one solver of the board
       const solver = ws.stackingSolver;
@@ -239,7 +246,8 @@ export class RunCard {
           sw('highMemory') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
           limits +
-          sw('autosave'),
+          sw('autosave') +
+          labels,
       );
       return;
     }
@@ -257,7 +265,8 @@ export class RunCard {
           sw('highMemory') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
           limits +
-          sw('autosave'),
+          sw('autosave') +
+          labels,
       );
       return;
     }
@@ -271,7 +280,8 @@ export class RunCard {
         sw('strictColors') +
         `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell).</small></div><select data-o="solver" title="Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell)">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
         limits +
-        sw('autosave'),
+        sw('autosave') +
+        labels,
     );
   }
 
@@ -411,6 +421,12 @@ export class RunCard {
       }
       this.toggle(t);
     });
+    // the labels' switch follows the setting (also reset from the settings dialog)
+    onPrefs((changed) => {
+      if (changed.includes('pieceLabels')) {
+        this.renderOptions();
+      }
+    });
     byId('slvOptHead').addEventListener('click', () => {
       ws.optOpen = !ws.optOpen;
       this.render();
@@ -481,6 +497,10 @@ export class RunCard {
 
   // a switch of the options clicked: true when it was one
   private toggle(t: Element): boolean {
+    if (t.closest('.switch[data-pref="pieceLabels"]') !== null) {
+      setPrefs({ pieceLabels: !prefs.pieceLabels });
+      return true;
+    }
     const sw = t.closest<HTMLElement>('.switch[data-o]');
     if (sw === null) {
       return false;

@@ -938,8 +938,15 @@ def sliding_start_goal_shapes(e):
     check(row["startGoal"] == 1 and row["name"] == "" and row["size"] == [4, 3, 1], f"the tray {row}")
     check(all(s["startGoal"] is None for s in snap["shapes"] if s["id"] != tray), "pieces have no number")
     check(len(snap["problems"]) == 1, f"its problem {snap['problems']}")
+    # the board goes above the pieces, labelled B1; the pieces are S1 and S2
+    check([s["label"] for s in snap["shapes"]] == ["B1", "S1", "S2"] and snap["shapes"][0]["id"] == tray,
+          f"the labels {snap['shapes']}")
+    check(snap["problems"][0]["name"] == "(START/GOAL 1)", f"its problem's name {snap['problems']}")
     p = snap["problems"][0]["id"]
     e.call("shape.rename", {"shape": tray, "name": "Corner"})
+    check(e.call("document.get")["problems"][0]["name"] == "Corner", "the problem named as the board")
+    e.fails("shape.move", {"shape": one, "toIndex": 0}, "invalid_argument")
+    e.fails("problem.addPiece", {"problem": p, "shape": tray}, "invalid_argument")
     # shapes may have layers: the tasks that add them are offered; no piece named as a tray
     tasks = {t["task"] for t in e.call("shape.taskSet")["tasks"]}
     deep = {"nudge4", "nudge5", "rotate6", "rotate7", "rotate8", "rotate9", "double", "triple", "gridScale"}
@@ -998,7 +1005,7 @@ def sliding_start_goal_shapes(e):
     # an edit that changes a piece's shape takes its stamps off, and says so
     r = e.call("shape.setCells", {"shape": two, "tool": "erase", "cells": [[1, 0, 0]]})
     ch = changed_event(e, r["revision"])
-    check(ch.get("notice") == "S2 changed shape: its start and goal were removed from S3.", f"the notice {ch}")
+    check(ch.get("notice") == "S2 changed shape: its start and goal were removed from B1.", f"the notice {ch}")
     t = e.call("sliding.tray", {"tray": tray})
     check(t["starts"] == [None] * 12 and t["goals"] == [None] * 12, "its stamps are gone")
 
@@ -1031,7 +1038,7 @@ def sliding_start_goal_shapes(e):
     # opening a file keeps a sliding shape's layers, and says nothing
     data = e.call("document.saveBytes")["data"]
     snap = e.call("document.openBytes", {"data": data})
-    row = snap["shapes"][3]  # S4; reopened shapes have new ids
+    row = snap["shapes"][4]  # S3, after the boards B1 and B2; reopened shapes have new ids
     check("notice" not in snap and not snap["dirty"] and row["size"] == [1, 1, 2], f"the open {row}")
 
     # other grids have none

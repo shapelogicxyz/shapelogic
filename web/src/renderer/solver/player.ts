@@ -32,7 +32,7 @@ import { EngineError } from '../../engine/errors.ts';
 import { meshArrays, poseArrays } from '../../engine/frames.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
-import { copyColour } from '../shell/piece-colours.ts';
+import { copyColour, shownName } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
@@ -51,6 +51,8 @@ export interface PlayerPiece {
   shape: string;
   /** S1, or S1.2 for the second copy of a part of several. */
   label: string;
+  /** The shape's name as it shows (empty for none). */
+  name: string;
   colour: Rgb3;
   transformation: number;
   at: [number, number, number];
@@ -465,6 +467,7 @@ export class Player {
           colour: p?.colour ?? [1, 1, 1],
           mode: this.mode(piece),
           built: built[i] ?? null,
+          ...(p === undefined ? {} : { label: p.label }),
         };
       }),
     };
@@ -739,6 +742,7 @@ function piecesOf(
           piece: pl.piece,
           shape: part.shape,
           label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
+          name: s === undefined ? '' : shownName(s),
           colour: copyColour(s, i, q, snap?.colours ?? []),
           transformation: pl.transformation,
           at: [pl.at[0], pl.at[1], pl.at[2]],

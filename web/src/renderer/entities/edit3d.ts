@@ -343,6 +343,21 @@ export class Edit3D implements EditHost {
               ? { kind: 'box', at: c, fill: cc, edge: acc, alpha: 0.22, dashed: true }
               : { kind: 'cell', voxel: voxelOf(c), fill: cc, alpha: 0.22 },
           );
+        } else {
+          // already as the tool would make it: outlined in the accent colour,
+          // so the cell under the mouse still shows
+          out.push(
+            cube
+              ? {
+                  kind: 'box',
+                  at: c,
+                  fill: acc,
+                  edge: acc,
+                  alpha: 0.12,
+                  dashed: want === 'variable',
+                }
+              : { kind: 'cell', voxel: voxelOf(c), fill: acc, alpha: 0.3 },
+          );
         }
       } else if (occ !== undefined) {
         const fill = t.tool === 'erase' ? dng : cc;

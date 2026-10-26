@@ -512,7 +512,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `shape.move`
 
-Moves a shape to a place in the list; labels renumber. On a sliding puzzle the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.
+Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay above the pieces (a move across them is refused, invalid_argument), the boards are numbered by place again, and the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.
 
 Params:
 
@@ -527,7 +527,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `shape.rename`
 
-The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's part (its START/GOAL number stays), and a piece's name may not begin with "sg:" or "__sggoal:" (invalid_argument).
+The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's part (its START/GOAL number stays; the name '(START/GOAL n)' it shows without one leaves it empty), its problem is named so, and a piece's name may not begin with "sg:" or "__sggoal:" (invalid_argument).
 
 Params:
 
@@ -961,7 +961,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.rename`
 
-The problem's name.
+The problem's name. A sliding board's problem is named as its board: the board is renamed (shape.rename).
 
 Params:
 
@@ -991,7 +991,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.setPieceCount`
 
-The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).
+The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json), and for a sliding puzzle's board, which is no piece.
 
 Params:
 
@@ -1246,7 +1246,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). Each start/goal shape has a problem of its own (named START/GOAL n), whose parts and colour locks follow its stamps; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named as the board shows (its name, or '(START/GOAL n)' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
@@ -1325,7 +1325,7 @@ Result:
 | name | type | | description |
 |---|---|---|---|
 | `number` | integer | required |  |
-| `name` | string | required | The user's part of its name; shown as '(START/GOAL n) name'. |
+| `name` | string | required | The user's part of its name; the board shows it, or '(START/GOAL n)' while it is empty. |
 | `size` | [Size](#size) | required | A size [x, y, z]. |
 | `starts` | [ShapeId](#shapeid) or null[] | required |  |
 | `goals` | [ShapeId](#shapeid) or null[] | required |  |
@@ -2761,8 +2761,8 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | name | type | | description |
 |---|---|---|---|
 | `id` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
-| `label` | string | required | S1, S2, ... by place. |
-| `name` | string | required | A start/goal shape's is the user's part (shown as '(START/GOAL n) name'). |
+| `label` | string | required | S1, S2, ... by place; on a sliding puzzle B1, B2, ... for the start/goal shapes (boards) and S1, S2, ... for the pieces, each by place among its kind. |
+| `name` | string | required | A start/goal shape's is the user's part: the board shows it, or '(START/GOAL n)' while it is empty. |
 | `size` | [Size](#size) | required | A size [x, y, z]. |
 | `fixed` | integer | required |  |
 | `variable` | integer | required |  |

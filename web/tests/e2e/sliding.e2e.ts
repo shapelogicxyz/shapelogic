@@ -184,7 +184,7 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
         await settled(page);
       }
     }
-    const tray = await idOf(page, 'S1');
+    const tray = await idOf(page, 'B1');
     expect((await engineCall<Tray>(page, 'sliding.tray', { tray })).size).toEqual([4, 5, 1]);
     // the view shows the two trays, nothing on them yet
     await expect(page.locator('#vp')).toHaveAttribute('data-tray', '-1:' + tray + ':solid:on');
@@ -450,14 +450,14 @@ test('notices in message boxes; what the original greyed out is not offered or i
 
     // a stamped piece whose shape changes loses its start: told in a message box
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
-    const s3 = await idOf(page, 'S3');
+    const s3 = await idOf(page, 'S2');
     await selectShape(page, s3);
     await expect(page.locator('#cAdd')).toHaveCount(0);
     // the tasks that add layers are offered
     await expect(page.locator('#tmat [data-task="rotate6"]')).toHaveCount(1);
     await clickCell(page, [1, 4, 0]);
     await expect(page.locator('#notice .cb')).toContainText(
-      'S3 changed shape: its start and goal were removed from S1.',
+      'S2 changed shape: its start and goal were removed from B1.',
     );
     await page.click('#notice [data-x="ok"]');
     await page.keyboard.press('Control+z');
@@ -484,7 +484,7 @@ test('reference screenshots: a start/goal shape’s Walls, Start and Goal, its t
   const page = a.page;
   try {
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
-    const tray = await idOf(page, 'S1');
+    const tray = await idOf(page, 'B1');
     await selectShape(page, tray);
     await expect(page.locator('#vp')).toHaveAttribute('data-tray', /^(\S+ ){11}\S+$/);
     await page.mouse.move(2, 2);
@@ -493,7 +493,7 @@ test('reference screenshots: a start/goal shape’s Walls, Start and Goal, its t
     await expect(page.locator('#vp')).toHaveScreenshot('sliding-trays.png');
     for (const m of ['start', 'goal'] as const) {
       await trayMode(page, m);
-      await page.click(`#stampRow [data-sp="${await idOf(page, 'S2')}"]`);
+      await page.click(`#stampRow [data-sp="${await idOf(page, 'S1')}"]`);
       await page.mouse.move(2, 2);
       await settle(page);
       await expect(page.locator('#right')).toHaveScreenshot(`sliding-tray-${m}.png`);

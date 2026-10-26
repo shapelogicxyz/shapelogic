@@ -50,7 +50,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.rename": {
-      "summary": "The problem's name.",
+      "summary": "The problem's name. A sliding board's problem is named as its board: the board is renamed (shape.rename).",
       "params": {
         "type": "object",
         "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "name": {"type": "string"}},
@@ -67,7 +67,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setPieceCount": {
-      "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json).",
+      "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json), and for a sliding puzzle's board, which is no piece.",
       "params": {
         "type": "object",
         "properties": {

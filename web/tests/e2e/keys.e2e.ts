@@ -3,7 +3,7 @@
 // The shell rows of the keyboard map (shell/keys.ts, docs/webui-spec.md
 // section 6): Ctrl+1/2/3, F1, Ctrl+,, Ctrl+[ and Ctrl+], Ctrl+Space, Esc's
 // step-back order, O / P, Home and F; the layout kept per workspace; Tab
-// kept inside the settings dialog; the Drag and Arc-ball rotation methods.
+// kept inside the settings dialog; the Top Up and Free Spin rotation methods.
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -143,8 +143,12 @@ test('O and P choose the drag mode', async () => {
   await expect(page.locator('#navHint')).toHaveText(/^Drag orbit/);
 });
 
-test('a drag orbits (Drag: half a degree a pixel), Home goes home, F fits keeping the turn', async () => {
+test('a drag orbits (Top Up: half a degree a pixel), Home goes home, F fits keeping the turn', async () => {
   const { page } = a;
+  await page.click('#btnSettings');
+  await page.click('#setNav [data-p="view"]');
+  await page.click('#setPg [data-k="rot"][data-o="Top Up"]');
+  await page.keyboard.press('Escape');
   await dragView(page, 100, 0);
   const turned = await camera(page);
   // the first move past 4 px starts the drag; the rest turns
@@ -171,11 +175,11 @@ test('a drag orbits (Drag: half a degree a pixel), Home goes home, F fits keepin
   expect(await camera(page)).toEqual([-32, 26, 0, 1, 0, 0]);
 });
 
-test('the Arc-ball method turns the view as the original did', async () => {
+test('the Free Spin method (the arc-ball) turns the view as the original did', async () => {
   const { page } = a;
   await page.click('#btnSettings');
   await page.click('#setNav [data-p="view"]');
-  await page.click('#setPg [data-k="rot"][data-o="Arc-ball"]');
+  await page.click('#setPg [data-k="rot"][data-o="Free Spin"]');
   await page.keyboard.press('Escape');
   // a drag along the screen's x turns about the screen's y: the view's roll stays, the pitch too
   await dragView(page, 0, -120);

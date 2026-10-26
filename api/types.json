@@ -150,8 +150,8 @@
       "type": "object",
       "properties": {
         "id": {"$ref": "#/$defs/ShapeId"},
-        "label": {"type": "string", "description": "S1, S2, ... by place."},
-        "name": {"type": "string", "description": "A start/goal shape's is the user's part (shown as '(START/GOAL n) name')."},
+        "label": {"type": "string", "description": "S1, S2, ... by place; on a sliding puzzle B1, B2, ... for the start/goal shapes (boards) and S1, S2, ... for the pieces, each by place among its kind."},
+        "name": {"type": "string", "description": "A start/goal shape's is the user's part: the board shows it, or '(START/GOAL n)' while it is empty."},
         "size": {"$ref": "#/$defs/Size"},
         "fixed": {"type": "integer", "minimum": 0},
         "variable": {"type": "integer", "minimum": 0},

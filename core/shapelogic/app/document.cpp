@@ -272,6 +272,10 @@ Result<unsigned int> Document::solutionIndex(Id problem, Id solution) const {
 
 std::string Document::shapeLabel(unsigned int index) { return "S" + std::to_string(index + 1); }
 
+std::string Document::shapeLabelOf(unsigned int index) const {
+  return sliding::shapeLabel(*puzzle_, index);
+}
+
 std::string Document::colourLabel(unsigned int index) { return "C" + std::to_string(index + 1); }
 
 std::string Document::problemLabel(unsigned int index) { return "P" + std::to_string(index + 1); }

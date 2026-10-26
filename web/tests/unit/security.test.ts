@@ -499,6 +499,9 @@ describe('the IPC handlers', () => {
         set: () => undefined,
         addRecent: (p: string) => recent.push(p),
         removeRecent: () => undefined,
+        // where the next file dialog starts (app-ipc.ts)
+        lastDir: undefined,
+        setLastDir: () => undefined,
       },
       rescue: {
         read: () =>

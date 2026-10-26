@@ -15,10 +15,13 @@
 // `renderSolverScene` (what is drawn, the two passes); the drawing is
 // three.js over the engine's meshes (mesh.ts, material.ts), as the other
 // scenes'. A sliding puzzle's tray has its walls drawn around its floor
-// (walls.ts).
+// (walls.ts). A piece's label (S1, S1.2) can be drawn on it: a sprite,
+// facing the eye however the view turns, a white box with black text of a
+// fixed size on the screen, over everything, at the middle of the cell
+// nearest the piece's middle (on the piece even when it is hollow).
 
 import { Box3, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
-import type { Raycaster } from 'three';
+import type { BufferGeometry, Raycaster, Sprite } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -42,6 +45,8 @@ export interface ScenePiece {
   mode: PieceMode;
   /** Its mesh in the view's style (solid) or the wire-frame style (wire); null when hidden. */
   built: BuiltMesh | null;
+  /** Its label (S1, S1.2), drawn on it when labels are shown; absent for none. */
+  label?: string;
 }
 
 /** What the scene shows; `key` names it (the e2e tests read it). */
@@ -82,7 +87,12 @@ interface PieceDraw {
   edges: LineSegments2 | null;
   edgeGeometry: LineSegmentsGeometry | null;
   marks: Mesh | null;
+  /** The label's sprite, made when labels are first shown; null: none yet. */
+  label: Sprite | null;
 }
+
+/** Makes a label's sprite (labels.ts); null: none can be drawn. */
+export type LabelMaker = (text: string) => Sprite | null;
 
 export class SolutionScene {
   readonly group = new Group();
@@ -101,8 +111,14 @@ export class SolutionScene {
     palette: [],
   };
   private poses: ScenePose[] = [];
+  private labels = false;
+  /** Pixels per mesh unit at the scene's plane (the labels' size). */
+  private pixelsPerUnit = 1;
+  /** Null: this scene draws no labels (the board's and the trays'). */
+  private readonly makeLabel: LabelMaker | null;
 
-  constructor() {
+  constructor(makeLabel: LabelMaker | null = null) {
+    this.makeLabel = makeLabel;
     this.edgeMaterial.resolution = new Vector2(1, 1);
     this.wallMaterial.resolution = new Vector2(1, 1);
   }
@@ -152,6 +168,7 @@ export class SolutionScene {
         edges: null,
         edgeGeometry: null,
         marks: null,
+        label: null,
       };
       const b = piece.built;
       if (b !== null && piece.mode !== 'hidden') {
@@ -174,7 +191,30 @@ export class SolutionScene {
       this.draws.push(d);
     }
     this.applyLook();
+    this.applyLabels();
     this.setPoses(this.poses);
+  }
+
+  /** Shows or hides the pieces' labels. */
+  setLabels(on: boolean): void {
+    this.labels = on;
+    this.applyLabels();
+  }
+
+  /** The view's scale, pixels per mesh unit at the scene's plane: the labels keep their size on the screen. */
+  setLabelScale(pixelsPerUnit: number): void {
+    this.pixelsPerUnit = pixelsPerUnit;
+    for (const d of this.draws) {
+      this.scaleLabel(d);
+    }
+  }
+
+  /** The labels drawn now (the e2e tests read it): piece:label, of the pieces shown. */
+  labelsShown(): string {
+    return this.draws
+      .filter((d) => d.label?.visible === true && d.group.visible)
+      .map((d) => `${String(d.piece.piece)}:${d.piece.label ?? ''}`)
+      .join(' ');
   }
 
   /** Places the pieces (a pose per piece of the model, in its order). */
@@ -270,9 +310,40 @@ export class SolutionScene {
     }
   }
 
+  // the labels made when first shown, for the pieces drawn that have one
+  private applyLabels(): void {
+    for (const d of this.draws) {
+      const text = d.piece.label ?? '';
+      if (this.labels && d.label === null && d.faces !== null && text !== '') {
+        d.label = this.makeLabel?.(text) ?? null;
+        if (d.label !== null) {
+          d.label.position.copy(labelSpot(d.faces.geometry));
+          this.scaleLabel(d);
+          d.group.add(d.label);
+        }
+      }
+      if (d.label !== null) {
+        d.label.visible = this.labels;
+      }
+    }
+  }
+
+  private scaleLabel(d: PieceDraw): void {
+    const l = d.label;
+    if (l !== null) {
+      // its height in pixels, as made
+      const h = (l.userData.pixels as number) / Math.max(1e-6, this.pixelsPerUnit);
+      l.scale.set(h * (l.userData.aspect as number), h, 1);
+    }
+  }
+
   private setOpacity(d: PieceDraw, opacity: number): void {
     const o = Math.max(0, Math.min(1, opacity));
     d.uniforms.uAlpha.value = o;
+    if (d.label !== null) {
+      // a piece fading away takes its label with it
+      d.label.material.opacity = o;
+    }
     if (d.faces !== null) {
       const m = d.faces.material as ReturnType<typeof faceMaterial>;
       const fading = o < 0.999;
@@ -291,6 +362,8 @@ export class SolutionScene {
         (d.faces.material as ReturnType<typeof faceMaterial>).dispose();
       }
       d.edgeGeometry?.dispose();
+      d.label?.material.map?.dispose();
+      d.label?.material.dispose();
     }
     this.draws = [];
   }
@@ -303,4 +376,47 @@ export class SolutionScene {
     this.edgeMaterial.dispose();
     this.shared.uPalette.value.dispose();
   }
+}
+
+/**
+ * Where a piece's label goes, in its mesh's frame: the middle of the cell
+ * (its faces' corners, by aCell) nearest the middle of all its faces, so
+ * that it sits on the piece even when the piece is bent round an empty middle.
+ */
+function labelSpot(faces: BufferGeometry): Vector3 {
+  const pos = faces.getAttribute('position');
+  const cell = faces.getAttribute('aCell') as typeof pos | undefined;
+  const all = new Vector3();
+  const cells = new Map<string, { sum: Vector3; n: number }>();
+  const p = new Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    p.fromBufferAttribute(pos, i);
+    all.add(p);
+    const k =
+      cell === undefined
+        ? ''
+        : `${String(cell.getX(i))},${String(cell.getY(i))},${String(cell.getZ(i))}`;
+    const c = cells.get(k);
+    if (c === undefined) {
+      cells.set(k, { sum: p.clone(), n: 1 });
+    } else {
+      c.sum.add(p);
+      c.n++;
+    }
+  }
+  if (pos.count === 0) {
+    return all;
+  }
+  all.divideScalar(pos.count);
+  let best = all;
+  let near = Infinity;
+  for (const c of cells.values()) {
+    const m = c.sum.divideScalar(c.n);
+    const d = m.distanceToSquared(all);
+    if (d < near) {
+      near = d;
+      best = m;
+    }
+  }
+  return best.clone();
 }

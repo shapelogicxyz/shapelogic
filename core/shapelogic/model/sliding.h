@@ -53,9 +53,19 @@ using TrayCell = std::array<int, 3>;
 /// Sets the user's part of a start/goal shape's name, keeping its number;
 /// the whole name of another shape.
 void setStartGoalUserName(Voxel* v, const std::string& user);
-/// The name shown: "(START/GOAL n)" and the user's name for a start/goal
-/// shape, the name for another.
+/// The name a start/goal shape shows while the user has given it none:
+/// "(START/GOAL n)".
+[[nodiscard]] std::string defaultStartGoalName(int n);
+/// The name shown: the user's name for a start/goal shape, or
+/// defaultStartGoalName while it has none; the name for another shape.
 [[nodiscard]] std::string displayName(const Voxel* v);
+/// The label of a shape: on a sliding puzzle "B1, B2, ..." for the
+/// start/goal shapes (boards) and "S1, S2, ..." for the other shapes, each
+/// by place among its own kind; "S" and its place on any other puzzle.
+[[nodiscard]] std::string shapeLabel(const Puzzle& puzzle, unsigned int shape);
+/// Numbers the start/goal shapes 1, 2, ... by place, so a deleted or moved
+/// one leaves no gap; the user's names are kept.
+void renumberStartGoalShapes(Puzzle& puzzle);
 /// True for a shape whose name begins "__sggoal:" (hidden from the lists).
 [[nodiscard]] bool isHiddenSlidingShape(const Voxel* v);
 /// True for a name that would make a piece a start/goal shape or a hidden
@@ -68,9 +78,11 @@ unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
                                unsigned int sz = 1);
 
 /// One problem per start/goal shape, its result locked to that shape: the
-/// problems of no start/goal shape go, a missing one is added
-/// ("START/GOAL n"), every piece stamped on a shape is a part of its
-/// problem (at least one), and the start locks are refreshed.
+/// start/goal shapes are numbered by place (renumberStartGoalShapes), the
+/// problems of no start/goal shape go, a missing one is added, each is
+/// named as its shape shows (displayName), no start/goal shape is a piece
+/// of one, every piece stamped on a shape is a part of its problem (at
+/// least one), and the start locks are refreshed.
 void syncSlidingProblems(Puzzle& puzzle);
 
 /// True when the piece is stamped on the start or goal of the problem's

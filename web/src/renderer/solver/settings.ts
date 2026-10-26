@@ -35,6 +35,7 @@ import type {
   SortBy,
   StackingSolver,
 } from '../../engine/api.generated.ts';
+import { prefs } from '../shell/prefs.ts';
 
 /** The puzzles whose Solver shows its own options: brick (every assembling grid), sliding, stacking. */
 export type Family = 'brick' | 'sliding' | 'stacking';
@@ -105,19 +106,33 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   sortBy: 'moves',
 };
 
-/** A sliding puzzle's defaults: Find Solutions checked (slidingDisasmDefaulted). */
-export const DEFAULT_SLIDING: Readonly<SearchOptions> = { ...DEFAULT_OPTIONS, disassemble: true };
+/**
+ * A sliding puzzle's defaults: Find Solutions checked
+ * (slidingDisasmDefaulted), and Enable High Memory (the original's was off).
+ */
+export const DEFAULT_SLIDING: Readonly<SearchOptions> = {
+  ...DEFAULT_OPTIONS,
+  disassemble: true,
+  highMemory: true,
+};
 
-/** A stacking puzzle's defaults: Find Solutions checked (stackingDisasmDefaulted). */
-export const DEFAULT_STACKING: Readonly<SearchOptions> = { ...DEFAULT_OPTIONS, disassemble: true };
+/**
+ * A stacking puzzle's defaults: Find Solutions checked
+ * (stackingDisasmDefaulted), and Enable High Memory (the original's was off).
+ */
+export const DEFAULT_STACKING: Readonly<SearchOptions> = {
+  ...DEFAULT_OPTIONS,
+  disassemble: true,
+  highMemory: true,
+};
 
-/** The defaults of a family's problems. */
+/** The defaults of a family's problems; the brick ones' solver is the Default solver type setting's. */
 export function defaultsOf(family: Family): Readonly<SearchOptions> {
   return family === 'sliding'
     ? DEFAULT_SLIDING
     : family === 'stacking'
       ? DEFAULT_STACKING
-      : DEFAULT_OPTIONS;
+      : { ...DEFAULT_OPTIONS, solver: prefs.solverType === 'Fast' ? 'crowell' : 'classic' };
 }
 
 /** The boxes a sliding puzzle shows (updateSolverOptionCheckboxes' setVis). */

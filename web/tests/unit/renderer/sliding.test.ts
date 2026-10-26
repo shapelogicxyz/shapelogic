@@ -59,9 +59,13 @@ describe('the sliding options', () => {
       slidingSolver: 'full',
       nestedSlides: false,
       verticalMoves: false,
+      highMemory: true,
     });
     // a brick puzzle's defaults are as they were
     expect(readOptions({}).disassemble).toBe(false);
+    expect(readOptions({}).highMemory).toBe(false);
+    // High Memory as the problem stored it
+    expect(readOptions({ highMemory: false }, undefined, 'sliding').highMemory).toBe(false);
     const s = readOptions(
       {
         solverType: 'deep',

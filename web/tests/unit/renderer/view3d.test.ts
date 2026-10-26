@@ -4,7 +4,8 @@
 // attributes per vertex, the wire-frame style's faces, the variable marks
 // as the original's drawShrinkTriangle and drawShrinkQuadrilateral), a
 // pick's cell and side, the space's extent per grid, the camera's angles,
-// the Drag orbit and the arc-ball, and its animations.
+// the Top Up orbit (the mockup's Drag) and the Free Spin arc-ball, the Z
+// axis directions' upright frames, and its animations.
 
 import { Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
@@ -13,6 +14,7 @@ import type { MeshArrays } from '../../../src/engine/frames.ts';
 import {
   anglesOf,
   arcballPoint,
+  baseOf,
   arcballTurn,
   Camera,
   dirToView,
@@ -22,6 +24,7 @@ import {
   toView,
   toWorld,
 } from '../../../src/renderer/view3d/camera.ts';
+import { DEFAULTS } from '../../../src/renderer/shell/prefs.ts';
 import { gridExtent } from '../../../src/renderer/view3d/extent.ts';
 import {
   buildMesh,
@@ -265,6 +268,43 @@ describe('camera.ts', () => {
     r.q = quatOf({ yaw: 0, pitch: 0, roll: 90 });
     r.orbit(10, 0);
     close(r.angles, { yaw: 0, pitch: 5, roll: 90 });
+  });
+
+  it('stands each Z axis direction up, turned and never mirrored', () => {
+    const at = (q: Quaternion, v: [number, number, number]): number[] =>
+      [...toView(q, v).toArray()].map((n) => Math.round(n) + 0);
+    // the upright frame seen head on: X, Y, Z of the world on the screen (x right, y up, z towards you)
+    const axes = (z: Parameters<typeof baseOf>[0]): number[][] =>
+      [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ].map((v) => at(baseOf(z), v as [number, number, number]));
+    expect(axes('Z Towards')).toEqual([
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ]);
+    expect(axes('Z Up')).toEqual([
+      [1, 0, 0],
+      [0, 0, -1],
+      [0, 1, 0],
+    ]);
+    // the default is the view as it was before the setting: no turn at all
+    expect(baseOf(DEFAULTS.zAxis).equals(new Quaternion())).toBe(true);
+    const d = new Camera();
+    d.setBase(baseOf(DEFAULTS.zAxis));
+    expect(d.q.equals(quatOf(HOME))).toBe(true);
+    // the home view and the Top Up orbit are about the frame's up axis: Z stays up
+    const c = new Camera();
+    c.setBase(baseOf('Z Up'));
+    close(c.angles, HOME);
+    c.orbit(300, 0);
+    expect(toView(c.q, [0, 0, 1]).x).toBeCloseTo(0, 9);
+    expect(toView(c.q, [0, 0, 1]).y).toBeGreaterThan(0.8);
+    c.home(0);
+    c.step(1000);
+    close(c.angles, HOME);
   });
 
   it('looks along a direction (dirToView)', () => {
