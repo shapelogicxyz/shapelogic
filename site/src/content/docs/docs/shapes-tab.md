@@ -194,7 +194,9 @@ editor's settings:
   or made, and when you change the setting; the buttons still switch the
   plane at any time.
 - **New shape size**: the X, Y and Z size of a shape made with **+ New** when
-  no shape is selected, 4 by 4 by 4 unless you change it. It counts as the
+  no shape is selected. It has two sets: **Normal Burrs**, used on every grid
+  but sliding (4 by 4 by 4 unless you change it), and **Sliding**, used for a
+  sliding puzzle's board (6 by 6 by 1 unless you change it). It counts as the
   [Grid size](#grid-size) steppers do, so on grids that size in blocks it is
   a number of blocks. With a shape selected, **+ New** copies that shape's
   size instead. A stacking puzzle's new disc is always size 1.

@@ -26,13 +26,20 @@ type Row =
   | { k: keyof Prefs; t: string; d: string; type: 'seg'; opts: readonly string[] }
   | { k: keyof Prefs; t: string; d: string; type: 'select'; opts: readonly number[] }
   | { k: keyof Prefs; t: string; d: string; type: 'slider'; min: number }
-  | { k: readonly [XyzKey, XyzKey, XyzKey]; t: string; d: string; type: 'xyz' };
+  | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] };
 
 /** The settings an X, Y and Z row sets. */
-type XyzKey = 'newX' | 'newY' | 'newZ';
+type XyzKey = 'newX' | 'newY' | 'newZ' | 'slideX' | 'slideY' | 'slideZ';
+
+/** One labelled X, Y and Z of an xyz row. */
+interface XyzSet {
+  name: string;
+  k: readonly [XyzKey, XyzKey, XyzKey];
+}
 
 /** The settings of a row. */
-const keysOf = (r: Row): readonly (keyof Prefs)[] => (typeof r.k === 'string' ? [r.k] : r.k);
+const keysOf = (r: Row): readonly (keyof Prefs)[] =>
+  r.type === 'xyz' ? r.sets.flatMap((x) => x.k) : [r.k];
 
 interface Page {
   id: string;
@@ -86,10 +93,13 @@ const SET: readonly Page[] = [
         opts: ['XY', 'XZ', 'YZ'],
       },
       {
-        k: ['newX', 'newY', 'newZ'],
         t: 'New shape size',
-        d: `The size of a shape made with + New when no shape is selected, in X, Y and Z, as the size steppers count it (blocks on grids that size in blocks). With a shape selected, + New copies that shape’s size. A disc of a stacking puzzle is always size 1. From 1 to ${String(NEW_SIZE_MAX)} in each direction.`,
+        d: `The size of a shape made with + New when no shape is selected, in X, Y and Z, as the size steppers count it (blocks on grids that size in blocks). Normal Burrs is the size on every grid but sliding; Sliding is the size on a sliding puzzle’s board. With a shape selected, + New copies that shape’s size. A disc of a stacking puzzle is always size 1. From 1 to ${String(NEW_SIZE_MAX)} in each direction.`,
         type: 'xyz',
+        sets: [
+          { name: 'Normal Burrs', k: ['newX', 'newY', 'newZ'] },
+          { name: 'Sliding', k: ['slideX', 'slideY', 'slideZ'] },
+        ],
       },
     ],
   },
@@ -176,14 +186,19 @@ function threadsShown(): number {
 
 function rowHtml(r: Row): string {
   if (r.type === 'xyz') {
-    const steps = r.k
-      .map((k, i) => {
-        const a = 'XYZ'[i] ?? '';
-        const v = prefs[k];
-        return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-n="${k}" data-s="-1" title="Decrease ${a}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-n="${k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(`${r.t} ${a}`)}" title="Type the size in ${a}"><button data-n="${k}" data-s="1" title="Increase ${a}" ${v >= NEW_SIZE_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
+    const sets = r.sets
+      .map((x) => {
+        const steps = x.k
+          .map((k, i) => {
+            const a = 'XYZ'[i] ?? '';
+            const v = prefs[k];
+            return `<div class="step"><b class="ax-${a.toLowerCase()}">${a}</b><button data-n="${k}" data-s="-1" title="Decrease ${a}" ${v <= 1 ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-n="${k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(`${r.t} ${x.name} ${a}`)}" title="Type the size in ${a}"><button data-n="${k}" data-s="1" title="Increase ${a}" ${v >= NEW_SIZE_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
+          })
+          .join('');
+        return `<small>${esc(x.name)}</small><div class="size3">${steps}</div>`;
       })
       .join('');
-    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div><div class="size3" style="width:260px;flex:none">${steps}</div></div>`;
+    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div><div class="xyzsets">${sets}</div></div>`;
   }
   const v = prefs[r.k];
   let c = '';

@@ -161,8 +161,8 @@ export class ShapesList {
 
   /**
    * A new empty shape of the selected shape's size, else of the New shape
-   * size setting (in the size steppers' blocks), selected. A stacking
-   * puzzle's disc takes no size.
+   * size setting (in the size steppers' blocks; a sliding puzzle has its
+   * own), selected. A stacking puzzle's disc takes no size.
    */
   async create(): Promise<void> {
     if (this.host.refuse()) {
@@ -172,15 +172,14 @@ export class ShapesList {
     const grid = store.snapshot?.grid;
     const sel = store.shape;
     const u = store.info?.grids.find((g) => g.grid === grid)?.sizeUnit ?? 1;
+    const fresh: [number, number, number] =
+      grid === 'sliding'
+        ? [prefs.slideX * u, prefs.slideY * u, prefs.slideZ * u]
+        : [prefs.newX * u, prefs.newY * u, prefs.newZ * u];
     const params: { size?: [number, number, number] } =
       grid === 'stacking'
         ? {}
-        : {
-            size:
-              sel === null
-                ? [prefs.newX * u, prefs.newY * u, prefs.newZ * u]
-                : [sel.size[0], sel.size[1], sel.size[2]],
-          };
+        : { size: sel === null ? fresh : [sel.size[0], sel.size[1], sel.size[2]] };
     const r = await this.host.mutate('New shape', () => store.engine.call('shape.create', params));
     if (r !== null) {
       this.select(r.shape);

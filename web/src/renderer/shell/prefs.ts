@@ -26,6 +26,10 @@ export interface Prefs {
   newX: number;
   newY: number;
   newZ: number;
+  /** The same for a sliding puzzle's board. */
+  slideX: number;
+  slideY: number;
+  slideZ: number;
   lights: boolean;
   fade: boolean;
   /** The Solver's 3D view: each piece's label drawn on it (Search options). */
@@ -52,6 +56,9 @@ export const DEFAULTS: Readonly<Prefs> = {
   newX: 4,
   newY: 4,
   newZ: 4,
+  slideX: 6,
+  slideY: 6,
+  slideZ: 1,
   lights: true,
   fade: true,
   pieceLabels: false,
@@ -105,7 +112,7 @@ const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
 export const NEW_SIZE_MAX = 100;
 
 /** The new shape size settings, each 1 to NEW_SIZE_MAX. */
-const NEW_SIZE: readonly (keyof Prefs)[] = ['newX', 'newY', 'newZ'];
+const NEW_SIZE: readonly (keyof Prefs)[] = ['newX', 'newY', 'newZ', 'slideX', 'slideY', 'slideZ'];
 
 /** The stored settings that are well formed. */
 export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {

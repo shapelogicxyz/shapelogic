@@ -359,6 +359,9 @@ describe('the stored settings read back', () => {
     expect(validPrefs({ zAxis: 'Z Up + Y Towards' })).toEqual({});
     // a new shape's size: whole, 1 to NEW_SIZE_MAX
     expect(validPrefs({ newX: 0, newY: 7, newZ: NEW_SIZE_MAX + 1 })).toEqual({ newY: 7 });
+    expect(validPrefs({ slideX: 2.5, slideY: 8, slideZ: 0 })).toEqual({ slideY: 8 });
+    // a sliding board starts 6 by 6 by 1
+    expect([DEFAULTS.slideX, DEFAULTS.slideY, DEFAULTS.slideZ]).toEqual([6, 6, 1]);
     expect(validPrefs({ ...DEFAULTS })).toEqual(DEFAULTS);
   });
 });

@@ -546,6 +546,13 @@ test('settings and layouts survive a restart', async () => {
     for (const k of ['newX', 'newY', 'newZ']) {
       await expect(page.locator(`#setPg input[data-n="${k}"]`)).toHaveValue('4');
     }
+    for (const [k, v] of [
+      ['slideX', '6'],
+      ['slideY', '6'],
+      ['slideZ', '1'],
+    ] as const) {
+      await expect(page.locator(`#setPg input[data-n="${k}"]`)).toHaveValue(v);
+    }
     await page.click('#setPg button[data-n="newZ"][data-s="-1"]');
     await expect(page.locator('#setPg input[data-n="newZ"]')).toHaveValue('3');
     await page.click('#setNav [data-p="perf"]');

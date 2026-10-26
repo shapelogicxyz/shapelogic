@@ -19,8 +19,8 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-BXGcL7HD.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-pssM0d98.css">
+    <script type="module" crossorigin src="/demo/assets/index-Csc7AkgO.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-yHqWRji8.css">
   </head>
   <body>
     <div id="wrap">
@@ -47,11 +47,18 @@
                 ></span>
                 <span class="sp"></span>
                 <button class="btn pri sm" id="btnNew" title="New shape">
-                  +<span class="lt"> New</span>
+                  +<span class="lt"> New</span><span id="btnNewWhat" hidden> Piece</span>
+                </button>
+                <button
+                  class="btn pri sm"
+                  id="btnNewBoard"
+                  title="New board: a shape that holds start and goal positions"
+                  hidden
+                >
+                  +<span class="lt"> New</span> Board
                 </button>
                 <button class="ib" data-collapse="L" title="Collapse sidebar"></button>
               </div>
-              <div class="sgrow" id="sgRow"></div>
               <div
                 class="shapes"
                 id="shapeList"
@@ -248,6 +255,7 @@
               <div class="vtag" id="vtag"></div>
               <div class="vt" id="vt"></div>
               <div class="hint" id="vhint">
+                <div class="ent-only" id="editHint" hidden></div>
                 <div class="ent-only">
                   <kbd>Shift</kbd> click <b>1</b> fixed · <kbd>Alt</kbd>/<kbd>⌘</kbd> click
                   <b>2</b> variable · <kbd>Ctrl</kbd> click <b>3</b> erase
@@ -277,7 +285,6 @@
               <div class="subbar">
                 <div class="pseg" id="planeSeg"></div>
                 <span class="sp"></span>
-                <span id="boxSeg"></span>
                 <span class="mute" id="layerLbl"></span>
               </div>
               <div class="gbody">
@@ -350,6 +357,8 @@
             <div class="slv-act" id="slvAct"></div>
             <div class="pzh">
               Piece display <span class="sp"></span
+              ><button class="btn sm" id="slvCompact" title="Show only each piece’s label, as “S2”">
+                Compact</button
               ><button
                 class="btn sm"
                 id="slvShowAll"

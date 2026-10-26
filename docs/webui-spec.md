@@ -46,7 +46,7 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
 | Grid editor | Grid plane | XY / XZ / YZ (XY) |
-| | New shape size | X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4) |
+| | New shape size | Normal Burrs and Sliding, each X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4; Sliding 6, 6, 1) |
 | 3D view | Show view cube | on |
 | | Reverse scroll zoom direction | off |
 | | Rotation method | Drag / Arc-ball (Drag) |
