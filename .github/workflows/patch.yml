@@ -1,0 +1,114 @@
+# Folds a published patch release into the release it updates. `just release
+# vX.Y.Z` (a patch, .github/scripts/release.sh) makes the vX.Y.Z draft with
+# the whole page's notes, the first line a hidden marker naming the
+# published release it updates (`<!-- shapelogic-patch-of: vX.Y -->`); the
+# Release workflow attaches the files. When a person publishes that draft,
+# this moves the published release onto the tag vX.Y.Z (the old tag stays
+# where it was), titled "ShapeLogic vX.Y.Z", with the draft's notes (the
+# marker taken out) and its nine files in place of the old ones, keeps it
+# Latest, and removes the draft's own release. One release page, updated;
+# the app's update check (which reads the latest release's tag) offers
+# vX.Y.Z to those on vX.Y.
+#
+# A release published without the marker (every ordinary release) is left
+# alone. The patch's files and notes are kept as this run's artifact before
+# anything changes, so a run that fails midway can be finished by hand. By
+# hand, for a published patch release whose fold did not run:
+#
+#   gh workflow run patch.yml -f tag=v1.4.1
+
+name: Patch
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The published patch release to fold into the release it updates (vX.Y.Z)'
+        required: true
+        type: string
+
+permissions:
+  contents: write # the releases
+
+concurrency:
+  group: patch-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  fold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Is it a patch, and of which release
+        id: patch
+        run: |
+          body="$(gh release view "${TAG}" --json body --jq .body | tr -d '\r')"
+          marker='^<!-- shapelogic-patch-of: (v[0-9]+\.[0-9]+(\.[0-9]+)?) -->$'
+          if ! [[ "$(head -1 <<< "${body}")" =~ ${marker} ]]; then
+            echo "${TAG} is not a patch release (no patch marker): nothing to fold" | tee -a "${GITHUB_STEP_SUMMARY}"
+            echo "fold=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          base="${BASH_REMATCH[1]}"
+          if [ "$(gh release view "${TAG}" --json isDraft --jq .isDraft)" != false ]; then
+            echo "::error::${TAG} is still a draft: publish it to fold it into ${base}"
+            exit 1
+          fi
+          if [ "$(gh release view "${base}" --json isDraft --jq .isDraft 2> /dev/null || echo none)" != false ]; then
+            echo "::error::${TAG} updates the release ${base}, which is not a published release"
+            exit 1
+          fi
+          mkdir -p patch/files
+          # the notes without the marker and the blank lines after it
+          sed 1d <<< "${body}" | sed '/./,$!d' > patch/notes.md
+          {
+            echo "fold=true"
+            echo "base=${base}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Download the patch's files
+        if: steps.patch.outputs.fold == 'true'
+        run: |
+          gh release download "${TAG}" -D patch/files
+          ls -l patch/files
+          count="$(find patch/files -type f | wc -l)"
+          if [ "${count}" -ne 9 ]; then
+            echo "::error::${TAG} has ${count} files, not the 9 of a release: not folded"
+            exit 1
+          fi
+      # before anything changes: what a fold that fails midway needs
+      - uses: actions/upload-artifact@v4
+        if: steps.patch.outputs.fold == 'true'
+        with:
+          name: patch-${{ env.TAG }}
+          if-no-files-found: error
+          path: patch
+      - name: Fold it into the release it updates
+        if: steps.patch.outputs.fold == 'true'
+        env:
+          BASE: ${{ steps.patch.outputs.base }}
+        run: |
+          # a tag has one release: the patch's own goes first (its tag stays)
+          gh release delete "${TAG}" --yes
+          gh release upload "${BASE}" patch/files/* --clobber
+          # the old version's files go
+          gh release view "${BASE}" --json assets --jq '.assets[].name' | while read -r name; do
+            if [ ! -e "patch/files/${name}" ]; then
+              gh release delete-asset "${BASE}" "${name}" --yes
+            fi
+          done
+          gh release edit "${BASE}" --tag "${TAG}" --title "ShapeLogic ${TAG}" \
+            --notes-file patch/notes.md --latest
+          url="$(gh release view "${TAG}" --json url --jq .url)"
+          {
+            echo "### ${BASE} is now ${TAG}"
+            echo
+            echo "The release moved to the tag ${TAG} with its notes and nine files: ${url}"
+            echo
+            echo "The tag ${BASE} stays. Commit the edited news article to main."
+          } >> "${GITHUB_STEP_SUMMARY}"

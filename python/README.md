@@ -102,8 +102,13 @@ tests/oracle/README.md).
 `pyproject.toml` builds the wheel with scikit-build-core from the whole
 CMake project (one folder up), configured for the module alone:
 
+Its version is the project's, from the git tag: `just python-wheel` writes
+it to `python/VERSION` (git-ignored) and builds the wheel in `build/wheel`.
+By hand, write that file first:
+
 ```bash
 python3 -m venv /tmp/bt-venv
+git describe --tags --match 'v[0-9]*' --abbrev=0 | sed -E 's/^v//; s/^([0-9]+\.[0-9]+)$/\1.0/' > python/VERSION
 /tmp/bt-venv/bin/pip wheel ./python -w dist/      # from the repository root
 /tmp/bt-venv/bin/pip install dist/shapelogic-*.whl
 /tmp/bt-venv/bin/python -c "import shapelogic; print(shapelogic.__version__)"

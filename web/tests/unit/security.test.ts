@@ -334,16 +334,27 @@ describe('the page', () => {
 });
 
 describe('the addresses opened outside the app', () => {
-  it('are the help links, https on the original guide, opened in one place', () => {
+  it('are the help links, https on the original guide or the releases, opened in one place', () => {
     for (const url of [...Object.values(HELP_URLS), ...Object.values(SYSTEM_URLS)]) {
       const u = new URL(url);
       expect(u.protocol).toBe('https:');
-      expect(u.hostname).toBe('shapelogic.xyz');
+      if (u.hostname === 'github.com') {
+        // the update dialog's Download: the project's releases, nothing else there
+        expect(u.pathname.startsWith('/shapelogicxyz/shapelogic/releases')).toBe(true);
+      } else {
+        expect(u.hostname).toBe('shapelogic.xyz');
+      }
     }
-    // the renderer's links, and the start-up page about WebGL2 (gpu-check.ts)
-    expect(occurrences(/openExternal\(/g)).toEqual(['src/main/app-ipc.ts', 'src/main/index.ts']);
+    // the renderer's links and the update dialog's Download, and the start-up
+    // page about WebGL2 (gpu-check.ts)
+    expect(occurrences(/openExternal\(/g)).toEqual([
+      'src/main/app-ipc.ts',
+      'src/main/app-ipc.ts',
+      'src/main/index.ts',
+    ]);
     const ipc = SRC.find((s) => s.file === 'src/main/app-ipc.ts')?.text ?? '';
     expect(ipc).toContain('shell.openExternal(HELP_URLS[link])');
+    expect(ipc).toContain('shell.openExternal(SYSTEM_URLS.releases)');
     const main = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
     expect(main).toContain('shell.openExternal(SYSTEM_URLS.linuxGraphics)');
   });
@@ -485,6 +496,9 @@ describe('the IPC handlers', () => {
   let rescueInfo: { path: string | null } | null = null;
   const recent: string[] = [];
   const rescued: { path: string | null }[] = [];
+  // the update check: GitHub's latest release, and what Skip This Version stored
+  let latestTag = 'v1.4';
+  let skipped: string | undefined;
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'bt-security-'));
@@ -502,6 +516,12 @@ describe('the IPC handlers', () => {
         // where the next file dialog starts (app-ipc.ts)
         lastDir: undefined,
         setLastDir: () => undefined,
+        get skipVersion() {
+          return skipped;
+        },
+        setSkipVersion: (v: string) => {
+          skipped = v;
+        },
       },
       rescue: {
         read: () =>
@@ -512,7 +532,9 @@ describe('the IPC handlers', () => {
         clear: () => undefined,
       },
       paths,
-      version: '0.0.0',
+      version: '1.3.0',
+      packaged: true,
+      fetch: () => Promise.resolve(Response.json({ tag_name: latestTag })),
       cliPath: join(dir, 'tool', 'shapelogic_cli'),
       cliLink: join(dir, 'bin', 'shapelogic_cli'),
       window: (sender: object) => (sender === ours ? {} : null),
@@ -553,7 +575,11 @@ describe('the IPC handlers', () => {
     expect(info.returnValue).toBeNull();
     electron.on.get('bt:dropped')?.({ sender: foreign }, join(dir, 'd.xmpuzzle'));
     electron.on.get('bt:help')?.({ sender: foreign }, 'guide');
+    electron.on.get('bt:open-releases')?.({ sender: foreign });
     expect(electron.opened).toEqual([]);
+    expect(await invoke('bt:check-updates', foreign, false)).toBeNull();
+    electron.on.get('bt:skip-update')?.({ sender: foreign }, 'v1.4');
+    expect(skipped).toBeUndefined();
     // nor does a foreign window install the command line tool
     expect(await invoke('bt:cli-tool', foreign, 'install')).toMatchObject({ ok: false });
     expect(existsSync(join(dir, 'bin'))).toBe(false);
@@ -561,6 +587,32 @@ describe('the IPC handlers', () => {
       expect(paths.allows(foreign, join(dir, `${p}.xmpuzzle`))).toBe(false);
       expect(paths.allows(ours, join(dir, `${p}.xmpuzzle`))).toBe(false);
     }
+  });
+
+  it('check for updates once at startup, and always when asked', async () => {
+    latestTag = 'v1.4';
+    skipped = undefined;
+    expect(await invoke('bt:check-updates', ours, 'yes')).toBeNull();
+    expect(await invoke('bt:check-updates', ours, true)).toEqual({
+      status: 'newer',
+      current: '1.3.0',
+      latest: 'v1.4',
+    });
+    // once a run, whichever window asks
+    expect(await invoke('bt:check-updates', ours, true)).toBeNull();
+    // the menu's check always answers, a skipped version too
+    electron.on.get('bt:skip-update')?.({ sender: ours }, 'not a version');
+    expect(skipped).toBeUndefined();
+    electron.on.get('bt:skip-update')?.({ sender: ours }, 'v1.4');
+    expect(skipped).toBe('v1.4');
+    expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'newer' });
+    latestTag = 'v1.3';
+    expect(await invoke('bt:check-updates', ours, false)).toMatchObject({ status: 'current' });
+    // Download opens the releases page, whatever the page passes
+    electron.on.get('bt:open-releases')?.({ sender: ours }, 'https://example.com/');
+    expect(electron.opened).toEqual([
+      'https://github.com/shapelogicxyz/shapelogic/releases/latest',
+    ]);
   });
 
   it('install and remove the command line tool by its operation’s name, never a path', async () => {

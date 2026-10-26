@@ -41,6 +41,9 @@ struct SolveProgress {
   SolveStage stage = SolveStage::Idle;
   /// Milliseconds since this run started.
   std::uint64_t elapsedMs = 0;
+  /// Milliseconds the problem has been solved for: this run and the ones
+  /// before it (a continued solve, or a saved search).
+  std::uint64_t usedMs = 0;
 
   /// Preparing and reducing: the piece at work (from 1) of how many.
   unsigned int piece = 0;

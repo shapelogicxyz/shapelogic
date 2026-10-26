@@ -46,6 +46,7 @@ import {
   toggleFocus3d,
 } from './layout.ts';
 import { installPanels } from './panel.ts';
+import { autoCheck, checkNow } from './updates.ts';
 import { installPopover } from './popover.ts';
 import { installSettings, openSettings, settingsOpen } from './settings.ts';
 import { flash, reportError, setStatusProvider, updateStatus } from './status.ts';
@@ -257,6 +258,9 @@ export function startApp(saved: StoredState = {}): {
     cliTool: () => {
       void openCliTool(app);
     },
+    checkUpdates: () => {
+      void checkNow(app);
+    },
     solverProblem: () => {
       const p = solver.problem;
       return p === null
@@ -340,5 +344,6 @@ export function startApp(saved: StoredState = {}): {
   });
   onKey('escape', stepBack);
   installKeyboard();
+  autoCheck(app);
   return { store, view, entities, puzzle, solver };
 }

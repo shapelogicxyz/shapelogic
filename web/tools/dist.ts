@@ -2,7 +2,8 @@
 //
 // The packaged app (stage 8, `just app-dist`): electron-builder over the
 // build in out/ (electron-vite), with shapelogic_engine from the release preset in
-// the bundle's resources and one version for both, CMakeLists.txt's.
+// the bundle's resources and one version for both, the git tag's
+// (tools/project-version.ts).
 //
 //   node tools/dist.ts [--dir] [--arch x64|arm64]
 //
@@ -13,7 +14,8 @@
 // test's), else the installers: macOS a .dmg and a .zip, Windows an NSIS
 // installer, Linux an AppImage and a .deb. Before packing it checks that the
 // engine is there, built for that architecture, and says the project's
-// version (`shapelogic_engine --version`), and that package.json says it too.
+// version (`shapelogic_engine --version`); electron-builder takes the
+// version from here (extraMetadata), not from package.json.
 //
 // Signing (docs/handoff/web-8.md, "Signing and notarisation"): on macOS the
 // app is signed ad hoc unless CSC_NAME or CSC_LINK names a Developer ID
@@ -23,7 +25,7 @@
 // names a certificate.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, openSync, readFileSync, readSync, closeSync } from 'node:fs';
+import { existsSync, openSync, readSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -96,7 +98,7 @@ function checkEngine(
   const said = execFileSync(path, ['--version'], { encoding: 'utf8', timeout: 10_000 }).trim();
   if (said !== `${program} ${version}`) {
     throw new Error(
-      `${path} says "${said}", not "${program} ${version}" (CMakeLists.txt): build it again`,
+      `${path} says "${said}", not "${program} ${version}" (the git tag): build it again`,
     );
   }
 }
@@ -205,12 +207,6 @@ async function main(): Promise<void> {
   }
   const platform = process.platform;
   const version = projectVersion();
-  const pkg = JSON.parse(readFileSync(resolve(WEB, 'package.json'), 'utf8')) as {
-    version: string;
-  };
-  if (pkg.version !== version) {
-    throw new Error(`web/package.json says ${pkg.version}, CMakeLists.txt ${version}`);
-  }
   if (!existsSync(resolve(WEB, 'out/main/index.js'))) {
     throw new Error('no build in out/: run `npm run build` first');
   }

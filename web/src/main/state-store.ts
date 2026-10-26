@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The main process's store (stage 6): the renderer's settings and layouts,
-// the recent files, the window's bounds and the folder a file dialog gave
-// last, kept in one JSON file in the
+// the recent files, the window's bounds, the folder a file dialog gave
+// last and the release the update check is told to skip, kept in one JSON file in the
 // app's data directory (`state.json`). Read once when the app starts (a
 // file that is missing or not JSON is an empty store); written a moment
 // after a change, whole, to a temporary file renamed over the old one, so
@@ -29,6 +29,8 @@ interface Data {
   recent?: string[];
   bounds?: Bounds;
   lastDir?: string;
+  /** The update check (updates.ts): the release Skip This Version named. */
+  updates?: { skip?: string };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -70,6 +72,9 @@ function parse(text: string): Data {
   if (typeof v.lastDir === 'string' && v.lastDir !== '') {
     d.lastDir = v.lastDir;
   }
+  if (isRecord(v.updates) && typeof v.updates.skip === 'string' && v.updates.skip !== '') {
+    d.updates = { skip: v.updates.skip };
+  }
   return d;
 }
 
@@ -110,6 +115,18 @@ export class StateStore {
   /** The folder a file dialog gave last (app-ipc.ts starts the next dialog there). */
   get lastDir(): string | undefined {
     return this.data.lastDir;
+  }
+
+  /** The release the update check at startup does not show (Skip This Version). */
+  get skipVersion(): string | undefined {
+    return this.data.updates?.skip;
+  }
+
+  setSkipVersion(version: string): void {
+    if (version !== this.data.updates?.skip) {
+      this.data.updates = { skip: version };
+      this.schedule();
+    }
   }
 
   /** The recent files, the newest first. */

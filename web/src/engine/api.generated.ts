@@ -1013,6 +1013,12 @@ export interface SolveProgress {
   stage: SolveStage;
   /** @minimum 0 */
   elapsedMs: number;
+  /**
+   * The problem's time used: this run's and the earlier runs' of a continued solve or a saved
+   * search.
+   * @minimum 0
+   */
+  usedMs: number;
   /** @minimum 0 */
   piece: number;
   /** @minimum 0 */

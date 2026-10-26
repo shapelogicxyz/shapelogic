@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 
+# The version comes from the git tag (cmake/ProjectVersion.cmake)
+include(cmake/ProjectVersion.cmake)
+
 project(ShapeLogic
-  VERSION 1.0.0
+  VERSION ${SL_VERSION}
   DESCRIPTION "ShapeLogic core: puzzle model, solvers and the engine the web front end talks to"
   LANGUAGES CXX)
 

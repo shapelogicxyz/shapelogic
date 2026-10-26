@@ -179,6 +179,7 @@
     "progress": {
      "stage": "prepare",
      "elapsedMs": 0,
+     "usedMs": 0,
      "piece": 1,
      "pieces": 1,
      "assemblyFraction": 0,
@@ -226,7 +227,8 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 54,
+     "elapsedMs": 52,
+     "usedMs": 0,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,

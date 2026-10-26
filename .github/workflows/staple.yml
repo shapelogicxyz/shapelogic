@@ -1,15 +1,16 @@
-# Staples Apple's notarisation tickets onto the macOS builds of one Release
-# run (release.yml), once Apple has accepted them. Release only sends the
-# .dmg to the notary service and finishes; this is the second half, run by
-# hand when `xcrun notarytool info <id>` says Accepted:
+# The fallback for the Release workflow's macOS notarisation: Release waits
+# up to an hour for Apple and staples the tickets itself, so this runs only
+# when Apple took longer than that (the Release run's macOS jobs failed
+# saying so). Run it by hand once `xcrun notarytool info <id>` says Accepted:
 #
-#   gh workflow run staple.yml -f run_id=<the Release run's number>
+#   gh workflow run staple.yml -f run_id=<the Release run's number> -f tag=v1.4
 #
-# For each architecture it reads the run's notarisation-macos-<arch> record,
-# checks that the run's .dmg is the file Apple was sent (its sha256 against
-# Apple's log of the submission), staples the .dmg and the app inside the
-# .zip, checks Gatekeeper accepts the app as notarised, and keeps the files
-# as the macos-<arch>-notarised artifact.
+# For each architecture it reads the run's notarisation-macos-<arch> record
+# and staples the run's .dmg and .zip (.github/scripts/staple.sh: the same
+# checks as Release's), keeping them as the macos-<arch>-notarised artifact.
+# With a tag, it then attaches the release files to that tag's draft
+# release (publish.yml): Linux and Windows from the Release run, macOS from
+# this one. Without a tag it only staples.
 #
 # A submission still In Progress, or Invalid, fails the job with its status
 # (and for Invalid, Apple's log); nothing is stapled. An architecture the run
@@ -23,6 +24,10 @@ on:
       run_id:
         description: 'The Release run whose macOS builds to staple (the number in its URL)'
         required: true
+        type: string
+      tag:
+        description: 'Then attach the files to this tag''s draft release (vX.Y; empty: only staple)'
+        required: false
         type: string
 
 permissions:
@@ -42,6 +47,7 @@ jobs:
       RUN_ID: ${{ inputs.run_id }}
       ARCH: ${{ matrix.arch }}
     steps:
+      - uses: actions/checkout@v4
       - name: Download the run's build and its notarisation record
         id: download
         run: |
@@ -68,67 +74,7 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-        run: |
-          record="record/notarisation-${ARCH}.json"
-          cat "${record}"
-          id="$(jq -r .submission_id "${record}")"
-          dmg="build/$(jq -r .file "${record}")"
-          sha256="$(jq -r .sha256 "${record}")"
-          if [ "$(shasum -a 256 "${dmg}" | cut -d' ' -f1)" != "${sha256}" ]; then
-            echo "::error::${dmg} is not the file the run recorded sending to Apple"
-            exit 1
-          fi
-          key_file="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID}.p8"
-          printf '%s\n' "${APPLE_API_KEY_P8}" > "${key_file}"
-          chmod 600 "${key_file}"
-          auth=(--key "${key_file}" --key-id "${APPLE_API_KEY_ID}" --issuer "${APPLE_API_ISSUER}")
-          info="$(xcrun notarytool info "${id}" "${auth[@]}" --output-format json)"
-          echo "${info}"
-          status="$(jq -r .status <<< "${info}")"
-          case "${status}" in
-            Accepted) ;;
-            "In Progress")
-              echo "::error::submission ${id} (${ARCH}, sent $(jq -r .createdDate <<< "${info}")) is still In Progress at Apple; run Staple again once it is Accepted"
-              exit 1 ;;
-            *)
-              xcrun notarytool log "${id}" "${auth[@]}" || true
-              echo "::error::submission ${id} (${ARCH}) is ${status}: Apple's log is above"
-              exit 1 ;;
-          esac
-          # Apple's own record of what it was sent: the same bytes as this .dmg
-          apple_sha256="$(xcrun notarytool log "${id}" "${auth[@]}" | jq -r .sha256)"
-          rm -f "${key_file}"
-          if [ "${apple_sha256}" != "${sha256}" ]; then
-            echo "::error::Apple's log says submission ${id} was ${apple_sha256}, not this .dmg (${sha256})"
-            exit 1
-          fi
-
-          xcrun stapler staple "${dmg}"
-          xcrun stapler validate "${dmg}"
-          mnt="$(mktemp -d)"
-          hdiutil attach -nobrowse -readonly -mountpoint "${mnt}" "${dmg}"
-          spctl -a -vv -t exec "${mnt}/ShapeLogic.app" 2>&1 | tee "${RUNNER_TEMP}/spctl.txt"
-          hdiutil detach "${mnt}"
-          if ! grep -q "Notarized Developer ID" "${RUNNER_TEMP}/spctl.txt"; then
-            echo "::error::Gatekeeper does not take the app in ${dmg} as notarised"
-            exit 1
-          fi
-
-          # the .zip holds the same app; staple it and zip it again as
-          # electron-builder does (ditto, the app at the top)
-          shopt -s nullglob
-          for zip in build/*.zip; do
-            unpacked="$(mktemp -d)"
-            ditto -x -k "${zip}" "${unpacked}"
-            xcrun stapler staple "${unpacked}/ShapeLogic.app"
-            xcrun stapler validate "${unpacked}/ShapeLogic.app"
-            rm "${zip}"
-            ditto -c -k --sequesterRsrc --keepParent "${unpacked}/ShapeLogic.app" "${zip}"
-          done
-          (cd build && shasum -a 256 *.dmg *.zip) | tee -a "${GITHUB_STEP_SUMMARY}"
-      - name: Remove the notarisation key
-        if: always()
-        run: rm -f "${RUNNER_TEMP}"/AuthKey_*.p8
+        run: bash .github/scripts/staple.sh "record/notarisation-${ARCH}.json" build
       - uses: actions/upload-artifact@v4
         if: steps.download.outputs.built == 'true'
         with:
@@ -137,3 +83,17 @@ jobs:
           path: |
             build/*.dmg
             build/*.zip
+
+  # the release files on the tag's draft: Linux and Windows from the Release
+  # run, macOS (stapled) from this run
+  publish:
+    needs: staple
+    if: inputs.tag != ''
+    permissions:
+      actions: read
+      contents: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      run_id: ${{ inputs.run_id }}
+      mac_run_id: ${{ github.run_id }}
+      tag: ${{ inputs.tag }}

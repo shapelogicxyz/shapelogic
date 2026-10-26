@@ -14,7 +14,9 @@
 // From stage 8 the files a window's engine may be given (path-grants.ts)
 // are granted here: what the open and save dialogs gave for a puzzle or a
 // paused solve, the rescue record's file, a file dropped on the window.
-// Every message is checked before it is used, and only the app's windows
+// The update check (updates.ts) asks GitHub here, once at startup and when
+// the menu asks; its Download opens a fixed address, never one the
+// renderer gives. Every message is checked before it is used, and only the app's windows
 // are answered.
 
 import { app, dialog, ipcMain, shell } from 'electron';
@@ -36,13 +38,16 @@ import type {
   MenuState,
   OpenKind,
   StoredState,
+  UpdateResult,
 } from '../engine/app-bridge.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { RescueStore } from './rescue.ts';
-import { HELP_URLS } from './security.ts';
+import { HELP_URLS, SYSTEM_URLS } from './security.ts';
 import type { StateStore } from './state-store.ts';
+import { checkForUpdate, parseVersion } from './updates.ts';
+import type { FetchFn } from './updates.ts';
 
 /** Opens a help page in the system's browser. */
 export function openHelp(link: HelpLink): void {
@@ -115,6 +120,10 @@ export interface AppIpcHost {
   /** The files each window's engine may be given. */
   paths: PathGrants<WebContents>;
   version: string;
+  /** Whether the app is packaged: only a packaged app checks for updates at startup. */
+  packaged: boolean;
+  /** The fetch the update check uses (a session of its own: the windows' lets nothing remote through). */
+  fetch: FetchFn;
   /** The command line tool in this install (cli-tool.ts), or null when there is none. */
   cliPath: string | null;
   /** Where Install links it, or null where this platform has no Install. */
@@ -136,6 +145,37 @@ export function installAppIpc(h: AppIpcHost): void {
     const d = h.store.lastDir;
     return d !== undefined && existsSync(d) ? d : null;
   };
+
+  // the update check at startup runs once a run, whichever window asks first
+  let autoChecked = false;
+  ipcMain.handle('bt:check-updates', async (e, auto: unknown): Promise<UpdateResult | null> => {
+    if (ours(e) === null || typeof auto !== 'boolean') {
+      return null;
+    }
+    if (auto) {
+      if (!h.packaged || autoChecked) {
+        return null;
+      }
+      autoChecked = true;
+    }
+    const r = await checkForUpdate(h.version, h.fetch);
+    if (auto && (r.status !== 'newer' || r.latest === h.store.skipVersion)) {
+      return null;
+    }
+    return r;
+  });
+
+  ipcMain.on('bt:skip-update', (e, version: unknown) => {
+    if (ours(e) !== null && typeof version === 'string' && parseVersion(version) !== null) {
+      h.store.setSkipVersion(version);
+    }
+  });
+
+  ipcMain.on('bt:open-releases', (e) => {
+    if (ours(e) !== null) {
+      void shell.openExternal(SYSTEM_URLS.releases);
+    }
+  });
 
   ipcMain.on('bt:app-info', (e) => {
     e.returnValue = ours(e) === null ? null : { platform: process.platform, version: h.version };

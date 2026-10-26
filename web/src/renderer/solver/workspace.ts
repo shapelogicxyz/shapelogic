@@ -497,6 +497,7 @@ export class SolverWorkspace {
   counts(): {
     assemblies: number | null;
     solutions: number | null;
+    /** The problem's time used, earlier runs of a continued solve included. */
     timeMs: number | null;
     secondsLeft: number | null;
     overall: number;
@@ -510,7 +511,7 @@ export class SolverWorkspace {
       return {
         assemblies: g.assemblies,
         solutions: g.solutions,
-        timeMs: g.elapsedMs,
+        timeMs: g.usedMs,
         secondsLeft: g.secondsLeft,
         overall: g.overall,
       };

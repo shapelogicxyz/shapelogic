@@ -79,6 +79,12 @@ const SET: readonly Page[] = [
         d: 'Show short help text when the mouse rests on buttons and other controls.',
         type: 'sw',
       },
+      {
+        k: 'updates',
+        t: 'Check for updates at startup',
+        d: 'Ask GitHub once each time ShapeLogic starts whether a newer version is out, and say so if it is. Check for Updates… in the menus asks at any time.',
+        type: 'sw',
+      },
     ],
   },
   {

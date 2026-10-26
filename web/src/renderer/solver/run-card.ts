@@ -39,6 +39,7 @@ import {
   SORT_CHOICES,
 } from './settings.ts';
 import type { BoxName, SearchOptions } from './settings.ts';
+import { formatSpan } from './span.ts';
 import type { SolverWorkspace } from './workspace.ts';
 
 /** The switches' help (the mockup's SVTIP, the original's tooltips for the rest). */
@@ -375,13 +376,19 @@ export class RunCard {
     const pct = Math.max(0, Math.min(1, c.overall)) * 100;
     byId('slvBar').style.width = `${pct.toFixed(1)}%`;
     byId('slvPct').textContent = `${pct.toFixed(1)}%`;
-    const secs = (c.timeMs ?? 0) / 1000;
     const left = c.secondsLeft;
+    // what is left: the run's estimate, nothing of a solved problem
+    const leftText =
+      isActive(s) && left !== null && Number.isFinite(left)
+        ? formatSpan(left * 1000)
+        : !isActive(s) && p?.state === 'solved'
+          ? 'none'
+          : 'unknown';
     const fail =
       r?.failure !== null && r?.failure !== undefined && s === 'error' ? r.failure : null;
     setHtml(
       byId('slvStat'),
-      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : `${secs.toFixed(secs < 10 ? 1 : 0)} s`}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time left</span><span class="v">${left === null || !isActive(s) ? '' : `${left.toFixed(0)} s`}</span>` +
+      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
         (fail === null
           ? ''
           : `<span class="slv-fail" id="slvFail" style="grid-column:1 / -1">${ic('warn', 14)}<span>The solve failed: ${esc(fail.message)}</span></span>`),

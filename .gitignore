@@ -54,3 +54,9 @@ perf.data*
 /tests/oracle/work/
 .cache/
 compile_commands.json
+
+# Release notes and release files, local only (just release)
+/release/
+
+# The Python wheel's version, written by `just python-wheel` from the git tag
+/python/VERSION

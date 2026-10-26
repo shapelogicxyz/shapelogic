@@ -83,6 +83,8 @@ export interface MenuHandlers {
   about(): void;
   /** ShapeLogic ▸ Install Command Line Tool… (Help ▸ Command Line Tool… elsewhere). */
   cliTool(): void;
+  /** Check for Updates… (ShapeLogic on macOS, Help elsewhere): ask GitHub now. */
+  checkUpdates(): void;
   /** The Solver's problem: a paused solve, saved solutions. */
   solverProblem(): { paused: boolean } | null;
 }
@@ -249,6 +251,9 @@ export class Menus {
         break;
       case 'cliTool':
         this.h.cliTool();
+        break;
+      case 'checkUpdates':
+        this.h.checkUpdates();
         break;
       case 'colourView':
         this.view.setDisplay({ colourView: c.on });

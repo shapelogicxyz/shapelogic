@@ -52,6 +52,10 @@ export function demoApp(version: string): DemoApp {
     openHelp(link) {
       window.open(link === 'tutorial' ? '/docs/getting-started/' : '/docs/', '_blank', 'noopener');
     },
+    // the site is always the latest: no update to look for
+    checkForUpdates: () => Promise.resolve(null),
+    skipUpdate: nothing,
+    openReleases: nothing,
     cliToolInfo: () => Promise.resolve({ path: null, link: null, state: 'none' }),
     installCliTool: () => Promise.resolve(refused),
     uninstallCliTool: () => Promise.resolve(refused),

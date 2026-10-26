@@ -628,6 +628,7 @@ Json progressJson(const SolveProgress& g) {
   Json j = Json::object();
   j["stage"] = solveStageName(g.stage);
   j["elapsedMs"] = g.elapsedMs;
+  j["usedMs"] = g.usedMs;
   j["piece"] = g.piece;
   j["pieces"] = g.pieces;
   j["assemblyFraction"] = g.assemblyFraction;

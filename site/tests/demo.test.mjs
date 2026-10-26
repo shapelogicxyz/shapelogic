@@ -49,10 +49,9 @@ test('the demo is built', () => {
 
 test('the demo is the current app', () => {
   const manifest = JSON.parse(readFileSync(resolve(DEMO, 'manifest.json'), 'utf8'));
-  const version = readFileSync(resolve(ROOT, 'CMakeLists.txt'), 'utf8').match(
-    /project\(ShapeLogic\s+VERSION (\S+)/,
-  )?.[1];
-  assert.equal(manifest.version, version, 'the demo was built from another version');
+  // the version is the git tag's when the demo was built (web/tools/project-version.ts);
+  // a new release tag alone does not make the demo stale, so only its form is checked
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'the demo has no version');
   assert.equal(
     inputsHash(manifest.inputs),
     manifest.hash,

@@ -80,9 +80,25 @@ class TestGrids(unittest.TestCase):
             self.assertEqual(shapelogic.load(path).grid, "spheres")
 
     def test_version(self):
-        # the wheel's version (pyproject.toml) is the project's (CMake's)
-        with open(os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")) as f:
-            self.assertIn(f'version = "{shapelogic.__version__}"', f.read())
+        # the module's version is the git tag's, as CMake reads it
+        # (cmake/ProjectVersion.cmake): vX.Y is X.Y.0
+        tag = os.environ.get("SHAPELOGIC_VERSION", "")
+        if tag == "":
+            try:
+                tag = subprocess.run(
+                    ["git", "describe", "--tags", "--match", "v[0-9]*", "--abbrev=0"],
+                    cwd=os.path.dirname(__file__), capture_output=True, text=True, check=True,
+                ).stdout.strip()
+            except (OSError, subprocess.CalledProcessError):
+                self.skipTest("no git tag to compare with")
+        parts = tag.lstrip("v").split(".")
+        self.assertEqual(shapelogic.__version__, ".".join((parts + ["0"])[:3]))
+        # an installed wheel says the same (pyproject.toml takes it from VERSION)
+        import importlib.metadata
+        try:
+            self.assertEqual(importlib.metadata.version("shapelogic"), shapelogic.__version__)
+        except importlib.metadata.PackageNotFoundError:
+            pass
 
 
 class TestSolve(unittest.TestCase):

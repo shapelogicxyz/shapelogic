@@ -37,9 +37,11 @@ export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
 /**
  * The page shown when WebGL2 is not available (gpu-check.ts), also handed to
  * the system's browser; the site has the page too (site/tests/help-urls).
+ * And the latest release's page, the update dialog's Download (updates.ts).
  */
 export const SYSTEM_URLS = {
   linuxGraphics: 'https://shapelogic.xyz/docs/linux/',
+  releases: 'https://github.com/shapelogicxyz/shapelogic/releases/latest',
 } as const;
 
 /** The scheme the renderer's page is served on: standard and secure, the app's own. */

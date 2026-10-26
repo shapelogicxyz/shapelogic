@@ -1514,7 +1514,7 @@
    "assemblies": 1,
    "solutions": 1,
    "saved": 1,
-   "timeMs": 21,
+   "timeMs": 62,
    "parts": [
     {
      "shape": "s1",
@@ -2095,6 +2095,7 @@
     "progress": {
      "stage": "prepare",
      "elapsedMs": 0,
+     "usedMs": 0,
      "piece": 1,
      "pieces": 12,
      "assemblyFraction": 0,
@@ -2142,7 +2143,8 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 54,
+     "elapsedMs": 107,
+     "usedMs": 62,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,

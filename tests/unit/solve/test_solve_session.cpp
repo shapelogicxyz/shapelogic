@@ -952,6 +952,42 @@ TEST_CASE("solve session: a second solve's progress starts from nothing",
   s.wait();
 }
 
+TEST_CASE("solve progress: the time used counts the runs before a continued one",
+          "[solve][session][progress]") {
+  // Paused, saved and loaded, then continued: the time used goes on from
+  // what the problem held, and counts this run once when it ends.
+  Puzzle first = fresh("SolidSixPieceBurrs.xmpuzzle");
+  {
+    SolveSession s(first, first.getProblem(0), takeApart());
+    REQUIRE(s.start().has_value());
+    untilPrepared(s);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    s.pause();
+    s.wait();
+    // the premise: the pause landed before the solve was over
+    if (s.state() != SolveState::Paused) {
+      SKIP("the solve was over before the pause");
+    }
+    CHECK(s.progress().usedMs == first.getProblem(0).getUsedMs());
+  }
+  Puzzle p = reloaded(first);
+  const std::uint64_t before = p.getProblem(0).getUsedMs();
+  REQUIRE(before > 0);
+  SolveSession s(p, p.getProblem(0), takeApart());
+  REQUIRE(s.resume().has_value());
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const SolveProgress during = s.progress();
+  CHECK(during.usedMs >= before);
+  if (isActive(s.state())) {
+    CHECK(during.usedMs == before + during.elapsedMs);
+  }
+  s.pause();
+  s.wait();
+  const std::uint64_t after = p.getProblem(0).getUsedMs();
+  CHECK(after >= during.usedMs);
+  CHECK(s.progress().usedMs == after);
+}
+
 TEST_CASE("solve session: sphere hotspots are reset to the sphere nearest the origin",
           "[solve][session]") {
   // Ball Room ships with its hotspots where initHotspot() puts them. With

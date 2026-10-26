@@ -15,6 +15,8 @@ export interface Prefs {
   theme: 'Light' | 'Dark' | 'System';
   undo: number;
   tips: boolean;
+  /** Ask GitHub for a newer release at startup (shell/updates.ts). */
+  updates: boolean;
   cube: boolean;
   rev: boolean;
   /** Free Spin: the arc-ball, no limits; Top Up: the drag that keeps the vertical axis up. */
@@ -48,6 +50,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   theme: 'System',
   undo: 25,
   tips: true,
+  updates: true,
   cube: true,
   rev: false,
   rot: 'Free Spin',

@@ -100,14 +100,23 @@ pybind11 when CMake finds Python's headers (`BT_PYTHON=AUTO`), and
 
 ## Continuous integration
 
-Three GitHub Actions workflows live in `.github/workflows/`. None runs on a
+Five GitHub Actions workflows live in `.github/workflows/`. None runs on a
 plain push to `main`.
 
 - **Release** (`release.yml`) builds the installers for Linux, Windows and
-  macOS when a version tag is pushed, or by hand. The macOS builds are
-  signed and sent for notarisation without waiting for Apple.
+  macOS when a version tag is pushed (`just release vX.Y` pushes it), or
+  by hand. The macOS builds are signed, notarised and stapled. The app's
+  version is the tag's.
+- **Publish** (`publish.yml`) runs at the end of a Release run on a tag:
+  it renames the installers and attaches them to the tag's draft GitHub
+  release, which a maintainer then publishes.
 - **Staple** (`staple.yml`) staples the notarisation tickets onto a
-  finished Release run's `.dmg` and `.zip`.
+  Release run's `.dmg` and `.zip` when Apple took longer than Release
+  waited, then publishes.
+- **Patch** (`patch.yml`) runs when a patch release (`vX.Y.Z`) is
+  published: it folds it into the release it fixes, which moves to the new
+  tag with the new installers and notes, so a small fix updates the
+  existing release page instead of adding one.
 - **Site** (`site.yml`) builds this website on pull requests that touch
   it, checks its links and checks that the pages the app's Help menu opens
   still exist. Cloudflare does the actual deploy.

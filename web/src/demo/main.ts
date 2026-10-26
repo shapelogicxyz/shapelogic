@@ -212,6 +212,7 @@ function progressAt(
     p: {
       stage,
       elapsedMs: Math.round(t * RUN_MS),
+      usedMs: Math.round(t * RUN_MS),
       piece,
       pieces: o.pieces,
       assemblyFraction: stage === 'prepare' ? 0 : Math.min(1, (t - prepare) / 0.7),

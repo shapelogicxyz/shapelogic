@@ -46,6 +46,8 @@ just site-build         # the website and user guide (site/): build, link check,
 just site-dev           # the site with live reload
 just docs-screenshots   # retake the guide's screenshots from the built app
 just site-demo          # rebuild the site's demo (site/public/demo/): the engine as WebAssembly under the renderer (needs Emscripten)
+just release [vX.Y]     # start a release (no version: the steps); notes in release/notes/vX.Y.md, git-ignored; vX.Y.Z: a patch that updates the vX.Y release
+just release-fetch vX.Y # a copy of a release's files in release/vX.Y
 ```
 
 ## How to port code from the original

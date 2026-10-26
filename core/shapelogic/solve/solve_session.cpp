@@ -349,6 +349,10 @@ Result<void> SolveSession::launch(Mode mode) {
   // the last solve's assembler is gone; this run's has done nothing yet
   lastFinished_.store(0, std::memory_order_relaxed);
   runOriginNs_.store(nowNs(), std::memory_order_relaxed);
+  {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    runTimeAdded_ = false;
+  }
 
   // The first move is made here, before the thread exists, so that the
   // caller sees an active state as soon as this returns.
@@ -430,6 +434,10 @@ Result<void> SolveSession::launchStacking(Mode mode) {
   progressShown_.store(0, std::memory_order_relaxed);
   lastFinished_.store(0, std::memory_order_relaxed);
   runOriginNs_.store(nowNs(), std::memory_order_relaxed);
+  {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    runTimeAdded_ = false;
+  }
 
   state_.advance(SolveState::Preparing);
   runner_ = std::thread([this, plan = std::move(plan)] { run(plan); });
@@ -526,6 +534,14 @@ bool SolveSession::prepareSearch(const Plan& plan) {
       problem_.removeAllSolutions();
       state_.advance(SolveState::Idle);
     } else {
+      // a solve carried on keeps the time this run spent preparing
+      {
+        const std::lock_guard<std::mutex> lock(resultsMutex_);
+        if (problem_.getSolveState() == ProblemState::Solving) {
+          problem_.addTimeMs(runMs());
+        }
+        runTimeAdded_ = true;
+      }
       state_.advance(SolveState::Paused);
     }
     return false;
@@ -704,6 +720,7 @@ void SolveSession::endRun(RunEnd end) {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     finished = stop == StopKind::None && end == RunEnd::Finished && problem_.getPending().empty();
     problem_.addTimeMs(ms);
+    runTimeAdded_ = true;
     // what the GUI recorded when a solve stopped (recordSearchStats): a
     // sliding search counts afresh each run, the assembler carries its
     // count on
@@ -817,6 +834,7 @@ void SolveSession::runStacking(const Plan& plan) {
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     problem_.addTimeMs(runMs());
+    runTimeAdded_ = true;
     problem_.incNumAssemblies();
     if (path) {
       problem_.incNumSolutions();
@@ -1496,6 +1514,11 @@ SolveProgress SolveSession::progress() const {
     p.solutions = problem_.numSolutionsKnown() ? problem_.getNumSolutions() : 0;
     if (problem_.usedTimeKnown()) {
       usedSeconds = static_cast<double>(problem_.getUsedMs()) / 1000.0;
+      p.usedMs = problem_.getUsedMs();
+    }
+    // this run's time until its end adds it to the problem's
+    if (isActive(st) && !runTimeAdded_) {
+      p.usedMs += p.elapsedMs;
     }
     parts = problem_.getNumberOfParts();
     pieces = problem_.getNumberOfPieces();

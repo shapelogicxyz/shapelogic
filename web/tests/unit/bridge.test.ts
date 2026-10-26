@@ -105,7 +105,7 @@ describe('the proxy', () => {
     // the same bytes the engine sent (the recorded transcript's checksum)
     const recorded = loadTranscript('basic').results[2] as { frame: { checksum: string } };
     expect(checksum(new Uint8Array(mesh.frame.buffer))).toBe(recorded.frame.checksum);
-    expect(proxy.status).toEqual({ state: 'running', version: '0.1.0', restarts: 0 });
+    expect(proxy.status).toEqual({ state: 'running', version: '1.0.0', restarts: 0 });
   });
 
   it('gets errors with their errc, and refuses what is no call', async () => {
@@ -135,7 +135,7 @@ describe('the proxy', () => {
     const seen: EngineStatus[] = [];
     proxy.onStatus((s) => seen.push(s));
     await settle(5);
-    expect(proxy.status).toEqual({ state: 'running', version: '0.1.0', restarts: 0 });
+    expect(proxy.status).toEqual({ state: 'running', version: '1.0.0', restarts: 0 });
     expect(seen).toEqual([proxy.status]);
     await host.stop();
   });

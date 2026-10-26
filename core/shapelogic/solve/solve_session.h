@@ -369,6 +369,8 @@ class SolveSession {
   /// Thins kept solutions as they grow (the solve thread's
   /// dropMultiplicator); under resultsMutex_.
   unsigned int dropMultiplicator_ = 1;
+  /// The current run's time is in the problem's time used; under resultsMutex_.
+  bool runTimeAdded_ = false;
   /// What the current run does with an assembly; set before it searches.
   Action action_ = Action::CountAssemblies;
   SolveOptions runOptions_;

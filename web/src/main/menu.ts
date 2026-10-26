@@ -287,6 +287,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         : [
             SEP,
             item('cliTool', 'Command Line Tool…', { cmd: 'cliTool' }),
+            item('checkUpdates', 'Check for Updates…', { cmd: 'checkUpdates' }),
             item('about', `About ${h.name}`, { cmd: 'about' }),
           ]),
     ],
@@ -297,6 +298,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
     label: h.name,
     submenu: [
       item('about', `About ${h.name}`, { cmd: 'about' }),
+      item('checkUpdates', 'Check for Updates…', { cmd: 'checkUpdates' }),
       SEP,
       item('settings', 'Settings…', { cmd: 'settings' }, true, 'settings'),
       item('cliTool', 'Install Command Line Tool…', { cmd: 'cliTool' }),

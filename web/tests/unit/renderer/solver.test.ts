@@ -23,6 +23,7 @@ import {
   solveOptions,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
+import { formatSpan } from '../../../src/renderer/solver/span.ts';
 import { Solves } from '../../../src/renderer/state/solves.ts';
 
 describe('the search options', () => {
@@ -455,5 +456,31 @@ describe('the solve records', () => {
       }),
     ]);
     expect(outcome).toBe('resolved:-1');
+  });
+});
+
+describe('the time counters', () => {
+  const S = 1000;
+  it('show whole milliseconds under a second, whole seconds under a minute, then a unit to a tenth', () => {
+    expect(formatSpan(0)).toBe('0 milliseconds');
+    expect(formatSpan(1)).toBe('1 millisecond');
+    expect(formatSpan(999.6)).toBe('999 milliseconds');
+    expect(formatSpan(1000)).toBe('1 second');
+    expect(formatSpan(1999)).toBe('1 second');
+    expect(formatSpan(59_999)).toBe('59 seconds');
+    expect(formatSpan(60 * S)).toBe('1 minute');
+    expect(formatSpan(198 * S)).toBe('3.3 minutes');
+    expect(formatSpan(330 * S)).toBe('5.5 minutes');
+    expect(formatSpan(3599 * S)).toBe('59.9 minutes');
+    expect(formatSpan(3600 * S)).toBe('1 hour');
+    expect(formatSpan(7200 * S)).toBe('2 hours');
+    expect(formatSpan(35_806 * S)).toBe('9.9 hours');
+    expect(formatSpan(86_399 * S)).toBe('23.9 hours');
+    expect(formatSpan(86_400 * S)).toBe('1 day');
+    expect(formatSpan(2.6 * 86_400 * S)).toBe('2.6 days');
+    expect(formatSpan(365 * 86_400 * S - 1)).toBe('364.9 days');
+    expect(formatSpan(365 * 86_400 * S)).toBe('1 year');
+    expect(formatSpan(1.3 * 365 * 86_400 * S)).toBe('1.3 years');
+    expect(formatSpan(99 * 365 * 86_400 * S)).toBe('99 years');
   });
 });

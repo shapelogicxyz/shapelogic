@@ -17,6 +17,7 @@ import type {
   CliToolResult,
   RescueInfo,
   StoredState,
+  UpdateResult,
 } from '../engine/app-bridge.ts';
 import type { BridgeMessage, BridgeRequest, BtBridge } from '../engine/bridge.ts';
 
@@ -146,6 +147,15 @@ const btApp: BtApp = {
   },
   openHelp(link) {
     ipcRenderer.send('bt:help', link);
+  },
+  checkForUpdates(auto) {
+    return ipcRenderer.invoke('bt:check-updates', auto) as Promise<UpdateResult | null>;
+  },
+  skipUpdate(version) {
+    ipcRenderer.send('bt:skip-update', version);
+  },
+  openReleases() {
+    ipcRenderer.send('bt:open-releases');
   },
   async cliToolInfo() {
     const r = (await ipcRenderer.invoke('bt:cli-tool', 'info')) as CliToolResult;

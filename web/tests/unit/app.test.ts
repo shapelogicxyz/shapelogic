@@ -70,6 +70,7 @@ describe('the store of settings, layouts and recent files', () => {
     s.setBounds({ x: 1, y: 2, width: 900, height: 700 });
     s.addRecent('/a.xmpuzzle');
     s.setLastDir('/puzzles');
+    s.setSkipVersion('v1.4');
     expect(existsSync(join(d, 'state.json'))).toBe(false);
     vi.advanceTimersByTime(100);
     expect(existsSync(join(d, 'state.json.tmp'))).toBe(false);
@@ -79,6 +80,7 @@ describe('the store of settings, layouts and recent files', () => {
     expect(back.bounds).toEqual({ x: 1, y: 2, width: 900, height: 700 });
     expect(back.recent).toEqual(['/a.xmpuzzle']);
     expect(back.lastDir).toBe('/puzzles');
+    expect(back.skipVersion).toBe('v1.4');
   });
 
   it('keeps the recent files newest first, once each, at most ten', () => {
@@ -115,6 +117,7 @@ describe('the store of settings, layouts and recent files', () => {
         bounds: { x: 'a' },
         layout: {},
         lastDir: 7,
+        updates: { skip: 3 },
       }),
     );
     const s = new StateStore(d);
@@ -123,6 +126,7 @@ describe('the store of settings, layouts and recent files', () => {
     expect(s.bounds).toBeUndefined();
     expect(s.layout).toEqual({});
     expect(s.lastDir).toBeUndefined();
+    expect(s.skipVersion).toBeUndefined();
   });
 });
 
@@ -208,6 +212,12 @@ describe('the menus', () => {
     (commandItems(sends.template).get('cliTool')?.click as () => void)();
     expect(sends.sent).toContainEqual({ cmd: 'cliTool' });
     expect(isAppCommand({ cmd: 'cliTool' })).toBe(true);
+    // Check for Updates…: after About in the app menu on macOS, in Help elsewhere
+    expect(winItems.get('checkUpdates')?.label).toBe('Check for Updates…');
+    expect(macItems.get('checkUpdates')?.label).toBe('Check for Updates…');
+    (commandItems(sends.template).get('checkUpdates')?.click as () => void)();
+    expect(sends.sent).toContainEqual({ cmd: 'checkUpdates' });
+    expect(isAppCommand({ cmd: 'checkUpdates' })).toBe(true);
   });
 
   it('greys what this version cannot do, and what the state does not allow', () => {
@@ -344,6 +354,7 @@ describe('the stored settings read back', () => {
         undo: 100,
         threads: -1,
         tips: false,
+        updates: 'no',
         cube: 'yes',
         rot: 'Top Up',
         zAxis: 'Z Up',

@@ -73,6 +73,9 @@ python-wheel:
     set -euo pipefail
     tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
     rm -rf build/wheel
+    # the wheel's version: the git tag's, as CMake reads it (cmake/ProjectVersion.cmake)
+    tag="${SHAPELOGIC_VERSION:-$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null || echo v0.0)}"
+    sed -E 's/^v//; s/^([0-9]+\.[0-9]+)$/\1.0/' <<< "$tag" > python/VERSION
     python3 -m venv "$tmp/build" && "$tmp/build/bin/pip" -q install --upgrade pip
     "$tmp/build/bin/pip" wheel ./python -w build/wheel
     python3 -m venv "$tmp/try"
@@ -158,6 +161,17 @@ site-demo *args:
 # Retake the user guide's screenshots from the built app (site/src/assets/screens; after `just build release`)
 docs-screenshots:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run docs-shots
+
+# ---- releases (the steps: `just release` with no version prints them) ----
+
+# Start a release: with no version, how and the steps; with one (vX.Y), check, push the tag and make the draft release with release/notes/vX.Y.md
+release version="":
+    @bash .github/scripts/release.sh {{version}}
+
+# Keep a copy of a release's files in release/vX.Y (git-ignored)
+release-fetch version:
+    mkdir -p release/{{version}}
+    gh release download {{version}} -R shapelogicxyz/shapelogic -D release/{{version}} --clobber
 
 # Remove all build directories
 clean:

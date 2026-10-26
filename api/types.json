@@ -416,6 +416,7 @@
       "properties": {
         "stage": {"$ref": "#/$defs/SolveStage"},
         "elapsedMs": {"type": "integer", "minimum": 0},
+        "usedMs": {"type": "integer", "minimum": 0, "description": "The problem's time used: this run's and the earlier runs' of a continued solve or a saved search."},
         "piece": {"type": "integer", "minimum": 0},
         "pieces": {"type": "integer", "minimum": 0},
         "assemblyFraction": {"type": "number"},
@@ -437,7 +438,7 @@
         "searchTraced": {"type": "integer", "minimum": 0, "description": "Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before."},
         "panexSearch": {"type": "boolean", "description": "The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search')."}
       },
-      "required": ["stage", "elapsedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch"],
+      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch"],
       "additionalProperties": false
     },
     "SolveStats": {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The packaging's parts that run without packing (stage 8): one version for
-// the app and the engine (CMakeLists.txt's, package.json's the same, the
-// release engine's --version), electron-builder's configuration (the
+// the app and the engine (the git tag's, as CMake and project-version.ts
+// read it, the release engine's --version), electron-builder's configuration (the
 // bundles only, the engine in the resources, the fuses), the architecture
 // read from a binary's header, and where the app finds its engine
 // (packaged: its own copy only; in development BT_ENGINE, then the builds).
@@ -24,20 +24,25 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { engineFile, findEngine } from '../../src/main/engine-path.ts';
 import { binaryArch, distConfig, releaseCli, releaseEngine } from '../../tools/dist.ts';
-import { projectVersion, REPO_ROOT } from '../../tools/project-version.ts';
+import { projectVersion, REPO_ROOT, versionFromTag } from '../../tools/project-version.ts';
 
 const WEB = resolve(import.meta.dirname, '../..');
 
 describe('the version', () => {
-  it('is CMakeLists.txt’s, and package.json says the same', () => {
-    const v = projectVersion();
+  it('is the newest tag’s, as git describes it', () => {
+    const v = projectVersion(REPO_ROOT, {});
     expect(v).toMatch(/^\d+\.\d+\.\d+$/);
-    const cmake = readFileSync(resolve(REPO_ROOT, 'CMakeLists.txt'), 'utf8');
-    expect(cmake).toContain(`VERSION ${v}`);
-    const pkg = JSON.parse(readFileSync(resolve(WEB, 'package.json'), 'utf8')) as {
-      version: string;
-    };
-    expect(pkg.version).toBe(v);
+    let tag = '';
+    try {
+      tag = execFileSync('git', ['describe', '--tags', '--match', 'v[0-9]*', '--abbrev=0'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch {
+      // no git or no tag: 0.0.0
+    }
+    expect(v).toBe(versionFromTag(tag) ?? '0.0.0');
   });
 
   it('is what the release engine says, when it is built', () => {
@@ -82,16 +87,21 @@ describe('the version', () => {
     expect(text).toContain(`const VERSION = ${JSON.stringify(projectVersion())}`);
   });
 
-  it('is read from project(), whatever else the file says', () => {
+  it('is a tag’s, vX.Y as X.Y.0', () => {
+    expect(versionFromTag('v1.4')).toBe('1.4.0');
+    expect(versionFromTag('v2.10.3')).toBe('2.10.3');
+    expect(versionFromTag('1.3\n')).toBe('1.3.0');
+    expect(versionFromTag('v1')).toBeNull();
+    expect(versionFromTag('v1.4-rc1')).toBeNull();
+    expect(versionFromTag('')).toBeNull();
+  });
+
+  it('is SHAPELOGIC_VERSION when it is set, and 0.0.0 without git', () => {
+    expect(projectVersion(REPO_ROOT, { SHAPELOGIC_VERSION: 'v9.9' })).toBe('9.9.0');
+    expect(() => projectVersion(REPO_ROOT, { SHAPELOGIC_VERSION: 'nine' })).toThrow(/not vX\.Y/);
     const dir = mkdtempSync(join(tmpdir(), 'bt-version-'));
     try {
-      writeFileSync(
-        join(dir, 'CMakeLists.txt'),
-        'cmake_minimum_required(VERSION 3.28)\nproject(Some\n  VERSION 2.10.3\n  LANGUAGES CXX)\n',
-      );
-      expect(projectVersion(dir)).toBe('2.10.3');
-      writeFileSync(join(dir, 'CMakeLists.txt'), 'cmake_minimum_required(VERSION 3.28)\n');
-      expect(() => projectVersion(dir)).toThrow(/no project/);
+      expect(projectVersion(dir, {})).toBe('0.0.0');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

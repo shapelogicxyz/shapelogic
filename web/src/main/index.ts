@@ -564,6 +564,9 @@ void app.whenReady().then(async () => {
     rescue,
     paths,
     version: VERSION,
+    packaged: app.isPackaged,
+    // not the default session: it cancels every remote request
+    fetch: (url, init) => session.fromPartition('updates').fetch(url, init),
     cliPath: findCli({
       packaged: app.isPackaged,
       resources: process.resourcesPath,

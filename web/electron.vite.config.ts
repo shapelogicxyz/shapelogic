@@ -31,6 +31,24 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(import.meta.dirname, 'src/renderer'),
+    plugins: [
+      {
+        // dev server only: its client's websocket back to it (hot reload);
+        // the built page keeps connect-src 'none'
+        name: 'bt-dev-csp',
+        apply: 'serve',
+        transformIndexHtml: {
+          order: 'pre',
+          handler(html) {
+            const page = html.replace("connect-src 'none'", "connect-src 'self' ws://localhost:*");
+            if (!page.includes("connect-src 'self' ws://localhost:*")) {
+              throw new Error('src/renderer/index.html changed: update electron.vite.config.ts');
+            }
+            return page;
+          },
+        },
+      },
+    ],
     build: {
       outDir: resolve(import.meta.dirname, 'out/renderer'),
       rollupOptions: { input: { index: resolve(import.meta.dirname, 'src/renderer/index.html') } },

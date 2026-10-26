@@ -1,18 +1,31 @@
-# Builds ShapeLogic for Linux, Windows and macOS (Apple silicon and Intel) and
-# keeps the installers as workflow artifacts.
+# Builds ShapeLogic for Linux, Windows and macOS (Apple silicon and Intel),
+# notarises and staples the macOS builds, and, on a release tag, attaches
+# the installers to the tag's draft GitHub release.
 #
-# Runs only by hand (Actions tab > Release > Run workflow, or `gh workflow
-# run release.yml`): neither a push to main nor a tag starts it, so
-# publishing a GitHub Release (which makes its tag) runs nothing. The macOS
-# builds are signed but not notarised (tick "Notarise" to notarise). Untick
-# a platform's box to leave that build out. No Release is made: the files
-# are downloaded and uploaded to the Release by hand.
+# A release (the steps: `just release` with no argument prints them):
+#   1. The notes, by AI, in release/notes/vX.Y.md (git-ignored, local only).
+#   2. `just release vX.Y` (.github/scripts/release.sh): checks, pushes the
+#      tag vX.Y, which starts this workflow, and makes the draft release
+#      with the notes.
+#   3. This run builds every platform with notarisation, waits for Apple
+#      (up to an hour), staples, and the publish job (publish.yml) attaches
+#      the nine renamed files to the draft. A person reviews it and clicks
+#      Publish.
+# A patch (`just release vX.Y.Z`, Z > 0) runs the same way; publishing its
+# draft makes the Patch workflow (patch.yml) fold it into the published
+# vX.Y release, which moves to the new tag with the new files and notes.
+# The version is the tag's (vX.Y is X.Y.0, cmake/ProjectVersion.cmake): the
+# version job gives it to every build as SHAPELOGIC_VERSION.
 #
-# No run waits for Apple: the macOS jobs send the signed .dmg to the notary
-# service and finish. The job summary and the notarisation-macos-<arch>
-# artifact give the submission id. Once `xcrun notarytool info <id>` says
-# Accepted, the Staple workflow (staple.yml) staples the tickets onto that
-# run's .dmg and .zip.
+# By hand (Actions tab > Release > Run workflow, or `gh workflow run
+# release.yml`) it makes test builds of a branch, as workflow artifacts
+# only, with the newest tag's version: untick a platform's box to leave it
+# out, tick "Notarise" to notarise. A run by hand on a tag with every box
+# ticked publishes as a tag push does.
+#
+# When Apple takes longer than the wait, the macOS jobs fail saying so;
+# once `xcrun notarytool info <id>` says Accepted, the Staple workflow
+# (staple.yml) staples that run's builds and, given the tag, publishes.
 #
 # The macOS builds are signed with the Developer ID certificate and sent for
 # notarisation with these repository secrets (staple.yml uses the APPLE_API_* ones too):
@@ -26,6 +39,8 @@
 name: Release
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       linux_x64:
@@ -64,25 +79,70 @@ env:
   NODE_VERSION: '24'
 
 jobs:
-  # Turns the run's boxes into the build jobs' matrices.
+  # The version (the tag's, or on a branch the newest tag's), whether the
+  # run publishes, and the run's boxes as the build jobs' matrices (a tag
+  # push: every box, and notarise).
   version:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+      notarise: ${{ steps.version.outputs.notarise }}
       linux: ${{ steps.platforms.outputs.linux }}
       macos: ${{ steps.platforms.outputs.macos }}
       windows: ${{ steps.platforms.outputs.windows }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the tags, for a branch's version
+      - name: The version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          ALL_BOXES: ${{ inputs.linux_x64 && inputs.linux_arm64 && inputs.windows_x64 && inputs.macos_arm64 && inputs.macos_x64 && inputs.notarise }}
+          NOTARISE: ${{ inputs.notarise }}
+        run: |
+          if [ "${REF_TYPE}" = tag ]; then
+            if ! [[ "${REF_NAME}" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+              echo "::error::tag ${REF_NAME} is not vX.Y or vX.Y.Z: not a release tag"
+              exit 1
+            fi
+            tag="${REF_NAME}"
+            if [ "${EVENT}" = push ] || [ "${ALL_BOXES}" = true ]; then
+              publish=true
+            else
+              publish=false
+              echo "::warning::a run by hand on ${tag} without every box ticked: built, not published"
+            fi
+          else
+            tag="$(git describe --tags --match 'v[0-9]*' --abbrev=0 2> /dev/null || echo v0.0)"
+            publish=false
+            echo "::warning::a build of ${REF_NAME}, not a release tag: it says the newest tag's version (${tag}) and is not published"
+          fi
+          notarise=false
+          if [ "${EVENT}" = push ] || [ "${NOTARISE}" = true ]; then
+            notarise=true
+          fi
+          {
+            echo "version=${tag}"
+            echo "publish=${publish}"
+            echo "notarise=${notarise}"
+          } | tee -a "${GITHUB_OUTPUT}"
       - name: The platforms to build
         id: platforms
         env:
+          EVENT: ${{ github.event_name }}
           LINUX_X64: ${{ inputs.linux_x64 }}
           LINUX_ARM64: ${{ inputs.linux_arm64 }}
           WINDOWS_X64: ${{ inputs.windows_x64 }}
           MACOS_ARM64: ${{ inputs.macos_arm64 }}
           MACOS_X64: ${{ inputs.macos_x64 }}
         run: |
-          on() { [ "$1" = true ]; }
+          # a tag push has no boxes: it builds everything
+          on() { [ "${EVENT}" = push ] || [ "$1" = true ]; }
           linux='[]'
           on "${LINUX_X64}" && linux=$(jq -c '. + [{arch: "x64", runner: "ubuntu-24.04"}]' <<< "${linux}")
           on "${LINUX_ARM64}" && linux=$(jq -c '. + [{arch: "arm64", runner: "ubuntu-24.04-arm"}]' <<< "${linux}")
@@ -106,6 +166,8 @@ jobs:
     if: needs.version.outputs.linux != '[]'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    env:
+      SHAPELOGIC_VERSION: ${{ needs.version.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -160,6 +222,8 @@ jobs:
     if: needs.version.outputs.windows == 'true'
     runs-on: windows-2022
     timeout-minutes: 60
+    env:
+      SHAPELOGIC_VERSION: ${{ needs.version.outputs.version }}
     steps:
       # the recorded files the tests compare with are LF: no CRLF conversion
       - name: Check out with LF line endings
@@ -206,14 +270,15 @@ jobs:
     needs: version
     if: needs.version.outputs.macos != '[]'
     runs-on: macos-latest # Apple silicon
-    timeout-minutes: 90
+    timeout-minutes: 150 # the build, and up to an hour waiting for Apple
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.version.outputs.macos) }}
     env:
-      # whether to send the .dmg to Apple's notary service
-      NOTARISE: ${{ inputs.notarise }}
+      SHAPELOGIC_VERSION: ${{ needs.version.outputs.version }}
+      # whether to send the .dmg to Apple's notary service, wait and staple
+      NOTARISE: ${{ needs.version.outputs.notarise }}
     steps:
       - uses: actions/checkout@v4
       - name: Build tools
@@ -273,11 +338,12 @@ jobs:
           path: |
             web/dist/*.dmg
             web/dist/*.zip
-      # Apple's queue takes minutes or days, so the run only uploads the disk
-      # image and records the submission; the Staple workflow (staple.yml)
-      # staples it once Apple has accepted it. Notarising the .dmg covers the
-      # app inside it, the same signed app as the .zip's.
-      - name: Submit the disk image for notarisation (not waiting for Apple)
+      # Sends the disk image and records the submission, then (the next steps)
+      # waits for Apple and staples. Notarising the .dmg covers the app inside
+      # it, the same signed app as the .zip's. The record is kept as an
+      # artifact, so the Staple workflow can finish when Apple is slower than
+      # the wait.
+      - name: Submit the disk image for notarisation
         if: env.NOTARISE == 'true'
         working-directory: web
         timeout-minutes: 15 # the upload only
@@ -300,7 +366,7 @@ jobs:
           # sent under a name that says which run and architecture it is from, as
           # `notarytool history` shows it; the bytes are the artifact's, so the
           # ticket staples onto the artifact's .dmg
-          version="$(node -p "require('./package.json').version")"
+          version="${SHAPELOGIC_VERSION}"
           submitted_as="ShapeLogic-${version}-${ARCH}-run${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.dmg"
           cp "${dmg}" "${RUNNER_TEMP}/${submitted_as}"
           xcrun notarytool submit "${RUNNER_TEMP}/${submitted_as}" \
@@ -333,8 +399,6 @@ jobs:
             echo "| Sent as | \`${submitted_as}\` |"
             echo "| Artifact file | \`$(basename "${dmg}")\` in \`macos-${ARCH}\` |"
             echo
-            echo "Status: \`xcrun notarytool info ${id} …\`. Once it is **Accepted**, staple it:"
-            echo "\`gh workflow run staple.yml -f run_id=${GITHUB_RUN_ID}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
       - uses: actions/upload-artifact@v4
         if: env.NOTARISE == 'true'
@@ -342,8 +406,66 @@ jobs:
           name: notarisation-macos-${{ matrix.arch }}
           if-no-files-found: error
           path: web/dist/notarisation-*.json
+      - name: Wait for Apple (up to an hour)
+        if: env.NOTARISE == 'true'
+        working-directory: web
+        timeout-minutes: 65
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          ARCH: ${{ matrix.arch }}
+          TAG: ${{ needs.version.outputs.version }}
+        run: |
+          id="$(jq -r .submission_id "dist/notarisation-${ARCH}.json")"
+          key_file="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s\n' "${APPLE_API_KEY_P8}" > "${key_file}"
+          chmod 600 "${key_file}"
+          if ! xcrun notarytool wait "${id}" --timeout 60m \
+            --key "${key_file}" --key-id "${APPLE_API_KEY_ID}" --issuer "${APPLE_API_ISSUER}"; then
+            rm -f "${key_file}"
+            {
+              echo "### macOS ${ARCH}: Apple has not finished"
+              echo
+              echo "Once \`xcrun notarytool info ${id} …\` says **Accepted**, staple and publish with:"
+              echo "\`gh workflow run staple.yml -f run_id=${GITHUB_RUN_ID} -f tag=${TAG}\`"
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "::error::submission ${id} (${ARCH}) is not done after the wait: run Staple once Apple has accepted it (the summary has the command)"
+            exit 1
+          fi
+          rm -f "${key_file}"
+      # the checks and the stapling the Staple workflow does too
+      - name: Staple
+        if: env.NOTARISE == 'true'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          ARCH: ${{ matrix.arch }}
+        run: bash .github/scripts/staple.sh "web/dist/notarisation-${ARCH}.json" web/dist
+      - uses: actions/upload-artifact@v4
+        if: env.NOTARISE == 'true'
+        with:
+          name: macos-${{ matrix.arch }}-notarised
+          if-no-files-found: error
+          path: |
+            web/dist/*.dmg
+            web/dist/*.zip
       - name: Remove the keychain and the notarisation key
         if: always()
         run: |
           security delete-keychain "${RUNNER_TEMP}/signing.keychain-db" || true
           rm -f "${RUNNER_TEMP}"/AuthKey_*.p8
+
+  # On a release tag: the nine renamed files onto the tag's draft release
+  # (publish.yml), once every build is done and stapled.
+  publish:
+    needs: [version, linux, windows, macos]
+    if: needs.version.outputs.publish == 'true'
+    permissions:
+      actions: read
+      contents: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      run_id: ${{ github.run_id }}
+      tag: ${{ needs.version.outputs.version }}

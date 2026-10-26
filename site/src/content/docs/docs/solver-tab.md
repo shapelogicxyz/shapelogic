@@ -183,7 +183,10 @@ Below the buttons:
 - **Assemblies**: how many assemblies have been found;
 - **Solutions**: how many of them could be taken apart (with the
   disassembly check);
-- **Time used** and an estimate of the **Time left**.
+- **Time used** and an estimate of the **Time left** ("unknown" until the
+  solver can tell). Time used counts every run of the solve: Continue
+  carries on from the time already used, also after quitting or loading
+  a paused solver state.
 
 If a solve fails, the reason appears under the counters.
 

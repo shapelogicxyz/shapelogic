@@ -6,12 +6,19 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "shapelogic"
-# the project version of ../CMakeLists.txt (test_alpha.py checks they agree)
-version = "1.0.0"
+# the project's version, from the git tag as CMake reads it
+# (cmake/ProjectVersion.cmake): `just python-wheel` writes it to VERSION
+# (git-ignored) before building; test_alpha.py checks they agree
+dynamic = ["version"]
 description = "Python bindings for the ShapeLogic 3D interlocking puzzle library (ShapeLogic's core)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "VERSION"
+regex = '^(?P<value>\d+\.\d+\.\d+)$'
 
 [tool.scikit-build]
 cmake.source-dir = ".."

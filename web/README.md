@@ -60,7 +60,9 @@ just app-smoke         # the smoke test of the unpacked app (after `just app-dis
 built natively); it puts `build/release/engine/shapelogic_engine` (on macOS
 `build/release-<arch>/` for the other architecture) into the app's
 resources, after checking its architecture and that `--version` says
-CMakeLists.txt's version, which the app takes too (read at build). The
+the project's version, which the app takes too (read at build): the
+newest `vX.Y` git tag's (`v1.4` is 1.4.0), or `SHAPELOGIC_VERSION` when
+it is set (`cmake/ProjectVersion.cmake`, `tools/project-version.ts`). The
 output is in `dist/`. `app-smoke` starts the unpacked app as a user would,
 with a fixture on its command line, and drives its page over Chromium's
 DevTools protocol (the app's fuses turn `--inspect` off, so Playwright's
@@ -81,9 +83,21 @@ file), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER` are set. On Windows the
 installer is unsigned (SmartScreen warns) unless `CSC_LINK` (or
 `WIN_CSC_LINK`) and `CSC_KEY_PASSWORD` name a code-signing certificate.
 docs/handoff/web-8.md has the steps by hand. In CI, Release
-(`.github/workflows/release.yml`) signs the macOS builds and sends the
-`.dmg` for notarisation without waiting for Apple; Staple (`staple.yml`,
-given that run's id) staples the tickets once Apple has accepted them.
+(`.github/workflows/release.yml`, started by a `vX.Y` tag that `just
+release` pushes) signs the macOS builds, sends the `.dmg` for
+notarisation, waits for Apple (up to an hour) and staples the tickets;
+on a tag, Publish (`publish.yml`) then attaches the renamed installers to
+the tag's draft release. Staple (`staple.yml`, given that run's id) is
+the fallback when Apple takes longer. A patch (`just release vX.Y.Z`)
+builds the same way, and publishing its draft folds it into the published
+vX.Y release (Patch, `patch.yml`): one release page, moved to the new tag
+with the new files. `just release` with no version prints the steps.
+
+**Updates.** The app asks GitHub for the latest release
+(`src/main/updates.ts`, on a session of its own) a few seconds after it
+starts, when it is packaged and the setting is on, and from Check for
+Updates… (Help; the application menu on macOS); a newer one is offered
+in a dialog (`src/renderer/shell/updates.ts`).
 
 ## The website's demo
 
@@ -161,7 +175,7 @@ Chrome (`--headed` shows it).
   `autosave.ts`).
 - `tools/`: `gen-api.ts` (the types), `sessions.ts` and
   `record-sessions.ts` (the recorded sessions), `dist.ts` (the packaged
-  app), `project-version.ts` (CMakeLists.txt's version).
+  app), `project-version.ts` (the project's version, from the git tag).
 - `packaging/`: the icons (the original's).
 - `fake-engine/`: `fake-engine.ts` (a recording replayed as a transport),
   `recordings/`.

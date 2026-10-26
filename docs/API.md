@@ -2999,6 +2999,7 @@ One take-apart under way.
 |---|---|---|---|
 | `stage` | [SolveStage](#solvestage) | required | What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced, panexSearch). |
 | `elapsedMs` | integer | required |  |
+| `usedMs` | integer | required | The problem's time used: this run's and the earlier runs' of a continued solve or a saved search. |
 | `piece` | integer | required |  |
 | `pieces` | integer | required |  |
 | `assemblyFraction` | number | required |  |

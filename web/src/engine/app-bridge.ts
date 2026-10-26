@@ -48,6 +48,8 @@ export type AppCommand =
   | { cmd: 'keys' }
   /** ShapeLogic ▸ Command Line Tool… (Help on Windows and Linux): the dialog that explains and installs shapelogic_cli. */
   | { cmd: 'cliTool' }
+  /** Help ▸ Check for Updates… (the application menu on macOS): ask GitHub now. */
+  | { cmd: 'checkUpdates' }
   | { cmd: 'about' };
 
 /** The names of the commands. */
@@ -104,6 +106,15 @@ export type CliToolResult =
 
 /** The links of the Help menu (the main process holds the addresses). */
 export type HelpLink = 'tutorial' | 'guide';
+
+/**
+ * What the update check found (main/updates.ts): the latest release
+ * (`v1.4`) newer than this version, the same or older, or no answer.
+ */
+export type UpdateResult =
+  | { status: 'newer'; current: string; latest: string }
+  | { status: 'current'; current: string; latest: string }
+  | { status: 'error'; current: string; error: string };
 
 /** The kinds of file the dialogs ask for. */
 export type FileKind = OpenKind | ExportKind;
@@ -207,6 +218,16 @@ export interface BtApp {
   clearRescue(): Promise<void>;
   /** Opens a help page in the system's browser. */
   openHelp(link: HelpLink): void;
+  /**
+   * Asks GitHub for the latest release. `auto` (the check at startup)
+   * resolves null unless there is a newer release to show: not when the app
+   * is not packaged, already checked this run, or that version was skipped.
+   */
+  checkForUpdates(auto: boolean): Promise<UpdateResult | null>;
+  /** Skip This Version: the check at startup no longer shows this one. */
+  skipUpdate(version: string): void;
+  /** Opens the latest release's page (its downloads) in the system's browser. */
+  openReleases(): void;
   /** Where the command line tool is, and whether it is linked into the path. */
   cliToolInfo(): Promise<CliToolInfo>;
   /** Links the tool into the path (the system asks for the administrator's password where it must). */
@@ -249,6 +270,7 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'focus3d',
   'keys',
   'cliTool',
+  'checkUpdates',
   'about',
 ]);
 
