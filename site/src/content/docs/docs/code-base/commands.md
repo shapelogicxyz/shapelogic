@@ -115,6 +115,18 @@ just site-demo [--check] # rebuild the browser demo (needs Emscripten); --check 
 Inside `site/`, `npm run dev`, `npm run build` and `npm test` are the
 scripts behind these.
 
+## Releases
+
+```bash
+just release             # the next version and the release steps
+just release v1.4        # a new release: check, push the tag, make the draft release
+just release v1.3.1      # a patch: updates the published v1.3 release when published
+just release-fetch v1.4  # a copy of a release's installers in release/v1.4
+```
+
+[Creating a New Release](/docs/code-base/releasing/) explains the whole
+flow.
+
 ## Environment switches
 
 | Variable | Effect |
@@ -125,6 +137,7 @@ scripts behind these.
 | `BT_AUTOSAVE_SECONDS` | shortens the Solver's autosave from 20 minutes, for the e2e tests |
 | `BT_USER_DATA` | moves the app's data directory (settings, recent files, the rescue copy); the only switch a packaged app takes |
 | `BT_PACKAGED_APP` | another executable for `just app-smoke` to test |
+| `SHAPELOGIC_VERSION` | the version to build (`v1.4` or `1.4.0`) instead of the newest git tag's; the Release workflow sets it from the tag |
 | `CSC_NAME`, `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER` | code signing and notarisation for `just app-dist`; see `web/README.md` |
 
 A packaged app ignores every development switch but `BT_USER_DATA`

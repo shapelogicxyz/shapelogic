@@ -110,6 +110,7 @@ export default defineConfig({
             { label: 'Engine Protocol', slug: 'docs/code-base/engine-protocol' },
             { label: 'Example Solve Flow', slug: 'docs/code-base/example-solve-flow' },
             { label: 'Conventions and Further Reading', slug: 'docs/code-base/conventions' },
+            { label: 'Creating a New Release', slug: 'docs/code-base/releasing' },
           ],
         },
       ],

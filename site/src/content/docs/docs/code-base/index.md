@@ -65,6 +65,8 @@ original file they were ported from.
 - [Conventions and Further Reading](/docs/code-base/conventions/): the code
   rules, the testing rules, and the documents inside the repository that go
   deeper.
+- [Creating a New Release](/docs/code-base/releasing/): `just release`, for
+  a new version or a patch to the current one, and what runs on GitHub.
 
 ## Reading order
 

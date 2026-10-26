@@ -120,3 +120,6 @@ plain push to `main`.
 - **Site** (`site.yml`) builds this website on pull requests that touch
   it, checks its links and checks that the pages the app's Help menu opens
   still exist. Cloudflare does the actual deploy.
+
+[Creating a New Release](/docs/code-base/releasing/) explains how the
+first four are used to make a release.
