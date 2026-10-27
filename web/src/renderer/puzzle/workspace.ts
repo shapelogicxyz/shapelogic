@@ -19,7 +19,10 @@
 // problem (docs/webui-spec.md, section 9.2): its board and stacks
 // (stacks-card.ts over stacking.board) in place of the result, the pieces
 // and the selected piece, the board with the discs of the start or the
-// goal in the view (view3d/board.ts) instead of the pieces scene.
+// goal in the view (view3d/board.ts) instead of the pieces scene. A
+// sliding problem (section 8.2): Start and goal (slide-card.ts over
+// sliding.tray) in the selected piece's place, and the board's START and
+// GOAL trays with the copies placed in the view (view3d/trays.ts).
 
 import type {
   FitStats,
@@ -46,6 +49,7 @@ import { puzLayout } from './layout.ts';
 import { PiecesCard } from './pieces-card.ts';
 import { PieceCard } from './piece-card.ts';
 import { ProblemsList } from './problems.ts';
+import { SlideCard } from './slide-card.ts';
 
 export type ProblemKind = Methods['problem.kind']['result'];
 
@@ -80,6 +84,7 @@ export class PuzzleWorkspace {
   /** The rod set chosen in the board's list (the problem's own at first). */
   boardSel: string | null = null;
   private readonly stacks: StacksCard;
+  private readonly slide: SlideCard;
   private rodLoads = 0;
   private readonly view3d: View3D;
   private readonly problems: ProblemsList;
@@ -100,6 +105,7 @@ export class PuzzleWorkspace {
     this.pieces = new PiecesCard(this);
     this.card = new PieceCard(this);
     this.stacks = new StacksCard(this);
+    this.slide = new SlideCard(this);
     view.puzzle = {
       pick: (shape) => {
         this.select(shape);
@@ -227,11 +233,22 @@ export class PuzzleWorkspace {
     const frozen = this.problemFrozen;
     stage.classList.toggle('pzfrozen', frozen);
     stage.dataset.pzfrozen = frozen ? '1' : '0';
-    byId('pzRightTitle').textContent = this.stacking ? 'Stacks' : 'Selected piece';
+    byId('pzRightTitle').textContent = this.stacking
+      ? 'Stacks'
+      : this.store.snapshot?.grid === 'sliding'
+        ? 'Start and goal'
+        : 'Selected piece';
     this.problems.render();
     this.pieces.render();
     this.card.render();
     this.stacks.render();
+    this.slide.render();
+    this.renderScene();
+    updateStatus();
+  }
+
+  /** The board of a sliding problem was read: the view's trays and the status follow. */
+  trayRead(): void {
     this.renderScene();
     updateStatus();
   }
@@ -242,6 +259,14 @@ export class PuzzleWorkspace {
     if (snap?.grid === 'stacking') {
       this.view3d.setPieces(null);
       this.renderBoard();
+      this.view3d.renderLabels();
+      return;
+    }
+    // a sliding board: its START and GOAL trays instead of the pieces scene
+    const trays = this.shown < 0 ? null : this.slide.trayModel();
+    this.view3d.setTray(trays);
+    if (trays !== null) {
+      this.view3d.setPieces(null);
       this.view3d.renderLabels();
       return;
     }

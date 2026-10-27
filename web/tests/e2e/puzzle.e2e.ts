@@ -459,7 +459,7 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await select(page, lib(dom));
     await fillAndLeave(page, '#pzSel input[data-sf="max"]', '24');
     expect((await checkShown(page)).parts).toEqual([
-      { shape: dom, min: 24, max: 24, groups: [], required: false },
+      { shape: dom, min: 24, max: 24, groups: [], required: false, placed: 0 },
     ]);
     await engineCall(page, 'solve.start', { problem: p1, options: { threads: 1 } });
     await expect(page.locator('#stage')).toHaveAttribute('data-pzfrozen', '1');
@@ -494,7 +494,7 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await page.click(`${lib(dom)} .la`);
     await pzSettled(page);
     expect((await problemGet(page, p2)).parts).toEqual([
-      { shape: dom, min: 1, max: 1, groups: [], required: false },
+      { shape: dom, min: 1, max: 1, groups: [], required: false, placed: 0 },
     ]);
     await page.locator(`#pzProblems .row[data-id="${p2}"] [data-a=dup]`).dispatchEvent('click');
     await expect(page.locator('#stText')).toHaveText('Pause the solve first');

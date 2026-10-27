@@ -477,7 +477,10 @@ test('a Panex search paused, the app restarted, the search carried on from where
     await openPath(page, file);
     await toSolver(page);
     await runButton(page, 'start');
-    await expect(page.locator('#slvActivity')).toContainText(/Panex search, \d+ moves deep/, {
+    await expect(page.locator('#slvActivity')).toHaveText('Search active with the Panex Solver', {
+      timeout: 20_000,
+    });
+    await expect(page.locator('#slvDetails')).toContainText(/^\d+ moves deep\. Found /, {
       timeout: 20_000,
     });
     await runButton(page, 'pause');
@@ -485,7 +488,7 @@ test('a Panex search paused, the app restarted, the search carried on from where
     // the note (where it was saved) in a message box; the search saved in the app's folder
     await expect(page.locator('#notice')).toContainText('The search is saved');
     await page.click('#notice [data-x="ok"]');
-    await expect(page.locator('#slvActivity')).toHaveText('Paused. The search is saved.');
+    await expect(page.locator('#slvActivity')).toHaveText('Search paused and saved');
     await expect(page.locator('#slvRun [data-r="continue"]')).toBeEnabled();
     await expect(page.locator('#slvRun [data-r="continue"]')).toHaveAttribute(
       'title',
@@ -500,7 +503,7 @@ test('a Panex search paused, the app restarted, the search carried on from where
     page = a.page;
     await openPath(page, file);
     await toSolver(page);
-    await expect(page.locator('#slvActivity')).toHaveText('Paused. The search is saved.');
+    await expect(page.locator('#slvActivity')).toHaveText('Search paused and saved');
     await page.click('#slvRun [data-r="start"]');
     await expect(page.locator('#savedSearch')).toContainText('This problem has a saved search');
     await expect(page.locator('#savedSearch')).toContainText(
@@ -516,7 +519,11 @@ test('a Panex search paused, the app restarted, the search carried on from where
     expect(row.rows[0]?.moves).toBe(2189);
     await expect(page.locator('#splayer')).toHaveAttribute('data-steps', '2189');
     // the search is through: its folder is gone, nothing left to continue
-    await expect(page.locator('#slvActivity')).toHaveText('Finished.');
+    await expect(page.locator('#slvActivity')).toHaveText('Search finished');
+    // what the search went through, kept with the problem
+    await expect(page.locator('#slvDetails')).toHaveText(
+      /^Scanned .+ stackings\. Searched [\d,]+ moves deep\.$/,
+    );
     await solverSettled(page);
   } finally {
     await a.close();
@@ -574,7 +581,9 @@ test('rod sets: new, copy, label, order, delete; frozen while solving; Abort of 
     await engineCall(page, 'settings.set', { threads: 1 });
     await toSolver(page);
     await runButton(page, 'start');
-    await expect(page.locator('#slvActivity')).toContainText(/Panex search/, { timeout: 20_000 });
+    await expect(page.locator('#slvActivity')).toHaveText('Search active with the Panex Solver', {
+      timeout: 20_000,
+    });
     await page.keyboard.press('Control+1');
     await expect(page.locator('#rodsPanel [data-r="new"]')).toBeDisabled();
     await expect(page.locator('#rodsPanel input[data-f="rodCount"]')).toBeDisabled();
@@ -586,7 +595,7 @@ test('rod sets: new, copy, label, order, delete; frozen while solving; Abort of 
     await runButton(page, 'abort');
     await page.click('.cfm-scrim [data-x="1"]');
     await solverSettled(page);
-    await expect(page.locator('#slvActivity')).toHaveText('Not solved yet.');
+    await expect(page.locator('#slvActivity')).toHaveText('Ready to Solve');
     await expect(page.locator('#slvRun [data-r="continue"]')).toBeDisabled();
   } finally {
     await a.close();

@@ -189,7 +189,8 @@ class Problem {
   /// Colour 0 is neutral. Unless `strict`, a neutral cell on either side
   /// goes anywhere; otherwise a piece colour may go into a result colour
   /// only when allowed. With `strict` a cell may only go into a result cell
-  /// of the same colour, neutral included. Without colours everything fits.
+  /// of the same colour, neutral included, or a colour of
+  /// getNeutralFitColors into a neutral one. Without colours everything fits.
   [[nodiscard]] bool placementAllowed(const Puzzle& puzzle, unsigned int pc, unsigned int res,
                                       bool strict = false) const;
   /// Allows piece colour `pc` in result colour `res` (both 1-based).
@@ -199,6 +200,12 @@ class Problem {
   [[nodiscard]] const std::set<std::uint32_t>& getColorConstraints() const {
     return colorConstraints_;
   }
+  /// The piece colours (bit c - 1 for colour c, up to 64) that may also go
+  /// on a neutral result cell when colours are matched strictly: a sliding
+  /// piece with starts for only some of its copies, the others starting
+  /// anywhere (sliding::refreshStartLocks sets it; not saved).
+  void setNeutralFitColors(std::uint64_t colors) { neutralFitColors_ = colors; }
+  [[nodiscard]] std::uint64_t getNeutralFitColors() const { return neutralFitColors_; }
 
   // ---- groups ---------------------------------------------------------------
 
@@ -408,6 +415,7 @@ class Problem {
   bool solutionsWithRotations_ = false;
   std::map<std::string, std::string> solverOptions_;
   std::set<std::uint32_t> colorConstraints_;
+  std::uint64_t neutralFitColors_ = 0;
 
   ProblemState state_ = ProblemState::Unsolved;
   std::uint64_t numAssemblies_ = 0;

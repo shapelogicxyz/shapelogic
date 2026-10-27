@@ -46,6 +46,7 @@ export const NO_STATE: MenuState = {
   colourView: false,
   style: 'drawing',
   focus3d: false,
+  theme: 'System',
   keys: {},
 };
 
@@ -103,6 +104,16 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
             h.send(command);
           },
         }),
+  });
+
+  const themeRadio = (theme: MenuState['theme'], label: string): MenuItemConstructorOptions => ({
+    id: `theme.${theme.toLowerCase()}`,
+    label,
+    type: 'radio',
+    checked: s.theme === theme,
+    click: () => {
+      h.send({ cmd: 'theme', theme });
+    },
   });
 
   const recent: MenuItemConstructorOptions[] =
@@ -216,6 +227,16 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
     id: 'view',
     label: '&View',
     submenu: [
+      {
+        id: 'theme',
+        label: 'Color Theme',
+        submenu: [
+          themeRadio('Dark', 'Use Dark Colors Theme'),
+          themeRadio('Light', 'Use Light Colors Theme'),
+          themeRadio('System', 'Use System Color Theme'),
+        ],
+      },
+      SEP,
       item('statusWindow', 'Status Window…', { cmd: 'statusWindow' }, doc),
       {
         id: 'focus3d',

@@ -385,8 +385,8 @@ class Document {
   Result<void> setColourRule(Id problem, Id pieceColour, Id resultColour, bool allowed);
   Result<void> setColourRules(Id problem, ColourPreset preset);
   /// In a sliding puzzle the result is the start/goal shape, a piece with
-  /// a start or goal there keeps its count (shapeIsRequired: the buttons
-  /// the original greyed out), bulk changes leave such pieces alone, and
+  /// starts or goals there keeps at least a copy for each
+  /// (sliding::stampedCopies), bulk changes leave such pieces alone, and
   /// there are no groups: those commands are refused (InvalidArgument), as
   /// are new, copied and deleted problems (they follow the start/goal
   /// shapes) and a deleted colour (the cell colours are the start marks).
@@ -421,12 +421,14 @@ class Document {
   /// The start/goal editor's click (sliding.place): the whole of a piece as
   /// its start (goal false) or its goal, from a click on (x, y) of layer z,
   /// y rising upwards (sliding::stampPiece: the piece's slice on layer z
-  /// under the mouse, as low as it fits); a piece that is exactly there
-  /// already is taken off. Refused (InvalidArgument) with the reason when
-  /// it does not fit. Returns whether the piece is there now.
+  /// under the mouse, as low as it fits): a piece of one copy moves there,
+  /// one of several copies is one more copy's (refused once every copy the
+  /// problem has is placed); a copy that is exactly there already is taken
+  /// off. Refused (InvalidArgument) with the reason when it does not fit.
+  /// Returns whether the piece is there now.
   Result<bool> placeStamp(Id tray, Id piece, int x, int y, int z, bool goal);
-  /// Takes off the start or goal that covers (x, y, z) (the right click);
-  /// false when there is none.
+  /// Takes off the start or goal of the copy that covers (x, y, z) (the
+  /// right click); false when there is none.
   Result<bool> clearStampAt(Id tray, int x, int y, int z, bool goal);
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
@@ -670,7 +672,7 @@ class Document {
   /// problems follow, with a notice.
   void slidingMarksLost(Id shape, const std::vector<Id>& trays);
   /// A sliding piece with a start or goal on the problem's start/goal
-  /// shape: its count follows them.
+  /// shape: it stays in the problem.
   [[nodiscard]] bool slidingRequired(unsigned int problem, unsigned int shape) const;
 
   // stacking puzzles

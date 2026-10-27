@@ -5,10 +5,12 @@
 // `isDarkTheme`, `applyDensity` (data-density; Minimal hides captions, so
 // `svDensityTitles` gives every such control its caption as a tooltip),
 // and the "Show tooltips" setting (titles held back while it is off). The
-// tips themselves are drawn by the page (tooltip.ts).
+// tips themselves are drawn by the page (tooltip.ts). Also the side cards'
+// widths (the "Sidebar width" setting): the --lwx and --rwx the stylesheet
+// lays the stage out with, set on the document over the density's.
 
 import { $$ } from './dom.ts';
-import { onPrefs, prefs } from './prefs.ts';
+import { DEFAULTS, onPrefs, prefs, SIDE_MAX } from './prefs.ts';
 import { installTooltips, releaseTip } from './tooltip.ts';
 
 const themeListeners = new Set<() => void>();
@@ -44,6 +46,25 @@ export function applyTheme(): void {
     delete r.dataset.theme;
   }
   themeChanged();
+}
+
+/** The window width from which Variable side cards grow. */
+const GROW_FROM = 1600;
+
+/** Applies the sidebar width setting. */
+export function applySidebars(): void {
+  const r = document.documentElement.style;
+  if (prefs.sidebar === 'Static') {
+    r.setProperty('--lwx', `${String(prefs.sideL)}px`);
+    r.setProperty('--rwx', `${String(prefs.sideR)}px`);
+    return;
+  }
+  // each card takes a third of the width past GROW_FROM (the 3D view the
+  // last third) until it reaches SIDE_MAX
+  const grow = (base: number): string =>
+    `clamp(${String(base)}px, calc(${String(base)}px + (100vw - ${String(GROW_FROM)}px) / 3), ${String(SIDE_MAX)}px)`;
+  r.setProperty('--lwx', grow(DEFAULTS.sideL));
+  r.setProperty('--rwx', grow(DEFAULTS.sideR));
 }
 
 /** Applies the density setting. */
@@ -101,11 +122,12 @@ function applyTips(root: ParentNode = document): void {
   }
 }
 
-/** Applies theme, density and tooltips now and whenever they change. */
+/** Applies theme, density, tooltips and the side cards' widths now and whenever they change. */
 export function installTheme(): void {
   installTooltips();
   applyTheme();
   applyDensity();
+  applySidebars();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (prefs.theme === 'System') {
       themeChanged();
@@ -120,6 +142,9 @@ export function installTheme(): void {
     }
     if (changed.includes('tips')) {
       applyTips();
+    }
+    if (changed.some((k) => k === 'sidebar' || k === 'sideL' || k === 'sideR')) {
+      applySidebars();
     }
   });
   // views re-render their parts: keep the new parts to the settings

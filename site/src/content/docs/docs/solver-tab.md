@@ -1,6 +1,6 @@
 ---
 title: Solver Tab Options
-description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow Nested Slides, Allow Partially Nested, Allow Vertical Moves and Enable High Memory; Sort by, the step-by-step explorer and the solutions list."
+description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow Nested Slides, Allow Partially Nested and Allow Vertical Moves; the memory and disk space a sliding or stacking search may take; Sort by, the step-by-step explorer and the solutions list."
 ---
 
 The **Solver** tab (`Ctrl+3`, `⌘3` on a Mac) searches for the ways the pieces
@@ -15,10 +15,10 @@ later is solved the same way.
 
 ## Problem
 
-The button at the top shows the problem to solve, its result and how many
-piece shapes it uses. Click it to pick another problem. Several problems can
-solve at the same time; the picker marks the ones that are **solving** or
-**paused**.
+The list at the top shows the puzzle's problems, as on the Puzzle tab. Click
+one to solve it; below the list are its result and how many piece shapes it
+uses. Several problems can solve at the same time; the list marks the ones
+that are **solving** or **paused**.
 
 ## What to check
 
@@ -143,8 +143,6 @@ symmetry and color ones:
 - **Allow Vertical Moves**: on a tray with more than one layer, a piece may
   also move up and down, lifted over the other pieces and put down somewhere
   else. Off (the default), every piece slides only in its own layer.
-- **Enable High Memory**: lets the search use up to half of the computer's
-  memory, instead of stopping at about 2 GB. On by default.
 - **Solver type**: each start is searched for the fewest moves to the goal.
   **Sliding Fast Solver (250k depth)** looks at up to 250,000 arrangements
   per start, **Sliding Deep Solver (1mil depth)** up to 1,000,000, and
@@ -157,13 +155,35 @@ A [stacking puzzle](/docs/puzzle-types/stacking/) shows **Find Solutions**
 (the fewest rod transfers from the start stacking to the goal) and:
 
 - **Just Count** and **Just Levels**, as above.
-- **Enable High Memory**: lets the search use up to half of the computer's
-  memory, instead of stopping at about 2 GB. On by default.
 - **Solver type**: the **Stacking Solver**, or the **Panex Solver** for rod
   sets with Panex style columns. The board decides which; it can't be
   changed. The Panex Solver searches from both ends on every core, and
   **Pause** saves its search so **Continue** can carry it on, even after
   quitting.
+
+### Memory and disk space
+
+How much memory and disk a sliding or stacking search may take is not a
+search option of the problem but a setting of the app, in **Settings ▸
+Solver** (`Ctrl+,` or `⌘,` on a Mac):
+
+- **Search memory**: the memory a sliding or stacking search may fill
+  before it stops. **Automatic** is half of the computer's memory; the
+  slider goes up to three quarters of it. This replaces the earlier
+  **Enable High Memory** option.
+- **Sliding disk space**: the disk the **Sliding Full Solver** may fill with
+  older moves while it runs. **Automatic** is half the free space, at most
+  200 GB.
+- **Stacking disk space**: the disk the **Panex Solver** may take for the
+  levels it saves. **Automatic** is half the free space, at most 200 GB.
+  Less disk never stops the search, but finding the path at the end takes
+  longer.
+
+A disk space larger than the disk has free is held to the free space, less a
+little room for everything else, so a search never fills the disk. On a Mac,
+the free space includes the space macOS frees when it is needed, as Finder
+counts it. When a search stops at one of these limits, its message names the
+setting to raise.
 
 ## Run
 
@@ -179,10 +199,18 @@ A [stacking puzzle](/docs/puzzle-types/stacking/) shows **Find Solutions**
 Below the buttons:
 
 - the **progress bar** and its percentage;
-- **Activity**: what the solver is doing now;
+- **Activity**: the solver's state: Ready to Solve, Search active
+  (with the name of the solver), Search paused, Search finished;
 - **Assemblies**: how many assemblies have been found;
 - **Solutions**: how many of them could be taken apart (with the
   disassembly check);
+- **Details**: how much the search has gone through. While it runs:
+  what it is working on and the search steps scanned, or for a sliding
+  or stacking puzzle how many moves deep it is and how many
+  arrangements or stackings it has scanned. Afterwards, the totals of
+  every run of the solve. These are saved with the problem in the
+  puzzle file, as are the counts and the time used, so they show again
+  when the file is opened and the problem chosen;
 - **Time used** and an estimate of the **Time left** ("unknown" until the
   solver can tell). Time used counts every run of the solve: Continue
   carries on from the time already used, also after quitting or loading

@@ -128,7 +128,8 @@ async function check(headed: boolean): Promise<void> {
     // Solve plays a run of about three seconds, then the solution is back
     await page.click('#leftS [data-r="start"]');
     await page.waitForFunction(
-      () => (document.getElementById('stText')?.textContent ?? '').includes('Activity: prepare'),
+      () =>
+        (document.getElementById('stText')?.textContent ?? '').includes('Activity: Search active'),
       null,
       { timeout: 5_000 },
     );

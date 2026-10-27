@@ -556,7 +556,7 @@ test('settings and layouts survive a restart', async () => {
     await page.click('#setPg button[data-n="newZ"][data-s="-1"]');
     await expect(page.locator('#setPg input[data-n="newZ"]')).toHaveValue('3');
     await page.click('#setNav [data-p="perf"]');
-    await page.locator('#setPg input[type=range]').fill('1');
+    await page.locator('#setPg input[data-k="threads"]').fill('1');
     await page.keyboard.press('Escape');
     // layouts: Puzzle with its left card collapsed, Solver with its right one, Solver shown
     await page.keyboard.press('Control+2');
@@ -622,6 +622,58 @@ test('settings and layouts survive a restart', async () => {
   }
 });
 
+test('Sidebar width: Static widths as chosen; Variable grows past a 1600 pixel window', async () => {
+  const a = await launch();
+  try {
+    const { page } = a;
+    await openFixture(page, 'Bermuda.xmpuzzle');
+    // the side cards' widths and the window's, as laid out (after the grid's transition)
+    const columns = (): Promise<string> =>
+      page.evaluate(() => {
+        const body = document.querySelector<HTMLElement>('#stage .body');
+        const [l = '', , r = ''] = getComputedStyle(
+          body ?? document.body,
+        ).gridTemplateColumns.split(' ');
+        return `${l} ${r}`;
+      });
+    const resize = (width: number): Promise<void> =>
+      a.app.evaluate(({ BrowserWindow }, w) => {
+        BrowserWindow.getAllWindows()[0]?.setContentSize(w, 900);
+      }, width);
+    await page.keyboard.press('Control+,');
+    await expect(page.locator('#setPg [data-k="sidebar"][data-o="Static"]')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveValue('320');
+    await expect(page.locator('#setPg input[data-w="sideR"]')).toHaveValue('340');
+    await expect.poll(columns).toBe('320px 340px');
+    await page.fill('#setPg input[data-w="sideL"]', '450');
+    await page.keyboard.press('Tab');
+    await page.click('#setPg button[data-w="sideR"][data-s="1"]');
+    await expect(page.locator('#setPg input[data-w="sideR"]')).toHaveValue('350');
+    await expect.poll(columns).toBe('450px 350px');
+    // out of range: held to 200 to 600
+    await page.fill('#setPg input[data-w="sideL"]', '9000');
+    await page.keyboard.press('Tab');
+    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveValue('600');
+    // a wide window leaves Static as it is
+    await resize(1900);
+    await expect.poll(columns).toBe('600px 350px');
+    await page.click('#setPg [data-k="sidebar"][data-o="Variable"]');
+    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveCount(0);
+    // 300 pixels past 1600: a third each
+    await expect.poll(columns).toBe('420px 440px');
+    await resize(1500);
+    await expect.poll(columns).toBe('320px 340px');
+    // the right card reaches 600 at 2380, the left at 2440
+    await resize(2410);
+    await expect.poll(columns).toBe('590px 600px');
+    await resize(3000);
+    await expect.poll(columns).toBe('600px 600px');
+    await page.keyboard.press('Escape');
+  } finally {
+    await a.close();
+  }
+});
+
 test('a save while solving at a save point; the paused solver state exported and imported', async () => {
   test.setTimeout(180_000);
   const dir = tmp();
@@ -635,7 +687,7 @@ test('a save while solving at a save point; the paused solver state exported and
     // one thread (the setting): the 2x4x6 box of dominoes runs for minutes
     await page.keyboard.press('Control+,');
     await page.click('#setNav [data-p="perf"]');
-    await page.locator('#setPg input[type=range]').fill('1');
+    await page.locator('#setPg input[data-k="threads"]').fill('1');
     await page.keyboard.press('Escape');
     await expect
       .poll(() => engineCall<{ threads: number }>(page, 'settings.get'))

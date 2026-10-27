@@ -78,17 +78,19 @@ def engine_info_and_settings(e):
     panex = s.pop("panexFolder")
     check(panex == "" or panex.endswith("panex"), f"the Panex folder {panex!r}")
     check(s == {"undoDepth": 25, "threads": 0, "solver": "classic", "slideDiskGB": 0,
-                "panexDiskGB": 0}, f"default settings {s}")
+                "panexDiskGB": 0, "searchMemoryGB": 0}, f"default settings {s}")
+    check(info["memoryBytes"] >= 0, f"the machine's memory {info['memoryBytes']}")
     s = e.call("settings.set", {"undoDepth": 2, "solver": "crowell", "slideFolder": "", "slideDiskGB": 1.5,
-                                "panexFolder": "", "panexDiskGB": 2})
+                                "panexFolder": "", "panexDiskGB": 2, "searchMemoryGB": 3})
     check(s == {"undoDepth": 2, "threads": 0, "solver": "crowell", "slideFolder": "", "slideDiskGB": 1.5,
-                "panexFolder": "", "panexDiskGB": 2}, f"settings after set {s}")
+                "panexFolder": "", "panexDiskGB": 2, "searchMemoryGB": 3}, f"settings after set {s}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")
     e.fails("settings.set", {"slideDiskGB": -1}, "invalid_params")
     e.fails("settings.set", {"panexDiskGB": -1}, "invalid_params")
+    e.fails("settings.set", {"searchMemoryGB": -1}, "invalid_params")
     e.call("settings.set", {"slideFolder": folder, "slideDiskGB": 0, "panexFolder": panex,
-                            "panexDiskGB": 0})
+                            "panexDiskGB": 0, "searchMemoryGB": 0})
 
     # the undo depth reaches the document: three steps, two kept
     e.call("document.new", {"grid": "bricks"})
@@ -431,7 +433,7 @@ def problems(e):
     e.call("problem.addPiece", {"problem": p1, "shape": cube})
     e.call("problem.removePiece", {"problem": p1, "shape": cube})
     detail = e.call("problem.get", {"problem": p1})
-    check(detail["result"] == box and detail["parts"] == [{"shape": cube, "min": 2, "max": 2, "groups": [], "required": False}],
+    check(detail["result"] == box and detail["parts"] == [{"shape": cube, "min": 2, "max": 2, "groups": [], "required": False, "placed": 0}],
           f"detail {detail}")
     check(detail["state"] == "unsolved" and detail["solve"] == "idle" and detail["pieces"] == 2, "state")
     e.call("problem.setGroup", {"problem": p1, "shape": cube, "group": 1})
@@ -980,6 +982,9 @@ def sliding_start_goal_shapes(e):
     check(t["goals"][9] == two and t["goals"][10] == two and t["error"] is None, f"goals {t}")
     parts = {x["shape"]: x for x in e.call("problem.get", {"problem": p})["parts"]}
     check(parts[two]["required"] and parts[one]["required"], f"required parts {parts}")
+    check(parts[two]["placed"] == 1 and parts[one]["placed"] == 1, f"placed copies {parts}")
+    check(sorted((x["piece"], x["goal"], len(x["cells"])) for x in t["placed"])
+          == sorted([(two, False, 2), (two, True, 2), (one, False, 1)]), f"the copies {t['placed']}")
     e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 0}, "invalid_argument")
     e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
     # the problem buttons and the colour group the original greyed out: the
@@ -991,6 +996,14 @@ def sliding_start_goal_shapes(e):
     check(len(colours) >= 2, f"the locks' colours {colours}")
     e.fails("colour.delete", {"colour": colours[0]["id"]}, "invalid_argument")
     check(len(e.call("document.get")["problems"]) == 1, "one problem still")
+    # a piece of two copies: a second start beside the first, then no third
+    e.call("problem.setPieceCount", {"problem": p, "shape": one, "min": 2, "max": 2})
+    e.call("sliding.place", {"tray": tray, "piece": one, "at": [2, 0], "goal": False})
+    e.fails("sliding.place", {"tray": tray, "piece": one, "at": [1, 1], "goal": False}, "invalid_argument")
+    e.fails("problem.setPieceCount", {"problem": p, "shape": one, "min": 1, "max": 1}, "invalid_argument")
+    check(e.call("sliding.clearAt", {"tray": tray, "at": [2, 0], "goal": False})["cleared"], "one copy off")
+    check(e.call("sliding.tray", {"tray": tray})["starts"][3] == one, "the other copy stays")
+    e.call("problem.setPieceCount", {"problem": p, "shape": one, "min": 1, "max": 1})
     # clicking where it is takes it off; undo puts it back
     off = e.call("sliding.place", {"tray": tray, "piece": one, "at": [3, 0], "goal": False})
     check(not off["placed"], "taken off")

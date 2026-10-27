@@ -29,6 +29,7 @@ const part = (shape: string, min: number, max: number, groups: Part['groups'] = 
   max,
   groups,
   required: false,
+  placed: 0,
 });
 
 function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {
@@ -46,6 +47,9 @@ function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {
     solutions: null,
     saved: 0,
     timeMs: null,
+    searched: 0,
+    searchDepth: 0,
+    triedApart: 0,
     parts,
     colourRules: [],
     maxHoles: null,

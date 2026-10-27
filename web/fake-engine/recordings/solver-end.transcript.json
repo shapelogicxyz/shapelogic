@@ -40,13 +40,17 @@
    "solutions": 7,
    "saved": 7,
    "timeMs": 0,
+   "searched": 265,
+   "searchDepth": 0,
+   "triedApart": 7,
    "parts": [
     {
      "shape": "s2",
      "min": 6,
      "max": 6,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     }
    ],
    "colourRules": [],
@@ -227,7 +231,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 52,
+     "elapsedMs": 59,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,

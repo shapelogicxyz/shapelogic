@@ -5,11 +5,14 @@
 // docs/mockup/index.html: `SET`, `rowHtml`, `kbKeys`, `kbRow`,
 // `renderSettings`, `openSettings`, `closeSettings` and the dialog's
 // handlers. The mockup's "Use OpenGL display lists" is dropped (no OpenGL;
-// docs/webui-spec.md section 1). Undo depth and worker threads go to the
-// engine (settings.set); the threads' range is the machine's
-// (engine.info's hardware threads). The shortcuts page prints the one
-// keyboard table (keys.ts).
+// docs/webui-spec.md section 1). Undo depth, worker threads, the search
+// memory and the searches' disk space go to the engine (settings.set);
+// the threads' and the memory's ranges are the machine's (engine.info's
+// hardware threads and memory). The search memory replaced the Solver
+// tab's Enable High Memory. The shortcuts page prints the one keyboard
+// table (keys.ts).
 
+import type { Settings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
@@ -17,16 +20,41 @@ import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
 import type { KeyRow } from './keys.ts';
-import { DEFAULTS, NEW_SIZE_MAX, prefs, setPrefs } from './prefs.ts';
+import { DEFAULTS, NEW_SIZE_MAX, prefs, setPrefs, SIDE_MAX, SIDE_MIN } from './prefs.ts';
 import type { Prefs } from './prefs.ts';
 import { reportError } from './status.ts';
 
-type Row =
+type Row = (
   | { k: keyof Prefs; t: string; d: string; type: 'sw' }
   | { k: keyof Prefs; t: string; d: string; type: 'seg'; opts: readonly string[] }
   | { k: keyof Prefs; t: string; d: string; type: 'select'; opts: readonly number[] }
   | { k: keyof Prefs; t: string; d: string; type: 'slider'; min: number }
-  | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] };
+  | {
+      k: keyof Prefs;
+      t: string;
+      d: string;
+      type: 'steps';
+      /** The values the slider stops at, smallest first; 0 is automatic. */
+      steps: () => readonly number[];
+      label: (v: number) => string;
+    }
+  | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] }
+  | { t: string; d: string; type: 'widths' }
+) & {
+  /** Shown only while this holds (a setting another one makes matter). */
+  when?: () => boolean;
+  /** The heading of the rows of a page it starts, until the next one. */
+  group?: string;
+};
+
+/** The side card width settings, as the widths row shows them. */
+const WIDTHS = [
+  { k: 'sideL', name: 'Left' },
+  { k: 'sideR', name: 'Right' },
+] as const;
+
+/** How far the width steppers move, in pixels. */
+const WIDTH_STEP = 10;
 
 /** The settings an X, Y and Z row sets. */
 type XyzKey = 'newX' | 'newY' | 'newZ' | 'slideX' | 'slideY' | 'slideZ';
@@ -39,7 +67,50 @@ interface XyzSet {
 
 /** The settings of a row. */
 const keysOf = (r: Row): readonly (keyof Prefs)[] =>
-  r.type === 'xyz' ? r.sets.flatMap((x) => x.k) : [r.k];
+  r.type === 'xyz'
+    ? r.sets.flatMap((x) => x.k)
+    : r.type === 'widths'
+      ? WIDTHS.map((x) => x.k)
+      : [r.k];
+
+/** Whether a row is shown now. */
+const shown = (r: Row): boolean => r.when?.() ?? true;
+
+/** The machine's memory in GB, from the engine; 0 until it says or when it cannot tell. */
+const memoryGB = (): number => (store?.info?.memoryBytes ?? 0) / 1e9;
+
+/** The automatic search memory in GB: half the machine's, at least 2 (the engine's). */
+const autoMemoryGB = (): number => Math.max(2, memoryGB() / 2);
+
+/** The search memory choices in GB, up to three quarters of the machine's. */
+const MEMORY_GB = [2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024];
+
+/** The search memory slider's stops: the choices, automatic (0) in its place among them. */
+function memorySteps(): number[] {
+  const top = memoryGB() > 0 ? memoryGB() * 0.75 : 64;
+  const auto = autoMemoryGB();
+  const fixed = MEMORY_GB.filter((g) => g <= top && Math.abs(g - auto) >= 1);
+  return [...fixed.filter((g) => g < auto), 0, ...fixed.filter((g) => g > auto)];
+}
+
+/** The disk space choices in GB, automatic (0) first. */
+const DISK_GB = [0, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+
+/** A size in GB as the sliders show it. */
+const gbText = (gb: number): string =>
+  gb >= 1000 ? `${String(gb / 1000)} TB` : `${String(Math.round(gb))} GB`;
+
+/** The stop of a slider a value is at, or nearest to (a value set elsewhere). */
+function stepOf(steps: readonly number[], v: number, auto: number): number {
+  const at = (x: number): number => (x === 0 ? auto : x);
+  let best = 0;
+  steps.forEach((x, i) => {
+    if (Math.abs(at(x) - at(v)) < Math.abs(at(steps[best] ?? 0) - at(v))) {
+      best = i;
+    }
+  });
+  return v === 0 ? Math.max(0, steps.indexOf(0)) : best;
+}
 
 interface Page {
   id: string;
@@ -55,9 +126,22 @@ const SET: readonly Page[] = [
       {
         k: 'density',
         t: 'Interface density',
-        d: 'Standard is the default. Minimal shows icons without captions, moves helper text into tooltips, hides the viewport toolbar until you point at the top of the 3D view and narrows the side cards. Every function stays available in both.',
+        d: 'Standard is the default. Compact is Standard with shorter rows in the scrolling lists (shapes, problems, solutions), so about twice as many fit. Minimal shows icons without captions, moves helper text into tooltips, and hides the viewport toolbar until you point at the top of the 3D view. Every function stays available in all three.',
         type: 'seg',
-        opts: ['Standard', 'Minimal'],
+        opts: ['Standard', 'Compact', 'Minimal'],
+      },
+      {
+        k: 'sidebar',
+        t: 'Sidebar width',
+        d: `Static keeps the left and right side cards at the widths you choose. Variable widens them as the window grows past 1600 pixels: each card and the 3D view take a third of the extra width, until a card is ${String(SIDE_MAX)} pixels wide.`,
+        type: 'seg',
+        opts: ['Static', 'Variable'],
+      },
+      {
+        t: 'Sidebar sizes',
+        d: `The widths of the left and right side cards, in pixels, from ${String(SIDE_MIN)} to ${String(SIDE_MAX)}.`,
+        type: 'widths',
+        when: () => prefs.sidebar === 'Static',
       },
       {
         k: 'theme',
@@ -171,6 +255,32 @@ const SET: readonly Page[] = [
         type: 'seg',
         opts: ['Complete', 'Fast'],
       },
+      {
+        k: 'memGB',
+        t: 'Search memory',
+        d: 'The memory a sliding or stacking search may fill with the arrangements it has found before it stops. Automatic is half of this computer’s memory. More lets a large search go further; the choices go up to three quarters of the memory, so the computer stays usable while it runs. The Sliding Full Solver keeps older moves on disk, so it needs memory only for the widest move.',
+        type: 'steps',
+        steps: memorySteps,
+        label: (v) => (v === 0 ? `${gbText(autoMemoryGB())} (automatic)` : gbText(v)),
+        group: 'Memory',
+      },
+      {
+        k: 'slideDiskGB',
+        t: 'Sliding disk space',
+        d: 'The disk the Sliding Full Solver may fill with older moves while it runs, in your cache folder; the files go when the search ends. Automatic is half the free space, at most 200 GB. A larger choice is held to what the disk has free, less a little room for everything else, so the search stops before the disk is full.',
+        type: 'steps',
+        steps: () => DISK_GB,
+        label: (v) => (v === 0 ? 'Automatic' : gbText(v)),
+        group: 'Disk space',
+      },
+      {
+        k: 'panexDiskGB',
+        t: 'Stacking disk space',
+        d: 'The disk a stacking search (the Panex Solver) may take for the levels it saves, so Pause and Continue can carry it on. Automatic is half the free space, at most 200 GB. Less disk never stops the search, but keeps fewer levels, so finding the path at the end takes longer. A larger choice is held to what the disk has free.',
+        type: 'steps',
+        steps: () => DISK_GB,
+        label: (v) => (v === 0 ? 'Automatic' : gbText(v)),
+      },
     ],
   },
 ];
@@ -191,6 +301,16 @@ function threadsShown(): number {
 }
 
 function rowHtml(r: Row): string {
+  if (r.type === 'widths') {
+    const steps = WIDTHS.map(({ k, name }) => {
+      const v = prefs[k];
+      return `<div class="step"><button data-w="${k}" data-s="-1" title="Narrow the ${name.toLowerCase()} side card" ${v <= SIDE_MIN ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-w="${k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(`${name} sidebar width`)}" title="Type the ${name.toLowerCase()} side card’s width in pixels"><button data-w="${k}" data-s="1" title="Widen the ${name.toLowerCase()} side card" ${v >= SIDE_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div>`;
+    });
+    const sets = WIDTHS.map(
+      (x, i) => `<small>${esc(x.name)}</small><div class="size3">${steps[i] ?? ''}</div>`,
+    ).join('');
+    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div><div class="xyzsets">${sets}</div></div>`;
+  }
   if (r.type === 'xyz') {
     const sets = r.sets
       .map((x) => {
@@ -217,6 +337,13 @@ function rowHtml(r: Row): string {
         ? r.opts
         : [...r.opts, v as number].sort((a, b) => a - b);
       c = `<select class="dd" data-k="${r.k}" aria-label="${esc(r.t)}" title="${esc(r.d)}">${opts.map((o) => `<option value="${o}" ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+      break;
+    }
+    case 'steps': {
+      const steps = r.steps();
+      const auto = r.k === 'memGB' ? autoMemoryGB() : 0;
+      const n = v as number;
+      c = `<div style="display:flex;align-items:center;gap:10px;width:260px"><input type="range" min="0" max="${String(steps.length - 1)}" step="1" value="${String(stepOf(steps, n, auto))}" data-k="${r.k}" data-steps="${steps.join(',')}" aria-label="${esc(r.t)}" aria-valuetext="${esc(r.label(n))}" title="${esc(r.d)}" style="flex:1;accent-color:var(--accent)"><b style="width:118px;text-align:right;white-space:nowrap">${esc(r.label(n))}</b></div>`;
       break;
     }
     case 'slider': {
@@ -259,6 +386,16 @@ export function kbKeys(spec: string): string {
 export const kbRowHtml = (r: KeyRow): string =>
   `<div class="kbrow"><span>${esc(r.does)}</span><span class="k">${kbKeys(r.keys)}</span></div>`;
 
+/** Rows with the headings of their groups before them. */
+function rowsHtml(rows: readonly Row[]): string {
+  return rows
+    .map(
+      (r) =>
+        (r.group === undefined ? '' : `<div class="setgrp">${esc(r.group)}</div>`) + rowHtml(r),
+    )
+    .join('');
+}
+
 /** Draws the dialog's navigation and page. */
 export function renderSettings(): void {
   byId('setNav').innerHTML =
@@ -271,9 +408,9 @@ export function renderSettings(): void {
   if (query !== '') {
     const q = query.toLowerCase();
     for (const p of SET) {
-      const rs = p.rows.filter((r) => `${r.t} ${r.d}`.toLowerCase().includes(q));
+      const rs = p.rows.filter((r) => shown(r) && `${r.t} ${r.d}`.toLowerCase().includes(q));
       if (rs.length > 0) {
-        h += `<h3>${esc(p.name)}</h3>` + rs.map(rowHtml).join('');
+        h += `<h3>${esc(p.name)}</h3>` + rowsHtml(rs);
       }
     }
     const hk = keyGroups()
@@ -302,7 +439,7 @@ export function renderSettings(): void {
     if (p !== undefined) {
       h =
         `<div class="pgh"><h3>${esc(p.name)}</h3><button class="btn sm" data-reset="${p.id}" title="Restore this section’s settings to their default values">Reset section</button></div>` +
-        p.rows.map(rowHtml).join('');
+        rowsHtml(p.rows.filter(shown));
     }
   }
   byId('setPg').innerHTML = h;
@@ -351,14 +488,23 @@ export function closeSettings(): void {
 function change(c: Partial<Prefs>): void {
   setPrefs(c);
   renderSettings();
-  const engine: { undoDepth?: number; threads?: number } = {};
+  const engine: Partial<Settings> = {};
   if (c.undo !== undefined) {
     engine.undoDepth = c.undo;
   }
   if (c.threads !== undefined) {
     engine.threads = c.threads;
   }
-  if (store !== null && (engine.undoDepth !== undefined || engine.threads !== undefined)) {
+  if (c.memGB !== undefined) {
+    engine.searchMemoryGB = c.memGB;
+  }
+  if (c.slideDiskGB !== undefined) {
+    engine.slideDiskGB = c.slideDiskGB;
+  }
+  if (c.panexDiskGB !== undefined) {
+    engine.panexDiskGB = c.panexDiskGB;
+  }
+  if (store !== null && Object.keys(engine).length > 0) {
     store.setEngineSettings(engine).catch((e: unknown) => {
       reportError(e, 'The setting was not taken');
     });
@@ -367,6 +513,9 @@ function change(c: Partial<Prefs>): void {
 
 /** A new shape size held to the settings' range. */
 const newSize = (n: number): number => Math.min(NEW_SIZE_MAX, Math.max(1, n));
+
+/** A side card width held to the settings' range. */
+const sideWidth = (n: number): number => Math.min(SIDE_MAX, Math.max(SIDE_MIN, n));
 
 function defaultsOf(rows: readonly Row[]): Partial<Prefs> {
   return Object.fromEntries(rows.flatMap(keysOf).map((k) => [k, DEFAULTS[k]]));
@@ -377,7 +526,13 @@ export function installSettings(s: Store): void {
   store = s;
   s.subscribe((c) => {
     if (c.kind === 'settings' && s.settings !== null) {
-      setPrefs({ undo: s.settings.undoDepth, threads: s.settings.threads });
+      setPrefs({
+        undo: s.settings.undoDepth,
+        threads: s.settings.threads,
+        memGB: s.settings.searchMemoryGB,
+        slideDiskGB: s.settings.slideDiskGB,
+        panexDiskGB: s.settings.panexDiskGB,
+      });
       if (settingsOpen()) {
         renderSettings();
       }
@@ -429,7 +584,11 @@ export function installSettings(s: Store): void {
     if (b === null) {
       return;
     }
-    if (b.dataset.n !== undefined && b.dataset.s !== undefined) {
+    if (b.dataset.w !== undefined && b.dataset.s !== undefined) {
+      const k = b.dataset.w as (typeof WIDTHS)[number]['k'];
+      change({ [k]: sideWidth(prefs[k] + WIDTH_STEP * Number(b.dataset.s)) });
+      pg.querySelector<HTMLElement>(`button[data-w="${k}"][data-s="${b.dataset.s}"]`)?.focus();
+    } else if (b.dataset.n !== undefined && b.dataset.s !== undefined) {
       const k = b.dataset.n as XyzKey;
       change({ [k]: newSize(prefs[k] + Number(b.dataset.s)) });
       pg.querySelector<HTMLElement>(`button[data-n="${k}"][data-s="${b.dataset.s}"]`)?.focus();
@@ -444,6 +603,15 @@ export function installSettings(s: Store): void {
   });
   pg.addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement | HTMLSelectElement;
+    if (t.dataset.w !== undefined) {
+      // a width typed in: whole pixels, held to the range; anything else shows the width again
+      const n = Number(t.value.trim());
+      if (t.value.trim() !== '' && Number.isFinite(n)) {
+        change({ [t.dataset.w]: sideWidth(Math.round(n)) });
+      }
+      renderSettings();
+      return;
+    }
     if (t.dataset.n !== undefined) {
       // a size typed in: whole, 1 to NEW_SIZE_MAX; anything else shows the size again
       const n = Number(t.value.trim());
@@ -453,13 +621,27 @@ export function installSettings(s: Store): void {
       renderSettings();
       return;
     }
+    if (t.dataset.k !== undefined && t.dataset.steps !== undefined) {
+      const steps = t.dataset.steps.split(',').map(Number);
+      change({ [t.dataset.k]: steps[Number(t.value)] ?? 0 });
+      return;
+    }
     if (t.dataset.k !== undefined && (t.tagName === 'SELECT' || t.type === 'range')) {
       change({ [t.dataset.k]: Number(t.value) });
     }
   });
   pg.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement;
-    if (t.type === 'range' && t.nextElementSibling !== null) {
+    if (t.type !== 'range' || t.nextElementSibling === null) {
+      return;
+    }
+    const row = SET.flatMap((p) => p.rows).find((r) => r.type === 'steps' && r.k === t.dataset.k);
+    if (row?.type === 'steps' && t.dataset.steps !== undefined) {
+      // the size the stop stands for, before the change is applied
+      const v = Number(t.dataset.steps.split(',')[Number(t.value)] ?? 0);
+      t.nextElementSibling.textContent = row.label(v);
+      t.setAttribute('aria-valuetext', row.label(v));
+    } else {
       t.nextElementSibling.textContent = t.value;
     }
   });

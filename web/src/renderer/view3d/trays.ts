@@ -1,32 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A sliding puzzle's start/goal shape in the Entities view (docs/webui-
-// spec.md, section 8.1): two trays side by side, START and GOAL, each
-// piece placed on one standing a layer above it in its own colour. From
-// the original's voxelframe.cpp `showSingleShape` (the trays' grey,
-// slidingColors::VIEW_GREY, a gap of 4 units between them, the titles).
-// The START tray is the shape the view already draws (scene.ts: picking
-// and 3D edit work on it); this adds the GOAL tray and the pieces, from
-// the engine's meshes, moved to where `sliding.tray` says the pieces are.
+// A sliding puzzle's start/goal shape (a board) in the Puzzle view
+// (docs/webui-spec.md, section 8.2): two trays side by side, START and
+// GOAL, each copy of a piece placed on one standing a layer above it in
+// its piece's colour. From the original's voxelframe.cpp `showSingleShape`
+// (the trays' grey, slidingColors::VIEW_GREY, a gap of 4 units between
+// them, the titles), which showed them in the Entities view. Both trays
+// and the pieces are drawn here, from the engine's meshes, moved to where
+// `sliding.tray` says the copies are.
 
-import { Vector3 } from 'three';
-import type { Group } from 'three';
+import { Group, Vector3 } from 'three';
 
 import { meshArrays } from '../../engine/frames.ts';
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { esc } from '../shell/dom.ts';
-import { TRAY_VIEW, viewColour } from '../shell/piece-colours.ts';
+import { viewColour } from '../shell/piece-colours.ts';
+import type { TrayCopy } from '../entities/tray.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 import type { MeshCache } from './meshcache.ts';
 import { SolutionScene } from './solution.ts';
 import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
 
-/** Where the pieces stand on a tray: each piece's cells [x, y, z], on START and on GOAL. */
+/** The board and where the copies stand on it, on START and on GOAL. */
 export interface TrayModel {
-  starts: ReadonlyMap<string, readonly (readonly [number, number, number])[]>;
-  goals: ReadonlyMap<string, readonly (readonly [number, number, number])[]>;
+  tray: string;
+  starts: readonly TrayCopy[];
+  goals: readonly TrayCopy[];
 }
 
 /** The gap between the two trays, in cells (showSingleShape's). */
@@ -46,6 +47,8 @@ export interface TraysHost {
 }
 
 export class TrayView {
+  /** What is drawn, in the trays' cells: the view moves it as it frames them. */
+  readonly group = new Group();
   private readonly host: TraysHost;
   private readonly scene = new SolutionScene();
   private model: TrayModel | null = null;
@@ -58,7 +61,8 @@ export class TrayView {
 
   constructor(host: TraysHost, parent: Group) {
     this.host = host;
-    parent.add(this.scene.group);
+    this.group.add(this.scene.group);
+    parent.add(this.group);
   }
 
   /** The space the view frames while two trays are shown (null: none). */
@@ -67,7 +71,7 @@ export class TrayView {
     return s === null ? null : [2 * s[0] + TRAY_GAP, s[1], s[2] + 1];
   }
 
-  /** Shows the trays of the selected shape (null: it is no tray). */
+  /** Shows a board's trays (null: none). */
   set(model: TrayModel | null): void {
     this.model = model;
     this.load();
@@ -87,16 +91,16 @@ export class TrayView {
   load(): void {
     const store = this.host.store;
     const model = this.model;
-    const tray = store.shape;
+    const tray = store.snapshot?.shapes.find((s) => s.id === model?.tray) ?? null;
     if (model === null || tray === null || store.snapshot?.grid !== 'sliding') {
       this.show(++this.loads, null, null, '');
       return;
     }
     const style = this.host.style();
     const gen = store.generation;
-    const pieces = [...new Set([...model.starts.keys(), ...model.goals.keys()])];
+    const pieces = [...new Set([...model.starts, ...model.goals].map((c) => c.piece))];
     const shapes = [tray.id, ...pieces];
-    const key = `${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify([...model.starts])}:${JSON.stringify([...model.goals])}`;
+    const key = `${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
     if (key === this.shownKey) {
       return;
     }
@@ -163,19 +167,27 @@ export class TrayView {
       });
       const [trayId, trayMesh] = meshes[0] ?? [];
       if (trayId !== undefined && trayMesh !== undefined) {
-        // the GOAL tray; START is the shape the view draws
-        pieces.push({
-          piece: -1,
-          shape: trayId,
-          colour: TRAY_VIEW,
-          mode: 'solid',
-          built: trayMesh,
-        });
-        poses.push(pose([shift, 0, 0]));
+        // the START tray, then the GOAL tray
+        for (const [piece, dx] of [
+          [-1, 0],
+          [-2, shift],
+        ] as const) {
+          pieces.push({
+            piece,
+            shape: trayId,
+            colour: viewColour(
+              shapes.find((x) => x.id === trayId),
+              0,
+            ),
+            mode: 'solid',
+            built: trayMesh,
+          });
+          poses.push(pose([dx, 0, 0]));
+        }
       }
       const meshOf = new Map(meshes.slice(1).map(([s, b, lo]) => [s, { b, lo }]));
       const place = (stamps: TrayModel['starts'], dx: number): void => {
-        for (const [id, cells] of stamps) {
+        for (const { piece: id, cells } of stamps) {
           const m = meshOf.get(id);
           if (m === undefined || cells.length === 0) {
             continue;

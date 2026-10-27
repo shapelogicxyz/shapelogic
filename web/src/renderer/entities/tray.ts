@@ -1,23 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A sliding puzzle's start/goal shape (a tray) as the Entities workspace
-// shows it (docs/webui-spec.md, section 8.1): what the engine says it
-// holds (`sliding.tray`: each cell's start and goal, the validity bar's
-// reason), read again at each revision while a tray is shown, the marks
-// in the pieces' colours, the preview's colour, and the validity bar's
+// A sliding puzzle's start/goal shape (a board) as the Puzzle workspace's
+// Start and goal card shows it (docs/webui-spec.md, section 8.2): what the
+// engine says it holds (`sliding.tray`: each cell's start and goal, each
+// copy placed, the validity bar's reason), read again at each revision
+// while a board is shown, the marks in the pieces' colours, the copies
+// for the view's two trays, the preview's colour, and the validity bar's
 // words. From the original's grideditor.cpp (`drawStampPreview`'s
-// colours, the marks drawn in the piece's colour), mainwindow_rods.cpp
-// (`refreshSlideValid`'s words and colours) and tooltabs.cpp
-// (`refreshPieceList`: every shape but the trays). DOM-free.
+// colours, the marks drawn in the piece's colour) and mainwindow_rods.cpp
+// (`refreshSlideValid`'s words and colours). DOM-free.
 
 import type { Methods, ShapeSummary } from '../../engine/api.generated.ts';
 import type { EngineApi } from '../../engine/client-types.ts';
-import { isTray, shapeColour } from '../shell/piece-colours.ts';
+import { shapeColour } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { key } from './editor-state.ts';
 
 /** What `sliding.tray` answers. */
 export type TrayReply = Methods['sliding.tray']['result'];
+
+/** A copy of a piece on a board: the piece and its cells [x, y, z]. */
+export interface TrayCopy {
+  piece: string;
+  cells: readonly (readonly [number, number, number])[];
+}
 
 /** What `sliding.preview` answers. */
 export type PreviewReply = Methods['sliding.preview']['result'];
@@ -42,18 +48,8 @@ export function outlineColour(p: Pick<PreviewReply, 'fits' | 'there'>): string {
 /** The validity bar's text and whether it is good news (refreshSlideValid). */
 export function validity(error: string | null): { text: string; valid: boolean } {
   return error === null
-    ? { text: 'Valid Start/Goal positions for pieces in Start and Goal of this shape', valid: true }
+    ? { text: 'Valid Start/Goal positions for pieces in Start and Goal of this board', valid: true }
     : { text: `Invalid Start/Goal positions - ${error}`, valid: false };
-}
-
-/** The pieces a start or goal can be placed for: every shape but the trays, "S2 - name". */
-export function stampPieces(shapes: readonly ShapeSummary[]): ShapeSummary[] {
-  return shapes.filter((s) => !isTray(s));
-}
-
-/** A piece's name in the Start/Goal list (refreshPieceList). */
-export function pieceText(s: ShapeSummary): string {
-  return s.name === '' ? s.label : `${s.label} - ${s.name}`;
 }
 
 /**
@@ -85,22 +81,17 @@ export function marksOf(
 }
 
 /**
- * Where each piece stands on a tray (the 3D view's two trays): its cells
- * there, by piece. A stamp is the whole piece moved, so its cells' lowest
- * corner and the piece's place it.
+ * Where each copy stands on a board (the 3D view's two trays): its piece
+ * and its cells there, as the engine split the marks into whole pieces. A
+ * copy is the whole piece moved, so its cells' lowest corner places it.
  */
-export function stampsOf(t: TrayReply, goal: boolean): Map<string, [number, number, number][]> {
-  const out = new Map<string, [number, number, number][]>();
-  const [X, Y] = t.size;
-  (goal ? t.goals : t.starts).forEach((id, i) => {
-    if (id === null) {
-      return;
-    }
-    const cells = out.get(id) ?? [];
-    cells.push([i % X, Math.trunc(i / X) % Y, Math.trunc(i / (X * Y))]);
-    out.set(id, cells);
-  });
-  return out;
+export function copiesOf(t: TrayReply, goal: boolean): TrayCopy[] {
+  return t.placed
+    .filter((c) => c.goal === goal)
+    .map((c) => ({
+      piece: c.piece,
+      cells: c.cells.map((q): [number, number, number] => [q[0], q[1], q[2]]),
+    }));
 }
 
 /**

@@ -3,7 +3,7 @@
 // Stacking puzzles in the front end (deferred part 4, docs/webui-spec.md
 // section 9): the Solver's stacking options over the stored settings and
 // their rules (updateSolverOptionCheckboxes), SolveOptions.stacking with
-// the board's one solver, the Activity lines of the Panex and the stacking
+// the board's one solver, the Details lines of the Panex and the stacking
 // search; the board's boxes as the original's voxelframe.cpp built them
 // (addPeg, addRodBase, addPanexV), its middle and the discs' places; the
 // disc list's sizes, a rod set's text and the fields its rules grey out,
@@ -20,7 +20,7 @@ import {
   normalize,
   readOptions,
   solveOptions,
-  stackingActivity,
+  stackingDetails,
   stackingSolverOf,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
@@ -75,21 +75,16 @@ const layout = (l: Partial<BoardLayout> = {}): BoardLayout => ({
 });
 
 describe('the stacking solver options', () => {
-  it('start with Find Solutions; the original stored no solver; High Memory kept', () => {
+  it('start with Find Solutions; the original stored no solver; a stored High Memory kept', () => {
     expect(familyOf('stacking')).toBe('stacking');
     expect(familyOf('sliding')).toBe('sliding');
     expect(familyOf('prisms')).toBe('brick');
     const o = readOptions({}, undefined, 'stacking');
     expect(o.disassemble).toBe(true);
-    expect(o.highMemory).toBe(true);
     expect(readOptions({}).disassemble).toBe(false);
     // a stored solver type is not a stacking one
     expect(readOptions({ solverType: 'crowell' }, undefined, 'stacking').solver).toBe('classic');
-    const w = writeOptions(
-      { ...o, highMemory: true },
-      { solverType: 'kept', other: 'x' },
-      'stacking',
-    );
+    const w = writeOptions(o, { solverType: 'kept', other: 'x', highMemory: true }, 'stacking');
     expect(w.solverType).toBe('kept');
     expect(w.highMemory).toBe(true);
     expect(w.other).toBe('x');
@@ -120,30 +115,24 @@ describe('the stacking solver options', () => {
     expect([...levels.disabled].sort()).toEqual(['disassemble', 'justCount']);
   });
 
-  it('solve with the board one solver, high memory and the search own autosave', () => {
+  it('solve with the board one solver and the search own autosave', () => {
     expect(stackingSolverOf(true)).toBe('panex');
     expect(stackingSolverOf(false)).toBe('stacking');
-    const o = { ...readOptions({}, undefined, 'stacking'), highMemory: true, autosave: false };
+    const o = { ...readOptions({}, undefined, 'stacking'), autosave: false };
     expect(solveOptions(o, DEFAULT_LIMITS, 'stacking', 'panex')).toEqual({
       disassemble: true,
       justCount: false,
       keepAtMost: 100,
       keepEach: 1,
-      stacking: { solver: 'panex', highMemory: true, autosave: false },
+      stacking: { solver: 'panex', autosave: false },
     });
     expect(solveOptions(o, DEFAULT_LIMITS).stacking).toBeUndefined();
   });
 
-  it('tell the search on the Activity line as the original', () => {
-    expect(stackingActivity(true, 12_345, 7, 0)).toBe(
-      'Panex search, 7 moves deep. Found 12,345 stackings.',
-    );
-    expect(stackingActivity(true, 1, 881, 40)).toBe(
-      'Panex search, tracing the path. Traced 40 of 881 moves.',
-    );
-    expect(stackingActivity(false, 2_500_000, 0, 0)).toBe(
-      'Stacking search. Scanned 2.5 million stackings.',
-    );
+  it('tell the search on the Details line as the original’s Activity line', () => {
+    expect(stackingDetails(true, 12_345, 7, 0)).toBe('7 moves deep. Found 12,345 stackings.');
+    expect(stackingDetails(true, 1, 881, 40)).toBe('Tracing the path. Traced 40 of 881 moves.');
+    expect(stackingDetails(false, 2_500_000, 0, 0)).toBe('Scanned 2.5 million stackings.');
   });
 });
 

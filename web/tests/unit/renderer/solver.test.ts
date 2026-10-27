@@ -14,7 +14,13 @@ import type { EngineApi } from '../../../src/engine/client-types.ts';
 import type { PoseArrays } from '../../../src/engine/frames.ts';
 import { cellScale } from '../../../src/renderer/view3d/extent.ts';
 import { PAGE, SolutionPager } from '../../../src/renderer/solver/pager.ts';
-import { CHUNK, PoseTrack, SAMPLES, slerp } from '../../../src/renderer/solver/poses.ts';
+import {
+  CHUNK,
+  ChunkLoads,
+  PoseTrack,
+  SAMPLES,
+  slerp,
+} from '../../../src/renderer/solver/poses.ts';
 import {
   DEFAULT_LIMITS,
   DEFAULT_OPTIONS,
@@ -236,6 +242,68 @@ describe('the poses', () => {
     const r = slerp(a, b, 0.25);
     expect(2 * Math.atan2(r[2], r[3])).toBeCloseTo(Math.PI / 8, 6);
     expect(Math.hypot(...slerp(a, a, 0.3))).toBeCloseTo(1, 9);
+  });
+});
+
+describe('the chunk loads', () => {
+  /** Loads into `track` that wait for `come(c)`; `asked` counts them per chunk. */
+  function engineLoads(track: PoseTrack): {
+    load: (c: number) => Promise<void>;
+    come: (c: number) => void;
+    fail: (c: number) => void;
+    asked: Map<number, number>;
+  } {
+    const waiting = new Map<number, (ok: boolean) => void>();
+    const asked = new Map<number, number>();
+    return {
+      load: (c) => {
+        asked.set(c, (asked.get(c) ?? 0) + 1);
+        return new Promise<boolean>((resolve) => waiting.set(c, resolve)).then((ok) => {
+          if (ok) {
+            track.add(c, chunkArrays(track, c));
+          }
+        });
+      },
+      come: (c) => waiting.get(c)?.(true),
+      fail: (c) => waiting.get(c)?.(false),
+      asked,
+    };
+  }
+
+  it('wait for a chunk already on its way (scrubbing into the prefetched chunk)', async () => {
+    const track = new PoseTrack(3, CHUNK * 3);
+    const loads = new ChunkLoads();
+    const e = engineLoads(track);
+    const first = loads.ensure(track, 0.5, e.load);
+    // chunk 0 and the prefetch of chunk 1 asked for
+    expect([...e.asked.keys()]).toEqual([1, 0]);
+    e.come(0);
+    expect(await first).toBe(true);
+    // into chunk 1 while its prefetch is on its way: no second ask, and no answer until it comes
+    let came: boolean | null = null;
+    void loads.ensure(track, CHUNK + 0.3, e.load).then((c) => (came = c));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(came).toBeNull();
+    expect(e.asked.get(1)).toBe(1);
+    e.come(1);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(came).toBe(true);
+    expect(track.at(CHUNK + 0.3, false)).not.toBeNull();
+  });
+
+  it('say not to try again when nothing was missing or a load failed', async () => {
+    const track = new PoseTrack(3, CHUNK * 3);
+    const loads = new ChunkLoads();
+    const e = engineLoads(track);
+    const p = loads.ensure(track, 0.5, e.load);
+    e.fail(0);
+    expect(await p).toBe(false);
+    // a failed chunk is asked for again on the next pose, not by itself
+    const again = loads.ensure(track, 0.5, e.load);
+    expect(e.asked.get(0)).toBe(2);
+    e.come(0);
+    expect(await again).toBe(true);
+    expect(await loads.ensure(track, 0.5, e.load)).toBe(false);
   });
 });
 

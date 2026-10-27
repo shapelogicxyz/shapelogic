@@ -482,8 +482,10 @@ what limits it:
   folder (see [environment variables](#environment-variables)). It deletes its
   files when it is done.
 - `SHAPELOGIC_SLIDE_DISK_GB` limits the disk it may take. By default it may
-  use all but 2 GB or a twentieth of the disk, but at least 1 GB or half the
-  free space, whichever is less.
+  use half the free space, at most 200 GB. A larger value is held to the free
+  space, less 2 GB or a twentieth of it, so the disk never fills up. On a Mac
+  the free space includes what macOS frees when it is needed, as Finder
+  counts it.
 
 When every reachable arrangement was searched and none reaches the goal, the
 tool says so:
@@ -817,7 +819,7 @@ A script should check the exit code and, in text mode, the solution count:
 | Variable | Used for | Default |
 |---|---|---|
 | `SHAPELOGIC_SLIDE_DIR` | Where the Sliding Full Solver writes its older moves. | `sliding` in the cache folder |
-| `SHAPELOGIC_SLIDE_DISK_GB` | The disk the Sliding Full Solver may take, in GB. | All but 2 GB or a twentieth of the disk, but at least 1 GB or half the free space, whichever is less |
+| `SHAPELOGIC_SLIDE_DISK_GB` | The disk the Sliding Full Solver may take, in GB. | Half the free space, at most 200 GB |
 | `SHAPELOGIC_PANEX_DIR` | Where Panex searches are saved. `--panex-dir` overrides it. | `panex` in the cache folder |
 | `SHAPELOGIC_PANEX_DISK_GB` | The disk saved Panex levels may take, in GB. `--panex-disk` overrides it. | Half the free space, at most 200 GB |
 

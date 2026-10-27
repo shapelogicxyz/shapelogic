@@ -220,6 +220,31 @@ TEST_CASE("sliding session: pausing and continuing finds every solution once",
   }
 }
 
+// The engine sets the memory and names where its user sets it: the note
+// says that place instead of Enable High Memory.
+TEST_CASE("sliding session: a search out of memory names the program's settings",
+          "[sliding][session]") {
+  Puzzle p = swapped(3);
+  SolveOptions o = findSolutions(SlidingSolver::Fast, 1);
+  o.sliding.memoryBytes = 1;
+  o.settingsPlace = "Settings ▸ Solver";
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  CHECK(s.note() ==
+        "1 start layout was not searched completely: the search reached its memory limit of 1 "
+        "arrangements. There may be solutions the solver did not find. Settings ▸ Solver can "
+        "give it more Search memory.");
+
+  // without a place, the original's words
+  Puzzle q = swapped(3);
+  o.settingsPlace.clear();
+  SolveSession t(q, q.getProblem(0), o);
+  REQUIRE(t.start().has_value());
+  t.wait();
+  CHECK(t.note().ends_with(" Try Enable High Memory."));
+}
+
 TEST_CASE("sliding session: a save point lets the search under way finish, a pause does not",
           "[sliding][session]") {
   // A 4x4 tray of fifteen with a swap no sliding makes: the fast search
@@ -423,4 +448,65 @@ TEST_CASE("sliding playback: a move round a corner follows its route", "[sliding
   CHECK(dy == static_cast<float>(route[1][1]));
   CHECK((*p1)[0].translation[0] - (*p0)[0].translation[0] == 1.0F);
   CHECK((*p1)[0].translation[1] - (*p0)[0].translation[1] == 1.0F);
+}
+
+namespace {
+
+// A 4x1 tray: A (a unit piece) starts and ends at (0,0); B is a unit piece
+// the problem has two copies of, with the starts and goals given.
+Puzzle twoCopies(const std::vector<int>& starts, const std::vector<int>& goals) {
+  Puzzle puz{GridType(GridKind::Sliding)};
+  const unsigned int trayId = addStartGoalShape(puz, 4, 1);
+  const unsigned int a = addBlock(puz, 1, 1);
+  const unsigned int b = addBlock(puz, 1, 1);
+  Voxel& tray = puz.getShape(trayId);
+  tray.setColor(0, 0, 0, a + 1);
+  tray.setGoalPiece(tray.getIndex(0, 0, 0), a + 1);
+  for (const int x : starts) {
+    tray.setColor(static_cast<unsigned int>(x), 0, 0, b + 1);
+  }
+  for (const int x : goals) {
+    tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(x), 0, 0), b + 1);
+  }
+  syncSlidingProblems(puz);
+  Problem& pr = puz.getProblem(0);
+  pr.setShapeMaximum(puz, b, 2);
+  pr.setShapeMinimum(puz, b, 2);
+  syncSlidingProblems(puz);
+  return puz;
+}
+
+}  // namespace
+
+TEST_CASE("sliding session: copies of a piece share their starts and goals",
+          "[sliding][session]") {
+  // both copies placed: one start (the copies are alike), any copy on any goal
+  {
+    Puzzle p = twoCopies({1, 2}, {2, 3});
+    CHECK(startGoalError(p, 0).empty());
+    CHECK(p.getProblem(0).getNeutralFitColors() == 0);
+    const SlideTotals t = straightSolve(p, findSolutions(SlidingSolver::Full, 1), false);
+    CHECK(t.assemblies == 1);
+    CHECK(t.solutions == 1);
+  }
+  // a start for one copy: the other starts on any free cell (2 or 3), never
+  // with the start left empty
+  {
+    Puzzle p = twoCopies({1}, {2, 3});
+    CHECK(startGoalError(p, 0).empty());
+    CHECK(p.getProblem(0).getNeutralFitColors() == std::uint64_t{1} << 2);
+    const SlideTotals t = straightSolve(p, findSolutions(SlidingSolver::Full, 1), false);
+    CHECK(t.assemblies == 2);
+    CHECK(t.solutions == 1);
+  }
+  // a goal for one copy: one copy on it is the goal, the other ends anywhere
+  {
+    Puzzle p = twoCopies({1, 2}, {3});
+    const SlideTotals t = straightSolve(p, findSolutions(SlidingSolver::Full, 1), false);
+    CHECK(t.assemblies == 1);
+    CHECK(t.solutions == 1);
+    REQUIRE(t.endings.size() == 1);
+    // one move: the copy at 2 to 3
+    CHECK(t.endings.begin()->ends_with(" 1"));
+  }
 }

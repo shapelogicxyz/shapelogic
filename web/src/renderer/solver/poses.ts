@@ -154,6 +154,53 @@ export class PoseTrack {
   }
 }
 
+/**
+ * The chunks asked of the engine and not come yet. A pose that needs a chunk
+ * already on its way waits for that load rather than finding nothing to ask
+ * for: a pose retried as soon as there was nothing to wait for would run as
+ * a microtask after microtask, and the reply that ends it would never be
+ * read (the renderer hung, scrubbing into a chunk being prefetched).
+ */
+export class ChunkLoads {
+  private readonly pending = new Map<number, Promise<void>>();
+
+  /** The load of chunk c: the one on its way, else `load(c)` started now (it must not reject). */
+  load(c: number, load: (c: number) => Promise<void>): Promise<void> {
+    const on = this.pending.get(c);
+    if (on !== undefined) {
+      return on;
+    }
+    const p = load(c).finally(() => {
+      if (this.pending.get(c) === p) {
+        this.pending.delete(c);
+      }
+    });
+    this.pending.set(c, p);
+    return p;
+  }
+
+  /**
+   * Loads the chunks the pose at `t` needs and prefetches the next one, ahead
+   * of play. True when it waited for chunks and they all came: only then is
+   * the pose worth trying again (not when nothing was missing, nor after a
+   * failed load, which would ask again and again).
+   */
+  async ensure(track: PoseTrack, t: number, load: (c: number) => Promise<void>): Promise<boolean> {
+    const want = track.missing(t);
+    const ahead = PoseTrack.chunkOf(t) + 1;
+    if (ahead < track.chunkCount && !track.has(ahead)) {
+      void this.load(ahead, load);
+    }
+    await Promise.all(want.map((c) => this.load(c, load)));
+    return want.length > 0 && want.every((c) => track.has(c));
+  }
+
+  /** Forgets the loads on their way (a new playback; theirs check the track they were for). */
+  clear(): void {
+    this.pending.clear();
+  }
+}
+
 function lerp(a: number | undefined, b: number | undefined, f: number): number {
   const x = a ?? 0;
   return x + ((b ?? 0) - x) * f;

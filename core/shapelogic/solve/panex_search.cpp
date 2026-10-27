@@ -1768,10 +1768,7 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
     }
   }
 
-  std::uint64_t budget = sliding::kSearchMemoryBytes;
-  if (search.highMemory) {
-    budget = std::max(budget, physicalMemoryBytes() / 2);
-  }
+  const std::uint64_t budget = sliding::memoryBudget(search.memoryBytes, search.highMemory);
 
   // the threads: the pool given, or one of the search's own, with a core
   // more than the levels' threads for the saved level being written (the
@@ -1802,14 +1799,9 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
   Store store;
   SavedState resumeState;
   const std::filesystem::path dir = folderFor(fp, search.workDir);
-  std::uint64_t disk = search.diskBudget;
   if (!dir.empty() && store.open(dir, 1)) {
-    if (disk == 0) {
-      std::error_code ec;
-      const std::filesystem::space_info space = std::filesystem::space(dir, ec);
-      disk = ec ? 0 : std::min<std::uint64_t>(space.available / 2, 200000000000ULL);
-    }
-    store.budget = std::max<std::uint64_t>(disk, 1);
+    // the levels already saved there count as room of the search's own
+    store.budget = diskBudgetFor(dir, search.diskBudget, store.used).bytes;
     if (search.resume && store.loadState(resumeState, fp, true)) {
       store.interval = resumeState.interval;
       searcher.resumeFrom = &resumeState;

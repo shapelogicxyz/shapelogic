@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The settings of docs/webui-spec.md section 1 as the client holds them
-// (the mockup's `st.set`). Undo depth and threads are the engine's
-// (settings.set; the store mirrors them); the rest are the client's.
+// (the mockup's `st.set`). Undo depth, threads, the search memory and the
+// searches' disk space are the engine's (settings.set; the store mirrors
+// them); the rest are the client's.
 // Since stage 6 they are kept across sessions (persist.ts), read back
 // through `validPrefs`.
 
@@ -11,8 +12,13 @@ export type ZAxis = 'Z Towards' | 'Z Up';
 
 /** The settings and their values. */
 export interface Prefs {
-  density: 'Standard' | 'Minimal';
+  density: 'Standard' | 'Compact' | 'Minimal';
   theme: 'Light' | 'Dark' | 'System';
+  /** The side cards' widths: Static, sideL and sideR; Variable, wider as a wide window grows. */
+  sidebar: 'Static' | 'Variable';
+  /** The left and right side cards' widths in Static, in pixels (SIDE_MIN to SIDE_MAX). */
+  sideL: number;
+  sideR: number;
   undo: number;
   tips: boolean;
   /** Ask GitHub for a newer release at startup (shell/updates.ts). */
@@ -40,14 +46,23 @@ export interface Prefs {
   pieceCompact: boolean;
   /** Worker threads; 0 until the engine said (its 0 is every hardware thread). */
   threads: number;
+  /** The memory a sliding or stacking search may fill, in GB; 0 automatic (the engine's searchMemoryGB). */
+  memGB: number;
+  /** The disk a full sliding search's older moves may take, in GB; 0 automatic (the engine's slideDiskGB). */
+  slideDiskGB: number;
+  /** The disk a saved stacking search may take, in GB; 0 automatic (the engine's panexDiskGB). */
+  panexDiskGB: number;
   /** The Solver type of a problem that stored none (not sliding or stacking): classic or crowell. */
   solverType: 'Complete' | 'Fast';
 }
 
-/** The defaults (the engine's for undo depth and threads). */
+/** The defaults (the engine's for undo depth, threads, memory and disk). */
 export const DEFAULTS: Readonly<Prefs> = {
   density: 'Standard',
   theme: 'System',
+  sidebar: 'Static',
+  sideL: 320,
+  sideR: 340,
   undo: 25,
   tips: true,
   updates: true,
@@ -67,6 +82,9 @@ export const DEFAULTS: Readonly<Prefs> = {
   pieceLabels: false,
   pieceCompact: false,
   threads: 0,
+  memGB: 0,
+  slideDiskGB: 0,
+  panexDiskGB: 0,
   solverType: 'Complete',
 };
 
@@ -101,8 +119,9 @@ export function onPrefs(listener: (changed: (keyof Prefs)[]) => void): () => voi
 
 /** The choices of the settings that have them (the settings dialog's). */
 const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
-  density: ['Standard', 'Minimal'],
+  density: ['Standard', 'Compact', 'Minimal'],
   theme: ['Light', 'Dark', 'System'],
+  sidebar: ['Static', 'Variable'],
   // the names before Free Spin and Top Up are dropped: back to the default
   rot: ['Free Spin', 'Top Up'],
   // Z Away and Z Up + Y Towards are dropped: back to the default
@@ -117,6 +136,13 @@ export const NEW_SIZE_MAX = 100;
 /** The new shape size settings, each 1 to NEW_SIZE_MAX. */
 const NEW_SIZE: readonly (keyof Prefs)[] = ['newX', 'newY', 'newZ', 'slideX', 'slideY', 'slideZ'];
 
+/** The narrowest and widest side card the settings take, in pixels. */
+export const SIDE_MIN = 200;
+export const SIDE_MAX = 600;
+
+/** The side card width settings, each SIDE_MIN to SIDE_MAX. */
+const SIDE: readonly (keyof Prefs)[] = ['sideL', 'sideR'];
+
 /** The stored settings that are well formed. */
 export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
   const out: Partial<Record<keyof Prefs, unknown>> = {};
@@ -129,9 +155,11 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
         ? choices.includes(v)
         : NEW_SIZE.includes(k)
           ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= NEW_SIZE_MAX
-          : typeof DEFAULTS[k] === 'number'
-            ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
-            : typeof v === typeof DEFAULTS[k];
+          : SIDE.includes(k)
+            ? typeof v === 'number' && Number.isInteger(v) && v >= SIDE_MIN && v <= SIDE_MAX
+            : typeof DEFAULTS[k] === 'number'
+              ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
+              : typeof v === typeof DEFAULTS[k];
     if (ok) {
       out[k] = v;
     }

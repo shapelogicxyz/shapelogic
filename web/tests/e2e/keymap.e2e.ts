@@ -168,15 +168,9 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
       await expect(stage(c.page)).not.toHaveClass(new RegExp(`\\b${cls}\\b`));
     }
   },
-  'Everywhere|Ctrl+Space': async (c) => {
-    await c.page.keyboard.press('Control+Space');
-    await expect(stage(c.page)).toHaveClass(/\bf3d\b/);
-    await c.page.keyboard.press('Control+Space');
-    await expect(stage(c.page)).not.toHaveClass(/\bf3d\b/);
-  },
   'Everywhere|Esc': async (c) => {
     // the step-back order: the menu first, then the focus
-    await c.page.keyboard.press('Control+Space');
+    await c.page.click('#bF3D');
     await c.page.click('#bDisp');
     await expect(c.page.locator('#pop')).toBeVisible();
     await c.page.keyboard.press('Escape');

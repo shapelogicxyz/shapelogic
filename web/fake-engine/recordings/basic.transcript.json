@@ -7,7 +7,8 @@
    "slideFolder": "/home/user/Library/Caches/ShapeLogic/sliding",
    "slideDiskGB": 0,
    "panexFolder": "/home/user/Library/Caches/ShapeLogic/panex",
-   "panexDiskGB": 0
+   "panexDiskGB": 0,
+   "searchMemoryGB": 0
   },
   {
    "revision": 1,
@@ -426,7 +427,10 @@
      "assemblies": 1,
      "solutions": 0,
      "saved": 1,
-     "timeMs": 1000
+     "timeMs": 1000,
+     "searched": 0,
+     "searchDepth": 0,
+     "triedApart": 0
     }
    ],
    "rodSets": []
@@ -1514,91 +1518,106 @@
    "assemblies": 1,
    "solutions": 1,
    "saved": 1,
-   "timeMs": 62,
+   "timeMs": 35,
+   "searched": 1866,
+   "searchDepth": 0,
+   "triedApart": 1,
    "parts": [
     {
      "shape": "s1",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s5",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s7",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s11",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s12",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s16",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s17",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s18",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s19",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s20",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s21",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     },
     {
      "shape": "s22",
      "min": 1,
      "max": 1,
      "groups": [],
-     "required": false
+     "required": false,
+     "placed": 0
     }
    ],
    "colourRules": [],
@@ -2143,8 +2162,8 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 107,
-     "usedMs": 62,
+     "elapsedMs": 50,
+     "usedMs": 35,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,

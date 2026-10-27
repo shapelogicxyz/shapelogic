@@ -62,10 +62,13 @@ import {
   familyOf,
   normalize,
   readOptions,
-  slidingActivity,
   sameOptions,
+  savedDetails,
+  searchActive,
+  shortCount,
+  slidingDetails,
   solveOptions,
-  stackingActivity,
+  stackingDetails,
   stackingSolverOf,
   writeOptions,
 } from './settings.ts';
@@ -262,6 +265,9 @@ export class SolverWorkspace {
           updateStatus();
           this.renderTag();
         }
+      } else {
+        // another problem's run: its note in the problems list
+        this.runCard.renderProblems();
       }
     });
     onLayout(() => {
@@ -526,39 +532,108 @@ export class SolverWorkspace {
     };
   }
 
-  /** The activity text: the run's (the original's status text), else the problem's state. */
+  /** The Activity text: the solver's state (what it has found and gone through is details()). */
   activity(): string {
     const r = this.record;
     const p = this.problem;
     if (this.analysing) {
-      return 'analysing disassemblies';
+      return 'Analysing disassemblies';
     }
     if (r !== null && r.phase !== 'none' && r.progress !== null) {
-      const g = r.progress;
-      if (g.stage === 'search') {
-        return this.stacking
-          ? stackingActivity(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
-          : slidingActivity(g.searched, g.searchDepth);
+      switch (r.progress.stage) {
+        case 'stopping':
+          return 'Stopping the search…';
+        case 'paused':
+          return 'Search paused';
+        case 'done':
+          return 'Search finished';
+        case 'error':
+          return 'Search failed';
+        case 'idle':
+          break;
+        default:
+          return searchActive(this.solverLabel);
       }
-      return g.activity;
+    }
+    // a run started whose first progress has not come yet
+    if (this.current !== null && isActive(this.stateOf(this.current))) {
+      return searchActive(this.solverLabel);
     }
     // a stacking problem's search saved on disk (updateInterface)
     if (this.savedSearch !== null) {
-      return 'Paused. The search is saved.';
+      return 'Search paused and saved';
     }
     if (r?.failure !== null && r?.failure !== undefined && this.stateOf(r.problem) === 'error') {
-      return 'error';
+      return 'Search failed';
     }
-    switch (p?.state) {
+    if (p === null) {
+      return 'No problem to solve';
+    }
+    switch (p.state) {
       case 'solved':
-        return 'Finished.';
+        return 'Search finished';
       case 'solving':
-        return 'Paused.';
-      case 'unknown':
-        return 'Partly solved.';
-      default:
-        return 'Not solved yet.';
+        return 'Search paused';
+      default: {
+        // what Solve's tooltip says when it is greyed (run-card.ts)
+        const board = this.stacking ? p.rodSet !== null : p.result !== null;
+        if (!board || (this.slideError ?? this.stackError) !== null) {
+          return 'Not ready to solve';
+        }
+        return p.state === 'unknown' ? 'Ready to Solve (the puzzle changed)' : 'Ready to Solve';
+      }
     }
+  }
+
+  /**
+   * The Details text: how much the search has gone through while it runs
+   * (the original's Activity line), else what the problem's solves went
+   * through, as kept in the file; empty when nothing is known.
+   */
+  details(): string {
+    const r = this.record;
+    const g = r?.progress ?? null;
+    const running =
+      r !== null &&
+      r.phase !== 'none' &&
+      g !== null &&
+      g.stage !== 'idle' &&
+      g.stage !== 'paused' &&
+      g.stage !== 'done' &&
+      g.stage !== 'error';
+    if (running) {
+      if (g.stage === 'search') {
+        return this.stacking
+          ? stackingDetails(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
+          : slidingDetails(g.searched, g.searchDepth);
+      }
+      // the engine's words for the stage (solveProgress_c::activity), and the search steps
+      const what =
+        g.activity === '' ? '' : `${g.activity.charAt(0).toUpperCase()}${g.activity.slice(1)}.`;
+      const steps = g.iterations > 0 ? `Scanned ${shortCount(g.iterations)} search steps.` : '';
+      return [what, steps].filter((x) => x !== '').join(' ');
+    }
+    const p = this.problem;
+    return p === null ? '' : savedDetails(this.family, p.searched, p.searchDepth, p.triedApart);
+  }
+
+  /** The name of the solver the options choose, from the engine's list. */
+  private get solverLabel(): string {
+    const info = this.store.info;
+    const o = this.options;
+    if (this.stacking) {
+      const solver = this.stackingSolver;
+      return (
+        info?.stackingSolvers.find((x) => x.solver === solver)?.label ??
+        (solver === 'panex' ? 'Panex Solver' : 'Stacking Solver')
+      );
+    }
+    if (this.sliding) {
+      return (
+        info?.slidingSolvers.find((x) => x.solver === o.slidingSolver)?.label ?? 'Sliding Solver'
+      );
+    }
+    return info?.solvers.find((x) => x.solver === o.solver)?.label ?? 'Complete (ShapeLogic)';
   }
 
   // ---- loading ----

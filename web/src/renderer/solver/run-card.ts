@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The Solver's left card: the problem to solve (a picker of the problems,
-// each with its solve's state, since several may run), what to check
+// The Solver's left card: the problem to solve (a list of the problems,
+// as the Puzzle workspace's, each with its solve's state, since several
+// may run; the one shown's result and piece shapes below it), what to check
 // (assemblies, or assemblies and their disassembly, with Just Levels and
 // Check Rotations), the search options (stored with the problem, the
 // original's rules greying out what does not apply; Keep at most and Keep
@@ -18,16 +19,14 @@
 // mainwindow_help.cpp's solver help), "Find Solutions" for the second
 // mode, and Solve greyed while its start/goal shape is not valid
 // (mainwindow.cpp's Solve tooltip). A stacking puzzle (section 9.3): Find
-// Solutions with Just Levels, Just count, Enable High Memory and the one
-// solver of its board (syncSolverTypeMenu, mainwindow_help.cpp), no
+// Solutions with Just Levels, Just count and the one solver of its board (syncSolverTypeMenu, mainwindow_help.cpp), no
 // Prepare, Solve and Continue greyed without a board or with invalid
 // stacks ("Fix the puzzle on the Puzzle tab first"), Continue on for a
 // saved search ("Carry on …").
 
 import { isActive } from '../state/solves.ts';
-import { byId, esc, setHtml } from '../shell/dom.ts';
+import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
-import { openPop } from '../shell/popover.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import {
@@ -63,8 +62,6 @@ const TIP: Record<BoxName, string> = {
     'With Allow Nested Slides: a piece may also slide together with a piece that sits partly in its outline, such as a piece in another piece’s pocket that sticks out of it. Pieces that only touch never slide together.',
   verticalMoves:
     'On a tray more than one layer deep, a piece may also move up and down: lifted out over the other pieces and put down somewhere else. Off, every piece slides only in its own layer.',
-  highMemory:
-    'Let a sliding search hold up to half of this computer’s memory in arrangements, instead of stopping at about 2 GB. The Sliding Full Solver keeps older moves on disk and needs memory only for the widest move.',
   autosave:
     'Twenty minutes into a solve and every twenty minutes after, the solve pauses where it can be saved, the puzzle is saved to its file, and the solve carries on.',
 };
@@ -73,8 +70,6 @@ const TIP: Record<BoxName, string> = {
 const STACKING_TIP: Partial<Record<BoxName, string>> = {
   disassemble:
     'Search for a shortest sequence of rod transfers from the start stacking to the goal.',
-  highMemory:
-    'Let a stacking search hold up to half of this computer’s memory, instead of stopping at about 2 GB.',
   autosave:
     'Save the search 20 minutes into the run and every 20 minutes after, so a crash loses little: Continue carries it on. Unchecked, the search is saved only when you press Pause.',
 };
@@ -104,7 +99,6 @@ const LABEL: Record<BoxName, string> = {
   nestedSlides: 'Allow Nested Slides',
   partialNested: 'Allow Partially Nested',
   verticalMoves: 'Allow Vertical Moves',
-  highMemory: 'Enable High Memory',
   autosave: 'Autosave every 20 min',
 };
 
@@ -134,16 +128,31 @@ export class RunCard {
     this.renderSort();
   }
 
+  /** Draws the problems list (also when another problem's solve changes state). */
+  renderProblems(): void {
+    const ws = this.ws;
+    const list = byId('slvProbs');
+    setHtml(
+      list,
+      (ws.store.snapshot?.problems ?? [])
+        .map((q, n) => {
+          const st = ws.stateOf(q.id);
+          const note = isActive(st) ? 'solving' : st === 'paused' ? 'paused' : '';
+          return `<div class="row" role="option" aria-selected="false" data-id="${q.id}" title="Solve this problem"><span class="chip" style="${problemChipStyle(n)}">${esc(q.label)}</span><span class="lbl">${esc(q.name) || 'Problem'}</span>${note === '' ? '' : `<span class="st ${note}">${note}</span>`}</div>`;
+        })
+        .join(''),
+    );
+    markSelected(list, '.row', 'id', ws.problem?.id ?? null);
+  }
+
   private renderProblem(): void {
     const ws = this.ws;
     const p = ws.problem;
     const d = ws.detail;
-    const el = byId('slvProb');
+    this.renderProblems();
+    const el = byId('slvProbMeta');
     if (p === null) {
-      setHtml(
-        el,
-        '<span class="meta"><b>No problem</b><span>Make one in the Puzzle workspace</span></span>',
-      );
+      setHtml(el, 'No problem — make one in the Puzzle workspace');
       return;
     }
     const pieces = d?.parts.filter((x) => x.max > 0).length ?? 0;
@@ -156,10 +165,7 @@ export class RunCard {
       : p.result === null
         ? 'No result'
         : `Result ${esc(ws.labelOf(p.result))}`;
-    setHtml(
-      el,
-      `<span class="chip" style="${ws.probChip(p.id)}">${esc(p.label)}</span><span class="meta"><b>${esc(p.name) || 'Problem'}</b><span>${result} · ${String(pieces)} piece shape${pieces === 1 ? '' : 's'}</span></span>${ic('chevD', 16)}`,
-    );
+    setHtml(el, `${result} · ${String(pieces)} piece shape${pieces === 1 ? '' : 's'}`);
   }
 
   private renderMode(): void {
@@ -213,7 +219,6 @@ export class RunCard {
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
       ws.sliding && o.verticalMoves,
-      ws.family !== 'brick' && o.highMemory !== def.highMemory,
       ws.sliding && o.slidingSolver !== DEFAULT_OPTIONS.slidingSolver,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
       lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
@@ -235,7 +240,7 @@ export class RunCard {
       'Draw each piece’s label from the Shapes tab on it in the 3D view, always facing you';
     const labels = `<div class="row2"><div class="t">Show piece labels<small>${labelTip}</small></div><div class="switch ${prefs.pieceLabels ? 'on' : ''}" data-pref="pieceLabels" role="switch" tabindex="0" aria-checked="${String(prefs.pieceLabels)}" title="${esc(labelTip)}"><span class="tr"></span></div></div>`;
     if (ws.stacking) {
-      // High Memory in the symmetry options' place, the one solver of the board
+      // the one solver of the board
       const solver = ws.stackingSolver;
       const label =
         ws.store.info?.stackingSolvers.find((x) => x.solver === solver)?.label ??
@@ -244,7 +249,6 @@ export class RunCard {
         opts,
         sw('justCount') +
           sw('justLevels') +
-          sw('highMemory') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
           limits +
           sw('autosave') +
@@ -263,7 +267,6 @@ export class RunCard {
           sw('nestedSlides') +
           sw('partialNested') +
           sw('verticalMoves') +
-          sw('highMemory') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
           limits +
           sw('autosave') +
@@ -323,7 +326,7 @@ export class RunCard {
     const canCont = canStart && (s === 'paused' || p.state === 'solving' || saved !== null);
     const fix = ws.stacking
       ? `Fix the puzzle on the Puzzle tab first: ${why ?? ''}`
-      : `Fix the start and goal on the Shapes tab first: ${why ?? ''}`;
+      : `Fix the start and goal on the Puzzle tab first: ${why ?? ''}`;
     const canPause =
       !ws.calling &&
       r !== null &&
@@ -388,7 +391,7 @@ export class RunCard {
       r?.failure !== null && r?.failure !== undefined && s === 'error' ? r.failure : null;
     setHtml(
       byId('slvStat'),
-      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
+      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time left</span><span class="v">${leftText}</span><span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(ws.details()) || '—'}</span>` +
         (fail === null
           ? ''
           : `<span class="slv-fail" id="slvFail" style="grid-column:1 / -1">${ic('warn', 14)}<span>The solve failed: ${esc(fail.message)}</span></span>`),
@@ -403,21 +406,11 @@ export class RunCard {
 
   private wire(): void {
     const ws = this.ws;
-    byId('slvProb').addEventListener('click', (e) => {
-      const snap = ws.store.snapshot;
-      if (snap === null || snap.problems.length === 0) {
-        return;
+    byId('slvProbs').addEventListener('click', (e) => {
+      const id = (e.target as Element).closest<HTMLElement>('.row')?.dataset.id;
+      if (id !== undefined) {
+        ws.selectProblem(id);
       }
-      const rows = snap.problems
-        .map((q, n) => {
-          const st = ws.stateOf(q.id);
-          const note = isActive(st) ? ' · solving' : st === 'paused' ? ' · paused' : '';
-          return `<button data-k="${q.id}" title="Solve this problem"><span class="chip" style="${problemChipStyle(n)};min-width:30px;height:20px;font-size:10px">${esc(q.label)}</span>${esc(q.name) || 'Problem'}<span class="kb">${note}</span></button>`;
-        })
-        .join('');
-      openPop(e.currentTarget as Element, `<div class="ph">Solve problem</div>${rows}`, (k) => {
-        ws.selectProblem(k);
-      });
     });
     byId('slvMode').addEventListener('click', (e) => {
       const t = e.target as Element;

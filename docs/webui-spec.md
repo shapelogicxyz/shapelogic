@@ -29,19 +29,23 @@ original GUI decides (section 7).
 - **Workspace rail:** Entities (`Ctrl+1`), Puzzle (`Ctrl+2`), Solver (`Ctrl+3`).
 - **Body:** each workspace has a left card, the **3D view** in the centre and
   a right card. Cards collapse to narrow rails (`Ctrl+[`, `Ctrl+]`); the 3D
-  view can take focus (`Ctrl+Space`). Layout is remembered per workspace.
+  view can take focus (its Focus button, View ▸ Toggle 3D). Layout is remembered per workspace.
 - **Status bar:** messages on the left (a transient "flash" after actions,
   e.g. "Filled 3 interior voxels"), cursor position on the right.
-- **Density:** Standard, or Minimal (icons without captions, helper text in
-  tooltips, auto-hiding viewport toolbar, narrower cards). Every function is
-  available in both.
+- **Density:** Standard; Compact (Standard with the scrolling lists' rows,
+  shapes, problems, solutions and the pieces library, about half as tall);
+  or Minimal (icons without captions, helper text in tooltips, auto-hiding
+  viewport toolbar, narrower cards). Every function is available in all
+  three. The shapes list and the Puzzle and Solver problems lists grow to
+  about eight Standard rows before they scroll.
 - **Theme:** Light, Dark, System.
 
 ### Settings dialog
 Searchable, four pages, "Restore all defaults", changes apply immediately.
 | Page | Setting | Values (default) |
 |---|---|---|
-| General | Interface density | Standard / Minimal (Standard) |
+| General | Interface density | Standard / Compact / Minimal (Standard) |
+| | Sidebar width | Static / Variable (Static); Static: left and right widths, 200 to 600 px (320, 340); Variable: past a 1600 px window each card and the 3D view take a third of the extra width, cards up to 600 px |
 | | Theme | Light / Dark / System (System) |
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
@@ -54,6 +58,9 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | | Fade out removed pieces | on |
 | Solver | Worker threads | 1-32 (machine dependent) |
 | | Default solver type | Complete / Fast (Complete) |
+| | Memory: Search memory | 2 GB to three quarters of the machine's memory (Automatic: half of it); replaces Enable High Memory |
+| | Disk space: Sliding disk space | Automatic (half the free space, at most 200 GB), 10 GB to 5 TB |
+| | Disk space: Stacking disk space | Automatic (half the free space, at most 200 GB), 10 GB to 5 TB |
 
 The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 
@@ -169,7 +176,9 @@ Rotation turns each piece about its own centre.
 ## 5. Solver workspace
 
 ### Left card
-- **Problem** picker.
+- **Problem** list, as the Puzzle workspace's (without its editing): each
+  problem's solve marked solving or paused; the one shown's result and piece
+  shapes below it.
 - **What to check**: assemblies only, or assemblies and disassembly.
 - **Search options**: Just count; Keep mirror solutions; Keep rotated
   solutions; Thorough rotation check; Drop below level (solutions with a
@@ -205,7 +214,6 @@ Rotation turns each piece about its own centre.
 | | Ctrl+N / Ctrl+O, Ctrl+S / Shift+Ctrl+S, Ctrl+W | new, open; save, save as; close the window (the File menu, stage 6) |
 | | Ctrl+, | Settings |
 | | Ctrl+[ / Ctrl+] | collapse or expand left / right card |
-| | Ctrl+Space | focus the 3D view (toggle) |
 | | Esc | step back: close dialog → close menu → cancel rename → pause playback → exit focus |
 | | Tab / Shift+Tab, Enter / Space | keyboard focus and activation |
 | 3D view | left-drag, Shift+left-drag, middle-drag, wheel | orbit/pan, the other, pan, zoom |
@@ -239,7 +247,7 @@ Rotation turns each piece about its own centre.
    identical shapes, symmetry, connectedness); tutorial, user guide, about.
 2. **This fork's solver options:** solver type (Complete (ShapeLogic), Fast (Crowell)),
    Check Rotations (rotation take-apart), Just Levels, Strict Color
-   Restrictions, Deep Symmetry Check, Enable High Memory, Autosave every
+   Restrictions, Deep Symmetry Check, Autosave every
    20 minutes, **Abort** (hard stop that clears the results, separate from
    Pause), paused-solve import/export, debug statistics panel.
 3. **Sliding and Stacking/Panex puzzles**: sliding in section 8 (deferred
@@ -277,9 +285,14 @@ switch below.
 **What a sliding puzzle is** (decision 0014): pieces are shapes, one
 layer or more; a **start/goal shape** (a tray) is a shape, one layer or
 more, whose fixed cells are floor, variable cells corridors (pieces cross them but do
-not stop on them) and empty cells walls; each piece may have a start and
-a goal stamped on a tray, the whole piece at a time; each tray has its
-own problem, "START/GOAL n", whose pieces follow the stamps.
+not stop on them) and empty cells walls; each copy of a piece may have a
+start and a goal stamped on a tray, the whole piece at a time (a piece
+the problem has three copies of, up to three of each, any copy ending on
+any of its goals; a copy without a start starts anywhere, one without a
+goal ends anywhere); each tray has its own problem, "START/GOAL n", whose
+pieces follow the stamps. The original edited the stamps on the Entities
+tab (its Start/Goal tab); here they are the Puzzle workspace's (8.2),
+where the problem's counts are.
 
 ### 8.1 Entities workspace
 - **Shapes list:** a tray reads "S1 (START/GOAL 1)" and, after a dash, the
@@ -300,49 +313,55 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   constraint colour to paint) and the
   **colour palette** keeps only the drawing colour (the shape's own) and
   the pencil (a sliding puzzle has no constraint colours: a cell's colour
-  is a start mark, and the colour group was hidden in the original). On a tray, a segmented **Tray edit** switch above the tool
-  strip: **Walls** ("Toggle floor and wall cells on the tray": the
-  ordinary tools, Fixed = floor, Variable = corridor, Erase = wall; the
-  tiles drawn dark, `EDIT_LIGHT`/`EDIT_DARK`), **Start** ("Place or
-  remove a piece's starting position on the tray"), **Goal** ("Place or
-  clear a piece's goal position on the tray"). Start and Goal are the
-  original's Start/Goal tab:
-  - the tool strip, mirror, span and the box selection are hidden; a
-    **piece list** (every shape but the trays, "S2 - name") with the
-    chosen piece drawn flat beside it (`slidePiecePreview_c`);
-  - the grid shows each marked cell in its piece's colour (the
-    chequer's light and dark variants), the start marks in Start, the
-    goal marks in Goal;
-  - the chosen piece follows the mouse, its slice on the layer shown
-    outlined with the slice's top-left cell under the mouse, at the
-    lowest height that fits (on a tray of layers), green where it fits, red where it does not, orange where it
-    already is (`drawStampPreview`; `sliding.preview`);
-  - a left click places it (or takes it off when it is exactly there),
-    a right click takes off the piece under the mouse
-    (`sliding.place`, `sliding.clearAt`); a refusal's reason goes to the
-    status bar ("The piece does not fit there: …").
-  On a piece (not a tray) of a sliding puzzle the switch is not shown.
-- **Validity bar** (under the 3D view, a tray selected,
-  `refreshSlideValid`): green "Valid Start/Goal positions for pieces in
-  Start and Goal of this shape" or red "Invalid Start/Goal positions -
-  <reason>" (`sliding.tray.error`); the Start and Goal buttons of the
-  switch take the same green or red (the tab's colour).
-- **3D view of a tray** (`showSingleShape`): two trays side by side,
-  **START** and **GOAL** (dark grey, `VIEW_GREY` 0.12, a gap of 4 units),
-  each piece placed on a tray standing on it in its own colour (on a
-  tray of layers, as many layers higher as its stamp is). The START tray is the editable shape (3D edit works on it).
+  is a start mark, and the colour group was hidden in the original); the
+  grid draws no cell colours (the marks and the pieces' locks). A tray is
+  drawn with the ordinary tools, as a piece is: Fixed = floor, Variable =
+  corridor, Erase = wall (their tooltips say so), on the original's dark
+  tiles (`EDIT_LIGHT`/`EDIT_DARK`). The original's Tray edit switch and
+  Start/Goal tab are not here: the starts and goals are placed on the
+  Puzzle workspace (8.2).
+- **3D view of a tray:** the tray as any shape.
 
 ### 8.2 Puzzle workspace
 - **Problems:** New, Copy and Delete problem are hidden (the engine
   refuses them: a tray's problem follows its stamps); rename and order
   stay.
 - **Result:** the tray, fixed: **Change…** is hidden.
-- **Pieces:** a piece a stamp requires (`Part.required`) keeps its count:
-  its −/+ and remove are off, with the reason in their tooltip; "Remove
-  all" and "Set range for all pieces" leave it (the engine does).
+- **Pieces:** a piece a stamp requires (`Part.required`) stays in the
+  puzzle (its remove is off, "Remove all" and "Set range for all pieces"
+  leave it, as the engine does) and keeps a copy for each of its starts
+  and its goals (`Part.placed`: its − is off there, with the reason in the
+  tooltip); + adds copies.
+- **Right card: Start and goal** in the selected piece's place (the
+  original's Start/Goal tab, moved here): the tray twice, **Start** in the
+  top half and **Goal** in the bottom half. Each has the problem's pieces
+  with the copies placed there of each ("S2 1/3"; a click selects the
+  piece), a hint (no pieces: add them to "In this puzzle"; none
+  selected: select one; one copy: a click places it or moves it there;
+  several: each click places one more copy, a click on a copy or a right
+  click takes it off), the layers of a tray of several, and the grid: the
+  tray's tiles, each marked cell in its piece's colour (the chequer's
+  light and dark variants), the selected piece following the mouse, its
+  slice on the layer shown outlined with the slice's top-left cell under
+  the mouse, at the lowest height that fits, green where it fits, red
+  where it does not, orange on a copy already there (`drawStampPreview`;
+  `sliding.preview`). The piece placed is the one selected in "In this
+  puzzle" (or above the grid); a left click places a copy (or takes off
+  the copy exactly there), a right click takes off the copy under the
+  mouse (`sliding.place`, `sliding.clearAt`); a refusal's reason goes to
+  the status bar ("The piece does not fit there: …", "All 3 copies of the
+  piece have a start already: …").
+- **Validity bar** (under the 3D view, `refreshSlideValid`): green "Valid
+  Start/Goal positions for pieces in Start and Goal of this board" or red
+  "Invalid Start/Goal positions - <reason>" (`sliding.tray.error`: starts
+  or goals that are not whole pieces, more than the problem has copies,
+  or no piece with every copy at a start and at a goal).
 - **Exclusive groups** and **Colour rules** are hidden (the original hid
   the colour groups and greyed Groups).
-- The 3D scene draws the tray in its dark grey.
+- **3D view** (`showSingleShape`): two trays side by side, **START** and
+  **GOAL** (dark grey, `VIEW_GREY` 0.12, a gap of 4 units), each copy
+  placed standing on a tray in its piece's colour (on a tray of layers,
+  as many layers higher as its stamp is), instead of the pieces scene.
 
 ### 8.3 Solver workspace
 - **What to check:** "Assemblies" (the start layouts) or **"Find
@@ -354,21 +373,25 @@ own problem, "START/GOAL n", whose pieces follow the stamps.
   `slidingSolvers` ("Sliding Fast Solver (250k depth)", "… Deep … (1mil
   depth)", "… Full … (full depth)", Full the default) with the help of
   `mainwindow_help.cpp`; **Allow Nested Slides**, **Allow Partially
-  Nested** (only with nested slides) and **Enable High Memory**, with the
-  original's tooltips; Just count, Keep every n-th, the limit and
+  Nested** (only with nested slides), with the original's tooltips (the
+  original's **Enable High Memory** is the Search memory setting,
+  section 1); Just count, Keep every n-th, the limit and
   Autosave stay. Keep mirror, Keep rotated, the thorough rotation check,
   Strict colours and the sort are not shown (a sliding solve keeps every
   start and matches colours strictly; a path found goes last). They are
   stored with the problem under the file's names (`nestedSlides`,
   `partialNested`, `highMemory`, `solverType` fast/deep/full).
 - **Run:** Solve and Prepare are off while the tray's starts and goals
-  are invalid, with "Fix the start and goal on the Entities tab first:
+  are invalid, with "Fix the start and goal on the Puzzle tab first:
   <reason>" as their tooltip (and the engine refuses with the original's
-  message, shown as the failure). The Activity line during the search is
-  the original's "Sliding search, N moves deep. Scanned N arrangements."
-  (or without the depth); at the end "Finished." (the original added
-  "Scanned N arrangements. Searched N moves deep." from the problem's
-  search statistics, which no reply carries yet). The solver's **note** (`solve.status.note`:
+  message, shown as the failure). During the search the Activity line
+  says "Search active with the <solver>", and the Details line has the
+  original's Activity text without its "Sliding search, ": "N moves deep.
+  Scanned N arrangements." (or without the depth); at the end Activity
+  says "Search finished" and Details the problem's search statistics
+  (`ProblemSummary.searched`, `searchDepth`, kept in the file), as the
+  original's finished Activity line: "Scanned N arrangements. Searched N
+  moves deep.". The solver's **note** (`solve.status.note`:
   "no solution, proven", or the limit that stopped it) comes in a
   message box when the run ends, as `bt_message`.
 - **Player:** the moves follow their routes (a move round a corner turns
@@ -507,8 +530,8 @@ disc lies flat, the rods stand up).
   goal."), checked at first (`stackingDisasmDefaulted`); Just Levels
   stays (it forces Find Solutions, and the search ignores it, as the
   original's), Check Rotations is not shown.
-- **Search options:** Just count, **Enable High Memory** ("Let the
-  search hold up to half of this computer's memory…"), the **Solver
+- **Search options:** Just count (the original's **Enable High Memory**
+  is the Search memory setting, section 1), the **Solver
   type** with one entry by the problem's board, as the original's menu:
   "Panex Solver" for Panex columns, else "Stacking Solver"
   (`engine.info.stackingSolvers`, `SolveOptions.stacking.solver`), with
@@ -525,12 +548,13 @@ disc lies flat, the rods stand up).
   problem has <a saved search …>. Continue it, or start over and discard
   it?" with Cancel, Continue and Start Over (`solve.status.savedSearch`).
   **Continue** is on whenever a saved search exists (its tooltip "Carry
-  on <a saved search …>"), and the Activity line then says "Paused. The
-  search is saved." **Abort** is on for a saved search too and asks as
-  for any solve. While the search runs the Activity line is the
-  original's: "Panex search, N moves deep. Found N stackings.",
-  "Panex search, tracing the path. Traced N of M moves.", or "Stacking
-  search. Scanned N stackings."; the solver's note comes in a message
+  on <a saved search …>"), and the Activity line then says "Search
+  paused and saved". **Abort** is on for a saved search too and asks as
+  for any solve. While the search runs the Activity line names the
+  solver ("Search active with the Panex Solver") and the Details line
+  is the original's Activity text without the search's name: "N moves
+  deep. Found N stackings.", "Tracing the path. Traced N of M moves.",
+  or "Scanned N stackings."; the solver's note comes in a message
   box when a run ends (through, or paused: where it was saved). The
   20-minute save point of the other grids is not used (the search saves
   itself); File ▸ Save while a stacking solve runs offers to pause it (the

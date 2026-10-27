@@ -53,6 +53,11 @@ function wire(): {
   };
 }
 
+/** The engine version a recording was made with (its `--version`, the build's git tag). */
+function recordedVersion(recording: string): string {
+  return loadRecording(recording).engine.replace(/^shapelogic_engine /, '');
+}
+
 async function connected(recording: string): Promise<{
   proxy: EngineProxy;
   host: EngineHost;
@@ -96,6 +101,7 @@ describe('the proxy', () => {
       slideDiskGB: 0,
       panexFolder: '/home/user/Library/Caches/ShapeLogic/panex',
       panexDiskGB: 0,
+      searchMemoryGB: 0,
     });
     const snap = await proxy.call('document.open', { path: 'tests/data/puzzles/Bermuda.xmpuzzle' });
     const shape = snap.shapes[0]?.id ?? '';
@@ -105,7 +111,11 @@ describe('the proxy', () => {
     // the same bytes the engine sent (the recorded transcript's checksum)
     const recorded = loadTranscript('basic').results[2] as { frame: { checksum: string } };
     expect(checksum(new Uint8Array(mesh.frame.buffer))).toBe(recorded.frame.checksum);
-    expect(proxy.status).toEqual({ state: 'running', version: '1.0.0', restarts: 0 });
+    expect(proxy.status).toEqual({
+      state: 'running',
+      version: recordedVersion('basic'),
+      restarts: 0,
+    });
   });
 
   it('gets errors with their errc, and refuses what is no call', async () => {
@@ -135,7 +145,11 @@ describe('the proxy', () => {
     const seen: EngineStatus[] = [];
     proxy.onStatus((s) => seen.push(s));
     await settle(5);
-    expect(proxy.status).toEqual({ state: 'running', version: '1.0.0', restarts: 0 });
+    expect(proxy.status).toEqual({
+      state: 'running',
+      version: recordedVersion('dominoes'),
+      restarts: 0,
+    });
     expect(seen).toEqual([proxy.status]);
     await host.stop();
   });

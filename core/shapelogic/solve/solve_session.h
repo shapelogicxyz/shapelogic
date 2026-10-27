@@ -114,6 +114,11 @@ struct SolveOptions {
   /// `disassemble` (Find Solutions) or `justCount` must be on, and of the
   /// rest only `justCount` and `threads` play a part.
   stacking::StackingOptions stacking;
+  /// Where the program's user sets the memory and disk sliding and
+  /// stacking searches may take ("Settings ▸ Solver"), for the notes of a
+  /// search that ran out of them; empty: the notes suggest Enable High
+  /// Memory, as the original's did.
+  std::string settingsPlace;
 };
 
 /// Why a run ended in the Error state.
@@ -410,6 +415,7 @@ class SolveSession {
   bool slideMemoryCut_ = false;
   std::uint64_t slideMemoryStates_ = 0;
   std::string slideDiskError_;
+  bool slideDiskHeldToFree_ = false;
   /// note(), under failureMutex_.
   std::string note_;
 

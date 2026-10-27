@@ -260,11 +260,15 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
   const Id p = d.problemIds()[0];
 
-  // the result is the start/goal shape; a stamped piece keeps its count
+  // the result is the start/goal shape; a stamped piece keeps a copy for
+  // each of its stamps, and may have more
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setResult(p, free); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.addPiece(p, a); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.removePiece(p, a); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setPieceCount(p, a, 0, 3); });
+  roundTrip(d, [=](Document& x) { return x.addPiece(p, a); });
+  CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, a)) == 2);
+  roundTrip(d, [=](Document& x) { return x.removePiece(p, a); });
+  CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, a)) == 1);
   // no groups
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setGroup(p, a, 1); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setGroupCount(p, a, 1, 1); });
@@ -499,4 +503,32 @@ TEST_CASE("sliding document: the boards stay on top, numbered by place, named as
   roundTrip(d, [=](Document& x) { return x.addOneOfEach(pb2); });
   CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getShapeMaximum(index(d, b3)) == 0);
   CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getShapeMaximum(index(d, p1)) == 1);
+}
+
+TEST_CASE("sliding document: copies of a piece have a start and a goal each", "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id tray = d.addStartGoal({4, 2, 1}).value();
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  const Id p = d.problemIds()[0];
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  // one copy moves
+  REQUIRE(d.placeStamp(tray, a, 1, 0, 0, false).value());
+  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
+        static_cast<unsigned int>(-1));
+  // with three, each click is one more copy's, until all three are placed
+  roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 3, 3); });
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, a, 2, 0, 0, false).value());
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(tray, a, 3, 0, 0, false); });
+  // fewer copies than are placed is refused, more are fine
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setPieceCount(p, a, 2, 2); });
+  roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 4, 4); });
+  // a click on a copy takes it off, the right click the copy under it
+  CHECK_FALSE(d.placeStamp(tray, a, 1, 0, 0, false).value());
+  CHECK(d.clearStampAt(tray, 2, 0, 0, false).value());
+  const Voxel& t = d.puzzle().getShape(index(d, tray));
+  CHECK(sliding::stampAt(&t, 0, 0, 0, false) == index(d, a));
+  CHECK(sliding::stampAt(&t, 1, 0, 0, false) == static_cast<unsigned int>(-1));
+  CHECK(sliding::stampAt(&t, 2, 0, 0, false) == static_cast<unsigned int>(-1));
+  roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 1, 1); });
 }

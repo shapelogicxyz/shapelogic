@@ -333,6 +333,7 @@ Result<void> SolveSession::launch(Mode mode) {
   slideMemoryCut_ = false;
   slideMemoryStates_ = 0;
   slideDiskError_.clear();
+  slideDiskHeldToFree_ = false;
   assemblerThreads_.store(1, std::memory_order_relaxed);
   workerCount_.store(0, std::memory_order_relaxed);
   pending_.store(0, std::memory_order_relaxed);
@@ -772,6 +773,7 @@ void SolveSession::runStacking(const Plan& plan) {
     panex::PanexSearch search;
     search.anyRules = !panexSolver;
     search.highMemory = o.stacking.highMemory;
+    search.memoryBytes = o.stacking.memoryBytes;
     search.stop = runToken();
     search.progress = &slideProgress_;
     search.depth = &searchDepth_;
@@ -801,11 +803,17 @@ void SolveSession::runStacking(const Plan& plan) {
       note = "Stopped before the search was complete.";
     } else if (search.outcome == panex::Outcome::Memory) {
       note = "The search outgrew its memory after " + std::to_string(search.found) +
-             " stackings." +
-             (search.saved ? std::string(" It is saved:") +
-                                 (search.highMemory ? "" : " turn on Enable High Memory and") +
-                                 " press Continue to carry on."
-                           : (search.highMemory ? "" : " Try Enable High Memory."));
+             " stackings.";
+      if (!o.settingsPlace.empty()) {
+        note += search.saved ? " It is saved: give it more Search memory in " + o.settingsPlace +
+                                   " and press Continue to carry on."
+                             : " " + o.settingsPlace + " can give it more Search memory.";
+      } else {
+        note += search.saved ? std::string(" It is saved:") +
+                                   (search.highMemory ? "" : " turn on Enable High Memory and") +
+                                   " press Continue to carry on."
+                             : (search.highMemory ? "" : " Try Enable High Memory.");
+      }
     } else if (search.outcome == panex::Outcome::Error) {
       note = search.error;
     } else {
@@ -814,6 +822,7 @@ void SolveSession::runStacking(const Plan& plan) {
   } else {
     stacking::StackSearch search;
     search.highMemory = o.stacking.highMemory;
+    search.memoryBytes = o.stacking.memoryBytes;
     search.stop = runToken();
     search.progress = &slideProgress_;
     path = stacking::findStackPath(puzzle_, problem_, search);
@@ -825,7 +834,9 @@ void SolveSession::runStacking(const Plan& plan) {
     } else if (search.outcome == stacking::StackOutcome::Memory) {
       note = "The search reached its memory limit of " + std::to_string(search.memoryStates) +
              " stackings. There may be a solution the solver did not find." +
-             (search.highMemory ? "" : " Try Enable High Memory.");
+             (!o.settingsPlace.empty() ? " " + o.settingsPlace + " can give it more Search memory."
+              : search.highMemory      ? ""
+                                       : " Try Enable High Memory.");
     } else {
       note = "Every reachable stacking was searched: this puzzle has no solution.";
     }
@@ -923,6 +934,11 @@ StopKind SolveSession::runStopKind() const { return runStop_.kind(); }
 // ---- what is found -----------------------------------------------------------------
 
 bool SolveSession::onAssembly(Assembly assembly) {
+  // A piece with starts for only some of its copies may also sit on
+  // neutral cells: a layout that leaves one of its starts empty is no start.
+  if (sliding_ && !sliding::startFillsStamps(puzzle_, problem_, assembly)) {
+    return true;
+  }
   // Found after a pause was asked for: the search will not report it
   // again, so it is kept for the next run.
   if (runStopRequested()) {
@@ -1010,6 +1026,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
         slideStartsCut_++;
         if (search.outcome == sliding::SlideOutcome::Disk) {
           slideDiskError_ = search.error;
+          slideDiskHeldToFree_ = search.diskHeldToFree;
         }
         if (search.outcome == sliding::SlideOutcome::Memory) {
           slideMemoryCut_ = true;
@@ -1084,7 +1101,13 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
       msg += ": the search reached its limit of 250,000 arrangements";
     }
     msg += ". There may be solutions the solver did not find.";
-    if (slideMemoryCut_ && !o.sliding.highMemory) {
+    if (!o.settingsPlace.empty() && !slideDiskError_.empty()) {
+      msg += slideDiskHeldToFree_
+                 ? " Free some disk space to let it go further."
+                 : " " + o.settingsPlace + " can give it more Sliding disk space.";
+    } else if (!o.settingsPlace.empty() && slideMemoryCut_) {
+      msg += " " + o.settingsPlace + " can give it more Search memory.";
+    } else if (slideMemoryCut_ && !o.sliding.highMemory) {
       msg += " Try Enable High Memory.";
     }
     if (!slideMemoryCut_ && slideDiskError_.empty() && solver != sliding::SlidingSolver::Full) {

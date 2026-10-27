@@ -65,9 +65,11 @@ export async function pzSettled(page: Page): Promise<void> {
       return page.evaluate((rev) => {
         const left = document.getElementById('leftP')?.dataset.revision;
         const scene = document.getElementById('vp')?.dataset.sceneKey ?? '';
-        // a stacking puzzle draws its board, not the pieces scene
-        const stacking = document.getElementById('stage')?.classList.contains('stk') === true;
-        return left === String(rev) && (stacking || scene.split(':')[2] === String(rev));
+        // a stacking puzzle draws its board, a sliding one its trays, not the pieces scene
+        const stage = document.getElementById('stage');
+        const board =
+          stage?.classList.contains('stk') === true || stage?.classList.contains('sld') === true;
+        return left === String(rev) && (board || scene.split(':')[2] === String(rev));
       }, snap.revision);
     })
     .toBe(true);

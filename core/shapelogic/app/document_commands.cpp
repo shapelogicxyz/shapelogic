@@ -854,10 +854,14 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
   if (pr.getShapeMinimum(*s) == min && pr.getShapeMaximum(*s) == max) {
     return {};
   }
-  if (slidingRequired(*p, *s)) {
-    return fail(Errc::InvalidArgument, shapeLabelOf(*s) +
-                                           " has a start or goal on this problem's start/goal "
-                                           "shape: its count follows them");
+  // a copy for each of its starts and goals on the problem's board
+  if (const unsigned int placed =
+          sliding::isSliding(*puzzle_) ? sliding::stampedCopies(*puzzle_, pr, *s) : 0;
+      min < placed) {
+    return fail(Errc::InvalidArgument,
+                shapeLabelOf(*s) + " has " + std::to_string(placed) +
+                    (placed == 1 ? " copy" : " copies") +
+                    " placed at its start or goal on this problem's board: take one off first");
   }
   StepGuard g(*this, "Piece count");
   touchProblem(*p);

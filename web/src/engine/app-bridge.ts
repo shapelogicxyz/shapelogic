@@ -45,6 +45,8 @@ export type AppCommand =
   | { cmd: 'colourView'; on: boolean }
   | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
+  /** View ▸ Color Theme: the Theme setting. */
+  | { cmd: 'theme'; theme: 'Light' | 'Dark' | 'System' }
   | { cmd: 'keys' }
   /** ShapeLogic ▸ Command Line Tool… (Help on Windows and Linux): the dialog that explains and installs shapelogic_cli. */
   | { cmd: 'cliTool' }
@@ -78,6 +80,7 @@ export interface MenuState {
   colourView: boolean;
   style: MeshStyle;
   focus3d: boolean;
+  theme: 'Light' | 'Dark' | 'System';
   /** The menus' keys as the one keyboard table has them, by command (shown, not registered). */
   keys: Partial<Record<AppCommandName, string>>;
 }
@@ -268,18 +271,24 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'colourView',
   'style',
   'focus3d',
+  'theme',
   'keys',
   'cliTool',
   'checkUpdates',
   'about',
 ]);
 
-/** Whether a message from the main process is a command the renderer knows. */
+/** Whether a value is one of the Theme setting's choices. */
+function isTheme(v: unknown): v is MenuState['theme'] {
+  return v === 'Light' || v === 'Dark' || v === 'System';
+}
+
 /** Whether a value is one of the 3D view's styles. */
 function isMeshStyle(v: unknown): v is MeshStyle {
   return v === 'drawing' || v === 'flat' || v === 'wireframe' || v === 'stl';
 }
 
+/** Whether a message from the main process is a command the renderer knows. */
 export function isAppCommand(v: unknown): v is AppCommand {
   if (typeof v !== 'object' || v === null) {
     return false;
@@ -295,6 +304,8 @@ export function isAppCommand(v: unknown): v is AppCommand {
       return typeof c.on === 'boolean';
     case 'style':
       return isMeshStyle(c.style);
+    case 'theme':
+      return isTheme(c.theme);
     default:
       return true;
   }
@@ -338,6 +349,7 @@ export function isMenuState(v: unknown): v is MenuState {
     label(s.undo) &&
     label(s.redo) &&
     isMeshStyle(s.style) &&
+    isTheme(s.theme) &&
     typeof s.keys === 'object' &&
     s.keys !== null &&
     Object.values(s.keys).every((k) => typeof k === 'string')

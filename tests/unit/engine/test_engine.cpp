@@ -318,6 +318,13 @@ TEST_CASE("engine: a solve's events, polled while it runs", "[engine][parallel]"
   const Json detail = h.result("problem.get", {{"problem", p}});
   CHECK(detail["assemblies"] == 2856);
   CHECK(detail["state"] == "solved");
+  // what the solve went through, kept with the problem (the Solver's Details)
+  CHECK(detail["searched"] > 0);
+  CHECK(detail["searchDepth"] == 0);
+  CHECK(detail["triedApart"] == 2856);
+  const Json listed = h.result("document.get")["problems"][0];
+  CHECK(listed["searched"] == detail["searched"]);
+  CHECK(listed["triedApart"] == 2856);
   CHECK_FALSE(h.engine.busy());
 }
 

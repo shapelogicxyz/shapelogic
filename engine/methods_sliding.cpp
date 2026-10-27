@@ -94,6 +94,39 @@ Reply slidingTray(State& s, Params& p) {
     });
   }
   const std::string error = sliding::startGoalError(puzzle, t);
+  // each copy placed, start and goal, as whole pieces (marks that are not
+  // whole pieces: all of them as one)
+  Json placed = Json::array();
+  for (unsigned int i = 0; i < puzzle.getNumberOfShapes() && i < 63; i++) {
+    const Voxel& piece = puzzle.getShape(i);
+    if (sliding::isStartGoalShape(&piece) || sliding::isHiddenSlidingShape(&piece)) {
+      continue;
+    }
+    for (const bool goal : {false, true}) {
+      std::vector<std::vector<sliding::TrayCell>> copies;
+      if (auto split = sliding::stampCopies(v, piece, i, goal)) {
+        copies = std::move(*split);
+      } else {
+        std::vector<sliding::TrayCell> all;
+        for (unsigned int c = 0; c < v.getXYZ(); c++) {
+          if ((goal ? v.getGoalPiece(c) : v.getColor(c)) == i + 1) {
+            all.push_back({static_cast<int>(c % v.getX()),
+                           static_cast<int>((c / v.getX()) % v.getY()),
+                           static_cast<int>(c / (v.getX() * v.getY()))});
+          }
+        }
+        copies.push_back(std::move(all));
+      }
+      for (const std::vector<sliding::TrayCell>& copy : copies) {
+        Json cells = Json::array();
+        for (const sliding::TrayCell& c : copy) {
+          cells.push_back(Json::array({c[0], c[1], c[2]}));
+        }
+        placed.push_back(
+            Json{{"piece", shapeId(s, i)}, {"goal", goal}, {"cells", std::move(cells)}});
+      }
+    }
+  }
   return Json{{"number", sliding::startGoalNumber(&v)},
               {"name", sliding::startGoalUserName(&v)},
               {"size", Json::array({v.getX(), v.getY(), v.getZ()})},
@@ -101,7 +134,8 @@ Reply slidingTray(State& s, Params& p) {
               {"goals", std::move(goals)},
               {"error", error.empty() ? Json(nullptr) : Json(error)},
               {"overflow", overflow.empty() ? Json(nullptr) : Json(overflow)},
-              {"floor", sliding::floorCells(v)}};
+              {"floor", sliding::floorCells(v)},
+              {"placed", std::move(placed)}};
 }
 
 Reply slidingPreview(State& s, Params& p) {
@@ -118,15 +152,16 @@ Reply slidingPreview(State& s, Params& p) {
   if (sliding::isStartGoalShape(&pieceShape) || sliding::isHiddenSlidingShape(&pieceShape)) {
     return coreError(Errc::InvalidArgument, "a start/goal shape is no piece");
   }
+  const unsigned int copies = sliding::pieceCopies(puzzle, t, i);
   Json cells = Json::array();
   for (const sliding::TrayCell& c :
-       sliding::stampCells(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal)) {
+       sliding::stampCells(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal, copies)) {
     cells.push_back(Json::array({c[0], c[1], c[2]}));
   }
   const bool there = sliding::stampIsAt(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal);
   const std::string why = there ? std::string()
                                 : sliding::stampFits(&trayShape, &pieceShape, i, at[0], at[1],
-                                                     at[2], goal);
+                                                     at[2], goal, copies);
   return Json{{"cells", std::move(cells)},
               {"fits", why.empty()},
               {"why", why.empty() ? Json(nullptr) : Json(why)},

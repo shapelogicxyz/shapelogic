@@ -92,7 +92,11 @@ std::string stateKey(const SlideState& s) {
 }
 
 // Whether each piece sits where the goal wants it. Every piece is judged on
-// its own, so a position search can work the answer out once per position.
+// its own, so a position search can work the answer out once per position
+// (at: 0 it cannot end there, 1 it can, 2 it fills one of its goals); a
+// piece with goals for only some of its copies reaches the goal when as
+// many copies fill its goals as it has goals (together they hold exactly
+// the goals' cells), the others ending anywhere.
 class GoalCheck {
  public:
   GoalCheck(const Puzzle& puzzle, const Problem& problem, const std::vector<const Voxel*>& pieces)
@@ -113,15 +117,30 @@ class GoalCheck {
     }
 
     color_.assign(pieces.size(), 0);
+    group_.assign(pieces.size(), -1);
+    // each part's goals counted once: those with fewer than its copies
+    std::vector<int> partGroup(problem.getNumberOfParts(), -1);
     for (std::size_t i = 0; i < pieces.size(); i++) {
       const unsigned int shapeId = problem.getShapeIdOfPart(partOf[i]);
       if (startGoal_) {
         const unsigned int col = shapeId + 1;
+        unsigned int marked = 0;
         for (unsigned int gi = 0; gi < tray_->getXYZ(); gi++) {
           if (tray_->getGoalPiece(gi) == col) {
             color_[i] = col;
-            break;
+            marked++;
           }
+        }
+        const unsigned int part = partOf[i];
+        const unsigned int copies = problem.getPartMaximum(part);
+        const unsigned int size = cellCount(problem.partShape(puzzle, part));
+        const unsigned int goals = size == 0 ? 0 : marked / size;
+        if (marked > 0 && goals < copies) {
+          if (partGroup[part] < 0) {
+            partGroup[part] = static_cast<int>(need_.size());
+            need_.push_back(goals);
+          }
+          group_[i] = partGroup[part];
         }
       } else if (goal_ != nullptr) {
         unsigned int col = pieceColor(puzzle, shapeId);
@@ -138,32 +157,52 @@ class GoalCheck {
     }
   }
 
+  // Whether a piece has goals for only some of its copies (then the
+  // arrangement's count decides, not each piece).
+  [[nodiscard]] bool counts() const { return !need_.empty(); }
+  // The group of piece i's part among those (-1: none), and how many of
+  // its copies must fill its goals.
+  [[nodiscard]] int group(std::size_t i) const { return group_[i]; }
+  [[nodiscard]] const std::vector<unsigned int>& need() const { return need_; }
+
   // Piece i, placed at place, is where the goal wants it.
-  [[nodiscard]] bool piece(std::size_t i, const Place& place) const {
+  [[nodiscard]] bool piece(std::size_t i, const Place& place) const { return at(i, place) != 0; }
+
+  // 0: piece i cannot end at place; 1: it can; 2: it can, and fills one of
+  // its goals (only for a piece of a group).
+  [[nodiscard]] char at(std::size_t i, const Place& place) const {
     const Voxel* p = pieces_[i];
     if (startGoal_) {
       if (p == nullptr) {
-        return false;
+        return 0;
       }
       // Empty cells are walls. A piece may slide across a variable cell,
       // and the finished position must leave every variable cell empty.
       // Only normal cells are places to stop, a goal stamp included.
       bool ok = true;
+      bool onGoal = color_[i] != 0;
       forCells(*p, place, [&](int tx, int ty, int tz) {
         if (!isFloor(*tray_, tx, ty, tz) ||
-            tray_->getState(asUnsigned(tx), asUnsigned(ty), asUnsigned(tz)) == Voxel::kVariable ||
-            (color_[i] != 0 &&
-             tray_->getGoalPiece(asUnsigned(tx), asUnsigned(ty), asUnsigned(tz)) != color_[i])) {
+            tray_->getState(asUnsigned(tx), asUnsigned(ty), asUnsigned(tz)) == Voxel::kVariable) {
           ok = false;
+        } else if (color_[i] != 0 && tray_->getGoalPiece(asUnsigned(tx), asUnsigned(ty),
+                                                         asUnsigned(tz)) != color_[i]) {
+          onGoal = false;
         }
       });
-      return ok;
+      if (!ok) {
+        return 0;
+      }
+      if (group_[i] >= 0) {
+        return onGoal ? 2 : 1;
+      }
+      return color_[i] == 0 || onGoal ? 1 : 0;
     }
     if (goal_ == nullptr || color_[i] == 0) {
-      return true;
+      return 1;
     }
     if (p == nullptr) {
-      return false;
+      return 0;
     }
     bool ok = true;
     forCells(*p, place, [&](int tx, int ty, int tz) {
@@ -172,16 +211,33 @@ class GoalCheck {
         ok = false;
       }
     });
-    return ok;
+    return ok ? 1 : 0;
   }
 
-  [[nodiscard]] bool all(const SlideState& s) const {
+  // Whether pieces whose `at` answers are given reach the goal.
+  template <class At>
+  [[nodiscard]] bool reached(At atOf) const {
+    // a group is a shape's, and only the first 63 shapes have marks
+    std::array<unsigned int, 64> filled{};
     for (std::size_t i = 0; i < pieces_.size(); i++) {
-      if (!piece(i, s.places[i])) {
+      const char a = atOf(i);
+      if (a == 0) {
+        return false;
+      }
+      if (a == 2) {
+        filled[idx(group_[i])]++;
+      }
+    }
+    for (std::size_t g = 0; g < need_.size(); g++) {
+      if (filled[g] != need_[g]) {
         return false;
       }
     }
     return true;
+  }
+
+  [[nodiscard]] bool all(const SlideState& s) const {
+    return reached([&](std::size_t i) { return at(i, s.places[i]); });
   }
 
  private:
@@ -207,6 +263,17 @@ class GoalCheck {
   bool startGoal_ = false;
   // The goal colour of each piece; 0 when the goal does not place it.
   std::vector<unsigned int> color_;
+  // Each piece's group (-1: none) and each group's count of goals.
+  std::vector<int> group_;
+  std::vector<unsigned int> need_;
+
+  static unsigned int cellCount(const Voxel& v) {
+    unsigned int n = 0;
+    for (unsigned int i = 0; i < v.getXYZ(); i++) {
+      n += v.getState(i) != Voxel::kEmpty ? 1 : 0;
+    }
+    return n;
+  }
 };
 
 // One cell of a piece, relative to its hotspot.
@@ -466,7 +533,8 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
   const std::uint64_t memoryLimit =
       search.maxMemoryStates != 0
           ? search.maxMemoryStates
-          : memoryStates(128 + 3 * std::uint64_t{startKey.size()}, search.highMemory);
+          : memoryStates(128 + 3 * std::uint64_t{startKey.size()}, search.highMemory,
+                         search.memoryBytes);
   search.memoryStates = memoryLimit;
   q.push(initial);
   parent[startKey] = {"", n};
@@ -727,7 +795,7 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
               o[bit / 64] |= std::uint64_t{1} << (bit % 64);
             }
           }
-          t.atGoal.push_back(goals.piece(i, Place{x, y, home.trans, z}) ? 1 : 0);
+          t.atGoal.push_back(goals.at(i, Place{x, y, home.trans, z}));
           t.rest.push_back((x - home.x) % step == 0 && (y - home.y) % step == 0 ? 1 : 0);
         }
       }
@@ -890,14 +958,17 @@ struct SlideSpace {
   // SlideSearch::verticalMoves and step.
   bool vertical = false;
   int step = 1;
+  // The goal, for the pieces whose copies count together (GoalCheck::counts).
+  const GoalCheck* goals = nullptr;
 
   // False when the tables cannot hold this search.
   bool build(const Voxel& tray, const std::vector<Cell3List>& cells,
              const std::vector<Cell3List>& outlines, bool nest, const SlideState& init,
-             const GoalCheck& goals, bool likePiecesApart, bool verticalMoves, int stopStep) {
+             const GoalCheck& goalCheck, bool likePiecesApart, bool verticalMoves, int stopStep) {
+    goals = &goalCheck;
     vertical = verticalMoves;
     step = std::max(1, stopStep);
-    if (!buildTables(tray, cells, outlines, nest, init, goals,
+    if (!buildTables(tray, cells, outlines, nest, init, goalCheck,
                      static_cast<unsigned int>(8 * sizeof(Key)), vertical, step, words, t)) {
       return false;
     }
@@ -991,6 +1062,11 @@ struct SlideSpace {
   }
 
   [[nodiscard]] bool isGoal(Key key) const {
+    if (goals != nullptr && goals->counts()) {
+      return goals->reached([&](std::size_t i) {
+        return t[i].atGoal[idx(posOf(key, static_cast<unsigned int>(i)))];
+      });
+    }
     for (unsigned int i = 0; i < n; i++) {
       if (t[i].atGoal[idx(posOf(key, i))] == 0) {
         return false;
@@ -1283,7 +1359,7 @@ void queueSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>
   const std::uint64_t memoryLimit =
       search.maxMemoryStates != 0
           ? search.maxMemoryStates
-          : memoryStates(kTableStateKeys * sizeof(Key), search.highMemory);
+          : memoryStates(kTableStateKeys * sizeof(Key), search.highMemory, search.memoryBytes);
   search.memoryStates = memoryLimit;
   SlideMover<Key> mover(s);
 
@@ -1576,7 +1652,7 @@ void levelSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>
   const std::uint64_t memoryLimit =
       search.maxMemoryStates != 0
           ? search.maxMemoryStates
-          : memoryStates(kLevelStateKeys * sizeof(Key), search.highMemory);
+          : memoryStates(kLevelStateKeys * sizeof(Key), search.highMemory, search.memoryBytes);
   search.memoryStates = memoryLimit;
   search.depth = 0;
   search.diskBytes = 0;
@@ -1585,25 +1661,19 @@ void levelSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>
   SearchFolder folder(search.workDir);
   const std::uint64_t memoryLevelBytes =
       search.memoryLevelBytes != 0 ? search.memoryLevelBytes : 256000000ULL;
-  std::uint64_t diskBudget = search.diskBudget;
-  // With no budget given, it is set when the folder is made: all the free
-  // disk but a margin for everything else, and never less than a little of
-  // what is free, so a nearly full disk still takes a modest search.
+  // The disk the levels may take, chosen when the folder is made, from
+  // the space free there (diskBudgetFor): a budget given is held to it,
+  // and none given is half of it.
+  DiskBudget disk;
+  disk.bytes = std::max<std::uint64_t>(search.diskBudget, 1);
+  bool diskChosen = false;
   auto setDiskBudget = [&]() {
-    if (diskBudget != 0) {
-      return;
+    if (!diskChosen) {
+      disk = diskBudgetFor(folder.dir, search.diskBudget);
+      diskChosen = true;
     }
-    std::error_code ec;
-    const std::filesystem::space_info space = std::filesystem::space(folder.dir, ec);
-    if (ec) {
-      diskBudget = 1;
-      return;
-    }
-    const std::uint64_t margin = std::max<std::uint64_t>(2000000000ULL, space.capacity / 20);
-    const std::uint64_t least = std::min<std::uint64_t>(1000000000ULL, space.available / 2);
-    diskBudget = std::max<std::uint64_t>(
-        {space.available > margin ? space.available - margin : 0, least, 1});
   };
+  const std::uint64_t& diskBudget = disk.bytes;
 
   // Every level that has left the three arrays, stored[k] for level k, for
   // tracing the path back; and with nested slides, the same levels merged
@@ -1899,8 +1969,11 @@ void levelSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>
       search.outcome = SlideOutcome::Disk;
       char gb[32];
       std::snprintf(gb, sizeof(gb), "%.1f GB", static_cast<double>(diskBudget) / 1e9);
+      const std::string reason = diskBudgetReason(disk);
+      search.diskHeldToFree = disk.heldToFree;
       search.error = "The search filled the disk space it may use (" + std::string(gb) + " in " +
-                     folder.dir.string() + ").";
+                     folder.dir.parent_path().string() + (reason.empty() ? "" : ", " + reason) +
+                     ").";
       return;
     }
 
@@ -2062,15 +2135,18 @@ bool pathPieces(const Puzzle& puzzle, const Problem& problem, const State& a, un
 
 }  // namespace
 
-std::uint64_t memoryStates(std::uint64_t stateBytes, bool high) {
+std::uint64_t memoryBudget(std::uint64_t bytes, bool high) {
+  if (bytes != 0) {
+    return bytes;
+  }
+  return high ? std::max(kSearchMemoryBytes, physicalMemoryBytes() / 2) : kSearchMemoryBytes;
+}
+
+std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t bytes) {
   if (stateBytes == 0) {
     stateBytes = 1;
   }
-  std::uint64_t states = kSearchMemoryBytes / stateBytes;
-  if (high) {
-    states = std::max(states, physicalMemoryBytes() / 2 / stateBytes);
-  }
-  return states;
+  return std::max<std::uint64_t>(memoryBudget(bytes, high) / stateBytes, 1);
 }
 
 std::uint64_t maxStatesOf(SlidingSolver solver) {
@@ -2089,6 +2165,7 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   SlideSearch s;
   s.maxStates = maxStatesOf(options.solver);
   s.highMemory = options.highMemory;
+  s.memoryBytes = options.memoryBytes;
   s.nested = options.nested;
   s.partialNested = options.partialNested;
   s.workDir = options.workDir;

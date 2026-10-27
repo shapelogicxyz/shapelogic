@@ -174,7 +174,8 @@ TEST_CASE("puzzle file: stacking rod sets and stacks are read, or the default ro
 TEST_CASE("puzzle file: a paused solve keeps its position and pending assemblies",
           "[io][file]") {
   const Puzzle p = parse(withProblem(
-      " state=\"1\" assemblies=\"5\" solutions=\"2\" time=\"3\" timeMs=\"3456\" searched=\"99\"",
+      " state=\"1\" assemblies=\"5\" solutions=\"2\" time=\"3\" timeMs=\"3456\" searched=\"99\""
+      " searchDepth=\"7\" triedApart=\"4\"",
       "<assembler version=\"1.2\">abc def</assembler>"
       "<pending><item counted=\"1\" assembly=\"4\" solution=\"2\">"
       "<assembly>1 0 0 0 0 0 0 0</assembly></item>"
@@ -185,6 +186,8 @@ TEST_CASE("puzzle file: a paused solve keeps its position and pending assemblies
   CHECK(pr.getNumSolutions() == 2);
   CHECK(pr.getUsedMs() == 3456);
   CHECK(pr.getSearched() == 99);
+  CHECK(pr.getSearchDepth() == 7);
+  CHECK(pr.getTriedApart() == 4);
   CHECK(pr.getAssemblerVersion() == "1.2");
   CHECK(pr.getAssemblerState() == "abc def");
   REQUIRE(pr.getPending().size() == 1);  // the item without an assembly is dropped
@@ -195,6 +198,7 @@ TEST_CASE("puzzle file: a paused solve keeps its position and pending assemblies
   const std::string out = io::writePuzzle(p);
   CHECK_THAT(out, ContainsSubstring("<assembler version=\"1.2\">abc def</assembler>"));
   CHECK_THAT(out, ContainsSubstring("<item counted=\"1\" assembly=\"4\" solution=\"2\">"));
+  CHECK_THAT(out, ContainsSubstring(" searched=\"99\" searchDepth=\"7\" triedApart=\"4\""));
   CHECK(io::writePuzzle(parse(out)) == out);
 
   // once solved, neither is written

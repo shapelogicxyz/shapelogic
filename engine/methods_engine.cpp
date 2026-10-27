@@ -4,6 +4,7 @@
 #include "engine.h"
 
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/base/version.h"
 #include "shapelogic/grid/grid_type.h"
@@ -92,6 +93,7 @@ Reply engineInfo(State& s, Params& p) {
   j["stackingSolvers"] = std::move(stackingSolvers);
   j["hardwareThreads"] = hardwareThreads();
   j["maxThreads"] = kMaxThreads;
+  j["memoryBytes"] = physicalMemoryBytes();
   j["methods"] = std::move(methods);
   return j;
 }
@@ -109,7 +111,8 @@ Json settingsJson(const State& s) {
               {"slideFolder", s.settings.slideFolder},
               {"slideDiskGB", s.settings.slideDiskGB},
               {"panexFolder", s.settings.panexFolder},
-              {"panexDiskGB", s.settings.panexDiskGB}};
+              {"panexDiskGB", s.settings.panexDiskGB},
+              {"searchMemoryGB", s.settings.searchMemoryGB}};
 }
 
 Reply settingsGet(State& s, Params& p) {
@@ -127,6 +130,9 @@ Reply settingsSet(State& s, Params& p) {
   const std::optional<std::string> panexFolder = p.optString("panexFolder");
   const std::optional<double> panexDiskGB =
       p.has("panexDiskGB") ? std::optional<double>(p.number("panexDiskGB", 0, 1e9)) : std::nullopt;
+  const std::optional<double> searchMemoryGB =
+      p.has("searchMemoryGB") ? std::optional<double>(p.number("searchMemoryGB", 0, 1e6))
+                              : std::nullopt;
   BTE_CHECK(p.finish());
   if (depth) {
     s.settings.undoDepth = static_cast<unsigned int>(*depth);
@@ -149,6 +155,9 @@ Reply settingsSet(State& s, Params& p) {
   }
   if (panexDiskGB) {
     s.settings.panexDiskGB = *panexDiskGB;
+  }
+  if (searchMemoryGB) {
+    s.settings.searchMemoryGB = *searchMemoryGB;
   }
   return settingsJson(s);
 }

@@ -2,12 +2,14 @@
 //
 // Sliding puzzles through the UI (the deferred plan's part 2,
 // docs/webui-spec.md section 8): the 81-move test puzzle built from File ▸
-// New (a start/goal shape, its pieces drawn, their starts and goal stamped
-// in the Tray edit's Start and Goal), equal to the fixture as the engine
+// New (a board drawn as any shape, its pieces drawn, put in the puzzle and
+// their starts and goal placed in the Puzzle workspace's Start and goal),
+// equal to the fixture as the engine
 // reads it; solved with each sliding solver, counted and moved as `bt
 // --json`; played step by step on the engine's poses with the walls
 // drawn; the nested fixture with and without nested slides; what the
-// original greyed out hidden; the notices in message boxes.
+// original greyed out hidden; the notices in message boxes; copies of a
+// piece placed one by one.
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -117,17 +119,43 @@ async function piece(page: Page, cells: [number, number][]): Promise<string> {
   return page.locator('#shapeList .row.sel').getAttribute('data-id') as Promise<string>;
 }
 
-/** Chooses the Tray edit mode. */
-async function trayMode(page: Page, m: 'walls' | 'start' | 'goal'): Promise<void> {
-  await page.click(`#trayRow [data-tm="${m}"]`);
-  await expect(page.locator(`#trayRow [data-tm="${m}"]`)).toHaveClass(/\bon\b/);
+/** The Start or the Goal grid of the Puzzle workspace's Start and goal. */
+function gridOf(goal: boolean): string {
+  return goal ? '#sgGoalGrid' : '#sgStartGrid';
 }
 
-/** Places a piece's start or goal: chosen in the list, its top-left cell clicked. */
-async function stamp(page: Page, pieceId: string, at: [number, number]): Promise<void> {
-  await page.click(`#stampRow [data-sp="${pieceId}"]`);
-  await expect(page.locator(`#stampRow [data-sp="${pieceId}"]`)).toHaveClass(/\bon\b/);
-  await clickCell(page, [at[0], at[1], 0]);
+/** Clicks a cell of the Start or Goal grid (the right button takes a copy off). */
+async function boardClick(
+  page: Page,
+  goal: boolean,
+  at: [number, number],
+  button: 'left' | 'right' = 'left',
+): Promise<void> {
+  const cell = page.locator(`${gridOf(goal)} .cell[data-at="${String(at[0])},${String(at[1])},0"]`);
+  await expect(cell).toHaveCount(1);
+  const box = await cell.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.click(
+    (box?.x ?? 0) + (box?.width ?? 0) / 2,
+    (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    {
+      button,
+    },
+  );
+  await pzSettled(page);
+}
+
+/** Places a copy of a piece's start or goal: chosen above the grid, its top-left cell clicked. */
+async function stamp(
+  page: Page,
+  pieceId: string,
+  at: [number, number],
+  goal = false,
+): Promise<void> {
+  const parts = goal ? '#sgGoalParts' : '#sgStartParts';
+  await page.click(`${parts} [data-sp="${pieceId}"]`);
+  await expect(page.locator(`${parts} [data-sp="${pieceId}"]`)).toHaveClass(/\bon\b/);
+  await boardClick(page, goal, at);
 }
 
 test('the 81-move puzzle built from New, solved by each sliding solver as bt, played with its walls', async () => {
@@ -166,7 +194,9 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await expect(page.locator('#shapeList .row')).toHaveCount(1);
     await settled(page);
     await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(START/GOAL 1)');
-    await expect(page.locator('#trayRow')).toHaveClass(/show/);
+    // a board is drawn with the ordinary tools, which say what its cells are
+    await expect(page.locator('#trayRow')).toHaveCount(0);
+    await expect(page.locator('#toolStrip [data-t="erase"]')).toHaveAttribute('title', /^Wall/);
     // no constraint colours: the shape's own color, with only the pencil
     await expect(page.locator('#cEdit')).toBeVisible();
     await expect(page.locator('#cAdd')).toHaveCount(0);
@@ -186,12 +216,8 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     }
     const tray = await idOf(page, 'B1');
     expect((await engineCall<Tray>(page, 'sliding.tray', { tray })).size).toEqual([4, 5, 1]);
-    // the view shows the two trays, nothing on them yet
-    await expect(page.locator('#vp')).toHaveAttribute('data-tray', '-1:' + tray + ':solid:on');
-    await expect(page.locator('#trayTags span')).toHaveText(['START', 'GOAL']);
-    // the validity bar: not solvable yet
-    await expect(page.locator('#slideValid')).toHaveAttribute('data-valid', '0');
-    await expect(page.locator('#slideValid')).toContainText('Invalid Start/Goal positions - ');
+    // the validity bar is the Puzzle workspace's
+    await expect(page.locator('#slideValid')).toBeHidden();
 
     // the pieces, in the fixture's order: a 2x2 block, four uprights (one
     // drawn, three duplicated), a flat one, four units (duplicated)
@@ -224,15 +250,20 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
       await settled(page);
       unit.push((await page.locator('#shapeList .row.sel').getAttribute('data-id')) ?? '');
     }
-    // a piece shows no Tray edit; a piece is not named as a tray
-    await expect(page.locator('#trayRow')).not.toHaveClass(/show/);
-
+    // the Puzzle: Start and goal in the selected piece's place, the view's
+    // two trays, nothing on them yet; not solvable yet
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    await expect(page.locator('#pzRightTitle')).toHaveText('Start and goal');
+    await expect(page.locator('#sgStartHint')).toContainText('Add pieces');
+    await expect(page.locator('#vp')).toHaveAttribute(
+      'data-tray',
+      `-1:${tray}:solid:on -2:${tray}:solid:on`,
+    );
+    await expect(page.locator('#trayTags span')).toHaveText(['START', 'GOAL']);
+    await expect(page.locator('#slideValid')).toHaveAttribute('data-valid', '0');
+    await expect(page.locator('#slideValid')).toContainText('Invalid Start/Goal positions - ');
     // the starts, in the order the fixture's problem lists its pieces
-    await selectShape(page, tray);
-    await trayMode(page, 'start');
-    await expect(page.locator('#stampRow')).toHaveClass(/show/);
-    await expect(page.locator('#toolStrip')).toBeHidden();
-    await expect(page.locator('#stampRow .sgp')).toHaveCount(10);
     const starts: [string, [number, number]][] = [
       [block, [1, 4]],
       [upright[0] ?? '', [0, 4]],
@@ -245,12 +276,18 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
       [upright[2] ?? '', [3, 4]],
       [upright[3] ?? '', [3, 2]],
     ];
+    // every piece in the puzzle, one copy each, in that order
+    for (const [p] of starts) {
+      await page.click(`#pzLib .lc[data-u="${p}"] [data-add]`);
+      await pzSettled(page);
+    }
+    await expect(page.locator('#sgStartParts .sgpart')).toHaveCount(10);
     for (const [p, at] of starts) {
       await stamp(page, p, at);
     }
     // a piece that does not fit is refused with the original's reason
-    await page.click(`#stampRow [data-sp="${block}"]`);
-    const refused = page.locator('#garea svg');
+    await page.click(`#sgStartParts [data-sp="${block}"]`);
+    const refused = page.locator('#sgStartGrid svg');
     const places = (): string[] =>
       readCallLog(log)
         .filter((c) => c.method === 'sliding.place')
@@ -263,21 +300,20 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
       goal: false,
     });
     expect(why.fits).toBe(false);
-    await clickCell(page, [3, 3, 0]);
+    await boardClick(page, false, [3, 3]);
     await expect.poll(() => places().slice(placed)).toEqual(['invalid_argument']);
     await expect(page.locator('#stText')).toHaveText(why.why ?? '');
     // the outline follows the mouse: orange where the piece is
-    await page.hover(`#garea .cell[data-at="1,4,0"]`);
+    await page.hover(`#sgStartGrid .cell[data-at="1,4,0"]`);
     await expect(refused).toHaveAttribute('data-stamp', /^rgb\(245,150,30\);/);
+    await expect(page.locator(`#sgStartParts [data-sp="${block}"] .n`)).toHaveText('1/1');
     // the goal: still invalid until it is placed
     await expect(page.locator('#slideValid')).toHaveAttribute('data-valid', '0');
-    await trayMode(page, 'goal');
-    await stamp(page, block, [1, 1]);
+    await stamp(page, block, [1, 1], true);
     await expect(page.locator('#slideValid')).toHaveAttribute('data-valid', '1');
     await expect(page.locator('#slideValid')).toHaveText(
-      'Valid Start/Goal positions for pieces in Start and Goal of this shape',
+      'Valid Start/Goal positions for pieces in Start and Goal of this board',
     );
-    await expect(page.locator('#trayRow [data-tm="goal"]')).toHaveClass(/\bok\b/);
 
     // what the fixture holds: the tray's starts and goals, the problem's pieces
     const swap = await byLabel(page);
@@ -289,20 +325,20 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     const before = await problemGet(page, p ?? '');
     expect(swap(before.parts)).toEqual(fxSwap(fxProblem.parts));
     expect(swap(before.result)).toEqual(fxSwap(fxProblem.result));
-    // the view: both trays and the eleven stamps (ten starts, one goal)
+    // the view: both trays and the eleven copies (ten starts, one goal)
     await expect
       .poll(async () => (await attr(page, '#vp', 'data-tray')).split(' ').length)
-      .toBe(12);
+      .toBe(13);
 
-    // the Puzzle: no new, copied or deleted problem, no Change…, no groups or rules
-    await page.keyboard.press('Control+2');
-    await pzSettled(page);
+    // no new, copied or deleted problem, no Change…, no groups or rules; a
+    // placed piece has no fewer copies than are placed, and may have more
     await expect(page.locator('#pzNew')).toBeHidden();
     await expect(page.locator('#pzProblems [data-a="dup"]')).toHaveCount(0);
     await expect(page.locator('#pzProblems [data-a="del"]')).toHaveCount(0);
     await expect(page.locator('#pzChange')).toHaveCount(0);
     await expect(page.locator('#pzRules')).toBeHidden();
-    await expect(page.locator('#pzUsed [data-u] [data-d="1"]').first()).toBeDisabled();
+    await expect(page.locator('#pzUsed [data-u] [data-d="-1"]').first()).toBeDisabled();
+    await expect(page.locator('#pzUsed [data-u] [data-d="1"]').first()).toBeEnabled();
 
     // solved by each sliding solver: as bt counts and moves it; the
     // problem then is the fixture's (its pieces, the maximum of holes)
@@ -313,7 +349,8 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
     await expect(page.locator('#slvMode')).toContainText('Find Solutions');
     await expect(page.locator('#slvOpts [data-o="keepMirrors"]')).toHaveCount(0);
-    await expect(page.locator('#slvOpts [data-o="highMemory"]')).toHaveCount(1);
+    // its memory is the Search memory setting, not a box here
+    await expect(page.locator('#slvOpts [data-o="highMemory"]')).toHaveCount(0);
     await expect(page.locator('#slvOpts [data-o="partialNested"]')).toHaveClass(/\boff\b/);
     // pieces stay in their layers unless Allow Vertical Moves is on
     await expect(page.locator('#slvOpts [data-o="verticalMoves"]')).toHaveAttribute(
@@ -364,6 +401,7 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
         c.errc !== null &&
         c.errc !== 'superseded' &&
         c.method !== 'sliding.place' &&
+        c.method !== 'sliding.preview' &&
         !(i < deleted && c.method === 'solution.page' && c.errc === 'not_found'),
     );
     expect(bad).toEqual([]);
@@ -478,7 +516,73 @@ test('notices in message boxes; what the original greyed out is not offered or i
   }
 });
 
-test('reference screenshots: a start/goal shape’s Walls, Start and Goal, its two trays, the walls in the player', async () => {
+test('copies of a piece: a start and a goal for each, placed one by one', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  try {
+    // a 4 by 1 board, a unit piece the puzzle has two of, another of one
+    await newDocument(page, 'sliding');
+    await page.click('#btnNewBoard');
+    await settled(page);
+    for (const [d, n] of [
+      [0, 2],
+      [1, 5],
+    ] as const) {
+      for (let i = 0; i < n; i++) {
+        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await settled(page);
+      }
+    }
+    const tray = await idOf(page, 'B1');
+    expect((await engineCall<Tray>(page, 'sliding.tray', { tray })).size).toEqual([4, 1, 1]);
+    const one = await piece(page, [[0, 0]]);
+    const two = await piece(page, [[0, 0]]);
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    await page.click('#pzAll');
+    await pzSettled(page);
+    await page.click(`#pzUsed [data-u="${two}"] [data-d="1"]`);
+    await pzSettled(page);
+    await expect(page.locator(`#sgStartParts [data-sp="${two}"] .n`)).toHaveText('0/2');
+
+    // S1 at its start and goal; S2's two starts, a third refused
+    await stamp(page, one, [0, 0]);
+    await stamp(page, one, [0, 0], true);
+    await stamp(page, two, [1, 0]);
+    await expect(page.locator('#sgStartHint')).toContainText('2 copies');
+    await boardClick(page, false, [2, 0]);
+    await expect(page.locator(`#sgStartParts [data-sp="${two}"] .n`)).toHaveText('2/2');
+    await boardClick(page, false, [3, 0]);
+    await expect(page.locator('#stText')).toContainText('All 2 copies');
+    // one copy fewer than placed is refused: − is off
+    await expect(page.locator(`#pzUsed [data-u="${two}"] [data-d="-1"]`)).toBeDisabled();
+    // a goal for one copy only: valid (S1 has its start and goal; the other copy ends anywhere)
+    await stamp(page, two, [3, 0], true);
+    await expect(page.locator('#slideValid')).toHaveAttribute('data-valid', '1');
+    const t = await engineCall<{ placed: { piece: string; goal: boolean }[] }>(
+      page,
+      'sliding.tray',
+      { tray },
+    );
+    expect(t.placed.filter((c) => c.piece === two && !c.goal)).toHaveLength(2);
+    // the right click takes off the copy under it, not the other
+    await boardClick(page, false, [2, 0], 'right');
+    await expect(page.locator(`#sgStartParts [data-sp="${two}"] .n`)).toHaveText('1/2');
+    // the 3D view: two trays and the four copies
+    await expect.poll(async () => (await attr(page, '#vp', 'data-tray')).split(' ').length).toBe(6);
+    // solved: S2's other copy starts on 2 or 3; any copy may end on the goal
+    await toSolver(page);
+    await runButton(page, 'start');
+    await runEnded(page, 'finished');
+    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(2);
+    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBeGreaterThan(0);
+  } finally {
+    await a.close();
+  }
+});
+
+test('reference screenshots: a board drawn, its Start and goal, its two trays, the walls in the player', async () => {
   test.setTimeout(120_000);
   const a = await launch();
   const page = a.page;
@@ -486,18 +590,17 @@ test('reference screenshots: a start/goal shape’s Walls, Start and Goal, its t
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     const tray = await idOf(page, 'B1');
     await selectShape(page, tray);
-    await expect(page.locator('#vp')).toHaveAttribute('data-tray', /^(\S+ ){11}\S+$/);
     await page.mouse.move(2, 2);
     await settle(page);
-    await expect(page.locator('#garea')).toHaveScreenshot('sliding-tray-walls.png');
+    await expect(page.locator('#garea')).toHaveScreenshot('sliding-board.png');
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    await expect(page.locator('#vp')).toHaveAttribute('data-tray', /^(\S+ ){12}\S+$/);
+    await page.click(`#sgStartParts [data-sp="${await idOf(page, 'S1')}"]`);
+    await page.mouse.move(2, 2);
+    await settle(page);
+    await expect(page.locator('#rightP')).toHaveScreenshot('sliding-start-goal.png');
     await expect(page.locator('#vp')).toHaveScreenshot('sliding-trays.png');
-    for (const m of ['start', 'goal'] as const) {
-      await trayMode(page, m);
-      await page.click(`#stampRow [data-sp="${await idOf(page, 'S1')}"]`);
-      await page.mouse.move(2, 2);
-      await settle(page);
-      await expect(page.locator('#right')).toHaveScreenshot(`sliding-tray-${m}.png`);
-    }
     await toSolver(page);
     await runButton(page, 'start');
     await runEnded(page, 'finished');

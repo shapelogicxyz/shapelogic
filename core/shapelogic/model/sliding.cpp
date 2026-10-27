@@ -6,6 +6,7 @@
 
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 
@@ -13,6 +14,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <set>
 #include <sstream>
 
 namespace bt::sliding {
@@ -256,6 +258,22 @@ void paintPieceLock(Voxel& piece, unsigned int color) {
   }
 }
 
+// The cells of a piece placed in an assembly (transformed and moved).
+std::vector<TrayCell> placedCells(const Voxel& shape, const Assembly& a, unsigned int pc) {
+  std::vector<TrayCell> out;
+  std::unique_ptr<Voxel> v = shape.clone();
+  if (!v->transform(a.getTransformation(pc))) {
+    return out;
+  }
+  const int hx = v->getHx();
+  const int hy = v->getHy();
+  const int hz = v->getHz();
+  for (const TrayCell& c : pieceCells(*v)) {
+    out.push_back({a.getX(pc) + c[0] - hx, a.getY(pc) + c[1] - hy, a.getZ(pc) + c[2] - hz});
+  }
+  return out;
+}
+
 }  // namespace
 
 bool isSliding(const Puzzle& puzzle) { return puzzle.getGridType().getType() == GridKind::Sliding; }
@@ -458,9 +476,11 @@ bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool
 
 namespace {
 
-// Why cells marked for shape id would not do, or empty when they would.
+// Why cells marked for shape id would not do, or empty when they would. A
+// cell of the piece's own marks is free only when the stamp replaces them
+// (a piece of one copy moved).
 std::string cellsFit(const Voxel& tray, const std::vector<TrayCell>& cells, unsigned int id,
-                     bool goal) {
+                     bool goal, bool replaces) {
   for (const TrayCell& c : cells) {
     if (!inTray(tray, c[0], c[1], c[2])) {
       return "The piece does not fit there: part of it would be off the floor.";
@@ -477,14 +497,68 @@ std::string cellsFit(const Voxel& tray, const std::vector<TrayCell>& cells, unsi
       return std::string("The piece would cover the ") + (goal ? "goal" : "start") + " of S" +
              std::to_string(other) + ".";
     }
+    if (other == id && !replaces) {
+      return std::string("The piece would cover the ") + (goal ? "goal" : "start") +
+             " of another copy of it.";
+    }
   }
   return std::string();
+}
+
+// The marked cells split into whole copies of the piece as drawn, by their
+// first cells: the first cell left is the first of a copy, so the split is
+// forced. nullopt when the marks are not whole copies.
+std::optional<std::vector<std::vector<TrayCell>>> splitCopies(std::vector<TrayCell> marked,
+                                                              const Voxel& piece) {
+  std::vector<std::vector<TrayCell>> out;
+  if (marked.empty()) {
+    return out;
+  }
+  const std::vector<TrayCell> shape = fromFirst(pieceCells(piece));
+  if (shape.empty()) {
+    return std::nullopt;
+  }
+  std::sort(marked.begin(), marked.end(), topLeftFirst);
+  std::set<TrayCell> left(marked.begin(), marked.end());
+  for (const TrayCell& first : marked) {
+    if (!left.contains(first)) {
+      continue;
+    }
+    std::vector<TrayCell> copy;
+    copy.reserve(shape.size());
+    for (const TrayCell& c : shape) {
+      const TrayCell at{first[0] + c[0], first[1] + c[1], first[2] + c[2]};
+      if (left.erase(at) == 0) {
+        return std::nullopt;
+      }
+      copy.push_back(at);
+    }
+    std::sort(copy.begin(), copy.end(), topLeftFirst);
+    out.push_back(std::move(copy));
+  }
+  return out;
+}
+
+// How many copies of the piece the marks of id hold: whole copies, or the
+// cells over the piece's size rounded up when they are not whole pieces.
+unsigned int placedCopies(const Voxel& tray, const Voxel& piece, unsigned int id, bool goal) {
+  std::vector<TrayCell> marked = stampedCells(tray, id, goal);
+  if (marked.empty()) {
+    return 0;
+  }
+  const std::size_t size = pieceCells(piece).size();
+  const std::size_t cells = marked.size();
+  const auto copies = splitCopies(std::move(marked), piece);
+  if (copies) {
+    return static_cast<unsigned int>(copies->size());
+  }
+  return size == 0 ? 1U : static_cast<unsigned int>((cells + size - 1) / size);
 }
 
 }  // namespace
 
 std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece, unsigned int shapeId,
-                                 int x, int y, int z, bool goal) {
+                                 int x, int y, int z, bool goal, unsigned int copies) {
   std::vector<TrayCell> none;
   if (piece == nullptr) {
     return none;
@@ -526,7 +600,7 @@ std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece, unsigned
       c = {c[0] - anchor[0] + x, c[1] - anchor[1] + y, c[2] + base};
     }
     std::sort(placed.begin(), placed.end(), topLeftFirst);
-    if (tray == nullptr || cellsFit(*tray, placed, shapeId + 1, goal).empty()) {
+    if (tray == nullptr || cellsFit(*tray, placed, shapeId + 1, goal, copies <= 1).empty()) {
       return placed;
     }
     if (first.empty()) {
@@ -537,7 +611,7 @@ std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece, unsigned
 }
 
 std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y,
-                      int z, bool goal) {
+                      int z, bool goal, unsigned int copies) {
   if (tray == nullptr || piece == nullptr) {
     return "No piece is chosen.";
   }
@@ -545,23 +619,31 @@ std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeI
   if (id > 63) {
     return "Only the first 63 shapes can be placed.";
   }
-  const std::vector<TrayCell> cells = stampCells(tray, piece, shapeId, x, y, z, goal);
+  const std::vector<TrayCell> cells = stampCells(tray, piece, shapeId, x, y, z, goal, copies);
   if (cells.empty()) {
     return pieceCells(*piece).empty() ? "The piece has no cells."
                                       : "The piece has no cells on this layer there.";
   }
-  return cellsFit(*tray, cells, id, goal);
+  if (copies > 1 && placedCopies(*tray, *piece, id, goal) >= copies) {
+    return "All " + std::to_string(copies) + " copies of the piece have a " +
+           (goal ? "goal" : "start") + " already: take one off first (right-click it).";
+  }
+  return cellsFit(*tray, cells, id, goal, copies <= 1);
 }
 
 std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
-                       bool goal) {
-  std::string why = stampFits(tray, piece, shapeId, x, y, z, goal);
+                       bool goal, unsigned int copies) {
+  std::string why = stampFits(tray, piece, shapeId, x, y, z, goal, copies);
   if (!why.empty()) {
     return why;
   }
   const unsigned int id = shapeId + 1;
-  clearStamp(tray, shapeId, goal);
-  for (const TrayCell& c : stampCells(tray, piece, shapeId, x, y, z, goal)) {
+  const std::vector<TrayCell> cells = stampCells(tray, piece, shapeId, x, y, z, goal, copies);
+  // one copy moves; another copy goes beside those placed
+  if (copies <= 1) {
+    clearStamp(tray, shapeId, goal);
+  }
+  for (const TrayCell& c : cells) {
     const unsigned int i = tray->getIndex(asUnsigned(c[0]), asUnsigned(c[1]), asUnsigned(c[2]));
     if (goal) {
       tray->setGoalPiece(i, id);
@@ -581,17 +663,18 @@ std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId
   if (isStartGoalShape(&piece) || isHiddenSlidingShape(&piece)) {
     return trays;
   }
-  const std::vector<TrayCell> shape = fromFirst(pieceCells(piece));
-  const unsigned int id = shapeId + 1;
   for (unsigned int t = 0; t < puzzle.getNumberOfShapes(); t++) {
     Voxel& tray = puzzle.getShape(t);
     if (!isStartGoalShape(&tray)) {
       continue;
     }
+    // the marks stay while they are still whole copies, no more than the
+    // problem has (a piece cut in two would otherwise count twice the copies)
+    const unsigned int copies = pieceCopies(puzzle, t, shapeId);
     bool dropped = false;
     for (int goal = 0; goal < 2; goal++) {
-      const std::vector<TrayCell> cells = stampedCells(tray, id, goal != 0);
-      if (!cells.empty() && fromFirst(cells) != shape) {
+      const auto split = stampCopies(tray, piece, shapeId, goal != 0);
+      if (!split || split->size() > copies) {
         dropped = clearStamp(&tray, shapeId, goal != 0) || dropped;
       }
     }
@@ -607,11 +690,54 @@ bool stampIsAt(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int 
   if (tray == nullptr || piece == nullptr) {
     return false;
   }
-  std::vector<TrayCell> now = stampedCells(*tray, shapeId + 1, goal);
   std::vector<TrayCell> there = stampCells(tray, piece, shapeId, x, y, z, goal);
-  std::sort(now.begin(), now.end());
   std::sort(there.begin(), there.end());
-  return !now.empty() && now == there;
+  if (there.empty()) {
+    return false;
+  }
+  std::vector<TrayCell> now = stampedCells(*tray, shapeId + 1, goal);
+  const auto copies = splitCopies(now, *piece);
+  if (!copies) {
+    // marks that are not whole pieces: only all of them together
+    std::sort(now.begin(), now.end());
+    return now == there;
+  }
+  return std::any_of(copies->begin(), copies->end(), [&there](std::vector<TrayCell> c) {
+    std::sort(c.begin(), c.end());
+    return c == there;
+  });
+}
+
+std::optional<std::vector<std::vector<TrayCell>>> stampCopies(const Voxel& tray,
+                                                             const Voxel& piece,
+                                                             unsigned int shapeId, bool goal) {
+  return splitCopies(stampedCells(tray, shapeId + 1, goal), piece);
+}
+
+bool clearCopyAt(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
+                 bool goal) {
+  if (tray == nullptr || piece == nullptr || stampAt(tray, x, y, z, goal) != shapeId) {
+    return false;
+  }
+  const auto copies = stampCopies(*tray, *piece, shapeId, goal);
+  if (!copies) {
+    return clearStamp(tray, shapeId, goal);
+  }
+  for (const std::vector<TrayCell>& copy : *copies) {
+    if (std::find(copy.begin(), copy.end(), TrayCell{x, y, z}) == copy.end()) {
+      continue;
+    }
+    for (const TrayCell& c : copy) {
+      const unsigned int i = tray->getIndex(asUnsigned(c[0]), asUnsigned(c[1]), asUnsigned(c[2]));
+      if (goal) {
+        tray->setGoalPiece(i, 0);
+      } else {
+        tray->setColor(i, 0);
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal) {
@@ -654,31 +780,132 @@ std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape) {
     if (isStartGoalShape(&piece) || isHiddenSlidingShape(&piece)) {
       continue;
     }
-    const unsigned int id = s + 1;
-    const std::vector<TrayCell> starts = stampedCells(tray, id, false);
-    const std::vector<TrayCell> goals = stampedCells(tray, id, true);
-    const std::vector<TrayCell> shape = fromFirst(pieceCells(piece));
+    const auto starts = stampCopies(tray, piece, s, false);
+    const auto goals = stampCopies(tray, piece, s, true);
     const std::string name = shapeLabel(puzzle, s);
-    if (!starts.empty() && fromFirst(starts) != shape) {
+    if (!starts) {
       return "The start of " + name + " is not the whole piece. Place it again.";
     }
-    if (!goals.empty() && fromFirst(goals) != shape) {
+    if (!goals) {
       return "The goal of " + name + " is not the whole piece. Place it again.";
     }
-    if (!goals.empty() && starts.empty()) {
-      return name + " has a goal but no start.";
+    const unsigned int copies = pieceCopies(puzzle, trayShape, s);
+    for (int goal = 0; goal < 2; goal++) {
+      const std::size_t n = (goal != 0 ? goals : starts)->size();
+      if (n > copies) {
+        return name + " has " + std::to_string(n) + (goal != 0 ? " goals" : " starts") +
+               " but the puzzle has " + std::to_string(copies) +
+               (copies == 1 ? " copy of it." : " copies of it.");
+      }
     }
-    if (!starts.empty() && !goals.empty()) {
+    if (starts->size() == copies && goals->size() == copies) {
       both = true;
     }
   }
   if (!both) {
-    return "Place at least one piece at its Start, and the same piece at its Goal.";
+    return "Place at least one piece at its Start and at its Goal (every copy of it, when the "
+           "puzzle has several).";
   }
   return std::string();
 }
 
-void refreshStartLocks(Puzzle& puzzle, const Problem& problem) {
+const Problem* trayProblem(const Puzzle& puzzle, unsigned int trayShape) {
+  for (unsigned int p = 0; p < puzzle.getNumberOfProblems(); p++) {
+    const Problem& pr = puzzle.getProblem(p);
+    if (pr.resultValid() && pr.getResultId() == trayShape) {
+      return &pr;
+    }
+  }
+  return nullptr;
+}
+
+unsigned int pieceCopies(const Puzzle& puzzle, unsigned int trayShape, unsigned int shapeId) {
+  const Problem* pr = trayProblem(puzzle, trayShape);
+  return pr == nullptr ? 1U : std::max(1U, pr->getShapeMaximum(shapeId));
+}
+
+unsigned int stampedCopies(const Puzzle& puzzle, const Problem& problem, unsigned int shapeId) {
+  if (!problem.resultValid() || shapeId >= puzzle.getNumberOfShapes() || shapeId >= 63) {
+    return 0;
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  if (!isStartGoalShape(&tray)) {
+    return 0;
+  }
+  const Voxel& piece = puzzle.getShape(shapeId);
+  return std::max(placedCopies(tray, piece, shapeId + 1, false),
+                  placedCopies(tray, piece, shapeId + 1, true));
+}
+
+namespace {
+
+// The lock colours (bit id - 1) of the pieces with starts for fewer than
+// all their copies on the problem's start/goal shape.
+std::uint64_t neutralFitColors(const Puzzle& puzzle, const Problem& problem) {
+  if (!problem.resultValid() || !isStartGoalShape(&problem.resultShape(puzzle))) {
+    return 0;
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  std::uint64_t colors = 0;
+  for (unsigned int s = 0; s < puzzle.getNumberOfShapes() && s < 63; s++) {
+    const Voxel& piece = puzzle.getShape(s);
+    if (isStartGoalShape(&piece) || isHiddenSlidingShape(&piece)) {
+      continue;
+    }
+    const unsigned int starts = placedCopies(tray, piece, s + 1, false);
+    if (starts > 0 && starts < problem.getShapeMaximum(s)) {
+      colors |= std::uint64_t{1} << s;
+    }
+  }
+  return colors;
+}
+
+}  // namespace
+
+bool startFillsStamps(const Puzzle& puzzle, const Problem& problem, const Assembly& assembly) {
+  const std::uint64_t colors = problem.getNeutralFitColors();
+  if (colors == 0 || !problem.resultValid()) {
+    return true;
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  unsigned int pc = 0;
+  for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
+    const unsigned int shapeId = problem.getShapeIdOfPart(part);
+    const unsigned int count = problem.getPartMaximum(part);
+    if (shapeId >= 63 || ((colors >> shapeId) & 1U) == 0) {
+      pc += count;
+      continue;
+    }
+    // As many copies wholly on the piece's starts as it has starts fill
+    // them: the starts hold that many copies' cells.
+    const Voxel& piece = puzzle.getShape(shapeId);
+    const unsigned int id = shapeId + 1;
+    const unsigned int want = placedCopies(tray, piece, id, false);
+    unsigned int on = 0;
+    for (unsigned int j = 0; j < count; j++, pc++) {
+      if (pc >= assembly.placementCount() || !assembly.isPlaced(pc)) {
+        continue;
+      }
+      const std::vector<TrayCell> cells = placedCells(piece, assembly, pc);
+      const bool all = !cells.empty() && std::all_of(cells.begin(), cells.end(),
+                                                     [&tray, id](const TrayCell& c) {
+                                                       return inTray(tray, c[0], c[1], c[2]) &&
+                                                              tray.getColor(asUnsigned(c[0]),
+                                                                            asUnsigned(c[1]),
+                                                                            asUnsigned(c[2])) ==
+                                                                  id;
+                                                     });
+      on += all ? 1 : 0;
+    }
+    if (on < want) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void refreshStartLocks(Puzzle& puzzle, Problem& problem) {
+  problem.setNeutralFitColors(neutralFitColors(puzzle, problem));
   if (!problem.resultValid()) {
     return;
   }
@@ -789,11 +1016,13 @@ void syncSlidingProblems(Puzzle& puzzle) {
         }
       }
       if (used) {
-        if (pr.getShapeMaximum(i) < 1) {
-          pr.setShapeMaximum(puzzle, i, 1);
+        // a copy for each start and each goal
+        const unsigned int least = std::max(1U, stampedCopies(puzzle, pr, i));
+        if (pr.getShapeMaximum(i) < least) {
+          pr.setShapeMaximum(puzzle, i, least);
         }
-        if (pr.getShapeMinimum(i) < 1) {
-          pr.setShapeMinimum(puzzle, i, 1);
+        if (pr.getShapeMinimum(i) < least) {
+          pr.setShapeMinimum(puzzle, i, least);
         }
         if (pr.getShapeMaximum(i) < pr.getShapeMinimum(i)) {
           pr.setShapeMaximum(puzzle, i, pr.getShapeMinimum(i));
@@ -1091,6 +1320,9 @@ std::string stampOverflowMessage(const Puzzle& puzzle, const Problem& problem) {
       }
     }
     const unsigned int id = s + 1;
+    // every copy may have a start and a goal
+    const unsigned int copies = std::max(1U, problem.getShapeMaximum(s));
+    voxels *= copies;
     unsigned int starts = 0;
     unsigned int goals = 0;
     for (unsigned int i = 0; i < tray.getXYZ(); i++) {
@@ -1101,12 +1333,15 @@ std::string stampOverflowMessage(const Puzzle& puzzle, const Problem& problem) {
         goals++;
       }
     }
+    const std::string has = copies == 1 ? " cells but the piece only has "
+                                        : " cells but its " + std::to_string(copies) +
+                                              " copies only have ";
     if (starts > voxels) {
-      msg << "S" << id << " has " << starts << " start cells but the piece only has " << voxels
+      msg << "S" << id << " has " << starts << " start" << has << voxels
           << (voxels == 1 ? " voxel.\n" : " voxels.\n");
     }
     if (goals > voxels) {
-      msg << "S" << id << " has " << goals << " goal cells but the piece only has " << voxels
+      msg << "S" << id << " has " << goals << " goal" << has << voxels
           << (voxels == 1 ? " voxel.\n" : " voxels.\n");
     }
   }
@@ -1139,6 +1374,9 @@ bool needsPreparing(const Puzzle& puzzle, const Problem& problem) {
     return true;
   }
   // the start locks (refreshStartLocks)
+  if (problem.getNeutralFitColors() != neutralFitColors(puzzle, problem)) {
+    return true;
+  }
   const Voxel& tray = problem.resultShape(puzzle);
   if (!isStartGoalShape(&tray)) {
     return false;
@@ -1174,6 +1412,7 @@ bool prepareForSolving(Puzzle& puzzle, Problem& problem) {
   // what is there before, to tell whether anything changed
   const bool hadMaxHoles = problem.maxHolesDefined();
   const unsigned int maxHoles = hadMaxHoles ? problem.getMaxHoles() : 0;
+  const std::uint64_t neutral = problem.getNeutralFitColors();
   const unsigned int colours = puzzle.colorNumber();
   std::vector<std::unique_ptr<Voxel>> shapes;
   shapes.reserve(puzzle.getNumberOfShapes());
@@ -1184,7 +1423,7 @@ bool prepareForSolving(Puzzle& puzzle, Problem& problem) {
   syncMaxHoles(puzzle, problem);
   refreshStartLocks(puzzle, problem);
 
-  bool changed = colours != puzzle.colorNumber() ||
+  bool changed = colours != puzzle.colorNumber() || neutral != problem.getNeutralFitColors() ||
                  hadMaxHoles != problem.maxHolesDefined() ||
                  (hadMaxHoles && maxHoles != problem.getMaxHoles());
   for (unsigned int s = 0; s < puzzle.getNumberOfShapes() && !changed; s++) {

@@ -32,9 +32,14 @@ const cells = (s: ShapeSummary): number => s.fixed + s.variable;
 /** What a shape's weight does (the Groups table's tips). */
 const WEIGHT = 'in the Solver, heavier shapes stay in place and lighter ones move';
 
-/** Why a sliding piece's count cannot change (Part.required). */
+/** Why a sliding piece stays in the puzzle (Part.required). */
 const REQUIRED =
-  'Its start or goal on the start/goal shape needs exactly this piece: place or clear it on the Shapes workspace';
+  'Its starts or goals on the board need this piece: take them off in Start and goal first';
+
+/** Why a sliding piece has no fewer copies (Part.placed). */
+function placedTip(p: Part): string {
+  return `${String(p.placed)} ${p.placed === 1 ? 'copy is' : 'copies are'} placed at a start or goal on the board: take one off in Start and goal first`;
+}
 
 export class PiecesCard {
   private readonly ws: PuzzleWorkspace;
@@ -136,11 +141,12 @@ export class PiecesCard {
             const rg = ws.isRange(s.id);
             const g = groupOf(p);
             const c = ws.chip(s.id);
-            // a piece a start or goal needs keeps its count (the engine refuses)
+            // a piece starts or goals need keeps a copy for each (the engine refuses fewer)
             const off = p.required ? `disabled title="${REQUIRED}"` : '';
+            const least = p.placed > 0 ? ` min="${String(p.placed)}"` : ' min="0"';
             const count = rg
-              ? `<input type="number" min="0" data-f="min" value="${String(p.min)}" aria-label="Minimum" title="The fewest copies of this piece a solution may use" ${off}><span class="dash">–</span><input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Maximum" title="The most copies of this piece a solution may use" ${off}>`
-              : `<input type="number" min="0" data-f="max" value="${String(p.max)}" aria-label="Copies" title="How many copies of this piece the puzzle uses" ${off}>`;
+              ? `<input type="number"${least} data-f="min" value="${String(p.min)}" aria-label="Minimum" title="The fewest copies of this piece a solution may use"><span class="dash">–</span><input type="number"${least} data-f="max" value="${String(p.max)}" aria-label="Maximum" title="The most copies of this piece a solution may use">`
+              : `<input type="number"${least} data-f="max" value="${String(p.max)}" aria-label="Copies" title="How many copies of this piece the puzzle uses${p.placed > 0 ? ` (at least ${String(p.placed)}: ${placedTip(p)})` : ''}">`;
             // a sliding puzzle has no groups
             const grp = fixedResult
               ? '–'
@@ -169,9 +175,12 @@ export class PiecesCard {
   private usedTile(s: ShapeSummary, p: Part): string {
     const g = groupOf(p);
     const c = this.ws.chip(s.id);
-    // a piece a start or goal needs keeps its count (the engine refuses)
-    const off = p.required ? `disabled title="${REQUIRED}"` : '';
-    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${off || 'title="One fewer (at 0 the piece leaves the puzzle)"'}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" ${off || 'title="One more"'}>+</button></div>${s.weight !== 1 ? `<div class="t3">Weight: ${String(s.weight)}</div>` : ''}</div></div>`;
+    // a piece starts or goals need keeps a copy for each (the engine refuses fewer)
+    const fewer =
+      p.placed > 0 && p.min <= p.placed
+        ? `disabled title="${placedTip(p)}"`
+        : 'title="One fewer (at 0 the piece leaves the puzzle)"';
+    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${fewer}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" title="One more">+</button></div>${s.weight !== 1 ? `<div class="t3">Weight: ${String(s.weight)}</div>` : ''}</div></div>`;
   }
 
   // the mockup's pzLibChip
@@ -183,7 +192,7 @@ export class PiecesCard {
       // a disc: + or a double-click puts it on top of the rod chosen (the Problems tab's +1)
       return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="false" title="${esc(s.label)}${s.name !== '' ? ` – ${esc(s.name)}` : ''} · size ${String(s.disc ?? 1)} — double-click or press + to put it on the rod chosen"><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<span class="mute">size ${String(s.disc ?? 1)}</span><button class="la" data-add="1" title="Put one on top of the rod chosen">${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
     }
-    return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="${String(!req)}" title="${esc(this.title(s))}${req ? ` — ${REQUIRED}` : ' — drag into “In this puzzle”, double-click, or press + to add one'}"><span class="gripd">${ic('grip', 12)}</span><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<button class="la" data-add="1" ${req ? `disabled title="${REQUIRED}"` : 'title="Add one to the puzzle"'}>${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
+    return `<div class="lc ${n > 0 ? 'in' : ''}" data-u="${s.id}" draggable="${String(!req)}" title="${esc(this.title(s))}${req ? ` — ${REQUIRED}` : ' — drag into “In this puzzle”, double-click, or press + to add one'}"><span class="gripd">${ic('grip', 12)}</span><i class="sq" style="background:${c.bg}"></i><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}<button class="la" data-add="1" title="Add one to the puzzle">${n > 0 ? `×${String(n)} +` : '+'}</button></div>`;
   }
 
   // the fit summary: the engine's verdict and counts (FitStats)

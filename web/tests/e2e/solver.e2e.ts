@@ -99,6 +99,10 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
     await expect(page.locator('#slvAsm')).toHaveText(String(bt.assemblies));
     await expect(page.locator('#slvSols')).toHaveText(String(bt.solutions));
     await expect(page.locator('#slvPct')).toHaveText('100.0%');
+    await expect(page.locator('#slvActivity')).toHaveText('Search finished');
+    await expect(page.locator('#slvDetails')).toHaveText(
+      /^Scanned .+ search steps\. Tried to take apart \d+ assemblies\.$/,
+    );
     await expect(page.locator('#slvRun [data-r="abort"]')).toBeDisabled();
     const detail = await engineCall<{ assemblies: number; solutions: number; saved: number }>(
       page,
@@ -446,7 +450,8 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await runEnded(page, 'paused');
     const pausedAt = Number(await attr(page, '#leftS', 'data-assemblies'));
     expect(pausedAt).toBeGreaterThan(0);
-    await expect(page.locator('#slvActivity')).not.toHaveText('');
+    await expect(page.locator('#slvActivity')).toHaveText('Search paused');
+    await expect(page.locator('#slvDetails')).toContainText(/^Scanned .+ search steps\./);
     await expect(page.locator('#slvRun [data-r="continue"]')).toBeEnabled();
     await expect(page.locator('#slvRun [data-r="abort"]')).toBeEnabled();
     await expect(page.locator('#slvRun [data-r="pause"]')).toBeDisabled();
@@ -482,8 +487,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
 
     // Prepare then Continue, on a smaller box
     const small = await dominoBox(page, 2, 4, 3);
-    await page.click('#slvProb');
-    await page.click(`#pop [data-k="${small.problem}"]`);
+    await page.click(`#slvProbs .row[data-id="${small.problem}"]`);
     await solverSettled(page);
     expect(await shownProblem(page)).toBe(small.problem);
     await runButton(page, 'prepare');
@@ -509,8 +513,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     const q = (await engineCall<{ problem: string }>(page, 'problem.create')).problem;
     await engineCall(page, 'problem.setResult', { problem: q, shape: big });
     await engineCall(page, 'problem.setPieceCount', { problem: q, shape: unit, min: 3, max: 3 });
-    await page.click('#slvProb');
-    await page.click(`#pop [data-k="${q}"]`);
+    await page.click(`#slvProbs .row[data-id="${q}"]`);
     await solverSettled(page);
     await runButton(page, 'start');
     await runEnded(page, 'error');
@@ -518,7 +521,7 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
       problem: q,
     });
     await expect(page.locator('#slvFail')).toContainText(status.failure.message);
-    await expect(page.locator('#slvActivity')).toHaveText('error');
+    await expect(page.locator('#slvActivity')).toHaveText('Search failed');
     expectNoRefusal(log);
   } finally {
     await a.close();
@@ -545,9 +548,8 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
 
     // the second meanwhile
-    await page.click('#slvProb');
-    await expect(page.locator(`#pop [data-k="${one.problem}"]`)).toContainText('solving');
-    await page.click(`#pop [data-k="${two.problem}"]`);
+    await expect(page.locator(`#slvProbs .row[data-id="${one.problem}"]`)).toContainText('solving');
+    await page.click(`#slvProbs .row[data-id="${two.problem}"]`);
     await expect(page.locator('#leftS')).toHaveAttribute('data-problem', two.problem);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'idle');
     await page.click('#slvMode [data-m="dis"]');
@@ -560,8 +562,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
     // the first still runs
-    await page.click('#slvProb');
-    await page.click(`#pop [data-k="${one.problem}"]`);
+    await page.click(`#slvProbs .row[data-id="${one.problem}"]`);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
@@ -599,6 +600,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(slid.assemblies);
     expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(slid.solutions);
     await expect(page.locator('#slvSols')).toHaveText(String(slid.solutions));
+    await expect(page.locator('#slvDetails')).toContainText(/^Scanned .+ arrangements\./);
     await expect(page.locator('#splayer')).toHaveAttribute('data-ready', '1');
     await expect(page.locator('#vp')).toHaveAttribute('data-solution-view', 'playback');
     const slide = await enginePoses(page, sp, await attr(page, '#splayer', 'data-solution'));

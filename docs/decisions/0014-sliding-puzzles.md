@@ -136,6 +136,35 @@ setting `verticalMoves`, `bt --vertical-moves`, the Python module's
 be. With the option off a tray of several layers that has no solution
 says to try it; one layer deep, nothing changes.
 
+**Copies of a piece** (added later). A piece the problem has several
+copies of may have a start and a goal for each: its marks (still shape
+index + 1 in a cell) are then several whole pieces, split by
+`stampCopies` (the first marked cell left is the first cell of a copy, so
+the split is the only one). A stamp is one more copy's until every copy
+has one (a piece of one copy moves, as before); a right click takes off
+the copy under it. The shape is valid once some piece has every copy at a
+start and at a goal; any other piece may have starts and goals for none,
+some or all of its copies, and a goal without a start is allowed (the
+original refused it: the piece starts anywhere). The search follows:
+- the copies are alike, so one start layout stands for every way of
+  sharing the starts among them (the assembler's parts of several
+  pieces), and any copy may end on any of its goals;
+- a copy without a start starts anywhere: a piece with starts for only
+  some copies may also go on a neutral cell
+  (`Problem::setNeutralFitColors`, set with the start locks, not saved),
+  and `startFillsStamps` drops a layout that leaves one of its starts
+  empty before it is counted;
+- a copy without a goal ends anywhere: the goal check counts the copies
+  on a piece's goals (`GoalCheck::at` 2) and the goal is reached when as
+  many fill them as it has goals (together they hold exactly the goals'
+  cells), the others anywhere a piece may stop.
+A puzzle with one copy of each piece is searched and answered as before.
+A piece keeps a copy for each of its starts and goals (`stampedCopies`,
+`Part.placed`; `problem.setPieceCount` refuses fewer), and `sliding.tray`
+lists each copy placed. The front end places the stamps on the Puzzle
+workspace, where the counts are, not on the Entities tab as the original
+did (docs/webui-spec.md, section 8).
+
 ## Consequences
 - The oracle harness has a `sliding` tier: the fixtures and puzzles built
   with the original's code from its `test_sliding.cpp`
@@ -144,8 +173,8 @@ says to try it; one layer deep, nothing changes.
   are recorded (`oracle.py record-slide-routes`) for the playback.
 - The front end has the start/goal editor (the deferred plan's part 2,
   docs/webui-spec.md section 8): New offers the sliding grid, the trays
-  are edited, stamped, solved with the sliding options and played with
-  their walls.
+  are drawn on the Shapes workspace, stamped on the Puzzle workspace,
+  solved with the sliding options and played with their walls.
 - Stacking puzzles stay unsupported (`unsupported`); their solver is the
   plan's part 3, under the same rules (decision 0015: the core and `bt` in
   part 3a, the engine in part 3b).

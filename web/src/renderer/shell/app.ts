@@ -117,8 +117,14 @@ export function startApp(saved: StoredState = {}): {
   }
   const engine = new EngineProxy(window.bt);
   const store = new Store(engine);
-  // each engine gets the settings kept (undo depth, threads)
-  store.wantedSettings = () => ({ undoDepth: prefs.undo, threads: prefs.threads });
+  // each engine gets the settings kept (undo depth, threads, memory, disk)
+  store.wantedSettings = () => ({
+    undoDepth: prefs.undo,
+    threads: prefs.threads,
+    searchMemoryGB: prefs.memGB,
+    slideDiskGB: prefs.slideDiskGB,
+    panexDiskGB: prefs.panexDiskGB,
+  });
   const solves = new Solves(engine);
   // another document (or engine): its problems' ids are new; the old
   // document's last idle and analyseEnded come after this

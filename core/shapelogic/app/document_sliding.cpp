@@ -184,10 +184,13 @@ Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, int z, bool g
     return fail(Errc::InvalidArgument, "a start/goal shape is no piece");
   }
   // A whole piece at a time: it goes with its top-left cell there, moving
-  // it if it was elsewhere, or is taken off when it is exactly there.
+  // it if it was elsewhere (a piece of one copy) or beside its other copies,
+  // or the copy that is exactly there is taken off.
+  const unsigned int copies = sliding::pieceCopies(*puzzle_, *t, *s);
   const bool there = sliding::stampIsAt(&trayShape, &pieceShape, *s, x, y, z, goal);
   if (!there) {
-    const std::string why = sliding::stampFits(&trayShape, &pieceShape, *s, x, y, z, goal);
+    const std::string why =
+        sliding::stampFits(&trayShape, &pieceShape, *s, x, y, z, goal, copies);
     if (!why.empty()) {
       return fail(Errc::InvalidArgument, why);
     }
@@ -196,9 +199,14 @@ Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, int z, bool g
   touchWhole();
   Voxel& v = puzzle_->getShape(*t);
   if (there) {
-    (void)sliding::clearStamp(&v, *s, goal);
+    const std::vector<sliding::TrayCell> cells =
+        sliding::stampCells(&v, &puzzle_->getShape(*s), *s, x, y, z, goal, copies);
+    BT_ASSERT_MSG(!cells.empty(), "a stamp that was there has no cells");
+    const sliding::TrayCell& c = cells.front();
+    (void)sliding::clearCopyAt(&v, &puzzle_->getShape(*s), *s, c[0], c[1], c[2], goal);
   } else {
-    const std::string why = sliding::stampPiece(&v, &puzzle_->getShape(*s), *s, x, y, z, goal);
+    const std::string why =
+        sliding::stampPiece(&v, &puzzle_->getShape(*s), *s, x, y, z, goal, copies);
     BT_ASSERT_MSG(why.empty(), "a stamp that fit did not");
   }
   syncSliding();
@@ -233,7 +241,9 @@ Result<bool> Document::clearStampAt(Id tray, int x, int y, int z, bool goal) {
   }
   StepGuard g(*this, goal ? "Remove goal" : "Remove start");
   touchWhole();
-  (void)sliding::clearStamp(&puzzle_->getShape(*t), under, goal);
+  // the copy under the cell, not the piece's other copies
+  (void)sliding::clearCopyAt(&puzzle_->getShape(*t), &puzzle_->getShape(under), under, x, y, z,
+                             goal);
   syncSliding();
   for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
     const Problem& pr = puzzle_->getProblem(p);

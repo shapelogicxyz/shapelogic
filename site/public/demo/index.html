@@ -19,8 +19,8 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-CdROP4n4.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-yHqWRji8.css">
+    <script type="module" crossorigin src="/demo/assets/index-CyTTF3Ne.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-yiuf8aIL.css">
   </head>
   <body>
     <div id="wrap">
@@ -188,11 +188,18 @@
               Solver<span class="sp"></span
               ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
             </div>
+            <div class="slv-sec slv-probsec" id="slvProb">
+              <div class="slv-lab">Problem</div>
+              <div
+                class="slv-problems"
+                id="slvProbs"
+                role="listbox"
+                aria-label="Problems"
+                title="Select the problem to solve"
+              ></div>
+              <div class="slv-pmeta" id="slvProbMeta"></div>
+            </div>
             <div class="pz-scroll">
-              <div class="slv-sec">
-                <div class="slv-lab">Problem</div>
-                <button class="slv-prob" id="slvProb" title="Select the problem to solve"></button>
-              </div>
               <div class="slv-sec slv-optsec">
                 <div class="slv-lab">What to check</div>
                 <div class="slv-mode" id="slvMode"></div>
@@ -263,8 +270,8 @@
                 <div id="navHint">Drag orbit · Shift/middle-drag pan · Wheel zoom</div>
               </div>
               <div class="empty" id="emptyMsg"></div>
-              <div class="slidevalid ent-only" id="slideValid" role="status"></div>
-              <div class="traytags ent-only" id="trayTags"></div>
+              <div class="slidevalid puz-only" id="slideValid" role="status"></div>
+              <div class="traytags puz-only" id="trayTags"></div>
               <div class="pzscene" id="pzScene"></div>
             </div>
           </section>
@@ -278,8 +285,6 @@
                 <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
               </div>
               <div class="rods" id="rodsPanel"></div>
-              <div class="trayrow" id="trayRow"></div>
-              <div class="stamprow" id="stampRow"></div>
               <div class="tools" id="toolStrip"></div>
               <div class="mrow" id="modRow"></div>
               <div class="subbar">
@@ -320,6 +325,34 @@
             <div class="ch">
               <span id="pzRightTitle">Selected piece</span><span class="sp"></span
               ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
+            </div>
+            <div class="pzslide" id="pzSlide">
+              <section class="sgpane" id="sgStart" aria-label="Start">
+                <div class="pzh" id="sgStartHead">Start</div>
+                <div class="sgparts" id="sgStartParts"></div>
+                <div class="sghint mute" id="sgStartHint"></div>
+                <div class="sgbody">
+                  <div class="sglayers" id="sgStartLayers"></div>
+                  <div
+                    class="sggrid"
+                    id="sgStartGrid"
+                    title="Click: place a copy of the piece selected, or take off the copy there · Right-click: take off the copy under the mouse"
+                  ></div>
+                </div>
+              </section>
+              <section class="sgpane" id="sgGoal" aria-label="Goal">
+                <div class="pzh" id="sgGoalHead">Goal</div>
+                <div class="sgparts" id="sgGoalParts"></div>
+                <div class="sghint mute" id="sgGoalHint"></div>
+                <div class="sgbody">
+                  <div class="sglayers" id="sgGoalLayers"></div>
+                  <div
+                    class="sggrid"
+                    id="sgGoalGrid"
+                    title="Click: place a copy of the piece selected, or take off the copy there · Right-click: take off the copy under the mouse"
+                  ></div>
+                </div>
+              </section>
             </div>
             <div class="pz-scroll">
               <div class="pzstacks" id="pzStacks"></div>

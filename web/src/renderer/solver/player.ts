@@ -42,7 +42,7 @@ import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
 import type { View3D } from '../view3d/view.ts';
-import { PoseTrack, SAMPLES } from './poses.ts';
+import { ChunkLoads, PoseTrack, SAMPLES } from './poses.ts';
 
 /** A placed piece of the solution shown. */
 export interface PlayerPiece {
@@ -107,7 +107,7 @@ export class Player {
   /** The playback's opening: waiting for the choice to rest, or asked for. */
   private opening: 'none' | 'timer' | 'asked' = 'none';
   private raf = 0;
-  private loadingChunks = new Set<number>();
+  private readonly loads = new ChunkLoads();
   /** The model shown: 'assembled', or 'playback' once the playback is in. */
   private shown: 'none' | 'assembled' | 'playback' = 'none';
   /** A solution to play once its playback is open. */
@@ -203,7 +203,7 @@ export class Player {
     this.problem = null;
     this.row = null;
     this.pieces = [];
-    this.loadingChunks.clear();
+    this.loads.clear();
     this.mark();
   }
 
@@ -476,24 +476,14 @@ export class Player {
 
   // ---- the poses ----
 
-  /** Loads the chunks the pose at `t` needs (and the next one, ahead of play). */
-  private async ensureChunks(n: number, t: number): Promise<void> {
+  /** Loads the chunks the pose at `t` needs (and the next one, ahead of play); ChunkLoads.ensure's answer. */
+  private async ensureChunks(n: number, t: number): Promise<boolean> {
     const track = this.track;
     const h = this.handle;
     if (track === null || h === null) {
-      return;
+      return false;
     }
-    const want = track.missing(t);
-    const ahead = PoseTrack.chunkOf(t) + 1;
-    const prefetch =
-      ahead < track.chunkCount && !track.has(ahead) && !this.loadingChunks.has(ahead);
-    const loads = want
-      .filter((c) => !this.loadingChunks.has(c))
-      .map((c) => this.loadChunk(n, h, c));
-    if (prefetch) {
-      void this.loadChunk(n, h, ahead);
-    }
-    await Promise.all(loads);
+    return this.loads.ensure(track, t, (c) => this.loadChunk(n, h, c));
   }
 
   private async loadChunk(n: number, h: string, c: number): Promise<void> {
@@ -501,7 +491,6 @@ export class Player {
     if (track === null) {
       return;
     }
-    this.loadingChunks.add(c);
     try {
       const { from, to } = track.range(c);
       const r = await this.host.store.engine.call('playback.poses', {
@@ -517,8 +506,6 @@ export class Player {
       if (n === this.token && !quiet(e)) {
         reportError(e, 'The moves could not be read');
       }
-    } finally {
-      this.loadingChunks.delete(c);
     }
   }
 
@@ -531,8 +518,9 @@ export class Player {
     const poses = track.at(this.t, prefs.fade);
     if (poses === null) {
       const n = this.token;
-      void this.ensureChunks(n, this.t).then(() => {
-        if (n === this.token) {
+      // tried again only once what it waited for came (see ChunkLoads)
+      void this.ensureChunks(n, this.t).then((came) => {
+        if (came && n === this.token) {
           this.pose();
         }
       });

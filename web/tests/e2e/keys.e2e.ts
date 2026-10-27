@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The shell rows of the keyboard map (shell/keys.ts, docs/webui-spec.md
-// section 6): Ctrl+1/2/3, F1, Ctrl+,, Ctrl+[ and Ctrl+], Ctrl+Space, Esc's
+// section 6): Ctrl+1/2/3, F1, Ctrl+,, Ctrl+[ and Ctrl+], Esc's
 // step-back order, O / P, Home and F; the layout kept per workspace; Tab
 // kept inside the settings dialog; the Top Up and Free Spin rotation methods.
 
@@ -112,9 +112,9 @@ test('Ctrl+[ and Ctrl+] collapse the cards, and each workspace keeps its layout'
   await expect(stage(page)).not.toHaveClass(/\blc\b/);
 });
 
-test('Ctrl+Space focuses the 3D view; Esc steps back: menu first, then the focus', async () => {
+test('Esc steps back: menu first, then the focus', async () => {
   const { page } = a;
-  await page.keyboard.press('Control+Space');
+  await page.click('#bF3D');
   await expect(stage(page)).toHaveClass(/\bf3d\b/);
   await page.click('#bDisp');
   await expect(page.locator('#pop')).toBeVisible();
@@ -123,9 +123,9 @@ test('Ctrl+Space focuses the 3D view; Esc steps back: menu first, then the focus
   await expect(stage(page)).toHaveClass(/\bf3d\b/);
   await page.keyboard.press('Escape');
   await expect(stage(page)).not.toHaveClass(/\bf3d\b/);
-  await page.keyboard.press('Control+Space');
+  await page.click('#bF3D');
   await expect(stage(page)).toHaveClass(/\bf3d\b/);
-  await page.keyboard.press('Control+Space');
+  await page.click('#bF3D');
   await expect(stage(page)).not.toHaveClass(/\bf3d\b/);
 });
 
@@ -207,7 +207,7 @@ test('settings apply at once: theme, density, tooltips', async () => {
   // undo depth and threads are the engine's
   await page.selectOption('#setPg select[data-k="undo"]', '100');
   await page.click('#setNav [data-p="perf"]');
-  await page.locator('#setPg input[type=range]').fill('1');
+  await page.locator('#setPg input[data-k="threads"]').fill('1');
   const engineSettings = (): Promise<unknown> =>
     page.evaluate(
       () =>
@@ -223,8 +223,27 @@ test('settings apply at once: theme, density, tooltips', async () => {
         }),
     );
   await expect.poll(engineSettings).toMatchObject({ undoDepth: 100, threads: 1 });
+  // the search memory and disk space too, in sections of their own
+  await expect(page.locator('#setPg .setgrp')).toHaveText(['Memory', 'Disk space']);
+  await expect(page.locator('#setPg input[data-k="slideDiskGB"] + b')).toHaveText('Automatic');
+  await page.locator('#setPg input[data-k="slideDiskGB"]').fill('2');
+  await expect(page.locator('#setPg input[data-k="slideDiskGB"] + b')).toHaveText('20 GB');
+  await page.locator('#setPg input[data-k="panexDiskGB"]').fill('7');
+  await expect(page.locator('#setPg input[data-k="panexDiskGB"] + b')).toHaveText('1 TB');
+  await expect(page.locator('#setPg input[data-k="memGB"] + b')).toHaveText(/ GB \(automatic\)$/);
+  await page.locator('#setPg input[data-k="memGB"]').fill('0');
+  await expect(page.locator('#setPg input[data-k="memGB"] + b')).toHaveText('2 GB');
+  await expect
+    .poll(engineSettings)
+    .toMatchObject({ slideDiskGB: 20, panexDiskGB: 1000, searchMemoryGB: 2 });
   await page.click('#setDefaults');
-  await expect.poll(engineSettings).toMatchObject({ undoDepth: 25, threads: 0 });
+  await expect.poll(engineSettings).toMatchObject({
+    undoDepth: 25,
+    threads: 0,
+    slideDiskGB: 0,
+    panexDiskGB: 0,
+    searchMemoryGB: 0,
+  });
   await expect(html).not.toHaveAttribute('data-theme', /./);
   await expect(html).toHaveAttribute('data-density', 'standard');
   await page.keyboard.press('Escape');

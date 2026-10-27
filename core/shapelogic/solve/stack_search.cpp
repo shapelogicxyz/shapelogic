@@ -34,7 +34,8 @@ void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacki
               StackSearch& search, std::vector<Stacking>& path) {
   const std::uint64_t limit = search.maxStates != 0
                                   ? search.maxStates
-                                  : sliding::memoryStates(stateBytes, search.highMemory);
+                                  : sliding::memoryStates(stateBytes, search.highMemory,
+                                                          search.memoryBytes);
   search.memoryStates = limit;
   const auto rods = static_cast<unsigned int>(start.size());
 

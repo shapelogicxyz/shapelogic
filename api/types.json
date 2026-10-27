@@ -189,9 +189,12 @@
         "assemblies": {"type": ["integer", "null"], "description": "Assemblies found, when known."},
         "solutions": {"type": ["integer", "null"], "description": "Solutions found, when known."},
         "saved": {"type": "integer", "minimum": 0, "description": "Saved solutions."},
-        "timeMs": {"type": ["integer", "null"], "description": "Time spent solving, when known."}
+        "timeMs": {"type": ["integer", "null"], "description": "Time spent solving, when known."},
+        "searched": {"type": "integer", "minimum": 0, "description": "How much the solves of the problem went through, kept with it in the file (the original's recordSearchStats): the assembler's search steps, a sliding search's arrangements, a stacking search's stackings (found, for the Panex search); 0 when unknown."},
+        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding or Panex search went; 0 when unknown or for the other searches."},
+        "triedApart": {"type": "integer", "minimum": 0, "description": "The assemblies the solves tried to take apart; 0 when unknown."}
       },
-      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart"],
       "additionalProperties": false
     },
     "Snapshot": {
@@ -253,9 +256,10 @@
             "additionalProperties": false
           }
         },
-        "required": {"type": "boolean", "description": "A sliding piece with a start or goal on the problem's start/goal shape: its count follows them (problem.setPieceCount refuses to change it; the range and all-pieces commands leave it)."}
+        "required": {"type": "boolean", "description": "A sliding piece with a start or goal on the problem's start/goal shape: it stays in the problem (the range and all-pieces commands leave it)."},
+        "placed": {"type": "integer", "minimum": 0, "description": "A sliding piece's copies placed on the problem's start/goal shape, the more of its starts and its goals (0 on other grids): problem.setPieceCount refuses a minimum below it."}
       },
-      "required": ["shape", "min", "max", "groups", "required"],
+      "required": ["shape", "min", "max", "groups", "required", "placed"],
       "additionalProperties": false
     },
     "SolverSettings": {
@@ -296,6 +300,9 @@
         "solutions": {"type": ["integer", "null"]},
         "saved": {"type": "integer", "minimum": 0},
         "timeMs": {"type": ["integer", "null"]},
+        "searched": {"type": "integer", "minimum": 0},
+        "searchDepth": {"type": "integer", "minimum": 0},
+        "triedApart": {"type": "integer", "minimum": 0},
         "parts": {"type": "array", "items": {"$ref": "#/$defs/Part"}},
         "colourRules": {
           "type": "array",
@@ -324,7 +331,7 @@
           "description": "Null on other grids."
         }
       },
-      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings", "stacks"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings", "stacks"],
       "additionalProperties": false
     },
     "FitStats": {
@@ -378,7 +385,7 @@
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},
         "verticalMoves": {"type": "boolean", "description": "On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer."},
-        "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory)."}
+        "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part."}
       },
       "additionalProperties": false
     },
@@ -387,7 +394,7 @@
       "description": "A stacking puzzle's search (the solve thread's stacking flags). A stacking solve has no assembler and no take-apart: one search from the start stacking to the goal, whose path is the one solution (its assembly the start stacking). disassemble (the GUI's Find Solutions) or justCount must be on; threads count; the brick fields play no part. solve.prepare is refused (unsupported), and so is solve.savePoint: the search saves itself. Where it is saved is the engine's setting (panexFolder, panexDiskGB).",
       "properties": {
         "solver": {"$ref": "#/$defs/StackingSolver", "description": "Default: the Panex Solver for a problem on Panex columns, else the Stacking Solver (the original's menu offered only that one)."},
-        "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in stackings (Enable High Memory)."},
+        "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in stackings (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part."},
         "autosave": {"type": "boolean", "description": "The Panex search saves itself every 20 minutes (default true); off, only when it stops (the GUI's Autosave box)."}
       },
       "additionalProperties": false

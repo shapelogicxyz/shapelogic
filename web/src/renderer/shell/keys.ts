@@ -140,12 +140,6 @@ export const KEY_MAP: readonly KeyRow[] = [
   },
   {
     group: 'Everywhere',
-    keys: 'Ctrl+Space',
-    does: 'Focus the 3D view (toggle)',
-    chords: [{ chord: mod(' ', 'Space'), action: 'focus3d' }],
-  },
-  {
-    group: 'Everywhere',
     keys: 'Esc',
     does: 'Step back: close dialog → close menu → cancel rename → pause playback → exit focus mode',
     chords: [{ chord: { key: 'Escape' }, action: 'escape' }],

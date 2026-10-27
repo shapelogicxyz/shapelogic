@@ -146,13 +146,24 @@ export function contrast(c: Rgb3): '#ffffff' | '#000000' {
   return 3 * r + 6 * g + b < 1275 ? '#ffffff' : '#000000';
 }
 
-/** A shape's colour: its own (`#rrggbb`), else the default of its number. */
-export function shapeColour(own: string | null, index: number): Rgb3 {
-  return own === null ? pieceColour(index) : fromHex(own);
+// The boards (sliding start/goal shapes) lead the list but are no pieces:
+// they take no number of the default colours, so adding one leaves every
+// other shape's colour as it was.
+let boardCount = 0;
+
+/** Sets how many boards lead the shapes list (the store does, at each snapshot). */
+export function setBoardCount(n: number): void {
+  boardCount = n;
 }
 
-// A sliding puzzle's start/goal shape (a tray) has no colour of its own:
-// its cells show the pieces' colours. Its own look, from the original's
+/** A shape's colour: its own (`#rrggbb`), else the default of its number. */
+export function shapeColour(own: string | null, index: number): Rgb3 {
+  return own === null ? pieceColour(Math.max(0, index - boardCount)) : fromHex(own);
+}
+
+// A sliding puzzle's start/goal shape (a tray) has no colour of its own
+// until the user gives it one (the original's cb_ShapeColor did nothing
+// there): its cells show the pieces' colours. Its look meanwhile, from the original's
 // slidingcolors.h: black in the shapes list, a dark grey in the 3D view,
 // a dark chequer in the 2D editor.
 
@@ -198,14 +209,14 @@ export function copyColour(
     : fromHex(rgb);
 }
 
-/** A shape's chip colour: a tray's black, else its own or its number's. */
+/** A shape's chip colour: a tray's black until it is given a colour, else its own or its number's. */
 export function chipColour(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) ? TRAY_LIST : shapeColour(s?.colour ?? null, index);
+  return isTray(s) && s?.colour == null ? TRAY_LIST : shapeColour(s?.colour ?? null, index);
 }
 
-/** A shape's colour in the 3D view: a tray's grey, else its own or its number's. */
+/** A shape's colour in the 3D view: a tray's grey until it is given a colour, else its own or its number's. */
 export function viewColour(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) ? TRAY_VIEW : shapeColour(s?.colour ?? null, index);
+  return isTray(s) && s?.colour == null ? TRAY_VIEW : shapeColour(s?.colour ?? null, index);
 }
 
 /** Whether a shape is a sliding start/goal shape. */

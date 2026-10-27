@@ -42,6 +42,9 @@ struct StackSearch {
   std::uint64_t maxStates = 0;
   /// With maxStates 0, budget half the physical memory, not 2 GB.
   bool highMemory = false;
+  /// With maxStates 0, the memory the stackings may fill, in bytes; 0 for
+  /// the budget highMemory says. Set, highMemory plays no part.
+  std::uint64_t memoryBytes = 0;
   /// Polled as the search runs; a stop request ends it (Stopped).
   StopToken stop;
   /// When set, kept up to date with the stackings visited so far.
@@ -80,6 +83,10 @@ enum class StackingSolver : std::uint8_t {
 struct StackingOptions {
   StackingSolver solver = StackingSolver::Shortest;
   bool highMemory = false;
+  /// StackSearch::memoryBytes and panex::PanexSearch::memoryBytes: set by
+  /// the program (the engine from its settings; the CLI leaves it to
+  /// highMemory).
+  std::uint64_t memoryBytes = 0;
   /// The Panex search saves itself every 20 minutes; false saves it only
   /// when it stops (the GUI's Autosave box off).
   bool autosave = true;

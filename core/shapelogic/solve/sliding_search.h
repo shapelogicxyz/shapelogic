@@ -60,11 +60,16 @@ inline constexpr std::uint64_t kFullSearch = 0;
 /// search keeps only its newest levels in memory, so it goes much further.
 inline constexpr std::uint64_t kSearchMemoryBytes = 2000000000ULL;
 
+/// The memory a search may fill with arrangements, in bytes: `bytes` when
+/// it is set; otherwise kSearchMemoryBytes, or with `high`, half the
+/// machine's physical memory. High never allows less than normal, and is
+/// the same as normal when the memory size cannot be read.
+[[nodiscard]] std::uint64_t memoryBudget(std::uint64_t bytes, bool high);
+
 /// Arrangements a search may hold when each takes stateBytes: as many as
-/// fit in kSearchMemoryBytes, or with `high`, in half the machine's
-/// physical memory. High never allows fewer than normal, and is the same
-/// as normal when the memory size cannot be read.
-[[nodiscard]] std::uint64_t memoryStates(std::uint64_t stateBytes, bool high);
+/// fit in memoryBudget(bytes, high), and at least one.
+[[nodiscard]] std::uint64_t memoryStates(std::uint64_t stateBytes, bool high,
+                                         std::uint64_t bytes = 0);
 
 /// How a slide search ended.
 enum class SlideOutcome : std::uint8_t {
@@ -92,6 +97,10 @@ struct SlideSearch {
   std::uint64_t maxMemoryStates = 0;
   /// With maxMemoryStates 0, budget half the physical memory, not 2 GB.
   bool highMemory = false;
+  /// With maxMemoryStates 0, the memory the arrangements may fill, in
+  /// bytes; 0 for the budget highMemory says (memoryBudget). Set, highMemory
+  /// plays no part.
+  std::uint64_t memoryBytes = 0;
   /// Let a piece carry what is nested in its outline.
   bool nested = false;
   /// Let a piece also carry what is partly nested in its outline: a piece
@@ -118,8 +127,9 @@ struct SlideSearch {
   /// Where a full search keeps its older levels, in a folder of its own
   /// that goes when the search ends. Empty: they stay in memory.
   std::string workDir;
-  /// Disk those levels may take, in bytes; 0 for all the free space but a
-  /// margin, and at least a little of it.
+  /// Disk those levels may take, in bytes; 0 for half the free space, at
+  /// most 200 GB. Either way it is held to what the disk has room for
+  /// (diskBudgetFor in base/system.h).
   std::uint64_t diskBudget = 0;
   /// Bytes of older levels a full search keeps in memory before it starts
   /// writing them to disk; 0 for the default (256 MB). A small search
@@ -156,6 +166,9 @@ struct SlideSearch {
   std::uint64_t oneWayRepeats = 0;
   /// Out: what went wrong, for Disk.
   std::string error;
+  /// Out, for Disk: the budget was held to the disk's free space, so a
+  /// larger one would not have helped.
+  bool diskHeldToFree = false;
 };
 
 /// The three sliding solvers: how far a search may go (the GUI's Solver
@@ -180,6 +193,9 @@ struct SlidingOptions {
   /// SlideSearch::verticalMoves.
   bool verticalMoves = false;
   bool highMemory = false;
+  /// SlideSearch::memoryBytes: set by the program (the engine from its
+  /// settings; the CLI leaves it to highMemory).
+  std::uint64_t memoryBytes = 0;
   /// SlideSearch::workDir and diskBudget: set by the program (the CLI from
   /// SHAPELOGIC_SLIDE_DIR or the user's cache folder, the engine from its
   /// settings).
@@ -197,7 +213,8 @@ struct SlidingOptions {
 [[nodiscard]] std::uint64_t maxStatesOf(SlidingSolver solver);
 
 /// A search set up as the options say (maxStates, nested, partialNested,
-/// verticalMoves, highMemory, workDir, diskBudget, the switches); the rest
+/// verticalMoves, highMemory, memoryBytes, workDir, diskBudget, the
+/// switches); the rest
 /// is the caller's.
 [[nodiscard]] SlideSearch slideSearchFor(const SlidingOptions& options);
 

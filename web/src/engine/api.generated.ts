@@ -32,8 +32,10 @@ export interface Settings {
    */
   slideFolder: string;
   /**
-   * The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: all the free
-   * space but a margin, and at least a little of it.
+   * The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: half the
+   * free space, at most 200 GB. More than the disk has room for is held to its free space but a
+   * reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on
+   * demand, as Finder does.
    * @minimum 0
    */
   slideDiskGB: number;
@@ -49,10 +51,19 @@ export interface Settings {
   /**
    * The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default:
    * half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the
-   * longer finding the path at the end takes.
+   * longer finding the path at the end takes. More than the disk has room for is held to its free
+   * space but a reserve, as slideDiskGB is.
    * @minimum 0
    */
   panexDiskGB: number;
+  /**
+   * The memory a sliding or stacking search may fill, in GB; 0, the default: half the machine's
+   * memory (engine.info's memoryBytes), at least 2 GB. It decides every solve's memory: a solve's
+   * highMemory plays no part, and a note of a search that ran out of memory or disk names Settings
+   * ▸ Solver.
+   * @minimum 0
+   */
+  searchMemoryGB: number;
 }
 
 // ---- explore.json: Explorers ----
@@ -718,6 +729,23 @@ export interface ProblemSummary {
   saved: number;
   /** Time spent solving, when known. */
   timeMs: number | null;
+  /**
+   * How much the solves of the problem went through, kept with it in the file (the original's
+   * recordSearchStats): the assembler's search steps, a sliding search's arrangements, a stacking
+   * search's stackings (found, for the Panex search); 0 when unknown.
+   * @minimum 0
+   */
+  searched: number;
+  /**
+   * How many moves deep a sliding or Panex search went; 0 when unknown or for the other searches.
+   * @minimum 0
+   */
+  searchDepth: number;
+  /**
+   * The assemblies the solves tried to take apart; 0 when unknown.
+   * @minimum 0
+   */
+  triedApart: number;
 }
 
 /** Everything a front end shows of the document's lists. */
@@ -786,10 +814,16 @@ export interface Part {
     count: number;
   })[];
   /**
-   * A sliding piece with a start or goal on the problem's start/goal shape: its count follows them
-   * (problem.setPieceCount refuses to change it; the range and all-pieces commands leave it).
+   * A sliding piece with a start or goal on the problem's start/goal shape: it stays in the
+   * problem (the range and all-pieces commands leave it).
    */
   required: boolean;
+  /**
+   * A sliding piece's copies placed on the problem's start/goal shape, the more of its starts and
+   * its goals (0 on other grids): problem.setPieceCount refuses a minimum below it.
+   * @minimum 0
+   */
+  placed: number;
 }
 
 /**
@@ -842,6 +876,12 @@ export interface ProblemDetail {
   /** @minimum 0 */
   saved: number;
   timeMs: number | null;
+  /** @minimum 0 */
+  searched: number;
+  /** @minimum 0 */
+  searchDepth: number;
+  /** @minimum 0 */
+  triedApart: number;
   parts: Part[];
   /**
    * The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'.
@@ -956,7 +996,11 @@ export interface SlidingOptions {
    * off (the default), every piece stays in its layer.
    */
   verticalMoves?: boolean;
-  /** Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). */
+  /**
+   * Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable
+   * High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no
+   * part.
+   */
   highMemory?: boolean;
 }
 
@@ -974,7 +1018,10 @@ export interface StackingOptions {
    * original's menu offered only that one).
    */
   solver?: StackingSolver;
-  /** Hold up to half the machine's memory in stackings (Enable High Memory). */
+  /**
+   * Hold up to half the machine's memory in stackings (the original's Enable High Memory). The
+   * engine's searchMemoryGB setting decides the memory instead, so this plays no part.
+   */
   highMemory?: boolean;
   /**
    * The Panex search saves itself every 20 minutes (default true); off, only when it stops (the
@@ -1577,6 +1624,12 @@ export interface Methods {
       hardwareThreads: number;
       /** @minimum 1 */
       maxThreads: number;
+      /**
+       * The machine's physical memory in bytes; 0 when it cannot be read. The automatic
+       * searchMemoryGB is half of it.
+       * @minimum 0
+       */
+      memoryBytes: number;
       methods: string[];
     };
     errors: never;
@@ -1623,6 +1676,11 @@ export interface Methods {
       panexFolder?: string;
       /** @minimum 0 */
       panexDiskGB?: number;
+      /**
+       * @minimum 0
+       * @maximum 1000000
+       */
+      searchMemoryGB?: number;
     };
     result: Settings;
     errors: never;
@@ -2642,11 +2700,13 @@ export interface Methods {
    * The start/goal editor's click: the whole of a piece as its start (goal false) or its goal,
    * placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice
    * on that layer with its top-left cell there, at the lowest height that puts a layer of the
-   * piece on that layer and fits (on a tray of one layer, the piece's top-left cell there), moved
-   * there if it was elsewhere; a piece that is exactly there already is taken off. Refused
-   * (invalid_argument) with the original's reason when it does not fit: off the floor, on another
-   * piece's start or goal, a goal on a corridor. The problems of the start/goal shape lose what
-   * they had found. One undo step.
+   * piece on that layer and fits (on a tray of one layer, the piece's top-left cell there). A
+   * piece the problem has one copy of moves there if it was elsewhere; one of several copies is
+   * one more copy's start or goal, beside the others, refused once every copy has one; a copy that
+   * is exactly there already is taken off. Refused (invalid_argument) with the reason when it does
+   * not fit: off the floor, on another piece's or another copy's start or goal, a goal on a
+   * corridor, every copy placed. The problems of the start/goal shape lose what they had found.
+   * One undo step.
    * (sliding.json)
    */
   'sliding.place': {
@@ -2664,8 +2724,8 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Takes off the start or goal that covers a cell (the editor's right click). One undo step;
-   * nothing when none covers it.
+   * Takes off the start or goal of the copy that covers a cell (the editor's right click), not the
+   * piece's other copies. One undo step; nothing when none covers it.
    * (sliding.json)
    */
   'sliding.clearAt': {
@@ -2682,9 +2742,10 @@ export interface Methods {
   };
   /**
    * What a start/goal shape holds: its number and name, each cell's start and goal (the piece
-   * stamped there, cells indexed x + X*(y + Y*z)), whether it can be solved (the original's
-   * validity bar: null, or why not), the stamps larger than their pieces (null, or the message),
-   * and its floor cells.
+   * stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can
+   * be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more
+   * of them than the problem has copies, or no piece with every copy at a start and at a goal),
+   * the stamps larger than their pieces' copies (null, or the message), and its floor cells.
    * (sliding.json)
    */
   'sliding.tray': {
@@ -2705,14 +2766,24 @@ export interface Methods {
       overflow: string | null;
       /** @minimum 0 */
       floor: number;
+      /**
+       * Each copy of a piece placed, at a start (goal false) or a goal, its cells sorted lowest
+       * layer first, top row first, left to right; marks that are not whole pieces come as one
+       * entry.
+       */
+      placed: ({
+        piece: ShapeId;
+        goal: boolean;
+        cells: Cell[];
+      })[];
     };
     errors: 'not_found' | 'unsupported' | 'invalid_argument';
   };
   /**
    * Where sliding.place would put a piece: the cells, every layer (when no height fits, the lowest
    * that puts a layer of the piece on the layer of 'at'; none when no layer of the piece can be
-   * there), whether it fits (and the original's reason when not), and whether it is exactly there
-   * already (then the click takes it off). Changes nothing.
+   * there), whether it fits (and the original's reason when not), and whether a copy is exactly
+   * there already (then the click takes it off). Changes nothing.
    * (sliding.json)
    */
   'sliding.preview': {

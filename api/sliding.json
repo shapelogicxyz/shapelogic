@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "sliding.json",
   "title": "Sliding puzzles",
-  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named as the board shows (its name, or '(START/GOAL n)' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.",
+  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the start/goal shape's problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named as the board shows (its name, or '(START/GOAL n)' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.",
   "methods": {
     "sliding.addStartGoal": {
       "summary": "Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1, the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after the others, with its problem.",
@@ -20,7 +20,7 @@
       "errors": ["unsupported", "invalid_argument", "invalid_state"]
     },
     "sliding.place": {
-      "summary": "The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice on that layer with its top-left cell there, at the lowest height that puts a layer of the piece on that layer and fits (on a tray of one layer, the piece's top-left cell there), moved there if it was elsewhere; a piece that is exactly there already is taken off. Refused (invalid_argument) with the original's reason when it does not fit: off the floor, on another piece's start or goal, a goal on a corridor. The problems of the start/goal shape lose what they had found. One undo step.",
+      "summary": "The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice on that layer with its top-left cell there, at the lowest height that puts a layer of the piece on that layer and fits (on a tray of one layer, the piece's top-left cell there). A piece the problem has one copy of moves there if it was elsewhere; one of several copies is one more copy's start or goal, beside the others, refused once every copy has one; a copy that is exactly there already is taken off. Refused (invalid_argument) with the reason when it does not fit: off the floor, on another piece's or another copy's start or goal, a goal on a corridor, every copy placed. The problems of the start/goal shape lose what they had found. One undo step.",
       "params": {
         "type": "object",
         "properties": {
@@ -44,7 +44,7 @@
       "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
     },
     "sliding.clearAt": {
-      "summary": "Takes off the start or goal that covers a cell (the editor's right click). One undo step; nothing when none covers it.",
+      "summary": "Takes off the start or goal of the copy that covers a cell (the editor's right click), not the piece's other copies. One undo step; nothing when none covers it.",
       "params": {
         "type": "object",
         "properties": {
@@ -67,7 +67,7 @@
       "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
     },
     "sliding.tray": {
-      "summary": "What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), whether it can be solved (the original's validity bar: null, or why not), the stamps larger than their pieces (null, or the message), and its floor cells.",
+      "summary": "What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.",
       "params": {
         "type": "object",
         "properties": {"tray": {"$ref": "types.json#/$defs/ShapeId"}},
@@ -84,15 +84,29 @@
           "goals": {"type": "array", "items": {"oneOf": [{"$ref": "types.json#/$defs/ShapeId"}, {"type": "null"}]}},
           "error": {"type": ["string", "null"]},
           "overflow": {"type": ["string", "null"]},
-          "floor": {"type": "integer", "minimum": 0}
+          "floor": {"type": "integer", "minimum": 0},
+          "placed": {
+            "type": "array",
+            "description": "Each copy of a piece placed, at a start (goal false) or a goal, its cells sorted lowest layer first, top row first, left to right; marks that are not whole pieces come as one entry.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "piece": {"$ref": "types.json#/$defs/ShapeId"},
+                "goal": {"type": "boolean"},
+                "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}}
+              },
+              "required": ["piece", "goal", "cells"],
+              "additionalProperties": false
+            }
+          }
         },
-        "required": ["number", "name", "size", "starts", "goals", "error", "overflow", "floor"],
+        "required": ["number", "name", "size", "starts", "goals", "error", "overflow", "floor", "placed"],
         "additionalProperties": false
       },
       "errors": ["not_found", "unsupported", "invalid_argument"]
     },
     "sliding.preview": {
-      "summary": "Where sliding.place would put a piece: the cells, every layer (when no height fits, the lowest that puts a layer of the piece on the layer of 'at'; none when no layer of the piece can be there), whether it fits (and the original's reason when not), and whether it is exactly there already (then the click takes it off). Changes nothing.",
+      "summary": "Where sliding.place would put a piece: the cells, every layer (when no height fits, the lowest that puts a layer of the piece on the layer of 'at'; none when no layer of the piece can be there), whether it fits (and the original's reason when not), and whether a copy is exactly there already (then the click takes it off). Changes nothing.",
       "params": {
         "type": "object",
         "properties": {

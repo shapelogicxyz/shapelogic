@@ -23,14 +23,7 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { layout, applyLayout, tab } from '../shell/layout.ts';
-import {
-  chipColour,
-  contrast,
-  hex,
-  isTray,
-  shapeColour,
-  shownName,
-} from '../shell/piece-colours.ts';
+import { chipColour, contrast, hex, isTray, shownName } from '../shell/piece-colours.ts';
 import { openPopAt } from '../shell/popover.ts';
 import { prefs } from '../shell/prefs.ts';
 import { DISC_MAX, DISC_MIN, DISC_SIZE_REFUSED, discSizeOf } from '../state/stacking.ts';
@@ -134,15 +127,19 @@ export class ShapesList {
 
   /**
    * New Board (the original's New Start/Goal Positions): a tray of the
-   * selected shape's size (else 6 by 6 by 1), selected.
+   * last board's size, else of the sliding size setting, selected.
    */
   async newBoard(): Promise<void> {
     if (this.host.refuseList()) {
       return;
     }
-    const sel = this.host.store.shape;
+    const store = this.host.store;
+    const last = this.shapes.filter(isTray).at(-1);
+    const u = store.info?.grids.find((g) => g.grid === store.snapshot?.grid)?.sizeUnit ?? 1;
     const size: [number, number, number] =
-      sel === null ? [6, 6, 1] : [sel.size[0], sel.size[1], sel.size[2]];
+      last === undefined
+        ? [prefs.slideX * u, prefs.slideY * u, prefs.slideZ * u]
+        : [last.size[0], last.size[1], last.size[2]];
     const r = await this.host.mutate('New board', () =>
       this.host.store.engine.call('sliding.addStartGoal', { size }),
     );
@@ -253,10 +250,7 @@ export class ShapesList {
         return;
       }
       case 'colour':
-        // a tray shows the pieces' colours (cb_ShapeColor did nothing there)
-        if (!isTray(s)) {
-          this.pickColour(s);
-        }
+        this.pickColour(s);
         return;
       case 'nocolour':
         await this.host.mutate('Colour', () => e.call('shape.setColour', { shape: id, rgb: null }));
@@ -330,7 +324,7 @@ export class ShapesList {
   // the shape's own colour: the system's colour picker, for the shape it names
   private pickColour(s: ShapeSummary): void {
     const pick = byId<HTMLInputElement>('shapeColourPick');
-    pick.value = hex(shapeColour(s.colour, this.shapes.indexOf(s)));
+    pick.value = hex(chipColour(s, this.shapes.indexOf(s)));
     pick.dataset.shape = s.id;
     pick.click();
   }
@@ -471,7 +465,7 @@ export class ShapesList {
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" ${isTray(s) ? 'disabled' : ''} title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },

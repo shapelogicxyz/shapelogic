@@ -19,6 +19,7 @@ import type {
 } from '../../engine/api.generated.ts';
 import type { EngineApi, EngineStatus, EventParams } from '../../engine/client-types.ts';
 import { EngineError } from '../../engine/errors.ts';
+import { setBoardCount, isTray } from '../shell/piece-colours.ts';
 
 /** The engine as the store needs it: the proxy (engine-proxy.ts) or a test's stand-in. */
 export interface EngineLink extends EngineApi {
@@ -305,6 +306,7 @@ export class Store {
 
   private setSnapshot(snap: Snapshot, restarted: boolean): void {
     this.snapshot = snap;
+    setBoardCount(snap.shapes.filter(isTray).length);
     if (this.selected === null || !snap.shapes.some((s) => s.id === this.selected)) {
       this.selected = snap.shapes[0]?.id ?? null;
     }

@@ -96,6 +96,7 @@ Result:
 | `stackingSolvers` | object[] | required | The solvers of stacking puzzles (SolveOptions.stacking.solver), with the original's menu labels. The original offered one, by the problem's rod set: the Panex Solver for Panex columns, else the Stacking Solver, which a solve without a solver named uses too. |
 | `hardwareThreads` | integer | required |  |
 | `maxThreads` | integer | required |  |
+| `memoryBytes` | integer | required | The machine's physical memory in bytes; 0 when it cannot be read. The automatic searchMemoryGB is half of it. |
 | `methods` | string[] | required |  |
 
 `grids`:
@@ -167,6 +168,7 @@ Params:
 | `slideDiskGB` | number |  |  |
 | `panexFolder` | string |  |  |
 | `panexDiskGB` | number |  |  |
+| `searchMemoryGB` | number |  |  |
 
 Result: Settings
 
@@ -187,9 +189,10 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `threads` | integer | required | The threads of a solve when its options do not say; 0 every hardware thread (default). |
 | `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
 | `slideFolder` | string | required | Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
-| `slideDiskGB` | number | required | The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: all the free space but a margin, and at least a little of it. |
+| `slideDiskGB` | number | required | The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: half the free space, at most 200 GB. More than the disk has room for is held to its free space but a reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on demand, as Finder does. |
 | `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
-| `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. |
+| `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. More than the disk has room for is held to its free space but a reserve, as slideDiskGB is. |
+| `searchMemoryGB` | number | required | The memory a sliding or stacking search may fill, in GB; 0, the default: half the machine's memory (engine.info's memoryBytes), at least 2 GB. It decides every solve's memory: a solve's highMemory plays no part, and a note of a search that ran out of memory or disk names Settings ▸ Solver. |
 
 ## Document and history
 
@@ -1246,7 +1249,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it, the whole piece at a time. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named as the board shows (its name, or '(START/GOAL n)' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the start/goal shape's problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named as the board shows (its name, or '(START/GOAL n)' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
@@ -1269,7 +1272,7 @@ Errors: `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.place`
 
-The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice on that layer with its top-left cell there, at the lowest height that puts a layer of the piece on that layer and fits (on a tray of one layer, the piece's top-left cell there), moved there if it was elsewhere; a piece that is exactly there already is taken off. Refused (invalid_argument) with the original's reason when it does not fit: off the floor, on another piece's start or goal, a goal on a corridor. The problems of the start/goal shape lose what they had found. One undo step.
+The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice on that layer with its top-left cell there, at the lowest height that puts a layer of the piece on that layer and fits (on a tray of one layer, the piece's top-left cell there). A piece the problem has one copy of moves there if it was elsewhere; one of several copies is one more copy's start or goal, beside the others, refused once every copy has one; a copy that is exactly there already is taken off. Refused (invalid_argument) with the reason when it does not fit: off the floor, on another piece's or another copy's start or goal, a goal on a corridor, every copy placed. The problems of the start/goal shape lose what they had found. One undo step.
 
 Params:
 
@@ -1291,7 +1294,7 @@ Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.clearAt`
 
-Takes off the start or goal that covers a cell (the editor's right click). One undo step; nothing when none covers it.
+Takes off the start or goal of the copy that covers a cell (the editor's right click), not the piece's other copies. One undo step; nothing when none covers it.
 
 Params:
 
@@ -1312,7 +1315,7 @@ Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.tray`
 
-What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), whether it can be solved (the original's validity bar: null, or why not), the stamps larger than their pieces (null, or the message), and its floor cells.
+What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.
 
 Params:
 
@@ -1332,12 +1335,21 @@ Result:
 | `error` | string or null | required |  |
 | `overflow` | string or null | required |  |
 | `floor` | integer | required |  |
+| `placed` | object[] | required | Each copy of a piece placed, at a start (goal false) or a goal, its cells sorted lowest layer first, top row first, left to right; marks that are not whole pieces come as one entry. |
+
+`placed`:
+
+| name | type | | description |
+|---|---|---|---|
+| `placed.piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `placed.goal` | boolean | required |  |
+| `placed.cells` | [Cell](#cell)[] | required |  |
 
 Errors: `not_found`, `unsupported`, `invalid_argument`
 
 ### `sliding.preview`
 
-Where sliding.place would put a piece: the cells, every layer (when no height fits, the lowest that puts a layer of the piece on the layer of 'at'; none when no layer of the piece can be there), whether it fits (and the original's reason when not), and whether it is exactly there already (then the click takes it off). Changes nothing.
+Where sliding.place would put a piece: the cells, every layer (when no height fits, the lowest that puts a layer of the piece on the layer of 'at'; none when no layer of the piece can be there), whether it fits (and the original's reason when not), and whether a copy is exactly there already (then the click takes it off). Changes nothing.
 
 Params:
 
@@ -2797,6 +2809,9 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `solutions` | integer or null | required | Solutions found, when known. |
 | `saved` | integer | required | Saved solutions. |
 | `timeMs` | integer or null | required | Time spent solving, when known. |
+| `searched` | integer | required | How much the solves of the problem went through, kept with it in the file (the original's recordSearchStats): the assembler's search steps, a sliding search's arrangements, a stacking search's stackings (found, for the Panex search); 0 when unknown. |
+| `searchDepth` | integer | required | How many moves deep a sliding or Panex search went; 0 when unknown or for the other searches. |
+| `triedApart` | integer | required | The assemblies the solves tried to take apart; 0 when unknown. |
 
 ### Snapshot
 
@@ -2848,7 +2863,8 @@ A row of the status window.
 | `min` | integer | required |  |
 | `max` | integer | required |  |
 | `groups` | object[] | required |  |
-| `required` | boolean | required | A sliding piece with a start or goal on the problem's start/goal shape: its count follows them (problem.setPieceCount refuses to change it; the range and all-pieces commands leave it). |
+| `required` | boolean | required | A sliding piece with a start or goal on the problem's start/goal shape: it stays in the problem (the range and all-pieces commands leave it). |
+| `placed` | integer | required | A sliding piece's copies placed on the problem's start/goal shape, the more of its starts and its goals (0 on other grids): problem.setPieceCount refuses a minimum below it. |
 
 `groups`:
 
@@ -2897,6 +2913,9 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `solutions` | integer or null | required |  |
 | `saved` | integer | required |  |
 | `timeMs` | integer or null | required |  |
+| `searched` | integer | required |  |
+| `searchDepth` | integer | required |  |
+| `triedApart` | integer | required |  |
 | `parts` | [Part](#part)[] | required |  |
 | `colourRules` | object[] | required | The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'. |
 | `maxHoles` | integer or null | required |  |
@@ -2963,7 +2982,7 @@ A sliding puzzle's search (the solve thread's sliding flags). A sliding solve al
 | `nestedSlides` | boolean |  | A piece may carry what is nested in its outline (Allow Nested Slides). |
 | `partialNested` | boolean |  | And what is partly nested in it (Allow Partially Nested); implies nestedSlides. |
 | `verticalMoves` | boolean |  | On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer. |
-| `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (Enable High Memory). |
+| `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part. |
 
 ### StackingOptions
 
@@ -2972,7 +2991,7 @@ A stacking puzzle's search (the solve thread's stacking flags). A stacking solve
 | name | type | | description |
 |---|---|---|---|
 | `solver` | [StackingSolver](#stackingsolver) |  | Default: the Panex Solver for a problem on Panex columns, else the Stacking Solver (the original's menu offered only that one). |
-| `highMemory` | boolean |  | Hold up to half the machine's memory in stackings (Enable High Memory). |
+| `highMemory` | boolean |  | Hold up to half the machine's memory in stackings (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part. |
 | `autosave` | boolean |  | The Panex search saves itself every 20 minutes (default true); off, only when it stops (the GUI's Autosave box). |
 
 ### TakeApartProgress

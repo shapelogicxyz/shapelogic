@@ -44,7 +44,13 @@ import {
 import { commandItems, menuTemplate, NO_STATE, recentLabel } from '../../src/main/menu.ts';
 import { RescueStore } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
-import { DEFAULTS, NEW_SIZE_MAX, validPrefs } from '../../src/renderer/shell/prefs.ts';
+import {
+  DEFAULTS,
+  NEW_SIZE_MAX,
+  SIDE_MAX,
+  SIDE_MIN,
+  validPrefs,
+} from '../../src/renderer/shell/prefs.ts';
 import { toShapesParams } from '../../src/renderer/solver/to-shapes-form.ts';
 
 const dirs: string[] = [];
@@ -371,6 +377,11 @@ describe('the stored settings read back', () => {
     // a new shape's size: whole, 1 to NEW_SIZE_MAX
     expect(validPrefs({ newX: 0, newY: 7, newZ: NEW_SIZE_MAX + 1 })).toEqual({ newY: 7 });
     expect(validPrefs({ slideX: 2.5, slideY: 8, slideZ: 0 })).toEqual({ slideY: 8 });
+    // the side cards: Static or Variable, widths whole, SIDE_MIN to SIDE_MAX
+    expect(validPrefs({ sidebar: 'Variable' })).toEqual({ sidebar: 'Variable' });
+    expect(validPrefs({ sidebar: 'Wide' })).toEqual({});
+    expect(validPrefs({ sideL: SIDE_MIN - 1, sideR: SIDE_MAX })).toEqual({ sideR: SIDE_MAX });
+    expect(validPrefs({ sideL: 400.5, sideR: SIDE_MAX + 1 })).toEqual({});
     // a sliding board starts 6 by 6 by 1
     expect([DEFAULTS.slideX, DEFAULTS.slideY, DEFAULTS.slideZ]).toEqual([6, 6, 1]);
     expect(validPrefs({ ...DEFAULTS })).toEqual(DEFAULTS);

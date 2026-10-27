@@ -89,7 +89,9 @@ button{font:inherit;color:inherit}
 .lfull,.rfull{display:flex;flex-direction:column;min-height:0;flex:1}
 
 /* shapes */
-.shapes{padding:6px;overflow:auto;max-height:250px;flex:none;min-height:60px}
+/* the scrolling lists of the three tabs (shapes, problems, the Solver's problems): about 8 Standard rows */
+.shapes,.pz-problems,.slv-problems{max-height:285px}
+.shapes{padding:6px;overflow:auto;flex:none;min-height:60px}
 .row{height:42px;display:flex;align-items:center;gap:8px;padding:0 6px 0 4px;border-radius:8px;cursor:pointer;position:relative;border:1px solid transparent}
 .row:hover{background:var(--panel2)}
 .row.sel{background:var(--accentSoft);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
@@ -248,6 +250,7 @@ kbd{font:11px/1 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--lin
 .pgh{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
 .setrow{display:flex;gap:28px;padding:14px 0;border-bottom:1px solid var(--line);align-items:flex-start}
 .setrow:last-child{border-bottom:0}
+.setgrp{margin:22px 0 0;font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .setrow.under{flex-direction:column;gap:10px}
 .setrow .t{flex:1}.setrow .t b{display:block;font-weight:600;margin-bottom:2px}.setrow .t span{color:var(--muted);font-size:12px;line-height:1.45;display:block}
 .setrow .switch{margin:0;flex:none}
@@ -338,12 +341,13 @@ kbd{font:11px/1 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--lin
 #stage[data-tab=puzzle].f3d .body,#stage[data-tab=solver].f3d .body{grid-template-columns:1fr}
 #stage:not([data-tab=solver]) .slv{display:none}
 #stage[data-tab=puzzle] .ent,#stage[data-tab=puzzle] .ent-only,#stage[data-tab=solver] .ent-only{display:none}
+#stage:not([data-tab=puzzle]) .puz-only{display:none}
 #stage:not([data-tab=puzzle]) .puz{display:none}
 #stage:not([data-tab=solver]) .sol{display:none}
 .sol{place-items:center;text-align:center;color:var(--muted);padding:40px}
 /* ---- Puzzle tab ---- */
 .pz-scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
-.pz-problems{padding:6px;overflow:auto;max-height:140px;flex:none}
+.pz-problems{padding:6px;overflow:auto;flex:none}
 .pzsec{border-top:1px solid var(--line);flex:none}
 .pzh{height:44px;display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;font-weight:600;border-top:1px solid var(--line);flex:none}
 .pzh .sp{flex:1}.pzh .btn{flex:none}
@@ -446,9 +450,10 @@ kbd{font:11px/1 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--lin
 .slv-sec{padding:12px 14px;border-top:1px solid var(--line);flex:none}.slv-sec:first-child{border-top:0}
 .slv-lab{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .slv-lab .sp{flex:1}.slv-lab.click{cursor:pointer}
-.slv-prob{width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);cursor:pointer;text-align:left;font:inherit;color:var(--text)}
-.slv-prob:hover{border-color:var(--accent)}
-.slv-prob .meta{flex:1;min-width:0}.slv-prob .meta b{display:block;font-weight:600}.slv-prob .meta span{color:var(--muted);font-size:12px}
+.slv-probsec{border-top:0;border-bottom:1px solid var(--line)}
+.slv-problems{overflow:auto;flex:none;margin:-6px -6px 0;padding:6px 0}
+.slv-problems .st{flex:none;color:var(--muted);font-size:11px;padding-right:4px}.slv-problems .st.solving{color:var(--accent);font-weight:600}
+.slv-pmeta{color:var(--muted);font-size:12px}
 .slv-mode{display:grid;gap:6px}
 .mcard{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;font:inherit;color:var(--text)}
 .mcard:hover{border-color:var(--accent)}
@@ -557,60 +562,73 @@ kbd{font:11px/1 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--lin
 #stage.lc #leftP>*:not(.crail),#stage.lc #leftS>*:not(.crail),#stage.rc #rightP>*:not(.crail),#stage.rc #rightS>*:not(.crail){display:none}
 #stage.lc #leftP>.crail,#stage.lc #leftS>.crail,#stage.rc #rightP>.crail,#stage.rc #rightS>.crail{display:flex}
 
-/* ===================== Interface density: Standard (formerly "Compact"; the old Comfortable spacing is retired) ===================== */
-html[data-density=standard]{--lwx:320px;--rwx:340px;--wrail:60px;--toph:36px;--stath:24px;--railw:48px}
-html[data-density=standard] .body{gap:4px;padding:4px}
-html[data-density=standard] .card{border-radius:8px}
-html[data-density=standard] .ch,html[data-density=standard] .pzh{height:36px;padding:0 6px 0 10px}
-html[data-density=standard] .row{height:34px;border-radius:6px}
-html[data-density=standard] .sec>button.sh{height:32px;padding:0 10px}
-html[data-density=standard] .sec .sb{padding:2px 10px 10px}
-html[data-density=standard] .btn{height:28px;padding:0 10px;border-radius:7px}
-html[data-density=standard] .step{height:28px;border-radius:7px}
-html[data-density=standard] .seg button{height:22px;padding:0 10px}
-html[data-density=standard] .gbtn,html[data-density=standard] .abtn{border-radius:6px}
-html[data-density=standard] .tools{gap:4px;padding:6px 8px}
-html[data-density=standard] .tools .gbtn{height:48px}
-html[data-density=standard] .mrow{padding:6px 10px;gap:10px}
-html[data-density=standard] .mrow .grp .gbtn{height:44px}
-html[data-density=standard] .pseg .gbtn{width:54px;height:46px}
-html[data-density=standard] .tmat .gbtn{height:42px}
-html[data-density=standard] .surf .gbtn,html[data-density=standard] .two .gbtn{height:46px}
-html[data-density=standard] .abtn{min-height:40px;padding:3px 8px}
-html[data-density=standard] .subbar{padding:6px 10px}
-html[data-density=standard] .colfoot{padding:7px 10px}
-html[data-density=standard] .bigsw{width:32px;height:32px;border-radius:8px}
-html[data-density=standard] .colhead{gap:10px}
-html[data-density=standard] .colmeta{flex:none;min-width:0}
-html[data-density=standard] .colmeta small{white-space:nowrap}
-html[data-density=standard] .lstrip{width:48px;padding:6px 0}
-html[data-density=standard] .lchip{width:32px;height:24px;border-radius:6px}
-html[data-density=standard] .tbn{width:48px;height:44px;border-radius:8px}
-html[data-density=standard] .vt{top:8px;padding:3px;border-radius:10px}
-html[data-density=standard] .vt .sep{height:28px}
-html[data-density=standard] .rail{gap:4px;padding:6px 0}
-html[data-density=standard] .rbtn{width:52px;height:50px;border-radius:10px}
-html[data-density=standard] .rbtn.on::before{left:-4px;top:11px;bottom:11px}
-html[data-density=standard] .menu button{height:26px;padding:0 8px}
-html[data-density=standard] .status{font-size:11.5px}
-html[data-density=standard] .slv-sec{padding:9px 12px}
-html[data-density=standard] .slv-lab{margin-bottom:6px}
-html[data-density=standard] .mcard{padding:7px 9px;border-radius:8px}
-html[data-density=standard] .slv-opts .row2{min-height:28px}
-html[data-density=standard] .slv-run button{height:30px;border-radius:7px}
-html[data-density=standard] .slv-nav{padding:9px 12px}
-html[data-density=standard] .slv-player{height:112px;padding:8px 12px 10px}
-html[data-density=standard] .slv-pcs{height:104px;padding:8px 10px 10px}
-html[data-density=standard] .pvc{height:26px;border-radius:6px}
-html[data-density=standard] .lrow{height:28px;border-radius:6px}
-html[data-density=standard] .pz-result{padding:8px 10px}
-html[data-density=standard] .pz-sum{padding:8px 12px}
-html[data-density=standard] .ut{width:96px;height:50px;border-radius:8px}
-html[data-density=standard] .pz-used{padding:8px;gap:5px}
-html[data-density=standard] .pzh{white-space:nowrap;gap:6px}
-html[data-density=standard] .pz-lib{padding:6px 8px 8px}
-html[data-density=standard] .pz-lib .lc{height:26px;border-radius:6px}
-html[data-density=standard] .slv-prob{padding:6px 8px;border-radius:8px}
+/* ===================== Interface density: Standard, and Compact's base (the old Comfortable spacing is retired) ===================== */
+html:is([data-density=standard],[data-density=compact]){--lwx:320px;--rwx:340px;--wrail:60px;--toph:36px;--stath:24px;--railw:48px}
+html:is([data-density=standard],[data-density=compact]) .body{gap:4px;padding:4px}
+html:is([data-density=standard],[data-density=compact]) .card{border-radius:8px}
+html:is([data-density=standard],[data-density=compact]) .ch,html:is([data-density=standard],[data-density=compact]) .pzh{height:36px;padding:0 6px 0 10px}
+html:is([data-density=standard],[data-density=compact]) .row{height:34px;border-radius:6px}
+html:is([data-density=standard],[data-density=compact]) .sec>button.sh{height:32px;padding:0 10px}
+html:is([data-density=standard],[data-density=compact]) .sec .sb{padding:2px 10px 10px}
+html:is([data-density=standard],[data-density=compact]) .btn{height:28px;padding:0 10px;border-radius:7px}
+html:is([data-density=standard],[data-density=compact]) .step{height:28px;border-radius:7px}
+html:is([data-density=standard],[data-density=compact]) .seg button{height:22px;padding:0 10px}
+html:is([data-density=standard],[data-density=compact]) .gbtn,html:is([data-density=standard],[data-density=compact]) .abtn{border-radius:6px}
+html:is([data-density=standard],[data-density=compact]) .tools{gap:4px;padding:6px 8px}
+html:is([data-density=standard],[data-density=compact]) .tools .gbtn{height:48px}
+html:is([data-density=standard],[data-density=compact]) .mrow{padding:6px 10px;gap:10px}
+html:is([data-density=standard],[data-density=compact]) .mrow .grp .gbtn{height:44px}
+html:is([data-density=standard],[data-density=compact]) .pseg .gbtn{width:54px;height:46px}
+html:is([data-density=standard],[data-density=compact]) .tmat .gbtn{height:42px}
+html:is([data-density=standard],[data-density=compact]) .surf .gbtn,html:is([data-density=standard],[data-density=compact]) .two .gbtn{height:46px}
+html:is([data-density=standard],[data-density=compact]) .abtn{min-height:40px;padding:3px 8px}
+html:is([data-density=standard],[data-density=compact]) .subbar{padding:6px 10px}
+html:is([data-density=standard],[data-density=compact]) .colfoot{padding:7px 10px}
+html:is([data-density=standard],[data-density=compact]) .bigsw{width:32px;height:32px;border-radius:8px}
+html:is([data-density=standard],[data-density=compact]) .colhead{gap:10px}
+html:is([data-density=standard],[data-density=compact]) .colmeta{flex:none;min-width:0}
+html:is([data-density=standard],[data-density=compact]) .colmeta small{white-space:nowrap}
+html:is([data-density=standard],[data-density=compact]) .lstrip{width:48px;padding:6px 0}
+html:is([data-density=standard],[data-density=compact]) .lchip{width:32px;height:24px;border-radius:6px}
+html:is([data-density=standard],[data-density=compact]) .tbn{width:48px;height:44px;border-radius:8px}
+html:is([data-density=standard],[data-density=compact]) .vt{top:8px;padding:3px;border-radius:10px}
+html:is([data-density=standard],[data-density=compact]) .vt .sep{height:28px}
+html:is([data-density=standard],[data-density=compact]) .rail{gap:4px;padding:6px 0}
+html:is([data-density=standard],[data-density=compact]) .rbtn{width:52px;height:50px;border-radius:10px}
+html:is([data-density=standard],[data-density=compact]) .rbtn.on::before{left:-4px;top:11px;bottom:11px}
+html:is([data-density=standard],[data-density=compact]) .menu button{height:26px;padding:0 8px}
+html:is([data-density=standard],[data-density=compact]) .status{font-size:11.5px}
+html:is([data-density=standard],[data-density=compact]) .slv-sec{padding:9px 12px}
+html:is([data-density=standard],[data-density=compact]) .slv-lab{margin-bottom:6px}
+html:is([data-density=standard],[data-density=compact]) .mcard{padding:7px 9px;border-radius:8px}
+html:is([data-density=standard],[data-density=compact]) .slv-opts .row2{min-height:28px}
+html:is([data-density=standard],[data-density=compact]) .slv-run button{height:30px;border-radius:7px}
+html:is([data-density=standard],[data-density=compact]) .slv-nav{padding:9px 12px}
+html:is([data-density=standard],[data-density=compact]) .slv-player{height:112px;padding:8px 12px 10px}
+html:is([data-density=standard],[data-density=compact]) .slv-pcs{height:104px;padding:8px 10px 10px}
+html:is([data-density=standard],[data-density=compact]) .pvc{height:26px;border-radius:6px}
+html:is([data-density=standard],[data-density=compact]) .lrow{height:28px;border-radius:6px}
+html:is([data-density=standard],[data-density=compact]) .pz-result{padding:8px 10px}
+html:is([data-density=standard],[data-density=compact]) .pz-sum{padding:8px 12px}
+html:is([data-density=standard],[data-density=compact]) .ut{width:96px;height:50px;border-radius:8px}
+html:is([data-density=standard],[data-density=compact]) .pz-used{padding:8px;gap:5px}
+html:is([data-density=standard],[data-density=compact]) .pzh{white-space:nowrap;gap:6px}
+html:is([data-density=standard],[data-density=compact]) .pz-lib{padding:6px 8px 8px}
+html:is([data-density=standard],[data-density=compact]) .pz-lib .lc{height:26px;border-radius:6px}
+
+/* ===================== Interface density: Compact (Standard, with the scrolling lists' rows about half as tall) ===================== */
+html[data-density=compact] .row{height:18px;border-radius:4px;gap:6px;font-size:12px}
+html[data-density=compact] .row .chip{height:16px;min-width:28px;padding:0 4px;border-radius:4px;font-size:10px}
+html[data-density=compact] .row .grip svg{width:12px;height:12px}
+html[data-density=compact] .row .acts .ib,html[data-density=compact] .row.disc .dsz .ib{width:20px;height:16px;border-radius:4px}
+html[data-density=compact] .row .acts .ib svg{width:13px;height:13px}
+html[data-density=compact] .row .lbl input,html[data-density=compact] .row.disc .dsz input.v{height:16px;border-radius:4px}
+html[data-density=compact] .lrow{height:16px;border-radius:4px;font-size:11.5px}
+html[data-density=compact] .lrow .c3{height:14px}
+html[data-density=compact] .lrow .c3 i{top:2px;bottom:2px}
+html[data-density=compact] .pz-lib{gap:3px}
+html[data-density=compact] .pz-lib .lc{height:18px;border-radius:4px}
+html[data-density=compact] .pz-lib .lc .la{height:16px;border-radius:4px}
 
 /* ===================== Interface density: Minimal ===================== */
 html[data-density=minimal]{--lwx:300px;--rwx:320px;--wrail:44px;--toph:32px;--stath:22px;--railw:40px}
@@ -633,7 +651,7 @@ html[data-density=minimal] .btn .lt,html[data-density=minimal] .brand .bt{displa
 html[data-density=minimal] .sec .sum,html[data-density=minimal] #vhint,html[data-density=minimal] .lfoot,html[data-density=minimal] .advnote,
 html[data-density=minimal] .mcard .d,html[data-density=minimal] .slv-opts .row2 .t small,html[data-density=minimal] .mg .gl2,
 html[data-density=minimal] .lstrip .lh,html[data-density=minimal] .colmeta,html[data-density=minimal] .slv-player .ttl,
-html[data-density=minimal] .slv-prob .meta span,html[data-density=minimal] .pz-result .meta span,html[data-density=minimal] .dhelp,html[data-density=minimal] .pzr .cap{display:none}
+html[data-density=minimal] .slv-pmeta,html[data-density=minimal] .pz-result .meta span,html[data-density=minimal] .dhelp,html[data-density=minimal] .pzr .cap{display:none}
 html[data-density=minimal] .pz-used{padding:8px;gap:5px}
 html[data-density=minimal] .ut{width:84px}
 html[data-density=minimal] .pz-lib{padding:6px 8px 8px;gap:4px}
@@ -675,7 +693,6 @@ html[data-density=minimal] .pz-lib .lc{height:24px;border-radius:5px;gap:4px}
 /* Solver */
 html[data-density=minimal] .slv-sec{padding:7px 10px}
 html[data-density=minimal] .slv-lab{margin-bottom:5px;font-size:10px}
-html[data-density=minimal] .slv-prob{padding:4px 6px;border-radius:6px}
 html[data-density=minimal] .mcard{padding:5px 8px;border-radius:6px;align-items:center}
 html[data-density=minimal] .mcard .rd{margin-top:0}
 html[data-density=minimal] .slv-opts .row2{min-height:26px}
@@ -866,25 +883,6 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 /* + New Piece and + New Board together: tighter, so the header still holds the collapse button */
 .ch:has(#btnNewBoard:not([hidden])){gap:4px}
 .ch:has(#btnNewBoard:not([hidden])) .btn{padding:0 6px;gap:3px}
-.trayrow{display:none;align-items:center;gap:10px;padding:8px 10px 2px;flex:none}
-.trayrow.show{display:flex}
-.trayrow .seg{flex:1}
-.trayrow .seg button{flex:1}
-/* the Start/Goal tab's colour: green when its positions are valid, red when not */
-.trayrow .seg button.ok{background:rgba(46,139,87,.16);color:#2e8b57}
-.trayrow .seg button.bad{background:rgba(192,40,40,.14);color:#c02828}
-.trayrow .seg button.ok.on{background:#2e8b57;color:#fff}
-.trayrow .seg button.bad.on{background:#c02828;color:#fff}
-.stamprow{display:none;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);flex:none;height:120px}
-.stamprow.show{display:flex}
-.stamprow .sglist{flex:3;min-width:0;overflow:auto;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:8px;padding:3px;background:var(--panel)}
-.stamprow .sgp{display:flex;align-items:center;gap:8px;border:0;background:transparent;border-radius:6px;padding:2px 6px;color:var(--text);cursor:pointer;text-align:left;font:inherit;font-size:12px}
-.stamprow .sgp.on{background:var(--accentSoft)}
-.stamprow .sgp .chip{height:18px;min-width:30px;font-size:10.5px}
-.stamprow .sgp .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stamprow .sgprev{flex:2;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--panel2);display:grid;place-items:center;padding:8px}
-.stamprow .sgprev svg{width:100%;height:100%;max-width:96px;max-height:96px}
-/* under the 3D view while a start/goal shape is shown (refreshSlideValid's bar) */
 .slidevalid{display:none;position:absolute;left:12px;right:12px;bottom:12px;z-index:3;padding:7px 12px;border-radius:8px;background:#2e8b57;color:#fff;font-size:12.5px;font-weight:500;pointer-events:none}
 .slidevalid.show{display:block}
 .slidevalid.bad{background:#c02828}
@@ -921,6 +919,22 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px;font-size:11.5px}
 #stage.stk #pzResult,#stage.stk #pzUsedHead,#stage.stk #pzUsed,#stage.stk #pzGrpHead,#stage.stk #pzGrpBody,#stage.stk #pzSummary{display:none}
 #stage.stk #pzSel,#stage.stk #pzGroupsSec,#stage.stk #pzRulesHead,#stage.stk #pzRules{display:none}
 .pzboard,.pzstacks{display:none}
+/* a sliding problem: Start and goal in the selected piece's place */
+.pzslide{display:none}
+#stage.sld .pzslide{display:flex;flex-direction:column;flex:1;min-height:0}
+#stage.sld #rightP .pz-scroll{display:none}
+.sgpane{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+.sgpane+.sgpane{border-top:1px solid var(--line)}
+.sgparts{display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px 0;flex:none}
+.sgpart{display:flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:2px 6px 2px 2px;color:var(--text);cursor:pointer;font:inherit;font-size:11.5px}
+.sgpart.on{border-color:var(--accent);background:var(--accentSoft)}
+.sgpart .chip{height:18px;min-width:28px;font-size:10.5px}
+.sgpart.all .n{color:#2e8b57;font-weight:600}
+.sghint{padding:4px 12px;font-size:11.5px;line-height:1.4;flex:none;min-height:calc(2 * 1.4em + 8px);box-sizing:border-box}
+.sgbody{flex:1;min-height:0;display:flex;gap:4px;padding:0 6px 6px}
+.sglayers{display:flex;flex-direction:column;gap:2px;overflow:auto;flex:none}
+.sglayers:empty{display:none}
+.sggrid{flex:1;min-width:0;min-height:0;position:relative}
 #stage.stk .pzboard,#stage.stk .pzstacks{display:flex;flex-direction:column;flex:none}
 .pzboard .rodlist{border-bottom:0;max-height:120px}
 .pzstacks{padding:10px 0 0;gap:8px}

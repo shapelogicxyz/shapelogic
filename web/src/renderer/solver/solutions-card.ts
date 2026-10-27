@@ -167,7 +167,8 @@ export class SolutionsCard {
       ).join('') + '<span title="Disassembly status">DA</span>',
     );
     byId('slvFoot').textContent = `${String(n)} solution${n === 1 ? '' : 's'}`;
-    this.rowHeight = density() === 'minimal' ? 26 : 28;
+    const d = density();
+    this.rowHeight = d === 'minimal' ? 26 : d === 'compact' ? 16 : 28;
     byId('slvSpace').style.height = `${String(n * this.rowHeight + 10)}px`;
     this.renderRows();
   }
@@ -587,6 +588,10 @@ export class SolutionsCard {
       if (changed.includes('pieceCompact')) {
         this.renderChips();
       }
+      // the list's rows take the density's height
+      if (changed.includes('density')) {
+        this.render();
+      }
     });
     const player = byId('splayer');
     // the buttons do not take the focus from the list or the slider (svWire's mousedown)
@@ -663,5 +668,5 @@ export class SolutionsCard {
 }
 
 function density(): string {
-  return document.documentElement.dataset.density ?? 'standard';
+  return prefs.density.toLowerCase();
 }

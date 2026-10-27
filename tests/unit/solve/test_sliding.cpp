@@ -1309,6 +1309,10 @@ TEST_CASE("sliding: the full search keeps its levels where it can", "[sliding]")
   CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, full).has_value());
   CHECK(full.outcome == SlideOutcome::Disk);
   CHECK(!full.error.empty());
+  // it names the work folder (its own folder in there is gone), and the
+  // budget asked for, which the free space did not cut
+  CHECK(full.error.find("(0.0 GB in " + dir.string() + ")") != std::string::npos);
+  CHECK_FALSE(full.diskHeldToFree);
   std::filesystem::remove_all(dir);
 
   // a small search on a full disk: it never writes, nor makes its folder
@@ -1534,15 +1538,76 @@ TEST_CASE("sliding: a whole piece is placed as a start or a goal", "[sliding]") 
   tray->setState(4, 0, 0, kVariable);
   CHECK(!stampPiece(tray, u, U, 4, 0, 0, true).empty());
 
-  // a goal without a start, then both: valid
+  // a goal without a start (the piece starts anywhere) is not enough, a
+  // piece at both is: valid
   CHECK(clearStamp(tray, U, false));
   CHECK(stampPiece(tray, u, U, 3, 0, 0, true).empty());
-  CHECK(startGoalError(f.puz, 0).find("no start") != std::string::npos);
+  CHECK(startGoalError(f.puz, 0).find("at its Start and at its Goal") != std::string::npos);
   CHECK(stampPiece(tray, u, U, 4, 2, 0, false).empty());
   CHECK(startGoalError(f.puz, 0).empty());
+  // the L's goal without a start stays valid: it starts anywhere
+  CHECK(stampPiece(tray, l, L, 1, 1, 0, true).empty());
+  CHECK(startGoalError(f.puz, 0).empty());
+  CHECK(clearStamp(tray, L, true));
 
   // a start that is only part of the piece is not valid
   tray->setColor(1, 1, 0, 0);
+  CHECK(startGoalError(f.puz, 0).find("not the whole piece") != std::string::npos);
+}
+
+// A piece of several copies has a start and a goal for each: a stamp is one
+// more copy's, beside the others, until every copy has one; the marks split
+// into whole copies, a right click takes one off, and the shape is valid
+// once some piece has every copy at a start and at a goal.
+TEST_CASE("sliding: copies of a piece are placed one by one", "[sliding]") {
+  SlideFixture f = slideFixture(5, 3, {});
+  const unsigned int D = f.puz.addShape(2, 1, 1);
+  f.puz.getShape(D).setState(0, 0, 0, kFilled);
+  f.puz.getShape(D).setState(1, 0, 0, kFilled);
+  Voxel* tray = &f.puz.getShape(0);
+  const Voxel* d = &f.puz.getShape(D);
+  const auto none = static_cast<unsigned int>(-1);
+
+  // three copies: side by side, never over one another
+  CHECK(stampPiece(tray, d, D, 0, 0, 0, false, 3).empty());
+  CHECK(stampPiece(tray, d, D, 2, 0, 0, false, 3).empty());
+  CHECK(stampPiece(tray, d, D, 1, 0, 0, false, 3).find("another copy") != std::string::npos);
+  CHECK(stampPiece(tray, d, D, 0, 2, 0, false, 3).empty());
+  CHECK(stampFits(tray, d, D, 2, 2, 0, false, 3).find("All 3 copies") != std::string::npos);
+  auto copies = stampCopies(*tray, *d, D, false);
+  REQUIRE(copies);
+  CHECK(copies->size() == 3);
+  CHECK(stampIsAt(tray, d, D, 2, 0, 0, false));
+  CHECK_FALSE(stampIsAt(tray, d, D, 1, 0, 0, false));
+
+  // the right click takes off the copy under it alone
+  CHECK(clearCopyAt(tray, d, D, 3, 0, 0, false));
+  CHECK(stampAt(tray, 2, 0, 0, false) == none);
+  CHECK(stampAt(tray, 1, 0, 0, false) == D);
+  CHECK(stampCopies(*tray, *d, D, false)->size() == 2);
+
+  // the problem has the copies; a goal for one, then for every copy
+  syncSlidingProblems(f.puz);
+  Problem& pr = f.puz.getProblem(0);
+  CHECK(pr.getShapeMaximum(D) == 2);
+  pr.setShapeMaximum(f.puz, D, 3);
+  pr.setShapeMinimum(f.puz, D, 3);
+  CHECK(stampedCopies(f.puz, pr, D) == 2);
+  CHECK(stampPiece(tray, d, D, 3, 2, 0, true, 3).empty());
+  CHECK(startGoalError(f.puz, 0).find("every copy") != std::string::npos);
+  CHECK(stampPiece(tray, d, D, 2, 0, 0, false, 3).empty());
+  CHECK(stampPiece(tray, d, D, 3, 1, 0, true, 3).empty());
+  CHECK(stampPiece(tray, d, D, 3, 0, 0, true, 3).empty());
+  CHECK(startGoalError(f.puz, 0).empty());
+  // the copies without a start start anywhere: their colour fits neutral cells
+  CHECK(clearCopyAt(tray, d, D, 0, 2, 0, false));
+  refreshStartLocks(f.puz, pr);
+  CHECK(pr.getNeutralFitColors() == std::uint64_t{1} << D);
+  CHECK(pr.placementAllowed(f.puz, D + 1, 0, true));
+
+  // marks that are not whole copies are not valid
+  tray->setColor(4, 2, 0, D + 1);
+  CHECK_FALSE(stampCopies(*tray, *d, D, false));
   CHECK(startGoalError(f.puz, 0).find("not the whole piece") != std::string::npos);
 }
 

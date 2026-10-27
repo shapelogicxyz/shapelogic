@@ -14,12 +14,12 @@
 // rulers, `fillStyle` (variable cells half filled, dashed), `hover2d`,
 // `clear2d`, `eff2d`, `applyCell` and the #garea pointer handlers (a
 // right press erases whatever the tool; Ctrl erases, Alt or Cmd variable,
-// Shift fixed). A sliding puzzle's start/goal shape (docs/webui-spec.md,
-// section 8.1) is drawn as the original's grideditor.cpp drew it: dark
-// tiles, and while a start or goal is placed the marked cells in their
-// pieces' colours, the piece to place outlined under the mouse
-// (`drawStampPreview`), a click placing it and a right click taking off
-// the piece under the mouse.
+// Shift fixed). A sliding puzzle's board (docs/webui-spec.md, sections
+// 8.1 and 8.2) is drawn as the original's grideditor.cpp drew it: dark
+// tiles; in the Puzzle workspace's Start and goal grids (stamping) the
+// marked cells in their pieces' colours, the piece to place outlined under
+// the mouse (`drawStampPreview`), a click placing it and a right click
+// taking off the copy under the mouse.
 
 import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
@@ -71,7 +71,7 @@ export interface GridHost {
   hover(cell: Cell | null, tool: Tool | null, mods: Mods): void;
   /** The box selection changed (the selection bar). */
   boxChanged(): void;
-  /** A start or goal is being placed on a tray: clicks place, nothing is drawn. */
+  /** A grid where starts or goals are placed on a board: clicks place, nothing is drawn. */
   stamping(): boolean;
   /** A click while stamping: the left button places, the right takes off. */
   stampClick(cell: Cell, right: boolean): void;
@@ -79,6 +79,7 @@ export interface GridHost {
   stampHover(cell: Cell | null): void;
 }
 
+/** The space round the grid for its rulers (spaceGridSvg's), in pixels. */
 const M = 44;
 
 type P2 = [number, number];
@@ -86,6 +87,8 @@ type P2 = [number, number];
 export class Grid2D {
   private readonly area: HTMLElement;
   private readonly host: GridHost;
+  /** The space round the grid, in pixels. */
+  private readonly margin: number;
   private input: GridInput | null = null;
   /** Drawing units to pixels. */
   private sc = 1;
@@ -101,9 +104,11 @@ export class Grid2D {
   /** The piece to place, outlined under the mouse (stamping), or null. */
   private stamp: StampOutline | null = null;
 
-  constructor(area: HTMLElement, host: GridHost) {
+  /** A grid in an element; `margin` the space round it (a small grid takes less). */
+  constructor(area: HTMLElement, host: GridHost, margin = M) {
     this.area = area;
     this.host = host;
+    this.margin = margin;
     this.install();
     new ResizeObserver(() => {
       this.builtFor = '';
@@ -191,7 +196,7 @@ export class Grid2D {
     const { width: ex, height: ey } = input.geo;
     this.sc = Math.max(
       16,
-      Math.min(110, Math.floor(Math.min((aw - 2 * M) / ex, (ah - 2 * M) / ey))),
+      Math.min(110, Math.floor(Math.min((aw - 2 * this.margin) / ex, (ah - 2 * this.margin) / ey))),
     );
     this.ox = (aw - ex * this.sc) / 2;
     this.oy = (ah - ey * this.sc) / 2;

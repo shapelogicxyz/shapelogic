@@ -220,6 +220,9 @@ void problemFields(const State& s, unsigned int index, const Problem& pr, Json& 
   j["solutions"] = optionalCount(pr.numSolutionsKnown(), pr.numSolutionsKnown() ? pr.getNumSolutions() : 0);
   j["saved"] = pr.getNumberOfSavedSolutions();
   j["timeMs"] = optionalCount(pr.usedTimeKnown(), pr.usedTimeKnown() ? pr.getUsedMs() : 0);
+  j["searched"] = pr.getSearched();
+  j["searchDepth"] = pr.getSearchDepth();
+  j["triedApart"] = pr.getTriedApart();
 }
 
 }  // namespace
@@ -337,7 +340,10 @@ Json problemDetail(const State& s, unsigned int index) {
                            {"max", part.max},
                            {"groups", std::move(groups)},
                            {"required", slidingPuzzle && sliding::shapeIsRequired(
-                                                             puzzle, pr, part.shapeId)}});
+                                                             puzzle, pr, part.shapeId)},
+                           {"placed", slidingPuzzle
+                                          ? sliding::stampedCopies(puzzle, pr, part.shapeId)
+                                          : 0U}});
     }
     j["parts"] = std::move(parts);
     Json rules = Json::array();
@@ -543,6 +549,15 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.sliding.diskBudget = static_cast<std::uint64_t>(s.settings.slideDiskGB * 1e9);
   o.stacking.workDir = s.settings.panexFolder;
   o.stacking.diskBudget = static_cast<std::uint64_t>(s.settings.panexDiskGB * 1e9);
+  // the memory of both: the setting, or half the machine's (the GUI's
+  // Enable High Memory, which the setting replaced)
+  const std::uint64_t memory =
+      s.settings.searchMemoryGB > 0
+          ? static_cast<std::uint64_t>(s.settings.searchMemoryGB * 1e9)
+          : sliding::memoryBudget(0, true);
+  o.sliding.memoryBytes = memory;
+  o.stacking.memoryBytes = memory;
+  o.settingsPlace = "Settings ▸ Solver";
   if (j.is_null()) {
     return o;
   }

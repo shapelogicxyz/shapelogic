@@ -82,7 +82,7 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(43);
+    expect(seen.size).toBe(42);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
@@ -91,7 +91,7 @@ describe('the keyboard map', () => {
     expect(actionOf(press('2'))).toBe('tool.variable');
     expect(actionOf(press('2', { alt: true }))).toBeNull();
     expect(actionOf(press('ü', { ctrl: true }, 'BracketLeft'))).toBe('card.left');
-    expect(actionOf(press(' ', { ctrl: true }, 'Space'))).toBe('focus3d');
+    expect(actionOf(press(' ', { ctrl: true }, 'Space'))).toBeNull();
     expect(actionOf(press('O', { shift: true }))).toBe('view.orbit');
     expect(actionOf(press('o', { alt: true }))).toBeNull();
     expect(actionOf(press('f', { ctrl: true }))).toBeNull();
@@ -171,7 +171,7 @@ describe('the keyboard map', () => {
     expect(accelerator('redo')).toBe('Shift+CmdOrCtrl+Z');
     expect(accelerator('settings')).toBe('CmdOrCtrl+,');
     expect(accelerator('help.keys')).toBe('F1');
-    expect(accelerator('focus3d')).toBe('CmdOrCtrl+Space');
+    expect(accelerator('focus3d')).toBe(null);
     expect(accelerator('file.close')).toBe('CmdOrCtrl+W');
     expect(accelerator('home')).toBe(null);
   });

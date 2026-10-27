@@ -18,6 +18,7 @@ import { runAction } from './keyboard.ts';
 import { accelerator } from './keys.ts';
 import type { KeyAction } from './keys.ts';
 import { layout, onLayout } from './layout.ts';
+import { onPrefs, prefs, setPrefs } from './prefs.ts';
 
 /** The menu commands that are actions of the keyboard table. */
 const AS_KEY: Partial<Record<AppCommandName, KeyAction>> = {
@@ -132,6 +133,11 @@ export class Menus {
     onLayout(() => {
       this.update();
     });
+    onPrefs((changed) => {
+      if (changed.includes('theme')) {
+        this.update();
+      }
+    });
     this.update();
   }
 
@@ -168,6 +174,7 @@ export class Menus {
       colourView: this.view.display.colourView,
       style: this.view.display.style,
       focus3d: layout.focus === '3d',
+      theme: prefs.theme,
       keys: this.keys,
     };
   }
@@ -257,6 +264,9 @@ export class Menus {
         break;
       case 'colourView':
         this.view.setDisplay({ colourView: c.on });
+        break;
+      case 'theme':
+        setPrefs({ theme: c.theme });
         break;
       case 'style':
         this.view.setDisplay({ style: c.style });

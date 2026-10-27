@@ -809,7 +809,12 @@ schema in `api/`, documented in the generated `docs/API.md`.
   while the open document is a stacking puzzle being solved: the import
   writes into the folder its search saves in); `solve.savePoint` is
   refused on a stacking solve, whose search saves itself; a stacking
-  solution's row counts transfers), and the STL export (`export.*`,
+  solution's row counts transfers; `Settings`' `searchMemoryGB`, half the
+  machine's memory when 0, is every sliding and stacking solve's memory
+  in place of its `highMemory`, the GUI's Search memory setting, and the
+  notes of a search out of memory or disk name Settings ▸ Solver,
+  `SolveOptions::settingsPlace`; the disk budgets go by the free space,
+  `diskBudgetFor` in base/system.h), and the STL export (`export.*`,
   deferred part 5: `export.stlParameters`, `export.stlMesh` (a
   `MeshFrame` and the volume, the dialog's preview), `export.stl` (the
   file's bytes as a frame of one u8 array; the client writes them),
@@ -1357,7 +1362,7 @@ What exists after stage 8:
     targets read first, so the ones it took that did not come apart are
     marked "Cannot be disassembled": the client remembers, the engine
     keeps no mark); the keys; the status line and the tag), `run-card.ts`
-    (the left card: the problem picker with each problem's solve, what to
+    (the left card: the problems list with each problem's solve, what to
     check, the search options, the run's buttons, progress and counters,
     a failure),
     `solutions-card.ts` (the right card: the list, virtual, its rows paged
@@ -1452,37 +1457,40 @@ What exists after stage 8:
     original's `formatReport`, idle rows and analysis notes; DOM-free).
   - Sliding puzzles (deferred part 2, docs/webui-spec.md section 8, the
     original GUI's sliding branches): `entities/tray.ts` (`TrayState`:
-    `sliding.tray` of the start/goal shape shown, read again at each
-    revision; the marks in the pieces' colours, the stamps per piece, the
+    `sliding.tray` of the board shown, read again at each revision; the
+    marks in the pieces' colours, the copies placed (`copiesOf`), the
     outline's colours of `drawStampPreview`, the validity bar's words;
-    DOM-free); the editor card's **Tray edit** switch on a start/goal
-    shape (Walls: the ordinary tools, floor, corridor, wall; Start and
-    Goal: the piece list with the chosen piece drawn flat, the grid's
-    marked cells in the pieces' colours, the piece outlined under the
-    mouse from `sliding.preview`, a click `sliding.place`, a right click
-    `sliding.clearAt`, a refusal's reason in the status bar; the switch
-    green or red with the validity), no Paint tool or palette and the Z
-    size and the XZ/YZ planes off on sliding puzzles (`EditorState.tray`,
-    `stampPiece`; `GridInput.tray`, the grid's stamping host calls);
+    DOM-free); a board drawn in the Shapes workspace with the ordinary
+    tools (floor, corridor, wall) on its dark tiles, no cell colours, no
+    Paint tool or palette and the XZ/YZ planes off on sliding puzzles;
+    `puzzle/slide-card.ts` (`SlideCard`: the Puzzle workspace's **Start
+    and goal** card in the selected piece's place, `#stage.sld`: the
+    board's Start and Goal grids, two `Grid2D`s in stamping mode
+    (`GridInput.tray`, the grid's stamping host calls), the problem's
+    pieces with the copies placed of each, a hint, the layers; the piece
+    selected in "In this puzzle" outlined under the mouse from
+    `sliding.preview`, a click `sliding.place`, a right click
+    `sliding.clearAt`, a refusal's reason in the status bar);
     the shapes list's "(START/GOAL n)" rows with their black chips and
     the header's + New Piece and + New Board (`#btnNewBoard`,
     `sliding.addStartGoal` of the selected shape's size), a tray deleted
     with its problem by the list's Delete, its colour greyed;
-    the validity bar under the view (`#slideValid`); `view3d/trays.ts`
-    (`TrayView`: the GOAL tray and the pieces standing on both trays as
-    the original's `showSingleShape`, through a `SolutionScene` in the
-    view's model group, the frame widened to both, the START and GOAL
-    titles); `view3d/walls.ts` (`wallOutline`, `wallSegments`: the
+    the validity bar under the Puzzle view (`#slideValid`);
+    `view3d/trays.ts` (`TrayView`: the START and GOAL trays and the
+    copies standing on them as the original's `showSingleShape`, through
+    a `SolutionScene` in a group of the view's root, in the Puzzle view in
+    the pieces scene's place, the frame widened to both, the START and
+    GOAL titles); `view3d/walls.ts` (`wallOutline`, `wallSegments`: the
     original's `buildSlidingWalls`, drawn by `SolutionScene.setWalls`
     around the player's result, `SolutionModel.result`); the colours of
     a tray (`piece-colours.ts`: `TRAY_LIST`, `TRAY_VIEW`, `TRAY_EDIT`,
     `chipColour`, `viewColour`, `isTray`); the Puzzle's sliding rules (no
     New, Copy or Delete problem, no Change…, no groups or colour rules, a
-    `Part.required` piece's count locked); the Solver's sliding options
+    `Part.required` piece kept, with no fewer copies than `Part.placed`); the Solver's sliding options
     (`settings.ts`: `nestedSlides`, `partialNested`, `highMemory`,
     `slidingSolver`, `DEFAULT_SLIDING` with Find Solutions checked,
     `normalize`'s sliding rules, `SolveOptions.sliding`; `shortCount`,
-    `slidingActivity` for the Activity line), Solve greyed while the
+    `slidingDetails` for the Details line), Solve greyed while the
     tray is invalid (`SolverWorkspace.slideError`), the solver's note in
     a message box when a run is through (`tellNote`, also after an
     autosave's continue), Movements and Analyse not offered on a grid
@@ -1519,7 +1527,7 @@ What exists after stage 8:
     every stacking view; the Solver's stacking options (`settings.ts`'s
     `Family`, `DEFAULT_STACKING` with Find Solutions, `normalize`'s
     stacking rules, `stackingSolverOf` the board's one solver,
-    `SolveOptions.stacking`, `stackingActivity`), no Prepare, Solve and
+    `SolveOptions.stacking`, `stackingDetails`), no Prepare, Solve and
     Continue greyed without a board or with invalid stacks, Solve's
     question about a saved search (Continue, Start Over), Continue and
     Abort for a saved search (`solve.status.savedSearch`, read with the
@@ -1554,7 +1562,7 @@ translation, the camera, the store and the mesh cache, a stroke's
 protocol, the planes, the quick tools, mirror and span; the Puzzle's
 counts, groups, layout and labels; the Solver's options and rules, the
 poses' interpolation and fade, the pager, the solve records; the stacking
-options, Activity lines, board boxes and helpers (`stacking.test.ts`); the movement
+options, Details lines, board boxes and helpers (`stacking.test.ts`); the movement
 tree, the Alt-drag's direction, the debug report; and the
 replays of the recorded Solver sessions: a run's end at its revision,
 one between two polls (the active states taken out), an abort's two
@@ -1672,8 +1680,8 @@ image from `file:` refused by Chromium itself, no file outside the
 renderer read and nothing remote, a path no dialog gave refused, a
 fixture from the command line solved with bt's counts). Deferred part 2:
 `tests/unit/renderer/sliding.test.ts` (the sliding options over the
-stored settings, their rules and `SolveOptions.sliding`, the Activity
-line's counts, the tray's marks and stamps, the outline's colours, the
+stored settings, their rules and `SolveOptions.sliding`, the Details
+line's counts and saved counts, the Activity line's solver, the tray's marks and stamps, the outline's colours, the
 validity's words, New's order, the walls' outline and segments) and
 `tests/e2e/sliding.e2e.ts` (the 81-move puzzle built from File ▸ New:
 the start/goal shape, the pieces drawn and duplicated, every start and
@@ -1683,7 +1691,8 @@ solvers with `bt --json`'s counts and moves, the problem then the
 fixture's; played with the walls drawn, every whole step's poses the
 engine's; the nested fixture with and without nested slides and a
 partially nested pocket as `bt`; the notices; reference screenshots of
-the tray in Walls, Start and Goal, the two trays and the walls). Deferred
+the board drawn, its Start and goal, the two trays and the walls; copies
+of a piece placed one by one, a third refused, one taken off, solved). Deferred
 part 4: `tests/e2e/stacking.e2e.ts` (the Tower of Hanoi and a Panex swap
 of three-disc towers built from File ▸ New through the disc list, the
 Rods card and the Stacks card, saved byte for byte as the fixtures;

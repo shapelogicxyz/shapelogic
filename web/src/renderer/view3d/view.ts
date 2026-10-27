@@ -168,9 +168,11 @@ export class View3D {
   private readonly cache: MeshCache;
   private readonly renderer: ViewRenderer;
   private readonly scene: ShapeScene;
-  /** A sliding start/goal shape's GOAL tray and pieces (the Entities view). */
+  /** A sliding board's START and GOAL trays and pieces (the Puzzle view). */
   private readonly trays: TrayView;
   private trayTags = '';
+  /** Whether the Puzzle view shows a board's trays instead of the pieces scene. */
+  private trayShown = false;
   private wallLoads = 0;
   /** A stacking puzzle's board: the Entities' rod set, the Puzzle's stacking, the player's pegs. */
   private readonly board: BoardView;
@@ -237,8 +239,9 @@ export class View3D {
           reportError(e, 'The start/goal shape could not be drawn');
         },
       },
-      this.renderer.model,
+      this.renderer.root,
     );
+    this.trays.group.visible = false;
     this.board = new BoardView({
       store,
       cache: this.cache,
@@ -544,9 +547,11 @@ export class View3D {
     return [((p.x + 1) / 2) * this.canvas.clientWidth, ((1 - p.y) / 2) * this.canvas.clientHeight];
   }
 
-  /** A sliding start/goal shape's two trays (null: the shape shown is no tray). */
+  /** A sliding board's two trays in the Puzzle view (null: the problem shown has none). */
   setTray(model: TrayModel | null): void {
+    this.trayShown = model !== null;
     this.trays.set(model);
+    this.lookChanged();
   }
 
   /**
@@ -877,9 +882,12 @@ export class View3D {
     // a stacking puzzle's Puzzle workspace draws its board, not the pieces scene
     this.renderer.tilt = stacking;
     this.camera.setBase(this.upright(), performance.now());
-    this.renderer.root.visible = !puzzle || stacking;
+    // a sliding board's trays in the Puzzle view, not the pieces scene
+    const trays = puzzle && this.trayShown && !stacking;
+    this.renderer.root.visible = !puzzle || stacking || trays;
     this.renderer.model.visible = !solver && !puzzle && !this.rodSetShown;
-    this.pieces.group.visible = puzzle && !stacking;
+    this.pieces.group.visible = puzzle && !stacking && !trays;
+    this.trays.group.visible = trays;
     this.solution.group.visible = solver;
     this.showBoard();
     this.board.setLook({
@@ -1017,6 +1025,11 @@ export class View3D {
     if (this.puzzleMode && this.stacking) {
       this.renderer.frame(this.camera, this.board.extent ?? [1, 1, 1]);
       this.renderer.render();
+    } else if (this.puzzleMode && this.trayShown) {
+      // the trays move as the model would: centred on what they fill
+      this.renderer.frame(this.camera, this.trays.extent ?? [1, 1, 1]);
+      this.trays.group.position.copy(this.renderer.model.position);
+      this.renderer.render();
     } else if (this.puzzleMode) {
       const r = this.renderer;
       const { sc, reach } = this.pieces.scale(r.width, r.height, this.camera.zoom);
@@ -1043,14 +1056,14 @@ export class View3D {
           .join(' ');
       }
     } else {
-      const ex = this.rodSetShown ? this.board.extent : this.trays.extent;
+      const ex = this.rodSetShown ? this.board.extent : null;
       this.renderer.frame(this.camera, ex ?? this.extent);
       this.renderer.render();
     }
-    // the trays' titles (START, GOAL) over the Entities view
+    // the trays' titles (START, GOAL) over the Puzzle view
     const tags =
-      !this.puzzleMode && !this.solverMode
-        ? this.trays.tags(this.renderer.model, (v) => this.toScreen(v))
+      this.puzzleMode && this.trayShown
+        ? this.trays.tags(this.trays.group, (v) => this.toScreen(v))
         : '';
     if (tags !== this.trayTags) {
       this.trayTags = tags;

@@ -27,7 +27,8 @@ A sliding puzzle has two kinds of shape:
   cells are walls.
 
 Each piece gets a **start** and a **goal** position, stamped onto a tray: the
-whole piece at a time. Trays are also called **boards**. They always stay at
+whole piece at a time. A piece the puzzle has several copies of gets a start
+and a goal for each copy. Trays are also called **boards**. They always stay at
 the top of the shapes list and are labelled `B1`, `B2` and so on, while the
 pieces below them are `S1`, `S2` and so on. When you delete or move a board,
 the boards after it are numbered again, so there is never a gap.
@@ -39,24 +40,16 @@ that text, which you can change or delete. The new name also shows in the
 board. Boards are never pieces: the Puzzle tab's **All pieces** list leaves
 them out.
 
-## Shapes: build the tray and place the pieces
+## Shapes: draw the pieces and the board
 
-![The Shapes workspace for a sliding puzzle: a tray with its start and goal views, and the Tray edit switch.](../../../../assets/screens/sliding-entities.png)
+![The Shapes workspace for a sliding puzzle: a board drawn with the usual tools.](../../../../assets/screens/sliding-entities.png)
 
 1. Draw each piece on its own shape, one layer thick unless it needs more.
-2. Press **New Start/Goal Positions** above the shapes list to add a tray. It
-   takes the size of the selected shape, or 6 by 6 by 1 if there isn't
-   one. **Delete Start/Goal Positions** removes a tray.
-3. With the tray selected, the right card has a **Tray edit** switch:
-   - **Walls** draws the tray with the usual tools: **Fixed** is floor,
-     **Variable** is corridor and **Erase** is wall.
-   - **Start** and **Goal** place a piece. Choose the piece from the list,
-     then click where it goes. It follows the mouse: green where it fits, red
-     where it does not, orange where it already is. Click again on it to take
-     it off, or right-click a piece to remove it.
-4. The 3D view shows two trays side by side, **START** and **GOAL**. A bar
-   under it reads green (*Valid Start/Goal positions…*) or red (*Invalid
-   Start/Goal positions - …*, with the reason).
+2. Press **+ New Board** above the shapes list to add a board. It takes the
+   size of the selected shape, or 6 by 6 by 1 if there isn't one. The
+   list's **Delete** removes a board and its problem.
+3. Draw the board with the usual tools, as any other shape: **Fixed** is
+   floor, **Variable** is corridor and **Erase** is wall.
 
 Sliding puzzles are edited in the XY plane, one layer at a time, and have no
 colour constraints.
@@ -65,7 +58,7 @@ colour constraints.
 
 Pieces and trays can have more than one layer: add layers with the **Z**
 size stepper. A piece's start or goal covers every cell of the piece in every
-layer. To place one, show a layer of the tray: the outline under the mouse is
+layer. To place one, choose a layer beside the Start or Goal grid: the outline under the mouse is
 the piece's slice on that layer, and the piece sits as low as it can while
 still fitting.
 
@@ -77,11 +70,40 @@ down somewhere else, as long as the tray has floor cells above for it to
 pass through. This counts as one move. Pieces never turn, so a goal that
 needs a piece turned around cannot be reached.
 
-## Puzzle: nothing to choose
+## Puzzle: place the starts and goals
 
-On the **Puzzle** workspace the tray is the result, and a piece that has a
-start or goal keeps its count. A tray's problem follows its stamps, so you do
-not add or copy problems by hand.
+![The Puzzle workspace for a sliding puzzle: the pieces in the puzzle on the left, the START and GOAL trays in the 3D view, and the Start and goal grids on the right.](../../../../assets/screens/sliding-puzzle.png)
+
+On the **Puzzle** workspace the board is the result, and each board has its
+own problem, so you do not add or copy problems by hand.
+
+1. Add the pieces to **In this puzzle**, with as many copies of each as the
+   puzzle has. Three blue blocks of the same shape are one piece with three
+   copies.
+2. The right card, **Start and goal**, shows the board twice: **Start** at
+   the top and **Goal** below. Above each grid is every piece of the puzzle
+   with how many of its copies are placed there, for example `S2 1/3`.
+3. Select a piece, in **In this puzzle** or above a grid, then click the
+   grid where it goes. It follows the mouse: green where it fits, red where
+   it does not, orange on a copy that is already there. A piece with one
+   copy moves to where you click. A piece with several copies gets one more
+   copy at each click, until all of them are placed. Click a copy, or
+   right-click it, to take it off.
+4. The 3D view shows two trays side by side, **START** and **GOAL**. A bar
+   under it reads green (*Valid Start/Goal positions…*) or red (*Invalid
+   Start/Goal positions - …*, with the reason).
+
+At least one piece needs every copy at a start and at a goal. Any other piece
+may have starts and goals for none, some or all of its copies:
+
+- A copy without a start can start anywhere. The solver tries every place it
+  fits.
+- A copy without a goal can end anywhere.
+- Copies of one piece are alike, so any copy may end on any of its goals,
+  and swapping two copies' starts does not make a new puzzle.
+
+A piece keeps at least as many copies as are placed at its starts or its
+goals: take a copy off first to lower the count.
 
 ## Solver: find the shortest slide
 

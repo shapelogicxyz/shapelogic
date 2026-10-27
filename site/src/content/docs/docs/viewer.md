@@ -39,7 +39,7 @@ On the Shapes tab the top line of the hint lists the quick drawing clicks
 | **Pan** | `P` | A left drag slides the model. `Shift`-drag turns it. |
 | **Edit** | `E` | Shapes tab only. Turns 3D edit mode on or off: a plain click in the view then uses the voxel editor's active tool. The button shows that tool's icon and key. |
 | **Display** | | Opens the Display menu (below). |
-| **Focus** | `Ctrl+Space` | Hides the side cards so the 3D view fills the window. The button turns into **Exit**; `Esc` also leaves focus mode. |
+| **Focus** | | Hides the side cards so the 3D view fills the window. The button turns into **Exit**; `Esc` also leaves focus mode. |
 
 A middle-button drag always pans, whichever mode is on.
 

@@ -12,19 +12,21 @@
 // defaults (Autosave and Sort by moves checked, the Display Limit 100 and
 // Keep Each 1, which the original did not save with the problem). On a
 // sliding puzzle (docs/webui-spec.md, section 8.3) the original showed
-// other boxes: Allow Nested Slides, Allow Partially Nested (only with
-// nested slides) and Enable High Memory in the places of Keep Mirror,
-// Keep Rotated and Deep Symmetry Check, the three sliding solvers in the
+// other boxes: Allow Nested Slides and Allow Partially Nested (only with
+// nested slides) in the places of Keep Mirror, Keep Rotated and Deep
+// Symmetry Check, the three sliding solvers in the
 // Solver Type list, Find Solutions checked at first, and none of Just
 // Levels, Check Rotations, Strict Colours and the symmetry options; and
 // Allow Vertical Moves, which the original (trays one layer deep) did not
 // have, off by default so that a piece stays in its layer. On a
 // stacking puzzle (section 9.3): Find Solutions checked at first
-// (stackingDisasmDefaulted), Just Levels kept (the search ignores it),
-// Enable High Memory, no Check Rotations, Strict Colours or symmetry
-// options, and one solver by the problem's board (syncSolverTypeMenu:
-// the Panex Solver for Panex columns, else the Stacking Solver), which the
-// original did not store.
+// (stackingDisasmDefaulted), Just Levels kept (the search ignores it), no
+// Check Rotations, Strict Colours or symmetry options, and one solver by
+// the problem's board (syncSolverTypeMenu: the Panex Solver for Panex
+// columns, else the Stacking Solver), which the original did not store.
+// The original's Enable High Memory of both is the Search memory setting
+// (shell/settings.ts) here: a problem's stored highMemory is kept as it
+// was, and plays no part.
 
 import type {
   Grid,
@@ -58,7 +60,6 @@ export type BoxName =
   | 'nestedSlides'
   | 'partialNested'
   | 'verticalMoves'
-  | 'highMemory'
   | 'autosave';
 
 /** The options as the Solver card shows and edits them. */
@@ -77,8 +78,6 @@ export interface SearchOptions {
   partialNested: boolean;
   /** Sliding: on a tray of several layers a piece may also move up and down (Allow Vertical Moves). */
   verticalMoves: boolean;
-  /** Sliding and stacking: up to half the memory (Enable High Memory). */
-  highMemory: boolean;
   autosave: boolean;
   solver: Solver;
   /** Sliding: the search's limit (the sliding Solver Type list). */
@@ -99,31 +98,22 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   nestedSlides: false,
   partialNested: false,
   verticalMoves: false,
-  highMemory: false,
   autosave: true,
   solver: 'classic',
   slidingSolver: 'full',
   sortBy: 'moves',
 };
 
-/**
- * A sliding puzzle's defaults: Find Solutions checked
- * (slidingDisasmDefaulted), and Enable High Memory (the original's was off).
- */
+/** A sliding puzzle's defaults: Find Solutions checked (slidingDisasmDefaulted). */
 export const DEFAULT_SLIDING: Readonly<SearchOptions> = {
   ...DEFAULT_OPTIONS,
   disassemble: true,
-  highMemory: true,
 };
 
-/**
- * A stacking puzzle's defaults: Find Solutions checked
- * (stackingDisasmDefaulted), and Enable High Memory (the original's was off).
- */
+/** A stacking puzzle's defaults: Find Solutions checked (stackingDisasmDefaulted). */
 export const DEFAULT_STACKING: Readonly<SearchOptions> = {
   ...DEFAULT_OPTIONS,
   disassemble: true,
-  highMemory: true,
 };
 
 /** The defaults of a family's problems; the brick ones' solver is the Default solver type setting's. */
@@ -142,7 +132,6 @@ export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'nestedSlides',
   'partialNested',
   'verticalMoves',
-  'highMemory',
   'autosave',
 ]);
 
@@ -151,7 +140,6 @@ export const SLIDING_ONLY: ReadonlySet<BoxName> = new Set<BoxName>([
   'nestedSlides',
   'partialNested',
   'verticalMoves',
-  'highMemory',
 ]);
 
 /** The boxes a stacking puzzle shows (updateSolverOptionCheckboxes' setVis). */
@@ -159,7 +147,6 @@ export const STACKING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'disassemble',
   'justLevels',
   'justCount',
-  'highMemory',
   'autosave',
 ]);
 
@@ -211,7 +198,6 @@ export function readOptions(
     'nestedSlides',
     'partialNested',
     'verticalMoves',
-    'highMemory',
     'autosave',
   ];
   for (const b of boxes) {
@@ -242,7 +228,7 @@ export function readOptions(
 /**
  * The settings to store for options (storeSolverOptions): the boxes and
  * choices this version shows, over what was stored (the boxes it does
- * not show, High Memory and the sliding ones, and settings of other
+ * not show, the stored High Memory and the sliding ones, and settings of other
  * versions are kept as they were).
  */
 export function writeOptions(
@@ -268,15 +254,11 @@ export function writeOptions(
   if (family !== 'stacking') {
     out.solverType = sliding ? o.slidingSolver : o.solver;
   }
-  // the sliding boxes go with a sliding puzzle's problems only, High Memory
-  // with the stacking ones too
+  // the sliding boxes go with a sliding puzzle's problems only
   if (sliding) {
     out.nestedSlides = o.nestedSlides;
     out.partialNested = o.partialNested;
     out.verticalMoves = o.verticalMoves;
-  }
-  if (family !== 'brick') {
-    out.highMemory = o.highMemory;
   }
   return out;
 }
@@ -421,13 +403,14 @@ export function solveOptions(
 ): SolveOptions {
   if (family === 'stacking') {
     // the solve thread's flags (cb_BtnCont): Find Solutions or Just Count,
-    // high memory, the search's own autosave, the one solver of the board
+    // the search's own autosave, the one solver of the board (the memory
+    // is the engine's setting)
     return {
       disassemble: o.disassemble,
       justCount: o.justCount,
       keepAtMost: Math.max(0, Math.round(limits.keepAtMost)),
       keepEach: Math.max(1, Math.round(limits.keepEach)),
-      stacking: { solver: stackingSolver, highMemory: o.highMemory, autosave: o.autosave },
+      stacking: { solver: stackingSolver, autosave: o.autosave },
     };
   }
   if (family === 'sliding') {
@@ -442,7 +425,6 @@ export function solveOptions(
         nestedSlides: o.nestedSlides,
         partialNested: o.nestedSlides && o.partialNested,
         verticalMoves: o.verticalMoves,
-        highMemory: o.highMemory,
       },
     };
   }
@@ -467,7 +449,7 @@ export function sameOptions(a: SearchOptions, b: SearchOptions): boolean {
   return (Object.keys(a) as (keyof SearchOptions)[]).every((k) => a[k] === b[k]);
 }
 
-/** A count for the Activity line: "999,999", then "125.3 million", "23.53 billion"… (mainwindow.cpp's shortCount). */
+/** A count for the Details line: "999,999", then "125.3 million", "23.53 billion"… (mainwindow.cpp's shortCount). */
 export function shortCount(n: number): string {
   if (n < 1_000_000) {
     return String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -484,31 +466,70 @@ export function shortCount(n: number): string {
 }
 
 /**
- * The Activity line while a stacking search runs (mainwindow.cpp's
- * updateInterface): the Panex search's depth and stackings found, or its
- * trace back; the Stacking Solver's own search its stackings scanned.
+ * The Details line while a stacking search runs (mainwindow.cpp's
+ * updateInterface, without the search's name, which the Activity line
+ * gives through the solver's): the Panex search's depth and stackings
+ * found, or its trace back; the Stacking Solver's own search its
+ * stackings scanned.
  */
-export function stackingActivity(
+export function stackingDetails(
   panex: boolean,
   searched: number,
   depth: number,
   traced: number,
 ): string {
   if (!panex) {
-    return `Stacking search. Scanned ${shortCount(searched)} stackings.`;
+    return `Scanned ${shortCount(searched)} stackings.`;
   }
   return traced > 0
-    ? `Panex search, tracing the path. Traced ${shortCount(traced)} of ${shortCount(depth)} moves.`
-    : `Panex search, ${shortCount(depth)} moves deep. Found ${shortCount(searched)} stackings.`;
+    ? `Tracing the path. Traced ${shortCount(traced)} of ${shortCount(depth)} moves.`
+    : `${shortCount(depth)} moves deep. Found ${shortCount(searched)} stackings.`;
 }
 
 /**
- * The Activity line while a sliding search runs (the engine's activity is
- * empty there): the original's "Sliding search, N moves deep. Scanned N
- * arrangements.", without the depth before the full search's first move.
+ * The Details line while a sliding search runs (the engine's activity is
+ * empty there): the original's "N moves deep. Scanned N arrangements."
+ * without the search's name, and without the depth before the full
+ * search's first move.
  */
-export function slidingActivity(searched: number, depth: number): string {
+export function slidingDetails(searched: number, depth: number): string {
   return depth > 0
-    ? `Sliding search, ${shortCount(depth)} moves deep. Scanned ${shortCount(searched)} arrangements.`
-    : `Sliding search. Scanned ${shortCount(searched)} arrangements.`;
+    ? `${shortCount(depth)} moves deep. Scanned ${shortCount(searched)} arrangements.`
+    : `Scanned ${shortCount(searched)} arrangements.`;
+}
+
+/**
+ * The Details line of a problem not being solved: what its solves went
+ * through, as kept in the file (mainwindow.cpp's finishedActivity without
+ * its "Finished."); empty when nothing is known.
+ */
+export function savedDetails(
+  family: Family,
+  searched: number,
+  depth: number,
+  apart: number,
+): string {
+  const what =
+    family === 'sliding' ? 'arrangements' : family === 'stacking' ? 'stackings' : 'search steps';
+  const parts: string[] = [];
+  if (searched > 0) {
+    parts.push(`Scanned ${shortCount(searched)} ${what}.`);
+  }
+  if (depth > 0) {
+    parts.push(`Searched ${shortCount(depth)} moves deep.`);
+  } else if (apart > 0) {
+    parts.push(`Tried to take apart ${shortCount(apart)} assemblies.`);
+  }
+  return parts.join(' ');
+}
+
+/**
+ * The Activity line while a search runs: the solver's name from the
+ * engine's list ("Complete (ShapeLogic)", "Sliding Full Solver (full
+ * depth)"…), with "solver" after a name that does not say it.
+ */
+export function searchActive(label: string): string {
+  return /solver/i.test(label)
+    ? `Search active with the ${label}`
+    : `Search active with the ${label} solver`;
 }

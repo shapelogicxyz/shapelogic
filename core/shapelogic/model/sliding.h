@@ -11,7 +11,11 @@
 /// but not stop on, with each cell's colour the start mark of a piece
 /// (shape index + 1) and its goal mark (Voxel::getGoalPiece) the goal of
 /// one. Trays and pieces may be more than one layer deep; a start or goal
-/// marks every cell its piece fills, in every layer. Each start/goal shape
+/// marks every cell its piece fills, in every layer. A piece the problem
+/// has several copies of may have a start and a goal for each: its marks
+/// are then several whole pieces (stampCopies), and any copy may end on
+/// any of its goals; the copies without a start start anywhere, those
+/// without a goal end anywhere. Each start/goal shape
 /// has a problem of its own with that shape as its result
 /// (syncSlidingProblems); the assembler finds the start layout,
 /// whose pieces the colours lock to their starts (refreshStartLocks), and
@@ -25,11 +29,13 @@
 /// search is in bt/solve/sliding_search.h).
 
 #include <array>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace bt {
+class Assembly;
 class Problem;
 class Puzzle;
 class Voxel;
@@ -100,11 +106,13 @@ bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool
 /// layer z (y rises upwards, as in the grid editor): the slice of the piece
 /// on layer z has its top-left cell there, at the lowest height that puts
 /// a layer of the piece on layer z and fits (stampCells). On a tray of one
-/// layer that is the piece's top-left cell at (x, y). Replaces the piece's
-/// earlier start or goal. Empty on success, else why it does not fit, and
-/// nothing changes.
+/// layer that is the piece's top-left cell at (x, y). `copies` is how many
+/// copies of the piece the problem has: with one, the stamp replaces the
+/// piece's earlier start or goal; with more, it is one more copy's, beside
+/// the others (refused once every copy has one). Empty on success, else
+/// why it does not fit, and nothing changes.
 std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
-                       bool goal);
+                       bool goal, unsigned int copies = 1);
 
 /// The tray cells stampPiece would mark: at the lowest height that fits, or
 /// when none does, the lowest that puts a layer of the piece on layer z
@@ -112,15 +120,33 @@ std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, in
 /// layer first, top row first, left to right.
 [[nodiscard]] std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece,
                                                unsigned int shapeId, int x, int y, int z,
-                                               bool goal);
+                                               bool goal, unsigned int copies = 1);
 
 /// Why stampPiece would refuse, or empty when the piece fits; changes nothing.
 [[nodiscard]] std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeId,
-                                    int x, int y, int z, bool goal);
+                                    int x, int y, int z, bool goal, unsigned int copies = 1);
 
-/// True when shapeId's start or goal is exactly where stampPiece would put it.
+/// True when one of shapeId's starts or goals is exactly where stampPiece
+/// would put it.
 [[nodiscard]] bool stampIsAt(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x,
                              int y, int z, bool goal);
+
+/// The starts (goal false) or goals of a piece on a start/goal shape, one
+/// list of cells a copy (each sorted as stampCells sorts them, the copies
+/// by their first cell): its marks split into whole pieces as drawn. Empty
+/// when it has none; nullopt when the marks are not whole pieces. A split
+/// is the only one there is: the first marked cell left is always the
+/// first cell of a copy.
+[[nodiscard]] std::optional<std::vector<std::vector<TrayCell>>> stampCopies(const Voxel& tray,
+                                                                           const Voxel& piece,
+                                                                           unsigned int shapeId,
+                                                                           bool goal);
+
+/// Takes off the start or goal of shapeId's copy that covers (x, y, z):
+/// that copy's cells (all of shapeId's marks when they are not whole
+/// pieces). True when one covered it.
+bool clearCopyAt(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
+                 bool goal);
 
 /// After piece shapeId was edited: removes its start and goal from every
 /// start/goal shape where they are no longer the piece's shape. Returns the
@@ -135,15 +161,40 @@ bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal);
 [[nodiscard]] unsigned int stampAt(const Voxel* tray, int x, int y, int z, bool goal);
 
 /// Empty when the start/goal shape trayShape describes a puzzle that can be
-/// solved, else what is wrong: a start or goal that is not the whole piece,
-/// a goal without a start, or no piece with both a start and a goal.
+/// solved, else what is wrong: starts or goals that are not whole pieces,
+/// more of them than the problem has copies, or no piece with every copy
+/// at a start and at a goal. A piece may have a goal without a start (it
+/// starts anywhere) and starts or goals for only some of its copies.
 [[nodiscard]] std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape);
+
+/// The problem whose result is the start/goal shape trayShape, or null.
+[[nodiscard]] const Problem* trayProblem(const Puzzle& puzzle, unsigned int trayShape);
+
+/// How many copies of a piece the start/goal shape trayShape's problem has
+/// (its maximum); at least 1, the copy a stamp needs.
+[[nodiscard]] unsigned int pieceCopies(const Puzzle& puzzle, unsigned int trayShape,
+                                       unsigned int shapeId);
+
+/// The most copies of a piece stamped on the problem's start/goal shape, at
+/// their starts or at their goals: the problem keeps at least this many.
+[[nodiscard]] unsigned int stampedCopies(const Puzzle& puzzle, const Problem& problem,
+                                         unsigned int shapeId);
 
 /// Keeps the colours of the pieces in step with the start stamps of the
 /// problem's start/goal shape, so the assembler places a piece with a start
 /// only there; and the puzzle's colours cover the stamps (the assembler
-/// skips colour checks with none).
-void refreshStartLocks(Puzzle& puzzle, const Problem& problem);
+/// skips colour checks with none). A piece with starts for only some of its
+/// copies may also go on a neutral cell (Problem::setNeutralFitColors): the
+/// other copies start anywhere, and startFillsStamps keeps the layouts that
+/// fill its starts.
+void refreshStartLocks(Puzzle& puzzle, Problem& problem);
+
+/// False when an assembly (a start layout) leaves a start of a piece with
+/// starts for only some of its copies unfilled: the assembler lets those
+/// copies on neutral cells, so it also finds layouts with a copy beside its
+/// start instead of on it.
+[[nodiscard]] bool startFillsStamps(const Puzzle& puzzle, const Problem& problem,
+                                    const Assembly& assembly);
 
 /// Renumbers the marks of the start/goal shapes before shape shapeId is
 /// removed (its own go), or when shapes a and b swap places. A mark names
@@ -192,8 +243,8 @@ bool toggleGoal(Puzzle& puzzle, Problem& problem, unsigned int shapeId, int ax, 
 /// cells (0 when the pieces need more).
 void syncMaxHoles(const Puzzle& puzzle, Problem& problem);
 
-/// Empty when every start and goal stamp set fits inside its piece; else
-/// a message naming each piece marked on more cells than it has.
+/// Empty when every start and goal stamp set fits inside its piece's copies;
+/// else a message naming each piece marked on more cells than they have.
 [[nodiscard]] std::string stampOverflowMessage(const Puzzle& puzzle, const Problem& problem);
 
 /// The number of floor (non-empty) cells of a tray.

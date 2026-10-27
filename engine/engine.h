@@ -51,6 +51,11 @@ struct Settings {
   /// solve's export and import look for it there.
   std::string panexFolder = defaultPanexFolder();
   double panexDiskGB = 0;
+  /// The memory a sliding or stacking search may fill, in GB (0:
+  /// automatic, half the machine's memory and at least 2 GB). It takes the
+  /// place of a solve's highMemory, which the original's Enable High
+  /// Memory box set.
+  double searchMemoryGB = 0;
 
   /// The user's cache folder's "sliding", or empty without one.
   static std::string defaultSlideFolder();

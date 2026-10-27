@@ -2,8 +2,8 @@
 //
 // The sliding front end's DOM-free parts (docs/webui-spec.md, section 8):
 // the Solver's sliding options over the stored settings (the original's
-// boxes, its solver names, Find Solutions at first), the Activity line's
-// counts, the tray's marks and stamps from sliding.tray, the stamp
+// boxes, its solver names, Find Solutions at first), the Details line's
+// counts and the Activity line's solver, the tray's marks and stamps from sliding.tray, the stamp
 // outline's colours and the validity bar's words, and the walls around a
 // tray's floor (voxelframe.cpp's buildSlidingWalls).
 
@@ -13,6 +13,7 @@ import type { ShapeSummary } from '../../../src/engine/api.generated.ts';
 import { newOrder } from '../../../src/renderer/shell/files-order.ts';
 import {
   chipColour,
+  fromHex,
   TRAY_LIST,
   TRAY_VIEW,
   viewColour,
@@ -21,19 +22,14 @@ import {
   DEFAULT_LIMITS,
   normalize,
   readOptions,
+  savedDetails,
+  searchActive,
   shortCount,
-  slidingActivity,
+  slidingDetails,
   solveOptions,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
-import {
-  marksOf,
-  outlineColour,
-  pieceText,
-  stampPieces,
-  stampsOf,
-  validity,
-} from '../../../src/renderer/entities/tray.ts';
+import { marksOf, outlineColour, copiesOf, validity } from '../../../src/renderer/entities/tray.ts';
 import type { TrayReply } from '../../../src/renderer/entities/tray.ts';
 import { WALL_GAP, wallOutline, wallSegments } from '../../../src/renderer/view3d/walls.ts';
 
@@ -59,13 +55,11 @@ describe('the sliding options', () => {
       slidingSolver: 'full',
       nestedSlides: false,
       verticalMoves: false,
-      highMemory: true,
     });
     // a brick puzzle's defaults are as they were
     expect(readOptions({}).disassemble).toBe(false);
-    expect(readOptions({}).highMemory).toBe(false);
-    // High Memory as the problem stored it
-    expect(readOptions({ highMemory: false }, undefined, 'sliding').highMemory).toBe(false);
+    // High Memory is the Search memory setting now, not an option
+    expect('highMemory' in readOptions({ highMemory: true }, undefined, 'sliding')).toBe(false);
     const s = readOptions(
       {
         solverType: 'deep',
@@ -82,7 +76,6 @@ describe('the sliding options', () => {
       nestedSlides: true,
       partialNested: true,
       verticalMoves: true,
-      highMemory: true,
       solver: 'classic',
     });
     // a brick solver's name on a sliding puzzle, and the reverse, keep the default
@@ -93,13 +86,14 @@ describe('the sliding options', () => {
   it('store the sliding boxes and solver with a sliding puzzle only', () => {
     const o = readOptions({}, undefined, 'sliding');
     const w = writeOptions(
-      { ...o, slidingSolver: 'fast', verticalMoves: true, highMemory: true },
-      { other: 'x' },
+      { ...o, slidingSolver: 'fast', verticalMoves: true },
+      { other: 'x', highMemory: false },
       'sliding',
     );
     expect(w).toMatchObject({
       solverType: 'fast',
-      highMemory: true,
+      // as the problem stored it
+      highMemory: false,
       nestedSlides: false,
       partialNested: false,
       verticalMoves: true,
@@ -144,7 +138,7 @@ describe('the sliding options', () => {
   });
 
   it('map to SolveOptions.sliding, partially nested only with nested', () => {
-    const o = { ...readOptions({}, undefined, 'sliding'), partialNested: true, highMemory: true };
+    const o = { ...readOptions({}, undefined, 'sliding'), partialNested: true };
     expect(solveOptions(o, DEFAULT_LIMITS, 'sliding')).toEqual({
       disassemble: true,
       justCount: false,
@@ -155,7 +149,6 @@ describe('the sliding options', () => {
         nestedSlides: false,
         partialNested: false,
         verticalMoves: false,
-        highMemory: true,
       },
     });
     expect(
@@ -167,16 +160,34 @@ describe('the sliding options', () => {
     expect(solveOptions(readOptions({}), DEFAULT_LIMITS).sliding).toBeUndefined();
   });
 
-  it('say the search as the original’s Activity line', () => {
+  it('say the search as the original’s Activity line, on the Details line', () => {
     expect(shortCount(0)).toBe('0');
     expect(shortCount(999_999)).toBe('999,999');
     expect(shortCount(1_234_567)).toBe('1.2 million');
     expect(shortCount(999_960_000)).toBe('1.00 billion');
     expect(shortCount(23_534_000_000)).toBe('23.53 billion');
-    expect(slidingActivity(12_345, 7)).toBe(
-      'Sliding search, 7 moves deep. Scanned 12,345 arrangements.',
+    expect(slidingDetails(12_345, 7)).toBe('7 moves deep. Scanned 12,345 arrangements.');
+    expect(slidingDetails(5, 0)).toBe('Scanned 5 arrangements.');
+  });
+
+  it('say what the solves went through as the original’s finished Activity line', () => {
+    expect(savedDetails('sliding', 181_440, 31, 0)).toBe(
+      'Scanned 181,440 arrangements. Searched 31 moves deep.',
     );
-    expect(slidingActivity(5, 0)).toBe('Sliding search. Scanned 5 arrangements.');
+    expect(savedDetails('brick', 2_500_000, 0, 928)).toBe(
+      'Scanned 2.5 million search steps. Tried to take apart 928 assemblies.',
+    );
+    expect(savedDetails('stacking', 12, 0, 0)).toBe('Scanned 12 stackings.');
+    expect(savedDetails('brick', 0, 0, 0)).toBe('');
+  });
+
+  it('name the solver of a search under way', () => {
+    expect(searchActive('Complete (ShapeLogic)')).toBe(
+      'Search active with the Complete (ShapeLogic) solver',
+    );
+    expect(searchActive('Sliding Full Solver (full depth)')).toBe(
+      'Search active with the Sliding Full Solver (full depth)',
+    );
   });
 });
 
@@ -191,6 +202,25 @@ describe('a start/goal shape', () => {
     error: null,
     overflow: null,
     floor: 6,
+    placed: [
+      {
+        piece: 's2',
+        goal: false,
+        cells: [
+          [0, 0, 0],
+          [1, 0, 0],
+        ],
+      },
+      { piece: 's3', goal: false, cells: [[2, 1, 0]] },
+      {
+        piece: 's2',
+        goal: true,
+        cells: [
+          [1, 1, 0],
+          [2, 1, 0],
+        ],
+      },
+    ],
   };
   const shapes = [shape('s1', 'S1', 1), shape('s2', 'S2'), shape('s3', 'S3')];
 
@@ -205,61 +235,61 @@ describe('a start/goal shape', () => {
     ).toBe(0);
   });
 
-  it('gives each piece’s cells on START and GOAL', () => {
-    expect([...stampsOf(tray, false)]).toEqual([
-      [
-        's2',
-        [
+  it('gives each copy’s cells on START and GOAL, as the engine split them', () => {
+    expect(copiesOf(tray, false)).toEqual([
+      {
+        piece: 's2',
+        cells: [
           [0, 0, 0],
           [1, 0, 0],
         ],
-      ],
-      ['s3', [[2, 1, 0]]],
+      },
+      { piece: 's3', cells: [[2, 1, 0]] },
     ]);
-    expect([...stampsOf(tray, true)]).toEqual([
-      [
-        's2',
-        [
+    expect(copiesOf(tray, true)).toEqual([
+      {
+        piece: 's2',
+        cells: [
           [1, 1, 0],
           [2, 1, 0],
         ],
-      ],
+      },
     ]);
-    // a tray of layers: a piece two layers high, on the second and third
+    // two copies of one piece side by side are two entries
+    const two: TrayReply = {
+      ...tray,
+      placed: [
+        { piece: 's3', goal: false, cells: [[0, 0, 0]] },
+        { piece: 's3', goal: false, cells: [[1, 0, 0]] },
+      ],
+    };
+    expect(copiesOf(two, false).map((c) => c.piece)).toEqual(['s3', 's3']);
+    // a tray of layers: the marks of every layer
     const deep = {
       ...tray,
       size: [1, 1, 3] as [number, number, number],
       starts: [null, 's2', 's2'],
       goals: [null, null, null],
     };
-    expect([...stampsOf(deep, false)]).toEqual([
-      [
-        's2',
-        [
-          [0, 0, 1],
-          [0, 0, 2],
-        ],
-      ],
-    ]);
     expect([...marksOf(deep, false, shapes).keys()]).toEqual(['0,0,1', '0,0,2']);
   });
 
-  it('lists the pieces but the trays; colours, outline and validity as the original', () => {
-    expect(stampPieces(shapes).map((s) => s.id)).toEqual(['s2', 's3']);
-    expect(pieceText({ ...shape('s2', 'S2'), name: 'block' })).toBe('S2 - block');
+  it('has the colours, outline and validity as the original', () => {
     expect(chipColour(shapes[0], 0)).toEqual(TRAY_LIST);
     expect(viewColour(shapes[0], 0)).toEqual(TRAY_VIEW);
+    // a board the user gave a colour shows it
+    const painted = { ...shapes[0], colour: '#336699' };
+    expect(chipColour(painted, 0)).toEqual(fromHex('#336699'));
+    expect(viewColour(painted, 0)).toEqual(fromHex('#336699'));
     expect(outlineColour({ fits: true, there: true })).toBe('rgb(245,150,30)');
     expect(outlineColour({ fits: true, there: false })).toBe('rgb(60,210,80)');
     expect(outlineColour({ fits: false, there: false })).toBe('rgb(230,40,40)');
     expect(validity(null)).toEqual({
-      text: 'Valid Start/Goal positions for pieces in Start and Goal of this shape',
+      text: 'Valid Start/Goal positions for pieces in Start and Goal of this board',
       valid: true,
     });
-    expect(
-      validity('Place at least one piece at its Start, and the same piece at its Goal.'),
-    ).toEqual({
-      text: 'Invalid Start/Goal positions - Place at least one piece at its Start, and the same piece at its Goal.',
+    expect(validity('S2 has 3 starts but the puzzle has 2 copies of it.')).toEqual({
+      text: 'Invalid Start/Goal positions - S2 has 3 starts but the puzzle has 2 copies of it.',
       valid: false,
     });
   });

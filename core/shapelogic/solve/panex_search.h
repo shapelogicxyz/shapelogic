@@ -79,6 +79,9 @@ using PanexLevelLog = std::function<void(const std::string&)>;
 struct PanexSearch {
   /// Budget half the physical memory, not 2 GB.
   bool highMemory = false;
+  /// The memory the search may fill, in bytes; 0 for the budget highMemory
+  /// says (sliding::memoryBudget). Set, highMemory plays no part.
+  std::uint64_t memoryBytes = 0;
   /// Polled as the search runs; a stop request ends it (Stopped), saved
   /// when it has a folder.
   StopToken stop;
@@ -98,8 +101,9 @@ struct PanexSearch {
   /// memory, but cannot be carried on).
   std::string workDir;
   /// Disk the saved levels may fill, in bytes; 0 for half the free space,
-  /// at most 200 GB. The fuller it gets, the fewer levels are kept, and the
-  /// longer tracing the path back takes.
+  /// at most 200 GB. Either way it is held to what the disk has room for
+  /// (diskBudgetFor in base/system.h). The fuller it gets, the fewer levels
+  /// are kept, and the longer tracing the path back takes.
   std::uint64_t diskBudget = 0;
   /// Save the search this often, the first time this long into the run, so
   /// a crash loses no more. 0 saves only when the search stops.
