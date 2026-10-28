@@ -77,7 +77,7 @@ needs a piece turned around cannot be reached.
 
 ## Puzzle: place the starts and goals
 
-![The Puzzle workspace for a sliding puzzle: the pieces in the puzzle on the left, the START and GOAL trays in the 3D view, and the Start and goal grids on the right.](../../../../assets/screens/sliding-puzzle.png)
+![The Puzzle workspace for a sliding puzzle: the pieces in the puzzle on the left, the START and GOAL trays at the top of the 3D view with the pieces under them, and the Start and goal grids on the right.](../../../../assets/screens/sliding-puzzle.png)
 
 On the **Puzzle** workspace the board is the result, and each board has its
 own problem, so you do not add or copy problems by hand.

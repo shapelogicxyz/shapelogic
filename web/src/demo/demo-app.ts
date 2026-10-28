@@ -50,7 +50,13 @@ export function demoApp(version: string): DemoApp {
     readRescue: () => Promise.resolve(null),
     clearRescue: () => Promise.resolve(),
     openHelp(link) {
-      window.open(link === 'tutorial' ? '/docs/getting-started/' : '/docs/', '_blank', 'noopener');
+      const page =
+        link === 'author'
+          ? 'https://github.com/hypnoz/'
+          : link === 'tutorial'
+            ? '/docs/getting-started/'
+            : '/docs/';
+      window.open(page, '_blank', 'noopener');
     },
     // the site is always the latest: no update to look for
     checkForUpdates: () => Promise.resolve(null),

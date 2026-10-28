@@ -64,8 +64,9 @@ The voxel editor draws the selected shape one layer at a time.
 
 ![The voxel editor: tools at the top, then mirror and span, the planes, the layer strip and grid, the grid size and the drawing color.](../../../assets/screens/guide/voxel-editor.png)
 
-The chip beside the title (**bricks** here) names the puzzle's grid. It has a
-lock because the grid is chosen once, when the puzzle is made. The two buttons
+The label beside the title (**Type: Brick** here) names the puzzle type, as
+**File ▸ New** lists it. The type is chosen once, when the puzzle is made, and
+cannot be changed afterwards. The two buttons
 at the top right are **Focus 2D editor**, which enlarges the editor (`Esc`
 goes back), and **Collapse sidebar** (`Ctrl+]`).
 

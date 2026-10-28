@@ -401,7 +401,7 @@ export function installAppIpc(h: AppIpcHost): void {
   });
 
   ipcMain.on('bt:help', (e, link: unknown) => {
-    if (ours(e) !== null && (link === 'tutorial' || link === 'guide')) {
+    if (ours(e) !== null && (link === 'tutorial' || link === 'guide' || link === 'author')) {
       openHelp(link);
     }
   });

@@ -24,14 +24,17 @@ import { fileURLToPath } from 'node:url';
 import type { HelpLink } from '../engine/app-bridge.ts';
 
 /**
- * The user guide and its Getting started page (site/src/content/docs/docs):
- * the only addresses the app hands the system's browser
+ * The user guide and its Getting started page (site/src/content/docs/docs),
+ * and the author's GitHub page: the only addresses the app hands the
+ * system's browser
  * (shell.openExternal). The renderer names a link, never a URL. The pages
  * must exist in the site (site/tests/help-urls.test.mjs checks them).
  */
 export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
   guide: 'https://shapelogic.xyz/docs/',
   tutorial: 'https://shapelogic.xyz/docs/getting-started/',
+  // the About page's link to the author's GitHub page
+  author: 'https://github.com/hypnoz/',
 };
 
 /**

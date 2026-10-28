@@ -60,10 +60,10 @@ export function openKeys(): void {
 /** Help ▸ About: the versions and the credits. */
 export function openAbout(store: Store, appVersion: string): void {
   const info = store.info;
-  const engine =
-    info === null
-      ? 'the engine is not running'
-      : `${esc(info.name)} ${esc(info.version)}, protocol ${info.protocol}`;
+  // the stack: the engine's language, the window's, and what joins them
+  const backend =
+    info === null ? 'the engine is not running' : `C++ (${esc(info.name)} ${esc(info.version)})`;
+  const link = info === null ? 'JSON' : `JSON (protocol ${String(info.protocol)})`;
   const known = latestKnown();
   const latest =
     known === null
@@ -73,12 +73,20 @@ export function openAbout(store: Store, appVersion: string): void {
     id: 'about',
     title: 'About ShapeLogic',
     wide: true,
-    body: `<p><b>ShapeLogic ${esc(appVersion)}</b><br>Engine: ${engine}${latest}</p>
+    body: `<p><b>ShapeLogic ${esc(appVersion)}</b>${latest}<br>Backend: ${backend}<br>Frontend: Electron (TypeScript, three.js for the 3D view)<br>Linking language: ${link}</p>
 <p>A fork of BurrTools, the puzzle solver of Andreas Röver (2003–2011), with thanks, from its AUTHORS file, to Bill Cutler, André van Kamen and Don E. Knuth (algorithms), Ronald Kint-Bruynseels, Dic Sonneveld, Derek Bosch, Markus Götz, Lee Krasnow, Volker Grabsch, George Bell and Barry Downes.</p>
 <p>The interface is built on Girish Sharma’s mockup of a BurrTools web GUI.</p>
-<p>This program is free software under the GNU General Public License, version 3 or later; it comes with no warranty.</p>`,
+<p>This program is free software under the GNU General Public License, version 3 or later; it comes with no warranty.</p>
+<p>Created and actively managed by Colin Deisenroth.<br><a href="#" data-help="author" style="color:var(--accent)" title="Open the author’s GitHub page in your browser">github.com/hypnoz</a><br>Contact: shapelogic.xyz@gmail.com</p>`,
     buttons: [{ key: 'close', label: 'Close', kind: 'pri', default: true }],
   });
+  // the link goes through the app's list of addresses, never a page of its own
+  topDialog()
+    ?.querySelector<HTMLAnchorElement>('a[data-help]')
+    ?.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.btApp.openHelp('author');
+    });
 }
 
 /** Edit ▸ Notes…: the puzzle's comment (allowed while solving). */

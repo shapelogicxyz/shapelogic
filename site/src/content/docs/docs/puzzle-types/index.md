@@ -11,12 +11,12 @@ grid has to be chosen before you start, so pick it first.
 | Type | Pieces are made of | Typical puzzles |
 |---|---|---|
 | [Brick](/docs/puzzle-types/brick/) | Cubes | Burrs, packing puzzles |
+| [Sliding](/docs/puzzle-types/sliding/) | Flat pieces in a tray | Klotski, 15-puzzle style puzzles |
+| [Stacking](/docs/puzzle-types/stacking/) | Discs on rods | Tower of Hanoi, Panex |
 | [Triangular Prism](/docs/puzzle-types/triangular-prism/) | Prisms with a triangular base | Puzzles built on triangular layers |
 | [Spheres](/docs/puzzle-types/spheres/) | Balls in the tightest packing | Pyramid and ball packing |
 | [Rhombic](/docs/puzzle-types/rhombic/) | Small tetrahedra cut from cubes | Rhombic dodecahedra, stellations |
 | [Tetrahedra-Octahedra](/docs/puzzle-types/tetra-octa/) | Tetrahedra and octahedra | Tetrahedron and octahedron puzzles |
-| [Sliding](/docs/puzzle-types/sliding/) | Flat pieces in a tray | Klotski, 15-puzzle style puzzles |
-| [Stacking](/docs/puzzle-types/stacking/) | Discs on rods | Tower of Hanoi, Panex |
 
 The workflow is the same for every type: draw the pieces on the **Shapes**
 workspace, set up the problem on **Puzzle**, and solve it on **Solver**. See

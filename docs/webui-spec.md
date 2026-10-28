@@ -115,6 +115,10 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   outer: make fixed, make variable, clear colour.
 
 ### Right card: voxel scope ("tool, plane, layer, grid size and colour together")
+- **Header:** "Voxel editor" and a label "Type: <name>", the puzzle type
+  as File ▸ New names it (Brick, Sliding, Stacking, Triangular Prism,
+  Spheres, Rhombic, Tetrahedra-Octahedra; no lock), fixed when the file is
+  made.
 - **Tools:** Fixed (`1`), Variable (`2`), Erase (`3`), and a last button
   that switches to the box selection ("Select", a dotted square with a
   pointer; while selecting it reads "Paint" with the brush and goes back
@@ -127,11 +131,13 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
   the whole grid along that axis on each click). Cube grid only in the
   mockup; non-cube grids to be decided.
 - **Plane** XY / XZ / YZ (non-cube grids: XY only in the mockup), **layer
-  strip** with layers that contain cells marked, `PgUp`/`PgDn`.
+  strip** with layers that contain cells marked, `PgUp`/`PgDn`; it is as
+  wide as its heading ("Z layer") on one line.
 - **2D grid**: click or drag applies the tool to every cell entered, **one
   undo step per drag**; box selection with Fill / Clear / deselect (`Esc`).
   Non-cube grids draw their real cell shapes (triangles, circles, tetrahedra
-  bases).
+  bases). The axis lines run along the cells' outer edge (the sphere
+  grid's circles reach past the grid's box).
 - **Grid size** steppers X/Y/Z with **Apply to all shapes**; shrinking removes
   cells outside.
 - **Colour palette**: the current drawing colour as a large swatch,
@@ -392,7 +398,7 @@ where the problem's counts are.
   its tag; below them the pieces scene's copies of the pieces (no result
   or selected item: the board is the result, and the selected piece's
   copies are boxed), above the validity bar, drawn 15% larger in their
-  places than on a Brick puzzle. The pieces take a band as tall as they
+  places, as on a Brick puzzle (in rows of five, and no 35 px drop). The pieces take a band as tall as they
   need, at most 55% of the height between the tag and the bar, and always
   fit it (the zoom and the pan are the trays'); the trays are fitted at
   the home view into the space above and drawn over the whole view, so a

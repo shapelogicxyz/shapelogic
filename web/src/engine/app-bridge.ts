@@ -108,7 +108,7 @@ export type CliToolResult =
   { ok: true; info: CliToolInfo } | { ok: false; error: string; cancelled?: boolean };
 
 /** The links of the Help menu (the main process holds the addresses). */
-export type HelpLink = 'tutorial' | 'guide';
+export type HelpLink = 'tutorial' | 'guide' | 'author';
 
 /**
  * What the update check found (main/updates.ts): the latest release

@@ -10,8 +10,8 @@ New here? [Install](/docs/install/) the app, then follow
 [Getting started](/docs/getting-started/) for a tour of the three workspaces
 and a first solve.
 
-Then read about the [puzzle types](/docs/puzzle-types/): Brick, Triangular
-Prism, Spheres, Rhombic, Tetrahedra-Octahedra, Sliding and Stacking.
+Then read about the [puzzle types](/docs/puzzle-types/): Brick, Sliding,
+Stacking, Triangular Prism, Spheres, Rhombic and Tetrahedra-Octahedra.
 
 ## Using ShapeLogic
 

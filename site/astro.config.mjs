@@ -81,12 +81,12 @@ export default defineConfig({
           items: [
             { label: 'Overview', slug: 'docs/puzzle-types' },
             { label: 'Brick', slug: 'docs/puzzle-types/brick' },
+            { label: 'Sliding', slug: 'docs/puzzle-types/sliding' },
+            { label: 'Stacking', slug: 'docs/puzzle-types/stacking' },
             { label: 'Triangular Prism', slug: 'docs/puzzle-types/triangular-prism' },
             { label: 'Spheres', slug: 'docs/puzzle-types/spheres' },
             { label: 'Rhombic', slug: 'docs/puzzle-types/rhombic' },
             { label: 'Tetrahedra-Octahedra', slug: 'docs/puzzle-types/tetra-octa' },
-            { label: 'Sliding', slug: 'docs/puzzle-types/sliding' },
-            { label: 'Stacking', slug: 'docs/puzzle-types/stacking' },
           ],
         },
         {

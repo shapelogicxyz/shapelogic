@@ -840,6 +840,16 @@ test('notes, Convert Assemblies to Pieces, About, the help links, a file dropped
       BrowserWindow.getAllWindows()[0]?.webContents.send('bt:command', { cmd: 'about' });
     });
     await expect(page.locator('#about')).toContainText(`shapelogic_engine ${info.version}`);
+    // the stack: the engine's language, the window's, and the protocol between
+    await expect(page.locator('#about')).toContainText('Backend: C++');
+    await expect(page.locator('#about')).toContainText('Frontend: Electron');
+    await expect(page.locator('#about')).toContainText(/Linking language: JSON \(protocol \d+\)/);
+    // the author, his page (a link the app opens itself) and the contact
+    await expect(page.locator('#about')).toContainText(
+      'Created and actively managed by Colin Deisenroth',
+    );
+    await expect(page.locator('#about a[data-help="author"]')).toHaveText('github.com/hypnoz');
+    await expect(page.locator('#about')).toContainText('Contact: shapelogic.xyz@gmail.com');
     await page.keyboard.press('Escape');
 
     // the command line tool's dialog: what it is, its options, where it is,
