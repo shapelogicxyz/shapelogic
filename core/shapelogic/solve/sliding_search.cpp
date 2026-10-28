@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/lib/sliding.cpp: the slide search (goalCheck_c, the cells
 // and outlines of the pieces, legacySearch over text keys, the position
-// tables, queueSearch, levelSearch over the key sets of slidelevels.h),
+// tables, levelSearch over the key sets of slidelevels.h),
 // findSlidePath, slideRoute, applySlideRoutes and finalPlacementKey.
 #include "shapelogic/solve/sliding_search.h"
 
@@ -519,7 +519,6 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
                   const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
                   const GoalCheck& goals, SlideSearch& search, std::vector<SlideState>& path) {
   const auto n = static_cast<unsigned int>(initial.places.size());
-  const std::uint64_t maxStates = search.maxStates;
 
   std::queue<SlideState> q;
   // parent[key] = {the key it came from, the piece moved}; n for the root
@@ -544,10 +543,6 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
   bool found = false;
 
   while (!q.empty()) {
-    if (maxStates != kFullSearch && visited >= maxStates) {
-      search.outcome = SlideOutcome::Limit;
-      break;
-    }
     if (parent.size() >= memoryLimit) {
       search.outcome = SlideOutcome::Memory;
       break;
@@ -827,107 +822,6 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
   }
   return true;
 }
-
-// Arrangement -> the arrangement it was reached from, for the queue search.
-// Open addressing in two flat arrays: no allocation per entry, unlike
-// std::unordered_map, so about twice as fast.
-template <class Key>
-class ParentMap {
- public:
-  ParentMap() { rehash(std::size_t{1} << 16); }
-
-  // Adds key with its parent; false when key is there already.
-  bool emplace(Key key, Key parent) {
-    if (key == kEmpty) {
-      if (hasEmptyKey_) {
-        return false;
-      }
-      hasEmptyKey_ = true;
-      emptyKeyParent_ = parent;
-      count_++;
-      return true;
-    }
-    std::size_t i = slot(key);
-    while (keys_[i] != kEmpty) {
-      if (keys_[i] == key) {
-        return false;
-      }
-      i = (i + 1) & mask_;
-    }
-    keys_[i] = key;
-    parents_[i] = parent;
-    if (++count_ * 10 > keys_.size() * 7) {
-      rehash(keys_.size() * 2);
-    }
-    return true;
-  }
-
-  // The parent of a key that is there.
-  [[nodiscard]] Key parentOf(Key key) const {
-    if (key == kEmpty) {
-      return emptyKeyParent_;
-    }
-    std::size_t i = slot(key);
-    while (keys_[i] != key) {
-      i = (i + 1) & mask_;
-    }
-    return parents_[i];
-  }
-
-  [[nodiscard]] std::size_t size() const { return count_; }
-
- private:
-  static constexpr Key kEmpty = ~Key(0);
-
-  [[nodiscard]] std::size_t slot(Key key) const {
-    return static_cast<std::size_t>((fold(key) * 0x9E3779B97F4A7C15ULL) >> shift_);
-  }
-  static std::uint64_t fold(std::uint64_t key) { return key; }
-#ifdef __SIZEOF_INT128__
-  static std::uint64_t fold(WideKey key) {
-    return static_cast<std::uint64_t>(key) ^
-           (static_cast<std::uint64_t>(key >> 64) * 0xC2B2AE3D27D4EB4FULL);
-  }
-#endif
-
-  void rehash(std::size_t capacity) {
-    std::vector<Key> oldKeys(capacity, kEmpty);
-    std::vector<Key> oldParents(capacity);
-    oldKeys.swap(keys_);
-    oldParents.swap(parents_);
-    mask_ = capacity - 1;
-    shift_ = 64;
-    for (std::size_t c = capacity; c > 1; c >>= 1) {
-      shift_--;
-    }
-    for (std::size_t j = 0; j < oldKeys.size(); j++) {
-      if (oldKeys[j] != kEmpty) {
-        std::size_t i = slot(oldKeys[j]);
-        while (keys_[i] != kEmpty) {
-          i = (i + 1) & mask_;
-        }
-        keys_[i] = oldKeys[j];
-        parents_[i] = oldParents[j];
-      }
-    }
-  }
-
-  std::vector<Key> keys_;
-  std::vector<Key> parents_;
-  std::size_t mask_ = 0;
-  unsigned int shift_ = 64;
-  std::size_t count_ = 0;
-  // kEmpty marks a free slot, so that one key is kept aside.
-  bool hasEmptyKey_ = false;
-  Key emptyKeyParent_ = 0;
-};
-
-// The memory one arrangement takes in the queue search, in key sizes: two
-// keys in ParentMap at a load between 35% and 70%, its share of the queue,
-// and while the table doubles the old and the new table together. Measured
-// at 51 bytes at peak with 8-byte keys on the 4x4 benchmark of the tests;
-// 7 keys leaves some room.
-constexpr std::uint64_t kTableStateKeys = 7;
 
 // The memory one arrangement held in memory takes in the level search, in
 // key sizes: its place in a level, and its share of the sorted pieces and
@@ -1349,80 +1243,6 @@ void chainToPath(const SlideSpace<Key>& s, const std::vector<Key>& chain,
   }
 }
 
-// The slide search for a limited number of arrangements: breadth first
-// through a queue, every arrangement kept with the one it was reached from.
-// It visits arrangements in the same order as legacySearch, so both find
-// the same path.
-template <class Key>
-void queueSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>& chain) {
-  const std::uint64_t maxStates = search.maxStates;
-  const std::uint64_t memoryLimit =
-      search.maxMemoryStates != 0
-          ? search.maxMemoryStates
-          : memoryStates(kTableStateKeys * sizeof(Key), search.highMemory, search.memoryBytes);
-  search.memoryStates = memoryLimit;
-  SlideMover<Key> mover(s);
-
-  // Each arrangement and the one it was reached from; the start is its own.
-  ParentMap<Key> parent;
-  parent.emplace(s.startCanon, s.startCanon);
-  std::queue<Key> q;
-  q.push(s.startCanon);
-
-  std::uint64_t visited = 0;
-  Key goalKey = 0;
-  bool found = false;
-
-  // A new arrangement: remember it and queue it. True when it is the goal.
-  auto reach = [&](Key key, Key from) {
-    if (!parent.emplace(key, from)) {
-      return false;
-    }
-    if (s.isGoal(key)) {
-      goalKey = key;
-      return true;
-    }
-    q.push(key);
-    return false;
-  };
-
-  while (!q.empty() && !found) {
-    if (maxStates != kFullSearch && visited >= maxStates) {
-      search.outcome = SlideOutcome::Limit;
-      break;
-    }
-    if (parent.size() >= memoryLimit) {
-      search.outcome = SlideOutcome::Memory;
-      break;
-    }
-    if ((visited & 1023) == 0) {
-      if (search.progress != nullptr) {
-        search.progress->store(visited, std::memory_order_relaxed);
-      }
-      if (search.stop.stopRequested()) {
-        search.outcome = SlideOutcome::Stopped;
-        break;
-      }
-    }
-    const Key cur = q.front();
-    q.pop();
-    visited++;
-    found = mover.expand(cur, [&](Key key, bool) { return reach(s.canon(key), cur); });
-  }
-
-  search.visited = visited;
-  if (!found) {
-    return;
-  }
-  for (Key k = goalKey;; k = parent.parentOf(k)) {
-    chain.push_back(k);
-    if (k == s.startCanon) {
-      break;
-    }
-  }
-  std::reverse(chain.begin(), chain.end());
-}
-
 // Drops from sorted, unique a every key that is in sorted b. Each key of a
 // is looked for from where the last was found, in doubling steps.
 template <class Key>
@@ -1630,8 +1450,8 @@ class SearchFolder {
 //    is in the level before, found by moving backwards from it or, failing
 //    that, by trying every arrangement of that level.
 //
-// It finds a path with the fewest moves, as queueSearch does, though not
-// always the same one.
+// It finds a path with the fewest moves, the same every run (legacySearch
+// finds one as short, though not always the same one).
 template <class Key>
 void levelSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>& chain) {
   using Set = levels::KeySet<Key>;
@@ -2090,10 +1910,8 @@ void levelSearch(const SlideSpace<Key>& s, SlideSearch& search, std::vector<Key>
 
 // The slide search over position tables: a move is a flood fill over the
 // piece's own positions against a bit mask of the cells the others cover.
-// A full search goes level by level (levelSearch), a limited one through a
-// queue (queueSearch); fullThroughQueue makes a full search use the queue
-// too, for A/B runs. False, having searched nothing, when the tables cannot
-// hold this search.
+// It goes level by level (levelSearch). False, having searched nothing,
+// when the tables cannot hold this search.
 template <class Key>
 bool tableSearch(const Voxel& tray, const std::vector<Cell3List>& cells,
                  const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
@@ -2105,11 +1923,7 @@ bool tableSearch(const Voxel& tray, const std::vector<Cell3List>& cells,
   }
   space.partial = nested && search.partialNested;
   std::vector<Key> chain;
-  if (search.maxStates == kFullSearch && !search.fullThroughQueue) {
-    levelSearch(space, search, chain);
-  } else {
-    queueSearch(space, search, chain);
-  }
+  levelSearch(space, search, chain);
   if (!chain.empty()) {
     chainToPath(space, chain, path);
   }
@@ -2149,21 +1963,8 @@ std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t by
   return std::max<std::uint64_t>(memoryBudget(bytes, high) / stateBytes, 1);
 }
 
-std::uint64_t maxStatesOf(SlidingSolver solver) {
-  switch (solver) {
-    case SlidingSolver::Fast:
-      return kSearchStates;
-    case SlidingSolver::Deep:
-      return kDeepSearchStates;
-    case SlidingSolver::Full:
-      return kFullSearch;
-  }
-  return kSearchStates;
-}
-
 SlideSearch slideSearchFor(const SlidingOptions& options) {
   SlideSearch s;
-  s.maxStates = maxStatesOf(options.solver);
   s.highMemory = options.highMemory;
   s.memoryBytes = options.memoryBytes;
   s.nested = options.nested;
@@ -2172,17 +1973,14 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   s.diskBudget = options.diskBudget;
   s.legacy = options.legacy;
   s.likePiecesApart = options.likePiecesApart;
-  s.fullThroughQueue = options.fullThroughQueue;
   s.verticalMoves = options.verticalMoves;
   s.step = options.step;
   return s;
 }
 
 std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& problem,
-                                        const Assembly& start, std::uint64_t maxStates,
-                                        bool nested) {
+                                        const Assembly& start, bool nested) {
   SlideSearch search;
-  search.maxStates = maxStates;
   search.nested = nested;
   return findSlidePath(puzzle, problem, start, search);
 }

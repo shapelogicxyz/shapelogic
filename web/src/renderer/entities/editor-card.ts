@@ -135,7 +135,7 @@ export class EditorCard {
     return this.colourHex(this.host.state.colour);
   }
 
-  /** The shape's own colour as #rrggbb (a board's is the black of its swatch in the list). */
+  /** The shape's own colour as #rrggbb (a board's is the colour of its swatch in the list). */
   private ownHex(): string {
     const s = this.shape;
     return hex(chipColour(s ?? undefined, s === null ? 0 : this.host.store.indexOf(s.id)));

@@ -51,7 +51,7 @@ describe('the search options', () => {
       solver: 'crowell',
       sortBy: 'level',
     });
-    // an unknown solver type (a sliding one) or sort keeps the default
+    // an unknown solver type (the original's sliding one) or sort keeps the default
     expect(readOptions({ solverType: 'deep', sortBy: 'colour' })).toMatchObject({
       solver: 'classic',
       sortBy: 'moves',

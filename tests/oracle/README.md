@@ -20,7 +20,7 @@ A solver stage is done only when the harness reports no differences
 | fast | 19 bundled examples and fixtures | ~2 s | every run |
 | full | 158 TIC puzzles with rotation take-apart | ~23 s | before finishing a solver stage |
 | slow | Climburr_OldVer, CoverUp3, CornerCube | ~7 s | benchmarks, final checks |
-| sliding | the 3 sliding fixtures and 33 puzzles made with the original's code | ~1 min full, seconds fast/deep | sliding work (deferred part 1) |
+| sliding | the 3 sliding fixtures and 32 puzzles made with the original's code | ~1 min | sliding work (deferred part 1) |
 | stacking | the 2 stacking fixtures and 39 puzzles made with the original's code | seconds | stacking work (deferred part 3) |
 
 Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only (the
@@ -113,13 +113,13 @@ which solutions are printed is the order the search hands them over.
 
 ## Sliding puzzles (deferred part 1)
 
-`--tier all` leaves the `sliding` tier out: run it by name. The full
-search is the default (`--solver full` is the same, with the same
-baselines); `--solver fast` and `--solver deep` run the other two:
+`--tier all` leaves the `sliding` tier out: run it by name. Both programs
+run the full search, bt's one sliding solver (the original's Fast and
+Deep solvers are not compared):
 
 ```bash
 python3 tests/oracle/oracle.py sliding-puzzles      # tests/data/puzzles/sliding/ from the original's code
-just oracle-baseline --tier sliding                 # burrTxt --json (and --solver fast, deep)
+just oracle-baseline --tier sliding                 # burrTxt --json
 just oracle --tier sliding --threads 1              # every puzzle; without --threads 1, those not flagged O
 python3 tests/oracle/oracle.py baseline-files --tier sliding
 python3 tests/oracle/oracle.py compare-files --tier sliding

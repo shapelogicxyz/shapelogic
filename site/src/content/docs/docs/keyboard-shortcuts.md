@@ -16,8 +16,6 @@ The keys are the same on every system, with these changes on a Mac:
   saves, `⌘Z` undoes, `⌘1` switches to the Shapes tab, and so on.
   ShapeLogic also accepts `Control` for these, so `Control+S` works too.
 - **`Alt` is `⌥` (Option).**
-- **Focus the 3D view** is `Control+Space`, because macOS uses `⌘Space` for
-  Spotlight.
 - **On a Mac laptop**, use `fn` for the keys it doesn't have: `fn+⌫` for
   `Del`, `fn+←` and `fn+→` for `Home` and `End`, `fn+↑` and `fn+↓` for `PgUp`
   and `PgDn`. Depending on your keyboard settings, `F1` and `F2` may also need
@@ -39,7 +37,6 @@ instead, or change the desktop's window-moving key in its settings.
 | Keyboard shortcuts (this list) | `F1` | `F1` |
 | Settings | `Ctrl+,` | `⌘,` |
 | Collapse or expand the left / right card | `Ctrl+[` / `Ctrl+]` | `⌘[` / `⌘]` |
-| Focus the 3D view (on and off) | `Ctrl+Space` | `Control+Space` |
 | Step back: close a dialog, then a menu, cancel a rename, pause playback, leave focus mode | `Esc` | `Esc` |
 | Undo / redo | `Ctrl+Z` / `Shift+Ctrl+Z` | `⌘Z` / `Shift+⌘Z` |
 | New puzzle / open a puzzle | `Ctrl+N` / `Ctrl+O` | `⌘N` / `⌘O` |
@@ -67,7 +64,7 @@ These work in every tab. See [3D Model Viewer](/docs/viewer/).
 | Fit the model to the view, direction kept | `F` | `F` |
 | Turn to a face, edge or corner | Click it on the view cube | Click it on the view cube |
 | Look straight at a face, label upright | Double-click a view cube face | Double-click a view cube face |
-| Show the hidden toolbar (Minimal density) | Point at the top of the view, or `Tab`, `O`, `P`, `E`, `F` | The same |
+| Show the hidden toolbar (Minimal density) | Point at the bottom of the view, or `Tab`, `O`, `P`, `E`, `F` | The same |
 
 ## Shapes tab
 

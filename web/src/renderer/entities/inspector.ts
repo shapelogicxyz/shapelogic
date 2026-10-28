@@ -345,7 +345,8 @@ export class Inspector {
       return '';
     }
     this.placed.add(t.task);
-    return `<button class="abtn" data-task="${t.task}" title="${esc(t.label)}" ${disabled ? 'disabled' : ''}>${a.g()}<span><b>${esc(a.t)}</b><small>${esc(a.sm)}</small><em class="sh">${esc(a.short)}</em></span></button>`;
+    // the description is in the tooltip too: Compact and Minimal hide it on the button
+    return `<button class="abtn" data-task="${t.task}" title="${esc(t.label)} — ${esc(a.sm)}" ${disabled ? 'disabled' : ''}>${a.g()}<span><b>${esc(a.t)}</b><small>${esc(a.sm)}</small><em class="sh">${esc(a.short)}</em></span></button>`;
   }
 
   private fitHtml(byTask: Map<ShapeTask, TaskInfo>, empty: boolean): string {

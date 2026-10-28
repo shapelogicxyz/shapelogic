@@ -143,11 +143,11 @@ symmetry and color ones:
 - **Allow Vertical Moves**: on a tray with more than one layer, a piece may
   also move up and down, lifted over the other pieces and put down somewhere
   else. Off (the default), every piece slides only in its own layer.
-- **Solver type**: each start is searched for the fewest moves to the goal.
-  **Sliding Fast Solver (250k depth)** looks at up to 250,000 arrangements
-  per start, **Sliding Deep Solver (1mil depth)** up to 1,000,000, and
-  **Sliding Full Solver (full depth)** has no limit: it either finds the
-  fewest moves or proves there is no solution, keeping older moves on disk.
+- **Solver type**: the **Sliding Puzzle Solver**, the only one. Each start
+  is searched for the fewest moves to the goal with no limit on the
+  arrangements it looks at: it either finds the fewest moves or proves there
+  is no solution, on every core, keeping older moves on disk. It stops early
+  only when it runs out of the memory or disk it may use (see below).
 
 ### Options for stacking puzzles
 
@@ -171,7 +171,7 @@ Solver** (`Ctrl+,` or `⌘,` on a Mac):
   before it stops. **Automatic** is half of the computer's memory; the
   slider goes up to three quarters of it. This replaces the earlier
   **Enable High Memory** option.
-- **Sliding disk space**: the disk the **Sliding Full Solver** may fill with
+- **Sliding disk space**: the disk the **Sliding Puzzle Solver** may fill with
   older moves while it runs. **Automatic** is half the free space, at most
   200 GB.
 - **Stacking disk space**: the disk the **Panex Solver** may take for the

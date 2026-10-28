@@ -26,31 +26,45 @@ original GUI decides (section 7).
   (`Ctrl+,`). The mockup leaves the **menu bar** out of scope; its
   placeholder items are File, Toggle 3D, Export, Status, Edit comment, Help,
   About. (Section 7 lists what the menus must offer.)
-- **Workspace rail:** Entities (`Ctrl+1`), Puzzle (`Ctrl+2`), Solver (`Ctrl+3`).
+- **Workspace rail:** Entities (`Ctrl+1`), Puzzle (`Ctrl+2`), Solver (`Ctrl+3`);
+  centred in the top bar (the default) or a rail down the left side (Main
+  tab bar location).
 - **Body:** each workspace has a left card, the **3D view** in the centre and
   a right card. Cards collapse to narrow rails (`Ctrl+[`, `Ctrl+]`); the 3D
   view can take focus (its Focus button, View ▸ Toggle 3D). Layout is remembered per workspace.
 - **Status bar:** messages on the left (a transient "flash" after actions,
   e.g. "Filled 3 interior voxels"), cursor position on the right.
 - **Density:** Standard; Compact (Standard with the scrolling lists' rows,
-  shapes, problems, solutions and the pieces library, about half as tall);
+  shapes, problems, solutions and the pieces library, about half as tall,
+  and on the Shapes tab each control on one line, its icon beside its
+  caption, the action buttons without their descriptions, which are in
+  their tooltips, and tighter padding);
   or Minimal (icons without captions, helper text in tooltips, auto-hiding
   viewport toolbar, narrower cards). Every function is available in all
-  three. The shapes list and the Puzzle and Solver problems lists grow to
-  about eight Standard rows before they scroll.
-- **Theme:** Light, Dark, System.
+  three, and the text is the same size in all three. The shapes list and
+  the Puzzle and Solver problems lists grow to about eight Standard rows
+  before they scroll.
+- **Font size:** Small (the default), Medium, Large: every text size of the
+  interface, Medium and Large each about 2 points larger than the size
+  before; rows and controls a line of text sets the height of grow with it.
+- **Theme:** Light, Dark, System; also View ▸ Color Theme (Use Dark Colors
+  Theme, Use Light Colors Theme, Use System Color Theme).
 
 ### Settings dialog
 Searchable, four pages, "Restore all defaults", changes apply immediately.
 | Page | Setting | Values (default) |
 |---|---|---|
 | General | Interface density | Standard / Compact / Minimal (Standard) |
-| | Sidebar width | Static / Variable (Static); Static: left and right widths, 200 to 600 px (320, 340); Variable: past a 1600 px window each card and the 3D view take a third of the extra width, cards up to 600 px |
+| | Font size | Small / Medium / Large (Small) |
+| | Sidebar width | Static / Variable (Static); Static: left and right widths, 200 to 600 px (340, 340); Variable: past a 1600 px window each card and the 3D view take a third of the extra width, cards up to 600 px |
+| | Main tab bar location | Top / Left (Top): the workspace tabs centred in the top bar, or a rail down the left side |
 | | Theme | Light / Dark / System (System) |
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
 | Grid editor | Grid plane | XY / XZ / YZ (XY) |
-| | New shape size | Normal Burrs and Sliding, each X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4; Sliding 6, 6, 1) |
+| | New shape size | Normal Burrs and Sliding, each X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4; Sliding 6, 6, 1); on a sliding puzzle + New Piece takes the last piece's size and + New Board the last board's, the setting only for the first |
+| | New sliding board color | a colour (#808080): a board made with + New Board takes it; boards made keep theirs |
+| | Voxel hint layer: Hinted layer | Below / Above (Below): the cells of that layer drawn faintly under the edited one's, in the shape's colour (the original's layer-below hint) |
 | 3D view | Show view cube | on |
 | | Reverse scroll zoom direction | off |
 | | Rotation method | Drag / Arc-ball (Drag) |
@@ -295,7 +309,7 @@ tab (its Start/Goal tab); here they are the Puzzle workspace's (8.2),
 where the problem's counts are.
 
 ### 8.1 Entities workspace
-- **Shapes list:** a tray reads "S1 (START/GOAL 1)" and, after a dash, the
+- **Shapes list:** a tray reads "S1 (Board 1)" and, after a dash, the
   user's name (`BlockList.cpp`); its chip is black (`slidingColors::LIST`).
   On sliding puzzles the list's header has **+ New Piece** (the other
   grids' **+ New**) and, beside it, **+ New Board** (the original's New
@@ -369,10 +383,11 @@ where the problem's counts are.
   from its start cell to its goal cell"), checked by default on a sliding
   puzzle (`slidingDisasmDefaulted`); Just Levels and Check Rotations are
   not shown.
-- **Search options:** **Solver type** lists the engine's
-  `slidingSolvers` ("Sliding Fast Solver (250k depth)", "… Deep … (1mil
-  depth)", "… Full … (full depth)", Full the default) with the help of
-  `mainwindow_help.cpp`; **Allow Nested Slides**, **Allow Partially
+- **Search options:** **Solver type** shows the engine's one
+  `slidingSolvers` entry, the **Sliding Puzzle Solver** (the original's
+  Sliding Full Solver; its Fast and Deep solvers, which stopped at 250,000
+  and 1,000,000 arrangements, are not offered, and the choice is not
+  stored), with the help of `mainwindow_help.cpp`; **Allow Nested Slides**, **Allow Partially
   Nested** (only with nested slides), with the original's tooltips (the
   original's **Enable High Memory** is the Search memory setting,
   section 1); Just count, Keep every n-th, the limit and
@@ -380,7 +395,8 @@ where the problem's counts are.
   Strict colours and the sort are not shown (a sliding solve keeps every
   start and matches colours strictly; a path found goes last). They are
   stored with the problem under the file's names (`nestedSlides`,
-  `partialNested`, `highMemory`, `solverType` fast/deep/full).
+  `partialNested`, `highMemory`; a stored `solverType`, the original's
+  fast, deep or full, is kept as it was and not written).
 - **Run:** Solve and Prepare are off while the tray's starts and goals
   are invalid, with "Fix the start and goal on the Puzzle tab first:
   <reason>" as their tooltip (and the engine refuses with the original's

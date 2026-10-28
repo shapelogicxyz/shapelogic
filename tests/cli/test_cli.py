@@ -44,7 +44,7 @@ def test_help_and_mistakes() -> None:
     check("help brick", "brick puzzles:" in run("-h", "brick").stdout)
     r = run("--help", "slider")
     check("help sliding", "sliding puzzles:" in r.stdout and "--nested-slides" in r.stdout and
-          "Sliding Full Solver" in r.stdout, r.stdout[-200:])
+          "Sliding Puzzle Solver" in r.stdout and "Fast" not in r.stdout, r.stdout[-200:])
     r = run("-h", "stacking")
     check("help stacking", "stacking puzzles:" in r.stdout and "Panex Solver" in r.stdout and
           "--panex-dir" in r.stdout and "--restart" in r.stdout, r.stdout[-200:])
@@ -129,15 +129,17 @@ def test_stacking() -> None:
 def test_sliding() -> None:
     slider = PUZZLES / "test_sliding_solver.xmpuzzle"
     nested = PUZZLES / "sliding" / "test_sliding_nested.xmpuzzle"
-    for solver in (None, "fast", "Sliding Deep Solver", "full"):
+    for solver in (None, "sliding", "Sliding Puzzle Solver"):
         args = [] if solver is None else ["--solver", solver]
         r = run("--json", *args, slider)
         j = json.loads(r.stdout) if r.returncode == 0 else {}
         check(f"sliding --json {solver}", j.get("solutions") == 1 and j.get("dotlevel") == "81",
               f"{r.returncode} {r.stdout!r} {r.stderr!r}")
-    r = run("--solver", "classic", slider)
-    check("sliding solver name", r.returncode == 2 and "unknown solver 'classic' for a sliding puzzle"
-          in r.stderr, r.stderr)
+    for name in ("classic", "fast", "deep", "full"):
+        r = run("--solver", name, slider)
+        check(f"sliding solver name {name}", r.returncode == 2 and
+              f"unknown solver '{name}' for a sliding puzzle" in r.stderr and
+              "Sliding Puzzle Solver" in r.stderr, r.stderr)
     r = run("-R", slider)
     check("sliding -R", r.returncode == 2 and "-R and -C are for brick puzzles" in r.stderr, r.stderr)
     # the nested puzzle: no solution without nested slides, said so; 47 moves with
@@ -147,12 +149,12 @@ def test_sliding() -> None:
           r.stdout)
     r = run("--json", "--nested-slides", nested)
     check("nested with", r.returncode == 0 and json.loads(r.stdout).get("dotlevel") == "47", r.stdout)
-    r = run("-q", "-d", "--solver", "fast", "--partial-nested", nested)
+    r = run("-q", "-d", "--partial-nested", nested)
     check("partially nested", "1 solutions" in r.stdout, r.stdout)
     # --save solves it as the GUI did; -a and -x read the solved file
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "solved.xmpuzzle"
-        r = run("--save", out, "-d", "--restart", "--solver", "fast", slider)
+        r = run("--save", out, "-d", "--restart", slider)
         check("sliding --save", r.returncode == 0 and out.exists() and
               "problem 0: 1 assemblies and 1 solutions" in r.stdout, f"{r.returncode} {r.stdout!r} {r.stderr!r}")
         r = run("-a", "s0", out)

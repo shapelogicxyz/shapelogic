@@ -88,7 +88,7 @@ export function toggleCard(side: 'L' | 'R'): void {
   applyLayout();
 }
 
-/** The 3D view takes the focus, or gives it back (Ctrl+Space, the Focus button). */
+/** The 3D view takes the focus, or gives it back (the Focus button, View ▸ Toggle 3D). */
 export function toggleFocus3d(): void {
   layout.focus = layout.focus === '3d' ? '' : '3d';
   applyLayout();

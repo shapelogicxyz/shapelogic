@@ -664,6 +664,7 @@ export class View3D {
     this.solution.setResolution(vp.clientWidth, vp.clientHeight);
     this.trays.setResolution(vp.clientWidth, vp.clientHeight);
     this.board.setResolution(vp.clientWidth, vp.clientHeight);
+    this.cube.draw();
     this.renderer.request();
   }
 

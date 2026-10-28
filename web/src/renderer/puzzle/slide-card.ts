@@ -207,20 +207,19 @@ export class SlideCard {
       p.layer = Math.max(0, Math.min(p.layer, depth - 1));
       setHtml(
         head,
-        `${p.goal ? 'Goal' : 'Start'}<span class="sp"></span><span class="mute" style="font-size:11px;font-weight:400">${esc(shape.label)}${shape.name !== '' ? ` – ${esc(shape.name)}` : ''}</span>`,
+        `${p.goal ? 'Goal' : 'Start'}<span class="sp"></span><span class="mute" style="font-size:calc(11px + var(--fs));font-weight:400">${esc(shape.label)}${shape.name !== '' ? ` – ${esc(shape.name)}` : ''}</span>`,
       );
       setHtml(parts, this.partsHtml(p.goal));
       hint.textContent = this.hintText(p.goal);
       setHtml(
         layers,
-        depth <= 1
-          ? ''
-          : Array.from({ length: depth }, (_, l) => depth - 1 - l)
-              .map(
-                (l) =>
-                  `<button class="lchip ${l === p.layer ? 'on' : ''}" data-l="${String(l)}" title="Layer ${String(l + 1)}">${String(l + 1)}</button>`,
-              )
-              .join(''),
+        `<div class="lh" style="color:var(--az)">Z layer</div>` +
+          Array.from({ length: depth }, (_, l) => depth - 1 - l)
+            .map(
+              (l) =>
+                `<button class="lchip ${l === p.layer ? 'on' : ''}" data-l="${String(l)}" title="Layer ${String(l + 1)}">${String(l + 1)}</button>`,
+            )
+            .join(''),
       );
       const ready = this.cells !== null && this.cellsOf === `${String(store.generation)}:${board}`;
       if (!ready) {

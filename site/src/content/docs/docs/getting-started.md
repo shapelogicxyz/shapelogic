@@ -12,8 +12,8 @@ Download [CubeInCage.xmpuzzle](/examples/CubeInCage.xmpuzzle), then choose
 **File ▸ Open** and pick it. The file name appears at the top right of the
 window.
 
-The workspace rail on the left switches between **Shapes**, **Puzzle** and
-**Solver** (`Ctrl+1`, `Ctrl+2`, `Ctrl+3`; `⌘` on a Mac). A puzzle moves through
+The tabs in the middle of the top bar switch between **Shapes**, **Puzzle**
+and **Solver** (`Ctrl+1`, `Ctrl+2`, `Ctrl+3`; `⌘` on a Mac). A puzzle moves through
 them in that order: you draw the pieces, say which pieces make up the puzzle,
 then solve it.
 
@@ -72,6 +72,30 @@ Switch to the **Solver**.
 With **Assemble and Disassemble**, each solution gets a level and a number of
 moves, and the **Disassembly player** replays how the pieces come apart.
 **Export to STL** writes the pieces out for 3D printing.
+
+## Make it yours
+
+**Settings ▸ General** (`Ctrl+,`, or `⌘,` on a Mac) sets how the window
+looks. Changes apply at once.
+
+- **Interface density**: **Standard** (the default); **Compact**, Standard
+  with shorter rows in the shapes, problems and solutions lists, so about
+  twice as many fit, and on the Shapes tab each control on one line, its
+  icon beside its caption, with the action buttons' descriptions in their
+  tooltips; or **Minimal**, icons without captions, helper text in
+  tooltips, and the 3D view's toolbar hidden until you point at the bottom
+  of the view. Every function is there in all three.
+- **Font size**: **Small** (the default), **Medium** or **Large**, each about
+  2 points larger than the one before. The text keeps its size in every
+  density.
+- **Sidebar width**: **Static** keeps the left and right cards at the widths
+  you set (200 to 600 pixels each); **Variable** widens them as the window
+  grows past 1600 pixels.
+- **Main tab bar location**: **Top** puts the Shapes, Puzzle and Solver tabs
+  in the middle of the top bar (the default); **Left** puts them in a rail
+  down the left side of the window.
+- **Theme**: **Light**, **Dark**, or **System** (the default), which follows
+  your computer's setting. **View ▸ Color Theme** switches it too.
 
 ## Next
 

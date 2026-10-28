@@ -248,6 +248,27 @@ class Engine:
                 raise ContractError(f"an unexpected reply: {m}")
             self._event(m)
 
+    def wait_first(self, matches, timeout=120, start=0):
+        """The first event (from index `start` of the events seen) that one of
+        matches, (method, pred) pairs, takes: (method, params); reads on until
+        one comes."""
+        deadline = time.monotonic() + timeout
+        seen = start
+        while True:
+            for i in range(seen, len(self.events)):
+                e = self.events[i]
+                for method, pred in matches:
+                    if e["method"] == method and pred(e["params"]):
+                        return method, e["params"]
+            seen = len(self.events)
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise ContractError(f"none of {[m for m, _ in matches]} within {timeout} s")
+            m = self._next(left)
+            if "id" in m:
+                raise ContractError(f"an unexpected reply: {m}")
+            self._event(m)
+
     # ---- end -------------------------------------------------------------------------
 
     def close(self):

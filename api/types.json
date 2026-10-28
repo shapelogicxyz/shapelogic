@@ -27,7 +27,7 @@
     "Point2": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "A point [x, y] of a layer drawing, y up."},
     "Grid": {"enum": ["bricks", "prisms", "spheres", "rhombic", "tetraOcta", "sliding", "stacking"], "description": "The grid of a puzzle, fixed for its life."},
     "Solver": {"enum": ["classic", "crowell"], "description": "Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart."},
-    "SlidingSolver": {"enum": ["fast", "deep", "full"], "description": "How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default)."},
+    "SlidingSolver": {"enum": ["sliding"], "description": "The one solver of sliding puzzles, the Sliding Puzzle Solver: no limit on the arrangements it visits (it keeps its older levels on disk and spreads each over threads), so it finds the fewest moves or proves there is no solution. The original's Fast and Deep solvers, which stopped at 250,000 and 1,000,000 arrangements, are not offered."},
     "StackingSolver": {"enum": ["stacking", "panex"], "description": "The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it, which pauses, carries on and saves itself, else a search of its own) or the Panex Solver (the Panex search alone, for rod sets with Panex columns; a puzzle it cannot take is refused with its reason)."},
     "SolveState": {"enum": ["idle", "preparing", "assembling", "draining", "paused", "finished", "error"], "description": "decision 0004; 'stopping' is an active state with a stop requested (SolveProgress.stage)."},
     "SolveStage": {"enum": ["idle", "prepare", "reduce", "assemble", "disassemble", "stopping", "paused", "done", "error", "search"], "description": "What a solve is doing; search is a sliding puzzle's search from a start to the goal, or a stacking puzzle's from its start stacking (SolveProgress.searched, searchDepth, searchTraced, panexSearch)."},
@@ -264,7 +264,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},
@@ -279,7 +279,7 @@
         "verticalMoves": {"type": "boolean"},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
-        "solverType": {"type": "string", "description": "classic, crowell (sliding: fast, deep, full)."},
+        "solverType": {"type": "string", "description": "classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written)."},
         "sortBy": {"type": "string", "description": "unsorted, moves, level, rotations."}
       },
       "additionalProperties": {"type": "string"}
@@ -379,9 +379,8 @@
     },
     "SlidingOptions": {
       "type": "object",
-      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). Where a full search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
+      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
       "properties": {
-        "solver": {"$ref": "#/$defs/SlidingSolver"},
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},
         "verticalMoves": {"type": "boolean", "description": "On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer."},
@@ -441,7 +440,7 @@
         "secondsLeft": {"type": ["number", "null"]},
         "activity": {"type": "string", "description": "The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search. Scanned N stackings.')."},
         "searched": {"type": "integer", "minimum": 0, "description": "The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search)."},
-        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a full sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together."},
+        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together."},
         "searchTraced": {"type": "integer", "minimum": 0, "description": "Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before."},
         "panexSearch": {"type": "boolean", "description": "The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search')."}
       },

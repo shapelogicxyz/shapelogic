@@ -50,7 +50,7 @@ whose solutions are yielded when it ends (a sliding run replaces a
 solution by a shorter one to the same picture, so none is final
 before). The original's module assembled them as brick puzzles, which
 gave no meaningful answer. Their options are keywords of `solve`
-(`sliding_solver`, `nested_slides`, `partial_nested`, `high_memory`,
+(`nested_slides`, `partial_nested`, `high_memory`,
 `stacking_solver`, `work_dir`); a stacking solution counts transfers, as
 `bt` and the engine do. The module reads no environment variable:
 `work_dir` is empty (in memory) unless given.

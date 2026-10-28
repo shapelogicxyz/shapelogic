@@ -140,9 +140,15 @@ export class ShapesList {
       last === undefined
         ? [prefs.slideX * u, prefs.slideY * u, prefs.slideZ * u]
         : [last.size[0], last.size[1], last.size[2]];
-    const r = await this.host.mutate('New board', () =>
-      this.host.store.engine.call('sliding.addStartGoal', { size }),
-    );
+    const r = await this.host.mutate('New board', async () => {
+      const made = await this.host.store.engine.call('sliding.addStartGoal', { size });
+      // the board takes the New sliding board color setting
+      const coloured = await this.host.store.engine.call('shape.setColour', {
+        shape: made.shape,
+        rgb: prefs.boardColour,
+      });
+      return { shape: made.shape, revision: coloured.revision };
+    });
     if (r !== null) {
       this.select(r.shape);
     }
@@ -158,8 +164,9 @@ export class ShapesList {
 
   /**
    * A new empty shape of the selected shape's size, else of the New shape
-   * size setting (in the size steppers' blocks; a sliding puzzle has its
-   * own), selected. A stacking puzzle's disc takes no size.
+   * size setting (in the size steppers' blocks), selected. A sliding
+   * puzzle's piece takes the last piece's size, else the sliding size
+   * setting (boards do not count). A stacking puzzle's disc takes no size.
    */
   async create(): Promise<void> {
     if (this.host.refuse()) {
@@ -173,10 +180,12 @@ export class ShapesList {
       grid === 'sliding'
         ? [prefs.slideX * u, prefs.slideY * u, prefs.slideZ * u]
         : [prefs.newX * u, prefs.newY * u, prefs.newZ * u];
+    const lastPiece = this.shapes.filter((x) => !isTray(x)).at(-1);
+    const from = grid === 'sliding' ? lastPiece : sel;
     const params: { size?: [number, number, number] } =
       grid === 'stacking'
         ? {}
-        : { size: sel === null ? fresh : [sel.size[0], sel.size[1], sel.size[2]] };
+        : { size: from == null ? fresh : [from.size[0], from.size[1], from.size[2]] };
     const r = await this.host.mutate('New shape', () => store.engine.call('shape.create', params));
     if (r !== null) {
       this.select(r.shape);

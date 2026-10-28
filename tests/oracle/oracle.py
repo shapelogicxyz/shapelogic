@@ -98,10 +98,11 @@ def load_corpus(old_repo: Path) -> list[Entry]:
     return [e for e in entries if not (e.tier == "full" and e.rel in slow)]
 
 
-# The sliding solvers: their own tier (`--tier sliding`); "classic", the
+# The sliding tier (`--tier sliding`) has one solver: "classic", the
 # default, runs both CLIs without --solver, which for a sliding puzzle is
-# the full search.
-SLIDING_SOLVERS = ("fast", "deep", "full")
+# the full search (the original's Sliding Full Solver, bt's Sliding Puzzle
+# Solver). The original's fast and deep solvers are not compared: bt has
+# neither.
 # The stacking tier's other solver (`--tier stacking --solver panex`);
 # "classic", the default, runs the Stacking Solver.
 STACKING_SOLVERS = ("panex",)
@@ -128,10 +129,9 @@ def panex_env(entry: "Entry"):
 def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
            solver: str = "classic") -> list[Entry]:
     """The entries of the tiers, those the solver runs on: the brick solvers
-    on the brick tiers, the sliding ones on the sliding tier, the stacking
-    ones on the stacking tier; a sliding entry flagged L (a full search would
-    not end) not with the full search, a stacking one flagged Q (no Panex
-    columns) not with the Panex Solver."""
+    on the brick tiers, the sliding one on the sliding tier, the stacking
+    ones on the stacking tier; a stacking entry flagged Q (no Panex columns)
+    not with the Panex Solver."""
     wanted = set(tiers)
     if "all" in wanted:
         wanted = (wanted - {"all"}) | {"fast", "full", "slow"}
@@ -140,9 +140,7 @@ def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
         if e.tier not in wanted or (name_filter and name_filter not in e.rel):
             continue
         if e.tier == "sliding":
-            if solver in ("crowell", *STACKING_SOLVERS):
-                continue
-            if "L" in e.flags and solver in ("classic", "full"):
+            if solver != "classic":
                 continue
         elif e.tier == "stacking":
             # the Stacking Solver (classic) on all, the Panex Solver on the
@@ -151,7 +149,7 @@ def select(entries: list[Entry], tiers: list[str], name_filter: str | None,
                 continue
             if "Q" in e.flags and solver == "panex":
                 continue
-        elif solver in SLIDING_SOLVERS or solver in STACKING_SOLVERS:
+        elif solver in STACKING_SOLVERS:
             continue
         out.append(e)
     return out
@@ -357,10 +355,10 @@ def files_dir(side: str, solver: str) -> Path:
     return WORK_DIR / (side if solver == "classic" else f"{side}-{solver}")
 
 
-def slide_solve_flags(entry: Entry, solver: str) -> list[str]:
-    """slide_solve_old's flags for a sliding entry and solver (the solve
-    thread's PAR_ flags; the default is the full search, as bt's)."""
-    flags = {"fast": [], "deep": ["--deep"]}.get(solver, ["--full"])
+def slide_solve_flags(entry: Entry) -> list[str]:
+    """slide_solve_old's flags for a sliding entry (the solve thread's PAR_
+    flags: the full search, bt's one)."""
+    flags = ["--full"]
     if "N" in entry.flags:
         flags.append("--nested")
     if "P" in entry.flags:
@@ -399,7 +397,7 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
         if e.tier == "sliding":
             # every solution kept, one thread: one order of the starts
             argv = [str(slide_tool), str(dst), str(dst) + "ttt", "-d", "--limit", "0",
-                    *slide_solve_flags(e, args.solver)]
+                    *slide_solve_flags(e)]
         elif e.tier == "stacking":
             argv = [str(stack_tool), str(dst), str(dst) + "ttt", "-d",
                     *(["--panex"] if args.solver == "panex" else [])]
@@ -1881,13 +1879,13 @@ def main() -> int:
         s.add_argument("--jobs", "-j", type=int, default=1, help="puzzles at once (1 keeps solve times comparable)")
         s.add_argument("--timeout", type=float, default=600.0, help="seconds per puzzle")
         s.add_argument("--verbose", "-v", action="store_true")
-        s.add_argument("--solver", choices=["classic", "crowell", *SLIDING_SOLVERS, *STACKING_SOLVERS],
+        s.add_argument("--solver", choices=["classic", "crowell", *STACKING_SOLVERS],
                        default="classic",
                        help="the solver both programs run (baselines of another than classic are "
                             "baseline/<tier>-<solver>.json, solved files work/old-<solver>); "
-                            "fast, deep and full are the sliding tier's (classic runs it with "
-                            "the default, the full search), panex the stacking tier's (classic "
-                            "runs it with the Stacking Solver)")
+                            "classic runs the sliding tier with its one solver, the full search; "
+                            "panex is the stacking tier's (classic runs it with the Stacking "
+                            "Solver)")
         if name == "compare-files":
             s.add_argument("--dump-tool", type=Path,
                            default=HERE.parent.parent / "build" / "release" / "tests" / "bt_solutions")
@@ -1955,9 +1953,6 @@ def main() -> int:
     s.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args()
     args.old_repo = args.old_repo.resolve()
-    # the full search is the sliding default: its baselines are the default's
-    if getattr(args, "solver", None) == "full":
-        args.solver = "classic"
     return {"baseline": cmd_baseline, "compare": cmd_compare, "baseline-files": cmd_baseline_files,
             "compare-files": cmd_compare_files, "baseline-text": cmd_baseline_text,
             "compare-text": cmd_compare_text,

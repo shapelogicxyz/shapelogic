@@ -101,8 +101,8 @@ struct SolveOptions {
   /// The take-apart's switches: levelThreads, levelThreadCostUs, analysis.
   /// Its rotations, solver and pool come from the fields above.
   DisassemblerOptions takeApart;
-  /// A sliding puzzle's search: its solver, nested slides, high memory,
-  /// where a full search keeps its levels. A sliding run always keeps
+  /// A sliding puzzle's search: nested slides, high memory, where the
+  /// search keeps its levels. A sliding run always keeps
   /// mirrored and rotated starts and matches colours strictly (the start
   /// locks), whatever `matrix` says; `disassemble` (the GUI's Find
   /// Solutions) searches each start to the goal; `checkRotations`,
@@ -399,8 +399,8 @@ class SolveSession {
   std::optional<SolveFailure> failure_;
   std::exception_ptr workerError_;
 
-  /// The slide searches of a run: the pool a full search spreads its
-  /// levels over (made per run, with the solve's thread budget), the
+  /// The slide searches of a run: the pool the search spreads its levels
+  /// over (made per run, with the solve's thread budget), the
   /// arrangements the search under way has visited and how deep it is,
   /// and what the run's searches came to (the solve thread's slide
   /// members; the counts under resultsMutex_).

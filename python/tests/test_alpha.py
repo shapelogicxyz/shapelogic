@@ -203,8 +203,6 @@ class TestSolve(unittest.TestCase):
 
     def test_unknown_solver_names(self):
         with self.assertRaises(ValueError):
-            self.problem.solve(sliding_solver="slow")
-        with self.assertRaises(ValueError):
             self.problem.solve(stacking_solver="hanoi")
 
 
@@ -213,13 +211,12 @@ class TestSliding(unittest.TestCase):
         # 81 moves, as the original's burrTxt (the oracle's baseline)
         puzzle = shapelogic.load(puzzle_path("test_sliding_solver.xmpuzzle"))
         self.assertEqual(puzzle.grid, "sliding")
-        for solver in ("fast", "deep", "full"):
-            solutions = list(puzzle.problems[0].solve(sliding_solver=solver))
-            self.assertEqual(len(solutions), 1, solver)
-            self.assertTrue(solutions[0].has_disassembly)
-            self.assertEqual(solutions[0].moves_text, "81")
-            self.assertEqual(solutions[0].level, 81)
-            self.assertEqual(solutions[0].total_moves, 81)
+        solutions = list(puzzle.problems[0].solve())
+        self.assertEqual(len(solutions), 1)
+        self.assertTrue(solutions[0].has_disassembly)
+        self.assertEqual(solutions[0].moves_text, "81")
+        self.assertEqual(solutions[0].level, 81)
+        self.assertEqual(solutions[0].total_moves, 81)
 
     def test_start_layouts_without_the_search(self):
         puzzle = shapelogic.load(puzzle_path("test_sliding_solver.xmpuzzle"))

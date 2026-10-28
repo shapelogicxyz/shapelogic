@@ -62,7 +62,7 @@ export class PieceCard {
     const c = ws.chip(x.id);
     const count = range
       ? `<div class="lab">Count range</div><div class="rng"><div class="f">${stp('min', min, 'Min')}</div><div class="f">${stp('max', max, 'Max')}</div></div>`
-      : `<div class="lab">Copies in the puzzle</div><div class="cnt1"><span class="mute" style="font-size:12px">${max > 0 ? 'Fixed count' : 'Not in this puzzle'}</span>${stp('max', max)}</div>`;
+      : `<div class="lab">Copies in the puzzle</div><div class="cnt1"><span class="mute" style="font-size:calc(12px + var(--fs))">${max > 0 ? 'Fixed count' : 'Not in this puzzle'}</span>${stp('max', max)}</div>`;
     let group = '';
     // a sliding puzzle has no groups (the original greyed Groups out)
     if (part !== undefined && !sliding) {
@@ -76,7 +76,7 @@ export class PieceCard {
         .join('');
       const many =
         g > 0 && part.max > 1
-          ? `<div class="gw"><span class="mute" style="font-size:12px">Copies in G${String(g)}</span><div class="step sz"><button data-gc="-1" data-g="${String(g)}" title="Fewer copies in the group">${ic('minus', 12)}</button><input class="v" data-gc="v" data-g="${String(g)}" value="${String(inGroup(part, g))}" aria-label="Copies in the group"><button data-gc="1" data-g="${String(g)}" title="More copies in the group">${ic('plus', 12)}</button></div></div>`
+          ? `<div class="gw"><span class="mute" style="font-size:calc(12px + var(--fs))">Copies in G${String(g)}</span><div class="step sz"><button data-gc="-1" data-g="${String(g)}" title="Fewer copies in the group">${ic('minus', 12)}</button><input class="v" data-gc="v" data-g="${String(g)}" value="${String(inGroup(part, g))}" aria-label="Copies in the group"><button data-gc="1" data-g="${String(g)}" title="More copies in the group">${ic('plus', 12)}</button></div></div>`
           : '';
       group = `<div class="lab">Exclusive group</div><div class="gseg"><button data-grp="0" class="${g === 0 ? 'on' : ''}">None</button>${gs}<button data-grp="new" title="Create a new group and put this piece in it">+ New</button></div>${many}`;
     }
@@ -96,7 +96,7 @@ export class PieceCard {
     byId('pzGroups').innerHTML = groups
       .map((g) => {
         const mem = membersOf(d, g);
-        return `<div class="pzg" data-g="${String(g)}"><div class="gh" title="Pieces in a group are exclusive">Group ${String(g)}<span class="mute dhelp" style="font-weight:400;font-size:11px">pieces in a group are exclusive</span><span class="sp"></span><button class="ib" data-delg="${String(g)}" title="Remove group">${ic('trash', 14)}</button></div><div class="mem">${mem
+        return `<div class="pzg" data-g="${String(g)}"><div class="gh" title="Pieces in a group are exclusive">Group ${String(g)}<span class="mute dhelp" style="font-weight:400;font-size:calc(11px + var(--fs))">pieces in a group are exclusive</span><span class="sp"></span><button class="ib" data-delg="${String(g)}" title="Remove group">${ic('trash', 14)}</button></div><div class="mem">${mem
           .map((p) => {
             const s = ws.store.snapshot?.shapes.find((x) => x.id === p.shape);
             const c = ws.chip(p.shape);

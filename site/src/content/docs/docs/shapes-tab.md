@@ -131,7 +131,11 @@ Mirror and span work together, and with the box selection below.
 
 The **layer strip** on the left of the grid has one button per layer. A dot
 marks layers that already have voxels. Click a layer to show it, or use
-`PgUp` and `PgDn` (`fn+↑` and `fn+↓` on a Mac laptop).
+`PgUp` and `PgDn` (`fn+↑` and `fn+↓` on a Mac laptop). The voxels of the
+layer below show faintly under the layer you edit, so you can see what you
+build on; the **Voxel hint layer** setting
+([Settings ▸ Grid editor](#grid-editor-settings)) hints the layer above
+instead.
 
 ### Grid size
 
@@ -196,10 +200,21 @@ editor's settings:
 - **New shape size**: the X, Y and Z size of a shape made with **+ New** when
   no shape is selected. It has two sets: **Normal Burrs**, used on every grid
   but sliding (4 by 4 by 4 unless you change it), and **Sliding**, used for a
-  sliding puzzle's board (6 by 6 by 1 unless you change it). It counts as the
-  [Grid size](#grid-size) steppers do, so on grids that size in blocks it is
-  a number of blocks. With a shape selected, **+ New** copies that shape's
-  size instead. A stacking puzzle's new disc is always size 1.
+  sliding puzzle's first piece and first board (6 by 6 by 1 unless you change
+  it). It counts as the [Grid size](#grid-size) steppers do, so on grids that
+  size in blocks it is a number of blocks. With a shape selected, **+ New**
+  copies that shape's size instead. On a sliding puzzle, **+ New Piece**
+  copies the last piece's size and **+ New Board** the last board's. A
+  stacking puzzle's new disc is always size 1.
+- **New sliding board color**: the color a board gets when **+ New Board**
+  makes it (gray unless you change it). Boards already made keep theirs;
+  change one with the pencil beside **Shape color** under the voxel editor.
+- **Voxel hint layer**: the grid shows faintly, in a pale tint of the
+  shape's color, where the shape has voxels in a layer next to the one you
+  edit. **Hinted layer** chooses which: **Below** (the default) hints the
+  layer under it, **Above** the layer over it. In XZ the layers are along Y,
+  and in YZ along X. The bottom layer has nothing below it to hint, and the
+  top layer nothing above.
 
 ## Drawing in the 3D view
 

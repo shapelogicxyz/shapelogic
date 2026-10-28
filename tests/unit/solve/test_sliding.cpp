@@ -80,13 +80,11 @@ std::unique_ptr<SolveSession> solveRun(Puzzle& puzzle, const SolveOptions& o) {
   return s;
 }
 
-// The solve thread's parameters: PAR_DISASSM and the fast search unless
-// the flags say more.
+// The solve thread's parameters: PAR_DISASSM unless the flags say more.
 SolveOptions findSolutions() {
   SolveOptions o;
   o.disassemble = true;
   o.reduce = false;
-  o.sliding.solver = SlidingSolver::Fast;
   return o;
 }
 
@@ -312,7 +310,7 @@ TEST_CASE("sliding: a piece nested in a pocket rides along only with nested slid
 
   REQUIRE_FALSE(findSlidePath(puz, pr, start).has_value());
 
-  const std::optional<Separation> path = findSlidePath(puz, pr, start, kSearchStates, true);
+  const std::optional<Separation> path = findSlidePath(puz, pr, start, true);
   REQUIRE(path.has_value());
   REQUIRE(path->getMoves() == 1);
   CHECK(path->getState(1).getY(0) == 0);
@@ -429,7 +427,6 @@ TEST_CASE("sliding: a shorter path keeps the solution number", "[sliding]") {
   pr.markSolving();
   SolveOptions o;
   o.disassemble = true;
-  o.sliding.solver = SlidingSolver::Fast;
   SolveSession solver(puz, pr, o);
   SolveSessionTestAccess::prime(solver, o);
   const GridType gt = puz.getGridType();
@@ -557,12 +554,6 @@ TEST_CASE("sliding: the nested puzzle has no solution without nested slides",
   CHECK_FALSE(solveNested(puzzle, findSolutions()).has_value());
   CHECK(pr.getNumAssemblies() == 1);
   CHECK(pr.getNumSolutions() == 0);
-
-  // The search proved it: every arrangement was visited well inside the
-  // budget, so the deep solver finds nothing either.
-  SolveOptions deep = findSolutions();
-  deep.sliding.solver = SlidingSolver::Deep;
-  CHECK_FALSE(solveNested(puzzle, deep).has_value());
 }
 
 // tests/data/puzzles/sliding/slide_layers_blocks.xmpuzzle, after Number
@@ -577,26 +568,21 @@ TEST_CASE("sliding: blocks whose middle layers catch on each other", "[sliding][
   REQUIRE(puzzle.getShape(8).getZ() == 3);
   CHECK(startGoalError(puzzle, 8).empty());
   const Problem& pr = puzzle.getProblem(0);
-  for (const SlidingSolver solver : {SlidingSolver::Fast, SlidingSolver::Full}) {
-    INFO("solver " << static_cast<int>(solver));
-    SolveOptions o = findSolutions();
-    o.sliding.solver = solver;
-    const std::optional<Separation> path = solveNested(puzzle, o);
-    REQUIRE(path.has_value());
-    CHECK(pr.getNumSolutions() == 1);
-    CHECK(path->getMoves() == 104);
-    // one block a move, and the blocks fill the frame's three layers: none
-    // changes layer
-    for (unsigned int step = 0; step < path->getMoves(); step++) {
-      unsigned int moved = 0;
-      for (unsigned int i = 0; i < path->getPieceNumber(); i++) {
-        const State& a = path->getState(step);
-        const State& b = path->getState(step + 1);
-        CHECK(a.getZ(i) == b.getZ(i));
-        moved += a.getX(i) != b.getX(i) || a.getY(i) != b.getY(i) ? 1 : 0;
-      }
-      CHECK(moved == 1);
+  const std::optional<Separation> path = solveNested(puzzle, findSolutions());
+  REQUIRE(path.has_value());
+  CHECK(pr.getNumSolutions() == 1);
+  CHECK(path->getMoves() == 104);
+  // one block a move, and the blocks fill the frame's three layers: none
+  // changes layer
+  for (unsigned int step = 0; step < path->getMoves(); step++) {
+    unsigned int moved = 0;
+    for (unsigned int i = 0; i < path->getPieceNumber(); i++) {
+      const State& a = path->getState(step);
+      const State& b = path->getState(step + 1);
+      CHECK(a.getZ(i) == b.getZ(i));
+      moved += a.getX(i) != b.getX(i) || a.getY(i) != b.getY(i) ? 1 : 0;
     }
+    CHECK(moved == 1);
   }
 }
 
@@ -701,15 +687,13 @@ Assembly nestedStart(const Puzzle& puzzle) {
 
 }  // namespace
 
-TEST_CASE("sliding: a search says whether it finished, hit its limit or was stopped",
-          "[sliding]") {
+TEST_CASE("sliding: a search says whether it finished or was stopped", "[sliding]") {
   Puzzle puzzle = nestedPuzzle();
   refreshStartLocks(puzzle, puzzle.getProblem(0));
   const Problem& pr = puzzle.getProblem(0);
   const Assembly start = nestedStart(puzzle);
 
   SlideSearch full;
-  full.maxStates = kFullSearch;
   std::atomic<std::uint64_t> progress{0};
   full.progress = &progress;
   CHECK_FALSE(findSlidePath(puzzle, pr, start, full).has_value());
@@ -717,28 +701,21 @@ TEST_CASE("sliding: a search says whether it finished, hit its limit or was stop
   CHECK(full.visited > 0);
   CHECK(progress.load() == full.visited);
 
-  SlideSearch small;
-  small.maxStates = 10;
-  CHECK_FALSE(findSlidePath(puzzle, pr, start, small).has_value());
-  CHECK(small.outcome == SlideOutcome::Limit);
-
   StopSource stop;
   stop.request(StopKind::Pause);
   SlideSearch stopped;
-  stopped.maxStates = kFullSearch;
   stopped.stop = stop.token();
   CHECK_FALSE(findSlidePath(puzzle, pr, start, stopped).has_value());
   CHECK(stopped.outcome == SlideOutcome::Stopped);
 }
 
-TEST_CASE("sliding: a full search stops at its memory limit", "[sliding]") {
+TEST_CASE("sliding: a search stops at its memory limit", "[sliding]") {
   Puzzle puzzle = nestedPuzzle();
   refreshStartLocks(puzzle, puzzle.getProblem(0));
   const Problem& pr = puzzle.getProblem(0);
   const Assembly start = nestedStart(puzzle);
 
   SlideSearch tight;
-  tight.maxStates = kFullSearch;
   tight.maxMemoryStates = 10;
   CHECK_FALSE(findSlidePath(puzzle, pr, start, tight).has_value());
   CHECK(tight.outcome == SlideOutcome::Memory);
@@ -749,12 +726,10 @@ TEST_CASE("sliding: a full search stops at its memory limit", "[sliding]") {
   CHECK(memoryStates(200, true) >= memoryStates(200, false));
 
   SlideSearch normal;
-  normal.maxStates = kFullSearch;
   CHECK_FALSE(findSlidePath(puzzle, pr, start, normal).has_value());
   CHECK(normal.outcome == SlideOutcome::NoPath);
 
   SlideSearch high;
-  high.maxStates = kFullSearch;
   high.highMemory = true;
   CHECK_FALSE(findSlidePath(puzzle, pr, start, high).has_value());
   CHECK(high.outcome == SlideOutcome::NoPath);
@@ -767,9 +742,7 @@ TEST_CASE("sliding: the solver says when no solution is proven", "[sliding][solv
   Puzzle puzzle = nestedPuzzle();
   puzzle.getProblem(0).removeAllSolutions();
 
-  SolveOptions o = findSolutions();
-  o.sliding.solver = SlidingSolver::Full;
-  const std::unique_ptr<SolveSession> solver = solveRun(puzzle, o);
+  const std::unique_ptr<SolveSession> solver = solveRun(puzzle, findSolutions());
   REQUIRE(solver->state() == SolveState::Finished);
   CHECK(puzzle.getProblem(0).getNumSolutions() == 0);
   const std::string note = solver->note();
@@ -780,7 +753,7 @@ TEST_CASE("sliding: the solver says when no solution is proven", "[sliding][solv
 // Not part of the suite (hidden tag): a throughput and memory benchmark for
 // the position-table search. A 4x4 tray with fifteen unit pieces and the
 // last two swapped in the goal, which no sliding can reach, so the search
-// runs until its limit.
+// runs until its memory limit.
 TEST_CASE("sliding: benchmark, fifteen pieces in a 4x4 tray", "[.bench][sliding]") {
   Puzzle puz = slidingPuzzle();
   const unsigned int trayId = addStartGoalShape(puz, 4, 4);
@@ -801,10 +774,9 @@ TEST_CASE("sliding: benchmark, fifteen pieces in a 4x4 tray", "[.bench][sliding]
   }
 
   SlideSearch search;
-  search.maxStates = 3000000;
+  search.maxMemoryStates = 3000000;
   CHECK_FALSE(findSlidePath(puz, pr, start, search).has_value());
-  // the legacy search runs out of memory first
-  CHECK((search.outcome == SlideOutcome::Limit || search.outcome == SlideOutcome::Memory));
+  CHECK(search.outcome == SlideOutcome::Memory);
 }
 
 namespace {
@@ -887,7 +859,6 @@ const std::vector<SlideBlock> kKlotski = {
 TEST_CASE("sliding: Klotski takes 81 moves, like pieces searched as one", "[sliding]") {
   const SlideFixture f = slideFixture(4, 5, kKlotski);
   SlideSearch search;
-  search.maxStates = kFullSearch;
   const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
   REQUIRE(path.has_value());
   CHECK(path->getMoves() == 81);
@@ -918,7 +889,6 @@ TEST_CASE("sliding: like pieces searched as one give the same shortest path",
   for (int k = 0; k < 3; k++) {
     const SlideFixture f = slideFixture(4, 3, blocks);
     SlideSearch search;
-    search.maxStates = kFullSearch;
     search.likePiecesApart = k == 1;
     search.legacy = k == 2;
     const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
@@ -938,7 +908,6 @@ TEST_CASE("sliding: benchmark, every Klotski arrangement", "[.bench][sliding][kl
   for (int k = 0; k < 2; k++) {
     const SlideFixture f = slideFixture(4, 5, kKlotski);
     SlideSearch search;
-    search.maxStates = kFullSearch;
     search.likePiecesApart = k == 1;
     const auto t0 = std::chrono::steady_clock::now();
     const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
@@ -963,7 +932,6 @@ TEST_CASE("sliding: a tray too big for 64-bit keys is searched with 128-bit ones
 
   const SlideFixture f = slideFixture(8, 4, blocks);
   SlideSearch search;
-  search.maxStates = kFullSearch;
   const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
   REQUIRE(path.has_value());
   CHECK(oneMoverPerStep(*path));
@@ -972,7 +940,6 @@ TEST_CASE("sliding: a tray too big for 64-bit keys is searched with 128-bit ones
 
   const SlideFixture g = slideFixture(8, 4, blocks);
   SlideSearch legacy;
-  legacy.maxStates = kFullSearch;
   legacy.legacy = true;
   const std::optional<Separation> old = findSlidePath(g.puz, g.pr(), *g.start, legacy);
   REQUIRE(old.has_value());
@@ -1012,34 +979,29 @@ TEST_CASE("sliding: a piece sticking out of a pocket rides along only when parti
   start.addPlacement(0, 0, 2, 0);
 
   for (int legacy = 0; legacy < 2; legacy++) {
-    for (const std::uint64_t states : {kSearchStates, kFullSearch}) {
-      INFO("legacy " << legacy << ", states " << states);
-      SlideSearch plain;
-      plain.maxStates = states;
-      plain.legacy = legacy != 0;
-      CHECK_FALSE(findSlidePath(puz, pr, start, plain).has_value());
+    INFO("legacy " << legacy);
+    SlideSearch plain;
+    plain.legacy = legacy != 0;
+    CHECK_FALSE(findSlidePath(puz, pr, start, plain).has_value());
 
-      SlideSearch nested;
-      nested.maxStates = states;
-      nested.legacy = legacy != 0;
-      nested.nested = true;
-      CHECK_FALSE(findSlidePath(puz, pr, start, nested).has_value());
+    SlideSearch nested;
+    nested.legacy = legacy != 0;
+    nested.nested = true;
+    CHECK_FALSE(findSlidePath(puz, pr, start, nested).has_value());
 
-      // partially nested implies nested
-      SlideSearch partial;
-      partial.maxStates = states;
-      partial.legacy = legacy != 0;
-      partial.partialNested = true;
-      const std::optional<Separation> path = findSlidePath(puz, pr, start, partial);
-      REQUIRE(path.has_value());
-      REQUIRE(path->getMoves() == 1);
-      CHECK(path->getState(1).getY(0) == 0);
-      CHECK(path->getState(1).getY(1) == 1);
+    // partially nested implies nested
+    SlideSearch partial;
+    partial.legacy = legacy != 0;
+    partial.partialNested = true;
+    const std::optional<Separation> path = findSlidePath(puz, pr, start, partial);
+    REQUIRE(path.has_value());
+    REQUIRE(path->getMoves() == 1);
+    CHECK(path->getState(1).getY(0) == 0);
+    CHECK(path->getState(1).getY(1) == 1);
 
-      std::vector<unsigned int> movers;
-      (void)slideRoute(puz, pr, *path, 0, &movers);
-      CHECK(movers == std::vector<unsigned int>{0, 1});
-    }
+    std::vector<unsigned int> movers;
+    (void)slideRoute(puz, pr, *path, 0, &movers);
+    CHECK(movers == std::vector<unsigned int>{0, 1});
   }
 }
 
@@ -1086,34 +1048,29 @@ TEST_CASE("sliding: partial nesting still lets a piece leave a partly nested one
   start.addPlacement(0, 0, 1, 0);
 
   for (int legacy = 0; legacy < 2; legacy++) {
-    for (const std::uint64_t states : {kSearchStates, kFullSearch}) {
-      INFO("legacy " << legacy << ", states " << states);
-      SlideSearch plain;
-      plain.maxStates = states;
-      plain.legacy = legacy != 0;
-      std::optional<Separation> path = findSlidePath(puz, pr, start, plain);
-      REQUIRE(path.has_value());
-      CHECK(path->getMoves() == 2);
+    INFO("legacy " << legacy);
+    SlideSearch plain;
+    plain.legacy = legacy != 0;
+    std::optional<Separation> path = findSlidePath(puz, pr, start, plain);
+    REQUIRE(path.has_value());
+    CHECK(path->getMoves() == 2);
 
-      SlideSearch nested;
-      nested.maxStates = states;
-      nested.legacy = legacy != 0;
-      nested.nested = true;
-      path = findSlidePath(puz, pr, start, nested);
-      REQUIRE(path.has_value());
-      CHECK(path->getMoves() == 1);
+    SlideSearch nested;
+    nested.legacy = legacy != 0;
+    nested.nested = true;
+    path = findSlidePath(puz, pr, start, nested);
+    REQUIRE(path.has_value());
+    CHECK(path->getMoves() == 1);
 
-      SlideSearch partial;
-      partial.maxStates = states;
-      partial.legacy = legacy != 0;
-      partial.partialNested = true;
-      path = findSlidePath(puz, pr, start, partial);
-      REQUIRE(path.has_value());
-      REQUIRE(path->getMoves() == 1);
-      std::vector<unsigned int> movers;
-      (void)slideRoute(puz, pr, *path, 0, &movers);
-      CHECK(movers == std::vector<unsigned int>{0, 1});
-    }
+    SlideSearch partial;
+    partial.legacy = legacy != 0;
+    partial.partialNested = true;
+    path = findSlidePath(puz, pr, start, partial);
+    REQUIRE(path.has_value());
+    REQUIRE(path->getMoves() == 1);
+    std::vector<unsigned int> movers;
+    (void)slideRoute(puz, pr, *path, 0, &movers);
+    CHECK(movers == std::vector<unsigned int>{0, 1});
   }
 }
 
@@ -1236,46 +1193,61 @@ OneWay oneWayPuzzle() {
 
 }  // namespace
 
-// The full search looks for an arrangement reached by a move that cannot be
-// made backwards in every level before, the others only in the last two. It
-// must find exactly the arrangements the queue search does, which keeps
-// them all.
-TEST_CASE("sliding: the full search counts the same arrangements with one-way moves",
-          "[sliding]") {
+// The search looks for an arrangement reached by a move that cannot be made
+// backwards in every level before, the others only in the last two.
+TEST_CASE("sliding: the search finds arrangements one-way moves lead back to", "[sliding]") {
   const OneWay w = oneWayPuzzle();
 
   std::uint64_t visited[2] = {0, 0};
   for (int nested = 0; nested < 2; nested++) {
-    for (int k = 0; k < 2; k++) {
-      SlideSearch search;
-      search.maxStates = kFullSearch;
-      search.nested = nested != 0;
-      search.fullThroughQueue = k == 1;
-      CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, search).has_value());
-      CHECK(search.outcome == SlideOutcome::NoPath);
-      visited[k] = search.visited;
-      // with nested slides the puzzle has one-way moves that lead back to
-      // arrangements reached two or more moves before
-      if (k == 0 && nested != 0) {
-        CHECK(search.oneWayRepeats > 0);
-      }
-      if (k == 1) {
-        CHECK(visited[0] == visited[1]);
-        CHECK(visited[0] > 100);
-      }
-    }
+    INFO("nested " << nested);
+    SlideSearch search;
+    search.nested = nested != 0;
+    CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, search).has_value());
+    CHECK(search.outcome == SlideOutcome::NoPath);
+    CHECK(search.visited > 100);
+    visited[nested] = search.visited;
+  }
+  // with nested slides the puzzle has one-way moves that lead back to
+  // arrangements reached two or more moves before
+  SlideSearch nested;
+  nested.nested = true;
+  CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, nested).has_value());
+  CHECK(nested.oneWayRepeats > 0);
+  CHECK(visited[1] > visited[0]);
+}
+
+// It must find exactly the arrangements the legacy search does, which keeps
+// them all (like pieces told apart, as the legacy search tells them).
+TEST_CASE("sliding: the search counts the arrangements the legacy search does",
+          "[sliding][slow]") {
+  const OneWay w = oneWayPuzzle();
+
+  for (int nested = 0; nested < 2; nested++) {
+    INFO("nested " << nested);
+    SlideSearch search;
+    search.nested = nested != 0;
+    search.likePiecesApart = true;
+    CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, search).has_value());
+    CHECK(search.outcome == SlideOutcome::NoPath);
+
+    SlideSearch legacy;
+    legacy.nested = nested != 0;
+    legacy.legacy = true;
+    CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, legacy).has_value());
+    CHECK(legacy.outcome == SlideOutcome::NoPath);
+    CHECK(search.visited == legacy.visited);
   }
 }
 
 // Small levels stay in memory, and so do big ones with nowhere to write;
 // with no disk to spare, the search says so. memoryLevelBytes = 1 sends
 // every level past the first two towards the disk.
-TEST_CASE("sliding: the full search keeps its levels where it can", "[sliding]") {
+TEST_CASE("sliding: the search keeps its levels where it can", "[sliding]") {
   const OneWay w = oneWayPuzzle();
   const std::filesystem::path dir = scratchDir("slidedir");
 
   SlideSearch onDisk;
-  onDisk.maxStates = kFullSearch;
   onDisk.nested = true;
   onDisk.workDir = dir.string();
   onDisk.memoryLevelBytes = 1;
@@ -1290,7 +1262,6 @@ TEST_CASE("sliding: the full search keeps its levels where it can", "[sliding]")
   std::filesystem::remove_all(dir);
   { std::ofstream(dir.string()) << "x"; }
   SlideSearch inMemory;
-  inMemory.maxStates = kFullSearch;
   inMemory.nested = true;
   inMemory.workDir = dir.string();
   inMemory.memoryLevelBytes = 1;
@@ -1301,7 +1272,6 @@ TEST_CASE("sliding: the full search keeps its levels where it can", "[sliding]")
   std::filesystem::remove_all(dir);
 
   SlideSearch full;
-  full.maxStates = kFullSearch;
   full.nested = true;
   full.workDir = dir.string();
   full.diskBudget = 1;
@@ -1317,7 +1287,6 @@ TEST_CASE("sliding: the full search keeps its levels where it can", "[sliding]")
 
   // a small search on a full disk: it never writes, nor makes its folder
   SlideSearch small;
-  small.maxStates = kFullSearch;
   small.nested = true;
   small.workDir = dir.string();
   small.diskBudget = 1;
@@ -1328,15 +1297,14 @@ TEST_CASE("sliding: the full search keeps its levels where it can", "[sliding]")
   CHECK(!std::filesystem::exists(dir));
 }
 
-// The full search runs on every core, but finds the same path each time:
-// as many moves as the queue search, through the same arrangements.
-TEST_CASE("sliding: the full search finds the same path on any number of threads",
+// The search runs on every core, but finds the same path each time, through
+// the same arrangements.
+TEST_CASE("sliding: the search finds the same path on any number of threads",
           "[sliding][parallel]") {
   std::vector<std::vector<int>> paths;
   for (const unsigned int threads : {1U, 3U, 8U}) {
     const SlideFixture f = slideFixture(4, 5, kKlotski);
     SlideSearch search;
-    search.maxStates = kFullSearch;
     search.threads = threads;
     const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
     REQUIRE(path.has_value());
@@ -1356,10 +1324,10 @@ TEST_CASE("sliding: the full search finds the same path on any number of threads
 }
 
 // Hidden: random trays with a C-shaped piece that can close round others,
-// each searched to the end, or to the goal, by the queue search and the
-// full search. They must agree on every arrangement there is, or on the
+// each searched to the end, or to the goal, by the legacy search and the
+// level search. They must agree on every arrangement there is, or on the
 // moves to the goal.
-TEST_CASE("sliding: fuzz, the full search agrees with the queue search", "[.fuzz][sliding]") {
+TEST_CASE("sliding: fuzz, the level search agrees with the legacy search", "[.fuzz][sliding]") {
   const int trials = 300;
   std::uint64_t x = 1234567;
   auto rnd = [&x](int n) {
@@ -1449,8 +1417,8 @@ TEST_CASE("sliding: fuzz, the full search agrees with the queue search", "[.fuzz
     const Problem& pr = puz.getProblem(0);
 
     SlideSearch level;
-    level.maxStates = kFullSearch;
     level.nested = true;
+    level.likePiecesApart = true;
     level.threads = 1 + static_cast<unsigned int>(rnd(4));
     level.maxMemoryStates = 3000000;
     const std::optional<Separation> levelPath = findSlidePath(puz, pr, start, level);
@@ -1458,23 +1426,22 @@ TEST_CASE("sliding: fuzz, the full search agrees with the queue search", "[.fuzz
       continue;
     }
 
-    SlideSearch queue;
-    queue.maxStates = kFullSearch;
-    queue.nested = true;
-    queue.fullThroughQueue = true;
-    queue.maxMemoryStates = 3000000;
-    const std::optional<Separation> queuePath = findSlidePath(puz, pr, start, queue);
-    if (queue.outcome == SlideOutcome::Memory) {
+    SlideSearch legacy;
+    legacy.nested = true;
+    legacy.legacy = true;
+    legacy.maxMemoryStates = 3000000;
+    const std::optional<Separation> legacyPath = findSlidePath(puz, pr, start, legacy);
+    if (legacy.outcome == SlideOutcome::Memory) {
       continue;
     }
 
     INFO("trial " << trial);
-    CHECK(level.outcome == queue.outcome);
+    CHECK(level.outcome == legacy.outcome);
     if (level.outcome == SlideOutcome::NoPath) {
-      CHECK(level.visited == queue.visited);
+      CHECK(level.visited == legacy.visited);
     }
-    if (levelPath && queuePath) {
-      CHECK(levelPath->getMoves() == queuePath->getMoves());
+    if (levelPath && legacyPath) {
+      CHECK(levelPath->getMoves() == legacyPath->getMoves());
       found++;
     }
     compared++;

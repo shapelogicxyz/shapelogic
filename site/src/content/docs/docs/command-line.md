@@ -28,7 +28,7 @@ under [`--save`](#--save-solve-and-write-the-solved-file).
   - [What a solve does](#what-a-solve-does) · [Output](#output) · [The level text](#the-level-text)
   - [`-d`](#-d-solve-completely) · [`-q`](#-q-quiet) · [`-s`](#-s-print-the-assemblies) · [`-p`](#-p-print-the-moves) · [`-n`](#-n-no-newline) · [`-o`](#-o-choose-the-problem) · [`-r`](#-r-reduce-the-placements) · [`-t`](#-t-threads) · [`--progress`](#--progress)
 - [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colours)
-- [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-how-far-to-search) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--high-memory`](#--high-memory)
+- [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--high-memory`](#--high-memory)
 - [Stacking puzzles](#stacking-puzzles-1): [`--solver`](#--solver-stacking-or-panex) · [Long Panex searches](#long-panex-searches-stop-and-carry-on)
 - [`--json`: machine-readable output](#--json-machine-readable-output)
 - [`--save`: solve and write the solved file](#--save-solve-and-write-the-solved-file)
@@ -104,7 +104,7 @@ shapelogic_cli [options] file [options]
 - **Short options combine.** `-dq` is the same as `-d -q`, and `-dRq` the same
   as `-d -R -q`. The two short options that take a value, `-o` and `-a`, must
   be given on their own: `-o 2`, not `-do 2`.
-- **Option values** are the next argument: `-t 4`, `--solver fast`,
+- **Option values** are the next argument: `-t 4`, `--solver panex`,
   `--save out.xmpuzzle`.
 - **The puzzle type comes from the file.** A file is a brick, sliding or
   stacking puzzle (see [Puzzle types](/docs/puzzle-types/)). It decides which
@@ -164,7 +164,7 @@ The tool has four modes. Which one runs depends on the options:
 | `--nested-slides` | A piece carries the pieces nested inside its outline. |
 | `--partial-nested` | Also carry pieces only partly inside. Implies `--nested-slides`. |
 | `--high-memory` | Allow up to half the computer's memory instead of about 2 GB. |
-| `--solver` | `"Sliding Fast Solver"` (`fast`), `"Sliding Deep Solver"` (`deep`) or `"Sliding Full Solver"` (`full`, the default). |
+| `--solver` | `"Sliding Puzzle Solver"` (`sliding`), the only one, so it never needs to be given. |
 
 ### Stacking puzzles
 
@@ -458,24 +458,14 @@ shapelogic_cli --json slide_klotski.xmpuzzle
 {"assemblies":1,"solutions":1,"dotlevel":"81","level":81,"totalmoves":81,"solvetime":0.010}
 ```
 
-### `--solver`: how far to search
+### `--solver`: one solver
 
-| Solver | Names accepted | Limit |
-|---|---|---|
-| **Sliding Fast Solver** | `fast`, `"Sliding Fast Solver"` | Searches up to 250,000 arrangements per start. |
-| **Sliding Deep Solver** | `deep`, `"Sliding Deep Solver"` | Searches up to 1,000,000 arrangements per start. |
-| **Sliding Full Solver** | `full`, `"Sliding Full Solver"` | The default. No limit: it finds the fewest moves, or proves there is no solution. |
-
-The Fast and Deep solvers stop at their limit. If a start is cut off, the tool
-says so after the summary, and suggests a larger solver:
-
-```text
-1 start layout(s) not searched completely: the search limit was reached, so solutions may be missing (try --solver full)
-```
-
-The **Full** solver uses every core (`-t n` to limit it). It keeps only the
-newest moves in memory and writes older ones to disk, so free disk space is
-what limits it:
+Sliding puzzles have one solver, the **Sliding Puzzle Solver** (`--solver
+sliding` or `--solver "Sliding Puzzle Solver"`, which is also what runs
+without `--solver`). It has no limit on the arrangements it looks at: it
+finds the fewest moves, or proves there is no solution. It uses every core
+(`-t n` to limit it). It keeps only the newest moves in memory and writes
+older ones to disk, so free disk space is what limits it:
 
 - It keeps the first 256 MB of older moves in memory, then writes to the
   folder in `SHAPELOGIC_SLIDE_DIR`, or else to `sliding` in the user's cache
@@ -486,6 +476,13 @@ what limits it:
   space, less 2 GB or a twentieth of it, so the disk never fills up. On a Mac
   the free space includes what macOS frees when it is needed, as Finder
   counts it.
+
+If a start's search runs out of memory or disk, the tool says so after the
+summary:
+
+```text
+1 start layout(s) not searched completely: the search limit was reached, so solutions may be missing (try --high-memory)
+```
 
 When every reachable arrangement was searched and none reaches the goal, the
 tool says so:
@@ -818,8 +815,8 @@ A script should check the exit code and, in text mode, the solution count:
 
 | Variable | Used for | Default |
 |---|---|---|
-| `SHAPELOGIC_SLIDE_DIR` | Where the Sliding Full Solver writes its older moves. | `sliding` in the cache folder |
-| `SHAPELOGIC_SLIDE_DISK_GB` | The disk the Sliding Full Solver may take, in GB. | Half the free space, at most 200 GB |
+| `SHAPELOGIC_SLIDE_DIR` | Where the Sliding Puzzle Solver writes its older moves. | `sliding` in the cache folder |
+| `SHAPELOGIC_SLIDE_DISK_GB` | The disk the Sliding Puzzle Solver may take, in GB. | Half the free space, at most 200 GB |
 | `SHAPELOGIC_PANEX_DIR` | Where Panex searches are saved. `--panex-dir` overrides it. | `panex` in the cache folder |
 | `SHAPELOGIC_PANEX_DISK_GB` | The disk saved Panex levels may take, in GB. `--panex-disk` overrides it. | Half the free space, at most 200 GB |
 
@@ -858,8 +855,7 @@ don't need them to solve puzzles.
 |---|---|
 | `--slide-legacy` | The original search over text keys. |
 | `--slide-apart` | Treat identical pieces as different, instead of searching them as one. |
-| `--slide-queue` | Run the full search through a queue, not level by level. |
-| `--slide-trace` | Print each level of a full search to stderr. |
+| `--slide-trace` | Print each level of the search to stderr. |
 
 **Stacking puzzles:**
 

@@ -70,9 +70,8 @@ Puzzle manyStarts() {
 
 // The benchmark's tray of the ported tests, smaller: a 3x3 tray with eight
 // unit pieces and the last two swapped in the goal, which no sliding can
-// reach. One start; its search visits all 181,440 arrangements (the fast
-// search's 250,000 suffice) or, on a 4x4 tray with fifteen, stops at a
-// limit.
+// reach. One start; its search visits all 181,440 arrangements or, on a
+// 4x4 tray with fifteen, stops at its memory limit.
 Puzzle swapped(unsigned int side) {
   Puzzle puz{GridType(GridKind::Sliding)};
   const unsigned int trayId = addStartGoalShape(puz, side, side);
@@ -88,10 +87,9 @@ Puzzle swapped(unsigned int side) {
   return puz;
 }
 
-SolveOptions findSolutions(SlidingSolver solver, unsigned int threads) {
+SolveOptions findSolutions(unsigned int threads) {
   SolveOptions o;
   o.disassemble = true;
-  o.sliding.solver = solver;
   o.threads = threads;
   o.solutionLimit = 0;
   return o;
@@ -150,25 +148,22 @@ void untilSearching(const SolveSession& s) {
 
 TEST_CASE("sliding session: four threads find what one thread finds",
           "[sliding][session][parallel]") {
-  for (const SlidingSolver solver : {SlidingSolver::Fast, SlidingSolver::Full}) {
-    INFO("solver " << static_cast<int>(solver));
-    const SlideTotals one = straightSolve(manyStarts(), findSolutions(solver, 1), true);
-    CHECK(one.assemblies > 100);
-    CHECK(one.solutions > 10);
-    CHECK(one.solutions == one.endings.size());
-    // which of two starts with as many moves to one picture is kept depends
-    // on the order the assembly threads hand them over: endings only
-    SlideTotals four = straightSolve(manyStarts(), findSolutions(solver, 4), false);
-    SlideTotals oneEndings = one;
-    oneEndings.starts.clear();
-    CHECK(four == oneEndings);
-  }
+  const SlideTotals one = straightSolve(manyStarts(), findSolutions(1), true);
+  CHECK(one.assemblies > 100);
+  CHECK(one.solutions > 10);
+  CHECK(one.solutions == one.endings.size());
+  // which of two starts with as many moves to one picture is kept depends
+  // on the order the assembly threads hand them over: endings only
+  SlideTotals four = straightSolve(manyStarts(), findSolutions(4), false);
+  SlideTotals oneEndings = one;
+  oneEndings.starts.clear();
+  CHECK(four == oneEndings);
 
-  // a full search spreading its levels over the session's threads, with the
+  // a search spreading its levels over the session's threads, with the
   // progress read meanwhile
   Puzzle p = test::loadFixture("sliding/test_sliding_nested.xmpuzzle");
   p.getProblem(0).removeAllSolutions();
-  SolveOptions o = findSolutions(SlidingSolver::Full, 4);
+  SolveOptions o = findSolutions(4);
   o.sliding.nested = true;
   SolveSession s(p, p.getProblem(0), o);
   REQUIRE(s.start().has_value());
@@ -190,7 +185,7 @@ TEST_CASE("sliding session: pausing and continuing finds every solution once",
   std::mt19937 rng(20261010);
   for (const unsigned int threads : {1U, 4U}) {
     INFO(threads << " thread(s)");
-    const SolveOptions o = findSolutions(SlidingSolver::Full, threads);
+    const SolveOptions o = findSolutions(threads);
     const SlideTotals expected = straightSolve(manyStarts(), o, threads == 1);
 
     Puzzle p = manyStarts();
@@ -225,7 +220,7 @@ TEST_CASE("sliding session: pausing and continuing finds every solution once",
 TEST_CASE("sliding session: a search out of memory names the program's settings",
           "[sliding][session]") {
   Puzzle p = swapped(3);
-  SolveOptions o = findSolutions(SlidingSolver::Fast, 1);
+  SolveOptions o = findSolutions(1);
   o.sliding.memoryBytes = 1;
   o.settingsPlace = "Settings ▸ Solver";
   SolveSession s(p, p.getProblem(0), o);
@@ -247,11 +242,13 @@ TEST_CASE("sliding session: a search out of memory names the program's settings"
 
 TEST_CASE("sliding session: a save point lets the search under way finish, a pause does not",
           "[sliding][session]") {
-  // A 4x4 tray of fifteen with a swap no sliding makes: the fast search
-  // stops at its limit of 250,000 arrangements.
+  // A 4x4 tray of fifteen with a swap no sliding makes: the search stops at
+  // its memory limit, kept small here.
+  SolveOptions o = findSolutions(2);
+  o.sliding.memoryBytes = 8000000;
   {
     Puzzle p = swapped(4);
-    SolveSession s(p, p.getProblem(0), findSolutions(SlidingSolver::Fast, 2));
+    SolveSession s(p, p.getProblem(0), o);
     REQUIRE(s.start().has_value());
     untilSearching(s);
     s.pauseAtSavePoint();
@@ -263,10 +260,11 @@ TEST_CASE("sliding session: a save point lets the search under way finish, a pau
     CHECK(pr.getNumAssemblies() == 1);
     CHECK(pr.getNumSolutions() == 0);
     CHECK(pr.getPending().empty());
-    CHECK(s.note() ==
-          "1 start layout was not searched completely: the search reached its limit of "
-          "250,000 arrangements. There may be solutions the solver did not find. Try the "
-          "Sliding Deep or Full Solver.");
+    CHECK(s.note().starts_with(
+        "1 start layout was not searched completely: the search reached its memory limit of "));
+    CHECK(s.note().ends_with(
+        " arrangements. There may be solutions the solver did not find. Try Enable High "
+        "Memory."));
     // carried on, the assembler finds no other start
     REQUIRE(s.resume().has_value());
     s.wait();
@@ -275,7 +273,7 @@ TEST_CASE("sliding session: a save point lets the search under way finish, a pau
   }
   {
     Puzzle p = swapped(4);
-    SolveSession s(p, p.getProblem(0), findSolutions(SlidingSolver::Fast, 2));
+    SolveSession s(p, p.getProblem(0), o);
     REQUIRE(s.start().has_value());
     untilSearching(s);
     s.pause();
@@ -294,7 +292,7 @@ TEST_CASE("sliding session: a save point lets the search under way finish, a pau
 TEST_CASE("sliding session: a search that searched everything says so", "[sliding][session]") {
   // the 3x3 tray of eight: every arrangement searched, no path
   Puzzle p = swapped(3);
-  SolveSession s(p, p.getProblem(0), findSolutions(SlidingSolver::Fast, 1));
+  SolveSession s(p, p.getProblem(0), findSolutions(1));
   REQUIRE(s.start().has_value());
   s.wait();
   REQUIRE(s.state() == SolveState::Finished);
@@ -309,7 +307,7 @@ TEST_CASE("sliding session: a search that searched everything says so", "[slidin
   CHECK(pr.getSearched() == 181440);
 
   // with nested slides the hint is the partial nesting
-  SolveOptions nested = findSolutions(SlidingSolver::Fast, 1);
+  SolveOptions nested = findSolutions(1);
   nested.sliding.nested = true;
   REQUIRE(s.setOptions(nested).has_value());
   REQUIRE(s.start().has_value());
@@ -322,7 +320,7 @@ TEST_CASE("sliding session: a search that searched everything says so", "[slidin
 
 TEST_CASE("sliding session: abort throws the search away", "[sliding][session]") {
   Puzzle p = swapped(4);
-  SolveSession s(p, p.getProblem(0), findSolutions(SlidingSolver::Full, 2));
+  SolveSession s(p, p.getProblem(0), findSolutions(2));
   REQUIRE(s.start().has_value());
   untilSearching(s);
   s.abort();
@@ -335,8 +333,7 @@ TEST_CASE("sliding session: abort throws the search away", "[sliding][session]")
 
 TEST_CASE("sliding session: without Find Solutions the starts are kept, with Just Count counted",
           "[sliding][session]") {
-  const SlideTotals solved = straightSolve(manyStarts(), findSolutions(SlidingSolver::Fast, 1),
-                                           true);
+  const SlideTotals solved = straightSolve(manyStarts(), findSolutions(1), true);
   {
     Puzzle p = manyStarts();
     SolveOptions o;
@@ -354,7 +351,7 @@ TEST_CASE("sliding session: without Find Solutions the starts are kept, with Jus
   }
   {
     Puzzle p = manyStarts();
-    SolveOptions o = findSolutions(SlidingSolver::Fast, 1);
+    SolveOptions o = findSolutions(1);
     o.justCount = true;
     SolveSession s(p, p.getProblem(0), o);
     REQUIRE(s.start().has_value());
@@ -370,7 +367,7 @@ TEST_CASE("sliding session: without Find Solutions the starts are kept, with Jus
 
 TEST_CASE("sliding session: the solve's limit thins the kept solutions", "[sliding][session]") {
   Puzzle p = manyStarts();
-  SolveOptions o = findSolutions(SlidingSolver::Fast, 1);
+  SolveOptions o = findSolutions(1);
   o.solutionLimit = 4;
   SolveSession s(p, p.getProblem(0), o);
   REQUIRE(s.start().has_value());
@@ -404,7 +401,7 @@ TEST_CASE("sliding session: the start locks and the holes are set up as a solve 
   CHECK(pieceColor(p, 1) == 2);
 
   Puzzle q = before;
-  SolveOptions o = findSolutions(SlidingSolver::Fast, 1);
+  SolveOptions o = findSolutions(1);
   SolveSession s(q, q.getProblem(0), o);
   REQUIRE(s.start().has_value());
   s.wait();
@@ -422,7 +419,7 @@ TEST_CASE("sliding playback: a move round a corner follows its route", "[sliding
   tray.setGoalPiece(tray.getIndex(1, 1, 0), a + 1);
   syncSlidingProblems(puz);
 
-  SolveSession s(puz, puz.getProblem(0), findSolutions(SlidingSolver::Full, 1));
+  SolveSession s(puz, puz.getProblem(0), findSolutions(1));
   REQUIRE(s.start().has_value());
   s.wait();
   const Problem& pr = puz.getProblem(0);
@@ -485,7 +482,7 @@ TEST_CASE("sliding session: copies of a piece share their starts and goals",
     Puzzle p = twoCopies({1, 2}, {2, 3});
     CHECK(startGoalError(p, 0).empty());
     CHECK(p.getProblem(0).getNeutralFitColors() == 0);
-    const SlideTotals t = straightSolve(p, findSolutions(SlidingSolver::Full, 1), false);
+    const SlideTotals t = straightSolve(p, findSolutions(1), false);
     CHECK(t.assemblies == 1);
     CHECK(t.solutions == 1);
   }
@@ -495,14 +492,14 @@ TEST_CASE("sliding session: copies of a piece share their starts and goals",
     Puzzle p = twoCopies({1}, {2, 3});
     CHECK(startGoalError(p, 0).empty());
     CHECK(p.getProblem(0).getNeutralFitColors() == std::uint64_t{1} << 2);
-    const SlideTotals t = straightSolve(p, findSolutions(SlidingSolver::Full, 1), false);
+    const SlideTotals t = straightSolve(p, findSolutions(1), false);
     CHECK(t.assemblies == 2);
     CHECK(t.solutions == 1);
   }
   // a goal for one copy: one copy on it is the goal, the other ends anywhere
   {
     Puzzle p = twoCopies({1, 2}, {3});
-    const SlideTotals t = straightSolve(p, findSolutions(SlidingSolver::Full, 1), false);
+    const SlideTotals t = straightSolve(p, findSolutions(1), false);
     CHECK(t.assemblies == 1);
     CHECK(t.solutions == 1);
     REQUIRE(t.endings.size() == 1);

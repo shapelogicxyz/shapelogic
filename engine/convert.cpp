@@ -31,13 +31,6 @@ const Names<SolverType>& solverNames() {
   return n;
 }
 
-const Names<sliding::SlidingSolver>& slidingSolverNames() {
-  static const Names<sliding::SlidingSolver> n = {{"fast", sliding::SlidingSolver::Fast},
-                                                  {"deep", sliding::SlidingSolver::Deep},
-                                                  {"full", sliding::SlidingSolver::Full}};
-  return n;
-}
-
 const Names<stacking::StackingSolver>& stackingSolverNames() {
   static const Names<stacking::StackingSolver> n = {{"stacking", stacking::StackingSolver::Shortest},
                                                     {"panex", stacking::StackingSolver::Panex}};
@@ -543,7 +536,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   SolveOptions o;
   o.solver = s.settings.solver;
   o.threads = s.settings.threads;
-  // where a full sliding search keeps its levels and a Panex search is
+  // where a sliding search keeps its levels and a Panex search is
   // saved: the engine's settings
   o.sliding.workDir = s.settings.slideFolder;
   o.sliding.diskBudget = static_cast<std::uint64_t>(s.settings.slideDiskGB * 1e9);
@@ -586,7 +579,6 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
       p.fail("'sliding' must be an object");
     } else {
       Params sp(sj);
-      o.sliding.solver = sp.optChoice("solver", slidingSolverNames()).value_or(o.sliding.solver);
       o.sliding.nested = sp.optBoolean("nestedSlides", o.sliding.nested);
       o.sliding.partialNested = sp.optBoolean("partialNested", o.sliding.partialNested);
       o.sliding.verticalMoves = sp.optBoolean("verticalMoves", o.sliding.verticalMoves);

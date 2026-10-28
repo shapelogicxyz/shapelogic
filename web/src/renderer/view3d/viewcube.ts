@@ -359,9 +359,31 @@ export class ViewCube {
     g.restore();
   }
 
+  /**
+   * Hides the cube while the toolbar (top left) would touch it, in a view too
+   * narrow for both. Minimal density hides the toolbar until it is wanted, so
+   * the cube stays there.
+   */
+  private crowd(): void {
+    const c = this.canvas;
+    const bar = c.parentElement?.querySelector<HTMLElement>('#vt') ?? null;
+    let crowded = false;
+    if (
+      bar !== null &&
+      c.style.display !== 'none' &&
+      document.documentElement.dataset.density !== 'minimal'
+    ) {
+      const cs = getComputedStyle(c);
+      crowded =
+        cs.display !== 'none' && bar.offsetLeft + bar.offsetWidth + 8 > c.offsetLeft + PAD.l;
+    }
+    c.classList.toggle('crowded', crowded);
+  }
+
   /** Draws the cube for the camera now. */
   draw(): void {
     const c = this.canvas;
+    this.crowd();
     if (c.style.display === 'none') {
       return;
     }
@@ -372,8 +394,6 @@ export class ViewCube {
       c.width = bw;
       c.height = bh;
     }
-    const vp = c.parentElement;
-    c.style.top = vp !== null && vp.clientWidth < 640 ? '76px' : '';
     const g = c.getContext('2d');
     if (g === null) {
       return;

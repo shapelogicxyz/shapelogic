@@ -858,7 +858,7 @@ export class Explorer {
         : m === 'step'
           ? 'The assembly search, one step at a time'
           : 'The disassembly search of the selected solution';
-    const head = `<div class="seg">${seg('placements', 'Placements')}${seg('step', 'Step')}${seg('movements', 'Movements')}</div><span class="mute" style="font-size:12px">${sub}</span><span class="sp"></span><button class="ib" data-ex="close" title="Close explorer  (Esc)">${ic('close', 16)}</button>`;
+    const head = `<div class="seg">${seg('placements', 'Placements')}${seg('step', 'Step')}${seg('movements', 'Movements')}</div><span class="mute" style="font-size:calc(12px + var(--fs))">${sub}</span><span class="sp"></span><button class="ib" data-ex="close" title="Close explorer  (Esc)">${ic('close', 16)}</button>`;
     const [list, right] =
       m === 'placements'
         ? this.placementsHtml()

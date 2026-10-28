@@ -27,16 +27,15 @@ start/goal shapes and their user names, stamps, `syncSlidingProblems`,
 the start locks, the checks (`startGoalError`, `stampOverflowMessage`),
 the older goal-map model the solver still reads, and
 `prepareForSolving` (the maximum of holes and the start locks).
-`solve/sliding_search.h` holds the search (`findSlidePath`, the three
-limits, the memory budget, nested and partially nested slides), the full
-search's level files (`slide_levels.h`) and the routes the player follows
+`solve/sliding_search.h` holds the search (`findSlidePath`, the memory
+budget, nested and partially nested slides), the search's level files (`slide_levels.h`) and the routes the player follows
 (`slideRoute`, `applySlideRoutes`). The file format did not change: what
 the original saved, the model now reads instead of preserving it, and the
 saves stay byte-identical.
 
 **Sliding runs go through `SolveSession`** (decision 0010), not a side
-path. `SolveOptions.sliding` (`SlidingOptions`: the solver, nested and
-partially nested slides, high memory, the work folder and disk budget,
+path. `SolveOptions.sliding` (`SlidingOptions`: nested and partially
+nested slides, high memory, the work folder and disk budget,
 the A/B switches) carries what the solve thread's flags did. The session
 forces what the solve thread forced (Classic; mirrors and rotations kept;
 no complete rotations; strict colours), runs the slide search in the
@@ -44,7 +43,7 @@ assembler's callback on a pool of its own, puts a stopped search's start
 back as pending (not counted), lets the search under way finish at a save
 point, keeps the shorter path of two that end alike (`finalPlacementKey`),
 and gives the original's summary as `note()`. The search polls only its
-`StopToken` (decision 0004); the full search spreads its levels over a
+`StopToken` (decision 0004); the search spreads its levels over a
 `ThreadPool` and gives the same path on any number of threads.
 
 **No environment and no printing in the core.** The work folder and the
@@ -80,8 +79,8 @@ fit) are its own. Shape summaries give a start/goal shape's number
 when a stamp requires them; `document.changed` and the snapshot of a
 document just opened carry the notices. All additive.
 
-**`bt` solves sliding puzzles as burrTxt did**, with `--solver`
-fast/deep/full, `--nested-slides`, `--partial-nested` and
+**`bt` solves sliding puzzles as burrTxt did** with its full search
+(`--solver sliding`, the only one), `--nested-slides`, `--partial-nested` and
 `--high-memory`; `-x` and `--save` too (burrTxt2 refused `-d` on the
 sliding grid, which has no take-apart; `bt --save -d` runs the solve
 thread's sliding run, which is what solved such puzzles in the GUI).
@@ -90,7 +89,7 @@ thread's sliding run, which is what solved such puzzles in the GUI).
 original:
 1. With nested slides, a puzzle of more than 64 pieces uses the text-key
    search: the original's position tables overran their arrays there.
-2. The full search's level threads are a `ThreadPool` job (one job saves
+2. The search's level threads are a `ThreadPool` job (one job saves
    the finished level, then expands), not threads of its own.
 3. A start lock that is already right is not written again (writing it
    dropped the shape's caches; the answers are the same).
@@ -165,10 +164,28 @@ lists each copy placed. The front end places the stamps on the Puzzle
 workspace, where the counts are, not on the Entities tab as the original
 did (docs/webui-spec.md, section 8).
 
+**One sliding solver** (added later). The original offered three: the
+Sliding Fast Solver and the Sliding Deep Solver, a queue search that
+stopped at 250,000 and 1,000,000 arrangements per start, and the Sliding
+Full Solver, the level search with no limit. Only the last is kept, as
+the **Sliding Puzzle Solver**: it finds a path as short as the others
+whenever they find one, it proves there is none where they gave up, and
+on a search of any size it is as fast or faster, spreading each level
+over every core (the queue search ran on one). The queue search,
+`maxStates` and `SlideOutcome::Limit` went with them; a search stops only
+at its memory or disk budget, or when asked. `engine.info` lists the one
+solver (`slidingSolvers`, `"sliding"`), `SlidingOptions` has no `solver`,
+`bt --solver` takes `"Sliding Puzzle Solver"` (`sliding`) and the Python
+module has no `sliding_solver`. A problem's stored solver type, the
+original's fast, deep or full, is kept as it was and not written; the
+original opens a file the new code saved with its default solver. The
+legacy search over text keys stays, for trays the position tables cannot
+pack and as the reference the tests compare the level search with.
+
 ## Consequences
 - The oracle harness has a `sliding` tier: the fixtures and puzzles built
   with the original's code from its `test_sliding.cpp`
-  (`oracle.py sliding-puzzles`), compared for each solver in the summary,
+  (`oracle.py sliding-puzzles`), compared with the full search in the summary,
   the solved files and the text; the routes of the original's solutions
   are recorded (`oracle.py record-slide-routes`) for the playback.
 - The front end has the start/goal editor (the deferred plan's part 2,

@@ -26,9 +26,9 @@ export interface Settings {
   /** The solver when a solve's or analysis's options do not say (default classic). */
   solver: Solver;
   /**
-   * Where a full sliding search keeps its older levels while it runs, in a folder of its own that
-   * goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default:
-   * the user's cache folder's sliding folder.
+   * Where a sliding search keeps its older levels while it runs, in a folder of its own that goes
+   * when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the
+   * user's cache folder's sliding folder.
    */
   slideFolder: string;
   /**
@@ -362,10 +362,12 @@ export type Grid =
 export type Solver = 'classic' | 'crowell';
 
 /**
- * How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full
- * search keeps its older levels on disk and spreads each over threads; the default).
+ * The one solver of sliding puzzles, the Sliding Puzzle Solver: no limit on the arrangements it
+ * visits (it keeps its older levels on disk and spreads each over threads), so it finds the fewest
+ * moves or proves there is no solution. The original's Fast and Deep solvers, which stopped at
+ * 250,000 and 1,000,000 arrangements, are not offered.
  */
-export type SlidingSolver = 'fast' | 'deep' | 'full';
+export type SlidingSolver = 'sliding';
 
 /**
  * The Stacking Solver (the fewest rod transfers: the Panex search whenever the puzzle fits it,
@@ -832,8 +834,8 @@ export interface Part {
  * are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations,
  * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested,
  * verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and
- * highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking
- * solvers too.
+ * highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored
+ * and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
  */
 export interface SolverSettings {
   disassemble?: boolean;
@@ -849,7 +851,9 @@ export interface SolverSettings {
   verticalMoves?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
-  /** classic, crowell (sliding: fast, deep, full). */
+  /**
+   * classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written).
+   */
   solverType?: string;
   /** unsorted, moves, level, rotations. */
   sortBy?: string;
@@ -983,10 +987,10 @@ export interface SolveOptions {
  * mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick
  * fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver,
  * checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list).
- * Where a full search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+ * There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where
+ * the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
  */
 export interface SlidingOptions {
-  solver?: SlidingSolver;
   /** A piece may carry what is nested in its outline (Allow Nested Slides). */
   nestedSlides?: boolean;
   /** And what is partly nested in it (Allow Partially Nested); implies nestedSlides. */
@@ -1105,7 +1109,7 @@ export interface SolveProgress {
    */
   searched: number;
   /**
-   * How many moves deep a full sliding search is (0 before its first level, and for the other
+   * How many moves deep a sliding search is (0 before its first level, and for the other
    * searches); how many moves deep both ends of the Panex search are together.
    * @minimum 0
    */
@@ -1604,8 +1608,8 @@ export interface Methods {
         label: string;
       })[];
       /**
-       * The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu
-       * labels.
+       * The solver of sliding puzzles, one: the Sliding Puzzle Solver (the Solver Type a sliding
+       * puzzle shows; there is none to choose).
        */
       slidingSolvers: ({
         solver: SlidingSolver;

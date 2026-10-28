@@ -14,8 +14,10 @@
 // sliding puzzle (docs/webui-spec.md, section 8.3) the original showed
 // other boxes: Allow Nested Slides and Allow Partially Nested (only with
 // nested slides) in the places of Keep Mirror, Keep Rotated and Deep
-// Symmetry Check, the three sliding solvers in the
-// Solver Type list, Find Solutions checked at first, and none of Just
+// Symmetry Check, one solver in the Solver Type list (the Sliding Puzzle
+// Solver, the original's full search; its Fast and Deep solvers are not
+// offered, and the solver is not stored), Find Solutions checked at first,
+// and none of Just
 // Levels, Check Rotations, Strict Colours and the symmetry options; and
 // Allow Vertical Moves, which the original (trays one layer deep) did not
 // have, off by default so that a piece stays in its layer. On a
@@ -30,7 +32,6 @@
 
 import type {
   Grid,
-  SlidingSolver,
   SolveOptions,
   Solver,
   SolverSettings,
@@ -80,8 +81,6 @@ export interface SearchOptions {
   verticalMoves: boolean;
   autosave: boolean;
   solver: Solver;
-  /** Sliding: the search's limit (the sliding Solver Type list). */
-  slidingSolver: SlidingSolver;
   sortBy: SortBy;
 }
 
@@ -100,7 +99,6 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   verticalMoves: false,
   autosave: true,
   solver: 'classic',
-  slidingSolver: 'full',
   sortBy: 'moves',
 };
 
@@ -160,7 +158,6 @@ export function stackingSolverOf(panexColumns: boolean): StackingSolver {
 }
 
 const SOLVERS: readonly Solver[] = ['classic', 'crowell'];
-const SLIDING_SOLVERS: readonly SlidingSolver[] = ['fast', 'deep', 'full'];
 const SORTS: readonly SortBy[] = ['unsorted', 'moves', 'level', 'rotations'];
 
 /** The sort-by choices, the original's labels (its sortMethod menu). */
@@ -175,8 +172,9 @@ export const SORT_CHOICES: readonly { value: SortBy; label: string; needsDisasse
 /**
  * The options a problem stored (applySolverOptions): a missing setting
  * keeps the default, an unknown solver type or sort the default too. A
- * sliding puzzle's solver type is a sliding solver's name. On a grid
- * without a take-apart (canDisassemble false) the solve only assembles.
+ * sliding or stacking puzzle has one solver, so its stored solver type
+ * plays no part. On a grid without a take-apart (canDisassemble false) the
+ * solve only assembles.
  */
 export function readOptions(
   stored: SolverSettings,
@@ -184,7 +182,6 @@ export function readOptions(
   family: Family = 'brick',
   canDisassemble = true,
 ): SearchOptions {
-  const sliding = family === 'sliding';
   const o: SearchOptions = { ...(base ?? defaultsOf(family)) };
   const boxes: BoxName[] = [
     'disassemble',
@@ -207,15 +204,7 @@ export function readOptions(
     }
   }
   const st = stored.solverType;
-  if (sliding) {
-    if (typeof st === 'string' && (SLIDING_SOLVERS as readonly string[]).includes(st)) {
-      o.slidingSolver = st as SlidingSolver;
-    }
-  } else if (
-    family === 'brick' &&
-    typeof st === 'string' &&
-    (SOLVERS as readonly string[]).includes(st)
-  ) {
+  if (family === 'brick' && typeof st === 'string' && (SOLVERS as readonly string[]).includes(st)) {
     o.solver = st as Solver;
   }
   const sb = stored.sortBy;
@@ -250,9 +239,10 @@ export function writeOptions(
     autosave: o.autosave,
     sortBy: o.sortBy,
   };
-  // a stacking puzzle's one solver was not stored (storeSolverOptions)
-  if (family !== 'stacking') {
-    out.solverType = sliding ? o.slidingSolver : o.solver;
+  // a stacking puzzle's one solver was not stored (storeSolverOptions), nor
+  // is a sliding puzzle's (a solver type stored before is kept as it was)
+  if (family === 'brick') {
+    out.solverType = o.solver;
   }
   // the sliding boxes go with a sliding puzzle's problems only
   if (sliding) {
@@ -421,7 +411,6 @@ export function solveOptions(
       keepAtMost: Math.max(0, Math.round(limits.keepAtMost)),
       keepEach: Math.max(1, Math.round(limits.keepEach)),
       sliding: {
-        solver: o.slidingSolver,
         nestedSlides: o.nestedSlides,
         partialNested: o.nestedSlides && o.partialNested,
         verticalMoves: o.verticalMoves,
@@ -525,8 +514,8 @@ export function savedDetails(
 
 /**
  * The Activity line while a search runs: the solver's name from the
- * engine's list ("Complete (ShapeLogic)", "Sliding Full Solver (full
- * depth)"…), with "solver" after a name that does not say it.
+ * engine's list ("Complete (ShapeLogic)", "Sliding Puzzle Solver"…),
+ * with "solver" after a name that does not say it.
  */
 export function searchActive(label: string): string {
   return /solver/i.test(label)

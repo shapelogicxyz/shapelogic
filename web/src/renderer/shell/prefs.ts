@@ -13,12 +13,16 @@ export type ZAxis = 'Z Towards' | 'Z Up';
 /** The settings and their values. */
 export interface Prefs {
   density: 'Standard' | 'Compact' | 'Minimal';
+  /** The interface's text size, the same in every density: Medium and Large each about 2 points larger. */
+  fontSize: 'Small' | 'Medium' | 'Large';
   theme: 'Light' | 'Dark' | 'System';
   /** The side cards' widths: Static, sideL and sideR; Variable, wider as a wide window grows. */
   sidebar: 'Static' | 'Variable';
   /** The left and right side cards' widths in Static, in pixels (SIDE_MIN to SIDE_MAX). */
   sideL: number;
   sideR: number;
+  /** Where the workspace tabs (Shapes, Puzzle, Solver) are: centred in the top bar, or the rail at the left. */
+  tabsAt: 'Top' | 'Left';
   undo: number;
   tips: boolean;
   /** Ask GitHub for a newer release at startup (shell/updates.ts). */
@@ -30,6 +34,8 @@ export interface Prefs {
   zAxis: ZAxis;
   /** The cube grid editor's plane when a puzzle is opened or made. */
   gridPlane: 'XY' | 'XZ' | 'YZ';
+  /** The layer next to the edited one whose cells the voxel editor hints at (the original's was below). */
+  hintLayer: 'Below' | 'Above';
   /** A new shape's size when none is selected, in the size steppers' units. */
   newX: number;
   newY: number;
@@ -38,6 +44,8 @@ export interface Prefs {
   slideX: number;
   slideY: number;
   slideZ: number;
+  /** A new sliding board's colour, #rrggbb. */
+  boardColour: string;
   lights: boolean;
   fade: boolean;
   /** The Solver's 3D view: each piece's label drawn on it (Search options). */
@@ -59,10 +67,12 @@ export interface Prefs {
 /** The defaults (the engine's for undo depth, threads, memory and disk). */
 export const DEFAULTS: Readonly<Prefs> = {
   density: 'Standard',
+  fontSize: 'Small',
   theme: 'System',
   sidebar: 'Static',
-  sideL: 320,
+  sideL: 340,
   sideR: 340,
+  tabsAt: 'Top',
   undo: 25,
   tips: true,
   updates: true,
@@ -71,12 +81,14 @@ export const DEFAULTS: Readonly<Prefs> = {
   rot: 'Free Spin',
   zAxis: 'Z Towards',
   gridPlane: 'XY',
+  hintLayer: 'Below',
   newX: 4,
   newY: 4,
   newZ: 4,
   slideX: 6,
   slideY: 6,
   slideZ: 1,
+  boardColour: '#808080',
   lights: true,
   fade: true,
   pieceLabels: false,
@@ -120,13 +132,16 @@ export function onPrefs(listener: (changed: (keyof Prefs)[]) => void): () => voi
 /** The choices of the settings that have them (the settings dialog's). */
 const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
   density: ['Standard', 'Compact', 'Minimal'],
+  fontSize: ['Small', 'Medium', 'Large'],
   theme: ['Light', 'Dark', 'System'],
   sidebar: ['Static', 'Variable'],
+  tabsAt: ['Top', 'Left'],
   // the names before Free Spin and Top Up are dropped: back to the default
   rot: ['Free Spin', 'Top Up'],
   // Z Away and Z Up + Y Towards are dropped: back to the default
   zAxis: ['Z Towards', 'Z Up'],
   gridPlane: ['XY', 'XZ', 'YZ'],
+  hintLayer: ['Below', 'Above'],
   solverType: ['Complete', 'Fast'],
 };
 
@@ -157,9 +172,11 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
           ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= NEW_SIZE_MAX
           : SIDE.includes(k)
             ? typeof v === 'number' && Number.isInteger(v) && v >= SIDE_MIN && v <= SIDE_MAX
-            : typeof DEFAULTS[k] === 'number'
-              ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
-              : typeof v === typeof DEFAULTS[k];
+            : k === 'boardColour'
+              ? typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+              : typeof DEFAULTS[k] === 'number'
+                ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
+                : typeof v === typeof DEFAULTS[k];
     if (ok) {
       out[k] = v;
     }

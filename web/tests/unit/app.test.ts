@@ -382,6 +382,9 @@ describe('the stored settings read back', () => {
     expect(validPrefs({ sidebar: 'Wide' })).toEqual({});
     expect(validPrefs({ sideL: SIDE_MIN - 1, sideR: SIDE_MAX })).toEqual({ sideR: SIDE_MAX });
     expect(validPrefs({ sideL: 400.5, sideR: SIDE_MAX + 1 })).toEqual({});
+    // the font size: Small, Medium or Large
+    expect(validPrefs({ fontSize: 'Large' })).toEqual({ fontSize: 'Large' });
+    expect(validPrefs({ fontSize: 'Huge' })).toEqual({});
     // a sliding board starts 6 by 6 by 1
     expect([DEFAULTS.slideX, DEFAULTS.slideY, DEFAULTS.slideZ]).toEqual([6, 6, 1]);
     expect(validPrefs({ ...DEFAULTS })).toEqual(DEFAULTS);

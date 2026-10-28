@@ -42,7 +42,7 @@ struct IteratorOptions {
   /// The threads of the solve; 0 for every hardware thread (the original's
   /// default, without SHAPELOGIC_THREADS).
   unsigned int threads = 0;
-  /// A sliding puzzle's search (the GUI's sliding solvers and boxes).
+  /// A sliding puzzle's search (the GUI's sliding boxes).
   sliding::SlidingOptions sliding;
   /// A stacking puzzle's search; its workDir is where a Panex search keeps
   /// its levels (empty: nowhere, each half solved again).

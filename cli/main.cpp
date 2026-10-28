@@ -106,26 +106,13 @@ std::string squash(std::string_view s) {
 bool pickSolver(PuzzleKind kind, const char* name, Options& o) {
   const std::string n = squash(name);
   if (kind == PuzzleKind::Sliding) {
-    if (n == "fast" || n == "slidingfast" || n == "slidingfastsolver" ||
-        n == "slidingfastsolver250kdepth") {
-      o.slidingSolver = bt::sliding::SlidingSolver::Fast;
-      return true;
-    }
-    if (n == "deep" || n == "slidingdeep" || n == "slidingdeepsolver" ||
-        n == "slidingdeepsolver1mildepth") {
-      o.slidingSolver = bt::sliding::SlidingSolver::Deep;
-      return true;
-    }
-    if (n == "full" || n == "slidingfull" || n == "slidingfullsolver" ||
-        n == "slidingfullsolverfulldepth") {
-      o.slidingSolver = bt::sliding::SlidingSolver::Full;
+    // the one sliding solver
+    if (n == "sliding" || n == "slidingpuzzlesolver") {
       return true;
     }
     std::fprintf(stderr,
                  "shapelogic_cli: unknown solver '%s' for a sliding puzzle\n"
-                 "    use \"Sliding Fast Solver\", \"Sliding Deep Solver\" or \"Sliding Full "
-                 "Solver\"\n"
-                 "    (also: fast, deep, full)\n",
+                 "    use \"Sliding Puzzle Solver\" (also: sliding)\n",
                  name);
     return false;
   }
@@ -307,13 +294,12 @@ void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
   }
 }
 
-// The slide search the command line asks for: burrTxt's flags, and where a
-// full search keeps its older levels: $SHAPELOGIC_SLIDE_DIR, or else the
+// The slide search the command line asks for: burrTxt's flags, and where
+// the search keeps its older levels: $SHAPELOGIC_SLIDE_DIR, or else the
 // user's cache folder, and $SHAPELOGIC_SLIDE_DISK_GB (the original's
 // library read them; the core takes them as options).
 bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   bt::sliding::SlidingOptions s;
-  s.solver = o.slidingSolver;
   s.nested = o.nestedSlides;
   s.partialNested = o.partialNested;
   s.verticalMoves = o.verticalMoves;
@@ -328,7 +314,6 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   }
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
-  s.fullThroughQueue = o.slideQueue;
   s.step = o.slideStep;
   return s;
 }
@@ -603,7 +588,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
   const bool sliding = bt::sliding::isSliding(puzzle);
   const bool stacking = bt::stacking::isStacking(puzzle);
-  // a sliding search spreads a full search's levels over threads of its own
+  // a sliding search spreads its levels over threads of its own
   std::unique_ptr<bt::ThreadPool> slidePool;
 
   const ProblemRange range = problemRange(o, puzzle);
@@ -725,8 +710,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
             bt::sliding::SlideSearch search = slideSearch(o, slidePool.get());
             const std::optional<bt::Separation> path =
                 bt::sliding::findSlidePath(puzzle, problem, assembly, search);
-            if (search.outcome == bt::sliding::SlideOutcome::Limit ||
-                search.outcome == bt::sliding::SlideOutcome::Memory ||
+            if (search.outcome == bt::sliding::SlideOutcome::Memory ||
                 search.outcome == bt::sliding::SlideOutcome::Disk) {
               slideStartsCut++;
             }
@@ -820,10 +804,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
               slideDiskError.empty()
                   ? "the search limit was reached"
                   : slideDiskError.substr(0, slideDiskError.size() - 1).c_str(),
-              slideMemoryCut ? (o.highMemory ? "" : " (try --high-memory)")
-                             : (o.slidingSolver == bt::sliding::SlidingSolver::Full
-                                    ? ""
-                                    : " (try --solver full)"));
+              slideMemoryCut && !o.highMemory ? " (try --high-memory)" : "");
         } else if (solutions == 0 && assemblies > 0 && o.slideStep > 1) {
           std::printf("no solution with --slide-step %d; one may need stops in between\n",
                       o.slideStep);

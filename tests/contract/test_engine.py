@@ -65,9 +65,8 @@ def engine_info_and_settings(e):
     check(info["hardwareThreads"] >= 1, "hardware threads")
     supported = {g["grid"]: g["supported"] for g in info["grids"]}
     check(all(supported.values()), f"what is solved {supported}")
-    check([x["solver"] for x in info["slidingSolvers"]] == ["fast", "deep", "full"] and
-          info["slidingSolvers"][2]["label"] == "Sliding Full Solver (full depth)",
-          f"the sliding solvers {info['slidingSolvers']}")
+    check(info["slidingSolvers"] == [{"solver": "sliding", "label": "Sliding Puzzle Solver"}],
+          f"the sliding solver {info['slidingSolvers']}")
     check(info["stackingSolvers"] == [{"solver": "stacking", "label": "Stacking Solver"},
                                       {"solver": "panex", "label": "Panex Solver"}],
           f"the stacking solvers {info['stackingSolvers']}")
@@ -871,8 +870,7 @@ def sliding_solve_pause_continue_and_play(e):
         snap = e.call("document.open", {"path": str(FIXTURES / "test_sliding_solver.xmpuzzle")})
         p = snap["problems"][0]["id"]
         start = len(e.events)
-        e.call("solve.start", {"problem": p, "options": {"disassemble": True,
-                                                          "sliding": {"solver": "full"}}})
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True}})
         check(wait_state(e, p, ["finished", "error"], start) == "finished", "the sliding solve finished")
         st = e.call("solve.status", {"problem": p})
         check(st["note"] is None and st["progress"]["solutions"] == 1, f"its status {st}")
@@ -898,31 +896,43 @@ def sliding_solve_pause_continue_and_play(e):
                                                           "sliding": {"nestedSlides": True}}})
         check(wait_state(e, p, ["finished", "error"], start) == "finished", "the nested solve finished")
         check(e.call("solution.page", {"problem": p})["rows"][0]["moves"] == 47, "47 moves nested")
-        e.fails("solve.start", {"problem": p, "options": {"sliding": {"solver": "bfs"}}}, "invalid_params")
+        # one sliding solver: there is none to choose
+        e.fails("solve.start", {"problem": p, "options": {"sliding": {"solver": "full"}}}, "invalid_params")
         e.fails("solve.start", {"problem": p, "options": {"sliding": {"depth": 3}}}, "invalid_params")
 
-        # paused in the middle of a search, carried on: the deep search's limit,
-        # with its note
+        # paused in the middle of a search, carried on: a search with no
+        # solution stops at a small memory limit, with its note
+        memory = e.call("settings.get")["searchMemoryGB"]
+        e.call("settings.set", {"searchMemoryGB": 0.2})
         snap = e.call("document.open",
                       {"path": str(FIXTURES / "sliding" / "slide_swapped_fifteen.xmpuzzle")})
         p = snap["problems"][0]["id"]
-        deep = {"disassemble": True, "sliding": {"solver": "deep"}}
+        find = {"disassemble": True}
         start = len(e.events)
-        e.call("solve.start", {"problem": p, "options": deep})
-        e.wait_event("solve.progress", lambda x: x["problem"] == p and x["progress"]["stage"] == "search"
-                     and x["progress"]["searched"] > 0, start=start, timeout=600)
-        e.call("solve.pause", {"problem": p})
-        state = wait_state(e, p, ["paused", "finished", "error"], start)
+        e.call("solve.start", {"problem": p, "options": find})
+        # paused once it searches, unless it is through first
+        ended = ["finished", "error"]
+        method, params = e.wait_first(
+            [("solve.progress", lambda x: x["problem"] == p and x["progress"]["stage"] == "search"
+              and x["progress"]["searched"] > 0),
+             ("solve.state", lambda x: x["problem"] == p and x["state"] in ended)],
+            start=start, timeout=600)
+        if method == "solve.progress":
+            e.call("solve.pause", {"problem": p})
+            state = wait_state(e, p, ["paused", *ended], start)
+        else:
+            state = params["state"]
         if state == "paused":
             # the start under way went back to be searched again: not counted yet
             check(e.call("problem.get", {"problem": p})["assemblies"] == 0, "the start not counted")
             start = len(e.events)
-            e.call("solve.continue", {"problem": p, "options": deep})
+            e.call("solve.continue", {"problem": p, "options": find})
             state = wait_state(e, p, ["finished", "error"], start)
         check(state == "finished", f"carried on to its end: {state}")
         note = e.call("solve.status", {"problem": p})["note"]
-        check(note is not None and "limit of 1,000,000 arrangements" in note, f"the note {note!r}")
-        e.call("settings.set", {"slideFolder": was})
+        check(note is not None and "reached its memory limit of" in note and
+              "Settings ▸ Solver can give it more Search memory" in note, f"the note {note!r}")
+        e.call("settings.set", {"slideFolder": was, "searchMemoryGB": memory})
 
 
 @test

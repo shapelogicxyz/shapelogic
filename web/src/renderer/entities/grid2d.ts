@@ -19,7 +19,10 @@
 // tiles; in the Puzzle workspace's Start and goal grids (stamping) the
 // marked cells in their pieces' colours, the piece to place outlined under
 // the mouse (`drawStampPreview`), a click placing it and a right click
-// taking off the copy under the mouse.
+// taking off the copy under the mouse. The cells of the layer next to the
+// one drawn (below or above, the Voxel hint layer setting) show faintly
+// under its empty cells, each in its own layer's outline: grideditor.cpp's
+// dimmed squares of the layer below, a sixth of the shape's colour.
 
 import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
@@ -48,8 +51,13 @@ export interface GridInput {
   /** The constraint colours by id, #rrggbb. */
   palette: ReadonlyMap<string, string>;
   /** A sliding start/goal shape: its tiles, and the marks shown (pieces' colours by cell key); null for any other shape. */
-  tray?: { marks: ReadonlyMap<string, Rgb3> } | null;
+  tray?: { marks: ReadonlyMap<string, Rgb3>; own?: Rgb3 | null } | null;
+  /** The layer hinted at under this one: its drawing and its cells (null: none). */
+  hint?: { geo: LayerGeometry; cells: ReadonlyMap<string, CellValue> } | null;
 }
+
+/** How much of the shape's colour a hinted cell shows (the original's sixth). */
+const HINT_OPACITY = 1 / 6;
 
 /** What the grid asks of the editor. */
 export interface GridHost {
@@ -200,7 +208,7 @@ export class Grid2D {
     );
     this.ox = (aw - ex * this.sc) / 2;
     this.oy = (ah - ey * this.sc) / 2;
-    let b = '';
+    let b = '<g class="hint" pointer-events="none"></g>';
     input.geo.cells.forEach((c, i) => {
       b += this.shapeOf(c, ey, `class="cell sp" data-i="${i}" data-at="${c.at.join(',')}"`);
     });
@@ -264,6 +272,23 @@ export class Grid2D {
   // cell half filled with a dashed border, in the shape's colour; a
   // constraint colour as a box in the top-left quarter)
   private paint(input: GridInput): void {
+    // the hinted layer's cells under this one's, which leave their empty
+    // cells clear (still painted, so they take the pointer)
+    const hint = input.hint ?? null;
+    let hinted = '';
+    if (hint !== null) {
+      for (const c of hint.geo.cells) {
+        if (hint.cells.has(key(c.at))) {
+          hinted += this.shapeOf(c, input.geo.height, 'class="hcell"');
+        }
+      }
+    }
+    const hg = this.svg?.querySelector('.hint');
+    if (hg != null) {
+      hg.setAttribute('fill', input.shapeColour);
+      hg.setAttribute('fill-opacity', HINT_OPACITY.toFixed(3));
+      hg.innerHTML = hinted;
+    }
     let marks = '';
     input.geo.cells.forEach((c, i) => {
       const el = this.cellEls[i];
@@ -286,15 +311,16 @@ export class Grid2D {
         // the tray's chequer, a marked cell in its piece's (grideditor.cpp)
         const odd = ((c.at[0] + c.at[1] + c.at[2]) & 1) === 1;
         const mark = tray.marks.get(key(c.at));
+        const base = mark ?? tray.own;
         col =
-          mark === undefined
+          base == null
             ? odd
               ? TRAY_EDIT.dark
               : TRAY_EDIT.light
-            : hex(odd ? dark(mark) : light(mark));
+            : hex(odd ? dark(base) : light(base));
       }
       el.setAttribute('fill', col);
-      el.setAttribute('fill-opacity', vr ? '0.5' : '1');
+      el.setAttribute('fill-opacity', vr ? '0.5' : v === undefined && hinted !== '' ? '0' : '1');
       el.setAttribute('stroke', vr ? 'var(--text)' : 'var(--line2)');
       el.setAttribute('stroke-width', vr ? '1.6' : '1.2');
       if (vr) {

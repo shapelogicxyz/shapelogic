@@ -82,9 +82,9 @@ const STACKING_SOLVER_TIP: Record<'stacking' | 'panex', string> = {
     'Finds the fewest rod transfers for Panex Style Columns, built for large towers: it searches from both ends, uses every core, and Pause saves the search for Continue, even after quitting.',
 };
 
-/** The sliding solvers' help (mainwindow_help.cpp, its first lines). */
+/** The sliding solver's help (mainwindow_help.cpp, its first lines). */
 const SLIDING_SOLVER_TIP =
-  'Each start is searched for the fewest moves to the goal. Fast looks at up to 250,000 arrangements per start, Deep up to 1,000,000; Full has no limit: it either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
+  'Each start is searched for the fewest moves to the goal, with no limit: the solver either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
 
 /** The switches' names: the original's (mainwindow_layout.cpp), so they match its documentation. */
 const LABEL: Record<BoxName, string> = {
@@ -219,7 +219,6 @@ export class RunCard {
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
       ws.sliding && o.verticalMoves,
-      ws.sliding && o.slidingSolver !== DEFAULT_OPTIONS.slidingSolver,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
       lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
     ].filter(Boolean).length;
@@ -257,17 +256,18 @@ export class RunCard {
       return;
     }
     if (ws.sliding) {
-      // the sliding boxes in the places of the symmetry options, its solvers
-      const sliders = ws.store.info?.slidingSolvers ?? [
-        { solver: 'full' as const, label: 'Sliding Full Solver (full depth)' },
-      ];
+      // the sliding boxes in the places of the symmetry options, its one solver
+      const slider = ws.store.info?.slidingSolvers[0] ?? {
+        solver: 'sliding' as const,
+        label: 'Sliding Puzzle Solver',
+      };
       setHtml(
         opts,
         sw('justCount') +
           sw('nestedSlides') +
           sw('partialNested') +
           sw('verticalMoves') +
-          `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}">${sliders.map((x) => `<option value="${x.solver}" ${o.slidingSolver === x.solver ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>` +
+          `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}"><option value="${slider.solver}" selected>${esc(slider.label)}</option></select></div>` +
           limits +
           sw('autosave') +
           labels,
@@ -391,7 +391,7 @@ export class RunCard {
       r?.failure !== null && r?.failure !== undefined && s === 'error' ? r.failure : null;
     setHtml(
       byId('slvStat'),
-      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time left</span><span class="v">${leftText}</span><span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(ws.details()) || '—'}</span>` +
+      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(ws.details()) || '—'}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
         (fail === null
           ? ''
           : `<span class="slv-fail" id="slvFail" style="grid-column:1 / -1">${ic('warn', 14)}<span>The solve failed: ${esc(fail.message)}</span></span>`),
@@ -447,8 +447,6 @@ export class RunCard {
       const t = e.target as HTMLInputElement | HTMLSelectElement;
       if (t.dataset.o === 'solver') {
         void ws.setOption({ solver: t.value as SearchOptions['solver'] });
-      } else if (t.dataset.o === 'slidingSolver') {
-        void ws.setOption({ slidingSolver: t.value as SearchOptions['slidingSolver'] });
       } else if (t.dataset.sti !== undefined) {
         const k = t.dataset.sti as 'keepEach' | 'keepAtMost';
         ws.setLimits({ [k]: Math.round(Number(t.value)) || 0 });

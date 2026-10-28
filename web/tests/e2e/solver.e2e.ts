@@ -586,8 +586,8 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     await pzSettled(page);
     await expect(page.locator('#leftP')).toHaveAttribute('data-problem', /^p\d+$/);
 
-    // a sliding puzzle solves as bt solves it (the full search, the
-    // default), and its solution plays along its routes
+    // a sliding puzzle solves as bt solves it (the Sliding Puzzle Solver),
+    // and its solution plays along its routes
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     await toSolver(page);
     const sp = await shownProblem(page);

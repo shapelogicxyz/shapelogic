@@ -1020,8 +1020,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
         problem_.addPending(PendingAssembly{std::move(assembly), false, 0, 0});
         return true;
       }
-      if (search.outcome == sliding::SlideOutcome::Limit ||
-          search.outcome == sliding::SlideOutcome::Memory ||
+      if (search.outcome == sliding::SlideOutcome::Memory ||
           search.outcome == sliding::SlideOutcome::Disk) {
         slideStartsCut_++;
         if (search.outcome == sliding::SlideOutcome::Disk) {
@@ -1085,20 +1084,15 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
 // Under resultsMutex_. Whether a missing solution is proven or the search
 // gave up (solveThread_c::slidingSummary, word for word).
 std::string SolveSession::slidingSummary(const SolveOptions& o) const {
-  const sliding::SlidingSolver solver = o.sliding.solver;
   if (slideStartsCut_ > 0) {
     std::string msg = std::to_string(slideStartsCut_) +
                       (slideStartsCut_ == 1 ? " start layout was" : " start layouts were") +
                       " not searched completely";
     if (!slideDiskError_.empty()) {
       msg += ". " + slideDiskError_.substr(0, slideDiskError_.size() - 1);
-    } else if (slideMemoryCut_) {
+    } else {
       msg += ": the search reached its memory limit of " + std::to_string(slideMemoryStates_) +
              " arrangements";
-    } else if (solver == sliding::SlidingSolver::Deep) {
-      msg += ": the search reached its limit of 1,000,000 arrangements";
-    } else {
-      msg += ": the search reached its limit of 250,000 arrangements";
     }
     msg += ". There may be solutions the solver did not find.";
     if (!o.settingsPlace.empty() && !slideDiskError_.empty()) {
@@ -1109,10 +1103,6 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
       msg += " " + o.settingsPlace + " can give it more Search memory.";
     } else if (slideMemoryCut_ && !o.sliding.highMemory) {
       msg += " Try Enable High Memory.";
-    }
-    if (!slideMemoryCut_ && slideDiskError_.empty() && solver != sliding::SlidingSolver::Full) {
-      msg += solver == sliding::SlidingSolver::Deep ? " Try the Sliding Full Solver."
-                                                    : " Try the Sliding Deep or Full Solver.";
     }
     return msg;
   }

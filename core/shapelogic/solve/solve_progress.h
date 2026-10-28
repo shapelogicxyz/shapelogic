@@ -58,7 +58,7 @@ struct SolveProgress {
   std::uint64_t solutions = 0;
 
   /// The slide search under way: the arrangements it has visited, and how
-  /// many moves deep a full search is (0 before its first level). What the
+  /// many moves deep it is (0 before its first level). What the
   /// original GUI showed ("Sliding search, 12 moves deep. Scanned 3,456
   /// arrangements.").
   std::uint64_t searched = 0;

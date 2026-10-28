@@ -190,7 +190,7 @@ test('the Free Spin method (the arc-ball) turns the view as the original did', a
   expect(await camera(page)).toEqual([-32, 26, 0, 1, 0, 0]);
 });
 
-test('settings apply at once: theme, density, tooltips', async () => {
+test('settings apply at once: theme, density, font size, tooltips', async () => {
   const { page } = a;
   const html = page.locator('html');
   await page.keyboard.press('Control+,');
@@ -200,6 +200,17 @@ test('settings apply at once: theme, density, tooltips', async () => {
   await expect(html).toHaveAttribute('data-density', 'minimal');
   // Minimal hides captions: the controls carry them as tooltips
   await expect(page.locator('.rbtn[data-tab="puzzle"]')).toHaveAttribute('title', /Puzzle/);
+  // the font size steps every text size, the same in every density
+  const statusSize = (): Promise<string> =>
+    page.locator('#stage > .status').evaluate((el) => getComputedStyle(el).fontSize);
+  await expect(html).toHaveAttribute('data-font', 'small');
+  const small = await statusSize();
+  await page.click('#setPg [data-k="density"][data-o="Standard"]');
+  expect(await statusSize()).toBe(small);
+  await page.click('#setPg [data-k="fontSize"][data-o="Large"]');
+  await expect(html).toHaveAttribute('data-font', 'large');
+  expect(parseFloat(await statusSize())).toBe(parseFloat(small) + 4);
+  await page.click('#setPg [data-k="density"][data-o="Minimal"]');
   await page.click('#setPg .switch[data-k="tips"]');
   await expect(page.locator('#btnSettings')).not.toHaveAttribute('title', /./);
   await page.click('#setPg .switch[data-k="tips"]');
@@ -246,5 +257,6 @@ test('settings apply at once: theme, density, tooltips', async () => {
   });
   await expect(html).not.toHaveAttribute('data-theme', /./);
   await expect(html).toHaveAttribute('data-density', 'standard');
+  await expect(html).toHaveAttribute('data-font', 'small');
   await page.keyboard.press('Escape');
 });

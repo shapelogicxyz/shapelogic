@@ -79,13 +79,13 @@ function badge(): void {
     return;
   }
   const chip =
-    'text-decoration:none;color:var(--accent);background:var(--accentSoft);font-weight:600;padding:2px 10px;margin-right:8px;font-size:11px;cursor:pointer';
+    'text-decoration:none;color:var(--accent);background:var(--accentSoft);font-weight:600;padding:2px 10px;margin-right:8px;font-size:calc(11px + var(--fs));cursor:pointer';
   const reset = document.createElement('button');
   reset.className = 'chip';
   reset.id = 'demoReset';
   reset.textContent = 'Reset';
   reset.title = 'Start the demo again (your changes are dropped)';
-  reset.style.cssText = `${chip};border:0;font:inherit;font-size:11px;font-weight:600`;
+  reset.style.cssText = `${chip};border:0;font:inherit;font-size:calc(11px + var(--fs));font-weight:600`;
   reset.addEventListener('click', () => {
     window.location.reload();
   });

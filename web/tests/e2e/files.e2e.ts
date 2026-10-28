@@ -642,9 +642,9 @@ test('Sidebar width: Static widths as chosen; Variable grows past a 1600 pixel w
       }, width);
     await page.keyboard.press('Control+,');
     await expect(page.locator('#setPg [data-k="sidebar"][data-o="Static"]')).toHaveClass(/\bon\b/);
-    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveValue('320');
+    await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveValue('340');
     await expect(page.locator('#setPg input[data-w="sideR"]')).toHaveValue('340');
-    await expect.poll(columns).toBe('320px 340px');
+    await expect.poll(columns).toBe('340px 340px');
     await page.fill('#setPg input[data-w="sideL"]', '450');
     await page.keyboard.press('Tab');
     await page.click('#setPg button[data-w="sideR"][data-s="1"]');
@@ -660,12 +660,12 @@ test('Sidebar width: Static widths as chosen; Variable grows past a 1600 pixel w
     await page.click('#setPg [data-k="sidebar"][data-o="Variable"]');
     await expect(page.locator('#setPg input[data-w="sideL"]')).toHaveCount(0);
     // 300 pixels past 1600: a third each
-    await expect.poll(columns).toBe('420px 440px');
+    await expect.poll(columns).toBe('440px 440px');
     await resize(1500);
-    await expect.poll(columns).toBe('320px 340px');
-    // the right card reaches 600 at 2380, the left at 2440
-    await resize(2410);
-    await expect.poll(columns).toBe('590px 600px');
+    await expect.poll(columns).toBe('340px 340px');
+    // both cards reach 600 at 2380
+    await resize(2350);
+    await expect.poll(columns).toBe('590px 590px');
     await resize(3000);
     await expect.poll(columns).toBe('600px 600px');
     await page.keyboard.press('Escape');

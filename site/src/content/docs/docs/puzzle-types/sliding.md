@@ -34,7 +34,7 @@ pieces below them are `S1`, `S2` and so on. When you delete or move a board,
 the boards after it are numbered again, so there is never a gap.
 
 Each board has a problem of its own, named after the board. A board without
-a name shows `(START/GOAL 1)`. When you rename it, the field starts with
+a name shows `(Board 1)`. When you rename it, the field starts with
 that text, which you can change or delete. The new name also shows in the
 **Puzzle** tab's problems list, and renaming the problem there renames the
 board. Boards are never pieces: the Puzzle tab's **All pieces** list leaves
@@ -45,8 +45,13 @@ them out.
 ![The Shapes workspace for a sliding puzzle: a board drawn with the usual tools.](../../../../assets/screens/sliding-entities.png)
 
 1. Draw each piece on its own shape, one layer thick unless it needs more.
+   **+ New Piece** makes a piece the size of the last piece, or of the
+   **Sliding** new shape size if there isn't one yet.
 2. Press **+ New Board** above the shapes list to add a board. It takes the
-   size of the selected shape, or 6 by 6 by 1 if there isn't one. The
+   size of the last board, or the **Sliding** new shape size (6 by 6 by 1
+   unless you change it) if there isn't one, and the **New sliding board
+   color** (gray unless you change it); see
+   [Grid editor settings](/docs/shapes-tab/#grid-editor-settings). The
    list's **Delete** removes a board and its problem.
 3. Draw the board with the usual tools, as any other shape: **Fixed** is
    floor, **Variable** is corridor and **Erase** is wall.

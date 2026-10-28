@@ -46,9 +46,6 @@ struct Options {
   bool partialNested = false;  ///< --partial-nested (implies --nested-slides)
   bool verticalMoves = false;  ///< --vertical-moves: sliding pieces may move up and down
   bool highMemory = false;     ///< --high-memory
-  /// --solver of a sliding puzzle: the full search unless it says (burrTxt's
-  /// and the GUI's default).
-  sliding::SlidingSolver slidingSolver = sliding::SlidingSolver::Full;
 
   // burrTxt's stacking options (--high-memory and --restart too)
   bool panexSolver = false;          ///< --solver of a stacking puzzle: the Panex Solver
@@ -78,8 +75,7 @@ struct Options {
   bool slideLegacy = false;  ///< --slide-legacy: the search over text keys
   bool slideApart = false;   ///< --slide-apart: like pieces told apart
   int slideStep = 1;         ///< --slide-step N: pieces stop only N cells apart in x and y
-  bool slideQueue = false;   ///< --slide-queue: a full search through the queue
-  bool slideTrace = false;   ///< --slide-trace: each level of a full search on stderr
+  bool slideTrace = false;   ///< --slide-trace: each level of the search on stderr
   // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)
   bool noTowerRule = false;  ///< --no-tower-rule: the classic tower searched too
   bool panexLog = false;     ///< --panex-log: each level of a Panex search on stderr

@@ -92,7 +92,7 @@ Result:
 | `protocol` | integer | required | Raised when a change breaks clients. |
 | `grids` | object[] | required |  |
 | `solvers` | object[] | required |  |
-| `slidingSolvers` | object[] | required | The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu labels. |
+| `slidingSolvers` | object[] | required | The solver of sliding puzzles, one: the Sliding Puzzle Solver (the Solver Type a sliding puzzle shows; there is none to choose). |
 | `stackingSolvers` | object[] | required | The solvers of stacking puzzles (SolveOptions.stacking.solver), with the original's menu labels. The original offered one, by the problem's rod set: the Panex Solver for Panex columns, else the Stacking Solver, which a solve without a solver named uses too. |
 | `hardwareThreads` | integer | required |  |
 | `maxThreads` | integer | required |  |
@@ -123,7 +123,7 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `slidingSolvers.solver` | [SlidingSolver](#slidingsolver) | required | How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default). |
+| `slidingSolvers.solver` | [SlidingSolver](#slidingsolver) | required | The one solver of sliding puzzles, the Sliding Puzzle Solver: no limit on the arrangements it visits (it keeps its older levels on disk and spreads each over threads), so it finds the fewest moves or proves there is no solution. The original's Fast and Deep solvers, which stopped at 250,000 and 1,000,000 arrangements, are not offered. |
 | `slidingSolvers.label` | string | required |  |
 
 `stackingSolvers`:
@@ -188,7 +188,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `undoDepth` | integer | required | Undo steps kept (default 25). |
 | `threads` | integer | required | The threads of a solve when its options do not say; 0 every hardware thread (default). |
 | `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
-| `slideFolder` | string | required | Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
+| `slideFolder` | string | required | Where a sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder. |
 | `slideDiskGB` | number | required | The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: half the free space, at most 200 GB. More than the disk has room for is held to its free space but a reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on demand, as Finder does. |
 | `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
 | `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. More than the disk has room for is held to its free space but a reserve, as slideDiskGB is. |
@@ -2603,9 +2603,9 @@ Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart.
 
 ### SlidingSolver
 
-How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default).
+The one solver of sliding puzzles, the Sliding Puzzle Solver: no limit on the arrangements it visits (it keeps its older levels on disk and spreads each over threads), so it finds the fewest moves or proves there is no solution. The original's Fast and Deep solvers, which stopped at 250,000 and 1,000,000 arrangements, are not offered.
 
-`"fast"` \| `"deep"` \| `"full"`
+`"sliding"`
 
 ### StackingSolver
 
@@ -2875,7 +2875,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, solverType fast, deep or full its solver). highMemory belongs to the stacking solvers too.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
 
 | name | type | | description |
 |---|---|---|---|
@@ -2892,7 +2892,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `verticalMoves` | boolean |  |  |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
-| `solverType` | string |  | classic, crowell (sliding: fast, deep, full). |
+| `solverType` | string |  | classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written). |
 | `sortBy` | string |  | unsorted, moves, level, rotations. |
 | *other* | string | | |
 
@@ -2974,11 +2974,10 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 
 ### SlidingOptions
 
-A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). Where a full search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
 
 | name | type | | description |
 |---|---|---|---|
-| `solver` | [SlidingSolver](#slidingsolver) |  | How far a sliding puzzle's search may go: 250,000 arrangements, 1,000,000, or no limit (the full search keeps its older levels on disk and spreads each over threads; the default). |
 | `nestedSlides` | boolean |  | A piece may carry what is nested in its outline (Allow Nested Slides). |
 | `partialNested` | boolean |  | And what is partly nested in it (Allow Partially Nested); implies nestedSlides. |
 | `verticalMoves` | boolean |  | On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer. |
@@ -3036,7 +3035,7 @@ One take-apart under way.
 | `secondsLeft` | number or null | required |  |
 | `activity` | string | required | The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search. Scanned N stackings.'). |
 | `searched` | integer | required | The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search). |
-| `searchDepth` | integer | required | How many moves deep a full sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
+| `searchDepth` | integer | required | How many moves deep a sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
 | `searchTraced` | integer | required | Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before. |
 | `panexSearch` | boolean | required | The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search'). |
 

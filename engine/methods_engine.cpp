@@ -20,19 +20,6 @@ namespace {
 // The protocol this engine speaks (engine.hello, engine.info).
 constexpr int kProtocol = 1;
 
-// The sliding solvers' labels: the original's menu.
-std::string_view slidingSolverLabel(sliding::SlidingSolver s) {
-  switch (s) {
-    case sliding::SlidingSolver::Fast:
-      return "Sliding Fast Solver (250k depth)";
-    case sliding::SlidingSolver::Deep:
-      return "Sliding Deep Solver (1mil depth)";
-    case sliding::SlidingSolver::Full:
-      break;
-  }
-  return "Sliding Full Solver (full depth)";
-}
-
 // The stacking solvers' labels: the original's menu (syncSolverTypeMenu).
 std::string_view stackingSolverLabel(stacking::StackingSolver s) {
   return s == stacking::StackingSolver::Panex ? "Panex Solver" : "Stacking Solver";
@@ -71,10 +58,9 @@ Reply engineInfo(State& s, Params& p) {
   for (const auto& [name, type] : solverNames()) {
     solvers.push_back(Json{{"solver", name}, {"label", solverTypeLabel(type)}});
   }
+  // the one sliding solver
   Json slidingSolvers = Json::array();
-  for (const auto& [name, solver] : slidingSolverNames()) {
-    slidingSolvers.push_back(Json{{"solver", name}, {"label", slidingSolverLabel(solver)}});
-  }
+  slidingSolvers.push_back(Json{{"solver", "sliding"}, {"label", sliding::kSlidingSolverName}});
   Json stackingSolvers = Json::array();
   for (const auto& [name, solver] : stackingSolverNames()) {
     stackingSolvers.push_back(Json{{"solver", name}, {"label", stackingSolverLabel(solver)}});

@@ -48,11 +48,10 @@ const shape = (id: string, label: string, startGoal: number | null = null): Shap
 });
 
 describe('the sliding options', () => {
-  it('start with Find Solutions and the full search; read the sliding solver names', () => {
+  it('start with Find Solutions; read the sliding boxes, not a solver', () => {
     const o = readOptions({}, undefined, 'sliding');
     expect(o).toMatchObject({
       disassemble: true,
-      slidingSolver: 'full',
       nestedSlides: false,
       verticalMoves: false,
     });
@@ -72,27 +71,28 @@ describe('the sliding options', () => {
       'sliding',
     );
     expect(s).toMatchObject({
-      slidingSolver: 'deep',
       nestedSlides: true,
       partialNested: true,
       verticalMoves: true,
       solver: 'classic',
     });
-    // a brick solver's name on a sliding puzzle, and the reverse, keep the default
-    expect(readOptions({ solverType: 'crowell' }, undefined, 'sliding').slidingSolver).toBe('full');
+    // the one sliding solver: a stored solver type plays no part
+    expect('slidingSolver' in s).toBe(false);
+    expect(readOptions({ solverType: 'crowell' }, undefined, 'sliding').solver).toBe('classic');
+    // the original's sliding solver names on a brick puzzle keep the default
     expect(readOptions({ solverType: 'fast' }).solver).toBe('classic');
   });
 
-  it('store the sliding boxes and solver with a sliding puzzle only', () => {
+  it('store the sliding boxes with a sliding puzzle only, and no solver', () => {
     const o = readOptions({}, undefined, 'sliding');
     const w = writeOptions(
-      { ...o, slidingSolver: 'fast', verticalMoves: true },
-      { other: 'x', highMemory: false },
+      { ...o, verticalMoves: true },
+      { other: 'x', highMemory: false, solverType: 'deep' },
       'sliding',
     );
     expect(w).toMatchObject({
-      solverType: 'fast',
-      // as the problem stored it
+      // as the problem stored them
+      solverType: 'deep',
       highMemory: false,
       nestedSlides: false,
       partialNested: false,
@@ -145,7 +145,6 @@ describe('the sliding options', () => {
       keepAtMost: 100,
       keepEach: 1,
       sliding: {
-        solver: 'full',
         nestedSlides: false,
         partialNested: false,
         verticalMoves: false,
@@ -185,8 +184,8 @@ describe('the sliding options', () => {
     expect(searchActive('Complete (ShapeLogic)')).toBe(
       'Search active with the Complete (ShapeLogic) solver',
     );
-    expect(searchActive('Sliding Full Solver (full depth)')).toBe(
-      'Search active with the Sliding Full Solver (full depth)',
+    expect(searchActive('Sliding Puzzle Solver')).toBe(
+      'Search active with the Sliding Puzzle Solver',
     );
   });
 });

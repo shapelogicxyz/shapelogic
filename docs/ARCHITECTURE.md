@@ -429,8 +429,9 @@ environment (the original's switches are options).
 
 **The slide search** (deferred part 1, decision 0014). Ported from the
 search part of `sliding.{h,cpp}` and the sliding run of `solvethread.cpp`;
-checked by the harness (the `sliding` tier: the summaries for each solver,
-the solved files state by state, the text, the routes).
+checked by the harness (the `sliding` tier: the summaries, the solved
+files state by state, the text, the routes; the full search, the only
+one).
 - `sliding_search.h`: `findSlidePath(puzzle, problem, start, SlideSearch&)`,
   the fewest moves from a start layout (an assembly) to the goal: a piece,
   or with nested slides the pieces it carries, slides cell by cell,
@@ -438,17 +439,18 @@ the solved files state by state, the text, the routes).
   several layers, up and down too (lifted out and put back); positions keyed in 64 or 128 bits (the original's
   text keys with `legacy`; puzzles of more than 64 pieces with nested
   slides use those, where the original overran its tables); copies of
-  like pieces searched as one. `SlideSearch` holds the limit
-  (`kSearchStates` 250,000 for Fast, `kDeepSearchStates` 1,000,000 for
-  Deep, `kFullSearch` none), the memory budget (`memoryStates`, high
-  memory), the stop token, the progress counters, the full search's pool,
-  threads, work folder and disk budget, and answers with a `SlideOutcome`
-  (Found, NoPath, Limit, Memory, Stopped, Disk) and its counts. The full
-  search goes level by level (one-way moves included), keeps the older
-  levels in `KeySet` files (`slide_levels.h`) in its work folder and
-  spreads each level over the pool; any number of threads finds the same
-  path. `SlidingOptions` and `slideSearchFor()`: the GUI's three solvers
-  and its boxes. `slideRoute` and `applySlideRoutes`: a move's path
+  like pieces searched as one. There is no limit on the arrangements
+  visited (the original's Fast and Deep solvers, which stopped at 250,000
+  and 1,000,000, and its queue search are not kept): `SlideSearch` holds
+  the memory budget (`memoryStates`, high memory), the stop token, the
+  progress counters, the pool, threads, work folder and disk budget, and
+  answers with a `SlideOutcome` (Found, NoPath, Memory, Stopped, Disk) and
+  its counts. The search goes level by level (one-way moves included),
+  keeps the older levels in `KeySet` files (`slide_levels.h`) in its work
+  folder and spreads each level over the pool; any number of threads
+  finds the same path. `SlidingOptions` and `slideSearchFor()`: the GUI's
+  boxes for its one solver, the Sliding Puzzle Solver
+  (`kSlidingSolverName`). `slideRoute` and `applySlideRoutes`: a move's path
   through corridors (its corners) and the player's driver following it;
   `finalPlacementKey`: two solutions that end alike are one (the shorter
   kept, in its place).
@@ -457,7 +459,7 @@ the solved files state by state, the text, the routes).
   the solve thread forced) finds the start layouts and each is searched
   in its callback on the session's slide pool; a stopped search puts its
   start back as pending, not counted; a save point lets the search under
-  way finish; `note()` is the original's summary (starts the limit cut,
+  way finish; `note()` is the original's summary (starts the memory or disk cut,
   everything searched) and the progress has stage `Other` with `searched`
   and `searchDepth`. Take-apart workers are not used.
 
@@ -877,11 +879,12 @@ byte, `just oracle-files` solves with `--save`).
   solve thread: a paused solve carried on unless `--restart`, the
   solutions kept sorted by moves up to `--limit`, the puzzle written to the
   file given), `--progress` (a line a second on stderr from a ticker
-  thread). Sliding puzzles solve as burrTxt solved them (`--solver` fast,
-  deep or full, `--nested-slides`, `--partial-nested`, `--high-memory`;
+  thread). Sliding puzzles solve as burrTxt solved them with its full
+  search (the Sliding Puzzle Solver, the only one, `--solver sliding`;
+  `--nested-slides`, `--partial-nested`, `--high-memory`;
   `-d` finds each start layout's slide path, with the original's notes
   after the summary; `-x` and `--save` too, through a `SolveSession`);
-  the full search's folder and disk budget come from
+  the search's folder and disk budget come from
   `SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_SLIDE_DISK_GB`, which the CLI reads
   (the core reads no environment). Stacking puzzles solve as burrTxt
   solved them (deferred part 3a: `--solver` stacking or panex,
@@ -988,7 +991,7 @@ What exists after stage 8:
   shortens the Solver's autosave for them, passed in the page's address),
   `menu.ts` (stage 6: the menus' template from the menu state, Electron's
   types only: the original's macOS table (File with Import, Export and
-  Close; Edit; View with the display modes and render styles; Help; About
+  Close; Edit; View with the Color Theme, the display modes and render styles; Help; About
   and Settings in the application menu on macOS, in Help and Edit
   elsewhere), the not-yet-ported items greyed, the keys of the one table
   shown with `registerAccelerator: false`, so a press reaches the page and
@@ -1137,7 +1140,7 @@ What exists after stage 8:
     undo depth and threads go to `settings.set`, the rest are the
     client's; `validPrefs` reads stored ones back), `persist.ts` (stage 6:
     the settings and layouts stored whenever they change), `theme.ts` (theme, density,
-    tooltips), `status.ts` (the status bar, flashes, `reportError`:
+    font size, the side cards' widths, the tab bar's place, tooltips), `status.ts` (the status bar, flashes, `reportError`:
     `invalid_state` as "pause first"), `popover.ts`, `confirm.ts`,
     `panel.ts` (a window of its own over the workspace, not modal: the
     status window's and the debug statistics'; Esc closes the newest),
@@ -1488,7 +1491,8 @@ What exists after stage 8:
     New, Copy or Delete problem, no Change…, no groups or colour rules, a
     `Part.required` piece kept, with no fewer copies than `Part.placed`); the Solver's sliding options
     (`settings.ts`: `nestedSlides`, `partialNested`, `highMemory`,
-    `slidingSolver`, `DEFAULT_SLIDING` with Find Solutions checked,
+    `DEFAULT_SLIDING` with Find Solutions checked, the one solver shown
+    and not stored,
     `normalize`'s sliding rules, `SolveOptions.sliding`; `shortCount`,
     `slidingDetails` for the Details line), Solve greyed while the
     tray is invalid (`SolverWorkspace.slideError`), the solver's note in
@@ -1686,8 +1690,8 @@ validity's words, New's order, the walls' outline and segments) and
 `tests/e2e/sliding.e2e.ts` (the 81-move puzzle built from File ▸ New:
 the start/goal shape, the pieces drawn and duplicated, every start and
 the goal stamped, a refusal with the engine's reason, `sliding.tray` and
-the problem equal to the fixture's; solved by the fast, deep and full
-solvers with `bt --json`'s counts and moves, the problem then the
+the problem equal to the fixture's; solved by the Sliding Puzzle Solver,
+the only one, with `bt --json`'s counts and moves, the problem then the
 fixture's; played with the walls drawn, every whole step's poses the
 engine's; the nested fixture with and without nested slides and a
 partially nested pocket as `bt`; the notices; reference screenshots of
@@ -1736,8 +1740,8 @@ player).
   tests in `tests/data/imports_by_original/`.
   The `sliding` tier (deferred part 1) has the sliding fixtures and
   puzzles built by the original's code (`oracle.py sliding-puzzles`, from
-  its `test_sliding.cpp`), compared for each solver (`--solver
-  fast|deep|full`) in the summary, the solved files (the original's solve
+  its `test_sliding.cpp`), compared with the full search, bt's one
+  sliding solver, in the summary, the solved files (the original's solve
   thread through `slide_solve_old`) and the text; puzzles whose count
   depends on the order of their starts are compared on one thread (flag
   `O`: the original is not deterministic there).

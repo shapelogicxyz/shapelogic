@@ -4,6 +4,7 @@
 // (data-theme on the document; System follows the operating system),
 // `isDarkTheme`, `applyDensity` (data-density; Minimal hides captions, so
 // `svDensityTitles` gives every such control its caption as a tooltip),
+// the font size (data-font: the stylesheet's --fs step on every text size),
 // and the "Show tooltips" setting (titles held back while it is off). The
 // tips themselves are drawn by the page (tooltip.ts). Also the side cards'
 // widths (the "Sidebar width" setting): the --lwx and --rwx the stylesheet
@@ -67,6 +68,16 @@ export function applySidebars(): void {
   r.setProperty('--rwx', grow(DEFAULTS.sideR));
 }
 
+/** Applies the main tab bar location setting. */
+export function applyTabsAt(): void {
+  document.documentElement.dataset.tabs = prefs.tabsAt.toLowerCase();
+}
+
+/** Applies the font size setting. */
+export function applyFontSize(): void {
+  document.documentElement.dataset.font = prefs.fontSize.toLowerCase();
+}
+
 /** Applies the density setting. */
 export function applyDensity(): void {
   document.documentElement.dataset.density = prefs.density.toLowerCase();
@@ -122,12 +133,14 @@ function applyTips(root: ParentNode = document): void {
   }
 }
 
-/** Applies theme, density, tooltips and the side cards' widths now and whenever they change. */
+/** Applies theme, density, font size, tooltips, the side cards' widths and the tab bar's place now and whenever they change. */
 export function installTheme(): void {
   installTooltips();
   applyTheme();
   applyDensity();
+  applyFontSize();
   applySidebars();
+  applyTabsAt();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (prefs.theme === 'System') {
       themeChanged();
@@ -140,8 +153,14 @@ export function installTheme(): void {
     if (changed.includes('density')) {
       applyDensity();
     }
+    if (changed.includes('fontSize')) {
+      applyFontSize();
+    }
     if (changed.includes('tips')) {
       applyTips();
+    }
+    if (changed.includes('tabsAt')) {
+      applyTabsAt();
     }
     if (changed.some((k) => k === 'sidebar' || k === 'sideL' || k === 'sideR')) {
       applySidebars();

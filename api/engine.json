@@ -62,7 +62,7 @@
           },
           "slidingSolvers": {
             "type": "array",
-            "description": "The solvers of sliding puzzles (SolveOptions.sliding.solver), with the original's menu labels.",
+            "description": "The solver of sliding puzzles, one: the Sliding Puzzle Solver (the Solver Type a sliding puzzle shows; there is none to choose).",
             "items": {
               "type": "object",
               "properties": {"solver": {"$ref": "types.json#/$defs/SlidingSolver"}, "label": {"type": "string"}},
@@ -136,7 +136,7 @@
         "undoDepth": {"type": "integer", "minimum": 1, "description": "Undo steps kept (default 25)."},
         "threads": {"type": "integer", "minimum": 0, "maximum": 256, "description": "The threads of a solve when its options do not say; 0 every hardware thread (default)."},
         "solver": {"$ref": "types.json#/$defs/Solver", "description": "The solver when a solve's or analysis's options do not say (default classic)."},
-        "slideFolder": {"type": "string", "description": "Where a full sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder."},
+        "slideFolder": {"type": "string", "description": "Where a sliding search keeps its older levels while it runs, in a folder of its own that goes when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the user's cache folder's sliding folder."},
         "slideDiskGB": {"type": "number", "minimum": 0, "description": "The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: half the free space, at most 200 GB. More than the disk has room for is held to its free space but a reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on demand, as Finder does."},
         "panexFolder": {"type": "string", "description": "Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder."},
         "panexDiskGB": {"type": "number", "minimum": 0, "description": "The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. More than the disk has room for is held to its free space but a reserve, as slideDiskGB is."},

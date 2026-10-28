@@ -629,9 +629,7 @@ export class SolverWorkspace {
       );
     }
     if (this.sliding) {
-      return (
-        info?.slidingSolvers.find((x) => x.solver === o.slidingSolver)?.label ?? 'Sliding Solver'
-      );
+      return info?.slidingSolvers[0]?.label ?? 'Sliding Puzzle Solver';
     }
     return info?.solvers.find((x) => x.solver === o.solver)?.label ?? 'Complete (ShapeLogic)';
   }

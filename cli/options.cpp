@@ -19,8 +19,8 @@ constexpr int kExitOk = 0;
 constexpr int kExitNoFile = 1;  // burrTxt: no file given
 constexpr int kExitUsage = 2;
 
-// Lower case, letters and digits only, so "Sliding Fast Solver" and
-// "sliding-fast" both match (burrTxt's squash).
+// Lower case, letters and digits only, so "Sliding Puzzle Solver" and
+// "sliding-puzzle-solver" both match (burrTxt's squash).
 std::string squash(std::string_view s) {
   std::string out;
   for (char c : s) {
@@ -132,7 +132,7 @@ void usage(HelpKind kind) {
         "\nsliding puzzles:\n"
         "  -r      reduce the placements before finding the start layouts\n"
         "  -t n    set number of worker threads for finding start layouts and for the\n"
-        "          Sliding Full Solver (0 = auto)\n"
+        "          Sliding Puzzle Solver (0 = auto)\n"
         "  --nested-slides\n"
         "          a piece may carry the pieces nested inside its outline, such as a\n"
         "          piece in another piece's pocket. Pieces that only touch never move\n"
@@ -147,15 +147,11 @@ void usage(HelpKind kind) {
         "  --high-memory\n"
         "          let the search hold up to half of this computer's memory in\n"
         "          arrangements, instead of stopping at about 2 GB\n"
-        "  --solver TYPE   (default: Sliding Full Solver)\n"
-        "            \"Sliding Fast Solver\"  search up to 250,000 arrangements (also: fast)\n"
-        "            \"Sliding Deep Solver\"  search up to 1,000,000 arrangements (also: deep)\n"
-        "            \"Sliding Full Solver\"  no limit: finds the fewest moves or proves there is\n"
-        "                                   no solution, on every core (-t n to limit);\n"
-        "                                   keeps only the newest moves in memory and the\n"
-        "                                   rest on disk, so free disk space limits it\n"
-        "                                   (also: full)\n"
-        "  The Sliding Full Solver keeps its first 256 MB of older moves in memory, then\n"
+        "  --solver TYPE   \"Sliding Puzzle Solver\" (also: sliding), the only one: it\n"
+        "          finds the fewest moves or proves there is no solution, on every core\n"
+        "          (-t n to limit); it keeps only the newest moves in memory and the rest\n"
+        "          on disk, so free disk space limits it\n"
+        "  The Sliding Puzzle Solver keeps its first 256 MB of older moves in memory, then\n"
         "  writes to $SHAPELOGIC_SLIDE_DIR, or the user's cache folder, and deletes its\n"
         "  files when done. SHAPELOGIC_SLIDE_DISK_GB limits the disk it may take (default:\n"
         "  half the free space, at most 200 GB; a larger value is held to the free space\n"
@@ -163,8 +159,7 @@ void usage(HelpKind kind) {
         "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
         "  --slide-legacy   the original search over text keys\n"
         "  --slide-apart    like pieces told apart instead of searched as one\n"
-        "  --slide-queue    the full search through the queue, not level by level\n"
-        "  --slide-trace    each level of a full search on stderr\n"
+        "  --slide-trace    each level of the search on stderr\n"
         "  --slide-step N   pieces stop only where they are a multiple of N cells from\n"
         "                   their start in x and y (a smaller search; a path it finds is\n"
         "                   real, but no solution then proves nothing)\n",
@@ -325,8 +320,6 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideLegacy = true;
     } else if (a == "--slide-apart") {
       o.slideApart = true;
-    } else if (a == "--slide-queue") {
-      o.slideQueue = true;
     } else if (a == "--slide-step") {
       unsigned int step = 0;
       if (!hasValue || !parseCount(argv[i + 1], &step) || step == 0) {

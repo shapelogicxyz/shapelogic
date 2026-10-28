@@ -16,6 +16,7 @@ import type { Settings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
+import { openColourPicker } from './colour-picker.ts';
 import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
@@ -39,6 +40,7 @@ type Row = (
       label: (v: number) => string;
     }
   | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] }
+  | { k: keyof Prefs; t: string; d: string; type: 'colour' }
   | { t: string; d: string; type: 'widths' }
 ) & {
   /** Shown only while this holds (a setting another one makes matter). */
@@ -126,9 +128,16 @@ const SET: readonly Page[] = [
       {
         k: 'density',
         t: 'Interface density',
-        d: 'Standard is the default. Compact is Standard with shorter rows in the scrolling lists (shapes, problems, solutions), so about twice as many fit. Minimal shows icons without captions, moves helper text into tooltips, and hides the viewport toolbar until you point at the top of the 3D view. Every function stays available in all three.',
+        d: 'Standard is the default. Compact is Standard with shorter rows in the scrolling lists (shapes, problems, solutions), so about twice as many fit, and on the Shapes tab each control on one line (its icon beside its caption) with tighter spacing and the action buttons’ descriptions in their tooltips. Minimal shows icons without captions, moves helper text into tooltips, and hides the viewport toolbar until you point at the bottom of the 3D view. Every function stays available in all three, and the text keeps its size (Font size sets it).',
         type: 'seg',
         opts: ['Standard', 'Compact', 'Minimal'],
+      },
+      {
+        k: 'fontSize',
+        t: 'Font size',
+        d: 'The size of the text throughout the interface. Small is the default; Medium and Large are each about 2 points larger. The text keeps its size in every interface density.',
+        type: 'seg',
+        opts: ['Small', 'Medium', 'Large'],
       },
       {
         k: 'sidebar',
@@ -142,6 +151,13 @@ const SET: readonly Page[] = [
         d: `The widths of the left and right side cards, in pixels, from ${String(SIDE_MIN)} to ${String(SIDE_MAX)}.`,
         type: 'widths',
         when: () => prefs.sidebar === 'Static',
+      },
+      {
+        k: 'tabsAt',
+        t: 'Main tab bar location',
+        d: 'Where the Shapes, Puzzle and Solver tabs are: Top centers them in the top bar, beside the puzzle’s name; Left keeps them in a rail down the left side of the window.',
+        type: 'seg',
+        opts: ['Top', 'Left'],
       },
       {
         k: 'theme',
@@ -166,7 +182,7 @@ const SET: readonly Page[] = [
       {
         k: 'updates',
         t: 'Check for updates at startup',
-        d: 'Ask GitHub once each time ShapeLogic starts whether a newer version is out, and say so if it is. Check for Updates… in the menus asks at any time.',
+        d: 'Ask GitHub once each time ShapeLogic starts whether a newer version is out, and say so if it is. You can also check any time by selecting "Check for Updates…" in the main dropdown menu.',
         type: 'sw',
       },
     ],
@@ -190,6 +206,20 @@ const SET: readonly Page[] = [
           { name: 'Normal Burrs', k: ['newX', 'newY', 'newZ'] },
           { name: 'Sliding', k: ['slideX', 'slideY', 'slideZ'] },
         ],
+      },
+      {
+        k: 'boardColour',
+        t: 'New sliding board color',
+        d: 'The color a board (a sliding puzzle’s start and goal shape) is given when made with + New Board. Boards already made keep theirs; change one with the pencil in the voxel editor.',
+        type: 'colour',
+      },
+      {
+        k: 'hintLayer',
+        t: 'Hinted layer',
+        d: 'The voxel editor shows faintly where the shape has cells in a layer next to the one you edit, so you can see what you build on: a pale fill in the shape’s colour under the edited layer’s cells. Below hints the layer under it (the original’s), Above the layer over it. In the XZ and YZ planes the layers are along Y and X. The bottom layer has nothing below it, and the top nothing above.',
+        type: 'seg',
+        opts: ['Below', 'Above'],
+        group: 'Voxel hint layer',
       },
     ],
   },
@@ -258,7 +288,7 @@ const SET: readonly Page[] = [
       {
         k: 'memGB',
         t: 'Search memory',
-        d: 'The memory a sliding or stacking search may fill with the arrangements it has found before it stops. Automatic is half of this computer’s memory. More lets a large search go further; the choices go up to three quarters of the memory, so the computer stays usable while it runs. The Sliding Full Solver keeps older moves on disk, so it needs memory only for the widest move.',
+        d: 'The memory a sliding or stacking search may fill with the arrangements it has found before it stops. Automatic is half of this computer’s memory. More lets a large search go further; the choices go up to three quarters of the memory, so the computer stays usable while it runs. The Sliding Puzzle Solver keeps older moves on disk, so it needs memory only for the widest move.',
         type: 'steps',
         steps: memorySteps,
         label: (v) => (v === 0 ? `${gbText(autoMemoryGB())} (automatic)` : gbText(v)),
@@ -267,7 +297,7 @@ const SET: readonly Page[] = [
       {
         k: 'slideDiskGB',
         t: 'Sliding disk space',
-        d: 'The disk the Sliding Full Solver may fill with older moves while it runs, in your cache folder; the files go when the search ends. Automatic is half the free space, at most 200 GB. A larger choice is held to what the disk has free, less a little room for everything else, so the search stops before the disk is full.',
+        d: 'The disk the Sliding Puzzle Solver may fill with older moves while it runs, in your cache folder; the files go when the search ends. Automatic is half the free space, at most 200 GB. A larger choice is held to what the disk has free, less a little room for everything else, so the search stops before the disk is full.',
         type: 'steps',
         steps: () => DISK_GB,
         label: (v) => (v === 0 ? 'Automatic' : gbText(v)),
@@ -329,6 +359,9 @@ function rowHtml(r: Row): string {
   const v = prefs[r.k];
   let c = '';
   switch (r.type) {
+    case 'colour':
+      c = `<button class="swatch" data-colour="${r.k}" aria-label="${esc(r.t)}" title="Pick the color: ${esc(String(v))}" style="width:60px;height:28px;border-radius:6px;border:1px solid var(--line2);cursor:pointer;background:${esc(String(v))}"></button>`;
+      break;
     case 'sw':
       c = `<div class="switch ${v === true ? 'on' : ''}" role="switch" aria-checked="${v === true}" aria-label="${esc(r.t)}" title="${esc(r.d)}" tabindex="0" data-k="${r.k}"><span class="tr"></span></div>`;
       break;
@@ -584,7 +617,19 @@ export function installSettings(s: Store): void {
     if (b === null) {
       return;
     }
-    if (b.dataset.w !== undefined && b.dataset.s !== undefined) {
+    if (b.dataset.colour !== undefined) {
+      const k = b.dataset.colour as 'boardColour';
+      openColourPicker(b, {
+        rgb: prefs[k],
+        onPick: (rgb) => {
+          change({ [k]: rgb });
+        },
+        onDefault: () => {
+          change({ [k]: DEFAULTS[k] });
+        },
+        isDefault: prefs[k] === DEFAULTS[k],
+      });
+    } else if (b.dataset.w !== undefined && b.dataset.s !== undefined) {
       const k = b.dataset.w as (typeof WIDTHS)[number]['k'];
       change({ [k]: sideWidth(prefs[k] + WIDTH_STEP * Number(b.dataset.s)) });
       pg.querySelector<HTMLElement>(`button[data-w="${k}"][data-s="${b.dataset.s}"]`)?.focus();

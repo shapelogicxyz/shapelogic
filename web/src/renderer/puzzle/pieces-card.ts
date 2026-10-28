@@ -364,7 +364,7 @@ export class PiecesCard {
         `<div class="ph">Use as result</div>${this.shapes
           .map((s) => {
             const c = ws.chip(s.id);
-            return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''} title="Make this shape the problem’s result"><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:10px">${esc(s.label)}</span>${esc(s.name) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
+            return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''} title="Make this shape the problem’s result"><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:calc(10px + var(--fs))">${esc(s.label)}</span>${esc(s.name) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
           })
           .join('')}`,
         (k) => void ws.setResult(k),

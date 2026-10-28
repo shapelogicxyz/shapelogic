@@ -168,7 +168,9 @@ export class SolutionsCard {
     );
     byId('slvFoot').textContent = `${String(n)} solution${n === 1 ? '' : 's'}`;
     const d = density();
-    this.rowHeight = d === 'minimal' ? 26 : d === 'compact' ? 16 : 28;
+    // the font size's line growth (the stylesheet's --fh) on top of the density's
+    const fh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fh')) || 0;
+    this.rowHeight = (d === 'minimal' ? 26 : d === 'compact' ? 16 : 28) + fh;
     byId('slvSpace').style.height = `${String(n * this.rowHeight + 10)}px`;
     this.renderRows();
   }
@@ -588,8 +590,8 @@ export class SolutionsCard {
       if (changed.includes('pieceCompact')) {
         this.renderChips();
       }
-      // the list's rows take the density's height
-      if (changed.includes('density')) {
+      // the list's rows take the density's and the font size's height
+      if (changed.includes('density') || changed.includes('fontSize')) {
         this.render();
       }
     });

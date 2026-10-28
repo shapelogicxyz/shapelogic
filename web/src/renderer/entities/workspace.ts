@@ -47,6 +47,7 @@ import type { TaskInfo } from './inspector.ts';
 import { LayerGeometries } from './layer-geometry.ts';
 import type { LayerGeometry } from './layer-geometry.ts';
 import { ShapeCells } from './shape-cells.ts';
+import type { CellValue } from './shape-cells.ts';
 import { RodsCard } from './rods-card.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { ShapesList } from './shapes-list.ts';
@@ -71,6 +72,8 @@ export class EntitiesWorkspace {
   private tasksFor = '';
   private generation = -1;
   private geo: LayerGeometry | null = null;
+  /** The drawing of the layer hinted at (the Voxel hint layer setting), or null. */
+  private hintGeo: LayerGeometry | null = null;
   private geoKey = '';
   private stroke: Stroke | null = null;
   /** A stroke whose group is closing, until the engine answered its edit.end. */
@@ -223,6 +226,9 @@ export class EntitiesWorkspace {
       if (changed.includes('gridPlane')) {
         this.setPlane(prefs.gridPlane);
       }
+      if (changed.includes('hintLayer')) {
+        this.showGrid();
+      }
     });
     this.installKeys();
     installHistory(
@@ -266,6 +272,7 @@ export class EntitiesWorkspace {
       this.state.plane = !isCube(snap?.grid) || snap?.grid === 'sliding' ? 'XY' : prefs.gridPlane;
       this.geos.clear();
       this.geo = null;
+      this.hintGeo = null;
       this.geoKey = '';
       this.edit3d.reset();
       this.cells.show(null, 0);
@@ -369,25 +376,30 @@ export class EntitiesWorkspace {
     );
   }
 
-  // the grid of the layer shown: its drawing (asked of the engine once per
-  // size and layer) and the engine's cells of it
+  // the grid of the layer shown: its drawing and the hinted layer's (asked
+  // of the engine once per size and layer) and the engine's cells of them
   private showGrid(): void {
     const store = this.store;
     const snap = store.snapshot;
     const shape = store.shape;
     if (snap === null || shape === null) {
       this.geo = null;
+      this.hintGeo = null;
       this.grid.show(null);
       return;
     }
     const st = this.state;
     const plane = planeMap(st.plane, shape.size);
-    const k = `${store.generation}:${snap.grid}:${shape.size.join('x')}:${st.plane}:${st.layer}`;
-    const input = (geo: LayerGeometry): GridInput => {
+    const next = st.layer + (prefs.hintLayer === 'Above' ? 1 : -1);
+    const hintLayer = next >= 0 && next < plane.layers ? next : null;
+    const k = `${store.generation}:${snap.grid}:${shape.size.join('x')}:${st.plane}:${st.layer}:${String(hintLayer)}`;
+    const layerOf = (layer: number): Map<string, CellValue> =>
+      new Map([...this.cells.all].filter(([, v]) => plane.crl(v.at)[2] === layer));
+    const input = (geo: LayerGeometry, hintGeo: LayerGeometry | null): GridInput => {
       const cells =
         st.plane === 'XY' && this.cells.layer === st.layer
           ? this.cells.layerCells
-          : new Map([...this.cells.all].filter(([, v]) => plane.crl(v.at)[2] === st.layer));
+          : layerOf(st.layer);
       const own = hex(shapeColour(shape.colour, store.indexOf(shape.id)));
       return {
         grid: snap.grid,
@@ -400,20 +412,36 @@ export class EntitiesWorkspace {
         // locks, not constraint colours: none drawn; a board in its tiles
         palette:
           snap.grid === 'sliding' ? new Map() : new Map(snap.colours.map((c) => [c.id, c.rgb])),
-        tray: snap.grid === 'sliding' && isTray(shape) ? { marks: new Map() } : null,
+        tray:
+          snap.grid === 'sliding' && isTray(shape)
+            ? {
+                marks: new Map(),
+                // a board given a colour shows its chequer in it
+                own:
+                  shape.colour == null ? null : shapeColour(shape.colour, store.indexOf(shape.id)),
+              }
+            : null,
+        hint:
+          hintGeo === null || hintLayer === null
+            ? null
+            : { geo: hintGeo, cells: layerOf(hintLayer) },
       };
     };
     if (k === this.geoKey && this.geo !== null) {
-      this.grid.show(input(this.geo));
+      this.grid.show(input(this.geo, this.hintGeo));
       this.card.renderSelbar();
       return;
     }
     this.geoKey = k;
-    this.geos.get(snap.grid, shape.size, st.plane, st.layer).then(
-      (g) => {
+    Promise.all([
+      this.geos.get(snap.grid, shape.size, st.plane, st.layer),
+      hintLayer === null ? null : this.geos.get(snap.grid, shape.size, st.plane, hintLayer),
+    ]).then(
+      ([g, h]) => {
         if (this.geoKey === k) {
           this.geo = g;
-          this.grid.show(input(g));
+          this.hintGeo = h;
+          this.grid.show(input(g, h));
           this.card.renderSelbar();
         }
       },

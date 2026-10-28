@@ -6,7 +6,7 @@
 // layers when the voxel editor is on screen; Projection; Voxel colour),
 // the mode buttons' handler (the navigation hint follows the mode),
 // `renderEditBtn` and the Minimal density's auto-hiding toolbar (shown near
-// the view's top edge, on focus, while its menu is open, briefly after a
+// the view's bottom edge, on focus, while its menu is open, briefly after a
 // mode key). Added: the render styles of the original (docs/webui-spec.md
 // section 7.4: bevelled voxels, flat with edges, the wire frame, and from
 // deferred part 5 the STL-like one, section 10.3) and

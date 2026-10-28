@@ -164,11 +164,11 @@ export function shapeColour(own: string | null, index: number): Rgb3 {
 // A sliding puzzle's start/goal shape (a tray) has no colour of its own
 // until the user gives it one (the original's cb_ShapeColor did nothing
 // there): its cells show the pieces' colours. Its look meanwhile, from the original's
-// slidingcolors.h: black in the shapes list, a dark grey in the 3D view,
-// a dark chequer in the 2D editor.
+// slidingcolors.h: a grey swatch (#808080, the original's black changed)
+// in the shapes list, a dark grey in the 3D view, a dark chequer in the 2D editor.
 
 /** The tray's swatch in the shapes list (slidingColors::LIST). */
-export const TRAY_LIST: Rgb3 = [0, 0, 0];
+export const TRAY_LIST: Rgb3 = fromHex('#808080');
 /** The tray's grey in the 3D view (slidingColors::VIEW_GREY). */
 export const TRAY_VIEW: Rgb3 = [0.12, 0.12, 0.12];
 /** The 2D editor's tray tiles (slidingColors::EDIT_LIGHT and EDIT_DARK). */
@@ -209,7 +209,7 @@ export function copyColour(
     : fromHex(rgb);
 }
 
-/** A shape's chip colour: a tray's black until it is given a colour, else its own or its number's. */
+/** A shape's chip colour: a tray's dark teal until it is given a colour, else its own or its number's. */
 export function chipColour(s: ShapeLike | undefined, index: number): Rgb3 {
   return isTray(s) && s?.colour == null ? TRAY_LIST : shapeColour(s?.colour ?? null, index);
 }
@@ -226,7 +226,7 @@ export function isTray(s: ShapeLike | null | undefined): boolean {
 
 /** The name a board (start/goal shape) shows while it has none (the engine's defaultStartGoalName). */
 export function trayDefaultName(n: number): string {
-  return `(START/GOAL ${String(n)})`;
+  return `(Board ${String(n)})`;
 }
 
 /** The name a shape shows: its name, or a board's default while it has none. */

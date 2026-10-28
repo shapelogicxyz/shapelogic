@@ -158,7 +158,7 @@ async function stamp(
   await boardClick(page, goal, at);
 }
 
-test('the 81-move puzzle built from New, solved by each sliding solver as bt, played with its walls', async () => {
+test('the 81-move puzzle built from New, solved as bt, played with its walls', async () => {
   test.setTimeout(300_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -184,7 +184,7 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await page.click('#btnNewBoard');
     await expect(page.locator('#shapeList .row')).toHaveCount(1);
     await settled(page);
-    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(START/GOAL 1)');
+    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(Board 1)');
     await page.click('#shapeList .row.sel [data-a="del"]');
     await expect(page.locator('#shapeList .row')).toHaveCount(0);
     await settled(page);
@@ -193,7 +193,7 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await page.click('#btnNewBoard');
     await expect(page.locator('#shapeList .row')).toHaveCount(1);
     await settled(page);
-    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(START/GOAL 1)');
+    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(Board 1)');
     // a board is drawn with the ordinary tools, which say what its cells are
     await expect(page.locator('#trayRow')).toHaveCount(0);
     await expect(page.locator('#toolStrip [data-t="erase"]')).toHaveAttribute('title', /^Wall/);
@@ -340,8 +340,8 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
     await expect(page.locator('#pzUsed [data-u] [data-d="-1"]').first()).toBeDisabled();
     await expect(page.locator('#pzUsed [data-u] [data-d="1"]').first()).toBeEnabled();
 
-    // solved by each sliding solver: as bt counts and moves it; the
-    // problem then is the fixture's (its pieces, the maximum of holes)
+    // solved by the sliding solver: as bt counts and moves it; the problem
+    // then is the fixture's (its pieces, the maximum of holes)
     await toSolver(page);
     expect(await shownProblem(page)).toBe(p);
     await page.click('#slvOptHead');
@@ -357,31 +357,31 @@ test('the 81-move puzzle built from New, solved by each sliding solver as bt, pl
       'aria-checked',
       'false',
     );
-    for (const solver of ['fast', 'deep', 'full'] as const) {
-      await page.selectOption('#slvOpts select[data-o="slidingSolver"]', solver);
-      await solverSettled(page);
-      const stored = await engineCall<{ solverSettings: { solverType?: string } }>(
-        page,
-        'problem.get',
-        { problem: p },
-      );
-      expect(stored.solverSettings.solverType).toBe(solver);
-      await runButton(page, 'start');
-      await runEnded(page, 'finished');
-      const bt = btJson(SOLVER, ['--solver', solver]) as {
-        assemblies: number;
-        solutions: number;
-        totalmoves: number | null;
-      };
-      expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(bt.assemblies);
-      expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(bt.solutions);
-      const rows = await engineCall<{ rows: { moves: number | null }[] }>(page, 'solution.page', {
-        problem: p,
-        sortBy: 'list',
-        limit: 10,
-      });
-      expect(rows.rows.map((r) => r.moves)).toEqual([bt.totalmoves]);
-    }
+    // one solver, shown as stacking's is: nothing to choose, nothing stored
+    const solvers = page.locator('#slvOpts select[data-o="slidingSolver"] option');
+    await expect(solvers).toHaveCount(1);
+    await expect(solvers).toHaveText('Sliding Puzzle Solver');
+    await runButton(page, 'start');
+    await runEnded(page, 'finished');
+    const stored = await engineCall<{ solverSettings: { solverType?: string } }>(
+      page,
+      'problem.get',
+      { problem: p },
+    );
+    expect(stored.solverSettings.solverType).toBeUndefined();
+    const bt = btJson(SOLVER) as {
+      assemblies: number;
+      solutions: number;
+      totalmoves: number | null;
+    };
+    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(bt.assemblies);
+    expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(bt.solutions);
+    const rows = await engineCall<{ rows: { moves: number | null }[] }>(page, 'solution.page', {
+      problem: p,
+      sortBy: 'list',
+      limit: 10,
+    });
+    expect(rows.rows.map((r) => r.moves)).toEqual([bt.totalmoves]);
     const after: Problem = await problemGet(page, p ?? '');
     expect(swap(definition(after))).toEqual(fxSwap(definition(fxProblem)));
 

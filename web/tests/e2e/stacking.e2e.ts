@@ -447,6 +447,9 @@ test('solved by the Stacking and the Panex Solver as bt; played in transfers on 
       await expect(page.locator('#slvAdv [data-x="movements"]')).toBeDisabled();
       await expect(page.locator('#slvAdv [data-x="step"]')).toBeDisabled();
     }
+    // the pointer off the player's buttons, so no tooltip is in the picture
+    await page.mouse.move(2, 300);
+    await expect(page.locator('.hovertip')).toBeHidden();
     await settle(page);
     await expect(page).toHaveScreenshot('stacking-player.png');
     const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');

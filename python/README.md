@@ -58,10 +58,10 @@ New here:
 - `solve(..., *, threads=0)`: the solve's threads (0, the default, every
   core, as the original's module ran).
 - Sliding and stacking puzzles solve as the GUI solves them (through the
-  core's solve session): `sliding_solver` (`"fast"`, `"deep"` or `"full"`,
-  the default), `nested_slides`, `partial_nested`, `high_memory`;
+  core's solve session, a sliding puzzle with the Sliding Puzzle Solver,
+  the only one): `nested_slides`, `partial_nested`, `high_memory`;
   `stacking_solver` (`"stacking"`, the default, or `"panex"`); `work_dir`,
-  where a full sliding search or a Panex search keeps its levels (empty:
+  where a sliding search or a Panex search keeps its levels (empty:
   in memory only). Their solutions come when the search ends; a stacking
   solution counts transfers, as `bt` does.
 - `import_puzzlesolver3d(filename)`, `import_puzzlecad(filename)`,

@@ -8,7 +8,7 @@ The 3D view fills the middle of the window in every workspace. On the
 shows the problem's result and its pieces. On the **Solver** tab it shows the
 solution you picked, and plays its disassembly.
 
-![The 3D view on the Shapes tab: the shape in the middle, the toolbar at the top, the view cube at the top right and the mouse hints at the bottom.](../../../assets/screens/guide/shapes-tab.png)
+![The 3D view on the Shapes tab: the shape in the middle, the view cube at the top right, the toolbar at the bottom right and the mouse hints at the bottom left.](../../../assets/screens/guide/shapes-tab.png)
 
 ## Moving around
 
@@ -45,7 +45,7 @@ A middle-button drag always pans, whichever mode is on.
 
 :::tip
 With **Settings ▸ General ▸ Interface density** set to **Minimal**, the toolbar hides itself. Point at the
-top of the 3D view, or press `Tab`, `O`, `P`, `E` or `F`, to show it again.
+bottom of the 3D view, or press `Tab`, `O`, `P`, `E` or `F`, to show it again.
 :::
 
 ## Display
