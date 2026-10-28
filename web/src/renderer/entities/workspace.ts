@@ -220,6 +220,8 @@ export class EntitiesWorkspace {
     });
     onTheme(() => {
       this.edit3d.show();
+      // a board's chequer follows the theme's board color
+      this.showGrid();
     });
     // the Grid plane setting: the grid goes to it at once (where the grid has it)
     onPrefs((changed) => {
@@ -416,7 +418,7 @@ export class EntitiesWorkspace {
           snap.grid === 'sliding' && isTray(shape)
             ? {
                 marks: new Map(),
-                // a board given a colour shows its chequer in it
+                // a board given a colour shows its chequer in it, else in the theme's
                 own:
                   shape.colour == null ? null : shapeColour(shape.colour, store.indexOf(shape.id)),
               }

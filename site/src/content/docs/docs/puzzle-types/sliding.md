@@ -49,8 +49,8 @@ them out.
    **Sliding** new shape size if there isn't one yet.
 2. Press **+ New Board** above the shapes list to add a board. It takes the
    size of the last board, or the **Sliding** new shape size (6 by 6 by 1
-   unless you change it) if there isn't one, and the **New sliding board
-   color** (gray unless you change it); see
+   unless you change it) if there isn't one. Its color follows the theme
+   (the **Sliding board color** settings); see
    [Grid editor settings](/docs/shapes-tab/#grid-editor-settings). The
    list's **Delete** removes a board and its problem.
 3. Draw the board with the usual tools, as any other shape: **Fixed** is
@@ -94,8 +94,9 @@ own problem, so you do not add or copy problems by hand.
    copy moves to where you click. A piece with several copies gets one more
    copy at each click, until all of them are placed. Click a copy, or
    right-click it, to take it off.
-4. The 3D view shows two trays side by side, **START** and **GOAL**. A bar
-   under it reads green (*Valid Start/Goal positions…*) or red (*Invalid
+4. The 3D view shows two trays side by side, **START** and **GOAL**, at the
+   top, and the problem's pieces under them, as on a Brick puzzle; click a
+   piece there to select it. A bar at the bottom of the view reads green (*Valid Start/Goal positions…*) or red (*Invalid
    Start/Goal positions - …*, with the reason).
 
 At least one piece needs every copy at a start and at a goal. Any other piece

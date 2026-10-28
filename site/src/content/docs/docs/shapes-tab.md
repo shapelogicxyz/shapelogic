@@ -206,9 +206,12 @@ editor's settings:
   copies that shape's size instead. On a sliding puzzle, **+ New Piece**
   copies the last piece's size and **+ New Board** the last board's. A
   stacking puzzle's new disc is always size 1.
-- **New sliding board color**: the color a board gets when **+ New Board**
-  makes it (gray unless you change it). Boards already made keep theirs;
-  change one with the pencil beside **Shape color** under the voxel editor.
+- **Sliding board color, Light theme** and **Sliding board color, Dark
+  theme**: the color of a sliding puzzle's boards in each theme (dark gray
+  `#383838` in the Light theme, light gray `#c8c8c8` in the Dark theme). A
+  board follows the theme: it changes color when you switch themes. A board
+  you give a color of its own, with the pencil beside **Shape color** under
+  the voxel editor, keeps that color in both.
 - **Voxel hint layer**: the grid shows faintly, in a pale tint of the
   shape's color, where the shape has voxels in a layer next to the one you
   edit. **Hinted layer** chooses which: **Below** (the default) hints the

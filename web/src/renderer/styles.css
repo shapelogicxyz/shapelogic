@@ -169,8 +169,8 @@ button{font:inherit;color:inherit}
 .subbar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);flex:none}
 .subbar .sp{flex:1}
 .gbody{flex:1;min-height:0;display:flex;position:relative;background:var(--panel2)}
-.lstrip{width:calc(54px + var(--fs));flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0;overflow:auto;background:var(--panel)}
-.lstrip .lh{font-size:calc(11px + var(--fs));font-weight:700;letter-spacing:.4px;margin-bottom:2px}
+.lstrip{width:auto;min-width:calc(54px + var(--fs));box-sizing:border-box;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;overflow:auto;background:var(--panel)}
+.lstrip .lh{white-space:nowrap;font-size:calc(11px + var(--fs));font-weight:700;letter-spacing:.4px;margin-bottom:2px}
 .lchip{width:calc(36px + var(--fs));height:calc(28px + var(--fh));border-radius:7px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600;color:var(--muted);flex:none}
 .lchip:hover{border-color:var(--accent);color:var(--text)}
 .lchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -598,7 +598,7 @@ html:is([data-density=standard],[data-density=compact]) .bigsw{width:32px;height
 html:is([data-density=standard],[data-density=compact]) .colhead{gap:10px}
 html:is([data-density=standard],[data-density=compact]) .colmeta{flex:none;min-width:0}
 html:is([data-density=standard],[data-density=compact]) .colmeta small{white-space:nowrap}
-html:is([data-density=standard],[data-density=compact]) .lstrip{width:calc(48px + var(--fs));padding:6px 0}
+html:is([data-density=standard],[data-density=compact]) .lstrip{min-width:calc(48px + var(--fs));padding:6px 6px}
 html:is([data-density=standard],[data-density=compact]) .lchip{width:calc(32px + var(--fs));height:calc(24px + var(--fh));border-radius:6px}
 html:is([data-density=standard],[data-density=compact]) .tbn{width:48px;height:44px;border-radius:8px}
 html:is([data-density=standard],[data-density=compact]) .vt{top:8px;left:8px;padding:3px;border-radius:10px}
@@ -670,7 +670,7 @@ html[data-density=compact] .mg .gl2{margin-bottom:2px}
 html[data-density=compact] .pseg{gap:4px}
 html[data-density=compact] .pseg .gbtn{width:auto;padding:2px 8px 2px 4px}
 html[data-density=compact] .subbar{padding:4px 8px}
-html[data-density=compact] .lstrip{padding:4px 0;gap:3px}
+html[data-density=compact] .lstrip{padding:4px 5px;gap:3px}
 html[data-density=compact] .lchip{height:calc(20px + var(--fh));border-radius:5px}
 html[data-density=compact] .gsize{padding:6px 8px 8px}
 html[data-density=compact] .gsh{margin-bottom:4px}
@@ -724,7 +724,7 @@ html[data-density=minimal] .subbar{padding:4px 8px;gap:6px}
 html[data-density=minimal] .colfoot{padding:5px 8px}
 html[data-density=minimal] .colhead{gap:8px}
 html[data-density=minimal] .bigsw{width:26px;height:26px;border-radius:6px}
-html[data-density=minimal] .lstrip{width:calc(40px + var(--fs));padding:4px 0;gap:3px}
+html[data-density=minimal] .lstrip{width:calc(40px + var(--fs));min-width:0;padding:4px 0;gap:3px}
 html[data-density=minimal] .lchip{width:calc(30px + var(--fs));height:calc(22px + var(--fh));border-radius:5px}
 html[data-density=minimal] .menu button{height:calc(24px + var(--fh));padding:0 7px}
 html[data-density=minimal] .top{padding:0 6px 0 10px}

@@ -63,7 +63,7 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | | Show tooltips | on |
 | Grid editor | Grid plane | XY / XZ / YZ (XY) |
 | | New shape size | Normal Burrs and Sliding, each X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4; Sliding 6, 6, 1); on a sliding puzzle + New Piece takes the last piece's size and + New Board the last board's, the setting only for the first |
-| | New sliding board color | a colour (#808080): a board made with + New Board takes it; boards made keep theirs |
+| | Sliding board color, Light theme / Dark theme | a colour each (#383838, #c8c8c8): a board with no colour of its own (a new board has none) shows the colour of the theme in use, in the shapes list, the 2D editor and the 3D view, and changes with the theme; a board given a colour keeps it |
 | | Voxel hint layer: Hinted layer | Below / Above (Below): the cells of that layer drawn faintly under the edited one's, in the shape's colour (the original's layer-below hint) |
 | 3D view | Show view cube | on |
 | | Reverse scroll zoom direction | off |
@@ -176,7 +176,20 @@ The mockup's "Use OpenGL display lists" setting is dropped (no OpenGL).
 ### 3D view
 The result, the selected piece, and every copy of every piece in a grid;
 optional copies (above the minimum count) drawn faded; click to select.
-Rotation turns each piece about its own centre.
+Rotation turns each piece about its own centre. The result (with the
+selected piece beside it) is centred at the top, the copies in rows under
+it, a short last row centred; the number of copies a row is the one that
+shows them largest in the view's shape (rows of five under a sliding
+board's trays). The pieces keep their sizes to one another, the largest
+filling its place with its mesh's outline at the home view (not the
+sphere any turn stays in, nor the grid's box, which a grid's cells need
+not fill), each centred on its mesh, and are drawn 15% larger in their places than the
+mockup's; the result fills a place 60% larger whatever its size, so small
+pieces of a large result are not shrunk to it. Under a result the rows
+of copies sit 35 pixels further down, the layout fitted to the height
+less that. The zoom grows or shrinks
+each piece where it stands; the layout keeps its places (the pan moves
+it all).
 
 ### Right card
 - **Selected piece**: cells (fixed/variable), **copies in the puzzle** (one
@@ -375,7 +388,16 @@ where the problem's counts are.
 - **3D view** (`showSingleShape`): two trays side by side, **START** and
   **GOAL** (dark grey, `VIEW_GREY` 0.12, a gap of 4 units), each copy
   placed standing on a tray in its piece's colour (on a tray of layers,
-  as many layers higher as its stamp is), instead of the pieces scene.
+  as many layers higher as its stamp is), at the top of the view under
+  its tag; below them the pieces scene's copies of the pieces (no result
+  or selected item: the board is the result, and the selected piece's
+  copies are boxed), above the validity bar, drawn 15% larger in their
+  places than on a Brick puzzle. The pieces take a band as tall as they
+  need, at most 55% of the height between the tag and the bar, and always
+  fit it (the zoom and the pan are the trays'); the trays are fitted at
+  the home view into the space above and drawn over the whole view, so a
+  zoom or a turn is not cut off at a border. With no pieces the trays
+  fill the view.
 
 ### 8.3 Solver workspace
 - **What to check:** "Assemblies" (the start layouts) or **"Find

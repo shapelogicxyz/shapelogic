@@ -15,7 +15,7 @@ import { meshArrays } from '../../engine/frames.ts';
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { esc } from '../shell/dom.ts';
-import { viewColour } from '../shell/piece-colours.ts';
+import { boardColour, hex, viewColour } from '../shell/piece-colours.ts';
 import type { TrayCopy } from '../entities/tray.ts';
 import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -100,7 +100,8 @@ export class TrayView {
     const gen = store.generation;
     const pieces = [...new Set([...model.starts, ...model.goals].map((c) => c.piece))];
     const shapes = [tray.id, ...pieces];
-    const key = `${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
+    // (the board's colour with none of its own follows the theme)
+    const key = `${hex(boardColour())}:${String(gen)}:${style}:${shapes.map((s) => `${s}@${String(this.host.shapeRevision(s))}`).join(',')}:${JSON.stringify(model.starts)}:${JSON.stringify(model.goals)}`;
     if (key === this.shownKey) {
       return;
     }

@@ -22,7 +22,8 @@
 // goal in the view (view3d/board.ts) instead of the pieces scene. A
 // sliding problem (section 8.2): Start and goal (slide-card.ts over
 // sliding.tray) in the selected piece's place, and the board's START and
-// GOAL trays with the copies placed in the view (view3d/trays.ts).
+// GOAL trays with the copies placed at the top of the view
+// (view3d/trays.ts), the pieces scene's copies under them.
 
 import type {
   FitStats,
@@ -36,6 +37,7 @@ import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
+import { onTheme } from '../shell/theme.ts';
 import { chipColour, contrast, hex } from '../shell/piece-colours.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import { copyColour, ROD_CHIP } from '../shell/piece-colours.ts';
@@ -50,6 +52,9 @@ import { PiecesCard } from './pieces-card.ts';
 import { PieceCard } from './piece-card.ts';
 import { ProblemsList } from './problems.ts';
 import { SlideCard } from './slide-card.ts';
+
+/** How much larger the pieces are drawn in their places than the mockup's. */
+const PIECE_GROW = 1.15;
 
 export type ProblemKind = Methods['problem.kind']['result'];
 
@@ -125,6 +130,10 @@ export class PuzzleWorkspace {
       if (tab === 'puzzle') {
         this.renderScene();
       }
+    });
+    // a board's chip follows the theme's board color
+    onTheme(() => {
+      this.render();
     });
     this.installKeys();
     this.documentChanged();
@@ -262,24 +271,30 @@ export class PuzzleWorkspace {
       this.view3d.renderLabels();
       return;
     }
-    // a sliding board: its START and GOAL trays instead of the pieces scene
+    // a sliding board: its START and GOAL trays at the top of the view, the
+    // pieces scene's copies under them (the board is the result, drawn as
+    // the trays; a selected piece is boxed among its copies)
     const trays = this.shown < 0 ? null : this.slide.trayModel();
     this.view3d.setTray(trays);
-    if (trays !== null) {
-      this.view3d.setPieces(null);
-      this.view3d.renderLabels();
-      return;
-    }
     if (d === null || snap === null || this.shown < 0) {
       this.view3d.setPieces(null);
     } else {
-      const { items, hidden } = puzLayout(d.result, this.sel, d.parts);
+      const { items, hidden } =
+        trays === null
+          ? puzLayout(d.result, this.sel, d.parts)
+          : puzLayout(
+              null,
+              null,
+              d.parts.filter((p) => p.shape !== trays.tray),
+            );
       this.view3d.setPieces({
-        key: `${String(this.store.generation)}:${d.id}:${String(this.shown)}:${this.sel ?? ''}`,
+        key: `${String(this.store.generation)}:${d.id}:${String(this.shown)}:${this.sel ?? ''}${trays === null ? '' : ':trays'}`,
         items,
         hidden,
         selected: this.sel,
         names: new Map(snap.shapes.map((s) => [s.id, s.label])),
+        // the pieces drawn larger, the gaps between them smaller
+        grow: PIECE_GROW,
       });
     }
     this.view3d.renderLabels();

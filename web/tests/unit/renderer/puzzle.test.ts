@@ -21,7 +21,7 @@ import {
   rng,
   solveActive,
 } from '../../../src/renderer/puzzle/counts.ts';
-import { label, MAX_COPIES, puzLayout } from '../../../src/renderer/puzzle/layout.ts';
+import { arrange, label, MAX_COPIES, puzLayout } from '../../../src/renderer/puzzle/layout.ts';
 
 const part = (shape: string, min: number, max: number, groups: Part['groups'] = []): Part => ({
   shape,
@@ -158,20 +158,34 @@ describe('the pieces scene', () => {
       ['piece', 's3', 2, 3, true],
       ['piece', 's3', 3, 3, true],
     ]);
-    expect(items[0]?.pos).toEqual([0, 0]);
-    expect(items[1]?.pos).toEqual([7.5, 0]);
-    // four copies in one row, centred on 3.75, 5.9 apart
+    // the result and the selected piece side by side, centred
+    expect(items[0]?.pos).toEqual([-3.75, 0]);
+    expect(items[1]?.pos).toEqual([3.75, 0]);
+    // four copies in one row, centred under them, 5.2 apart
     const xs = items.slice(2).map((i) => i.pos[0]);
-    expect(xs.map((x) => Number(x.toFixed(2)))).toEqual([-5.1, 0.8, 6.7, 12.6]);
-    expect(items.slice(2).every((i) => i.pos[1] === -7.2)).toBe(true);
+    expect(xs.map((x) => Number(x.toFixed(2)))).toEqual([-7.8, -2.6, 2.6, 7.8]);
+    expect(items.slice(2).every((i) => i.pos[1] === -7.7)).toBe(true);
   });
 
   it('wraps rows of five, leaves out the selected piece when it is the result', () => {
     const { items } = puzLayout('s1', 's1', [part('s2', 6, 6)]);
     expect(items.filter((i) => i.role === 'selected')).toEqual([]);
     const ys = items.filter((i) => i.role === 'piece').map((i) => i.pos[1]);
-    expect(ys).toEqual([-7.2, -7.2, -7.2, -7.2, -7.2, -12.8]);
+    expect(ys.map((y) => Number(y.toFixed(2)))).toEqual([-7.7, -7.7, -7.7, -7.7, -7.7, -14.3]);
+    // the result alone in the middle; a short last row centred too
+    expect(items[0]?.pos).toEqual([0, 0]);
+    expect(items.at(-1)?.pos[0]).toBe(0);
     expect(puzLayout(null, null, []).items).toEqual([]);
+  });
+
+  it('arranges the copies in as many columns as asked', () => {
+    const { items } = puzLayout('s1', null, [part('s2', 6, 6)]);
+    arrange(items, 3);
+    const copies = items.filter((i) => i.role === 'piece');
+    expect(copies.map((i) => Number(i.pos[0].toFixed(2)))).toEqual([-5.2, 0, 5.2, -5.2, 0, 5.2]);
+    expect(copies.map((i) => Number(i.pos[1].toFixed(2)))).toEqual([
+      -7.7, -7.7, -7.7, -14.3, -14.3, -14.3,
+    ]);
   });
 
   it('draws at most MAX_COPIES copies and counts the rest', () => {

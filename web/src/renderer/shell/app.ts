@@ -31,6 +31,7 @@ import { Imports } from './imports.ts';
 import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
+import { gridInfo } from './new-grids.ts';
 import { keepState } from './persist.ts';
 import { prefs, setPrefs, validPrefs } from './prefs.ts';
 import { Rescue } from './rescue.ts';
@@ -93,14 +94,19 @@ function statusLine(store: Store, puzzle: PuzzleWorkspace, solver: SolverWorkspa
 }
 
 // the grid of the document in the voxel editor's header (the mockup's
-// renderVType: fixed when the puzzle is made)
+// renderVType: fixed when the puzzle is made), named as File ▸ New names it
 function renderGridChip(store: Store): void {
   const grid = store.snapshot?.grid;
-  const label = store.info?.grids.find((g) => g.grid === grid)?.label ?? grid ?? '';
+  const label =
+    grid === undefined
+      ? ''
+      : ((gridInfo as Partial<Record<string, { name: string }>>)[grid]?.name ??
+        store.info?.grids.find((g) => g.grid === grid)?.label ??
+        grid);
   const chip = byId('vtChip');
   chip.style.display = label === '' ? 'none' : '';
-  chip.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>${esc(label)}`;
-  chip.title = `Voxel type: ${label} — fixed when the file is created (File ▸ New); it cannot be changed afterwards.`;
+  chip.innerHTML = `Type: ${esc(label)}`;
+  chip.title = `Puzzle type: ${label} — fixed when the file is created (File ▸ New); it cannot be changed afterwards.`;
 }
 
 /** Starts the app in the page, with the settings and layouts the last session kept. */

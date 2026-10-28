@@ -138,15 +138,16 @@ export function expected(p: Problem): Shown[] {
 }
 
 /** The pieces scene as it must be: the result, the selected piece, every copy (optional ones faded). */
-export function expectedScene(p: Problem, selected: string | null): string {
+export function expectedScene(p: Problem, selected: string | null, board = false): string {
   const out: string[] = [];
-  if (p.result !== null) {
+  // under a sliding board's trays: only the copies (the board is the result, drawn as the trays)
+  if (p.result !== null && !board) {
     out.push(`result:${p.result}:1/1`);
   }
-  if (selected !== null && selected !== p.result) {
+  if (selected !== null && selected !== p.result && !board) {
     out.push(`selected:${selected}:1/1`);
   }
-  for (const x of p.parts) {
+  for (const x of p.parts.filter((q) => !board || q.shape !== p.result)) {
     for (let k = 0; k < x.max; k++) {
       out.push(`piece:${x.shape}:${String(k + 1)}/${String(x.max)}${k >= x.min ? ':faded' : ''}`);
     }
@@ -179,7 +180,14 @@ export async function checkShown(page: Page): Promise<Problem> {
   }
   const shown = await page.locator('#pzSel').getAttribute('data-shape');
   const sel = shown === null || shown === '' ? null : shown;
-  const scene = expectedScene(p, sel);
+  // a sliding problem's result is a board when it is labelled B1, B2...
+  const board =
+    p.result !== null &&
+    (await page.locator('#stage.sld').count()) > 0 &&
+    /^B\d+$/.test(
+      (await page.locator(`#shapeList .row[data-id="${p.result}"] .chip`).textContent()) ?? '',
+    );
+  const scene = expectedScene(p, sel, board);
   await expect(page.locator('#vp')).toHaveAttribute('data-scene', scene);
   await expect(page.locator('#vp')).toHaveAttribute(
     'data-scene-meshes',

@@ -225,6 +225,7 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
     for (const g of grids) {
       const gen = await page.getAttribute('#stage', 'data-generation');
       await page.keyboard.press('Control+n');
+      const name = (await page.textContent(`#newPuzzle [data-grid="${g.grid}"]`)) ?? '';
       await page.click(`#newPuzzle [data-grid="${g.grid}"]`);
       await page.click('#newPuzzle [data-x="ok"]');
       await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', gen ?? '');
@@ -234,7 +235,9 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
       expect(snap.dirty).toBe(false);
       expect(snap.path).toBeNull();
       await expect(page.locator('#fname')).toHaveText('Untitled');
-      await expect(page.locator('#vtChip')).toHaveText(g.label);
+      // the type's name as File ▸ New lists it
+      await expect(page.locator('#vtChip')).toHaveText(`Type: ${name}`);
+      expect(name).not.toBe('');
     }
   } finally {
     await a.close();

@@ -33,7 +33,7 @@ import { chipColour, contrast, hex, ROD_CHIP, viewColour } from '../shell/piece-
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
-import { baseOf, Camera, EYE_DISTANCE, pixelsPerUnit } from './camera.ts';
+import { baseOf, Camera, EYE_DISTANCE, HOME, pixelsPerUnit } from './camera.ts';
 import { gridExtent } from './extent.ts';
 import { BoardView } from './board.ts';
 import type { BoardModel } from './board.ts';
@@ -61,6 +61,11 @@ import type { Display, EditButton, NavMode } from './toolbar.ts';
 import { ViewCube } from './viewcube.ts';
 
 type V3 = [number, number, number];
+
+/** The most of the Puzzle view's free height a sliding board's pieces take under its trays. */
+const PIECES_SHARE = 0.55;
+/** The share of their space the trays fill at the home view (the rest a margin). */
+const TRAY_FILL = 0.94;
 
 /** The modifiers of a pointer event or key (Cmd counts as Alt, as the mockup's `mods`). */
 export interface ViewMods {
@@ -670,6 +675,8 @@ export class View3D {
 
   private themeChanged(): void {
     this.renderer.setBackground(css('--canvas') || '#e4e8ef');
+    // a board with none of its own takes the theme's colour
+    this.trays.load();
     this.lookChanged();
   }
 
@@ -786,8 +793,12 @@ export class View3D {
           revision: rev,
           transformation: 0,
         });
-        const lo = reply.lo;
-        const hi = reply.hi;
+        // the mesh's own box (the frame's lo and hi may be larger: a grid's
+        // cells need not fill it), so the piece is centred on what is drawn
+        built.faces.computeBoundingBox();
+        const bb = built.faces.boundingBox;
+        const lo = bb === null || bb.isEmpty() ? reply.lo : bb.min.toArray();
+        const hi = bb === null || bb.isEmpty() ? reply.hi : bb.max.toArray();
         const c = [0, 1, 2].map((i) => ((lo[i] ?? 0) + (hi[i] ?? 0)) / 2) as [
           number,
           number,
@@ -797,7 +808,12 @@ export class View3D {
           0.5,
           Math.hypot(...[0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)))) / 2,
         );
-        return [s, { built, centre: c, radius, key }];
+        const half = [0, 1, 2].map((i) => Math.max(0, (hi[i] ?? 0) - (lo[i] ?? 0)) / 2) as [
+          number,
+          number,
+          number,
+        ];
+        return [s, { built, centre: c, radius, half, key }];
       }),
     ).then(
       (list) => {
@@ -845,6 +861,7 @@ export class View3D {
       model ?? { key: '', items: [], hidden: 0, selected: null, names: new Map() },
       meshes,
       this.piecesLook(),
+      this.camera.fromAngles(HOME),
     );
     for (const [s, m] of old) {
       if (meshes.get(s) !== m) {
@@ -883,11 +900,12 @@ export class View3D {
     // a stacking puzzle's Puzzle workspace draws its board, not the pieces scene
     this.renderer.tilt = stacking;
     this.camera.setBase(this.upright(), performance.now());
-    // a sliding board's trays in the Puzzle view, not the pieces scene
+    // a sliding board's trays in the Puzzle view, the pieces scene under
+    // them (draw() shows each in its own band)
     const trays = puzzle && this.trayShown && !stacking;
     this.renderer.root.visible = !puzzle || stacking || trays;
     this.renderer.model.visible = !solver && !puzzle && !this.rodSetShown;
-    this.pieces.group.visible = puzzle && !stacking && !trays;
+    this.pieces.group.visible = puzzle && !stacking;
     this.trays.group.visible = trays;
     this.solution.group.visible = solver;
     this.showBoard();
@@ -1023,21 +1041,15 @@ export class View3D {
 
   private draw(): void {
     const moving = this.camera.step(performance.now());
+    // the trays' titles (START, GOAL) over the Puzzle view
+    let tags = '';
     if (this.puzzleMode && this.stacking) {
       this.renderer.frame(this.camera, this.board.extent ?? [1, 1, 1]);
       this.renderer.render();
     } else if (this.puzzleMode && this.trayShown) {
-      // the trays move as the model would: centred on what they fill
-      this.renderer.frame(this.camera, this.trays.extent ?? [1, 1, 1]);
-      this.trays.group.position.copy(this.renderer.model.position);
-      this.renderer.render();
+      tags = this.drawTrays();
     } else if (this.puzzleMode) {
-      const r = this.renderer;
-      const { sc, reach } = this.pieces.scale(r.width, r.height, this.camera.zoom);
-      r.frameScene(this.camera, sc, Math.max(EYE_DISTANCE, 2.5 * reach), reach);
-      this.pieces.turn(this.camera.q);
-      r.render();
-      this.pieces.place(r.camera, r.width, r.height, sc);
+      this.drawPieces(0);
     } else if (this.solverMode) {
       const r = this.renderer;
       const extent = this.solutionModel?.extent ?? [1, 1, 1];
@@ -1061,11 +1073,6 @@ export class View3D {
       this.renderer.frame(this.camera, ex ?? this.extent);
       this.renderer.render();
     }
-    // the trays' titles (START, GOAL) over the Puzzle view
-    const tags =
-      this.puzzleMode && this.trayShown
-        ? this.trays.tags(this.trays.group, (v) => this.toScreen(v))
-        : '';
     if (tags !== this.trayTags) {
       this.trayTags = tags;
       byId('trayTags').innerHTML = tags;
@@ -1083,6 +1090,87 @@ export class View3D {
     vp.dataset.moving = this.camera.moving ? '1' : '0';
     vp.dataset.triangles = String(this.renderer.gl.info.render.triangles);
     vp.dataset.projection = this.display.persp ? 'perspective' : 'orthographic';
+  }
+
+  // a sliding board's two trays in the Puzzle view, and their titles: the
+  // whole view, or with pieces to show, the pieces scene in a band over the
+  // validity bar as tall as it needs (at most PIECES_SHARE of the free
+  // height), and the trays fitted at the home view into the space between
+  // the view's tag and that band. The trays are drawn last over the whole
+  // view, so a zoom or a turn that takes them past their space is not cut
+  // off.
+  private drawTrays(): string {
+    const r = this.renderer;
+    const extent = this.trays.extent ?? [1, 1, 1];
+    const tray = (sc?: number, dy = 0): string => {
+      const w = r.width;
+      const h = r.height;
+      this.trays.setResolution(w, h);
+      // the trays move as the model would: centred on what they fill
+      const cam = this.camera;
+      r.frame({ q: cam.q, zoom: cam.zoom, px: cam.px, py: cam.py + dy }, extent, sc);
+      this.trays.group.position.copy(r.model.position);
+      r.render();
+      return this.trays.tags(this.trays.group, (v) => {
+        const p = v.clone().project(r.camera);
+        return [((p.x + 1) / 2) * w, ((1 - p.y) / 2) * h];
+      });
+    };
+    if (this.pieces.empty) {
+      return tray();
+    }
+    const full = r.height;
+    const tag = byId('vtag');
+    const valid = byId('slideValid');
+    const y0 = Math.min(Math.round(full / 4), tag.offsetTop + tag.offsetHeight + 8);
+    const y1 =
+      valid.offsetParent !== null && valid.offsetHeight > 0
+        ? Math.max(y0 + 2, valid.offsetTop - 4)
+        : full;
+    const free = y1 - y0;
+    const top =
+      y1 - Math.round(Math.min(this.pieces.heightFor(r.width, true), free * PIECES_SHARE));
+    // the view's background, then the pieces in their band
+    r.gl.clear();
+    this.trays.group.visible = false;
+    r.band(top, y1 - top, () => {
+      this.drawPieces(top);
+    });
+    this.trays.group.visible = true;
+    // the trays over the whole view: their size at the home view fills their
+    // space, their centre at its centre
+    const [fw, fh] = homeFootprint(extent, this.camera.fromAngles(HOME));
+    const sc =
+      Math.min((r.width * TRAY_FILL) / fw, ((top - y0) * TRAY_FILL) / fh) * this.camera.zoom;
+    this.pieces.group.visible = false;
+    const auto = r.gl.autoClear;
+    r.gl.autoClear = false;
+    r.gl.clearDepth();
+    try {
+      return tray(Math.max(sc, 0.01), (y0 + top) / 2 - full / 2);
+    } finally {
+      r.gl.autoClear = auto;
+      this.pieces.group.visible = true;
+    }
+  }
+
+  // the pieces scene in the renderer's size; in a band `top` pixels down
+  // (under a sliding board's trays) it always fits it: the zoom and the pan
+  // are the trays'
+  private drawPieces(top: number): void {
+    const r = this.renderer;
+    const band = top > 0;
+    this.pieces.setResolution(r.width, r.height);
+    const { sc, reach } = this.pieces.scale(r.width, r.height, band ? 1 : this.camera.zoom, band);
+    r.frameScene(
+      band ? { px: 0, py: 0 } : this.camera,
+      sc,
+      Math.max(EYE_DISTANCE, 2.5 * reach),
+      reach,
+    );
+    this.pieces.turn(this.camera.q);
+    r.render();
+    this.pieces.place(r.camera, r.width, r.height, sc, top);
   }
 
   // ---- picking ----
@@ -1349,4 +1437,27 @@ export class View3D {
 function disposeBuilt(b: BuiltMesh): void {
   b.faces.dispose();
   b.marks?.dispose();
+}
+
+// the width and height, in units, a box of `extent` takes on the screen
+// turned by `q` (orthographic; the perspective adds a little, which the
+// margin takes)
+function homeFootprint(extent: readonly number[], q: Quaternion): [number, number] {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  const v = new Vector3();
+  for (let i = 0; i < 8; i++) {
+    v.set(
+      ((i & 1) - 0.5) * (extent[0] ?? 1),
+      (((i >> 1) & 1) - 0.5) * (extent[1] ?? 1),
+      (((i >> 2) & 1) - 0.5) * (extent[2] ?? 1),
+    ).applyQuaternion(q);
+    x0 = Math.min(x0, v.x);
+    x1 = Math.max(x1, v.x);
+    y0 = Math.min(y0, v.y);
+    y1 = Math.max(y1, v.y);
+  }
+  return [Math.max(x1 - x0, 1), Math.max(y1 - y0, 1)];
 }

@@ -23,6 +23,7 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { layout, applyLayout, tab } from '../shell/layout.ts';
+import { onTheme } from '../shell/theme.ts';
 import { chipColour, contrast, hex, isTray, shownName } from '../shell/piece-colours.ts';
 import { openPopAt } from '../shell/popover.ts';
 import { prefs } from '../shell/prefs.ts';
@@ -62,6 +63,10 @@ export class ShapesList {
     this.host = host;
     this.install();
     this.render();
+    // a board's swatch follows the theme's board color
+    onTheme(() => {
+      this.render();
+    });
   }
 
   private get shapes(): ShapeSummary[] {
@@ -140,15 +145,10 @@ export class ShapesList {
       last === undefined
         ? [prefs.slideX * u, prefs.slideY * u, prefs.slideZ * u]
         : [last.size[0], last.size[1], last.size[2]];
-    const r = await this.host.mutate('New board', async () => {
-      const made = await this.host.store.engine.call('sliding.addStartGoal', { size });
-      // the board takes the New sliding board color setting
-      const coloured = await this.host.store.engine.call('shape.setColour', {
-        shape: made.shape,
-        rgb: prefs.boardColour,
-      });
-      return { shape: made.shape, revision: coloured.revision };
-    });
+    // the board has no colour of its own: it takes the theme's Sliding board color
+    const r = await this.host.mutate('New board', () =>
+      this.host.store.engine.call('sliding.addStartGoal', { size }),
+    );
     if (r !== null) {
       this.select(r.shape);
     }

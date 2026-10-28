@@ -28,7 +28,7 @@ import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
 import type { Tool } from '../shell/cursors.ts';
 import { esc } from '../shell/dom.ts';
-import { dark, hex, light, TRAY_EDIT } from '../shell/piece-colours.ts';
+import { boardColour, dark, hex, light } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { key } from './editor-state.ts';
 import { effectiveTool, modsOf } from './tools.ts';
@@ -217,10 +217,26 @@ export class Grid2D {
     const { flipped, rowsFlipped } = input.plane;
     // the axes meet at the origin: on the right where the columns are
     // flipped, at the top where the rows are
-    const X0 = this.X(0).toFixed(1);
-    const XO = this.X(flipped ? ex : 0).toFixed(1);
-    const YO = this.Y(rowsFlipped ? ey : 0, ey).toFixed(1);
-    b += `<line x1="${X0}" y1="${YO}" x2="${this.X(ex).toFixed(1)}" y2="${YO}" stroke="${axis(input.plane.ca)}" stroke-width="3" pointer-events="none"/><line x1="${XO}" y1="${this.Y(0, ey).toFixed(1)}" x2="${XO}" y2="${this.Y(ey, ey).toFixed(1)}" stroke="${axis(input.plane.ra)}" stroke-width="3" pointer-events="none"/>`;
+    // along the outer edge of the cells (a sphere at the edge reaches past
+    // the grid's box), from corner to corner of what they cover
+    let lx = 0;
+    let hx = ex;
+    let ly = 0;
+    let hy = ey;
+    for (const c of input.geo.cells) {
+      if (c.circle !== undefined) {
+        const [cx, cy] = c.circle.centre;
+        const r = c.circle.radius;
+        lx = Math.min(lx, cx - r);
+        hx = Math.max(hx, cx + r);
+        ly = Math.min(ly, cy - r);
+        hy = Math.max(hy, cy + r);
+      }
+    }
+    const X0 = this.X(lx).toFixed(1);
+    const XO = this.X(flipped ? hx : lx).toFixed(1);
+    const YO = this.Y(rowsFlipped ? hy : ly, ey).toFixed(1);
+    b += `<line x1="${X0}" y1="${YO}" x2="${this.X(hx).toFixed(1)}" y2="${YO}" stroke="${axis(input.plane.ca)}" stroke-width="3" pointer-events="none"/><line x1="${XO}" y1="${this.Y(ly, ey).toFixed(1)}" x2="${XO}" y2="${this.Y(hy, ey).toFixed(1)}" stroke="${axis(input.plane.ra)}" stroke-width="3" pointer-events="none"/>`;
     // the cube editor's rulers: the column and row numbers, the columns' along the origin's edge
     if (input.grid === 'bricks' || input.grid === 'sliding' || input.grid === 'stacking') {
       let t = '';
@@ -311,13 +327,8 @@ export class Grid2D {
         // the tray's chequer, a marked cell in its piece's (grideditor.cpp)
         const odd = ((c.at[0] + c.at[1] + c.at[2]) & 1) === 1;
         const mark = tray.marks.get(key(c.at));
-        const base = mark ?? tray.own;
-        col =
-          base == null
-            ? odd
-              ? TRAY_EDIT.dark
-              : TRAY_EDIT.light
-            : hex(odd ? dark(base) : light(base));
+        const base = mark ?? tray.own ?? boardColour();
+        col = hex(odd ? dark(base) : light(base));
       }
       el.setAttribute('fill', col);
       el.setAttribute('fill-opacity', vr ? '0.5' : v === undefined && hinted !== '' ? '0' : '1');

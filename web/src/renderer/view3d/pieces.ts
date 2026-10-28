@@ -17,14 +17,14 @@
 // engine's meshes, as the 3D view's (mesh.ts, material.ts), not the
 // mockup's projected cubes.
 
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, Vector2, Vector3 } from 'three';
-import type { Camera as Camera3, Quaternion } from 'three';
+import { DoubleSide, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
+import type { Camera as Camera3 } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import type { MeshStyle } from '../../engine/api.generated.ts';
-import { label } from '../puzzle/layout.ts';
+import { arrange, label, RESULT_SIZE } from '../puzzle/layout.ts';
 import type { SceneItem } from '../puzzle/layout.ts';
 import { esc } from '../shell/dom.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
@@ -43,6 +43,8 @@ export interface PiecesModel {
   selected: string | null;
   /** The shapes' labels (S1, S2...). */
   names: ReadonlyMap<string, string>;
+  /** How much larger than the layout's own size each piece is drawn, in its place (1 when left out). */
+  grow?: number;
 }
 
 /** How the pieces are drawn. */
@@ -61,6 +63,8 @@ export interface PieceMesh {
   centre: [number, number, number];
   /** Half the diagonal of its box: no turn takes it further from its centre. */
   radius: number;
+  /** Half its box's size in X, Y and Z. */
+  half: [number, number, number];
 }
 
 /** The opacity of an optional copy (the mockup's 0.42). */
@@ -78,7 +82,10 @@ interface ShapeDraw {
 interface ItemDraw {
   item: SceneItem;
   group: Group;
-  radius: number;
+  /** Its scale before the zoom. */
+  size: number;
+  /** Half the larger side of its outline at the home view, at scale 1. */
+  half: number;
   /** Its anchor in the layout's world units. */
   at: Vector3;
   box: HTMLElement;
@@ -118,6 +125,15 @@ export class PiecesScene {
   private selected: string | null = null;
   /** The layout's size and the scale from the mockup's units to world units. */
   private bounds = { w: 1, h: 1, k: 1 };
+  /** The items laid out (their own copies, moved by `arrange`), and the copies a row now. */
+  private laid: SceneItem[] = [];
+  private cols = 5;
+  /** How much larger than its place each piece is drawn (PiecesModel.grow). */
+  private grow = 1;
+  /** The view's zoom: each piece grows or shrinks where it stands. */
+  private zoom = 1;
+  /** How much further the copies are from the result, in world units (DROP_PX on the screen). */
+  private drop = 0;
 
   constructor(overlay: HTMLElement) {
     this.overlay = overlay;
@@ -152,9 +168,15 @@ export class PiecesScene {
   /**
    * Shows a model: `meshes` holds the mesh of every shape it names. The
    * shapes' materials are kept while their shapes stay; the geometry
-   * belongs to the caller.
+   * belongs to the caller. `home` is the view's home orientation: each
+   * piece is sized by its outline seen so, which it fills its place with.
    */
-  set(model: PiecesModel, meshes: ReadonlyMap<string, PieceMesh>, look: PiecesLook): void {
+  set(
+    model: PiecesModel,
+    meshes: ReadonlyMap<string, PieceMesh>,
+    look: PiecesLook,
+    home: Quaternion = new Quaternion(),
+  ): void {
     this.clearItems();
     this.selected = model.selected;
     const used = new Set(model.items.map((i) => i.shape));
@@ -164,27 +186,33 @@ export class PiecesScene {
         this.shapes.delete(shape);
       }
     }
-    // the scale: the largest piece takes the mockup's four units
+    // the scale: the largest piece's outline at the home view takes the
+    // mockup's four units; the result, whatever its size, RESULT_SIZE times
+    // that (with no pieces, its own)
+    const outline = new Map<string, number>();
+    for (const [shape, m] of meshes) {
+      outline.set(shape, outlineOf(m, home));
+    }
     let big = 0;
-    for (const s of used) {
-      big = Math.max(big, 2 * (meshes.get(s)?.radius ?? 0));
+    for (const it of model.items) {
+      if (it.role !== 'result') {
+        big = Math.max(big, outline.get(it.shape) ?? 0);
+      }
+    }
+    const r = model.items.find((i) => i.role === 'result');
+    const rr = r === undefined ? 0 : (outline.get(r.shape) ?? 0);
+    if (big === 0) {
+      big = rr;
     }
     const k = Math.max(big, 1) / UNIT;
-    let x0 = Infinity;
-    let x1 = -Infinity;
-    let y0 = Infinity;
-    let y1 = -Infinity;
-    for (const it of model.items) {
-      x0 = Math.min(x0, it.pos[0] - 2);
-      x1 = Math.max(x1, it.pos[0] + 2);
-      y0 = Math.min(y0, it.pos[1] - 2.2);
-      y1 = Math.max(y1, it.pos[1] + 2.2);
-    }
-    const cx = (x0 + x1) / 2;
-    const cy = (y0 + y1) / 2;
-    this.bounds = model.items.length === 0 ? { w: 1, h: 1, k } : { w: x1 - x0, h: y1 - y0, k };
+    this.grow = model.grow ?? 1;
+    this.laid = model.items.map((i) => ({ ...i, pos: [i.pos[0], i.pos[1]] }));
+    this.cols = 5;
+    arrange(this.laid, this.cols);
+    const b = this.boundsOf(this.laid);
+    this.bounds = { w: b.w, h: b.h, k };
     const frag = document.createDocumentFragment();
-    for (const item of model.items) {
+    for (const item of this.laid) {
       const m = meshes.get(item.shape);
       if (m === undefined) {
         continue;
@@ -209,8 +237,11 @@ export class PiecesScene {
       if (d.edges !== null) {
         inner.add(new LineSegments2(d.edges, item.optional ? this.edgeFaded : this.edgeMaterial));
       }
-      const at = new Vector3((item.pos[0] - cx) * k, (item.pos[1] - cy) * k, 0);
-      group.position.copy(at);
+      const at = new Vector3();
+      // the result fills its larger place, the pieces keep their sizes to each other
+      const size =
+        this.grow * (item.role === 'result' && rr > 0 ? (RESULT_SIZE * Math.max(big, 1)) / rr : 1);
+      group.scale.setScalar(size * this.zoom);
       this.group.add(group);
       const box = document.createElement('div');
       box.className = `pzbox ${item.role}${item.optional ? ' opt' : ''}`;
@@ -221,13 +252,15 @@ export class PiecesScene {
       this.items.push({
         item,
         group,
-        radius: m.radius,
+        size,
+        half: (outline.get(item.shape) ?? 2 * m.radius) / 2,
         at,
         box,
         rect: { x0: 0, y0: 0, x1: 0, y1: 0 },
       });
     }
     this.overlay.replaceChildren(frag);
+    this.position();
     this.setLook(look);
     this.renderBoxes();
   }
@@ -251,13 +284,115 @@ export class PiecesScene {
   }
 
   /**
-   * The scale (pixels per world unit) at a zoom for a viewport, the
-   * mockup's `sc`, and the layout's largest extent in world units.
+   * The scale (pixels per world unit) for a viewport, the
+   * mockup's `sc`, and the layout's largest extent in world units
+   * (`tight`: less margin above and below).
    */
-  scale(w: number, h: number, zoom: number): { sc: number; reach: number } {
+  scale(w: number, h: number, zoom: number, tight = false): { sc: number; reach: number } {
+    // a band under a sliding board's trays keeps rows of five (its height
+    // follows the layout); the whole view takes the rows that show the
+    // pieces largest
+    this.layOut(tight ? 5 : this.bestCols(w, h));
+    this.setZoom(zoom);
     const { w: lw, h: lh, k } = this.bounds;
-    const sc = Math.min(w / ((lw + 3) * k), h / ((lh + 3) * k)) * 0.92 * zoom || 1;
-    return { sc, reach: Math.hypot(lw, lh) * k };
+    // the copies DROP_PX lower under the result, the same pixels at any
+    // size: the layout fits the height less that, the top row moved up
+    // half of it and the copies down the other half
+    const dropPx = !tight && this.laid.some((i) => i.role === 'result') ? DROP_PX : 0;
+    const sc =
+      Math.min(w / ((lw + PAD_X) * k), Math.max(1, h - dropPx) / ((lh + padY(tight)) * k)) * 0.92 ||
+      1;
+    const drop = dropPx / sc;
+    if (Math.abs(drop - this.drop) > 1e-9) {
+      this.drop = drop;
+      this.position();
+    }
+    return { sc, reach: Math.hypot(lw, lh) * k * Math.max(1, zoom) };
+  }
+
+  // the zoom: each piece scaled where it stands, the layout kept
+  private setZoom(zoom: number): void {
+    if (zoom === this.zoom) {
+      return;
+    }
+    this.zoom = zoom;
+    for (const d of this.items) {
+      d.group.scale.setScalar(d.size * zoom);
+    }
+  }
+
+  // the copies a row that give the largest scale in a viewport
+  private bestCols(w: number, h: number): number {
+    const n = this.laid.filter((i) => i.role === 'piece').length;
+    let best = this.cols;
+    let most = 0;
+    const trial = this.laid.map((i) => ({ ...i }));
+    for (let c = 1; c <= Math.max(1, Math.min(n, 12)); c++) {
+      arrange(trial, c);
+      const b = this.boundsOf(trial);
+      const sc = Math.min(w / (b.w + PAD_X), h / (b.h + padY(false)));
+      // a wider row only for a clearly larger scale: no flicker between two
+      if (sc > most * 1.001) {
+        most = sc;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  // the items for `cols` copies a row, the groups moved to them
+  private layOut(cols: number): void {
+    if (cols === this.cols) {
+      return;
+    }
+    this.cols = cols;
+    arrange(this.laid, cols);
+    const b = this.boundsOf(this.laid);
+    this.bounds = { w: b.w, h: b.h, k: this.bounds.k };
+    this.position();
+  }
+
+  // the layout's size and centre in the mockup's units, each item's place
+  // grown as it is drawn
+  private boundsOf(items: readonly SceneItem[]): { w: number; h: number; cx: number; cy: number } {
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (const it of items) {
+      const f = this.grow * (it.role === 'result' ? RESULT_SIZE : 1);
+      x0 = Math.min(x0, it.pos[0] - 2 * f);
+      x1 = Math.max(x1, it.pos[0] + 2 * f);
+      y0 = Math.min(y0, it.pos[1] - 2.2 * f);
+      y1 = Math.max(y1, it.pos[1] + 2.2 * f);
+    }
+    return items.length === 0
+      ? { w: 1, h: 1, cx: 0, cy: 0 }
+      : { w: x1 - x0, h: y1 - y0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+
+  // each item's group where the layout puts it, the layout centred
+  private position(): void {
+    const { cx, cy } = this.boundsOf(this.laid);
+    const k = this.bounds.k;
+    for (const d of this.items) {
+      d.at.set(
+        (d.item.pos[0] - cx) * k,
+        (d.item.pos[1] - cy) * k + (d.item.role === 'piece' ? -this.drop : this.drop) / 2,
+        0,
+      );
+      d.group.position.copy(d.at);
+    }
+  }
+
+  /**
+   * The height at which a viewport `w` wide shows the layout as large as
+   * its width allows (`tight`: with the margin above and below cut, as
+   * `scale` cuts it).
+   */
+  heightFor(w: number, tight = false): number {
+    const { w: lw, h: lh } = this.bounds;
+    return (w * (lh + padY(tight))) / (lw + PAD_X);
   }
 
   /** Turns every item about its own centre to the camera's orientation. */
@@ -267,14 +402,18 @@ export class PiecesScene {
     }
   }
 
-  /** Places the boxes and labels for the camera (after it was framed). */
-  place(camera: Camera3, w: number, h: number, sc: number): void {
+  /**
+   * Places the boxes and labels for the camera (after it was framed), the
+   * scene drawn `top` pixels down the viewport (a band under a sliding
+   * puzzle's trays).
+   */
+  place(camera: Camera3, w: number, h: number, sc: number, top = 0): void {
     const v = new Vector3();
     for (const d of this.items) {
       v.copy(d.at).project(camera);
       const x = ((v.x + 1) / 2) * w;
-      const y = ((1 - v.y) / 2) * h;
-      const half = d.radius * sc + 8;
+      const y = top + ((1 - v.y) / 2) * h;
+      const half = d.half * d.size * this.zoom * sc + 8;
       d.rect = { x0: x - half, y0: y - half, x1: x + half, y1: y + half };
       const s = d.box.style;
       s.left = `${String(Math.round(x - half))}px`;
@@ -376,6 +515,54 @@ export class PiecesScene {
     }
     this.shared.uPalette.value.dispose();
   }
+}
+
+// the larger side, in world units, of a piece's outline turned by `q`
+// (seen along Z): its mesh's corners about its centre, or with no mesh,
+// its box's
+function outlineOf(m: PieceMesh, q: Quaternion): number {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  const v = new Vector3();
+  const take = (): void => {
+    v.applyQuaternion(q);
+    x0 = Math.min(x0, v.x);
+    x1 = Math.max(x1, v.x);
+    y0 = Math.min(y0, v.y);
+    y1 = Math.max(y1, v.y);
+  };
+  const p = m.built.faces.getAttribute('position');
+  const [cx, cy, cz] = m.centre;
+  if (p.count > 0) {
+    for (let i = 0; i < p.count; i++) {
+      v.set(p.getX(i) - cx, p.getY(i) - cy, p.getZ(i) - cz);
+      take();
+    }
+  } else {
+    for (let i = 0; i < 8; i++) {
+      v.set(
+        (i & 1 ? 1 : -1) * m.half[0],
+        (i & 2 ? 1 : -1) * m.half[1],
+        (i & 4 ? 1 : -1) * m.half[2],
+      );
+      take();
+    }
+  }
+  return Math.max(x1 - x0, y1 - y0, 0.5);
+}
+
+/** How far the copies sit lower under the result than the layout puts them, in pixels. */
+const DROP_PX = 35;
+
+/** The layout's margin left and right, in the mockup's units. */
+const PAD_X = 1.5;
+
+// the layout's margin above and below, in the mockup's units: a band under
+// a sliding board's trays keeps less
+function padY(tight: boolean): number {
+  return tight ? 1 : 3;
 }
 
 function edgeGeometry(built: BuiltMesh): LineSegmentsGeometry | null {

@@ -14,8 +14,8 @@ import { newOrder } from '../../../src/renderer/shell/files-order.ts';
 import {
   chipColour,
   fromHex,
-  TRAY_LIST,
-  TRAY_VIEW,
+  boardColour,
+  setBoardColour,
   viewColour,
 } from '../../../src/renderer/shell/piece-colours.ts';
 import {
@@ -274,8 +274,12 @@ describe('a start/goal shape', () => {
   });
 
   it('has the colours, outline and validity as the original', () => {
-    expect(chipColour(shapes[0], 0)).toEqual(TRAY_LIST);
-    expect(viewColour(shapes[0], 0)).toEqual(TRAY_VIEW);
+    // a board with no colour of its own takes the theme's board colour
+    setBoardColour('#c8c8c8');
+    expect(chipColour(shapes[0], 0)).toEqual(boardColour());
+    expect(viewColour(shapes[0], 0)).toEqual(fromHex('#c8c8c8'));
+    setBoardColour('#383838');
+    expect(viewColour(shapes[0], 0)).toEqual(fromHex('#383838'));
     // a board the user gave a colour shows it
     const painted = { ...shapes[0], colour: '#336699' };
     expect(chipColour(painted, 0)).toEqual(fromHex('#336699'));

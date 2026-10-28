@@ -163,16 +163,22 @@ export function shapeColour(own: string | null, index: number): Rgb3 {
 
 // A sliding puzzle's start/goal shape (a tray) has no colour of its own
 // until the user gives it one (the original's cb_ShapeColor did nothing
-// there): its cells show the pieces' colours. Its look meanwhile, from the original's
-// slidingcolors.h: a grey swatch (#808080, the original's black changed)
-// in the shapes list, a dark grey in the 3D view, a dark chequer in the 2D editor.
+// there): its cells show the pieces' colours. Its look meanwhile is one
+// colour for the list's swatch, the 3D view and the 2D editor's chequer:
+// the Sliding board color setting of the theme in use (the original's
+// slidingcolors.h had a fixed dark grey), so a board follows the theme.
 
-/** The tray's swatch in the shapes list (slidingColors::LIST). */
-export const TRAY_LIST: Rgb3 = fromHex('#808080');
-/** The tray's grey in the 3D view (slidingColors::VIEW_GREY). */
-export const TRAY_VIEW: Rgb3 = [0.12, 0.12, 0.12];
-/** The 2D editor's tray tiles (slidingColors::EDIT_LIGHT and EDIT_DARK). */
-export const TRAY_EDIT = { light: '#323232', dark: '#1e1e1e' } as const;
+let boardDefault: Rgb3 = fromHex('#383838');
+
+/** Sets the colour of a board with none of its own (the theme's setting, #rrggbb). */
+export function setBoardColour(rgb: string): void {
+  boardDefault = fromHex(rgb);
+}
+
+/** The colour of a board with none of its own. */
+export function boardColour(): Rgb3 {
+  return boardDefault;
+}
 
 /** A stacking puzzle's rod set chip (BlockList.cpp's RodSelector: 70, 110, 150). */
 export const ROD_CHIP = '#466e96';
@@ -209,14 +215,14 @@ export function copyColour(
     : fromHex(rgb);
 }
 
-/** A shape's chip colour: a tray's dark teal until it is given a colour, else its own or its number's. */
+/** A shape's chip colour: a board's theme colour until it is given one, else its own or its number's. */
 export function chipColour(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) && s?.colour == null ? TRAY_LIST : shapeColour(s?.colour ?? null, index);
+  return isTray(s) && s?.colour == null ? boardDefault : shapeColour(s?.colour ?? null, index);
 }
 
-/** A shape's colour in the 3D view: a tray's grey until it is given a colour, else its own or its number's. */
+/** A shape's colour in the 3D view: a board's theme colour until it is given one, else its own or its number's. */
 export function viewColour(s: ShapeLike | undefined, index: number): Rgb3 {
-  return isTray(s) && s?.colour == null ? TRAY_VIEW : shapeColour(s?.colour ?? null, index);
+  return isTray(s) && s?.colour == null ? boardDefault : shapeColour(s?.colour ?? null, index);
 }
 
 /** Whether a shape is a sliding start/goal shape. */

@@ -12,6 +12,7 @@
 
 import { $$ } from './dom.ts';
 import { DEFAULTS, onPrefs, prefs, SIDE_MAX } from './prefs.ts';
+import { setBoardColour } from './piece-colours.ts';
 import { installTooltips, releaseTip } from './tooltip.ts';
 
 const themeListeners = new Set<() => void>();
@@ -25,6 +26,8 @@ export function onTheme(listener: () => void): () => void {
 }
 
 function themeChanged(): void {
+  // a board with no colour of its own takes the theme's
+  setBoardColour(isDarkTheme() ? prefs.boardColourDark : prefs.boardColourLight);
   for (const l of [...themeListeners]) {
     l();
   }
@@ -152,6 +155,9 @@ export function installTheme(): void {
     }
     if (changed.includes('density')) {
       applyDensity();
+    }
+    if (changed.includes('boardColourLight') || changed.includes('boardColourDark')) {
+      themeChanged();
     }
     if (changed.includes('fontSize')) {
       applyFontSize();

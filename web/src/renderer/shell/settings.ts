@@ -208,9 +208,15 @@ const SET: readonly Page[] = [
         ],
       },
       {
-        k: 'boardColour',
-        t: 'New sliding board color',
-        d: 'The color a board (a sliding puzzle’s start and goal shape) is given when made with + New Board. Boards already made keep theirs; change one with the pencil in the voxel editor.',
+        k: 'boardColourLight',
+        t: 'Sliding board color, Light theme',
+        d: 'The color of a sliding puzzle’s boards (its start and goal shapes) in the Light theme, in the shapes list, the 2D editor and the 3D view. A board that has not been given a color of its own follows the theme: it takes this color in the Light theme and the Dark theme’s color in the Dark theme. A board you color with the pencil in the voxel editor keeps its color.',
+        type: 'colour',
+      },
+      {
+        k: 'boardColourDark',
+        t: 'Sliding board color, Dark theme',
+        d: 'The color of a sliding puzzle’s boards in the Dark theme. See the Light theme’s setting.',
         type: 'colour',
       },
       {
@@ -618,7 +624,7 @@ export function installSettings(s: Store): void {
       return;
     }
     if (b.dataset.colour !== undefined) {
-      const k = b.dataset.colour as 'boardColour';
+      const k = b.dataset.colour as 'boardColourLight' | 'boardColourDark';
       openColourPicker(b, {
         rgb: prefs[k],
         onPick: (rgb) => {

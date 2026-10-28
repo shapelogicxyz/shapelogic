@@ -80,9 +80,37 @@ export class ViewRenderer {
     this.gl.setSize(this.width, this.height, false);
   }
 
-  /** Places the cameras and the shape for the camera's state and the space's extent. */
-  frame(cam: Camera, extent: V3): void {
-    const sc = pixelsPerUnit(this.width, this.height, extent, cam.zoom);
+  /**
+   * Draws into a band of the view the whole width, `top` CSS pixels down
+   * and `height` tall: while `draw` runs the renderer's size is the band's,
+   * so framing and rendering fill it alone.
+   */
+  band(top: number, height: number, draw: () => void): void {
+    const full = this.height;
+    const h = Math.max(1, Math.round(height));
+    const y = full - Math.round(top) - h;
+    this.height = h;
+    this.gl.setViewport(0, y, this.width, h);
+    this.gl.setScissor(0, y, this.width, h);
+    this.gl.setScissorTest(true);
+    try {
+      draw();
+    } finally {
+      this.height = full;
+      this.gl.setScissorTest(false);
+      this.gl.setViewport(0, 0, this.width, full);
+    }
+  }
+
+  /**
+   * Places the cameras and the shape for the camera's state and the space's
+   * extent; `sc`, pixels per unit, in place of the view's own fit.
+   */
+  frame(
+    cam: Pick<Camera, 'q' | 'zoom' | 'px' | 'py'>,
+    extent: V3,
+    sc = pixelsPerUnit(this.width, this.height, extent, cam.zoom),
+  ): void {
     this.root.quaternion.copy(cam.q);
     if (this.tilt) {
       this.root.quaternion.multiply(TILT);
@@ -95,13 +123,13 @@ export class ViewRenderer {
    * Places the cameras for a scene that is not turned as a whole (the
    * pieces scene: each piece turns itself): `sc` pixels per unit at the
    * scene's plane, the eye `eye` units away, nothing further than `reach`
-   * from the centre.
+   * from the centre; `cam` gives the pan.
    */
-  frameScene(cam: Camera, sc: number, eye: number, reach: number): void {
+  frameScene(cam: Pick<Camera, 'px' | 'py'>, sc: number, eye: number, reach: number): void {
     this.place(cam, sc, eye, reach);
   }
 
-  private place(cam: Camera, sc: number, d: number, reach: number): void {
+  private place(cam: Pick<Camera, 'px' | 'py'>, sc: number, d: number, reach: number): void {
     const w = this.width;
     const h = this.height;
     const near = Math.max(0.05, d - reach);

@@ -9,8 +9,11 @@ solve. Here you say which shape is the **result**, which shapes are the
 
 ![The Puzzle tab: problems, pieces and result on the left, the pieces in the 3D view, and the selected piece with its color rules on the right.](../../../assets/screens/guide/puzzle-tab-selected.png)
 
-The 3D view shows the result at the top and each piece below it. Click a
-piece in the view to select it.
+The 3D view shows the result at the top and each piece below it, in as many
+columns as fit the view best. The pieces are drawn to scale with each other;
+the result is drawn at its own size, so the pieces stay large even when the
+result is much bigger than they are. Zooming makes every piece larger or
+smaller where it stands. Click a piece in the view to select it.
 
 ## Problems
 

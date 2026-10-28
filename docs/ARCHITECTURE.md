@@ -1345,8 +1345,9 @@ What exists after stage 8:
     colours with the presets), `counts.ts` (a part's count as the chips
     write it, `nextCount`: the count a field asks for, never a minimum
     above the maximum; the groups read off the parts; `solveActive`),
-    `layout.ts` (`puzLayout`, the scene's items and positions, and their
-    labels).
+    `layout.ts` (`puzLayout`, the scene's items; `arrange`, their
+    positions for a number of copies a row, which `PiecesScene` picks
+    for the view's shape; `RESULT_SIZE`; and their labels).
   - `solver/`: the Solver workspace (stage 4), from the mockup's
     `renderSolver`, `renderSolverDrawer`, `renderSvSel`,
     `renderSvSortAct`, `renderSolverPlayer`, `svSelect`, `svSeek`,
@@ -1481,13 +1482,19 @@ What exists after stage 8:
     the validity bar under the Puzzle view (`#slideValid`);
     `view3d/trays.ts` (`TrayView`: the START and GOAL trays and the
     copies standing on them as the original's `showSingleShape`, through
-    a `SolutionScene` in a group of the view's root, in the Puzzle view in
-    the pieces scene's place, the frame widened to both, the START and
-    GOAL titles); `view3d/walls.ts` (`wallOutline`, `wallSegments`: the
+    a `SolutionScene` in a group of the view's root, in the Puzzle view
+    above the pieces scene: the pieces in a band over the validity bar
+    (`ViewRenderer.band`, a viewport and scissor; `PiecesScene.heightFor`,
+    the zoom and pan left out), the trays fitted at the home view into the
+    space above it and drawn over the whole view, the START and GOAL
+    titles); `view3d/walls.ts` (`wallOutline`, `wallSegments`: the
     original's `buildSlidingWalls`, drawn by `SolutionScene.setWalls`
     around the player's result, `SolutionModel.result`); the colours of
-    a tray (`piece-colours.ts`: `TRAY_LIST`, `TRAY_VIEW`, `TRAY_EDIT`,
-    `chipColour`, `viewColour`, `isTray`); the Puzzle's sliding rules (no
+    a tray (`piece-colours.ts`: `setBoardColour`, `boardColour`, one
+    colour for the list, the 3D view and the 2D editor, set by
+    `theme.ts` from the Sliding board color setting of the theme in use,
+    so a board with none of its own follows the theme; `chipColour`,
+    `viewColour`, `isTray`); the Puzzle's sliding rules (no
     New, Copy or Delete problem, no Change…, no groups or colour rules, a
     `Part.required` piece kept, with no fewer copies than `Part.placed`); the Solver's sliding options
     (`settings.ts`: `nestedSlides`, `partialNested`, `highMemory`,

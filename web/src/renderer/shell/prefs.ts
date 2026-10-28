@@ -44,8 +44,10 @@ export interface Prefs {
   slideX: number;
   slideY: number;
   slideZ: number;
-  /** A new sliding board's colour, #rrggbb. */
-  boardColour: string;
+  /** The colour of a sliding board with none of its own, #rrggbb: in the Light theme, */
+  boardColourLight: string;
+  /** and in the Dark theme. */
+  boardColourDark: string;
   lights: boolean;
   fade: boolean;
   /** The Solver's 3D view: each piece's label drawn on it (Search options). */
@@ -88,7 +90,8 @@ export const DEFAULTS: Readonly<Prefs> = {
   slideX: 6,
   slideY: 6,
   slideZ: 1,
-  boardColour: '#808080',
+  boardColourLight: '#383838',
+  boardColourDark: '#c8c8c8',
   lights: true,
   fade: true,
   pieceLabels: false,
@@ -172,7 +175,7 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
           ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= NEW_SIZE_MAX
           : SIDE.includes(k)
             ? typeof v === 'number' && Number.isInteger(v) && v >= SIDE_MIN && v <= SIDE_MAX
-            : k === 'boardColour'
+            : k === 'boardColourLight' || k === 'boardColourDark'
               ? typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
               : typeof DEFAULTS[k] === 'number'
                 ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
