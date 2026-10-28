@@ -60,6 +60,60 @@ import '../styles/landing.css';
 
       <section class="blog" aria-labelledby="news-heading">
         <h2 class="blog-heading" id="news-heading">News</h2>
+        <article class="post" aria-labelledby="post-v1-4">
+          <p class="post-meta">
+            <time datetime="2026-10-28">28 October 2026</time> · Release
+          </p>
+          <h3 id="post-v1-4">ShapeLogic v1.4: one sliding puzzle solver, and new look settings</h3>
+          <p>
+            Version 1.4 gives sliding puzzles a single solver with no limit on the positions it
+            looks at, lets each copy of a piece have its own start and goal, and adds settings for
+            how the app looks.
+          </p>
+          <ul>
+            <li>
+              <strong>One sliding puzzle solver.</strong> The <strong>Sliding Puzzle Solver</strong>
+              always finds the fewest moves or proves there is no solution, and uses every core. The
+              Fast and Deep solvers are gone, and puzzles saved with them open as before.
+            </li>
+            <li>
+              <strong>Several copies of a sliding piece.</strong> Each copy can have its own start
+              and goal. A copy without a start can start anywhere, and one without a goal can end
+              anywhere.
+            </li>
+            <li>
+              <strong>Boards and pieces side by side.</strong> On the Puzzle tab the START and GOAL
+              boards sit at the top of the 3D view with the pieces under them, and starts and goals
+              are placed on the new <strong>Start and goal</strong> card. Pieces are larger and
+              closer together, and zooming makes every piece larger or smaller.
+            </li>
+            <li>
+              <strong>Board colors that follow the theme.</strong> Sliding boards are dark gray in
+              the Light theme and light gray in the Dark theme. <strong>Settings &#9656; Grid
+              editor</strong> sets the color for each theme.
+            </li>
+            <li>
+              <strong>New look settings.</strong> <strong>Font size</strong>, the location of the
+              main tab bar, <strong>Compact</strong> density and sidebar widths are in
+              <strong>Settings &#9656; General</strong>, and <strong>View &#9656; Color
+              Theme</strong> switches between Light, Dark and System.
+            </li>
+            <li>
+              <strong>Memory and disk for big searches.</strong>
+              <strong>Settings &#9656; Solver</strong> sets how much memory and disk space a
+              sliding or stacking search may use.
+            </li>
+          </ul>
+          <p>
+            The voxel editor can show the layer below or above faintly, <strong>+ New Piece</strong>
+            and <strong>+ New Board</strong> take the size of the last one, and About ShapeLogic
+            shows what it is built with. Many small bug fixes and improvements.
+          </p>
+          <p>
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.4">Release notes and downloads on GitHub</a>
+          </p>
+        </article>
+
         <article class="post" aria-labelledby="post-v1-3">
           <p class="post-meta">
             <time datetime="2026-10-26">26 October 2026</time> · Release
