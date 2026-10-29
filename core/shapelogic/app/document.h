@@ -665,6 +665,9 @@ class Document {
   /// syncSlidingProblems with the ids kept in step: saves the whole
   /// puzzle for undo and ends the sessions first (problems come and go).
   void syncSliding();
+  /// Moves the boards above the pieces, the marks and ids following; true
+  /// when a piece lost its marks past the 63rd place.
+  bool boardsAbovePieces();
   /// The sliding part of changeShape, after shape `shape` was edited.
   void slidingShapeChanged(unsigned int shape);
   /// After moveShape took piece `shape` past the 63rd place and its marks

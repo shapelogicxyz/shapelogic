@@ -320,7 +320,9 @@ void setStartGoalUserName(Voxel* v, const std::string& user) {
   v->setName(std::string(kStartGoalPrefix) + std::to_string(num) + ":" + user);
 }
 
-std::string defaultStartGoalName(int n) { return "(START/GOAL " + std::to_string(n) + ")"; }
+std::string defaultStartGoalName(int n) { return "Board " + std::to_string(n); }
+
+std::string defaultStartGoalProblemName(int n) { return defaultStartGoalName(n) + " - Start / Goal"; }
 
 std::string displayName(const Voxel* v) {
   if (v == nullptr) {
@@ -331,6 +333,11 @@ std::string displayName(const Voxel* v) {
   }
   const std::string user = startGoalUserName(v);
   return user.empty() ? defaultStartGoalName(startGoalNumber(v)) : user;
+}
+
+std::string problemName(const Voxel* v) {
+  const std::string user = startGoalUserName(v);
+  return user.empty() ? defaultStartGoalProblemName(startGoalNumber(v)) : user;
 }
 
 std::string shapeLabel(const Puzzle& puzzle, unsigned int shape) {
@@ -996,9 +1003,9 @@ void syncSlidingProblems(Puzzle& puzzle) {
 
     Problem& pr = puzzle.getProblem(found);
     const Voxel& tray = puzzle.getShape(s);
-    // the problem is named as its start/goal shape shows, and no start/goal
+    // the problem is named after its start/goal shape, and no start/goal
     // shape is a piece of it
-    pr.setName(displayName(&tray));
+    pr.setName(problemName(&tray));
     for (unsigned int i = 0; i < puzzle.getNumberOfShapes(); i++) {
       if (i != s && isStartGoalShape(&puzzle.getShape(i)) && pr.getShapeMaximum(i) > 0) {
         pr.setShapeMaximum(puzzle, i, 0);

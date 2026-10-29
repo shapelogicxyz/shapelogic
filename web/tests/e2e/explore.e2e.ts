@@ -540,6 +540,8 @@ test('the status window: its rows are shape.table’s on every fixture; select a
       }>(page, 'shape.table');
       const rows = page.locator('#statusWin tbody tr');
       await expect(rows).toHaveCount(table.rows.length);
+      // the pointer off the window: a row under it has its title held for the page's tooltip (shell/tooltip.ts)
+      await page.mouse.move(2, 2);
       const label = (id: string | null): string => {
         if (id === null) {
           return '';

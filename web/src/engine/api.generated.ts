@@ -663,8 +663,7 @@ export interface ShapeSummary {
    */
   label: string;
   /**
-   * A start/goal shape's is the user's part: the board shows it, or '(START/GOAL n)' while it is
-   * empty.
+   * A start/goal shape's is the user's part: the board shows it, or 'Board n' while it is empty.
    */
   name: string;
   size: Size;
@@ -2437,9 +2436,9 @@ export interface Methods {
   };
   /**
    * The shape's name (empty for none). On a sliding puzzle a start/goal shape's name is the user's
-   * part (its START/GOAL number stays; the name '(START/GOAL n)' it shows without one leaves it
-   * empty), its problem is named so, and a piece's name may not begin with "sg:" or "__sggoal:"
-   * (invalid_argument).
+   * part (its board number stays; the name 'Board n' it shows without one, or its problem's 'Board
+   * n - Start / Goal', leaves it empty), its problem is named after it, and a piece's name may not
+   * begin with "sg:" or "__sggoal:" (invalid_argument).
    * (shape.json)
    */
   'shape.rename': {
@@ -2759,9 +2758,7 @@ export interface Methods {
     result: {
       /** @minimum 0 */
       number: number;
-      /**
-       * The user's part of its name; the board shows it, or '(START/GOAL n)' while it is empty.
-       */
+      /** The user's part of its name; the board shows it, or 'Board n' while it is empty. */
       name: string;
       size: Size;
       starts: (ShapeId | null)[];

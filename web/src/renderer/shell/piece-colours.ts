@@ -232,7 +232,7 @@ export function isTray(s: ShapeLike | null | undefined): boolean {
 
 /** The name a board (start/goal shape) shows while it has none (the engine's defaultStartGoalName). */
 export function trayDefaultName(n: number): string {
-  return `(Board ${String(n)})`;
+  return `Board ${String(n)}`;
 }
 
 /** The name a shape shows: its name, or a board's default while it has none. */

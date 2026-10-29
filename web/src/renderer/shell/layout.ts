@@ -43,9 +43,17 @@ export function onLayout(listener: () => void): () => void {
 export function applyLayout(): void {
   const s = byId('stage');
   s.classList.remove('lc', 'rc', 'f2d', 'f3d');
+  // the 2D focus is kept across Shapes and Puzzle (until its button is pressed again), and
+  // shown where there is a 2D editor: the Shapes tab, a sliding problem's Start and goal
+  const f2d =
+    layout.focus === '2d' &&
+    (tab === 'entities' || (tab === 'puzzle' && s.classList.contains('sld')));
+  for (const id of ['btnF2D', 'pzF2D']) {
+    document.getElementById(id)?.classList.toggle('act', f2d);
+  }
   if (layout.focus === '3d') {
     s.classList.add('f3d');
-  } else if (layout.focus === '2d') {
+  } else if (f2d) {
     s.classList.add('f2d');
   } else {
     if (layout.lc) {
@@ -73,7 +81,9 @@ export function setTab(t: Workspace): void {
   tab = t;
   byId('stage').dataset.tab = t;
   renderRail();
-  layout.focus = '';
+  if (layout.focus === '3d') {
+    layout.focus = '';
+  }
   const l = remembered[t] ?? { lc: false, rc: false };
   layout.lc = l.lc;
   layout.rc = l.rc;
@@ -166,6 +176,8 @@ export function installLayout(): void {
     const c = t.closest<HTMLElement>('[data-collapse]');
     const x = t.closest<HTMLElement>('[data-expand]');
     if (c !== null) {
+      // the focus lays the cards out its own way: collapsing one leaves it
+      layout.focus = '';
       layout[c.dataset.collapse === 'L' ? 'lc' : 'rc'] = true;
       applyLayout();
     } else if (x !== null) {

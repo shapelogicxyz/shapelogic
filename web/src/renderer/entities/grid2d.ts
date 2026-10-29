@@ -85,6 +85,8 @@ export interface GridHost {
   stampClick(cell: Cell, right: boolean): void;
   /** The cell under the mouse while stamping (null: none), for the outline. */
   stampHover(cell: Cell | null): void;
+  /** Whether the 2D editor has the focus: the grid then takes all its room, however few its cells. */
+  focused(): boolean;
 }
 
 /** The space round the grid for its rulers (spaceGridSvg's), in pixels. */
@@ -202,9 +204,16 @@ export class Grid2D {
   // the SVG for a layer drawing at a size (spaceGridSvg's fit)
   private build(input: GridInput, aw: number, ah: number): void {
     const { width: ex, height: ey } = input.geo;
+    // a sliding board shrinks to fit its area instead of being cut off;
+    // the other grids keep 16 px a unit at least; in the focus there is no most
+    const least = input.grid === 'sliding' ? 2 : 16;
+    const most = this.host.focused() ? Infinity : 110;
     this.sc = Math.max(
-      16,
-      Math.min(110, Math.floor(Math.min((aw - 2 * this.margin) / ex, (ah - 2 * this.margin) / ey))),
+      least,
+      Math.min(
+        most,
+        Math.floor(Math.min((aw - 2 * this.margin) / ex, (ah - 2 * this.margin) / ey)),
+      ),
     );
     this.ox = (aw - ex * this.sc) / 2;
     this.oy = (ah - ey * this.sc) / 2;
@@ -240,12 +249,20 @@ export class Grid2D {
     // the cube editor's rulers: the column and row numbers, the columns' along the origin's edge
     if (input.grid === 'bricks' || input.grid === 'sliding' || input.grid === 'stacking') {
       let t = '';
+      // cells too small for a number each: every second, fifth… one
+      const every = Math.ceil(14 / this.sc);
       const cy = rowsFlipped ? this.Y(ey, ey) - 7 : this.Y(0, ey) + 15;
       for (let c = 0; c < ex; c++) {
-        t += `<text x="${this.X(c + 0.5).toFixed(1)}" y="${cy.toFixed(1)}">${flipped ? ex - 1 - c : c}</text>`;
+        const n = flipped ? ex - 1 - c : c;
+        if (n % every === 0) {
+          t += `<text x="${this.X(c + 0.5).toFixed(1)}" y="${cy.toFixed(1)}">${n}</text>`;
+        }
       }
       for (let r = 0; r < ey; r++) {
-        t += `<text x="${(this.X(0) - 9).toFixed(1)}" y="${(this.Y(r + 0.5, ey) + 4).toFixed(1)}">${rowsFlipped ? ey - 1 - r : r}</text>`;
+        const n = rowsFlipped ? ey - 1 - r : r;
+        if (n % every === 0) {
+          t += `<text x="${(this.X(0) - 9).toFixed(1)}" y="${(this.Y(r + 0.5, ey) + 4).toFixed(1)}">${n}</text>`;
+        }
       }
       b += `<g class="rul" text-anchor="middle" font-size="11" fill="var(--muted)" pointer-events="none">${t}</g>`;
     }

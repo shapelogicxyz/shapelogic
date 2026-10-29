@@ -281,6 +281,9 @@ export class EditorCard {
             })
             .join(''),
     );
+    // a grid of 20 or more cells either way is small to work in: the focus makes it larger
+    const p = this.host.plane();
+    byId('gridTip').hidden = p === null || (p.cols < 20 && p.rows < 20);
     const sw = byId('applyAll');
     sw.classList.toggle('on', st.applyAll);
     sw.setAttribute('aria-checked', String(st.applyAll));

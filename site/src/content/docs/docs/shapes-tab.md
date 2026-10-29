@@ -68,7 +68,9 @@ The label beside the title (**Type: Brick** here) names the puzzle type, as
 **File ▸ New** lists it. The type is chosen once, when the puzzle is made, and
 cannot be changed afterwards. The two buttons
 at the top right are **Focus 2D editor**, which enlarges the editor (`Esc`
-goes back), and **Collapse sidebar** (`Ctrl+]`).
+goes back), and **Collapse sidebar** (`Ctrl+]`). In the focus, the tools,
+mirror and span, the planes, the grid size and the color all move into a
+strip above the grid, and the grid takes all the room that is left.
 
 ### Tools
 

@@ -953,7 +953,7 @@ def sliding_start_goal_shapes(e):
     # the board goes above the pieces, labelled B1; the pieces are S1 and S2
     check([s["label"] for s in snap["shapes"]] == ["B1", "S1", "S2"] and snap["shapes"][0]["id"] == tray,
           f"the labels {snap['shapes']}")
-    check(snap["problems"][0]["name"] == "(START/GOAL 1)", f"its problem's name {snap['problems']}")
+    check(snap["problems"][0]["name"] == "Board 1 - Start / Goal", f"its problem's name {snap['problems']}")
     p = snap["problems"][0]["id"]
     e.call("shape.rename", {"shape": tray, "name": "Corner"})
     check(e.call("document.get")["problems"][0]["name"] == "Corner", "the problem named as the board")

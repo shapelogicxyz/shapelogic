@@ -19,8 +19,8 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-S5GfsxDn.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-Bb37RtrT.css">
+    <script type="module" crossorigin src="/demo/assets/index-CVbpTPBb.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-BkO42vW0.css">
   </head>
   <body>
     <div id="wrap">
@@ -288,12 +288,32 @@
                 <button class="ib" data-collapse="R" title="Collapse sidebar"></button>
               </div>
               <div class="rods" id="rodsPanel"></div>
-              <div class="tools" id="toolStrip"></div>
-              <div class="mrow" id="modRow"></div>
-              <div class="subbar">
-                <div class="pseg" id="planeSeg"></div>
-                <span class="sp"></span>
-                <span class="mute" id="layerLbl"></span>
+              <!-- the controls: above and below the grid, all above it in the focus -->
+              <div class="edctl" id="edCtl">
+                <div class="tools" id="toolStrip"></div>
+                <div class="mrow" id="modRow"></div>
+                <div class="subbar">
+                  <div class="pseg" id="planeSeg"></div>
+                  <span class="sp"></span>
+                  <span class="mute" id="layerLbl"></span>
+                </div>
+                <div class="gsize" id="gridSize">
+                  <div class="gsh">
+                    <span class="gl2">Grid size</span><span class="sp"></span>
+                    <div
+                      class="switch"
+                      id="applyAll"
+                      role="switch"
+                      tabindex="0"
+                      aria-checked="false"
+                      title="Size changes apply to every shape: the others grow by as much (they never shrink); the Fit &amp; scale tasks too"
+                    >
+                      <span class="tr"></span><span>Apply to all shapes</span>
+                    </div>
+                  </div>
+                  <div class="size3" id="sizeSteppers"></div>
+                </div>
+                <div class="colfoot" id="colFoot"></div>
               </div>
               <div class="gbody">
                 <div class="lstrip" id="lstrip"></div>
@@ -303,23 +323,9 @@
                 ></div>
                 <div class="selbar" id="selbar"></div>
               </div>
-              <div class="gsize" id="gridSize">
-                <div class="gsh">
-                  <span class="gl2">Grid size</span><span class="sp"></span>
-                  <div
-                    class="switch"
-                    id="applyAll"
-                    role="switch"
-                    tabindex="0"
-                    aria-checked="false"
-                    title="Size changes apply to every shape: the others grow by as much (they never shrink); the Fit &amp; scale tasks too"
-                  >
-                    <span class="tr"></span><span>Apply to all shapes</span>
-                  </div>
-                </div>
-                <div class="size3" id="sizeSteppers"></div>
+              <div class="gtip mute" id="gridTip" hidden>
+                Tip: Use 'Focus 2D editor' to increase the grid view size
               </div>
-              <div class="colfoot" id="colFoot"></div>
             </div>
             <div class="rrail" id="rrail"></div>
           </section>
@@ -327,6 +333,7 @@
           <section class="card puz" id="rightP">
             <div class="ch">
               <span id="pzRightTitle">Selected piece</span><span class="sp"></span
+              ><button class="ib" id="pzF2D" title="Focus 2D editor (Esc to exit)"></button
               ><button class="ib" data-collapse="R" title="Collapse sidebar"></button>
             </div>
             <div class="pzslide" id="pzSlide">

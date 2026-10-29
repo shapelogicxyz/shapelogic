@@ -28,7 +28,7 @@ import { installHistory } from '../shell/history.ts';
 import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
-import { editorVisible, onLayout, tab } from '../shell/layout.ts';
+import { editorVisible, layout, onLayout, tab } from '../shell/layout.ts';
 import { hex, isTray, shapeColour } from '../shell/piece-colours.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
@@ -180,6 +180,7 @@ export class EntitiesWorkspace {
       stamping: () => false,
       stampClick: () => undefined,
       stampHover: () => undefined,
+      focused: () => layout.focus === '2d',
     });
     this.edit3d = new Edit3D({
       store,

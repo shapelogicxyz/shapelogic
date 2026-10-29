@@ -31,9 +31,7 @@ std::string shapeList(const Puzzle& puzzle, const std::vector<unsigned int>& sha
 
 }  // namespace
 
-void Document::syncSliding() {
-  touchWhole();
-  endSessions();
+bool Document::boardsAbovePieces() {
   // the boards (start/goal shapes) stay above the pieces: one below a
   // piece moves up, one place at a time as moveShape moves, the marks and
   // problems following each swap
@@ -50,6 +48,13 @@ void Document::syncSliding() {
     }
     top++;
   }
+  return lost;
+}
+
+void Document::syncSliding() {
+  touchWhole();
+  endSessions();
+  const bool lost = boardsAbovePieces();
   // The problems of no start/goal shape go; the others keep their places
   // and their ids, and the new ones come at the end (syncSlidingProblems).
   std::vector<Id> kept;

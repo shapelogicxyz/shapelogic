@@ -322,13 +322,14 @@ not stop on them) and empty cells walls; each copy of a piece may have a
 start and a goal stamped on a tray, the whole piece at a time (a piece
 the problem has three copies of, up to three of each, any copy ending on
 any of its goals; a copy without a start starts anywhere, one without a
-goal ends anywhere); each tray has its own problem, "START/GOAL n", whose
+goal ends anywhere); each tray has its own problem, "Board n - Start / Goal" (the
+original's "START/GOAL n"), or the board's name when it has one, whose
 pieces follow the stamps. The original edited the stamps on the Entities
 tab (its Start/Goal tab); here they are the Puzzle workspace's (8.2),
 where the problem's counts are.
 
 ### 8.1 Entities workspace
-- **Shapes list:** a tray reads "S1 (Board 1)" and, after a dash, the
+- **Shapes list:** a tray reads "S1 Board 1" and, after a dash, the
   user's name (`BlockList.cpp`); its chip is black (`slidingColors::LIST`).
   On sliding puzzles the list's header has **+ New Piece** (the other
   grids' **+ New**) and, beside it, **+ New Board** (the original's New

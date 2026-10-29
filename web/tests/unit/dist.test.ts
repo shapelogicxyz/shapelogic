@@ -196,8 +196,8 @@ describe('the configuration', () => {
 
   it('opens the puzzle files', () => {
     expect(c.fileAssociations).toEqual([
-      expect.objectContaining({ ext: 'xmpuzzle' }),
-      expect.objectContaining({ ext: 'slsolve' }),
+      expect.objectContaining({ ext: 'xmpuzzle', rank: 'Owner' }),
+      expect.objectContaining({ ext: 'slsolve', rank: 'Owner' }),
     ]);
   });
 });

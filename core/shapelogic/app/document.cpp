@@ -37,6 +37,10 @@ Document::Document(GridKind grid, DocumentSettings settings)
 Document::Document(std::unique_ptr<Puzzle> puzzle, DocumentSettings settings)
     : puzzle_(std::move(puzzle)), settings_(settings) {
   assignIds();
+  // a file from the original may list a board below a piece
+  if (sliding::isSliding(*puzzle_)) {
+    boardsAbovePieces();
+  }
 }
 
 Document::Document(Document&&) noexcept = default;

@@ -32,7 +32,7 @@ import {
   settle,
   shapes,
 } from './app.ts';
-import { clickCell, settled } from './editor.ts';
+import { clickCell, settled, shapeGet } from './editor.ts';
 import { definition, problemGet, pzSettled } from './puzzle.ts';
 import type { Problem } from './puzzle.ts';
 import {
@@ -184,7 +184,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     await page.click('#btnNewBoard');
     await expect(page.locator('#shapeList .row')).toHaveCount(1);
     await settled(page);
-    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(Board 1)');
+    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('Board 1');
     await page.click('#shapeList .row.sel [data-a="del"]');
     await expect(page.locator('#shapeList .row')).toHaveCount(0);
     await settled(page);
@@ -193,7 +193,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     await page.click('#btnNewBoard');
     await expect(page.locator('#shapeList .row')).toHaveCount(1);
     await settled(page);
-    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('(Board 1)');
+    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('Board 1');
     // a board is drawn with the ordinary tools, which say what its cells are
     await expect(page.locator('#trayRow')).toHaveCount(0);
     await expect(page.locator('#toolStrip [data-t="erase"]')).toHaveAttribute('title', /^Wall/);
@@ -609,6 +609,108 @@ test('reference screenshots: a board drawn, its Start and goal, its two trays, t
     await page.mouse.move(2, 2);
     await settle(page);
     await expect(page.locator('#vp')).toHaveScreenshot('sliding-walls.png');
+  } finally {
+    await a.close();
+  }
+});
+
+/** Types a size into an axis's grid size field and waits until the engine has it. */
+async function sizeTo(page: Page, shape: string, axis: number, n: number): Promise<void> {
+  const field = page.locator(`#sizeSteppers input[data-v="${String(axis)}"]`);
+  await field.fill(String(n));
+  await field.press('Enter');
+  await expect.poll(async () => (await shapeGet(page, shape)).shape.size[axis]).toBe(n);
+  await settled(page);
+}
+
+test('Focus 2D editor: the tip on a grid of 20 or more; one focus for Shapes and Puzzle, kept across the tabs', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  const stage = page.locator('#stage');
+  const tip = page.locator('#gridTip');
+  const shapesBtn = page.locator('#btnF2D');
+  const puzzleBtn = page.locator('#pzF2D');
+  const pzTip = page.locator('#pzGridTip');
+  const toTab = async (key: string, tab: string): Promise<void> => {
+    await page.keyboard.press(`Control+${key}`);
+    await expect(stage).toHaveAttribute('data-tab', tab);
+    if (tab === 'puzzle') {
+      await pzSettled(page);
+    }
+  };
+  try {
+    await openFixture(page, 'test_sliding_solver.xmpuzzle');
+    const tray = await idOf(page, 'B1');
+    await selectShape(page, tray);
+    const [x, y] = (await shapeGet(page, tray)).shape.size;
+    expect(x).toBeLessThan(20);
+    expect(y).toBeLessThan(20);
+    await expect(tip).toBeHidden();
+
+    // 20 across: the tip; 19 by 19: none; 20 up: the tip again
+    await sizeTo(page, tray, 0, 20);
+    await expect(tip).toBeVisible();
+    await expect(tip).toHaveText("Tip: Use 'Focus 2D editor' to increase the grid view size");
+    await sizeTo(page, tray, 0, 19);
+    await sizeTo(page, tray, 1, 19);
+    await expect(tip).toBeHidden();
+    await sizeTo(page, tray, 1, 20);
+    await expect(tip).toBeVisible();
+
+    // the focus on Shapes: the tip goes, the button shows pressed
+    await shapesBtn.click();
+    await expect(stage).toHaveClass(/\bf2d\b/);
+    await expect(shapesBtn).toHaveClass(/\bact\b/);
+    await expect(tip).toBeHidden();
+
+    // the same focus on Puzzle: Start and Goal side by side
+    await toTab('2', 'puzzle');
+    await expect(stage).toHaveClass(/\bf2d\b/);
+    await expect(puzzleBtn).toHaveClass(/\bact\b/);
+    await expect(page.locator('#pzSlide')).toHaveCSS('display', 'grid');
+    await expect(pzTip).toBeHidden();
+    // the Solver has no 2D editor; back on Shapes the focus is still on
+    await toSolver(page);
+    await expect(stage).not.toHaveClass(/\bf2d\b/);
+    await toTab('1', 'entities');
+    await expect(stage).toHaveClass(/\bf2d\b/);
+    await expect(shapesBtn).toHaveClass(/\bact\b/);
+
+    // pressed again on Shapes: off on both tabs, the tip back
+    await shapesBtn.click();
+    await expect(stage).not.toHaveClass(/\bf2d\b/);
+    await expect(shapesBtn).not.toHaveClass(/\bact\b/);
+    await expect(tip).toBeVisible();
+    await toTab('2', 'puzzle');
+    await expect(stage).not.toHaveClass(/\bf2d\b/);
+    await expect(puzzleBtn).not.toHaveClass(/\bact\b/);
+    await expect(page.locator('#pzSlide')).toHaveCSS('flex-direction', 'column');
+    await expect(pzTip).toBeVisible();
+    await expect(pzTip).toHaveText(await tip.innerText());
+
+    // turned on in Puzzle: on in Shapes too
+    await puzzleBtn.click();
+    await expect(stage).toHaveClass(/\bf2d\b/);
+    await expect(puzzleBtn).toHaveClass(/\bact\b/);
+    await toTab('1', 'entities');
+    await expect(stage).toHaveClass(/\bf2d\b/);
+    await expect(shapesBtn).toHaveClass(/\bact\b/);
+    await expect(tip).toBeHidden();
+
+    // turned off in Puzzle: off in Shapes too
+    await toTab('2', 'puzzle');
+    await puzzleBtn.click();
+    await expect(stage).not.toHaveClass(/\bf2d\b/);
+    await toTab('1', 'entities');
+    await expect(stage).not.toHaveClass(/\bf2d\b/);
+    await expect(shapesBtn).not.toHaveClass(/\bact\b/);
+    await expect(tip).toBeVisible();
+
+    // a board under 20 both ways: no tip on Puzzle either
+    await sizeTo(page, tray, 1, 19);
+    await toTab('2', 'puzzle');
+    await expect(pzTip).toBeHidden();
   } finally {
     await a.close();
   }

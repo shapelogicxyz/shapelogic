@@ -273,9 +273,11 @@ Result<void> Document::renameShape(Id shape, std::string name) {
     return fail(Errc::InvalidArgument,
                 "a piece's name cannot begin with \"sg:\" or \"__sggoal:\" on a sliding puzzle");
   }
-  // a board given the name it shows without one keeps none, so that the
-  // name follows its number
-  if (startGoal && name == sliding::defaultStartGoalName(sliding::startGoalNumber(&named))) {
+  // a board given the name it shows without one, or its problem's, keeps
+  // none, so that the name follows its number
+  if (startGoal &&
+      (name == sliding::defaultStartGoalName(sliding::startGoalNumber(&named)) ||
+       name == sliding::defaultStartGoalProblemName(sliding::startGoalNumber(&named)))) {
     name.clear();
   }
   if ((startGoal ? sliding::startGoalUserName(&named) : named.getName()) == name) {
@@ -286,12 +288,12 @@ Result<void> Document::renameShape(Id shape, std::string name) {
   std::uint32_t what = kChangeShapes;
   if (startGoal) {
     sliding::setStartGoalUserName(&puzzle_->getShape(*s), name);
-    // its problem is named as the board shows (syncSlidingProblems)
+    // its problem is named after the board (syncSlidingProblems)
     for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
       Problem& pr = puzzle_->getProblem(p);
       if (pr.resultValid() && pr.getResultId() == *s) {
         touchProblem(p);
-        pr.setName(sliding::displayName(&puzzle_->getShape(*s)));
+        pr.setName(sliding::problemName(&puzzle_->getShape(*s)));
         lastChange_.problems = {ids_.problems[p]};
         what |= kChangeProblems;
       }

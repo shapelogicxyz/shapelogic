@@ -139,12 +139,15 @@ export function distConfig(
       { from: engine, to: exe },
       { from: cli, to: cliExe },
     ],
+    // rank Owner (macOS's LSHandlerRank): an older app that claimed .xmpuzzle
+    // as Owner (BurrTools) beats the default rank, and the newer install loses
     fileAssociations: [
       {
         ext: 'xmpuzzle',
         name: 'ShapeLogic Puzzle',
         description: 'ShapeLogic Puzzle',
         role: 'Editor',
+        rank: 'Owner',
         icon: 'document',
       },
       {
@@ -152,6 +155,7 @@ export function distConfig(
         name: 'ShapeLogic Paused Solve',
         description: 'ShapeLogic Paused Solve',
         role: 'Editor',
+        rank: 'Owner',
         icon: 'document',
       },
     ],

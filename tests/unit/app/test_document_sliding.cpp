@@ -62,7 +62,7 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
                     return x.addStartGoal({4, 5, 1});
                   }).value();
   REQUIRE(d.problemIds().size() == 1);
-  CHECK(d.puzzle().getProblem(0).getName() == "(START/GOAL 1)");
+  CHECK(d.puzzle().getProblem(0).getName() == "Board 1 - Start / Goal");
   CHECK(d.puzzle().getShape(index(d, tray)).getName() == "sg:1:");
 
   const Id block = piece(d, 2, 2, {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}});
@@ -200,7 +200,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     const Id copy = roundTrip(d, [=](Document& x) { return x.duplicateShape(tray); }).value();
     CHECK(d.puzzle().getShape(index(d, copy)).getName() == "sg:2:");
     REQUIRE(d.problemIds().size() == 2);
-    CHECK(d.puzzle().getProblem(1).getName() == "(START/GOAL 2)");
+    CHECK(d.puzzle().getProblem(1).getName() == "Board 2 - Start / Goal");
     CHECK(d.puzzle().getProblem(1).getResultId() == index(d, copy));
     // a copy of a piece is a plain copy
     const Id pc = roundTrip(d, [=](Document& x) { return x.duplicateShape(a); }).value();
@@ -477,8 +477,8 @@ TEST_CASE("sliding document: the boards stay on top, numbered by place, named as
   CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, b2))) == 1);
   CHECK(sliding::startGoalNumber(&d.puzzle().getShape(index(d, b3))) == 2);
   REQUIRE(d.puzzle().getNumberOfProblems() == 2);
-  CHECK(d.puzzle().getProblem(0).getName() == "(START/GOAL 1)");
-  CHECK(d.puzzle().getProblem(1).getName() == "(START/GOAL 2)");
+  CHECK(d.puzzle().getProblem(0).getName() == "Board 1 - Start / Goal");
+  CHECK(d.puzzle().getProblem(1).getName() == "Board 2 - Start / Goal");
 
   // a board moves among the boards only, a piece among the pieces
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.moveShape(b2, 2); });
@@ -492,8 +492,12 @@ TEST_CASE("sliding document: the boards stay on top, numbered by place, named as
   CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:Level two");
   const Id pb2 = d.problemIds()[d.puzzle().getProblem(0).getResultId() == index(d, b2) ? 0 : 1];
   CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getName() == "Level two");
-  roundTrip(d, [=](Document& x) { return x.renameShape(b2, "(START/GOAL 2)"); });
+  roundTrip(d, [=](Document& x) { return x.renameShape(b2, "Board 2"); });
   CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:");
+  roundTrip(d, [=](Document& x) { return x.renameShape(b2, "Level two"); });
+  roundTrip(d, [=](Document& x) { return x.renameProblem(pb2, "Board 2 - Start / Goal"); });
+  CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:");
+  CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getName() == "Board 2 - Start / Goal");
   roundTrip(d, [=](Document& x) { return x.renameProblem(pb2, "Hard"); });
   CHECK(d.puzzle().getShape(index(d, b2)).getName() == "sg:2:Hard");
   CHECK(d.puzzle().getProblem(d.problemIndex(pb2).value()).getName() == "Hard");

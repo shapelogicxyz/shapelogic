@@ -34,7 +34,7 @@ pieces below them are `S1`, `S2` and so on. When you delete or move a board,
 the boards after it are numbered again, so there is never a gap.
 
 Each board has a problem of its own, named after the board. A board without
-a name shows `(Board 1)`. When you rename it, the field starts with
+a name shows `Board 1`, and its problem is `Board 1 - Start / Goal`. When you rename it, the field starts with
 that text, which you can change or delete. The new name also shows in the
 **Puzzle** tab's problems list, and renaming the problem there renames the
 board. Boards are never pieces: the Puzzle tab's **All pieces** list leaves
@@ -88,6 +88,9 @@ own problem, so you do not add or copy problems by hand.
 2. The right card, **Start and goal**, shows the board twice: **Start** at
    the top and **Goal** below. Above each grid is every piece of the puzzle
    with how many of its copies are placed there, for example `S2 1/3`.
+   **Focus 2D editor**, at the top right of the card, puts Start and Goal
+   side by side and gives their grids all the room it can (`Esc` goes
+   back). A large board shrinks to fit its grid.
 3. Select a piece, in **In this puzzle** or above a grid, then click the
    grid where it goes. It follows the mouse: green where it fits, red where
    it does not, orange on a copy that is already there. A piece with one

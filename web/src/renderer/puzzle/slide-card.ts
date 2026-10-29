@@ -7,7 +7,9 @@
 // pieces' colours, the chosen piece outlined under the mouse: green where
 // it fits, red where it does not, orange on a copy a click takes off), its
 // pieces with the copies placed of each ("S2 1/3"), a hint, and the
-// layers of a board of several. The piece placed is the one selected in
+// layers of a board of several; its Focus 2D editor button puts Start and
+// Goal side by side, their grids taking the room the left card and the
+// view give up. The piece placed is the one selected in
 // "In this puzzle"; the problem's count of it is how many copies each grid
 // may hold. A click places a copy (`sliding.place`), a right click takes
 // off the copy under the mouse (`sliding.clearAt`); the reason of a
@@ -19,6 +21,8 @@
 import type { Methods } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
+import { ic } from '../shell/icons.ts';
+import { applyLayout, layout } from '../shell/layout.ts';
 import { isTray } from '../shell/piece-colours.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
 import { EditorState, key, planeMap } from '../entities/editor-state.ts';
@@ -95,6 +99,7 @@ export class SlideCard {
             p.at = cell;
             this.hover(p);
           },
+          focused: () => layout.focus === '2d',
         },
         24,
       );
@@ -137,7 +142,13 @@ export class SlideCard {
   render(): void {
     const store = this.ws.store;
     const sliding = store.snapshot?.grid === 'sliding';
-    byId('stage').classList.toggle('sld', sliding);
+    const stage = byId('stage');
+    const was = stage.classList.contains('sld');
+    stage.classList.toggle('sld', sliding);
+    // the 2D focus shows on the Puzzle tab only for a sliding problem
+    if (was !== sliding && layout.focus === '2d') {
+      applyLayout();
+    }
     const board = this.board;
     this.trays.show(board, store.generation, this.ws.shown);
     this.loadCells(board);
@@ -189,6 +200,8 @@ export class SlideCard {
     const shape = snap?.shapes.find((s) => s.id === board);
     const r = this.reply;
     this.renderValidity(r?.error);
+    // Start and Goal are small to work in on a board of 20 or more cells either way: the focus makes them larger
+    byId('pzGridTip').hidden = shape === undefined || (shape.size[0] < 20 && shape.size[1] < 20);
     for (const p of this.panes) {
       const head = byId(p.goal ? 'sgGoalHead' : 'sgStartHead');
       const parts = byId(p.goal ? 'sgGoalParts' : 'sgStartParts');
@@ -366,6 +379,12 @@ export class SlideCard {
   }
 
   private install(): void {
+    // the focus: Start and Goal side by side, the card taking the room the left card and the view give up
+    byId('pzF2D').addEventListener('click', () => {
+      layout.focus = layout.focus === '2d' ? '' : '2d';
+      applyLayout();
+    });
+    byId('pzF2D').innerHTML = ic('focus');
     for (const p of this.panes) {
       byId(p.goal ? 'sgGoalLayers' : 'sgStartLayers').addEventListener('click', (e) => {
         const b = (e.target as Element).closest<HTMLElement>('.lchip');

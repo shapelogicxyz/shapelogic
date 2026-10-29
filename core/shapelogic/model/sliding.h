@@ -60,11 +60,17 @@ using TrayCell = std::array<int, 3>;
 /// the whole name of another shape.
 void setStartGoalUserName(Voxel* v, const std::string& user);
 /// The name a start/goal shape shows while the user has given it none:
-/// "(START/GOAL n)".
+/// "Board n".
 [[nodiscard]] std::string defaultStartGoalName(int n);
+/// The name of a start/goal shape's problem while the user has given the
+/// shape none: "Board n - Start / Goal".
+[[nodiscard]] std::string defaultStartGoalProblemName(int n);
 /// The name shown: the user's name for a start/goal shape, or
 /// defaultStartGoalName while it has none; the name for another shape.
 [[nodiscard]] std::string displayName(const Voxel* v);
+/// The name of a start/goal shape's problem: the user's name for the
+/// shape, or defaultStartGoalProblemName while it has none.
+[[nodiscard]] std::string problemName(const Voxel* v);
 /// The label of a shape: on a sliding puzzle "B1, B2, ..." for the
 /// start/goal shapes (boards) and "S1, S2, ..." for the other shapes, each
 /// by place among its own kind; "S" and its place on any other puzzle.
