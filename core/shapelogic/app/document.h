@@ -362,6 +362,8 @@ class Document {
   Result<void> renameProblem(Id problem, std::string name);
   /// Makes a shape the result (it stops being a piece).
   Result<void> setResult(Id problem, Id shape);
+  /// Leaves the problem without a result; its solutions go (not in the original).
+  Result<void> clearResult(Id problem);
   /// The count range of a shape as pieces; max 0 removes it.
   Result<void> setPieceCount(Id problem, Id shape, unsigned int min, unsigned int max);
   /// One more (one fewer) of a shape: minimum and maximum both.

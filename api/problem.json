@@ -66,6 +66,12 @@
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
+    "problem.clearResult": {
+      "summary": "Leaves the problem without a result (not in the original); the solutions go. Nothing changes when it has none. Refused (invalid_argument) on sliding and stacking puzzles, as problem.setResult.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
     "problem.setPieceCount": {
       "summary": "The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json), and for a sliding puzzle's board, which is no piece.",
       "params": {

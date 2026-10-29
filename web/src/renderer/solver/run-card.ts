@@ -62,6 +62,8 @@ const TIP: Record<BoxName, string> = {
     'With Allow Nested Slides: a piece may also slide together with a piece that sits partly in its outline, such as a piece in another piece’s pocket that sticks out of it. Pieces that only touch never slide together.',
   verticalMoves:
     'On a tray more than one layer deep, a piece may also move up and down: lifted out over the other pieces and put down somewhere else. Off, every piece slides only in its own layer.',
+  keepAssemblies:
+    'Always show Assembly results even when Disassemble is selected and no Disassemblies are found. Disassemblies will be shown at the top of the results.',
   autosave:
     'Twenty minutes into a solve and every twenty minutes after, the solve pauses where it can be saved, the puzzle is saved to its file, and the solve carries on.',
 };
@@ -100,6 +102,7 @@ const LABEL: Record<BoxName, string> = {
   partialNested: 'Allow Partially Nested',
   verticalMoves: 'Allow Vertical Moves',
   autosave: 'Autosave every 20 min',
+  keepAssemblies: 'Always show Assemblies',
 };
 
 export class RunCard {
@@ -216,6 +219,7 @@ export class RunCard {
       o.strictColors !== DEFAULT_OPTIONS.strictColors,
       o.solver !== def.solver,
       o.autosave !== DEFAULT_OPTIONS.autosave,
+      !ws.sliding && !ws.stacking && o.keepAssemblies,
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
       ws.sliding && o.verticalMoves,
@@ -224,7 +228,7 @@ export class RunCard {
     ].filter(Boolean).length;
     setHtml(
       byId('slvOptHead'),
-      `Search options${!ws.optOpen && changed > 0 ? `<span style="text-transform:none;letter-spacing:0;font-weight:400">· ${String(changed)} changed</span>` : ''}<span class="sp"></span><span id="slvOptTog" style="${ws.optOpen ? '' : 'transform:rotate(-90deg)'}">${ic('chevD', 16)}</span>`,
+      `<span class="gi">${ic('gear', 16)}</span><div><b>Search Options${!ws.optOpen && changed > 0 ? `<span class="mute" style="font-weight:400"> · ${String(changed)} changed</span>` : ''}</b><span class="d">Additional options for searching and filtering results</span></div><span class="sp"></span><span id="slvOptTog" style="${ws.optOpen ? '' : 'transform:rotate(-90deg)'}">${ic('chevD', 16)}</span>`,
     );
     const opts = byId('slvOpts');
     opts.style.display = ws.optOpen ? '' : 'none';
@@ -276,7 +280,8 @@ export class RunCard {
     }
     setHtml(
       opts,
-      sw('justCount') +
+      sw('keepAssemblies') +
+        sw('justCount') +
         sw('justLevels') +
         sw('keepMirrors') +
         sw('keepRotations') +

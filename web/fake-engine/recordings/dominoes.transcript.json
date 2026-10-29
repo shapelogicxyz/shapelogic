@@ -22,13 +22,13 @@
    "state": "solving",
    "solve": "paused",
    "analysing": false,
-   "assemblies": 612,
-   "solutions": 547,
+   "assemblies": 592,
+   "solutions": 526,
    "saved": 5,
-   "timeMs": 57,
-   "searched": 4333,
+   "timeMs": 55,
+   "searched": 4086,
    "searchDepth": 0,
-   "triedApart": 547,
+   "triedApart": 526,
    "parts": [
     {
      "shape": "s2",
@@ -248,17 +248,17 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 117,
-     "usedMs": 57,
+     "elapsedMs": 107,
+     "usedMs": 55,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 0,
-     "iterations": 4333,
+     "iterations": 4086,
      "assemblerThreads": 1,
-     "assemblies": 612,
-     "solutions": 547,
+     "assemblies": 592,
+     "solutions": 526,
      "disassembly": true,
-     "disasmCompleted": 547,
+     "disasmCompleted": 526,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0.5,
@@ -278,9 +278,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 1092,
-    "assemblies": 612,
-    "solutions": 547
+    "solutionsVersion": 1050,
+    "assemblies": 592,
+    "solutions": 526
    }
   },
   {
@@ -376,7 +376,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 1094,
+    "solutionsVersion": 1052,
     "assemblies": 0,
     "solutions": 0
    }

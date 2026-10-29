@@ -203,13 +203,13 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
   // the font size steps every text size, the same in every density
   const statusSize = (): Promise<string> =>
     page.locator('#stage > .status').evaluate((el) => getComputedStyle(el).fontSize);
-  await expect(html).toHaveAttribute('data-font', 'small');
-  const small = await statusSize();
+  await expect(html).toHaveAttribute('data-font', 'medium');
+  const medium = await statusSize();
   await page.click('#setPg [data-k="density"][data-o="Standard"]');
-  expect(await statusSize()).toBe(small);
+  expect(await statusSize()).toBe(medium);
   await page.click('#setPg [data-k="fontSize"][data-o="Large"]');
   await expect(html).toHaveAttribute('data-font', 'large');
-  expect(parseFloat(await statusSize())).toBe(parseFloat(small) + 4);
+  expect(parseFloat(await statusSize())).toBe(parseFloat(medium) + 2);
   await page.click('#setPg [data-k="density"][data-o="Minimal"]');
   await page.click('#setPg .switch[data-k="tips"]');
   await expect(page.locator('#btnSettings')).not.toHaveAttribute('title', /./);
@@ -257,6 +257,6 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
   });
   await expect(html).not.toHaveAttribute('data-theme', /./);
   await expect(html).toHaveAttribute('data-density', 'standard');
-  await expect(html).toHaveAttribute('data-font', 'small');
+  await expect(html).toHaveAttribute('data-font', 'medium');
   await page.keyboard.press('Escape');
 });

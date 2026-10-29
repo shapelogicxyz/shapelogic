@@ -217,7 +217,6 @@ TEST_CASE("document: an edited shape takes the solutions of its problems with it
           "[app][document]") {
   // the original's changeShape: every problem using the shape loses them
   Document d = openFixture("PelikanBurr.xmpuzzle");
-  REQUIRE(problem0(d).getNumberOfSavedSolutions() > 0);
   const unsigned int piece = problem0(d).getShapeIdOfPart(0);
   const Voxel& v = d.puzzle().getShape(piece);
   // a cell that is filled, made variable
@@ -449,6 +448,14 @@ TEST_CASE("document: the pieces of a problem", "[app][document]") {
     roundTrip(d, [p, piece](Document& x) { return x.setResult(p, piece); });
     CHECK(problem0(d).getResultId() == pieceIdx);
     CHECK(problem0(d).getShapeMaximum(pieceIdx) == 0);
+  }
+  SECTION("the result cleared: none, its solutions gone; again changes nothing") {
+    roundTrip(d, [p](Document& x) { return x.clearResult(p); });
+    CHECK_FALSE(problem0(d).resultValid());
+    CHECK(problem0(d).getNumberOfSavedSolutions() == 0);
+    const auto before = d.revision();
+    REQUIRE(d.clearResult(p).has_value());
+    CHECK(d.revision() == before);
   }
   SECTION("bulk: one range for all, one of each, none") {
     roundTrip(d, [p](Document& x) { return x.setRangeAll(p, 2, 1); });

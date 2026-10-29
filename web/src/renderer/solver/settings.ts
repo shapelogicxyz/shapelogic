@@ -61,7 +61,8 @@ export type BoxName =
   | 'nestedSlides'
   | 'partialNested'
   | 'verticalMoves'
-  | 'autosave';
+  | 'autosave'
+  | 'keepAssemblies';
 
 /** The options as the Solver card shows and edits them. */
 export interface SearchOptions {
@@ -80,6 +81,8 @@ export interface SearchOptions {
   /** Sliding: on a tray of several layers a piece may also move up and down (Allow Vertical Moves). */
   verticalMoves: boolean;
   autosave: boolean;
+  /** With the take-apart: also keep the assemblies that do not come apart (Always show Assemblies; not in the original). */
+  keepAssemblies: boolean;
   solver: Solver;
   sortBy: SortBy;
 }
@@ -98,6 +101,7 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   partialNested: false,
   verticalMoves: false,
   autosave: true,
+  keepAssemblies: false,
   solver: 'classic',
   sortBy: 'moves',
 };
@@ -196,6 +200,7 @@ export function readOptions(
     'partialNested',
     'verticalMoves',
     'autosave',
+    'keepAssemblies',
   ];
   for (const b of boxes) {
     const v = stored[b];
@@ -243,6 +248,7 @@ export function writeOptions(
   // is a sliding puzzle's (a solver type stored before is kept as it was)
   if (family === 'brick') {
     out.solverType = o.solver;
+    out.keepAssemblies = o.keepAssemblies;
   }
   // the sliding boxes go with a sliding puzzle's problems only
   if (sliding) {
@@ -291,6 +297,7 @@ export function normalize(
     o.nestedSlides = false;
     o.partialNested = false;
     o.verticalMoves = false;
+    o.keepAssemblies = false;
     if (changed === 'justLevels' && o.justLevels) {
       o.justCount = false;
     }
@@ -316,6 +323,7 @@ export function normalize(
     o.deepSymmetry = false;
     o.keepMirrors = false;
     o.keepRotations = false;
+    o.keepAssemblies = false;
     if (o.justCount) {
       o.disassemble = false;
       disabled.add('disassemble');
@@ -349,6 +357,10 @@ export function normalize(
   } else if (!o.disassemble) {
     o.checkRotations = false;
     disabled.add('checkRotations');
+  }
+  // Always show Assemblies needs the take-apart (greyed, its tick kept)
+  if (!o.disassemble) {
+    disabled.add('keepAssemblies');
   }
   if (o.keepRotations) {
     o.deepSymmetry = false;
@@ -423,6 +435,7 @@ export function solveOptions(
     checkRotations: o.checkRotations,
     justCount: o.justCount,
     justLevels: o.justLevels,
+    keepAssemblies: o.disassemble && o.keepAssemblies,
     keepMirrors: o.keepMirrors,
     keepRotations: o.keepRotations,
     completeRotations: o.deepSymmetry,

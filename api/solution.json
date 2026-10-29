@@ -22,11 +22,12 @@
         "type": "object",
         "properties": {
           "total": {"type": "integer", "minimum": 0},
+          "disassembled": {"type": "integer", "minimum": 0, "description": "The saved solutions with a disassembly (its moves or its level summary); the rest are assemblies only."},
           "offset": {"type": "integer", "minimum": 0},
           "solutionsVersion": {"$ref": "types.json#/$defs/SolutionsVersion"},
           "rows": {"type": "array", "items": {"$ref": "types.json#/$defs/SolutionRow"}}
         },
-        "required": ["total", "offset", "solutionsVersion", "rows"],
+        "required": ["total", "disassembled", "offset", "solutionsVersion", "rows"],
         "additionalProperties": false
       },
       "errors": ["not_found"]

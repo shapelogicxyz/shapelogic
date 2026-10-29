@@ -47,7 +47,14 @@ Reply solutionPage(State& s, Params& p) {
     for (std::size_t k = offset; k < order.size() && k < offset + limit; k++) {
       rows.push_back(solutionRow(pr.getSavedSolution(order[k]), order[k], stackingPuzzle));
     }
+    unsigned int disassembled = 0;
+    for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+      if (pr.getSavedSolution(i).getDisassemblyInfo() != nullptr) {
+        disassembled++;
+      }
+    }
     return Json{{"total", order.size()},
+                {"disassembled", disassembled},
                 {"offset", offset},
                 {"solutionsVersion", pr.solutionsVersion()},
                 {"rows", std::move(rows)}};

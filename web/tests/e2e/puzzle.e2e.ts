@@ -90,7 +90,14 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     await checkShown(page);
 
     const id = await newProblem(page);
-    // the result by Change…
+    // the result by Change…, cleared and set again (Clear Result is greyed with none)
+    await page.click('#pzChange');
+    await expect(page.locator('#pop [data-k="clear"]')).toBeDisabled();
+    await page.click('#pop [data-k="s1"]');
+    expect((await checkShown(page)).result).toBe('s1');
+    await page.click('#pzChange');
+    await page.click('#pop [data-k="clear"]');
+    expect((await checkShown(page)).result).toBeNull();
     await page.click('#pzChange');
     await page.click('#pop [data-k="s1"]');
     expect((await checkShown(page)).result).toBe('s1');

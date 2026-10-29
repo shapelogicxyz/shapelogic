@@ -21,7 +21,7 @@ import {
 
 import type { MeshArrays } from '../../engine/frames.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
-import { arcballPoint, arcballTurn } from '../view3d/camera.ts';
+import { arcballStep } from '../view3d/camera.ts';
 import { faceMaterial, faceUniforms, setPiece } from '../view3d/material.ts';
 import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
@@ -46,7 +46,7 @@ export class StlPreview {
   private insides = false;
   private radius = 1;
   private zoom = 1;
-  private drag: { from: Vector3; start: Quaternion } | null = null;
+  private drag: { x: number; y: number } | null = null;
   private frame = 0;
   private readonly observer: ResizeObserver;
 
@@ -147,23 +147,25 @@ export class StlPreview {
 
   private readonly down = (e: PointerEvent): void => {
     this.canvas.setPointerCapture(e.pointerId);
-    this.drag = {
-      from: arcballPoint(e.offsetX, e.offsetY, this.canvas.clientWidth, this.canvas.clientHeight),
-      start: this.turn.quaternion.clone(),
-    };
+    this.drag = { x: e.offsetX, y: e.offsetY };
   };
 
   private readonly move = (e: PointerEvent): void => {
     if (this.drag === null) {
       return;
     }
-    const to = arcballPoint(
+    // step by step, as the 3D view turns (camera.ts's arcballStep)
+    const step = arcballStep(
+      this.drag.x,
+      this.drag.y,
       e.offsetX,
       e.offsetY,
       this.canvas.clientWidth,
       this.canvas.clientHeight,
     );
-    this.turn.quaternion.copy(arcballTurn(this.drag.from, to).multiply(this.drag.start));
+    this.turn.quaternion.premultiply(step).normalize();
+    this.drag.x = e.offsetX;
+    this.drag.y = e.offsetY;
     this.render();
   };
 

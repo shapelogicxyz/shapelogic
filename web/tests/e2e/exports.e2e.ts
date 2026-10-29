@@ -381,10 +381,11 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
       expect(c[3]).toBe(1);
     }
 
-    // Solutions ▸ Export to STL (stlexportsolution.cpp): CubeInCage's first solution
+    // Solutions ▸ Export ▸ Solution Pieces (stlexportsolution.cpp): CubeInCage's first solution
     const folder = join(dir, 'pieces');
     mkdirSync(folder);
-    await page.click('#slvAct [data-a="stl"]');
+    await page.click('#slvAct [data-a="export"]');
+    await page.click('#pop [data-k="pieces"]');
     const sd = page.locator('#exportStlSolution');
     await expect(sd).toBeVisible();
     await expect(sd.locator('[data-f="pieces"]')).toHaveText(

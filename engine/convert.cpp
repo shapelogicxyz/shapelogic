@@ -476,11 +476,12 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
 namespace {
 
 // The original's check boxes (mainwindow_solve.cpp's optionNames), and
-// verticalMoves, which sliding trays of several layers added.
-constexpr std::array<std::string_view, 13> kSolverBoxes = {
+// verticalMoves, which sliding trays of several layers added, and
+// keepAssemblies (Always show Assemblies).
+constexpr std::array<std::string_view, 14> kSolverBoxes = {
     "disassemble",  "checkRotations", "justCount",     "justLevels",    "deepSymmetry",
     "keepMirrors",  "keepRotations",  "strictColors",  "nestedSlides",  "partialNested",
-    "verticalMoves", "highMemory",    "autosave"};
+    "verticalMoves", "highMemory",    "autosave",      "keepAssemblies"};
 
 bool isBox(std::string_view name) {
   for (const std::string_view b : kSolverBoxes) {
@@ -562,6 +563,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.disassemble = p.optBoolean("disassemble", o.disassemble);
   o.checkRotations = p.optBoolean("checkRotations", o.checkRotations);
   o.justCount = p.optBoolean("justCount", o.justCount);
+  o.keepAssemblies = p.optBoolean("keepAssemblies", o.keepAssemblies);
   o.dropDisassemblies = p.optBoolean("justLevels", o.dropDisassemblies);
   o.matrix.keepMirrors = p.optBoolean("keepMirrors", o.matrix.keepMirrors);
   o.matrix.keepRotations = p.optBoolean("keepRotations", o.matrix.keepRotations);

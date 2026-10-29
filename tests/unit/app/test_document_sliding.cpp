@@ -263,6 +263,7 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   // the result is the start/goal shape; a stamped piece keeps a copy for
   // each of its stamps, and may have more
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setResult(p, free); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.clearResult(p); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.removePiece(p, a); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setPieceCount(p, a, 0, 3); });
   roundTrip(d, [=](Document& x) { return x.addPiece(p, a); });

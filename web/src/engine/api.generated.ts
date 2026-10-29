@@ -850,6 +850,8 @@ export interface SolverSettings {
   verticalMoves?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
+  /** Always show Assemblies (not in the original). */
+  keepAssemblies?: boolean;
   /**
    * classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written).
    */
@@ -945,6 +947,11 @@ export interface SolveOptions {
   checkRotations?: boolean;
   /** Count, keep no solutions. */
   justCount?: boolean;
+  /**
+   * With disassemble: also keep the assemblies that do not come apart, without a disassembly,
+   * after every solution.
+   */
+  keepAssemblies?: boolean;
   /** Keep the level summary of each take-apart, not its moves. */
   justLevels?: boolean;
   keepMirrors?: boolean;
@@ -2156,6 +2163,17 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
+   * Leaves the problem without a result (not in the original); the solutions go. Nothing changes
+   * when it has none. Refused (invalid_argument) on sliding and stacking puzzles, as
+   * problem.setResult.
+   * (problem.json)
+   */
+  'problem.clearResult': {
+    params: ProblemProblemParam;
+    result: Changed;
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
    * The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become
    * unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks
    * (stacking.json), and for a sliding puzzle's board, which is no piece.
@@ -2825,6 +2843,12 @@ export interface Methods {
     result: {
       /** @minimum 0 */
       total: number;
+      /**
+       * The saved solutions with a disassembly (its moves or its level summary); the rest are
+       * assemblies only.
+       * @minimum 0
+       */
+      disassembled: number;
       /** @minimum 0 */
       offset: number;
       solutionsVersion: SolutionsVersion;
@@ -3541,6 +3565,7 @@ export const METHOD_NAMES = [
   'playback.track',
   'problem.addOneOfEach',
   'problem.addPiece',
+  'problem.clearResult',
   'problem.create',
   'problem.delete',
   'problem.deleteGroup',

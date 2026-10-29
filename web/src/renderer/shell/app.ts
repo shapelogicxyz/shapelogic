@@ -217,6 +217,19 @@ export function startApp(saved: StoredState = {}): {
   solver.exportStl = (problem, row) => {
     void exports.solutionStl(problem, row);
   };
+  solver.fileExport = (k) => {
+    if (k === 'scad') {
+      void imports.exportScad();
+    } else if (k === 'image') {
+      void exports.image();
+    } else if (k === 'vector') {
+      void exports.vector();
+    } else if (k === 'stl') {
+      void exports.stlFile();
+    } else {
+      void exports.animation();
+    }
+  };
   const menus = new Menus(store, app, view, {
     openPath: (path) => {
       void files.openPath(path);

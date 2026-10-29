@@ -584,6 +584,7 @@ TEST_CASE("stacking document: the brick commands of the Problems tab are refused
   const Id s = d.shapeIds().front();
   using test::refused;
   refused(d, Errc::InvalidArgument, [p, s](Document& x) { return x.setResult(p, s); });
+  refused(d, Errc::InvalidArgument, [p](Document& x) { return x.clearResult(p); });
   refused(d, Errc::InvalidArgument, [p, s](Document& x) { return x.setPieceCount(p, s, 2, 2); });
   refused(d, Errc::InvalidArgument, [p, s](Document& x) { return x.addPiece(p, s); });
   refused(d, Errc::InvalidArgument, [p, s](Document& x) { return x.removePiece(p, s); });

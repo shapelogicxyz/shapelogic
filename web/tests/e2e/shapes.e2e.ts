@@ -187,7 +187,7 @@ test('the shapes list', async () => {
     expect(await order(page)).toEqual([s1]);
     await expect(page.locator('#shapeList .row [data-a="del"]')).toBeEnabled();
     // the collapsed card's chips select and add
-    await page.click('#left [data-collapse="L"]');
+    await page.click('#shapesHead [data-collapse="L"]');
     await page.click('#lrail #btnLN');
     await sameAsEngine(page);
     expect((await order(page)).length).toBe(2);

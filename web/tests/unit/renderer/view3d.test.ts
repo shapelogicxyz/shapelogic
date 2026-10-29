@@ -14,6 +14,7 @@ import type { MeshArrays } from '../../../src/engine/frames.ts';
 import {
   anglesOf,
   arcballPoint,
+  arcballStep,
   baseOf,
   arcballTurn,
   Camera,
@@ -319,13 +320,15 @@ describe('camera.ts', () => {
   it('turns by the arc-ball as arcBall_c: the drag between two points of the ball, applied in front', () => {
     const centre = arcballPoint(50, 50, 101, 101);
     expect([centre.x, centre.y, centre.z]).toEqual([0, 0, 1]);
+    // past r² = ½ on Bell's sheet (z = 1 / 2r), a unit vector
     const edge = arcballPoint(100, 50, 101, 101);
-    expect([edge.x, edge.y, edge.z]).toEqual([1, 0, 0]);
-    // outside the ball: on its rim
+    expect(edge.x).toBeCloseTo(2 / Math.sqrt(5), 9);
+    expect(edge.z).toBeCloseTo(1 / Math.sqrt(5), 9);
     const out = arcballPoint(150, 50, 101, 101);
-    expect([out.x, out.y, out.z]).toEqual([1, 0, 0]);
-    // centre to rim: 2 × 90° about y, as the original's quaternion (cross, dot)
-    const t = arcballTurn(centre, edge);
+    expect(out.length()).toBeCloseTo(1, 9);
+    expect(out.z).toBeLessThan(edge.z);
+    // a turn between two points of the ball: twice their angle, as the original's quaternion (cross, dot)
+    const t = arcballTurn(centre, new Vector3(1, 0, 0));
     expect(t.equals(new Quaternion(0, 1, 0, 0))).toBe(true);
     const c = new Camera();
     c.q = new Quaternion();
@@ -338,6 +341,34 @@ describe('camera.ts', () => {
     const kept = c.q.clone();
     c.arcDrag(0, 0);
     expect(c.q.equals(kept)).toBe(true);
+  });
+
+  it('turns step by step: no snap back past the far side, and on outside the ball', () => {
+    const angleOf = (q: Quaternion): number => 2 * Math.acos(Math.min(1, Math.abs(q.w)));
+    // a slow drag right, across the ball and far past its rim: every step turns, none jumps
+    const c = new Camera();
+    c.q = new Quaternion();
+    c.arcStart(50, 50, 101, 101);
+    let prev = c.q.clone();
+    for (let x = 52; x <= 1000; x += 2) {
+      c.arcDrag(x, 50);
+      const step = angleOf(prev.clone().invert().multiply(c.q));
+      expect(step).toBeGreaterThan(1e-4);
+      expect(step).toBeLessThan(0.15);
+      prev = c.q.clone();
+    }
+    // the front went right round more than once, about y only
+    const y = new Vector3(0, 1, 0).applyQuaternion(c.q);
+    expect(y.y).toBeCloseTo(1, 9);
+    // outside the ball a move about the centre rolls about the view's z
+    const roll = arcballStep(150, 50, 50, -50, 101, 101);
+    const z = new Vector3(0, 0, 1).applyQuaternion(roll);
+    expect(z.z).toBeCloseTo(1, 9);
+    expect(angleOf(roll)).toBeGreaterThan(1);
+    // and a move away from it tilts, at the rim's rate (1.6 radians a radius)
+    const tilt = arcballStep(150, 50, 175, 50, 101, 101);
+    expect(new Vector3(0, 1, 0).applyQuaternion(tilt).y).toBeCloseTo(1, 9);
+    expect(angleOf(tilt)).toBeCloseTo(0.8, 9);
   });
 
   it('animates home and fits, zooming smoothly within 0.3 to 4', () => {

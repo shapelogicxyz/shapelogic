@@ -688,6 +688,38 @@ TEST_CASE("solve session: what is kept of each solution", "[solve][session]") {
     CHECK(q.getNumSolutions() == 927);
     CHECK(q.getNumberOfSavedSolutions() == 0);
   }
+  SECTION("keepAssemblies: the assemblies that do not come apart too, after the solutions") {
+    for (const SolutionOrder order : {SolutionOrder::Moves, SolutionOrder::Unsorted}) {
+      Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+      SolveOptions o = takeApart();
+      o.keepAssemblies = true;
+      o.order = order;
+      o.solutionLimit = 0;
+      SolveSession s(p, p.getProblem(0), o);
+      REQUIRE(s.start().has_value());
+      s.wait();
+      const Problem& q = p.getProblem(0);
+      CHECK(q.getNumSolutions() == 927);
+      REQUIRE(q.getNumberOfSavedSolutions() == 928);
+      for (unsigned int i = 0; i < 927; i++) {
+        CHECK(q.getSavedSolution(i).getDisassemblyInfo() != nullptr);
+      }
+      CHECK(q.getSavedSolution(927).getDisassemblyInfo() == nullptr);
+    }
+  }
+  SECTION("keepAssemblies: past the limit the solutions are kept first") {
+    Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
+    SolveOptions o = takeApart();
+    o.keepAssemblies = true;
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    const Problem& q = p.getProblem(0);
+    REQUIRE(q.getNumberOfSavedSolutions() == 10);
+    for (unsigned int i = 0; i < 10; i++) {
+      CHECK(q.getSavedSolution(i).getDisassemblyInfo() != nullptr);
+    }
+  }
   SECTION("the summary of each take-apart instead of the tree") {
     Puzzle p = fresh("DraculasDentalDesaster.xmpuzzle");
     SolveOptions o = takeApart();

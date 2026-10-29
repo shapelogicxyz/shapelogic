@@ -30,6 +30,7 @@ import {
   readCallLog,
   selectShape,
   settle,
+  SHAPE_ROWS,
   shapes,
 } from './app.ts';
 import { clickCell, settled, shapeGet } from './editor.ts';
@@ -111,7 +112,7 @@ async function idOf(page: Page, label: string): Promise<string> {
 async function piece(page: Page, cells: [number, number][]): Promise<string> {
   const n = (await shapes(page)).length;
   await page.click('#btnNew');
-  await expect(page.locator('#shapeList .row')).toHaveCount(n + 1);
+  await expect(page.locator(SHAPE_ROWS)).toHaveCount(n + 1);
   await settled(page);
   for (const [x, y] of cells) {
     await clickCell(page, [x, y, 0]);
@@ -182,18 +183,19 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     // + New Board: 6 by 6 (nothing selected); its trash deletes it, then
     // another, made 4 by 5
     await page.click('#btnNewBoard');
-    await expect(page.locator('#shapeList .row')).toHaveCount(1);
-    await settled(page);
-    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('Board 1');
-    await page.click('#shapeList .row.sel [data-a="del"]');
+    await expect(page.locator('#boardList .row')).toHaveCount(1);
     await expect(page.locator('#shapeList .row')).toHaveCount(0);
+    await settled(page);
+    await expect(page.locator('#boardList .row.sel .lbl')).toHaveText('Board 1');
+    await page.click('#boardList .row.sel [data-a="del"]');
+    await expect(page.locator('#boardList .row')).toHaveCount(0);
     await settled(page);
     // the Solver's pager read the gone problem's list once more (not_found, ignored there)
     const deleted = readCallLog(log).length;
     await page.click('#btnNewBoard');
-    await expect(page.locator('#shapeList .row')).toHaveCount(1);
+    await expect(page.locator('#boardList .row')).toHaveCount(1);
     await settled(page);
-    await expect(page.locator('#shapeList .row.sel .lbl')).toHaveText('Board 1');
+    await expect(page.locator('#boardList .row.sel .lbl')).toHaveText('Board 1');
     // a board is drawn with the ordinary tools, which say what its cells are
     await expect(page.locator('#trayRow')).toHaveCount(0);
     await expect(page.locator('#toolStrip [data-t="erase"]')).toHaveAttribute('title', /^Wall/);
@@ -235,7 +237,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     ];
     for (let i = 0; i < 3; i++) {
       await page.keyboard.press('Control+d');
-      await expect(page.locator('#shapeList .row')).toHaveCount(4 + i);
+      await expect(page.locator(SHAPE_ROWS)).toHaveCount(4 + i);
       await settled(page);
       upright.push((await page.locator('#shapeList .row.sel').getAttribute('data-id')) ?? '');
     }
@@ -246,7 +248,7 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     const unit = [await piece(page, [[0, 0]])];
     for (let i = 0; i < 3; i++) {
       await page.keyboard.press('Control+d');
-      await expect(page.locator('#shapeList .row')).toHaveCount(9 + i);
+      await expect(page.locator(SHAPE_ROWS)).toHaveCount(9 + i);
       await settled(page);
       unit.push((await page.locator('#shapeList .row.sel').getAttribute('data-id')) ?? '');
     }
@@ -711,6 +713,44 @@ test('Focus 2D editor: the tip on a grid of 20 or more; one focus for Shapes and
     await sizeTo(page, tray, 1, 19);
     await toTab('2', 'puzzle');
     await expect(pzTip).toBeHidden();
+  } finally {
+    await a.close();
+  }
+});
+
+test('the Boards list: above Shapes with + New Board, four and a half rows before it scrolls', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    // other grids have no Boards list
+    await newDocument(page, 'bricks');
+    await expect(page.locator('#boardsSec')).toBeHidden();
+    await newDocument(page, 'sliding');
+    const sec = page.locator('#boardsSec');
+    const boards = page.locator('#boardList');
+    await expect(sec).toBeVisible();
+    await expect(sec.locator('#btnNewBoard')).toBeVisible();
+    await expect(page.locator('#boardCount')).toHaveText('0');
+    // the boards in their list, the pieces in Shapes
+    await piece(page, [[0, 0]]);
+    const scrolls = (): Promise<boolean> =>
+      boards.evaluate((el) => el.scrollHeight > el.clientHeight + 1);
+    for (let i = 1; i <= 5; i++) {
+      await page.click('#btnNewBoard');
+      await expect(page.locator('#boardList .row')).toHaveCount(i);
+      await settled(page);
+      await expect(page.locator('#boardCount')).toHaveText(String(i));
+      // four rows fit; the fifth shows half a row, and the list scrolls
+      expect(await scrolls()).toBe(i === 5);
+    }
+    await expect(page.locator('#shapeList .row')).toHaveCount(1);
+    await expect(page.locator('#shapeCount')).toHaveText('1');
+    const rowH = await page
+      .locator('#boardList .row')
+      .first()
+      .evaluate((el) => (el as HTMLElement).offsetHeight);
+    const listH = await boards.evaluate((el) => el.clientHeight);
+    expect(Math.abs(listH - (6 + 4.5 * rowH))).toBeLessThanOrEqual(1);
   } finally {
     await a.close();
   }

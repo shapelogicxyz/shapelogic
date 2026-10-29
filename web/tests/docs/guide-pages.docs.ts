@@ -206,7 +206,8 @@ test('the Solver tab and the display styles', async () => {
     await menu(page, 'export.glb');
     await crop(page, '#exportGlb .cfm', 'export-glb');
     await page.keyboard.press('Escape');
-    await page.click('#slvAct [data-a="stl"]');
+    await page.click('#slvAct [data-a="export"]');
+    await page.click('#pop [data-k="pieces"]');
     await crop(page, '#exportStlSolution .cfm', 'export-stl-solution');
     await page.keyboard.press('Escape');
   } finally {

@@ -19,14 +19,14 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-CVbpTPBb.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-BkO42vW0.css">
+    <script type="module" crossorigin src="/demo/assets/index-C22XPugF.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-D4K97iLO.css">
   </head>
   <body>
     <div id="wrap">
       <div id="stage" data-tab="entities">
         <div class="top">
-          <div class="brand"><i></i><span class="bt">ShapeLogic</span></div>
+          <div class="brand" id="brand"><i></i><span class="bt">ShapeLogic</span></div>
           <div class="right">
             <span class="fname" id="fname"></span>
             <button class="ib" id="btnSettings" title="Settings  (Ctrl+,)"></button>
@@ -38,7 +38,34 @@
         <div class="body">
           <section class="card ent" id="left">
             <div class="lfull">
-              <div class="ch">
+              <div id="boardsSec" hidden>
+                <div class="ch">
+                  Boards
+                  <span
+                    class="chip"
+                    id="boardCount"
+                    style="background: var(--muted); min-width: 22px; height: 20px"
+                  ></span>
+                  <span class="sp"></span>
+                  <button
+                    class="btn pri sm"
+                    id="btnNewBoard"
+                    title="New board: a shape that holds start and goal positions"
+                  >
+                    +<span class="lt"> New</span> Board
+                  </button>
+                  <button class="ib" data-collapse="L" title="Collapse sidebar"></button>
+                </div>
+                <div
+                  class="shapes"
+                  id="boardList"
+                  tabindex="0"
+                  role="listbox"
+                  aria-label="Boards"
+                  title="Select the board that you want to edit"
+                ></div>
+              </div>
+              <div class="ch" id="shapesHead">
                 Shapes
                 <span
                   class="chip"
@@ -48,14 +75,6 @@
                 <span class="sp"></span>
                 <button class="btn pri sm" id="btnNew" title="New shape">
                   +<span class="lt"> New</span><span id="btnNewWhat" hidden> Piece</span>
-                </button>
-                <button
-                  class="btn pri sm"
-                  id="btnNewBoard"
-                  title="New board: a shape that holds start and goal positions"
-                  hidden
-                >
-                  +<span class="lt"> New</span> Board
                 </button>
                 <button class="ib" data-collapse="L" title="Collapse sidebar"></button>
               </div>
@@ -170,7 +189,7 @@
             </div>
             <div class="pz-used" id="pzUsed"></div>
             <div class="pzh" id="pzGrpHead" style="cursor: pointer">
-              Groups<span class="sp"></span
+              Groups &amp; weights<span class="sp"></span
               ><button class="ib" id="pzGrpTog" title="Show / hide the groups"></button>
             </div>
             <div class="pz-grp closed" id="pzGrpBody">
@@ -208,11 +227,11 @@
                 <div class="slv-mode" id="slvMode"></div>
               </div>
               <div class="slv-sec slv-optsec">
-                <div
-                  class="slv-lab click"
+                <button
+                  class="mcard optcard"
                   id="slvOptHead"
                   title="Show or hide the search options"
-                ></div>
+                ></button>
                 <div class="slv-opts" id="slvOpts"></div>
               </div>
               <div class="slv-sec">
@@ -373,6 +392,9 @@
               </div>
               <div class="pzh" id="pzRulesHead">Color rules</div>
               <div class="pzr" id="pzRules"></div>
+            </div>
+            <div class="gtip mute" id="pzGridTip" hidden>
+              Tip: Use 'Focus 2D editor' to increase the grid view size
             </div>
           </section>
 

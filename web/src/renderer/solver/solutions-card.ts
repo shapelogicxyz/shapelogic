@@ -22,7 +22,7 @@ import { openPop } from '../shell/popover.ts';
 import { hex } from '../shell/piece-colours.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import type { SortKey } from './pager.ts';
-import type { RemoveWhich, SolverWorkspace } from './workspace.ts';
+import type { FileExport, RemoveWhich, SolverWorkspace } from './workspace.ts';
 
 /** The sort buttons (the mockup's SVSORT; `assembly` is its search order). */
 const SORTS: readonly [SortKey, string, string, string][] = [
@@ -76,6 +76,9 @@ function movesOf(row: SolutionRow): string {
     : String(row.moves);
 }
 
+/** What the solutions are, by the mode picked: assemblies, solutions (disassemblies) or both (Always show Assemblies). */
+type Kind = 'assemblies' | 'solutions' | 'both';
+
 export class SolutionsCard {
   private readonly ws: SolverWorkspace;
   /** The largest step count of the rows read (the Moves column's bars). */
@@ -100,6 +103,37 @@ export class SolutionsCard {
 
   // ---- the list or the slider ----
 
+  private kind(): Kind {
+    const ws = this.ws;
+    const o = ws.options;
+    if (!o.disassemble) {
+      return 'assemblies';
+    }
+    return o.keepAssemblies && !ws.sliding && !ws.stacking ? 'both' : 'solutions';
+  }
+
+  /** The name of the solutions: a sliding or stacking puzzle's are paths, a brick puzzle's disassemblies. */
+  private solutionsName(): string {
+    return this.ws.sliding || this.ws.stacking ? 'Solutions' : 'Disassemblies';
+  }
+
+  /** The rows with a disassembly, the assemblies after them (Always show Assemblies). */
+  private split(n: number): [number, number] {
+    const d = Math.min(n, this.ws.pager?.disassembled ?? 0);
+    return [d, n - d];
+  }
+
+  /** Whether the list shows the disassemblies and the assemblies under headings of their own (the saved order only). */
+  private grouped(): boolean {
+    return this.kind() === 'both' && this.ws.sortBy === 'list' && !this.ws.descending;
+  }
+
+  /** Where row i of the list sits: below the headings before it. */
+  private rowTop(i: number, d: number): number {
+    const h = this.rowHeight;
+    return 4 + i * h + (this.grouped() ? h + (i >= d ? h : 0) : 0);
+  }
+
   private renderSel(): void {
     const ws = this.ws;
     const pager = ws.pager;
@@ -115,7 +149,7 @@ export class SolutionsCard {
     if (n === 0) {
       setHtml(
         box,
-        `<div class="slv-nav"><div class="big"><b>Solution —</b><span>0 of 0</span></div><div class="slv-empty" style="margin:0">${this.whyEmpty()}</div></div>`,
+        `<div class="slv-nav">${this.navLines(-1, 0)}<div class="slv-empty" style="margin:0">${this.whyEmpty()}</div></div>`,
       );
       return;
     }
@@ -124,6 +158,30 @@ export class SolutionsCard {
     } else {
       this.renderSlider(n);
     }
+  }
+
+  /**
+   * The heading of the slider and the empty card: "Disassemblies — 3 of
+   * 10" or "Assemblies — …" by the mode picked; with Always show
+   * Assemblies, both, the disassemblies on top, the one the choice (i) is
+   * in counting it.
+   */
+  private navLines(i: number, n: number): string {
+    const line = (label: string, at: string, of: string): string =>
+      `<div class="big"><b>${label} —</b><span>${at === '' ? of : `${at} of ${of}`}</span></div>`;
+    const kind = this.kind();
+    if (kind !== 'both') {
+      const label = kind === 'assemblies' ? 'Assemblies' : this.solutionsName();
+      return line(label, i < 0 ? '' : String(i + 1), String(n));
+    }
+    const [d, a] = this.split(n);
+    // the selected row's place in its own group (the saved order)
+    const inD = i >= 0 && i < d && this.grouped();
+    const inA = i >= d && this.grouped();
+    return (
+      line('Disassemblies', inD ? String(i + 1) : '', String(d)) +
+      line('Assemblies', inA ? String(i - d + 1) : '', String(a))
+    );
   }
 
   private whyEmpty(): string {
@@ -166,12 +224,23 @@ export class SolutionsCard {
           `<button data-sort="${k}" class="${ws.sortBy === k ? 'on' : ''}" title="${esc(tip)}${ws.sortBy === k ? ' — click again to reverse, a third time for the saved order' : ''}">${t}${arrow(k)}</button>`,
       ).join('') + '<span title="Disassembly status">DA</span>',
     );
-    byId('slvFoot').textContent = `${String(n)} solution${n === 1 ? '' : 's'}`;
+    const [dis, asm] = this.split(n);
+    const count = (k: number, one: string, many: string): string =>
+      `${String(k)} ${k === 1 ? one : many}`;
+    const kind = this.kind();
+    byId('slvFoot').textContent =
+      kind === 'both'
+        ? `${count(dis, 'disassembly', 'disassemblies')} · ${count(asm, 'assembly', 'assemblies')}`
+        : kind === 'assemblies'
+          ? count(n, 'assembly', 'assemblies')
+          : this.ws.sliding || this.ws.stacking
+            ? count(n, 'solution', 'solutions')
+            : count(n, 'disassembly', 'disassemblies');
     const d = density();
     // the font size's line growth (the stylesheet's --fh) on top of the density's
     const fh = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fh')) || 0;
     this.rowHeight = (d === 'minimal' ? 26 : d === 'compact' ? 16 : 28) + fh;
-    byId('slvSpace').style.height = `${String(n * this.rowHeight + 10)}px`;
+    byId('slvSpace').style.height = `${String(this.rowTop(n, dis) + 6)}px`;
     this.renderRows();
   }
 
@@ -186,20 +255,29 @@ export class SolutionsCard {
     }
     const n = pager.total ?? 0;
     const h = this.rowHeight;
-    const first = Math.max(0, Math.floor(list.scrollTop / h) - 4);
+    const [d, a] = this.split(n);
+    const grouped = this.grouped();
+    // the headings take a row each: a few more rows either side cover them
+    const first = Math.max(0, Math.floor(list.scrollTop / h) - 6);
     const last = Math.min(n, Math.ceil((list.scrollTop + list.clientHeight) / h) + 4);
     pager.want(first - 20, last + 20);
     let html = '';
+    if (grouped) {
+      const head = (top: number, label: string, k: number): string =>
+        `<div class="lgrp" style="top:${String(top)}px;height:${String(h)}px">${label} — <span>${String(k)}</span></div>`;
+      html += head(4, 'Disassemblies', d) + head(this.rowTop(d, d) - h, 'Assemblies', a);
+    }
     for (let i = first; i < last; i++) {
       const r = pager.row(i);
+      const top = String(this.rowTop(i, d));
       if (r === undefined) {
-        html += `<div class="lrow ph" style="top:${String(4 + i * h)}px" data-i="${String(i)}"><span class="c1 mut">…</span></div>`;
+        html += `<div class="lrow ph" style="top:${top}px" data-i="${String(i)}"><span class="c1 mut">…</span></div>`;
         continue;
       }
       this.maxSteps = Math.max(this.maxSteps, r.steps ?? 0);
       const has = r.disassembly !== 'none';
       const da = daCell(r, ws.inseparable(r.id));
-      html += `<div class="lrow ${i === ws.sel ? 'sel' : ''}" role="option" aria-selected="${String(i === ws.sel)}" style="top:${String(4 + i * h)}px" data-i="${String(i)}" data-id="${r.id}" data-index="${String(r.index)}" data-da="${r.disassembly}"><span class="c1">${String(r.assembly + 1)}</span><span class="c2 ${has ? '' : 'mut'}" title="${esc(r.movesText ?? '')}">${has ? esc(r.movesText ?? '') : '—'}</span><span class="c3 ${has ? '' : 'mut'}">${has ? `<i style="width:${String(Math.round(((r.steps ?? 0) / this.maxSteps) * 100))}%"></i><b>${movesOf(r)}</b>` : '—'}</span><span class="c4">${String(r.pieces)}</span><span class="c5 ${da[0]}" title="${da[2]}">${da[1]}</span></div>`;
+      html += `<div class="lrow ${i === ws.sel ? 'sel' : ''}" role="option" aria-selected="${String(i === ws.sel)}" style="top:${top}px" data-i="${String(i)}" data-id="${r.id}" data-index="${String(r.index)}" data-da="${r.disassembly}"><span class="c1">${String(r.assembly + 1)}</span><span class="c2 ${has ? '' : 'mut'}" title="${esc(r.movesText ?? '')}">${has ? esc(r.movesText ?? '') : '—'}</span><span class="c3 ${has ? '' : 'mut'}">${has ? `<i style="width:${String(Math.round(((r.steps ?? 0) / this.maxSteps) * 100))}%"></i><b>${movesOf(r)}</b>` : '—'}</span><span class="c4">${String(r.pieces)}</span><span class="c5 ${da[0]}" title="${da[2]}">${da[1]}</span></div>`;
     }
     setHtml(space, html);
     // the rows shown, readable from outside (the e2e tests compare them with solution.page)
@@ -224,8 +302,7 @@ export class SolutionsCard {
     if (slider !== null && box.contains(slider)) {
       // updated in place: a slider drawn again drops the drag under way
       forgetHtml(box);
-      byId('slvNavT').textContent = `Solution ${String(i + 1)}`;
-      byId('slvNavO').textContent = `of ${String(n)}${ws.options.disassemble ? '' : ' assemblies'}`;
+      setHtml(byId('slvNavT'), this.navLines(i, n));
       slider.max = String(n);
       slider.value = String(i + 1);
       slider.disabled = n < 2;
@@ -237,7 +314,7 @@ export class SolutionsCard {
     }
     setHtml(
       box,
-      `<div class="slv-nav"><div class="big"><b id="slvNavT">Solution ${String(i + 1)}</b><span id="slvNavO">of ${String(n)}${ws.options.disassemble ? '' : ' assemblies'}</span></div><div class="ctl"><button class="nb" data-n="-1" title="Previous solution" ${i <= 0 ? 'disabled' : ''}><span style="display:grid;transform:rotate(90deg)">${ic('chevD', 14)}</span></button><input type="range" id="slvSlider" min="1" max="${String(n)}" value="${String(i + 1)}" ${n < 2 ? 'disabled' : ''}><button class="nb" data-n="1" title="Next solution" ${i >= n - 1 ? 'disabled' : ''}><span style="display:grid;transform:rotate(-90deg)">${ic('chevD', 14)}</span></button></div></div><div class="slv-meta" id="slvMeta">${meta}</div>`,
+      `<div class="slv-nav"><div id="slvNavT">${this.navLines(i, n)}</div><div class="ctl"><button class="nb" data-n="-1" title="Previous solution" ${i <= 0 ? 'disabled' : ''}><span style="display:grid;transform:rotate(90deg)">${ic('chevD', 14)}</span></button><input type="range" id="slvSlider" min="1" max="${String(n)}" value="${String(i + 1)}" ${n < 2 ? 'disabled' : ''}><button class="nb" data-n="1" title="Next solution" ${i >= n - 1 ? 'disabled' : ''}><span style="display:grid;transform:rotate(-90deg)">${ic('chevD', 14)}</span></button></div></div><div class="slv-meta" id="slvMeta">${meta}</div>`,
     );
   }
 
@@ -248,7 +325,7 @@ export class SolutionsCard {
       const list = document.getElementById('slvList');
       if (list !== null) {
         const h = this.rowHeight;
-        const top = 4 + ws.sel * h;
+        const top = this.rowTop(ws.sel, this.split(ws.pager?.total ?? 0)[0]);
         if (top < list.scrollTop) {
           list.scrollTop = top - 4;
         } else if (top + h > list.scrollTop + list.clientHeight) {
@@ -281,9 +358,10 @@ export class SolutionsCard {
   }
 
   /**
-   * The actions: Manage solutions, and Export to STL (the original's
-   * "Export Solution Pieces to STL": each piece the solution places, a file
-   * each, deferred part 5), with a solution chosen.
+   * The actions: Manage solutions, and Export: the original's "Export
+   * Solution Pieces to STL" (each piece the chosen solution places, a file
+   * each, deferred part 5) and File ▸ Export's items but the paused solver
+   * state, enabled as the menu enables them.
    */
   renderActions(): void {
     const ws = this.ws;
@@ -291,9 +369,44 @@ export class SolutionsCard {
     const busy = ws.running || ws.analysing || ws.calling;
     setHtml(
       byId('slvAct'),
-      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''} title="Delete solutions, or analyse or delete their disassemblies">Manage solutions ▾</button><button class="btn" data-a="stl" ${ws.selected === null ? 'disabled' : ''} title="Export each piece type used in the chosen solution as its own STL file, for 3D printing the pieces of this solution">Export to STL</button>`,
+      `<button class="btn" data-a="manage" ${n === 0 || busy ? 'disabled' : ''} title="Delete solutions, or analyse or delete their disassemblies">Manage solutions ▾</button><button class="btn" data-a="export" title="Export the chosen solution’s pieces, an image of the view, the shapes or the solution’s animation">Export ▾</button>`,
     );
     this.renderAnalysis();
+  }
+
+  /** The Export menu: the solution's pieces, then File ▸ Export's items (main/menu.ts) but the paused solver state. */
+  private exportMenu(): string {
+    const ws = this.ws;
+    // File ▸ Export's rules: Puzzlecad and STL need a shape with cells, the animation a disassembly shown
+    const shapes = ws.store.snapshot?.shapes.some((x) => x.fixed + x.variable > 0) ?? false;
+    const animation = ws.player.problem !== null && ws.player.row?.disassembly === 'tree';
+    const item = (k: string, label: string, tip: string, on: boolean): string =>
+      `<button data-k="${k}" title="${tip}" ${on ? '' : 'disabled'}>${label}</button>`;
+    return (
+      '<div class="ph">This solution</div>' +
+      item(
+        'pieces',
+        'Solution Pieces (STL)…',
+        'Export each piece type used in the chosen solution as its own STL file, for 3D printing the pieces of this solution',
+        ws.selected !== null,
+      ) +
+      '<hr><div class="ph">File ▸ Export</div>' +
+      item(
+        'scad',
+        'Puzzlecad (OpenSCAD)…',
+        'Export the shapes as a Puzzlecad file for OpenSCAD',
+        shapes,
+      ) +
+      item('image', 'Image…', 'Save the 3D view as a PNG image', true) +
+      item('vector', 'Vector Image…', 'Save the 3D view as an SVG vector image', true) +
+      item('stl', 'STL…', 'Export shapes as STL files for 3D printing', shapes) +
+      item(
+        'glb',
+        'Solution Animation (GLB)…',
+        'Save the shown solution’s disassembly as an animated GLB model',
+        animation,
+      )
+    );
   }
 
   /** An analysis under way: its progress and Stop. */
@@ -528,11 +641,22 @@ export class SolutionsCard {
       if (b === null || b.disabled) {
         return;
       }
-      if (b.dataset.a === 'stl') {
-        const row = ws.selected;
-        if (ws.current !== null && row !== null) {
-          ws.exportStl?.(ws.current, row);
-        }
+      if (b.dataset.a === 'export') {
+        openPop(
+          b,
+          this.exportMenu(),
+          (k) => {
+            const row = ws.selected;
+            if (k === 'pieces') {
+              if (ws.current !== null && row !== null) {
+                ws.exportStl?.(ws.current, row);
+              }
+              return;
+            }
+            ws.fileExport?.(k as FileExport);
+          },
+          true,
+        );
         return;
       }
       if (b.dataset.a !== 'manage') {

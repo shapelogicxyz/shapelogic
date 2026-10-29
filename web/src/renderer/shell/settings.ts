@@ -135,14 +135,14 @@ const SET: readonly Page[] = [
       {
         k: 'fontSize',
         t: 'Font size',
-        d: 'The size of the text throughout the interface. Small is the default; Medium and Large are each about 2 points larger. The text keeps its size in every interface density.',
+        d: 'The size of the text throughout the interface. Medium is the default; Small is about 2 points smaller and Large about 2 points larger. The text keeps its size in every interface density.',
         type: 'seg',
         opts: ['Small', 'Medium', 'Large'],
       },
       {
         k: 'sidebar',
         t: 'Sidebar width',
-        d: `Static keeps the left and right side cards at the widths you choose. Variable widens them as the window grows past 1600 pixels: each card and the 3D view take a third of the extra width, until a card is ${String(SIDE_MAX)} pixels wide.`,
+        d: `Variable (the default) widens the side cards as the window grows past 1600 pixels: each card and the 3D view take a third of the extra width, until a card is ${String(SIDE_MAX)} pixels wide; the right card is always 10% wider than the left. Static keeps the left and right side cards at the widths you choose.`,
         type: 'seg',
         opts: ['Static', 'Variable'],
       },
@@ -165,6 +165,13 @@ const SET: readonly Page[] = [
         d: 'Light, Dark, or System. System follows the operating system’s light/dark choice when the OS provides one, otherwise Light.',
         type: 'seg',
         opts: ['Light', 'Dark', 'System'],
+      },
+      {
+        k: 'topBar',
+        t: 'Top bar theme',
+        d: 'Colorful puts the red, green and blue of the X, Y and Z axes behind the ShapeLogic name, fading into the bar, and gives each tab its own color: Shapes green, Puzzle blue, Solver red. Boring keeps the bar plain, with a small colored square beside the name.',
+        type: 'seg',
+        opts: ['Colorful', 'Boring'],
       },
       {
         k: 'undo',

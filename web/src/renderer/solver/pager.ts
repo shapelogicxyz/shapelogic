@@ -33,6 +33,8 @@ export class SolutionPager {
   readonly descending: boolean;
   /** The number of rows (null until a page came). */
   total: number | null = null;
+  /** The rows with a disassembly (null until a page came); kept assemblies are the rest. */
+  disassembled: number | null = null;
   /** The version the newest page was read at (null before one). */
   version: number | null = null;
   /** Calls made (solution.page), for the tests. */
@@ -177,6 +179,7 @@ export class SolutionPager {
           const newer = this.version === null || r.solutionsVersion !== this.version;
           this.version = r.solutionsVersion;
           this.total = r.total;
+          this.disassembled = r.disassembled;
           this.pages.set(n, { version: r.solutionsVersion, rows: r.rows });
           if (newer) {
             // the list changed: the other pages are of an older one

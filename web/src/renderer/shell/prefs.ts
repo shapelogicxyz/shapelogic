@@ -16,6 +16,8 @@ export interface Prefs {
   /** The interface's text size, the same in every density: Medium and Large each about 2 points larger. */
   fontSize: 'Small' | 'Medium' | 'Large';
   theme: 'Light' | 'Dark' | 'System';
+  /** The top bar's look: Colorful, the axis colours behind the name and on the tabs; Boring, the plain bar. */
+  topBar: 'Colorful' | 'Boring';
   /** The side cards' widths: Static, sideL and sideR; Variable, wider as a wide window grows. */
   sidebar: 'Static' | 'Variable';
   /** The left and right side cards' widths in Static, in pixels (SIDE_MIN to SIDE_MAX). */
@@ -69,11 +71,12 @@ export interface Prefs {
 /** The defaults (the engine's for undo depth, threads, memory and disk). */
 export const DEFAULTS: Readonly<Prefs> = {
   density: 'Standard',
-  fontSize: 'Small',
+  fontSize: 'Medium',
   theme: 'System',
-  sidebar: 'Static',
+  topBar: 'Colorful',
+  sidebar: 'Variable',
   sideL: 340,
-  sideR: 340,
+  sideR: 374,
   tabsAt: 'Top',
   undo: 25,
   tips: true,
@@ -137,6 +140,7 @@ const CHOICES: Partial<Record<keyof Prefs, readonly unknown[]>> = {
   density: ['Standard', 'Compact', 'Minimal'],
   fontSize: ['Small', 'Medium', 'Large'],
   theme: ['Light', 'Dark', 'System'],
+  topBar: ['Colorful', 'Boring'],
   sidebar: ['Static', 'Variable'],
   tabsAt: ['Top', 'Left'],
   // the names before Free Spin and Top Up are dropped: back to the default

@@ -75,6 +75,13 @@ Reply problemSetResult(State& s, Params& p) {
   return s.changed();
 }
 
+Reply problemClearResult(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().clearResult(problem));
+  return s.changed();
+}
+
 Reply problemSetPieceCount(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const app::Id shape = p.id("shape", IdKind::Shape);
@@ -229,6 +236,7 @@ void addProblemMethods(MethodTable& t) {
   t["problem.move"] = problemMove;
   t["problem.rename"] = problemRename;
   t["problem.setResult"] = problemSetResult;
+  t["problem.clearResult"] = problemClearResult;
   t["problem.setPieceCount"] = problemSetPieceCount;
   t["problem.addPiece"] = problemAddPiece;
   t["problem.removePiece"] = problemRemovePiece;

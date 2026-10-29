@@ -231,7 +231,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 60,
+     "elapsedMs": 55,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,

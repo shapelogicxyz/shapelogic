@@ -8,7 +8,8 @@
 // and the "Show tooltips" setting (titles held back while it is off). The
 // tips themselves are drawn by the page (tooltip.ts). Also the side cards'
 // widths (the "Sidebar width" setting): the --lwx and --rwx the stylesheet
-// lays the stage out with, set on the document over the density's.
+// lays the stage out with, set on the document over the density's. And
+// the top bar's look (the "Top bar theme" setting: data-topbar).
 
 import { $$ } from './dom.ts';
 import { DEFAULTS, onPrefs, prefs, SIDE_MAX } from './prefs.ts';
@@ -55,6 +56,9 @@ export function applyTheme(): void {
 /** The window width from which Variable side cards grow. */
 const GROW_FROM = 1600;
 
+/** How much wider the right side card is than the left in Variable (and the defaults in Static). */
+const RIGHT_WIDER = 1.1;
+
 /** Applies the sidebar width setting. */
 export function applySidebars(): void {
   const r = document.documentElement.style;
@@ -64,16 +68,22 @@ export function applySidebars(): void {
     return;
   }
   // each card takes a third of the width past GROW_FROM (the 3D view the
-  // last third) until it reaches SIDE_MAX
+  // last third) until it reaches SIDE_MAX; the right card is the left's
+  // width made RIGHT_WIDER, at every window width
   const grow = (base: number): string =>
     `clamp(${String(base)}px, calc(${String(base)}px + (100vw - ${String(GROW_FROM)}px) / 3), ${String(SIDE_MAX)}px)`;
   r.setProperty('--lwx', grow(DEFAULTS.sideL));
-  r.setProperty('--rwx', grow(DEFAULTS.sideR));
+  r.setProperty('--rwx', `calc(${grow(DEFAULTS.sideL)} * ${String(RIGHT_WIDER)})`);
 }
 
 /** Applies the main tab bar location setting. */
 export function applyTabsAt(): void {
   document.documentElement.dataset.tabs = prefs.tabsAt.toLowerCase();
+}
+
+/** Applies the top bar theme setting. */
+export function applyTopBar(): void {
+  document.documentElement.dataset.topbar = prefs.topBar.toLowerCase();
 }
 
 /** Applies the font size setting. */
@@ -136,7 +146,7 @@ function applyTips(root: ParentNode = document): void {
   }
 }
 
-/** Applies theme, density, font size, tooltips, the side cards' widths and the tab bar's place now and whenever they change. */
+/** Applies theme, density, font size, tooltips, the side cards' widths, the tab bar's place and the top bar's look now and whenever they change. */
 export function installTheme(): void {
   installTooltips();
   applyTheme();
@@ -144,6 +154,7 @@ export function installTheme(): void {
   applyFontSize();
   applySidebars();
   applyTabsAt();
+  applyTopBar();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (prefs.theme === 'System') {
       themeChanged();
@@ -167,6 +178,9 @@ export function installTheme(): void {
     }
     if (changed.includes('tabsAt')) {
       applyTabsAt();
+    }
+    if (changed.includes('topBar')) {
+      applyTopBar();
     }
     if (changed.some((k) => k === 'sidebar' || k === 'sideL' || k === 'sideR')) {
       applySidebars();

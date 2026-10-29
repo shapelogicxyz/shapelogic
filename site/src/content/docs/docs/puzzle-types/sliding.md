@@ -47,7 +47,7 @@ them out.
 1. Draw each piece on its own shape, one layer thick unless it needs more.
    **+ New Piece** makes a piece the size of the last piece, or of the
    **Sliding** new shape size if there isn't one yet.
-2. Press **+ New Board** above the shapes list to add a board. It takes the
+2. Press **+ New Board** in the **Boards** list, above the shapes, to add a board. It takes the
    size of the last board, or the **Sliding** new shape size (6 by 6 by 1
    unless you change it) if there isn't one. Its color follows the theme
    (the **Sliding board color** settings); see

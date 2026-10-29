@@ -1190,6 +1190,17 @@ void SolveSession::processTask(Task& task, Disassembler& disassembler) {
       return;
     }
     inseparable_.fetch_add(1, std::memory_order_relaxed);
+    if (runOptions_.keepAssemblies) {
+      // kept at the end, below every solution; past the limit the newest goes
+      const std::lock_guard<std::mutex> lock(resultsMutex_);
+      if (action_ == Action::SaveSolutions) {
+        problem_.addSolution(std::move(task.assembly), task.assemblyNumber);
+        const unsigned int limit = runOptions_.solutionLimit;
+        if (limit != 0 && problem_.getNumberOfSavedSolutions() > limit) {
+          problem_.removeSolution(problem_.getNumberOfSavedSolutions() - 1);
+        }
+      }
+    }
     done();
     return;
   }
@@ -1212,16 +1223,19 @@ void SolveSession::addSolution(Task& task, Separation separation) {
 
   // Where it goes in a sorted list: after every solution with a better or
   // equal key, and among equal keys by assembly number (the original
-  // placed equals in the order its workers finished).
-  const auto sortedIndex = [this, asmNum](unsigned int key, auto keyOf) {
+  // placed equals in the order its workers finished). Kept assemblies
+  // (keepAssemblies) have no disassembly and stay after every solution.
+  const bool aboveAssemblies = o.keepAssemblies;
+  const auto sortedIndex = [this, asmNum, aboveAssemblies](unsigned int key, auto keyOf) {
     unsigned int lo = 0;
     unsigned int hi = problem_.getNumberOfSavedSolutions();
     while (lo < hi) {
       const unsigned int mid = lo + (hi - lo) / 2;
       const Solution& sol = problem_.getSavedSolution(mid);
       const Disassembly* s2 = sol.getDisassemblyInfo();
-      const bool before = s2 != nullptr && (keyOf(*s2) < key || (keyOf(*s2) == key &&
-                                                                 sol.getAssemblyNumber() > asmNum));
+      const bool before =
+          s2 == nullptr ? aboveAssemblies
+                        : (keyOf(*s2) < key || (keyOf(*s2) == key && sol.getAssemblyNumber() > asmNum));
       if (before) {
         hi = mid;
       } else {
@@ -1245,6 +1259,10 @@ void SolveSession::addSolution(Task& task, Separation separation) {
         const Solution& sol = problem_.getSavedSolution(i);
         const Disassembly* s2 = sol.getDisassemblyInfo();
         if (s2 == nullptr) {
+          if (aboveAssemblies) {
+            pos = i;
+            break;
+          }
           continue;
         }
         const int c = s2->compare(separation);
@@ -1259,6 +1277,20 @@ void SolveSession::addSolution(Task& task, Separation separation) {
       const std::uint64_t drop = std::uint64_t{std::max(o.solutionDrop, 1U)} * dropMultiplicator_;
       if (task.solutionNumber % drop != 0) {
         return;
+      }
+      if (o.keepAssemblies) {
+        // above the kept assemblies, which have no disassembly
+        unsigned int lo = 0;
+        unsigned int hi = problem_.getNumberOfSavedSolutions();
+        while (lo < hi) {
+          const unsigned int mid = lo + (hi - lo) / 2;
+          if (problem_.getSavedSolution(mid).getDisassemblyInfo() == nullptr) {
+            hi = mid;
+          } else {
+            lo = mid + 1;
+          }
+        }
+        pos = lo;
       }
       break;
     }

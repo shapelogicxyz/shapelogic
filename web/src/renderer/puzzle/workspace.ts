@@ -725,6 +725,15 @@ export class PuzzleWorkspace {
     );
   }
 
+  /** Leaves the problem without a result (the Use as result menu's Clear Result). */
+  async clearResult(): Promise<void> {
+    const problem = this.current;
+    if (problem === null || this.refuse()) {
+      return;
+    }
+    await this.mutate('Clear result', () => this.engine.call('problem.clearResult', { problem }));
+  }
+
   /** Moves a piece one place earlier or later (the pieces renumber). */
   async movePart(shape: string, delta: -1 | 1): Promise<void> {
     const problem = this.current;

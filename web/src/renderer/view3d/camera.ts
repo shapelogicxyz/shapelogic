@@ -6,9 +6,14 @@
 // drag, pitch held inside ±89°, the roll respected), `zoomBy` / `zStep` (smooth wheel zoom, 0.3 to
 // 4), `animateTo` (cubic ease in and out, 360 ms), `homeView`, `fitView`,
 // `dirToView`, `viewToWorld`, `mkRot`. The "Free Spin" method is the
-// original's arc-ball (src/gui/arcball.cpp, arcBall_c: the drag's start and end on a
-// virtual ball, their rotation added in front of the last). three.js's own
-// controls follow neither map, so the logic is ported.
+// original's arc-ball (src/gui/arcball.cpp, arcBall_c: two points of a
+// virtual ball, their rotation added in front), turned step by step as the
+// pointer moves rather than from the drag's start as the original did, on
+// a ball that flattens smoothly towards its rim (arcballPoint): a drag past
+// the far side no longer snaps back, and outside the rim a move about the
+// centre rolls and a move away from it or towards it tilts, so the turn
+// goes on however far the pointer goes. three.js's
+// own controls follow neither map, so the logic is ported.
 //
 // The orientation is one quaternion `q` turning world (the mesh's
 // coordinates) into view space (x right, y up, z towards the viewer); the
@@ -109,18 +114,26 @@ export function dirToView(n: readonly [number, number, number], keepYaw: number)
   };
 }
 
-/** A point of the viewport (pixels from its top left) on the arc-ball (arcBall_c::mapToSphere). */
-export function arcballPoint(x: number, y: number, width: number, height: number): Vector3 {
+/** A point of the viewport (pixels from its top left) in the arc-ball's plane: the centre 0, the rim 1, y up. */
+function ballPlane(x: number, y: number, width: number, height: number): [number, number] {
   const aw = width > 1 && height > 1 ? 1 / ((width - 1) * 0.5) : 1;
   const ah = width > 1 && height > 1 ? 1 / ((height - 1) * 0.5) : 1;
-  const px = x * aw - 1;
-  const py = 1 - y * ah;
+  return [x * aw - 1, 1 - y * ah];
+}
+
+/**
+ * A point of the viewport (pixels from its top left) on the arc-ball, as a
+ * unit vector (arcBall_c::mapToSphere): on the ball near the centre, then
+ * on Bell's sheet z = 1 / (2r) where the two meet (r² = ½), as three.js's
+ * TrackballControls. The original's ball alone grows steep at its rim (a
+ * small move there turned by a lot) and clamped every point outside onto
+ * it (the turn stopped).
+ */
+export function arcballPoint(x: number, y: number, width: number, height: number): Vector3 {
+  const [px, py] = ballPlane(x, y, width, height);
   const len = px * px + py * py;
-  if (len > 1) {
-    const norm = 1 / Math.sqrt(len);
-    return new Vector3(px * norm, py * norm, 0);
-  }
-  return new Vector3(px, py, Math.sqrt(1 - len));
+  const pz = len <= 0.5 ? Math.sqrt(1 - len) : 0.5 / Math.sqrt(len);
+  return new Vector3(px, py, pz).normalize();
 }
 
 /** The arc-ball's turn from one point of the ball to another (arcBall_c::getDrag). */
@@ -130,6 +143,51 @@ export function arcballTurn(from: Vector3, to: Vector3): Quaternion {
     return new Quaternion(perp.x, perp.y, perp.z, from.dot(to));
   }
   return new Quaternion();
+}
+
+/** The sheet's tilt (radians per radius) and roll (per radian about the centre) at the rim, which carry on outside it. */
+const RIM_TILT = 1.6;
+const rimRoll = (r: number): number => (2 * r) / Math.sqrt(r * r + 0.25 / (r * r));
+
+/**
+ * The turn of one pointer move from (x0, y0) to (x1, y1) of a viewport of
+ * this size: turned step by step, so it never snaps back. Inside the rim,
+ * the arc-ball's between the two points. Outside it, where the sheet flattens
+ * out and the turn would fade: the angle swept about the centre rolls and
+ * the move away from it or towards it tilts, at the rim's rates, so the
+ * turn goes on however far the pointer goes.
+ */
+export function arcballStep(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  width: number,
+  height: number,
+): Quaternion {
+  const [ax, ay] = ballPlane(x0, y0, width, height);
+  const [bx, by] = ballPlane(x1, y1, width, height);
+  const ra = Math.hypot(ax, ay);
+  const rb = Math.hypot(bx, by);
+  if (ra <= 1 && rb <= 1) {
+    return arcballTurn(arcballPoint(x0, y0, width, height), arcballPoint(x1, y1, width, height));
+  }
+  // the tilt is about the axis across the line to the centre, in the screen's plane
+  const mx = (ax + bx) / 2;
+  const my = (ay + by) / 2;
+  const rm = Math.hypot(mx, my);
+  const roll = new Quaternion().setFromAxisAngle(
+    new Vector3(0, 0, 1),
+    rimRoll(Math.max(rm, 1)) * Math.atan2(ax * by - ay * bx, ax * bx + ay * by),
+  );
+  if (rm < 1e-9) {
+    return roll;
+  }
+  const tilt = new Quaternion().setFromAxisAngle(
+    new Vector3(-my / rm, mx / rm, 0),
+    RIM_TILT * (rb - ra),
+  );
+  return roll.multiply(tilt);
 }
 
 const ease = (k: number): number => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
@@ -155,7 +213,7 @@ export class Camera {
   private anim: Animation | null = null;
   private zoomTarget: number | null = null;
   private zoomLast = 0;
-  private arc: { start: Vector3; q0: Quaternion; w: number; h: number } | null = null;
+  private arc: { x: number; y: number; w: number; h: number } | null = null;
 
   /** The mockup's angles of the orientation now, in the upright frame. */
   get angles(): Angles {
@@ -219,16 +277,18 @@ export class Camera {
 
   /** Starts an arc-ball turn at a point of a viewport of this size (arcBall_c::click). */
   arcStart(x: number, y: number, w: number, h: number): void {
-    this.arc = { start: arcballPoint(x, y, w, h), q0: this.q.clone(), w, h };
+    this.arc = { x, y, w, h };
   }
 
-  /** Turns by the arc-ball to a point (arcBall_c::drag and addTransform). */
+  /** Turns by the arc-ball from the last point to this one (arcBall_c::drag and addTransform, step by step). */
   arcDrag(x: number, y: number): void {
-    if (this.arc === null) {
+    const a = this.arc;
+    if (a === null) {
       return;
     }
-    const turn = arcballTurn(this.arc.start, arcballPoint(x, y, this.arc.w, this.arc.h));
-    this.q = turn.multiply(this.arc.q0).normalize();
+    this.q = arcballStep(a.x, a.y, x, y, a.w, a.h).multiply(this.q).normalize();
+    a.x = x;
+    a.y = y;
   }
 
   /** Ends an arc-ball turn (arcBall_c::clack). */

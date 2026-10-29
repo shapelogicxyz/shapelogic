@@ -276,15 +276,18 @@ export async function openFixture(page: Page, name: string): Promise<void> {
   await dropChanges(page);
   await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
   await expect(page.locator('#fname')).toHaveText(name);
-  const first = page.locator('#shapeList .row').first();
+  const first = page.locator(SHAPE_ROWS).first();
   await expect(first).toHaveClass(/sel/);
   const id = await first.getAttribute('data-id');
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`^${id ?? ''}:`));
 }
 
+/** Every shape's row: a sliding puzzle's Boards list, then the Shapes list. */
+export const SHAPE_ROWS = '#boardList .row, #shapeList .row';
+
 /** The shapes of the open document as the picker lists them: id and label. */
 export async function shapes(page: Page): Promise<{ id: string; label: string }[]> {
-  return page.$$eval('#shapeList .row', (rows) =>
+  return page.$$eval(SHAPE_ROWS, (rows) =>
     rows.map((r) => ({
       id: (r as HTMLElement).dataset.id ?? '',
       label: r.querySelector('.chip')?.textContent ?? '',
@@ -294,7 +297,7 @@ export async function shapes(page: Page): Promise<{ id: string; label: string }[
 
 /** Shows a shape and waits until its mesh is drawn in the current style. */
 export async function selectShape(page: Page, id: string): Promise<void> {
-  await page.click(`#shapeList .row[data-id="${id}"] .chip`);
+  await page.click(`:is(#boardList, #shapeList) .row[data-id="${id}"] .chip`);
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`^${id}:`));
   await settle(page);
 }
@@ -423,7 +426,7 @@ export async function newDocument(page: Page, grid: string): Promise<void> {
   await page.click(`#newPuzzle [data-grid="${grid}"]`);
   await page.click('#newPuzzle [data-x="ok"]');
   await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
-  await expect(page.locator('#shapeList .row')).toHaveCount(0);
+  await expect(page.locator(SHAPE_ROWS)).toHaveCount(0);
 }
 
 /** The engines an app's main process runs (their pids). */

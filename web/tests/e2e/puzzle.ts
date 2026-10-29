@@ -185,7 +185,9 @@ export async function checkShown(page: Page): Promise<Problem> {
     p.result !== null &&
     (await page.locator('#stage.sld').count()) > 0 &&
     /^B\d+$/.test(
-      (await page.locator(`#shapeList .row[data-id="${p.result}"] .chip`).textContent()) ?? '',
+      (await page
+        .locator(`:is(#boardList, #shapeList) .row[data-id="${p.result}"] .chip`)
+        .textContent()) ?? '',
     );
   const scene = expectedScene(p, sel, board);
   await expect(page.locator('#vp')).toHaveAttribute('data-scene', scene);

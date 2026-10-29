@@ -78,6 +78,9 @@ struct SolveOptions {
   bool checkRotations = false;
   /// Count only, keep no solutions (PAR_JUST_COUNT).
   bool justCount = false;
+  /// With `disassemble`: also keep the assemblies that do not come apart,
+  /// without a disassembly, after every solution (not in the original).
+  bool keepAssemblies = false;
   /// Keep only the summary of each take-apart (levels and moves), not the
   /// tree (PAR_DROP_DISASSEMBLIES).
   bool dropDisassemblies = false;

@@ -1628,6 +1628,7 @@
   },
   {
    "total": 1,
+   "disassembled": 1,
    "offset": 0,
    "solutionsVersion": 3,
    "rows": [
@@ -2162,7 +2163,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 56,
+     "elapsedMs": 55,
      "usedMs": 28,
      "piece": 0,
      "pieces": 0,

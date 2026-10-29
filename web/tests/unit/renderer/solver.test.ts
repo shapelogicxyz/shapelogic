@@ -109,7 +109,12 @@ describe('the search options', () => {
       justLevels: false,
       checkRotations: false,
     });
-    expect([...n.disabled].sort()).toEqual(['checkRotations', 'disassemble', 'justLevels']);
+    expect([...n.disabled].sort()).toEqual([
+      'checkRotations',
+      'disassemble',
+      'justLevels',
+      'keepAssemblies',
+    ]);
     // Just Levels newly checked turns Check Rotations off, keeps it available, takes apart
     n = normalize({ ...base, disassemble: false, justLevels: true }, 'justLevels');
     expect(n.options).toMatchObject({ disassemble: true, checkRotations: false, justCount: false });
@@ -130,6 +135,25 @@ describe('the search options', () => {
     expect(n.disabled.has('keepRotations')).toBe(true);
   });
 
+  it('keep the assemblies that do not come apart only with the take-apart (Always show Assemblies)', () => {
+    const on = { ...DEFAULT_OPTIONS, disassemble: true, keepAssemblies: true };
+    expect(normalize(on, null).disabled.has('keepAssemblies')).toBe(false);
+    expect(solveOptions(on, DEFAULT_LIMITS).keepAssemblies).toBe(true);
+    // Assemble Only: greyed, its tick kept, not asked for
+    const off = normalize({ ...on, disassemble: false }, 'disassemble');
+    expect(off.disabled.has('keepAssemblies')).toBe(true);
+    expect(off.options.keepAssemblies).toBe(true);
+    expect(solveOptions(off.options, DEFAULT_LIMITS).keepAssemblies).toBe(false);
+    // stored with a brick problem, read back
+    const stored = writeOptions(on, {});
+    expect(stored.keepAssemblies).toBe(true);
+    expect(readOptions(stored).keepAssemblies).toBe(true);
+    // not on sliding and stacking puzzles
+    expect(normalize(on, null, 'sliding').options.keepAssemblies).toBe(false);
+    expect(normalize(on, null, 'stacking').options.keepAssemblies).toBe(false);
+    expect(writeOptions(on, {}, 'sliding')).not.toHaveProperty('keepAssemblies');
+  });
+
   it('only assemble on a grid without a take-apart (spheres, rhombic, tetra-octa)', () => {
     const base = { ...DEFAULT_OPTIONS, disassemble: true, checkRotations: true, justLevels: true };
     const n = normalize(base, null, 'brick', false);
@@ -138,7 +162,12 @@ describe('the search options', () => {
       justLevels: false,
       checkRotations: false,
     });
-    expect([...n.disabled].sort()).toEqual(['checkRotations', 'disassemble', 'justLevels']);
+    expect([...n.disabled].sort()).toEqual([
+      'checkRotations',
+      'disassemble',
+      'justLevels',
+      'keepAssemblies',
+    ]);
     // a stored take-apart is read as Assemble Only
     expect(readOptions({ disassemble: true }, undefined, 'brick', false).disassemble).toBe(false);
   });

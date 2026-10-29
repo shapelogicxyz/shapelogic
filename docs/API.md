@@ -992,6 +992,20 @@ Result: [Changed](#changed)
 
 Errors: `not_found`, `invalid_argument`, `invalid_state`
 
+### `problem.clearResult`
+
+Leaves the problem without a result (not in the original); the solutions go. Nothing changes when it has none. Refused (invalid_argument) on sliding and stacking puzzles, as problem.setResult.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
 ### `problem.setPieceCount`
 
 The count range of a shape as pieces; max 0 removes it. The solutions stay, the counts become unknown. Refused (invalid_argument) on a stacking puzzle, whose pieces follow its stacks (stacking.json), and for a sliding puzzle's board, which is no piece.
@@ -1882,6 +1896,7 @@ Result:
 | name | type | | description |
 |---|---|---|---|
 | `total` | integer | required |  |
+| `disassembled` | integer | required | The saved solutions with a disassembly (its moves or its level summary); the rest are assemblies only. |
 | `offset` | integer | required |  |
 | `solutionsVersion` | [SolutionsVersion](#solutionsversion) | required | A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again. |
 | `rows` | [SolutionRow](#solutionrow)[] | required |  |
@@ -2892,6 +2907,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `verticalMoves` | boolean |  |  |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
+| `keepAssemblies` | boolean |  | Always show Assemblies (not in the original). |
 | `solverType` | string |  | classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written). |
 | `sortBy` | string |  | unsorted, moves, level, rotations. |
 | *other* | string | | |
@@ -2958,6 +2974,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 | `disassemble` | boolean |  | Take each assembly apart; only those that come apart are solutions. |
 | `checkRotations` | boolean |  | Try 90 degree turns while taking apart. |
 | `justCount` | boolean |  | Count, keep no solutions. |
+| `keepAssemblies` | boolean |  | With disassemble: also keep the assemblies that do not come apart, without a disassembly, after every solution. |
 | `justLevels` | boolean |  | Keep the level summary of each take-apart, not its moves. |
 | `keepMirrors` | boolean |  |  |
 | `keepRotations` | boolean |  |  |

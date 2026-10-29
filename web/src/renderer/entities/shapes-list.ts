@@ -14,7 +14,9 @@
 // says after it (the store's snapshot). On a stacking puzzle (docs/webui-
 // spec.md, section 9.1) it is the original's disc list (BlockList.cpp's
 // DiskSelector): each disc's "size" field with − and + (1 to 100,
-// stacking.setDiscSize), no weight; New makes a disc of size 1.
+// stacking.setDiscSize), no weight; New makes a disc of size 1. On a
+// sliding puzzle the boards have a list of their own above the pieces,
+// with + New Board in its header.
 
 import type { ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
@@ -54,6 +56,8 @@ export function chipColours(
 export class ShapesList {
   private readonly host: ListHost;
   private readonly list = byId('shapeList');
+  /** A sliding puzzle's boards (empty on other grids). */
+  private readonly boards = byId('boardList');
   private renaming: { id: string; input: HTMLInputElement; cancelled: boolean } | null = null;
   /** A disc's size field being typed in (the list is not drawn over it meanwhile). */
   private sizing: string | null = null;
@@ -73,26 +77,43 @@ export class ShapesList {
     return this.host.store.snapshot?.shapes ?? [];
   }
 
-  /** Draws the list (the mockup's renderShapes) unless a rename is under way in it. */
+  /** The list a shape's row is in. */
+  private listOf(id: string | null): HTMLElement {
+    const s = this.shapes.find((x) => x.id === id);
+    return this.host.store.snapshot?.grid === 'sliding' && isTray(s) ? this.boards : this.list;
+  }
+
+  /** A shape's row, in either list. */
+  private row(id: string): HTMLElement | null {
+    return (
+      this.list.querySelector<HTMLElement>(`.row[data-id="${id}"]`) ??
+      this.boards.querySelector<HTMLElement>(`.row[data-id="${id}"]`)
+    );
+  }
+
+  /** Draws the lists (the mockup's renderShapes) unless a rename is under way in them. */
   render(): void {
     const store = this.host.store;
     const shapes = this.shapes;
-    byId('shapeCount').textContent = String(shapes.length);
     const discs = store.snapshot?.grid === 'stacking';
     const sliding = store.snapshot?.grid === 'sliding';
+    // a sliding puzzle's boards (the trays that hold start and goal
+    // positions) in their own list, its pieces in Shapes; the rows keep
+    // their places in the whole list (data-i), boards first
+    const boards = sliding ? shapes.filter(isTray).length : 0;
+    byId('shapeCount').textContent = String(shapes.length - boards);
+    byId('boardCount').textContent = String(boards);
     byId('btnNew').title = discs ? 'New disc (size 1)' : sliding ? 'New piece' : 'New shape';
-    // a sliding puzzle's pieces and boards (the trays that hold start and goal positions)
     byId('btnNewWhat').hidden = !sliding;
-    byId('btnNewBoard').hidden = !sliding;
+    byId('boardsSec').hidden = !sliding;
     if (this.renaming === null && this.sizing === null) {
-      this.list.innerHTML = shapes
-        .map((s, i) => {
-          const { bg, fg } = chipColours(s, i);
-          const sel = s.id === store.selected;
-          if (discs) {
-            // the disc list's row: the name, then "size:" with its field, + and −
-            const size = s.disc ?? 1;
-            return `<div class="row disc ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
+      const rows = shapes.map((s, i) => {
+        const { bg, fg } = chipColours(s, i);
+        const sel = s.id === store.selected;
+        if (discs) {
+          // the disc list's row: the name, then "size:" with its field, + and −
+          const size = s.disc ?? 1;
+          return `<div class="row disc ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
   <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
   <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
   <span class="lbl">${esc(s.name)}</span>
@@ -102,8 +123,8 @@ export class ShapesList {
    <button class="ib" data-a="copy" title="Duplicate (added as the last disc)">${ic('copy', 17)}</button>
    <button class="ib del" data-a="del" title="Delete">${ic('trash', 17)}</button>
   </span></div>`;
-          }
-          return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
+        }
+        return `<div class="row ${sel ? 'sel' : ''}" draggable="true" role="option" aria-selected="${sel}" data-id="${s.id}" data-i="${i}">
   <span class="grip" title="Drag to reorder — ids follow the order">${ic('grip', 14)}</span>
   <span class="chip" style="background:${bg};color:${fg}">${esc(s.label)}</span>
   <span class="lbl">${isTray(s) && s.name === '' ? `<b class="sgtag">${esc(shownName(s))}</b>` : esc(s.name)}</span>
@@ -112,8 +133,9 @@ export class ShapesList {
    <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 17)}</button>
    <button class="ib del" data-a="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete'}">${ic('trash', 17)}</button>
   </span></div>`;
-        })
-        .join('');
+      });
+      this.boards.innerHTML = rows.slice(0, boards).join('');
+      this.list.innerHTML = rows.slice(boards).join('');
     }
     byId('lrail').innerHTML =
       `<button class="ib" id="btnLE" title="Expand Shapes">${ic('panelL')}</button>` +
@@ -157,7 +179,7 @@ export class ShapesList {
   /** Selects a shape and shows its row. */
   select(id: string): void {
     this.host.store.select(id);
-    this.list.querySelector(`.row[data-id="${id}"]`)?.scrollIntoView({ block: 'nearest' });
+    this.row(id)?.scrollIntoView({ block: 'nearest' });
   }
 
   // ---- the actions (the mockup's shapeAction) ----
@@ -344,7 +366,7 @@ export class ShapesList {
     this.endRename(true);
     this.select(id);
     const s = this.shapes.find((x) => x.id === id);
-    const lbl = this.list.querySelector(`.row[data-id="${id}"] .lbl`);
+    const lbl = this.row(id)?.querySelector('.lbl') ?? null;
     if (s === undefined || lbl === null) {
       return;
     }
@@ -386,19 +408,126 @@ export class ShapesList {
       );
     }
     this.render();
-    this.list.focus({ preventScroll: true });
+    this.listOf(r.id).focus({ preventScroll: true });
   }
 
   // ---- events ----
 
   private inList(t: EventTarget | null): boolean {
-    return t instanceof Node && this.list.contains(t) && !(t instanceof HTMLInputElement);
+    return (
+      t instanceof Node &&
+      (this.list.contains(t) || this.boards.contains(t)) &&
+      !(t instanceof HTMLInputElement)
+    );
   }
 
   private install(): void {
-    const list = this.list;
     byId('btnNew').addEventListener('click', () => void this.create());
     byId('btnNewBoard').addEventListener('click', () => void this.newBoard());
+    for (const list of [this.boards, this.list]) {
+      this.installList(list);
+    }
+    const pick = byId<HTMLInputElement>('shapeColourPick');
+    pick.addEventListener('change', () => {
+      const shape = pick.dataset.shape;
+      const rgb = pick.value.toLowerCase();
+      if (shape !== undefined && !this.host.refuse()) {
+        void this.host.mutate('Colour', () =>
+          this.host.store.engine.call('shape.setColour', { shape, rgb }),
+        );
+      }
+    });
+    // the collapsed card's rail
+    byId('lrail').addEventListener('click', (e) => {
+      const t = e.target as Element;
+      const chip = t.closest<HTMLElement>('.chip[data-id]');
+      if (chip?.dataset.id !== undefined) {
+        this.select(chip.dataset.id);
+      } else if (t.closest('#btnLE') !== null) {
+        layout.focus = '';
+        layout.lc = false;
+        applyLayout();
+      } else if (t.closest('#btnLN') !== null) {
+        void this.create();
+      }
+    });
+
+    // keys: the list's while it has the focus, F2, Del and Ctrl+D in the workspace
+    const step = (d: number): boolean => {
+      const shapes = this.shapes;
+      const i = shapes.findIndex((s) => s.id === this.host.store.selected);
+      const next = shapes[Math.max(0, Math.min(shapes.length - 1, i + d))];
+      if (next !== undefined) {
+        this.select(next.id);
+      }
+      this.listOf(this.host.store.selected).focus({ preventScroll: true });
+      return true;
+    };
+    const selected = (): string | null => this.host.store.selected;
+    onKey('prev', (e) => (this.inList(e.target) ? step(-1) : false));
+    onKey('next', (e) => (this.inList(e.target) ? step(1) : false));
+    onKey('shape.earlier', (e) => {
+      const id = selected();
+      if (!this.inList(e.target) || id === null) {
+        return false;
+      }
+      void this.action('up', id);
+      return true;
+    });
+    onKey('shape.later', (e) => {
+      const id = selected();
+      if (!this.inList(e.target) || id === null) {
+        return false;
+      }
+      void this.action('down', id);
+      return true;
+    });
+    onKey('shape.rename', () => {
+      const id = selected();
+      if (tab !== 'entities' || id === null) {
+        return false;
+      }
+      void this.action('label', id);
+      return true;
+    });
+    // Enter renames while the list has the focus (Space is the Solver's)
+    onKey('activate', (e) => {
+      const id = selected();
+      if (tab !== 'entities' || id === null || e.key !== 'Enter' || !this.inList(e.target)) {
+        return false;
+      }
+      void this.action('label', id);
+      return true;
+    });
+    onKey('delete', () => {
+      const id = selected();
+      if (tab !== 'entities' || id === null) {
+        return false;
+      }
+      void this.action('del', id);
+      return true;
+    });
+    onKey('shape.duplicate', () => {
+      const id = selected();
+      if (tab !== 'entities' || id === null) {
+        return false;
+      }
+      void this.action('copy', id);
+      return true;
+    });
+    addEscapeStep(ESC_ORDER.rename, () => {
+      if (this.renaming === null) {
+        return false;
+      }
+      this.renaming.cancelled = true;
+      this.renaming.input.blur();
+      return true;
+    });
+  }
+
+  // a list's own events, the boards' and the shapes' alike (a row's place,
+  // data-i, is in the whole list: a board never goes among the pieces)
+  private installList(list: HTMLElement): void {
     // a disc's size field: typed, then Enter or leaving it
     list.addEventListener('focusin', (e) => {
       const t = e.target as Element;
@@ -417,16 +546,6 @@ export class ShapesList {
       const t = e.target as Element;
       if (t instanceof HTMLInputElement && t.dataset.dsize !== undefined) {
         this.sizeTyped(t);
-      }
-    });
-    const pick = byId<HTMLInputElement>('shapeColourPick');
-    pick.addEventListener('change', () => {
-      const shape = pick.dataset.shape;
-      const rgb = pick.value.toLowerCase();
-      if (shape !== undefined && !this.host.refuse()) {
-        void this.host.mutate('Colour', () =>
-          this.host.store.engine.call('shape.setColour', { shape, rgb }),
-        );
       }
     });
     list.addEventListener('click', (e) => {
@@ -519,92 +638,6 @@ export class ShapesList {
       for (const r of $$('.row', list)) {
         r.classList.remove('dragover');
       }
-    });
-    // the collapsed card's rail
-    byId('lrail').addEventListener('click', (e) => {
-      const t = e.target as Element;
-      const chip = t.closest<HTMLElement>('.chip[data-id]');
-      if (chip?.dataset.id !== undefined) {
-        this.select(chip.dataset.id);
-      } else if (t.closest('#btnLE') !== null) {
-        layout.focus = '';
-        layout.lc = false;
-        applyLayout();
-      } else if (t.closest('#btnLN') !== null) {
-        void this.create();
-      }
-    });
-
-    // keys: the list's while it has the focus, F2, Del and Ctrl+D in the workspace
-    const step = (d: number): boolean => {
-      const shapes = this.shapes;
-      const i = shapes.findIndex((s) => s.id === this.host.store.selected);
-      const next = shapes[Math.max(0, Math.min(shapes.length - 1, i + d))];
-      if (next !== undefined) {
-        this.select(next.id);
-      }
-      list.focus({ preventScroll: true });
-      return true;
-    };
-    const selected = (): string | null => this.host.store.selected;
-    onKey('prev', (e) => (this.inList(e.target) ? step(-1) : false));
-    onKey('next', (e) => (this.inList(e.target) ? step(1) : false));
-    onKey('shape.earlier', (e) => {
-      const id = selected();
-      if (!this.inList(e.target) || id === null) {
-        return false;
-      }
-      void this.action('up', id);
-      return true;
-    });
-    onKey('shape.later', (e) => {
-      const id = selected();
-      if (!this.inList(e.target) || id === null) {
-        return false;
-      }
-      void this.action('down', id);
-      return true;
-    });
-    onKey('shape.rename', () => {
-      const id = selected();
-      if (tab !== 'entities' || id === null) {
-        return false;
-      }
-      void this.action('label', id);
-      return true;
-    });
-    // Enter renames while the list has the focus (Space is the Solver's)
-    onKey('activate', (e) => {
-      const id = selected();
-      if (tab !== 'entities' || id === null || e.key !== 'Enter' || !this.inList(e.target)) {
-        return false;
-      }
-      void this.action('label', id);
-      return true;
-    });
-    onKey('delete', () => {
-      const id = selected();
-      if (tab !== 'entities' || id === null) {
-        return false;
-      }
-      void this.action('del', id);
-      return true;
-    });
-    onKey('shape.duplicate', () => {
-      const id = selected();
-      if (tab !== 'entities' || id === null) {
-        return false;
-      }
-      void this.action('copy', id);
-      return true;
-    });
-    addEscapeStep(ESC_ORDER.rename, () => {
-      if (this.renaming === null) {
-        return false;
-      }
-      this.renaming.cancelled = true;
-      this.renaming.input.blur();
-      return true;
     });
   }
 }

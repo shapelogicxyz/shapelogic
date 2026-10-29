@@ -824,6 +824,36 @@ Result<void> Document::setResult(Id problem, Id shape) {
   return {};
 }
 
+Result<void> Document::clearResult(Id problem) {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  if (sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument,
+                "a sliding problem's result is its start/goal shape: it is not chosen");
+  }
+  if (Result<void> r = refuseOnStacking(
+          "a stacking problem has a rod set, not a result: set its start/goal rods");
+      !r) {
+    return r;
+  }
+  Problem& pr = puzzle_->getProblem(*p);
+  if (!pr.resultValid()) {
+    return {};
+  }
+  StepGuard g(*this, "Clear result");
+  touchProblem(*p);
+  pr.clearResult();
+  endSession(*p);
+  lastChange_.problems = {problem};
+  g.commit(kChangeProblems | kChangeSolutions);
+  return {};
+}
+
 Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, unsigned int max) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {

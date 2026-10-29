@@ -84,6 +84,9 @@ export type Board = Methods['stacking.board']['result'];
 /** A stacking problem's saved search (solve.status.savedSearch). */
 export type SavedSearch = NonNullable<Methods['solve.status']['result']['savedSearch']>;
 
+/** File ▸ Export's items, as the Solutions card's Export menu offers them (not the paused solver state). */
+export type FileExport = 'scad' | 'image' | 'vector' | 'stl' | 'glb';
+
 /** What the Remove menu removes (solution.delete's `which`). */
 export type RemoveWhich = 'one' | 'before' | 'after' | 'withoutDisassembly' | 'all';
 
@@ -133,6 +136,8 @@ export class SolverWorkspace {
   readonly stats: StatsPanel;
   /** Solutions ▸ Export to STL: the exports' dialog for a solution (set by the app). */
   exportStl: ((problem: string, row: SolutionRow) => void) | null = null;
+  /** Solutions ▸ Export ▸ File ▸ Export's items (set by the app). */
+  fileExport: ((k: FileExport) => void) | null = null;
   private readonly view3d: View3D;
   private readonly runCard: RunCard;
   private readonly solCard: SolutionsCard;

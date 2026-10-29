@@ -44,7 +44,7 @@ original GUI decides (section 7).
   three, and the text is the same size in all three. The shapes list and
   the Puzzle and Solver problems lists grow to about eight Standard rows
   before they scroll.
-- **Font size:** Small (the default), Medium, Large: every text size of the
+- **Font size:** Small, Medium (the default), Large: every text size of the
   interface, Medium and Large each about 2 points larger than the size
   before; rows and controls a line of text sets the height of grow with it.
 - **Theme:** Light, Dark, System; also View ▸ Color Theme (Use Dark Colors
@@ -55,10 +55,11 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | Page | Setting | Values (default) |
 |---|---|---|
 | General | Interface density | Standard / Compact / Minimal (Standard) |
-| | Font size | Small / Medium / Large (Small) |
-| | Sidebar width | Static / Variable (Static); Static: left and right widths, 200 to 600 px (340, 340); Variable: past a 1600 px window each card and the 3D view take a third of the extra width, cards up to 600 px |
+| | Font size | Small / Medium / Large (Medium) |
+| | Sidebar width | Static / Variable (Variable); Static: left and right widths, 200 to 600 px (340, 374); Variable: past a 1600 px window each card and the 3D view take a third of the extra width, cards up to 600 px, the right card 10% wider than the left (374 to 660 px) |
 | | Main tab bar location | Top / Left (Top): the workspace tabs centred in the top bar, or a rail down the left side |
 | | Theme | Light / Dark / System (System) |
+| | Top bar theme | Colorful / Boring (Colorful): the axis colours behind the name, fading into the bar, and the tabs coloured Shapes green, Puzzle blue, Solver red; or the plain bar, a small square of the three colours beside the name |
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
 | Grid editor | Grid plane | XY / XZ / YZ (XY) |
@@ -331,8 +332,10 @@ where the problem's counts are.
 ### 8.1 Entities workspace
 - **Shapes list:** a tray reads "S1 Board 1" and, after a dash, the
   user's name (`BlockList.cpp`); its chip is black (`slidingColors::LIST`).
-  On sliding puzzles the list's header has **+ New Piece** (the other
-  grids' **+ New**) and, beside it, **+ New Board** (the original's New
+  On sliding puzzles the boards have a **Boards** list of their own
+  above Shapes (four and a half rows before it scrolls; the pieces stay
+  in Shapes), the Shapes header has **+ New Piece** (the other grids'
+  **+ New**) and the Boards header **+ New Board** (the original's New
   Start/Goal Positions: "a shape that holds start and goal positions",
   `sliding.addStartGoal`, the size of the selected shape, else 6 by 6
   by 1, as `cb_NewStartGoal`). A tray is deleted, with its problem, by

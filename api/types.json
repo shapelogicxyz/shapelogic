@@ -279,6 +279,7 @@
         "verticalMoves": {"type": "boolean"},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
+        "keepAssemblies": {"type": "boolean", "description": "Always show Assemblies (not in the original)."},
         "solverType": {"type": "string", "description": "classic, crowell (sliding: the original's fast, deep or full, kept as stored and not written)."},
         "sortBy": {"type": "string", "description": "unsorted, moves, level, rotations."}
       },
@@ -361,6 +362,7 @@
         "disassemble": {"type": "boolean", "description": "Take each assembly apart; only those that come apart are solutions."},
         "checkRotations": {"type": "boolean", "description": "Try 90 degree turns while taking apart."},
         "justCount": {"type": "boolean", "description": "Count, keep no solutions."},
+        "keepAssemblies": {"type": "boolean", "description": "With disassemble: also keep the assemblies that do not come apart, without a disassembly, after every solution."},
         "justLevels": {"type": "boolean", "description": "Keep the level summary of each take-apart, not its moves."},
         "keepMirrors": {"type": "boolean"},
         "keepRotations": {"type": "boolean"},

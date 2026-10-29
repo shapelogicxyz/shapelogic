@@ -424,6 +424,10 @@ def problems(e):
     check(ev["problems"] == [p1], f"create's event {ev}")
     check(e.call("problem.fit", {"problem": p1})["verdict"] == "noResult", "no result")
     e.call("problem.setResult", {"problem": p1, "shape": box})
+    e.call("problem.clearResult", {"problem": p1})
+    check(e.call("problem.get", {"problem": p1})["result"] is None, "the result cleared")
+    e.call("problem.clearResult", {"problem": p1})
+    e.call("problem.setResult", {"problem": p1, "shape": box})
     e.call("problem.setPieceCount", {"problem": p1, "shape": cube, "min": 2, "max": 2})
     fit = e.call("problem.fit", {"problem": p1})
     check(fit["verdict"] == "fits" and fit["piecesMin"] == 2 and fit["statusLine"], f"fit {fit}")
@@ -560,6 +564,7 @@ def solving_session(e):
     # paging and sorting (a view: the stored order stays)
     page = e.call("solution.page", {"problem": p, "sortBy": "moves", "descending": True, "limit": total})
     check(page["total"] == total and len(page["rows"]) == total, "one page of all")
+    check(page["disassembled"] == total, f"the rows with a disassembly {page['disassembled']}")
     check(page["solutionsVersion"] == added[-1]["solutionsVersion"], "the page is of the version told")
     check(sorted_by(page["rows"], lambda r: r["moves"], True), "by moves, descending")
     for key, field in (("level", None), ("assembly", "assembly"), ("pieces", None), ("list", "index")):
@@ -1560,6 +1565,25 @@ def unsupported_and_failures(e):
     check(err["failure"]["assembler"] == "tooFewUnits", f"the failure {err['failure']}")
     status = e.call("solve.status", {"problem": q})
     check(status["state"] == "error" and status["failure"]["message"], "status after an error")
+
+
+@test
+def keep_assemblies(e):
+    """keepAssemblies: the assemblies that do not come apart are saved
+    too, without a disassembly, after every solution."""
+    snap = e.call("document.open", {"path": str(FIXTURES / "DemoPieceGenerator.xmpuzzle")})
+    p = snap["problems"][0]["id"]
+    for order in ("moves", "unsorted"):
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {
+            "disassemble": True, "keepAssemblies": True, "keepAtMost": 0, "sortBy": order}})
+        check(wait_state(e, p, ("finished", "error"), start) == "finished", f"solved {order}")
+        detail = e.call("problem.get", {"problem": p})
+        check(detail["saved"] == detail["assemblies"] == detail["solutions"] + 1, f"kept {detail}")
+        page = e.call("solution.page", {"problem": p, "limit": detail["saved"]})
+        check(page["disassembled"] == detail["solutions"], f"disassembled {page['disassembled']}")
+        das = [r["disassembly"] for r in page["rows"]]
+        check(das.index("none") == len(das) - 1, f"the kept assembly is last ({order})")
 
 
 @test

@@ -180,7 +180,7 @@ export class PiecesCard {
       p.placed > 0 && p.min <= p.placed
         ? `disabled title="${placedTip(p)}"`
         : 'title="One fewer (at 0 the piece leaves the puzzle)"';
-    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${fewer}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" title="One more">+</button></div>${s.weight !== 1 ? `<div class="t3">Weight: ${String(s.weight)}</div>` : ''}</div></div>`;
+    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${fewer}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" title="One more">+</button></div>${s.weight !== 1 ? `<div class="t3"><span class="wl">Weight: </span>${String(s.weight)}</div>` : ''}</div></div>`;
   }
 
   // the mockup's pzLibChip
@@ -366,8 +366,10 @@ export class PiecesCard {
             const c = ws.chip(s.id);
             return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''} title="Make this shape the problem’s result"><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:calc(10px + var(--fs))">${esc(s.label)}</span>${esc(s.name) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
           })
-          .join('')}`,
-        (k) => void ws.setResult(k),
+          .join(
+            '',
+          )}<hr><button data-k="clear" ${result === null ? 'disabled' : ''} title="Leave the problem without a result; its solutions are removed">Clear Result</button>`,
+        (k) => void (k === 'clear' ? ws.clearResult() : ws.setResult(k)),
       );
     });
     const groups = byId('pzGrpTable');

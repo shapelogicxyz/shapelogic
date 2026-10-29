@@ -253,9 +253,13 @@ test('the list: sorted every way as solution.page, paged, its keys; every Remove
     await expect(page.locator('#slvList .lrow.sel[data-i="0"]')).toHaveCount(1);
     // the slider view shows the same solution
     await page.click('#slvViewSeg [data-v="slider"]');
-    await expect(page.locator('#slvNavT')).toHaveText('Solution 1');
+    await expect(page.locator('#slvNavT')).toHaveText(
+      new RegExp(`assemblies —1 of ${String(total)}$`, 'i'),
+    );
     await page.click('#slvSel .nb[data-n="1"]');
-    await expect(page.locator('#slvNavT')).toHaveText('Solution 2');
+    await expect(page.locator('#slvNavT')).toHaveText(
+      new RegExp(`assemblies —2 of ${String(total)}$`, 'i'),
+    );
     await expect(page.locator('#splayer')).toHaveAttribute('data-solution', ids[1] ?? '');
     await page.click('#slvViewSeg [data-v="list"]');
 

@@ -85,17 +85,22 @@ looks. Changes apply at once.
   tooltips; or **Minimal**, icons without captions, helper text in
   tooltips, and the 3D view's toolbar hidden until you point at the bottom
   of the view. Every function is there in all three.
-- **Font size**: **Small** (the default), **Medium** or **Large**, each about
+- **Font size**: **Small**, **Medium** (the default) or **Large**, each about
   2 points larger than the one before. The text keeps its size in every
   density.
-- **Sidebar width**: **Static** keeps the left and right cards at the widths
-  you set (200 to 600 pixels each); **Variable** widens them as the window
-  grows past 1600 pixels.
+- **Sidebar width**: **Variable** (the default) widens the left and right
+  cards as the window grows past 1600 pixels, the right card always 10%
+  wider than the left; **Static** keeps them at the widths you set (200 to
+  600 pixels each).
 - **Main tab bar location**: **Top** puts the Shapes, Puzzle and Solver tabs
   in the middle of the top bar (the default); **Left** puts them in a rail
   down the left side of the window.
 - **Theme**: **Light**, **Dark**, or **System** (the default), which follows
   your computer's setting. **View ▸ Color Theme** switches it too.
+- **Top bar theme**: **Colorful** (the default) puts the red, green and blue
+  of the X, Y and Z axes behind the ShapeLogic name and colors the tabs:
+  Shapes green, Puzzle blue, Solver red. **Boring** keeps the bar plain, with
+  a small colored square beside the name.
 
 ## Next
 

@@ -48,18 +48,53 @@ body{margin:0;height:100%;overflow:hidden;background:var(--outer);display:grid;p
 #stage{position:absolute;inset:0;background:var(--bg);
   display:grid;grid-template-columns:var(--wrail) 1fr;grid-template-rows:var(--toph) 1fr var(--stath);align-items:stretch;overflow:hidden;
   --lw:var(--lwx);--rw:var(--rwx);--cw:1fr}
-:root{--lwx:400px;--rwx:400px;--wrail:68px;--toph:40px;--stath:28px;--railw:56px}
+:root{--lwx:400px;--rwx:440px;--wrail:68px;--toph:calc(42px + var(--fh) * 4 / 3);--stath:28px;--railw:56px}
 button{font:inherit;color:inherit}
 
 /* ---------- top bar ---------- */
 .top{grid-column:1/3;display:flex;align-items:center;gap:2px;padding:0 10px 0 14px;background:var(--panel);border-bottom:1px solid var(--line);position:relative}
-.brand{font-weight:700;letter-spacing:.2px;margin-right:12px;display:flex;align-items:center;gap:8px}
-.brand i{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,var(--ax),var(--az));display:block}
+.brand{font-weight:700;letter-spacing:.2px;margin-right:12px;display:flex;align-items:center;gap:10px;font-size:calc(22px + var(--fs))}
+.brand i{width:calc(20px + var(--fs));height:calc(20px + var(--fs));border-radius:6px;background:linear-gradient(135deg,var(--ax),var(--ay),var(--az));display:block}
+/* Top bar theme Colorful (data-topbar; Boring keeps the square beside the word): the axis colours, red, green and
+   blue, 20% washed out in the Light theme, 20% darker in the Dark (--bx, --by, --bz; --bmix), behind the word from the bar's left edge, the blue easing into the bar's colour hints after it; each tab in its colour */
+html[data-topbar=colorful] .brand{align-self:stretch;margin-left:-14px;padding:0 64px 0 16px;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.75),0 2px 4px rgba(0,0,0,.9),0 3px 10px rgba(0,0,0,.8),0 4px 18px rgba(0,0,0,.55);
+  --bx:color-mix(in srgb,var(--ax) 80%,var(--bmix));--by:color-mix(in srgb,var(--ay) 80%,var(--bmix));--bz:color-mix(in srgb,var(--az) 80%,var(--bmix));
+  background:linear-gradient(in oklab 90deg,var(--bx) 22%,var(--by) 40% 55%,var(--bz) 70% var(--bz0),color-mix(in srgb,var(--bz) var(--ba1),transparent) var(--bz1),
+    color-mix(in srgb,var(--bz) var(--ba2),transparent) var(--bz2),color-mix(in srgb,var(--bz) var(--ba3),transparent));position:relative}
+/* the blue's tail: from where the word's gradient ends to nothing, so it runs into the patches below */
+html[data-topbar=colorful] .brand::after{content:"";position:absolute;left:100%;top:0;bottom:0;width:var(--bzt);pointer-events:none;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--bz) var(--ba3),transparent),color-mix(in srgb,var(--bz) var(--ta1),transparent) 45%,transparent)}
+/* ... and past it a hint of the same colours: faint soft patches over the bar */
+/* --bz* where the blue's steps are, --ba* their strengths, --ta1 the tail's middle, --bzt its length; the Light
+   theme's: brighter patches (--hint) and a tail 40px longer (a pale fade reads shorter than the Dark's) */
+html[data-topbar=colorful] .top{--hint:26%;--bmix:#fff;--bz0:calc(70% + 20px);--bz1:calc(81% + 18px);--bz2:calc(91% + 15px);--ba1:60%;--ba2:30%;--ba3:18%;--ta1:10%;--bzt:200px;background:
+  radial-gradient(220px 70px at 24% 0,color-mix(in srgb,var(--ay) var(--hint),transparent),transparent),
+  radial-gradient(260px 60px at 41% 100%,color-mix(in srgb,var(--az) var(--hint),transparent),transparent),
+  radial-gradient(240px 70px at 62% 0,color-mix(in srgb,var(--ax) var(--hint),transparent),transparent),
+  radial-gradient(260px 60px at 79% 100%,color-mix(in srgb,var(--ay) var(--hint),transparent),transparent),
+  radial-gradient(220px 70px at 96% 0,color-mix(in srgb,var(--az) var(--hint),transparent),transparent),
+  var(--panel)}
+:root[data-theme=dark][data-topbar=colorful] .top{--hint:18%;--bzt:160px;--bmix:#000}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light])[data-topbar=colorful] .top{--hint:18%;--bzt:160px;--bmix:#000}}
+html[data-topbar=colorful] .brand i{display:none}
+html[data-topbar=colorful][data-density=minimal] .brand{margin-left:-10px;padding:0 48px 0 12px}
+html[data-topbar=colorful] .fname{color:var(--az)}
+html[data-topbar=colorful] .fname .dirty{color:var(--ax)}
+html[data-topbar=colorful] #btnSettings{color:var(--ay)}
+html[data-topbar=colorful] .rbtn[data-tab=entities]{--tc:var(--ay)}
+html[data-topbar=colorful] .rbtn[data-tab=puzzle]{--tc:var(--az)}
+html[data-topbar=colorful] .rbtn[data-tab=solver]{--tc:var(--ax)}
+html[data-topbar=colorful] .rbtn:hover{background:color-mix(in srgb,var(--tc) 10%,transparent);color:var(--tc)}
+html[data-topbar=colorful] .rbtn.on{background:color-mix(in srgb,var(--tc) 16%,transparent);color:var(--tc)}
+html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .menu button{border:0;background:transparent;height:calc(28px + var(--fh));padding:0 9px;border-radius:6px;color:var(--text);cursor:pointer}
 .menu button:hover{background:var(--panel2)}
 .tabs{position:absolute;left:50%;transform:translateX(-50%)}
 .top .right{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted)}
-.fname{max-width:330px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(12px + var(--fs))}
+.fname{max-width:330px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:calc(13px + var(--fs))}
+/* the Settings button: as large as the bar allows, 4px short of its height */
+#btnSettings{width:min(calc(36px + var(--fs)),calc(var(--toph) - 4px));height:min(calc(36px + var(--fs)),calc(var(--toph) - 4px));border-radius:8px}
+#btnSettings svg{width:calc(23px + var(--fs) / 2);height:calc(23px + var(--fs) / 2)}
 
 /* ---------- shared controls ---------- */
 .seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:2px;gap:2px}
@@ -573,7 +608,9 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 #stage.lc #leftP>.crail,#stage.lc #leftS>.crail,#stage.rc #rightP>.crail,#stage.rc #rightS>.crail{display:flex}
 
 /* ===================== Interface density: Standard, and Compact's base (the old Comfortable spacing is retired) ===================== */
-html:is([data-density=standard],[data-density=compact]){--lwx:340px;--rwx:340px;--wrail:60px;--toph:36px;--stath:24px;--railw:48px}
+html:is([data-density=standard],[data-density=compact]){--lwx:340px;--rwx:374px;--wrail:60px;--toph:calc(38px + var(--fh) * 4 / 3);--stath:24px;--railw:48px}
+/* the top bar: 38, 42 and 46px tall at the three font sizes (Standard); Compact and Minimal 4px and 8px less */
+html[data-density=compact]{--toph:calc(34px + var(--fh) * 4 / 3)}
 html:is([data-density=standard],[data-density=compact]) .body{gap:4px;padding:4px}
 html:is([data-density=standard],[data-density=compact]) .card{border-radius:8px}
 html:is([data-density=standard],[data-density=compact]) .ch,html:is([data-density=standard],[data-density=compact]) .pzh{height:calc(36px + var(--fh));padding:0 6px 0 10px}
@@ -644,6 +681,17 @@ html:is([data-density=compact],[data-density=minimal]) .lrow .c3 i{top:2px;botto
 html[data-density=compact] .pz-used{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 html[data-density=compact] .pz-used>.pz-empty{grid-column:1/-1}
 html[data-density=compact] .pz-used .ut{width:auto;min-width:0}
+/* ... and each one line: the label and name (the name gives way), the group, the weight (W2), then the count and its buttons */
+html[data-density=compact] .pz-used .ut{height:calc(26px + var(--fh))}
+html[data-density=compact] .ut .ub{flex-direction:row;align-items:center;justify-content:flex-start;gap:6px;padding:0 4px 0 6px}
+html[data-density=compact] .ut .t1{flex:1;height:auto}
+html[data-density=compact] .ut .t1>:not(.pl){flex:none}
+html[data-density=compact] .ut .t3{order:1;flex:none;margin:0;white-space:nowrap}
+html[data-density=compact] .ut .t3 .wl{display:none}
+html[data-density=compact] .ut .t3::before{content:"W"}
+html[data-density=compact] .ut .t2,html[data-density=compact] .ut.wt .t2{order:2;flex:none;height:auto;margin:0;gap:2px}
+html[data-density=compact] .ut .t2 button{width:18px;height:18px;line-height:14px;border-radius:5px}
+html[data-density=compact] .ut .t2 .cnt{min-width:24px}
 html[data-density=compact] .pz-lib{gap:3px}
 html[data-density=compact] .pz-lib .lc{height:calc(18px + var(--fh));border-radius:4px}
 html[data-density=compact] .pz-lib .lc .la{height:calc(16px + var(--fh));border-radius:4px}
@@ -678,7 +726,7 @@ html[data-density=compact] .colfoot{padding:5px 8px}
 html[data-density=compact] .bigsw{width:26px;height:26px;border-radius:6px}
 
 /* ===================== Interface density: Minimal ===================== */
-html[data-density=minimal]{--lwx:320px;--rwx:320px;--wrail:44px;--toph:32px;--stath:22px;--railw:40px}
+html[data-density=minimal]{--lwx:320px;--rwx:352px;--wrail:44px;--toph:calc(30px + var(--fh) * 4 / 3);--stath:22px;--railw:40px}
 /* chrome-less panels: flush cards separated by hairlines, no corners, no shadows */
 html[data-density=minimal] .body{gap:1px;padding:0;background:var(--line)}
 html[data-density=minimal] .card{border-radius:0;border:0;box-shadow:none}
@@ -692,7 +740,7 @@ html[data-density=minimal] .ib.tb{width:28px;height:28px}
 /* icon + caption -> icon only (caption moves to the tooltip) */
 html[data-density=minimal] .tbn span,html[data-density=minimal] .rbtn span,html[data-density=minimal] .gbtn span,
 html[data-density=minimal] .gbtn .kb,html[data-density=minimal] .tbn .kb,html[data-density=minimal] .abtn b,html[data-density=minimal] .abtn small,
-html[data-density=minimal] .btn .lt,html[data-density=minimal] .brand .bt{display:none}
+html[data-density=minimal] .btn .lt{display:none}
 /* helper / descriptive text -> tooltip */
 html[data-density=minimal] .sec .sum,html[data-density=minimal] #vhint,html[data-density=minimal] .lfoot,html[data-density=minimal] .advnote,
 html[data-density=minimal] .mcard .d,html[data-density=minimal] .slv-opts .row2 .t small,html[data-density=minimal] .mg .gl2,
@@ -797,8 +845,8 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #slvList:focus .lrow.sel{box-shadow:0 0 0 1px var(--accent)}
 #slvSlider:focus-visible,#slvMove:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .pvc:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-#shapeList:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accentSoft)}
-#shapeList:focus .row.sel{box-shadow:0 0 0 1px var(--accent)}
+#shapeList:focus,#boardList:focus{outline:none;box-shadow:inset 0 0 0 2px var(--accentSoft)}
+#shapeList:focus .row.sel,#boardList:focus .row.sel{box-shadow:0 0 0 1px var(--accent)}
 .kbnote{color:var(--muted);font-size:calc(12px + var(--fs));margin:-4px 0 6px;line-height:1.5}
 .kbgrp{margin:16px 0 4px;font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .kbgrp small{text-transform:none;letter-spacing:0;font-weight:400;margin-left:6px}
@@ -821,7 +869,7 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 .xtasks{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 #garea svg .rul{font-family:system-ui,sans-serif}
 #fitBody>.switch{margin:2px 0 4px;font-size:calc(12px + var(--fs));color:var(--muted);gap:8px}
-#stage.frozen #insp,#stage.frozen #btnNew,#stage.frozen #btnNewBoard,#stage.frozen #shapeList .acts,#stage.frozen #lrail #btnLN,
+#stage.frozen #insp,#stage.frozen #btnNew,#stage.frozen #btnNewBoard,#stage.frozen #shapeList .acts,#stage.frozen #boardList .acts,#stage.frozen #lrail #btnLN,
 #stage.frozen #right .rfull>:not(.ch):not(.edctl),#stage.frozen #edCtl>*{pointer-events:none;opacity:.5}
 #stage.frozen #bEdit{pointer-events:none;opacity:.4}
 /* the voxel editor's controls: the tools, mirror and span and the planes above the grid, its size and the color below;
@@ -878,6 +926,19 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 .slv-opts .switch{margin-top:0}
 .switch.off{opacity:.4;cursor:default}
 .mcard:disabled{opacity:.45;cursor:default}
+.mcard.optcard{margin-bottom:8px}.mcard.optcard .gi{width:16px;height:16px;flex:none;margin-top:2px;color:var(--muted);display:inline-grid;place-items:center}
+.mcard.optcard .sp{flex:1}.mcard.optcard #slvOptTog{color:var(--muted);flex:none;margin-top:1px}
+html[data-density=minimal] .mcard.optcard .gi{margin-top:0}
+.lbody .lgrp{position:absolute;left:0;right:0;display:flex;align-items:flex-end;gap:4px;padding:0 6px 4px;font-weight:600;font-size:calc(12px + var(--fs))}.lbody .lgrp span{color:var(--muted);font-weight:400}
+/* All pieces and In this puzzle: one grid of the same tile width, as many columns as the left card fits (two at its narrowest), each stretched to fill the row */
+#pzLib,#pzUsed{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tilew),1fr));--tilew:150px;column-gap:5px;padding-left:8px;padding-right:8px}
+html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
+#pzLib.closed{display:none}
+#pzUsed>.pz-empty{grid-column:1/-1}
+#pzUsed .ut{width:auto;min-width:0}
+#pzLib .lc{min-width:0}#pzLib .lc .pl{min-width:0;flex:0 1 auto}#pzLib .lc .la{margin-left:auto;flex:none}
+#slvOpts{margin-left:12px;padding-left:14px;border-left:2px solid var(--line)}
+#boardsSec:not([hidden]) ~ #shapesHead [data-collapse]{display:none}
 #leftS.slvfrozen .slv-optsec{pointer-events:none;opacity:.5}
 .lbody .lspace{position:relative}
 .lbody .lrow{position:absolute;left:0;right:0}
@@ -984,6 +1045,14 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #stage.stk #pzResult,#stage.stk #pzUsedHead,#stage.stk #pzUsed,#stage.stk #pzGrpHead,#stage.stk #pzGrpBody,#stage.stk #pzSummary{display:none}
 #stage.stk #pzSel,#stage.stk #pzGroupsSec,#stage.stk #pzRulesHead,#stage.stk #pzRules{display:none}
 .pzboard,.pzstacks{display:none}
+/* a sliding puzzle's boards in a list of their own above the pieces:
+   four and a half rows (each density's row height) before it scrolls */
+#boardsSec{flex:none;display:flex;flex-direction:column}
+#boardsSec[hidden]{display:none}
+#boardsSec+#shapesHead{border-top:1px solid var(--line)}
+#boardList{min-height:0;max-height:calc(6px + 4.5 * (42px + var(--fh)))}
+html:is([data-density=standard],[data-density=compact]) #boardList{max-height:calc(6px + 4.5 * (34px + var(--fh)))}
+html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:calc(6px + 4.5 * (18px + var(--fh)))}
 /* a sliding problem: Start and goal in the selected piece's place */
 .pzslide{display:none}
 #stage.sld .pzslide{display:flex;flex-direction:column;flex:1;min-height:0}
@@ -1073,11 +1142,11 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 /* ---- the main tab bar at the top (Settings: Main tab bar location): the rail's buttons centred in the top bar ---- */
 html[data-tabs=top] #stage{--wrail:0px}
 html[data-tabs=top] .top{grid-row:1}
-html[data-tabs=top] .rail{grid-column:1/3;grid-row:1;justify-self:center;align-self:center;z-index:1;flex-direction:row;gap:4px;padding:0;background:transparent;border:0}
-html[data-tabs=top] .rail .rbtn{flex-direction:row;width:auto;height:calc(var(--toph) - 8px);padding:0 12px;gap:6px;border-radius:8px;font-size:calc(12px + var(--fs))}
-html[data-tabs=top] .rail .rbtn svg{width:18px;height:18px}
+html[data-tabs=top] .rail{grid-column:1/3;grid-row:1;justify-self:center;align-self:center;z-index:1;flex-direction:row;gap:6px;padding:0;background:transparent;border:0}
+html[data-tabs=top] .rail .rbtn{flex-direction:row;width:auto;height:calc(var(--toph) - 6px);padding:0 16px;gap:8px;border-radius:9px;font-size:calc(16px + var(--fs))}
+html[data-tabs=top] .rail .rbtn svg{width:calc(21px + var(--fs));height:calc(21px + var(--fs))}
 html[data-tabs=top] .rail .rbtn span{display:block;writing-mode:horizontal-tb}
-html[data-tabs=top] .rail .rbtn.on::before{left:10px;right:10px;top:auto;bottom:-4px;width:auto;height:3px;border-radius:3px 3px 0 0}
+html[data-tabs=top] .rail .rbtn.on::before{left:0;right:0;top:auto;bottom:-3px;width:auto;height:3px;border-radius:3px 3px 0 0}
 html[data-tabs=top][data-density=minimal] .rail .rbtn{padding:0 8px;gap:4px}
 
 /* ---- the grid-size tip, and the pressed look of the focus and collapse buttons (the hover look, kept) ---- */
