@@ -19,6 +19,8 @@
 /// Ported from src/lib/slidelevels.h; the blocks of any size, the last key
 /// in the footer, the shared descriptor, seeking cursors and joining are new.
 
+#include "shapelogic/base/system.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -30,10 +32,11 @@
 #include <system_error>
 #include <vector>
 
+// <windows.h> stays in base/system.cpp (readFileAt): included here it
+// reached the tests, whose earlier headers break its RPC part
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
-#include <windows.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
@@ -106,35 +109,7 @@ class ReadFile {
 
   /// Reads len bytes at offset; false when they are not all there.
   bool readAt(std::uint64_t offset, void* buf, std::size_t len) const {
-    if (fd_ < 0) {
-      return false;
-    }
-    auto* out = static_cast<std::uint8_t*>(buf);
-    while (len > 0) {
-#ifdef _WIN32
-      OVERLAPPED ov{};
-      ov.Offset = static_cast<DWORD>(offset & 0xffffffffULL);
-      ov.OffsetHigh = static_cast<DWORD>(offset >> 32);
-      DWORD got = 0;
-      const DWORD want = static_cast<DWORD>(std::min<std::size_t>(len, 1U << 30));
-      // ::ReadFile is Windows' (this class has its name)
-      if (!::ReadFile(reinterpret_cast<HANDLE>(_get_osfhandle(fd_)), out, want, &got, &ov) ||
-          got == 0) {
-        return false;
-      }
-      const std::size_t n = got;
-#else
-      const ssize_t r = ::pread(fd_, out, len, static_cast<off_t>(offset));
-      if (r <= 0) {
-        return false;
-      }
-      const auto n = static_cast<std::size_t>(r);
-#endif
-      out += n;
-      offset += n;
-      len -= n;
-    }
-    return true;
+    return readFileAt(fd_, offset, buf, len);
   }
 
  private:

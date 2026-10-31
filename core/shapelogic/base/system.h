@@ -8,6 +8,7 @@
 /// Ported from src/lib/sysmemory.{h,cpp} (executableDirectory is not
 /// ported: nothing here looks for files beside the program).
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -54,6 +55,12 @@ struct DiskBudget {
 /// "as much as the 90.0 GB free there allows", or empty for a budget asked
 /// for and given.
 [[nodiscard]] std::string diskBudgetReason(const DiskBudget& budget);
+
+/// Reads `len` bytes at `offset` of the open file descriptor `fd` without
+/// moving its position, so several threads may read one file at once
+/// (pread; ReadFile with an offset on Windows, whose header stays here).
+/// False when they are not all there.
+[[nodiscard]] bool readFileAt(int fd, std::uint64_t offset, void* buf, std::size_t len);
 
 /// Lets the process open at least `files` files at once where the system
 /// allows (the soft limit raised towards the hard one): a slide search

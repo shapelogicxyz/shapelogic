@@ -15,10 +15,13 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include <io.h>
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <CoreFoundation/CoreFoundation.h>
+#include <sys/resource.h>
 #include <sys/sysctl.h>
+#include <unistd.h>
 #elif defined(__unix__)
 #include <sys/resource.h>
 #include <unistd.h>
@@ -122,6 +125,37 @@ std::string diskBudgetReason(const DiskBudget& budget) {
   return budget.bytes == kAutoDiskBudgetMax
              ? "the most it takes unless told, with " + std::string(gb) + " free there"
              : "half the " + std::string(gb) + " free there";
+}
+
+bool readFileAt(int fd, std::uint64_t offset, void* buf, std::size_t len) {
+  if (fd < 0) {
+    return false;
+  }
+  auto* out = static_cast<std::uint8_t*>(buf);
+  while (len > 0) {
+#if defined(_WIN32)
+    OVERLAPPED ov{};
+    ov.Offset = static_cast<DWORD>(offset & 0xffffffffULL);
+    ov.OffsetHigh = static_cast<DWORD>(offset >> 32);
+    DWORD got = 0;
+    const DWORD want = static_cast<DWORD>(std::min<std::size_t>(len, std::size_t{1} << 30));
+    if (!ReadFile(reinterpret_cast<HANDLE>(_get_osfhandle(fd)), out, want, &got, &ov) ||
+        got == 0) {
+      return false;
+    }
+    const std::size_t n = got;
+#else
+    const ssize_t r = ::pread(fd, out, len, static_cast<off_t>(offset));
+    if (r <= 0) {
+      return false;
+    }
+    const auto n = static_cast<std::size_t>(r);
+#endif
+    out += n;
+    offset += n;
+    len -= n;
+  }
+  return true;
 }
 
 std::uint64_t raiseOpenFileLimit(std::uint64_t files) {
