@@ -11,10 +11,12 @@
 /// moves, on a tray more than one layer deep, it may also go up and down
 /// (lifted out of a box and put back elsewhere). The search (the Sliding
 /// Puzzle Solver) has no limit on the arrangements it visits: it goes
-/// breadth first, level by level, keeps only the newest levels in memory
-/// and the older ones in files, and spreads each level over threads. It
-/// finds a path with the fewest moves, the same every run, or proves there
-/// is none.
+/// breadth first, level by level, every level a sorted set that lives in
+/// memory while the memory budget allows and in a file otherwise, spreads
+/// each level over threads, searches from the goal too once a level is wide
+/// (when the goal is one arrangement), and is saved when it is stopped so
+/// that a search of the same start carries it on. It finds a path with the
+/// fewest moves, the same every run, or proves there is none.
 ///
 /// Ported from src/lib/sliding.{h,cpp} (the search, routes and outcomes;
 /// the tray model is bt/model/sliding.h). The original's Fast and Deep
@@ -53,9 +55,9 @@ namespace bt::sliding {
 using SlideShift = std::array<int, 3>;
 
 /// Memory a search may fill with arrangements, about 2 GB. A search that
-/// reaches it stops instead of exhausting the machine's memory. The search
-/// keeps only its newest levels in memory, so it goes much further than
-/// the arrangements that fit.
+/// reaches it with nowhere to write its levels stops instead of exhausting
+/// the machine's memory; with a work folder its levels go to files and the
+/// disk is the limit.
 inline constexpr std::uint64_t kSearchMemoryBytes = 2000000000ULL;
 
 /// The memory a search may fill with arrangements, in bytes: `bytes` when
@@ -75,7 +77,7 @@ enum class SlideOutcome : std::uint8_t {
   NoPath,   ///< every reachable arrangement was searched: there is no path
   Memory,   ///< stopped at its memory limit; a path may still exist
   Stopped,  ///< the stop token asked it to
-  Disk,     ///< the search could not keep its levels on disk; see error
+  Disk,     ///< the search filled the disk it may use, or could not write; see error
 };
 
 /// One level of the search, done (SHAPELOGIC_SLIDE_TRACE in the
@@ -84,9 +86,9 @@ using SlideLevelTrace = std::function<void(const std::string&)>;
 
 /// The settings of one slide search, and how it went.
 struct SlideSearch {
-  /// Arrangements to hold in memory before giving up; 0 for as many as fit
-  /// the memory budget (memoryStates). The level search holds only its
-  /// newest levels in memory, so it counts just those.
+  /// Arrangements' worth of memory the search may fill (memoryStates each)
+  /// before its sets go to files, or with no work folder before it gives
+  /// up; 0 for the memory budget.
   std::uint64_t maxMemoryStates = 0;
   /// With maxMemoryStates 0, budget half the physical memory, not 2 GB.
   bool highMemory = false;
@@ -109,25 +111,49 @@ struct SlideSearch {
   /// When set, kept up to date with the arrangements visited so far.
   std::atomic<std::uint64_t>* progress = nullptr;
   /// When set, the level search keeps it up to date with the moves it has
-  /// searched to.
+  /// searched to (both ends together).
   std::atomic<std::uint64_t>* depthProgress = nullptr;
+  /// When set, counts the levels searched out while the path is traced back
+  /// across thinned levels.
+  std::atomic<std::uint64_t>* traced = nullptr;
   /// The threads the level search spreads its levels over; null for a pool
   /// of the search's own of `threads` threads.
   ThreadPool* pool = nullptr;
   /// Threads for the level search: at most this many of the pool's; 0 for
   /// all of the pool's, or with no pool, every hardware thread.
   unsigned int threads = 0;
-  /// Where the level search keeps its older levels, in a folder of its own
-  /// that goes when the search ends. Empty: they stay in memory.
+  /// Where the level search keeps its levels once they outgrow the memory
+  /// budget, in a folder of its own that goes when the search ends unless
+  /// the search is saved there (see resume). Empty: everything stays in
+  /// memory, and the budget is the limit.
   std::string workDir;
   /// Disk those levels may take, in bytes; 0 for half the free space, at
   /// most 200 GB. Either way it is held to what the disk has room for
-  /// (diskBudgetFor in base/system.h).
+  /// (diskBudgetFor in base/system.h). Without nested slides the levels
+  /// kept for tracing the path back are thinned as the disk fills (every
+  /// other one goes), so only the newest levels count against it.
   std::uint64_t diskBudget = 0;
-  /// Bytes of older levels the level search keeps in memory before it starts
-  /// writing them to disk; 0 for the default (256 MB). A small search
-  /// never touches the disk.
+  /// Bytes the search's sets may take in memory before they go to files;
+  /// 0 for the memory budget. A small search never touches the disk.
   std::uint64_t memoryLevelBytes = 0;
+  /// Carry on this start's saved search in workDir, if there is one (a
+  /// search stopped by its token is saved there; one that filled a disk
+  /// budget the disk did not cut too). Off, a saved search is thrown away.
+  bool resume = true;
+  /// Save the search this often as it runs, so a crash loses no more. 0
+  /// saves only when the search stops.
+  unsigned int autosaveMinutes = 20;
+  /// Search from the goal as well once a level has this many arrangements,
+  /// when the goal is one arrangement (not with nested slides): the ends
+  /// meet in the middle, and the path is as short. 0 for the default, a
+  /// million; smaller puzzles find the same path as a search from the
+  /// start alone.
+  std::uint64_t meetFrom = 0;
+  /// Keep every this-many-th level for tracing the path back from the
+  /// start (1: every level; the search thins them further as the disk
+  /// fills). Above 1 the gaps are searched when the path is traced: the
+  /// tests set it to try that on small puzzles. Not with nested slides.
+  unsigned int keepEvery = 1;
 
   /// A/B switches: the original search over text keys (the fallback for
   /// trays the position tables cannot pack into 128 bits; it finds a path
@@ -148,10 +174,17 @@ struct SlideSearch {
   std::uint64_t visited = 0;
   /// Out: the memory limit the search used, in arrangements.
   std::uint64_t memoryStates = 0;
-  /// Out, for the level search: the moves searched to, and the most disk its
-  /// levels took.
+  /// Out, for the level search: the moves searched to (both ends together),
+  /// and the most disk its levels took.
   std::uint64_t depth = 0;
   std::uint64_t diskBytes = 0;
+  /// Out, for the level search: how many levels apart the levels kept for
+  /// tracing the path back are (1: every level).
+  unsigned int levelInterval = 1;
+  /// Out, for the level search: it carried on a saved search; it was saved
+  /// when it stopped (a search with `resume` carries it on).
+  bool resumed = false;
+  bool saved = false;
   /// Out, for the level search with nested slides: arrangements reached by a
   /// move that cannot be made backwards that had been reached two or more
   /// moves earlier, so had to be looked for on disk.
@@ -217,6 +250,15 @@ struct SlidingOptions {
 /// findSlidePath with the default search, and nested slides or not.
 [[nodiscard]] std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& problem,
                                                       const Assembly& start, bool nested = false);
+
+/// Deletes the saved searches of this problem's starts in workDir, if there
+/// are any (a solve that starts afresh).
+void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir);
+
+/// Deletes the saved searches in workDir that nothing has touched for
+/// `days` days (searches of starts never searched again); returns how
+/// many went.
+unsigned int sweepSaved(const std::string& workDir, unsigned int days = 30);
 
 /// The corner points, as shifts from the start, of the route the moving
 /// pieces take on step `step` of path, start and end included, with the

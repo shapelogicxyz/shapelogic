@@ -26,9 +26,11 @@ export interface Settings {
   /** The solver when a solve's or analysis's options do not say (default classic). */
   solver: Solver;
   /**
-   * Where a sliding search keeps its older levels while it runs, in a folder of its own that goes
-   * when it ends (the original's SHAPELOGIC_SLIDE_DIR); empty keeps them in memory. Default: the
-   * user's cache folder's sliding folder.
+   * Where a sliding search keeps its levels once they outgrow the search memory, in a folder of
+   * its own that goes when the search ends, unless the search was paused: then it stays, and the
+   * next search of the same start carries it on (the original's SHAPELOGIC_SLIDE_DIR); empty keeps
+   * everything in memory and makes the search memory the limit. Default: the user's cache folder's
+   * sliding folder.
    */
   slideFolder: string;
   /**

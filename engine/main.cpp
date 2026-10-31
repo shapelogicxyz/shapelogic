@@ -5,6 +5,7 @@
 // in docs/API.md).
 #include "engine.h"
 
+#include "shapelogic/base/system.h"
 #include "shapelogic/base/version.h"
 
 #include <cstdio>
@@ -34,6 +35,8 @@ int main(int argc, char** argv) {
   (void)_setmode(_fileno(stdin), _O_BINARY);
 #endif
   std::ios::sync_with_stdio(false);
+  // a slide search reads many level files at once
+  (void)bt::raiseOpenFileLimit(4096);
   {
     bt::engine::Engine engine(std::cout, std::cerr);
     (void)engine.run(std::cin);

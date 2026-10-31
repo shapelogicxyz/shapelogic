@@ -451,10 +451,29 @@ one).
   the memory budget (`memoryStates`, high memory), the stop token, the
   progress counters, the pool, threads, work folder and disk budget, and
   answers with a `SlideOutcome` (Found, NoPath, Memory, Stopped, Disk) and
-  its counts. The search goes level by level (one-way moves included),
-  keeps the older levels in `KeySet` files (`slide_levels.h`) in its work
-  folder and spreads each level over the pool; any number of threads
-  finds the same path. `SlidingOptions` and `slideSearchFor()`: the GUI's
+  its counts. The search (`LevelSearch`) goes level by level (one-way
+  moves included) and spreads each level over the pool; any number of
+  threads finds the same path. Every level, run and merged set is a
+  sorted, delta-coded `KeySet` (`slide_levels.h`), in memory while the
+  budget allows and a file in the work folder otherwise (`SetStore`
+  decides, and evicts idle sets), so memory stays flat and the disk is the
+  limit; the Memory outcome is for a search with nowhere to write. The
+  threads write what a level's moves reach as sorted runs, and a merge
+  (`runMerge`, a range of keys a thread) less the two newest levels writes
+  the next level. When the goal is one arrangement the search goes on
+  from the goal too once a level is a million arrangements wide
+  (`meetFrom`), growing the narrower end until they meet, as the Panex
+  search does; smaller puzzles take the same path as before, which the
+  oracle compares state by state. The older levels are kept for tracing
+  the path back; without nested slides every other one goes when they
+  near the disk budget (`levelInterval`), the gaps searched out from the
+  arrangement being traced when the path is found. A search stopped by
+  its token (and one that filled a disk budget the disk did not cut) is
+  saved in its folder (`slide-<fingerprint>/state.bin` naming its sets)
+  and a search of the same start carries it on (`resume`, `resumed`,
+  `saved`; `autosaveMinutes`); `discardSaved` drops a problem's saved
+  searches (a solve that starts afresh, an abort), `sweepSaved` the ones
+  untouched for a month (each sliding run). `SlidingOptions` and `slideSearchFor()`: the GUI's
   boxes for its one solver, the Sliding Puzzle Solver
   (`kSlidingSolverName`). `slideRoute` and `applySlideRoutes`: a move's path
   through corridors (its corners) and the player's driver following it;

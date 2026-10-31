@@ -170,9 +170,13 @@ void SolveSession::abort() {
     problem_.removeAllSolutions();
   }
   dropAssembler();
-  // a stacking search saves itself as it stops: that goes too (cb_BtnAbort)
+  // a stacking search saves itself as it stops: that goes too (cb_BtnAbort);
+  // so do the saved slide searches of a sliding problem's starts
   if (stacking_) {
     panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
+  }
+  if (sliding_) {
+    sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
   }
   if (state_.load() != SolveState::Idle) {
     state_.advance(SolveState::Idle);
@@ -350,6 +354,7 @@ Result<void> SolveSession::launch(Mode mode) {
   slideMemoryStates_ = 0;
   slideDiskError_.clear();
   slideDiskHeldToFree_ = false;
+  slideDiskSaved_ = false;
   assemblerThreads_.store(1, std::memory_order_relaxed);
   workerCount_.store(0, std::memory_order_relaxed);
   pending_.store(0, std::memory_order_relaxed);
@@ -404,6 +409,9 @@ Result<void> SolveSession::launchStacking(Mode mode) {
   // first); Continue carries it on, as both stacking solvers do.
   if (mode == Mode::Start) {
     panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
+    if (sliding_) {
+      sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
+    }
   }
   // The hotspots where a stacking solve has them: a disc's at its centre
   // (cb_BtnCont's ensureHotspot); no change when the owner set them so
@@ -644,6 +652,8 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   // search spreads its levels over the solve's threads (solveThreadBudget)
   if (o.disassemble && sliding_) {
     slidePool_ = std::make_unique<ThreadPool>(budget);
+    // saved searches of starts nobody searched again for a month go
+    (void)sliding::sweepSaved(o.sliding.workDir);
   }
 
   beginPhase(Phase::Assemble);
@@ -1042,6 +1052,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
         if (search.outcome == sliding::SlideOutcome::Disk) {
           slideDiskError_ = search.error;
           slideDiskHeldToFree_ = search.diskHeldToFree;
+          slideDiskSaved_ = search.saved;
         }
         if (search.outcome == sliding::SlideOutcome::Memory) {
           slideMemoryCut_ = true;
@@ -1115,6 +1126,9 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
       msg += slideDiskHeldToFree_
                  ? " Free some disk space to let it go further."
                  : " " + o.settingsPlace + " can give it more Sliding disk space.";
+      if (slideDiskSaved_) {
+        msg += " The search is saved: solve again to carry it on.";
+      }
     } else if (!o.settingsPlace.empty() && slideMemoryCut_) {
       msg += " " + o.settingsPlace + " can give it more Search memory.";
     } else if (slideMemoryCut_ && !o.sliding.highMemory) {

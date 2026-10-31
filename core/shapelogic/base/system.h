@@ -55,6 +55,12 @@ struct DiskBudget {
 /// for and given.
 [[nodiscard]] std::string diskBudgetReason(const DiskBudget& budget);
 
+/// Lets the process open at least `files` files at once where the system
+/// allows (the soft limit raised towards the hard one): a slide search
+/// reads many sets at a time. For the programs that own a search; nothing
+/// in the core calls it. Returns the limit now in force, 0 when unknown.
+std::uint64_t raiseOpenFileLimit(std::uint64_t files);
+
 /// Where a program may keep large files between runs:
 /// ~/Library/Caches/ShapeLogic on macOS, %LOCALAPPDATA%\ShapeLogic on Windows,
 /// $XDG_CACHE_HOME/shapelogic or ~/.cache/shapelogic elsewhere; empty when

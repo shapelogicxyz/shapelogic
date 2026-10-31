@@ -419,6 +419,8 @@ class SolveSession {
   std::uint64_t slideMemoryStates_ = 0;
   std::string slideDiskError_;
   bool slideDiskHeldToFree_ = false;
+  /// A search that filled its disk budget was saved to be carried on.
+  bool slideDiskSaved_ = false;
   /// note(), under failureMutex_.
   std::string note_;
 

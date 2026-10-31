@@ -26,6 +26,7 @@
 #include <bit>
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <random>
 #include <set>
@@ -642,4 +643,44 @@ TEST_CASE("sliding: the orientations each part may take", "[sliding]") {
   CHECK(mirrored[0] == 1);
   CHECK(std::popcount(mirrored[1]) == 8);
   CHECK((mirrored[1] & any[1]) == any[1]);
+}
+
+// With a work folder, a start's search that a pause cuts short is saved
+// there and carried on by the next run, and nothing is left behind once
+// the solve is through.
+TEST_CASE("sliding session: a paused search is carried on from its folder",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_resume";
+  std::filesystem::remove_all(dir);
+  // the 4x4 tray of fifteen with the swap: one start, searched long enough
+  // to be paused in the middle, and never to its end here
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 8000000;
+  Puzzle p = swapped(4);
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  untilSearching(s);
+  s.pause();
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  const Problem& pr = p.getProblem(0);
+  REQUIRE(pr.getPending().size() == 1);
+  // the saved search, in its own folder
+  REQUIRE(std::filesystem::is_directory(dir));
+  CHECK_FALSE(std::filesystem::is_empty(dir));
+  // carried on: the sets live in the folder now and the memory limit no
+  // longer stops the search, so it is paused once more rather than run to
+  // its end
+  REQUIRE(s.resume().has_value());
+  untilSearching(s);
+  s.pause();
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  CHECK_FALSE(std::filesystem::is_empty(dir));
+  // a solve from the start throws the saved search away
+  s.abort();
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
 }

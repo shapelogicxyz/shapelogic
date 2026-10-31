@@ -5,6 +5,8 @@
 #include "shapelogic/base/system.h"
 
 #include <algorithm>
+#include <climits>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <system_error>
@@ -18,6 +20,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/sysctl.h>
 #elif defined(__unix__)
+#include <sys/resource.h>
 #include <unistd.h>
 #endif
 
@@ -119,6 +122,38 @@ std::string diskBudgetReason(const DiskBudget& budget) {
   return budget.bytes == kAutoDiskBudgetMax
              ? "the most it takes unless told, with " + std::string(gb) + " free there"
              : "half the " + std::string(gb) + " free there";
+}
+
+std::uint64_t raiseOpenFileLimit(std::uint64_t files) {
+#if defined(_WIN32)
+  // the C runtime's limit on open streams; the handles behind them have none
+  const int now = _getmaxstdio();
+  if (now > 0 && static_cast<std::uint64_t>(now) < files) {
+    (void)_setmaxstdio(static_cast<int>(std::min<std::uint64_t>(files, 8192)));
+  }
+  const int after = _getmaxstdio();
+  return after > 0 ? static_cast<std::uint64_t>(after) : 0;
+#else
+  rlimit lim{};
+  if (getrlimit(RLIMIT_NOFILE, &lim) != 0) {
+    return 0;
+  }
+  if (lim.rlim_cur != RLIM_INFINITY && lim.rlim_cur < files) {
+    rlimit want = lim;
+    want.rlim_cur = static_cast<rlim_t>(files);
+    if (lim.rlim_max != RLIM_INFINITY && want.rlim_cur > lim.rlim_max) {
+      want.rlim_cur = lim.rlim_max;
+    }
+#if defined(__APPLE__)
+    // macOS refuses more than OPEN_MAX for the soft limit
+    want.rlim_cur = std::min<rlim_t>(want.rlim_cur, OPEN_MAX);
+#endif
+    if (setrlimit(RLIMIT_NOFILE, &want) == 0) {
+      lim = want;
+    }
+  }
+  return lim.rlim_cur == RLIM_INFINITY ? UINT64_MAX : static_cast<std::uint64_t>(lim.rlim_cur);
+#endif
 }
 
 std::string userCacheDirectory() {

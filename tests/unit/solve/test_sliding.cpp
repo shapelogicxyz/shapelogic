@@ -37,6 +37,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -1692,3 +1693,272 @@ TEST_CASE("sliding: a piece that changes shape loses its start and goal", "[slid
   CHECK(stampAt(&f.puz.getShape(0), 0, 0, 0, false) == static_cast<unsigned int>(-1));
   CHECK(stampAt(&f.puz.getShape(0), 2, 2, 0, true) == static_cast<unsigned int>(-1));
 }
+
+// ---- the streamed level search: saved searches, both ends, thinned levels
+
+namespace {
+
+// The 8-puzzle: a 3x3 tray of eight unit pieces, each with its own goal,
+// so the goal is one arrangement. The start is the goal with the pieces
+// slid round the hole eight times.
+SlideFixture eightPuzzle() {
+  const int gx[8] = {0, 1, 2, 0, 1, 2, 0, 1};
+  const int gy[8] = {0, 0, 0, 1, 1, 1, 2, 2};
+  const int sx[8] = {0, 0, 1, 1, 1, 2, 0, 2};
+  const int sy[8] = {1, 0, 0, 1, 2, 0, 2, 1};
+  std::vector<SlideBlock> blocks;
+  for (int i = 0; i < 8; i++) {
+    blocks.push_back({1, 1, sx[i], sy[i], gx[i], gy[i]});
+  }
+  return slideFixture(3, 3, blocks);
+}
+
+// The places of every piece along a path, for comparing paths.
+std::vector<int> placesAlong(const Separation& path) {
+  std::vector<int> places;
+  for (unsigned int s = 0; s <= path.getMoves(); s++) {
+    for (unsigned int i = 0; i < path.getPieceNumber(); i++) {
+      places.push_back(path.getState(s).getX(i));
+      places.push_back(path.getState(s).getY(i));
+    }
+  }
+  return places;
+}
+
+}  // namespace
+
+// A search stopped by its token is saved in its folder, and a search of the
+// same start carries it on to the same path, counting what was searched
+// once; without `resume` the saved search is thrown away.
+TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slideresume");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+
+  SlideSearch straight;
+  straight.threads = 2;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+
+  // stopped once it has visited a few thousand arrangements
+  StopSource stop;
+  std::atomic<std::uint64_t> progress{0};
+  SlideSearch first;
+  first.threads = 2;
+  first.workDir = dir.string();
+  first.progress = &progress;
+  first.stop = stop.token();
+  std::atomic<bool> done{false};
+  std::thread watcher([&] {
+    while (!done.load()) {
+      if (progress.load() >= 4000) {
+        stop.request(StopKind::Pause);
+        return;
+      }
+      std::this_thread::yield();
+    }
+  });
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+  done.store(true);
+  watcher.join();
+  REQUIRE(first.outcome == SlideOutcome::Stopped);
+  CHECK(first.saved);
+  CHECK(first.visited >= 4000);
+  CHECK(first.visited < straight.visited);
+  CHECK(std::filesystem::is_directory(dir));
+  CHECK_FALSE(std::filesystem::is_empty(dir));
+
+  SlideSearch second;
+  second.threads = 3;
+  second.workDir = dir.string();
+  const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+  REQUIRE(rest.has_value());
+  CHECK(second.resumed);
+  CHECK_FALSE(second.saved);
+  CHECK(second.outcome == SlideOutcome::Found);
+  CHECK(rest->getMoves() == 81);
+  CHECK(placesAlong(*rest) == placesAlong(*whole));
+  CHECK(second.visited == straight.visited);
+  // the folder goes with the search
+  CHECK(std::filesystem::is_empty(dir));
+
+  // saved again, and thrown away by a search that does not resume
+  StopSource again;
+  again.request(StopKind::Pause);
+  SlideSearch third;
+  third.workDir = dir.string();
+  third.stop = again.token();
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, third).has_value());
+  CHECK(third.outcome == SlideOutcome::Stopped);
+  CHECK(third.saved);
+  SlideSearch fresh;
+  fresh.workDir = dir.string();
+  fresh.resume = false;
+  REQUIRE(findSlidePath(f.puz, f.pr(), *f.start, fresh).has_value());
+  CHECK_FALSE(fresh.resumed);
+  CHECK(fresh.visited == straight.visited);
+
+  // discardSaved throws the problem's saved searches away
+  StopSource once;
+  once.request(StopKind::Pause);
+  SlideSearch other;
+  other.workDir = dir.string();
+  other.stop = once.token();
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, other).has_value());
+  CHECK(other.saved);
+  CHECK(std::filesystem::exists(dir));
+  discardSaved(f.puz, f.pr(), dir.string());
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// Searched from both ends, a puzzle whose goal is one arrangement gets a
+// path as short as the search from the start alone finds, through fewer
+// arrangements; a goal no sliding reaches is still proven out of reach.
+TEST_CASE("sliding: searching from both ends finds a path as short", "[sliding]") {
+  const SlideFixture f = eightPuzzle();
+  SlideSearch oneEnd;
+  const std::optional<Separation> fromStart = findSlidePath(f.puz, f.pr(), *f.start, oneEnd);
+  REQUIRE(fromStart.has_value());
+  CHECK(oneMoverPerStep(*fromStart));
+
+  SlideSearch bothEnds;
+  bothEnds.meetFrom = 1;
+  const std::optional<Separation> met = findSlidePath(f.puz, f.pr(), *f.start, bothEnds);
+  REQUIRE(met.has_value());
+  CHECK(met->getMoves() == fromStart->getMoves());
+  CHECK(oneMoverPerStep(*met));
+  CHECK(bothEnds.visited < oneEnd.visited);
+  // the path's ends are the start and the goal
+  const State& last = met->getState(met->getMoves());
+  const int gx[8] = {0, 1, 2, 0, 1, 2, 0, 1};
+  const int gy[8] = {0, 0, 0, 1, 1, 1, 2, 2};
+  for (unsigned int i = 0; i < 8; i++) {
+    CHECK(last.getX(i) == gx[i]);
+    CHECK(last.getY(i) == gy[i]);
+  }
+
+  // on several threads, the same path
+  SlideSearch threaded;
+  threaded.meetFrom = 1;
+  threaded.threads = 4;
+  const std::optional<Separation> again = findSlidePath(f.puz, f.pr(), *f.start, threaded);
+  REQUIRE(again.has_value());
+  CHECK(placesAlong(*again) == placesAlong(*met));
+
+  // two pieces swapped: no sliding reaches the goal
+  std::vector<SlideBlock> swapped;
+  for (int i = 0; i < 8; i++) {
+    const int x = i % 3;
+    const int y = i / 3;
+    const int g = i == 6 ? 7 : i == 7 ? 6 : i;
+    swapped.push_back({1, 1, x, y, g % 3, g / 3});
+  }
+  const SlideFixture s = slideFixture(3, 3, swapped);
+  SlideSearch none;
+  none.meetFrom = 1;
+  CHECK_FALSE(findSlidePath(s.puz, s.pr(), *s.start, none).has_value());
+  CHECK(none.outcome == SlideOutcome::NoPath);
+}
+
+// With only every few levels kept for tracing the path back, the gaps are
+// searched when the path is traced: the path is as short.
+TEST_CASE("sliding: the path is traced across thinned levels", "[sliding][parallel]") {
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  for (const unsigned int every : {2U, 3U, 7U, 100U}) {
+    for (const unsigned int threads : {1U, 3U}) {
+      INFO("every " << every << " on " << threads << " thread(s)");
+      SlideSearch search;
+      search.keepEvery = every;
+      search.threads = threads;
+      const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, search);
+      REQUIRE(path.has_value());
+      CHECK(path->getMoves() == 81);
+      CHECK(oneMoverPerStep(*path));
+      CHECK(search.levelInterval == every);
+    }
+  }
+  // both ends and thinned levels together
+  SlideSearch both;
+  both.keepEvery = 3;
+  both.meetFrom = 1;
+  const SlideFixture e = eightPuzzle();
+  const std::optional<Separation> path = findSlidePath(e.puz, e.pr(), *e.start, both);
+  REQUIRE(path.has_value());
+  CHECK(oneMoverPerStep(*path));
+  SlideSearch plain;
+  const std::optional<Separation> straight = findSlidePath(e.puz, e.pr(), *e.start, plain);
+  REQUIRE(straight.has_value());
+  CHECK(path->getMoves() == straight->getMoves());
+}
+
+#ifdef __SIZEOF_INT128__
+// Sorted parts join into one set without decoding; a cursor starts at any
+// key; a set written to a file opens again.
+TEST_CASE("sliding: key sets join, seek and reopen", "[sliding]") {
+  const std::filesystem::path dir = scratchDir("keyset2");
+  std::filesystem::create_directories(dir);
+  std::vector<Wide> keys;
+  for (int i = 0; i < 1000; i++) {
+    keys.push_back(static_cast<Wide>(i) * 37 + (i % 7 == 0 ? (static_cast<Wide>(1) << 70) : 0));
+  }
+  std::sort(keys.begin(), keys.end());
+  for (int onDisk = 0; onDisk < 2; onDisk++) {
+    const std::filesystem::path a = onDisk != 0 ? dir / "a" : std::filesystem::path();
+    const std::filesystem::path b = onDisk != 0 ? dir / "b" : std::filesystem::path();
+    levels::KeySet<Wide> first;
+    levels::KeySet<Wide> second;
+    REQUIRE(first.create(a));
+    REQUIRE(second.create(b));
+    // the cut leaves a part block in the first set
+    REQUIRE(first.addAll(keys.begin(), keys.begin() + 333));
+    REQUIRE(second.addAll(keys.begin() + 333, keys.end()));
+    REQUIRE(first.finish());
+    REQUIRE(second.finish());
+    levels::KeySet<Wide> joined;
+    REQUIRE(joined.create(onDisk != 0 ? dir / "joined" : std::filesystem::path()));
+    REQUIRE(joined.appendSet(first));
+    REQUIRE(joined.appendSet(second));
+    REQUIRE(joined.finish());
+    CHECK(joined.size() == keys.size());
+    CHECK(joined.lastKey() == keys.back());
+    std::vector<Wide> back;
+    REQUIRE(joined.load(back));
+    CHECK(back == keys);
+
+    // a cursor from a key in the set, from one between two, and past the end
+    for (const std::size_t from :
+         {std::size_t{0}, std::size_t{128}, std::size_t{500}, keys.size() - 1}) {
+      levels::KeySet<Wide>::Cursor c(joined, keys[from]);
+      std::vector<Wide> rest;
+      Wide k = 0;
+      while (c.next(k)) {
+        rest.push_back(k);
+      }
+      CHECK(rest ==
+            std::vector<Wide>(keys.begin() + static_cast<std::ptrdiff_t>(from), keys.end()));
+    }
+    levels::KeySet<Wide>::Cursor between(joined, keys[10] + 1);
+    Wide k = 0;
+    REQUIRE(between.next(k));
+    CHECK(k == keys[11]);
+    levels::KeySet<Wide>::Cursor past(joined, keys.back() + 1);
+    CHECK_FALSE(past.next(k));
+
+    if (onDisk != 0) {
+      // the file opens again by itself, every key found
+      joined.release();
+      levels::KeySet<Wide> reopened;
+      REQUIRE(reopened.open(dir / "joined"));
+      CHECK(reopened.size() == keys.size());
+      std::vector<char> found(keys.size(), 0);
+      levels::KeySet<Wide>::Reader reader(reopened);
+      REQUIRE(reopened.find(keys.data(), keys.size(), found.data(), reader));
+      CHECK(std::count(found.begin(), found.end(), 1) == static_cast<long>(keys.size()));
+      // the reopened set owns the file now: the first does not delete it
+      reopened.keepFile();
+    }
+  }
+  std::filesystem::remove_all(dir);
+}
+#endif

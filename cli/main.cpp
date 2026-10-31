@@ -677,6 +677,12 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     if (o.disassemble && sliding && !slidePool) {
       slidePool = std::make_unique<bt::ThreadPool>(budget);
+      // a saved slide search of a start is carried on, unless --restart
+      const bt::sliding::SlidingOptions so = slidingOptions(o);
+      if (o.restart) {
+        bt::sliding::discardSaved(puzzle, problem, so.workDir);
+      }
+      (void)bt::sliding::sweepSaved(so.workDir);
     }
 
     unsigned long assemblies = 0;
@@ -1120,6 +1126,8 @@ int main(int argc, char** argv) {
   if (const std::optional<int> code = bt::cli::parseArgs(argc, argv, o)) {
     return *code;
   }
+  // a slide search reads many level files at once
+  (void)bt::raiseOpenFileLimit(4096);
 
   bt::Result<bt::Puzzle> loaded = bt::io::loadPuzzle(o.file);
   if (!loaded) {

@@ -906,9 +906,10 @@ def sliding_solve_pause_continue_and_play(e):
         e.fails("solve.start", {"problem": p, "options": {"sliding": {"depth": 3}}}, "invalid_params")
 
         # paused in the middle of a search, carried on: a search with no
-        # solution stops at a small memory limit, with its note
+        # solution and nowhere to write its levels stops at a small memory
+        # limit, with its note (with a folder it would go on to the disk)
         memory = e.call("settings.get")["searchMemoryGB"]
-        e.call("settings.set", {"searchMemoryGB": 0.2})
+        e.call("settings.set", {"searchMemoryGB": 0.2, "slideFolder": ""})
         snap = e.call("document.open",
                       {"path": str(FIXTURES / "sliding" / "slide_swapped_fifteen.xmpuzzle")})
         p = snap["problems"][0]["id"]
