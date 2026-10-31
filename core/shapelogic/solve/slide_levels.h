@@ -117,7 +117,8 @@ class ReadFile {
       ov.OffsetHigh = static_cast<DWORD>(offset >> 32);
       DWORD got = 0;
       const DWORD want = static_cast<DWORD>(std::min<std::size_t>(len, 1U << 30));
-      if (!ReadFile(reinterpret_cast<HANDLE>(_get_osfhandle(fd_)), out, want, &got, &ov) ||
+      // ::ReadFile is Windows' (this class has its name)
+      if (!::ReadFile(reinterpret_cast<HANDLE>(_get_osfhandle(fd_)), out, want, &got, &ov) ||
           got == 0) {
         return false;
       }
