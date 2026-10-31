@@ -1,5 +1,5 @@
 # The puzzles the comparison harness runs, relative to the original BurrTools
-# checkout (BT_OLD_REPO, default ../burrtools_rotations).
+# checkout (BT_OLD_REPO, default ../burr-tools).
 #
 # Columns: tier  flags  path-or-glob
 #   tier  fast  every run (seconds in total)

@@ -1,11 +1,13 @@
 ---
-title: Build, Test and Tool Commands
-description: "The just recipes, build presets, npm scripts and environment switches used to build, test and package ShapeLogic."
+title: Tool Commands and Environment Variables
+description: "The just recipes, build presets, npm scripts and environment variables used to build, test and package ShapeLogic."
 ---
 
 Everything goes through `just`. The `justfile` at the root of the repository
 is the documented interface; do not invent ad-hoc build steps when a recipe
-exists. Typing `just` alone lists the recipes.
+exists. Typing `just` alone lists the recipes. What each test checks, and
+which ones to run after a change, is in
+[Code Testing Suites](/docs/code-base/testing/).
 
 ## What you need
 
@@ -17,7 +19,7 @@ exists. Typing `just` alone lists the recipes.
 | Node 22 | the app; Node 22.22 or newer for the website |
 | LLVM (optional) | `just check` (clang-tidy) and `just format` (clang-format) |
 | Emscripten (optional) | `just site-demo`, the engine as WebAssembly |
-| The original BurrTools checkout (optional) | the comparison harness; at `../burrtools_rotations` or `BT_OLD_REPO` |
+| The original BurrTools checkout (optional) | the comparison harness; at `../burr-tools` or `BT_OLD_REPO` |
 
 ## A first build
 
@@ -49,15 +51,11 @@ Warnings are errors in `dev` and `release`. Each preset builds into
 engine at `build/<preset>/engine/shapelogic_engine`, the CLI at
 `build/<preset>/cli/shapelogic_cli`.
 
-The test binary is Catch2, so it takes tags: `build/dev/tests/bt_tests
-"[solve]"` runs one module's cases, `"[parallel]"` the threaded ones,
-`"~[slow]"` everything but the slow cases.
-
 ## The comparison harness
 
-The original BurrTools is the specification. The harness runs the original
-`burrTxt` and the new `shapelogic_cli` on the same puzzles and compares the
-answers; `tests/oracle/README.md` explains the corpus and its tiers.
+The harness compares the new code's answers with the original BurrTools's,
+using the checkout at `../burr-tools` (or `BT_OLD_REPO`); see
+[Comparison with the original BurrTools](/docs/code-base/testing/#comparison-with-the-original-burrtools).
 
 ```bash
 just oracle [--tier …]  # assembly and solution counts against burrTxt
@@ -127,7 +125,7 @@ just release-fetch v1.4  # a copy of a release's installers in release/v1.4
 [Creating a New Release](/docs/code-base/releasing/) explains the whole
 flow.
 
-## Environment switches
+## Environment variables
 
 | Variable | Effect |
 |---|---|
@@ -142,15 +140,42 @@ flow.
 
 A packaged app ignores every development switch but `BT_USER_DATA`
 (`web/src/main/security.ts`). Nothing in `core/` reads the environment: the
-original's environment switches became fields of the options structs.
+original's environment switches became fields of the options structs. The
+command line tool reads a few for its sliding and Panex searches
+(`SHAPELOGIC_SLIDE_DIR` and others); see
+[Environment variables](/docs/command-line/#environment-variables) in the
+Command Line Tool page.
 
-## When you change something
+### Setting a variable
 
-| You changed | Then run |
-|---|---|
-| a method or event in `api/*.json` | `python3 api/apischema.py`, a contract call in `tests/contract/test_engine.py`, `python3 api/gen_api_md.py` (the `api-docs` test fails on a stale `docs/API.md`), `just app-gen` (a web test fails on stale types) |
-| what the engine sends | `npm run record` in `web/` (the fake engine's recordings) |
-| the C++ of a solver | `just test-all`, `just test-asan`, `just test-tsan`, the oracle tiers it could touch |
-| the app's UI | `just app-check`, `just app-test`, `just app-e2e` (look at changed screenshots first), `just docs-screenshots` if the guide shows it, `just site-demo` (the demo's staleness test fails otherwise) |
-| a page of this guide | `just site-build`; do not rename `/docs/` or `/docs/getting-started/`, which the app's Help menu opens |
-| a stage's worth of work | the "Finishing a stage" list in `AGENTS.md`, then `docs/ARCHITECTURE.md`, a hand-off note and the plan |
+Each variable is read when a command starts, so set it in the terminal you
+run the command from. `BT_OLD_REPO` is the example here; the others work the
+same way.
+
+For one command only, put it in front of the command (macOS and Linux):
+
+```sh
+BT_OLD_REPO=/path/to/burr-tools just oracle --tier sliding
+```
+
+For the rest of the terminal session:
+
+```sh
+export BT_OLD_REPO=/path/to/burr-tools
+```
+
+For every new terminal, add that `export` line to your shell's startup file
+(`~/.zshrc` for zsh, the macOS default; `~/.bashrc` for bash), then open a
+new terminal.
+
+On Windows, in PowerShell:
+
+```powershell
+$env:BT_OLD_REPO = "C:\path\to\burr-tools"     # this session only
+setx BT_OLD_REPO "C:\path\to\burr-tools"       # every new terminal (not this one)
+```
+
+To check it, `echo $BT_OLD_REPO` prints the value (`$env:BT_OLD_REPO` in
+PowerShell). For the harness, `just --evaluate old_repo`, run in the
+repository, prints the exact path it will use: the variable's value, or
+the default `../burr-tools` when it is not set.

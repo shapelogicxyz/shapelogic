@@ -44,7 +44,7 @@ Optional: LLVM for `just check` / `just format`.
 ```bash
 just build        # build/dev
 just test         # unit tests
-just oracle       # compare with the original BurrTools (needs ../burrtools_rotations built)
+just oracle       # compare with the original BurrTools (needs ../burr-tools built, or BT_OLD_REPO)
 ```
 
 Outputs: `build/<preset>/engine/shapelogic_engine` (the engine: JSON-RPC 2.0 on

@@ -58,21 +58,16 @@ void Document::syncSliding() {
   endSessions();
   const bool lost = boardsAbovePieces();
   // the problems are the user's: none comes or goes (syncSlidingParts)
-  const unsigned int colours = puzzle_->colorNumber();
   sliding::syncSlidingParts(*puzzle_);
   BT_ASSERT(ids_.problems.size() == puzzle_->getNumberOfProblems());
-  // the start locks may need colours the puzzle did not have
-  for (unsigned int c = colours; c < puzzle_->colorNumber(); c++) {
-    ids_.colours.push_back(newId());
-  }
-  // pieces were painted, parts changed: everything is news
+  // parts changed: everything is news
   lastChange_.shapes.clear();
   lastChange_.problems.clear();
   lastChange_.what |= kChangeAll;
   if (lost) {
     lastChange_.notice =
-        "Only the first 63 shapes can have a start or goal: the boards moved above the pieces, "
-        "and the pieces moved past the 63rd place lost their starts and goals.";
+        "Only the first 255 shapes can have a start or goal: the boards moved above the pieces, "
+        "and the pieces moved past the 255th place lost their starts and goals.";
   }
 }
 
@@ -81,7 +76,7 @@ void Document::slidingShapeChanged(unsigned int shape) {
     return;
   }
   const Voxel& v = puzzle_->getShape(shape);
-  if (sliding::isStartGoalShape(&v) || sliding::isHiddenSlidingShape(&v) || shape >= 63) {
+  if (sliding::isStartGoalShape(&v) || sliding::isHiddenSlidingShape(&v) || shape >= 255) {
     return;
   }
   // only when a start/goal shape has a mark of it
@@ -93,7 +88,7 @@ void Document::slidingShapeChanged(unsigned int shape) {
       continue;
     }
     for (unsigned int i = 0; i < tray.getXYZ() && !marked; i++) {
-      marked = tray.getColor(i) == mark || tray.getGoalPiece(i) == mark;
+      marked = tray.getStartPiece(i) == mark || tray.getGoalPiece(i) == mark;
     }
   }
   if (!marked) {
@@ -123,9 +118,9 @@ void Document::slidingMarksLost(Id shape, const std::vector<Id>& trays) {
   }
   std::sort(indices.begin(), indices.end());
   syncSliding();
-  lastChange_.notice = "Only the first 63 shapes can have a start or goal: " +
+  lastChange_.notice = "Only the first 255 shapes can have a start or goal: " +
                        shapeLabelOf(shapeIndex(shape).value()) +
-                       " moved past the 63rd place and its start and goal were removed from " +
+                       " moved past the 255th place and its start and goal were removed from " +
                        shapeList(*puzzle_, indices) + ".";
 }
 

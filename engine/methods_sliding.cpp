@@ -93,7 +93,7 @@ Reply slidingTray(State& s, Params& p) {
   Json starts = Json::array();
   Json goals = Json::array();
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
-    starts.push_back(markJson(s, v.getColor(i)));
+    starts.push_back(markJson(s, v.getStartPiece(i)));
     goals.push_back(markJson(s, v.getGoalPiece(i)));
   }
   // the stamps larger than their pieces, as the problem named (else the
@@ -114,7 +114,7 @@ Reply slidingTray(State& s, Params& p) {
   // each copy placed, start and goal, as whole pieces (marks that are not
   // whole pieces: all of them as one)
   Json placed = Json::array();
-  for (unsigned int i = 0; i < puzzle.getNumberOfShapes() && i < 63; i++) {
+  for (unsigned int i = 0; i < puzzle.getNumberOfShapes() && i < 255; i++) {
     const Voxel& piece = puzzle.getShape(i);
     if (sliding::isStartGoalShape(&piece) || sliding::isHiddenSlidingShape(&piece)) {
       continue;
@@ -126,7 +126,7 @@ Reply slidingTray(State& s, Params& p) {
       } else {
         std::vector<sliding::TrayCell> all;
         for (unsigned int c = 0; c < v.getXYZ(); c++) {
-          if ((goal ? v.getGoalPiece(c) : v.getColor(c)) == i + 1) {
+          if ((goal ? v.getGoalPiece(c) : v.getStartPiece(c)) == i + 1) {
             all.push_back({static_cast<int>(c % v.getX()),
                            static_cast<int>((c / v.getX()) % v.getY()),
                            static_cast<int>(c / (v.getX() * v.getY()))});

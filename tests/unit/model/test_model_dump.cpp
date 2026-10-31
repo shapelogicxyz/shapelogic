@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -160,6 +161,10 @@ TEST_CASE("model dump: the model computes what the original computes", "[model][
     }
   }
 
+  // BT_DUMP_OUT=<file> writes the dump made here, to record it anew
+  if (const char* path = std::getenv("BT_DUMP_OUT")) {
+    std::ofstream(path) << out.str();
+  }
   std::ifstream recorded("tests/data/model_dump.txt");
   REQUIRE(recorded.good());
   std::istringstream ours(out.str());

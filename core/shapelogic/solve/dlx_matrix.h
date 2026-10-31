@@ -124,6 +124,7 @@ class DlxMatrix {
   /// goes. On an error `param` says more (the units too many or too few,
   /// the shape that fits nowhere).
   AssemblerError build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
+                       bool startLocks, const std::vector<bool>& freeStarts,
                        const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
                        std::atomic<unsigned int>& piece, int& param);
 
@@ -167,7 +168,8 @@ class DlxMatrix {
   void generateFirstRow();
   unsigned int addPieceNode(unsigned int piece, unsigned int rot, int x, int y, int z);
   void addVoxelNode(unsigned int col, unsigned int piecenode);
-  int prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors,
+  int prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors, bool startLocks,
+              const std::vector<bool>& freeStarts,
               const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
               std::atomic<unsigned int>& piece);
   unsigned int clumpify();

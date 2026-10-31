@@ -7,6 +7,7 @@
 #include "shapelogic/io/paused_solve.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/io/xml_document.h"
+#include "shapelogic/model/sliding.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -82,7 +83,12 @@ TEST_CASE("puzzle file: every fixture is saved byte for byte as the original sav
         readText(std::filesystem::path("tests/data/saved_by_original") /
                  (path.stem().string() + ".xml"));
     REQUIRE_FALSE(theirs.empty());
-    CHECK(ours == theirs);
+    // a sliding puzzle's start marks were its cell colours: the original's
+    // file is converted as it loads, so its save is the new form, not
+    // the original's bytes
+    if (p.getGridType().getType() != GridKind::Sliding) {
+      CHECK(ours == theirs);
+    }
 
     // and the save reads back to itself
     CHECK(io::writePuzzle(parse(ours)) == ours);
@@ -518,4 +524,44 @@ TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
     CHECK((std::filesystem::status(file).permissions() & perms::all) == mode);
   }
   std::filesystem::remove_all(dir);
+}
+
+// A sliding puzzle's start marks have an attribute of their own, start=,
+// beside goal=; a file of the original's keeps them as the cell colours of
+// its start/goal shapes, with the pieces painted in their marks and a
+// palette for the locks: converted as it loads, written the new way.
+TEST_CASE("file: sliding start marks are read, written and converted from colours",
+          "[io][sliding]") {
+  const Result<Puzzle> p = io::parsePuzzle(
+      "<?xml version=\"1.0\"?><puzzle version=\"2\"><gridType type=\"5\"/><shapes>"
+      "<voxel x=\"2\" y=\"2\" z=\"1\" name=\"sg:1:\" start=\"2,0,0,3\" goal=\"0,2,0,0\" "
+      "type=\"0\">####</voxel></shapes></puzzle>");
+  REQUIRE(p.has_value());
+  const Voxel& v = p->getShape(0);
+  CHECK(v.getStartPiece(0) == 2);
+  CHECK(v.getStartPiece(3) == 3);
+  CHECK(v.getGoalPiece(1) == 2);
+  CHECK(v.getColor(0) == 0);
+  const std::string out = io::writePuzzle(*p);
+  CHECK(out.find("start=\"2,0,0,3\"") != std::string::npos);
+  CHECK(out.find("goal=\"0,2,0,0\"") != std::string::npos);
+
+  // the original's Klotski: starts as colours, pieces painted, 11 colours
+  Puzzle k = test::loadFixture("sliding/slide_klotski.xmpuzzle");
+  const Voxel& tray = k.getShape(0);
+  CHECK(sliding::isStartGoalShape(&tray));
+  CHECK(tray.hasStartPieces());
+  CHECK(tray.getStartPiece(1, 0, 0) == 2);
+  CHECK(k.colorNumber() == 0);
+  for (unsigned int s = 0; s < k.getNumberOfShapes(); s++) {
+    for (unsigned int i = 0; i < k.getShape(s).getXYZ(); i++) {
+      CHECK(k.getShape(s).getColor(i) == 0);
+    }
+  }
+  // saved and read again, the marks are the same, and no colours came back
+  const Result<Puzzle> again = io::parsePuzzle(io::writePuzzle(k));
+  REQUIRE(again.has_value());
+  CHECK(again->getShape(0) == tray);
+  CHECK(again->colorNumber() == 0);
+  CHECK(io::writePuzzle(k).find("start=") != std::string::npos);
 }

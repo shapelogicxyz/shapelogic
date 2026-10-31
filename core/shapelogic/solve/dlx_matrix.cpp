@@ -213,6 +213,7 @@ void DlxMatrix::addVoxelNode(unsigned int col, unsigned int piecenode) {
 //
 // Returns 1, or minus the shape id of a part that has no placement.
 int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors,
+                       bool startLocks, const std::vector<bool>& freeStarts,
                        const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
                        std::atomic<unsigned int>& piece) {
   const Voxel& result = problem.resultShape(puzzle);
@@ -364,7 +365,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
   std::vector<std::unique_ptr<Voxel>> cache;
   cache.reserve(sym.getNumTransformationsMirror());
 
-  const PlacementFinder finder(puzzle, problem, result, strictColors);
+  const PlacementFinder finder(puzzle, problem, result, strictColors, startLocks);
   std::vector<long> voxelOffsets;
   std::vector<int> positions;
 
@@ -373,6 +374,9 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
 
   for (unsigned int pc = 0; pc < problem.getNumberOfParts(); pc++) {
     piece.store(pc, std::memory_order_relaxed);
+    const PlacementFinder::StartLock lock{
+        static_cast<unsigned char>(problem.getShapeIdOfPart(pc) + 1),
+        pc < freeStarts.size() ? freeStarts[pc] : true};
 
     // the orientations found so far, so that no orientation goes in twice
     cache.clear();
@@ -391,7 +395,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
       const Voxel* rotation = addToCache(cache, std::move(rotated));
 
       if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions);
+        finder.find(*rotation, voxelOffsets, positions, lock);
 
         for (std::size_t p = 0; p < positions.size(); p += 3) {
           const int x = positions[p];
@@ -436,6 +440,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
 }
 
 AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
+                                bool startLocks, const std::vector<bool>& freeStarts,
                                 const std::vector<std::uint64_t>& partTransforms,
                                 RotationFilter& filter, std::atomic<unsigned int>& piece,
                                 int& param) {
@@ -474,7 +479,8 @@ AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bo
 
   holes = h;
 
-  const int error = prepare(puzzle, problem, strictColors, partTransforms, filter, piece);
+  const int error =
+      prepare(puzzle, problem, strictColors, startLocks, freeStarts, partTransforms, filter, piece);
 
   // a piece that cannot be placed
   if (error <= 0) {

@@ -21,7 +21,7 @@
       "errors": ["not_found"]
     },
     "problem.create": {
-      "summary": "Adds a problem; it allows each colour on itself (on a sliding puzzle, whose cell colours are start marks, it has no colour rules).",
+      "summary": "Adds a problem; it allows each colour on itself.",
       "params": {"type": "object", "properties": {}, "additionalProperties": false},
       "result": {"$ref": "#/$defs/Made"},
       "errors": ["invalid_argument", "invalid_state"]

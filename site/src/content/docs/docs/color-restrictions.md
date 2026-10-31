@@ -18,9 +18,10 @@ They do two things:
   piece that breaks the rules before the search starts. Fewer placements
   means a smaller search, sometimes a much smaller one.
 
-Color restrictions work in all the normal (assembly) puzzle types. Sliding
-puzzles use cell colors for their start marks instead, and stacking puzzles
-don't use them.
+Color restrictions work in all the normal (assembly) puzzle types and in
+sliding puzzles, where they work a little differently (see
+[Sliding puzzles](#sliding-puzzles) below). Stacking puzzles don't use
+them.
 
 ## Painting constraint colors
 
@@ -110,6 +111,35 @@ need rules other than "each color on itself".
 The switch is saved with each problem, and the search is built with it.
 Changing it on a paused solve throws the paused search away: the results so
 far are removed, and the problem has to be solved again.
+:::
+
+## Sliding puzzles
+
+In a [sliding puzzle](/docs/puzzle-types/sliding/), paint the pieces and
+the board. The colors decide where each piece may **start**: the solver
+only finds start layouts that follow them. Once the pieces are on the
+board, the colors play no part: a piece slides over cells of any color,
+and where it must end is set by its goal mark, not by colors.
+
+- **Strict Color Restrictions does not apply.** A sliding puzzle has no
+  such switch: its colors always match as with the switch off. Neutral
+  voxels fit anywhere, and the color rules grid decides which piece colors
+  may sit on which board colors.
+- **Start marks and colors both count.** A piece with a start mark must
+  start on its mark, and the colors there must also allow it. If they
+  don't, there is no start layout and the solve finds nothing.
+- **Pieces without a start mark** may start on any board cells that are
+  not another piece's start, as long as the colors allow it. This is where
+  colors are most useful: they keep such a piece to part of the board.
+
+Start and goal marks are kept apart from the colors, so painting a board
+never moves or removes a mark.
+
+:::note
+Sliding puzzles made with BurrTools, or with earlier versions of
+ShapeLogic, kept the start marks in the board's colors. They are converted
+when they load: the colors on the board become start marks, and the colors
+that only held the marks are removed.
 :::
 
 ## Tips

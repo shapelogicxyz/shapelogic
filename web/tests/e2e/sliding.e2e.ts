@@ -211,10 +211,11 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
     // a board is drawn with the ordinary tools, which say what its cells are
     await expect(page.locator('#trayRow')).toHaveCount(0);
     await expect(page.locator('#toolStrip [data-t="erase"]')).toHaveAttribute('title', /^Wall/);
-    // no constraint colours: the shape's own color, with only the pencil
+    // constraint colours as on every grid (the start marks are apart from
+    // them): none yet, so the shape's own color, with only the pencil
     await expect(page.locator('#cEdit')).toBeVisible();
-    await expect(page.locator('#cAdd')).toHaveCount(0);
-    await expect(page.locator('#cRm')).toHaveCount(0);
+    await expect(page.locator('#cAdd')).toBeVisible();
+    await expect(page.locator('#cRm')).toBeDisabled();
     await expect(page.locator('#toolStrip [data-t="paint"]')).toHaveCount(0);
     // one layer to begin with; more may be added
     await expect(page.locator('#sizeSteppers [data-d="2"][data-s="-1"]')).toBeDisabled();
@@ -530,7 +531,9 @@ test('notices in message boxes; what the original greyed out is not offered or i
     await openFixture(page, 'test_sliding_solver.xmpuzzle');
     const s3 = await idOf(page, 'S2');
     await selectShape(page, s3);
-    await expect(page.locator('#cAdd')).toHaveCount(0);
+    // the file's lock colours were converted away: no colours, the Add button
+    await expect(page.locator('#cAdd')).toBeVisible();
+    await expect(page.locator('#colFoot .sw.c')).toHaveCount(0);
     // the tasks that add layers are offered
     await expect(page.locator('#tmat [data-task="rotate6"]')).toHaveCount(1);
     await clickCell(page, [1, 4, 0]);

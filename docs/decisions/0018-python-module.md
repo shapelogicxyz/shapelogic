@@ -45,7 +45,7 @@ iterator, decision 0004).
 **Sliding and stacking puzzles solve through a `SolveSession`**
 (decisions 0010, 0014, 0015), as every solve of theirs does: what the
 GUI checked before (the start/goal shape, the stamps) and set up (the
-start locks, the discs' hotspots) on the copy, then the session's run,
+maximum of holes, the discs' hotspots) on the copy, then the session's run,
 whose solutions are yielded when it ends (a sliding run replaces a
 solution by a shorter one to the same picture, so none is final
 before). The original's module assembled them as brick puzzles, which

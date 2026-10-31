@@ -78,8 +78,8 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
   AssemblyExplorer e;
   e.puzzle_ = explorerCopy(puzzle, problemIndex);
   // A sliding puzzle's placements are those its solve makes (the original
-  // browsed the solve's own assembler): the start locks set up, every
-  // start kept, colours matched strictly, Classic's assembler.
+  // browsed the solve's own assembler): the holes set up, every start
+  // kept, the pieces held to their starts, Classic's assembler.
   MatrixOptions options = matrix;
   if (grid.getType() == GridKind::Sliding) {
     (void)sliding::prepareForSolving(*e.puzzle_, e.puzzle_->getProblem(0));
@@ -87,7 +87,12 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
     options.keepMirrors = true;
     options.keepRotations = true;
     options.completeRotations = false;
-    options.strictColors = true;
+    const bool marks = sliding::usesStartMarks(*e.puzzle_, e.puzzle_->getProblem(0));
+    options.strictColors = !marks;
+    options.startLocks = marks;
+    if (marks) {
+      options.freeStarts = sliding::freeStartParts(*e.puzzle_, e.puzzle_->getProblem(0));
+    }
     // the pieces as drawn (the default of the solve's orientation options)
     options.partTransforms = sliding::partTransforms(*e.puzzle_, e.puzzle_->getProblem(0), false,
                                                      false);

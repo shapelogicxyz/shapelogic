@@ -609,12 +609,11 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                    problem.getName().c_str());
       return kExitUsage;
     }
-    // a sliding start is held by its colours (the start locks), matched
-    // strictly; and judged against a fixed goal, so rotated and mirrored
-    // starts are different starts: all are kept
+    // a sliding start is held by the start marks (the start locks); and
+    // judged against a fixed goal, so rotated and mirrored starts are
+    // different starts: all are kept
     if (sliding) {
       bt::sliding::syncMaxHoles(puzzle, problem);
-      bt::sliding::refreshStartLocks(puzzle, problem);
     }
 
     const bt::AssemblerKind kind = bt::chooseAssembler(problem, o.solver);
@@ -624,7 +623,14 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     std::unique_ptr<bt::Assembler> assembler = bt::makeAssembler(puzzle, problem, o.solver);
 
     bt::MatrixOptions matrix;
-    matrix.strictColors = o.strictColors || sliding;
+    // the start marks hold a sliding piece to its start; the older model
+    // (a tray and a goal map in piece colours) is matched strictly instead
+    const bool marks = sliding && bt::sliding::usesStartMarks(puzzle, problem);
+    matrix.strictColors = sliding ? !marks : o.strictColors;
+    matrix.startLocks = marks;
+    if (marks) {
+      matrix.freeStarts = bt::sliding::freeStartParts(puzzle, problem);
+    }
     matrix.keepMirrors = sliding;
     matrix.keepRotations = sliding;
     // a sliding piece slides without turning: it starts as drawn, or,
@@ -675,14 +681,16 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                                                         takeApartOptions(o, takeApartPool.get()));
     }
 
-    if (o.disassemble && sliding && !slidePool) {
-      slidePool = std::make_unique<bt::ThreadPool>(budget);
+    if (o.disassemble && sliding) {
       // a saved slide search of a start is carried on, unless --restart
       const bt::sliding::SlidingOptions so = slidingOptions(o);
       if (o.restart) {
         bt::sliding::discardSaved(puzzle, problem, so.workDir);
       }
-      (void)bt::sliding::sweepSaved(so.workDir);
+      if (!slidePool) {
+        slidePool = std::make_unique<bt::ThreadPool>(budget);
+        (void)bt::sliding::sweepSaved(so.workDir);
+      }
     }
 
     unsigned long assemblies = 0;
@@ -693,6 +701,9 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     unsigned int slideStartsCut = 0;
     bool slideMemoryCut = false;
     std::string slideDiskError;
+    // a start's search ran out of disk and was saved: the run stops there,
+    // and the same command carries it on
+    bool slideSaved = false;
     std::atomic<unsigned long> seenAssemblies{0};
     ProgressTicker ticker(o.progress, [&] {
       const unsigned long seen = seenAssemblies.load(std::memory_order_relaxed);
@@ -733,6 +744,10 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
             }
             if (search.outcome == bt::sliding::SlideOutcome::Disk) {
               slideDiskError = search.error;
+              if (search.saved) {
+                slideSaved = true;
+                return false;
+              }
             }
             if (path) {
               // a start that slides to a picture counted before counts only
@@ -792,7 +807,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
         },
         search, bt::StopToken{});
     ticker.stop();
-    if (end != bt::RunEnd::Finished) {
+    if (end != bt::RunEnd::Finished && !slideSaved) {
       std::fprintf(stderr, "shapelogic_cli: the search stopped before its end\n");
       return kExitError;
     }
@@ -819,6 +834,12 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                   ? "the search limit was reached"
                   : slideDiskError.substr(0, slideDiskError.size() - 1).c_str(),
               slideMemoryCut && !o.highMemory ? " (try --high-memory)" : "");
+          if (slideSaved) {
+            std::printf(
+                "the search stopped there and is saved: free some disk space or raise "
+                "SHAPELOGIC_SLIDE_DISK_GB, then run the same command again to carry it on, or "
+                "add --restart to start over\n");
+          }
         } else if (solutions == 0 && assemblies > 0 && o.slideStep > 1) {
           std::printf("no solution with --slide-step %d; one may need stops in between\n",
                       o.slideStep);
@@ -1169,9 +1190,10 @@ int main(int argc, char** argv) {
   if (o.solverName != nullptr && !pickSolver(kind, o.solverName, o)) {
     return kExitUsage;
   }
-  // a stacking puzzle's --restart throws a saved search away (burrTxt's);
-  // the others' goes with --save (burrTxt2's)
-  if (o.restart && o.saveTo == nullptr && kind != PuzzleKind::Stacking) {
+  // a stacking or sliding puzzle's --restart throws its saved searches
+  // away (burrTxt's for stacking); a brick puzzle's goes with --save
+  // (burrTxt2's)
+  if (o.restart && o.saveTo == nullptr && kind == PuzzleKind::Brick) {
     std::fputs(
         "shapelogic_cli: --restart, --limit, --count-only, --keep-mirrors, --keep-rotations and\n"
         "    --drop-disassemblies go with --save\n",

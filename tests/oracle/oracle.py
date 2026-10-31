@@ -1867,7 +1867,7 @@ def cmd_blockpack_check(args: argparse.Namespace) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burrtools_rotations")))
+    p.add_argument("--old-repo", type=Path, default=Path(os.environ.get("BT_OLD_REPO", HERE.parent.parent.parent / "burr-tools")))
     p.add_argument("--new-bt", type=Path, default=HERE.parent.parent / "build" / "release" / "cli" / "shapelogic_cli")
     sub = p.add_subparsers(dest="cmd", required=True)
     for name in ("baseline", "compare", "baseline-files", "compare-files", "baseline-text", "compare-text"):

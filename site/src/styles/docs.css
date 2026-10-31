@@ -1,0 +1,8 @@
+/* The user guide's pages (Starlight), on top of its own styles. */
+
+/* The page's body grows with the window up to 1000px, its padding included
+   (Starlight's default stops the text at 45rem). Pages without a sidebar
+   keep Starlight's wider rule. */
+:root {
+  --sl-content-width: calc(1000px - 2 * var(--sl-content-pad-x));
+}

@@ -28,7 +28,7 @@ under [`--save`](#--save-solve-and-write-the-solved-file).
   - [What a solve does](#what-a-solve-does) · [Output](#output) · [The level text](#the-level-text)
   - [`-d`](#-d-solve-completely) · [`-q`](#-q-quiet) · [`-s`](#-s-print-the-assemblies) · [`-p`](#-p-print-the-moves) · [`-n`](#-n-no-newline) · [`-o`](#-o-choose-the-problem) · [`-r`](#-r-reduce-the-placements) · [`-t`](#-t-threads) · [`--progress`](#--progress)
 - [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colours)
-- [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--high-memory`](#--high-memory)
+- [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--vertical-moves`](#--vertical-moves) · [`--any-orientation`, `--mirrored-orientations`](#--any-orientation-and---mirrored-orientations) · [`--high-memory`](#--high-memory)
 - [Stacking puzzles](#stacking-puzzles-1): [`--solver`](#--solver-stacking-or-panex) · [Long Panex searches](#long-panex-searches-stop-and-carry-on)
 - [`--json`: machine-readable output](#--json-machine-readable-output)
 - [`--save`: solve and write the solved file](#--save-solve-and-write-the-solved-file)
@@ -163,8 +163,12 @@ The tool has four modes. Which one runs depends on the options:
 | `-r` | Reduce the placements before finding the start layouts. |
 | `--nested-slides` | A piece carries the pieces nested inside its outline. |
 | `--partial-nested` | Also carry pieces only partly inside. Implies `--nested-slides`. |
-| `--high-memory` | Allow up to half the computer's memory instead of about 2 GB. |
+| `--vertical-moves` | On a tray more than one layer deep, pieces may also move up and down. |
+| `--any-orientation` | A piece with no start and no goal may be placed in any quarter turn. |
+| `--mirrored-orientations` | Those pieces may also be placed mirrored. Implies `--any-orientation`. |
+| `--high-memory` | Keep up to half the computer's memory of arrangements in memory instead of about 2 GB. |
 | `--solver` | `"Sliding Puzzle Solver"` (`sliding`), the only one, so it never needs to be given. |
+| `--restart` | Throw away the saved searches of this problem's starts and start over. |
 
 ### Stacking puzzles
 
@@ -464,25 +468,36 @@ Sliding puzzles have one solver, the **Sliding Puzzle Solver** (`--solver
 sliding` or `--solver "Sliding Puzzle Solver"`, which is also what runs
 without `--solver`). It has no limit on the arrangements it looks at: it
 finds the fewest moves, or proves there is no solution. It uses every core
-(`-t n` to limit it). It keeps only the newest moves in memory and writes
-older ones to disk, so free disk space is what limits it:
+(`-t n` to limit it). Its memory use stays level: once the arrangements
+outgrow the search memory (see [`--high-memory`](#--high-memory)), they go to
+disk, so free disk space is what limits it:
 
-- It keeps the first 256 MB of older moves in memory, then writes to the
-  folder in `SHAPELOGIC_SLIDE_DIR`, or else to `sliding` in the user's cache
-  folder (see [environment variables](#environment-variables)). It deletes its
-  files when it is done.
+- It writes to the folder in `SHAPELOGIC_SLIDE_DIR`, or else to `sliding` in
+  the user's cache folder (see [environment variables](#environment-variables)).
+  A small search never touches the disk. The files go when the search ends.
 - `SHAPELOGIC_SLIDE_DISK_GB` limits the disk it may take. By default it may
   use half the free space, at most 200 GB. A larger value is held to the free
   space, less 2 GB or a twentieth of it, so the disk never fills up. On a Mac
   the free space includes what macOS frees when it is needed, as Finder
   counts it.
+- As the disk fills, it keeps fewer of the older moves (without nested
+  slides), and works out the missing ones again when it traces the path back.
+- When the goal is a single arrangement and the search grows wide, it also
+  searches back from the goal until the two ends meet.
 
-If a start's search runs out of memory or disk, the tool says so after the
-summary:
+However much disk it may take, it stops while at least 100 MB, plus the
+room to save its search, is still free on the disk.
+
+If a start's search fills its disk space, the search is saved and the run
+stops there. The tool says so after the summary:
 
 ```text
-1 start layout(s) not searched completely: the search limit was reached, so solutions may be missing (try --high-memory)
+1 start layout(s) not searched completely: The search filled the disk space it may use (40.0 GB in /Users/me/Library/Caches/ShapeLogic/sliding), so solutions may be missing
+the search stopped there and is saved: free some disk space or raise SHAPELOGIC_SLIDE_DISK_GB, then run the same command again to carry it on, or add --restart to start over
 ```
+
+Running the same command again carries the saved search on; `--restart`
+throws it away. Saved searches nobody carries on for 30 days are deleted.
 
 When every reachable arrangement was searched and none reaches the goal, the
 tool says so:
@@ -511,16 +526,40 @@ sticking out. It implies `--nested-slides`.
 These change which moves are allowed, so they can change the answer. Use the
 same setting as the puzzle's design.
 
+### `--vertical-moves`
+
+```sh
+shapelogic_cli -d --vertical-moves two-layer-tray.xmpuzzle
+```
+
+On a tray more than one layer deep, a piece may also move up and down, lifted
+over the other pieces and put down somewhere else. Without it every piece
+slides only in its own layer. One layer deep, it changes nothing.
+
+### `--any-orientation` and `--mirrored-orientations`
+
+```sh
+shapelogic_cli -d --any-orientation spare-pieces.xmpuzzle
+```
+
+A piece keeps the orientation it is drawn in: it is placed on the board that
+way and never turns as it slides. With `--any-orientation`, a piece that has
+neither a start nor a goal on the board may be placed in any of its quarter
+turns in its layers, each one a different start. `--mirrored-orientations`
+also lets those pieces be placed mirrored, and implies `--any-orientation`. A
+piece with a start or a goal is always placed as drawn.
+
 ### `--high-memory`
 
 ```sh
 shapelogic_cli -d --high-memory big-slider.xmpuzzle
 ```
 
-The search normally stops when it holds about 2 GB of arrangements in memory.
-`--high-memory` lets it use up to half of the computer's memory. When the
-search runs out of memory without it, the message ends with
-`(try --high-memory)`.
+The search normally keeps about 2 GB of arrangements in memory and writes the
+rest to disk. `--high-memory` lets it keep up to half of the computer's
+memory, which is faster. If it has nowhere to write (no cache folder and no
+`SHAPELOGIC_SLIDE_DIR`), memory is its limit, and when it runs out the
+message ends with `(try --high-memory)`.
 
 ## Stacking puzzles
 
@@ -815,7 +854,7 @@ A script should check the exit code and, in text mode, the solution count:
 
 | Variable | Used for | Default |
 |---|---|---|
-| `SHAPELOGIC_SLIDE_DIR` | Where the Sliding Puzzle Solver writes its older moves. | `sliding` in the cache folder |
+| `SHAPELOGIC_SLIDE_DIR` | Where the Sliding Puzzle Solver writes what outgrows its memory, and its saved searches. | `sliding` in the cache folder |
 | `SHAPELOGIC_SLIDE_DISK_GB` | The disk the Sliding Puzzle Solver may take, in GB. | Half the free space, at most 200 GB |
 | `SHAPELOGIC_PANEX_DIR` | Where Panex searches are saved. `--panex-dir` overrides it. | `panex` in the cache folder |
 | `SHAPELOGIC_PANEX_DISK_GB` | The disk saved Panex levels may take, in GB. `--panex-disk` overrides it. | Half the free space, at most 200 GB |
@@ -829,7 +868,9 @@ The **cache folder** is:
 | Linux | `$XDG_CACHE_HOME/shapelogic`, or `~/.cache/shapelogic` |
 
 Saved Panex searches can be large. Delete the `panex` folder to remove them
-all, or use `--restart` for one problem.
+all, or use `--restart` for one problem. Saved sliding searches go after 30
+days unused; delete the `sliding` folder to remove them sooner, or use
+`--restart` for one problem.
 
 ## Benchmark and comparison switches
 

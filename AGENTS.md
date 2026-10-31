@@ -2,7 +2,7 @@
 
 ShapeLogic is a rebuild of the ShapeLogic puzzle solver's core (C++23)
 with an engine process for a future web front end. The original application
-(`../burrtools_rotations`, override with `BT_OLD_REPO`) is the **reference**:
+(`../burr-tools`, override with `BT_OLD_REPO`) is the **reference**:
 ported code must give the same answers on the comparison corpus.
 
 Read before starting any task (for the web front end, see "The web front

@@ -54,7 +54,7 @@ std::string marks(const Document& d, Id tray) {
   const Voxel& v = d.puzzle().getShape(index(d, tray));
   std::string out;
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
-    out += std::to_string(v.getColor(i)) + "/" + std::to_string(v.getGoalPiece(i)) + " ";
+    out += std::to_string(v.getStartPiece(i)) + "/" + std::to_string(v.getGoalPiece(i)) + " ";
   }
   return out;
 }
@@ -119,13 +119,14 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
   const Voxel& wantTray = fixture.getShape(0);
   const Voxel& gotTray = d.puzzle().getShape(index(d, tray));
   for (unsigned int i = 0; i < wantTray.getXYZ(); i++) {
-    CHECK(gotTray.getColor(i) == wantTray.getColor(i));
+    CHECK(gotTray.getStartPiece(i) == wantTray.getStartPiece(i));
     CHECK(gotTray.getGoalPiece(i) == wantTray.getGoalPiece(i));
   }
-  // and the pieces are locked to their starts
+  // and the pieces carry no colours: the marks hold them to their starts
   for (unsigned int s = 1; s < d.puzzle().getNumberOfShapes(); s++) {
-    CHECK(sliding::pieceColor(d.puzzle(), s) == s + 1);
+    CHECK(sliding::pieceColor(d.puzzle(), s) == 0);
   }
+  CHECK(d.colourIds().empty());
 
   // solved through the document: one solution of 81 moves, which plays
   SolveOptions o;
@@ -199,7 +200,7 @@ TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[ap
   // goal to start, after the goal moved
   REQUIRE(d.placeStamp(tray, b, 3, 0, 0, true).value());
   roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, false); });
-  CHECK(d.puzzle().getShape(index(d, tray)).getColor(3, 0, 0) == mb);
+  CHECK(d.puzzle().getShape(index(d, tray)).getStartPiece(3, 0, 0) == mb);
 
   // a start on a corridor cannot be a goal: refused, nothing changed
   REQUIRE(d.editCells(tray, CellTool::Variable, 0, 0, {{0, 0, 0}}).has_value());
@@ -270,9 +271,8 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     CHECK(sliding::stampAt(&t, 2, 2, 0, false) == static_cast<unsigned int>(-1));
     CHECK(sliding::stampAt(&t, 0, 2, 0, true) == static_cast<unsigned int>(-1));
     CHECK(sliding::stampAt(&t, 0, 0, 0, false) == ia);
-    // b keeps its part (the original's sync only adds parts), not its lock
+    // b keeps its part (the original's sync only adds parts)
     CHECK(d.puzzle().getProblem(0).getShapeMaximum(ib) == 1);
-    CHECK(sliding::pieceColor(d.puzzle(), ib) == 0);
     // one step: undone, everything is back
     const test::DocState now = test::state(d);
     REQUIRE(d.undo().has_value());
@@ -281,15 +281,13 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     CHECK(test::state(d) == now);
   }
   SECTION("walls on a start/goal shape: the problem follows") {
-    // a's start cell made a wall: its mark goes, and with it the lock (the
-    // part stays, as the original's sync only adds parts)
+    // a's start cell made a wall: its mark goes (the part stays, as the
+    // original's sync only adds parts)
     roundTrip(d, [=](Document& x) {
       return x.editCells(tray, CellTool::Erase, 0, 0, {{0, 0, 0}});
     });
     CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
           static_cast<unsigned int>(-1));
-    CHECK(sliding::pieceColor(d.puzzle(), ia) == 0);
-    CHECK(sliding::pieceColor(d.puzzle(), ib) == ib + 1);
     CHECK(d.puzzle().getProblem(0).getNumberOfParts() == 2);
   }
 }
@@ -329,15 +327,20 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   // an unstamped piece's count can be set
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, free, 1, 2); });
 
-  // the colour group was hidden: the cell colours are the start marks and
-  // the pieces' locks, which deleting a colour would renumber
-  REQUIRE_FALSE(d.colourIds().empty());
-  refused(d, Errc::InvalidArgument,
-          [](Document& x) { return x.deleteColour(x.colourIds()[0]); });
-  const Puzzle before = d.puzzle();
-  CHECK(roundTrip(d, [](Document& x) { return x.addColour(Rgb{1, 2, 3}); }).has_value());
-  CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)) ==
-        sliding::startGoalError(before, index(d, tray)));
+  // the colours are the user's, as on every grid (the original kept the
+  // start marks in them and hid the colour group): added, painted on a
+  // tray cell and deleted, the marks stay as they were
+  CHECK(d.colourIds().empty());
+  const std::string before = marks(d, tray);
+  const Id red = roundTrip(d, [](Document& x) { return x.addColour(Rgb{255, 0, 0}); }).value();
+  roundTrip(d, [=](Document& x) { return x.editCells(tray, CellTool::Paint, red, 0, {{0, 0, 0}}); });
+  CHECK(d.puzzle().getShape(index(d, tray)).getColor(0, 0, 0) == 1);
+  CHECK(marks(d, tray) == before);
+  roundTrip(d, [=](Document& x) { return x.deleteColour(red); });
+  CHECK(d.puzzle().getShape(index(d, tray)).getColor(0, 0, 0) == 0);
+  CHECK(marks(d, tray) == before);
+  CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)).empty() ==
+        sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
 }
 
 TEST_CASE("sliding document: the user makes the problems and chooses their boards",
@@ -349,8 +352,8 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   const Id c = piece(d, 1, 1, {{0, 0, 0}});
   REQUIRE(d.problemIds().empty());
 
-  // a new problem has no result, and no colour rules (the cell colours are
-  // start marks); a piece is no result, a board is
+  // a new problem has no result, and the colour rules every grid starts
+  // with (none without colours); a piece is no result, a board is
   const Id p = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
   CHECK_FALSE(d.puzzle().getProblem(0).resultValid());
   CHECK(d.puzzle().getProblem(0).getColorConstraints().empty());
@@ -444,59 +447,58 @@ TEST_CASE("sliding document: shapes may have layers, pieces keep plain names",
   CHECK(b.renameShape(s, "sg:1:").has_value());
 }
 
-TEST_CASE("sliding document: a piece moved past the 63rd place loses its marks, not the puzzle",
+TEST_CASE("sliding document: a piece moved past the 255th place loses its marks, not the puzzle",
           "[app][sliding]") {
-  // a mark is a cell's colour, six bits: the original's noteShapeSwap
-  // overran them (an assertion) when a stamped piece crossed into the
-  // 64th place; here the marks come off, with a notice, and the puzzle
-  // stays whole
+  // a mark is a byte (the original's was a cell's colour, six bits, and its
+  // noteShapeSwap overran them when a stamped piece crossed into the 64th
+  // place); here the marks come off at the 256th, with a notice, and the
+  // puzzle stays whole
   Document d(GridKind::Sliding);
   const Id tray = board(d, {4, 3, 1});
   std::vector<Id> pieces;
-  for (int k = 0; k < 64; k++) {
+  for (int k = 0; k < 256; k++) {
     pieces.push_back(piece(d, 1, 1, {{0, 0, 0}}));
   }
-  // the 63rd shape (mark 63) is the last that can be stamped
-  const Id last = pieces[61];
-  REQUIRE(index(d, last) == 62);
+  // the 255th shape (mark 255) is the last that can be stamped
+  const Id last = pieces[253];
+  REQUIRE(index(d, last) == 254);
   REQUIRE(d.placeStamp(tray, last, 0, 0, 0, false).value());
   REQUIRE(d.placeStamp(tray, last, 2, 0, 0, true).value());
   refused(d, Errc::InvalidArgument,
-          [=](Document& x) { return x.placeStamp(tray, pieces[62], 1, 0, 0, false); });
+          [=](Document& x) { return x.placeStamp(tray, pieces[254], 1, 0, 0, false); });
   const unsigned int it = index(d, tray);
   const auto cleared = [&] {
     const Voxel& t = d.puzzle().getShape(it);
     return sliding::stampAt(&t, 0, 0, 0, false) == static_cast<unsigned int>(-1) &&
-           sliding::stampAt(&t, 2, 0, 0, true) == static_cast<unsigned int>(-1) &&
-           sliding::pieceColor(d.puzzle(), index(d, last)) == 0;
+           sliding::stampAt(&t, 2, 0, 0, true) == static_cast<unsigned int>(-1);
   };
 
   // moved up past the place: its start and goal go, the problem follows
   std::string notice;
   roundTrip(d, [&](Document& x) {
-    const Result<void> r = x.moveShape(last, 63);
+    const Result<void> r = x.moveShape(last, 255);
     notice = x.lastChange().notice;
     return r;
   });
-  CHECK(index(d, last) == 63);
+  CHECK(index(d, last) == 255);
   CHECK(cleared());
   CHECK(notice ==
-        "Only the first 63 shapes can have a start or goal: S63 moved past the 63rd place and "
+        "Only the first 255 shapes can have a start or goal: S255 moved past the 255th place and "
         "its start and goal were removed from B1.");
-  CHECK_FALSE(sliding::shapeIsRequired(d.puzzle(), d.puzzle().getProblem(0), 63));
+  CHECK_FALSE(sliding::shapeIsRequired(d.puzzle(), d.puzzle().getProblem(0), 255));
 
-  // back in the 63rd place and stamped again, another shape moved down
+  // back in the 255th place and stamped again, another shape moved down
   // across it takes it past the place too
-  REQUIRE(d.moveShape(last, 62).has_value());
+  REQUIRE(d.moveShape(last, 254).has_value());
   REQUIRE(d.placeStamp(tray, last, 0, 0, 0, false).value());
   roundTrip(d, [&](Document& x) {
-    const Result<void> r = x.moveShape(pieces[63], 1);
+    const Result<void> r = x.moveShape(pieces[255], 1);
     notice = x.lastChange().notice;
     return r;
   });
-  CHECK(index(d, last) == 63);
+  CHECK(index(d, last) == 255);
   CHECK(cleared());
-  CHECK(notice.starts_with("Only the first 63 shapes can have a start or goal: S63 moved"));
+  CHECK(notice.starts_with("Only the first 255 shapes can have a start or goal: S255 moved"));
   // a move that crosses no stamped piece says nothing
   REQUIRE(d.moveShape(pieces[0], 5).has_value());
   CHECK(d.lastChange().notice.empty());
@@ -516,19 +518,20 @@ TEST_CASE("sliding document: Solve checks the start/goal shape and sets up the l
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.solveStart(p, o); });
   REQUIRE(d.placeStamp(tray, a, 2, 0, 0, true).value());
 
-  // locks lost (an older file): set up again by the solve, with the change told
+  // the holes not set (an older file): set up by the solve, with the change
+  // told; the pieces need no colours
   Puzzle q = d.puzzle();
-  q.getShape(index(d, a)).setColor(0, 0, 0, 0);
+  q.getProblem(0).setMaxHoles(9);
   Result<Document> e = Document::openBytes(io::writePuzzle(q));
   REQUIRE(e.has_value());
   const Id ep = e->problemIds()[0];
   const std::uint64_t rev = e->revision();
   REQUIRE(e->solveStart(ep, o).has_value());
   CHECK(e->revision() > rev);
-  CHECK((e->lastChange().what & kChangeShapes) != 0);
+  CHECK((e->lastChange().what & kChangeProblems) != 0);
   REQUIRE(e->solveWait(ep).has_value());
   (void)e->poll();
-  CHECK(sliding::pieceColor(e->puzzle(), 1) == 2);
+  CHECK(sliding::pieceColor(e->puzzle(), 1) == 0);
   REQUIRE(e->puzzle().getProblem(0).getNumberOfSavedSolutions() == 1);
   CHECK(e->puzzle().getProblem(0).getSavedSolution(0).getDisassembly()->getMoves() == 1);
 

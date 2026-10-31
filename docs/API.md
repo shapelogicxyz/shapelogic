@@ -188,7 +188,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `undoDepth` | integer | required | Undo steps kept (default 25). |
 | `threads` | integer | required | The threads of a solve when its options do not say; 0 every hardware thread (default). |
 | `solver` | [Solver](#solver) | required | The solver when a solve's or analysis's options do not say (default classic). |
-| `slideFolder` | string | required | Where a sliding search keeps its levels once they outgrow the search memory, in a folder of its own that goes when the search ends, unless the search was paused: then it stays, and the next search of the same start carries it on (the original's SHAPELOGIC_SLIDE_DIR); empty keeps everything in memory and makes the search memory the limit. Default: the user's cache folder's sliding folder. |
+| `slideFolder` | string | required | Where a sliding search keeps its levels once they outgrow the search memory, in a folder of its own that goes when the search ends, unless the search was paused or stopped on disk (its budget filled, or the disk down to 100 MB and the room to save itself): then it stays, and the next search of the same start carries it on (solve.continue) (the original's SHAPELOGIC_SLIDE_DIR); empty keeps everything in memory and makes the search memory the limit. Default: the user's cache folder's sliding folder. |
 | `slideDiskGB` | number | required | The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: half the free space, at most 200 GB. More than the disk has room for is held to its free space but a reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on demand, as Finder does. |
 | `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
 | `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. More than the disk has room for is held to its free space but a reserve, as slideDiskGB is. |
@@ -515,7 +515,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `shape.move`
 
-Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay above the pieces (a move across them is refused, invalid_argument), the boards are numbered by place again, and the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.
+Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay above the pieces (a move across them is refused, invalid_argument), the boards are numbered by place again, and the starts and goals follow; a stamped piece moved past the 255th place (a mark is a byte) loses them, told in document.changed.notice.
 
 Params:
 
@@ -863,7 +863,7 @@ Errors: `not_found`
 
 ### `colour.delete`
 
-Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions. Refused (invalid_argument) on a sliding puzzle, whose cell colours are its start marks and locks.
+Removes a colour: its cells revert to the shape's own colour, the colours after it move up, the problems with shapes using it lose their solutions.
 
 Params:
 
@@ -909,7 +909,7 @@ Errors: `not_found`
 
 ### `problem.create`
 
-Adds a problem; it allows each colour on itself (on a sliding puzzle, whose cell colours are start marks, it has no colour rules).
+Adds a problem; it allows each colour on itself.
 
 Params:
 
@@ -3015,7 +3015,7 @@ What a solve does (the solve thread's flags); a missing field takes the engine's
 
 ### SlidingOptions
 
-A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever the brick fields say; the colour rules apply as on every grid; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
 
 | name | type | | description |
 |---|---|---|---|

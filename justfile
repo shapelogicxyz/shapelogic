@@ -4,7 +4,7 @@
 set shell := ["bash", "-uc"]
 
 # The original BurrTools checkout the comparison harness runs against.
-old_repo := env_var_or_default("BT_OLD_REPO", justfile_directory() + "/../burrtools_rotations")
+old_repo := env_var_or_default("BT_OLD_REPO", justfile_directory() + "/../burr-tools")
 
 default:
     @just --list

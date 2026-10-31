@@ -30,6 +30,7 @@
 #include <array>
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -398,6 +399,10 @@ std::size_t compareDumps(bool (*keep)(const std::string&)) {
     dumpFit(mine, *p);
     dumpTracks(mine, *p);
     std::vector<std::string> got = lines(mine.str());
+    // BT_DUMP_OUT=<folder> writes each file's dump there, to record it anew
+    if (const char* dir = std::getenv("BT_DUMP_OUT")) {
+      std::ofstream(std::filesystem::path(dir) / (name + ".dump")) << mine.str();
+    }
     REQUIRE(want.contains(name));
     std::vector<std::string> w = want.at(name);
     masked += maskTracks(*p, got, w);

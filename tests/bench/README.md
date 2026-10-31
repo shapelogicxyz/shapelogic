@@ -8,7 +8,7 @@ from an earlier run, and benchmark on a quiet machine.
 
 ```bash
 just build release                               # the new bt
-(cd ../burrtools_rotations && just build-release) # the original, build-rel (no assertions)
+(cd ../burr-tools && just build-release)          # the original, build-rel (no assertions)
 python3 tests/bench/bench.py                     # default set, 1 and all threads, best of 5
 python3 tests/bench/bench.py --plain             # without the vector search
 python3 tests/bench/bench.py --set glar          # Burr-Glar, 3.1 million assemblies (minutes)

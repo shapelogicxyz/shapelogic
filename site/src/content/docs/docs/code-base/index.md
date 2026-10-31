@@ -54,8 +54,12 @@ original file they were ported from.
   Electron, three.js, CMake, just, and the libraries each part depends on.
 - [Repository Layout](/docs/code-base/file-structure/): what is in each
   directory.
-- [Build, Test and Tool Commands](/docs/code-base/commands/): the `just`
-  recipes, the npm scripts, the build presets and the environment switches.
+- [Tool Commands and Environment Variables](/docs/code-base/commands/):
+  the `just` recipes, the npm scripts, the build presets and the
+  environment variables.
+- [Code Testing Suites](/docs/code-base/testing/): every kind of test by
+  name, what it checks, the command that runs it, and what to run after a
+  change.
 - [Where the Code Lives](/docs/code-base/core-functions/): the files and
   classes behind each feature, from the voxel grids to the Solver tab.
 - [Engine Protocol](/docs/code-base/engine-protocol/): how the app and the

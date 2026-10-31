@@ -62,7 +62,7 @@ Puzzle manyStarts() {
   const unsigned int b = addBlock(puz, 1, 2);
   const unsigned int c = addBlock(puz, 1, 1);
   Voxel& tray = puz.getShape(trayId);
-  tray.setColor(0, 0, 0, a + 1);
+  tray.setStartPiece(0, 0, 0, a + 1);
   tray.setGoalPiece(tray.getIndex(3, 3, 0), a + 1);
   syncSlidingProblems(puz);
   Problem& pr = puz.getProblem(0);
@@ -84,7 +84,7 @@ Puzzle swapped(unsigned int side) {
   for (unsigned int k = 0; k < n; k++) {
     const unsigned int id = addBlock(puz, 1, 1);
     Voxel& tray = puz.getShape(trayId);
-    tray.setColor(k % side, k / side, 0, id + 1);
+    tray.setStartPiece(k % side, k / side, 0, id + 1);
     const unsigned int g = k == n - 2 ? n - 1 : k == n - 1 ? n - 2 : k;
     tray.setGoalPiece(tray.getIndex(g % side, g / side, 0), id + 1);
   }
@@ -383,27 +383,22 @@ TEST_CASE("sliding session: the solve's limit thins the kept solutions", "[slidi
   CHECK(pr.getNumberOfSavedSolutions() <= 4);
 }
 
-TEST_CASE("sliding session: the start locks and the holes are set up as a solve starts",
-          "[sliding][session]") {
-  // a tray whose pieces lost their colours (an older file, an edit): the
-  // solve paints them again, and the holes follow the floor
+TEST_CASE("sliding session: the holes are set up as a solve starts", "[sliding][session]") {
+  // the holes follow the floor; the pieces need no colours (an older file's
+  // start marks were its cell colours: converted as it loads, none left)
   Puzzle p = test::loadFixture("test_sliding_solver.xmpuzzle");
   Problem& pr = p.getProblem(0);
   pr.removeAllSolutions();
+  CHECK(p.colorNumber() == 0);
   for (unsigned int s = 1; s < p.getNumberOfShapes(); s++) {
-    Voxel& v = p.getShape(s);
-    for (unsigned int i = 0; i < v.getXYZ(); i++) {
-      if (v.getState(i) != Voxel::kEmpty) {
-        v.setColor(i, 0);
-      }
-    }
+    CHECK(pieceColor(p, s) == 0);
   }
+  CHECK(p.getShape(0).hasStartPieces());
   pr.setMaxHoles(9);
   const Puzzle before = p;
   REQUIRE(prepareForSolving(p, pr));
   CHECK_FALSE(prepareForSolving(p, pr));
   CHECK(pr.getMaxHoles() == 2);
-  CHECK(pieceColor(p, 1) == 2);
 
   Puzzle q = before;
   SolveOptions o = findSolutions(1);
@@ -420,7 +415,7 @@ TEST_CASE("sliding playback: a move round a corner follows its route", "[sliding
   const unsigned int trayId = addStartGoalShape(puz, 2, 2);
   const unsigned int a = addBlock(puz, 1, 1);
   Voxel& tray = puz.getShape(trayId);
-  tray.setColor(0, 0, 0, a + 1);
+  tray.setStartPiece(0, 0, 0, a + 1);
   tray.setGoalPiece(tray.getIndex(1, 1, 0), a + 1);
   syncSlidingProblems(puz);
 
@@ -462,10 +457,10 @@ Puzzle twoCopies(const std::vector<int>& starts, const std::vector<int>& goals) 
   const unsigned int a = addBlock(puz, 1, 1);
   const unsigned int b = addBlock(puz, 1, 1);
   Voxel& tray = puz.getShape(trayId);
-  tray.setColor(0, 0, 0, a + 1);
+  tray.setStartPiece(0, 0, 0, a + 1);
   tray.setGoalPiece(tray.getIndex(0, 0, 0), a + 1);
   for (const int x : starts) {
-    tray.setColor(static_cast<unsigned int>(x), 0, 0, b + 1);
+    tray.setStartPiece(static_cast<unsigned int>(x), 0, 0, b + 1);
   }
   for (const int x : goals) {
     tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(x), 0, 0), b + 1);
@@ -486,7 +481,8 @@ TEST_CASE("sliding session: copies of a piece share their starts and goals",
   {
     Puzzle p = twoCopies({1, 2}, {2, 3});
     CHECK(startGoalError(p, 0).empty());
-    CHECK(p.getProblem(0).getNeutralFitColors() == 0);
+    const std::vector<bool> free = freeStartParts(p, p.getProblem(0));
+    CHECK(std::none_of(free.begin(), free.end(), [](bool f) { return f; }));
     const SlideTotals t = straightSolve(p, findSolutions(1), false);
     CHECK(t.assemblies == 1);
     CHECK(t.solutions == 1);
@@ -496,7 +492,12 @@ TEST_CASE("sliding session: copies of a piece share their starts and goals",
   {
     Puzzle p = twoCopies({1}, {2, 3});
     CHECK(startGoalError(p, 0).empty());
-    CHECK(p.getProblem(0).getNeutralFitColors() == std::uint64_t{1} << 2);
+    // b (shape 2), with a start for one of its two copies, may start elsewhere
+    const Problem& pr = p.getProblem(0);
+    const std::vector<bool> free = freeStartParts(p, pr);
+    for (unsigned int part = 0; part < pr.getNumberOfParts(); part++) {
+      CHECK(free[part] == (pr.getShapeIdOfPart(part) == 2));
+    }
     const SlideTotals t = straightSolve(p, findSolutions(1), false);
     CHECK(t.assemblies == 2);
     CHECK(t.solutions == 1);
@@ -524,7 +525,7 @@ Puzzle dominoBlock() {
   Voxel& tray = puz.getShape(trayId);
   for (unsigned int y = 0; y < 2; y++) {
     for (unsigned int x = 0; x < 2; x++) {
-      tray.setColor(x, y, 0, d + 1);
+      tray.setStartPiece(x, y, 0, d + 1);
       tray.setGoalPiece(tray.getIndex(x, y, 0), d + 1);
     }
   }
@@ -547,7 +548,7 @@ Puzzle freeL() {
     puz.getShape(l).setState(x, y, 0, kFilled);
   }
   Voxel& tray = puz.getShape(trayId);
-  tray.setColor(0, 0, 0, a + 1);
+  tray.setStartPiece(0, 0, 0, a + 1);
   tray.setGoalPiece(tray.getIndex(3, 3, 0), a + 1);
   syncSlidingProblems(puz);
   Problem& pr = puz.getProblem(0);
@@ -683,4 +684,91 @@ TEST_CASE("sliding session: a paused search is carried on from its folder",
   s.abort();
   CHECK(std::filesystem::is_empty(dir));
   std::filesystem::remove_all(dir);
+}
+
+// A start's search that runs out of disk is saved and the run pauses with
+// that start pending, so Continue carries it on (the original's message
+// said to solve again, which threw the search away).
+TEST_CASE("sliding session: a search out of disk pauses for Continue",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_disk";
+  std::filesystem::remove_all(dir);
+  // one start whose search visits every one of 181,440 arrangements, its
+  // levels on disk from the first and the disk it may take one byte
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 1;
+  o.sliding.diskBudget = 1;
+  o.settingsPlace = "Settings";
+  Puzzle p = swapped(3);
+  {
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    CHECK(p.getProblem(0).getPending().size() == 1);
+    CHECK(s.note().find("press Continue") != std::string::npos);
+    CHECK_FALSE(std::filesystem::is_empty(dir));
+    // carried on with no more room: paused again, still pending
+    REQUIRE(s.resume().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    CHECK(p.getProblem(0).getPending().size() == 1);
+  }
+  // given room, Continue searches it to its end: no path, proven
+  o.sliding.memoryBytes = 0;
+  o.sliding.diskBudget = 0;
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(p.getProblem(0).getPending().empty());
+  CHECK(p.getProblem(0).getNumSolutions() == 0);
+  CHECK(s.note().find("Every reachable arrangement was searched") != std::string::npos);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// The cells' colours are the user's restriction colours again (the
+// original kept the start marks in them): a free piece painted a colour
+// starts only where the rules let that colour go.
+TEST_CASE("sliding session: colour rules restrict where a free piece starts",
+          "[sliding][session]") {
+  // a 3x3 tray: A starts at (0,0) and must reach (2,2); B is free
+  auto puzzle = [](bool painted) {
+    Puzzle puz{GridType(GridKind::Sliding)};
+    const unsigned int trayId = addStartGoalShape(puz, 3, 3);
+    const unsigned int a = addBlock(puz, 1, 1);
+    const unsigned int b = addBlock(puz, 1, 1);
+    Voxel& tray = puz.getShape(trayId);
+    tray.setStartPiece(0, 0, 0, a + 1);
+    tray.setGoalPiece(2, 2, 0, a + 1);
+    if (painted) {
+      // B is red; the middle cell is blue, and red may not go on blue
+      const unsigned int red = puz.addColor(255, 0, 0) + 1;
+      const unsigned int blue = puz.addColor(0, 0, 255) + 1;
+      puz.getShape(b).setColor(0, 0, 0, red);
+      tray.setColor(1, 1, 0, blue);
+    }
+    syncSlidingProblems(puz);
+    Problem& pr = puz.getProblem(0);
+    pr.setShapeMaximum(puz, b, 1);
+    pr.setShapeMinimum(puz, b, 1);
+    return puz;
+  };
+  Puzzle plain = puzzle(false);
+  Puzzle painted = puzzle(true);
+  REQUIRE(painted.colorNumber() == 2);
+  const SlideTotals all = straightSolve(plain, findSolutions(1), false);
+  const SlideTotals ruled = straightSolve(painted, findSolutions(1), false);
+  // B starts on any of the eight free cells, or on seven when the blue one
+  // is barred to it
+  CHECK(all.assemblies == 8);
+  CHECK(ruled.assemblies == 7);
+  CHECK(ruled.solutions > 0);
+  // allowed, the blue cell is a start again
+  Puzzle allowed = puzzle(true);
+  allowed.getProblem(0).allowPlacement(allowed, 1, 2);
+  CHECK(straightSolve(allowed, findSolutions(1), false).assemblies == 8);
 }

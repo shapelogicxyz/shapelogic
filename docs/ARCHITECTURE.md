@@ -212,19 +212,21 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 - `sliding.h` (deferred part 1, decision 0014; the tray part of
   `sliding.{h,cpp}`): a sliding puzzle's start/goal shapes (names
   `sg:<n>:`; a tray whose empty cells are walls and variable cells
-  corridors, each cell's colour the start mark of a piece and its goal
-  mark the goal of one), the stamps (`stampPiece`, `stampFits`,
+  corridors, each cell's start mark the start of a piece and its goal
+  mark the goal of one, both apart from its colour, decision 0021), the
+  stamps (`stampPiece`, `stampFits`,
   `stampIsAt`, `clearStamp`, `stampAt`, `dropChangedStamps`),
   `syncSlidingProblems` (the original's: one problem per start/goal
   shape, its parts following the stamps) and `syncSlidingParts` (the
   document's: the user's problems kept, each on a board given its stamped
-  pieces), the start locks (`refreshStartLocks`: pieces
-  painted in the colours of their starts, so the assembler finds only
-  start layouts), `startGoalError`, `stampOverflowMessage`,
-  the older goal-map model the solver still reads
-  (`ensureSetup`, `placeStart`, `placeGoal`), and `prepareForSolving`
-  (the maximum of holes and the start locks, what the solve thread set up
-  as a run started).
+  pieces), the start locks (`freeStartParts` for
+  `MatrixOptions::startLocks`: the assembler holds each piece to its
+  start marks, so it finds only start layouts), `startGoalError`,
+  `stampOverflowMessage`, `convertLegacyStarts` (a file of the original's,
+  its starts in the cell colours, converted as it loads), the older
+  goal-map model the solver still reads (`ensureSetup`, `placeStart`,
+  `placeGoal`), and `prepareForSolving` (the maximum of holes, what the
+  solve thread set up as a run started).
 - `stacking_types.h` and `stacking.h` (deferred part 3a, decision 0015;
   `stacking.{h,cpp}` but its search): a stacking puzzle's boards
   (`RodSet`: rods, height, the size and distance rules, Panex columns
@@ -467,9 +469,13 @@ one).
   oracle compares state by state. The older levels are kept for tracing
   the path back; without nested slides every other one goes when they
   near the disk budget (`levelInterval`), the gaps searched out from the
-  arrangement being traced when the path is found. A search stopped by
-  its token (and one that filled a disk budget the disk did not cut) is
-  saved in its folder (`slide-<fingerprint>/state.bin` naming its sets)
+  arrangement being traced when the path is found. The search also stops
+  (Disk) while the disk keeps `diskReserve` (`kSlideSaveReserve`, 100 MB)
+  free beyond what a save writes (its sets in memory) and five times the
+  newest level, so that it can always save itself; the budget is chosen
+  once the folder is open, a carried-on search's files counting as its
+  own free space. A search stopped by its token, and one that stopped on
+  disk (unless a write had failed), is saved in its folder (`slide-<fingerprint>/state.bin` naming its sets)
   and a search of the same start carries it on (`resume`, `resumed`,
   `saved`; `autosaveMinutes`); `discardSaved` drops a problem's saved
   searches (a solve that starts afresh, an abort), `sweepSaved` the ones
@@ -480,10 +486,12 @@ one).
   `finalPlacementKey`: two solutions that end alike are one (the shorter
   kept, in its place).
 - In `SolveSession`, a sliding problem runs as the solve thread ran it:
-  the assembler (Classic; mirrors and rotations kept, colours strict, as
-  the solve thread forced) finds the start layouts and each is searched
+  the assembler (Classic; mirrors and rotations kept, the pieces held to
+  their start marks, decision 0021) finds the start layouts and each is searched
   in its callback on the session's slide pool; a stopped search puts its
-  start back as pending, not counted; a save point lets the search under
+  start back as pending, not counted, and so does one that ran out of disk
+  and was saved, which also ends the run (the callback answers false), so
+  the solve pauses and Continue carries it on; a save point lets the search under
   way finish; `note()` is the original's summary (starts the memory or disk cut,
   everything searched) and the progress has stage `Other` with `searched`
   and `searchDepth`. Take-apart workers are not used.
@@ -676,11 +684,11 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   problems in step (deleting, moving, duplicating and renaming a
   start/goal shape; an edit that changes a stamped piece's shape takes its
   stamps off and says so in `ChangeSet::notice`, as does moving a stamped
-  piece past the 63rd place, a mark being six bits); sliding shapes may
+  piece past the 255th place, a mark being a byte); sliding shapes may
   have more than one layer and keep them on open (decision 0014); what
   the original greyed out or hid is refused (groups, the count of a piece
-  a stamp requires, deleted colours), while problems are made, copied,
-  deleted and given a board as their result as on other grids; `solveLaunch` sets up the start locks as part of the run (no
+  a stamp requires), while problems are made, copied,
+  deleted and given a board as their result as on other grids; `solveLaunch` sets up the maximum of holes as part of the run (no
   undo step), after its checks. Stacking puzzles (decision 0015) solve
   through the same calls with `SolveOptions.stacking` (the discs' hotspots
   put at their centres before the first run, with the others' reset); a

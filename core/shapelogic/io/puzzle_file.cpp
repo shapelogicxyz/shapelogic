@@ -15,6 +15,7 @@
 #include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/xml_document.h"
 #include "shapelogic/io/xml_writer.h"
+#include "shapelogic/model/sliding.h"
 
 #include <algorithm>
 #include <array>
@@ -256,27 +257,32 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
     error(e, "not enough voxels defined for voxelspace");
   }
 
-  // goal marks of sliding puzzles: one comma-separated number per cell
-  const std::string goalAttr = e.attribute("goal");
-  if (!goalAttr.empty()) {
+  // start and goal marks of sliding puzzles: one comma-separated number
+  // per cell (the original wrote only goal; the starts were the colours)
+  auto readMarks = [&](const std::string& attr, void (Voxel::*set)(unsigned int, unsigned int)) {
+    if (attr.empty()) {
+      return;
+    }
     unsigned int gi = 0;
     unsigned int val = 0;
     bool inNum = false;
-    for (std::size_t pos = 0; pos <= goalAttr.size(); pos++) {
-      const char ch = pos < goalAttr.size() ? goalAttr[pos] : ',';
+    for (std::size_t pos = 0; pos <= attr.size(); pos++) {
+      const char ch = pos < attr.size() ? attr[pos] : ',';
       if (ch >= '0' && ch <= '9') {
         val = val * 10 + static_cast<unsigned int>(ch - '0');
         inNum = true;
       } else if (ch == ',') {
         if (inNum && gi < v->getXYZ()) {
-          v->setGoalPiece(gi, static_cast<unsigned char>(val));
+          ((*v).*set)(gi, static_cast<unsigned char>(val));
         }
         gi++;
         val = 0;
         inNum = false;
       }
     }
-  }
+  };
+  readMarks(e.attribute("start"), &Voxel::setStartPiece);
+  readMarks(e.attribute("goal"), &Voxel::setGoalPiece);
 
   v->setHotspot(atoiOf(e.attribute("hx")), atoiOf(e.attribute("hy")), atoiOf(e.attribute("hz")));
   v->setName(e.attribute("name"));
@@ -298,9 +304,9 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
 
   std::vector<std::pair<std::string, std::string>> extra;
   for (const XmlAttribute& a : e.attributes) {
-    static constexpr std::string_view kKnown[] = {"x",    "y",    "z",    "type",
-                                                  "hx",   "hy",   "hz",   "name",
-                                                  "goal", "weight", "color", "diskSize"};
+    static constexpr std::string_view kKnown[] = {"x",     "y",    "z",      "type",  "hx",
+                                                  "hy",    "hz",   "name",   "start", "goal",
+                                                  "weight", "color", "diskSize"};
     if (std::find(std::begin(kKnown), std::end(kKnown), a.name) == std::end(kKnown)) {
       extra.emplace_back(a.name, a.value);
     }
@@ -994,6 +1000,9 @@ Puzzle readPuzzleElement(const XmlElement& root) {
 
   Puzzle puzzle;
   bool haveGrid = false;
+  // a sliding file from before the start marks had a place of their own
+  // keeps them as colours: no shape says start
+  bool startMarks = false;
   Keeper keep(puzzle.preserved());
   keep.attributes(root, {"version"});
 
@@ -1021,6 +1030,7 @@ Puzzle readPuzzleElement(const XmlElement& root) {
       haveGrid = true;
       for (const XmlElement& v : c.children) {
         if (v.name == "voxel") {
+          startMarks = startMarks || v.findAttribute("start") != nullptr;
           puzzle.addShape(readVoxel(v, puzzle.getGridType()));
         }
       }
@@ -1048,6 +1058,9 @@ Puzzle readPuzzleElement(const XmlElement& root) {
   // a stacking puzzle has a board, even when its file has none
   if (puzzle.getGridType().getType() == GridKind::Stacking && puzzle.rodSetCount() == 0) {
     puzzle.addRodSet();
+  }
+  if (puzzle.getGridType().getType() == GridKind::Sliding && !startMarks) {
+    sliding::convertLegacyStarts(puzzle);
   }
 
   return puzzle;
@@ -1106,15 +1119,22 @@ void writeVoxel(XmlWriter& xml, const Voxel& v) {
     xml.newAttrib("color", c.data());
   }
 
-  if (v.hasGoalPieces()) {
+  // the start and goal marks of a sliding puzzle's start/goal shape
+  const auto marks = [&v](unsigned int (Voxel::*get)(unsigned int) const) {
     std::string g;
     for (unsigned int i = 0; i < v.getXYZ(); i++) {
       if (i != 0) {
         g += ',';
       }
-      g += std::to_string(v.getGoalPiece(i));
+      g += std::to_string((v.*get)(i));
     }
-    xml.newAttrib("goal", g);
+    return g;
+  };
+  if (v.hasStartPieces()) {
+    xml.newAttrib("start", marks(&Voxel::getStartPiece));
+  }
+  if (v.hasGoalPieces()) {
+    xml.newAttrib("goal", marks(&Voxel::getGoalPiece));
   }
 
   // room for other formats one day

@@ -207,8 +207,13 @@ class Assembler1 final : public Assembler {
   /// The weight each column must reach and may not pass.
   std::vector<unsigned int> min_;
   std::vector<unsigned int> max_;
-  /// The columns up to `holes_` of which may stay empty.
+  /// The columns up to `holes_` cells of which may stay empty: each stands
+  /// for holeWeight_[col] cells, one until clumpify() merges identical
+  /// columns (a cell with one placement is the same column as that piece's,
+  /// and its hole goes with the piece left out); holeCells_ is their sum.
   std::vector<unsigned int> holeColumns_;
+  std::vector<unsigned int> holeWeight_;
+  unsigned int holeCells_ = 0;
   unsigned int holes_ = 0;
   /// The column headers, node 0 included.
   unsigned int headerNodes_ = 0;

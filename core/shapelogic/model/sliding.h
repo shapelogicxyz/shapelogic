@@ -8,9 +8,12 @@
 /// A sliding puzzle (GridKind::Sliding) has pieces, which are plain shapes,
 /// and start/goal shapes, whose names begin "sg:<n>:": a tray whose empty
 /// cells are walls, whose variable cells are corridors a piece may cross
-/// but not stop on, with each cell's colour the start mark of a piece
-/// (shape index + 1) and its goal mark (Voxel::getGoalPiece) the goal of
-/// one. Trays and pieces may be more than one layer deep; a start or goal
+/// but not stop on, with each cell's start mark (Voxel::getStartPiece) the
+/// start of a piece (shape index + 1) and its goal mark (getGoalPiece) the
+/// goal of one. The cells' colours are the user's restriction colours, as
+/// on every grid (the original kept the starts in them; a file of its is
+/// converted as it loads, convertLegacyStarts). Trays and pieces may be
+/// more than one layer deep; a start or goal
 /// marks every cell its piece fills, in every layer. A piece the problem
 /// has several copies of may have a start and a goal for each: its marks
 /// are then several whole pieces (stampCopies), and any copy may end on
@@ -19,9 +22,10 @@
 /// a problem of its own with that shape as its result
 /// (syncSlidingProblems); the document lets the user make the problems and
 /// choose a start/goal shape as each one's result, as on other grids
-/// (syncSlidingParts). The assembler finds the start layout,
-/// whose pieces the colours lock to their starts (refreshStartLocks), and
-/// the slide search (bt/solve/sliding_search.h) takes it to the goal.
+/// (syncSlidingParts). The assembler finds the start layout, each piece
+/// held to its start by the marks (MatrixOptions::startLocks, with
+/// freeStartParts), and the slide search (bt/solve/sliding_search.h) takes
+/// it to the goal.
 ///
 /// An older model, a tray and a goal map painted in piece colours
 /// (ensureSetup, placeStart, placeGoal), is still read by the solver; the
@@ -115,7 +119,7 @@ void syncSlidingParts(Puzzle& puzzle);
 
 /// Toggles the mark of shapeId on one cell of a start/goal shape, the
 /// start or (goal) the goal. False when the cell is not floor or the shape
-/// is beyond the 63 that can be marked.
+/// is beyond the 255 that can be marked.
 bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool goal);
 
 /// Marks the whole of a piece as its start (goal false) or its goal on a
@@ -212,27 +216,30 @@ std::string copyStamps(Puzzle& puzzle, unsigned int trayShape, bool toGoal);
 [[nodiscard]] unsigned int stampedCopies(const Puzzle& puzzle, const Problem& problem,
                                          unsigned int shapeId);
 
-/// Keeps the colours of the pieces in step with the start stamps of the
-/// problem's start/goal shape, so the assembler places a piece with a start
-/// only there; and the puzzle's colours cover the stamps (the assembler
-/// skips colour checks with none). A piece with starts for only some of its
-/// copies may also go on a neutral cell (Problem::setNeutralFitColors): the
-/// other copies start anywhere, and startFillsStamps keeps the layouts that
-/// fill its starts.
-void refreshStartLocks(Puzzle& puzzle, Problem& problem);
+/// Whether the problem's result is a start/goal shape, whose start marks
+/// hold the pieces to their starts (MatrixOptions::startLocks). False for
+/// the older model, a tray and a goal map painted in piece colours, which
+/// a solve matches strictly (MatrixOptions::strictColors) as the original
+/// did.
+[[nodiscard]] bool usesStartMarks(const Puzzle& puzzle, const Problem& problem);
+
+/// Per part of the problem, whether its pieces may also go on cells that
+/// are no start (MatrixOptions::freeStarts): a part with starts for fewer
+/// than all its copies, or none. A part with a start for every copy goes
+/// only on its starts.
+[[nodiscard]] std::vector<bool> freeStartParts(const Puzzle& puzzle, const Problem& problem);
 
 /// False when an assembly (a start layout) leaves a start of a piece with
 /// starts for only some of its copies unfilled: the assembler lets those
-/// copies on neutral cells, so it also finds layouts with a copy beside its
-/// start instead of on it.
+/// copies on unmarked cells, so it also finds layouts with a copy beside
+/// its start instead of on it.
 [[nodiscard]] bool startFillsStamps(const Puzzle& puzzle, const Problem& problem,
                                     const Assembly& assembly);
 
 /// Renumbers the marks of the start/goal shapes before shape shapeId is
-/// removed (its own go), or when shapes a and b swap places. A mark names
-/// a shape in the six bits of a cell's colour, so a stamped piece swapped
-/// past the 63rd place loses its start and goal (the original overran the
-/// bits there): noteShapeSwap returns the start/goal shapes that lost one.
+/// removed (its own go), or when shapes a and b swap places. A mark is a
+/// byte, so a stamped piece swapped past the 255th place loses its start
+/// and goal: noteShapeSwap returns the start/goal shapes that lost one.
 void noteShapeRemoved(Puzzle& puzzle, unsigned int shapeId);
 std::vector<unsigned int> noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned int b);
 
@@ -283,9 +290,16 @@ void syncMaxHoles(const Puzzle& puzzle, Problem& problem);
 [[nodiscard]] unsigned int floorCells(const Voxel& tray);
 
 /// What a sliding solve sets up first (the solve thread did it as a run
-/// started): the problem's maximum of holes and the start locks. Changes
-/// shapes, colours and the problem; true when anything changed.
+/// started): the problem's maximum of holes. True when it changed.
 bool prepareForSolving(Puzzle& puzzle, Problem& problem);
+
+/// A file the original wrote (or one of ours from before the start marks
+/// had a place of their own) keeps the starts as the start/goal shapes'
+/// cell colours and paints each piece in its mark: the starts become start
+/// marks, the colours go, and so does the palette the locks needed, unless
+/// a problem has colour rules of its own. Nothing happens to a puzzle
+/// without start/goal shapes (the older model).
+void convertLegacyStarts(Puzzle& puzzle);
 
 /// True when prepareForSolving would change anything (without changing it).
 [[nodiscard]] bool needsPreparing(const Puzzle& puzzle, const Problem& problem);

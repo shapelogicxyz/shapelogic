@@ -391,7 +391,7 @@ class Document {
   /// (sliding::stampedCopies), bulk changes leave such pieces alone, and
   /// there are no groups: those commands are refused (InvalidArgument), as
   /// are new, copied and deleted problems (they follow the start/goal
-  /// shapes) and a deleted colour (the cell colours are the start marks).
+  /// shapes). Colours and their rules are the user's, as on every grid.
   ///
   /// Stores the Solver tab's settings with a problem (cb_SolverOptions:
   /// the original's names and values, saved in the file; the front end

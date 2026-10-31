@@ -110,7 +110,7 @@ def run(binary: Path, puzzle: Path, threads: int, extra: list[str], plain: bool,
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--old-repo", type=Path,
-                   default=Path(os.environ.get("BT_OLD_REPO", ROOT.parent / "burrtools_rotations")))
+                   default=Path(os.environ.get("BT_OLD_REPO", ROOT.parent / "burr-tools")))
     p.add_argument("--old-bin", type=Path, help="the original burrTxt (default: its build-rel, else build)")
     p.add_argument("--new-bin", type=Path, default=ROOT / "build" / "release" / "cli" / "shapelogic_cli")
     p.add_argument("--set", choices=["default", "glar"], default="default")

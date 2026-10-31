@@ -88,8 +88,9 @@ duplicates. It can't be combined with **Keep Rotated Solutions**.
 On by default. A voxel with a color fits only a result voxel of exactly that
 color, not a neutral one, and a voxel with no color fits only a result voxel
 that also has no color. The color rules of the Puzzle tab are not used. Off,
-neutral voxels fit anywhere and the color rules decide the rest. See
-[Color Restrictions](/docs/color-restrictions/).
+neutral voxels fit anywhere and the color rules decide the rest. Sliding
+puzzles don't have this switch: their colors always match as with it off.
+See [Color Restrictions](/docs/color-restrictions/).
 
 ### Solver type
 
@@ -154,8 +155,13 @@ symmetry and color ones:
 - **Solver type**: the **Sliding Puzzle Solver**, the only one. Each start
   is searched for the fewest moves to the goal with no limit on the
   arrangements it looks at: it either finds the fewest moves or proves there
-  is no solution, on every core, keeping older moves on disk. It stops early
-  only when it runs out of the memory or disk it may use (see below).
+  is no solution, on every core, writing what outgrows its memory to disk.
+  It stops early only when it fills the disk space it may use (see below).
+  **Pause** saves the search of the start under way, and **Continue**
+  carries it on. A search that fills its disk space is saved the same way,
+  and the solve pauses: raise **Sliding disk space** or free some disk,
+  then press **Continue**. **Solve** and **Clear** throw saved searches
+  away.
 
 ### Options for stacking puzzles
 
@@ -175,13 +181,17 @@ How much memory and disk a sliding or stacking search may take is not a
 search option of the problem but a setting of the app, in **Settings ▸
 Solver** (`Ctrl+,` or `⌘,` on a Mac):
 
-- **Search memory**: the memory a sliding or stacking search may fill
-  before it stops. **Automatic** is half of the computer's memory; the
-  slider goes up to three quarters of it. This replaces the earlier
-  **Enable High Memory** option.
-- **Sliding disk space**: the disk the **Sliding Puzzle Solver** may fill with
-  older moves while it runs. **Automatic** is half the free space, at most
-  200 GB.
+- **Search memory**: the memory a sliding or stacking search may fill.
+  A stacking search stops there; the **Sliding Puzzle Solver** writes the
+  rest to disk. **Automatic** is half of the computer's memory; the slider
+  goes up to three quarters of it. This replaces the earlier **Enable High
+  Memory** option.
+- **Sliding disk space**: the disk the **Sliding Puzzle Solver** may fill
+  while it runs, and keep for a paused search. **Automatic** is half the
+  free space, at most 200 GB. As it fills, the solver keeps fewer of the
+  older moves and works out the missing ones again at the end. However
+  much you allow, it stops while at least 100 MB, plus the room to save
+  its search, is still free on the disk.
 - **Stacking disk space**: the disk the **Panex Solver** may take for the
   levels it saves. **Automatic** is half the free space, at most 200 GB.
   Less disk never stops the search, but finding the path at the end takes

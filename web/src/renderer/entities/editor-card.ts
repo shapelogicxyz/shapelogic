@@ -124,10 +124,9 @@ export class EditorCard {
     return this.ownOnly ? [] : (this.host.store.snapshot?.colours ?? []);
   }
 
-  /** Whether the puzzle type has no constraint colours (sliding, stacking): the palette is the shape's own. */
+  /** Whether the puzzle type has no constraint colours (stacking): the palette is the shape's own. */
   private get ownOnly(): boolean {
-    const g = this.host.store.snapshot?.grid;
-    return g === 'sliding' || g === 'stacking';
+    return this.host.store.snapshot?.grid === 'stacking';
   }
 
   /** The drawing colour as #rrggbb (Default: the shape's own). */
@@ -301,7 +300,7 @@ export class EditorCard {
     const name = cur?.label ?? (s?.colour == null ? 'Default' : 'Custom');
     const what = def ? 'Shape color' : 'Restriction color';
     const paint = st.tool === 'paint' && !st.boxMode;
-    // sliding and stacking have no constraint colours to add or remove
+    // stacking has no constraint colours to add or remove
     const btns =
       (this.ownOnly
         ? ''

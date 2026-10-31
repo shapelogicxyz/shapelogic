@@ -47,6 +47,13 @@ struct MatrixOptions {
   bool keepRotations = false;      ///< report rotated assemblies too
   bool completeRotations = false;  ///< check every transformation for duplicates
   bool strictColors = false;       ///< a voxel fits only a result voxel of its own colour
+  /// A sliding solve: the result's start marks (Voxel::getStartPiece) hold
+  /// the pieces to their starts. A placement lies wholly on its own piece's
+  /// start cells, or, for a part freeStarts allows (one with starts for
+  /// fewer than all its copies, or none), wholly on cells that are no
+  /// start (sliding::freeStartParts). The colour rules apply besides.
+  bool startLocks = false;
+  std::vector<bool> freeStarts;
   /// Per part, the transformations it may be placed in: bit t for
   /// transformation t, mirrored ones included (none from 64 on). Empty: every
   /// rotation, as the original. Set, the matrix has no symmetry breaker: a
@@ -168,6 +175,11 @@ class Assembler {
   /// True when the matrix was built with strict colour matching.
   [[nodiscard]] bool usesStrictColors() const { return strictColors_; }
 
+  /// The start locks the matrix was built with (MatrixOptions::startLocks,
+  /// freeStarts).
+  [[nodiscard]] bool usesStartLocks() const { return startLocks_; }
+  [[nodiscard]] const std::vector<bool>& freeStarts() const { return freeStarts_; }
+
   /// The orientation limits the matrix was built with
   /// (MatrixOptions::partTransforms).
   [[nodiscard]] const std::vector<std::uint64_t>& partTransforms() const {
@@ -210,6 +222,8 @@ class Assembler {
 
   /// Set by createMatrix().
   bool strictColors_ = false;
+  bool startLocks_ = false;
+  std::vector<bool> freeStarts_;
   std::vector<std::uint64_t> partTransforms_;
 };
 

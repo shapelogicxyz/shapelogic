@@ -621,12 +621,6 @@ Result<void> Document::deleteColour(Id colour) {
   if (!c) {
     return std::unexpected(c.error());
   }
-  // the original hid the colour group: a sliding puzzle's cell colours are
-  // the start marks (shape index + 1), which removeColor would renumber
-  if (sliding::isSliding(*puzzle_)) {
-    return fail(Errc::InvalidArgument,
-                "a sliding puzzle's cell colours are its start marks: a colour is not deleted");
-  }
   const unsigned int col = *c + 1;
   StepGuard g(*this, "Delete colour");
   touchWhole();
@@ -655,13 +649,13 @@ Result<Id> Document::createProblem() {
   }
   // the original greyed New, Copy and Delete problem out on a sliding
   // puzzle, whose problems followed its start/goal shapes; here the user
-  // makes them and chooses a board as the result. Its cell colours are
-  // start marks, which a sliding solve matches strictly: no colour rules.
+  // makes them and chooses a board as the result, with the colour rules
+  // every grid starts with.
   StepGuard g(*this, "New problem");
   touchWhole();
   endSessions();
   const unsigned int p = puzzle_->addProblem();
-  for (unsigned int c = 0; c < puzzle_->colorNumber() && !sliding::isSliding(*puzzle_); c++) {
+  for (unsigned int c = 0; c < puzzle_->colorNumber(); c++) {
     puzzle_->getProblem(p).allowPlacement(*puzzle_, c + 1, c + 1);
   }
   const Id id = newId();

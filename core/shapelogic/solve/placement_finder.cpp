@@ -12,8 +12,8 @@
 namespace bt {
 
 PlacementFinder::PlacementFinder(const Puzzle& puzzle, const Problem& problem,
-                                 const Voxel& result, bool strictColors)
-    : res_(result), colorTableWidth_(puzzle.colorNumber() + 1) {
+                                 const Voxel& result, bool strictColors, bool startLocks)
+    : res_(result), startLocks_(startLocks), colorTableWidth_(puzzle.colorNumber() + 1) {
   if (colorTableWidth_ > 1) {
     colorAllowed_.resize(colorTableWidth_ * colorTableWidth_);
     for (unsigned int p = 0; p < colorTableWidth_; p++) {
@@ -40,7 +40,7 @@ PlacementFinder::PlacementFinder(const Puzzle& puzzle, const Problem& problem,
 }
 
 void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffsets,
-                           std::vector<int>& placements) const {
+                           std::vector<int>& placements, StartLock lock) const {
   voxelOffsets.clear();
   placements.clear();
 
@@ -125,6 +125,22 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
     for (std::size_t c = 0; c < checks; c++) {
       if (!colorAllowed_[checkColor[c] * colorTableWidth_ +
                          res_.getColor(static_cast<unsigned int>(base + checkOffsets[c]))]) {
+        return false;
+      }
+    }
+
+    // the start marks: the piece sits on its own start, whole, or (free)
+    // on no start at all
+    if (startLocks_) {
+      bool own = true;
+      bool none = true;
+      for (std::size_t v = 0; v < voxels && (own || none); v++) {
+        const unsigned int mark =
+            res_.getStartPiece(static_cast<unsigned int>(base + voxelOffsets[v]));
+        own = own && mark == lock.id;
+        none = none && mark == 0;
+      }
+      if (!own && !(none && lock.free)) {
         return false;
       }
     }

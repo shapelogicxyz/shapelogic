@@ -8,8 +8,11 @@
 
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/io/puzzle_file.h"
+#include "shapelogic/model/sliding.h"
+#include "shapelogic/model/problem.h"
 #include "shapelogic/solve/assembler.h"
 #include "shapelogic/solve/assembler_0.h"
+#include "shapelogic/solve/assembler_1.h"
 #include "shapelogic/solve/dlx_matrix.h"
 #include "shapelogic/solve/rotation_filter.h"
 #include "shapelogic/solve/solver_type.h"
@@ -670,7 +673,8 @@ std::size_t pelikanNodes(const Puzzle& p) {
   RotationFilter f;
   std::atomic<unsigned int> piece{0};
   int param = 0;
-  REQUIRE(m.build(p, p.getProblem(0), false, {}, f, piece, param) == AssemblerError::None);
+  REQUIRE(m.build(p, p.getProblem(0), false, false, {}, {}, f, piece, param) ==
+          AssemblerError::None);
   return m.nodes.left.size();
 }
 
@@ -928,4 +932,137 @@ TEST_CASE("solver types: names and the assembler each gets", "[solve]") {
   CHECK(chooseAssembler(p.getProblem(0), SolverType::Classic) == AssemblerKind::Assembler0);
   CHECK(chooseAssembler(p.getProblem(0), SolverType::Crowell) == AssemblerKind::Assembler0);
   CHECK(makeAssembler(p, p.getProblem(0), SolverType::Classic) != nullptr);
+}
+
+// A cell with a single placement is the same matrix column as that piece's
+// (same rows, same weights), and reduce() merges the two. The cell is a
+// hole exactly when the piece is left out, so the survivor has to count
+// it: a 1x3 result of 3 piece cells with no holes allowed, the 1x2 piece
+// optional and held to the first two cells by its colour. Left out, it
+// would leave two holes; only the layout with both pieces is valid.
+TEST_CASE("assembler 1: a hole column merged by reduce still counts its cell",
+          "[solve][assembler]") {
+  Puzzle puz{GridType{GridKind::Bricks}};
+  const unsigned int red = puz.addColor(255, 0, 0) + 1;
+  const unsigned int result = puz.addShape(3, 1, 1);
+  for (unsigned int x = 0; x < 3; x++) {
+    puz.getShape(result).setState(x, 0, 0, Voxel::kFilled);
+  }
+  puz.getShape(result).setColor(0, 0, 0, red);
+  puz.getShape(result).setColor(1, 0, 0, red);
+  const unsigned int bar = puz.addShape(2, 1, 1);
+  puz.getShape(bar).setState(0, 0, 0, Voxel::kFilled);
+  puz.getShape(bar).setState(1, 0, 0, Voxel::kFilled);
+  puz.getShape(bar).setColor(0, 0, 0, red);
+  puz.getShape(bar).setColor(1, 0, 0, red);
+  const unsigned int unit = puz.addShape(1, 1, 1);
+  puz.getShape(unit).setState(0, 0, 0, Voxel::kFilled);
+  Problem& pr = puz.getProblem(puz.addProblem());
+  pr.setResultId(puz, result);
+  pr.setShapeMinimum(puz, bar, 0);
+  pr.setShapeMaximum(puz, bar, 1);
+  pr.setShapeMinimum(puz, unit, 1);
+  pr.setShapeMaximum(puz, unit, 1);
+  pr.setMaxHoles(0);
+
+  for (const bool reduce : {false, true}) {
+    for (const bool vector : {false, true}) {
+      INFO("reduce " << reduce << " vector search " << vector);
+      Assembler1 assm(puz, pr);
+      MatrixOptions mo;
+      mo.strictColors = true;
+      REQUIRE(assm.createMatrix(mo) == AssemblerError::None);
+      if (reduce) {
+        (void)assm.reduce(StopToken{});
+      }
+      std::vector<std::string> found;
+      SearchOptions so;
+      so.vectorSearch = vector;
+      (void)assm.assemble(
+          [&](Assembly a) {
+            found.push_back(std::string(a.isPlaced(0) ? "bar" : "-") + " " +
+                            (a.isPlaced(1) ? "unit" : "-"));
+            return true;
+          },
+          so, StopToken{});
+      CHECK(found == std::vector<std::string>{"bar unit"});
+    }
+  }
+}
+
+// Every fixture's start layouts are the same from every search: the vector
+// search and the plain search on one thread, the split search on four,
+// each with and without reduce(). The dimension the cases above leave out
+// is reduce() with optional pieces: it merges a cell with one placement
+// into its piece's column, and the search once lost the cell's hole with
+// it, so one thread (the vector search) and several (the split search)
+// disagreed on a sliding puzzle with pieces of count 0-1.
+TEST_CASE("assemblers: every fixture gives the same layouts on every search and thread count",
+          "[solve][assembler][parallel][slow]") {
+  ThreadPool pool(4);
+  std::vector<std::filesystem::path> files;
+  for (const char* dir : {"tests/data/puzzles", "tests/data/puzzles/sliding"}) {
+    for (const auto& e : std::filesystem::directory_iterator(dir)) {
+      if (e.path().extension() == ".xmpuzzle") {
+        files.push_back(e.path());
+      }
+    }
+  }
+  std::sort(files.begin(), files.end());
+  REQUIRE(files.size() >= 50);
+  unsigned int compared = 0;
+  for (const std::filesystem::path& f : files) {
+    const Puzzle p = io::loadPuzzle(f).value();
+    if (p.getGridType().getType() == GridKind::Stacking || p.getNumberOfProblems() == 0) {
+      continue;
+    }
+    const Problem& pr = p.getProblem(0);
+    if (!pr.resultValid() || pr.getNumberOfParts() == 0) {
+      continue;
+    }
+    INFO(f.filename().string());
+    // the options a solve uses (a sliding solve's as the session sets them)
+    MatrixOptions mo;
+    if (sliding::isSliding(p)) {
+      mo.keepMirrors = true;
+      mo.keepRotations = true;
+      const bool marks = sliding::usesStartMarks(p, pr);
+      mo.strictColors = !marks;
+      mo.startLocks = marks;
+      if (marks) {
+        mo.freeStarts = sliding::freeStartParts(p, pr);
+      }
+      mo.partTransforms = sliding::partTransforms(p, pr, false, false);
+    }
+    std::optional<Fingerprints> first;
+    bool slow = false;
+    for (const bool reduce : {false, true}) {
+      for (const int kind : {0, 1, 2}) {
+        if (slow) {
+          break;
+        }
+        INFO("reduce " << reduce << " kind " << kind << " (0 vector, 1 plain, 2 split)");
+        const std::unique_ptr<Assembler> a = makeAssembler(p, pr, SolverType::Classic);
+        if (a->createMatrix(mo) != AssemblerError::None) {
+          break;
+        }
+        if (reduce) {
+          (void)a->reduce(StopToken{});
+        }
+        const auto started = std::chrono::steady_clock::now();
+        const test::RunResult r =
+            runOnce(*a, kind == 2 ? searchOptions(4, &pool) : searchOptions(1, nullptr, kind == 0));
+        REQUIRE(r.end == RunEnd::Finished);
+        // a fixture that takes long is checked on its first run only
+        slow = std::chrono::steady_clock::now() - started > std::chrono::seconds(20);
+        if (!first) {
+          first = r.found;
+        } else {
+          CHECK(r.found == *first);
+        }
+      }
+    }
+    compared++;
+  }
+  CHECK(compared >= 50);
 }

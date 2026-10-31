@@ -1289,19 +1289,19 @@ class Fingerprint {
   std::uint64_t h_ = 14695981039346656037ULL;
 };
 
-// Names a problem's saved searches: the tray with its stamps and goal
-// marks, and the pieces with their counts. Nothing of the start, so that
-// the searches of every start of the problem are found together.
+// Names a problem's saved searches: the tray with its start and goal
+// marks, and the pieces with their counts. Nothing of the start layout, so
+// that the searches of every start of the problem are found together.
 std::uint64_t problemKeyOf(const Puzzle& puzzle, const Problem& problem) {
   Fingerprint f;
-  f.mix(1U);  // the saved format
+  f.mix(2U);  // the saved format
   const Voxel& tray = problem.resultShape(puzzle);
   f.mix(tray.getX());
   f.mix(tray.getY());
   f.mix(tray.getZ());
   for (unsigned int i = 0; i < tray.getXYZ(); i++) {
     f.mix(tray.getState(i));
-    f.mix(tray.getColor(i));
+    f.mix(tray.getStartPiece(i));
     f.mix(tray.getGoalPiece(i));
   }
   for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
@@ -2216,10 +2216,11 @@ class LevelSearch {
     }
     search_.diskBytes = std::max(search_.diskBytes, store_.used().second);
     // A search that stopped short is saved for a search of the same start
-    // to carry on: always when paused; when the disk it may take is full,
-    // only if more could be given (a budget the disk did not cut).
+    // to carry on: when paused, and when it filled its disk budget or the
+    // disk (it stops with room left to save itself, so the user can raise
+    // the budget or free space and carry on); not after a write failed.
     const bool save = end == SlideOutcome::Stopped ||
-                      (end == SlideOutcome::Disk && diskChosen_ && !disk_.heldToFree &&
+                      (end == SlideOutcome::Disk && diskChosen_ &&
                        store_.failure != SlideOutcome::Disk);
     folder_.keep = false;
     if (save && saveState()) {
@@ -2318,7 +2319,6 @@ class LevelSearch {
     if (!folder_.open()) {
       return false;
     }
-    setDiskBudget();
     std::map<std::string, SetPtr<Key>> opened;
     auto openSet = [&](const std::string& name, SetPtr<Key>& into) {
       if (name.empty()) {
@@ -2385,6 +2385,8 @@ class LevelSearch {
     for (const SetPtr<Key>& set : visitedSets_) {
       (void)set->reload();
     }
+    // chosen once the saved sets are open, so that they count as its own
+    setDiskBudget();
     return true;
   }
 
@@ -2471,7 +2473,9 @@ class LevelSearch {
   // none given is half of it.
   void setDiskBudget() {
     if (!diskChosen_ && !folder_.dir.empty()) {
-      disk_ = diskBudgetFor(folder_.dir, search_.diskBudget);
+      // the files there already (a saved search carried on) are the
+      // search's own: they count as free space it may take again
+      disk_ = diskBudgetFor(folder_.dir, search_.diskBudget, store_.used().second);
       diskChosen_ = true;
     }
   }
@@ -2871,6 +2875,22 @@ class LevelSearch {
                         " in " + folder_.dir.parent_path().string() +
                         (reason.empty() ? "" : ", " + reason) + ").";
         return SlideOutcome::Disk;
+      }
+      // The disk itself: other programs take from it too, so the search
+      // stops while there is still room to save itself (its sets in memory
+      // written out) and to finish the next level's writes.
+      if (diskChosen_) {
+        const std::optional<std::uint64_t> free = availableDiskBytes(folder_.dir);
+        const std::uint64_t need = search_.diskReserve + used.first + 5 * next->bytes();
+        if (free && *free < need) {
+          char gb[32];
+          std::snprintf(gb, sizeof(gb), "%.1f GB", static_cast<double>(*free) / 1e9);
+          search_.diskHeldToFree = true;
+          search_.error = "The disk is nearly full (" + std::string(gb) + " free in " +
+                          folder_.dir.parent_path().string() +
+                          "): the search stopped while it could still save itself.";
+          return SlideOutcome::Disk;
+        }
       }
       if (!evict()) {
         return failed();

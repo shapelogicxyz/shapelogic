@@ -71,7 +71,7 @@
       "errors": ["not_found", "invalid_state"]
     },
     "shape.move": {
-      "summary": "Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay above the pieces (a move across them is refused, invalid_argument), the boards are numbered by place again, and the starts and goals follow; a stamped piece moved past the 63rd place (a mark is six bits) loses them, told in document.changed.notice.",
+      "summary": "Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay above the pieces (a move across them is refused, invalid_argument), the boards are numbered by place again, and the starts and goals follow; a stamped piece moved past the 255th place (a mark is a byte) loses them, told in document.changed.notice.",
       "params": {
         "type": "object",
         "properties": {"shape": {"$ref": "types.json#/$defs/ShapeId"}, "toIndex": {"type": "integer", "minimum": 0}},

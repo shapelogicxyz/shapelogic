@@ -25,16 +25,26 @@ class Voxel;
 /// matrices are built identically.
 class PlacementFinder {
  public:
-  /// A finder for `result`, with the colour rules of `problem`.
+  /// A finder for `result`, with the colour rules of `problem`; with
+  /// startLocks, the result's start marks hold the pieces to their starts
+  /// (MatrixOptions::startLocks).
   PlacementFinder(const Puzzle& puzzle, const Problem& problem, const Voxel& result,
-                  bool strictColors = false);
+                  bool strictColors = false, bool startLocks = false);
+
+  /// What the start marks allow a piece: placements wholly on cells marked
+  /// `id` (its shape index + 1), or with `free` wholly on unmarked cells.
+  struct StartLock {
+    unsigned char id;
+    bool free;
+  };
 
   /// All placements of `rotation`. `voxelOffsets` receives, for each filled
   /// voxel of the piece in matrix order, its result index offset relative to
   /// a placement (index = x + sx*(y + sy*z) + offset); `placements` receives
-  /// (x, y, z) translation triples.
-  void find(const Voxel& rotation, std::vector<long>& voxelOffsets,
-            std::vector<int>& placements) const;
+  /// (x, y, z) translation triples. `lock` plays a part only with start
+  /// locks.
+  void find(const Voxel& rotation, std::vector<long>& voxelOffsets, std::vector<int>& placements,
+            StartLock lock = StartLock{0, true}) const;
 
  private:
   struct ResultVoxel {
@@ -44,6 +54,7 @@ class PlacementFinder {
   };
 
   const Voxel& res_;
+  bool startLocks_;
   std::vector<ResultVoxel> resultVoxels_;   ///< all non-empty voxels of the result
   unsigned int colorTableWidth_;            ///< number of colours + 1
   std::vector<unsigned char> colorAllowed_; ///< placementAllowed lookup table

@@ -383,7 +383,7 @@
     },
     "SlidingOptions": {
       "type": "object",
-      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
+      "description": "A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever the brick fields say; the colour rules apply as on every grid; disassemble (the GUI's Find Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list). There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).",
       "properties": {
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},

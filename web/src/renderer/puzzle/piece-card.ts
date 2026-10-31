@@ -118,12 +118,7 @@ export class PieceCard {
     const sw = (c: Colour, t: string): string =>
       `<span class="sw2" title="${t} ${esc(c.label)}" style="background:${c.rgb}"></span>`;
     const el = byId('pzRules');
-    // a sliding puzzle's cell colours are its start marks: no colour rules
-    // (the original hid the Colour Assignment group)
-    const sliding = ws.store.snapshot?.grid === 'sliding';
-    byId('pzRulesHead').style.display = sliding ? 'none' : '';
-    el.style.display = sliding ? 'none' : '';
-    if (ws.detail === null || sliding) {
+    if (ws.detail === null) {
       el.innerHTML = '';
       return;
     }

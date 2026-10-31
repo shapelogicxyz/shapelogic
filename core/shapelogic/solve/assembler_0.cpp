@@ -46,6 +46,8 @@ AssemblerError Assembler0::createMatrix(const MatrixOptions& options) {
 
   filter_.complete = options.completeRotations;
   strictColors_ = options.strictColors;
+  startLocks_ = options.startLocks;
+  freeStarts_ = options.freeStarts;
   partTransforms_ = options.partTransforms;
 
   if (!canHandle(problem_)) {
@@ -59,7 +61,8 @@ AssemblerError Assembler0::createMatrix(const MatrixOptions& options) {
   columns_.assign(problem_.getNumberOfPieces() + 1, 0);
 
   errorsState_ =
-      matrix_.build(puzzle_, problem_, strictColors_, partTransforms_, filter_, reducePiece_,
+      matrix_.build(puzzle_, problem_, strictColors_, startLocks_, freeStarts_, partTransforms_,
+                    filter_, reducePiece_,
                     errorsParam_);
   if (errorsState_ != AssemblerError::None) {
     return errorsState_;

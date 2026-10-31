@@ -84,6 +84,10 @@ enum class SlideOutcome : std::uint8_t {
 /// original): the line it printed.
 using SlideLevelTrace = std::function<void(const std::string&)>;
 
+/// The least free disk a slide search leaves for saving itself, besides
+/// what the save writes: 100 MB.
+inline constexpr std::uint64_t kSlideSaveReserve = 100000000ULL;
+
 /// The settings of one slide search, and how it went.
 struct SlideSearch {
   /// Arrangements' worth of memory the search may fill (memoryStates each)
@@ -133,12 +137,17 @@ struct SlideSearch {
   /// kept for tracing the path back are thinned as the disk fills (every
   /// other one goes), so only the newest levels count against it.
   std::uint64_t diskBudget = 0;
+  /// Free disk the search leaves so that it can always save itself: it
+  /// stops (Disk, saved) before the free space falls below this plus what
+  /// a save writes (its sets in memory) and what the next level may take.
+  /// The tests raise it to make a disk look full.
+  std::uint64_t diskReserve = kSlideSaveReserve;
   /// Bytes the search's sets may take in memory before they go to files;
   /// 0 for the memory budget. A small search never touches the disk.
   std::uint64_t memoryLevelBytes = 0;
   /// Carry on this start's saved search in workDir, if there is one (a
-  /// search stopped by its token is saved there; one that filled a disk
-  /// budget the disk did not cut too). Off, a saved search is thrown away.
+  /// search stopped by its token is saved there, and so is one that filled
+  /// its disk budget or the disk). Off, a saved search is thrown away.
   bool resume = true;
   /// Save the search this often as it runs, so a crash loses no more. 0
   /// saves only when the search stops.

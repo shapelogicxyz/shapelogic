@@ -7,6 +7,7 @@
 #include "../model/model_test_helpers.h"
 
 #include "shapelogic/base/stop.h"
+#include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/puzzle_file.h"
@@ -35,6 +36,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -156,19 +158,19 @@ TEST_CASE("sliding: more restriction cells than the piece has voxels", "[sliding
   const unsigned int pieceId = puz.addShape(1, 1, 1);
   puz.getShape(pieceId).setState(0, 0, 0, kFilled);
   const unsigned int mark = pieceId + 1;
-  puz.getShape(trayId).setColor(0, 0, 0, mark);
+  puz.getShape(trayId).setStartPiece(0, 0, 0, mark);
   syncSlidingProblems(puz);
   Voxel& tray = puz.getShape(trayId);
   const Problem& pr = puz.getProblem(0);
 
   REQUIRE(stampOverflowMessage(puz, pr).empty());
 
-  tray.setColor(1, 0, 0, mark);
+  tray.setStartPiece(1, 0, 0, mark);
   const std::string startMsg = stampOverflowMessage(puz, pr);
   REQUIRE(startMsg.find("S" + std::to_string(mark)) != std::string::npos);
   REQUIRE(startMsg.find("start") != std::string::npos);
 
-  tray.setColor(1, 0, 0, 0);
+  tray.setStartPiece(1, 0, 0, 0);
   tray.setGoalPiece(tray.getIndex(0, 0, 0), mark);
   tray.setGoalPiece(tray.getIndex(1, 0, 0), mark);
   const std::string goalMsg = stampOverflowMessage(puz, pr);
@@ -184,7 +186,7 @@ TEST_CASE("sliding: a variable cell is not a legal place to finish", "[sliding]"
   const unsigned int pieceId = puz.addShape(1, 1, 1);
   puz.getShape(pieceId).setState(0, 0, 0, kFilled);
   Voxel& tray = puz.getShape(trayId);
-  tray.setColor(0, 0, 0, pieceId + 1);
+  tray.setStartPiece(0, 0, 0, pieceId + 1);
   // the goal is on the far normal cell; the piece crosses the variable one
   tray.setGoalPiece(tray.getIndex(2, 0, 0), pieceId + 1);
   syncSlidingProblems(puz);
@@ -333,16 +335,15 @@ TEST_CASE("sliding: the start stamp is the only initial placement", "[sliding]")
   const unsigned int pieceId = puz.addShape(1, 1, 1);
   puz.getShape(pieceId).setState(0, 0, 0, kFilled);
   Voxel& tray = puz.getShape(trayId);
-  tray.setColor(0, 0, 0, pieceId + 1);
+  tray.setStartPiece(0, 0, 0, pieceId + 1);
   tray.setGoalPiece(tray.getIndex(2, 0, 0), pieceId + 1);
   syncSlidingProblems(puz);
-
-  REQUIRE(puz.colorNumber() >= pieceId + 1);
 
   const Problem& pr = puz.getProblem(0);
   const std::unique_ptr<Assembler> assm = makeAssembler(puz, pr, SolverType::Classic);
   MatrixOptions mo;
-  mo.strictColors = true;
+  mo.startLocks = true;
+  mo.freeStarts = freeStartParts(puz, pr);
   REQUIRE(assm->createMatrix(mo) == AssemblerError::None);
 
   unsigned int n = 0;
@@ -485,21 +486,21 @@ TEST_CASE("sliding: removing a labelled cell clears start and goal", "[sliding]"
   const unsigned int trayId = addStartGoalShape(puz, 2, 1);
   Voxel& tray = puz.getShape(trayId);
 
-  tray.setColor(0, 0, 0, 2);
+  tray.setStartPiece(0, 0, 0, 2);
   tray.setGoalPiece(tray.getIndex(0, 0, 0), 2);
-  REQUIRE(tray.getColor(0, 0, 0) == 2);
+  REQUIRE(tray.getStartPiece(0, 0, 0) == 2);
   REQUIRE(tray.getGoalPiece(0, 0, 0) == 2);
 
   tray.setState(0, 0, 0, kEmpty);
   REQUIRE(tray.getState(0, 0, 0) == kEmpty);
-  REQUIRE(tray.getColor(0, 0, 0) == 0);
+  REQUIRE(tray.getStartPiece(0, 0, 0) == 0);
   REQUIRE(tray.getGoalPiece(0, 0, 0) == 0);
 
   // a mark written onto the empty cell must not come back when it is filled
   tray.setGoalPiece(tray.getIndex(0, 0, 0), 2);
   tray.setState(0, 0, 0, kFilled);
   REQUIRE(tray.getState(0, 0, 0) == kFilled);
-  REQUIRE(tray.getColor(0, 0, 0) == 0);
+  REQUIRE(tray.getStartPiece(0, 0, 0) == 0);
   REQUIRE(tray.getGoalPiece(0, 0, 0) == 0);
 }
 
@@ -690,7 +691,6 @@ Assembly nestedStart(const Puzzle& puzzle) {
 
 TEST_CASE("sliding: a search says whether it finished or was stopped", "[sliding]") {
   Puzzle puzzle = nestedPuzzle();
-  refreshStartLocks(puzzle, puzzle.getProblem(0));
   const Problem& pr = puzzle.getProblem(0);
   const Assembly start = nestedStart(puzzle);
 
@@ -712,7 +712,6 @@ TEST_CASE("sliding: a search says whether it finished or was stopped", "[sliding
 
 TEST_CASE("sliding: a search stops at its memory limit", "[sliding]") {
   Puzzle puzzle = nestedPuzzle();
-  refreshStartLocks(puzzle, puzzle.getProblem(0));
   const Problem& pr = puzzle.getProblem(0);
   const Assembly start = nestedStart(puzzle);
 
@@ -762,7 +761,7 @@ TEST_CASE("sliding: benchmark, fifteen pieces in a 4x4 tray", "[.bench][sliding]
     const unsigned int id = puz.addShape(1, 1, 1);
     puz.getShape(id).setState(0, 0, 0, kFilled);
     Voxel& tray = puz.getShape(trayId);
-    tray.setColor(k % 4, k / 4, 0, id + 1);
+    tray.setStartPiece(k % 4, k / 4, 0, id + 1);
     const unsigned int g = k == 13 ? 14 : k == 14 ? 13 : k;
     tray.setGoalPiece(tray.getIndex(g % 4, g / 4, 0), id + 1);
   }
@@ -811,7 +810,7 @@ SlideFixture slideFixture(unsigned int trayW, unsigned int trayH,
       for (unsigned int x = 0; x < b.w; x++) {
         f.puz.getShape(id).setState(x, y, 0, kFilled);
         Voxel& tray = f.puz.getShape(trayId);
-        tray.setColor(static_cast<unsigned int>(b.x) + x, static_cast<unsigned int>(b.y) + y, 0,
+        tray.setStartPiece(static_cast<unsigned int>(b.x) + x, static_cast<unsigned int>(b.y) + y, 0,
                       id + 1);
         if (b.goalX >= 0) {
           tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(b.goalX) + x,
@@ -1176,7 +1175,7 @@ OneWay oneWayPuzzle() {
       w.puz.getShape(id).setState(static_cast<unsigned int>(c.first),
                                   static_cast<unsigned int>(c.second), 0, kFilled);
       Voxel& tray = w.puz.getShape(trayId);
-      tray.setColor(static_cast<unsigned int>(pc.x + c.first),
+      tray.setStartPiece(static_cast<unsigned int>(pc.x + c.first),
                     static_cast<unsigned int>(pc.y + c.second), 0, id + 1);
       // the C's goal: the bottom right corner
       if (k == 0) {
@@ -1396,7 +1395,7 @@ TEST_CASE("sliding: fuzz, the level search agrees with the legacy search", "[.fu
         puz.getShape(id).setState(static_cast<unsigned int>(c.first),
                                   static_cast<unsigned int>(c.second), 0, kFilled);
         Voxel& tray = puz.getShape(trayId);
-        tray.setColor(static_cast<unsigned int>(pieces[i].x + c.first),
+        tray.setStartPiece(static_cast<unsigned int>(pieces[i].x + c.first),
                       static_cast<unsigned int>(pieces[i].y + c.second), 0, id + 1);
         if (i == 0) {
           tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(W - 3 + c.first),
@@ -1519,7 +1518,7 @@ TEST_CASE("sliding: a whole piece is placed as a start or a goal", "[sliding]") 
   CHECK(clearStamp(tray, L, true));
 
   // a start that is only part of the piece is not valid
-  tray->setColor(1, 1, 0, 0);
+  tray->setStartPiece(1, 1, 0, 0);
   CHECK(startGoalError(f.puz, 0).find("not the whole piece") != std::string::npos);
 }
 
@@ -1567,14 +1566,22 @@ TEST_CASE("sliding: copies of a piece are placed one by one", "[sliding]") {
   CHECK(stampPiece(tray, d, D, 3, 1, 0, true, 3).empty());
   CHECK(stampPiece(tray, d, D, 3, 0, 0, true, 3).empty());
   CHECK(startGoalError(f.puz, 0).empty());
-  // the copies without a start start anywhere: their colour fits neutral cells
+  // the copies without a start start anywhere: the part may go on unmarked
+  // cells (a part with a start for every copy may not)
+  const auto partOf = [&pr](unsigned int shape) {
+    for (unsigned int part = 0; part < pr.getNumberOfParts(); part++) {
+      if (pr.getShapeIdOfPart(part) == shape) {
+        return part;
+      }
+    }
+    return pr.getNumberOfParts();
+  };
+  CHECK_FALSE(freeStartParts(f.puz, pr)[partOf(D)]);
   CHECK(clearCopyAt(tray, d, D, 0, 2, 0, false));
-  refreshStartLocks(f.puz, pr);
-  CHECK(pr.getNeutralFitColors() == std::uint64_t{1} << D);
-  CHECK(pr.placementAllowed(f.puz, D + 1, 0, true));
+  CHECK(freeStartParts(f.puz, pr)[partOf(D)]);
 
   // marks that are not whole copies are not valid
-  tray->setColor(4, 2, 0, D + 1);
+  tray->setStartPiece(4, 2, 0, D + 1);
   CHECK_FALSE(stampCopies(*tray, *d, D, false));
   CHECK(startGoalError(f.puz, 0).find("not the whole piece") != std::string::npos);
 }
@@ -1617,7 +1624,7 @@ TEST_CASE("sliding: a stamp on a tray of layers marks the whole piece", "[slidin
   CHECK(startGoalError(puz, trayId).empty());
 
   // a start that misses a layer of the piece is not the whole piece
-  tray->setColor(0, 0, 2, 0);
+  tray->setStartPiece(0, 0, 2, 0);
   CHECK(startGoalError(puz, trayId).find("not the whole piece") != std::string::npos);
 }
 
@@ -1812,6 +1819,42 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
   std::filesystem::remove_all(dir);
 }
 
+// A disk nearly full (here: a reserve larger than any disk) stops the
+// search while it can still save itself, and once there is room again a
+// search of the same start carries it on to the same path.
+TEST_CASE("sliding: a search stops with room to save itself", "[sliding][resume]") {
+  const std::filesystem::path dir = scratchDir("slidereserve");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+
+  SlideSearch straight;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+
+  SlideSearch full;
+  full.workDir = dir.string();
+  full.memoryLevelBytes = 1;
+  full.diskReserve = std::uint64_t{1} << 62;
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, full).has_value());
+  REQUIRE(full.outcome == SlideOutcome::Disk);
+  CHECK(full.saved);
+  CHECK(full.diskHeldToFree);
+  CHECK(full.error.find("The disk is nearly full") != std::string::npos);
+  CHECK_FALSE(std::filesystem::is_empty(dir));
+
+  SlideSearch room;
+  room.workDir = dir.string();
+  room.memoryLevelBytes = 1;
+  const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, room);
+  REQUIRE(rest.has_value());
+  CHECK(room.resumed);
+  CHECK(rest->getMoves() == 81);
+  CHECK(placesAlong(*rest) == placesAlong(*whole));
+  CHECK(room.visited == straight.visited);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
 // Searched from both ends, a puzzle whose goal is one arrangement gets a
 // path as short as the search from the start alone finds, through fewer
 // arrangements; a goal no sliding reaches is still proven out of reach.
@@ -1962,3 +2005,57 @@ TEST_CASE("sliding: key sets join, seek and reopen", "[sliding]") {
   std::filesystem::remove_all(dir);
 }
 #endif
+
+// The older model with pieces the problem has 0 or 1 of (the original's
+// generated fixture): every layout counts, a piece left out included, and
+// the floor may stay empty wherever no piece is. The same four layouts
+// from the plain search, the vector search and the split search, after
+// reduce() as the session runs it (which merged the start cells into the
+// piece columns and once lost the holes with them).
+TEST_CASE("sliding: optional pieces give the same layouts on every search",
+          "[sliding][assembler][parallel]") {
+  const Puzzle puz = test::loadFixture("sliding/slide_pocket_partial.xmpuzzle");
+  const Problem& pr = puz.getProblem(0);
+  REQUIRE(pr.getNumberOfParts() == 2);
+  ThreadPool pool(4);
+  std::vector<std::set<std::string>> seen;
+  for (const bool reduce : {false, true}) {
+    for (const unsigned int threads : {1U, 4U}) {
+      for (const bool vector : {false, true}) {
+        INFO("reduce " << reduce << ", " << threads << " thread(s), vector " << vector);
+        const std::unique_ptr<Assembler> assm = makeAssembler(puz, pr, SolverType::Classic);
+        MatrixOptions mo;
+        mo.strictColors = true;
+        mo.keepMirrors = true;
+        mo.keepRotations = true;
+        REQUIRE(assm->createMatrix(mo) == AssemblerError::None);
+        if (reduce) {
+          (void)assm->reduce(StopToken{});
+        }
+        std::set<std::string> layouts;
+        SearchOptions so;
+        so.threads = threads;
+        so.pool = &pool;
+        so.vectorSearch = vector;
+        (void)assm->assemble(
+            [&](Assembly a) {
+              std::string key;
+              for (unsigned int i = 0; i < a.placementCount(); i++) {
+                key += a.isPlaced(i) ? std::to_string(a.getX(i)) + "," + std::to_string(a.getY(i))
+                                     : std::string("x");
+                key += ";";
+              }
+              layouts.insert(key);
+              return true;
+            },
+            so, StopToken{});
+        CHECK(layouts.size() == 4);
+        CHECK(layouts.contains("1,1;0,2;"));
+        seen.push_back(layouts);
+      }
+    }
+  }
+  for (const std::set<std::string>& s : seen) {
+    CHECK(s == seen[0]);
+  }
+}

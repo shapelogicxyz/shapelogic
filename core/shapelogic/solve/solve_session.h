@@ -421,6 +421,10 @@ class SolveSession {
   bool slideDiskHeldToFree_ = false;
   /// A search that filled its disk budget was saved to be carried on.
   bool slideDiskSaved_ = false;
+  /// That search's start went back as pending and the run pauses: no more
+  /// starts this run (written by the callback, read on the run's thread
+  /// after the assembler returns).
+  bool slideDiskHalted_ = false;
   /// note(), under failureMutex_.
   std::string note_;
 

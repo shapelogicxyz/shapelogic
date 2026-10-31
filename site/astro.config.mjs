@@ -33,6 +33,7 @@ export default defineConfig({
       description: 'An open source puzzle solver: design and solve interlocking and packing puzzles.',
       logo: { src: './src/assets/puzzle_icon.jpg', alt: '' },
       favicon: '/favicon.jpg',
+      customCss: ['./src/styles/docs.css'],
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/shapelogicxyz/shapelogic' },
       ],
@@ -105,7 +106,8 @@ export default defineConfig({
             { label: 'Overview', slug: 'docs/code-base' },
             { label: 'Languages and Tools', slug: 'docs/code-base/stack' },
             { label: 'Repository Layout', slug: 'docs/code-base/file-structure' },
-            { label: 'Build, Test and Tool Commands', slug: 'docs/code-base/commands' },
+            { label: 'Tool Commands and Environment Variables', slug: 'docs/code-base/commands' },
+            { label: 'Code Testing Suites', slug: 'docs/code-base/testing' },
             { label: 'Where the Code Lives', slug: 'docs/code-base/core-functions' },
             { label: 'Engine Protocol', slug: 'docs/code-base/engine-protocol' },
             { label: 'Example Solve Flow', slug: 'docs/code-base/example-solve-flow' },

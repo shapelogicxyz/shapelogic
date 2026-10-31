@@ -1005,10 +1005,12 @@ def sliding_start_goal_shapes(e):
           == sorted([(two, False, 2), (two, True, 2), (one, False, 1)]), f"the copies {t['placed']}")
     e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 0}, "invalid_argument")
     e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
-    # the colour group the original greyed out: the cell colours are the marks
-    colours = e.call("document.get")["colours"]
-    check(len(colours) >= 2, f"the locks' colours {colours}")
-    e.fails("colour.delete", {"colour": colours[0]["id"]}, "invalid_argument")
+    # the colours are the user's, as on every grid (the original kept the
+    # marks in them): none from the marks; one added and deleted leaves them
+    check(e.call("document.get")["colours"] == [], "no colours from the marks")
+    red = e.call("colour.add", {"rgb": "#ff0000"})["colour"]
+    e.call("colour.delete", {"colour": red})
+    check(e.call("sliding.tray", {"tray": tray})["starts"][0] == two, "the marks stay")
     # a copy of the problem shares the board; the calls that name a problem
     # take its counts, and refuse one not on the board
     q = e.call("problem.duplicate", {"problem": p})["problem"]

@@ -411,10 +411,9 @@ export class EntitiesWorkspace {
         layer: st.layer,
         cells,
         shapeColour: own,
-        // a sliding puzzle's cell colours are start marks and the pieces'
-        // locks, not constraint colours: none drawn; a board in its tiles
-        palette:
-          snap.grid === 'sliding' ? new Map() : new Map(snap.colours.map((c) => [c.id, c.rgb])),
+        // the constraint colours (a sliding puzzle's start and goal marks
+        // are drawn apart from them); a board in its tiles
+        palette: new Map(snap.colours.map((c) => [c.id, c.rgb])),
         tray:
           snap.grid === 'sliding' && isTray(shape)
             ? {

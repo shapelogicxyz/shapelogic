@@ -3,7 +3,7 @@
 ## Goal
 A clean, maintainable C++ core for ShapeLogic, designed for a web front end
 from the start, that gives the same answers as the original application.
-The original (`../burrtools_rotations`) is the reference throughout.
+The original (`../burr-tools`, or `BT_OLD_REPO`) is the reference throughout.
 
 **In scope (first complete version):** all five grids (cubes, triangular
 prisms, spheres, rhombic tetrahedra, tetrahedra-octahedra); shapes and

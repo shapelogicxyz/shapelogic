@@ -325,21 +325,29 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
   // the column of the range check (only used with hasRange)
   unsigned int rangeColumn = 0;
 
+  holeColumns_.clear();
+  holeWeight_.assign(headerNodes_, 0);
+  holeCells_ = 0;
+  const auto holeColumn = [this](unsigned int c) {
+    min_[c] = 0;
+    holeColumns_.push_back(c);
+    holeWeight_[c] = 1;
+    holeCells_++;
+  };
+
   {
     unsigned int c = 1 + problem_.getNumberOfParts();
 
     for (unsigned int i = 0; i < result.getXYZ(); i++) {
       switch (result.getState(i)) {
         case Voxel::kVariable:
-          min_[c] = 0;
-          holeColumns_.push_back(c);
+          holeColumn(c);
           [[fallthrough]];
         case Voxel::kFilled:
           // Sliding does not require the tray to be filled: a normal cell
           // may stay empty, the same as a variable cell.
           if (result.getState(i) == Voxel::kFilled && isSliding(puzzle_)) {
-            min_[c] = 0;
-            holeColumns_.push_back(c);
+            holeColumn(c);
           }
           columns[i] = c++;
           break;
@@ -501,7 +509,7 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
   std::vector<std::unique_ptr<Voxel>> cache;
   cache.reserve(sym.getNumTransformationsMirror());
 
-  const PlacementFinder finder(puzzle_, problem_, result, strictColors_);
+  const PlacementFinder finder(puzzle_, problem_, result, strictColors_, startLocks_);
   std::vector<long> voxelOffsets;
   std::vector<int> positions;
 
@@ -510,6 +518,9 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
 
   for (unsigned int pc = 0; pc < problem_.getNumberOfParts(); pc++) {
     reducePiece_.store(pc, std::memory_order_relaxed);
+    const PlacementFinder::StartLock lock{
+        static_cast<unsigned char>(problem_.getShapeIdOfPart(pc) + 1),
+        pc < freeStarts_.size() ? freeStarts_[pc] : true};
 
     // the weights of the shape's column fit its number of pieces
     max_[pc + 1] = problem_.getPartMaximum(pc);
@@ -534,7 +545,7 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
       const Voxel* rotation = addToCache(cache, std::move(rotated));
 
       if (rotation != nullptr) {
-        finder.find(*rotation, voxelOffsets, positions);
+        finder.find(*rotation, voxelOffsets, positions, lock);
 
         for (std::size_t p = 0; p < positions.size(); p += 3) {
           const int x = positions[p];
@@ -589,6 +600,8 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options) {
 
   filter_.complete = options.completeRotations;
   strictColors_ = options.strictColors;
+  startLocks_ = options.startLocks;
+  freeStarts_ = options.freeStarts;
   partTransforms_ = options.partTransforms;
 
   if (!canHandle(problem_)) {
@@ -617,7 +630,13 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options) {
     max += problem_.partShape(puzzle_, j).countState(Voxel::kFilled) * problem_.getPartMaximum(j);
   }
 
-  if (min == max) {
+  // A sliding puzzle's floor may stay empty wherever no piece is: a piece
+  // the problem has 0 or 1 of may be left out, whatever that leaves empty
+  // (the original's maxHoles for sliding was only the slack that let the
+  // assembler accept the tray; its hole count did not hold either).
+  if (isSliding(puzzle_)) {
+    holes_ = 0xFFFFFF;
+  } else if (min == max) {
     holes_ = resFilled - min;
   } else if (problem_.maxHolesDefined()) {
     holes_ = problem_.getMaxHoles();
@@ -747,6 +766,7 @@ unsigned int Assembler1::clumpify() {
     std::vector<std::size_t>& group = groups[sigHash[i]];
 
     bool dup = false;
+    unsigned int keep = 0;
 
     for (const std::size_t j : group) {
       if (min_[cols[i]] != min_[cols[j]] || max_[cols[i]] != max_[cols[j]]) {
@@ -762,11 +782,24 @@ unsigned int Assembler1::clumpify() {
       if ((leni == 0) || (std::memcmp(&sigData[sigStart[i]], &sigData[sigStart[j]],
                                       leni * sizeof(unsigned long)) == 0)) {
         dup = true;
+        keep = cols[j];
         break;
       }
     }
 
     if (dup) {
+      // The cells a merged hole column stood for are empty exactly when
+      // the survivor is (the same rows fill both), so the survivor counts
+      // them from now on: a cell with one placement merges into that
+      // piece's column, and the piece left out leaves the cell a hole.
+      if (holeWeight_[cols[i]] != 0) {
+        if (holeWeight_[keep] == 0) {
+          holeColumns_.push_back(keep);
+        }
+        holeWeight_[keep] += holeWeight_[cols[i]];
+        holeWeight_[cols[i]] = 0;
+        std::erase(holeColumns_, cols[i]);
+      }
       removeColumn(cols[i]);
       removed++;
     } else {
@@ -990,16 +1023,16 @@ unsigned int Assembler1::findBestUnclosedColumn(const Links& n) const {
 }
 
 bool Assembler1::tooManyHoles(const Links& n) const {
-  if (holes_ >= holeColumns_.size()) {
+  if (holes_ >= holeCells_) {
     return false;
   }
-  unsigned int cnt = holes_;
+  unsigned int empty = 0;
   for (const unsigned int hc : holeColumns_) {
     if (n.colCount[hc] == 0 && n.weight[hc] == 0) {
-      if (cnt == 0) {
+      empty += holeWeight_[hc];
+      if (empty > holes_) {
         return true;
       }
-      cnt--;
     }
   }
   return false;
@@ -1973,10 +2006,9 @@ bool Assembler1::simdFits(const SearchOptions& options) const {
   }
 
   // Puzzles with a piece-count range are not kept out: the vector search has
-  // the range column. Variable voxels together with ranges are.
-  const unsigned int resVari = problem_.resultShape(puzzle_).countState(Voxel::kVariable);
-
-  if (resVari > 0) {
+  // the range column. Cells that may stay empty together with ranges are
+  // (variable voxels; every floor cell of a sliding puzzle).
+  if (!holeColumns_.empty()) {
     for (unsigned int s = 0; s < problem_.getNumberOfParts(); s++) {
       if (problem_.getPartMinimum(s) != problem_.getPartMaximum(s)) {
         return false;

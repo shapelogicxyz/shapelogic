@@ -2,7 +2,7 @@
 
 electron-builder's `buildResources` (tools/dist.ts). The app icon is
 ShapeLogic's (`assets/puzzle_icon.jpg`, 860 by 860); the document icons are the
-original BurrTools's (`../burrtools_rotations/mac/`, GPL-3.0):
+original BurrTools's (`../burr-tools/mac/`, GPL-3.0):
 
 - `icon.icns`: the app's icon on macOS, made from `assets/puzzle_icon.jpg`
   on a 824-pixel rounded tile (radius 185, transparent margin, soft

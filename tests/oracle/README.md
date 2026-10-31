@@ -7,7 +7,7 @@ A solver stage is done only when the harness reports no differences
 
 ## Setup
 
-- The original checkout at `../burrtools_rotations` (or `BT_OLD_REPO`), built
+- The original checkout at `../burr-tools` (or `BT_OLD_REPO`), built
   with `just build` there, so `build/burrTxt` and `build/burrTxt2` exist.
 - The new `shapelogic_cli` is built by `just oracle` itself (release preset).
 
@@ -20,7 +20,7 @@ A solver stage is done only when the harness reports no differences
 | fast | 19 bundled examples and fixtures | ~2 s | every run |
 | full | 158 TIC puzzles with rotation take-apart | ~23 s | before finishing a solver stage |
 | slow | Climburr_OldVer, CoverUp3, CornerCube | ~7 s | benchmarks, final checks |
-| sliding | the 3 sliding fixtures and 32 puzzles made with the original's code | ~1 min | sliding work (deferred part 1) |
+| sliding | the 3 sliding fixtures and 32 puzzles made with the original's code (seven of them, the older-model ones with optional pieces, hold ShapeLogic's answers: decision 0014, difference 5) | ~1 min | sliding work (deferred part 1) |
 | stacking | the 2 stacking fixtures and 39 puzzles made with the original's code | seconds | stacking work (deferred part 3) |
 
 Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only (the

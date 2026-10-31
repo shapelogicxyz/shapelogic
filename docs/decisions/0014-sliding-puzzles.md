@@ -1,6 +1,7 @@
 # 0014: Sliding puzzles in the core, the engine and the CLI
 
-**Status:** accepted (deferred part 1); `core/shapelogic/model/sliding.h`,
+**Status:** accepted (deferred part 1); the start marks moved out of the
+cell colours later (decision 0021); `core/shapelogic/model/sliding.h`,
 `core/shapelogic/solve/sliding_search.h`, `core/shapelogic/solve/slide_levels.h`,
 `core/shapelogic/app/document_sliding.cpp`, `engine/methods_sliding.cpp`,
 `api/sliding.json`
@@ -26,19 +27,23 @@ started. Decisions 0004, 0010 and 0011 rule out all four as they were.
 start/goal shapes and their user names, stamps, `syncSlidingProblems`,
 the start locks, the checks (`startGoalError`, `stampOverflowMessage`),
 the older goal-map model the solver still reads, and
-`prepareForSolving` (the maximum of holes and the start locks).
+`prepareForSolving` (the maximum of holes and the start locks; since
+decision 0021 the assembler holds the pieces to their start marks and
+`prepareForSolving` sets only the maximum of holes).
 `solve/sliding_search.h` holds the search (`findSlidePath`, the memory
 budget, nested and partially nested slides), the search's level files (`slide_levels.h`) and the routes the player follows
 (`slideRoute`, `applySlideRoutes`). The file format did not change: what
 the original saved, the model now reads instead of preserving it, and the
-saves stay byte-identical.
+saves stay byte-identical (until decision 0021 gave the start marks an
+attribute of their own: the original's files convert as they load).
 
 **Sliding runs go through `SolveSession`** (decision 0010), not a side
 path. `SolveOptions.sliding` (`SlidingOptions`: nested and partially
 nested slides, high memory, the work folder and disk budget,
 the A/B switches) carries what the solve thread's flags did. The session
 forces what the solve thread forced (Classic; mirrors and rotations kept;
-no complete rotations; strict colours), runs the slide search in the
+no complete rotations; strict colours, which decision 0021 replaced by
+the start locks), runs the slide search in the
 assembler's callback on a pool of its own, puts a stopped search's start
 back as pending (not counted), lets the search under way finish at a save
 point, keeps the shorter path of two that end alike (`finalPlacementKey`),
@@ -58,12 +63,12 @@ the start/goal commands (`addStartGoal`, `placeStamp`, `clearStampAt`)
 are undoable steps; the shape commands keep the stamps and the problems
 in step (a deleted or moved shape's marks renumbered, a stamped piece
 moved past the 63rd place losing them with a notice, since a mark is six
-bits, a duplicated or renamed start/goal shape keeping its number apart
+bits (a byte, 255 places, since decision 0021), a duplicated or renamed start/goal shape keeping its number apart
 from the user's name, an edit that changes a stamped piece's shape taking
 its stamps off with a notice); what the GUI greyed out or hid is refused
-(groups, the count of a piece a stamp requires, deleted colours: the
-cell colours are the start marks); a sliding shape keeps its layers on
-open (see "Problems the user makes" below and
+(groups, the count of a piece a stamp requires, and, until decision
+0021 moved the start marks out of the cell colours, deleted colours); a
+sliding shape keeps its layers on open (see "Problems the user makes" below and
 "Shapes of more than one layer" below). Solve's setup
 (`prepareForSolving`) is part of the launch, not an undo step, as it was
 part of the original's solve: it runs after every check that can refuse,
@@ -92,12 +97,27 @@ original:
 2. The search's level threads are a `ThreadPool` job (one job saves
    the finished level, then expands), not threads of its own.
 3. A start lock that is already right is not written again (writing it
-   dropped the shape's caches; the answers are the same).
+   dropped the shape's caches; the answers are the same). Since decision
+   0021 nothing paints the pieces.
 4. The original solver is nondeterministic on several threads when a
    puzzle has more than one start layout: which start's path is kept for
    an ending depends on the order the starts arrive in. The new core is
    faithful to that; the harness compares such puzzles on one thread (the
    corpus flag `O`).
+5. A piece the problem has 0 or 1 of may be left out of a start layout,
+   whatever that leaves empty: a sliding puzzle's floor may stay empty
+   wherever no piece is, so its `maxHoles` (the slack `syncMaxHoles`
+   computes) does not bind the assembler. The original's reduce merged a
+   start cell with a single placement into its piece's matrix column and
+   lost the cell's hole with it, so its hole count held only by accident,
+   and its search reported one layout, the empty one, for the older-model
+   fixtures with optional pieces; `Assembler1` now carries a merged hole
+   column's cells on the survivor (`holeWeight_`), keeps a sliding
+   puzzle with ranges off the vector search, and finds every layout on any
+   number of threads. The sliding baseline's entries for those seven
+   fixtures (`slide_caterpillar`, `slide_corridor`, `slide_one_cell`,
+   `slide_pocket_nested`, `slide_pocket_partial`, `slide_shorter_path`,
+   `slide_turn`) are ShapeLogic's answers, not the original's.
 
 **Shapes of more than one layer** (added after the port). The original
 locked a sliding shape to one layer (the GUI's `lockZ`, `flattenPieces`
@@ -169,8 +189,9 @@ original refused it: the piece starts anywhere). The search follows:
   sharing the starts among them (the assembler's parts of several
   pieces), and any copy may end on any of its goals;
 - a copy without a start starts anywhere: a piece with starts for only
-  some copies may also go on a neutral cell
-  (`Problem::setNeutralFitColors`, set with the start locks, not saved),
+  some copies may also go on cells that are no start
+  (`MatrixOptions::freeStarts`, decision 0021; first
+  `Problem::setNeutralFitColors`, set with the start locks),
   and `startFillsStamps` drops a layout that leaves one of its starts
   empty before it is counted;
 - a copy without a goal ends anywhere: the goal check counts the copies

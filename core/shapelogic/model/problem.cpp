@@ -49,7 +49,6 @@ Problem Problem::copyDefinition() const {
   p.goal_ = goal_;
   p.solverOptions_ = solverOptions_;
   p.colorConstraints_ = colorConstraints_;
-  p.neutralFitColors_ = neutralFitColors_;
   p.maxHoles_ = maxHoles_;
   p.rodSetId_ = rodSetId_;
   p.startMap_ = startMap_;
@@ -485,11 +484,9 @@ bool Problem::placementAllowed(const Puzzle& puzzle, unsigned int pc, unsigned i
     return true;
   }
 
-  // strict: same colour only; neutral only matches neutral, but takes
-  // the colours a sliding puzzle lets start anywhere too
+  // strict: same colour only; neutral only matches neutral
   if (strict) {
-    return pc == res ||
-           (res == 0 && pc >= 1 && pc <= 64 && ((neutralFitColors_ >> (pc - 1)) & 1U) != 0);
+    return pc == res;
   }
 
   return pc == 0 || res == 0 || colorConstraints_.contains((pc - 1) << 16 | (res - 1));

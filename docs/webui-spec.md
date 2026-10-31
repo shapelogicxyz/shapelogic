@@ -349,12 +349,11 @@ where the problem's counts are.
   pieces' colours). The tasks are the bricks' (the original's `lockZ`
   left out those that add layers; sliding shapes may have them now).
 - **Voxel editor (right card):** the Z size stepper is on (a new shape
-  is one layer); the plane is XY only, the layers one at a time. There is no **Paint colour** (no
-  constraint colour to paint) and the
-  **colour palette** keeps only the drawing colour (the shape's own) and
-  the pencil (a sliding puzzle has no constraint colours: a cell's colour
-  is a start mark, and the colour group was hidden in the original); the
-  grid draws no cell colours (the marks and the pieces' locks). A tray is
+  is one layer); the plane is XY only, the layers one at a time. The
+  **colour palette** and **Paint colour** are as on other grids (decision
+  0021: the start marks are apart from the colours; the original kept the
+  marks in the colours and hid the colour group); the grid draws the cell
+  colours as on other grids, and a board's marks over them. A tray is
   drawn with the ordinary tools, as a piece is: Fixed = floor, Variable =
   corridor, Erase = wall (their tooltips say so), on the original's dark
   tiles (`EDIT_LIGHT`/`EDIT_DARK`). The original's Tray edit switch and
@@ -409,8 +408,9 @@ where the problem's counts are.
   "Invalid Start/Goal positions - <reason>" (`sliding.tray.error`: starts
   or goals that are not whole pieces, more than the problem has copies,
   or no piece with every copy at a start and at a goal).
-- **Exclusive groups** and **Colour rules** are hidden (the original hid
-  the colour groups and greyed Groups).
+- **Exclusive groups** are hidden (the original greyed Groups); the
+  **Colour rules** matrix is as on other grids (decision 0021; the
+  original hid the colour groups, its cell colours being the start marks).
 - **3D view** (`showSingleShape`): two trays side by side, **START** and
   **GOAL** (dark grey, `VIEW_GREY` 0.12, a gap of 4 units), each copy
   placed standing on a tray in its piece's colour (on a tray of layers,
@@ -471,7 +471,7 @@ where the problem's counts are.
 - A change's `document.changed.notice` and an opened file's
   `Snapshot.notice` come in a message box, as the original's `bt_message`
   ("S3 changed shape: its start
-  and goal were removed from S1.", "Only the first 63 shapes …").
+  and goal were removed from S1.", "Only the first 255 shapes …").
 - **File ▸ New** offers **Sliding** second, after Brick (the original's
   order); a new sliding puzzle starts empty (add pieces with + New Piece,
   then a board with + New Board, then on the Puzzle workspace a problem

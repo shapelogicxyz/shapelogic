@@ -1,7 +1,7 @@
 {
   "permissions": {
     "additionalDirectories": [
-      "../burrtools_rotations"
+      "../burr-tools"
     ],
     "allow": [
       "Bash(just:*)",
@@ -14,7 +14,7 @@
       "Bash(./build/:*)",
       "Bash(build/:*)",
       "Bash(/Users/colin/git/burr-tools-rotations/burrtools_alpha/build/:*)",
-      "Bash(../burrtools_rotations/build:*)",
+      "Bash(../burr-tools/build:*)",
       "Bash(/Users/colin/git/burr-tools-rotations/burrtools_rotations/build:*)",
       "Bash(clang-tidy:*)",
       "Bash(clang-format:*)",

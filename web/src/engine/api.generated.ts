@@ -27,10 +27,11 @@ export interface Settings {
   solver: Solver;
   /**
    * Where a sliding search keeps its levels once they outgrow the search memory, in a folder of
-   * its own that goes when the search ends, unless the search was paused: then it stays, and the
-   * next search of the same start carries it on (the original's SHAPELOGIC_SLIDE_DIR); empty keeps
-   * everything in memory and makes the search memory the limit. Default: the user's cache folder's
-   * sliding folder.
+   * its own that goes when the search ends, unless the search was paused or stopped on disk (its
+   * budget filled, or the disk down to 100 MB and the room to save itself): then it stays, and the
+   * next search of the same start carries it on (solve.continue) (the original's
+   * SHAPELOGIC_SLIDE_DIR); empty keeps everything in memory and makes the search memory the limit.
+   * Default: the user's cache folder's sliding folder.
    */
   slideFolder: string;
   /**
@@ -995,11 +996,12 @@ export interface SolveOptions {
 
 /**
  * A sliding puzzle's search (the solve thread's sliding flags). A sliding solve always keeps
- * mirrored and rotated starts and matches colours strictly (the start locks), whatever the brick
- * fields say; disassemble (the GUI's Find Solutions) searches each start to the goal; solver,
- * checkRotations, justLevels and sortBy play no part (a path found goes at the end of the list).
- * There is one sliding solver (engine.info's slidingSolvers), so there is none to choose. Where
- * the search keeps its levels is the engine's setting (slideFolder, slideDiskGB).
+ * mirrored and rotated starts and holds each piece to its start marks (the start locks), whatever
+ * the brick fields say; the colour rules apply as on every grid; disassemble (the GUI's Find
+ * Solutions) searches each start to the goal; solver, checkRotations, justLevels and sortBy play
+ * no part (a path found goes at the end of the list). There is one sliding solver (engine.info's
+ * slidingSolvers), so there is none to choose. Where the search keeps its levels is the engine's
+ * setting (slideFolder, slideDiskGB).
  */
 export interface SlidingOptions {
   /** A piece may carry what is nested in its outline (Allow Nested Slides). */
@@ -1329,8 +1331,7 @@ export interface Methods {
   };
   /**
    * Removes a colour: its cells revert to the shape's own colour, the colours after it move up,
-   * the problems with shapes using it lose their solutions. Refused (invalid_argument) on a
-   * sliding puzzle, whose cell colours are its start marks and locks.
+   * the problems with shapes using it lose their solutions.
    * (colour.json)
    */
   'colour.delete': {
@@ -2113,8 +2114,7 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Adds a problem; it allows each colour on itself (on a sliding puzzle, whose cell colours are
-   * start marks, it has no colour rules).
+   * Adds a problem; it allows each colour on itself.
    * (problem.json)
    */
   'problem.create': {
@@ -2453,8 +2453,8 @@ export interface Methods {
   /**
    * Moves a shape to a place in the list; labels renumber. On a sliding puzzle the boards stay
    * above the pieces (a move across them is refused, invalid_argument), the boards are numbered by
-   * place again, and the starts and goals follow; a stamped piece moved past the 63rd place (a
-   * mark is six bits) loses them, told in document.changed.notice.
+   * place again, and the starts and goals follow; a stamped piece moved past the 255th place (a
+   * mark is a byte) loses them, told in document.changed.notice.
    * (shape.json)
    */
   'shape.move': {

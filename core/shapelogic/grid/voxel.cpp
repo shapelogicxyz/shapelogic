@@ -78,9 +78,7 @@ void Voxel::recalcBoundingBox() {
           empty = false;
         } else {
           space_[index] = 0;  // clear away colours that might be left
-          if (index < goalPiece_.size()) {
-            goalPiece_[index] = 0;
-          }
+          clearMarks(index);
         }
         index++;
       }
@@ -103,9 +101,7 @@ void Voxel::set(unsigned int p, VoxelType val) {
   const VoxelType old = space_[p];
   space_[p] = val;
   if ((old & 3) == kEmpty || (val & 3) == kEmpty) {
-    if (p < goalPiece_.size()) {
-      goalPiece_[p] = 0;
-    }
+    clearMarks(p);
   }
   recalcBoundingBox();
   invalidateSymmetry();
@@ -119,7 +115,7 @@ void Voxel::setAll(VoxelType val) {
 
 bool Voxel::operator==(const Voxel& op) const {
   return sx_ == op.sx_ && sy_ == op.sy_ && sz_ == op.sz_ && space_ == op.space_ &&
-         goalPiece_ == op.goalPiece_;
+         startPiece_ == op.startPiece_ && goalPiece_ == op.goalPiece_;
 }
 
 bool Voxel::identicalInBB(const Voxel& op, bool includeColors) const {
@@ -226,10 +222,6 @@ void Voxel::resize(unsigned int nsx, unsigned int nsy, unsigned int nsz, VoxelTy
   }
 
   std::vector<VoxelType> s2(nsx * nsy * nsz, filler);
-  std::vector<unsigned char> g2;
-  if (!goalPiece_.empty()) {
-    g2.assign(nsx * nsy * nsz, 0);
-  }
 
   const unsigned int mx = std::min(sx_, nsx);
   const unsigned int my = std::min(sy_, nsy);
@@ -239,17 +231,17 @@ void Voxel::resize(unsigned int nsx, unsigned int nsy, unsigned int nsz, VoxelTy
     for (unsigned int y = 0; y < my; y++) {
       for (unsigned int z = 0; z < mz; z++) {
         s2[x + nsx * (y + nsy * z)] = get(x, y, z);
-        if (!g2.empty()) {
-          g2[x + nsx * (y + nsy * z)] = static_cast<unsigned char>(getGoalPiece(x, y, z));
-        }
       }
     }
   }
+  moveMarks(nsx * nsy * nsz, [&](std::size_t i) -> long {
+    const unsigned int x = static_cast<unsigned int>(i) % sx_;
+    const unsigned int y = (static_cast<unsigned int>(i) / sx_) % sy_;
+    const unsigned int z = static_cast<unsigned int>(i) / (sx_ * sy_);
+    return x < mx && y < my && z < mz ? static_cast<long>(x + nsx * (y + nsy * z)) : -1;
+  });
 
   space_ = std::move(s2);
-  if (!g2.empty()) {
-    goalPiece_ = std::move(g2);
-  }
 
   sx_ = nsx;
   sy_ = nsy;
@@ -281,33 +273,34 @@ unsigned int Voxel::countState(int state) const {
 
 void Voxel::translate(int dx, int dy, int dz, VoxelType filler) {
   std::vector<VoxelType> s2(sx_ * sy_ * sz_, filler);
-  std::vector<unsigned char> g2;
-  if (!goalPiece_.empty()) {
-    g2.assign(sx_ * sy_ * sz_, 0);
-  }
+  // where cell (x, y, z) goes: its index, or -1 when it is shifted out
+  auto target = [&](unsigned int x, unsigned int y, unsigned int z) -> long {
+    const int tx = asInt(x) + dx;
+    const int ty = asInt(y) + dy;
+    const int tz = asInt(z) + dz;
+    if (tx >= 0 && tx < asInt(sx_) && ty >= 0 && ty < asInt(sy_) && tz >= 0 && tz < asInt(sz_)) {
+      return static_cast<long>(asUnsigned(tx) + sx_ * (asUnsigned(ty) + sy_ * asUnsigned(tz)));
+    }
+    return -1;
+  };
 
   for (unsigned int x = 0; x < sx_; x++) {
     for (unsigned int y = 0; y < sy_; y++) {
       for (unsigned int z = 0; z < sz_; z++) {
-        const int tx = asInt(x) + dx;
-        const int ty = asInt(y) + dy;
-        const int tz = asInt(z) + dz;
-        if (tx >= 0 && tx < asInt(sx_) && ty >= 0 && ty < asInt(sy_) && tz >= 0 &&
-            tz < asInt(sz_)) {
-          const unsigned int ni = asUnsigned(tx) + sx_ * (asUnsigned(ty) + sy_ * asUnsigned(tz));
-          s2[ni] = get(x, y, z);
-          if (!g2.empty()) {
-            g2[ni] = static_cast<unsigned char>(getGoalPiece(x, y, z));
-          }
+        if (const long ni = target(x, y, z); ni >= 0) {
+          s2[static_cast<std::size_t>(ni)] = get(x, y, z);
         }
       }
     }
   }
+  moveMarks(sx_ * sy_ * sz_, [&](std::size_t i) {
+    const unsigned int x = static_cast<unsigned int>(i) % sx_;
+    const unsigned int y = (static_cast<unsigned int>(i) / sx_) % sy_;
+    const unsigned int z = static_cast<unsigned int>(i) / (sx_ * sy_);
+    return target(x, y, z);
+  });
 
   space_ = std::move(s2);
-  if (!g2.empty()) {
-    goalPiece_ = std::move(g2);
-  }
 
   // cells may have been shifted out, so the box must be recalculated, not
   // just moved
@@ -440,17 +433,36 @@ void Voxel::fillHoles(char type) {
   }
 }
 
-void Voxel::setGoalPiece(unsigned int i, unsigned int pieceId) {
-  if (i >= voxels_) {
+namespace {
+
+void setMark(std::vector<unsigned char>& marks, unsigned int voxels, unsigned int i,
+             unsigned int pieceId) {
+  if (i >= voxels) {
     return;
   }
-  if (goalPiece_.size() != voxels_) {
-    goalPiece_.assign(voxels_, 0);
+  if (marks.size() != voxels) {
+    marks.assign(voxels, 0);
   }
-  goalPiece_[i] = static_cast<unsigned char>(pieceId);
-  if (pieceId == 0 && !hasGoalPieces()) {
-    goalPiece_.clear();
+  marks[i] = static_cast<unsigned char>(pieceId);
+  if (pieceId == 0 &&
+      std::none_of(marks.begin(), marks.end(), [](unsigned char c) { return c != 0; })) {
+    marks.clear();
   }
+}
+
+}  // namespace
+
+void Voxel::setStartPiece(unsigned int i, unsigned int pieceId) {
+  setMark(startPiece_, voxels_, i, pieceId);
+}
+
+bool Voxel::hasStartPieces() const {
+  return std::any_of(startPiece_.begin(), startPiece_.end(),
+                     [](unsigned char c) { return c != 0; });
+}
+
+void Voxel::setGoalPiece(unsigned int i, unsigned int pieceId) {
+  setMark(goalPiece_, voxels_, i, pieceId);
 }
 
 bool Voxel::hasGoalPieces() const {

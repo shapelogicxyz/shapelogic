@@ -56,8 +56,10 @@ each, as you choose the result of a Brick puzzle.
 3. Draw the board with the usual tools, as any other shape: **Fixed** is
    floor, **Variable** is corridor and **Erase** is wall.
 
-Sliding puzzles are edited in the XY plane, one layer at a time, and have no
-colour constraints.
+Sliding puzzles are edited in the XY plane, one layer at a time. Paint the
+pieces and the board with constraint colors to limit where a piece may
+start; a piece with a start mark must also fit the colors there. See
+[Color Restrictions](/docs/color-restrictions/#sliding-puzzles).
 
 ## Trays with more than one layer
 

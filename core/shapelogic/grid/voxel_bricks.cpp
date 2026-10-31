@@ -46,39 +46,34 @@ bool VoxelBricks::transform(unsigned int nr) {
   const auto newSize = asUnsigned(nsx * nsy * nsz);
 
   std::vector<VoxelType> s(newSize, kEmpty);
-  std::vector<unsigned char> g;
-  if (!goalPiece_.empty()) {
-    g.assign(newSize, 0);
-  }
+  // where cell (x, y, z) goes
+  auto target = [&](int x, int y, int z) {
+    const int ox = m[0] * x + m[1] * y + m[2] * z + shx;
+    const int oy = m[3] * x + m[4] * y + m[5] * z + shy;
+    const int oz = m[6] * x + m[7] * y + m[8] * z + shz;
+    BT_ASSERT(ox >= 0 && oy >= 0 && oz >= 0);
+    return asUnsigned(ox + nsx * (oy + nsy * oz));
+  };
 
   unsigned int index = 0;
   for (int z = 0; z < asInt(sz_); z++) {
     for (int y = 0; y < asInt(sy_); y++) {
       for (int x = 0; x < asInt(sx_); x++) {
-        const bool hasCell = space_[index] != 0;
-        const bool hasGoal = !g.empty() && index < goalPiece_.size() && goalPiece_[index] != 0;
-        if (hasCell || hasGoal) {
-          tx = m[0] * x + m[1] * y + m[2] * z + shx;
-          ty = m[3] * x + m[4] * y + m[5] * z + shy;
-          tz = m[6] * x + m[7] * y + m[8] * z + shz;
-          BT_ASSERT(tx >= 0 && ty >= 0 && tz >= 0);
-          const auto ni = asUnsigned(tx + nsx * (ty + nsy * tz));
-          if (hasCell) {
-            s[ni] = space_[index];
-          }
-          if (hasGoal) {
-            g[ni] = goalPiece_[index];
-          }
+        if (space_[index] != 0) {
+          s[target(x, y, z)] = space_[index];
         }
         index++;
       }
     }
   }
+  moveMarks(newSize, [&](std::size_t i) {
+    const int x = asInt(static_cast<unsigned int>(i) % sx_);
+    const int y = asInt((static_cast<unsigned int>(i) / sx_) % sy_);
+    const int z = asInt(static_cast<unsigned int>(i) / (sx_ * sy_));
+    return static_cast<long>(target(x, y, z));
+  });
 
   space_ = std::move(s);
-  if (!g.empty()) {
-    goalPiece_ = std::move(g);
-  }
 
   sx_ = asUnsigned(nsx);
   sy_ = asUnsigned(nsy);
@@ -199,10 +194,15 @@ void VoxelBricks::scale(unsigned int amount, bool grid) {
   const unsigned int nsy = sy_ * amount;
   const unsigned int nsz = sz_ * amount;
   std::vector<VoxelType> s2(nsx * nsy * nsz);
-  std::vector<unsigned char> g2;
-  if (!goalPiece_.empty()) {
-    g2.assign(nsx * nsy * nsz, 0);
+  // a mark goes to every cell of its scaled cell
+  std::vector<std::vector<unsigned char>*> marks;
+  for (std::vector<unsigned char>* m : {&startPiece_, &goalPiece_}) {
+    if (!m->empty()) {
+      marks.push_back(m);
+    }
   }
+  std::vector<std::vector<unsigned char>> scaledMarks(marks.size(),
+                                                      std::vector<unsigned char>(nsx * nsy * nsz, 0));
 
   for (unsigned int x = 0; x < sx_; x++) {
     for (unsigned int y = 0; y < sy_; y++) {
@@ -232,8 +232,8 @@ void VoxelBricks::scale(unsigned int amount, bool grid) {
                     ((edge0z || edge1z) && (edge0x || edge1x || edge0y || edge1y))));
               if (keep) {
                 s2[ni] = get(x, y, z);
-                if (!g2.empty()) {
-                  g2[ni] = static_cast<unsigned char>(getGoalPiece(x, y, z));
+                for (std::size_t k = 0; k < marks.size(); k++) {
+                  scaledMarks[k][ni] = (*marks[k])[getIndex(x, y, z)];
                 }
               } else {
                 s2[ni] = 0;
@@ -246,8 +246,8 @@ void VoxelBricks::scale(unsigned int amount, bool grid) {
   }
 
   space_ = std::move(s2);
-  if (!g2.empty()) {
-    goalPiece_ = std::move(g2);
+  for (std::size_t k = 0; k < marks.size(); k++) {
+    *marks[k] = std::move(scaledMarks[k]);
   }
 
   sx_ = nsx;
@@ -297,28 +297,27 @@ bool VoxelBricks::scaleDown(unsigned char by, bool action) {
             const unsigned int nsz = sz_ / by;
 
             std::vector<VoxelType> s2(nsx * nsy * nsz);
-            std::vector<unsigned char> g2;
-            if (!goalPiece_.empty()) {
-              g2.assign(nsx * nsy * nsz, 0);
-            }
 
             for (unsigned int x = 0; x < nsx; x++) {
               for (unsigned int y = 0; y < nsy; y++) {
                 for (unsigned int z = 0; z < nsz; z++) {
                   s2[x + nsx * (y + nsy * z)] =
                       get2(asInt(x) * b, asInt(y) * b, asInt(z) * b);
-                  if (!g2.empty()) {
-                    g2[x + nsx * (y + nsy * z)] =
-                        static_cast<unsigned char>(getGoalPiece(x * by, y * by, z * by));
-                  }
                 }
               }
             }
+            // the mark of each scaled cell's first cell
+            moveMarks(nsx * nsy * nsz, [&](std::size_t i) -> long {
+              const unsigned int x = static_cast<unsigned int>(i) % sx_;
+              const unsigned int y = (static_cast<unsigned int>(i) / sx_) % sy_;
+              const unsigned int z = static_cast<unsigned int>(i) / (sx_ * sy_);
+              if (x % by != 0 || y % by != 0 || z % by != 0) {
+                return -1;
+              }
+              return static_cast<long>((x / by) + nsx * ((y / by) + nsy * (z / by)));
+            });
 
             space_ = std::move(s2);
-            if (!g2.empty()) {
-              goalPiece_ = std::move(g2);
-            }
 
             sx_ = nsx;
             sy_ = nsy;

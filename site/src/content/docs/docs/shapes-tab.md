@@ -187,9 +187,9 @@ In the grid, a voxel with a restriction color keeps the shape's color, with
 a small box in the restriction color in its top-left corner.
 
 Restriction colors limit where a piece can go; see
-[Color Restrictions](/docs/color-restrictions/). Sliding and stacking
-puzzles have no restriction colors, so for them the area has only the
-shape's color and the pencil.
+[Color Restrictions](/docs/color-restrictions/). Stacking puzzles have no
+restriction colors, so for them the area has only the shape's color and the
+pencil.
 
 ## Grid editor settings
 

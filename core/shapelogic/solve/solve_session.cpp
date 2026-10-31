@@ -253,7 +253,14 @@ Result<void> SolveSession::launch(Mode mode) {
     o.matrix.keepMirrors = true;
     o.matrix.keepRotations = true;
     o.matrix.completeRotations = false;
-    o.matrix.strictColors = true;
+    // the start marks hold the pieces to their starts; the older model (a
+    // tray and a goal map in piece colours) is matched strictly instead
+    const bool marks = sliding::usesStartMarks(puzzle_, problem_);
+    o.matrix.strictColors = !marks;
+    o.matrix.startLocks = marks;
+    if (marks) {
+      o.matrix.freeStarts = sliding::freeStartParts(puzzle_, problem_);
+    }
     // a piece slides without turning, so it starts as drawn (or, unplaced,
     // as the options allow)
     o.matrix.partTransforms = sliding::partTransforms(
@@ -284,6 +291,8 @@ Result<void> SolveSession::launch(Mode mode) {
   bool reuse = false;
   if (assembler_ && problem_.getSolveState() == ProblemState::Solving) {
     if (assembler_->usesStrictColors() == o.matrix.strictColors &&
+        assembler_->usesStartLocks() == o.matrix.startLocks &&
+        assembler_->freeStarts() == o.matrix.freeStarts &&
         assembler_->partTransforms() == o.matrix.partTransforms) {
       reuse = true;
       // this run's mirror and rotation filter (the solve thread set it on
@@ -355,6 +364,7 @@ Result<void> SolveSession::launch(Mode mode) {
   slideDiskError_.clear();
   slideDiskHeldToFree_ = false;
   slideDiskSaved_ = false;
+  slideDiskHalted_ = false;
   assemblerThreads_.store(1, std::memory_order_relaxed);
   workerCount_.store(0, std::memory_order_relaxed);
   pending_.store(0, std::memory_order_relaxed);
@@ -666,7 +676,7 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
     pend = problem_.takePending();
   }
   for (PendingAssembly& p : pend) {
-    if (runStopRequested()) {
+    if (runStopRequested() || slideDiskHalted_) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.addPending(std::move(p));
     } else if (!p.counted) {
@@ -681,7 +691,9 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   }
 
   RunEnd end = RunEnd::Stopped;
-  {
+  // a carried-on start that ran out of disk again pauses the run before
+  // any new start is found
+  if (!slideDiskHalted_) {
     const AssemblyLoad load(o.disassemble && !sliding_ ? takeApartPool_.get() : nullptr,
                             static_cast<int>(assemblyThreads), assemblyLoad_);
     end = assembler_->assemble([this](Assembly a) { return onAssembly(std::move(a)); }, search,
@@ -1054,6 +1066,15 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
           slideDiskHeldToFree_ = search.diskHeldToFree;
           slideDiskSaved_ = search.saved;
         }
+        // Out of disk but saved: the run pauses with this start pending,
+        // so Continue carries its search on once there is more room (the
+        // starts after it would only fill the disk with searches of their
+        // own).
+        if (search.outcome == sliding::SlideOutcome::Disk && search.saved) {
+          slideDiskHalted_ = true;
+          problem_.addPending(PendingAssembly{std::move(assembly), false, 0, 0});
+          return false;
+        }
         if (search.outcome == sliding::SlideOutcome::Memory) {
           slideMemoryCut_ = true;
           slideMemoryStates_ = search.memoryStates;
@@ -1127,7 +1148,7 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
                  ? " Free some disk space to let it go further."
                  : " " + o.settingsPlace + " can give it more Sliding disk space.";
       if (slideDiskSaved_) {
-        msg += " The search is saved: solve again to carry it on.";
+        msg += " The search is saved: press Continue to carry it on.";
       }
     } else if (!o.settingsPlace.empty() && slideMemoryCut_) {
       msg += " " + o.settingsPlace + " can give it more Search memory.";

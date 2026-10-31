@@ -2732,50 +2732,50 @@ key 97 13.8750 0 1 -2.0000 -4.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 1 1 -2.00
 key 98 14.0000 0 1 -2.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 1 1 -2.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 2 1 0.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 3 1 -2.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 4 1 -2.0000 -2.0000 0.0000 0.0000 0.0000 0.0000 1.0000 5 1 -1.0000 0.0000 -2.0000 0.0000 0.0000 0.0000 1.0000
 key 99 15.0000 0 1 -2.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 1 1 -2.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 2 1 0.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 3 1 -2.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 4 1 -2.0000 -2.0000 0.0000 0.0000 0.0000 0.0000 1.0000 5 1 -1.0000 0.0000 -2.0000 0.0000 0.0000 0.0000 1.0000
 file test_sliding_solver.xmpuzzle
-shape 0 cells 20 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 37
-mesh 0 drawing faces 458 vertices 480 halfedges 1672 holes 0 ordered 0b9b47abe3dd9376 canonical a925f3e37abc3fae
+shape 0 cells 20 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 48
+mesh 0 drawing faces 458 vertices 480 halfedges 1672 holes 0 ordered 967f1f7d58748ee0 canonical 2d1de433b260cd8f
 mesh 0 wireframe euler 250 holes 0
-mesh 0 flat faces 58 vertices 60 halfedges 232 holes 0 ordered 01acc6c73fa66fc9 canonical d58410b360ddcc25
+mesh 0 flat faces 58 vertices 60 halfedges 232 holes 0 ordered 1701ef1248d572a4 canonical 876323175fdf94e8
 shape 1 cells 4 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 92
-mesh 1 drawing faces 96 vertices 96 halfedges 352 holes 0 ordered 9d6fa96148739c86 canonical 47dfd31a0848be97
+mesh 1 drawing faces 96 vertices 96 halfedges 352 holes 0 ordered 5b7267b4fdeb1c6e canonical 63197656f592869e
 mesh 1 wireframe euler 34 holes 0
-mesh 1 flat faces 16 vertices 18 halfedges 64 holes 0 ordered 15fde758aea3f75d canonical 2e602aaaa2f669f1
+mesh 1 flat faces 16 vertices 18 halfedges 64 holes 0 ordered 418059b57e7e4b7b canonical 0aca0a716118165f
 shape 2 cells 2 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 68
-mesh 2 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered d68e02e291f039fa canonical e622bca6ac6b2447
+mesh 2 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 9f6da967bd21489e canonical 04b92a14ed33cb16
 mesh 2 wireframe euler 10 holes 0
-mesh 2 flat faces 10 vertices 12 halfedges 40 holes 0 ordered bcde5147d888e8f2 canonical db373a720e49328a
-shape 3 cells 2 0 mirror 2 same 2 complete - conn 1 1 1 holes 0 0 notch - mill - sym 68
-mesh 3 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 3faaa1a1ef9086f4 canonical 8574da8c2a0942aa
+mesh 2 flat faces 10 vertices 12 halfedges 40 holes 0 ordered da6d1ccf24394739 canonical e5d9e6ec1a04ad79
+shape 3 cells 2 0 mirror 2 same 2 complete 2 conn 1 1 1 holes 0 0 notch - mill - sym 68
+mesh 3 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 9f6da967bd21489e canonical 04b92a14ed33cb16
 mesh 3 wireframe euler 10 holes 0
-mesh 3 flat faces 10 vertices 12 halfedges 40 holes 0 ordered 9a09cd0f797c26e8 canonical e4010a0b0d4b8440
-shape 4 cells 2 0 mirror 2 same 2 complete - conn 1 1 1 holes 0 0 notch - mill - sym 68
-mesh 4 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 97cc5201fe5a7ba1 canonical 8263869fbb6944c4
+mesh 3 flat faces 10 vertices 12 halfedges 40 holes 0 ordered da6d1ccf24394739 canonical e5d9e6ec1a04ad79
+shape 4 cells 2 0 mirror 2 same 2 complete 2 conn 1 1 1 holes 0 0 notch - mill - sym 68
+mesh 4 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 9f6da967bd21489e canonical 04b92a14ed33cb16
 mesh 4 wireframe euler 10 holes 0
-mesh 4 flat faces 10 vertices 12 halfedges 40 holes 0 ordered f571ccc7e8544e02 canonical 0ba83364a7ba4e8e
-shape 5 cells 2 0 mirror 2 same 2 complete - conn 1 1 1 holes 0 0 notch - mill - sym 68
-mesh 5 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 6f148d12d89a4443 canonical 85daf1b7e9f2f4f5
+mesh 4 flat faces 10 vertices 12 halfedges 40 holes 0 ordered da6d1ccf24394739 canonical e5d9e6ec1a04ad79
+shape 5 cells 2 0 mirror 2 same 2 complete 2 conn 1 1 1 holes 0 0 notch - mill - sym 68
+mesh 5 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 9f6da967bd21489e canonical 04b92a14ed33cb16
 mesh 5 wireframe euler 10 holes 0
-mesh 5 flat faces 10 vertices 12 halfedges 40 holes 0 ordered 4ba869497c299ec7 canonical f0950b78974fcc63
-shape 6 cells 2 0 mirror 2 same 2 complete - conn 1 1 1 holes 0 0 notch - mill - sym 57
-mesh 6 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered 4c51efeaadea3924 canonical 97cfed5087f7474c
+mesh 5 flat faces 10 vertices 12 halfedges 40 holes 0 ordered da6d1ccf24394739 canonical e5d9e6ec1a04ad79
+shape 6 cells 2 0 mirror 2 same 2 complete 2 conn 1 1 1 holes 0 0 notch - mill - sym 57
+mesh 6 drawing faces 50 vertices 48 halfedges 184 holes 0 ordered be8f26c5c7a39ef1 canonical 735df6ced3702614
 mesh 6 wireframe euler 10 holes 0
-mesh 6 flat faces 10 vertices 12 halfedges 40 holes 0 ordered 75a6058ae66d2ead canonical 5ee599347361d965
+mesh 6 flat faces 10 vertices 12 halfedges 40 holes 0 ordered d5088f96168f7447 canonical 1ac1bab5ddf56dff
 shape 7 cells 1 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 97
-mesh 7 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 8dcf2d47acade940 canonical 775fa6db484df7c3
+mesh 7 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 2d2aa13358c479c3 canonical f3417cf6adccb5a2
 mesh 7 wireframe euler 2 holes 0
-mesh 7 flat faces 6 vertices 8 halfedges 24 holes 0 ordered c7b3ccdf91c9d8c2 canonical 9e192d4e96c1cc1a
-shape 8 cells 1 0 mirror 7 same 7 complete - conn 1 1 1 holes 0 0 notch - mill - sym 97
-mesh 8 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 41c6f40a8bb6d078 canonical 493b3f723abc4943
+mesh 7 flat faces 6 vertices 8 halfedges 24 holes 0 ordered 0cdd92f2a65b2b0d canonical 8017ae1bf3dd8c09
+shape 8 cells 1 0 mirror 7 same 7 complete 7 conn 1 1 1 holes 0 0 notch - mill - sym 97
+mesh 8 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 2d2aa13358c479c3 canonical f3417cf6adccb5a2
 mesh 8 wireframe euler 2 holes 0
-mesh 8 flat faces 6 vertices 8 halfedges 24 holes 0 ordered 3c8d8f9d68d8f650 canonical 7ed456f6f13a36d0
-shape 9 cells 1 0 mirror 7 same 7 complete - conn 1 1 1 holes 0 0 notch - mill - sym 97
-mesh 9 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 34d8333b1341bf42 canonical 74fc56b87094b8ed
+mesh 8 flat faces 6 vertices 8 halfedges 24 holes 0 ordered 0cdd92f2a65b2b0d canonical 8017ae1bf3dd8c09
+shape 9 cells 1 0 mirror 7 same 7 complete 7 conn 1 1 1 holes 0 0 notch - mill - sym 97
+mesh 9 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 2d2aa13358c479c3 canonical f3417cf6adccb5a2
 mesh 9 wireframe euler 2 holes 0
-mesh 9 flat faces 6 vertices 8 halfedges 24 holes 0 ordered fc1c45a2e9eec836 canonical f868711fb573d1ca
-shape 10 cells 1 0 mirror 7 same 7 complete - conn 1 1 1 holes 0 0 notch - mill - sym 97
-mesh 10 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered e55ee871426049f8 canonical d859cc004162c2ba
+mesh 9 flat faces 6 vertices 8 halfedges 24 holes 0 ordered 0cdd92f2a65b2b0d canonical 8017ae1bf3dd8c09
+shape 10 cells 1 0 mirror 7 same 7 complete 7 conn 1 1 1 holes 0 0 notch - mill - sym 97
+mesh 10 drawing faces 26 vertices 24 halfedges 96 holes 0 ordered 2d2aa13358c479c3 canonical f3417cf6adccb5a2
 mesh 10 wireframe euler 2 holes 0
-mesh 10 flat faces 6 vertices 8 halfedges 24 holes 0 ordered 77db293013d03209 canonical ab27c269b6e02b29
+mesh 10 flat faces 6 vertices 8 halfedges 24 holes 0 ordered 0cdd92f2a65b2b0d canonical 8017ae1bf3dd8c09
 fit 0 Problem P1 result can contain 20 - 20 voxels, pieces (n = 10) contain 18 voxels
 file test_sphere_symmetry.xmpuzzle
 shape 0 cells 34 0 mirror - same - complete - conn 1 1 1 holes 1 1 notch - mill - sym 114

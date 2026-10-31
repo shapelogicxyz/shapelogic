@@ -173,7 +173,26 @@ class Voxel {
   /// The number of cells in a state, whatever their colour.
   [[nodiscard]] unsigned int countState(int state) const;
 
-  // ---- goal marks (sliding puzzles; kept so files round-trip) ------------
+  // ---- start and goal marks (sliding puzzles) -----------------------------
+  // A tray cell may be the start of a piece and the goal of one (shape
+  // index + 1), apart from its colour, which is the user's restriction
+  // colour as on every grid. The marks follow the cells through every
+  // change of the shape, and go when the cell is emptied.
+
+  /// Start mark of a cell (shape index + 1), or 0.
+  [[nodiscard]] unsigned int getStartPiece(unsigned int i) const {
+    return i < startPiece_.size() ? startPiece_[i] : 0;
+  }
+  [[nodiscard]] unsigned int getStartPiece(unsigned int x, unsigned int y, unsigned int z) const {
+    return getStartPiece(getIndex(x, y, z));
+  }
+  /// Sets a start mark; clearing the last one drops the marks altogether.
+  void setStartPiece(unsigned int i, unsigned int pieceId);
+  void setStartPiece(unsigned int x, unsigned int y, unsigned int z, unsigned int pieceId) {
+    setStartPiece(getIndex(x, y, z), pieceId);
+  }
+  /// True when any cell has a start mark.
+  [[nodiscard]] bool hasStartPieces() const;
 
   /// Goal-piece mark of a cell (shape index + 1), or 0.
   [[nodiscard]] unsigned int getGoalPiece(unsigned int i) const {
@@ -184,6 +203,9 @@ class Voxel {
   }
   /// Sets a goal mark; clearing the last one drops the marks altogether.
   void setGoalPiece(unsigned int i, unsigned int pieceId);
+  void setGoalPiece(unsigned int x, unsigned int y, unsigned int z, unsigned int pieceId) {
+    setGoalPiece(getIndex(x, y, z), pieceId);
+  }
   /// True when any cell has a goal mark.
   [[nodiscard]] bool hasGoalPieces() const;
 
@@ -431,8 +453,36 @@ class Voxel {
   int hy_ = 0;
   int hz_ = 0;
 
-  /// Goal marks per cell; empty when the shape has none.
+  /// Start and goal marks per cell; each empty when the shape has none.
+  std::vector<unsigned char> startPiece_;
   std::vector<unsigned char> goalPiece_;
+
+  /// The marks of every cell carried to new cells: marks[i] is written to
+  /// where(i) (negative: dropped), for the operations that rebuild space_.
+  template <class Where>
+  void moveMarks(std::size_t newSize, Where where) {
+    for (std::vector<unsigned char>* marks : {&startPiece_, &goalPiece_}) {
+      if (marks->empty()) {
+        continue;
+      }
+      std::vector<unsigned char> moved(newSize, 0);
+      for (std::size_t i = 0; i < marks->size(); i++) {
+        const long ni = where(i);
+        if ((*marks)[i] != 0 && ni >= 0) {
+          moved[static_cast<std::size_t>(ni)] = (*marks)[i];
+        }
+      }
+      *marks = std::move(moved);
+    }
+  }
+  /// Drops the marks of cell i.
+  void clearMarks(unsigned int i) {
+    for (std::vector<unsigned char>* marks : {&startPiece_, &goalPiece_}) {
+      if (i < marks->size()) {
+        (*marks)[i] = 0;
+      }
+    }
+  }
 
  private:
   /// Union-find over the cells (see connected() and fillHoles()).
