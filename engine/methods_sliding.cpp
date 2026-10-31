@@ -57,8 +57,10 @@ Reply slidingPlace(State& s, Params& p) {
   const app::Id piece = p.id("piece", IdKind::Shape);
   const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
+  const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool placed, s.document().placeStamp(tray, piece, at[0], at[1], at[2], goal));
+  BTE_TRY(const bool placed,
+          s.document().placeStamp(tray, piece, at[0], at[1], at[2], goal, problem));
   return Json{{"placed", placed}, {"revision", s.revision()}};
 }
 
@@ -71,10 +73,21 @@ Reply slidingClearAt(State& s, Params& p) {
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
 
+Reply slidingClone(State& s, Params& p) {
+  const app::Id tray = p.id("tray", IdKind::Shape);
+  const bool toGoal = p.boolean("toGoal");
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().cloneStamps(tray, toGoal));
+  return Json{{"revision", s.revision()}};
+}
+
 Reply slidingTray(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
+  const bool named = p.has("problem");
+  const app::Id problem = named ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int t, trayIndex(s, tray));
+  BTE_TRY(const Problem* on, s.document().trayProblemOf(problem, t));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& v = puzzle.getShape(t);
   Json starts = Json::array();
@@ -83,17 +96,21 @@ Reply slidingTray(State& s, Params& p) {
     starts.push_back(markJson(s, v.getColor(i)));
     goals.push_back(markJson(s, v.getGoalPiece(i)));
   }
-  // the stamps larger than their pieces, as the problem of this shape sees them
+  // the stamps larger than their pieces, as the problem named (else the
+  // first on this shape) sees them
   std::string overflow;
   const std::vector<app::Id>& problems = s.document().problemIds();
   for (unsigned int i = 0; i < problems.size() && overflow.empty(); i++) {
+    if (named && problems[i] != problem) {
+      continue;
+    }
     overflow = s.document().readProblem(i, [&puzzle, t](const Problem& pr) {
       return pr.resultValid() && pr.getResultId() == t
                  ? sliding::stampOverflowMessage(puzzle, pr)
                  : std::string();
     });
   }
-  const std::string error = sliding::startGoalError(puzzle, t);
+  const std::string error = sliding::startGoalError(puzzle, t, on);
   // each copy placed, start and goal, as whole pieces (marks that are not
   // whole pieces: all of them as one)
   Json placed = Json::array();
@@ -143,8 +160,10 @@ Reply slidingPreview(State& s, Params& p) {
   const app::Id piece = p.id("piece", IdKind::Shape);
   const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
+  const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int t, trayIndex(s, tray));
+  BTE_TRY(const Problem* on, s.document().trayProblemOf(problem, t));
   BTE_TRY(const unsigned int i, s.document().shapeIndex(piece));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& trayShape = puzzle.getShape(t);
@@ -152,7 +171,7 @@ Reply slidingPreview(State& s, Params& p) {
   if (sliding::isStartGoalShape(&pieceShape) || sliding::isHiddenSlidingShape(&pieceShape)) {
     return coreError(Errc::InvalidArgument, "a start/goal shape is no piece");
   }
-  const unsigned int copies = sliding::pieceCopies(puzzle, t, i);
+  const unsigned int copies = sliding::pieceCopies(puzzle, t, i, on);
   Json cells = Json::array();
   for (const sliding::TrayCell& c :
        sliding::stampCells(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal, copies)) {
@@ -174,6 +193,7 @@ void addSlidingMethods(MethodTable& t) {
   t["sliding.addStartGoal"] = slidingAddStartGoal;
   t["sliding.place"] = slidingPlace;
   t["sliding.clearAt"] = slidingClearAt;
+  t["sliding.clone"] = slidingClone;
   t["sliding.tray"] = slidingTray;
   t["sliding.preview"] = slidingPreview;
 }

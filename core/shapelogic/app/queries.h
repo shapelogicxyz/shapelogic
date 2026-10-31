@@ -34,7 +34,8 @@ enum class FitVerdict : unsigned char {
   NoResult,  ///< the problem has no result shape
   Fits,      ///< the piece cells can match the result's cell range
   TooLarge,  ///< even the fewest pieces have more cells than the result can take
-  TooSmall,  ///< even the most pieces cannot fill the result's fixed cells
+  TooSmall,  ///< even the most pieces cannot fill the result's fixed cells (never on the
+             ///< sliding grid, whose boards need not be filled)
 };
 
 /// The fit of a problem's pieces and result.

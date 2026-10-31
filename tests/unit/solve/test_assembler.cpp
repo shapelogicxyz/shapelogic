@@ -670,7 +670,7 @@ std::size_t pelikanNodes(const Puzzle& p) {
   RotationFilter f;
   std::atomic<unsigned int> piece{0};
   int param = 0;
-  REQUIRE(m.build(p, p.getProblem(0), false, f, piece, param) == AssemblerError::None);
+  REQUIRE(m.build(p, p.getProblem(0), false, {}, f, piece, param) == AssemblerError::None);
   return m.nodes.left.size();
 }
 

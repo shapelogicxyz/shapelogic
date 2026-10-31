@@ -303,6 +303,8 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.nested = o.nestedSlides;
   s.partialNested = o.partialNested;
   s.verticalMoves = o.verticalMoves;
+  s.anyOrientation = o.anyOrientation;
+  s.mirroredOrientations = o.mirroredOrientations;
   s.highMemory = o.highMemory;
   if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR")) {
     s.workDir = dir;
@@ -625,6 +627,12 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     matrix.strictColors = o.strictColors || sliding;
     matrix.keepMirrors = sliding;
     matrix.keepRotations = sliding;
+    // a sliding piece slides without turning: it starts as drawn, or,
+    // unplaced, as --any-orientation allows
+    if (sliding) {
+      matrix.partTransforms = bt::sliding::partTransforms(puzzle, problem, o.anyOrientation,
+                                                          o.mirroredOrientations);
+    }
     if (const bt::AssemblerError err = assembler->createMatrix(matrix);
         err != bt::AssemblerError::None) {
       return reportMatrixError(o, err, assembler->errorParam());
@@ -1126,9 +1134,12 @@ int main(int argc, char** argv) {
   bt::Puzzle& puzzle = *loaded;
 
   const PuzzleKind kind = puzzleKind(puzzle);
-  if ((o.verticalMoves || o.slideStep > 1) && kind != PuzzleKind::Sliding) {
+  if ((o.verticalMoves || o.anyOrientation || o.slideStep > 1) && kind != PuzzleKind::Sliding) {
     std::fprintf(stderr, "shapelogic_cli: %s is for sliding puzzles; this is a %s puzzle\n",
-                 o.verticalMoves ? "--vertical-moves" : "--slide-step", kindName(kind));
+                 o.verticalMoves    ? "--vertical-moves"
+                 : o.anyOrientation ? "--any-orientation"
+                                    : "--slide-step",
+                 kindName(kind));
     return kExitUsage;
   }
   if (o.nestedSlides && kind != PuzzleKind::Sliding) {

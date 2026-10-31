@@ -441,7 +441,9 @@ export class PuzzleWorkspace {
       return '';
     }
     if (f.verdict === 'noResult') {
-      return `Problem <b>${esc(p.label)}</b> has no result — choose one with <b>Change…</b>`;
+      return this.store.snapshot?.grid === 'sliding'
+        ? `Problem <b>${esc(p.label)}</b> has no board — choose one with <b>Change…</b>`
+        : `Problem <b>${esc(p.label)}</b> has no result — choose one with <b>Change…</b>`;
     }
     return esc(f.statusLine);
   }

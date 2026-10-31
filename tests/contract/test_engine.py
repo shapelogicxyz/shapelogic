@@ -954,14 +954,16 @@ def sliding_start_goal_shapes(e):
     row = next(s for s in snap["shapes"] if s["id"] == tray)
     check(row["startGoal"] == 1 and row["name"] == "" and row["size"] == [4, 3, 1], f"the tray {row}")
     check(all(s["startGoal"] is None for s in snap["shapes"] if s["id"] != tray), "pieces have no number")
-    check(len(snap["problems"]) == 1, f"its problem {snap['problems']}")
+    check(snap["problems"] == [], f"no problem comes with it {snap['problems']}")
     # the board goes above the pieces, labelled B1; the pieces are S1 and S2
     check([s["label"] for s in snap["shapes"]] == ["B1", "S1", "S2"] and snap["shapes"][0]["id"] == tray,
           f"the labels {snap['shapes']}")
-    check(snap["problems"][0]["name"] == "Board 1 - Start / Goal", f"its problem's name {snap['problems']}")
-    p = snap["problems"][0]["id"]
+    # the user makes a problem and chooses the board as its result (a piece is refused)
+    p = e.call("problem.create")["problem"]
+    e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
+    e.call("problem.setResult", {"problem": p, "shape": tray})
     e.call("shape.rename", {"shape": tray, "name": "Corner"})
-    check(e.call("document.get")["problems"][0]["name"] == "Corner", "the problem named as the board")
+    check(e.call("document.get")["problems"][0]["name"] == "", "the problem keeps its own name")
     e.fails("shape.move", {"shape": one, "toIndex": 0}, "invalid_argument")
     e.fails("problem.addPiece", {"problem": p, "shape": tray}, "invalid_argument")
     # shapes may have layers: the tasks that add them are offered; no piece named as a tray
@@ -984,7 +986,7 @@ def sliding_start_goal_shapes(e):
     e.fails("sliding.place", {"tray": tray, "piece": two, "at": [2, 2], "goal": False}, "invalid_argument")
     pv = e.call("sliding.preview", {"tray": tray, "piece": two, "at": [0, 0], "goal": False})
     check(pv["fits"] and pv["why"] is None and not pv["there"], f"fits {pv}")
-    placed = e.call("sliding.place", {"tray": tray, "piece": two, "at": [0, 0], "goal": False})
+    placed = e.call("sliding.place", {"tray": tray, "problem": p, "piece": two, "at": [0, 0], "goal": False})
     check(placed["placed"], "placed")
     ch = changed_event(e, placed["revision"])
     check("problems" in ch["what"] and "shapes" in ch["what"] and "notice" not in ch, f"the event {ch}")
@@ -1002,15 +1004,25 @@ def sliding_start_goal_shapes(e):
           == sorted([(two, False, 2), (two, True, 2), (one, False, 1)]), f"the copies {t['placed']}")
     e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 0}, "invalid_argument")
     e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
-    # the problem buttons and the colour group the original greyed out: the
-    # problems follow the start/goal shapes, the cell colours are the marks
-    e.fails("problem.create", {}, "invalid_argument")
-    e.fails("problem.duplicate", {"problem": p}, "invalid_argument")
-    e.fails("problem.delete", {"problem": p}, "invalid_argument")
+    # the colour group the original greyed out: the cell colours are the marks
     colours = e.call("document.get")["colours"]
     check(len(colours) >= 2, f"the locks' colours {colours}")
     e.fails("colour.delete", {"colour": colours[0]["id"]}, "invalid_argument")
-    check(len(e.call("document.get")["problems"]) == 1, "one problem still")
+    # a copy of the problem shares the board; the calls that name a problem
+    # take its counts, and refuse one not on the board
+    q = e.call("problem.duplicate", {"problem": p})["problem"]
+    e.call("problem.setPieceCount", {"problem": q, "shape": two, "min": 2, "max": 2})
+    pv = e.call("sliding.preview", {"tray": tray, "problem": q, "piece": two, "at": [2, 1], "goal": False})
+    check(pv["fits"] and not pv["there"], f"a second copy in q {pv}")
+    t = e.call("sliding.tray", {"tray": tray, "problem": q})
+    check(t["error"] is not None, f"q has a copy of S2 without a start and goal {t}")
+    check(e.call("sliding.tray", {"tray": tray, "problem": p})["error"] is None, "p is valid")
+    e.call("problem.clearResult", {"problem": q})
+    e.fails("sliding.tray", {"tray": tray, "problem": q}, "invalid_argument")
+    e.fails("sliding.place", {"tray": tray, "problem": q, "piece": one, "at": [2, 0], "goal": False},
+            "invalid_argument")
+    e.call("problem.delete", {"problem": q})
+    check(len(e.call("document.get")["problems"]) == 1, "one problem again")
     # a piece of two copies: a second start beside the first, then no third
     e.call("problem.setPieceCount", {"problem": p, "shape": one, "min": 2, "max": 2})
     e.call("sliding.place", {"tray": tray, "piece": one, "at": [2, 0], "goal": False})
@@ -1029,6 +1041,14 @@ def sliding_start_goal_shapes(e):
     check(e.call("sliding.clearAt", {"tray": tray, "at": [3, 0], "goal": False})["cleared"], "cleared")
     parts = {x["shape"]: x for x in e.call("problem.get", {"problem": p})["parts"]}
     check(not parts[one]["required"], f"no longer required {parts[one]}")
+    # the starts cloned to the goals; undone, as it was
+    e.call("sliding.place", {"tray": tray, "piece": one, "at": [3, 0], "goal": False})
+    e.call("sliding.clone", {"tray": tray, "toGoal": True})
+    t = e.call("sliding.tray", {"tray": tray})
+    check(t["goals"] == t["starts"] and t["goals"][3] == one, f"cloned {t['goals']}")
+    e.fails("sliding.clone", {"tray": one, "toGoal": False}, "invalid_argument")
+    e.call("edit.undo")
+    e.call("edit.undo")
 
     # an edit that changes a piece's shape takes its stamps off, and says so
     r = e.call("shape.setCells", {"shape": two, "tool": "erase", "cells": [[1, 0, 0]]})

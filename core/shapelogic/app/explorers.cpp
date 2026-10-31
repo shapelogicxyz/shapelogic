@@ -88,6 +88,9 @@ Result<AssemblyExplorer> AssemblyExplorer::make(const Puzzle& puzzle, unsigned i
     options.keepRotations = true;
     options.completeRotations = false;
     options.strictColors = true;
+    // the pieces as drawn (the default of the solve's orientation options)
+    options.partTransforms = sliding::partTransforms(*e.puzzle_, e.puzzle_->getProblem(0), false,
+                                                     false);
   }
   e.assembler_ = makeAssembler(*e.puzzle_, e.puzzle_->getProblem(0), solver);
   const AssemblerError err = e.assembler_->createMatrix(options);

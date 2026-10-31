@@ -35,6 +35,7 @@ import {
   defaultsOf,
   effectiveSort,
   normalize,
+  shortCount,
   SORT_CHOICES,
 } from './settings.ts';
 import type { BoxName, SearchOptions } from './settings.ts';
@@ -62,6 +63,10 @@ const TIP: Record<BoxName, string> = {
     'With Allow Nested Slides: a piece may also slide together with a piece that sits partly in its outline, such as a piece in another piece’s pocket that sticks out of it. Pieces that only touch never slide together.',
   verticalMoves:
     'On a tray more than one layer deep, a piece may also move up and down: lifted out over the other pieces and put down somewhere else. Off, every piece slides only in its own layer.',
+  anyOrientation:
+    'A piece with neither a start nor a goal on the board may be placed in any of its quarter turns. Off, every piece is placed as it is drawn. Either way a piece keeps its orientation as it slides.',
+  mirroredOrientations:
+    'With Allow any orientation for unplaced pieces: those pieces may also be placed mirrored, as if turned over.',
   keepAssemblies:
     'Always show Assembly results even when Disassemble is selected and no Disassemblies are found. Disassemblies will be shown at the top of the results.',
   autosave:
@@ -101,6 +106,8 @@ const LABEL: Record<BoxName, string> = {
   nestedSlides: 'Allow Nested Slides',
   partialNested: 'Allow Partially Nested',
   verticalMoves: 'Allow Vertical Moves',
+  anyOrientation: 'Allow any orientation for unplaced pieces',
+  mirroredOrientations: 'Include mirrored orientations',
   autosave: 'Autosave every 20 min',
   keepAssemblies: 'Always show Assemblies',
 };
@@ -207,8 +214,8 @@ export class RunCard {
     const lim = ws.limits;
     const { disabled } = normalize(o, null, ws.family, ws.canDisassemble);
     const tip = (k: BoxName): string => (ws.stacking ? (STACKING_TIP[k] ?? TIP[k]) : TIP[k]);
-    const sw = (k: BoxName): string =>
-      `<div class="row2"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
+    const sw = (k: BoxName, sub = false): string =>
+      `<div class="row2${sub ? ' sub' : ''}"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
     const def = defaultsOf(ws.family);
     const changed = [
       o.justCount !== DEFAULT_OPTIONS.justCount,
@@ -223,6 +230,8 @@ export class RunCard {
       ws.sliding && o.nestedSlides,
       ws.sliding && o.partialNested,
       ws.sliding && o.verticalMoves,
+      ws.sliding && o.anyOrientation,
+      ws.sliding && o.mirroredOrientations,
       lim.keepEach !== DEFAULT_LIMITS.keepEach,
       lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
     ].filter(Boolean).length;
@@ -268,6 +277,8 @@ export class RunCard {
       setHtml(
         opts,
         sw('justCount') +
+          sw('anyOrientation') +
+          sw('mirroredOrientations', true) +
           sw('nestedSlides') +
           sw('partialNested') +
           sw('verticalMoves') +
@@ -394,9 +405,15 @@ export class RunCard {
           : 'unknown';
     const fail =
       r?.failure !== null && r?.failure !== undefined && s === 'error' ? r.failure : null;
+    // a sliding or stacking problem has one solution at most: its moves
+    const moves = ws.sliding || ws.stacking ? ws.moves() : undefined;
+    const movesLine =
+      moves === undefined
+        ? ''
+        : `<span class="k">Moves</span><span class="v" id="slvMoves" style="grid-column:span 3">${moves === null ? '—' : shortCount(moves)}</span>`;
     setHtml(
       byId('slvStat'),
-      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span><span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(ws.details()) || '—'}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
+      `<span class="k">Activity</span><span class="v" id="slvActivity" style="grid-column:span 3">${esc(ws.activity())}</span>${movesLine}<span class="k">Details</span><span class="v" id="slvDetails" style="grid-column:span 3">${esc(ws.details()) || '—'}</span><span class="k">Assemblies</span><span class="v" id="slvAsm">${c.assemblies === null ? '—' : String(c.assemblies)}</span><span class="k">Solutions</span><span class="v" id="slvSols">${ws.options.disassemble || (c.solutions ?? 0) > 0 ? (c.solutions === null ? '—' : String(c.solutions)) : '—'}</span><span class="k">Time used</span><span class="v">${c.timeMs === null ? '—' : formatSpan(c.timeMs)}</span><span class="k">Time left</span><span class="v">${leftText}</span>` +
         (fail === null
           ? ''
           : `<span class="slv-fail" id="slvFail" style="grid-column:1 / -1">${ic('warn', 14)}<span>The solve failed: ${esc(fail.message)}</span></span>`),

@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panex Solver White Paper</title>
+<meta name="description" content="How ShapeLogic's Panex Solver finds shortest swaps, what eight solves (levels 3 to 10) show about the move counts, and where the solves could be made faster.">
+<style>
+:root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0 auto; max-width: 860px; padding: 32px 16px 64px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; color: var(--ink); background: var(--page); }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--rule); break-after: avoid; }
+h3 { font-size: 16px; margin: 22px 0 6px; break-after: avoid; }
+p { margin: 0 0 10px; }
+.sub { color: var(--ink-2); font-size: 17px; margin-bottom: 4px; }
+.meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.box { background: var(--wash); border-radius: 8px; padding: 14px 18px; margin: 14px 0 18px; break-inside: avoid; }
+.box h3 { margin-top: 0; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; }
+li { margin-bottom: 4px; }
+figure { margin: 18px 0 20px; break-inside: avoid; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.row { display: flex; gap: 12px; }
+.row figure { flex: 1; margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 10px 0 16px; break-inside: avoid; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); }
+table.num td { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.num td:first-child, table.num th:first-child { text-align: left; }
+table.num th { text-align: right; }
+table.small { font-size: 11px; } table.small th, table.small td { padding: 3px 5px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+.formula { font-family: "Times New Roman", Times, serif; font-size: 17px; text-align: center; margin: 12px 0; }
+.tick, .legend, .note, .csub, .axlabel, .vlabel, .boxtext { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
+.tick { font-size: 11px; fill: var(--muted); } .axlabel { font-size: 11.5px; fill: var(--muted); }
+.legend, .note, .boxtext { font-size: 11.5px; fill: var(--ink-2); } .vlabel { font-size: 11px; fill: var(--ink-2); }
+.ctitle { font-size: 13.5px; font-weight: 600; fill: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.csub { font-size: 11px; fill: var(--muted); }
+.onfill { font-size: 10px; fill: #ffffff; font-family: system-ui, sans-serif; }
+.grid { stroke: var(--grid); stroke-width: 1; } .axis { stroke: var(--axis); stroke-width: 1; }
+.refs li { font-size: 13px; margin-bottom: 4px; }
+a { color: var(--accent); }
+.toc { columns: 2; font-size: 13.5px; } .toc li { margin-bottom: 2px; }
+@media (max-width: 700px) { .row { display: block; } .row figure { margin: 18px 0; } }
+@page { size: A4; margin: 17mm 15mm 18mm 15mm; @bottom-right { content: counter(page) ' / ' counter(pages); font: 8.5pt system-ui, sans-serif; color: #898781; } }
+@media print {
+  .refs li { font-size: 8.6pt; margin-bottom: 2pt; } #s10 { break-before: page; border-top: none; margin-top: 0; }
+  html, body { background: #fff; } body { max-width: none; padding: 0; font-size: 10.5pt; line-height: 1.42; }
+  :root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+  h1 { font-size: 24pt; } h2 { font-size: 15pt; margin-top: 22pt; } h3 { font-size: 11.5pt; }
+  table { font-size: 8.8pt; } table.small { font-size: 7.6pt; } figcaption { font-size: 9pt; } .meta { font-size: 9pt; } .sub { font-size: 12.5pt; }
+  .row { display: flex; } .pb { break-before: page; } a { color: inherit; text-decoration: none; }
+  .toc { columns: 2; }
+}
+
+
+@media screen {
+:root { --surface-1:#f3f6fb; --page:#ffffff; --ink:#0f1b2d; --ink-2:#55627a; --muted:#55627a; --grid:#dde4ef; --axis:#c5cfdf; --wash:#f3f6fb; --rule:#dde4ef; --accent:#1a73e8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; } }
+:root[data-theme="dark"] { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; }
+html { background: var(--page); }
+body { max-width: none; margin: 0; padding: 0; font-size: 17px; line-height: 1.6; background: var(--page); color: var(--ink); }
+main { max-width: 1060px; margin: 0 auto; padding: 48px 16px 64px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0 0 16px; }
+.sub { font-size: 19px; }
+a { color: var(--accent); }
+.banner { background: #fff; border-bottom: 1px solid var(--rule); margin: 0; width: auto; }
+.crumb { margin: 0 0 12px; font-size: 14px; }
+}
+.banner a, .banner img { display: block; } .banner img { width: 100%; max-width: 1000px; height: auto; margin: 0 auto; }
+.crumb a { color: var(--accent); }
+@media print { .banner, .crumb { display: none; } }
+</style></head><body>
+<header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
+<main>
+<nav class="crumb"><a href="/">ShapeLogic</a> › <a href="/research/">Research</a></nav>
+<h1>Solving Panex: the search, its efficiency, and the pattern behind the move counts</h1>
+<p class="sub">A white paper on ShapeLogic's Panex Solver and what its eight optimal solves of the tower swap (levels 3 to 10) reveal</p>
+<p class="meta">30 October 2026 · Data: <span class="mono">tmp/Panex Swap 3-10.xmpuzzle</span>, the solver source <span class="mono">core/shapelogic/solve/panex_search.cpp</span>, level logs from <span class="mono">shapelogic_cli --panex-log</span>, and exhaustive searches of the small levels</p>
+
+<div class="box"><h3>Summary</h3>
+<ul>
+<li><b>All eight solves are optimal.</b> The swaps of towers of 3 to 10 pieces take 42, 128, 343, 881, 2,189, 5,359, 13,023 and 31,537 transfers. These are the published minima: Manasse, Sleator and Wei's 1983 algorithm gives these numbers as an upper bound, and exhaustive searches (the authors to level 6, Bagley to level 9, Kisman in 2010 to level 13) proved nothing shorter exists.</li>
+<li><b>The counts follow a formula.</b> From level 5 on, X(n) = 7·(5P<sub>n−1</sub> − P<sub>n−2</sub>) − 8n − 2 with the Pell numbers P (0, 1, 2, 5, 12, 29, …); equivalently X(n) = 2X(n−1) + X(n−2) + 16n − 28. Each extra level multiplies the length by 1 + √2 ≈ 2.414 in the limit, the silver ratio. The formula reproduces all nine proven values from level 5 to 13 and predicts 1,074,001 moves for level 14, 2,593,021 for 15 and 6,260,271 for 16.</li>
+<li><b>Every solution has the same skeleton.</b> It begins with a shortest transfer of the n−1 upper pieces to the centre (T̄(n−1) moves, exactly the published transfer optimum), ends with the mirror image of such a transfer, and at its midpoint both deepest pieces sit at the bottom of the centre column. The small pieces do almost all the moving: sizes 1 to 3 make 74% of the moves at level 10.</li>
+<li><b>The work grows 7.8 times faster than the answer.</b> The solver visits about 18.8 times more stackings for each extra level (1.72 trillion for level 10, in 58.6 hours) while the solution only grows 2.4 times; the widest search level grows 7.6 times. Level 11 would need about 16 GB for a single level and weeks of search: beyond this machine with the current design.</li>
+<li><b>Shortest solutions live in a narrow corridor.</b> For level 5 the state space holds 1.9 million stackings and 6.3 trillion distinct shortest solutions, yet at most 28 states at any distance lie on a shortest solution, against 8,890 states at the middle distance. A search that knew the corridor would do about 300 times less work at level 5, and far more at level 10. Kisman's structural search (30 minutes and 50 MB for level 10) shows that this gain is real.</li>
+<li><b>What this means for the solver.</b> For the standard swap and transfer the answer is known: the solution can be constructed from the published algorithm in milliseconds and is proven optimal to level 13, so a search is only needed as a proof or for other boards. Within the search, halving the key size, compressing the stored levels and streaming levels from disk would extend the reach to level 11; a corridor-aware search is the only route to orders of magnitude.</li>
+</ul></div>
+
+<ol class="toc">
+<li><a href="#s1">The puzzle and the rules the solver uses</a></li>
+<li><a href="#s2">The eight solves</a></li>
+<li><a href="#s3">The pattern in the move counts</a></li>
+<li><a href="#s4">What the solutions look like</a></li>
+<li><a href="#s5">How the Panex Solver works</a></li>
+<li><a href="#s6">What the search profiles show</a></li>
+<li><a href="#s7">Could the pattern make the solves faster?</a></li>
+<li><a href="#s8">Conclusions</a></li>
+<li><a href="#s9">Appendix: formulas, tables and methods</a></li>
+<li><a href="#s10">References</a></li>
+</ol>
+
+<h2 id="s1">1. The puzzle and the rules the solver uses</h2>
+
+<p>Panex, invented by Toshio Akanuma and made by TRICKS Co. of Tokyo, looks like the Tower of Hanoi but behaves very differently. Three vertical tracks (columns) are joined at the top by a horizontal track, the bridge. Two towers of n pieces each (ten in the commercial puzzle) start on the two outer columns, one blue and one orange; the centre column is empty. The task is to exchange the two towers. A hidden tongue under each piece and a narrowing throat in each track enforce the one rule that makes the puzzle hard: <b>the piece that belongs on floor i of a tower can never go deeper than level i of any column.</b> The top floor is level 1 and the bridge is level 0, so the piece that belongs at the top of a tower can only ever sit in the top slot or in the bridge, while the bottom piece can go anywhere.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 286" width="640" height="286" class="chart" role="img" aria-label="The Panex board at the start">
+<rect width="640" height="286" fill="var(--surface-1)"/>
+<rect x="83.0" y="22" width="474" height="22" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="320" y="35" class="note" text-anchor="middle">bridge (level 0): one raised piece per column blocks moves across it</text>
+<polygon points="95.0,46 205.0,46 165.0,246 135.0,246" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<line x1="97.0" y1="66.0" x2="203.0" y2="66.0" class="grid"/>
+<line x1="101.0" y1="86.0" x2="199.0" y2="86.0" class="grid"/>
+<line x1="105.0" y1="106.0" x2="195.0" y2="106.0" class="grid"/>
+<line x1="109.0" y1="126.0" x2="191.0" y2="126.0" class="grid"/>
+<line x1="113.0" y1="146.0" x2="187.0" y2="146.0" class="grid"/>
+<line x1="117.0" y1="166.0" x2="183.0" y2="166.0" class="grid"/>
+<line x1="121.0" y1="186.0" x2="179.0" y2="186.0" class="grid"/>
+<line x1="125.0" y1="206.0" x2="175.0" y2="206.0" class="grid"/>
+<line x1="129.0" y1="226.0" x2="171.0" y2="226.0" class="grid"/>
+<line x1="133.0" y1="246.0" x2="167.0" y2="246.0" class="grid"/>
+<text x="73.0" y="61.0" class="tick" text-anchor="end">1</text>
+<text x="73.0" y="81.0" class="tick" text-anchor="end">2</text>
+<text x="73.0" y="101.0" class="tick" text-anchor="end">3</text>
+<text x="73.0" y="121.0" class="tick" text-anchor="end">4</text>
+<text x="73.0" y="141.0" class="tick" text-anchor="end">5</text>
+<text x="73.0" y="161.0" class="tick" text-anchor="end">6</text>
+<text x="73.0" y="181.0" class="tick" text-anchor="end">7</text>
+<text x="73.0" y="201.0" class="tick" text-anchor="end">8</text>
+<text x="73.0" y="221.0" class="tick" text-anchor="end">9</text>
+<text x="73.0" y="241.0" class="tick" text-anchor="end">10</text>
+<rect x="101.0" y="49.0" width="98.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="60.0" class="onfill" text-anchor="middle">1</text>
+<rect x="105.0" y="69.0" width="90.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="80.0" class="onfill" text-anchor="middle">2</text>
+<rect x="109.0" y="89.0" width="82.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="100.0" class="onfill" text-anchor="middle">3</text>
+<rect x="113.0" y="109.0" width="74.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="120.0" class="onfill" text-anchor="middle">4</text>
+<rect x="117.0" y="129.0" width="66.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="140.0" class="onfill" text-anchor="middle">5</text>
+<rect x="121.0" y="149.0" width="58.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="160.0" class="onfill" text-anchor="middle">6</text>
+<rect x="125.0" y="169.0" width="50.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="180.0" class="onfill" text-anchor="middle">7</text>
+<rect x="129.0" y="189.0" width="42.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="200.0" class="onfill" text-anchor="middle">8</text>
+<rect x="133.0" y="209.0" width="34.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="220.0" class="onfill" text-anchor="middle">9</text>
+<rect x="137.0" y="229.0" width="26.0" height="15" rx="3" fill="var(--series-1)"/>
+<text x="150.0" y="240.0" class="onfill" text-anchor="middle">10</text>
+<text x="150" y="264" class="axlabel" text-anchor="middle">left column</text>
+<polygon points="265.0,46 375.0,46 335.0,246 305.0,246" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<line x1="267.0" y1="66.0" x2="373.0" y2="66.0" class="grid"/>
+<line x1="271.0" y1="86.0" x2="369.0" y2="86.0" class="grid"/>
+<line x1="275.0" y1="106.0" x2="365.0" y2="106.0" class="grid"/>
+<line x1="279.0" y1="126.0" x2="361.0" y2="126.0" class="grid"/>
+<line x1="283.0" y1="146.0" x2="357.0" y2="146.0" class="grid"/>
+<line x1="287.0" y1="166.0" x2="353.0" y2="166.0" class="grid"/>
+<line x1="291.0" y1="186.0" x2="349.0" y2="186.0" class="grid"/>
+<line x1="295.0" y1="206.0" x2="345.0" y2="206.0" class="grid"/>
+<line x1="299.0" y1="226.0" x2="341.0" y2="226.0" class="grid"/>
+<line x1="303.0" y1="246.0" x2="337.0" y2="246.0" class="grid"/>
+<text x="320" y="264" class="axlabel" text-anchor="middle">centre column</text>
+<polygon points="435.0,46 545.0,46 505.0,246 475.0,246" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<line x1="437.0" y1="66.0" x2="543.0" y2="66.0" class="grid"/>
+<line x1="441.0" y1="86.0" x2="539.0" y2="86.0" class="grid"/>
+<line x1="445.0" y1="106.0" x2="535.0" y2="106.0" class="grid"/>
+<line x1="449.0" y1="126.0" x2="531.0" y2="126.0" class="grid"/>
+<line x1="453.0" y1="146.0" x2="527.0" y2="146.0" class="grid"/>
+<line x1="457.0" y1="166.0" x2="523.0" y2="166.0" class="grid"/>
+<line x1="461.0" y1="186.0" x2="519.0" y2="186.0" class="grid"/>
+<line x1="465.0" y1="206.0" x2="515.0" y2="206.0" class="grid"/>
+<line x1="469.0" y1="226.0" x2="511.0" y2="226.0" class="grid"/>
+<line x1="473.0" y1="246.0" x2="507.0" y2="246.0" class="grid"/>
+<rect x="441.0" y="49.0" width="98.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="60.0" class="onfill" text-anchor="middle">1</text>
+<rect x="445.0" y="69.0" width="90.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="80.0" class="onfill" text-anchor="middle">2</text>
+<rect x="449.0" y="89.0" width="82.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="100.0" class="onfill" text-anchor="middle">3</text>
+<rect x="453.0" y="109.0" width="74.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="120.0" class="onfill" text-anchor="middle">4</text>
+<rect x="457.0" y="129.0" width="66.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="140.0" class="onfill" text-anchor="middle">5</text>
+<rect x="461.0" y="149.0" width="58.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="160.0" class="onfill" text-anchor="middle">6</text>
+<rect x="465.0" y="169.0" width="50.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="180.0" class="onfill" text-anchor="middle">7</text>
+<rect x="469.0" y="189.0" width="42.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="200.0" class="onfill" text-anchor="middle">8</text>
+<rect x="473.0" y="209.0" width="34.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="220.0" class="onfill" text-anchor="middle">9</text>
+<rect x="477.0" y="229.0" width="26.0" height="15" rx="3" fill="var(--series-2)"/>
+<text x="490.0" y="240.0" class="onfill" text-anchor="middle">10</text>
+<text x="490" y="264" class="axlabel" text-anchor="middle">right column</text>
+<text x="73.0" y="41" class="tick" text-anchor="end">level</text>
+</svg><figcaption>Figure 1. The level-10 board at the start. Each column has ten levels plus the bridge above it. A piece numbered i rests no deeper than level i, so a tower stands only in the order shown. The pieces slide along the tracks and cannot pass one another: a piece raised into the bridge blocks every move that would pass over its column.</figcaption></figure>
+<p>Pieces slide, they are not lifted, so a piece cannot pass over another. A move takes the top piece of one column, up into the bridge, along it, and down another column; however far it travels, that counts as one move. A column holds at most n + 1 pieces: n in its levels and one more waiting in the bridge above them. A column whose top piece is in the bridge is <i>raised</i>: nothing can be put onto it, and nothing can travel across it along the bridge.</p>
+<p>The solver, and this paper, use ShapeLogic's stacking model of the board, the Panex columns rule set: a disc of size s may sit at most s places below the top of its column, discs stack in any order, one disc more than the column height may wait raised in the bridge, and a raised disc blocks moves that pass over it. A stacking is simply the list of pieces on each column, bottom to top. The levels the pieces rest at are not part of the state: gravity settles each piece at its own limit or on the piece below, whichever is higher, and a column is raised exactly when some piece would otherwise sit below its limit. The model's raised test (some piece at index i from the bottom with limit smaller than count − i) is the same condition, so the reachable stackings and the legal moves are those of the physical puzzle. The eight problems in the file are the classic swap on three Panex columns of height n, with the left tower's pieces numbered 1 to n and the right tower's pieces of the same sizes.</p>
+<p>Two tasks have been studied since the puzzle appeared: the <b>transfer</b> of one tower from a side column to the centre, whose minimum T(n) is known exactly, and the <b>swap</b> of the two towers, whose minimum X(n) is what the file's solves establish for levels 3 to 10.</p>
+
+<h2 id="s2">2. The eight solves</h2>
+
+<p>Table 1 lists what the file records for each problem: the solution length, the stackings the search found, the search depth, and the time. The last three columns come from re-running levels 3 to 8 with the command-line solver on the same machine (an Apple M4 MacBook Pro with 32 GB, all cores, the level log on) to collect per-level data; the times agree with the file's within a few percent.</p>
+<table class="num"><thead><tr><th>n</th><th>moves</th><th>stackings found</th><th>depth in file</th><th>time in file</th><th>rate</th><th>re-run time</th><th>re-run peak memory</th><th>re-run disk</th></tr></thead><tbody>
+<tr><td>3</td><td>42</td><td>1,924</td><td>42</td><td>25 ms</td><td>77K/s</td><td>0.001 s</td><td>0 MB</td><td>—</td></tr>
+<tr><td>4</td><td>128</td><td>38,236</td><td>128</td><td>39 ms</td><td>980K/s</td><td>0.005 s</td><td>0 MB</td><td>—</td></tr>
+<tr><td>5</td><td>343</td><td>738,490</td><td>342</td><td>118 ms</td><td>6.26M/s</td><td>0.077 s</td><td>5 MB</td><td>—</td></tr>
+<tr><td>6</td><td>881</td><td>13,877,174</td><td>880</td><td>1.1 s</td><td>12.4M/s</td><td>1.062 s</td><td>111 MB</td><td>—</td></tr>
+<tr><td>7</td><td>2,189</td><td>259,757,956</td><td>2,188</td><td>7.8 s</td><td>33.4M/s</td><td>7.822 s</td><td>2.1 GB</td><td>—</td></tr>
+<tr><td>8</td><td>5,359</td><td>4,870,733,506</td><td>5,358</td><td>2.7 min</td><td>29.7M/s</td><td>168.212 s</td><td>4.3 GB</td><td>39 GB</td></tr>
+<tr><td>9</td><td>13,023</td><td>91,449,852,580</td><td>13,022</td><td>49.9 min</td><td>30.5M/s</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>10</td><td>31,537</td><td>1,718,452,301,186</td><td>31,536</td><td>58.6 h</td><td>8.14M/s</td><td>—</td><td>—</td><td>—</td></tr>
+</tbody></table>
+<p class="meta">Table 1. The solves in <span class="mono">Panex Swap 3-10.xmpuzzle</span>. "Stackings found" is the solver's own count: the stackings within half the solution length of the start, with each self-twin stacking counted twice (section 5.5). The depth in the file is one short for the odd solution lengths, because the search met its mirror image at the previous level before the depth counter was updated; the moves column is exact. The level-8 re-run kept every level on disk (39 GB) because the disk budget allowed it; the file's run on level 10 cannot have kept every level (section 6).</p>
+<div class="row"><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 300" width="430" height="300" class="chart" role="img" aria-label="Stackings found per solve">
+<rect x="0" y="0" width="430" height="300" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">Stackings found per solve</text>
+<text x="60" y="30" class="csub">the search from the start to half the solution length</text>
+<line x1="60" y1="256.0" x2="406" y2="256.0" class="grid"/>
+<text x="52" y="259.5" class="tick" text-anchor="end">1K</text>
+<line x1="60" y1="234.2" x2="406" y2="234.2" class="grid"/>
+<text x="52" y="237.7" class="tick" text-anchor="end">10K</text>
+<line x1="60" y1="212.4" x2="406" y2="212.4" class="grid"/>
+<text x="52" y="215.9" class="tick" text-anchor="end">100K</text>
+<line x1="60" y1="190.6" x2="406" y2="190.6" class="grid"/>
+<text x="52" y="194.1" class="tick" text-anchor="end">1M</text>
+<line x1="60" y1="168.8" x2="406" y2="168.8" class="grid"/>
+<text x="52" y="172.3" class="tick" text-anchor="end">10M</text>
+<line x1="60" y1="147.0" x2="406" y2="147.0" class="grid"/>
+<text x="52" y="150.5" class="tick" text-anchor="end">100M</text>
+<line x1="60" y1="125.2" x2="406" y2="125.2" class="grid"/>
+<text x="52" y="128.7" class="tick" text-anchor="end">1G</text>
+<line x1="60" y1="103.4" x2="406" y2="103.4" class="grid"/>
+<text x="52" y="106.9" class="tick" text-anchor="end">10G</text>
+<line x1="60" y1="81.6" x2="406" y2="81.6" class="grid"/>
+<text x="52" y="85.1" class="tick" text-anchor="end">100G</text>
+<line x1="60" y1="59.8" x2="406" y2="59.8" class="grid"/>
+<text x="52" y="63.3" class="tick" text-anchor="end">1T</text>
+<line x1="60" y1="38.0" x2="406" y2="38.0" class="grid"/>
+<text x="52" y="41.5" class="tick" text-anchor="end">10T</text>
+<line x1="81.6" y1="256" x2="81.6" y2="260" class="axis"/>
+<text x="81.6" y="272" class="tick" text-anchor="middle">3</text>
+<line x1="124.9" y1="256" x2="124.9" y2="260" class="axis"/>
+<text x="124.9" y="272" class="tick" text-anchor="middle">4</text>
+<line x1="168.1" y1="256" x2="168.1" y2="260" class="axis"/>
+<text x="168.1" y="272" class="tick" text-anchor="middle">5</text>
+<line x1="211.4" y1="256" x2="211.4" y2="260" class="axis"/>
+<text x="211.4" y="272" class="tick" text-anchor="middle">6</text>
+<line x1="254.6" y1="256" x2="254.6" y2="260" class="axis"/>
+<text x="254.6" y="272" class="tick" text-anchor="middle">7</text>
+<line x1="297.9" y1="256" x2="297.9" y2="260" class="axis"/>
+<text x="297.9" y="272" class="tick" text-anchor="middle">8</text>
+<line x1="341.1" y1="256" x2="341.1" y2="260" class="axis"/>
+<text x="341.1" y="272" class="tick" text-anchor="middle">9</text>
+<line x1="384.4" y1="256" x2="384.4" y2="260" class="axis"/>
+<text x="384.4" y="272" class="tick" text-anchor="middle">10</text>
+<line x1="60" y1="256" x2="406" y2="256" class="axis"/>
+<text x="233.0" y="294" class="axlabel" text-anchor="middle">pieces per tower, n</text>
+<text transform="translate(12,147.0) rotate(-90)" class="axlabel" text-anchor="middle">stackings</text>
+<path d="M81.6,249.8 L124.9,221.5 L168.1,193.5 L211.4,165.7 L254.6,138.0 L297.9,110.2 L341.1,82.4 L384.4,54.7" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<circle cx="81.6" cy="249.8" r="6" fill="var(--surface-1)"/><circle cx="81.6" cy="249.8" r="4" fill="var(--series-1)"/>
+<circle cx="124.9" cy="221.5" r="6" fill="var(--surface-1)"/><circle cx="124.9" cy="221.5" r="4" fill="var(--series-1)"/>
+<circle cx="168.1" cy="193.5" r="6" fill="var(--surface-1)"/><circle cx="168.1" cy="193.5" r="4" fill="var(--series-1)"/>
+<circle cx="211.4" cy="165.7" r="6" fill="var(--surface-1)"/><circle cx="211.4" cy="165.7" r="4" fill="var(--series-1)"/>
+<circle cx="254.6" cy="138.0" r="6" fill="var(--surface-1)"/><circle cx="254.6" cy="138.0" r="4" fill="var(--series-1)"/>
+<circle cx="297.9" cy="110.2" r="6" fill="var(--surface-1)"/><circle cx="297.9" cy="110.2" r="4" fill="var(--series-1)"/>
+<circle cx="341.1" cy="82.4" r="6" fill="var(--surface-1)"/><circle cx="341.1" cy="82.4" r="4" fill="var(--series-1)"/>
+<circle cx="384.4" cy="54.7" r="6" fill="var(--surface-1)"/><circle cx="384.4" cy="54.7" r="4" fill="var(--series-1)"/>
+<text x="376.4" y="58.7" class="note" text-anchor="end">1.72 trillion</text>
+<text x="89.6" y="253.8" class="note" text-anchor="start">1,924</text>
+</svg><figcaption>Figure 2a. Stackings found per solve. The count grows by a factor of about 18.8 per level.</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 300" width="430" height="300" class="chart" role="img" aria-label="Solve time">
+<rect x="0" y="0" width="430" height="300" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">Solve time</text>
+<text x="60" y="30" class="csub">seconds, as recorded in the file (all cores)</text>
+<line x1="60" y1="256.0" x2="406" y2="256.0" class="grid"/>
+<text x="52" y="259.5" class="tick" text-anchor="end">1e-2</text>
+<line x1="60" y1="228.8" x2="406" y2="228.8" class="grid"/>
+<text x="52" y="232.2" class="tick" text-anchor="end">1e-1</text>
+<line x1="60" y1="201.5" x2="406" y2="201.5" class="grid"/>
+<text x="52" y="205.0" class="tick" text-anchor="end">1</text>
+<line x1="60" y1="174.2" x2="406" y2="174.2" class="grid"/>
+<text x="52" y="177.8" class="tick" text-anchor="end">10</text>
+<line x1="60" y1="147.0" x2="406" y2="147.0" class="grid"/>
+<text x="52" y="150.5" class="tick" text-anchor="end">100</text>
+<line x1="60" y1="119.8" x2="406" y2="119.8" class="grid"/>
+<text x="52" y="123.2" class="tick" text-anchor="end">1K</text>
+<line x1="60" y1="92.5" x2="406" y2="92.5" class="grid"/>
+<text x="52" y="96.0" class="tick" text-anchor="end">10K</text>
+<line x1="60" y1="65.2" x2="406" y2="65.2" class="grid"/>
+<text x="52" y="68.8" class="tick" text-anchor="end">100K</text>
+<line x1="60" y1="38.0" x2="406" y2="38.0" class="grid"/>
+<text x="52" y="41.5" class="tick" text-anchor="end">1M</text>
+<line x1="81.6" y1="256" x2="81.6" y2="260" class="axis"/>
+<text x="81.6" y="272" class="tick" text-anchor="middle">3</text>
+<line x1="124.9" y1="256" x2="124.9" y2="260" class="axis"/>
+<text x="124.9" y="272" class="tick" text-anchor="middle">4</text>
+<line x1="168.1" y1="256" x2="168.1" y2="260" class="axis"/>
+<text x="168.1" y="272" class="tick" text-anchor="middle">5</text>
+<line x1="211.4" y1="256" x2="211.4" y2="260" class="axis"/>
+<text x="211.4" y="272" class="tick" text-anchor="middle">6</text>
+<line x1="254.6" y1="256" x2="254.6" y2="260" class="axis"/>
+<text x="254.6" y="272" class="tick" text-anchor="middle">7</text>
+<line x1="297.9" y1="256" x2="297.9" y2="260" class="axis"/>
+<text x="297.9" y="272" class="tick" text-anchor="middle">8</text>
+<line x1="341.1" y1="256" x2="341.1" y2="260" class="axis"/>
+<text x="341.1" y="272" class="tick" text-anchor="middle">9</text>
+<line x1="384.4" y1="256" x2="384.4" y2="260" class="axis"/>
+<text x="384.4" y="272" class="tick" text-anchor="middle">10</text>
+<line x1="60" y1="256" x2="406" y2="256" class="axis"/>
+<text x="233.0" y="294" class="axlabel" text-anchor="middle">pieces per tower, n</text>
+<text transform="translate(12,147.0) rotate(-90)" class="axlabel" text-anchor="middle">seconds</text>
+<path d="M81.6,245.2 L124.9,239.9 L168.1,226.8 L211.4,200.1 L254.6,177.2 L297.9,141.1 L341.1,106.8 L384.4,56.4" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<circle cx="81.6" cy="245.2" r="6" fill="var(--surface-1)"/><circle cx="81.6" cy="245.2" r="4" fill="var(--series-1)"/>
+<circle cx="124.9" cy="239.9" r="6" fill="var(--surface-1)"/><circle cx="124.9" cy="239.9" r="4" fill="var(--series-1)"/>
+<circle cx="168.1" cy="226.8" r="6" fill="var(--surface-1)"/><circle cx="168.1" cy="226.8" r="4" fill="var(--series-1)"/>
+<circle cx="211.4" cy="200.1" r="6" fill="var(--surface-1)"/><circle cx="211.4" cy="200.1" r="4" fill="var(--series-1)"/>
+<circle cx="254.6" cy="177.2" r="6" fill="var(--surface-1)"/><circle cx="254.6" cy="177.2" r="4" fill="var(--series-1)"/>
+<circle cx="297.9" cy="141.1" r="6" fill="var(--surface-1)"/><circle cx="297.9" cy="141.1" r="4" fill="var(--series-1)"/>
+<circle cx="341.1" cy="106.8" r="6" fill="var(--surface-1)"/><circle cx="341.1" cy="106.8" r="4" fill="var(--series-1)"/>
+<circle cx="384.4" cy="56.4" r="6" fill="var(--surface-1)"/><circle cx="384.4" cy="56.4" r="4" fill="var(--series-1)"/>
+<text x="376.4" y="60.4" class="note" text-anchor="end">58.6 hours</text>
+<text x="333.1" y="110.8" class="note" text-anchor="end">50 min</text>
+<text x="289.9" y="145.1" class="note" text-anchor="end">164 s</text>
+</svg><figcaption>Figure 2b. Time per solve as recorded in the file. Up to level 9 each level costs about 18 times the previous one; level 10 took 70 times level 9.</figcaption></figure></div>
+<p>Two things stand out. The solution grows by a factor of about 2.4 per level while the work grows by about 18.8 per level, so each level costs almost eight times more work per move of the answer. And level 10 ran at 8.1 million stackings per second where levels 7 to 9 ran at 30 to 33 million: three quarters of the 58.6 hours were spent slower than the search's natural pace. Section 6 discusses the likely causes.</p>
+
+<h2 id="s3">3. The pattern in the move counts</h2>
+
+<h3>3.1 The sequence and the silver ratio</h3>
+<p>The eight optimal lengths, with the published values for levels 1, 2 and 11 to 13, form the sequence 3, 13, 42, 128, 343, 881, 2189, 5359, 13023, 31537, 76245, 184191, 444807. The ratio between consecutive terms falls steadily: 4.33, 3.23, 3.05, 2.68, 2.57, 2.48, 2.45, 2.43, 2.42, 2.418, 2.416, 2.415, and the gaps to 2.4142 shrink by a little under half each time (0.0074, 0.0034, 0.0016, 0.0007). The limit is 1 + √2, the silver ratio: the growth constant of the Pell numbers, just as the golden ratio is that of the Fibonacci numbers.</p>
+<div class="row"><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 300" width="430" height="300" class="chart" role="img" aria-label="Shortest swap, by tower height">
+<rect x="0" y="0" width="430" height="300" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">Shortest swap, by tower height</text>
+<text x="60" y="30" class="csub">transfers; log scale</text>
+<line x1="60" y1="256.0" x2="406" y2="256.0" class="grid"/>
+<text x="52" y="259.5" class="tick" text-anchor="end">1</text>
+<line x1="60" y1="224.9" x2="406" y2="224.9" class="grid"/>
+<text x="52" y="228.4" class="tick" text-anchor="end">10</text>
+<line x1="60" y1="193.7" x2="406" y2="193.7" class="grid"/>
+<text x="52" y="197.2" class="tick" text-anchor="end">100</text>
+<line x1="60" y1="162.6" x2="406" y2="162.6" class="grid"/>
+<text x="52" y="166.1" class="tick" text-anchor="end">1K</text>
+<line x1="60" y1="131.4" x2="406" y2="131.4" class="grid"/>
+<text x="52" y="134.9" class="tick" text-anchor="end">10K</text>
+<line x1="60" y1="100.3" x2="406" y2="100.3" class="grid"/>
+<text x="52" y="103.8" class="tick" text-anchor="end">100K</text>
+<line x1="60" y1="69.1" x2="406" y2="69.1" class="grid"/>
+<text x="52" y="72.6" class="tick" text-anchor="end">1M</text>
+<line x1="60" y1="38.0" x2="406" y2="38.0" class="grid"/>
+<text x="52" y="41.5" class="tick" text-anchor="end">10M</text>
+<line x1="70.8" y1="256" x2="70.8" y2="260" class="axis"/>
+<text x="70.8" y="272" class="tick" text-anchor="middle">1</text>
+<line x1="92.4" y1="256" x2="92.4" y2="260" class="axis"/>
+<text x="92.4" y="272" class="tick" text-anchor="middle">2</text>
+<line x1="114.1" y1="256" x2="114.1" y2="260" class="axis"/>
+<text x="114.1" y="272" class="tick" text-anchor="middle">3</text>
+<line x1="135.7" y1="256" x2="135.7" y2="260" class="axis"/>
+<text x="135.7" y="272" class="tick" text-anchor="middle">4</text>
+<line x1="157.3" y1="256" x2="157.3" y2="260" class="axis"/>
+<text x="157.3" y="272" class="tick" text-anchor="middle">5</text>
+<line x1="178.9" y1="256" x2="178.9" y2="260" class="axis"/>
+<text x="178.9" y="272" class="tick" text-anchor="middle">6</text>
+<line x1="200.6" y1="256" x2="200.6" y2="260" class="axis"/>
+<text x="200.6" y="272" class="tick" text-anchor="middle">7</text>
+<line x1="222.2" y1="256" x2="222.2" y2="260" class="axis"/>
+<text x="222.2" y="272" class="tick" text-anchor="middle">8</text>
+<line x1="243.8" y1="256" x2="243.8" y2="260" class="axis"/>
+<text x="243.8" y="272" class="tick" text-anchor="middle">9</text>
+<line x1="265.4" y1="256" x2="265.4" y2="260" class="axis"/>
+<text x="265.4" y="272" class="tick" text-anchor="middle">10</text>
+<line x1="287.1" y1="256" x2="287.1" y2="260" class="axis"/>
+<text x="287.1" y="272" class="tick" text-anchor="middle">11</text>
+<line x1="308.7" y1="256" x2="308.7" y2="260" class="axis"/>
+<text x="308.7" y="272" class="tick" text-anchor="middle">12</text>
+<line x1="330.3" y1="256" x2="330.3" y2="260" class="axis"/>
+<text x="330.3" y="272" class="tick" text-anchor="middle">13</text>
+<line x1="351.9" y1="256" x2="351.9" y2="260" class="axis"/>
+<text x="351.9" y="272" class="tick" text-anchor="middle">14</text>
+<line x1="373.6" y1="256" x2="373.6" y2="260" class="axis"/>
+<text x="373.6" y="272" class="tick" text-anchor="middle">15</text>
+<line x1="395.2" y1="256" x2="395.2" y2="260" class="axis"/>
+<text x="395.2" y="272" class="tick" text-anchor="middle">16</text>
+<line x1="60" y1="256" x2="406" y2="256" class="axis"/>
+<text x="233.0" y="294" class="axlabel" text-anchor="middle">pieces per tower, n</text>
+<text transform="translate(12,147.0) rotate(-90)" class="axlabel" text-anchor="middle">moves</text>
+<path d="M157.3,177.0 L178.9,164.3 L200.6,152.0 L222.2,139.9 L243.8,127.9 L265.4,115.9 L287.1,104.0 L308.7,92.0 L330.3,80.1" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<path d="M330.3,80.1 L351.9,68.2 L373.6,56.3 L395.2,44.3" fill="none" stroke="#86b6ef" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<circle cx="114.1" cy="205.4" r="6" fill="var(--surface-1)"/><circle cx="114.1" cy="205.4" r="4" fill="var(--series-1)"/>
+<circle cx="135.7" cy="190.4" r="6" fill="var(--surface-1)"/><circle cx="135.7" cy="190.4" r="4" fill="var(--series-1)"/>
+<circle cx="157.3" cy="177.0" r="6" fill="var(--surface-1)"/><circle cx="157.3" cy="177.0" r="4" fill="var(--series-1)"/>
+<circle cx="178.9" cy="164.3" r="6" fill="var(--surface-1)"/><circle cx="178.9" cy="164.3" r="4" fill="var(--series-1)"/>
+<circle cx="200.6" cy="152.0" r="6" fill="var(--surface-1)"/><circle cx="200.6" cy="152.0" r="4" fill="var(--series-1)"/>
+<circle cx="222.2" cy="139.9" r="6" fill="var(--surface-1)"/><circle cx="222.2" cy="139.9" r="4" fill="var(--series-1)"/>
+<circle cx="243.8" cy="127.9" r="6" fill="var(--surface-1)"/><circle cx="243.8" cy="127.9" r="4" fill="var(--series-1)"/>
+<circle cx="265.4" cy="115.9" r="6" fill="var(--surface-1)"/><circle cx="265.4" cy="115.9" r="4" fill="var(--series-1)"/>
+<circle cx="70.8" cy="241.1" r="4" fill="var(--surface-1)" stroke="var(--series-2)" stroke-width="2"/>
+<circle cx="92.4" cy="221.3" r="4" fill="var(--surface-1)" stroke="var(--series-2)" stroke-width="2"/>
+<circle cx="287.1" cy="104.0" r="4" fill="var(--surface-1)" stroke="var(--series-2)" stroke-width="2"/>
+<circle cx="308.7" cy="92.0" r="4" fill="var(--surface-1)" stroke="var(--series-2)" stroke-width="2"/>
+<circle cx="330.3" cy="80.1" r="4" fill="var(--surface-1)" stroke="var(--series-2)" stroke-width="2"/>
+<text x="257.4" y="119.9" class="note" text-anchor="end">31,537</text>
+<text x="389.2" y="38.3" class="note" text-anchor="end">6.26M</text>
+<circle cx="202" cy="186" r="4" fill="var(--series-1)"/>
+<text x="216" y="190" class="legend">solved by ShapeLogic</text>
+<circle cx="202" cy="201" r="4" fill="var(--surface-1)" stroke="var(--series-2)" stroke-width="2"/>
+<text x="216" y="205" class="legend">published optimum</text>
+<line x1="194" y1="216" x2="210" y2="216" stroke="var(--series-1)" stroke-width="2"/>
+<text x="216" y="220" class="legend">formula U(n), n ≥ 5</text>
+<line x1="194" y1="231" x2="210" y2="231" stroke="#86b6ef" stroke-width="2"/>
+<text x="216" y="235" class="legend">formula beyond the proven range</text>
+</svg><figcaption>Figure 3a. The shortest swap by tower height, on a log scale: the eight values solved here, the five published ones, and the formula U(n) of section 3.2, which the data follow from level 5 on.</figcaption></figure><figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 300" width="430" height="300" class="chart" role="img" aria-label="Growth from one level to the next">
+<rect x="0" y="0" width="430" height="300" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">Growth from one level to the next</text>
+<text x="60" y="30" class="csub">S(n) / S(n−1)</text>
+<line x1="60" y1="228.8" x2="406" y2="228.8" class="grid"/>
+<text x="52" y="232.2" class="tick" text-anchor="end">2.5</text>
+<line x1="60" y1="183.3" x2="406" y2="183.3" class="grid"/>
+<text x="52" y="186.8" class="tick" text-anchor="end">3</text>
+<line x1="60" y1="137.9" x2="406" y2="137.9" class="grid"/>
+<text x="52" y="141.4" class="tick" text-anchor="end">3.5</text>
+<line x1="60" y1="92.5" x2="406" y2="92.5" class="grid"/>
+<text x="52" y="96.0" class="tick" text-anchor="end">4</text>
+<line x1="60" y1="47.1" x2="406" y2="47.1" class="grid"/>
+<text x="52" y="50.6" class="tick" text-anchor="end">4.5</text>
+<line x1="74.4" y1="256" x2="74.4" y2="260" class="axis"/>
+<text x="74.4" y="272" class="tick" text-anchor="middle">2</text>
+<line x1="103.2" y1="256" x2="103.2" y2="260" class="axis"/>
+<text x="103.2" y="272" class="tick" text-anchor="middle">3</text>
+<line x1="132.1" y1="256" x2="132.1" y2="260" class="axis"/>
+<text x="132.1" y="272" class="tick" text-anchor="middle">4</text>
+<line x1="160.9" y1="256" x2="160.9" y2="260" class="axis"/>
+<text x="160.9" y="272" class="tick" text-anchor="middle">5</text>
+<line x1="189.8" y1="256" x2="189.8" y2="260" class="axis"/>
+<text x="189.8" y="272" class="tick" text-anchor="middle">6</text>
+<line x1="218.6" y1="256" x2="218.6" y2="260" class="axis"/>
+<text x="218.6" y="272" class="tick" text-anchor="middle">7</text>
+<line x1="247.4" y1="256" x2="247.4" y2="260" class="axis"/>
+<text x="247.4" y="272" class="tick" text-anchor="middle">8</text>
+<line x1="276.2" y1="256" x2="276.2" y2="260" class="axis"/>
+<text x="276.2" y="272" class="tick" text-anchor="middle">9</text>
+<line x1="305.1" y1="256" x2="305.1" y2="260" class="axis"/>
+<text x="305.1" y="272" class="tick" text-anchor="middle">10</text>
+<line x1="333.9" y1="256" x2="333.9" y2="260" class="axis"/>
+<text x="333.9" y="272" class="tick" text-anchor="middle">11</text>
+<line x1="362.8" y1="256" x2="362.8" y2="260" class="axis"/>
+<text x="362.8" y="272" class="tick" text-anchor="middle">12</text>
+<line x1="391.6" y1="256" x2="391.6" y2="260" class="axis"/>
+<text x="391.6" y="272" class="tick" text-anchor="middle">13</text>
+<line x1="60" y1="256" x2="406" y2="256" class="axis"/>
+<text x="233.0" y="294" class="axlabel" text-anchor="middle">pieces per tower, n</text>
+<text transform="translate(12,147.0) rotate(-90)" class="axlabel" text-anchor="middle">ratio</text>
+<line x1="60" y1="236.5" x2="406" y2="236.5" stroke="var(--muted)" stroke-width="1"/>
+<text x="74.4" y="250.5" class="note" text-anchor="start">1 + √2 = 2.4142</text>
+<path d="M74.4,62.2 L103.2,162.4 L132.1,179.0 L160.9,212.4 L189.8,222.5 L218.6,230.1 L247.4,233.5 L276.2,235.1 L305.1,235.9 L333.9,236.2 L362.8,236.4 L391.6,236.5" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<circle cx="74.4" cy="62.2" r="6" fill="var(--surface-1)"/><circle cx="74.4" cy="62.2" r="4" fill="var(--series-1)"/>
+<circle cx="103.2" cy="162.4" r="6" fill="var(--surface-1)"/><circle cx="103.2" cy="162.4" r="4" fill="var(--series-1)"/>
+<circle cx="132.1" cy="179.0" r="6" fill="var(--surface-1)"/><circle cx="132.1" cy="179.0" r="4" fill="var(--series-1)"/>
+<circle cx="160.9" cy="212.4" r="6" fill="var(--surface-1)"/><circle cx="160.9" cy="212.4" r="4" fill="var(--series-1)"/>
+<circle cx="189.8" cy="222.5" r="6" fill="var(--surface-1)"/><circle cx="189.8" cy="222.5" r="4" fill="var(--series-1)"/>
+<circle cx="218.6" cy="230.1" r="6" fill="var(--surface-1)"/><circle cx="218.6" cy="230.1" r="4" fill="var(--series-1)"/>
+<circle cx="247.4" cy="233.5" r="6" fill="var(--surface-1)"/><circle cx="247.4" cy="233.5" r="4" fill="var(--series-1)"/>
+<circle cx="276.2" cy="235.1" r="6" fill="var(--surface-1)"/><circle cx="276.2" cy="235.1" r="4" fill="var(--series-1)"/>
+<circle cx="305.1" cy="235.9" r="6" fill="var(--surface-1)"/><circle cx="305.1" cy="235.9" r="4" fill="var(--series-1)"/>
+<circle cx="333.9" cy="236.2" r="6" fill="var(--surface-1)"/><circle cx="333.9" cy="236.2" r="4" fill="var(--series-1)"/>
+<circle cx="362.8" cy="236.4" r="6" fill="var(--surface-1)"/><circle cx="362.8" cy="236.4" r="4" fill="var(--series-1)"/>
+<circle cx="391.6" cy="236.5" r="6" fill="var(--surface-1)"/><circle cx="391.6" cy="236.5" r="4" fill="var(--series-1)"/>
+<text x="381.6" y="252.5" class="note" text-anchor="end">2.4149</text>
+</svg><figcaption>Figure 3b. The ratio of consecutive lengths closes on 1 + √2 from above; the gap roughly halves at each level.</figcaption></figure></div>
+<h3>3.2 A recurrence and a closed form</h3>
+<p>A sequence that grows like (1+√2)<sup>n</sup> suggests the Pell recurrence a(n) = 2a(n−1) + a(n−2). Applying it to the data leaves a residue that is exactly linear from level 7 on: X(n) − 2X(n−1) − X(n−2) = 84, 100, 116, 132, 148, 164, 180 for n = 7 … 13, which is 16n − 28 (Table 2). So</p>
+<p class="formula">X(n) = 2X(n−1) + X(n−2) + 16n − 28 &nbsp;&nbsp; (n ≥ 7, with X(5) = 343 and X(6) = 881 as the base)</p>
+<p>and, solving the recurrence, with P<sub>k</sub> the Pell numbers 0, 1, 2, 5, 12, 29, 70, 169, 408, 985, 2378, …,</p>
+<p class="formula">X(n) = 7·(5P<sub>n−1</sub> − P<sub>n−2</sub>) − 8n − 2 = ½·7·(7 − 4√2)·(1+√2)<sup>n</sup> + ½·7·(7 + 4√2)·(1−√2)<sup>n</sup> − 8n − 2.</p>
+<p>The formula was fitted on four values (levels 5 to 8) and then reproduces the five others that are proven (levels 9 to 13), including the three that Kisman computed with a different program. From level 6 on the (1−√2)<sup>n</sup> term is below a quarter, so X(n) is the nearest integer to 4.70101·(1+√2)<sup>n</sup> − 8n − 2. Levels 1 to 4 do not fit: their solutions are shortened by special small cases, as the published analysis also notes. Table 2 gives the predictions for levels 14 to 16.</p>
+<table class="num"><thead><tr><th>n</th><th>optimum X(n)</th><th>formula U(n)</th><th>X(n)/X(n−1)</th><th>X(n)−2X(n−1)−X(n−2)</th><th>16n − 28</th><th>source of X(n)</th></tr></thead><tbody>
+<tr><td>1</td><td>3</td><td>—</td><td>—</td><td>—</td><td>—</td><td>MSW</td></tr>
+<tr><td>2</td><td>13</td><td>—</td><td>4.3333</td><td>—</td><td>—</td><td>MSW</td></tr>
+<tr><td>3</td><td>42</td><td>—</td><td>3.2308</td><td>13</td><td>20</td><td>this file; MSW</td></tr>
+<tr><td>4</td><td>128</td><td>—</td><td>3.0476</td><td>31</td><td>36</td><td>this file; MSW</td></tr>
+<tr><td>5</td><td>343</td><td>343</td><td>2.6797</td><td>45</td><td>52</td><td>this file; MSW</td></tr>
+<tr><td>6</td><td>881</td><td>881</td><td>2.5685</td><td>67</td><td>68</td><td>this file; MSW</td></tr>
+<tr><td>7</td><td>2,189</td><td>2,189</td><td>2.4847</td><td>84</td><td>84</td><td>this file; Bagley 2002</td></tr>
+<tr><td>8</td><td>5,359</td><td>5,359</td><td>2.4481</td><td>100</td><td>100</td><td>this file; Bagley 2002</td></tr>
+<tr><td>9</td><td>13,023</td><td>13,023</td><td>2.4301</td><td>116</td><td>116</td><td>this file; Bagley 2008</td></tr>
+<tr><td>10</td><td>31,537</td><td>31,537</td><td>2.4216</td><td>132</td><td>132</td><td>this file; Kisman 2010</td></tr>
+<tr><td>11</td><td>76,245</td><td>76,245</td><td>2.4176</td><td>148</td><td>148</td><td>Kisman 2010</td></tr>
+<tr><td>12</td><td>184,191</td><td>184,191</td><td>2.4158</td><td>164</td><td>164</td><td>Kisman 2010</td></tr>
+<tr><td>13</td><td>444,807</td><td>444,807</td><td>2.4149</td><td>180</td><td>180</td><td>Kisman 2010</td></tr>
+<tr><td>14</td><td>—</td><td>1,074,001</td><td>—</td><td>—</td><td>196</td><td>prediction</td></tr>
+<tr><td>15</td><td>—</td><td>2,593,021</td><td>—</td><td>—</td><td>212</td><td>prediction</td></tr>
+<tr><td>16</td><td>—</td><td>6,260,271</td><td>—</td><td>—</td><td>228</td><td>prediction</td></tr>
+</tbody></table>
+<p class="meta">Table 2. The optimal swap lengths, the formula, the ratios and the residues of the Pell recurrence. Sources: MSW = Manasse, Sleator and Wei (1983, published 2004); Bagley's and Kisman's exhaustive searches as reported on Baxter's Panex page.</p>
+<p><b>This is not a new formula.</b> Manasse, Sleator and Wei's 1983 paper gives the number of moves of their swap algorithm, for n ≥ 5, as U(n) = c<sub>3</sub>(1+√2)<sup>n</sup> + c<sub>4</sub>(1−√2)<sup>n</sup> − 8n − 2 with c<sub>3</sub> = (7/2)(7 − 4√2) and c<sub>4</sub> = (7/2)(7 + 4√2), which is the expression above. What the file's solves add is independent confirmation that U(n) is the true minimum for every level from 3 to 10: the solver found no shorter path, and its search is exhaustive to half the solution length from each end. The paper also proves a lower bound L(n) = 4·(T(n) + T(n−1) − 2), which is 12.6% below U(n) at level 10 and 12.8% below in the limit (Table 3). Between 13 and infinity the exact value is therefore still open: the formula is the best known solution and the proven optimum only up to level 13.</p>
+<h3>3.3 Why 1 + √2: the transfer</h3>
+<p>The silver ratio enters through the transfer. Manasse, Sleator and Wei prove that any shortest transfer of an n-tower to the centre must first bring the n−1 upper pieces to the centre (a shortest T<sub>n−1</sub> or its variant T̄<sub>n−1</sub>, in which the top piece ends in the opposite corner), must then sink piece n under them (S<sub>n−1</sub>), make a fixed four-move exchange, and finish with a shortest T<sub>n−2</sub>. The proof works with "unavoidable positions": configurations every shortest sequence has to pass through, found by looking at the moment a large piece moves for the first or last time. With S(n) = T̄(n) − 1 the recurrence becomes</p>
+<p class="formula">T(n) = 2T̄(n−1) + T(n−2) + 3, &nbsp; T̄(n) = T(n) − [n even], &nbsp; so &nbsp; T(n) = (7/4)·Q<sub>n−1</sub> + ((−1)<sup>n</sup> − 2)/2,</p>
+<p>where Q<sub>k</sub> = (1+√2)<sup>k</sup> + (1−√2)<sup>k</sup> are the companion Pell numbers 2, 2, 6, 14, 34, 82, 198, 478, 1154, 2786. The characteristic equation of T(n) = 2T(n−1) + T(n−2) is x² = 2x + 1, whose root is 1 + √2. The swap algorithm is a composition of transfers, sinks and a few fixed macros, so its length satisfies the same kind of recurrence with the same dominant root, and the linear term −8n − 2 is the accumulated cost of the fixed macros, one set per level.</p>
+<table class="num"><thead><tr><th>n</th><th>T(n) transfer</th><th>T̄(n) transfer, variant</th><th>X(n) swap</th><th>U(n) upper bound</th><th>L(n) lower bound</th><th>L/U</th></tr></thead><tbody>
+<tr><td>1</td><td>1</td><td>1</td><td>3</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>2</td><td>3</td><td>2</td><td>13</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>3</td><td>9</td><td>9</td><td>42</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>4</td><td>24</td><td>23</td><td>128</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>5</td><td>58</td><td>58</td><td>343</td><td>343</td><td>320</td><td>0.933</td></tr>
+<tr><td>6</td><td>143</td><td>142</td><td>881</td><td>881</td><td>796</td><td>0.904</td></tr>
+<tr><td>7</td><td>345</td><td>345</td><td>2,189</td><td>2,189</td><td>1,944</td><td>0.888</td></tr>
+<tr><td>8</td><td>836</td><td>835</td><td>5,359</td><td>5,359</td><td>4,716</td><td>0.880</td></tr>
+<tr><td>9</td><td>2,018</td><td>2,018</td><td>13,023</td><td>13,023</td><td>11,408</td><td>0.876</td></tr>
+<tr><td>10</td><td>4,875</td><td>4,874</td><td>31,537</td><td>31,537</td><td>27,564</td><td>0.874</td></tr>
+</tbody></table>
+<p class="meta">Table 3. The published transfer minimum T(n), its variant T̄(n), the swap minimum X(n), and the bounds of Manasse, Sleator and Wei. T(n) is proven optimal for all n; X(n) is proven only where it has been searched.</p>
+
+<h2 id="s4">4. What the solutions look like</h2>
+
+<p>The file's solutions were decoded from the stored frames (three frames per transfer: lift, cross, drop) into lists of moves, one piece and two columns each, and examined for structure. Three regularities hold for all eight levels.</p>
+<h3>4.1 A transfer at each end</h3>
+<p>Until the deepest piece of a tower first moves, the other n−1 pieces of that tower are being moved to the centre column. In every solution found that takes exactly T̄(n−1) moves, the proven minimum of the transfer: 2018 moves at level 10, 835 at level 9, 345 at level 8, and so on (Table 4). After the deepest piece's last move, the same number of moves remain, and they are the mirror image of a transfer: the n−1 pieces of the other tower come down from the centre onto the deepest piece, which has just settled in its final column. The core in between, 87% of the solution at level 10, is where the two towers pass each other.</p>
+<table class="num"><thead><tr><th>n</th><th>moves</th><th>moves before the deepest piece first moves</th><th>moves after its last move</th><th>T(n−1) / T̄(n−1)</th><th>core between them</th><th>core share</th></tr></thead><tbody>
+<tr><td>3</td><td>42</td><td>2</td><td>3</td><td>3 / 2</td><td>37</td><td>88.1%</td></tr>
+<tr><td>4</td><td>128</td><td>9</td><td>9</td><td>9 / 9</td><td>110</td><td>85.9%</td></tr>
+<tr><td>5</td><td>343</td><td>23</td><td>23</td><td>24 / 23</td><td>297</td><td>86.6%</td></tr>
+<tr><td>6</td><td>881</td><td>58</td><td>58</td><td>58 / 58</td><td>765</td><td>86.8%</td></tr>
+<tr><td>7</td><td>2,189</td><td>142</td><td>142</td><td>143 / 142</td><td>1,905</td><td>87.0%</td></tr>
+<tr><td>8</td><td>5,359</td><td>345</td><td>345</td><td>345 / 345</td><td>4,669</td><td>87.1%</td></tr>
+<tr><td>9</td><td>13,023</td><td>835</td><td>835</td><td>836 / 835</td><td>11,353</td><td>87.2%</td></tr>
+<tr><td>10</td><td>31,537</td><td>2,018</td><td>2,018</td><td>2,018 / 2,018</td><td>27,501</td><td>87.2%</td></tr>
+</tbody></table>
+<p class="meta">Table 4. Every solution begins and ends with an optimal transfer of the n−1 upper pieces. Only at level 3 are the two transfers of different lengths (2 and 3), where the variant T̄(2) = 2 is one move shorter than T(2) = 3.</p>
+<h3>4.2 The itinerary of the deepest pieces</h3>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 290" width="640" height="290" class="chart" role="img" aria-label="Where the two deepest pieces stand during the level-10 solution">
+<rect x="0" y="0" width="640" height="290" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">Where the two deepest pieces stand during the level-10 solution</text>
+<text x="60" y="30" class="csub">the column of each tower's deepest piece after every move; drawn slightly apart where they coincide</text>
+<line x1="60" y1="221.4" x2="616" y2="221.4" class="grid"/>
+<text x="52" y="224.9" class="tick" text-anchor="end">left</text>
+<line x1="60" y1="160.0" x2="616" y2="160.0" class="grid"/>
+<text x="52" y="163.5" class="tick" text-anchor="end">centre</text>
+<line x1="60" y1="98.6" x2="616" y2="98.6" class="grid"/>
+<text x="52" y="102.1" class="tick" text-anchor="end">right</text>
+<line x1="60.0" y1="246" x2="60.0" y2="250" class="axis"/>
+<text x="60.0" y="262" class="tick" text-anchor="middle">0</text>
+<line x1="148.2" y1="246" x2="148.2" y2="250" class="axis"/>
+<text x="148.2" y="262" class="tick" text-anchor="middle">5K</text>
+<line x1="236.3" y1="246" x2="236.3" y2="250" class="axis"/>
+<text x="236.3" y="262" class="tick" text-anchor="middle">10K</text>
+<line x1="324.5" y1="246" x2="324.5" y2="250" class="axis"/>
+<text x="324.5" y="262" class="tick" text-anchor="middle">15K</text>
+<line x1="412.6" y1="246" x2="412.6" y2="250" class="axis"/>
+<text x="412.6" y="262" class="tick" text-anchor="middle">20K</text>
+<line x1="500.8" y1="246" x2="500.8" y2="250" class="axis"/>
+<text x="500.8" y="262" class="tick" text-anchor="middle">25K</text>
+<line x1="588.9" y1="246" x2="588.9" y2="250" class="axis"/>
+<text x="588.9" y="262" class="tick" text-anchor="middle">30K</text>
+<line x1="60" y1="246" x2="616" y2="246" class="axis"/>
+<text x="338.0" y="284" class="axlabel" text-anchor="middle">move</text>
+<path d="M60.0,225.7 L95.6,225.7 L95.6,102.9 L95.6,102.9 L95.6,164.3 L95.7,164.3 L95.7,225.7 L95.8,225.7 L95.8,164.3 L96.0,164.3 L96.0,225.7 L96.0,225.7 L96.0,164.3 L96.6,164.3 L96.6,225.7 L96.6,225.7 L96.6,164.3 L98.1,164.3 L98.1,225.7 L98.1,225.7 L98.1,164.3 L101.6,164.3 L101.7,225.7 L101.7,225.7 L101.7,164.3 L110.3,164.3 L110.3,225.7 L110.3,225.7 L110.3,164.3 L131.1,164.3 L131.2,225.7 L131.2,225.7 L131.2,164.3 L544.8,164.3 L544.8,102.9 L544.8,102.9 L544.9,164.3 L565.7,164.3 L565.7,102.9 L565.7,102.9 L565.7,164.3 L574.3,164.3 L574.3,102.9 L574.3,102.9 L574.4,164.3 L577.9,164.3 L577.9,102.9 L577.9,102.9 L577.9,164.3 L579.4,164.3 L579.4,102.9 L579.4,102.9 L579.4,164.3 L580.0,164.3 L580.0,102.9 L580.0,102.9 L580.0,164.3 L580.2,164.3 L580.2,102.9 L580.3,102.9 L580.3,164.3 L580.4,164.3 L580.4,225.7 L580.4,225.7 L580.4,102.9 L616.0,102.9" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<path d="M60.0,94.3 L217.1,94.3 L217.1,155.7 L217.1,155.7 L217.1,94.3 L217.1,94.3 L217.2,155.7 L217.2,155.7 L217.2,217.1 L217.2,217.1 L217.3,155.7 L217.5,155.7 L217.5,217.1 L217.5,217.1 L217.5,155.7 L218.1,155.7 L218.1,217.1 L218.1,217.1 L218.1,155.7 L219.6,155.7 L219.6,217.1 L219.6,217.1 L219.6,155.7 L223.1,155.7 L223.1,217.1 L223.2,217.1 L223.2,155.7 L231.8,155.7 L231.8,217.1 L231.8,217.1 L231.8,155.7 L252.6,155.7 L252.6,217.1 L252.7,217.1 L252.7,155.7 L353.3,155.7 L353.3,94.3 L353.3,94.3 L353.3,155.7 L374.2,155.7 L374.2,94.3 L374.2,94.3 L374.2,155.7 L382.8,155.7 L382.8,94.3 L382.8,94.3 L382.8,155.7 L386.4,155.7 L386.4,94.3 L386.4,94.3 L386.4,155.7 L387.8,155.7 L387.9,94.3 L387.9,94.3 L387.9,155.7 L388.5,155.7 L388.5,94.3 L388.5,94.3 L388.5,155.7 L388.7,155.7 L388.7,94.3 L388.7,94.3 L388.8,155.7 L388.8,155.7 L388.8,217.1 L388.9,217.1 L388.9,155.7 L388.9,155.7 L388.9,217.1 L616.0,217.1" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<line x1="66" y1="46" x2="82" y2="46" stroke="var(--series-1)" stroke-width="2"/>
+<text x="88" y="50" class="legend">deepest piece of the left tower</text>
+<line x1="66" y1="61" x2="82" y2="61" stroke="var(--series-2)" stroke-width="2"/>
+<text x="88" y="65" class="legend">deepest piece of the right tower</text>
+</svg><figcaption>Figure 4. The column of each tower's deepest piece after every move of the level-10 solution. The left piece waits 2018 moves, then shuttles between the left and centre columns while the smaller pieces are rebuilt beneath it, reaches the bottom of the centre at move 4038 and stays there until move 27,500; the right piece makes its shuttle between moves 8910 and 10,929, sinks to the centre, and from move 16,637 climbs out into the left column, its goal, which it reaches at move 18,656. The left piece then crosses to the right column, settling at move 29,519, and the last 2018 moves bring the right tower's upper pieces down onto it.</figcaption></figure>
+<p>The deepest pieces move rarely: 32 and 34 times at level 10, against 9,409 moves of the two size-1 pieces. Their itinerary is the skeleton of the solution. Jaap Scherphuis describes the same pattern for a human solver: bring the large blue piece to the centre, work it down to the bottom, then let it rise one level at a time as the next largest piece from the other side is sunk beneath it. The solver's optimal paths do exactly this. In the first shuttle (moves 2019 to 4038) the left deepest piece alternates between columns 3, 2 and 1 sixteen times while pieces 1 to 8 of its own tower are rebuilt under it on the left column, and ends alone at the bottom of the centre with piece 9 raised on the right. That phase brings the eight upper pieces back to the left column beneath the deepest piece, parks piece 9 raised on the right, and leaves the deepest piece alone at the bottom of the centre: 2020 moves, two more than the transfer before it.</p>
+<h3>4.3 Who does the moving</h3>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" width="640" height="280" class="chart" role="img" aria-label="Moves by piece size in the level-10 solution">
+<rect x="0" y="0" width="640" height="280" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">Moves by piece size in the level-10 solution</text>
+<text x="60" y="30" class="csub">both towers together; size 1 is the piece that may sit only at the top</text>
+<line x1="60" y1="236.0" x2="616" y2="236.0" class="grid"/>
+<text x="52" y="239.5" class="tick" text-anchor="end">0</text>
+<line x1="60" y1="198.3" x2="616" y2="198.3" class="grid"/>
+<text x="52" y="201.8" class="tick" text-anchor="end">2K</text>
+<line x1="60" y1="160.6" x2="616" y2="160.6" class="grid"/>
+<text x="52" y="164.1" class="tick" text-anchor="end">4K</text>
+<line x1="60" y1="122.9" x2="616" y2="122.9" class="grid"/>
+<text x="52" y="126.4" class="tick" text-anchor="end">6K</text>
+<line x1="60" y1="85.1" x2="616" y2="85.1" class="grid"/>
+<text x="52" y="88.6" class="tick" text-anchor="end">8K</text>
+<line x1="60" y1="47.4" x2="616" y2="47.4" class="grid"/>
+<text x="52" y="50.9" class="tick" text-anchor="end">10K</text>
+<line x1="92.7" y1="236" x2="92.7" y2="240" class="axis"/>
+<text x="92.7" y="252" class="tick" text-anchor="middle">1</text>
+<line x1="147.2" y1="236" x2="147.2" y2="240" class="axis"/>
+<text x="147.2" y="252" class="tick" text-anchor="middle">2</text>
+<line x1="201.7" y1="236" x2="201.7" y2="240" class="axis"/>
+<text x="201.7" y="252" class="tick" text-anchor="middle">3</text>
+<line x1="256.2" y1="236" x2="256.2" y2="240" class="axis"/>
+<text x="256.2" y="252" class="tick" text-anchor="middle">4</text>
+<line x1="310.7" y1="236" x2="310.7" y2="240" class="axis"/>
+<text x="310.7" y="252" class="tick" text-anchor="middle">5</text>
+<line x1="365.3" y1="236" x2="365.3" y2="240" class="axis"/>
+<text x="365.3" y="252" class="tick" text-anchor="middle">6</text>
+<line x1="419.8" y1="236" x2="419.8" y2="240" class="axis"/>
+<text x="419.8" y="252" class="tick" text-anchor="middle">7</text>
+<line x1="474.3" y1="236" x2="474.3" y2="240" class="axis"/>
+<text x="474.3" y="252" class="tick" text-anchor="middle">8</text>
+<line x1="528.8" y1="236" x2="528.8" y2="240" class="axis"/>
+<text x="528.8" y="252" class="tick" text-anchor="middle">9</text>
+<line x1="583.3" y1="236" x2="583.3" y2="240" class="axis"/>
+<text x="583.3" y="252" class="tick" text-anchor="middle">10</text>
+<line x1="60" y1="236" x2="616" y2="236" class="axis"/>
+<text x="338.0" y="274" class="axlabel" text-anchor="middle">piece size (how deep it may sit)</text>
+<text transform="translate(12,137.0) rotate(-90)" class="axlabel" text-anchor="middle">moves</text>
+<path d="M80.7,236.0 V62.6 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="92.7" y="53.6" class="vlabel" text-anchor="middle">9,409</text>
+<path d="M135.2,236.0 V97.5 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="147.2" y="88.5" class="vlabel" text-anchor="middle">7,555</text>
+<path d="M189.7,236.0 V118.2 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="201.7" y="109.2" class="vlabel" text-anchor="middle">6,458</text>
+<path d="M244.2,236.0 V168.6 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="256.2" y="159.6" class="vlabel" text-anchor="middle">3,785</text>
+<path d="M298.7,236.0 V197.9 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="310.7" y="188.9" class="vlabel" text-anchor="middle">2,234</text>
+<path d="M353.3,236.0 V219.5 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="365.3" y="210.5" class="vlabel" text-anchor="middle">1,087</text>
+<path d="M407.8,236.0 V229.3 a4,4 0 0 1 4,-4 h16.0 a4,4 0 0 1 4,4 V236.0 z" fill="var(--series-1)"/>
+<text x="419.8" y="220.3" class="vlabel" text-anchor="middle">566</text>
+<path d="M462.3,236.0 V233.7 a2.3477142857142894,2.3477142857142894 0 0 1 2.3477142857142894,-2.3477142857142894 h19.3 a2.3477142857142894,2.3477142857142894 0 0 1 2.3477142857142894,2.3477142857142894 V236.0 z" fill="var(--series-1)"/>
+<text x="474.3" y="226.3" class="vlabel" text-anchor="middle">249</text>
+<path d="M516.8,236.0 V234.8 a1.206857142857146,1.206857142857146 0 0 1 1.206857142857146,-1.206857142857146 h21.6 a1.206857142857146,1.206857142857146 0 0 1 1.206857142857146,1.206857142857146 V236.0 z" fill="var(--series-1)"/>
+<text x="528.8" y="228.6" class="vlabel" text-anchor="middle">128</text>
+<path d="M571.3,236.0 V235.4 a0.6222857142857094,0.6222857142857094 0 0 1 0.6222857142857094,-0.6222857142857094 h22.8 a0.6222857142857094,0.6222857142857094 0 0 1 0.6222857142857094,0.6222857142857094 V236.0 z" fill="var(--series-1)"/>
+<text x="583.3" y="229.8" class="vlabel" text-anchor="middle">66</text>
+</svg><figcaption>Figure 5. Moves by piece size in the level-10 solution, both towers together. The three shallowest sizes make 74% of all moves. Each deeper size moves less often than the one above: by a fifth or so at the top, by about half from size 4 down, until the two deepest pieces, which move only 32 and 34 times.</figcaption></figure>
+<p>The shares are stable across levels: the size-1 pieces make 30 to 32% of the moves from level 6 on, size 2 about 24%, size 3 about 21%, size 4 about 12% (Table 8 in the appendix). The distribution is not unique, because the puzzle has an enormous number of shortest solutions (section 4.5) and the solver returns one of them; which tower's piece moves first is also a free choice, since the mirror image of a solution is a solution.</p>
+<h3>4.4 The midpoint</h3>
+<p>At the middle of each solution (move 15,768 of 31,537 at level 10) the two deepest pieces are the two bottom pieces of the centre column, the smallest left piece is alone on the left column, and the right column holds the other right pieces in order with a few small left pieces among them. This matches the "roughly half-way position" of the published algorithm, in which all pairs but the size-2 pair have changed sides and the two deepest pieces sit in the centre. The same shape appears at every level from 4 to 10, so it is a landmark that every optimal solution found passes through; it has not been proven that every optimal solution must.</p>
+<h3>4.5 How many shortest solutions there are, and where they run</h3>
+<p>For levels 3 to 5 the whole state space is small enough to search completely in Python (Table 7). Three facts come out of it. The space is a few times larger than what the solver visits: 1.9 million reachable stackings at level 5, of which the solver's half-depth search sees 39%. The goal is almost the farthest state from the start (343 moves away, while the farthest state is 378 away), which is why a one-directional search would have to visit nearly everything. And the number of distinct shortest solutions is astronomical, 6.3 trillion at level 5, yet they all run through a narrow corridor.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 340" width="640" height="340" class="chart" role="img" aria-label="The corridor of shortest solutions, level 5">
+<rect x="0" y="0" width="640" height="340" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">The corridor of shortest solutions, level 5</text>
+<text x="60" y="30" class="csub">states at each distance from the start, and how many of them lie on at least one shortest solution</text>
+<line x1="60" y1="296.0" x2="616" y2="296.0" class="grid"/>
+<text x="52" y="299.5" class="tick" text-anchor="end">1</text>
+<line x1="60" y1="251.6" x2="616" y2="251.6" class="grid"/>
+<text x="52" y="255.1" class="tick" text-anchor="end">10</text>
+<line x1="60" y1="207.2" x2="616" y2="207.2" class="grid"/>
+<text x="52" y="210.7" class="tick" text-anchor="end">100</text>
+<line x1="60" y1="162.8" x2="616" y2="162.8" class="grid"/>
+<text x="52" y="166.3" class="tick" text-anchor="end">1K</text>
+<line x1="60" y1="118.4" x2="616" y2="118.4" class="grid"/>
+<text x="52" y="121.9" class="tick" text-anchor="end">10K</text>
+<line x1="60" y1="74.0" x2="616" y2="74.0" class="grid"/>
+<text x="52" y="77.5" class="tick" text-anchor="end">100K</text>
+<line x1="60.0" y1="296" x2="60.0" y2="300" class="axis"/>
+<text x="60.0" y="312" class="tick" text-anchor="middle">0</text>
+<line x1="141.0" y1="296" x2="141.0" y2="300" class="axis"/>
+<text x="141.0" y="312" class="tick" text-anchor="middle">50</text>
+<line x1="222.1" y1="296" x2="222.1" y2="300" class="axis"/>
+<text x="222.1" y="312" class="tick" text-anchor="middle">100</text>
+<line x1="303.1" y1="296" x2="303.1" y2="300" class="axis"/>
+<text x="303.1" y="312" class="tick" text-anchor="middle">150</text>
+<line x1="384.2" y1="296" x2="384.2" y2="300" class="axis"/>
+<text x="384.2" y="312" class="tick" text-anchor="middle">200</text>
+<line x1="465.2" y1="296" x2="465.2" y2="300" class="axis"/>
+<text x="465.2" y="312" class="tick" text-anchor="middle">250</text>
+<line x1="546.3" y1="296" x2="546.3" y2="300" class="axis"/>
+<text x="546.3" y="312" class="tick" text-anchor="middle">300</text>
+<line x1="616.0" y1="296" x2="616.0" y2="300" class="axis"/>
+<text x="616.0" y="312" class="tick" text-anchor="middle">343</text>
+<line x1="60" y1="296" x2="616" y2="296" class="axis"/>
+<text x="338.0" y="334" class="axlabel" text-anchor="middle">distance from the start (moves)</text>
+<text transform="translate(12,185.0) rotate(-90)" class="axlabel" text-anchor="middle">states</text>
+<path d="M60.0,296.0 L61.6,269.3 L63.2,251.6 L64.9,241.4 L66.5,233.2 L68.1,226.9 L69.7,221.4 L71.3,219.1 L73.0,222.2 L74.6,215.2 L76.2,214.1 L77.8,205.0 L79.5,204.8 L81.1,202.6 L82.7,199.9 L84.3,196.5 L85.9,192.0 L87.6,190.2 L89.2,192.0 L90.8,188.6 L92.4,187.1 L94.0,187.2 L95.7,186.0 L97.3,183.4 L98.9,185.9 L100.5,184.7 L102.1,182.9 L103.8,182.5 L105.4,181.0 L107.0,178.8 L108.6,175.7 L110.3,175.4 L111.9,173.9 L113.5,170.3 L115.1,170.5 L116.7,169.1 L118.4,167.8 L120.0,165.5 L121.6,166.3 L123.2,165.1 L124.8,165.8 L126.5,163.3 L128.1,163.0 L129.7,161.9 L131.3,161.0 L132.9,160.5 L134.6,161.1 L136.2,159.0 L137.8,157.7 L139.4,156.7 L141.0,155.4 L142.7,154.9 L144.3,153.5 L145.9,151.4 L147.5,151.7 L149.2,151.1 L150.8,148.9 L152.4,149.1 L154.0,149.0 L155.6,147.7 L157.3,146.6 L158.9,146.6 L160.5,146.9 L162.1,146.3 L163.7,145.8 L165.4,144.7 L167.0,144.1 L168.6,145.7 L170.2,145.2 L171.8,144.6 L173.5,145.5 L175.1,144.6 L176.7,144.4 L178.3,145.3 L180.0,144.2 L181.6,142.7 L183.2,143.7 L184.8,142.4 L186.4,140.7 L188.1,141.1 L189.7,141.0 L191.3,140.0 L192.9,139.8 L194.5,140.2 L196.2,139.2 L197.8,138.0 L199.4,138.4 L201.0,138.0 L202.6,136.6 L204.3,136.0 L205.9,136.4 L207.5,136.6 L209.1,135.5 L210.8,135.3 L212.4,135.5 L214.0,134.8 L215.6,134.2 L217.2,134.3 L218.9,133.9 L220.5,133.2 L222.1,132.8 L223.7,133.4 L225.3,132.2 L227.0,132.1 L228.6,131.9 L230.2,132.3 L231.8,130.7 L233.4,131.1 L235.1,131.0 L236.7,131.2 L238.3,130.3 L239.9,131.4 L241.6,131.2 L243.2,130.2 L244.8,130.6 L246.4,131.2 L248.0,130.5 L249.7,130.4 L251.3,130.1 L252.9,130.0 L254.5,129.4 L256.1,128.7 L257.8,127.4 L259.4,126.6 L261.0,126.3 L262.6,126.2 L264.2,125.4 L265.9,124.4 L267.5,124.5 L269.1,124.3 L270.7,123.6 L272.3,124.1 L274.0,124.1 L275.6,123.8 L277.2,123.5 L278.8,124.1 L280.5,123.3 L282.1,122.9 L283.7,122.8 L285.3,122.9 L286.9,122.4 L288.6,121.0 L290.2,120.7 L291.8,120.4 L293.4,120.0 L295.0,119.6 L296.7,119.5 L298.3,119.3 L299.9,119.3 L301.5,119.3 L303.1,118.8 L304.8,117.7 L306.4,118.1 L308.0,118.0 L309.6,117.8 L311.3,116.9 L312.9,117.6 L314.5,117.6 L316.1,117.2 L317.7,117.3 L319.4,117.7 L321.0,117.7 L322.6,117.4 L324.2,118.0 L325.8,118.9 L327.5,118.8 L329.1,119.3 L330.7,119.9 L332.3,119.5 L333.9,119.3 L335.6,120.2 L337.2,120.7 L338.8,120.2 L340.4,120.8 L342.1,120.2 L343.7,120.3 L345.3,120.5 L346.9,121.1 L348.5,121.4 L350.2,120.8 L351.8,121.5 L353.4,122.5 L355.0,122.6 L356.6,122.9 L358.3,124.2 L359.9,124.3 L361.5,124.2 L363.1,125.3 L364.7,126.0 L366.4,126.2 L368.0,126.8 L369.6,127.0 L371.2,127.3 L372.9,127.2 L374.5,128.0 L376.1,128.9 L377.7,129.6 L379.3,130.2 L381.0,130.4 L382.6,130.8 L384.2,131.2 L385.8,132.4 L387.4,132.7 L389.1,132.0 L390.7,132.0 L392.3,131.5 L393.9,131.8 L395.5,131.6 L397.2,131.1 L398.8,131.1 L400.4,131.0 L402.0,131.1 L403.7,130.9 L405.3,130.5 L406.9,130.6 L408.5,131.0 L410.1,130.4 L411.8,129.3 L413.4,129.7 L415.0,130.8 L416.6,131.0 L418.2,130.5 L419.9,129.9 L421.5,130.7 L423.1,131.4 L424.7,131.7 L426.3,131.7 L428.0,131.7 L429.6,132.1 L431.2,132.6 L432.8,132.6 L434.4,132.5 L436.1,132.6 L437.7,132.4 L439.3,131.5 L440.9,131.1 L442.6,131.3 L444.2,131.6 L445.8,130.9 L447.4,130.0 L449.0,129.6 L450.7,129.6 L452.3,129.8 L453.9,129.3 L455.5,129.0 L457.1,129.0 L458.8,128.8 L460.4,128.2 L462.0,127.5 L463.6,127.1 L465.2,127.2 L466.9,126.7 L468.5,125.9 L470.1,125.7 L471.7,125.6 L473.4,125.3 L475.0,124.7 L476.6,124.3 L478.2,124.4 L479.8,124.4 L481.5,124.1 L483.1,123.7 L484.7,123.6 L486.3,123.3 L487.9,122.8 L489.6,122.3 L491.2,122.1 L492.8,121.9 L494.4,121.2 L496.0,120.8 L497.7,120.7 L499.3,120.5 L500.9,120.4 L502.5,119.9 L504.2,119.9 L505.8,120.4 L507.4,120.9 L509.0,121.0 L510.6,120.8 L512.3,121.2 L513.9,121.8 L515.5,122.0 L517.1,121.7 L518.7,121.4 L520.4,121.3 L522.0,121.3 L523.6,121.5 L525.2,121.5 L526.8,121.2 L528.5,121.3 L530.1,121.7 L531.7,122.3 L533.3,122.6 L535.0,123.1 L536.6,124.0 L538.2,125.1 L539.8,125.9 L541.4,126.1 L543.1,126.4 L544.7,127.0 L546.3,127.3 L547.9,126.6 L549.5,125.9 L551.2,126.0 L552.8,126.2 L554.4,125.9 L556.0,124.6 L557.6,123.9 L559.3,124.0 L560.9,124.2 L562.5,124.1 L564.1,124.0 L565.7,124.4 L567.4,124.7 L569.0,125.1 L570.6,125.8 L572.2,126.9 L573.9,127.8 L575.5,127.7 L577.1,128.2 L578.7,129.4 L580.3,130.3 L582.0,130.6 L583.6,130.4 L585.2,131.1 L586.8,131.9 L588.4,131.9 L590.1,131.3 L591.7,131.0 L593.3,131.3 L594.9,131.7 L596.5,131.6 L598.2,131.1 L599.8,131.1 L601.4,131.5 L603.0,131.8 L604.7,132.0 L606.3,132.2 L607.9,132.9 L609.5,133.7 L611.1,134.9 L612.8,136.8 L614.4,138.5 L616.0,139.3" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<path d="M60.0,296.0 L61.6,282.6 L63.2,282.6 L64.9,269.3 L66.5,269.3 L68.1,269.3 L69.7,269.3 L71.3,269.3 L73.0,282.6 L74.6,269.3 L76.2,269.3 L77.8,269.3 L79.5,269.3 L81.1,269.3 L82.7,269.3 L84.3,269.3 L85.9,269.3 L87.6,282.6 L89.2,269.3 L90.8,269.3 L92.4,269.3 L94.0,282.6 L95.7,282.6 L97.3,282.6 L98.9,282.6 L100.5,282.6 L102.1,282.6 L103.8,282.6 L105.4,282.6 L107.0,282.6 L108.6,282.6 L110.3,282.6 L111.9,269.3 L113.5,269.3 L115.1,269.3 L116.7,282.6 L118.4,282.6 L120.0,282.6 L121.6,282.6 L123.2,282.6 L124.8,282.6 L126.5,282.6 L128.1,282.6 L129.7,282.6 L131.3,282.6 L132.9,282.6 L134.6,269.3 L136.2,269.3 L137.8,269.3 L139.4,282.6 L141.0,269.3 L142.7,269.3 L144.3,261.5 L145.9,261.5 L147.5,261.5 L149.2,261.5 L150.8,261.5 L152.4,269.3 L154.0,261.5 L155.6,261.5 L157.3,255.9 L158.9,255.9 L160.5,255.9 L162.1,261.5 L163.7,255.9 L165.4,255.9 L167.0,261.5 L168.6,255.9 L170.2,255.9 L171.8,255.9 L173.5,261.5 L175.1,261.5 L176.7,261.5 L178.3,255.9 L180.0,255.9 L181.6,255.9 L183.2,255.9 L184.8,255.9 L186.4,255.9 L188.1,255.9 L189.7,255.9 L191.3,255.9 L192.9,255.9 L194.5,251.6 L196.2,251.6 L197.8,251.6 L199.4,251.6 L201.0,251.6 L202.6,255.9 L204.3,251.6 L205.9,248.1 L207.5,245.1 L209.1,245.1 L210.8,245.1 L212.4,248.1 L214.0,245.1 L215.6,245.1 L217.2,248.1 L218.9,248.1 L220.5,245.1 L222.1,245.1 L223.7,248.1 L225.3,251.6 L227.0,248.1 L228.6,245.1 L230.2,245.1 L231.8,248.1 L233.4,248.1 L235.1,248.1 L236.7,248.1 L238.3,248.1 L239.9,248.1 L241.6,245.1 L243.2,242.5 L244.8,240.3 L246.4,242.5 L248.0,245.1 L249.7,242.5 L251.3,242.5 L252.9,245.1 L254.5,245.1 L256.1,242.5 L257.8,242.5 L259.4,242.5 L261.0,242.5 L262.6,242.5 L264.2,240.3 L265.9,238.2 L267.5,240.3 L269.1,242.5 L270.7,242.5 L272.3,240.3 L274.0,242.5 L275.6,245.1 L277.2,245.1 L278.8,245.1 L280.5,245.1 L282.1,248.1 L283.7,248.1 L285.3,248.1 L286.9,245.1 L288.6,242.5 L290.2,242.5 L291.8,242.5 L293.4,240.3 L295.0,236.4 L296.7,238.2 L298.3,240.3 L299.9,240.3 L301.5,238.2 L303.1,238.2 L304.8,240.3 L306.4,240.3 L308.0,240.3 L309.6,238.2 L311.3,238.2 L312.9,238.2 L314.5,238.2 L316.1,234.7 L317.7,236.4 L319.4,238.2 L321.0,238.2 L322.6,234.7 L324.2,234.7 L325.8,234.7 L327.5,236.4 L329.1,234.7 L330.7,234.7 L332.3,233.2 L333.9,234.7 L335.6,233.2 L337.2,231.7 L338.8,231.7 L340.4,233.2 L342.1,234.7 L343.7,233.2 L345.3,234.7 L346.9,234.7 L348.5,236.4 L350.2,234.7 L351.8,234.7 L353.4,234.7 L355.0,238.2 L356.6,238.2 L358.3,236.4 L359.9,234.7 L361.5,238.2 L363.1,238.2 L364.7,238.2 L366.4,238.2 L368.0,240.3 L369.6,240.3 L371.2,240.3 L372.9,238.2 L374.5,238.2 L376.1,240.3 L377.7,240.3 L379.3,238.2 L381.0,236.4 L382.6,240.3 L384.2,242.5 L385.8,242.5 L387.4,242.5 L389.1,245.1 L390.7,248.1 L392.3,248.1 L393.9,248.1 L395.5,245.1 L397.2,245.1 L398.8,245.1 L400.4,245.1 L402.0,242.5 L403.7,240.3 L405.3,242.5 L406.9,242.5 L408.5,240.3 L410.1,238.2 L411.8,240.3 L413.4,242.5 L415.0,242.5 L416.6,242.5 L418.2,242.5 L419.9,242.5 L421.5,245.1 L423.1,245.1 L424.7,242.5 L426.3,242.5 L428.0,245.1 L429.6,242.5 L431.2,240.3 L432.8,242.5 L434.4,245.1 L436.1,248.1 L437.7,248.1 L439.3,248.1 L440.9,248.1 L442.6,248.1 L444.2,248.1 L445.8,245.1 L447.4,245.1 L449.0,248.1 L450.7,251.6 L452.3,248.1 L453.9,245.1 L455.5,245.1 L457.1,248.1 L458.8,248.1 L460.4,245.1 L462.0,245.1 L463.6,248.1 L465.2,245.1 L466.9,245.1 L468.5,245.1 L470.1,248.1 L471.7,251.6 L473.4,255.9 L475.0,251.6 L476.6,251.6 L478.2,251.6 L479.8,251.6 L481.5,251.6 L483.1,255.9 L484.7,255.9 L486.3,255.9 L487.9,255.9 L489.6,255.9 L491.2,255.9 L492.8,255.9 L494.4,255.9 L496.0,255.9 L497.7,255.9 L499.3,261.5 L500.9,261.5 L502.5,261.5 L504.2,255.9 L505.8,255.9 L507.4,255.9 L509.0,261.5 L510.6,255.9 L512.3,255.9 L513.9,261.5 L515.5,255.9 L517.1,255.9 L518.7,255.9 L520.4,261.5 L522.0,261.5 L523.6,269.3 L525.2,261.5 L526.8,261.5 L528.5,261.5 L530.1,261.5 L531.7,261.5 L533.3,269.3 L535.0,269.3 L536.6,282.6 L538.2,269.3 L539.8,269.3 L541.4,269.3 L543.1,282.6 L544.7,282.6 L546.3,282.6 L547.9,282.6 L549.5,282.6 L551.2,282.6 L552.8,282.6 L554.4,282.6 L556.0,282.6 L557.6,282.6 L559.3,282.6 L560.9,269.3 L562.5,269.3 L564.1,269.3 L565.7,282.6 L567.4,282.6 L569.0,282.6 L570.6,282.6 L572.2,282.6 L573.9,282.6 L575.5,282.6 L577.1,282.6 L578.7,282.6 L580.3,282.6 L582.0,282.6 L583.6,269.3 L585.2,269.3 L586.8,269.3 L588.4,282.6 L590.1,269.3 L591.7,269.3 L593.3,269.3 L594.9,269.3 L596.5,269.3 L598.2,269.3 L599.8,269.3 L601.4,269.3 L603.0,282.6 L604.7,269.3 L606.3,269.3 L607.9,269.3 L609.5,269.3 L611.1,269.3 L612.8,282.6 L614.4,282.6 L616.0,296.0" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<text x="337.2" y="140.7" class="note" text-anchor="middle">8,890 states at the middle distance</text>
+<text x="337.2" y="223.7" class="note" text-anchor="middle">at most 28 on a shortest solution</text>
+<line x1="66" y1="46" x2="82" y2="46" stroke="var(--series-1)" stroke-width="2"/>
+<text x="88" y="50" class="legend">reachable states at this distance</text>
+<line x1="66" y1="61" x2="82" y2="61" stroke="var(--series-2)" stroke-width="2"/>
+<text x="88" y="65" class="legend">states on some shortest solution</text>
+</svg><figcaption>Figure 6. Level 5: the number of states at each distance from the start, and the number of those that lie on at least one shortest solution. The corridor never exceeds 28 states per level, against 8,890 states at the middle distance; its width is roughly symmetric about the middle, as the twin symmetry requires.</figcaption></figure>
+<p>The corridor is where any structural shortcut would come from. A breadth-first search cannot know which of the 8,890 states at distance 171 are the 28 that matter; a method that could recognise them would do about 300 times less work at level 5, and the ratio grows quickly with the level, since the frontier grows 7.6 times per level while the corridor, judging by levels 3 to 5 (12, 8 and 28 states at its widest), grows slowly if at all. This is, in all likelihood, the kind of observation behind Kisman's search, which found the level-10 optimum in 30 minutes with 50 MB.</p>
+<table class="num"><thead><tr><th>n</th><th>reachable stackings</th><th>farthest distance from the start</th><th>swap length</th><th>distinct shortest solutions</th><th>widest corridor level</th><th>states at the middle distance</th><th>self-twin states</th><th>states within half the length</th><th>stackings found by the solver</th></tr></thead><tbody>
+<tr><td>3</td><td>4,872</td><td>45</td><td>42</td><td>108</td><td>12</td><td>182</td><td>24</td><td>1,918</td><td>1,924</td></tr>
+<tr><td>4</td><td>98,112</td><td>138</td><td>128</td><td>110,592</td><td>8</td><td>1,264</td><td>64</td><td>38,212</td><td>38,236</td></tr>
+<tr><td>5</td><td>1,886,592</td><td>378</td><td>343</td><td>6,262,062,317,568</td><td>28</td><td>8,890</td><td>160</td><td>738,412</td><td>738,490</td></tr>
+</tbody></table>
+<p class="meta">Table 7. Complete searches of the small levels. "States within half the length" is the ball the solver's mirrored search explores; the solver's count of stackings found is that ball plus the self-twin states within it, which it counts twice (and minus the start). "Self-twin" states are fixed by the twin symmetry of section 5.5.</p>
+<h3>4.6 What makes the puzzle hard: a relaxation experiment</h3>
+<p>If the two towers' pieces of some size were identical, so that either could end on either side, the swap could be shorter. Running the level-5 search with each choice of sizes made identical shows where the cost lives (Table 6). Making the two size-1 pieces identical saves nothing; the size-2 pair, one move; sizes 1 to 4 together, 23 moves of 343. Making the deepest pair identical saves 215 moves and leaves exactly X(4) = 128, the swap of the four pieces above them. The same holds at levels 3 and 4 (the deepest pair identical gives X(2) = 13 and X(3) = 42). The cost is entirely in getting the deepest pieces past each other with everything else in the way; the identities of the small pieces are nearly free, even though they do most of the moving.</p>
+<table class="num"><thead><tr><th>pieces of these sizes made identical across the two towers</th><th>shortest swap</th><th>moves saved</th></tr></thead><tbody>
+<tr><td>none</td><td>343</td><td>0</td></tr>
+<tr><td>size 1</td><td>343</td><td>0</td></tr>
+<tr><td>size 2</td><td>342</td><td>1</td></tr>
+<tr><td>size 3</td><td>339</td><td>4</td></tr>
+<tr><td>size 4</td><td>326</td><td>17</td></tr>
+<tr><td>size 5 (the deepest)</td><td>128</td><td>215</td></tr>
+<tr><td>sizes 1 and 2</td><td>342</td><td>1</td></tr>
+<tr><td>sizes 1, 2, 3 and 4</td><td>320</td><td>23</td></tr>
+<tr><td>sizes 4 and 5</td><td>42</td><td>301</td></tr>
+<tr><td>sizes 2, 3, 4 and 5</td><td>3</td><td>340</td></tr>
+<tr><td>all five</td><td>0</td><td>343</td></tr>
+</tbody></table>
+<p class="meta">Table 6. Level 5 with pieces of the given sizes treated as interchangeable between the towers: the shortest path from the start to any of the resulting goal positions.</p>
+
+<h2 id="s5">5. How the Panex Solver works</h2>
+
+<p>The Panex Solver is ShapeLogic's search for the fewest rod transfers on stacking puzzles with Panex columns; the Stacking Solver runs on it too whenever the puzzle fits its keys. It is a breadth-first search over stackings, level by level from both ends, that keeps only the newest levels in memory, writes every few levels to disk when they do not fit, traces the path back between them once the ends meet, and can stop and carry on later. It was ported line for line from the original ShapeLogic implementation (<span class="mono">panex.cpp</span>), with its parallel steps moved onto a thread pool; the saved search files are byte for byte the original's, so a search stopped by one program carries on in the other.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 356" width="640" height="356" class="chart" role="img" aria-label="One level of the Panex search">
+<rect width="640" height="356" fill="var(--surface-1)"/>
+<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker></defs>
+<text x="12" y="20" class="ctitle">One level of the search, repeated until the two ends meet</text>
+<rect x="12" y="40" width="136" height="66" rx="6" fill="var(--wash)" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="80.0" y="63.0" class="boxtext" text-anchor="middle">level d</text>
+<text x="80.0" y="77.0" class="boxtext" text-anchor="middle">sorted 128-bit keys</text>
+<text x="80.0" y="91.0" class="boxtext" text-anchor="middle">in memory</text>
+<line x1="148" y1="73.0" x2="170" y2="73.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="172" y="40" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="240.0" y="56.0" class="boxtext" text-anchor="middle">expand in batches</text>
+<text x="240.0" y="70.0" class="boxtext" text-anchor="middle">of up to 65,536 keys</text>
+<text x="240.0" y="84.0" class="boxtext" text-anchor="middle">on all threads:</text>
+<text x="240.0" y="98.0" class="boxtext" text-anchor="middle">decode, move, encode</text>
+<line x1="308" y1="73.0" x2="330" y2="73.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="332" y="40" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="400.0" y="56.0" class="boxtext" text-anchor="middle">radix-sort each batch,</text>
+<text x="400.0" y="70.0" class="boxtext" text-anchor="middle">drop duplicates and</text>
+<text x="400.0" y="84.0" class="boxtext" text-anchor="middle">the keys already in</text>
+<text x="400.0" y="98.0" class="boxtext" text-anchor="middle">levels d and d−1</text>
+<line x1="468" y1="73.0" x2="490" y2="73.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="492" y="40" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="560.0" y="63.0" class="boxtext" text-anchor="middle">merge the batches</text>
+<text x="560.0" y="77.0" class="boxtext" text-anchor="middle">by value ranges,</text>
+<text x="560.0" y="91.0" class="boxtext" text-anchor="middle">one range per thread</text>
+<line x1="560.0" y1="106" x2="560.0" y2="138" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="492" y="140" width="136" height="66" rx="6" fill="var(--wash)" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="560.0" y="156.0" class="boxtext" text-anchor="middle">level d+1</text>
+<text x="560.0" y="170.0" class="boxtext" text-anchor="middle">sorted and unique;</text>
+<text x="560.0" y="184.0" class="boxtext" text-anchor="middle">each twin pair folded</text>
+<text x="560.0" y="198.0" class="boxtext" text-anchor="middle">to one canonical key</text>
+<line x1="492" y1="173.0" x2="470" y2="173.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="332" y="140" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="400.0" y="156.0" class="boxtext" text-anchor="middle">mirror level d+1;</text>
+<text x="400.0" y="170.0" class="boxtext" text-anchor="middle">compare with levels</text>
+<text x="400.0" y="184.0" class="boxtext" text-anchor="middle">d and d+1: a common</text>
+<text x="400.0" y="198.0" class="boxtext" text-anchor="middle">key is a meeting</text>
+<line x1="332" y1="173.0" x2="310" y2="173.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="172" y="140" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="240.0" y="163.0" class="boxtext" text-anchor="middle">met: trace the path</text>
+<text x="240.0" y="177.0" class="boxtext" text-anchor="middle">back through the</text>
+<text x="240.0" y="191.0" class="boxtext" text-anchor="middle">kept or saved levels</text>
+<line x1="400.0" y1="206" x2="400.0" y2="238" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="332" y="240" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="400.0" y="263.0" class="boxtext" text-anchor="middle">not met: d+1 becomes</text>
+<text x="400.0" y="277.0" class="boxtext" text-anchor="middle">"current", d "previous";</text>
+<text x="400.0" y="291.0" class="boxtext" text-anchor="middle">older levels dropped</text>
+<line x1="560.0" y1="206" x2="560.0" y2="238" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="492" y="240" width="136" height="66" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="560.0" y="263.0" class="boxtext" text-anchor="middle">store: every k-th level</text>
+<text x="560.0" y="277.0" class="boxtext" text-anchor="middle">to disk; k doubles when</text>
+<text x="560.0" y="291.0" class="boxtext" text-anchor="middle">the disk budget is hit</text>
+<text x="12" y="256" class="csub">Two levels suffice to tell new stackings from old:</text>
+<text x="12" y="270" class="csub">every neighbour of a level-d stacking is at</text>
+<text x="12" y="284" class="csub">depth d−1, d or d+1.</text>
+<text x="12" y="334" class="csub">An autosave every 20 minutes writes the two newest levels and the mirror level to state.bin,</text>
+<text x="12" y="348" class="csub">so a stopped or crashed search carries on from there.</text>
+</svg><figcaption>Figure 7. One level of the search. The search runs from the start only, because the goal of a swap is the mirror image of the start: the frontier at depth d from the goal is the mirror of the frontier at depth d from the start, so comparing a level with the mirror of the previous and current level is a meeting of two searches without running the second.</figcaption></figure>
+<h3>5.1 A stacking as a 128-bit key</h3>
+<p>A stacking is encoded in five bits per symbol: the pieces are 0 to 30, and 31 separates one column from the next. The three columns' pieces, bottom to top with a separator between columns, are packed into two 64-bit words, high word first, so that the keys sort as integers and a level is simply a sorted array of 16-byte keys. The code allows 25 symbols (31 discs on up to 8 rods, with the sum of discs and rods at most 26); on three columns that is 23 pieces, so the largest swap the solver can represent is level 11. Decoding a key back to the three stacks, generating its moves under the rules (depth limits, the raised test, blocking across the bridge, column capacity, and optionally a pocket column, an outside channel, the size rule of plain rods or the distance rule) and re-encoding the results is the inner loop. The rules object lays everything out in small fixed arrays so this loop touches no heap memory.</p>
+<h3>5.2 Levels, and why two levels are enough to find what is new</h3>
+<p>The search keeps the current level and the previous one. Each new stacking generated from the current level is looked up in both; what is in neither is new and forms the next level. This is correct because every move is reversible, so a neighbour of a stacking at distance d is at distance d−1, d or d+1 and nothing older can reappear. Not keeping a visited set is what makes the memory of the search proportional to the width of the frontier rather than to the number of stackings visited: at level 10 the widest level holds perhaps 130 million keys (2 GB), while the search visits 860 billion canonical stackings (13.8 TB).</p>
+<h3>5.3 Batches, sorting and merging on every core</h3>
+<p>The current level is cut into batches of at most 65,536 keys, which the pool's threads take from a counter so that no thread waits on another. A thread decodes each key of its batch, generates the moves, encodes them, sorts the batch with an 11-bit-digit radix sort (several times faster than a comparison sort on these keys), drops duplicates, and subtracts the current and previous levels. The subtraction walks the sorted batch and the sorted level together, searching each key from where the last one was found in doubling steps and then by halving, a galloping search that stays within a few cache lines when the keys are close, as they are. The batches, each sorted and unique, are then merged into the next level: the key range is cut into as many stretches as there are threads, by sampling, and each thread merges one stretch of every batch, so the final merge is not left to one thread as the last round of a pairwise merge would be. A batch that would push the level over the memory budget abandons the level, which ends the search with a saved state rather than an out-of-memory crash. Small levels use fewer threads (one per 20,000 keys), because starting a thread costs more than a small level. Whatever the thread count, the path found is the same.</p>
+<h3>5.4 Meeting in the middle, in a mirror</h3>
+<p>A search from both ends finds a shortest path after exploring about two balls of half the radius instead of one ball of the full radius, which for a graph whose levels grow exponentially is the square root of the work. When the goal is the mirror image of the start, as in every swap, the solver runs only the forward search and compares each new level with the mirror images of the previous and the current level. A key in common is a meeting: a stacking at distance d from the start whose mirror image is at distance d or d−1 from the start, hence at that distance from the goal. The solution length is then 2d or 2d−1. For a puzzle whose goal is not a mirror image (a pocket column, or a different arrangement) the solver runs both ends and expands whichever frontier is smaller.</p>
+<h3>5.5 Twin folding</h3>
+<p>The swap has one more symmetry. Mirroring the board and at the same time exchanging each piece with the other tower's piece of the same size maps the start to itself and the goal to itself. Two stackings related by this map, twins, are at the same distance from the start, so the search keeps only the smaller key of each pair (the canonical key) and every level is half as large. The solver checks at the outset whether such a permutation of the pieces exists (<span class="mono">findSigma</span>): it must pair pieces of equal depth limit and fix both ends. This is why the solver's count of stackings found is twice the number of canonical keys, and why the self-twin stackings, which are their own canonical key, are counted twice (Table 7).</p>
+<h3>5.6 Memory, disk, and tracing the path back</h3>
+<p>To recover the path after the ends meet, the search needs its old levels. While they fit in a quarter of the memory budget they are kept in memory; after that they are written to disk, in the search's own folder, and the search goes on from the newest two levels. Each level is written by the first job of the next level's expansion, so writing overlaps the search (the original used a separate writer thread). The disk budget is half the free space, at most 200 GB; when the stored levels exceed it, the interval between stored levels doubles and every other file is deleted, so the store holds levels 0, k, 2k, … Tracing the path back then works between stored levels: from the meeting stacking, the solver grows a ball of neighbours until it reaches the previous stored level, finds the stacking there that the ball touched, and walks the ball back; and so on to the start. The mirror half of the path is traced through the same forward levels in the mirror. When the search has no folder at all it still solves: once the levels no longer fit, it solves the two halves of the path from the start to the meeting point and from there to the goal, recursively, each a smaller search.</p>
+<p>The memory budget is half the machine's memory by default (the engine's Search memory setting), of which a quarter goes to kept levels, the rest to the two current levels, the mirror level and the batches. A level that would not fit ends the search with its state saved.</p>
+<h3>5.7 Saving, resuming and the rest</h3>
+<p>Every 20 minutes (and when it is stopped, or runs out of memory) the search writes the two newest levels, the mirror level, the depths, the count of stackings and the time used to <span class="mono">state.bin</span>, named by a fingerprint of the rules, the start and the goal, so that a stopped search carries on exactly where it was, in the app or in the command-line solver, and the stored levels on disk let it trace the path once it meets. A damaged or crafted state file is refused rather than trusted (each layer's count is checked against the file's size). The classic Tower of Hanoi (plain rods, the size rule, one tower moved) is answered by its 2<sup>n</sup> − 1 recursion without a search. A level log can be switched on (<span class="mono">--panex-log</span>) to see each level's size, which is how the profiles in section 6 were collected.</p>
+<h3>5.8 What has been done for speed</h3>
+<ul>
+<li>The frontier-only memory of the search (two levels and a canonical key per twin pair) is what makes level 10 fit in 16 GB of memory at all; a conventional visited set of 860 billion keys could not.</li>
+<li>The mirror meeting halves the depth and the twin folding halves the width: together they cut the stackings generated by a factor of about 2 × 2 × (the frontier's growth over the second half of the depth), which at level 10 means the search explores 1.7 trillion rather than many tens of trillions of stackings.</li>
+<li>All of the per-level work runs on every core: the expansion in batches, the radix sorts, the subtraction, the range-partitioned merge, the mirror level's computation and sort. On the level-7 swap the port runs within 2% of the original with all threads and 20% faster on one thread, because the writer's work became a job in the pool rather than a thread the pool could not spare.</li>
+<li>The galloping subtraction keeps the lookups of new keys in the current and previous levels local in memory; it also fixed undefined pointer arithmetic that the original had and that the sanitiser build caught.</li>
+<li>The 11-bit radix sort of each batch and the 16-byte keys keep the sort cost at a few passes over memory; the merge by value ranges keeps every thread busy to the end of a level.</li>
+<li>Levels are written to disk while the next level is computed, and the disk store thins itself rather than failing when the budget is reached.</li>
+</ul>
+
+<h2 id="s6">6. What the search profiles show</h2>
+
+<p>The level logs of the re-runs give the width of the search at every depth for levels 3 to 8 (Figure 8, Table 5). The shape is the same at every level: the frontier grows exponentially at first, by about 2.4 per move early on, then more slowly, and reaches its widest point at about 88% of the half length, just before the two ends meet. The widest level grows by 7.6 per level of the puzzle, the total by 18.8, the last level by 7.7. The ratios are steady enough to extrapolate: the level-10 search had a widest level of roughly 130 million keys (2 GB) and 860 billion canonical keys in all (13.8 TB at 16 bytes each), and a level-11 search would have a widest level near a billion keys, about 16 GB, with 16 trillion keys in all. Three such levels plus the mirror level must be in memory at once, so level 11 is out of reach of a 32 GB machine with the current design, and at the level-9 rate of 30 million stackings a second it would take about two weeks of search.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 340" width="640" height="340" class="chart" role="img" aria-label="How wide the search is at each depth">
+<rect x="0" y="0" width="640" height="340" fill="var(--surface-1)"/>
+<text x="60" y="16" class="ctitle">How wide the search is at each depth</text>
+<text x="60" y="30" class="csub">new stackings per level (twin pairs folded), against the depth as a share of the depth where the ends met</text>
+<line x1="60" y1="296.0" x2="580" y2="296.0" class="grid"/>
+<text x="52" y="299.5" class="tick" text-anchor="end">1</text>
+<line x1="60" y1="259.1" x2="580" y2="259.1" class="grid"/>
+<text x="52" y="262.6" class="tick" text-anchor="end">10</text>
+<line x1="60" y1="222.3" x2="580" y2="222.3" class="grid"/>
+<text x="52" y="225.8" class="tick" text-anchor="end">100</text>
+<line x1="60" y1="185.4" x2="580" y2="185.4" class="grid"/>
+<text x="52" y="188.9" class="tick" text-anchor="end">1K</text>
+<line x1="60" y1="148.6" x2="580" y2="148.6" class="grid"/>
+<text x="52" y="152.1" class="tick" text-anchor="end">10K</text>
+<line x1="60" y1="111.7" x2="580" y2="111.7" class="grid"/>
+<text x="52" y="115.2" class="tick" text-anchor="end">100K</text>
+<line x1="60" y1="74.9" x2="580" y2="74.9" class="grid"/>
+<text x="52" y="78.4" class="tick" text-anchor="end">1M</text>
+<line x1="60" y1="38.0" x2="580" y2="38.0" class="grid"/>
+<text x="52" y="41.5" class="tick" text-anchor="end">10M</text>
+<line x1="60.0" y1="296" x2="60.0" y2="300" class="axis"/>
+<text x="60.0" y="312" class="tick" text-anchor="middle">0%</text>
+<line x1="164.0" y1="296" x2="164.0" y2="300" class="axis"/>
+<text x="164.0" y="312" class="tick" text-anchor="middle">20%</text>
+<line x1="268.0" y1="296" x2="268.0" y2="300" class="axis"/>
+<text x="268.0" y="312" class="tick" text-anchor="middle">40%</text>
+<line x1="372.0" y1="296" x2="372.0" y2="300" class="axis"/>
+<text x="372.0" y="312" class="tick" text-anchor="middle">60%</text>
+<line x1="476.0" y1="296" x2="476.0" y2="300" class="axis"/>
+<text x="476.0" y="312" class="tick" text-anchor="middle">80%</text>
+<line x1="580.0" y1="296" x2="580.0" y2="300" class="axis"/>
+<text x="580.0" y="312" class="tick" text-anchor="middle">100%</text>
+<line x1="60" y1="296" x2="580" y2="296" class="axis"/>
+<text x="320.0" y="334" class="axlabel" text-anchor="middle">depth, % of the depth where the two ends met</text>
+<text transform="translate(12,167.0) rotate(-90)" class="axlabel" text-anchor="middle">stackings in the level</text>
+<path d="M68.1,284.9 L76.2,270.2 L84.4,260.8 L92.5,254.9 L100.6,249.7 L108.8,245.1 L116.9,242.7 L125.0,245.1 L133.1,240.0 L141.2,239.1 L149.4,232.1 L157.5,231.6 L165.6,229.7 L173.8,227.3 L181.9,224.5 L190.0,221.4 L198.1,219.6 L206.2,221.5 L214.4,218.0 L222.5,216.7 L230.6,216.8 L238.8,215.6 L246.9,214.2 L255.0,216.1 L263.1,215.1 L271.2,214.0 L279.4,214.1 L287.5,213.0 L295.6,211.4 L303.8,208.8 L311.9,208.7 L320.0,207.6 L328.1,204.9 L336.2,205.8 L344.4,204.3 L352.5,203.3 L360.6,202.0 L368.8,203.2 L376.9,201.3 L385.0,202.3 L393.1,200.9 L401.2,200.7 L409.4,200.3 L417.5,199.6 L425.6,199.5 L433.8,200.1 L441.9,198.8 L450.0,197.4 L458.1,197.5 L466.2,196.3 L474.4,195.7 L482.5,194.5 L490.6,193.2 L498.8,193.2 L506.9,193.4 L515.0,191.6 L523.1,192.1 L531.2,192.5 L539.4,191.8 L547.5,191.0 L555.6,191.6 L563.8,192.0 L571.9,192.5 L580.0,192.7" fill="none" stroke="#86b6ef" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<text x="586.0" y="196.7" class="note" text-anchor="start">n = 4</text>
+<path d="M63.0,284.9 L66.0,270.2 L69.1,260.8 L72.1,254.9 L75.1,249.7 L78.1,245.1 L81.2,242.7 L84.2,245.1 L87.2,240.0 L90.2,239.1 L93.3,231.6 L96.3,231.3 L99.3,229.4 L102.3,227.3 L105.3,224.5 L108.4,220.8 L111.4,219.2 L114.4,220.8 L117.4,218.0 L120.5,216.7 L123.5,216.8 L126.5,215.6 L129.5,213.6 L132.6,215.7 L135.6,214.5 L138.6,213.2 L141.6,212.9 L144.7,211.6 L147.7,209.8 L150.7,207.2 L153.7,207.0 L156.7,205.7 L159.8,202.7 L162.8,202.9 L165.8,201.8 L168.8,200.7 L171.9,198.8 L174.9,199.5 L177.9,198.4 L180.9,199.0 L184.0,196.9 L187.0,196.6 L190.0,195.7 L193.0,195.0 L196.0,194.6 L199.1,195.1 L202.1,193.4 L205.1,192.3 L208.1,191.5 L211.2,190.4 L214.2,189.9 L217.2,188.8 L220.2,187.1 L223.3,187.3 L226.3,186.9 L229.3,185.0 L232.3,185.2 L235.3,185.0 L238.4,184.0 L241.4,183.1 L244.4,183.1 L247.4,183.3 L250.5,182.8 L253.5,182.4 L256.5,181.5 L259.5,181.0 L262.6,182.3 L265.6,181.9 L268.6,181.4 L271.6,182.1 L274.7,181.4 L277.7,181.3 L280.7,182.0 L283.7,181.1 L286.7,179.8 L289.8,180.7 L292.8,179.6 L295.8,178.2 L298.8,178.5 L301.9,178.4 L304.9,177.6 L307.9,177.4 L310.9,177.7 L314.0,176.9 L317.0,175.9 L320.0,176.3 L323.0,175.9 L326.0,174.8 L329.1,174.3 L332.1,174.6 L335.1,174.7 L338.1,173.9 L341.2,173.7 L344.2,173.8 L347.2,173.3 L350.2,172.8 L353.3,172.8 L356.3,172.5 L359.3,171.9 L362.3,171.6 L365.3,172.1 L368.4,171.1 L371.4,171.0 L374.4,170.9 L377.4,171.2 L380.5,169.9 L383.5,170.2 L386.5,170.1 L389.5,170.3 L392.6,169.5 L395.6,170.5 L398.6,170.3 L401.6,169.4 L404.7,169.8 L407.7,170.3 L410.7,169.7 L413.7,169.6 L416.7,169.4 L419.8,169.3 L422.8,168.8 L425.8,168.3 L428.8,167.1 L431.9,166.4 L434.9,166.2 L437.9,166.1 L440.9,165.4 L444.0,164.7 L447.0,164.7 L450.0,164.5 L453.0,164.0 L456.0,164.4 L459.1,164.4 L462.1,164.2 L465.1,163.9 L468.1,164.4 L471.2,163.7 L474.2,163.4 L477.2,163.3 L480.2,163.4 L483.3,162.9 L486.3,161.8 L489.3,161.6 L492.3,161.3 L495.3,161.0 L498.4,160.7 L501.4,160.6 L504.4,160.4 L507.4,160.4 L510.5,160.4 L513.5,160.0 L516.5,159.1 L519.5,159.4 L522.6,159.3 L525.6,159.2 L528.6,158.4 L531.6,159.0 L534.7,159.0 L537.7,158.7 L540.7,158.8 L543.7,159.1 L546.7,159.1 L549.8,158.8 L552.8,159.3 L555.8,160.1 L558.8,160.0 L561.9,160.4 L564.9,160.9 L567.9,160.6 L570.9,160.5 L574.0,161.1 L577.0,161.5 L580.0,161.2" fill="none" stroke="#5598e7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<text x="586.0" y="165.2" class="note" text-anchor="start">n = 5</text>
+<path d="M61.2,284.9 L62.4,270.2 L63.5,260.8 L64.7,254.9 L65.9,249.7 L67.1,245.1 L68.3,242.7 L69.4,245.1 L70.6,240.0 L71.8,239.1 L73.0,231.6 L74.1,231.3 L75.3,229.4 L76.5,227.3 L77.7,224.5 L78.9,220.8 L80.0,219.2 L81.2,220.8 L82.4,218.0 L83.6,216.7 L84.8,216.8 L85.9,215.6 L87.1,213.6 L88.3,215.7 L89.5,214.4 L90.7,213.1 L91.8,212.8 L93.0,211.6 L94.2,209.8 L95.4,207.1 L96.6,206.9 L97.7,205.5 L98.9,202.6 L100.1,202.9 L101.3,201.8 L102.4,200.7 L103.6,198.6 L104.8,199.3 L106.0,198.2 L107.2,199.0 L108.3,196.8 L109.5,196.5 L110.7,195.6 L111.9,194.9 L113.1,194.5 L114.2,195.0 L115.4,193.1 L116.6,192.2 L117.8,191.5 L119.0,190.2 L120.1,189.8 L121.3,188.7 L122.5,187.0 L123.7,187.3 L124.9,186.8 L126.0,185.0 L127.2,185.1 L128.4,185.0 L129.6,183.9 L130.7,182.9 L131.9,182.9 L133.1,183.1 L134.3,182.5 L135.5,182.1 L136.6,181.1 L137.8,180.6 L139.0,181.9 L140.2,181.3 L141.4,180.7 L142.5,181.5 L143.7,180.5 L144.9,180.3 L146.1,181.1 L147.3,180.2 L148.4,178.9 L149.6,179.5 L150.8,178.4 L152.0,176.9 L153.2,177.0 L154.3,177.0 L155.5,176.2 L156.7,175.8 L157.9,176.1 L159.0,175.1 L160.2,174.0 L161.4,174.3 L162.6,174.0 L163.8,172.6 L164.9,172.1 L166.1,172.1 L167.3,172.2 L168.5,171.4 L169.7,170.9 L170.8,170.9 L172.0,170.3 L173.2,169.8 L174.4,169.9 L175.6,169.4 L176.7,168.9 L177.9,168.3 L179.1,168.8 L180.3,168.0 L181.5,167.9 L182.6,167.5 L183.8,167.7 L185.0,166.2 L186.2,166.5 L187.3,166.4 L188.5,166.3 L189.7,165.4 L190.9,166.2 L192.1,165.6 L193.2,164.7 L194.4,165.0 L195.6,165.2 L196.8,164.4 L198.0,164.5 L199.1,164.0 L200.3,163.7 L201.5,163.1 L202.7,162.7 L203.9,161.5 L205.0,160.9 L206.2,160.5 L207.4,160.6 L208.6,159.9 L209.8,159.1 L210.9,159.1 L212.1,158.9 L213.3,158.1 L214.5,158.4 L215.6,158.5 L216.8,158.1 L218.0,157.6 L219.2,157.9 L220.4,157.6 L221.5,157.2 L222.7,157.0 L223.9,157.0 L225.1,156.5 L226.3,155.5 L227.4,155.3 L228.6,154.9 L229.8,154.5 L231.0,154.1 L232.2,154.2 L233.3,153.7 L234.5,153.2 L235.7,153.2 L236.9,153.3 L238.0,152.2 L239.2,152.4 L240.4,152.4 L241.6,152.1 L242.8,151.1 L243.9,151.3 L245.1,151.4 L246.3,151.0 L247.5,150.8 L248.7,151.0 L249.8,151.0 L251.0,150.3 L252.2,150.3 L253.4,150.9 L254.6,150.9 L255.7,150.7 L256.9,150.9 L258.1,150.8 L259.3,150.7 L260.5,151.0 L261.6,151.0 L262.8,150.3 L264.0,150.8 L265.2,150.5 L266.3,150.0 L267.5,149.5 L268.7,149.6 L269.9,149.6 L271.1,148.9 L272.2,148.7 L273.4,149.0 L274.6,148.7 L275.8,148.5 L277.0,148.7 L278.1,148.3 L279.3,148.1 L280.5,148.3 L281.7,148.4 L282.9,147.9 L284.0,147.8 L285.2,147.9 L286.4,148.1 L287.6,147.8 L288.8,147.7 L289.9,148.1 L291.1,148.0 L292.3,147.8 L293.5,148.0 L294.6,148.3 L295.8,148.4 L297.0,148.4 L298.2,148.7 L299.4,148.5 L300.5,148.1 L301.7,147.9 L302.9,148.0 L304.1,147.5 L305.3,147.2 L306.4,146.9 L307.6,146.7 L308.8,146.0 L310.0,145.7 L311.2,145.3 L312.3,145.0 L313.5,144.4 L314.7,144.3 L315.9,143.9 L317.1,143.3 L318.2,143.3 L319.4,143.5 L320.6,142.8 L321.8,142.6 L322.9,142.7 L324.1,142.7 L325.3,142.1 L326.5,142.1 L327.7,142.2 L328.8,142.4 L330.0,142.1 L331.2,142.6 L332.4,142.7 L333.6,142.3 L334.7,142.4 L335.9,143.0 L337.1,143.0 L338.3,143.2 L339.5,143.5 L340.6,143.4 L341.8,143.1 L343.0,143.6 L344.2,143.7 L345.4,142.9 L346.5,142.7 L347.7,142.9 L348.9,143.2 L350.1,142.3 L351.2,141.8 L352.4,141.7 L353.6,141.6 L354.8,141.3 L356.0,141.2 L357.1,140.9 L358.3,140.6 L359.5,140.7 L360.7,140.6 L361.9,139.9 L363.0,139.9 L364.2,140.2 L365.4,140.3 L366.6,139.5 L367.8,139.4 L368.9,139.6 L370.1,139.4 L371.3,139.2 L372.5,139.1 L373.7,138.9 L374.8,138.5 L376.0,138.3 L377.2,138.2 L378.4,137.8 L379.5,137.9 L380.7,138.0 L381.9,137.7 L383.1,137.4 L384.3,137.7 L385.4,137.9 L386.6,137.6 L387.8,137.7 L389.0,137.8 L390.2,138.0 L391.3,137.6 L392.5,137.6 L393.7,137.8 L394.9,137.6 L396.1,137.4 L397.2,137.5 L398.4,137.2 L399.6,136.6 L400.8,136.6 L402.0,136.7 L403.1,136.3 L404.3,136.4 L405.5,136.4 L406.7,136.4 L407.8,136.2 L409.0,136.4 L410.2,136.5 L411.4,136.3 L412.6,136.3 L413.7,136.6 L414.9,136.6 L416.1,136.1 L417.3,136.1 L418.5,136.3 L419.6,136.0 L420.8,135.9 L422.0,135.9 L423.2,135.8 L424.4,135.2 L425.5,134.9 L426.7,134.8 L427.9,134.7 L429.1,134.5 L430.2,134.5 L431.4,134.3 L432.6,133.9 L433.8,133.9 L435.0,133.9 L436.1,133.7 L437.3,133.7 L438.5,133.7 L439.7,133.3 L440.9,133.0 L442.0,133.2 L443.2,133.4 L444.4,132.8 L445.6,132.7 L446.8,132.8 L447.9,132.9 L449.1,132.4 L450.3,132.3 L451.5,132.3 L452.7,132.2 L453.8,132.0 L455.0,132.0 L456.2,131.8 L457.4,131.6 L458.5,131.8 L459.7,131.7 L460.9,131.1 L462.1,131.3 L463.3,131.6 L464.4,131.4 L465.6,130.8 L466.8,130.7 L468.0,130.9 L469.2,130.8 L470.3,130.7 L471.5,130.8 L472.7,130.7 L473.9,130.3 L475.1,130.3 L476.2,130.3 L477.4,130.0 L478.6,130.0 L479.8,130.3 L481.0,129.9 L482.1,129.7 L483.3,130.0 L484.5,130.2 L485.7,129.8 L486.8,130.1 L488.0,130.3 L489.2,130.3 L490.4,129.9 L491.6,129.9 L492.7,130.2 L493.9,130.1 L495.1,130.0 L496.3,129.9 L497.5,129.8 L498.6,129.7 L499.8,129.8 L501.0,129.6 L502.2,128.9 L503.4,129.1 L504.5,129.2 L505.7,128.9 L506.9,128.3 L508.1,128.2 L509.3,128.3 L510.4,128.0 L511.6,127.7 L512.8,127.6 L514.0,127.5 L515.1,127.3 L516.3,127.2 L517.5,127.1 L518.7,126.8 L519.9,126.9 L521.0,127.2 L522.2,126.9 L523.4,126.6 L524.6,126.8 L525.8,127.2 L526.9,127.1 L528.1,127.3 L529.3,127.6 L530.5,128.0 L531.7,128.1 L532.8,128.4 L534.0,128.9 L535.2,129.1 L536.4,129.3 L537.6,129.3 L538.7,129.3 L539.9,129.4 L541.1,129.7 L542.3,129.6 L543.4,129.2 L544.6,129.1 L545.8,129.1 L547.0,128.9 L548.2,128.7 L549.3,128.6 L550.5,128.5 L551.7,128.5 L552.9,128.4 L554.1,128.1 L555.2,127.9 L556.4,127.7 L557.6,127.8 L558.8,127.7 L560.0,127.2 L561.1,127.0 L562.3,127.1 L563.5,127.2 L564.7,127.1 L565.9,126.9 L567.0,127.0 L568.2,127.1 L569.4,127.4 L570.6,127.4 L571.7,127.5 L572.9,127.8 L574.1,128.2 L575.3,128.5 L576.5,128.6 L577.6,128.8 L578.8,129.1 L580.0,129.1" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<text x="586.0" y="133.1" class="note" text-anchor="start">n = 6</text>
+<path d="M60.5,284.9 L60.9,270.2 L61.4,260.8 L61.9,254.9 L62.4,249.7 L62.8,245.1 L63.3,242.7 L63.8,245.1 L64.3,240.0 L64.7,239.1 L65.2,231.6 L65.7,231.3 L66.2,229.4 L66.6,227.3 L67.1,224.5 L67.6,220.8 L68.1,219.2 L68.5,220.8 L69.0,218.0 L69.5,216.7 L70.0,216.8 L70.4,215.6 L70.9,213.6 L71.4,215.7 L71.9,214.4 L72.3,213.1 L72.8,212.8 L73.3,211.6 L73.8,209.8 L74.2,207.1 L74.7,206.9 L75.2,205.5 L75.7,202.6 L76.1,202.9 L76.6,201.8 L77.1,200.7 L77.6,198.6 L78.0,199.3 L78.5,198.2 L79.0,199.0 L79.5,196.8 L79.9,196.5 L80.4,195.6 L80.9,194.9 L81.4,194.5 L81.8,195.0 L82.3,193.1 L82.8,192.2 L83.3,191.5 L83.7,190.2 L84.2,189.8 L84.7,188.7 L85.2,187.0 L85.6,187.3 L86.1,186.8 L86.6,185.0 L87.1,185.1 L87.5,185.0 L88.0,183.9 L88.5,182.9 L89.0,182.9 L89.4,183.1 L89.9,182.5 L90.4,182.1 L90.9,181.0 L91.3,180.6 L91.8,181.8 L92.3,181.3 L92.8,180.7 L93.2,181.5 L93.7,180.5 L94.2,180.2 L94.7,181.0 L95.1,180.2 L95.6,178.9 L96.1,179.5 L96.6,178.4 L97.0,176.8 L97.5,177.0 L98.0,176.9 L98.5,176.1 L98.9,175.7 L99.4,176.1 L99.9,175.1 L100.4,173.9 L100.8,174.3 L101.3,173.9 L101.8,172.6 L102.3,172.1 L102.7,172.1 L103.2,172.1 L103.7,171.4 L104.2,170.9 L104.6,170.9 L105.1,170.3 L105.6,169.8 L106.1,169.9 L106.5,169.4 L107.0,168.9 L107.5,168.3 L108.0,168.7 L108.4,168.0 L108.9,167.9 L109.4,167.5 L109.9,167.7 L110.3,166.2 L110.8,166.5 L111.3,166.4 L111.8,166.2 L112.2,165.4 L112.7,166.2 L113.2,165.6 L113.7,164.7 L114.1,165.0 L114.6,165.2 L115.1,164.4 L115.6,164.5 L116.0,164.0 L116.5,163.6 L117.0,163.0 L117.5,162.7 L117.9,161.5 L118.4,160.9 L118.9,160.5 L119.4,160.6 L119.8,159.8 L120.3,159.0 L120.8,159.0 L121.3,158.9 L121.7,158.1 L122.2,158.3 L122.7,158.4 L123.2,158.0 L123.6,157.5 L124.1,157.9 L124.6,157.5 L125.1,157.2 L125.5,157.0 L126.0,157.0 L126.5,156.5 L127.0,155.5 L127.4,155.3 L127.9,154.9 L128.4,154.5 L128.9,154.0 L129.3,154.1 L129.8,153.7 L130.3,153.1 L130.8,153.2 L131.2,153.2 L131.7,152.2 L132.2,152.3 L132.7,152.3 L133.1,152.0 L133.6,151.0 L134.1,151.1 L134.6,151.2 L135.0,150.8 L135.5,150.7 L136.0,150.8 L136.5,150.8 L136.9,150.1 L137.4,150.1 L137.9,150.6 L138.4,150.6 L138.8,150.4 L139.3,150.5 L139.8,150.4 L140.3,150.2 L140.7,150.6 L141.2,150.5 L141.7,149.7 L142.2,150.3 L142.6,149.9 L143.1,149.4 L143.6,148.9 L144.1,149.0 L144.5,148.9 L145.0,148.2 L145.5,147.9 L146.0,148.2 L146.4,148.0 L146.9,147.7 L147.4,147.8 L147.9,147.5 L148.3,147.2 L148.8,147.5 L149.3,147.5 L149.8,147.0 L150.2,146.8 L150.7,146.9 L151.2,147.1 L151.7,146.7 L152.1,146.6 L152.6,146.9 L153.1,146.7 L153.6,146.4 L154.0,146.6 L154.5,146.9 L155.0,146.8 L155.5,146.8 L155.9,147.0 L156.4,146.7 L156.9,146.3 L157.4,146.1 L157.8,146.1 L158.3,145.6 L158.8,145.2 L159.3,145.0 L159.7,144.8 L160.2,144.1 L160.7,143.8 L161.2,143.4 L161.6,142.9 L162.1,142.4 L162.6,142.4 L163.1,141.9 L163.5,141.3 L164.0,141.3 L164.5,141.5 L164.9,140.8 L165.4,140.6 L165.9,140.6 L166.4,140.6 L166.8,140.0 L167.3,140.0 L167.8,140.0 L168.3,140.1 L168.7,139.8 L169.2,140.2 L169.7,140.2 L170.2,139.6 L170.6,139.8 L171.1,140.4 L171.6,140.3 L172.1,140.4 L172.5,140.6 L173.0,140.5 L173.5,140.0 L174.0,140.4 L174.4,140.6 L174.9,139.8 L175.4,139.5 L175.9,139.8 L176.3,140.0 L176.8,139.1 L177.3,138.6 L177.8,138.6 L178.2,138.6 L178.7,138.3 L179.2,138.1 L179.7,137.9 L180.1,137.7 L180.6,137.8 L181.1,137.7 L181.6,137.0 L182.0,137.0 L182.5,137.3 L183.0,137.3 L183.5,136.3 L183.9,136.2 L184.4,136.5 L184.9,136.2 L185.4,135.8 L185.8,135.7 L186.3,135.4 L186.8,134.9 L187.3,134.8 L187.7,134.7 L188.2,134.1 L188.7,134.2 L189.2,134.2 L189.6,133.8 L190.1,133.4 L190.6,133.6 L191.1,133.7 L191.5,133.4 L192.0,133.4 L192.5,133.5 L193.0,133.5 L193.4,133.1 L193.9,133.1 L194.4,133.4 L194.9,133.1 L195.3,132.9 L195.8,133.1 L196.3,132.8 L196.8,132.2 L197.2,132.2 L197.7,132.3 L198.2,131.9 L198.7,132.0 L199.1,132.0 L199.6,131.9 L200.1,131.6 L200.6,131.7 L201.0,131.7 L201.5,131.3 L202.0,131.2 L202.5,131.4 L202.9,131.2 L203.4,130.6 L203.9,130.6 L204.4,130.8 L204.8,130.4 L205.3,130.3 L205.8,130.3 L206.3,130.1 L206.7,129.4 L207.2,129.2 L207.7,129.1 L208.2,129.0 L208.6,128.8 L209.1,128.9 L209.6,128.8 L210.1,128.3 L210.5,128.2 L211.0,128.4 L211.5,128.2 L212.0,128.3 L212.4,128.2 L212.9,127.9 L213.4,127.6 L213.9,128.0 L214.3,127.9 L214.8,127.2 L215.3,127.1 L215.8,127.3 L216.2,127.2 L216.7,126.6 L217.2,126.3 L217.7,126.3 L218.1,126.1 L218.6,125.8 L219.1,125.7 L219.6,125.4 L220.0,125.1 L220.5,125.2 L221.0,125.2 L221.5,124.4 L221.9,124.6 L222.4,124.9 L222.9,124.6 L223.4,124.0 L223.8,123.9 L224.3,124.1 L224.8,124.0 L225.3,123.9 L225.7,124.0 L226.2,124.0 L226.7,123.6 L227.2,123.6 L227.6,123.7 L228.1,123.4 L228.6,123.5 L229.1,123.7 L229.5,123.4 L230.0,123.1 L230.5,123.4 L231.0,123.5 L231.4,123.1 L231.9,123.3 L232.4,123.5 L232.9,123.4 L233.3,122.9 L233.8,122.9 L234.3,123.1 L234.8,122.9 L235.2,122.7 L235.7,122.7 L236.2,122.4 L236.7,122.1 L237.1,122.1 L237.6,122.1 L238.1,121.3 L238.6,121.4 L239.0,121.5 L239.5,121.2 L240.0,120.6 L240.5,120.5 L240.9,120.6 L241.4,120.3 L241.9,120.0 L242.4,120.0 L242.8,119.9 L243.3,119.7 L243.8,119.5 L244.3,119.6 L244.7,119.2 L245.2,119.4 L245.7,119.5 L246.2,119.3 L246.6,118.8 L247.1,118.9 L247.6,119.3 L248.1,119.1 L248.5,119.1 L249.0,119.4 L249.5,119.6 L250.0,119.3 L250.4,119.5 L250.9,119.9 L251.4,119.9 L251.9,120.0 L252.3,120.0 L252.8,119.9 L253.3,119.8 L253.8,120.1 L254.2,120.0 L254.7,119.6 L255.2,119.5 L255.7,119.6 L256.1,119.5 L256.6,119.2 L257.1,119.1 L257.6,119.2 L258.0,119.0 L258.5,119.0 L259.0,118.9 L259.5,118.7 L259.9,118.5 L260.4,118.7 L260.9,118.6 L261.4,118.1 L261.8,117.9 L262.3,118.1 L262.8,118.2 L263.3,117.7 L263.7,117.5 L264.2,117.5 L264.7,117.5 L265.2,117.4 L265.6,117.4 L266.1,117.3 L266.6,117.2 L267.1,117.5 L267.5,117.5 L268.0,117.2 L268.5,117.3 L268.9,117.4 L269.4,117.2 L269.9,116.9 L270.4,117.2 L270.8,117.2 L271.3,116.9 L271.8,116.8 L272.3,117.0 L272.7,117.0 L273.2,116.7 L273.7,116.5 L274.2,116.7 L274.6,116.8 L275.1,116.7 L275.6,116.6 L276.1,116.5 L276.5,116.5 L277.0,116.5 L277.5,116.4 L278.0,116.0 L278.4,116.2 L278.9,116.3 L279.4,116.3 L279.9,115.7 L280.3,115.7 L280.8,115.9 L281.3,115.8 L281.8,115.6 L282.2,115.5 L282.7,115.5 L283.2,115.4 L283.7,115.4 L284.1,115.4 L284.6,115.0 L285.1,115.0 L285.6,115.1 L286.0,115.1 L286.5,114.7 L287.0,114.7 L287.5,115.0 L287.9,115.1 L288.4,115.2 L288.9,115.4 L289.4,115.6 L289.8,115.6 L290.3,115.7 L290.8,115.9 L291.3,115.9 L291.7,116.2 L292.2,116.3 L292.7,116.0 L293.2,115.8 L293.6,116.0 L294.1,116.0 L294.6,115.5 L295.1,115.4 L295.5,115.4 L296.0,115.4 L296.5,115.0 L297.0,114.8 L297.4,114.7 L297.9,114.6 L298.4,114.4 L298.9,114.3 L299.3,114.0 L299.8,113.8 L300.3,113.9 L300.8,114.1 L301.2,113.7 L301.7,113.7 L302.2,113.9 L302.7,114.0 L303.1,113.7 L303.6,113.8 L304.1,114.0 L304.6,114.2 L305.0,114.1 L305.5,114.2 L306.0,114.4 L306.5,114.3 L306.9,114.4 L307.4,114.5 L307.9,114.4 L308.4,114.5 L308.8,114.5 L309.3,114.4 L309.8,114.2 L310.3,114.4 L310.7,114.4 L311.2,114.0 L311.7,113.9 L312.2,113.9 L312.6,113.9 L313.1,113.3 L313.6,113.1 L314.1,113.2 L314.5,113.0 L315.0,112.8 L315.5,112.7 L316.0,112.4 L316.4,112.1 L316.9,112.1 L317.4,112.1 L317.9,111.5 L318.3,111.4 L318.8,111.5 L319.3,111.4 L319.8,110.9 L320.2,110.8 L320.7,110.9 L321.2,110.8 L321.7,110.5 L322.1,110.5 L322.6,110.5 L323.1,110.4 L323.6,110.3 L324.0,110.3 L324.5,110.1 L325.0,110.2 L325.5,110.3 L325.9,110.2 L326.4,110.0 L326.9,110.1 L327.4,110.4 L327.8,110.3 L328.3,110.2 L328.8,110.4 L329.3,110.6 L329.7,110.5 L330.2,110.5 L330.7,110.6 L331.2,110.6 L331.6,110.7 L332.1,110.8 L332.6,110.6 L333.1,110.4 L333.5,110.6 L334.0,110.8 L334.5,110.4 L335.0,110.3 L335.4,110.4 L335.9,110.5 L336.4,110.2 L336.9,110.1 L337.3,110.1 L337.8,110.1 L338.3,110.2 L338.8,110.2 L339.2,110.0 L339.7,109.9 L340.2,110.2 L340.7,110.4 L341.1,110.0 L341.6,110.0 L342.1,110.2 L342.6,110.4 L343.0,110.3 L343.5,110.3 L344.0,110.4 L344.5,110.5 L344.9,110.5 L345.4,110.6 L345.9,110.6 L346.4,110.5 L346.8,110.6 L347.3,110.6 L347.8,110.4 L348.3,110.6 L348.7,110.8 L349.2,110.7 L349.7,110.4 L350.2,110.6 L350.6,110.9 L351.1,110.6 L351.6,110.6 L352.1,110.8 L352.5,111.2 L353.0,110.8 L353.5,110.7 L354.0,110.8 L354.4,111.0 L354.9,110.9 L355.4,110.7 L355.9,110.4 L356.3,110.4 L356.8,110.5 L357.3,110.3 L357.8,109.6 L358.2,109.5 L358.7,109.6 L359.2,109.5 L359.7,109.0 L360.1,108.7 L360.6,108.6 L361.1,108.5 L361.6,108.3 L362.0,108.1 L362.5,107.8 L363.0,107.6 L363.5,107.6 L363.9,107.5 L364.4,107.1 L364.9,107.1 L365.4,107.3 L365.8,107.1 L366.3,106.9 L366.8,106.9 L367.3,107.2 L367.7,107.2 L368.2,107.3 L368.7,107.4 L369.2,107.6 L369.6,107.5 L370.1,107.6 L370.6,107.7 L371.1,107.8 L371.5,107.8 L372.0,107.8 L372.5,107.6 L372.9,107.6 L373.4,107.5 L373.9,107.3 L374.4,106.9 L374.8,106.8 L375.3,106.7 L375.8,106.5 L376.3,106.0 L376.7,105.8 L377.2,105.6 L377.7,105.5 L378.2,105.3 L378.6,105.0 L379.1,104.8 L379.6,104.6 L380.1,104.7 L380.5,104.7 L381.0,104.3 L381.5,104.3 L382.0,104.6 L382.4,104.6 L382.9,104.4 L383.4,104.4 L383.9,104.7 L384.3,104.9 L384.8,105.0 L385.3,105.2 L385.8,105.4 L386.2,105.4 L386.7,105.6 L387.2,105.7 L387.7,105.7 L388.1,105.8 L388.6,105.9 L389.1,105.8 L389.6,105.7 L390.0,105.8 L390.5,105.8 L391.0,105.5 L391.5,105.5 L391.9,105.5 L392.4,105.4 L392.9,105.1 L393.4,104.9 L393.8,104.8 L394.3,104.7 L394.8,104.5 L395.3,104.3 L395.7,104.0 L396.2,103.9 L396.7,103.9 L397.2,103.7 L397.6,103.3 L398.1,103.2 L398.6,103.4 L399.1,103.4 L399.5,103.1 L400.0,103.1 L400.5,103.3 L401.0,103.4 L401.4,103.5 L401.9,103.4 L402.4,103.4 L402.9,103.5 L403.3,103.7 L403.8,103.7 L404.3,103.6 L404.8,103.7 L405.2,103.9 L405.7,103.9 L406.2,103.7 L406.7,103.8 L407.1,104.0 L407.6,104.0 L408.1,104.1 L408.6,104.2 L409.0,104.4 L409.5,104.3 L410.0,104.3 L410.5,104.3 L410.9,104.3 L411.4,104.2 L411.9,104.3 L412.4,104.1 L412.8,103.9 L413.3,104.0 L413.8,103.9 L414.3,103.6 L414.7,103.7 L415.2,103.6 L415.7,103.5 L416.2,103.1 L416.6,103.1 L417.1,103.0 L417.6,102.9 L418.1,102.7 L418.5,102.7 L419.0,102.6 L419.5,102.5 L420.0,102.5 L420.4,102.5 L420.9,102.4 L421.4,102.5 L421.9,102.6 L422.3,102.5 L422.8,102.4 L423.3,102.6 L423.8,102.8 L424.2,102.8 L424.7,102.8 L425.2,103.0 L425.7,103.1 L426.1,102.9 L426.6,103.0 L427.1,103.1 L427.6,103.0 L428.0,103.0 L428.5,103.0 L429.0,102.9 L429.5,102.7 L429.9,102.8 L430.4,102.8 L430.9,102.5 L431.4,102.4 L431.8,102.4 L432.3,102.3 L432.8,102.0 L433.3,102.0 L433.7,101.9 L434.2,101.8 L434.7,101.7 L435.2,101.6 L435.6,101.4 L436.1,101.3 L436.6,101.4 L437.1,101.4 L437.5,101.0 L438.0,101.0 L438.5,101.1 L439.0,101.0 L439.4,100.7 L439.9,100.7 L440.4,100.8 L440.9,100.7 L441.3,100.7 L441.8,100.7 L442.3,100.7 L442.8,100.5 L443.2,100.6 L443.7,100.6 L444.2,100.5 L444.7,100.5 L445.1,100.7 L445.6,100.6 L446.1,100.4 L446.6,100.5 L447.0,100.7 L447.5,100.5 L448.0,100.5 L448.5,100.6 L448.9,100.8 L449.4,100.5 L449.9,100.4 L450.4,100.5 L450.8,100.5 L451.3,100.5 L451.8,100.3 L452.3,100.1 L452.7,100.1 L453.2,100.2 L453.7,100.0 L454.2,99.5 L454.6,99.4 L455.1,99.5 L455.6,99.4 L456.1,99.0 L456.5,98.8 L457.0,98.8 L457.5,98.7 L458.0,98.6 L458.4,98.5 L458.9,98.3 L459.4,98.2 L459.9,98.2 L460.3,98.2 L460.8,98.0 L461.3,98.1 L461.8,98.3 L462.2,98.3 L462.7,98.0 L463.2,98.1 L463.7,98.4 L464.1,98.4 L464.6,98.6 L465.1,98.7 L465.6,98.9 L466.0,98.8 L466.5,98.9 L467.0,99.1 L467.5,99.2 L467.9,99.2 L468.4,99.2 L468.9,99.1 L469.4,99.1 L469.8,99.2 L470.3,99.0 L470.8,98.6 L471.3,98.6 L471.7,98.6 L472.2,98.3 L472.7,97.9 L473.2,97.7 L473.6,97.6 L474.1,97.5 L474.6,97.3 L475.1,97.0 L475.5,96.8 L476.0,96.7 L476.5,96.8 L476.9,96.8 L477.4,96.4 L477.9,96.5 L478.4,96.8 L478.8,96.8 L479.3,96.7 L479.8,96.7 L480.3,97.0 L480.7,97.1 L481.2,97.3 L481.7,97.3 L482.2,97.5 L482.6,97.6 L483.1,97.8 L483.6,97.9 L484.1,97.9 L484.5,98.0 L485.0,98.1 L485.5,98.0 L486.0,97.9 L486.4,98.0 L486.9,98.1 L487.4,97.9 L487.9,97.8 L488.3,97.9 L488.8,97.9 L489.3,97.6 L489.8,97.5 L490.2,97.5 L490.7,97.5 L491.2,97.5 L491.7,97.2 L492.1,97.0 L492.6,97.0 L493.1,97.1 L493.6,97.0 L494.0,96.6 L494.5,96.5 L495.0,96.7 L495.5,96.7 L495.9,96.4 L496.4,96.3 L496.9,96.3 L497.4,96.4 L497.8,96.5 L498.3,96.4 L498.8,96.3 L499.3,96.3 L499.7,96.5 L500.2,96.5 L500.7,96.4 L501.2,96.4 L501.6,96.5 L502.1,96.5 L502.6,96.4 L503.1,96.5 L503.5,96.6 L504.0,96.6 L504.5,96.7 L505.0,96.8 L505.4,96.8 L505.9,96.7 L506.4,96.7 L506.9,96.8 L507.3,96.9 L507.8,96.8 L508.3,96.7 L508.8,96.6 L509.2,96.6 L509.7,96.6 L510.2,96.3 L510.7,95.9 L511.1,95.9 L511.6,95.9 L512.1,95.7 L512.6,95.3 L513.0,95.1 L513.5,95.0 L514.0,95.0 L514.5,94.8 L514.9,94.5 L515.4,94.3 L515.9,94.3 L516.4,94.3 L516.8,94.2 L517.3,93.9 L517.8,93.9 L518.3,94.1 L518.7,94.1 L519.2,94.0 L519.7,94.0 L520.2,94.2 L520.6,94.4 L521.1,94.5 L521.6,94.6 L522.1,94.8 L522.5,95.0 L523.0,95.2 L523.5,95.3 L524.0,95.4 L524.4,95.6 L524.9,95.8 L525.4,95.8 L525.9,95.8 L526.3,96.0 L526.8,96.1 L527.3,96.1 L527.8,96.1 L528.2,96.1 L528.7,96.1 L529.2,96.1 L529.7,96.0 L530.1,96.0 L530.6,96.0 L531.1,96.0 L531.6,95.8 L532.0,95.6 L532.5,95.6 L533.0,95.8 L533.5,95.7 L533.9,95.5 L534.4,95.3 L534.9,95.4 L535.4,95.6 L535.8,95.6 L536.3,95.5 L536.8,95.5 L537.3,95.6 L537.7,95.9 L538.2,95.9 L538.7,95.9 L539.2,96.0 L539.6,96.3 L540.1,96.4 L540.6,96.3 L541.1,96.4 L541.5,96.7 L542.0,96.8 L542.5,96.8 L543.0,96.8 L543.4,97.0 L543.9,97.1 L544.4,97.2 L544.9,97.3 L545.3,97.4 L545.8,97.4 L546.3,97.4 L546.8,97.4 L547.2,97.5 L547.7,97.6 L548.2,97.4 L548.7,97.2 L549.1,97.2 L549.6,97.3 L550.1,97.1 L550.6,96.7 L551.0,96.5 L551.5,96.4 L552.0,96.4 L552.5,96.1 L552.9,95.7 L553.4,95.5 L553.9,95.5 L554.4,95.4 L554.8,95.0 L555.3,94.7 L555.8,94.7 L556.3,94.7 L556.7,94.6 L557.2,94.4 L557.7,94.3 L558.2,94.5 L558.6,94.6 L559.1,94.6 L559.6,94.6 L560.1,94.8 L560.5,95.0 L561.0,95.1 L561.5,95.3 L562.0,95.4 L562.4,95.6 L562.9,95.7 L563.4,95.8 L563.9,95.9 L564.3,96.0 L564.8,96.0 L565.3,95.9 L565.8,95.9 L566.2,95.9 L566.7,95.9 L567.2,95.7 L567.7,95.5 L568.1,95.4 L568.6,95.4 L569.1,95.4 L569.6,95.1 L570.0,94.9 L570.5,94.9 L571.0,95.0 L571.5,94.8 L571.9,94.5 L572.4,94.5 L572.9,94.7 L573.4,94.8 L573.8,94.7 L574.3,94.6 L574.8,94.8 L575.3,95.1 L575.7,95.3 L576.2,95.3 L576.7,95.3 L577.2,95.5 L577.6,95.9 L578.1,96.1 L578.6,96.1 L579.1,96.2 L579.5,96.4 L580.0,96.5" fill="none" stroke="#1c5cab" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<text x="586.0" y="100.5" class="note" text-anchor="start">n = 7</text>
+<path d="M60.2,284.9 L60.4,270.2 L60.6,260.8 L60.8,254.9 L61.0,249.7 L61.2,245.1 L61.4,242.7 L61.6,245.1 L61.7,240.0 L61.9,239.1 L62.1,231.6 L62.3,231.3 L62.5,229.4 L62.7,227.3 L62.9,224.5 L63.1,220.8 L63.3,219.2 L63.5,220.8 L63.7,218.0 L63.9,216.7 L64.1,216.8 L64.3,215.6 L64.5,213.6 L64.7,215.7 L64.9,214.4 L65.0,213.1 L65.2,212.8 L65.4,211.6 L65.6,209.8 L65.8,207.1 L66.0,206.9 L66.2,205.5 L66.4,202.6 L66.6,202.9 L66.8,201.8 L67.0,200.7 L67.2,198.6 L67.4,199.3 L67.6,198.2 L67.8,199.0 L68.0,196.8 L68.1,196.5 L68.3,195.6 L68.5,194.9 L68.7,194.5 L68.9,195.0 L69.1,193.1 L69.3,192.2 L69.5,191.5 L69.7,190.2 L69.9,189.8 L70.1,188.7 L70.3,187.0 L70.5,187.3 L70.7,186.8 L70.9,185.0 L71.1,185.1 L71.3,185.0 L71.4,183.9 L71.6,182.9 L71.8,182.9 L72.0,183.1 L72.2,182.5 L72.4,182.1 L72.6,181.0 L72.8,180.6 L73.0,181.8 L73.2,181.3 L73.4,180.7 L73.6,181.5 L73.8,180.5 L74.0,180.2 L74.2,181.0 L74.4,180.2 L74.6,178.9 L74.7,179.5 L74.9,178.4 L75.1,176.8 L75.3,177.0 L75.5,176.9 L75.7,176.1 L75.9,175.7 L76.1,176.1 L76.3,175.1 L76.5,173.9 L76.7,174.3 L76.9,173.9 L77.1,172.6 L77.3,172.1 L77.5,172.1 L77.7,172.1 L77.9,171.4 L78.0,170.9 L78.2,170.9 L78.4,170.3 L78.6,169.8 L78.8,169.9 L79.0,169.4 L79.2,168.9 L79.4,168.3 L79.6,168.7 L79.8,168.0 L80.0,167.9 L80.2,167.5 L80.4,167.7 L80.6,166.2 L80.8,166.5 L81.0,166.4 L81.1,166.2 L81.3,165.4 L81.5,166.2 L81.7,165.6 L81.9,164.7 L82.1,165.0 L82.3,165.2 L82.5,164.4 L82.7,164.5 L82.9,164.0 L83.1,163.6 L83.3,163.0 L83.5,162.7 L83.7,161.5 L83.9,160.9 L84.1,160.5 L84.3,160.6 L84.4,159.8 L84.6,159.0 L84.8,159.0 L85.0,158.9 L85.2,158.1 L85.4,158.3 L85.6,158.4 L85.8,158.0 L86.0,157.5 L86.2,157.9 L86.4,157.5 L86.6,157.2 L86.8,157.0 L87.0,157.0 L87.2,156.5 L87.4,155.5 L87.6,155.3 L87.7,154.9 L87.9,154.5 L88.1,154.0 L88.3,154.1 L88.5,153.7 L88.7,153.1 L88.9,153.2 L89.1,153.2 L89.3,152.1 L89.5,152.3 L89.7,152.3 L89.9,152.0 L90.1,151.0 L90.3,151.1 L90.5,151.2 L90.7,150.8 L90.9,150.7 L91.0,150.8 L91.2,150.7 L91.4,150.0 L91.6,150.1 L91.8,150.6 L92.0,150.6 L92.2,150.4 L92.4,150.5 L92.6,150.4 L92.8,150.2 L93.0,150.6 L93.2,150.5 L93.4,149.7 L93.6,150.3 L93.8,149.9 L94.0,149.4 L94.1,148.9 L94.3,149.0 L94.5,148.9 L94.7,148.2 L94.9,147.9 L95.1,148.2 L95.3,148.0 L95.5,147.7 L95.7,147.8 L95.9,147.5 L96.1,147.2 L96.3,147.5 L96.5,147.5 L96.7,147.0 L96.9,146.8 L97.1,146.9 L97.3,147.1 L97.4,146.7 L97.6,146.6 L97.8,146.9 L98.0,146.7 L98.2,146.4 L98.4,146.6 L98.6,146.8 L98.8,146.8 L99.0,146.8 L99.2,147.0 L99.4,146.7 L99.6,146.3 L99.8,146.1 L100.0,146.1 L100.2,145.6 L100.4,145.2 L100.6,145.0 L100.7,144.8 L100.9,144.0 L101.1,143.8 L101.3,143.4 L101.5,142.9 L101.7,142.4 L101.9,142.4 L102.1,141.9 L102.3,141.3 L102.5,141.3 L102.7,141.4 L102.9,140.8 L103.1,140.6 L103.3,140.6 L103.5,140.6 L103.7,140.0 L103.9,140.0 L104.0,140.0 L104.2,140.1 L104.4,139.8 L104.6,140.2 L104.8,140.2 L105.0,139.6 L105.2,139.8 L105.4,140.4 L105.6,140.3 L105.8,140.4 L106.0,140.6 L106.2,140.5 L106.4,140.0 L106.6,140.4 L106.8,140.5 L107.0,139.8 L107.1,139.5 L107.3,139.7 L107.5,140.0 L107.7,139.1 L107.9,138.6 L108.1,138.6 L108.3,138.6 L108.5,138.3 L108.7,138.1 L108.9,137.9 L109.1,137.7 L109.3,137.8 L109.5,137.7 L109.7,136.9 L109.9,137.0 L110.1,137.3 L110.3,137.3 L110.4,136.3 L110.6,136.2 L110.8,136.5 L111.0,136.2 L111.2,135.8 L111.4,135.7 L111.6,135.4 L111.8,134.9 L112.0,134.8 L112.2,134.6 L112.4,134.1 L112.6,134.2 L112.8,134.2 L113.0,133.8 L113.2,133.4 L113.4,133.5 L113.6,133.7 L113.7,133.4 L113.9,133.4 L114.1,133.5 L114.3,133.5 L114.5,133.1 L114.7,133.1 L114.9,133.4 L115.1,133.0 L115.3,132.9 L115.5,133.1 L115.7,132.7 L115.9,132.2 L116.1,132.2 L116.3,132.3 L116.5,131.9 L116.7,132.0 L116.9,131.9 L117.0,131.8 L117.2,131.6 L117.4,131.7 L117.6,131.7 L117.8,131.3 L118.0,131.1 L118.2,131.4 L118.4,131.2 L118.6,130.6 L118.8,130.6 L119.0,130.8 L119.2,130.4 L119.4,130.3 L119.6,130.3 L119.8,130.1 L120.0,129.4 L120.1,129.2 L120.3,129.1 L120.5,129.0 L120.7,128.8 L120.9,128.9 L121.1,128.8 L121.3,128.3 L121.5,128.2 L121.7,128.4 L121.9,128.2 L122.1,128.3 L122.3,128.2 L122.5,127.8 L122.7,127.6 L122.9,127.9 L123.1,127.9 L123.3,127.2 L123.4,127.1 L123.6,127.3 L123.8,127.2 L124.0,126.5 L124.2,126.3 L124.4,126.2 L124.6,126.1 L124.8,125.8 L125.0,125.7 L125.2,125.4 L125.4,125.1 L125.6,125.2 L125.8,125.1 L126.0,124.4 L126.2,124.6 L126.4,124.9 L126.6,124.6 L126.7,124.0 L126.9,123.9 L127.1,124.1 L127.3,124.0 L127.5,123.9 L127.7,124.0 L127.9,124.0 L128.1,123.6 L128.3,123.6 L128.5,123.6 L128.7,123.4 L128.9,123.4 L129.1,123.6 L129.3,123.4 L129.5,123.1 L129.7,123.3 L129.9,123.5 L130.0,123.1 L130.2,123.3 L130.4,123.5 L130.6,123.4 L130.8,122.9 L131.0,122.9 L131.2,123.1 L131.4,122.8 L131.6,122.6 L131.8,122.6 L132.0,122.4 L132.2,122.0 L132.4,122.1 L132.6,122.0 L132.8,121.3 L133.0,121.3 L133.1,121.4 L133.3,121.1 L133.5,120.5 L133.7,120.4 L133.9,120.5 L134.1,120.2 L134.3,119.9 L134.5,119.8 L134.7,119.8 L134.9,119.5 L135.1,119.4 L135.3,119.4 L135.5,119.1 L135.7,119.2 L135.9,119.3 L136.1,119.1 L136.3,118.7 L136.4,118.8 L136.6,119.1 L136.8,119.0 L137.0,118.9 L137.2,119.2 L137.4,119.3 L137.6,119.1 L137.8,119.2 L138.0,119.6 L138.2,119.6 L138.4,119.7 L138.6,119.7 L138.8,119.6 L139.0,119.5 L139.2,119.7 L139.4,119.7 L139.6,119.2 L139.7,119.1 L139.9,119.3 L140.1,119.2 L140.3,118.8 L140.5,118.7 L140.7,118.8 L140.9,118.6 L141.1,118.6 L141.3,118.5 L141.5,118.3 L141.7,118.1 L141.9,118.2 L142.1,118.2 L142.3,117.7 L142.5,117.5 L142.7,117.6 L142.9,117.7 L143.0,117.2 L143.2,117.0 L143.4,117.0 L143.6,117.0 L143.8,116.9 L144.0,116.9 L144.2,116.8 L144.4,116.7 L144.6,116.9 L144.8,116.9 L145.0,116.6 L145.2,116.7 L145.4,116.8 L145.6,116.6 L145.8,116.3 L146.0,116.5 L146.1,116.6 L146.3,116.2 L146.5,116.1 L146.7,116.3 L146.9,116.4 L147.1,116.0 L147.3,115.8 L147.5,116.0 L147.7,116.1 L147.9,116.0 L148.1,115.9 L148.3,115.8 L148.5,115.8 L148.7,115.9 L148.9,115.7 L149.1,115.3 L149.3,115.5 L149.4,115.6 L149.6,115.5 L149.8,114.9 L150.0,115.0 L150.2,115.1 L150.4,115.0 L150.6,114.7 L150.8,114.7 L151.0,114.6 L151.2,114.5 L151.4,114.5 L151.6,114.4 L151.8,114.0 L152.0,114.0 L152.2,114.1 L152.4,114.0 L152.6,113.6 L152.7,113.6 L152.9,113.9 L153.1,114.0 L153.3,114.0 L153.5,114.2 L153.7,114.4 L153.9,114.3 L154.1,114.4 L154.3,114.6 L154.5,114.6 L154.7,114.8 L154.9,114.9 L155.1,114.7 L155.3,114.5 L155.5,114.7 L155.7,114.7 L155.9,114.2 L156.0,114.1 L156.2,114.1 L156.4,114.0 L156.6,113.6 L156.8,113.5 L157.0,113.3 L157.2,113.1 L157.4,112.9 L157.6,112.9 L157.8,112.5 L158.0,112.2 L158.2,112.4 L158.4,112.5 L158.6,112.1 L158.8,112.1 L159.0,112.3 L159.1,112.4 L159.3,112.0 L159.5,112.0 L159.7,112.3 L159.9,112.4 L160.1,112.3 L160.3,112.4 L160.5,112.6 L160.7,112.4 L160.9,112.5 L161.1,112.7 L161.3,112.5 L161.5,112.6 L161.7,112.7 L161.9,112.5 L162.1,112.3 L162.3,112.5 L162.4,112.5 L162.6,112.0 L162.8,112.0 L163.0,112.0 L163.2,111.9 L163.4,111.3 L163.6,111.1 L163.8,111.1 L164.0,110.9 L164.2,110.6 L164.4,110.5 L164.6,110.2 L164.8,109.8 L165.0,109.9 L165.2,109.9 L165.4,109.2 L165.6,109.2 L165.7,109.3 L165.9,109.2 L166.1,108.6 L166.3,108.5 L166.5,108.7 L166.7,108.5 L166.9,108.3 L167.1,108.3 L167.3,108.3 L167.5,108.2 L167.7,108.2 L167.9,108.1 L168.1,107.9 L168.3,108.0 L168.5,108.2 L168.7,108.1 L168.9,107.8 L169.0,108.0 L169.2,108.2 L169.4,108.0 L169.6,108.0 L169.8,108.2 L170.0,108.3 L170.2,108.1 L170.4,108.2 L170.6,108.3 L170.8,108.2 L171.0,108.2 L171.2,108.4 L171.4,108.1 L171.6,107.9 L171.8,108.0 L172.0,108.2 L172.1,107.7 L172.3,107.6 L172.5,107.7 L172.7,107.7 L172.9,107.4 L173.1,107.3 L173.3,107.4 L173.5,107.3 L173.7,107.3 L173.9,107.3 L174.1,107.2 L174.3,107.0 L174.5,107.3 L174.7,107.5 L174.9,107.1 L175.1,107.1 L175.3,107.3 L175.4,107.5 L175.6,107.3 L175.8,107.3 L176.0,107.4 L176.2,107.5 L176.4,107.5 L176.6,107.6 L176.8,107.6 L177.0,107.3 L177.2,107.4 L177.4,107.5 L177.6,107.3 L177.8,107.5 L178.0,107.7 L178.2,107.6 L178.4,107.2 L178.6,107.5 L178.7,107.8 L178.9,107.5 L179.1,107.5 L179.3,107.7 L179.5,108.1 L179.7,107.7 L179.9,107.5 L180.1,107.8 L180.3,107.9 L180.5,107.8 L180.7,107.6 L180.9,107.4 L181.1,107.5 L181.3,107.6 L181.5,107.3 L181.7,106.7 L181.9,106.6 L182.0,106.7 L182.2,106.7 L182.4,106.0 L182.6,105.7 L182.8,105.8 L183.0,105.6 L183.2,105.4 L183.4,105.2 L183.6,104.9 L183.8,104.6 L184.0,104.6 L184.2,104.4 L184.4,104.0 L184.6,104.0 L184.8,104.2 L185.0,103.9 L185.1,103.6 L185.3,103.7 L185.5,103.9 L185.7,103.9 L185.9,104.0 L186.1,104.1 L186.3,104.2 L186.5,104.1 L186.7,104.2 L186.9,104.4 L187.1,104.4 L187.3,104.4 L187.5,104.4 L187.7,104.3 L187.9,104.2 L188.1,104.2 L188.3,103.9 L188.4,103.5 L188.6,103.5 L188.8,103.4 L189.0,103.1 L189.2,102.6 L189.4,102.3 L189.6,102.2 L189.8,102.0 L190.0,101.7 L190.2,101.4 L190.4,101.1 L190.6,100.9 L190.8,100.9 L191.0,100.9 L191.2,100.5 L191.4,100.5 L191.6,100.7 L191.7,100.6 L191.9,100.3 L192.1,100.3 L192.3,100.6 L192.5,100.8 L192.7,100.8 L192.9,101.0 L193.1,101.2 L193.3,101.2 L193.5,101.3 L193.7,101.5 L193.9,101.5 L194.1,101.6 L194.3,101.7 L194.5,101.5 L194.7,101.4 L194.9,101.6 L195.0,101.5 L195.2,101.1 L195.4,101.1 L195.6,101.2 L195.8,101.1 L196.0,100.6 L196.2,100.4 L196.4,100.3 L196.6,100.2 L196.8,100.0 L197.0,99.7 L197.2,99.4 L197.4,99.2 L197.6,99.2 L197.8,99.1 L198.0,98.6 L198.1,98.6 L198.3,98.8 L198.5,98.8 L198.7,98.4 L198.9,98.4 L199.1,98.7 L199.3,98.8 L199.5,98.8 L199.7,98.8 L199.9,98.8 L200.1,98.8 L200.3,99.1 L200.5,99.1 L200.7,98.9 L200.9,99.1 L201.1,99.3 L201.3,99.2 L201.4,99.0 L201.6,99.1 L201.8,99.3 L202.0,99.2 L202.2,99.3 L202.4,99.4 L202.6,99.5 L202.8,99.2 L203.0,99.3 L203.2,99.3 L203.4,99.2 L203.6,99.1 L203.8,99.1 L204.0,99.0 L204.2,98.7 L204.4,98.8 L204.6,98.7 L204.7,98.3 L204.9,98.4 L205.1,98.4 L205.3,98.1 L205.5,97.8 L205.7,97.7 L205.9,97.8 L206.1,97.6 L206.3,97.4 L206.5,97.3 L206.7,97.3 L206.9,97.1 L207.1,97.1 L207.3,97.1 L207.5,97.0 L207.7,97.1 L207.9,97.2 L208.0,97.0 L208.2,96.8 L208.4,97.0 L208.6,97.2 L208.8,97.1 L209.0,97.1 L209.2,97.2 L209.4,97.3 L209.6,97.2 L209.8,97.2 L210.0,97.3 L210.2,97.2 L210.4,97.2 L210.6,97.3 L210.8,97.1 L211.0,96.9 L211.1,97.1 L211.3,97.2 L211.5,96.8 L211.7,96.8 L211.9,96.8 L212.1,96.8 L212.3,96.4 L212.5,96.3 L212.7,96.3 L212.9,96.2 L213.1,96.1 L213.3,96.0 L213.5,95.8 L213.7,95.7 L213.9,95.8 L214.1,95.8 L214.3,95.3 L214.4,95.3 L214.6,95.5 L214.8,95.4 L215.0,95.0 L215.2,95.0 L215.4,95.1 L215.6,95.0 L215.8,95.0 L216.0,95.0 L216.2,94.9 L216.4,94.7 L216.6,94.8 L216.8,94.9 L217.0,94.6 L217.2,94.7 L217.4,94.8 L217.6,94.7 L217.7,94.5 L217.9,94.6 L218.1,94.8 L218.3,94.6 L218.5,94.6 L218.7,94.8 L218.9,94.9 L219.1,94.6 L219.3,94.5 L219.5,94.7 L219.7,94.7 L219.9,94.6 L220.1,94.5 L220.3,94.4 L220.5,94.3 L220.7,94.4 L220.9,94.1 L221.0,93.6 L221.2,93.6 L221.4,93.6 L221.6,93.4 L221.8,92.9 L222.0,92.6 L222.2,92.6 L222.4,92.5 L222.6,92.2 L222.8,92.0 L223.0,91.8 L223.2,91.6 L223.4,91.7 L223.6,91.6 L223.8,91.2 L224.0,91.3 L224.1,91.6 L224.3,91.5 L224.5,91.2 L224.7,91.3 L224.9,91.6 L225.1,91.6 L225.3,91.7 L225.5,91.8 L225.7,92.1 L225.9,92.0 L226.1,92.1 L226.3,92.3 L226.5,92.4 L226.7,92.4 L226.9,92.5 L227.1,92.4 L227.3,92.3 L227.4,92.4 L227.6,92.3 L227.8,91.8 L228.0,91.9 L228.2,91.8 L228.4,91.6 L228.6,91.1 L228.8,90.9 L229.0,90.8 L229.2,90.6 L229.4,90.4 L229.6,90.2 L229.8,90.0 L230.0,89.8 L230.2,89.9 L230.4,89.8 L230.6,89.5 L230.7,89.6 L230.9,89.8 L231.1,89.9 L231.3,89.7 L231.5,89.8 L231.7,90.1 L231.9,90.3 L232.1,90.4 L232.3,90.6 L232.5,90.8 L232.7,90.8 L232.9,91.0 L233.1,91.2 L233.3,91.2 L233.5,91.3 L233.7,91.4 L233.9,91.3 L234.0,91.2 L234.2,91.3 L234.4,91.3 L234.6,91.0 L234.8,91.0 L235.0,91.0 L235.2,91.0 L235.4,90.6 L235.6,90.5 L235.8,90.5 L236.0,90.5 L236.2,90.3 L236.4,90.0 L236.6,89.9 L236.8,89.8 L237.0,89.8 L237.1,89.7 L237.3,89.2 L237.5,89.2 L237.7,89.4 L237.9,89.3 L238.1,88.9 L238.3,88.8 L238.5,88.9 L238.7,89.0 L238.9,88.9 L239.1,88.9 L239.3,88.9 L239.5,88.8 L239.7,88.9 L239.9,88.9 L240.1,88.8 L240.3,88.8 L240.4,89.0 L240.6,88.9 L240.8,88.7 L241.0,88.8 L241.2,88.9 L241.4,88.8 L241.6,88.8 L241.8,88.9 L242.0,89.0 L242.2,88.7 L242.4,88.7 L242.6,88.9 L242.8,88.9 L243.0,88.7 L243.2,88.6 L243.4,88.5 L243.6,88.5 L243.7,88.5 L243.9,88.3 L244.1,87.9 L244.3,87.9 L244.5,87.9 L244.7,87.7 L244.9,87.2 L245.1,87.1 L245.3,87.1 L245.5,87.0 L245.7,86.8 L245.9,86.6 L246.1,86.5 L246.3,86.4 L246.5,86.4 L246.7,86.4 L246.9,86.1 L247.0,86.1 L247.2,86.3 L247.4,86.3 L247.6,86.1 L247.8,86.1 L248.0,86.4 L248.2,86.4 L248.4,86.5 L248.6,86.6 L248.8,86.8 L249.0,86.8 L249.2,87.0 L249.4,87.1 L249.6,87.2 L249.8,87.3 L250.0,87.5 L250.1,87.4 L250.3,87.4 L250.5,87.5 L250.7,87.7 L250.9,87.5 L251.1,87.5 L251.3,87.5 L251.5,87.5 L251.7,87.3 L251.9,87.2 L252.1,87.3 L252.3,87.2 L252.5,87.1 L252.7,87.0 L252.9,86.8 L253.1,86.7 L253.3,86.9 L253.4,86.9 L253.6,86.5 L253.8,86.5 L254.0,86.6 L254.2,86.6 L254.4,86.5 L254.6,86.4 L254.8,86.5 L255.0,86.6 L255.2,86.7 L255.4,86.7 L255.6,86.7 L255.8,86.7 L256.0,86.9 L256.2,87.0 L256.4,86.9 L256.6,87.0 L256.7,87.2 L256.9,87.2 L257.1,87.1 L257.3,87.3 L257.5,87.5 L257.7,87.5 L257.9,87.5 L258.1,87.6 L258.3,87.8 L258.5,87.7 L258.7,87.7 L258.9,87.8 L259.1,87.8 L259.3,87.9 L259.5,87.7 L259.7,87.5 L259.9,87.5 L260.0,87.6 L260.2,87.5 L260.4,87.0 L260.6,86.8 L260.8,86.8 L261.0,86.8 L261.2,86.4 L261.4,86.1 L261.6,86.0 L261.8,85.9 L262.0,85.8 L262.2,85.5 L262.4,85.3 L262.6,85.1 L262.8,85.2 L263.0,85.2 L263.1,84.9 L263.3,84.9 L263.5,85.0 L263.7,85.1 L263.9,85.0 L264.1,85.1 L264.3,85.3 L264.5,85.4 L264.7,85.6 L264.9,85.7 L265.1,85.9 L265.3,85.9 L265.5,86.0 L265.7,86.2 L265.9,86.2 L266.1,86.3 L266.3,86.2 L266.4,86.1 L266.6,86.1 L266.8,86.1 L267.0,86.0 L267.2,85.6 L267.4,85.5 L267.6,85.4 L267.8,85.3 L268.0,84.9 L268.2,84.7 L268.4,84.5 L268.6,84.4 L268.8,84.3 L269.0,84.0 L269.2,83.8 L269.4,83.7 L269.6,83.7 L269.7,83.8 L269.9,83.5 L270.1,83.4 L270.3,83.6 L270.5,83.7 L270.7,83.6 L270.9,83.6 L271.1,83.8 L271.3,83.9 L271.5,84.1 L271.7,84.2 L271.9,84.4 L272.1,84.4 L272.3,84.6 L272.5,84.7 L272.7,84.8 L272.9,84.9 L273.0,84.9 L273.2,84.9 L273.4,84.8 L273.6,84.9 L273.8,84.9 L274.0,84.7 L274.2,84.7 L274.4,84.7 L274.6,84.7 L274.8,84.5 L275.0,84.3 L275.2,84.2 L275.4,84.2 L275.6,84.1 L275.8,83.9 L276.0,83.7 L276.1,83.6 L276.3,83.7 L276.5,83.7 L276.7,83.3 L276.9,83.2 L277.1,83.3 L277.3,83.5 L277.5,83.3 L277.7,83.2 L277.9,83.2 L278.1,83.3 L278.3,83.4 L278.5,83.4 L278.7,83.3 L278.9,83.3 L279.1,83.4 L279.3,83.4 L279.4,83.3 L279.6,83.3 L279.8,83.5 L280.0,83.4 L280.2,83.4 L280.4,83.4 L280.6,83.5 L280.8,83.5 L281.0,83.5 L281.2,83.6 L281.4,83.7 L281.6,83.6 L281.8,83.6 L282.0,83.7 L282.2,83.7 L282.4,83.7 L282.6,83.6 L282.7,83.5 L282.9,83.4 L283.1,83.5 L283.3,83.5 L283.5,83.2 L283.7,83.1 L283.9,83.1 L284.1,83.1 L284.3,82.8 L284.5,82.6 L284.7,82.5 L284.9,82.5 L285.1,82.3 L285.3,82.2 L285.5,82.1 L285.7,82.0 L285.9,82.0 L286.0,82.0 L286.2,81.8 L286.4,81.8 L286.6,81.8 L286.8,81.9 L287.0,81.8 L287.2,81.8 L287.4,82.0 L287.6,82.1 L287.8,82.2 L288.0,82.3 L288.2,82.5 L288.4,82.6 L288.6,82.7 L288.8,82.9 L289.0,82.9 L289.1,83.1 L289.3,83.2 L289.5,83.2 L289.7,83.1 L289.9,83.3 L290.1,83.4 L290.3,83.2 L290.5,83.1 L290.7,83.1 L290.9,83.1 L291.1,83.0 L291.3,82.8 L291.5,82.7 L291.7,82.6 L291.9,82.7 L292.1,82.6 L292.3,82.3 L292.4,82.2 L292.6,82.3 L292.8,82.4 L293.0,82.1 L293.2,82.0 L293.4,82.1 L293.6,82.2 L293.8,82.1 L294.0,82.1 L294.2,82.1 L294.4,82.2 L294.6,82.4 L294.8,82.5 L295.0,82.5 L295.2,82.5 L295.4,82.7 L295.6,82.8 L295.7,82.8 L295.9,82.9 L296.1,83.1 L296.3,83.1 L296.5,83.0 L296.7,83.2 L296.9,83.3 L297.1,83.3 L297.3,83.3 L297.5,83.4 L297.7,83.5 L297.9,83.3 L298.1,83.3 L298.3,83.3 L298.5,83.3 L298.7,83.3 L298.9,83.2 L299.0,82.9 L299.2,82.8 L299.4,82.8 L299.6,82.7 L299.8,82.3 L300.0,82.1 L300.2,82.0 L300.4,82.0 L300.6,81.7 L300.8,81.4 L301.0,81.3 L301.2,81.2 L301.4,81.1 L301.6,80.9 L301.8,80.7 L302.0,80.6 L302.1,80.7 L302.3,80.7 L302.5,80.4 L302.7,80.4 L302.9,80.6 L303.1,80.6 L303.3,80.5 L303.5,80.6 L303.7,80.8 L303.9,80.9 L304.1,81.0 L304.3,81.1 L304.5,81.3 L304.7,81.3 L304.9,81.4 L305.1,81.6 L305.3,81.6 L305.4,81.7 L305.6,81.8 L305.8,81.7 L306.0,81.6 L306.2,81.7 L306.4,81.7 L306.6,81.5 L306.8,81.4 L307.0,81.3 L307.2,81.2 L307.4,81.0 L307.6,80.8 L307.8,80.7 L308.0,80.6 L308.2,80.6 L308.4,80.5 L308.6,80.3 L308.7,80.2 L308.9,80.4 L309.1,80.5 L309.3,80.2 L309.5,80.2 L309.7,80.4 L309.9,80.5 L310.1,80.5 L310.3,80.6 L310.5,80.7 L310.7,80.9 L310.9,81.0 L311.1,81.2 L311.3,81.3 L311.5,81.3 L311.7,81.5 L311.9,81.7 L312.0,81.7 L312.2,81.7 L312.4,81.8 L312.6,81.8 L312.8,81.7 L313.0,81.8 L313.2,81.8 L313.4,81.6 L313.6,81.6 L313.8,81.6 L314.0,81.6 L314.2,81.3 L314.4,81.1 L314.6,81.1 L314.8,81.0 L315.0,80.9 L315.1,80.7 L315.3,80.4 L315.5,80.3 L315.7,80.4 L315.9,80.3 L316.1,79.9 L316.3,79.8 L316.5,79.8 L316.7,79.9 L316.9,79.6 L317.1,79.5 L317.3,79.5 L317.5,79.5 L317.7,79.5 L317.9,79.4 L318.1,79.3 L318.3,79.2 L318.4,79.3 L318.6,79.3 L318.8,79.2 L319.0,79.2 L319.2,79.3 L319.4,79.2 L319.6,79.1 L319.8,79.2 L320.0,79.3 L320.2,79.2 L320.4,79.2 L320.6,79.2 L320.8,79.3 L321.0,79.2 L321.2,79.2 L321.4,79.2 L321.6,79.2 L321.7,79.2 L321.9,79.1 L322.1,79.0 L322.3,78.9 L322.5,79.0 L322.7,78.9 L322.9,78.6 L323.1,78.5 L323.3,78.4 L323.5,78.4 L323.7,78.1 L323.9,77.9 L324.1,77.8 L324.3,77.8 L324.5,77.7 L324.7,77.5 L324.9,77.3 L325.0,77.2 L325.2,77.3 L325.4,77.3 L325.6,77.1 L325.8,77.0 L326.0,77.1 L326.2,77.2 L326.4,77.1 L326.6,77.2 L326.8,77.3 L327.0,77.4 L327.2,77.6 L327.4,77.7 L327.6,77.9 L327.8,77.9 L328.0,78.1 L328.1,78.3 L328.3,78.3 L328.5,78.4 L328.7,78.6 L328.9,78.6 L329.1,78.6 L329.3,78.7 L329.5,78.8 L329.7,78.6 L329.9,78.6 L330.1,78.6 L330.3,78.7 L330.5,78.5 L330.7,78.3 L330.9,78.3 L331.1,78.2 L331.3,78.2 L331.4,78.0 L331.6,77.8 L331.8,77.7 L332.0,77.8 L332.2,77.7 L332.4,77.5 L332.6,77.4 L332.8,77.4 L333.0,77.5 L333.2,77.4 L333.4,77.3 L333.6,77.3 L333.8,77.4 L334.0,77.5 L334.2,77.5 L334.4,77.5 L334.6,77.5 L334.7,77.7 L334.9,77.8 L335.1,77.7 L335.3,77.8 L335.5,78.0 L335.7,78.1 L335.9,78.0 L336.1,78.2 L336.3,78.4 L336.5,78.4 L336.7,78.4 L336.9,78.4 L337.1,78.6 L337.3,78.6 L337.5,78.5 L337.7,78.5 L337.9,78.5 L338.0,78.5 L338.2,78.4 L338.4,78.1 L338.6,78.0 L338.8,78.1 L339.0,78.0 L339.2,77.6 L339.4,77.4 L339.6,77.4 L339.8,77.4 L340.0,77.2 L340.2,77.0 L340.4,76.8 L340.6,76.8 L340.8,76.8 L341.0,76.7 L341.1,76.6 L341.3,76.5 L341.5,76.7 L341.7,76.7 L341.9,76.6 L342.1,76.7 L342.3,76.9 L342.5,77.0 L342.7,77.1 L342.9,77.2 L343.1,77.4 L343.3,77.5 L343.5,77.7 L343.7,77.9 L343.9,78.1 L344.1,78.1 L344.3,78.2 L344.4,78.4 L344.6,78.5 L344.8,78.5 L345.0,78.5 L345.2,78.4 L345.4,78.4 L345.6,78.4 L345.8,78.3 L346.0,78.0 L346.2,77.9 L346.4,77.8 L346.6,77.8 L346.8,77.6 L347.0,77.4 L347.2,77.2 L347.4,77.2 L347.6,77.2 L347.7,77.0 L347.9,76.8 L348.1,76.8 L348.3,76.9 L348.5,76.9 L348.7,76.8 L348.9,76.8 L349.1,77.0 L349.3,77.1 L349.5,77.1 L349.7,77.2 L349.9,77.4 L350.1,77.6 L350.3,77.7 L350.5,77.9 L350.7,78.0 L350.9,78.1 L351.0,78.3 L351.2,78.3 L351.4,78.4 L351.6,78.5 L351.8,78.7 L352.0,78.7 L352.2,78.6 L352.4,78.7 L352.6,78.8 L352.8,78.8 L353.0,78.7 L353.2,78.7 L353.4,78.8 L353.6,78.7 L353.8,78.6 L354.0,78.4 L354.1,78.5 L354.3,78.5 L354.5,78.4 L354.7,78.1 L354.9,78.0 L355.1,78.2 L355.3,78.2 L355.5,77.9 L355.7,77.7 L355.9,77.7 L356.1,77.8 L356.3,77.7 L356.5,77.5 L356.7,77.4 L356.9,77.4 L357.1,77.5 L357.3,77.5 L357.4,77.3 L357.6,77.2 L357.8,77.3 L358.0,77.3 L358.2,77.3 L358.4,77.2 L358.6,77.3 L358.8,77.3 L359.0,77.3 L359.2,77.4 L359.4,77.5 L359.6,77.5 L359.8,77.6 L360.0,77.7 L360.2,77.8 L360.4,77.7 L360.6,77.7 L360.7,77.8 L360.9,77.8 L361.1,77.8 L361.3,77.6 L361.5,77.4 L361.7,77.4 L361.9,77.4 L362.1,77.1 L362.3,76.8 L362.5,76.6 L362.7,76.5 L362.9,76.3 L363.1,76.0 L363.3,75.7 L363.5,75.4 L363.7,75.4 L363.9,75.2 L364.0,75.0 L364.2,74.7 L364.4,74.5 L364.6,74.5 L364.8,74.4 L365.0,74.2 L365.2,74.1 L365.4,74.2 L365.6,74.2 L365.8,74.2 L366.0,74.1 L366.2,74.2 L366.4,74.4 L366.6,74.5 L366.8,74.6 L367.0,74.7 L367.1,74.8 L367.3,75.0 L367.5,75.1 L367.7,75.1 L367.9,75.2 L368.1,75.3 L368.3,75.3 L368.5,75.2 L368.7,75.3 L368.9,75.3 L369.1,75.1 L369.3,75.0 L369.5,75.0 L369.7,74.9 L369.9,74.8 L370.1,74.6 L370.3,74.5 L370.4,74.4 L370.6,74.3 L370.8,74.2 L371.0,74.0 L371.2,73.8 L371.4,73.9 L371.6,73.9 L371.8,73.7 L372.0,73.6 L372.2,73.7 L372.4,73.8 L372.6,73.8 L372.8,73.8 L373.0,73.8 L373.2,73.9 L373.4,74.1 L373.6,74.2 L373.7,74.2 L373.9,74.2 L374.1,74.3 L374.3,74.5 L374.5,74.5 L374.7,74.5 L374.9,74.6 L375.1,74.6 L375.3,74.6 L375.5,74.7 L375.7,74.7 L375.9,74.7 L376.1,74.7 L376.3,74.7 L376.5,74.7 L376.7,74.7 L376.9,74.6 L377.0,74.5 L377.2,74.5 L377.4,74.5 L377.6,74.3 L377.8,74.1 L378.0,73.9 L378.2,73.9 L378.4,73.8 L378.6,73.5 L378.8,73.2 L379.0,73.1 L379.2,73.1 L379.4,72.9 L379.6,72.6 L379.8,72.4 L380.0,72.3 L380.1,72.2 L380.3,72.1 L380.5,71.8 L380.7,71.7 L380.9,71.7 L381.1,71.7 L381.3,71.6 L381.5,71.5 L381.7,71.6 L381.9,71.6 L382.1,71.6 L382.3,71.6 L382.5,71.7 L382.7,71.8 L382.9,71.9 L383.1,72.0 L383.3,72.1 L383.4,72.1 L383.6,72.3 L383.8,72.4 L384.0,72.4 L384.2,72.5 L384.4,72.5 L384.6,72.5 L384.8,72.5 L385.0,72.6 L385.2,72.6 L385.4,72.4 L385.6,72.3 L385.8,72.3 L386.0,72.2 L386.2,72.2 L386.4,72.0 L386.6,71.9 L386.7,71.8 L386.9,71.8 L387.1,71.8 L387.3,71.6 L387.5,71.5 L387.7,71.6 L387.9,71.7 L388.1,71.6 L388.3,71.5 L388.5,71.6 L388.7,71.7 L388.9,71.8 L389.1,71.8 L389.3,71.9 L389.5,72.0 L389.7,72.2 L389.9,72.4 L390.0,72.4 L390.2,72.4 L390.4,72.7 L390.6,72.8 L390.8,72.8 L391.0,72.9 L391.2,73.1 L391.4,73.1 L391.6,73.1 L391.8,73.2 L392.0,73.3 L392.2,73.2 L392.4,73.2 L392.6,73.2 L392.8,73.3 L393.0,73.2 L393.1,73.1 L393.3,73.1 L393.5,73.1 L393.7,73.1 L393.9,72.9 L394.1,72.7 L394.3,72.6 L394.5,72.7 L394.7,72.6 L394.9,72.3 L395.1,72.1 L395.3,72.0 L395.5,72.0 L395.7,71.8 L395.9,71.5 L396.1,71.3 L396.3,71.3 L396.4,71.3 L396.6,71.1 L396.8,70.9 L397.0,70.8 L397.2,70.8 L397.4,70.8 L397.6,70.7 L397.8,70.6 L398.0,70.7 L398.2,70.8 L398.4,70.7 L398.6,70.7 L398.8,70.9 L399.0,70.9 L399.2,71.0 L399.4,71.1 L399.6,71.2 L399.7,71.2 L399.9,71.3 L400.1,71.4 L400.3,71.4 L400.5,71.4 L400.7,71.4 L400.9,71.3 L401.1,71.3 L401.3,71.3 L401.5,71.3 L401.7,71.1 L401.9,70.9 L402.1,70.8 L402.3,70.7 L402.5,70.6 L402.7,70.4 L402.9,70.2 L403.0,70.1 L403.2,70.1 L403.4,70.0 L403.6,69.8 L403.8,69.7 L404.0,69.8 L404.2,69.9 L404.4,69.7 L404.6,69.7 L404.8,69.9 L405.0,70.0 L405.2,70.0 L405.4,70.1 L405.6,70.2 L405.8,70.4 L406.0,70.6 L406.1,70.7 L406.3,70.9 L406.5,71.0 L406.7,71.2 L406.9,71.4 L407.1,71.4 L407.3,71.6 L407.5,71.7 L407.7,71.7 L407.9,71.7 L408.1,71.8 L408.3,71.9 L408.5,71.8 L408.7,71.7 L408.9,71.7 L409.1,71.7 L409.3,71.5 L409.4,71.4 L409.6,71.3 L409.8,71.2 L410.0,71.2 L410.2,71.1 L410.4,70.9 L410.6,70.8 L410.8,70.8 L411.0,70.8 L411.2,70.6 L411.4,70.5 L411.6,70.5 L411.8,70.6 L412.0,70.5 L412.2,70.5 L412.4,70.5 L412.6,70.5 L412.7,70.7 L412.9,70.7 L413.1,70.6 L413.3,70.6 L413.5,70.8 L413.7,70.9 L413.9,70.8 L414.1,70.9 L414.3,71.0 L414.5,71.0 L414.7,71.0 L414.9,71.0 L415.1,71.1 L415.3,71.1 L415.5,71.1 L415.7,71.1 L415.9,71.2 L416.0,71.1 L416.2,71.1 L416.4,71.1 L416.6,71.1 L416.8,71.1 L417.0,71.1 L417.2,70.9 L417.4,70.8 L417.6,70.8 L417.8,70.7 L418.0,70.5 L418.2,70.3 L418.4,70.2 L418.6,70.1 L418.8,69.9 L419.0,69.7 L419.1,69.6 L419.3,69.5 L419.5,69.5 L419.7,69.4 L419.9,69.2 L420.1,69.2 L420.3,69.2 L420.5,69.3 L420.7,69.2 L420.9,69.2 L421.1,69.3 L421.3,69.4 L421.5,69.4 L421.7,69.4 L421.9,69.5 L422.1,69.7 L422.3,69.8 L422.4,69.9 L422.6,70.0 L422.8,70.0 L423.0,70.2 L423.2,70.3 L423.4,70.3 L423.6,70.3 L423.8,70.4 L424.0,70.4 L424.2,70.3 L424.4,70.4 L424.6,70.4 L424.8,70.3 L425.0,70.3 L425.2,70.2 L425.4,70.1 L425.6,70.0 L425.7,70.0 L425.9,69.9 L426.1,69.8 L426.3,69.8 L426.5,69.7 L426.7,69.6 L426.9,69.6 L427.1,69.6 L427.3,69.7 L427.5,69.5 L427.7,69.5 L427.9,69.6 L428.1,69.6 L428.3,69.6 L428.5,69.5 L428.7,69.6 L428.9,69.7 L429.0,69.7 L429.2,69.8 L429.4,69.8 L429.6,69.8 L429.8,69.9 L430.0,70.0 L430.2,70.0 L430.4,70.1 L430.6,70.2 L430.8,70.2 L431.0,70.1 L431.2,70.2 L431.4,70.3 L431.6,70.3 L431.8,70.3 L432.0,70.2 L432.1,70.3 L432.3,70.3 L432.5,70.2 L432.7,70.2 L432.9,70.1 L433.1,70.2 L433.3,70.1 L433.5,69.9 L433.7,69.8 L433.9,69.8 L434.1,69.8 L434.3,69.5 L434.5,69.4 L434.7,69.3 L434.9,69.2 L435.1,69.0 L435.3,68.8 L435.4,68.7 L435.6,68.6 L435.8,68.6 L436.0,68.5 L436.2,68.3 L436.4,68.2 L436.6,68.2 L436.8,68.3 L437.0,68.1 L437.2,68.1 L437.4,68.2 L437.6,68.2 L437.8,68.2 L438.0,68.2 L438.2,68.4 L438.4,68.4 L438.6,68.5 L438.7,68.6 L438.9,68.7 L439.1,68.8 L439.3,68.8 L439.5,68.9 L439.7,69.0 L439.9,69.0 L440.1,69.0 L440.3,68.9 L440.5,68.9 L440.7,68.9 L440.9,68.9 L441.1,68.7 L441.3,68.5 L441.5,68.5 L441.7,68.4 L441.9,68.2 L442.0,68.0 L442.2,67.9 L442.4,67.8 L442.6,67.7 L442.8,67.6 L443.0,67.4 L443.2,67.3 L443.4,67.4 L443.6,67.4 L443.8,67.2 L444.0,67.2 L444.2,67.4 L444.4,67.4 L444.6,67.4 L444.8,67.5 L445.0,67.6 L445.1,67.7 L445.3,67.9 L445.5,67.9 L445.7,68.0 L445.9,68.1 L446.1,68.2 L446.3,68.4 L446.5,68.3 L446.7,68.4 L446.9,68.5 L447.1,68.5 L447.3,68.5 L447.5,68.5 L447.7,68.6 L447.9,68.6 L448.1,68.5 L448.3,68.5 L448.4,68.5 L448.6,68.4 L448.8,68.3 L449.0,68.3 L449.2,68.2 L449.4,68.2 L449.6,68.1 L449.8,67.9 L450.0,67.8 L450.2,67.9 L450.4,67.8 L450.6,67.6 L450.8,67.5 L451.0,67.5 L451.2,67.5 L451.4,67.4 L451.6,67.3 L451.7,67.2 L451.9,67.2 L452.1,67.2 L452.3,67.2 L452.5,67.1 L452.7,67.0 L452.9,67.1 L453.1,67.2 L453.3,67.1 L453.5,67.0 L453.7,67.1 L453.9,67.1 L454.1,67.1 L454.3,67.2 L454.5,67.2 L454.7,67.2 L454.9,67.3 L455.0,67.4 L455.2,67.4 L455.4,67.4 L455.6,67.4 L455.8,67.4 L456.0,67.4 L456.2,67.4 L456.4,67.3 L456.6,67.2 L456.8,67.1 L457.0,67.1 L457.2,66.9 L457.4,66.7 L457.6,66.5 L457.8,66.4 L458.0,66.3 L458.1,66.0 L458.3,65.8 L458.5,65.6 L458.7,65.6 L458.9,65.4 L459.1,65.3 L459.3,65.1 L459.5,65.0 L459.7,65.0 L459.9,65.0 L460.1,64.8 L460.3,64.8 L460.5,64.9 L460.7,65.0 L460.9,64.9 L461.1,64.9 L461.3,65.1 L461.4,65.2 L461.6,65.4 L461.8,65.5 L462.0,65.6 L462.2,65.8 L462.4,65.9 L462.6,66.0 L462.8,66.1 L463.0,66.2 L463.2,66.3 L463.4,66.3 L463.6,66.2 L463.8,66.3 L464.0,66.3 L464.2,66.3 L464.4,66.2 L464.6,66.1 L464.7,66.0 L464.9,65.9 L465.1,65.9 L465.3,65.7 L465.5,65.6 L465.7,65.6 L465.9,65.6 L466.1,65.4 L466.3,65.3 L466.5,65.4 L466.7,65.4 L466.9,65.3 L467.1,65.3 L467.3,65.3 L467.5,65.5 L467.7,65.5 L467.9,65.6 L468.0,65.6 L468.2,65.7 L468.4,65.9 L468.6,66.0 L468.8,66.0 L469.0,66.0 L469.2,66.1 L469.4,66.3 L469.6,66.3 L469.8,66.3 L470.0,66.4 L470.2,66.4 L470.4,66.4 L470.6,66.4 L470.8,66.5 L471.0,66.4 L471.1,66.5 L471.3,66.5 L471.5,66.5 L471.7,66.4 L471.9,66.4 L472.1,66.3 L472.3,66.3 L472.5,66.3 L472.7,66.2 L472.9,66.0 L473.1,65.9 L473.3,65.9 L473.5,65.8 L473.7,65.5 L473.9,65.3 L474.1,65.2 L474.3,65.1 L474.4,64.9 L474.6,64.6 L474.8,64.5 L475.0,64.4 L475.2,64.3 L475.4,64.1 L475.6,63.9 L475.8,63.8 L476.0,63.8 L476.2,63.8 L476.4,63.7 L476.6,63.6 L476.8,63.7 L477.0,63.7 L477.2,63.7 L477.4,63.7 L477.6,63.8 L477.7,63.9 L477.9,64.0 L478.1,64.1 L478.3,64.2 L478.5,64.3 L478.7,64.4 L478.9,64.5 L479.1,64.6 L479.3,64.6 L479.5,64.7 L479.7,64.7 L479.9,64.7 L480.1,64.7 L480.3,64.7 L480.5,64.6 L480.7,64.5 L480.9,64.4 L481.0,64.4 L481.2,64.3 L481.4,64.2 L481.6,64.1 L481.8,64.0 L482.0,64.0 L482.2,63.9 L482.4,63.8 L482.6,63.7 L482.8,63.8 L483.0,63.9 L483.2,63.8 L483.4,63.8 L483.6,63.8 L483.8,64.0 L484.0,64.1 L484.1,64.2 L484.3,64.2 L484.5,64.4 L484.7,64.6 L484.9,64.8 L485.1,64.9 L485.3,65.0 L485.5,65.2 L485.7,65.3 L485.9,65.4 L486.1,65.4 L486.3,65.6 L486.5,65.6 L486.7,65.6 L486.9,65.7 L487.1,65.8 L487.3,65.8 L487.4,65.8 L487.6,65.8 L487.8,65.8 L488.0,65.8 L488.2,65.7 L488.4,65.6 L488.6,65.6 L488.8,65.6 L489.0,65.5 L489.2,65.3 L489.4,65.2 L489.6,65.3 L489.8,65.2 L490.0,65.0 L490.2,64.8 L490.4,64.7 L490.6,64.7 L490.7,64.6 L490.9,64.4 L491.1,64.2 L491.3,64.2 L491.5,64.3 L491.7,64.1 L491.9,63.9 L492.1,63.8 L492.3,63.9 L492.5,64.0 L492.7,63.8 L492.9,63.8 L493.1,63.9 L493.3,63.9 L493.5,63.9 L493.7,63.9 L493.9,64.0 L494.0,64.1 L494.2,64.2 L494.4,64.3 L494.6,64.3 L494.8,64.4 L495.0,64.4 L495.2,64.5 L495.4,64.6 L495.6,64.6 L495.8,64.5 L496.0,64.5 L496.2,64.4 L496.4,64.4 L496.6,64.3 L496.8,64.1 L497.0,64.0 L497.1,63.8 L497.3,63.8 L497.5,63.6 L497.7,63.4 L497.9,63.2 L498.1,63.2 L498.3,63.1 L498.5,63.0 L498.7,62.8 L498.9,62.7 L499.1,62.8 L499.3,62.8 L499.5,62.7 L499.7,62.7 L499.9,62.8 L500.1,62.9 L500.3,63.0 L500.4,63.0 L500.6,63.2 L500.8,63.3 L501.0,63.6 L501.2,63.7 L501.4,63.8 L501.6,64.0 L501.8,64.1 L502.0,64.2 L502.2,64.3 L502.4,64.4 L502.6,64.5 L502.8,64.5 L503.0,64.5 L503.2,64.5 L503.4,64.5 L503.6,64.4 L503.7,64.3 L503.9,64.2 L504.1,64.2 L504.3,64.1 L504.5,63.9 L504.7,63.8 L504.9,63.7 L505.1,63.8 L505.3,63.6 L505.5,63.5 L505.7,63.4 L505.9,63.4 L506.1,63.5 L506.3,63.4 L506.5,63.3 L506.7,63.3 L506.9,63.4 L507.0,63.5 L507.2,63.5 L507.4,63.4 L507.6,63.5 L507.8,63.6 L508.0,63.7 L508.2,63.6 L508.4,63.6 L508.6,63.7 L508.8,63.8 L509.0,63.8 L509.2,63.7 L509.4,63.7 L509.6,63.7 L509.8,63.7 L510.0,63.7 L510.1,63.7 L510.3,63.7 L510.5,63.7 L510.7,63.7 L510.9,63.6 L511.1,63.6 L511.3,63.6 L511.5,63.5 L511.7,63.5 L511.9,63.6 L512.1,63.5 L512.3,63.4 L512.5,63.3 L512.7,63.3 L512.9,63.2 L513.1,63.1 L513.3,62.9 L513.4,62.8 L513.6,62.8 L513.8,62.6 L514.0,62.4 L514.2,62.2 L514.4,62.2 L514.6,62.2 L514.8,62.0 L515.0,61.8 L515.2,61.7 L515.4,61.7 L515.6,61.7 L515.8,61.5 L516.0,61.4 L516.2,61.5 L516.4,61.5 L516.6,61.5 L516.7,61.5 L516.9,61.6 L517.1,61.7 L517.3,61.8 L517.5,61.9 L517.7,61.9 L517.9,62.1 L518.1,62.2 L518.3,62.3 L518.5,62.3 L518.7,62.4 L518.9,62.5 L519.1,62.6 L519.3,62.5 L519.5,62.5 L519.7,62.6 L519.9,62.6 L520.0,62.5 L520.2,62.4 L520.4,62.4 L520.6,62.4 L520.8,62.2 L521.0,62.0 L521.2,62.0 L521.4,62.0 L521.6,61.9 L521.8,61.7 L522.0,61.6 L522.2,61.7 L522.4,61.8 L522.6,61.7 L522.8,61.6 L523.0,61.6 L523.1,61.8 L523.3,61.9 L523.5,62.0 L523.7,61.9 L523.9,62.1 L524.1,62.3 L524.3,62.5 L524.5,62.5 L524.7,62.6 L524.9,62.9 L525.1,63.1 L525.3,63.1 L525.5,63.2 L525.7,63.4 L525.9,63.5 L526.1,63.6 L526.3,63.7 L526.4,63.8 L526.6,63.8 L526.8,63.8 L527.0,63.8 L527.2,63.9 L527.4,63.9 L527.6,63.8 L527.8,63.7 L528.0,63.7 L528.2,63.8 L528.4,63.7 L528.6,63.5 L528.8,63.4 L529.0,63.4 L529.2,63.5 L529.4,63.3 L529.6,63.1 L529.7,63.0 L529.9,63.1 L530.1,63.1 L530.3,62.9 L530.5,62.7 L530.7,62.7 L530.9,62.8 L531.1,62.8 L531.3,62.6 L531.5,62.6 L531.7,62.8 L531.9,62.9 L532.1,62.8 L532.3,62.8 L532.5,62.9 L532.7,63.1 L532.9,63.2 L533.0,63.2 L533.2,63.3 L533.4,63.5 L533.6,63.6 L533.8,63.6 L534.0,63.7 L534.2,63.8 L534.4,63.8 L534.6,63.8 L534.8,63.9 L535.0,63.9 L535.2,63.8 L535.4,63.7 L535.6,63.6 L535.8,63.5 L536.0,63.5 L536.1,63.3 L536.3,63.1 L536.5,63.0 L536.7,63.0 L536.9,62.9 L537.1,62.7 L537.3,62.5 L537.5,62.5 L537.7,62.5 L537.9,62.5 L538.1,62.3 L538.3,62.3 L538.5,62.4 L538.7,62.5 L538.9,62.5 L539.1,62.5 L539.3,62.7 L539.4,62.9 L539.6,63.0 L539.8,63.1 L540.0,63.3 L540.2,63.5 L540.4,63.7 L540.6,63.8 L540.8,63.9 L541.0,64.1 L541.2,64.2 L541.4,64.3 L541.6,64.4 L541.8,64.5 L542.0,64.5 L542.2,64.5 L542.4,64.5 L542.6,64.5 L542.7,64.5 L542.9,64.5 L543.1,64.4 L543.3,64.3 L543.5,64.3 L543.7,64.3 L543.9,64.2 L544.1,64.0 L544.3,64.0 L544.5,64.0 L544.7,64.0 L544.9,63.9 L545.1,63.8 L545.3,63.8 L545.5,64.0 L545.7,64.0 L545.9,63.9 L546.0,63.8 L546.2,64.0 L546.4,64.2 L546.6,64.2 L546.8,64.1 L547.0,64.2 L547.2,64.4 L547.4,64.5 L547.6,64.5 L547.8,64.5 L548.0,64.6 L548.2,64.7 L548.4,64.7 L548.6,64.7 L548.8,64.7 L549.0,64.7 L549.1,64.7 L549.3,64.8 L549.5,64.8 L549.7,64.7 L549.9,64.7 L550.1,64.7 L550.3,64.7 L550.5,64.7 L550.7,64.6 L550.9,64.5 L551.1,64.4 L551.3,64.4 L551.5,64.3 L551.7,64.1 L551.9,64.0 L552.1,63.9 L552.3,63.9 L552.4,63.7 L552.6,63.4 L552.8,63.3 L553.0,63.3 L553.2,63.2 L553.4,62.9 L553.6,62.7 L553.8,62.6 L554.0,62.6 L554.2,62.5 L554.4,62.3 L554.6,62.2 L554.8,62.3 L555.0,62.3 L555.2,62.2 L555.4,62.1 L555.6,62.1 L555.7,62.3 L555.9,62.3 L556.1,62.3 L556.3,62.4 L556.5,62.5 L556.7,62.6 L556.9,62.7 L557.1,62.7 L557.3,62.8 L557.5,62.9 L557.7,62.9 L557.9,62.9 L558.1,62.9 L558.3,63.0 L558.5,63.0 L558.7,62.8 L558.9,62.8 L559.0,62.8 L559.2,62.7 L559.4,62.6 L559.6,62.4 L559.8,62.4 L560.0,62.4 L560.2,62.3 L560.4,62.1 L560.6,62.0 L560.8,62.1 L561.0,62.1 L561.2,61.9 L561.4,61.9 L561.6,61.9 L561.8,62.0 L562.0,62.1 L562.1,62.0 L562.3,62.0 L562.5,62.2 L562.7,62.4 L562.9,62.4 L563.1,62.4 L563.3,62.5 L563.5,62.8 L563.7,62.9 L563.9,63.0 L564.1,63.0 L564.3,63.2 L564.5,63.3 L564.7,63.3 L564.9,63.4 L565.1,63.5 L565.3,63.6 L565.4,63.6 L565.6,63.6 L565.8,63.6 L566.0,63.6 L566.2,63.6 L566.4,63.5 L566.6,63.5 L566.8,63.5 L567.0,63.4 L567.2,63.3 L567.4,63.2 L567.6,63.2 L567.8,63.2 L568.0,62.9 L568.2,62.8 L568.4,62.7 L568.6,62.7 L568.7,62.6 L568.9,62.4 L569.1,62.2 L569.3,62.3 L569.5,62.3 L569.7,62.1 L569.9,61.9 L570.1,61.9 L570.3,62.0 L570.5,62.0 L570.7,61.8 L570.9,61.8 L571.1,61.9 L571.3,62.0 L571.5,62.0 L571.7,62.0 L571.9,62.1 L572.0,62.3 L572.2,62.3 L572.4,62.4 L572.6,62.5 L572.8,62.6 L573.0,62.7 L573.2,62.7 L573.4,62.8 L573.6,62.9 L573.8,62.9 L574.0,62.9 L574.2,62.8 L574.4,62.8 L574.6,62.8 L574.8,62.7 L575.0,62.6 L575.1,62.5 L575.3,62.4 L575.5,62.4 L575.7,62.2 L575.9,62.1 L576.1,62.0 L576.3,62.1 L576.5,62.0 L576.7,61.8 L576.9,61.8 L577.1,61.9 L577.3,62.0 L577.5,61.9 L577.7,61.9 L577.9,62.1 L578.1,62.3 L578.3,62.4 L578.4,62.5 L578.6,62.6 L578.8,62.8 L579.0,63.1 L579.2,63.2 L579.4,63.3 L579.6,63.5 L579.8,63.7 L580.0,63.8" fill="none" stroke="#0d366b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class=""/>
+<text x="586.0" y="67.8" class="note" text-anchor="start">n = 8</text>
+<line x1="66" y1="48" x2="82" y2="48" stroke="#86b6ef" stroke-width="2"/>
+<text x="88" y="52" class="legend">n = 4</text>
+<line x1="66" y1="63" x2="82" y2="63" stroke="#5598e7" stroke-width="2"/>
+<text x="88" y="67" class="legend">n = 5</text>
+<line x1="66" y1="78" x2="82" y2="78" stroke="#2a78d6" stroke-width="2"/>
+<text x="88" y="82" class="legend">n = 6</text>
+<line x1="66" y1="93" x2="82" y2="93" stroke="#1c5cab" stroke-width="2"/>
+<text x="88" y="97" class="legend">n = 7</text>
+<line x1="66" y1="108" x2="82" y2="108" stroke="#0d366b" stroke-width="2"/>
+<text x="88" y="112" class="legend">n = 8</text>
+</svg><figcaption>Figure 8. The width of each search level, for levels 4 to 8 of the puzzle, against the depth as a share of the depth where the two ends met. Level 3, with only 21 levels, is omitted. The curves have the same shape and are spaced by a factor of about 7.6.</figcaption></figure>
+<table class="num"><thead><tr><th>n</th><th>levels searched</th><th>widest level (keys)</th><th>where</th><th>last level</th><th>keys in all levels</th><th>memory of the widest level</th><th>disk for every level</th></tr></thead><tbody>
+<tr><td>3</td><td>21</td><td>92</td><td>95%</td><td>91</td><td>962</td><td>0.0 MB</td><td>0.00 GB</td></tr>
+<tr><td>4</td><td>64</td><td>704</td><td>94%</td><td>633</td><td>19,118</td><td>0.0 MB</td><td>0.00 GB</td></tr>
+<tr><td>5</td><td>172</td><td>5,411</td><td>90%</td><td>4,548</td><td>369,245</td><td>0.1 MB</td><td>0.01 GB</td></tr>
+<tr><td>6</td><td>441</td><td>39,340</td><td>89%</td><td>33,691</td><td>6,938,587</td><td>0.6 MB</td><td>0.11 GB</td></tr>
+<tr><td>7</td><td>1095</td><td>304,105</td><td>88%</td><td>257,923</td><td>129,878,978</td><td>4.9 MB</td><td>2.08 GB</td></tr>
+<tr><td>8</td><td>2680</td><td>2,310,894</td><td>88%</td><td>1,992,506</td><td>2,435,366,753</td><td>37.0 MB</td><td>38.97 GB</td></tr>
+<tr><td>9 (est.)</td><td>6,512</td><td>~17.6M</td><td>~88%</td><td>—</td><td>~45.8G</td><td>~0.3 GB</td><td>~0.7 TB</td></tr>
+<tr><td>10 (est.)</td><td>15,769</td><td>~133M</td><td>~88%</td><td>—</td><td>~861G</td><td>~2.1 GB</td><td>~13.8 TB</td></tr>
+<tr><td>11 (est.)</td><td>38,123</td><td>~1.01G</td><td>~88%</td><td>—</td><td>~16.2T</td><td>~16.2 GB</td><td>~258.9 TB</td></tr>
+</tbody></table>
+<p class="meta">Table 5. The level profiles from the re-runs, and extrapolations for levels 9 to 11 at the measured ratios of 7.6 (widest level) and 18.8 (total). Keys are canonical: each stands for a twin pair. "Disk for every level" is the space needed to keep every level for tracing the path; beyond the disk budget the store thins to every 2nd, 4th, … level. Sizes are decimal (GB = 10<sup>9</sup> bytes).</p>
+<h3>6.1 The level-10 slowdown</h3>
+<p>Levels 7, 8 and 9 ran at 33, 30 and 31 million stackings per second; level 10 averaged 8.1 million, so about 44 of its 58.6 hours were spent beyond what its size predicts. The file does not record why, but the data narrow the possibilities. The widest level (about 2 GB) and the two or three levels in memory at once fit the 16 GB budget, so the search itself was not memory bound, but the application and the rest of the system share the 32 GB, and macOS compresses or swaps under pressure. The store cannot have kept every level: 13.8 TB of levels against a budget of at most 200 GB means the interval doubled to at least 128, so tracing the path back grew balls of up to 127 moves between stored levels, each a search of its own; the autosave wrote the three newest levels, up to about 6 GB, every 20 minutes for 58 hours, several hundred gigabytes of writes in all; and a laptop running 58 hours at full load may throttle. A re-run with the level log on, which prints the time per level, would show where the hours went; section 7.4 lists what to change if the trace-back or the writes are to blame.</p>
+
+<h2 id="s7">7. Could the pattern make the solves faster?</h2>
+
+<h3>7.1 What is certain, and what is not</h3>
+<p>Three things are proven. The transfer minimum T(n) is known for every n, with a proof that works for all n. The swap minimum X(n) is known for n ≤ 13 by exhaustive search, and for n = 3 to 10 the file's solves are an independent proof: the solver's search is complete to half the length from each end, so no shorter path exists. The formula of section 3.2 is the length of a known algorithm, hence an upper bound for every n; the proven lower bound is 12.8% below it. So for n ≥ 14 the formula is a prediction, not a certainty, and the only known ways to settle a level are an exhaustive search of some kind or a new proof. Nothing in the eight solves contradicts the formula, and the regularity of the structure found (section 4) is evidence that the algorithm is optimal in general, but evidence is not proof.</p>
+<h3>7.2 Construct rather than search</h3>
+<p>For the standard puzzle, the answer need not be searched for at all. The transfer algorithm is fully specified in the published paper (T<sub>n</sub> = T̄<sub>n−1</sub>, S<sub>n−1</sub>, four moves, T<sub>n−2</sub>, with the small cases given), and the swap algorithm is specified as four sequences of these macros plus a few fixed move sequences (the paper's Y, W, V and the four-move exchange), which the solutions found here match phase by phase. Implementing the construction would answer any standard swap or transfer in the time it takes to write the moves out, a few milliseconds for level 10 against 58.6 hours, with a length proven optimal to level 13 and the best known beyond. This is the same kind of shortcut the solver already takes for the Tower of Hanoi. It would be honest to flag such a result as "known optimal (proven to level 13)" rather than "shortest found by search", and to keep the search for everything else: pocket columns, the outside channel, mixed piece sizes, other start and goal positions, and for anyone who wants the proof.</p>
+<h3>7.3 Using the structure inside a search</h3>
+<p>The regularities of section 4 could shorten a proof search, but less than one might hope, because the cost of a breadth-first search is in its widest levels and the regularities constrain the ends. Fixing the first and last T̄(n−1) moves (2018 of 15,769 levels per side at level 10) removes the cheapest 13% of the levels. Splitting the search at the midpoint landmark would need a proof that every optimal solution passes through it, and even then the two half searches would each reach a frontier about a third as wide as the current peak, a saving of perhaps three to five times. Lower-bound heuristics, the usual way to prune such searches, are weak here: the relaxation experiment shows that dropping the small pieces from the problem keeps almost all of the length but leaves a state space that is still astronomically large, while dropping the deepest pieces loses the length entirely. The orders of magnitude lie in the corridor (section 4.5): a search that generates only the stackings that can be on a shortest path, which is what the unavoidable-position arguments of the published proof do for the transfer, and what Kisman's 30-minute search presumably does for the swap. That is a research project rather than a tuning, and the first step would be to obtain and study his method.</p>
+<h3>7.4 Engineering steps within the current design</h3>
+<ul>
+<li><b>Half the key size.</b> The 128-bit key spends 120 bits on 24 five-bit symbols; the reachable stackings of the level-10 swap number about 5 × 10<sup>12</sup> (Table 7's counts grow 19-fold per level), which a ranking of the arrangement would fit into 43 bits. Eight-byte keys halve the memory of every level, the disk, and the bytes every sort and merge moves. The format of saved searches would change, so the original's files would no longer be shared.</li>
+<li><b>Compress the stored levels.</b> Sorted keys delta-encode well: the gaps between neighbours in a level are small, so a variable-length encoding of the differences should take a few bytes per key instead of 16. That lets the store keep every 16th or 32nd level where it now keeps every 128th at level 10, which shortens the trace-back, and it cuts the terabyte of autosave writes to a fraction.</li>
+<li><b>Stream the levels.</b> Level 11 needs about 16 GB per level. A search that keeps the current and previous levels on disk and streams them through the expansion (an external-memory breadth-first search, which the sorted-run structure of the levels already suits) would make level 11 a question of weeks of disk time rather than of memory.</li>
+<li><b>Find the level-10 hours.</b> Run level 10 with the level log and the per-level times, or add the timing of the trace-back and the saves to the solver's progress, before changing anything else; the fix depends on which of the candidates in section 6.1 it is.</li>
+<li><b>Count exactly.</b> Count self-twin stackings once in the stackings-found figure and record the exact depth for odd lengths, so that the file's statistics match the ball sizes in Table 7.</li>
+</ul>
+
+<h2 id="s8">8. Conclusions</h2>
+
+<p>The eight solves settle, independently of the published searches, the shortest swap for towers of 3 to 10 pieces, and they fit a closed formula built on the Pell numbers: the move count of the Manasse, Sleator and Wei algorithm, which grows by the silver ratio 1 + √2 per level. The solutions share one skeleton: an optimal transfer at each end, the two deepest pieces shuttling and sinking in the centre in between, the smallest pieces doing three quarters of the work, and a recognisable midpoint. The solver that found them is a carefully engineered frontier search: 128-bit keys, two levels in memory, a mirror in place of a second search, twin folding, radix sorts and range-partitioned merges on every core, and a disk store that lets it pause, resume and trace its path. Its cost grows 18.8-fold per level against a 2.4-fold answer, so level 10 is close to the limit of a 32 GB laptop and level 11 is out of reach without streaming levels from disk. The clearest gain is not in the search at all: for the standard swap the answer can be constructed from the known algorithm in milliseconds, with optimality proven to level 13. Beyond that, the measured corridor of shortest solutions, a few dozen states wide against frontiers of millions, is where a structural search would find its orders of magnitude; it is also the open mathematical question, since the formula is proven only as far as the searches have gone.</p>
+
+<h2 id="s9">9. Appendix: formulas, tables and methods</h2>
+
+<h3>A.1 Formulas</h3>
+<p class="formula">Pell numbers: P<sub>0</sub> = 0, P<sub>1</sub> = 1, P<sub>n</sub> = 2P<sub>n−1</sub> + P<sub>n−2</sub>. &nbsp; Companion Pell numbers: Q<sub>n</sub> = (1+√2)<sup>n</sup> + (1−√2)<sup>n</sup> = 2(P<sub>n</sub> + P<sub>n−1</sub>).</p>
+<p class="formula">Transfer: T(n) = (7/4)·Q<sub>n−1</sub> + ((−1)<sup>n</sup> − 2)/2 for n ≥ 3; &nbsp; T̄(n) = (7/4)·Q<sub>n−1</sub> − 3/2; &nbsp; S(n) = T̄(n) − 1.</p>
+<p class="formula">Swap: X(n) = 7·(5P<sub>n−1</sub> − P<sub>n−2</sub>) − 8n − 2 = 7·(7P<sub>n−1</sub> − P<sub>n</sub>) − 8n − 2 for 5 ≤ n ≤ 13 (proven), conjectured beyond; &nbsp; X(n) = 2X(n−1) + X(n−2) + 16n − 28 for n ≥ 7.</p>
+<p class="formula">Lower bound: L(n) = 4·(T(n) + T(n−1) − 2); &nbsp; L(n)/U(n) → (12 + 2√2)/17 ≈ 0.872.</p>
+<p>Checks: X(10) = 7·(5·985 − 408) − 82 = 31,537; X(13) = 7·(5·13860 − 5741) − 106 = 444,807; T(10) = (7/4)·2786 − 1/2 = 4875.</p>
+<h3>A.2 Moves by size at every level</h3>
+<table class="num small"><thead><tr><th>n</th><th>size 1</th><th>size 2</th><th>size 3</th><th>size 4</th><th>size 5</th><th>size 6</th><th>size 7</th><th>size 8</th><th>size 9</th><th>size 10</th></tr></thead><tbody>
+<tr><td>3</td><td>17 (40%)</td><td>15 (36%)</td><td>10 (24%)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>4</td><td>44 (34%)</td><td>37 (29%)</td><td>29 (23%)</td><td>18 (14%)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>5</td><td>111 (32%)</td><td>87 (25%)</td><td>72 (21%)</td><td>45 (13%)</td><td>28 (8%)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>6</td><td>274 (31%)</td><td>218 (25%)</td><td>185 (21%)</td><td>106 (12%)</td><td>64 (7%)</td><td>34 (4%)</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>7</td><td>665 (30%)</td><td>533 (24%)</td><td>454 (21%)</td><td>268 (12%)</td><td>148 (7%)</td><td>77 (4%)</td><td>44 (2%)</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>8</td><td>1,592 (30%)</td><td>1,331 (25%)</td><td>1,123 (21%)</td><td>614 (11%)</td><td>382 (7%)</td><td>172 (3%)</td><td>96 (2%)</td><td>49 (1%)</td><td>—</td><td>—</td></tr>
+<tr><td>9</td><td>3,853 (30%)</td><td>3,146 (24%)</td><td>2,714 (21%)</td><td>1,551 (12%)</td><td>920 (7%)</td><td>453 (3%)</td><td>221 (2%)</td><td>105 (1%)</td><td>60 (0%)</td><td>—</td></tr>
+<tr><td>10</td><td>9,409 (30%)</td><td>7,555 (24%)</td><td>6,458 (20%)</td><td>3,785 (12%)</td><td>2,234 (7%)</td><td>1,087 (3%)</td><td>566 (2%)</td><td>249 (1%)</td><td>128 (0%)</td><td>66 (0%)</td></tr>
+</tbody></table>
+<p class="meta">Table 8. Moves made by the pieces of each size (both towers together) in the file's solutions, with their share of the solution.</p>
+<h3>A.3 Methods</h3>
+<ul>
+<li>Each solution's frames in the solve file (three per transfer) were turned into resting stackings and then into transfers, checking that exactly one piece changes column per transfer, from and to the top of a column.</li>
+<li>Levels 3 to 8 were re-solved with <span class="mono">shapelogic_cli -d --solver panex --panex-log --high-memory</span> to obtain the size of every level; the solver deletes its folder when it finishes.</li>
+<li>Levels 3 to 5 were searched completely in Python with the same rules, counting states per distance, shortest solutions (dynamic programming over the breadth-first layers), states on some shortest path (distance from the start plus distance to the goal equal to the length), self-twin states, and the relaxed optima of section 4.6 (the shortest distance from the start to any goal with the chosen pairs exchanged).</li>
+<li>The recurrence was found from the residues of the Pell recurrence and checked against the nine proven values; the closed form was then identified with the published U(n).</li>
+</ul>
+
+<h2 id="s10">10. References</h2>
+
+<ol class="refs">
+<li>M. Manasse, D. Sleator, V. K. Wei, N. Baxter, "The Panex Puzzle", in <i>A Tribute to a Mathemagician</i>, A K Peters, 2004 (based on the unpublished 1983 paper "Some results on the Panex puzzle"). <a href="https://puzzleworld.org/SlidingBlockPuzzles/panex/panex5.pdf">puzzleworld.org/SlidingBlockPuzzles/panex/panex5.pdf</a></li>
+<li>N. Baxter, "Panex Puzzle Resources": the papers, the original search program, the news of D. Kisman's 2010 verification of 31,537 moves and his results for levels 11 to 13. <a href="http://baxterweb.com/puzzles/panex/">baxterweb.com/puzzles/panex/</a></li>
+<li>N. Baxter, "Recent Results for the Panex Puzzle", G4G5, 2002, revised 2008 (D. Bagley's confirmation of level 9).</li>
+<li>J. Scherphuis, "Panex", Jaap's Puzzle Page: the recursion, the move-count tables and the human solving strategy. <a href="https://www.jaapsch.net/puzzles/panex.htm">jaapsch.net/puzzles/panex.htm</a></li>
+<li>R. Stegmann, "Sequential Movement Puzzles", Rob's Puzzle Page (the date of Kisman's result, 21 November 2010). <a href="https://www.robspuzzlepage.com/seqmove.htm">robspuzzlepage.com/seqmove.htm</a></li>
+<li>ShapeLogic sources: <span class="mono">core/shapelogic/solve/panex_search.{h,cpp}</span>, <span class="mono">core/shapelogic/model/stacking.{h,cpp}</span>, <span class="mono">docs/handoff/deferred-3a.md</span>, decision 0015.</li>
+</ol>
+</main>
+</body></html>

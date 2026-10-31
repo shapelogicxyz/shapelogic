@@ -480,10 +480,9 @@ TEST_CASE("stacking session: the progress of a Panex search", "[stacking][parall
   s.wait();
   const SolveProgress p = s.progress();
   CHECK(p.stage == SolveStage::Done);
-  // both ends met 343 moves apart; the depth shown is where they stood
-  // before the last level (342 here, as the original's GUI showed)
-  CHECK(p.searchDepth >= 342);
-  CHECK(p.searchDepth <= 343);
+  // both ends met 343 moves apart, and the depth shown is the moves (the
+  // original's GUI showed 342: an odd path met before its depth moved on)
+  CHECK(p.searchDepth == 343);
   CHECK(p.searched == pr.getSearched());
   CHECK(pr.getSearchDepth() == p.searchDepth);
   // the run may be over before a look sees it searching

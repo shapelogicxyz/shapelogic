@@ -80,18 +80,16 @@ export class PiecesCard {
       ? 'double-click or + to put on the rod'
       : 'drag, double-click or + to add';
 
-    // the result: a sliding puzzle's is its start/goal shape, for good
-    const fixedResult = ws.store.snapshot?.grid === 'sliding';
-    const change = fixedResult
-      ? ''
-      : '<button class="btn sm" id="pzChange" title="Choose another shape as this problem’s result">Change…</button>';
+    // the result: on a sliding puzzle, one of its boards
+    const sliding = ws.store.snapshot?.grid === 'sliding';
+    const change = `<button class="btn sm" id="pzChange" title="${sliding ? 'Choose a board as this problem’s result' : 'Choose another shape as this problem’s result'}">Change…</button>`;
     const R = result === null ? undefined : byShape.get(result);
     const f = ws.fit;
     if (d === null) {
       byId('pzResult').innerHTML = '';
     } else if (R === undefined) {
       byId('pzResult').innerHTML =
-        `<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b>Result piece <span class="req">(required)</span></b><span>Choose the shape the pieces fill</span></div>${change}`;
+        `<span class="chip" style="background:var(--muted)">–</span><div class="meta"><b>${sliding ? 'Board' : 'Result piece'} <span class="req">(required)</span></b><span>${sliding ? 'Choose the board the pieces slide on' : 'Choose the shape the pieces fill'}</span></div>${change}`;
     } else {
       const c = ws.chip(R.id);
       const hold = f === null ? '' : ` · can hold ${rng(f.resultMin, f.resultMax)}`;
@@ -148,7 +146,7 @@ export class PiecesCard {
               ? `<input type="number"${least} data-f="min" value="${String(p.min)}" aria-label="Minimum" title="The fewest copies of this piece a solution may use"><span class="dash">–</span><input type="number"${least} data-f="max" value="${String(p.max)}" aria-label="Maximum" title="The most copies of this piece a solution may use">`
               : `<input type="number"${least} data-f="max" value="${String(p.max)}" aria-label="Copies" title="How many copies of this piece the puzzle uses${p.placed > 0 ? ` (at least ${String(p.placed)}: ${placedTip(p)})` : ''}">`;
             // a sliding puzzle has no groups
-            const grp = fixedResult
+            const grp = sliding
               ? '–'
               : `<select data-grp aria-label="Group" title="Pieces of the same group may stay together: the disassembly is complete when only groups are left"><option value="">–</option>${groups.map((x) => `<option value="${String(x)}" ${g === x ? 'selected' : ''}>G${String(x)}</option>`).join('')}<option value="new">+ New</option></select>`;
             const wt = weighs
@@ -209,7 +207,17 @@ export class PiecesCard {
     const ok = f.verdict === 'fits';
     el.className = `pz-sum ${ok ? 'ok' : 'warn'}`;
     if (f.verdict === 'noResult') {
-      el.innerHTML = `${ic('warn', 18)}<div><b>No result shape yet</b><span>Choose the shape the pieces fill with Change…</span></div>`;
+      el.innerHTML =
+        this.ws.store.snapshot?.grid === 'sliding'
+          ? `${ic('warn', 18)}<div><b>No board yet</b><span>Choose the board the pieces slide on with Change…</span></div>`
+          : `${ic('warn', 18)}<div><b>No result shape yet</b><span>Choose the shape the pieces fill with Change…</span></div>`;
+      return;
+    }
+    if (this.ws.store.snapshot?.grid === 'sliding') {
+      // a board is not filled: its empty cells are the space the pieces slide in (the engine's
+      // verdict is never tooSmall here, and the hole limit follows the board, syncMaxHoles)
+      const head = ok ? 'Pieces fit on the board' : 'Pieces are too large for the board';
+      el.innerHTML = `${ic(ok ? 'okc' : 'warn', 18)}<div><b>${head}</b><span>Board ${rng(f.resultMin, f.resultMax)} voxels · Pieces n = ${rng(f.piecesMin, f.piecesMax)} → ${rng(f.cellsMin, f.cellsMax)} voxels · Free to slide in: ${rng(f.holesMin, f.holesMax)}</span></div>`;
       return;
     }
     const head =
@@ -238,7 +246,7 @@ export class PiecesCard {
     openPopAt(
       e.clientX,
       e.clientY,
-      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${moves}<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>`,
+      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${moves}${ws.store.snapshot?.grid === 'sliding' ? '' : '<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>'}`,
       (k) => {
         switch (k) {
           case 'up':
@@ -359,16 +367,19 @@ export class PiecesCard {
         return;
       }
       const result = ws.detail?.result ?? null;
+      // a sliding problem's result is one of the Boards list
+      const sliding = ws.store.snapshot?.grid === 'sliding';
+      const choices = sliding ? this.shapes.filter(isTray) : this.shapes;
       openPop(
         b,
-        `<div class="ph">Use as result</div>${this.shapes
+        `<div class="ph">Use as result</div>${choices
           .map((s) => {
             const c = ws.chip(s.id);
-            return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''} title="Make this shape the problem’s result"><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:calc(10px + var(--fs))">${esc(s.label)}</span>${esc(s.name) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
+            return `<button data-k="${s.id}" ${s.id === result ? 'disabled' : ''} title="Make this shape the problem’s result"><span class="chip" style="background:${c.bg};color:${c.fg};min-width:30px;height:20px;font-size:calc(10px + var(--fs))">${esc(s.label)}</span>${esc(shownName(s)) || '&nbsp;'}<span class="kb">${String(cells(s))} vox</span></button>`;
           })
           .join(
             '',
-          )}<hr><button data-k="clear" ${result === null ? 'disabled' : ''} title="Leave the problem without a result; its solutions are removed">Clear Result</button>`,
+          )}${choices.length === 0 ? '<div class="pz-empty" style="padding:6px">No boards yet — add one with <b>+ New Board</b> on the Shapes tab</div>' : ''}<hr><button data-k="clear" ${result === null ? 'disabled' : ''} title="Leave the problem without a result; its solutions are removed">Clear Result</button>`,
         (k) => void (k === 'clear' ? ws.clearResult() : ws.setResult(k)),
       );
     });

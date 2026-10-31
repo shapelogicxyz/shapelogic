@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "sliding.json",
   "title": "Sliding puzzles",
-  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the start/goal shape's problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named after the board (its name, or 'Board n - Start / Goal' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.",
+  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, and its stamps. A problem on a board keeps the pieces stamped on it as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.",
   "methods": {
     "sliding.addStartGoal": {
-      "summary": "Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1, the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after the others, with its problem.",
+      "summary": "Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1, the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after the others. No problem is made for it: a problem chooses it as its result (problem.setResult).",
       "params": {
         "type": "object",
         "properties": {"size": {"$ref": "#/$defs/TraySize"}},
@@ -27,7 +27,8 @@
           "tray": {"$ref": "types.json#/$defs/ShapeId"},
           "piece": {"$ref": "types.json#/$defs/ShapeId"},
           "at": {"$ref": "#/$defs/TrayCell"},
-          "goal": {"type": "boolean"}
+          "goal": {"type": "boolean"},
+          "problem": {"$ref": "types.json#/$defs/ProblemId", "description": "The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's."}
         },
         "required": ["tray", "piece", "at", "goal"],
         "additionalProperties": false
@@ -66,11 +67,33 @@
       },
       "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
     },
+    "sliding.clone": {
+      "summary": "Copies every start of a start/goal shape onto its goals (toGoal true), or every goal onto its starts, replacing what that side had (the Puzzle workspace's Clone start to goal and Clone goal to start). Refused (invalid_argument) with the reason when a start is on a variable cell (a goal cannot be on one). The problems of the start/goal shape lose what they had found. One undo step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {"$ref": "types.json#/$defs/ShapeId"},
+          "toGoal": {"type": "boolean"}
+        },
+        "required": ["tray", "toGoal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {"revision": {"$ref": "types.json#/$defs/Revision"}},
+        "required": ["revision"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
+    },
     "sliding.tray": {
       "summary": "What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.",
       "params": {
         "type": "object",
-        "properties": {"tray": {"$ref": "types.json#/$defs/ShapeId"}},
+        "properties": {
+          "tray": {"$ref": "types.json#/$defs/ShapeId"},
+          "problem": {"$ref": "types.json#/$defs/ProblemId", "description": "The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's."}
+        },
         "required": ["tray"],
         "additionalProperties": false
       },
@@ -113,7 +136,8 @@
           "tray": {"$ref": "types.json#/$defs/ShapeId"},
           "piece": {"$ref": "types.json#/$defs/ShapeId"},
           "at": {"$ref": "#/$defs/TrayCell"},
-          "goal": {"type": "boolean"}
+          "goal": {"type": "boolean"},
+          "problem": {"$ref": "types.json#/$defs/ProblemId", "description": "The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's."}
         },
         "required": ["tray", "piece", "at", "goal"],
         "additionalProperties": false

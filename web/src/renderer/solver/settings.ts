@@ -20,7 +20,10 @@
 // and none of Just
 // Levels, Check Rotations, Strict Colours and the symmetry options; and
 // Allow Vertical Moves, which the original (trays one layer deep) did not
-// have, off by default so that a piece stays in its layer. On a
+// have, off by default so that a piece stays in its layer; and after Just
+// Count, Allow any orientation for unplaced pieces with its Include
+// mirrored orientations (only with it), off by default so that every
+// piece is placed as drawn. On a
 // stacking puzzle (section 9.3): Find Solutions checked at first
 // (stackingDisasmDefaulted), Just Levels kept (the search ignores it), no
 // Check Rotations, Strict Colours or symmetry options, and one solver by
@@ -61,6 +64,8 @@ export type BoxName =
   | 'nestedSlides'
   | 'partialNested'
   | 'verticalMoves'
+  | 'anyOrientation'
+  | 'mirroredOrientations'
   | 'autosave'
   | 'keepAssemblies';
 
@@ -80,6 +85,10 @@ export interface SearchOptions {
   partialNested: boolean;
   /** Sliding: on a tray of several layers a piece may also move up and down (Allow Vertical Moves). */
   verticalMoves: boolean;
+  /** Sliding: a piece with neither a start nor a goal may be placed in any quarter turn (Allow any orientation for unplaced pieces). */
+  anyOrientation: boolean;
+  /** Sliding: and mirrored (Include mirrored orientations; needs anyOrientation). */
+  mirroredOrientations: boolean;
   autosave: boolean;
   /** With the take-apart: also keep the assemblies that do not come apart (Always show Assemblies; not in the original). */
   keepAssemblies: boolean;
@@ -100,6 +109,8 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   nestedSlides: false,
   partialNested: false,
   verticalMoves: false,
+  anyOrientation: false,
+  mirroredOrientations: false,
   autosave: true,
   keepAssemblies: false,
   solver: 'classic',
@@ -131,6 +142,8 @@ export function defaultsOf(family: Family): Readonly<SearchOptions> {
 export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'disassemble',
   'justCount',
+  'anyOrientation',
+  'mirroredOrientations',
   'nestedSlides',
   'partialNested',
   'verticalMoves',
@@ -139,6 +152,8 @@ export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
 
 /** The boxes only a sliding puzzle shows. */
 export const SLIDING_ONLY: ReadonlySet<BoxName> = new Set<BoxName>([
+  'anyOrientation',
+  'mirroredOrientations',
   'nestedSlides',
   'partialNested',
   'verticalMoves',
@@ -199,6 +214,8 @@ export function readOptions(
     'nestedSlides',
     'partialNested',
     'verticalMoves',
+    'anyOrientation',
+    'mirroredOrientations',
     'autosave',
     'keepAssemblies',
   ];
@@ -255,6 +272,8 @@ export function writeOptions(
     out.nestedSlides = o.nestedSlides;
     out.partialNested = o.partialNested;
     out.verticalMoves = o.verticalMoves;
+    out.anyOrientation = o.anyOrientation;
+    out.mirroredOrientations = o.mirroredOrientations;
   }
   return out;
 }
@@ -297,6 +316,8 @@ export function normalize(
     o.nestedSlides = false;
     o.partialNested = false;
     o.verticalMoves = false;
+    o.anyOrientation = false;
+    o.mirroredOrientations = false;
     o.keepAssemblies = false;
     if (changed === 'justLevels' && o.justLevels) {
       o.justCount = false;
@@ -316,7 +337,8 @@ export function normalize(
   if (family === 'sliding') {
     // updateSolverOptionCheckboxes: no Just Levels, Strict Colours,
     // symmetry options or rotation take-apart; partially nested needs
-    // nested slides (greyed, its tick kept)
+    // nested slides and mirrored orientations any orientation (greyed,
+    // their ticks kept)
     o.justLevels = false;
     o.strictColors = false;
     o.checkRotations = false;
@@ -330,6 +352,9 @@ export function normalize(
     }
     if (!o.nestedSlides) {
       disabled.add('partialNested');
+    }
+    if (!o.anyOrientation) {
+      disabled.add('mirroredOrientations');
     }
     return { options: o, disabled };
   }
@@ -426,6 +451,8 @@ export function solveOptions(
         nestedSlides: o.nestedSlides,
         partialNested: o.nestedSlides && o.partialNested,
         verticalMoves: o.verticalMoves,
+        anyOrientation: o.anyOrientation,
+        mirroredOrientations: o.anyOrientation && o.mirroredOrientations,
       },
     };
   }
@@ -468,11 +495,21 @@ export function shortCount(n: number): string {
 }
 
 /**
- * The Details line while a stacking search runs (mainwindow.cpp's
- * updateInterface, without the search's name, which the Activity line
- * gives through the solver's): the Panex search's depth and stackings
- * found, or its trace back; the Stacking Solver's own search its
- * stackings scanned.
+ * What a stacking search went through: the states (stackings) it scanned,
+ * and how deep it searched from each end. The depth kept is both ends'
+ * moves together (the Panex search's), so each end's is half of it: 2,679
+ * for a path of 5,359 moves. The Stacking Solver's own search keeps none.
+ */
+function stackingSearched(searched: number, depth: number): string {
+  const half = Math.floor(depth / 2);
+  const scanned = `Scanned ${shortCount(searched)} states.`;
+  return half > 0 ? `${scanned} Search depth: ${shortCount(half)}` : scanned;
+}
+
+/**
+ * The Details line while a stacking search runs (the Activity line names
+ * the search): the states scanned and the depth from each end, or the
+ * Panex search's trace back once its ends have met.
  */
 export function stackingDetails(
   panex: boolean,
@@ -480,12 +517,9 @@ export function stackingDetails(
   depth: number,
   traced: number,
 ): string {
-  if (!panex) {
-    return `Scanned ${shortCount(searched)} stackings.`;
-  }
-  return traced > 0
+  return panex && traced > 0
     ? `Tracing the path. Traced ${shortCount(traced)} of ${shortCount(depth)} moves.`
-    : `${shortCount(depth)} moves deep. Found ${shortCount(searched)} stackings.`;
+    : stackingSearched(searched, depth);
 }
 
 /**
@@ -503,7 +537,8 @@ export function slidingDetails(searched: number, depth: number): string {
 /**
  * The Details line of a problem not being solved: what its solves went
  * through, as kept in the file (mainwindow.cpp's finishedActivity without
- * its "Finished."); empty when nothing is known.
+ * its "Finished.", a stacking search's as it shows while it runs); empty
+ * when nothing is known.
  */
 export function savedDetails(
   family: Family,
@@ -511,8 +546,10 @@ export function savedDetails(
   depth: number,
   apart: number,
 ): string {
-  const what =
-    family === 'sliding' ? 'arrangements' : family === 'stacking' ? 'stackings' : 'search steps';
+  if (family === 'stacking') {
+    return searched > 0 || depth > 0 ? stackingSearched(searched, depth) : '';
+  }
+  const what = family === 'sliding' ? 'arrangements' : 'search steps';
   const parts: string[] = [];
   if (searched > 0) {
     parts.push(`Scanned ${shortCount(searched)} ${what}.`);

@@ -832,9 +832,10 @@ export interface Part {
  * front end decides what they mean). Settings of other versions are kept as strings. These names
  * are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations,
  * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested,
- * verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and
- * highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored
- * and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
+ * verticalMoves, anyOrientation, mirroredOrientations and highMemory are sliding's nestedSlides,
+ * partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory, a sliding
+ * puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part:
+ * there is one sliding solver). highMemory belongs to the stacking solvers too.
  */
 export interface SolverSettings {
   disassemble?: boolean;
@@ -848,6 +849,8 @@ export interface SolverSettings {
   nestedSlides?: boolean;
   partialNested?: boolean;
   verticalMoves?: boolean;
+  anyOrientation?: boolean;
+  mirroredOrientations?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
   /** Always show Assemblies (not in the original). */
@@ -1006,6 +1009,18 @@ export interface SlidingOptions {
    * off (the default), every piece stays in its layer.
    */
   verticalMoves?: boolean;
+  /**
+   * A piece with neither a start nor a goal on the board may be placed in any quarter turn in its
+   * layers (Allow any orientation for unplaced pieces); off (the default), every piece is placed
+   * as drawn. Either way a piece keeps its orientation as it slides, and a piece with a start or a
+   * goal keeps the one drawn.
+   */
+  anyOrientation?: boolean;
+  /**
+   * With anyOrientation, those pieces may also be placed as the mirror images of those turns:
+   * turned over, on a tray one layer deep (Include mirrored orientations).
+   */
+  mirroredOrientations?: boolean;
   /**
    * Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable
    * High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no
@@ -2096,8 +2111,8 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Adds a problem; it allows each colour on itself. Refused (invalid_argument) on a sliding
-   * puzzle, whose problems follow its start/goal shapes (sliding.addStartGoal).
+   * Adds a problem; it allows each colour on itself (on a sliding puzzle, whose cell colours are
+   * start marks, it has no colour rules).
    * (problem.json)
    */
   'problem.create': {
@@ -2106,8 +2121,7 @@ export interface Methods {
     errors: 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Adds a copy of a problem's definition (no name, no solutions). Refused (invalid_argument) on a
-   * sliding puzzle (shape.duplicate of the start/goal shape instead).
+   * Adds a copy of a problem's definition (no name, no solutions).
    * (problem.json)
    */
   'problem.duplicate': {
@@ -2116,8 +2130,7 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Removes a problem. Refused (invalid_argument) on a sliding puzzle (shape.delete of the
-   * start/goal shape instead).
+   * Removes a problem.
    * (problem.json)
    */
   'problem.delete': {
@@ -2139,8 +2152,7 @@ export interface Methods {
     errors: 'not_found' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * The problem's name. A sliding board's problem is named as its board: the board is renamed
-   * (shape.rename).
+   * The problem's name.
    * (problem.json)
    */
   'problem.rename': {
@@ -2153,8 +2165,9 @@ export interface Methods {
   };
   /**
    * Makes a shape the result (it stops being a piece); a different result removes the solutions.
-   * Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead
-   * (stacking.setProblemRodSet).
+   * On a sliding puzzle the result is a start/goal shape (a board; another shape is refused,
+   * invalid_argument), and the pieces stamped on it become parts. Refused (invalid_argument) on a
+   * stacking puzzle, whose problems stand on a rod set instead (stacking.setProblemRodSet).
    * (problem.json)
    */
   'problem.setResult': {
@@ -2164,8 +2177,7 @@ export interface Methods {
   };
   /**
    * Leaves the problem without a result (not in the original); the solutions go. Nothing changes
-   * when it has none. Refused (invalid_argument) on sliding and stacking puzzles, as
-   * problem.setResult.
+   * when it has none. Refused (invalid_argument) on a stacking puzzle, as problem.setResult.
    * (problem.json)
    */
   'problem.clearResult': {
@@ -2704,7 +2716,7 @@ export interface Methods {
   /**
    * Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1,
    * the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after
-   * the others, with its problem.
+   * the others. No problem is made for it: a problem chooses it as its result (problem.setResult).
    * (sliding.json)
    */
   'sliding.addStartGoal': {
@@ -2736,6 +2748,11 @@ export interface Methods {
       piece: ShapeId;
       at: TrayCell;
       goal: boolean;
+      /**
+       * The problem shown, whose result must be this board (refused otherwise, invalid_argument):
+       * its counts are the copies. Without it, the board's first problem's.
+       */
+      problem?: ProblemId;
     };
     result: {
       /** The piece is there now (false: it was there and was taken off). */
@@ -2762,6 +2779,24 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
+   * Copies every start of a start/goal shape onto its goals (toGoal true), or every goal onto its
+   * starts, replacing what that side had (the Puzzle workspace's Clone start to goal and Clone
+   * goal to start). Refused (invalid_argument) with the reason when a start is on a variable cell
+   * (a goal cannot be on one). The problems of the start/goal shape lose what they had found. One
+   * undo step.
+   * (sliding.json)
+   */
+  'sliding.clone': {
+    params: {
+      tray: ShapeId;
+      toGoal: boolean;
+    };
+    result: {
+      revision: Revision;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
    * What a start/goal shape holds: its number and name, each cell's start and goal (the piece
    * stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can
    * be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more
@@ -2772,6 +2807,11 @@ export interface Methods {
   'sliding.tray': {
     params: {
       tray: ShapeId;
+      /**
+       * The problem shown, whose result must be this board (refused otherwise, invalid_argument):
+       * its counts are the copies. Without it, the board's first problem's.
+       */
+      problem?: ProblemId;
     };
     result: {
       /** @minimum 0 */
@@ -2811,6 +2851,11 @@ export interface Methods {
       piece: ShapeId;
       at: TrayCell;
       goal: boolean;
+      /**
+       * The problem shown, whose result must be this board (refused otherwise, invalid_argument):
+       * its counts are the copies. Without it, the board's first problem's.
+       */
+      problem?: ProblemId;
     };
     result: {
       cells: Cell[];
@@ -3609,6 +3654,7 @@ export const METHOD_NAMES = [
   'shape.taskSet',
   'sliding.addStartGoal',
   'sliding.clearAt',
+  'sliding.clone',
   'sliding.place',
   'sliding.preview',
   'sliding.tray',

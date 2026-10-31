@@ -191,6 +191,13 @@ TEST_CASE("queries: the fit of a problem", "[app][queries]") {
   CHECK(small.verdict == FitVerdict::TooSmall);
   CHECK(small.holesMin > 0);
 
+  // a sliding board is not filled: its empty cells are where the pieces slide
+  Puzzle sl = test::loadFixture("test_sliding_solver.xmpuzzle");
+  const FitStats slide = problemFit(sl, 0);
+  REQUIRE(slide.cellsMax < slide.resultMin);
+  CHECK(slide.verdict == FitVerdict::Fits);
+  CHECK(slide.holesMin == slide.resultMax - slide.cellsMax);
+
   // no result
   Puzzle e{GridType(GridKind::Bricks)};
   (void)e.addProblem();

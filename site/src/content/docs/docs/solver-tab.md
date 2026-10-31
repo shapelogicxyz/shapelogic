@@ -1,6 +1,6 @@
 ---
 title: Solver Tab Options
-description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow Nested Slides, Allow Partially Nested and Allow Vertical Moves; the memory and disk space a sliding or stacking search may take; Sort by, the step-by-step explorer and the solutions list."
+description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow any orientation for unplaced pieces, Include mirrored orientations, Allow Nested Slides, Allow Partially Nested and Allow Vertical Moves; the memory and disk space a sliding or stacking search may take; Sort by, the step-by-step explorer and the solutions list."
 ---
 
 The **Solver** tab (`Ctrl+3`, `⌘3` on a Mac) searches for the ways the pieces
@@ -134,6 +134,14 @@ A [sliding puzzle](/docs/puzzle-types/sliding/) shows **Find Solutions** in
 place of Assemble and Disassemble, and these options in place of the
 symmetry and color ones:
 
+- **Allow any orientation for unplaced pieces**: a piece keeps the
+  orientation it is drawn in, on the board and through every move, so its
+  "up" stays up. With this on, a piece that has neither a start nor a goal
+  on the board may be placed in any of its quarter turns. A piece with a
+  start or a goal is always placed as drawn. Off by default.
+- **Include mirrored orientations**: with **Allow any orientation for
+  unplaced pieces** on, those pieces may also be placed mirrored, as if
+  turned over. Off by default.
 - **Allow Nested Slides**: a piece may slide together with the pieces nested
   inside its outline, such as a piece in another piece's pocket. Pieces that
   only touch never slide together.
@@ -201,14 +209,19 @@ Below the buttons:
 - the **progress bar** and its percentage;
 - **Activity**: the solver's state: Ready to Solve, Search active
   (with the name of the solver), Search paused, Search finished;
+- **Moves** (sliding and stacking puzzles): the moves of the problem's
+  solution, the fewest there are. These puzzles have one solution at
+  most;
 - **Assemblies**: how many assemblies have been found;
 - **Solutions**: how many of them could be taken apart (with the
   disassembly check);
 - **Details**: how much the search has gone through. While it runs:
   what it is working on and the search steps scanned, or for a sliding
-  or stacking puzzle how many moves deep it is and how many
-  arrangements or stackings it has scanned. Afterwards, the totals of
-  every run of the solve. These are saved with the problem in the
+  puzzle how many moves deep it is and how many arrangements it has
+  scanned. For a stacking puzzle, the states (stackings) scanned and the
+  search depth: how many moves deep it searched from each end, about
+  half the solution's moves. Afterwards, the totals of every run of the
+  solve. These are saved with the problem in the
   puzzle file, as are the counts and the time used, so they show again
   when the file is opened and the problem chosen;
 - **Time used** and an estimate of the **Time left** ("unknown" until the

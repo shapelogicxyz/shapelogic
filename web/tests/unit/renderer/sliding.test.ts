@@ -25,6 +25,7 @@ import {
   savedDetails,
   searchActive,
   shortCount,
+  SLIDING_BOXES,
   slidingDetails,
   solveOptions,
   writeOptions,
@@ -148,6 +149,8 @@ describe('the sliding options', () => {
         nestedSlides: false,
         partialNested: false,
         verticalMoves: false,
+        anyOrientation: false,
+        mirroredOrientations: false,
       },
     });
     expect(
@@ -157,6 +160,41 @@ describe('the sliding options', () => {
       solveOptions({ ...o, nestedSlides: true }, DEFAULT_LIMITS, 'sliding').sliding?.partialNested,
     ).toBe(true);
     expect(solveOptions(readOptions({}), DEFAULT_LIMITS).sliding).toBeUndefined();
+  });
+
+  it('place every piece as drawn unless unplaced ones may turn; mirrored only with that', () => {
+    const o = readOptions({}, undefined, 'sliding');
+    expect(o).toMatchObject({ anyOrientation: false, mirroredOrientations: false });
+    expect(SLIDING_BOXES.has('anyOrientation')).toBe(true);
+    expect(SLIDING_BOXES.has('mirroredOrientations')).toBe(true);
+    // the sub-option is greyed, its tick kept, until its parent is on
+    const mirrored = { ...o, mirroredOrientations: true };
+    const n = normalize(mirrored, null, 'sliding');
+    expect(n.options.mirroredOrientations).toBe(true);
+    expect(n.disabled.has('mirroredOrientations')).toBe(true);
+    expect(solveOptions(mirrored, DEFAULT_LIMITS, 'sliding').sliding).toMatchObject({
+      anyOrientation: false,
+      mirroredOrientations: false,
+    });
+    const both = { ...mirrored, anyOrientation: true };
+    expect(normalize(both, null, 'sliding').disabled.has('mirroredOrientations')).toBe(false);
+    expect(solveOptions(both, DEFAULT_LIMITS, 'sliding').sliding).toMatchObject({
+      anyOrientation: true,
+      mirroredOrientations: true,
+    });
+    // stored with a sliding puzzle's problem, read back
+    const w = writeOptions(both, {}, 'sliding');
+    expect(w).toMatchObject({ anyOrientation: true, mirroredOrientations: true });
+    expect(readOptions(w, undefined, 'sliding')).toMatchObject({
+      anyOrientation: true,
+      mirroredOrientations: true,
+    });
+    expect('anyOrientation' in writeOptions(readOptions({}), {})).toBe(false);
+    // a stacking puzzle has neither
+    expect(normalize({ ...both }, null, 'stacking').options).toMatchObject({
+      anyOrientation: false,
+      mirroredOrientations: false,
+    });
   });
 
   it('say the search as the original’s Activity line, on the Details line', () => {
@@ -176,7 +214,11 @@ describe('the sliding options', () => {
     expect(savedDetails('brick', 2_500_000, 0, 928)).toBe(
       'Scanned 2.5 million search steps. Tried to take apart 928 assemblies.',
     );
-    expect(savedDetails('stacking', 12, 0, 0)).toBe('Scanned 12 stackings.');
+    expect(savedDetails('stacking', 12, 0, 0)).toBe('Scanned 12 states.');
+    expect(savedDetails('stacking', 4_870_733_506, 5359, 0)).toBe(
+      'Scanned 4.87 billion states. Search depth: 2,679',
+    );
+    expect(savedDetails('stacking', 0, 0, 0)).toBe('');
     expect(savedDetails('brick', 0, 0, 0)).toBe('');
   });
 

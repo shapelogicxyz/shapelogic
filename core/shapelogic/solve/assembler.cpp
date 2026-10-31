@@ -7,6 +7,8 @@
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 
+#include <algorithm>
+
 namespace bt {
 
 std::string_view errorMessage(AssemblerError e) noexcept {
@@ -30,6 +32,20 @@ std::string_view errorMessage(AssemblerError e) noexcept {
       return "Puzzle contains unhandable definitions";
   }
   return "Unknown error";
+}
+
+unsigned int transformEnd(const std::vector<std::uint64_t>& partTransforms,
+                          const Symmetries& sym) {
+  return partTransforms.empty() ? sym.getNumTransformations()
+                                : std::min(64U, sym.getNumTransformationsMirror());
+}
+
+bool transformAllowed(const std::vector<std::uint64_t>& partTransforms, unsigned int part,
+                      unsigned int t) {
+  if (partTransforms.empty()) {
+    return true;
+  }
+  return part < partTransforms.size() && t < 64 && ((partTransforms[part] >> t) & 1U) != 0;
 }
 
 void warmShapeCaches(const Puzzle& puzzle, const Problem& problem) {

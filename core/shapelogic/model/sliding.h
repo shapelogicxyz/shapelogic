@@ -15,9 +15,11 @@
 /// has several copies of may have a start and a goal for each: its marks
 /// are then several whole pieces (stampCopies), and any copy may end on
 /// any of its goals; the copies without a start start anywhere, those
-/// without a goal end anywhere. Each start/goal shape
-/// has a problem of its own with that shape as its result
-/// (syncSlidingProblems); the assembler finds the start layout,
+/// without a goal end anywhere. The original gave each start/goal shape
+/// a problem of its own with that shape as its result
+/// (syncSlidingProblems); the document lets the user make the problems and
+/// choose a start/goal shape as each one's result, as on other grids
+/// (syncSlidingParts). The assembler finds the start layout,
 /// whose pieces the colours lock to their starts (refreshStartLocks), and
 /// the slide search (bt/solve/sliding_search.h) takes it to the goal.
 ///
@@ -29,6 +31,7 @@
 /// search is in bt/solve/sliding_search.h).
 
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -97,6 +100,14 @@ unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
 /// least one), and the start locks are refreshed.
 void syncSlidingProblems(Puzzle& puzzle);
 
+/// The document's sync: the problems are the user's, made and given a
+/// start/goal shape as their result as on other grids, so none is added,
+/// dropped or renamed. The start/goal shapes are numbered by place, no
+/// start/goal shape is a piece of any problem, and each problem whose
+/// result is a start/goal shape has every piece stamped on it as a part
+/// (a copy for each start and each goal) and its start locks refreshed.
+void syncSlidingParts(Puzzle& puzzle);
+
 /// True when the piece is stamped on the start or goal of the problem's
 /// result (a start/goal shape): it must stay a part.
 [[nodiscard]] bool shapeIsRequired(const Puzzle& puzzle, const Problem& problem,
@@ -163,6 +174,16 @@ std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId
 /// Removes shapeId's start or goal; true when it had one.
 bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal);
 
+/// Why copyStamps would refuse (a start on a variable cell cannot be a
+/// goal), or empty when it would not; changes nothing.
+[[nodiscard]] std::string copyStampsRefusal(const Puzzle& puzzle, unsigned int trayShape,
+                                            bool toGoal);
+
+/// Copies every start of start/goal shape trayShape onto its goals
+/// (toGoal), or every goal onto its starts, replacing what that side had.
+/// Empty on success, else why not (copyStampsRefusal), and nothing changes.
+std::string copyStamps(Puzzle& puzzle, unsigned int trayShape, bool toGoal);
+
 /// The piece whose start or goal covers (x, y, z), or ~0u.
 [[nodiscard]] unsigned int stampAt(const Voxel* tray, int x, int y, int z, bool goal);
 
@@ -170,16 +191,21 @@ bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal);
 /// solved, else what is wrong: starts or goals that are not whole pieces,
 /// more of them than the problem has copies, or no piece with every copy
 /// at a start and at a goal. A piece may have a goal without a start (it
-/// starts anywhere) and starts or goals for only some of its copies.
-[[nodiscard]] std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape);
+/// starts anywhere) and starts or goals for only some of its copies. The
+/// copies are `problem`'s (one whose result is trayShape), or with none
+/// those of trayProblem.
+[[nodiscard]] std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape,
+                                         const Problem* problem = nullptr);
 
-/// The problem whose result is the start/goal shape trayShape, or null.
+/// The first problem whose result is the start/goal shape trayShape, or
+/// null (several problems may share one).
 [[nodiscard]] const Problem* trayProblem(const Puzzle& puzzle, unsigned int trayShape);
 
-/// How many copies of a piece the start/goal shape trayShape's problem has
-/// (its maximum); at least 1, the copy a stamp needs.
+/// How many copies of a piece `problem` has (its maximum), or with none the
+/// start/goal shape trayShape's first problem (trayProblem); at least 1,
+/// the copy a stamp needs.
 [[nodiscard]] unsigned int pieceCopies(const Puzzle& puzzle, unsigned int trayShape,
-                                       unsigned int shapeId);
+                                       unsigned int shapeId, const Problem* problem = nullptr);
 
 /// The most copies of a piece stamped on the problem's start/goal shape, at
 /// their starts or at their goals: the problem keeps at least this many.
@@ -263,5 +289,17 @@ bool prepareForSolving(Puzzle& puzzle, Problem& problem);
 
 /// True when prepareForSolving would change anything (without changing it).
 [[nodiscard]] bool needsPreparing(const Puzzle& puzzle, const Problem& problem);
+
+/// The transformations each part of the problem may be placed in, for the
+/// assembler (MatrixOptions::partTransforms): a piece keeps its orientation
+/// as drawn on the board and through the solve, so its "up" stays up. A
+/// piece with a start or a goal on the problem's tray, for any copy, takes
+/// only that orientation; with anyOrientation, one with neither may also
+/// take any quarter turn in its layers (about the axis the layers stack
+/// along), and with mirrored too, the mirror images of those (a piece
+/// turned over, on a tray one layer deep).
+[[nodiscard]] std::vector<std::uint64_t> partTransforms(const Puzzle& puzzle,
+                                                        const Problem& problem,
+                                                        bool anyOrientation, bool mirrored);
 
 }  // namespace bt::sliding

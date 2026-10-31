@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace bt {
@@ -117,11 +118,14 @@ struct DlxPlacement {
 class DlxMatrix {
  public:
   /// Builds the matrix (createMatrix of the original, less what belongs to
-  /// the search). Sets the rotation check `filter` asks for and writes the
-  /// part being placed to `piece` as it goes. On an error `param` says more
-  /// (the units too many or too few, the shape that fits nowhere).
+  /// the search), each part only in the transformations `partTransforms`
+  /// allows (MatrixOptions::partTransforms). Sets the rotation check
+  /// `filter` asks for and writes the part being placed to `piece` as it
+  /// goes. On an error `param` says more (the units too many or too few,
+  /// the shape that fits nowhere).
   AssemblerError build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
-                       RotationFilter& filter, std::atomic<unsigned int>& piece, int& param);
+                       const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
+                       std::atomic<unsigned int>& piece, int& param);
 
   /// Removes placements that can never be part of an assembly; polls `stop`
   /// and leaves a valid (partly reduced) matrix when stopped. Writes the
@@ -164,7 +168,8 @@ class DlxMatrix {
   unsigned int addPieceNode(unsigned int piece, unsigned int rot, int x, int y, int z);
   void addVoxelNode(unsigned int col, unsigned int piecenode);
   int prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors,
-              RotationFilter& filter, std::atomic<unsigned int>& piece);
+              const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
+              std::atomic<unsigned int>& piece);
   unsigned int clumpify();
 
   bool tryCoverRow(unsigned int r, unsigned int* columns);

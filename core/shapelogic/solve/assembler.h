@@ -17,11 +17,13 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace bt {
 
 class Problem;
 class Puzzle;
+class Symmetries;
 
 /// What can go wrong while preparing or restoring an assembler
 /// (assembler_c::errState).
@@ -45,7 +47,24 @@ struct MatrixOptions {
   bool keepRotations = false;      ///< report rotated assemblies too
   bool completeRotations = false;  ///< check every transformation for duplicates
   bool strictColors = false;       ///< a voxel fits only a result voxel of its own colour
+  /// Per part, the transformations it may be placed in: bit t for
+  /// transformation t, mirrored ones included (none from 64 on). Empty: every
+  /// rotation, as the original. Set, the matrix has no symmetry breaker: a
+  /// placement the limits leave out has no rotated twin to stand for it. A
+  /// sliding solve sets it (sliding::partTransforms).
+  std::vector<std::uint64_t> partTransforms;
 };
+
+/// One past the last transformation the matrix tries a part in: the
+/// grid's rotations, or with limits (MatrixOptions::partTransforms) its
+/// mirrored transformations too, at most 64.
+[[nodiscard]] unsigned int transformEnd(const std::vector<std::uint64_t>& partTransforms,
+                                        const Symmetries& sym);
+
+/// True when the limits let part `part` be placed in transformation `t`;
+/// always with no limits.
+[[nodiscard]] bool transformAllowed(const std::vector<std::uint64_t>& partTransforms,
+                                    unsigned int part, unsigned int t);
 
 /// How a run searches. Kept by nobody between runs: a continued search may
 /// run with other options (a stopped split or vector search goes on the way
@@ -149,6 +168,12 @@ class Assembler {
   /// True when the matrix was built with strict colour matching.
   [[nodiscard]] bool usesStrictColors() const { return strictColors_; }
 
+  /// The orientation limits the matrix was built with
+  /// (MatrixOptions::partTransforms).
+  [[nodiscard]] const std::vector<std::uint64_t>& partTransforms() const {
+    return partTransforms_;
+  }
+
   // ---- the placement browser ------------------------------------------------
 
   /// Whether the placement queries below are supported.
@@ -185,6 +210,7 @@ class Assembler {
 
   /// Set by createMatrix().
   bool strictColors_ = false;
+  std::vector<std::uint64_t> partTransforms_;
 };
 
 /// Warms the lazily filled caches of the result and every part shape

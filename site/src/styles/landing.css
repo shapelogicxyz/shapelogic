@@ -24,8 +24,10 @@ body {
   font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 .banner { background: #fff; border-bottom: 1px solid var(--border); }
+.banner a { display: block; }
 .banner img { display: block; width: 100%; max-width: 1000px; height: auto; margin: 0 auto; }
-main { max-width: 760px; margin: 0 auto; padding: 48px 16px 24px; }
+.crumb { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+main { max-width: 1060px; margin: 0 auto; padding: 48px 16px 24px; }
 h1 { margin: 0 0 16px; font-size: clamp(28px, 5vw, 40px); line-height: 1.2; }
 .lead { color: var(--muted); font-size: 19px; }
 a { color: var(--accent); }
@@ -35,7 +37,7 @@ a { color: var(--accent); }
 .card p { margin: 0; color: var(--muted); font-size: 15px; }
 footer {
   display: flex; align-items: center; justify-content: center; gap: 12px;
-  max-width: 760px; margin: 0 auto; padding: 24px 16px 48px;
+  max-width: 1060px; margin: 0 auto; padding: 24px 16px 48px;
   color: var(--muted); font-size: 14px;
 }
 footer img { border-radius: 8px; }
@@ -60,3 +62,11 @@ footer p { margin: 0; }
 .post li { margin-bottom: 8px; }
 .post > :last-child { margin-bottom: 0; }
 .post + .post { margin-top: 20px; }
+
+/* A news post folds to its date, title and opening text. */
+.post-more[hidden] { display: none; }
+.post-toggle {
+  display: inline; margin: 0; padding: 0; border: 0; background: none;
+  color: var(--accent); font: inherit; cursor: pointer;
+}
+.post-toggle:hover { text-decoration: underline; }

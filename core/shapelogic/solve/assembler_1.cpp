@@ -366,8 +366,9 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
   const Symmetries& sym = gt.getSymmetries();
   unsigned int symBreakerShape = 0xFFFFFFFF;
 
-  // with only the identity in the result, everything must be tried
-  if (!unSymmetric(resultSym)) {
+  // with only the identity in the result, everything must be tried; and
+  // with orientation limits, a placement left out has no rotated twin
+  if (!unSymmetric(resultSym) && partTransforms_.empty()) {
     // FIXME (original): with several suitable pieces, the one with the most
     // placements would gain more
     unsigned int symBreakerPiece = 0;
@@ -520,7 +521,11 @@ int Assembler1::prepare(bool hasRange, unsigned int rangeMin, unsigned int range
     cache.clear();
     unsigned int placements = 0;
 
-    for (unsigned int rot = 0; rot < sym.getNumTransformations(); rot++) {
+    const unsigned int rotEnd = transformEnd(partTransforms_, sym);
+    for (unsigned int rot = 0; rot < rotEnd; rot++) {
+      if (!transformAllowed(partTransforms_, pc, rot)) {
+        continue;
+      }
       std::unique_ptr<Voxel> rotated = problem_.partShape(puzzle_, pc).clone();
       if (!rotated->transform(rot)) {
         continue;
@@ -584,6 +589,7 @@ AssemblerError Assembler1::createMatrix(const MatrixOptions& options) {
 
   filter_.complete = options.completeRotations;
   strictColors_ = options.strictColors;
+  partTransforms_ = options.partTransforms;
 
   if (!canHandle(problem_)) {
     return AssemblerError::PuzzleUnhandable;

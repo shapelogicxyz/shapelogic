@@ -33,12 +33,11 @@ the top of the shapes list and are labelled `B1`, `B2` and so on, while the
 pieces below them are `S1`, `S2` and so on. When you delete or move a board,
 the boards after it are numbered again, so there is never a gap.
 
-Each board has a problem of its own, named after the board. A board without
-a name shows `Board 1`, and its problem is `Board 1 - Start / Goal`. When you rename it, the field starts with
-that text, which you can change or delete. The new name also shows in the
-**Puzzle** tab's problems list, and renaming the problem there renames the
-board. Boards are never pieces: the Puzzle tab's **All pieces** list leaves
-them out.
+A board without a name shows `Board 1`. When you rename it, the field starts
+with that text, which you can change or delete. Boards are never pieces: the
+Puzzle tab's **All pieces** list leaves them out. A board has no problem of
+its own: on the **Puzzle** tab you make the problems and choose a board for
+each, as you choose the result of a Brick puzzle.
 
 ## Shapes: draw the pieces and the board
 
@@ -52,7 +51,8 @@ them out.
    unless you change it) if there isn't one. Its color follows the theme
    (the **Sliding board color** settings); see
    [Grid editor settings](/docs/shapes-tab/#grid-editor-settings). The
-   list's **Delete** removes a board and its problem.
+   list's **Delete** removes a board. Problems that used it stay, without
+   a board, until you choose another.
 3. Draw the board with the usual tools, as any other shape: **Fixed** is
    floor, **Variable** is corridor and **Erase** is wall.
 
@@ -75,29 +75,44 @@ down somewhere else, as long as the tray has floor cells above for it to
 pass through. This counts as one move. Pieces never turn, so a goal that
 needs a piece turned around cannot be reached.
 
+## Piece orientation
+
+A piece keeps the orientation it is drawn in: it is placed on the board
+that way and never turns as it slides. A piece with a start or a goal sits
+on its stamp as drawn, even where a turned copy would cover the same cells,
+such as two upright dominoes stamped side by side as a square. A piece with
+neither is placed as drawn too, unless you turn on **Allow any orientation
+for unplaced pieces** in the Solver's search options. Each of its quarter
+turns is then a different start. **Include mirrored orientations** adds its
+mirror images, as if the piece were turned over.
+
 ## Puzzle: place the starts and goals
 
 ![The Puzzle workspace for a sliding puzzle: the pieces in the puzzle on the left, the START and GOAL trays at the top of the 3D view with the pieces under them, and the Start and goal grids on the right.](../../../../assets/screens/sliding-puzzle.png)
 
-On the **Puzzle** workspace the board is the result, and each board has its
-own problem, so you do not add or copy problems by hand.
+On the **Puzzle** workspace the board is the problem's result.
 
-1. Add the pieces to **In this puzzle**, with as many copies of each as the
+1. Press **+ New** in the problems list to make a problem, then **Change…**
+   beside its result and pick a board. **Change…** lists only the boards.
+   You can make, copy and delete problems as on other puzzles, and several
+   problems can use the same board. They share its starts and goals, but
+   each has its own pieces and counts.
+2. Add the pieces to **In this puzzle**, with as many copies of each as the
    puzzle has. Three blue blocks of the same shape are one piece with three
    copies.
-2. The right card, **Start and goal**, shows the board twice: **Start** at
+3. The right card, **Start and goal**, shows the board twice: **Start** at
    the top and **Goal** below. Above each grid is every piece of the puzzle
    with how many of its copies are placed there, for example `S2 1/3`.
    **Focus 2D editor**, at the top right of the card, puts Start and Goal
    side by side and gives their grids all the room it can (`Esc` goes
    back). A large board shrinks to fit its grid.
-3. Select a piece, in **In this puzzle** or above a grid, then click the
+4. Select a piece, in **In this puzzle** or above a grid, then click the
    grid where it goes. It follows the mouse: green where it fits, red where
    it does not, orange on a copy that is already there. A piece with one
    copy moves to where you click. A piece with several copies gets one more
    copy at each click, until all of them are placed. Click a copy, or
    right-click it, to take it off.
-4. The 3D view shows two trays side by side, **START** and **GOAL**, at the
+5. The 3D view shows two trays side by side, **START** and **GOAL**, at the
    top, and the problem's pieces under them, as on a Brick puzzle; click a
    piece there to select it. A bar at the bottom of the view reads green (*Valid Start/Goal positions…*) or red (*Invalid
    Start/Goal positions - …*, with the reason).

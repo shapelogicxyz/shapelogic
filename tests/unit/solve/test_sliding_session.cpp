@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Sliding solves in the solve session (new cases beside the port of the
 // original's test_sliding.cpp): threads, pauses and save points, abort, the
-// notes, Find Solutions off and Just Count, and the playback's routes.
+// notes, Find Solutions off and Just Count, the playback's routes, and the
+// orientations the pieces are placed in.
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
 
@@ -21,6 +22,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -28,6 +31,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using namespace bt;
@@ -506,4 +510,136 @@ TEST_CASE("sliding session: copies of a piece share their starts and goals",
     // one move: the copy at 2 to 3
     CHECK(t.endings.begin()->ends_with(" 1"));
   }
+}
+
+namespace {
+
+// Two copies of a vertical domino whose starts and goals are one 2x2 block
+// of a 3x2 tray: two horizontal dominoes would cover the block as well.
+Puzzle dominoBlock() {
+  Puzzle puz{GridType(GridKind::Sliding)};
+  const unsigned int trayId = addStartGoalShape(puz, 3, 2);
+  const unsigned int d = addBlock(puz, 1, 2);
+  Voxel& tray = puz.getShape(trayId);
+  for (unsigned int y = 0; y < 2; y++) {
+    for (unsigned int x = 0; x < 2; x++) {
+      tray.setColor(x, y, 0, d + 1);
+      tray.setGoalPiece(tray.getIndex(x, y, 0), d + 1);
+    }
+  }
+  syncSlidingProblems(puz);
+  Problem& pr = puz.getProblem(0);
+  pr.setShapeMaximum(puz, d, 2);
+  pr.setShapeMinimum(puz, d, 2);
+  syncSlidingProblems(puz);
+  return puz;
+}
+
+// A 4x4 tray: a unit piece with a start and a goal, and an L of four cells
+// (chiral: its mirror image is no turn of it) with neither.
+Puzzle freeL() {
+  Puzzle puz{GridType(GridKind::Sliding)};
+  const unsigned int trayId = addStartGoalShape(puz, 4, 4);
+  const unsigned int a = addBlock(puz, 1, 1);
+  const unsigned int l = puz.addShape(2, 3, 1);
+  for (const auto& [x, y] : {std::pair{0U, 0U}, {0U, 1U}, {0U, 2U}, {1U, 2U}}) {
+    puz.getShape(l).setState(x, y, 0, kFilled);
+  }
+  Voxel& tray = puz.getShape(trayId);
+  tray.setColor(0, 0, 0, a + 1);
+  tray.setGoalPiece(tray.getIndex(3, 3, 0), a + 1);
+  syncSlidingProblems(puz);
+  Problem& pr = puz.getProblem(0);
+  pr.setShapeMaximum(puz, l, 1);
+  pr.setShapeMinimum(puz, l, 1);
+  return puz;
+}
+
+// The starts a solve without Find Solutions keeps.
+std::vector<Assembly> keptStarts(Puzzle& p, bool anyOrientation, bool mirrored) {
+  SolveOptions o;
+  o.solutionLimit = 0;
+  o.sliding.anyOrientation = anyOrientation;
+  o.sliding.mirroredOrientations = mirrored;
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  if (s.state() == SolveState::Error) {
+    FAIL("solver error: " << s.failure()->message);
+  }
+  REQUIRE(s.state() == SolveState::Finished);
+  const Problem& pr = p.getProblem(0);
+  std::vector<Assembly> out;
+  for (unsigned int i = 0; i < pr.getNumberOfSavedSolutions(); i++) {
+    out.push_back(pr.getSavedSolution(i).getAssembly());
+  }
+  CHECK(out.size() == pr.getNumAssemblies());
+  return out;
+}
+
+}  // namespace
+
+TEST_CASE("sliding session: a piece with a start or a goal is placed as drawn",
+          "[sliding][session]") {
+  for (const bool any : {false, true}) {
+    Puzzle p = dominoBlock();
+    const std::vector<Assembly> starts = keptStarts(p, any, any);
+    REQUIRE(starts.size() == 1);
+    for (unsigned int pc = 0; pc < 2; pc++) {
+      CHECK(starts[0].getTransformation(pc) == 0);
+    }
+  }
+}
+
+TEST_CASE("sliding session: a piece with neither turns only when the options allow it",
+          "[sliding][session]") {
+  // the L is piece 1, after the unit piece
+  auto turns = [](const std::vector<Assembly>& starts) {
+    std::set<unsigned int> t;
+    for (const Assembly& a : starts) {
+      t.insert(a.getTransformation(1));
+    }
+    return t;
+  };
+  Puzzle drawn = freeL();
+  Puzzle any = freeL();
+  Puzzle mirrored = freeL();
+  const std::vector<Assembly> d = keptStarts(drawn, false, false);
+  const std::vector<Assembly> a = keptStarts(any, true, false);
+  const std::vector<Assembly> m = keptStarts(mirrored, true, true);
+
+  CHECK(turns(d) == std::set<unsigned int>{0});
+  // four quarter turns, none of them mirrored
+  const std::set<unsigned int> ta = turns(a);
+  CHECK(ta.size() == 4);
+  CHECK(*ta.rbegin() < 24);
+  // and their four mirror images
+  const std::set<unsigned int> tm = turns(m);
+  CHECK(tm.size() == 8);
+  CHECK(std::count_if(tm.begin(), tm.end(), [](unsigned int t) { return t >= 24; }) == 4);
+  CHECK(d.size() < a.size());
+  CHECK(a.size() < m.size());
+
+  // a mirrored start slides to the goal like any other
+  SolveOptions o = findSolutions(1);
+  o.sliding.anyOrientation = true;
+  o.sliding.mirroredOrientations = true;
+  const SlideTotals t = straightSolve(freeL(), o, false);
+  CHECK(t.assemblies == m.size());
+  CHECK(t.solutions >= 1);
+}
+
+TEST_CASE("sliding: the orientations each part may take", "[sliding]") {
+  const Puzzle p = freeL();
+  const Problem& pr = p.getProblem(0);
+  REQUIRE(pr.getNumberOfParts() == 2);
+  CHECK(partTransforms(p, pr, false, true) == std::vector<std::uint64_t>{1, 1});
+  const std::vector<std::uint64_t> any = partTransforms(p, pr, true, false);
+  CHECK(any[0] == 1);
+  CHECK(std::popcount(any[1]) == 4);
+  CHECK((any[1] & 1U) == 1);
+  const std::vector<std::uint64_t> mirrored = partTransforms(p, pr, true, true);
+  CHECK(mirrored[0] == 1);
+  CHECK(std::popcount(mirrored[1]) == 8);
+  CHECK((mirrored[1] & any[1]) == any[1]);
 }

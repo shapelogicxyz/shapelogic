@@ -61,9 +61,9 @@ moved past the 63rd place losing them with a notice, since a mark is six
 bits, a duplicated or renamed start/goal shape keeping its number apart
 from the user's name, an edit that changes a stamped piece's shape taking
 its stamps off with a notice); what the GUI greyed out or hid is refused
-(choosing the result, groups, the count of a piece a stamp requires, new,
-copied and deleted problems, deleted colours: the cell colours are the
-start marks); a sliding shape keeps its layers on open (see
+(groups, the count of a piece a stamp requires, deleted colours: the
+cell colours are the start marks); a sliding shape keeps its layers on
+open (see "Problems the user makes" below and
 "Shapes of more than one layer" below). Solve's setup
 (`prepareForSolving`) is part of the launch, not an undo step, as it was
 part of the original's solve: it runs after every check that can refuse,
@@ -135,6 +135,26 @@ setting `verticalMoves`, `bt --vertical-moves`, the Python module's
 be. With the option off a tray of several layers that has no solution
 says to try it; one layer deep, nothing changes.
 
+**A piece keeps its orientation** (added later). The original's
+assembler found the start layouts with every piece in every rotation, held
+to its start only by the colours of the cells, so a start or goal another
+orientation covers as well (two upright dominoes stamped as a square, which
+two lying ones fill too) gave a start with the pieces turned, and a path
+in which they slid turned. Now each part may be placed only in the
+transformations `sliding::partTransforms` gives it
+(`MatrixOptions::partTransforms`, which also turns the symmetry breaker
+off): as drawn, by default for every piece. With
+`SlidingOptions::anyOrientation` a piece with neither a start nor a goal
+on the board may also take the quarter turns about the axis the layers
+stack along, and with `mirroredOrientations` their mirror images too
+(transformations from 24: a flat piece turned over). These are the
+Solver's Allow any orientation for unplaced pieces and Include mirrored
+orientations, stored with the problem as `anyOrientation` and
+`mirroredOrientations`, `bt --any-orientation` and
+`--mirrored-orientations`, the Python module's `any_orientation` and
+`mirrored_orientations`. A solve finds fewer starts than the original
+where pieces turned, so its answers differ there on purpose.
+
 **Copies of a piece** (added later). A piece the problem has several
 copies of may have a start and a goal for each: its marks (still shape
 index + 1 in a cell) are then several whole pieces, split by
@@ -181,6 +201,26 @@ original's fast, deep or full, is kept as it was and not written; the
 original opens a file the new code saved with its default solver. The
 legacy search over text keys stays, for trays the position tables cannot
 pack and as the reference the tests compare the level search with.
+
+**Problems the user makes** (added later). The original gave each
+start/goal shape a problem of its own, named after it, and greyed out
+New, Copy and Delete problem and the choice of result. The document now
+makes sliding problems as it makes Brick ones: a new board brings no
+problem; New, Copy and Delete problem work; a problem's result is chosen
+(`problem.setResult` takes only a start/goal shape) or cleared; a
+problem keeps its own name; deleting a board leaves its problems without
+a result. `sliding::syncSlidingParts` replaces `syncSlidingProblems` in
+the document: it adds, drops and renames no problem, keeps every board
+out of every problem's pieces, and gives each problem on a board the
+pieces stamped there (a copy for each start and goal) and its start
+locks. `syncSlidingProblems` stays, as the original's, for the tests and
+the tools that build puzzles with it. The stamps are the board's, so
+problems that share a board share them; the copies a stamp may have and
+the validity bar are the problem's (`pieceCopies`, `startGoalError` and
+the `sliding.*` calls take it, falling back to the board's first
+problem). A file the original opens gets its own problems back from its
+sync (one per board, those without a board dropped); the format is
+unchanged.
 
 ## Consequences
 - The oracle harness has a `sliding` tier: the fixtures and puzzles built

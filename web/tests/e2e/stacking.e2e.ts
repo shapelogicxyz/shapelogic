@@ -483,7 +483,7 @@ test('a Panex search paused, the app restarted, the search carried on from where
     await expect(page.locator('#slvActivity')).toHaveText('Search active with the Panex Solver', {
       timeout: 20_000,
     });
-    await expect(page.locator('#slvDetails')).toContainText(/^\d+ moves deep\. Found /, {
+    await expect(page.locator('#slvDetails')).toContainText(/^Scanned .+ states\. Search depth: /, {
       timeout: 20_000,
     });
     await runButton(page, 'pause');
@@ -525,8 +525,9 @@ test('a Panex search paused, the app restarted, the search carried on from where
     await expect(page.locator('#slvActivity')).toHaveText('Search finished');
     // what the search went through, kept with the problem
     await expect(page.locator('#slvDetails')).toHaveText(
-      /^Scanned .+ stackings\. Searched [\d,]+ moves deep\.$/,
+      /^Scanned .+ states\. Search depth: 1,094$/,
     );
+    await expect(page.locator('#slvMoves')).toHaveText('2,189');
     await solverSettled(page);
   } finally {
     await a.close();

@@ -415,6 +415,14 @@ export class SolverWorkspace {
     return this.sel < 0 ? null : (this.pager?.row(this.sel) ?? null);
   }
 
+  /**
+   * The moves of a sliding or stacking problem's solution (it has one at
+   * most: the fewest moves); null without one, or before its row came.
+   */
+  moves(): number | null {
+    return this.pager?.row(0)?.moves ?? null;
+  }
+
   /** Shows another problem. */
   selectProblem(id: string): void {
     if (id === this.current) {
@@ -703,7 +711,11 @@ export class SolverWorkspace {
       this.kindOf(id),
       tray === null
         ? Promise.resolve(null)
-        : store.engine.call('sliding.tray', { tray }, { coalesce: 'solver:sliding.tray' }),
+        : store.engine.call(
+            'sliding.tray',
+            { tray, problem: id },
+            { coalesce: 'solver:sliding.tray' },
+          ),
       stacking
         ? store.engine.call(
             'stacking.board',
@@ -862,6 +874,10 @@ export class SolverWorkspace {
       this.selId = pager.row(this.sel)?.id ?? null;
     }
     this.solCard.render();
+    if (this.sliding || this.stacking) {
+      // the Moves line reads the solution's row
+      this.runCard.render();
+    }
     this.showSelected();
     this.renderTag();
     if (tab === 'solver') {

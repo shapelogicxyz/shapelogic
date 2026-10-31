@@ -411,14 +411,15 @@ class Document {
 
   // ---- sliding puzzles (decision 0014) -----------------------------------------
   //
-  // A sliding puzzle keeps one problem per start/goal shape in step with
-  // its stamps (syncSlidingProblems), whatever changes them: these
-  // commands, and deleting, moving, duplicating, renaming and editing
-  // shapes, as the original GUI did. Refused (Unsupported) on other grids.
+  // A sliding puzzle's problems are the user's, each with a start/goal
+  // shape (a board) chosen as its result, as on other grids; the problems
+  // on a board keep its stamped pieces as parts (syncSlidingParts),
+  // whatever changes them: these commands, and deleting, moving,
+  // duplicating and editing shapes. Refused (Unsupported) on other grids.
 
   /// Adds a start/goal shape of `size` cells (sliding.addStartGoal, the
-  /// GUI's New Start/Goal): all floor, numbered after the others, with its
-  /// problem.
+  /// GUI's New Start/Goal): all floor, numbered after the others. No
+  /// problem is made for it (the original made one).
   Result<Id> addStartGoal(std::array<unsigned int, 3> size);
   /// The start/goal editor's click (sliding.place): the whole of a piece as
   /// its start (goal false) or its goal, from a click on (x, y) of layer z,
@@ -427,11 +428,20 @@ class Document {
   /// one of several copies is one more copy's (refused once every copy the
   /// problem has is placed); a copy that is exactly there already is taken
   /// off. Refused (InvalidArgument) with the reason when it does not fit.
-  /// Returns whether the piece is there now.
-  Result<bool> placeStamp(Id tray, Id piece, int x, int y, int z, bool goal);
+  /// The copies are `problem`'s, whose result must be the tray (0: the
+  /// tray's first problem's). Returns whether the piece is there now.
+  Result<bool> placeStamp(Id tray, Id piece, int x, int y, int z, bool goal, Id problem = 0);
+  /// The problem `problem` (0: none, null), read for the
+  /// sliding.* calls that name one, when its result is
+  /// the start/goal shape `tray`; refused when it is not.
+  [[nodiscard]] Result<const Problem*> trayProblemOf(Id problem, unsigned int tray) const;
   /// Takes off the start or goal of the copy that covers (x, y, z) (the
   /// right click); false when there is none.
   Result<bool> clearStampAt(Id tray, int x, int y, int z, bool goal);
+  /// Copies every start onto the goals (toGoal), or every goal onto the
+  /// starts (sliding.clone), replacing what that side had. Refused
+  /// (InvalidArgument) with the reason when a start is on a corridor.
+  Result<void> cloneStamps(Id tray, bool toGoal);
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //
@@ -664,8 +674,8 @@ class Document {
   void problemChanged(unsigned int problem);
 
   // sliding puzzles
-  /// syncSlidingProblems with the ids kept in step: saves the whole
-  /// puzzle for undo and ends the sessions first (problems come and go).
+  /// syncSlidingParts: saves the whole puzzle for undo and ends the
+  /// sessions first (pieces' locks and parts change).
   void syncSliding();
   /// Moves the boards above the pieces, the marks and ids following; true
   /// when a piece lost its marks past the 63rd place.

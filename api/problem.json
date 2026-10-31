@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "problem.json",
   "title": "Problems",
-  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding puzzle has one problem per start/goal shape, kept in step with its starts and goals (sliding.json): its result is not chosen (problem.setResult is refused), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.",
+  "description": "The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding problem's result is a start/goal shape (a board) the user chooses (problem.setResult refuses any other shape); the problems on a board keep its stamped pieces as parts (sliding.json), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.",
   "methods": {
     "problem.list": {
       "summary": "The problems in list order.",
@@ -21,19 +21,19 @@
       "errors": ["not_found"]
     },
     "problem.create": {
-      "summary": "Adds a problem; it allows each colour on itself. Refused (invalid_argument) on a sliding puzzle, whose problems follow its start/goal shapes (sliding.addStartGoal).",
+      "summary": "Adds a problem; it allows each colour on itself (on a sliding puzzle, whose cell colours are start marks, it has no colour rules).",
       "params": {"type": "object", "properties": {}, "additionalProperties": false},
       "result": {"$ref": "#/$defs/Made"},
       "errors": ["invalid_argument", "invalid_state"]
     },
     "problem.duplicate": {
-      "summary": "Adds a copy of a problem's definition (no name, no solutions). Refused (invalid_argument) on a sliding puzzle (shape.duplicate of the start/goal shape instead).",
+      "summary": "Adds a copy of a problem's definition (no name, no solutions).",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "#/$defs/Made"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.delete": {
-      "summary": "Removes a problem. Refused (invalid_argument) on a sliding puzzle (shape.delete of the start/goal shape instead).",
+      "summary": "Removes a problem.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
@@ -50,7 +50,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.rename": {
-      "summary": "The problem's name. A sliding board's problem is named as its board: the board is renamed (shape.rename).",
+      "summary": "The problem's name.",
       "params": {
         "type": "object",
         "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}, "name": {"type": "string"}},
@@ -61,13 +61,13 @@
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.setResult": {
-      "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions. Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead (stacking.setProblemRodSet).",
+      "summary": "Makes a shape the result (it stops being a piece); a different result removes the solutions. On a sliding puzzle the result is a start/goal shape (a board; another shape is refused, invalid_argument), and the pieces stamped on it become parts. Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead (stacking.setProblemRodSet).",
       "params": {"$ref": "#/$defs/ProblemShape"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]
     },
     "problem.clearResult": {
-      "summary": "Leaves the problem without a result (not in the original); the solutions go. Nothing changes when it has none. Refused (invalid_argument) on sliding and stacking puzzles, as problem.setResult.",
+      "summary": "Leaves the problem without a result (not in the original); the solutions go. Nothing changes when it has none. Refused (invalid_argument) on a stacking puzzle, as problem.setResult.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state"]

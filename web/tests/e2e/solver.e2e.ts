@@ -605,6 +605,12 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(slid.solutions);
     await expect(page.locator('#slvSols')).toHaveText(String(slid.solutions));
     await expect(page.locator('#slvDetails')).toContainText(/^Scanned .+ arrangements\./);
+    // its one solution's moves, under the Activity line
+    const slideRow = await engineCall<{ rows: { moves: number | null }[] }>(page, 'solution.page', {
+      problem: sp,
+      limit: 1,
+    });
+    await expect(page.locator('#slvMoves')).toHaveText(String(slideRow.rows[0]?.moves));
     await expect(page.locator('#splayer')).toHaveAttribute('data-ready', '1');
     await expect(page.locator('#vp')).toHaveAttribute('data-solution-view', 'playback');
     const slide = await enginePoses(page, sp, await attr(page, '#splayer', 'data-solution'));

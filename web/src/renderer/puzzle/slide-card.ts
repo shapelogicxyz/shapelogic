@@ -20,10 +20,12 @@
 
 import type { Methods } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
+import { askConfirm } from '../shell/confirm.ts';
 import { byId, esc, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { applyLayout, layout } from '../shell/layout.ts';
 import { isTray } from '../shell/piece-colours.ts';
+import { openPop } from '../shell/popover.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
 import { EditorState, key, planeMap } from '../entities/editor-state.ts';
 import type { Cell } from '../entities/editor-state.ts';
@@ -150,7 +152,7 @@ export class SlideCard {
       applyLayout();
     }
     const board = this.board;
-    this.trays.show(board, store.generation, this.ws.shown);
+    this.trays.show(board, this.ws.current, store.generation, this.ws.shown);
     this.loadCells(board);
     this.draw();
   }
@@ -314,17 +316,18 @@ export class SlideCard {
   // the outline of the piece to place under the mouse (sliding.preview)
   private hover(p: Pane): void {
     const tray = this.board;
+    const problem = this.ws.current;
     const piece = this.piece;
     const cell = p.at;
     const n = ++p.loads;
-    if (cell === null || tray === null || piece === null) {
+    if (cell === null || tray === null || problem === null || piece === null) {
       p.grid.setStamp(null);
       return;
     }
     this.ws.store.engine
       .call(
         'sliding.preview',
-        { tray, piece, at: cell, goal: p.goal },
+        { tray, problem, piece, at: cell, goal: p.goal },
         { coalesce: p.goal ? 'sg:preview:goal' : 'sg:preview:start' },
       )
       .then(
@@ -350,7 +353,8 @@ export class SlideCard {
   private async click(p: Pane, at: Cell, right: boolean): Promise<void> {
     const tray = this.board;
     const ws = this.ws;
-    if (tray === null || ws.refuse()) {
+    const problem = ws.current;
+    if (tray === null || problem === null || ws.refuse()) {
       return;
     }
     const piece = this.piece;
@@ -364,7 +368,7 @@ export class SlideCard {
       await ws.mutateQuiet<{ revision: number }>(() =>
         right || piece === null
           ? e.call('sliding.clearAt', { tray, at, goal })
-          : e.call('sliding.place', { tray, piece, at, goal }),
+          : e.call('sliding.place', { tray, problem, piece, at, goal }),
       );
     } catch (err) {
       // the original put the reason in the status line
@@ -378,7 +382,56 @@ export class SlideCard {
     }
   }
 
+  // More options: Start cloned to Goal or Goal to Start, asked first when the target has pieces
+  private more(anchor: Element): void {
+    const none = this.board === null ? 'disabled' : '';
+    openPop(
+      anchor,
+      `<button data-k="goal" ${none} title="Copy the start positions to the goal, replacing what it has">Clone start position to goal position</button><button data-k="start" ${none} title="Copy the goal positions to the start, replacing what it has">Clone goal position to start position</button>`,
+      (k) => {
+        const toGoal = k === 'goal';
+        const r = this.reply;
+        if (r === null || this.ws.refuse()) {
+          return;
+        }
+        if (!r.placed.some((c) => c.goal === toGoal)) {
+          void this.clone(toGoal);
+          return;
+        }
+        const target = toGoal ? 'goal' : 'start';
+        askConfirm(
+          toGoal ? 'Clone start to goal?' : 'Clone goal to start?',
+          `Pieces were found on the ${target} board. The ${target} board will be cleared and replaced with a copy of the ${toGoal ? 'start' : 'goal'}.`,
+          'Clear and clone',
+          () => void this.clone(toGoal),
+        );
+      },
+    );
+  }
+
+  // the clone itself (sliding.clone): one undo step; the reason of a refusal goes to the status bar
+  private async clone(toGoal: boolean): Promise<void> {
+    const tray = this.board;
+    const ws = this.ws;
+    if (tray === null || ws.refuse()) {
+      return;
+    }
+    try {
+      await ws.mutateQuiet(() => ws.store.engine.call('sliding.clone', { tray, toGoal }));
+    } catch (err) {
+      if (err instanceof EngineError && err.errc === 'invalid_argument') {
+        flash(err.detail, 5000);
+      } else {
+        reportError(err, toGoal ? 'The start could not be cloned' : 'The goal could not be cloned');
+      }
+    }
+  }
+
   private install(): void {
+    byId('pzMore').addEventListener('click', (e) => {
+      this.more(e.currentTarget as Element);
+    });
+    byId('pzMore').innerHTML = ic('menu');
     // the focus: Start and Goal side by side, the card taking the room the left card and the view give up
     byId('pzF2D').addEventListener('click', () => {
       layout.focus = layout.focus === '2d' ? '' : '2d';

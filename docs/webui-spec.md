@@ -323,9 +323,11 @@ not stop on them) and empty cells walls; each copy of a piece may have a
 start and a goal stamped on a tray, the whole piece at a time (a piece
 the problem has three copies of, up to three of each, any copy ending on
 any of its goals; a copy without a start starts anywhere, one without a
-goal ends anywhere); each tray has its own problem, "Board n - Start / Goal" (the
-original's "START/GOAL n"), or the board's name when it has one, whose
-pieces follow the stamps. The original edited the stamps on the Entities
+goal ends anywhere). The original gave each tray a problem of its own,
+"START/GOAL n"; here the problems are the user's, as on the other grids:
+a new problem has no result, and the user chooses a board as its result
+(several problems may share a board and its stamps), whose stamped pieces
+then follow in its parts. The original edited the stamps on the Entities
 tab (its Start/Goal tab); here they are the Puzzle workspace's (8.2),
 where the problem's counts are.
 
@@ -338,9 +340,10 @@ where the problem's counts are.
   **+ New**) and the Boards header **+ New Board** (the original's New
   Start/Goal Positions: "a shape that holds start and goal positions",
   `sliding.addStartGoal`, the size of the selected shape, else 6 by 6
-  by 1, as `cb_NewStartGoal`). A tray is deleted, with its problem, by
-  the list's Delete (the trash, the right-click menu and `Del`), which
-  stands in for the original's Delete Start/Goal Positions. A name
+  by 1, as `cb_NewStartGoal`); no problem comes with it. A tray is
+  deleted by the list's Delete (the trash, the right-click menu and
+  `Del`), which stands in for the original's Delete Start/Goal
+  Positions; the problems on it stay, without a result. A name
   beginning "sg:" is refused (the engine).
 - **Inspector:** the shape's colour button is off on a tray (it shows the
   pieces' colours). The tasks are the bricks' (the original's `lockZ`
@@ -360,10 +363,18 @@ where the problem's counts are.
 - **3D view of a tray:** the tray as any shape.
 
 ### 8.2 Puzzle workspace
-- **Problems:** New, Copy and Delete problem are hidden (the engine
-  refuses them: a tray's problem follows its stamps); rename and order
-  stay.
-- **Result:** the tray, fixed: **Change…** is hidden.
+- **Problems:** as on the other grids (New, Copy, Delete, rename,
+  order); the original greyed New, Copy and Delete out, its problems
+  following the trays.
+- **Result:** the board. **Change…** offers only the Boards list (and
+  Clear Result; with no board yet it says to add one with + New Board),
+  and a piece's right-click menu has no Set as result (the engine
+  refuses a piece). With no board chosen the result row, the fit summary
+  and the status say to choose one, and the problem's pieces show as on
+  a Brick puzzle (no Start and goal, no trays). The starts and goals are
+  the board's: a problem that shares it shares them, each problem's
+  counts giving the copies it may place (`sliding.place`,
+  `sliding.preview` and `sliding.tray` take the problem shown).
 - **Pieces:** a piece a stamp requires (`Part.required`) stays in the
   puzzle (its remove is off, "Remove all" and "Set range for all pieces"
   leave it, as the engine does) and keeps a copy for each of its starts
@@ -387,7 +398,12 @@ where the problem's counts are.
   the copy exactly there), a right click takes off the copy under the
   mouse (`sliding.place`, `sliding.clearAt`); a refusal's reason goes to
   the status bar ("The piece does not fit there: …", "All 3 copies of the
-  piece have a start already: …").
+  piece have a start already: …"). The card's ☰ More options menu (left
+  of Focus 2D editor) has **Clone start position to goal position** and
+  **Clone goal position to start position** (`sliding.clone`, one undo
+  step): when the side cloned to has pieces, a question first ("Pieces
+  were found on the goal board…", Cancel / Clear and clone); a start on
+  a variable cell is refused with the reason in the status bar.
 - **Validity bar** (under the 3D view, `refreshSlideValid`): green "Valid
   Start/Goal positions for pieces in Start and Goal of this board" or red
   "Invalid Start/Goal positions - <reason>" (`sliding.tray.error`: starts
@@ -422,12 +438,15 @@ where the problem's counts are.
   stored), with the help of `mainwindow_help.cpp`; **Allow Nested Slides**, **Allow Partially
   Nested** (only with nested slides), with the original's tooltips (the
   original's **Enable High Memory** is the Search memory setting,
-  section 1); Just count, Keep every n-th, the limit and
-  Autosave stay. Keep mirror, Keep rotated, the thorough rotation check,
+  section 1); after Just count, **Allow any orientation for unplaced
+  pieces** and under it **Include mirrored orientations** (only with it),
+  both off, which the original did not have (every piece is placed as
+  drawn; with them, a piece with no start or goal may be turned, and
+  mirrored); Just count, Keep every n-th, the limit and Autosave stay. Keep mirror, Keep rotated, the thorough rotation check,
   Strict colours and the sort are not shown (a sliding solve keeps every
   start and matches colours strictly; a path found goes last). They are
   stored with the problem under the file's names (`nestedSlides`,
-  `partialNested`, `highMemory`; a stored `solverType`, the original's
+  `partialNested`, `anyOrientation`, `mirroredOrientations`, `highMemory`; a stored `solverType`, the original's
   fast, deep or full, is kept as it was and not written).
 - **Run:** Solve and Prepare are off while the tray's starts and goals
   are invalid, with "Fix the start and goal on the Puzzle tab first:
@@ -455,7 +474,8 @@ where the problem's counts are.
   and goal were removed from S1.", "Only the first 63 shapes …").
 - **File ▸ New** offers **Sliding** second, after Brick (the original's
   order); a new sliding puzzle starts empty (add pieces with + New Piece,
-  then a board with + New Board).
+  then a board with + New Board, then on the Puzzle workspace a problem
+  with + New and the board with Change…).
 
 ## 9. Stacking and Panex puzzles (deferred part 4)
 

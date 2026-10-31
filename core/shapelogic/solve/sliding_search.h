@@ -178,6 +178,13 @@ struct SlidingOptions {
   bool partialNested = false;
   /// SlideSearch::verticalMoves.
   bool verticalMoves = false;
+  /// A piece with neither a start nor a goal on the board may be placed in
+  /// any quarter turn in its layers, not only as drawn; with
+  /// mirroredOrientations, also their mirror images (partTransforms in
+  /// bt/model/sliding.h). Every piece keeps its orientation as it slides.
+  bool anyOrientation = false;
+  /// Plays a part only with anyOrientation.
+  bool mirroredOrientations = false;
   bool highMemory = false;
   /// SlideSearch::memoryBytes: set by the program (the engine from its
   /// settings; the CLI leaves it to highMemory).

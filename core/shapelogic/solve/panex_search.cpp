@@ -1283,6 +1283,9 @@ class Searcher {
 
       if (mirrored) {
         // The mirrored search stands one level behind, then level with it.
+        if (top && search_.depth != nullptr) {
+          search_.depth->store(2 * std::uint64_t{fwd.depth} - 1, std::memory_order_relaxed);
+        }
         if (meet(fwd.cur, mirrorPrev, m.at)) {
           found = true;
           m.fromStart = fwd.depth;

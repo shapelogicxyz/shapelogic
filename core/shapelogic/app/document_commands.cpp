@@ -138,7 +138,7 @@ Result<Id> Document::duplicateShape(Id shape) {
     return std::unexpected(s.error());
   }
   // a copy of a sliding start/goal shape is a start/goal shape of its own
-  // with the next number, and gets its problem (cb_CopyShape)
+  // with the next number (cb_CopyShape, which also gave it a problem)
   const bool startGoal =
       sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&puzzle_->getShape(*s));
   StepGuard g(*this, "Duplicate shape");
@@ -285,24 +285,13 @@ Result<void> Document::renameShape(Id shape, std::string name) {
   }
   StepGuard g(*this, "Rename shape");
   touchShape(*s);
-  std::uint32_t what = kChangeShapes;
   if (startGoal) {
     sliding::setStartGoalUserName(&puzzle_->getShape(*s), name);
-    // its problem is named after the board (syncSlidingProblems)
-    for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-      Problem& pr = puzzle_->getProblem(p);
-      if (pr.resultValid() && pr.getResultId() == *s) {
-        touchProblem(p);
-        pr.setName(sliding::problemName(&puzzle_->getShape(*s)));
-        lastChange_.problems = {ids_.problems[p]};
-        what |= kChangeProblems;
-      }
-    }
   } else {
     puzzle_->getShape(*s).setName(name);
   }
   lastChange_.shapes = {shape};
-  g.commit(what);
+  g.commit(kChangeShapes);
   return {};
 }
 
@@ -664,19 +653,15 @@ Result<Id> Document::createProblem() {
   if (Result<void> r = checkNotSolving(); !r) {
     return std::unexpected(r.error());
   }
-  // the original greyed New, Copy and Delete problem out: a sliding
-  // puzzle's problems follow its start/goal shapes (syncSlidingProblems
-  // would drop a problem of no start/goal shape at the next change)
-  if (sliding::isSliding(*puzzle_)) {
-    return fail(Errc::InvalidArgument,
-                "a sliding puzzle's problems follow its start/goal shapes: add a start/goal "
-                "shape instead");
-  }
+  // the original greyed New, Copy and Delete problem out on a sliding
+  // puzzle, whose problems followed its start/goal shapes; here the user
+  // makes them and chooses a board as the result. Its cell colours are
+  // start marks, which a sliding solve matches strictly: no colour rules.
   StepGuard g(*this, "New problem");
   touchWhole();
   endSessions();
   const unsigned int p = puzzle_->addProblem();
-  for (unsigned int c = 0; c < puzzle_->colorNumber(); c++) {
+  for (unsigned int c = 0; c < puzzle_->colorNumber() && !sliding::isSliding(*puzzle_); c++) {
     puzzle_->getProblem(p).allowPlacement(*puzzle_, c + 1, c + 1);
   }
   const Id id = newId();
@@ -693,11 +678,6 @@ Result<Id> Document::duplicateProblem(Id problem) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (sliding::isSliding(*puzzle_)) {
-    return fail(Errc::InvalidArgument,
-                "a sliding puzzle's problems follow its start/goal shapes: duplicate the "
-                "shape instead");
   }
   StepGuard g(*this, "Duplicate problem");
   touchWhole();
@@ -717,11 +697,6 @@ Result<void> Document::deleteProblem(Id problem) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
-  }
-  if (sliding::isSliding(*puzzle_)) {
-    return fail(Errc::InvalidArgument,
-                "a sliding puzzle's problems follow its start/goal shapes: delete the shape "
-                "instead");
   }
   StepGuard g(*this, "Delete problem");
   touchWhole();
@@ -771,12 +746,6 @@ Result<void> Document::renameProblem(Id problem, std::string name) {
   if (Result<void> r = checkText(name, true, "a name"); !r) {
     return r;
   }
-  // a sliding board's problem is named as its board: the board is renamed
-  if (const Problem& pr = puzzle_->getProblem(*p);
-      sliding::isSliding(*puzzle_) && pr.resultValid() &&
-      sliding::isStartGoalShape(&puzzle_->getShape(pr.getResultId()))) {
-    return renameShape(ids_.shapes[pr.getResultId()], std::move(name));
-  }
   if (puzzle_->getProblem(*p).getName() == name) {
     return {};
   }
@@ -800,9 +769,11 @@ Result<void> Document::setResult(Id problem, Id shape) {
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
   }
-  if (sliding::isSliding(*puzzle_)) {
-    return fail(Errc::InvalidArgument,
-                "a sliding problem's result is its start/goal shape: it is not chosen");
+  // a sliding problem's result is a board, whose stamped pieces become
+  // its parts
+  const bool slidingPuzzle = sliding::isSliding(*puzzle_);
+  if (slidingPuzzle && !sliding::isStartGoalShape(&puzzle_->getShape(*s))) {
+    return fail(Errc::InvalidArgument, "a sliding problem's result is a board");
   }
   if (Result<void> r = refuseOnStacking(
           "a stacking problem has a rod set, not a result: set its start/goal rods");
@@ -820,7 +791,10 @@ Result<void> Document::setResult(Id problem, Id shape) {
   pr.setResultId(*puzzle_, *s);
   endSession(*p);
   lastChange_.problems = {problem};
-  g.commit(kChangeProblems | kChangeSolutions);
+  if (slidingPuzzle) {
+    syncSliding();
+  }
+  g.commit(kChangeProblems | kChangeSolutions | lastChange_.what);
   return {};
 }
 
@@ -831,10 +805,6 @@ Result<void> Document::clearResult(Id problem) {
   }
   if (Result<void> r = checkProblemFree(*p); !r) {
     return r;
-  }
-  if (sliding::isSliding(*puzzle_)) {
-    return fail(Errc::InvalidArgument,
-                "a sliding problem's result is its start/goal shape: it is not chosen");
   }
   if (Result<void> r = refuseOnStacking(
           "a stacking problem has a rod set, not a result: set its start/goal rods");

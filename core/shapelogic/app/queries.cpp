@@ -15,6 +15,7 @@
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/sliding.h"
 #include "shapelogic/model/solution.h"
 
 #include <algorithm>
@@ -47,7 +48,9 @@ FitStats problemFit(const Puzzle& puzzle, unsigned int problemIndex) {
 
   if (f.cellsMin > f.resultMax) {
     f.verdict = FitVerdict::TooLarge;
-  } else if (f.cellsMax < f.resultMin) {
+  } else if (f.cellsMax < f.resultMin && !sliding::isSliding(puzzle)) {
+    // a sliding board need not be filled: its empty cells are the space the
+    // pieces slide in, and the assembler takes every cell as optional
     f.verdict = FitVerdict::TooSmall;
   } else {
     f.verdict = FitVerdict::Fits;

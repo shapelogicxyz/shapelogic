@@ -84,9 +84,10 @@ class Assembly {
   /// The grid the transformations belong to.
   [[nodiscard]] GridType getGridType() const { return gt_; }
 
-  /// Appends a placed piece.
+  /// Appends a placed piece; mirrored only where the matrix was asked for
+  /// it (MatrixOptions::partTransforms: a sliding piece placed mirrored).
   void addPlacement(unsigned char tran, int x, int y, int z) {
-    BT_ASSERT(tran < sym().getNumTransformations());
+    BT_ASSERT(tran < sym().getNumTransformationsMirror());
     BT_ASSERT(tran != kUnplacedTrans);
     placements_.push_back(Placement{tran, x, y, z});
   }

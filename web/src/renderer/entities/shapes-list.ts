@@ -131,7 +131,7 @@ export class ShapesList {
   <span class="acts">
    <button class="ib" data-a="label" title="Rename">${ic('edit', 17)}</button>
    <button class="ib" data-a="copy" title="Duplicate (added as the last shape)">${ic('copy', 17)}</button>
-   <button class="ib del" data-a="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete'}">${ic('trash', 17)}</button>
+   <button class="ib del" data-a="del" title="${isTray(s) ? 'Delete this board: the problems on it are left without a result' : 'Delete'}">${ic('trash', 17)}</button>
   </span></div>`;
       });
       this.boards.innerHTML = rows.slice(0, boards).join('');
@@ -241,7 +241,7 @@ export class ShapesList {
         return;
       }
       case 'del': {
-        // a tray goes with its problem (the original's Delete Start/Goal Positions)
+        // a tray's problems stay, without a result (the original deleted its problem)
         if (this.host.refuseList()) {
           return;
         }
@@ -593,7 +593,7 @@ export class ShapesList {
       openPopAt(
         e.clientX,
         e.clientY,
-        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board and its start/goal problem' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
+        `<div class="ph">Shape ${esc(s.label)}</div><button data-k="label" title="Give this shape a name">Rename…<span class="kb">F2</span></button><button data-k="copy" title="Make a copy of this shape">Duplicate<span class="kb">Ctrl D</span></button><hr><button data-k="up" ${this.canMove(i, i - 1) ? '' : 'disabled'} title="Exchange this shape with the previous shape">Move earlier<span class="kb">Alt ↑</span></button><button data-k="down" ${this.canMove(i, i + 1) ? '' : 'disabled'} title="Exchange this shape with the next shape">Move later<span class="kb">Alt ↓</span></button>${this.host.store.snapshot?.grid === 'stacking' ? '' : `<hr><button data-k="wp" title="Make this shape heavier: when the disassembly separates pieces, the heavier group stays in place">Weight +1</button><button data-k="wm" ${s.weight === 0 ? 'disabled' : ''} title="Make this shape lighter: when the disassembly separates pieces, the lighter group moves">Weight −1</button>`}<hr><button data-k="colour" title="Choose this shape’s own color">Color…</button><button data-k="nocolour" ${s.colour === null ? 'disabled' : ''} title="Back to the color ShapeLogic gives this shape">Default color</button><hr><button data-k="del" title="${isTray(s) ? 'Delete this board: the problems on it are left without a result' : 'Delete this shape from the puzzle'}" style="color:var(--danger)">Delete<span class="kb">Del</span></button>`,
         (k) => {
           void this.action(k, id);
         },

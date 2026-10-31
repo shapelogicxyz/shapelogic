@@ -264,7 +264,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},
@@ -277,6 +277,8 @@
         "nestedSlides": {"type": "boolean"},
         "partialNested": {"type": "boolean"},
         "verticalMoves": {"type": "boolean"},
+        "anyOrientation": {"type": "boolean"},
+        "mirroredOrientations": {"type": "boolean"},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
         "keepAssemblies": {"type": "boolean", "description": "Always show Assemblies (not in the original)."},
@@ -386,6 +388,8 @@
         "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline (Allow Nested Slides)."},
         "partialNested": {"type": "boolean", "description": "And what is partly nested in it (Allow Partially Nested); implies nestedSlides."},
         "verticalMoves": {"type": "boolean", "description": "On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer."},
+        "anyOrientation": {"type": "boolean", "description": "A piece with neither a start nor a goal on the board may be placed in any quarter turn in its layers (Allow any orientation for unplaced pieces); off (the default), every piece is placed as drawn. Either way a piece keeps its orientation as it slides, and a piece with a start or a goal keeps the one drawn."},
+        "mirroredOrientations": {"type": "boolean", "description": "With anyOrientation, those pieces may also be placed as the mirror images of those turns: turned over, on a tray one layer deep (Include mirrored orientations)."},
         "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part."}
       },
       "additionalProperties": false

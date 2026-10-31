@@ -877,7 +877,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ## Problems
 
-The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding puzzle has one problem per start/goal shape, kept in step with its starts and goals (sliding.json): its result is not chosen (problem.setResult is refused), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.
+The problems: a result shape, pieces with counts or ranges, groups, colour rules. A problem being solved cannot be edited (invalid_state); editing one ends its paused solve, which carries on from its saved position (decision 0011). A sliding problem's result is a start/goal shape (a board) the user chooses (problem.setResult refuses any other shape); the problems on a board keep its stamped pieces as parts (sliding.json), it has no groups (refused), and a piece with a start or goal keeps its count (Part.required). A stacking problem stands on a rod set and holds its discs on the rods at its start and goal (stacking.json; problem.get's stacks): its result, piece counts and groups are refused, the stacking commands set them.
 
 ### `problem.list`
 
@@ -909,7 +909,7 @@ Errors: `not_found`
 
 ### `problem.create`
 
-Adds a problem; it allows each colour on itself. Refused (invalid_argument) on a sliding puzzle, whose problems follow its start/goal shapes (sliding.addStartGoal).
+Adds a problem; it allows each colour on itself (on a sliding puzzle, whose cell colours are start marks, it has no colour rules).
 
 Params:
 
@@ -921,7 +921,7 @@ Errors: `invalid_argument`, `invalid_state`
 
 ### `problem.duplicate`
 
-Adds a copy of a problem's definition (no name, no solutions). Refused (invalid_argument) on a sliding puzzle (shape.duplicate of the start/goal shape instead).
+Adds a copy of a problem's definition (no name, no solutions).
 
 Params:
 
@@ -935,7 +935,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.delete`
 
-Removes a problem. Refused (invalid_argument) on a sliding puzzle (shape.delete of the start/goal shape instead).
+Removes a problem.
 
 Params:
 
@@ -964,7 +964,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.rename`
 
-The problem's name. A sliding board's problem is named as its board: the board is renamed (shape.rename).
+The problem's name.
 
 Params:
 
@@ -979,7 +979,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.setResult`
 
-Makes a shape the result (it stops being a piece); a different result removes the solutions. Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead (stacking.setProblemRodSet).
+Makes a shape the result (it stops being a piece); a different result removes the solutions. On a sliding puzzle the result is a start/goal shape (a board; another shape is refused, invalid_argument), and the pieces stamped on it become parts. Refused (invalid_argument) on a stacking puzzle, whose problems stand on a rod set instead (stacking.setProblemRodSet).
 
 Params:
 
@@ -994,7 +994,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`
 
 ### `problem.clearResult`
 
-Leaves the problem without a result (not in the original); the solutions go. Nothing changes when it has none. Refused (invalid_argument) on sliding and stacking puzzles, as problem.setResult.
+Leaves the problem without a result (not in the original); the solutions go. Nothing changes when it has none. Refused (invalid_argument) on a stacking puzzle, as problem.setResult.
 
 Params:
 
@@ -1263,11 +1263,11 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the start/goal shape's problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. Each has a problem of its own, named after the board (its name, or 'Board n - Start / Goal' while it has none), whose parts and colour locks follow its stamps, and of which no board is a piece; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, and its stamps. A problem on a board keeps the pieces stamped on it as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
-Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1, the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after the others, with its problem.
+Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1, the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after the others. No problem is made for it: a problem chooses it as its result (problem.setResult).
 
 Params:
 
@@ -1296,6 +1296,7 @@ Params:
 | `piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `at` | TrayCell | required | A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0). |
 | `goal` | boolean | required |  |
+| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's. |
 
 Result:
 
@@ -1327,6 +1328,25 @@ Result:
 
 Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
+### `sliding.clone`
+
+Copies every start of a start/goal shape onto its goals (toGoal true), or every goal onto its starts, replacing what that side had (the Puzzle workspace's Clone start to goal and Clone goal to start). Refused (invalid_argument) with the reason when a start is on a variable cell (a goal cannot be on one). The problems of the start/goal shape lose what they had found. One undo step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `toGoal` | boolean | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
 ### `sliding.tray`
 
 What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.
@@ -1336,6 +1356,7 @@ Params:
 | name | type | | description |
 |---|---|---|---|
 | `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's. |
 
 Result:
 
@@ -1373,6 +1394,7 @@ Params:
 | `piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `at` | TrayCell | required | A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0). |
 | `goal` | boolean | required |  |
+| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's. |
 
 Result:
 
@@ -2890,7 +2912,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves and highMemory are sliding's nestedSlides, partialNested, verticalMoves and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
 
 | name | type | | description |
 |---|---|---|---|
@@ -2905,6 +2927,8 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `nestedSlides` | boolean |  |  |
 | `partialNested` | boolean |  |  |
 | `verticalMoves` | boolean |  |  |
+| `anyOrientation` | boolean |  |  |
+| `mirroredOrientations` | boolean |  |  |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
 | `keepAssemblies` | boolean |  | Always show Assemblies (not in the original). |
@@ -2998,6 +3022,8 @@ A sliding puzzle's search (the solve thread's sliding flags). A sliding solve al
 | `nestedSlides` | boolean |  | A piece may carry what is nested in its outline (Allow Nested Slides). |
 | `partialNested` | boolean |  | And what is partly nested in it (Allow Partially Nested); implies nestedSlides. |
 | `verticalMoves` | boolean |  | On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer. |
+| `anyOrientation` | boolean |  | A piece with neither a start nor a goal on the board may be placed in any quarter turn in its layers (Allow any orientation for unplaced pieces); off (the default), every piece is placed as drawn. Either way a piece keeps its orientation as it slides, and a piece with a start or a goal keeps the one drawn. |
+| `mirroredOrientations` | boolean |  | With anyOrientation, those pieces may also be placed as the mirror images of those turns: turned over, on a tray one layer deep (Include mirrored orientations). |
 | `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part. |
 
 ### StackingOptions

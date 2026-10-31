@@ -708,7 +708,7 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
   if (sliding::isSliding(*puzzle_)) {
     const Problem& pr = puzzle_->getProblem(*p);
     if (pr.resultValid() && sliding::isStartGoalShape(&puzzle_->getShape(pr.getResultId()))) {
-      const std::string why = sliding::startGoalError(*puzzle_, pr.getResultId());
+      const std::string why = sliding::startGoalError(*puzzle_, pr.getResultId(), &pr);
       if (!why.empty()) {
         return fail(Errc::InvalidArgument, why);
       }

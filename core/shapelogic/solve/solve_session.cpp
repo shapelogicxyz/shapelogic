@@ -27,6 +27,17 @@ namespace bt {
 
 namespace {
 
+// 357913941 -> "357,913,941", for counts shown to the user.
+std::string withCommas(std::uint64_t n) {
+  std::string digits = std::to_string(n);
+  std::string out;
+  for (std::size_t i = 0; i < digits.size(); ++i) {
+    if (i > 0 && (digits.size() - i) % 3 == 0) out += ',';
+    out += digits[i];
+  }
+  return out;
+}
+
 std::int64_t nowNs() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(
              std::chrono::steady_clock::now().time_since_epoch())
@@ -239,6 +250,10 @@ Result<void> SolveSession::launch(Mode mode) {
     o.matrix.keepRotations = true;
     o.matrix.completeRotations = false;
     o.matrix.strictColors = true;
+    // a piece slides without turning, so it starts as drawn (or, unplaced,
+    // as the options allow)
+    o.matrix.partTransforms = sliding::partTransforms(
+        puzzle_, problem_, o.sliding.anyOrientation, o.sliding.mirroredOrientations);
   }
 
   SolveState st = state_.load();
@@ -264,7 +279,8 @@ Result<void> SolveSession::launch(Mode mode) {
   // (a saved position does not say), the solve starts over.
   bool reuse = false;
   if (assembler_ && problem_.getSolveState() == ProblemState::Solving) {
-    if (assembler_->usesStrictColors() == o.matrix.strictColors) {
+    if (assembler_->usesStrictColors() == o.matrix.strictColors &&
+        assembler_->partTransforms() == o.matrix.partTransforms) {
       reuse = true;
       // this run's mirror and rotation filter (the solve thread set it on
       // the problem's assembler before every run)
@@ -796,13 +812,13 @@ void SolveSession::runStacking(const Plan& plan) {
     if (path) {
       // no note
     } else if (stopped && search.saved) {
-      note = "Paused " + std::to_string(search.depthReached) +
+      note = "Paused " + withCommas(search.depthReached) +
              " moves deep. The search is saved: press Continue to carry on, even after quitting "
              "ShapeLogic.";
     } else if (stopped) {
       note = "Stopped before the search was complete.";
     } else if (search.outcome == panex::Outcome::Memory) {
-      note = "The search outgrew its memory after " + std::to_string(search.found) +
+      note = "The search outgrew its memory after " + withCommas(search.found) +
              " stackings.";
       if (!o.settingsPlace.empty()) {
         note += search.saved ? " It is saved: give it more Search memory in " + o.settingsPlace +
@@ -832,7 +848,7 @@ void SolveSession::runStacking(const Plan& plan) {
     } else if (stopped) {
       note = "Stopped before the search was complete.";
     } else if (search.outcome == stacking::StackOutcome::Memory) {
-      note = "The search reached its memory limit of " + std::to_string(search.memoryStates) +
+      note = "The search reached its memory limit of " + withCommas(search.memoryStates) +
              " stackings. There may be a solution the solver did not find." +
              (!o.settingsPlace.empty() ? " " + o.settingsPlace + " can give it more Search memory."
               : search.highMemory      ? ""
@@ -1085,13 +1101,13 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
 // gave up (solveThread_c::slidingSummary, word for word).
 std::string SolveSession::slidingSummary(const SolveOptions& o) const {
   if (slideStartsCut_ > 0) {
-    std::string msg = std::to_string(slideStartsCut_) +
+    std::string msg = withCommas(slideStartsCut_) +
                       (slideStartsCut_ == 1 ? " start layout was" : " start layouts were") +
                       " not searched completely";
     if (!slideDiskError_.empty()) {
       msg += ". " + slideDiskError_.substr(0, slideDiskError_.size() - 1);
     } else {
-      msg += ": the search reached its memory limit of " + std::to_string(slideMemoryStates_) +
+      msg += ": the search reached its memory limit of " + withCommas(slideMemoryStates_) +
              " arrangements";
     }
     msg += ". There may be solutions the solver did not find.";

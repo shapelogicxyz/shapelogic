@@ -44,6 +44,7 @@ export const ICONS = {
   arR: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   holes:
     '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" fill="currentColor" opacity=".4"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   more: '<circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>',
   check: '<path d="M5 12l5 5 9-10"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',

@@ -45,6 +45,8 @@ struct Options {
   bool nestedSlides = false;   ///< --nested-slides
   bool partialNested = false;  ///< --partial-nested (implies --nested-slides)
   bool verticalMoves = false;  ///< --vertical-moves: sliding pieces may move up and down
+  bool anyOrientation = false;        ///< --any-orientation: unplaced pieces may turn
+  bool mirroredOrientations = false;  ///< --mirrored-orientations (implies --any-orientation)
   bool highMemory = false;     ///< --high-memory
 
   // burrTxt's stacking options (--high-memory and --restart too)

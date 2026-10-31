@@ -144,6 +144,13 @@ void usage(HelpKind kind) {
         "  --vertical-moves\n"
         "          on a tray more than one layer deep, a piece may also move up and\n"
         "          down; without it every piece stays in its layer\n"
+        "  --any-orientation\n"
+        "          a piece with neither a start nor a goal on the board may be placed in\n"
+        "          any quarter turn in its layers; without it every piece is placed as\n"
+        "          drawn. A piece never turns as it slides.\n"
+        "  --mirrored-orientations\n"
+        "          with --any-orientation, those pieces may also be mirrored (turned\n"
+        "          over). Implies --any-orientation.\n"
         "  --high-memory\n"
         "          let the search hold up to half of this computer's memory in\n"
         "          arrangements, instead of stopping at about 2 GB\n"
@@ -314,6 +321,11 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.partialNested = true;
     } else if (a == "--vertical-moves") {
       o.verticalMoves = true;
+    } else if (a == "--any-orientation") {
+      o.anyOrientation = true;
+    } else if (a == "--mirrored-orientations") {
+      o.anyOrientation = true;
+      o.mirroredOrientations = true;
     } else if (a == "--high-memory") {
       o.highMemory = true;
     } else if (a == "--slide-legacy") {

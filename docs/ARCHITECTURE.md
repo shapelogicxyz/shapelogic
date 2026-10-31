@@ -215,8 +215,10 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   corridors, each cell's colour the start mark of a piece and its goal
   mark the goal of one), the stamps (`stampPiece`, `stampFits`,
   `stampIsAt`, `clearStamp`, `stampAt`, `dropChangedStamps`),
-  `syncSlidingProblems` (one problem per start/goal shape, its parts
-  following the stamps), the start locks (`refreshStartLocks`: pieces
+  `syncSlidingProblems` (the original's: one problem per start/goal
+  shape, its parts following the stamps) and `syncSlidingParts` (the
+  document's: the user's problems kept, each on a board given its stamped
+  pieces), the start locks (`refreshStartLocks`: pieces
   painted in the colours of their starts, so the assembler finds only
   start layouts), `startGoalError`, `stampOverflowMessage`,
   the older goal-map model the solver still reads
@@ -436,7 +438,11 @@ one).
   the fewest moves from a start layout (an assembly) to the goal: a piece,
   or with nested slides the pieces it carries, slides cell by cell,
   crossing corridors, in its layer; with `verticalMoves`, on a tray of
-  several layers, up and down too (lifted out and put back); positions keyed in 64 or 128 bits (the original's
+  several layers, up and down too (lifted out and put back); each piece
+  starts as drawn (`sliding::partTransforms` limits the assembler's
+  orientations; with `anyOrientation`, a piece with no start or goal may
+  take any quarter turn, with `mirroredOrientations` mirrored too) and never
+  turns; positions keyed in 64 or 128 bits (the original's
   text keys with `legacy`; puzzles of more than 64 pieces with nested
   slides use those, where the original overran its tables); copies of
   like pieces searched as one. There is no limit on the arrangements
@@ -653,9 +659,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   stamps off and says so in `ChangeSet::notice`, as does moving a stamped
   piece past the 63rd place, a mark being six bits); sliding shapes may
   have more than one layer and keep them on open (decision 0014); what
-  the original greyed out or hid is refused (the result, groups, the count
-  of a piece a stamp requires, new, copied and deleted problems, deleted
-  colours); `solveLaunch` sets up the start locks as part of the run (no
+  the original greyed out or hid is refused (groups, the count of a piece
+  a stamp requires, deleted colours), while problems are made, copied,
+  deleted and given a board as their result as on other grids; `solveLaunch` sets up the start locks as part of the run (no
   undo step), after its checks. Stacking puzzles (decision 0015) solve
   through the same calls with `SolveOptions.stacking` (the discs' hotspots
   put at their centres before the first run, with the others' reset); a
@@ -1478,7 +1484,8 @@ What exists after stage 8:
     the shapes list's "(START/GOAL n)" rows with their black chips and
     the header's + New Piece and + New Board (`#btnNewBoard`,
     `sliding.addStartGoal` of the selected shape's size), a tray deleted
-    with its problem by the list's Delete, its colour greyed;
+    by the list's Delete (its problems kept, without a result), its
+    colour greyed;
     the validity bar under the Puzzle view (`#slideValid`);
     `view3d/trays.ts` (`TrayView`: the START and GOAL trays and the
     copies standing on them as the original's `showSingleShape`, through
@@ -1494,8 +1501,9 @@ What exists after stage 8:
     colour for the list, the 3D view and the 2D editor, set by
     `theme.ts` from the Sliding board color setting of the theme in use,
     so a board with none of its own follows the theme; `chipColour`,
-    `viewColour`, `isTray`); the Puzzle's sliding rules (no
-    New, Copy or Delete problem, no Change…, no groups or colour rules, a
+    `viewColour`, `isTray`); the Puzzle's sliding rules (Change…
+    offering only the boards, no Set as result on a piece, no groups or
+    colour rules, a
     `Part.required` piece kept, with no fewer copies than `Part.placed`); the Solver's sliding options
     (`settings.ts`: `nestedSlides`, `partialNested`, `highMemory`,
     `DEFAULT_SLIDING` with Find Solutions checked, the one solver shown

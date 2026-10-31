@@ -115,9 +115,10 @@ export class TrayState {
     this.failed = failed;
   }
 
-  /** Shows a tray (null: none) as of a document and revision. */
-  show(tray: string | null, generation: number, revision: number): void {
-    const want = tray === null ? '' : `${String(generation)}:${tray}:${String(revision)}`;
+  /** Shows a tray (null: none) as a problem on it sees it (its copies), as of a document and revision. */
+  show(tray: string | null, problem: string | null, generation: number, revision: number): void {
+    const want =
+      tray === null ? '' : `${String(generation)}:${tray}:${problem ?? ''}:${String(revision)}`;
     if (want === this.wanted) {
       return;
     }
@@ -131,12 +132,13 @@ export class TrayState {
       return;
     }
     // what was read for another tray is not this one's
-    const of = `${String(generation)}:${tray}`;
+    const of = `${String(generation)}:${tray}:${problem ?? ''}`;
     if (this.replyOf !== of && this.reply !== null) {
       this.reply = null;
       this.changed();
     }
-    this.engine.call('sliding.tray', { tray }, { coalesce: 'sliding.tray' }).then(
+    const params = problem === null ? { tray } : { tray, problem };
+    this.engine.call('sliding.tray', params, { coalesce: 'sliding.tray' }).then(
       (r) => {
         if (n === this.loads) {
           this.reply = r;

@@ -508,7 +508,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .mcard b{display:block;font-weight:600;font-size:calc(12px + var(--fs))}.mcard span.d{color:var(--muted);font-size:calc(11px + var(--fs));line-height:1.35}
 .slv-opts{display:flex;flex-direction:column;gap:12px}
 .slv-opts .row2{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px}
-.slv-opts .row2 .t{flex:1;min-width:0}.slv-opts .row2 .t small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));line-height:1.3}
+.slv-opts .row2.sub{padding-left:18px}.slv-opts .row2 .t{flex:1;min-width:0}.slv-opts .row2 .t small{display:block;color:var(--muted);font-size:calc(11px + var(--fs));line-height:1.3}
 .slv-opts select{height:calc(30px + var(--fh));border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:0 8px;font:inherit;font-size:calc(12px + var(--fs));max-width:190px}
 .slv-opts .step{width:112px}
 .slv-run{display:grid;grid-template-columns:1fr 1.4fr 1fr 1fr;gap:6px}
@@ -1071,7 +1071,7 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 .sglayers:empty{display:none}
 .sggrid{flex:1;min-width:0;min-height:0;position:relative}
 /* the focus on a sliding problem: the left card a rail, the view narrow, Start and Goal side by side, their grids taking the room */
-#stage:not(.sld) #pzF2D{display:none}
+#stage:not(.sld) #pzF2D,#stage:not(.sld) #pzMore{display:none}
 #stage[data-tab=puzzle].sld.f2d{--lw:var(--railw);--cw:360px;--rw:1fr}
 #stage[data-tab=puzzle].sld.f2d #leftP>*:not(.crail){display:none}
 #stage[data-tab=puzzle].sld.f2d #leftP>.crail{display:flex}

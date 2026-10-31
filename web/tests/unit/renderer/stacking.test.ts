@@ -129,10 +129,14 @@ describe('the stacking solver options', () => {
     expect(solveOptions(o, DEFAULT_LIMITS).stacking).toBeUndefined();
   });
 
-  it('tell the search on the Details line as the original’s Activity line', () => {
-    expect(stackingDetails(true, 12_345, 7, 0)).toBe('7 moves deep. Found 12,345 stackings.');
+  it('tell the search on the Details line: the states and the depth from each end', () => {
+    expect(stackingDetails(true, 12_345, 7, 0)).toBe('Scanned 12,345 states. Search depth: 3');
+    expect(stackingDetails(true, 4_870_733_506, 5359, 0)).toBe(
+      'Scanned 4.87 billion states. Search depth: 2,679',
+    );
+    expect(stackingDetails(true, 3, 1, 0)).toBe('Scanned 3 states.');
     expect(stackingDetails(true, 1, 881, 40)).toBe('Tracing the path. Traced 40 of 881 moves.');
-    expect(stackingDetails(false, 2_500_000, 0, 0)).toBe('Scanned 2.5 million stackings.');
+    expect(stackingDetails(false, 2_500_000, 0, 0)).toBe('Scanned 2.5 million states.');
   });
 });
 

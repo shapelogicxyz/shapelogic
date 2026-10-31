@@ -1,0 +1,75 @@
+---
+// The research section of shapelogic.xyz: papers and analysis from the solvers.
+// The papers themselves are static pages in public/research/.
+import '../../styles/landing.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Research | ShapeLogic</title>
+    <meta
+      name="description"
+      content="Research and analysis about puzzles and shapes, and what the ShapeLogic solvers can tell us."
+    />
+    <link rel="icon" href="/assets/puzzle_icon.jpg" />
+  </head>
+  <body>
+    <header class="banner">
+      <a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466" /></a>
+    </header>
+
+    <main>
+      <nav class="crumb" aria-label="Breadcrumb"><a href="/">ShapeLogic</a> › Research</nav>
+      <h1>Research</h1>
+      <p class="lead">
+        This section is dedicated to research and analysis about puzzles and shapes, and what the
+        ShapeLogic solvers can tell us about them. Each paper starts from real solver runs and
+        reports what they show.
+      </p>
+
+      <section class="blog" aria-labelledby="papers-heading">
+        <h2 class="blog-heading" id="papers-heading">Papers</h2>
+        <article class="post" aria-labelledby="paper-golden">
+          <h3 id="paper-golden">
+            <a href="/research/golden-rhombus-puzzles.html">Golden Rhombus Puzzles</a>
+          </h3>
+          <p>
+            The angles behind the rhombic triacontahedron, the 30 rhombic pyramids that assemble
+            into it, and the 30-stick weave that shows the pentagons and hexagons of a truncated
+            icosahedron, with the maths needed to cut every piece.
+          </p>
+          <p>
+            <a href="/research/golden-rhombus-puzzles.html">Read online</a>
+          </p>
+        </article>
+        <article class="post" aria-labelledby="paper-panex">
+          <h3 id="paper-panex">
+            <a href="/research/panex-solver-white-paper.html">Panex Solver White Paper</a>
+          </h3>
+          <p>
+            How ShapeLogic's Panex Solver finds shortest swaps, what eight solves (levels 3 to 10)
+            show about the move counts, and where the solves could be made faster.
+          </p>
+          <p>
+            <a href="/research/panex-solver-white-paper.html">Read online</a>
+            ·
+            <a href="/research/panex-solver-white-paper.pdf" download>Download PDF</a>
+          </p>
+        </article>
+      </section>
+
+      <p><a href="/">&larr; Back to ShapeLogic</a></p>
+    </main>
+
+    <footer>
+      <img src="/assets/puzzle_icon.jpg" alt="" width="40" height="40" />
+      <p>
+        ShapeLogic is free open-source software, built and maintained by Colin Deisenroth.<br />
+        Contact: <a href="mailto:shapelogic.xyz@gmail.com">shapelogic.xyz@gmail.com</a>
+      </p>
+    </footer>
+  </body>
+</html>

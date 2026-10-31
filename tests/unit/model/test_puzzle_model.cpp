@@ -829,8 +829,11 @@ TEST_CASE("assembly: placements report back exactly", "[model][assembly]") {
   // the getters assert that the piece is placed
   REQUIRE_THROWS_AS(a.getX(1), InternalError);
   REQUIRE_THROWS_AS(a.getTransformation(1), InternalError);
-  // and addPlacement that the transformation is a rotation
-  REQUIRE_THROWS_AS(a.addPlacement(24, 0, 0, 0), InternalError);
+  // and addPlacement that the transformation is one of the grid's: a
+  // mirrored one too (a sliding piece may be placed mirrored)
+  a.addPlacement(24, 0, 0, 0);
+  REQUIRE(a.getTransformation(3) == 24);
+  REQUIRE_THROWS_AS(a.addPlacement(48, 0, 0, 0), InternalError);
 }
 
 TEST_CASE("assembly: comparePieces sorts placed pieces before unplaced ones",

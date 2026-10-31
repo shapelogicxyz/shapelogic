@@ -213,7 +213,8 @@ void DlxMatrix::addVoxelNode(unsigned int col, unsigned int piecenode) {
 //
 // Returns 1, or minus the shape id of a part that has no placement.
 int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strictColors,
-                       RotationFilter& filter, std::atomic<unsigned int>& piece) {
+                       const std::vector<std::uint64_t>& partTransforms, RotationFilter& filter,
+                       std::atomic<unsigned int>& piece) {
   const Voxel& result = problem.resultShape(puzzle);
 
   // the matrix column of every result voxel (a lookup, because computing it
@@ -257,8 +258,9 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
   const Symmetries& sym = gt.getSymmetries();
   unsigned int symBreakerShape = 0xFFFFFFFF;
 
-  // with only the identity in the result, everything must be tried
-  if (!unSymmetric(resultSym)) {
+  // with only the identity in the result, everything must be tried; and
+  // with orientation limits, a placement left out has no rotated twin
+  if (!unSymmetric(resultSym) && partTransforms.empty()) {
     // FIXME (original): with several suitable pieces, the one with the most
     // placements would gain more
     unsigned int bestFound =
@@ -376,7 +378,11 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
     cache.clear();
     unsigned int found = 0;
 
-    for (unsigned int rot = 0; rot < sym.getNumTransformations(); rot++) {
+    const unsigned int rotEnd = transformEnd(partTransforms, sym);
+    for (unsigned int rot = 0; rot < rotEnd; rot++) {
+      if (!transformAllowed(partTransforms, pc, rot)) {
+        continue;
+      }
       std::unique_ptr<Voxel> rotated = problem.partShape(puzzle, pc).clone();
       if (!rotated->transform(rot)) {
         continue;
@@ -430,6 +436,7 @@ int DlxMatrix::prepare(const Puzzle& puzzle, const Problem& problem, bool strict
 }
 
 AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bool strictColors,
+                                const std::vector<std::uint64_t>& partTransforms,
                                 RotationFilter& filter, std::atomic<unsigned int>& piece,
                                 int& param) {
   pieces = problem.getNumberOfPieces();
@@ -467,7 +474,7 @@ AssemblerError DlxMatrix::build(const Puzzle& puzzle, const Problem& problem, bo
 
   holes = h;
 
-  const int error = prepare(puzzle, problem, strictColors, filter, piece);
+  const int error = prepare(puzzle, problem, strictColors, partTransforms, filter, piece);
 
   // a piece that cannot be placed
   if (error <= 0) {
