@@ -535,13 +535,7 @@ for (const grid of GRIDS) {
       await expect.poll(cvCursor).toBe('');
       await page.keyboard.press('e');
       await expect(page.locator('#bEdit')).not.toHaveClass(/\bon\b/);
-      // eight cells of the layer: the first ones, which lie on the left of
-      // the view; on the cairo grid (4 cells to a unit, so a space 16 cells
-      // wide) a patch of 48 around the middle, so that faces lie where the
-      // scan below looks
-      const count = grid === 'cairo' ? 48 : 8;
-      const from = grid === 'cairo' ? Math.max(0, Math.floor(geo3.length / 2) - count / 2) : 0;
-      for (const c of geo3.slice(from, Math.min(from + count, geo3.length))) {
+      for (const c of geo3.slice(0, Math.min(8, geo3.length))) {
         await clickCell(page, c.at);
       }
       const cube = grid === 'bricks';

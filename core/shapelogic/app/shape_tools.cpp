@@ -735,8 +735,8 @@ unsigned int sizeUnit(GridKind grid) {
       return 5;
     case GridKind::TetraOcta:
       return 3;
-    case GridKind::Cairo:
-      return 4;
+    // the cairo grid's pentagons repeat every four cells in x and y, but a
+    // space of any size holds whole cells, and layers have no period
     default:
       return 1;
   }

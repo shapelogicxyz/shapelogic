@@ -165,63 +165,95 @@ the original has no such grids, so the oracle harness cannot cover them.
   the same puzzles. Do this only after idea 2's geometry layer exists.
 
 ### 5. Solver and storage ideas from outside the grid code
-- **We have:** the ported dancing-links assembler (classic and crowell),
-  a thread pool, pause and resume with the saved position in the file,
-  the front end's autosave that pauses the solve at a save point and
-  writes the whole .xmpuzzle, undo on the document model (decision 0011),
-  .xmpuzzle read and written both ways (decision 0006), the Python module
-  and the oracle harness reading it.
-- **V2 has:** Knuth's dancing-cells algorithm with native per-piece
-  minimum and maximum counts; a search tree split into sub-problems for
-  threads and persisted whole for resume; a SQLite `.dbpuzzle` file as
-  the only document, with every edit and every solution committed as it
-  happens, a trigger-based undo log, and "save as" implemented as
-  `VACUUM INTO`; Lua scripts for shape filters and modifiers. SQLite is
-  compiled into the executable (the bundled amalgamation unless a system
-  library of at least 3.38.1 is found); no separate binary at run time.
-- **The user would see:** faster solves with many identical pieces from a
-  dancing-cells variant. Undo already exists here, so a storage change
-  would be invisible or a compatibility regression.
+Three separate questions, decided separately (2026-11-09).
 
-**Decision on storage (discussed 2026-11-08).** Keep .xmpuzzle as the
-document. Reasons:
-- Compatibility with the original and the oracle harness (decision 0006),
-  and the Python module, all read it.
-- Scripts: Python reads SQLite without an extra install, so the database
-  itself is not the barrier; the barrier is that V2 stores voxel spaces,
-  assemblies and disassemblies as private binary blobs that need the C++
-  decoders. The .xmpuzzle is self-describing and diffable.
-- Thread management does not need a database: the solve session already
-  owns the run threads and hands results over under one mutex (decision
-  0010). V2's write queue does the same and merely drains to SQLite.
+#### 5a. Storage: .xmpuzzle stays the document; no SQLite
+- **We have:** .xmpuzzle read and written both ways (decision 0006), the
+  Python module and the oracle harness reading it; undo on the document
+  model (decision 0011); pause and resume with the saved position in the
+  file; the front end's autosave, which pauses the solve at a save point
+  every few minutes and writes the whole file.
+- **V2 has:** a SQLite `.dbpuzzle` as its only document (no XML writer),
+  every edit and every found solution committed as it happens, a
+  trigger-based undo log, "save as" by `VACUUM INTO`. SQLite is compiled
+  into its executable (the bundled amalgamation unless a system library
+  of at least 3.38.1 is found); no separate binary at run time.
+- **Decision: keep .xmpuzzle, do not adopt SQLite**, as a document or as a
+  solve-time store. The document stays self-describing and diffable, the
+  original and the harness keep reading it, and thread management needs
+  no database (the solve session already owns the run threads and hands
+  results over under one lock, decision 0010; V2's write queue does the
+  same and merely drains to SQLite). V2's database is also no help to
+  scripts: its voxel spaces, assemblies and disassemblies are private
+  binary blobs that need its C++ decoders.
+- **If crash safety at solution granularity is ever asked for**, the
+  design is an **append-only journal**, not a database: a file beside the
+  document (`<name>.xmpuzzle.journal`), one `<solution>` element per line
+  as the .xmpuzzle writes it, plus a position checkpoint every few
+  minutes; written by the solve session's result thread as solutions
+  arrive; on the next open the engine finds it, offers recovery, folds it
+  into the document and deletes it after a clean save. No dependency, no
+  schema, readable by the same scripts. Not planned until asked: the
+  autosave already bounds a crash's loss to its interval.
+- **Out of scope:** solution lists larger than memory. That is a
+  document-format question (a binary solutions section or a sidecar for
+  the large case), not a store, and beyond what ShapeLogic targets.
 
-A "SQLite during the solve, then fold into .xmpuzzle and delete" hybrid is
-sound but over-built. What a solve-time store would add is only:
-- crash safety finer than the autosave interval (every solution durable
-  as found);
-- solution lists larger than RAM (we keep a vector and sort in memory).
+#### 5b. Dancing cells: a third assembler, chosen by the problem, after a measurement
+- **We have:** two assemblers behind the run layer (decision 0009):
+  Assembler 0 (dancing links, one piece per part, the SIMD vector search)
+  and Assembler 1 (dancing links with piece counts and ranges). The solver
+  type the user picks (Complete or Fast, decision 0019) chooses the
+  take-apart; the assembler is chosen by the problem's shape, not by the
+  user: Assembler 0 when every part has one piece, Assembler 1 otherwise.
+- **V2 has:** Knuth's dancing cells (TAOCP 7.2.2.3, "Algorithm F") as its
+  one assembler, with native per-item minimum and maximum multiplicities,
+  behind an interface that also has a dancing-links implementation for
+  comparison. Its gain is on puzzles with many identical pieces.
+- **Decision rule, if built:** dancing cells becomes a third assembler,
+  **Assembler 2, used where Assembler 1 is used today** (a part with more
+  than one piece, or a range), never for one-piece-per-part problems,
+  where Assembler 0's vector search is already the fastest path. Nothing
+  changes for the user; Complete and Fast stay the solver types.
+- **Conditions:** (1) a saved position that can be paused and resumed
+  (decision 0009): the BurrTools 2 assembler was removed because its
+  position could not be (decision 0019), and the same would disqualify
+  this one; (2) the oracle harness's assembly counts and multisets equal
+  Assembler 1's on every fixture with piece counts; (3) a measured win.
+- **Measure first:** `tests/bench/bench.py` on the fixtures with
+  identical pieces (Dracula's Dental Desaster, Pelikan Burr, Bermuda) at
+  one thread, Assembler 1 as it is. If a prototype of dancing cells is
+  not clearly faster there, stop. Difficulty medium: the interface is
+  pluggable; the saved position and the oracle gate are the work.
 
-If either is wanted, prefer an **append-only journal** beside the
-document: each solution as the same `<solution>` element the .xmpuzzle
-uses, one per line, plus a periodic position checkpoint; on the next open
-the engine finds the journal, offers recovery, folds it into the document
-and deletes it after a clean save. No dependency, no schema, readable by
-the same scripts. SQLite earns its place only for queries over a solution
-set that does not fit in memory during the solve (sorting, de-duplicating
-millions of solutions), which is beyond what ShapeLogic targets. Note for
-the site demo: the engine runs as WebAssembly there; SQLite builds under
-Emscripten but adds about a megabyte and needs a persistence shim, so any
-store must be optional in that build.
-
-Caveat: a document with millions of solutions is slow to parse as text
-however it is stored; V2 avoids that by never loading them all. If
-analyses of that size are ever needed, the decision is about the document
-format (a binary solutions section or a sidecar for the large case), not
-the solve-time store.
-
-- **Difficulty: medium** for a dancing-cells solver behind the existing
-  solver option (the assembler interface is pluggable, the oracle checks
-  counts; decision 0019). **Not planned** for storage.
+#### 5c. Threads: the split is already dynamic between tasks; make it dynamic within them if the tail shows
+- **We have:** the run layer splits the search tree into tasks before the
+  search starts: prefixes of chosen rows, at least 16 of them or 4 per
+  worker, at most 3 pieces deep, each weighted for the progress bar.
+  Idle workers take the next task from the list, so the balance between
+  tasks is dynamic; results are handed over under one lock; progress,
+  completion and the saved position are kept per task, so a split search
+  pauses, saves and resumes. Within the matrix the vector search uses
+  SIMD. A task, once taken, is never split again.
+- **V2 has:** splitting on demand: when a thread goes idle, the main
+  problem is split once more and the piece given to it, the whole tree
+  persisted for resume. Its author's own note calls the depth heuristic a
+  weakness and sketches a design he has not built. No SIMD.
+- **Decision: no change to how threads are started or how work is handed
+  out; the one gap is the tail.** When the tasks left are fewer than the
+  workers and one of them is large, cores idle until it ends. The fix,
+  if the measurement shows it, is to split a running task into its
+  unexplored child prefixes when a worker goes idle, and append them to
+  the task list, which the saved position already represents (more
+  tasks, each resumable). ShapeLogic had work stealing for the BurrTools
+  2 assembler (`work_stealing.h`) and removed it with that assembler
+  because its position could not resume; the task-list form above keeps
+  the resume.
+- **Measure first:** `tests/bench/bench.py` at one thread and at all
+  cores on the long fixtures; a speedup well below the core count on the
+  last part of a solve (the progress bar's last tasks) is the signal. If
+  the speedup is already near the core count, do nothing. Difficulty
+  low to medium: the split of a running task is the only new code.
 
 ## Summary
 
@@ -231,8 +263,9 @@ the solve-time store.
 | 2 Grid oracle test | Low | None now; confidence and a path to new grids |
 | 3 Cutting-plane editor | High | Large, especially rhombic and tetra-octa |
 | 4 Derived movement | High | Disassembly on two more grids |
-| 5 Dancing cells | Medium | Speed on identical-piece puzzles |
-| 5 SQLite storage | n/a | Not planned; journal if crash recovery is asked for |
+| 5a Storage | n/a | Not planned; a journal beside the document if crash recovery is asked for |
+| 5b Dancing cells | Medium | Speed on identical-piece puzzles, as Assembler 2; measure first |
+| 5c Tail splitting | Low to medium | Full use of the cores at the end of long solves; measure first |
 
 Suggested order: 1 first (self-contained, no compatibility risk, builds
 the edge-loop geometry the others reuse), then 2's test, then 3 or 4 as
