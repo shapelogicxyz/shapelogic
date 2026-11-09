@@ -24,7 +24,8 @@ registry seeded from these tables, appending a list it has not met with
 its tables derived by the generator's rules (`deriveSphereTables`).
 
 The tables and the hand-written neighbour functions are checked against
-the cells' geometry by `tests/unit/grid/test_grid_oracle.cpp`: the
+the cells' geometry (`mesh/cell_geometry.h`) by
+`tests/unit/grid/test_grid_oracle.cpp`: the
 neighbours from the corners the cells share, the transformations as
 rigid motions with the matrix table, the groups as subgroups with their
 coset representatives (docs/V2-IDEAS-PLAN.md, idea 2).

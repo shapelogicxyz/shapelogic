@@ -37,6 +37,7 @@ add_library(btcore STATIC
   shapelogic/io/xml_document.cpp
   shapelogic/io/xml_pull_parser.cpp
   shapelogic/io/xml_writer.cpp
+  shapelogic/mesh/cell_geometry.cpp
   shapelogic/mesh/cube_mesh.cpp
   shapelogic/mesh/draw_mesh.cpp
   shapelogic/mesh/grid_geometry.cpp

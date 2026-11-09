@@ -126,9 +126,9 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 Ported from the original `voxel*.cpp`, `symmetries_*.cpp`, `tabs_*`,
 `gridtype.cpp`, `voxeltable.cpp`; checked value for value against the
 original (`tests/data/grid_dump.txt`, see "Testing against the original"),
-and against the cells' own geometry (`tests/unit/grid/test_grid_oracle.cpp`:
-neighbours, transformations and groups rebuilt from the face polygons;
-docs/V2-IDEAS-PLAN.md, idea 2).
+and against the cells' own geometry (`tests/unit/grid/test_grid_oracle.cpp`
+on `mesh/cell_geometry.h`: neighbours, transformations and groups rebuilt
+from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
 - `grid_type.h`: `GridKind` (the numbers are the file format's) and
   `GridType`, a small value type: capabilities, `getSymmetries()`, and
   `makeVoxel()`, the factory for voxel spaces. The sliding and stacking
@@ -653,8 +653,20 @@ frame by its Euler characteristic).
   at gap 0.02, bevel 0.05 with interior chamfers; the flat mesh where
   they fail). All of it gives the original's bytes for every fixture
   shape (`tests/data/stl_dump.txt`).
+- `cell_geometry.h` (docs/V2-IDEAS-PLAN.md idea 2, the runtime half):
+  the cells of any grid as convex polyhedra from `connectionFace` at zero
+  bevel and offset (`CellPolyhedron`: faces with outward normals and the
+  cell across each, the distinct corners, the other face at an edge, the
+  face matching a neighbour's), and `CellGeometry`, a space's cells built
+  on first use with the walks between them: `run` (the filled cells
+  around an edge from one exposed face to the other, with the sum of
+  their angles) and `derivedNeighbours` (the face, edge and corner
+  neighbours from the corners the cells share: what `getNeighbor` should
+  list). The uniform mesher is built on it and
+  `tests/unit/grid/test_grid_oracle.cpp` checks the hand-written tables
+  against it; a derived movement analysis (idea 4) would start here.
 - `uniform_mesh.h` (decision 0022, after BurrTools V2's polygen): one
-  mesher for every polyhedral grid from the cells' face polygons alone.
+  mesher for every polyhedral grid on `cell_geometry.h`.
   Each cell's bevel and gap directions come from the planes at its
   corners (the two faces across the edges at a corner moved in by one
   unit, scaled so the chamfer has one width at every edge angle: the

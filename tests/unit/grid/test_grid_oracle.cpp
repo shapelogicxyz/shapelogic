@@ -4,14 +4,15 @@
 // face polygons say, the transformations against the cells' geometry, and
 // the generated symmetry tables against the group they describe.
 // BurrTools V2 derives all of this at start-up from each grid's polyhedra
-// (its src/lib/grid.cpp); here the same derivation is the oracle and the
-// ported tables are what it checks. New (the original had no such test).
+// (its src/lib/grid.cpp); here mesh/cell_geometry.h derives it from
+// connectionFace and the ported tables are what it checks. New (the
+// original had no such test).
 #include "grid_test_helpers.h"
 
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/symmetries.h"
 #include "shapelogic/grid/voxel.h"
-#include "shapelogic/mesh/grid_geometry.h"
+#include "shapelogic/mesh/cell_geometry.h"
 #include "shapelogic/mesh/polyhedron.h"
 #include "shapelogic/mesh/voxel_mesh.h"
 
@@ -30,96 +31,42 @@
 
 using namespace bt;
 using namespace bt::test;
+using bt::mesh::CellAt;
+using bt::mesh::CellFace;
+using bt::mesh::CellGeometry;
+using bt::mesh::CellPolyhedron;
+using bt::mesh::Vec3;
 
 namespace {
 
-using Coord = std::tuple<int, int, int>;
 using Vec = std::array<double, 3>;
 
-// Positions this close (mesh units) are one point: the corners come from
-// float tables, exactly equal between neighbouring cells.
+// Positions this close (mesh units) are one point, as cell_geometry.h sees it.
 constexpr double kNear = 1e-4;
 
-bool near(const Vec& a, const Vec& b) {
-  return std::abs(a[0] - b[0]) < kNear && std::abs(a[1] - b[1]) < kNear &&
-         std::abs(a[2] - b[2]) < kNear;
+Vec toVec(const Vec3& p) {
+  return {static_cast<double>(p.x), static_cast<double>(p.y), static_cast<double>(p.z)};
+}
+Vec3 toVec3(const Vec& p) {
+  return {static_cast<float>(p[0]), static_cast<float>(p[1]), static_cast<float>(p[2])};
 }
 
-std::string str(const Coord& c) {
+std::string str(const CellAt& c) {
   std::ostringstream s;
-  s << "(" << std::get<0>(c) << ", " << std::get<1>(c) << ", " << std::get<2>(c) << ")";
+  s << "(" << c.x << ", " << c.y << ", " << c.z << ")";
   return s.str();
 }
 
-std::string str(const std::set<Coord>& cs) {
+std::string str(const std::set<CellAt>& cs) {
   std::string s;
-  for (const Coord& c : cs) {
+  for (const CellAt& c : cs) {
     s += str(c) + " ";
   }
   return s;
 }
 
-// The geometry of one cell: its face polygons (corners counter clockwise
-// seen from outside) and its distinct corners, from connectionFace alone.
-struct CellGeo {
-  std::vector<std::vector<Vec>> faces;
-  std::vector<Vec> corners;
-
-  [[nodiscard]] bool hasCorner(const Vec& p) const {
-    return std::ranges::any_of(corners, [&](const Vec& c) { return near(c, p); });
-  }
-  // the index of the face with exactly these corners (any order), or -1
-  [[nodiscard]] int faceOf(const std::vector<Vec>& poly) const {
-    for (std::size_t f = 0; f < faces.size(); f++) {
-      if (faces[f].size() != poly.size()) {
-        continue;
-      }
-      const bool all = std::ranges::all_of(poly, [&](const Vec& p) {
-        return std::ranges::any_of(faces[f], [&](const Vec& q) { return near(p, q); });
-      });
-      if (all) {
-        return static_cast<int>(f);
-      }
-    }
-    return -1;
-  }
-  [[nodiscard]] Vec centroid() const {
-    Vec c{0, 0, 0};
-    for (const Vec& p : corners) {
-      for (int i = 0; i < 3; i++) {
-        c[static_cast<std::size_t>(i)] += p[static_cast<std::size_t>(i)];
-      }
-    }
-    for (double& x : c) {
-      x /= static_cast<double>(corners.size());
-    }
-    return c;
-  }
-};
-
-// The cell's faces: connectionFace for n = 0, 1, ... until it gives none
-// (independent of getNeighbor, whose count it checks).
-CellGeo geometryOf(const Voxel& v, const Coord& c) {
-  CellGeo g;
-  std::vector<float> corners;
-  for (int n = 0; n < 64; n++) {
-    corners.clear();
-    mesh::connectionFace(v, std::get<0>(c), std::get<1>(c), std::get<2>(c), n, 0, 0, corners);
-    if (corners.empty()) {
-      break;
-    }
-    std::vector<Vec> poly;
-    for (std::size_t i = 0; i + 2 < corners.size(); i += 3) {
-      const Vec p{static_cast<double>(corners[i]), static_cast<double>(corners[i + 1]),
-                  static_cast<double>(corners[i + 2])};
-      poly.push_back(p);
-      if (!g.hasCorner(p)) {
-        g.corners.push_back(p);
-      }
-    }
-    g.faces.push_back(std::move(poly));
-  }
-  return g;
+CellAt at(const std::tuple<int, int, int>& t) {
+  return {std::get<0>(t), std::get<1>(t), std::get<2>(t)};
 }
 
 Vec sub(const Vec& a, const Vec& b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
@@ -128,6 +75,7 @@ Vec cross(const Vec& a, const Vec& b) {
 }
 double dot(const Vec& a, const Vec& b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 double length(const Vec& a) { return std::sqrt(dot(a, a)); }
+bool near(const Vec& a, const Vec& b) { return length(sub(a, b)) < kNear; }
 
 // m (row major) times p.
 Vec rotated(const double m[9], const Vec& p) {
@@ -135,16 +83,22 @@ Vec rotated(const double m[9], const Vec& p) {
           m[6] * p[0] + m[7] * p[1] + m[8] * p[2]};
 }
 
+// The polyhedron of a cell, which every grid must give.
+CellPolyhedron polyhedronOf(const Voxel& v, const CellAt& c) {
+  const Result<CellPolyhedron> p = mesh::cellPolyhedron(v, c);
+  INFO("cell " << str(c) << ": " << (p ? "" : p.error().message));
+  REQUIRE(p);
+  return *p;
+}
+
 // The neighbours of a kind that getNeighbor lists.
-std::vector<Coord> listed(const Voxel& v, const Coord& c, unsigned int typ) {
-  std::vector<Coord> out;
+std::vector<CellAt> listed(const Voxel& v, const CellAt& c, unsigned int typ) {
+  std::vector<CellAt> out;
   int xn = 0;
   int yn = 0;
   int zn = 0;
-  for (unsigned int n = 0;
-       v.getNeighbor(n, typ, std::get<0>(c), std::get<1>(c), std::get<2>(c), &xn, &yn, &zn);
-       n++) {
-    out.emplace_back(xn, yn, zn);
+  for (unsigned int n = 0; v.getNeighbor(n, typ, c.x, c.y, c.z, &xn, &yn, &zn); n++) {
+    out.push_back({xn, yn, zn});
   }
   return out;
 }
@@ -201,41 +155,48 @@ TEST_CASE("grid oracle: every cell is a closed convex polyhedron, its faces outw
                                                static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box));
     int cells = 0;
-    for (const Coord& c : validCoordinates(*v, box)) {
+    for (const auto& t : validCoordinates(*v, box)) {
+      const CellAt c = at(t);
       INFO("cell " << str(c));
-      const CellGeo g = geometryOf(*v, c);
+      const CellPolyhedron g = polyhedronOf(*v, c);
       REQUIRE(g.faces.size() >= 4);
       cells++;
-      // as many faces as face neighbours
-      CHECK(g.faces.size() == listed(*v, c, 0).size());
-      const Vec centre = g.centroid();
+      // as many faces as face neighbours, each across the face it says
+      const std::vector<CellAt> across = listed(*v, c, 0);
+      REQUIRE(g.faces.size() == across.size());
+      for (std::size_t n = 0; n < across.size(); n++) {
+        CHECK(g.faces[n].across == across[n]);
+      }
+      const Vec centre = toVec(g.centroid);
       // every directed edge has exactly one reverse (a closed surface);
       // each face looks away from the centre and has every corner of the
-      // cell behind it (convex)
+      // cell behind it (convex); the stored normal is that of the corners
       std::map<std::pair<int, int>, int> edges;
-      const auto cornerIndex = [&](const Vec& p) {
+      const auto cornerIndex = [&](const Vec3& p) {
         for (std::size_t i = 0; i < g.corners.size(); i++) {
-          if (near(g.corners[i], p)) {
+          if (mesh::samePoint(g.corners[i], p)) {
             return static_cast<int>(i);
           }
         }
         return -1;
       };
-      for (const std::vector<Vec>& f : g.faces) {
-        REQUIRE(f.size() >= 3);
-        Vec n = cross(sub(f[1], f[0]), sub(f[2], f[0]));
+      for (const CellFace& face : g.faces) {
+        REQUIRE(face.size() >= 3);
+        const Vec f0 = toVec(face.corners[0]);
+        Vec n = cross(sub(toVec(face.corners[1]), f0), sub(toVec(face.corners[2]), f0));
         const double l = length(n);
         REQUIRE(l > 1e-9);
         for (double& x : n) {
           x /= l;
         }
-        CHECK(dot(n, sub(f[0], centre)) > 1e-6);
-        for (const Vec& p : g.corners) {
-          CHECK(dot(n, sub(p, f[0])) < kNear);
+        CHECK(near(n, toVec(face.normal)));
+        CHECK(dot(n, sub(f0, centre)) > 1e-6);
+        for (const Vec3& p : g.corners) {
+          CHECK(dot(n, sub(toVec(p), f0)) < kNear);
         }
-        for (std::size_t i = 0; i < f.size(); i++) {
-          const int a = cornerIndex(f[i]);
-          const int b = cornerIndex(f[(i + 1) % f.size()]);
+        for (std::size_t i = 0; i < face.size(); i++) {
+          const int a = cornerIndex(face.pos(i));
+          const int b = cornerIndex(face.pos(i + 1));
           REQUIRE(a >= 0);
           REQUIRE(b >= 0);
           REQUIRE(a != b);
@@ -253,9 +214,9 @@ TEST_CASE("grid oracle: every cell is a closed convex polyhedron, its faces outw
 
 TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says", "[grid]") {
   // a cell's neighbours of every kind, rebuilt from the corners the
-  // cells share: a whole face (face neighbour), two or more corners
-  // (edge), one corner (corner). The box is big enough for every
-  // neighbour of its middle cells to lie inside.
+  // cells share (CellGeometry::derivedNeighbours): a whole face, two or
+  // more corners, one corner. The box is big enough for every neighbour
+  // of its middle cells to lie inside.
   constexpr int kReach = 7;
   for (const GridKind kind : kGeometryGrids) {
     INFO(toString(kind));
@@ -265,71 +226,37 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
     const std::unique_ptr<Voxel> v = makeVoxel(gt, static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box));
-    std::map<Coord, CellGeo> geo;
-    for (const Coord& c : validCoordinates(*v, box)) {
-      geo.emplace(c, geometryOf(*v, c));
-    }
+    CellGeometry geometry(*v);
     int checked = 0;
-    for (const auto& [c, g] : geo) {
-      const auto [x, y, z] = c;
-      if (x < kReach || y < kReach || z < kReach || x >= kReach + period ||
-          y >= kReach + period || z >= kReach + period) {
+    for (const auto& t : validCoordinates(*v, box)) {
+      const CellAt c = at(t);
+      if (c.x < kReach || c.y < kReach || c.z < kReach || c.x >= kReach + period ||
+          c.y >= kReach + period || c.z >= kReach + period) {
         continue;
       }
       INFO("cell " << str(c));
       checked++;
-      std::set<Coord> face;
-      std::set<Coord> edge;
-      std::set<Coord> corner;
-      std::map<Coord, int> faceOf;  // the face of c towards each face neighbour
-      for (int dz = -kReach; dz <= kReach; dz++) {
-        for (int dy = -kReach; dy <= kReach; dy++) {
-          for (int dx = -kReach; dx <= kReach; dx++) {
-            if (dx == 0 && dy == 0 && dz == 0) {
-              continue;
-            }
-            const Coord d{x + dx, y + dy, z + dz};
-            const auto it = geo.find(d);
-            if (it == geo.end()) {
-              continue;
-            }
-            const CellGeo& h = it->second;
-            int shared = 0;
-            for (const Vec& p : g.corners) {
-              if (h.hasCorner(p)) {
-                shared++;
-              }
-            }
-            if (shared == 0) {
-              continue;
-            }
-            int sharedFace = -1;
-            for (std::size_t f = 0; f < g.faces.size(); f++) {
-              if (h.faceOf(g.faces[f]) >= 0) {
-                sharedFace = static_cast<int>(f);
-              }
-            }
-            if (sharedFace >= 0) {
-              face.insert(d);
-              faceOf[d] = sharedFace;
-            } else if (shared >= 2) {
-              edge.insert(d);
-            } else {
-              corner.insert(d);
-            }
-          }
-        }
-      }
-      const std::vector<Coord> faceList = listed(*v, c, 0);
-      const std::set<Coord> faceListed(faceList.begin(), faceList.end());
+      const auto derived = [&](unsigned int kindOf, std::vector<int>* faces = nullptr) {
+        const Result<std::vector<CellAt>> r = geometry.derivedNeighbours(c, kindOf, kReach, faces);
+        REQUIRE(r);
+        return std::set<CellAt>(r->begin(), r->end());
+      };
+      std::vector<int> sharedFaces;
+      const std::set<CellAt> face = derived(0, &sharedFaces);
+      const std::vector<CellAt> faceList = listed(*v, c, 0);
+      const std::set<CellAt> faceListed(faceList.begin(), faceList.end());
       INFO("faces by geometry: " << str(face));
       INFO("faces by table:    " << str(faceListed));
       CHECK(faceListed == face);
       // face n of the table is the face shared with neighbour n
-      for (std::size_t n = 0; n < faceList.size(); n++) {
-        const auto it = faceOf.find(faceList[n]);
-        if (it != faceOf.end()) {
-          CHECK(it->second == static_cast<int>(n));
+      {
+        const Result<std::vector<CellAt>> r = geometry.derivedNeighbours(c, 0, kReach, &sharedFaces);
+        REQUIRE(r);
+        for (std::size_t i = 0; i < r->size(); i++) {
+          const auto it = std::ranges::find(faceList, (*r)[i]);
+          if (it != faceList.end()) {
+            CHECK(sharedFaces[i] == static_cast<int>(it - faceList.begin()));
+          }
         }
       }
       if (kind == GridKind::Spheres) {
@@ -339,13 +266,15 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
         CHECK(listed(*v, c, 2).empty());
         continue;
       }
-      const std::vector<Coord> edgeList = listed(*v, c, 1);
-      const std::set<Coord> edgeListed(edgeList.begin(), edgeList.end());
+      const std::set<CellAt> edge = derived(1);
+      const std::vector<CellAt> edgeList = listed(*v, c, 1);
+      const std::set<CellAt> edgeListed(edgeList.begin(), edgeList.end());
       INFO("edges by geometry: " << str(edge));
       INFO("edges by table:    " << str(edgeListed));
       CHECK(edgeListed == edge);
-      const std::vector<Coord> cornerList = listed(*v, c, 2);
-      const std::set<Coord> cornerListed(cornerList.begin(), cornerList.end());
+      const std::set<CellAt> corner = derived(2);
+      const std::vector<CellAt> cornerList = listed(*v, c, 2);
+      const std::set<CellAt> cornerListed(cornerList.begin(), cornerList.end());
       INFO("corners by geometry: " << str(corner));
       INFO("corners by table:    " << str(cornerListed));
       if (kind == GridKind::Rhombic || kind == GridKind::TetraOcta) {
@@ -365,6 +294,59 @@ TEST_CASE("grid oracle: the neighbour tables are what the cells' geometry says",
       CHECK(cornerList.size() == cornerListed.size());
     }
     CHECK(checked > 0);
+  }
+}
+
+TEST_CASE("grid oracle: the run of cells around an edge ends at the other exposed face",
+          "[grid]") {
+  // CellGeometry::run from an exposed face of a filled cell goes through
+  // the filled cells sharing the edge to the face on the other side of
+  // the run; from that face it comes back; the angles add up the same
+  // way, and for a lone cell the sum is the cell's own angle at the edge
+  for (const GridKind kind : kPolyGrids) {
+    INFO(toString(kind));
+    const GridType gt(kind);
+    std::unique_ptr<Voxel> v = legalShape(gt, kLegalShapeBox, 7);
+    REQUIRE(v != nullptr);
+    CellGeometry geometry(*v);
+    int runs = 0;
+    for (const auto& t : validCoordinates(*v, kLegalShapeBox)) {
+      const CellAt c = at(t);
+      if (v->isEmpty2(c.x, c.y, c.z)) {
+        continue;
+      }
+      const CellPolyhedron* g = geometry.cell(c);
+      REQUIRE(g != nullptr);
+      for (std::size_t f = 0; f < g->faces.size(); f++) {
+        if (!geometry.empty(g->faces[f].across)) {
+          continue;
+        }
+        for (std::size_t e = 0; e < g->faces[f].size(); e++) {
+          const std::optional<mesh::EdgeRun> there =
+              geometry.run({c, static_cast<int>(f), static_cast<int>(e)});
+          REQUIRE(there);
+          runs++;
+          const CellPolyhedron* h = geometry.cell(there->end.cell);
+          REQUIRE(h != nullptr);
+          const CellFace& endFace = h->faces[static_cast<std::size_t>(there->end.face)];
+          // the end face is exposed and runs the same edge the other way
+          CHECK(geometry.empty(endFace.across));
+          CHECK(mesh::samePoint(endFace.pos(static_cast<std::size_t>(there->end.edge)),
+                                g->faces[f].pos(e + 1)));
+          CHECK(mesh::samePoint(endFace.pos(static_cast<std::size_t>(there->end.edge) + 1),
+                                g->faces[f].pos(e)));
+          const std::optional<mesh::EdgeRun> back = geometry.run(there->end);
+          REQUIRE(back);
+          CHECK(back->end.cell == c);
+          CHECK(back->end.face == static_cast<int>(f));
+          CHECK(back->end.edge == static_cast<int>(e));
+          CHECK(std::abs(back->angle - there->angle) < 1e-9);
+          CHECK(there->angle > 0);
+          CHECK(there->angle < 2 * 3.14159265358979);
+        }
+      }
+    }
+    CHECK(runs > 0);
   }
 }
 
@@ -390,7 +372,10 @@ TEST_CASE("grid oracle: every transformation moves the cells as its matrix does"
     const std::unique_ptr<Voxel> v = makeVoxel(gt, static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box));
-    const std::vector<Coord> cells = validCoordinates(*v, box);
+    std::vector<CellAt> cells;
+    for (const auto& t : validCoordinates(*v, box)) {
+      cells.push_back(at(t));
+    }
     REQUIRE_FALSE(cells.empty());
     // validCoordinate is periodic: a shift by a multiple of every period
     // (30), beyond the box, brings a transformed cell back to the
@@ -400,29 +385,31 @@ TEST_CASE("grid oracle: every transformation moves the cells as its matrix does"
     // whether a whole-cell offset d makes transformPoint a rigid motion of
     // every cell: the moved cell is a cell, and its corners are the
     // matrix's image of the old corners, all moved by one translation
-    const auto rigidWith = [&](unsigned int t, const double m[9], const Coord& d,
+    const auto rigidWith = [&](unsigned int t, const double m[9], const CellAt& d,
                                std::string* why) {
       bool first = true;
       Vec shiftOf{0, 0, 0};
-      for (const Coord& c : cells) {
-        int x = std::get<0>(c);
-        int y = std::get<1>(c);
-        int z = std::get<2>(c);
+      for (const CellAt& c : cells) {
+        int x = c.x;
+        int y = c.y;
+        int z = c.z;
         v->transformPoint(&x, &y, &z, t);
-        x += std::get<0>(d);
-        y += std::get<1>(d);
-        z += std::get<2>(d);
-        if (!v->validCoordinate(x + shift, y + shift, z + shift)) {
-          *why = "cell " + str(c) + " lands between cells at " + str({x, y, z});
+        const CellAt moved{x + d.x, y + d.y, z + d.z};
+        if (!v->validCoordinate(moved.x + shift, moved.y + shift, moved.z + shift)) {
+          *why = "cell " + str(c) + " lands between cells at " + str(moved);
           return false;
         }
-        const CellGeo g = geometryOf(*v, c);
-        const CellGeo h = geometryOf(*v, {x, y, z});
-        if (g.corners.size() != h.corners.size()) {
+        const Result<CellPolyhedron> g = mesh::cellPolyhedron(*v, c);
+        const Result<CellPolyhedron> h = mesh::cellPolyhedron(*v, moved);
+        if (!g || !h) {
+          *why = "cell " + str(c) + " or its image has no polyhedron";
+          return false;
+        }
+        if (g->corners.size() != h->corners.size()) {
           *why = "cell " + str(c) + " lands on another kind of cell";
           return false;
         }
-        const Vec s = sub(h.centroid(), rotated(m, g.centroid()));
+        const Vec s = sub(toVec(h->centroid), rotated(m, toVec(g->centroid)));
         if (first) {
           shiftOf = s;
           first = false;
@@ -430,12 +417,12 @@ TEST_CASE("grid oracle: every transformation moves the cells as its matrix does"
           *why = "cell " + str(c) + " is moved by another translation than the first cell";
           return false;
         }
-        for (const Vec& p : g.corners) {
-          Vec q = rotated(m, p);
+        for (const Vec3& p : g->corners) {
+          Vec q = rotated(m, toVec(p));
           for (int i = 0; i < 3; i++) {
             q[static_cast<std::size_t>(i)] += shiftOf[static_cast<std::size_t>(i)];
           }
-          if (!h.hasCorner(q)) {
+          if (!h->hasCorner(toVec3(q))) {
             *why = "cell " + str(c) + " lands on a cell with other corners";
             return false;
           }
@@ -450,7 +437,7 @@ TEST_CASE("grid oracle: every transformation moves the cells as its matrix does"
       v->getTransformMatrix(t, m);
       std::string why;
       bool found = false;
-      Coord offset{0, 0, 0};
+      CellAt offset{0, 0, 0};
       // the zero offset first, then the small ones
       for (int r = 0; r <= 2 && !found; r++) {
         for (int dz = -r; dz <= r && !found; dz++) {
@@ -472,12 +459,12 @@ TEST_CASE("grid oracle: every transformation moves the cells as its matrix does"
       }
       INFO("without an offset: " << why);
       CHECK(found);
-      if (offset != Coord{0, 0, 0}) {
+      if (offset != CellAt{0, 0, 0}) {
         offsets++;
       }
       const bool cutCube = kind == GridKind::Rhombic || kind == GridKind::TetraOcta;
       if (!cutCube) {
-        CHECK(offset == Coord{0, 0, 0});
+        CHECK(offset == CellAt{0, 0, 0});
       }
     }
     if (kind == GridKind::Rhombic || kind == GridKind::TetraOcta) {
@@ -652,14 +639,14 @@ TEST_CASE("grid oracle: a cell's bevel faces close it", "[grid][mesh]") {
     const std::unique_ptr<Voxel> v = makeVoxel(gt, static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box),
                                                static_cast<unsigned int>(box));
-    for (const Coord& c : validCoordinates(*v, box)) {
+    for (const auto& t : validCoordinates(*v, box)) {
+      const CellAt c = at(t);
       INFO("cell " << str(c));
       std::unique_ptr<Voxel> one = makeVoxel(gt, static_cast<unsigned int>(box),
                                              static_cast<unsigned int>(box),
                                              static_cast<unsigned int>(box));
-      one->setState(static_cast<unsigned int>(std::get<0>(c)),
-                    static_cast<unsigned int>(std::get<1>(c)),
-                    static_cast<unsigned int>(std::get<2>(c)), Voxel::kFilled);
+      one->setState(static_cast<unsigned int>(c.x), static_cast<unsigned int>(c.y),
+                    static_cast<unsigned int>(c.z), Voxel::kFilled);
       const mesh::Polyhedron p = mesh::cellMesh(*one, 0.03, 0, false);
       CHECK(p.numHoles() == 0);
       CHECK(p.numVertices() - p.numHalfEdges() / 2 + p.numFaces() == 2);

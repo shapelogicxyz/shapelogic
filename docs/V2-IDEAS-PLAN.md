@@ -92,7 +92,20 @@ findings, both the original's as well:
   whole-cell offset per transformation puts them right, which is what
   `Assembly::transform` supplies through the hotspot's real move; the
   test finds and checks that offset. Brick and prism need none.
-The second stage, new grids, is not started.
+**Runtime half done 2026-11-08:** the derivation lives in core as
+`core/shapelogic/mesh/cell_geometry.h` (`cellPolyhedron`, `CellGeometry`
+with `run` and `derivedNeighbours`), shared by the uniform mesher and the
+oracle test, so a derived movement analysis (idea 4) can call it. What is
+still missing for idea 4 is the sweep test: which cells a cell passes
+through when moved one step along a direction (V2's Minkowski sweep with
+a convex-intersection check).
+
+**Not done, a separate project:** new grid kinds (hexagonal and cairo
+prisms) in File ▸ New. Everything keys on `GridKind` and the .xmpuzzle
+`type` attribute (the enum, 38 grid-kind switches in `app/shape_tools.cpp`,
+layer geometry, mesh tables, STL, the web `Grid` type), the symmetry
+tables of a new grid would have to be derived at run time or generated
+offline, and the original has no such grids to compare against.
 - **We have:** per-grid `Voxel` subclasses with hand-written tables
   (`voxel_rhombic.cpp` carries a literal 24 by 15 edge-neighbour array),
   symmetry tables copied from generators that exist only in the original

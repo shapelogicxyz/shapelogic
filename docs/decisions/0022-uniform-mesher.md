@@ -1,6 +1,8 @@
 # 0022: The uniform mesher
 
 **Status:** accepted; `core/shapelogic/mesh/uniform_mesh.h`,
+`core/shapelogic/mesh/cell_geometry.h` (the cell polyhedra and the walks
+between them, shared with the grid oracle test),
 `core/shapelogic/mesh/voxel_mesh.h` (`MeshStyle::Uniform`),
 `core/shapelogic/mesh/stl.cpp` (the "Uniform bevels" and "Bumpy"
 switches), `api/types.json` (`MeshStyle`), `web/src/renderer/view3d/toolbar.ts`,
