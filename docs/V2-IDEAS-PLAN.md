@@ -165,14 +165,17 @@ the original has no such grids, so the oracle harness cannot cover them.
   the same puzzles. Do this only after idea 2's geometry layer exists.
 
 ### 5. Solver and storage ideas from outside the grid code
-Three separate questions, decided separately (2026-11-09).
+**Worked through 2026-11-09** (decision 0024; the measurements are in
+`tests/bench/README.md`, "Idea 5"). Three separate questions, each
+measured first. What was built is not what V2 has: the measurements
+pointed elsewhere.
 
 #### 5a. Storage: .xmpuzzle stays the document; no SQLite
 - **We have:** .xmpuzzle read and written both ways (decision 0006), the
   Python module and the oracle harness reading it; undo on the document
   model (decision 0011); pause and resume with the saved position in the
   file; the front end's autosave, which pauses the solve at a save point
-  every few minutes and writes the whole file.
+  every 20 minutes and writes the whole file.
 - **V2 has:** a SQLite `.dbpuzzle` as its only document (no XML writer),
   every edit and every found solution committed as it happens, a
   trigger-based undo log, "save as" by `VACUUM INTO`. SQLite is compiled
@@ -186,6 +189,12 @@ Three separate questions, decided separately (2026-11-09).
   same and merely drains to SQLite). V2's database is also no help to
   scripts: its voxel spaces, assemblies and disassemblies are private
   binary blobs that need its C++ decoders.
+- **What the work on 5c found here:** the autosave was not as safe as
+  this decision took it to be. Its pause threw away what every thread had
+  done in its task of a split search, so a solve whose tasks took longer
+  than the 20 minutes between saves could not finish with autosave on.
+  Fixed with 5c: a stopped task is left as exactly what remains of it.
+  Nothing else was built for storage.
 - **If crash safety at solution granularity is ever asked for**, the
   design is an **append-only journal**, not a database: a file beside the
   document (`<name>.xmpuzzle.journal`), one `<solution>` element per line
@@ -194,66 +203,75 @@ Three separate questions, decided separately (2026-11-09).
   arrive; on the next open the engine finds it, offers recovery, folds it
   into the document and deletes it after a clean save. No dependency, no
   schema, readable by the same scripts. Not planned until asked: the
-  autosave already bounds a crash's loss to its interval.
+  autosave bounds a crash's loss to its interval.
+- **Measured, what a save costs:** 83,442 assemblies kept and written
+  (20 dominoes in 2 x 4 x 5, `--save --limit 0`): 1.0 s on top of a 0.2 s
+  solve, a 0.7 MB file (19.9 MB of XML before compression), 0.2 s to load
+  it again, and 146 MB of memory, 1.75 KB an assembly. A save at a save
+  point is cheap next to the 20 minutes between saves; what grows without
+  bound is the memory the kept solutions take, not the file.
 - **Out of scope:** solution lists larger than memory. That is a
   document-format question (a binary solutions section or a sidecar for
   the large case), not a store, and beyond what ShapeLogic targets.
 
-#### 5b. Dancing cells: a third assembler, chosen by the problem, after a measurement
+#### 5b. Dancing cells: measured, not built; the cost was in the check of each cover
 - **We have:** two assemblers behind the run layer (decision 0009):
-  Assembler 0 (dancing links, one piece per part, the SIMD vector search)
-  and Assembler 1 (dancing links with piece counts and ranges). The solver
-  type the user picks (Complete or Fast, decision 0019) chooses the
-  take-apart; the assembler is chosen by the problem's shape, not by the
-  user: Assembler 0 when every part has one piece, Assembler 1 otherwise.
-- **V2 has:** Knuth's dancing cells (TAOCP 7.2.2.3, "Algorithm F") as its
-  one assembler, with native per-item minimum and maximum multiplicities,
-  behind an interface that also has a dancing-links implementation for
-  comparison. Its gain is on puzzles with many identical pieces.
-- **Decision rule, if built:** dancing cells becomes a third assembler,
-  **Assembler 2, used where Assembler 1 is used today** (a part with more
-  than one piece, or a range), never for one-piece-per-part problems,
-  where Assembler 0's vector search is already the fastest path. Nothing
-  changes for the user; Complete and Fast stay the solver types.
-- **Conditions:** (1) a saved position that can be paused and resumed
-  (decision 0009): the BurrTools 2 assembler was removed because its
-  position could not be (decision 0019), and the same would disqualify
-  this one; (2) the oracle harness's assembly counts and multisets equal
-  Assembler 1's on every fixture with piece counts; (3) a measured win.
-- **Measure first:** `tests/bench/bench.py` on the fixtures with
-  identical pieces (Dracula's Dental Desaster, Pelikan Burr, Bermuda) at
-  one thread, Assembler 1 as it is. If a prototype of dancing cells is
-  not clearly faster there, stop. Difficulty medium: the interface is
-  pluggable; the saved position and the oracle gate are the work.
+  Assembler 0 (dancing links, one piece per part, a vector search) and
+  Assembler 1 (Huang's cover with piece counts and ranges, a vector
+  search of its own). The assembler is chosen by the problem's shape, not
+  by the user.
+- **V2 has:** Knuth's dancing cells (TAOCP 7.2.2.3) as its one assembler,
+  with per-item minimum and maximum multiplicities, behind an interface
+  that also has a dancing-links implementation for comparison.
+- **Measured.** The three fixtures first named for this (Dracula's Dental
+  Desaster, Pelikan Burr, Bermuda) have one piece per part and solve in
+  milliseconds on Assembler 0; they say nothing. On boxes filled with
+  many pieces of one shape and with piece ranges, V2's own solver code,
+  fed the placement matrix Assembler 1 builds, is slower than Assembler
+  1's vector search wherever the search is the work (1.5 to 3 times), and
+  V2's dancing links is faster than V2's dancing cells on every one. The
+  dancing cells assembler ShapeLogic once had (BurrTools 2, removed by
+  decision 0019) took only one-piece-per-part problems and was slower on
+  them than Assembler 0.
+- **Decision: no Assembler 2.** The condition "a measured win" fails.
+- **What the measurement found instead:** on these puzzles the search was
+  a few percent of the solve. With several pieces of a shape there is no
+  symmetry breaker, every cover is found in each orientation, and each
+  was built as an assembly, turned by every symmetry of the result and
+  bubble-sorted each time. Done on the matrix rows instead
+  (`RowRotationCheck`, decision 0024), with the assembly built only when
+  it is kept: 32 dominoes in 8 x 8 from 58 s to 9 s on one thread, the
+  ranges box 40 s to 10 s, Burr-Glar's 3.1 million assemblies 21 s to
+  15 s. The answers are the same (the oracle; `--no-row-check` for the
+  old check).
 
-#### 5c. Threads: the split is already dynamic between tasks; make it dynamic within them if the tail shows
-- **We have:** the run layer splits the search tree into tasks before the
-  search starts: prefixes of chosen rows, at least 16 of them or 4 per
-  worker, at most 3 pieces deep, each weighted for the progress bar.
-  Idle workers take the next task from the list, so the balance between
-  tasks is dynamic; results are handed over under one lock; progress,
-  completion and the saved position are kept per task, so a split search
-  pauses, saves and resumes. Within the matrix the vector search uses
-  SIMD. A task, once taken, is never split again.
+#### 5c. Threads: tasks split while they are searched, and a stop keeps the work
+- **We had:** the search tree split into tasks before the search starts
+  (prefixes of chosen rows, at least 16 or 4 per worker, at most 3 pieces
+  deep); idle workers took the next task from the list; a task, once
+  taken, was never split again, and a task cut short by a stop was
+  searched again from its start.
 - **V2 has:** splitting on demand: when a thread goes idle, the main
   problem is split once more and the piece given to it, the whole tree
   persisted for resume. Its author's own note calls the depth heuristic a
-  weakness and sketches a design he has not built. No SIMD.
-- **Decision: no change to how threads are started or how work is handed
-  out; the one gap is the tail.** When the tasks left are fewer than the
-  workers and one of them is large, cores idle until it ends. The fix,
-  if the measurement shows it, is to split a running task into its
-  unexplored child prefixes when a worker goes idle, and append them to
-  the task list, which the saved position already represents (more
-  tasks, each resumable). ShapeLogic had work stealing for the BurrTools
-  2 assembler (`work_stealing.h`) and removed it with that assembler
-  because its position could not resume; the task-list form above keeps
-  the resume.
-- **Measure first:** `tests/bench/bench.py` at one thread and at all
-  cores on the long fixtures; a speedup well below the core count on the
-  last part of a solve (the progress bar's last tasks) is the signal. If
-  the speedup is already near the core count, do nothing. Difficulty
-  low to medium: the split of a running task is the only new code.
+  weakness. No vector search.
+- **Measured.** Searches with subtrees of like size kept 8.5 to 9 of 10
+  cores busy; one with a heavy subtree did not (Burr-Glar on four
+  threads: 1.3 cores). Splitting finer up front (`--split-tasks`) cured
+  that and cost the others 5%. And the stop: a split search paused more
+  often than its tasks take never finished.
+- **Built** (`SplitTasks`, decision 0024): a worker hands the untried
+  branches of its task on as new tasks when another has nothing to do,
+  and at a stop its task is replaced by what is left of it; in both
+  assemblers, with the plain and the vector searches (Assembler 1's plain
+  worker leaves where it stood but does not hand on). Burr-Glar on four
+  threads 17.8 s to 5.4 s; the balanced searches gain a few percent on
+  ten threads (9.7 of 10 cores busy); a search stopped every 50 ms
+  finishes with the iterations of one that was never stopped.
+- **Left:** hand-offs from Assembler 1's plain worker (matrices too large
+  for its vector search); the hand-over of found assemblies is one lock
+  with the signatures behind it, which is what holds Burr-Glar's 3.1
+  million assemblies to 3.4 times on ten threads.
 
 ## Summary
 
@@ -263,9 +281,9 @@ Three separate questions, decided separately (2026-11-09).
 | 2 Grid oracle test | Low | None now; confidence and a path to new grids |
 | 3 Cutting-plane editor | High | Large, especially rhombic and tetra-octa |
 | 4 Derived movement | High | Disassembly on two more grids |
-| 5a Storage | n/a | Not planned; a journal beside the document if crash recovery is asked for |
-| 5b Dancing cells | Medium | Speed on identical-piece puzzles, as Assembler 2; measure first |
-| 5c Tail splitting | Low to medium | Full use of the cores at the end of long solves; measure first |
+| 5a Storage | n/a | Not built; the autosave's pause no longer costs the work in hand |
+| 5b Dancing cells | Done (other way) | Not built: no faster. The rotation check on matrix rows instead: identical-piece puzzles 4 to 6 times faster |
+| 5c Task splitting | Done | Idle cores in use; a paused solve loses no work |
 
 Suggested order: 1 first (self-contained, no compatibility risk, builds
 the edge-loop geometry the others reuse), then 2's test, then 3 or 4 as

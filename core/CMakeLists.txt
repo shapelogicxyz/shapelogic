@@ -86,6 +86,7 @@ add_library(btcore STATIC
   shapelogic/solve/rotation_moves_classic.cpp
   shapelogic/solve/rotation_moves_crowell.cpp
   shapelogic/solve/rotation_rules.cpp
+  shapelogic/solve/row_rotation_check.cpp
   shapelogic/solve/search_run.cpp
   shapelogic/solve/simd_exact_cover.cpp
   shapelogic/solve/simd_huang_cover.cpp

@@ -13,6 +13,7 @@
 #include "shapelogic/solve/dlx_matrix.h"
 #include "shapelogic/solve/resume_state.h"
 #include "shapelogic/solve/rotation_filter.h"
+#include "shapelogic/solve/row_rotation_check.h"
 #include "shapelogic/solve/search_run.h"
 
 #include <atomic>
@@ -69,6 +70,10 @@ class Assembler0 final : public Assembler {
   void debugStep(unsigned long steps) override;
   [[nodiscard]] Assembly currentAssembly() const override;
 
+  /// True when the last run checked its assemblies against their rotations
+  /// on the rows of the matrix (RowRotationCheck); for tests.
+  [[nodiscard]] bool usedRowRotationCheck() const { return rowCheck_ != nullptr; }
+
  private:
   class Worker;
 
@@ -81,8 +86,9 @@ class Assembler0 final : public Assembler {
   /// A subtree of the search: the rows chosen so far.
   struct SubtreeTask {
     std::vector<PrefixStep> prefix;
-    /// Estimated part of the whole search: one over the number of choices
-    /// at each step of the prefix. Not saved; a loaded task has 1.
+    /// Estimated part of the whole search as the split makes it: one over
+    /// the number of choices at each step of the prefix. Kept from then on
+    /// in the split state's weights.
     double weight = 1.0;
   };
 
@@ -93,7 +99,13 @@ class Assembler0 final : public Assembler {
                             unsigned int maxDepth);
   void parallelMultiSearch(SearchRun& run, unsigned int workers, const SearchOptions& options);
   void reportParallelSolution(SearchRun& run, const unsigned int* solutionRows,
-                              unsigned int count);
+                              unsigned int count, RowRotationCheck::Scratch& scratch);
+  /// Makes rowCheck_ for a run, or clears it when the check does not apply.
+  void prepareRowCheck(const SearchOptions& options);
+  /// True when the assembly of `rows[0 .. count)` is dropped as a rotation
+  /// of another: asked of rowCheck_, which must exist.
+  [[nodiscard]] bool rowCheckRejects(const unsigned int* rows, unsigned int count,
+                                     RowRotationCheck::Scratch& scratch) const;
   [[nodiscard]] bool simdFits(const SearchOptions& options) const;
   [[nodiscard]] bool canUseSimd(const SearchOptions& options) const;
   /// The plain search has not moved: nothing chosen at depth 0. (It also
@@ -123,6 +135,12 @@ class Assembler0 final : public Assembler {
   DlxMatrix matrix_;
   /// Which assemblies are dropped as rotations of others.
   RotationFilter filter_;
+  /// The same check on the rows of the matrix, for the run under way; null
+  /// when it does not apply. The scratch is the caller's thread's.
+  std::unique_ptr<RowRotationCheck> rowCheck_;
+  RowRotationCheck::Scratch rowScratch_;
+  /// For rowCheck_: the index in the matrix's placements of each node's row.
+  std::vector<std::uint32_t> rowOfNode_;
 
   /// The rows chosen at each depth, the columns covered there, and the
   /// number of pieces placed: the position of the plain search.

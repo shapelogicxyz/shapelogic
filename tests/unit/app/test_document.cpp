@@ -275,8 +275,10 @@ TEST_CASE("document: every tool-tab task of every grid round-trips", "[app][docu
     INFO(toString(grid));
     // a small shape of three cells in the middle of a grid with room
     Document d(grid);
-    // room for the nudges either side (the cut grids move a block of 5 or 6)
-    const unsigned int n = sizeUnit(grid) == 1 ? 8 : 6 * sizeUnit(grid);
+    // room for the nudges either side (the cut grids move a block of 5 or 6,
+    // the cairo grid four cells, though its spaces come in any size)
+    const unsigned int n =
+        grid == GridKind::Cairo ? 24 : sizeUnit(grid) == 1 ? 8 : 6 * sizeUnit(grid);
     const Id s = d.createShape(std::array<unsigned int, 3>{n, n, n}).value();
     const Voxel& v = d.puzzle().getShape(0);
     // the three valid cells nearest the middle

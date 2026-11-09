@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <fstream>
 #include <iterator>
 #include <random>
 #include <set>
@@ -358,22 +359,34 @@ TEST_CASE("Assembler 1: the vector and the plain search on Solid Six Piece Burrs
 // A split search stopped and saved by an older version carries signatures
 // taken from the rows in the order the plain search placed them (flag 2);
 // today's are taken from the sorted assembly (flag 4). Such a file goes on
-// with the kind it has: loaded, it is saved again as it was, and continued
-// it reports every assembly once.
+// with the kind it has: loaded, it is saved again as that kind (flag 2, or
+// 6 when a stopped worker left where it stood in a task), and continued it
+// reports every assembly once.
 TEST_CASE("Assembler 1: a split search saved by an older version carries on",
           "[solve][assembler][parallel][resume]") {
   ThreadPool pool(4);
-  const Fingerprints all = allAssemblies("CubeInCage.xmpuzzle");
+  const Fingerprints all = allAssemblies("CubeInCage.xmpuzzle", 0, true);
   const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
+  // the matrix reduced, as the recorded search below had it
+  const auto made = [](const Puzzle& puzzle) { return test::prepared<Assembler1>(puzzle); };
 
   // What the older version wrote: loading a flag 2 position is what switches
-  // an assembler to that kind, so start from a search that has not reported
-  // anything yet.
+  // an assembler to that kind, so start from a split search with its tasks
+  // as the split made them and nothing reported: the tasks of the search
+  // the original paused on four threads (tests/data/positions_by_original.txt).
   std::string older;
   {
-    auto a = made(p);
-    (void)a->assemble([](Assembly) { return false; }, searchOptions(4, &pool), StopToken{});
-    older = a->savePosition().text;
+    std::ifstream in("tests/data/positions_by_original.txt");
+    REQUIRE(in);
+    std::string line;
+    bool found = false;
+    while (std::getline(in, line)) {
+      if (found && line.rfind("TEXT ", 0) == 0) {
+        older = line.substr(5);
+        break;
+      }
+      found = found || line == "POS CubeInCage.xmpuzzle classic 4 0 1 1";
+    }
     REQUIRE(older.compare(0, 2, "4 ") == 0);
     // no task finished and nothing reported: valid for either kind
     const std::size_t c = older.find(" C ");
@@ -399,7 +412,7 @@ TEST_CASE("Assembler 1: a split search saved by an older version carries on",
     again = a->savePosition().text;
   }
   // still the older kind
-  CHECK(again.compare(0, 2, "2 ") == 0);
+  CHECK((again.compare(0, 2, "2 ") == 0 || again.compare(0, 2, "6 ") == 0));
 
   test::RunResult rest;
   {
@@ -566,7 +579,8 @@ TEST_CASE("Assembler 1: an exception in the search comes back to the caller",
 
 // A paused solve goes into the puzzle file (storePosition, the writer), is
 // read back, and carries on: every assembly once. Each kind of position:
-// the plain search (flag 0), the vector search (3), the split search (4).
+// the plain search (flag 0), the vector search (3), the split search (4, or
+// 5 with what its stopped workers left of their tasks).
 TEST_CASE("Assembler 1: a paused search saved in a puzzle file carries on after loading",
           "[solve][assembler][parallel][resume]") {
   ThreadPool pool(4);
@@ -593,7 +607,11 @@ TEST_CASE("Assembler 1: a paused search saved in a puzzle file carries on after 
       storePosition(pr, a);
     }
     CHECK(pr.getAssemblerVersion() == "2.1");
-    CHECK(pr.getAssemblerState()[0] == path.flag);
+    if (path.flag == '4') {
+      CHECK((pr.getAssemblerState()[0] == '4' || pr.getAssemblerState()[0] == '5'));
+    } else {
+      CHECK(pr.getAssemblerState()[0] == path.flag);
+    }
 
     const std::string xml = io::writePuzzle(p);
     CHECK(xml.find("<assembler version=\"2.1\">") != std::string::npos);
@@ -647,7 +665,7 @@ TEST_CASE("Assembler 1: a damaged position is refused before it is used",
   }
   REQUIRE(texts[0][0] == '0');
   REQUIRE(texts[1][0] == '3');
-  REQUIRE(texts[2][0] == '4');
+  REQUIRE((texts[2][0] == '4' || texts[2][0] == '5'));
 
   SECTION("hand-made damage") {
     const char* damaged[] = {

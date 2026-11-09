@@ -92,7 +92,25 @@ struct SearchOptions {
   /// it the plain search runs (SHAPELOGIC_HUANG_MEM_MB in the original, 256
   /// MB when not given). 0 turns that vector search off.
   std::uint64_t vectorMemoryBudget = std::uint64_t{256} << 20;
+  /// Check found assemblies against their rotations on the matrix rows
+  /// (RowRotationCheck) where that applies; off, every one is built and
+  /// turned (Assembly::smallerRotationExists). An A/B switch for benchmarks
+  /// and tests: the answers are the same.
+  bool rowRotationCheck = true;
+  /// How finely a search that starts on several threads is split: the least
+  /// number of tasks to aim for, and the most pieces a task's prefix may
+  /// hold. 0: the assembler's own choice (splitTaskTarget(), kSplitDepth).
+  /// A/B switches for benchmarks; a continued search keeps the tasks it has.
+  unsigned int splitTasks = 0;
+  unsigned int splitDepth = 0;
 };
+
+/// The pieces deep a split goes at most, and the tasks it aims for with
+/// `workers` threads, unless the options say otherwise.
+inline constexpr unsigned int kSplitDepth = 3;
+[[nodiscard]] constexpr unsigned int splitTaskTarget(unsigned int workers) noexcept {
+  return workers * 4 > 16 ? workers * 4 : 16;
+}
 
 /// How a run ended. Finished only when the search itself is through.
 enum class RunEnd : std::uint8_t {

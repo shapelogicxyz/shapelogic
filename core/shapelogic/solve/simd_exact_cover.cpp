@@ -214,18 +214,19 @@ void SimdExactCover<BitsetType>::solve(SolutionCallback callback, const StopToke
   initContext(ctx, progress, 0);
 
   const BitsetType occupied;
-  search(0, occupied, ctx, callback, stop, iterations);
+  search<false>(0, occupied, ctx, callback, stop, iterations);
 
   flushIterations(ctx, iterations);
 }
 
 template <typename BitsetType>
-void SimdExactCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
+bool SimdExactCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
                                               SolutionCallback callback, const StopToken& stop,
                                               std::atomic<std::uint64_t>& iterations,
-                                              ProgressCallback progress) const {
+                                              ProgressCallback progress,
+                                              SubtreeSplitter* splitter) const {
   if (rows_.empty() || activeColumnList_.empty()) {
-    return;
+    return true;
   }
 
   SearchContext ctx;
@@ -234,6 +235,9 @@ void SimdExactCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& p
   if (ctx.scratchActiveRows.size() < prefixNodeIds.size() + 4) {
     ctx.scratchActiveRows.resize(prefixNodeIds.size() + 4);
   }
+  ctx.splitter = splitter;
+  ctx.rootDepth = static_cast<unsigned int>(prefixNodeIds.size());
+  ctx.frames.resize(ctx.scratchActiveRows.size());
 
   BitsetType occupied;
   bool conflict = false;
@@ -262,19 +266,116 @@ void SimdExactCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& p
   }
 
   if (!conflict) {
-    search(static_cast<unsigned int>(prefixNodeIds.size()), occupied, ctx, callback, stop,
-           iterations);
+    const auto depth = static_cast<unsigned int>(prefixNodeIds.size());
+    if (splitter != nullptr) {
+      search<true>(depth, occupied, ctx, callback, stop, iterations);
+    } else {
+      search<false>(depth, occupied, ctx, callback, stop, iterations);
+    }
   }
 
   flushIterations(ctx, iterations);
+  return !ctx.cut;
 }
 
 template <typename BitsetType>
+double SimdExactCover<BitsetType>::branchesAt(unsigned int d, double part,
+                                              const SearchContext& ctx,
+                                              SubtreeBranches& out) const {
+  const std::vector<std::uint32_t>& active = ctx.scratchActiveRows[d];
+  const unsigned int col = ctx.frames[d].bestCol;
+
+  std::size_t choices = 0;
+  for (const std::uint32_t rIdx : active) {
+    if (rows_[rIdx].mask.test(col)) {
+      choices++;
+    }
+  }
+  const double each = choices > 0 ? part / static_cast<double>(choices) : part;
+
+  for (std::size_t i = std::size_t{ctx.frames[d].pos} + 1; i < active.size(); i++) {
+    const Row& row = rows_[active[i]];
+    if (!row.mask.test(col)) {
+      continue;
+    }
+    std::vector<unsigned int> branch(ctx.currentSolution.begin(),
+                                     ctx.currentSolution.begin() + d);
+    branch.push_back(row.nodeId);
+    out.branches.push_back(std::move(branch));
+    out.shares.push_back(each);
+  }
+  return each;
+}
+
+template <typename BitsetType>
+void SimdExactCover<BitsetType>::leave(unsigned int depth, bool leaf, SearchContext& ctx) const {
+  ctx.cut = true;
+  if (ctx.splitter == nullptr || ctx.left) {
+    return;
+  }
+  ctx.left = true;
+  // nothing of the subtree begun: it stays the task it is
+  if (leaf && depth == ctx.rootDepth) {
+    return;
+  }
+
+  SubtreeBranches out;
+  double part = 1.0;
+  const unsigned int end = leaf ? depth : depth + 1;
+  for (unsigned int d = ctx.rootDepth; d < end; d++) {
+    part = branchesAt(d, part, ctx, out);
+  }
+  if (leaf) {
+    out.branches.emplace_back(ctx.currentSolution.begin(), ctx.currentSolution.begin() + depth);
+    out.shares.push_back(part);
+  }
+  // every level above is given away: the frames return as they are reached
+  ctx.rootDepth = std::numeric_limits<unsigned int>::max();
+  ctx.splitter->leave(std::move(out));
+}
+
+template <typename BitsetType>
+void SimdExactCover<BitsetType>::handOff(unsigned int depth, SearchContext& ctx) const {
+  SubtreeBranches out;
+  double part = 1.0;
+  for (unsigned int d = ctx.rootDepth; d < depth; d++) {
+    if (numPieces_ < d + kSplitLeafRows) {
+      return;
+    }
+    part = branchesAt(d, part, ctx, out);
+    if (out.branches.empty()) {
+      continue;
+    }
+
+    // the search goes on with the choice in hand at d: its subtree starts
+    // one deeper now, and the progress is counted from there
+    out.rest.assign(ctx.currentSolution.begin(), ctx.currentSolution.begin() + d + 1);
+    out.restShare = part;
+    const unsigned int shift = d + 1 - ctx.baseDepth;
+    for (unsigned int l = 0; l < kProgressLevels; l++) {
+      const bool kept = l + shift < kProgressLevels;
+      ctx.branchIdx[l] = kept ? ctx.branchIdx[l + shift] : 0;
+      ctx.branchCnt[l] = kept ? ctx.branchCnt[l + shift] : 0;
+    }
+    ctx.baseDepth = d + 1;
+    ctx.rootDepth = d + 1;
+    out.restFraction = ctx.fraction();
+    ctx.splitter->handOff(std::move(out));
+    return;
+  }
+}
+
+template <typename BitsetType>
+template <bool Split>
 void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& occupied,
                                         SearchContext& ctx, SolutionCallback& callback,
                                         const StopToken& stop,
                                         std::atomic<std::uint64_t>& iterations) const {
   if (stop.stopRequested()) {
+    ctx.cut = true;
+    if constexpr (Split) {
+      leave(depth, true, ctx);
+    }
     return;
   }
 
@@ -288,6 +389,11 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
   if (ctx.progress && (ctx.localIterations & 4095) == 0) {
     (*ctx.progress)(ctx.fraction());
   }
+  if constexpr (Split) {
+    if ((ctx.localIterations & 255) == 0 && ctx.splitter->wanted()) {
+      handOff(depth, ctx);
+    }
+  }
 
   // goal: are all required columns covered?
   if (occupied.containsAll(requiredColumns_)) {
@@ -299,7 +405,14 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
     if (ctx.progress) {
       (*ctx.progress)(ctx.fraction());
     }
-    (void)callback(ctx.currentSolution);
+    // False: the run is stopped, and the cover may not have been taken. The
+    // node is left as not begun, so that the next run finds it again.
+    if (!callback(ctx.currentSolution)) {
+      ctx.cut = true;
+      if constexpr (Split) {
+        leave(depth, true, ctx);
+      }
+    }
     return;
   }
 
@@ -369,13 +482,24 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
   bool first = true;
 
   // branch on every row still possible that covers bestCol
-  for (const std::uint32_t rIdx : currActive) {
-    const Row& candidateRow = rows_[rIdx];
+  for (std::size_t i = 0; i < currActive.size(); i++) {
+    const Row& candidateRow = rows_[currActive[i]];
     if (!candidateRow.mask.test(bestCol)) {
       continue;
     }
 
-    if (track) {
+    if constexpr (Split) {
+      ctx.frames[depth] = {bestCol, static_cast<std::uint32_t>(i)};
+      // the level anew each time: a hand-off from below moves the depth
+      // the levels are counted from while this loop runs
+      if (const unsigned int now = depth - ctx.baseDepth; now < kProgressLevels && !first) {
+        ctx.branchIdx[now]++;
+        if (now + 1 < kProgressLevels) {
+          ctx.branchCnt[now + 1] = 0;
+        }
+      }
+      first = false;
+    } else if (track) {
       if (!first) {
         ctx.branchIdx[level]++;
         if (level + 1 < kProgressLevels) {
@@ -395,9 +519,19 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
 
     filterRows(currActive, candidateRow.mask, nextActive);
 
-    search(depth + 1, occupied | candidateRow.mask, ctx, callback, stop, iterations);
+    search<Split>(depth + 1, occupied | candidateRow.mask, ctx, callback, stop, iterations);
 
+    if constexpr (Split) {
+      // the choices after this one were handed on, or left at a stop
+      if (depth < ctx.rootDepth) {
+        return;
+      }
+    }
     if (stop.stopRequested()) {
+      ctx.cut = true;
+      if constexpr (Split) {
+        leave(depth, false, ctx);
+      }
       return;
     }
   }

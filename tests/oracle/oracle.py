@@ -1290,6 +1290,8 @@ def python_transcript(module_dir: Path, argv: list[str], timeout: float, old: bo
     if one_thread:
         argv = [*argv, "--one-thread"]
         if old:
+            # the original's name for the switch, and a renamed checkout's
+            env["BURRTOOLS_THREADS"] = "1"
             env["SHAPELOGIC_THREADS"] = "1"
     try:
         r = subprocess.run([sys.executable, str(HERE / "python_transcript.py"), *argv],
@@ -1449,7 +1451,7 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
     runs = [(rel, mode) for rel in RESUME_SET for mode in RESUME_MODES]
     runs += [(rel, mode) for rel in RESUME_SET_ASSEMBLER1 for mode in RESUME_MODES]
 
-    checks = failures = same_text = known = 0
+    checks = failures = same_text = known = unread = 0
     for rel, (solver, threads, plain) in runs:
         if args.filter and args.filter not in rel:
             continue
@@ -1506,6 +1508,13 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
                     else:
                         same_text += 1
             for src, dst in directions:
+                # A split search of assembler 1 stopped by the new program
+                # is left as tasks of kinds the original does not have
+                # (flags 5 and 6, decision 0024): only the new program
+                # carries such a position on.
+                if src == "new" and dst == "old" and paused["new"]["text"][:2] in ("5 ", "6 "):
+                    unread += 1
+                    src, dst = "new", "new"
                 checks += 1
                 pos_file.write_text(paused[src]["version"] + "\n" + paused[src]["text"] + "\n")
                 rest = run_resume_tool(tools[dst], ["resume", *base, str(pos_file)], args.timeout)
@@ -1524,6 +1533,9 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
                     print(f"ok           {label}")
     print(f"\n{checks - failures}/{checks} resume checks pass; "
           f"{same_text} single-thread pauses saved the same text in both programs")
+    if unread:
+        print(f"{unread} split searches of assembler 1 paused by the new program were left as tasks "
+              "the original cannot read (decision 0024); those were continued by the new program")
     if known:
         print(f"{known} pauses stood after the last piece, which the original cannot save "
               "(a known bug, see docs/handoff/stage-3a.md); those were continued by the new program only")

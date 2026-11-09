@@ -329,7 +329,7 @@ positions continue in both programs).
   browser and the debugger (`debugStep`, `currentAssembly`).
   `AssemblerError` with the original's messages. `SearchOptions` carries the
   threads and pool and the A/B switches (`vectorSearch`, `kernels`,
-  `vectorMemoryBudget`). The problem hooks: `beginSolving(problem,
+  `vectorMemoryBudget`, `rowRotationCheck`, `splitTasks`, `splitDepth`). The problem hooks: `beginSolving(problem,
   assembler)` starts or restores a solve with the original's failure rule (a
   position that cannot be restored drops all solutions and the position),
   `storePosition()` writes a paused one back, `canStartSolving()`.
@@ -337,15 +337,27 @@ positions continue in both programs).
 - `search_run.h`: the run layer. `SearchRun` (one `assemble()` call: its own
   stop source under the caller's token, the serialised hand-over to the
   callback: `deliver`, `deliverOnce` with signatures), `TaskProgress` (weighted
-  task units, lock-free), `runTasks()` (unfinished tasks over the pool's
-  threads; completed only when searched to the end without a stop; the
-  first exception aborts the rest and comes back), `effectiveThreads()`.
-- `resume_state.h`: `SplitSearchState<Task>` (tasks, completion, reported
-  signatures, the vector search's skip count) and the saved-position tail
-  (`K` / `T C S`), byte-compatible with the original.
+  task units, lock-free), `SplitTasks<Task>` and `runSplitTasks()` (the
+  task list of a split search over the pool's threads, decision 0024: a
+  worker hands the untried branches of its task on as new tasks when
+  another has nothing to do (`handOff`), and at a stop replaces its task by
+  what is left of it (`leave`); idle workers wait for a hand-off; the first
+  exception aborts the rest and comes back), `effectiveThreads()`.
+- `subtree_split.h`: `SubtreeSplitter`, through which the vector searches
+  hand branches on (rows by their nodes, and for assembler 1 the rows out
+  of play).
+- `resume_state.h`: `SplitSearchState<Task>` (tasks, completion, weights,
+  reported signatures, the vector search's skip count; `prune()` drops the
+  finished tasks) and the saved-position tail (`K` / `T C S`, as the
+  original wrote it, then the weights `W`).
 - `rotation_filter.h`: `RotationFilter`, the check every assembler makes on
   the assemblies it finds (rotated or mirrored copies dropped), with the
   settings of a solve.
+- `row_rotation_check.h`: `RowRotationCheck`, the same check answered from
+  the rows of a cover (decision 0024): a table of what each row's
+  placement becomes under each symmetry of the result, filled as it is
+  asked for; a cover is built only when it is kept. Made per run by both
+  assemblers; `SearchOptions::rowRotationCheck` turns it off.
 - `dlx_matrix.h`: `DlxMatrix` (the dancing links matrix of assembler 0,
   built node for node as the original: `build`, `reduce`,
   `clumpify`, the placement browser) and `DlxNodes` (the four node arrays
@@ -353,14 +365,17 @@ positions continue in both programs).
   `everyPartOnePiece()`, the problems it can describe.
 - `assembler_0.h`: `Assembler0` (dancing links; every part exactly one
   piece). Three searches: plain on the caller's thread (flag 0 positions),
-  split into subtree tasks over threads (flag 2), and the vector search
-  alone or inside each task (flag 3).
+  split into subtree tasks over threads (flag 2; the tasks split further
+  while they are searched, and a stopped one is left as its untried
+  branches), and the vector search alone or inside each task (flag 3).
 - `assembler_1.h`: `Assembler1` (Wei-Hwa Huang's cover with counts: columns
   with a minimum and maximum weight; piece counts and ranges, holes; every
   problem assembler 0 cannot take). The plain search is a state machine
   over explicit stacks (`SearchStacks`) that stops only at a state it can
   save (flag 0); split into tasks that are stacks too (flag 4, or 2 for the
-  older signatures by row order); the vector search `SimdHuangCover`, alone
+  older signatures by row order; 5 and 6 once a stopped run left a plain
+  worker's stacks with their base, or the vector search's branches as rows
+  and hidden rows); the vector search `SimdHuangCover`, alone
   or in each task, refused past `vectorMemoryBudget` (flag 3). A saved
   position is checked against the matrix before it is used. The plain
   search's progress is published by its thread every 4096 steps.

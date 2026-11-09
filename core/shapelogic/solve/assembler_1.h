@@ -13,6 +13,7 @@
 #include "shapelogic/solve/assembler.h"
 #include "shapelogic/solve/resume_state.h"
 #include "shapelogic/solve/rotation_filter.h"
+#include "shapelogic/solve/row_rotation_check.h"
 #include "shapelogic/solve/search_run.h"
 
 #include <atomic>
@@ -72,6 +73,10 @@ class Assembler1 final : public Assembler {
   void debugStep(unsigned long steps) override;
   [[nodiscard]] Assembly currentAssembly() const override;
 
+  /// True when the last run checked its assemblies against their rotations
+  /// on the rows of the matrix (RowRotationCheck); for tests.
+  [[nodiscard]] bool usedRowRotationCheck() const { return rowCheck_ != nullptr; }
+
  private:
   class Worker;
 
@@ -105,14 +110,31 @@ class Assembler1 final : public Assembler {
   /// Where a search stands: a frame per level (taskStack: the state of the
   /// level; nextRowStack: the row it goes on with, or 0 or a header for a
   /// new column), the columns chosen, the rows taken, and the rows hidden
-  /// (batches separated by 0). A saved position holds them, and a subtree
-  /// task is the stacks at its root.
+  /// (batches separated by 0). A saved position holds them.
+  ///
+  /// A task of a split search is one of two kinds. With frames, it is the
+  /// plain search as it stands somewhere, to be carried on until fewer than
+  /// `base` frames are left: the stacks at a subtree's root as the split
+  /// makes them (the top frame not begun, base the number of frames), or
+  /// where a plain worker stood in its task when the run was stopped.
+  /// Without frames it is a subtree of the vector search, which hands on
+  /// its branches so: the covers that hold `rows` and none of
+  /// `hiddenRows`. The plain search cannot take such a one, nor the vector
+  /// search a task whose top frame is begun.
   struct SearchStacks {
     std::vector<unsigned int> taskStack;
     std::vector<unsigned int> nextRowStack;
     std::vector<unsigned int> columnStack;
     std::vector<unsigned int> rows;
     std::vector<unsigned int> hiddenRows;
+    unsigned int base = 0;
+
+    /// A subtree of the vector search.
+    [[nodiscard]] bool rowSet() const { return taskStack.empty(); }
+    /// The stacks at a subtree's root, which either search can take.
+    [[nodiscard]] bool atSubtreeRoot() const {
+      return !taskStack.empty() && taskStack.back() == 0 && base == taskStack.size();
+    }
   };
 
   /// The placement a row stands for.
@@ -129,6 +151,8 @@ class Assembler1 final : public Assembler {
   void addVoxelNode(unsigned int col, unsigned int piecenode);
   void addRangeNode(unsigned int col, unsigned int piecenode, unsigned int weight);
   [[nodiscard]] const PiecePosition& placementOf(unsigned int node) const;
+  /// The index in piecePositions_ of the row `node` belongs to.
+  [[nodiscard]] std::size_t rowIndexOf(unsigned int node) const;
   int prepare(bool hasRange, unsigned int rangeMin, unsigned int rangeMax);
   unsigned int clumpify();
   void removeRow(unsigned int r);
@@ -174,8 +198,21 @@ class Assembler1 final : public Assembler {
   void generateSubtreeTasks(SearchRun& run, std::vector<SearchStacks>& tasks,
                             unsigned int targetTasks, unsigned int maxDepth);
   void parallelMultiSearch(SearchRun& run, unsigned int workers, const SearchOptions& options);
-  void reportParallelSolution(SearchRun& run, const std::vector<unsigned int>& solutionRows);
+  void reportParallelSolution(SearchRun& run, const std::vector<unsigned int>& solutionRows,
+                              RowRotationCheck::Scratch& scratch);
+  /// Makes rowCheck_ for a run, or clears it when the check does not apply.
+  void prepareRowCheck(const SearchOptions& options);
+  /// True when the assembly of `rows` is dropped as a rotation of another:
+  /// asked of rowCheck_, which must exist.
+  [[nodiscard]] bool rowCheckRejects(const std::vector<unsigned int>& rows,
+                                     RowRotationCheck::Scratch& scratch) const;
   [[nodiscard]] bool simdFits(const SearchOptions& options) const;
+  /// Whether the matrix is one the vector search can take at all, whatever
+  /// the options say of memory.
+  [[nodiscard]] bool vectorPossible() const;
+  /// True when `t` is a task a run can search: its stacks fit the matrix and
+  /// each other (validStacks), or it is a subtree of the vector search.
+  [[nodiscard]] bool validTask(const SearchStacks& t) const;
   [[nodiscard]] bool canUseSimd(const SearchOptions& options) const;
   void simdSearch(SearchRun& run, const SearchOptions& options);
   [[nodiscard]] std::unique_ptr<SimdHuangCoverBase> createSimdSolver(SimdKernels kernels) const;
@@ -222,6 +259,12 @@ class Assembler1 final : public Assembler {
 
   /// Which assemblies are dropped as rotations of others.
   RotationFilter filter_;
+  /// The same check on the rows of the matrix, for the run under way; null
+  /// when it does not apply. The scratch is the caller's thread's.
+  std::unique_ptr<RowRotationCheck> rowCheck_;
+  RowRotationCheck::Scratch rowScratch_;
+  /// For rowCheck_: the index in piecePositions_ of each node's row.
+  std::vector<std::uint32_t> rowOfNode_;
 
   AssemblerError errorsState_ = AssemblerError::None;
   int errorsParam_ = 0;

@@ -4,7 +4,7 @@
 // search (iterative), the worker's copy of it (assemblerWorker_1) and the
 // task generation's copy (generateTasksAtDepth) stay three state machines,
 // as there. What changed is around them: the stop is the run's token, the
-// threads come from the pool through runTasks(), the split and vector state
+// threads come from the pool through runSplitTasks(), the split and vector state
 // is a SplitSearchState, the saved position is a string and is checked
 // before it is used, the progress of the plain search is published by its
 // thread, and nothing is printed (the debug traces, the "range
@@ -234,6 +234,10 @@ unsigned int Assembler1::addPieceNode(unsigned int piece, unsigned int rot, int 
 }
 
 const Assembler1::PiecePosition& Assembler1::placementOf(unsigned int node) const {
+  return piecePositions_[rowIndexOf(node)];
+}
+
+std::size_t Assembler1::rowIndexOf(unsigned int node) const {
   // by halving, as DlxMatrix::placementOf
   std::size_t lo = 0;
   std::size_t hi = piecePositions_.size();
@@ -248,7 +252,42 @@ const Assembler1::PiecePosition& Assembler1::placementOf(unsigned int node) cons
 
   BT_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
 
-  return piecePositions_[lo - 1];
+  return lo - 1;
+}
+
+void Assembler1::prepareRowCheck(const SearchOptions& options) {
+  rowCheck_.reset();
+  if (!options.rowRotationCheck || !filter_.avoidTransformed) {
+    return;
+  }
+
+  std::vector<RowRotationCheck::Row> rows;
+  rows.reserve(piecePositions_.size());
+  for (const PiecePosition& pp : piecePositions_) {
+    rows.push_back({pp.piece, Placement{pp.transformation, pp.x, pp.y, pp.z}});
+  }
+  rowCheck_ = RowRotationCheck::make(puzzle_, problem_, filter_, std::move(rows));
+
+  // a row's nodes are made one after the other, the rows in order
+  if (rowCheck_ != nullptr && rowOfNode_.size() != links_.left.size()) {
+    rowOfNode_.assign(links_.left.size(), 0);
+    for (std::size_t i = 0; i < piecePositions_.size(); i++) {
+      const std::size_t end =
+          i + 1 < piecePositions_.size() ? piecePositions_[i + 1].row : rowOfNode_.size();
+      for (std::size_t node = piecePositions_[i].row; node < end; node++) {
+        rowOfNode_[node] = static_cast<std::uint32_t>(i);
+      }
+    }
+  }
+}
+
+bool Assembler1::rowCheckRejects(const std::vector<unsigned int>& rows,
+                                 RowRotationCheck::Scratch& scratch) const {
+  scratch.found.clear();
+  for (const unsigned int row : rows) {
+    scratch.found.push_back(rowOfNode_[row]);
+  }
+  return rowCheck_->rejects(scratch);
 }
 
 void Assembler1::addVoxelNode(unsigned int col, unsigned int piecenode) {
@@ -1075,9 +1114,13 @@ Assembly Assembler1::currentAssembly() const { return assemblyFromRows(stacks_.r
 // thread: dropped when a rotation of it is smaller, else handed over.
 void Assembler1::solution(SearchRun& run) {
   if (run.hasCallback()) {
+    if (rowCheck_ != nullptr && rowCheckRejects(stacks_.rows, rowScratch_)) {
+      return;
+    }
+
     Assembly assembly = currentAssembly();
 
-    if (filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
+    if (rowCheck_ == nullptr && filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
       return;
     }
 
@@ -1373,10 +1416,12 @@ void Assembler1::iterative(SearchRun& run) {
 // ---- the search split over threads -----------------------------------------------
 
 // One thread's search of tasks: a copy of the matrix it re-seeds from the
-// run's base for every task (assemblerWorker_1).
+// run's base for every task (assemblerWorker_1). Stopped, it leaves its
+// stacks in the task's place, so that the next run carries on where it stood.
 class Assembler1::Worker {
  public:
-  Worker(Assembler1& parent, SearchRun& run) : parent_(parent), run_(run) {
+  Worker(Assembler1& parent, SearchRun& run, SplitTasks<SearchStacks>& tasks, unsigned int slot)
+      : parent_(parent), run_(run), tasks_(tasks), slot_(slot) {
     const std::size_t h = parent.headerNodes_;
     s_.rows.reserve(h);
     s_.hiddenRows.reserve(h * 4);
@@ -1385,29 +1430,60 @@ class Assembler1::Worker {
     s_.columnStack.reserve(h);
   }
 
-  /// Searches task `taskIndex` to its end or to a stop.
-  void operator()(std::size_t taskIndex) {
-    const SearchStacks& task = parent_.split_.tasks[taskIndex];
+  /// Searches `task` to its end (true) or to a stop (false; the list then
+  /// holds where this search stood, to be carried on by the next run).
+  bool operator()(std::size_t taskIndex, const SearchStacks& task) {
+    taskIndex_ = taskIndex;
     // the base is written once in assemble() and never touched while the
     // workers run
     n_ = parent_.base_;
     s_ = task;
-    parent_.replay(n_, s_, true);
-    search(task.taskStack.size());
+    // a top frame not begun is the next thing the search does; any other
+    // has been begun and is replayed with the frames below it
+    parent_.replay(n_, s_, s_.taskStack.back() == 0);
+    begun_ = false;
+    const bool through = search(task.base);
     flushIterations();
+    return through;
   }
 
  private:
+  // The run is stopped where the search can be carried on from: its stacks
+  // take the task's place. (Nothing done yet: the task stays as it is.)
+  void leave(std::size_t baseDepth) {
+    if (!begun_) {
+      return;
+    }
+    TaskSplit<SearchStacks> out;
+    out.branches.push_back(s_);
+    out.branches.back().base = static_cast<unsigned int>(baseDepth);
+    // how far a plain worker is in its task is not reckoned
+    out.shares.push_back(1.0);
+    tasks_.leave(slot_, taskIndex_, std::move(out));
+  }
+
   // The plain search's state machine below `baseDepth`, without the debugger
-  // and the progress stacks, stopping at once.
-  void search(std::size_t baseDepth) {
+  // and the progress stacks. False when a stop ended it: it then stopped
+  // where the stacks say all there is to say (a frame not begun, or one
+  // that waits for the frame above it: states 0, 1, 2 and 5), which takes a
+  // few steps at most.
+  bool search(std::size_t baseDepth) {
     const Assembler1& p = parent_;
     Links& n = n_;
     SearchStacks& s = s_;
     unsigned int row = 0;
     unsigned int col = 0;
 
-    while (s.taskStack.size() >= baseDepth && !run_.stopRequested()) {
+    while (s.taskStack.size() >= baseDepth) {
+      if (run_.stopRequested()) {
+        const unsigned int state = s.taskStack.back();
+        if (state == 0 || state == 1 || state == 2 || state == 5) {
+          leave(baseDepth);
+          return false;
+        }
+      }
+      begun_ = true;
+
       localIterations_++;
       if ((localIterations_ - flushedIterations_) >= 128) {
         flushIterations();
@@ -1423,7 +1499,15 @@ class Assembler1::Worker {
 
           if (s.nextRowStack.back() < p.headerNodes_) {
             if (n.right[0] == 0) {
-              parent_.reportParallelSolution(run_, s.rows);
+              parent_.reportParallelSolution(run_, s.rows, rowScratch_);
+              // An assembly found once the run is stopped is not handed
+              // over (SearchRun::deliverOnce): the frame is left as not
+              // begun, and the next run finds it again (one handed over
+              // just before is passed over by its signature).
+              if (run_.stopRequested()) {
+                leave(baseDepth);
+                return false;
+              }
               s.nextRowStack.pop_back();
               s.taskStack.pop_back();
               break;
@@ -1569,6 +1653,7 @@ class Assembler1::Worker {
           break;
       }
     }
+    return true;
   }
 
   void flushIterations() {
@@ -1581,9 +1666,15 @@ class Assembler1::Worker {
 
   Assembler1& parent_;
   SearchRun& run_;
-  /// This thread's copy of the matrix and where its search stands.
+  SplitTasks<SearchStacks>& tasks_;
+  unsigned int slot_;
+  std::size_t taskIndex_ = 0;
+  /// This thread's copy of the matrix and where its search stands, and
+  /// whether it has taken a step of the task in hand.
   Links n_;
   SearchStacks s_;
+  bool begun_ = false;
+  RowRotationCheck::Scratch rowScratch_;
   std::uint64_t localIterations_ = 0;
   std::uint64_t flushedIterations_ = 0;
 };
@@ -1593,14 +1684,19 @@ class Assembler1::Worker {
 // what was reported before, and handed over. Called by the worker threads,
 // the plain ones and the vector ones alike.
 void Assembler1::reportParallelSolution(SearchRun& run,
-                                        const std::vector<unsigned int>& solutionRows) {
+                                        const std::vector<unsigned int>& solutionRows,
+                                        RowRotationCheck::Scratch& scratch) {
   if (!run.hasCallback()) {
+    return;
+  }
+
+  if (rowCheck_ != nullptr && rowCheckRejects(solutionRows, scratch)) {
     return;
   }
 
   Assembly assembly = assemblyFromRows(solutionRows);
 
-  if (filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
+  if (rowCheck_ == nullptr && filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
     return;
   }
 
@@ -1864,16 +1960,23 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
   warmShapeCaches(puzzle_, problem_);
 
   if (split_.tasks.empty()) {
-    const unsigned int targetTasks = std::max(16U, workers * 4);
-    const unsigned int maxDepth = std::min(piecenumber_, 3U);
+    const unsigned int targetTasks =
+        options.splitTasks > 0 ? options.splitTasks : splitTaskTarget(workers);
+    const unsigned int maxDepth =
+        std::min(piecenumber_, options.splitDepth > 0 ? options.splitDepth : kSplitDepth);
     generateSubtreeTasks(run, split_.tasks, targetTasks, maxDepth);
+    for (SearchStacks& t : split_.tasks) {
+      t.base = static_cast<unsigned int>(t.taskStack.size());
+    }
     split_.completed.assign(split_.tasks.size(), 0);
+    split_.weights.clear();
+    split_.doneWeight = 0;
   }
 
   // Also for the tasks a stopped run left, in this session or a loaded
   // file: assemble() has cleared the counts, and without them the whole run
   // would show nothing done.
-  taskProgress_.begin({}, split_.completed);
+  taskProgress_.begin(split_.weights, split_.completed, split_.doneWeight);
 
   // nothing to split: the search is through (or was stopped while the
   // tasks were made, and makes them again)
@@ -1901,72 +2004,181 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
   // a column early, which the two lists do not say); the signatures see to
   // it that such a one is reported once. The tasks, the list of the
   // finished ones and the signatures stay what they are, and with them
-  // stopping, continuing and saving.
+  // stopping, continuing and saving. A search carries on the way it ran:
+  // the branches a vector search handed on are tasks only it can take, so
+  // with any of them left it runs whatever this run's options say.
+  bool vectorTasks = false;
+  for (std::size_t i = 0; i < split_.tasks.size(); i++) {
+    vectorTasks = vectorTasks || (!split_.completed[i] && split_.tasks[i].rowSet());
+  }
   std::unique_ptr<SimdHuangCoverBase> simdSolver;
-  if (simdFits(options) && !rowOrderSignatures_) {
+  if (vectorTasks || (simdFits(options) && !rowOrderSignatures_)) {
     simdSolver = createSimdSolver(options.kernels);
   }
   const SimdHuangCoverBase* simd = simdSolver.get();
 
-  struct TaskSearch {
-    Assembler1* self;
-    SearchRun* run;
+  SplitTasks<SearchStacks> tasks(split_, run, taskProgress_);
+
+  // One thread's search of its tasks: the vector search for subtrees (as
+  // the split made them, or as a vector search handed them on), whose
+  // branches become tasks here; the plain worker without a vector search,
+  // and for a task that stands where a plain worker stopped.
+  struct TaskSearch final : SubtreeSplitter {
+    TaskSearch(Assembler1& a, SearchRun& r, SplitTasks<SearchStacks>& t,
+               const SimdHuangCoverBase* solver, unsigned int s)
+        : self(a), run(r), tasks(t), simd(solver), slot(s) {}
+
+    bool operator()(std::size_t index, const SearchStacks& task, std::uint64_t taskUnits) {
+      if (simd == nullptr || !(task.rowSet() || task.atSubtreeRoot())) {
+        if (!plain) {
+          plain = std::make_unique<Worker>(self, run, tasks, slot);
+        }
+        return (*plain)(index, task);
+      }
+
+      taskIndex = index;
+      units = taskUnits;
+      hidden = &task.hiddenRows;
+      std::atomic<std::uint64_t> taskIter{0};
+      auto drain = [this, &taskIter] {
+        self.iterations_.fetch_add(taskIter.exchange(0, std::memory_order_relaxed),
+                                   std::memory_order_relaxed);
+      };
+      const bool through = simd->solveSubtree(
+          task.rows, task.hiddenRows,
+          [this, &drain](const std::vector<unsigned int>& nodes) -> bool {
+            drain();
+            self.reportParallelSolution(run, nodes, rowScratch);
+            return !run.stopRequested();
+          },
+          run.token(), taskIter,
+          [this, &drain](float fraction) {
+            drain();
+            self.taskProgress_.reportUnits(slot, units, fraction);
+          },
+          this);
+      drain();
+      return through;
+    }
+
+    [[nodiscard]] bool wanted() const override { return tasks.wanted(); }
+
+    void handOff(SubtreeBranches&& branches) override {
+      TaskSplit<SearchStacks> split = toSplit(branches);
+      split.rest = toTask(branches.rest, branches.restHidden);
+      split.restShare = branches.restShare;
+      split.restFraction = branches.restFraction;
+      units = tasks.handOff(slot, taskIndex, std::move(split));
+    }
+
+    void leave(SubtreeBranches&& branches) override {
+      tasks.leave(slot, taskIndex, toSplit(branches));
+    }
+
+    // A branch as a task: its rows, and hidden the rows the task in hand
+    // came with and those the search took out of play on the way.
+    [[nodiscard]] SearchStacks toTask(const std::vector<unsigned int>& rows,
+                                      const std::vector<unsigned int>& more) const {
+      SearchStacks t;
+      t.rows = rows;
+      t.hiddenRows.reserve(hidden->size() + more.size());
+      for (const unsigned int h : *hidden) {
+        if (h != 0) {
+          t.hiddenRows.push_back(h);
+        }
+      }
+      t.hiddenRows.insert(t.hiddenRows.end(), more.begin(), more.end());
+      return t;
+    }
+
+    [[nodiscard]] TaskSplit<SearchStacks> toSplit(const SubtreeBranches& branches) const {
+      TaskSplit<SearchStacks> split;
+      split.shares = branches.shares;
+      split.branches.reserve(branches.branches.size());
+      for (std::size_t i = 0; i < branches.branches.size(); i++) {
+        split.branches.push_back(toTask(branches.branches[i], branches.hidden[i]));
+      }
+      return split;
+    }
+
+    Assembler1& self;
+    SearchRun& run;
+    SplitTasks<SearchStacks>& tasks;
     const SimdHuangCoverBase* simd;
     unsigned int slot;
     std::unique_ptr<Worker> plain;
-
-    void operator()(std::size_t task) {
-      if (plain) {
-        (*plain)(task);
-        return;
-      }
-
-      const SearchStacks& t = self->split_.tasks[task];
-      std::atomic<std::uint64_t> taskIter{0};
-      auto drain = [this, &taskIter] {
-        self->iterations_.fetch_add(taskIter.exchange(0, std::memory_order_relaxed),
-                                    std::memory_order_relaxed);
-      };
-      simd->solveSubtree(
-          t.rows, t.hiddenRows,
-          [this, &drain](const std::vector<unsigned int>& nodes) -> bool {
-            drain();
-            self->reportParallelSolution(*run, nodes);
-            return !run->stopRequested();
-          },
-          run->token(), taskIter,
-          [this, &drain, task](float fraction) {
-            drain();
-            self->taskProgress_.report(slot, task, fraction);
-          });
-      drain();
-    }
+    std::size_t taskIndex = 0;
+    std::uint64_t units = 0;
+    /// The hidden rows of the task in hand (the worker's copy of it, which
+    /// stays while the task is searched).
+    const std::vector<unsigned int>* hidden = nullptr;
+    RowRotationCheck::Scratch rowScratch;
   };
 
-  runTasks(split_.completed, workers, options.pool, run, taskProgress_,
-           [this, &run, simd](unsigned int slot) {
-             TaskSearch s{this, &run, simd, slot, nullptr};
-             if (simd == nullptr) {
-               s.plain = std::make_unique<Worker>(*this, run);
-             }
-             return s;
-           });
+  runSplitTasks(tasks, workers, options.pool, run, [this, &run, &tasks, simd](unsigned int slot) {
+    return TaskSearch(*this, run, tasks, simd, slot);
+  });
 
-  if (!run.stopRequested()) {
+  if (std::find(split_.completed.begin(), split_.completed.end(), 0) ==
+      split_.completed.end()) {
     stacks_.nextRowStack.clear();
     stacks_.taskStack.clear();
     split_.clearTasks();
     split_.interrupted = false;
     rowOrderSignatures_ = false;
   } else {
-    // Stopped part way. Continuing in this session is fine: the tasks, their
-    // completion and the signatures are all still here; a saved position
-    // carries all three (flag 4, or 2 for the older kind of signatures).
+    // Stopped part way. The tasks are what is left of the search: the ones
+    // not begun, and in place of each one a thread was in, where it stood
+    // (a plain worker) or the branches it had not tried (the vector
+    // search); the finished ones are dropped. The signatures see to what a
+    // task searched again would find again. A saved position carries all
+    // of it (flag 4 to 6).
+    split_.prune();
     split_.interrupted = true;
   }
 }
 
 // ---- the vector search -----------------------------------------------------------
+
+bool Assembler1::vectorPossible() const {
+  if (headerNodes_ - 1 > 32768) {
+    return false;
+  }
+  // Puzzles with a piece-count range are not kept out: the vector search has
+  // the range column. Cells that may stay empty together with ranges are
+  // (variable voxels; every floor cell of a sliding puzzle).
+  if (!holeColumns_.empty()) {
+    for (unsigned int s = 0; s < problem_.getNumberOfParts(); s++) {
+      if (problem_.getPartMinimum(s) != problem_.getPartMaximum(s)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+bool Assembler1::validTask(const SearchStacks& t) const {
+  if (!t.rowSet()) {
+    return t.base >= 1 && t.base <= t.taskStack.size() && validStacks(t, false);
+  }
+  // a subtree of the vector search: rows, and rows hidden; only where that
+  // search can run
+  const std::size_t nodes = links_.left.size();
+  if (!t.nextRowStack.empty() || !t.columnStack.empty() || !vectorPossible()) {
+    return false;
+  }
+  for (const unsigned int v : t.rows) {
+    if (v < headerNodes_ || v >= nodes) {
+      return false;
+    }
+  }
+  for (const unsigned int v : t.hiddenRows) {
+    if (v != 0 && (v < headerNodes_ || v >= nodes)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 // Whether the matrix can go to the vector search at all.
 bool Assembler1::simdFits(const SearchOptions& options) const {
@@ -1977,7 +2189,7 @@ bool Assembler1::simdFits(const SearchOptions& options) const {
     return false;
   }
 
-  if (headerNodes_ - 1 > 32768) {
+  if (!vectorPossible()) {
     return false;
   }
 
@@ -2002,17 +2214,6 @@ bool Assembler1::simdFits(const SearchOptions& options) const {
     }
     if (!simdHuangFitsMemory(headerNodes_ - 1, estRows, estNodes, options.vectorMemoryBudget)) {
       return false;
-    }
-  }
-
-  // Puzzles with a piece-count range are not kept out: the vector search has
-  // the range column. Cells that may stay empty together with ranges are
-  // (variable voxels; every floor cell of a sliding puzzle).
-  if (!holeColumns_.empty()) {
-    for (unsigned int s = 0; s < problem_.getNumberOfParts(); s++) {
-      if (problem_.getPartMinimum(s) != problem_.getPartMaximum(s)) {
-        return false;
-      }
     }
   }
 
@@ -2143,6 +2344,7 @@ RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOption
 
   SearchRun run(stop, callback);
   debug_ = false;
+  prepareRowCheck(options);
 
   // a previous split run leaves its tasks all done, which would make
   // finished() report 1 for this run before it has done anything
@@ -2464,9 +2666,12 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
   if (interrupted == 1) {
     return AssemblerError::CannotRestoreInterrupted;
   }
-  if (interrupted > 4) {
+  if (interrupted > 6) {
     return AssemblerError::CannotRestoreSyntax;
   }
+  // 5 and 6 are 4 and 2 with tasks of the kinds a search leaves that hands
+  // its branches on: each task starts with its base
+  const bool basedTasks = interrupted >= 5;
 
   SearchStacks s;
   std::vector<unsigned int> finishedA;
@@ -2487,7 +2692,10 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
   if (interrupted >= 2) {
     std::size_t done = 0;
     if (!readResumeTail(string + pos, interrupted, tail, done,
-                        [](ResumeReader& r, SearchStacks& t) {
+                        [basedTasks](ResumeReader& r, SearchStacks& t) {
+                          if (basedTasks && !r.next(t.base)) {
+                            return false;
+                          }
                           for (std::vector<unsigned int>* v :
                                {&t.taskStack, &t.nextRowStack, &t.columnStack, &t.rows,
                                 &t.hiddenRows}) {
@@ -2501,6 +2709,9 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
                                 return false;
                               }
                             }
+                          }
+                          if (!basedTasks) {
+                            t.base = static_cast<unsigned int>(t.taskStack.size());
                           }
                           return true;
                         })) {
@@ -2530,7 +2741,11 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
       return AssemblerError::CannotRestoreSyntax;
     }
     for (const SearchStacks& t : tail.tasks) {
-      if (!validStacks(t, true)) {
+      if (basedTasks ? !validTask(t) : !validStacks(t, true)) {
+        return AssemblerError::CannotRestoreSyntax;
+      }
+      // a search with the older signatures never ran the vector search
+      if (interrupted == 6 && t.rowSet()) {
         return AssemblerError::CannotRestoreSyntax;
       }
     }
@@ -2540,7 +2755,10 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
   // back, then the position, which stays.
   std::vector<ReplayStep> done;
   for (const SearchStacks& t : tail.tasks) {
-    const bool fits = replayChecked(links_, t, true, done);
+    if (t.rowSet()) {
+      continue;
+    }
+    const bool fits = replayChecked(links_, t, t.taskStack.back() == 0, done);
     undoReplay(links_, done);
     if (!fits) {
       return AssemblerError::CannotRestoreSyntax;
@@ -2552,14 +2770,14 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
   }
 
   split_ = std::move(tail);
-  rowOrderSignatures_ = interrupted == 2;
+  rowOrderSignatures_ = interrupted == 2 || interrupted == 6;
   stacks_ = std::move(s);
   finishedA_ = std::move(finishedA);
   finishedB_ = std::move(finishedB);
 
   // so that the loaded search shows how far it had come
   if (!split_.tasks.empty()) {
-    taskProgress_.begin({}, split_.completed);
+    taskProgress_.begin(split_.weights, split_.completed, split_.doneWeight);
   }
 
   publishSerialProgress();
@@ -2568,10 +2786,17 @@ AssemblerError Assembler1::restorePosition(std::string_view text, std::string_vi
 
 SavedPosition Assembler1::savePosition() const {
   // the leading flag, see restorePosition()
-  const unsigned int flag = !split_.interrupted   ? 0
+  // tasks other than the stacks at a subtree's root are written with
+  // their base, under a flag of their own
+  bool basedTasks = false;
+  for (const SearchStacks& t : split_.tasks) {
+    basedTasks = basedTasks || !t.atSubtreeRoot();
+  }
+  const unsigned int layout = rowOrderSignatures_ ? 2 : 4;
+  const unsigned int flag = !split_.interrupted    ? 0
                             : split_.tasks.empty() ? 3
-                            : rowOrderSignatures_  ? 2
-                                                   : 4;
+                            : basedTasks           ? (rowOrderSignatures_ ? 6 : 5)
+                                                   : layout;
 
   std::string out = std::to_string(flag) + " ";
 
@@ -2583,9 +2808,13 @@ SavedPosition Assembler1::savePosition() const {
   vectorToString(finishedA_, out);
   vectorToString(finishedB_, out);
 
-  writeResumeTail(out, flag, std::max(split_.vectorSkip, split_.vectorDone), split_,
-                  [](std::string& o, const SearchStacks& t) {
+  writeResumeTail(out, flag >= 5 ? layout : flag,
+                  std::max(split_.vectorSkip, split_.vectorDone), split_,
+                  [basedTasks](std::string& o, const SearchStacks& t) {
                     o += ' ';
+                    if (basedTasks) {
+                      o += std::to_string(t.base) + ' ';
+                    }
                     vectorToString(t.taskStack, o);
                     vectorToString(t.nextRowStack, o);
                     vectorToString(t.columnStack, o);

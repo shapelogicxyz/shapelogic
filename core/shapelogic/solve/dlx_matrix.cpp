@@ -95,7 +95,7 @@ unsigned int DlxMatrix::addPieceNode(unsigned int piece, unsigned int rot, int x
   return piecenode;
 }
 
-const DlxPlacement& DlxMatrix::placementOf(unsigned int node) const {
+std::size_t DlxMatrix::rowIndexOf(unsigned int node) const {
   // placements is in row order (addPieceNode appends as the nodes are made),
   // so the last entry at or before the node is found by halving
   std::size_t lo = 0;
@@ -111,7 +111,7 @@ const DlxPlacement& DlxMatrix::placementOf(unsigned int node) const {
 
   BT_ASSERT_MSG(lo != 0, "getPieceInformation: no piece position for the node");
 
-  return placements[lo - 1];
+  return lo - 1;
 }
 
 // Finds identical columns (contained in exactly the same rows) and removes

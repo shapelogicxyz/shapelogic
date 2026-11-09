@@ -12,6 +12,7 @@
 
 #include "shapelogic/base/stop.h"
 #include "shapelogic/solve/simd_bitset.h"
+#include "shapelogic/solve/subtree_split.h"
 
 #include <atomic>
 #include <cstdint>
@@ -66,11 +67,15 @@ class SimdExactCoverBase {
 
   /// Searches the covers that hold the rows named in `prefixNodeIds` (in any
   /// order with the rows the search adds). Thread safe: several threads may
-  /// search subtrees of one solver at once.
-  virtual void solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
+  /// search subtrees of one solver at once. With a `splitter` the search
+  /// hands branches on when asked, and when stopped tells what is left.
+  /// True when the subtree was searched to its end (less what was handed
+  /// on); false when a stop cut it short.
+  virtual bool solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
                             SolutionCallback callback, const StopToken& stop,
                             std::atomic<std::uint64_t>& iterations,
-                            ProgressCallback progress = nullptr) const = 0;
+                            ProgressCallback progress = nullptr,
+                            SubtreeSplitter* splitter = nullptr) const = 0;
 
   [[nodiscard]] virtual unsigned int getNumRows() const = 0;
   [[nodiscard]] virtual unsigned int getNumColumns() const = 0;
@@ -112,9 +117,10 @@ class SimdExactCover : public SimdExactCoverBase {
              std::atomic<std::uint64_t>& iterations,
              ProgressCallback progress = nullptr) const override;
 
-  void solveSubtree(const std::vector<unsigned int>& prefixNodeIds, SolutionCallback callback,
+  bool solveSubtree(const std::vector<unsigned int>& prefixNodeIds, SolutionCallback callback,
                     const StopToken& stop, std::atomic<std::uint64_t>& iterations,
-                    ProgressCallback progress = nullptr) const override;
+                    ProgressCallback progress = nullptr,
+                    SubtreeSplitter* splitter = nullptr) const override;
 
   [[nodiscard]] unsigned int getNumRows() const override {
     return static_cast<unsigned int>(rows_.size());
@@ -144,6 +150,21 @@ class SimdExactCover : public SimdExactCoverBase {
     std::uint32_t branchIdx[kProgressLevels] = {};
     std::uint32_t branchCnt[kProgressLevels] = {};
 
+    /// Splitting (solveSubtree with a splitter): the depth the subtree in
+    /// hand starts at, which a hand-off moves down; per depth, the column
+    /// the search branches on there and where in the rows still possible
+    /// the choice in hand is; whether a stop cut the search short, and
+    /// whether the splitter was told what that left.
+    SubtreeSplitter* splitter = nullptr;
+    unsigned int rootDepth = 0;
+    struct Frame {
+      unsigned int bestCol = 0;
+      std::uint32_t pos = 0;
+    };
+    std::vector<Frame> frames;
+    bool cut = false;
+    bool left = false;
+
     [[nodiscard]] float fraction() const {
       double f = 0;
       double scale = 1;
@@ -166,9 +187,26 @@ class SimdExactCover : public SimdExactCoverBase {
     }
   }
 
+  /// The search below a node. Compiled twice: without `Split` it is the
+  /// search as it always was; with it, it keeps the frames, hands branches
+  /// on and leaves what a stop cuts off (the bookkeeping costs the search
+  /// on one thread a few percent, which it has no use for).
+  template <bool Split>
   void search(unsigned int depth, const BitsetType& occupied, SearchContext& ctx,
               SolutionCallback& callback, const StopToken& stop,
               std::atomic<std::uint64_t>& iterations) const;
+
+  /// The choices not begun at depth `d`, as branches, each `part` over the
+  /// number of choices there; returns that share (the choice in hand's).
+  double branchesAt(unsigned int d, double part, const SearchContext& ctx,
+                    SubtreeBranches& out) const;
+  /// A stop found at `depth`: tells the splitter what is left, the node at
+  /// `depth` itself when it was not begun (`leaf`), else the choices after
+  /// the one in hand there.
+  void leave(unsigned int depth, bool leaf, SearchContext& ctx) const;
+  /// Hands the choices not begun at the first depth that has some on, from
+  /// a node at `depth`, and goes on with the choice in hand there.
+  void handOff(unsigned int depth, SearchContext& ctx) const;
 
   /// Appends to `dst` the rows of `src` that share no column with `chosenMask`.
   void filterRows(const std::vector<std::uint32_t>& src, const BitsetType& chosenMask,

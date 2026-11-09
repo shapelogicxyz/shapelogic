@@ -40,21 +40,24 @@ void Assembly::sort(const Problem& problem) {
       cnt2++;
     }
 
-    // bubble sort: only a few identical pieces, and often few of them placed
+    // Any sort gives the same order: equal placements cannot be told apart.
+    // Insertion sort while the pieces are few (the common case, and the
+    // rotation check calls this for every transformation of every assembly
+    // found); past that it is quadratic where a tray of dominoes has dozens
+    // of pieces of one shape, each rotation leaving them in another order.
     if (cnt2 > 1) {
-      for (unsigned int a = 0; a < cnt2 - 1; a++) {
-        bool swapped = false;
-
-        for (unsigned int b = cnt2 - 1; b > a; b--) {
-          if (placements_[p + b] < placements_[p + b - 1]) {
-            std::swap(placements_[p + b], placements_[p + b - 1]);
-            swapped = true;
+      Placement* const first = placements_.data() + p;
+      if (cnt2 <= 8) {
+        for (unsigned int a = 1; a < cnt2; a++) {
+          const Placement key = first[a];
+          unsigned int b = a;
+          for (; b > 0 && key < first[b - 1]; b--) {
+            first[b] = first[b - 1];
           }
+          first[b] = key;
         }
-
-        if (!swapped) {
-          break;
-        }
+      } else {
+        std::sort(first, first + cnt2);
       }
     }
 
@@ -516,27 +519,31 @@ bool Assembly::smallerRotationExists(const Puzzle& puzzle, const Problem& proble
     const Symmetry s = problem.resultShape(puzzle).selfSymmetries();
     Assembly tmp(*this);
     for (unsigned int t = 0; t < endTrans; t++) {
-      if (sym().symmetrieContainsTransformation(s, t)) {
-        tmp = *this;
-        const bool transformed = tmp.transform(static_cast<unsigned char>(t), puzzle, problem, mir);
-        BT_ASSERT(transformed);
-
-        /* an orientation that needs mirrored pieces is invalid; so is one
-         * that uses a wrong number of pieces of a shape, which can happen
-         * when a mirror shape has a different piece range */
-        if (t >= sym().getNumTransformations() &&
-            (tmp.containsMirroredPieces() || !tmp.validSolution(problem))) {
-          continue;
-        }
-
-        if (tmp.compare(*this, pivot)) {
-          return true;
-        }
+      if (sym().symmetrieContainsTransformation(s, t) &&
+          smallerUnder(static_cast<unsigned char>(t), puzzle, problem, pivot, mir, tmp)) {
+        return true;
       }
     }
   }
 
   return false;
+}
+
+bool Assembly::smallerUnder(unsigned char t, const Puzzle& puzzle, const Problem& problem,
+                            unsigned int pivot, const MirrorInfo* mir, Assembly& scratch) const {
+  scratch = *this;
+  const bool transformed = scratch.transform(t, puzzle, problem, mir);
+  BT_ASSERT(transformed);
+
+  /* an orientation that needs mirrored pieces is invalid; so is one that
+   * uses a wrong number of pieces of a shape, which can happen when a
+   * mirror shape has a different piece range */
+  if (t >= sym().getNumTransformations() &&
+      (scratch.containsMirroredPieces() || !scratch.validSolution(problem))) {
+    return false;
+  }
+
+  return scratch.compare(*this, pivot);
 }
 
 void Assembly::exchangeShape(unsigned int s1, unsigned int s2) {

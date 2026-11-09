@@ -116,11 +116,16 @@ void usage(HelpKind kind) {
         "            \"Fast (Crowell)\"         90° take-apart heuristics (also: crowell)\n"
         "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
         "  --no-simd            the plain search and scalar loops only\n"
+        "  --no-row-check       check each assembly against its rotations as built, not\n"
+        "                       on the rows of the matrix\n"
         "  --no-level-threads   take apart on one thread per assembly\n"
         "  --no-fast-analysis, --no-fast-rotations, --no-rotation-anchor\n"
         "                       the take-apart's slower reference paths\n"
         "  --vector-memory MB   the most memory assembler 1's vector search may take\n"
         "                       (default 256; 0 turns it off)\n"
+        "  --split-tasks N, --split-depth N\n"
+        "                       split a search on several threads into at least N tasks,\n"
+        "                       at most N pieces deep (0: the assembler's choice)\n"
         "  --original-drawings  draw the take-apart's parts as burrTxt did (-p), with\n"
         "                       the wrong shapes below the first separation\n",
         stdout);
@@ -298,15 +303,21 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.keepRotations = true;
     } else if (a == "--drop-disassemblies") {
       o.dropDisassemblies = true;
-    } else if (a == "--limit" || a == "--vector-memory") {
-      if (!hasValue ||
-          !parseCount(argv[i + 1], a == "--limit" ? &o.solutionLimit : &o.vectorMemoryMb)) {
+    } else if (a == "--limit" || a == "--vector-memory" || a == "--split-tasks" ||
+               a == "--split-depth") {
+      unsigned int* const value = a == "--limit"           ? &o.solutionLimit
+                                  : a == "--vector-memory" ? &o.vectorMemoryMb
+                                  : a == "--split-tasks"   ? &o.splitTasks
+                                                           : &o.splitDepth;
+      if (!hasValue || !parseCount(argv[i + 1], value)) {
         std::fprintf(stderr, "shapelogic_cli: %s requires a non-negative number\n", argv[i]);
         return kExitUsage;
       }
       i++;
     } else if (a == "--no-simd") {
       o.noSimd = true;
+    } else if (a == "--no-row-check") {
+      o.rowRotationCheck = false;
     } else if (a == "--no-level-threads") {
       o.levelThreads = false;
     } else if (a == "--no-fast-analysis") {

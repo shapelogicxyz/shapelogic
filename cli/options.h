@@ -72,6 +72,9 @@ struct Options {
   bool fastRotations = true;
   bool rotationAnchor = true;
   unsigned int vectorMemoryMb = 256;
+  bool rowRotationCheck = true;  ///< --no-row-check
+  unsigned int splitTasks = 0;  ///< --split-tasks n (0: the assembler's choice)
+  unsigned int splitDepth = 0;  ///< --split-depth n (0: the assembler's choice)
   bool originalDrawings = false;  ///< --original-drawings
   // the slide search's (the original's SHAPELOGIC_SLIDE_* switches)
   bool slideLegacy = false;  ///< --slide-legacy: the search over text keys

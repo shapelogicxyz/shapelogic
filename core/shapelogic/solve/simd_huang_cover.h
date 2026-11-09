@@ -12,6 +12,7 @@
 
 #include "shapelogic/base/stop.h"
 #include "shapelogic/solve/simd_bitset.h"
+#include "shapelogic/solve/subtree_split.h"
 
 #include <algorithm>
 #include <atomic>
@@ -61,12 +62,18 @@ class SimdHuangCoverBase {
 
   /// Searches the covers that hold the rows named in `prefixNodeIds` and
   /// none of those in `hiddenNodeIds` (0 separates groups there and is not
-  /// a row). Thread safe.
-  virtual void solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
+  /// a row). Thread safe. With a `splitter` the search hands branches on
+  /// when asked, and when stopped tells what is left; a branch is its rows
+  /// and the rows hidden in it besides `hiddenNodeIds` (the search keeps
+  /// the pieces of one shape in order by taking earlier placements out of
+  /// play). True when the subtree was searched to its end (less what was
+  /// handed on); false when a stop cut it short.
+  virtual bool solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
                             const std::vector<unsigned int>& hiddenNodeIds,
                             SolutionCallback callback, const StopToken& stop,
                             std::atomic<std::uint64_t>& iterations,
-                            ProgressCallback progress = nullptr) const = 0;
+                            ProgressCallback progress = nullptr,
+                            SubtreeSplitter* splitter = nullptr) const = 0;
 
   [[nodiscard]] virtual unsigned int getNumRows() const = 0;
   [[nodiscard]] virtual unsigned int getNumColumns() const = 0;
@@ -116,10 +123,11 @@ class SimdHuangCover : public SimdHuangCoverBase {
              std::atomic<std::uint64_t>& iterations,
              ProgressCallback progress = nullptr) const override;
 
-  void solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
+  bool solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
                     const std::vector<unsigned int>& hiddenNodeIds, SolutionCallback callback,
                     const StopToken& stop, std::atomic<std::uint64_t>& iterations,
-                    ProgressCallback progress = nullptr) const override;
+                    ProgressCallback progress = nullptr,
+                    SubtreeSplitter* splitter = nullptr) const override;
 
   [[nodiscard]] unsigned int getNumRows() const override {
     return static_cast<unsigned int>(rows_.size());
@@ -145,6 +153,26 @@ class SimdHuangCover : public SimdHuangCoverBase {
     unsigned int baseDepth = 0;
     std::uint32_t branchIdx[kProgressLevels] = {};
     std::uint32_t branchCnt[kProgressLevels] = {};
+
+    /// Splitting (solveSubtree with a splitter), as in SimdExactCover: the
+    /// depth the subtree in hand starts at, which a hand-off moves down,
+    /// and the depth it was given at; per depth, the column branched on,
+    /// where in the rows still possible the choice in hand is, its row, and
+    /// whether taking it put the earlier rows of its shape out of play;
+    /// whether a stop cut the search short, and whether the splitter was
+    /// told what that left.
+    SubtreeSplitter* splitter = nullptr;
+    unsigned int rootDepth = 0;
+    unsigned int firstDepth = 0;
+    struct Frame {
+      unsigned int bestCol = 0;
+      std::uint32_t pos = 0;
+      std::uint32_t row = 0;
+      bool monotonic = false;
+    };
+    std::vector<Frame> frames;
+    bool cut = false;
+    bool left = false;
 
     [[nodiscard]] float fraction() const {
       double f = 0;
@@ -192,8 +220,45 @@ class SimdHuangCover : public SimdHuangCoverBase {
     ctx.colCounts.assign(numColumns_ + 1, 0);
   }
 
+  /// The search below a node. Compiled twice, as SimdExactCover's: without
+  /// `Split` the search as it always was, with it the one that keeps the
+  /// frames, hands branches on and leaves what a stop cuts off.
+  template <bool Split>
   void search(unsigned int depth, SearchContext& ctx, SolutionCallback& callback,
               const StopToken& stop, std::atomic<std::uint64_t>& iterations) const;
+
+  /// Whether `cand` is a choice for column `bestCol` where its shape has
+  /// `shapeWeight` pieces placed and the range column stands at
+  /// `rangeWeight`.
+  [[nodiscard]] bool isCandidate(const Row& cand, unsigned int bestCol, unsigned int shapeWeight,
+                                 unsigned int rangeWeight) const;
+
+  /// What a hand-off or a stop works out once: per depth from the subtree's
+  /// root, the weights of the shape columns and the range column as they
+  /// stood before that depth's row was placed, and the rows out of play
+  /// there.
+  struct Levels {
+    unsigned int from = 0;
+    std::vector<std::vector<unsigned int>> weights;  ///< [depth - from][column], range last
+    std::vector<std::vector<unsigned int>> hidden;   ///< [depth - from]
+  };
+  [[nodiscard]] Levels levelsOf(const SearchContext& ctx, unsigned int end) const;
+  /// Adds the rows of `shape` up to placement `last` of it to `out`.
+  void hideShapeRows(unsigned int shape, unsigned int last, std::vector<unsigned int>& out) const;
+  /// The choices not begun at depth `d`, as branches, each `part` over the
+  /// number of choices there; returns that share (the choice in hand's).
+  double branchesAt(unsigned int d, double part, const SearchContext& ctx, const Levels& levels,
+                    SubtreeBranches& out) const;
+  /// The rows out of play in the subtree of the choice in hand at depth `d`.
+  [[nodiscard]] std::vector<unsigned int> hiddenBelow(unsigned int d, const SearchContext& ctx,
+                                                      const Levels& levels) const;
+  /// A stop found at `depth`: tells the splitter what is left, the node at
+  /// `depth` itself when it was not begun (`leaf`), else the choices after
+  /// the one in hand there.
+  void leave(unsigned int depth, bool leaf, SearchContext& ctx) const;
+  /// Hands the choices not begun at the first depth that has some on, from
+  /// a node at `depth`, and goes on with the choice in hand there.
+  void handOff(unsigned int depth, SearchContext& ctx) const;
 
   void filterRows(const std::vector<std::uint32_t>& src, std::uint32_t chosenIdx,
                   const BitsetType& chosenVoxelMask, unsigned int chosenShape, bool shapeIsFull,

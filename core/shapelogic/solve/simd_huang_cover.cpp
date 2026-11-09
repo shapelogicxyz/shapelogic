@@ -299,30 +299,35 @@ void SimdHuangCover<BitsetType>::solve(SolutionCallback callback, const StopToke
     ctx.scratchActiveRows[0][i] = static_cast<std::uint32_t>(i);
   }
 
-  search(0, ctx, callback, stop, iterations);
+  search<false>(0, ctx, callback, stop, iterations);
 
   flushIterations(ctx, iterations);
 }
 
 template <typename BitsetType>
-void SimdHuangCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
+bool SimdHuangCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& prefixNodeIds,
                                               const std::vector<unsigned int>& hiddenNodeIds,
                                               SolutionCallback callback, const StopToken& stop,
                                               std::atomic<std::uint64_t>& iterations,
-                                              ProgressCallback progress) const {
+                                              ProgressCallback progress,
+                                              SubtreeSplitter* splitter) const {
   if (rows_.empty() || activeColumnList_.empty()) {
-    return;
+    return true;
   }
 
   SearchContext ctx;
   initContext(ctx);
   ctx.progress = progress ? &progress : nullptr;
   ctx.baseDepth = static_cast<unsigned int>(prefixNodeIds.size());
+  ctx.splitter = splitter;
+  ctx.rootDepth = ctx.baseDepth;
+  ctx.firstDepth = ctx.baseDepth;
   // the prefix comes from the plain search, which may have placed more rows
   // than this search would ever have on its own
   if (ctx.scratchActiveRows.size() < prefixNodeIds.size() + 16) {
     ctx.scratchActiveRows.resize(prefixNodeIds.size() + 16);
   }
+  ctx.frames.resize(ctx.scratchActiveRows.size());
 
   std::vector<bool> isHidden(rows_.size(), false);
   for (const unsigned int h : hiddenNodeIds) {
@@ -388,17 +393,226 @@ void SimdHuangCover<BitsetType>::solveSubtree(const std::vector<unsigned int>& p
   }
 
   if (!conflict) {
-    search(static_cast<unsigned int>(prefixNodeIds.size()), ctx, callback, stop, iterations);
+    const auto depth = static_cast<unsigned int>(prefixNodeIds.size());
+    if (splitter != nullptr) {
+      search<true>(depth, ctx, callback, stop, iterations);
+    } else {
+      search<false>(depth, ctx, callback, stop, iterations);
+    }
   }
 
   flushIterations(ctx, iterations);
+  return !ctx.cut;
 }
 
 template <typename BitsetType>
+bool SimdHuangCover<BitsetType>::isCandidate(const Row& cand, unsigned int bestCol,
+                                             unsigned int shapeWeight,
+                                             unsigned int rangeWeight) const {
+  const bool coversBest = columns_[bestCol].isShape   ? (cand.shapeCol == bestCol)
+                          : columns_[bestCol].isVoxel ? cand.voxelMask.test(bestCol - 1)
+                                                      : (cand.rangeWeight > 0);
+  if (!coversBest) {
+    return false;
+  }
+  if (shapeWeight + 1 > columns_[cand.shapeCol].maxWeight) {
+    return false;
+  }
+  if (hasRange_ && rangeWeight + cand.rangeWeight > columns_[rangeColumn_].maxWeight) {
+    return false;
+  }
+  return true;
+}
+
+// The search keeps no copy of its state per depth: a row is placed, searched
+// below and taken back. For the depths from the subtree's root to `end` the
+// weights are worked back from where the search stands, and the rows out of
+// play worked forward from the root (a row of a shape column takes the
+// earlier rows of its shape out of play for all that follows).
+template <typename BitsetType>
+auto SimdHuangCover<BitsetType>::levelsOf(const SearchContext& ctx, unsigned int end) const
+    -> Levels {
+  Levels levels;
+  levels.from = ctx.rootDepth;
+  const std::size_t count = end > ctx.rootDepth ? end - ctx.rootDepth : 0;
+  levels.weights.resize(count);
+  levels.hidden.resize(count);
+
+  // the shape columns are 1 .. numShapes; the range column's weight goes last
+  std::vector<unsigned int> w(numShapes_ + 2, 0);
+  for (unsigned int c = 1; c <= numShapes_; c++) {
+    w[c] = ctx.colWeights[c];
+  }
+  w[numShapes_ + 1] = hasRange_ ? ctx.colWeights[rangeColumn_] : 0;
+  const auto placed = static_cast<unsigned int>(ctx.currentSolution.size());
+  for (unsigned int d = placed; d-- > ctx.rootDepth;) {
+    const Row& row = rows_[ctx.frames[d].row];
+    for (std::size_t i = 0; i < row.columns.size(); i++) {
+      if (row.columns[i] <= numShapes_) {
+        w[row.columns[i]] -= row.weights[i];
+      } else if (hasRange_ && row.columns[i] == rangeColumn_) {
+        w[numShapes_ + 1] -= row.weights[i];
+      }
+    }
+    if (d < end) {
+      levels.weights[d - ctx.rootDepth] = w;
+    }
+  }
+  // a depth with no row placed yet stands where the search stands
+  for (unsigned int d = placed; d < end; d++) {
+    levels.weights[d - ctx.rootDepth] = w;
+  }
+
+  std::vector<unsigned int> hidden;
+  for (unsigned int d = ctx.firstDepth; d < end; d++) {
+    if (d >= ctx.rootDepth) {
+      levels.hidden[d - ctx.rootDepth] = hidden;
+    }
+    if (d < placed && ctx.frames[d].monotonic) {
+      const Row& row = rows_[ctx.frames[d].row];
+      hideShapeRows(row.shapeId, row.shapeRowIdx, hidden);
+    }
+  }
+  return levels;
+}
+
+template <typename BitsetType>
+void SimdHuangCover<BitsetType>::hideShapeRows(unsigned int shape, unsigned int last,
+                                               std::vector<unsigned int>& out) const {
+  for (const Row& row : rows_) {
+    if (row.shapeId == shape && row.shapeRowIdx <= last) {
+      out.push_back(row.nodeId);
+    }
+  }
+}
+
+template <typename BitsetType>
+std::vector<unsigned int> SimdHuangCover<BitsetType>::hiddenBelow(unsigned int d,
+                                                                  const SearchContext& ctx,
+                                                                  const Levels& levels) const {
+  std::vector<unsigned int> hidden = levels.hidden[d - levels.from];
+  if (ctx.frames[d].monotonic) {
+    const Row& row = rows_[ctx.frames[d].row];
+    hideShapeRows(row.shapeId, row.shapeRowIdx, hidden);
+  }
+  return hidden;
+}
+
+template <typename BitsetType>
+double SimdHuangCover<BitsetType>::branchesAt(unsigned int d, double part,
+                                              const SearchContext& ctx, const Levels& levels,
+                                              SubtreeBranches& out) const {
+  const std::vector<std::uint32_t>& active = ctx.scratchActiveRows[d];
+  const typename SearchContext::Frame& frame = ctx.frames[d];
+  const std::vector<unsigned int>& w = levels.weights[d - levels.from];
+  const auto choice = [&](const Row& cand) {
+    return isCandidate(cand, frame.bestCol, w[cand.shapeCol], w[numShapes_ + 1]);
+  };
+
+  std::size_t choices = 0;
+  for (const std::uint32_t rIdx : active) {
+    if (choice(rows_[rIdx])) {
+      choices++;
+    }
+  }
+  const double each = choices > 0 ? part / static_cast<double>(choices) : part;
+
+  for (std::size_t i = std::size_t{frame.pos} + 1; i < active.size(); i++) {
+    const Row& cand = rows_[active[i]];
+    if (!choice(cand)) {
+      continue;
+    }
+    std::vector<unsigned int> branch(ctx.currentSolution.begin(),
+                                     ctx.currentSolution.begin() + d);
+    branch.push_back(cand.nodeId);
+    out.branches.push_back(std::move(branch));
+    // every choice of a depth is of one kind: all take the earlier rows of
+    // their shape out of play, or none does
+    std::vector<unsigned int> hidden = levels.hidden[d - levels.from];
+    if (frame.monotonic) {
+      hideShapeRows(cand.shapeId, cand.shapeRowIdx, hidden);
+    }
+    out.hidden.push_back(std::move(hidden));
+    out.shares.push_back(each);
+  }
+  return each;
+}
+
+template <typename BitsetType>
+void SimdHuangCover<BitsetType>::leave(unsigned int depth, bool leaf, SearchContext& ctx) const {
+  ctx.cut = true;
+  if (ctx.splitter == nullptr || ctx.left) {
+    return;
+  }
+  ctx.left = true;
+  // nothing of the subtree begun: it stays the task it is
+  if (leaf && depth == ctx.rootDepth) {
+    return;
+  }
+
+  // the choices after the one in hand at every depth; at `depth` itself the
+  // row in hand is taken back already when the stop is found in its loop
+  SubtreeBranches out;
+  const unsigned int end = depth + 1;
+  const Levels levels = levelsOf(ctx, end);
+  double part = 1.0;
+  for (unsigned int d = ctx.rootDepth; d < (leaf ? depth : end); d++) {
+    part = branchesAt(d, part, ctx, levels, out);
+  }
+  if (leaf) {
+    out.branches.emplace_back(ctx.currentSolution.begin(), ctx.currentSolution.begin() + depth);
+    out.hidden.push_back(levels.hidden[depth - levels.from]);
+    out.shares.push_back(part);
+  }
+  ctx.rootDepth = std::numeric_limits<unsigned int>::max();
+  ctx.splitter->leave(std::move(out));
+}
+
+template <typename BitsetType>
+void SimdHuangCover<BitsetType>::handOff(unsigned int depth, SearchContext& ctx) const {
+  // fewer rows than this still possible below a choice: searched sooner
+  // than handed on
+  constexpr std::size_t kFewRows = 16;
+
+  SubtreeBranches out;
+  const Levels levels = levelsOf(ctx, depth);
+  double part = 1.0;
+  for (unsigned int d = ctx.rootDepth; d < depth; d++) {
+    if (ctx.scratchActiveRows[d + 1].size() < kFewRows) {
+      return;
+    }
+    part = branchesAt(d, part, ctx, levels, out);
+    if (out.branches.empty()) {
+      continue;
+    }
+
+    out.rest.assign(ctx.currentSolution.begin(), ctx.currentSolution.begin() + d + 1);
+    out.restHidden = hiddenBelow(d, ctx, levels);
+    out.restShare = part;
+    const unsigned int shift = d + 1 - ctx.baseDepth;
+    for (unsigned int l = 0; l < kProgressLevels; l++) {
+      const bool kept = l + shift < kProgressLevels;
+      ctx.branchIdx[l] = kept ? ctx.branchIdx[l + shift] : 0;
+      ctx.branchCnt[l] = kept ? ctx.branchCnt[l + shift] : 0;
+    }
+    ctx.baseDepth = d + 1;
+    ctx.rootDepth = d + 1;
+    out.restFraction = ctx.fraction();
+    ctx.splitter->handOff(std::move(out));
+    return;
+  }
+}
+
+template <typename BitsetType>
+template <bool Split>
 void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
                                         SolutionCallback& callback, const StopToken& stop,
                                         std::atomic<std::uint64_t>& iterations) const {
   if (stop.stopRequested()) {
+    ctx.cut = true;
+    if constexpr (Split) {
+      leave(depth, true, ctx);
+    }
     return;
   }
 
@@ -411,6 +625,11 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
   // and the batch above is never full
   if (ctx.progress && (ctx.localIterations & 4095) == 0) {
     (*ctx.progress)(ctx.fraction());
+  }
+  if constexpr (Split) {
+    if ((ctx.localIterations & 255) == 0 && ctx.splitter->wanted()) {
+      handOff(depth, ctx);
+    }
   }
 
   // goal: is every condition met?
@@ -436,7 +655,14 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
         if (ctx.progress) {
           (*ctx.progress)(ctx.fraction());
         }
-        (void)callback(ctx.currentSolution);
+        // False: the run is stopped, and the cover may not have been taken.
+        // The node is left as not begun, so that the next run finds it.
+        if (!callback(ctx.currentSolution)) {
+          ctx.cut = true;
+          if constexpr (Split) {
+            leave(depth, true, ctx);
+          }
+        }
         return;
       }
     }
@@ -546,7 +772,9 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
   // the list: see searchDepthBound() and initContext().
   BT_ASSERT(depth + 1 < ctx.scratchActiveRows.size());
 
-  auto isCandidate = [&](const Row& cand) -> bool {
+  // isCandidate(), written out here: this runs for every row still possible
+  // at every node, and the call was not inlined
+  const auto choice = [&](const Row& cand) -> bool {
     const bool coversBest = columns_[bestCol].isShape   ? (cand.shapeCol == bestCol)
                             : columns_[bestCol].isVoxel ? cand.voxelMask.test(bestCol - 1)
                                                         : (cand.rangeWeight > 0);
@@ -570,7 +798,7 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
   if (track) {
     std::uint32_t n = 0;
     for (const std::uint32_t rIdx : currActive) {
-      if (isCandidate(rows_[rIdx])) {
+      if (choice(rows_[rIdx])) {
         n++;
       }
     }
@@ -582,14 +810,26 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
   }
   bool first = true;
 
-  for (const std::uint32_t rIdx : currActive) {
+  for (std::size_t at = 0; at < currActive.size(); at++) {
+    const std::uint32_t rIdx = currActive[at];
     const Row& cand = rows_[rIdx];
 
-    if (!isCandidate(cand)) {
+    if (!choice(cand)) {
       continue;
     }
 
-    if (track) {
+    if constexpr (Split) {
+      // the level anew each time: a hand-off from below moves the depth
+      // the levels are counted from while this loop runs
+      if (const unsigned int now = depth - ctx.baseDepth;
+          ctx.progress && now < kProgressLevels && !first) {
+        ctx.branchIdx[now]++;
+        if (now + 1 < kProgressLevels) {
+          ctx.branchCnt[now + 1] = 0;
+        }
+      }
+      first = false;
+    } else if (track) {
       if (!first) {
         ctx.branchIdx[level]++;
         if (level + 1 < kProgressLevels) {
@@ -617,7 +857,11 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
     filterRows(currActive, rIdx, cand.voxelMask, cand.shapeId, shapeFull, filterMonotonic,
                cand.shapeRowIdx, hasRange_, maxAllowedRange, nextActive);
 
-    search(depth + 1, ctx, callback, stop, iterations);
+    if constexpr (Split) {
+      ctx.frames[depth] = {bestCol, static_cast<std::uint32_t>(at), rIdx, filterMonotonic};
+    }
+
+    search<Split>(depth + 1, ctx, callback, stop, iterations);
 
     // take it back (no allocation, no relinking)
     ctx.currentSolution.pop_back();
@@ -626,7 +870,17 @@ void SimdHuangCover<BitsetType>::search(unsigned int depth, SearchContext& ctx,
     }
     ctx.placedVoxels = ctx.placedVoxels ^ cand.voxelMask;
 
+    if constexpr (Split) {
+      // the choices after this one were handed on, or left at a stop
+      if (depth < ctx.rootDepth) {
+        return;
+      }
+    }
     if (stop.stopRequested()) {
+      ctx.cut = true;
+      if constexpr (Split) {
+        leave(depth, false, ctx);
+      }
       return;
     }
   }

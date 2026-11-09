@@ -388,6 +388,9 @@ bt::DisassemblerOptions takeApartOptions(const Options& o, bt::ThreadPool* pool)
 void setSearchSwitches(const Options& o, bt::SearchOptions& search) {
   search.vectorSearch = !o.noSimd;
   search.vectorMemoryBudget = std::uint64_t{o.vectorMemoryMb} << 20;
+  search.rowRotationCheck = o.rowRotationCheck;
+  search.splitTasks = o.splitTasks;
+  search.splitDepth = o.splitDepth;
   if (o.noSimd) {
     search.kernels = bt::SimdKernels::none();
   }

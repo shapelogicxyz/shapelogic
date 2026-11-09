@@ -138,6 +138,13 @@ class Assembly {
                                            unsigned int pivot, const MirrorInfo* mir,
                                            bool complete, bool strictColors = false) const;
 
+  /// One transformation of that check: true when this assembly turned by
+  /// `t`, a symmetry of the result, is smaller than it is itself. `scratch`
+  /// is overwritten (assigning reuses its memory from one call to the next).
+  [[nodiscard]] bool smallerUnder(unsigned char t, const Puzzle& puzzle, const Problem& problem,
+                                  unsigned int pivot, const MirrorInfo* mir,
+                                  Assembly& scratch) const;
+
   /// Swaps the placements of pieces s1 and s2.
   void exchangeShape(unsigned int s1, unsigned int s2);
 

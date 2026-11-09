@@ -43,7 +43,7 @@ void SearchRun::deliverOnce(Assembly assembly, std::uint64_t signature,
 }
 
 void TaskProgress::begin(const std::vector<double>& weights,
-                         const std::vector<std::uint8_t>& completed) {
+                         const std::vector<std::uint8_t>& completed, double doneWeight) {
   const std::size_t n = completed.size();
 
   std::vector<double> w = weights;
@@ -57,6 +57,11 @@ void TaskProgress::begin(const std::vector<double>& weights,
   if (!(sum > 0)) {
     w.assign(n, 1.0);
     sum = static_cast<double>(n);
+  }
+  // the tasks finished and dropped: one finished task of their weight
+  const bool dropped = doneWeight > 0;
+  if (dropped) {
+    sum += doneWeight;
   }
 
   units_.resize(n);
@@ -76,13 +81,19 @@ void TaskProgress::begin(const std::vector<double>& weights,
     }
   }
 
+  if (dropped) {
+    const auto u = static_cast<std::uint64_t>(doneWeight / sum * static_cast<double>(kUnits));
+    total += u;
+    done += u;
+  }
+
   for (std::atomic<std::uint64_t>& r : running_) {
     r.store(0, std::memory_order_relaxed);
   }
   done_.store(done, std::memory_order_relaxed);
   total_.store(total, std::memory_order_relaxed);
-  completedTasks_.store(doneTasks, std::memory_order_relaxed);
-  totalTasks_.store(n, std::memory_order_relaxed);
+  completedTasks_.store(doneTasks + (dropped ? 1 : 0), std::memory_order_relaxed);
+  totalTasks_.store(n + (dropped ? 1 : 0), std::memory_order_relaxed);
 }
 
 float TaskProgress::fraction() const noexcept {

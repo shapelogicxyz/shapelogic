@@ -885,6 +885,9 @@ don't need them to solve puzzles.
 | Switch | Effect |
 |---|---|
 | `--no-simd` | Use only the plain search and scalar loops, not the vector (SIMD) code. |
+| `--no-row-check` | Check each assembly found against its rotations as a built assembly, not on the rows of the placement matrix. |
+| `--split-tasks N` | Split a search on several threads into at least `N` tasks before it starts. `0`, the default, lets the assembler choose (the tasks split further while they are searched). |
+| `--split-depth N` | Let that split go at most `N` pieces deep. `0`, the default, lets the assembler choose. |
 | `--no-level-threads` | Take each assembly apart on one thread, instead of spreading its levels over several. |
 | `--no-fast-analysis` | Use the take-apart's slower reference path for analysing moves. |
 | `--no-fast-rotations` | Use the slower reference path for rotations (with `-R`). |

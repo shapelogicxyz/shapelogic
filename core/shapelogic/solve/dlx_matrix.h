@@ -133,8 +133,12 @@ class DlxMatrix {
   /// piece it is at to `piece`.
   ReduceStats reduce(const StopToken& stop, std::atomic<unsigned int>& piece);
 
-  /// The placement of the row `node` belongs to.
-  [[nodiscard]] const DlxPlacement& placementOf(unsigned int node) const;
+  /// The placement of the row `node` belongs to, and its index in
+  /// `placements`.
+  [[nodiscard]] const DlxPlacement& placementOf(unsigned int node) const {
+    return placements[rowIndexOf(node)];
+  }
+  [[nodiscard]] std::size_t rowIndexOf(unsigned int node) const;
 
   /// The assembly of the rows `rows[0 .. count)` (in any order), unplaced
   /// pieces included, on grid `gt`.

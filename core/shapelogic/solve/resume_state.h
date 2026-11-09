@@ -12,9 +12,12 @@
 ///   flag 2, 4:  " T <tasks>" <each task, as the assembler writes it>
 ///               " C <one 0 or 1 per task, finished or not>"
 ///               " S <count> <signature>..."
+///               " W <weight of the tasks dropped> <weight>..."   (optional)
 ///
-/// The text stays byte for byte what the original wrote (decision 0006), so
-/// a search paused in one program continues in the other.
+/// Up to the signatures the text is what the original wrote (decision
+/// 0006); the weights are ShapeLogic's, for the progress of a search whose
+/// tasks were split further while it ran (SplitTasks), and a reader that
+/// does not know them stops before them.
 /// Ported from src/lib/assembler_resume.h.
 
 #include <cstddef>
@@ -23,6 +26,7 @@
 #include <cstring>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace bt {
@@ -36,6 +40,11 @@ struct SplitSearchState {
   std::vector<Task> tasks;
   /// One flag per task: searched to its end.
   std::vector<std::uint8_t> completed;
+  /// Each task's estimated part of the whole search, for the progress; empty
+  /// when nothing is known (all alike). doneWeight is the part of the tasks
+  /// that were finished and dropped from the list (prune()).
+  std::vector<double> weights;
+  double doneWeight = 0;
   /// The signatures of the assemblies reported so far, so that a task
   /// searched again after a stop reports each one once.
   std::unordered_set<std::uint64_t> reported;
@@ -51,9 +60,45 @@ struct SplitSearchState {
   void clearTasks() {
     tasks.clear();
     completed.clear();
+    weights.clear();
+    doneWeight = 0;
     reported.clear();
   }
+
+  /// Drops the finished tasks, keeping their weight in doneWeight: a search
+  /// that hands branches of its tasks on as new tasks (SplitTasks) would
+  /// otherwise carry every task it ever had. At least one task stays, so
+  /// that the search is still known as a split one.
+  void prune() {
+    const bool weighted = weights.size() == tasks.size();
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < tasks.size(); i++) {
+      if (completed[i] && (kept > 0 || i + 1 < tasks.size())) {
+        doneWeight += weighted ? weights[i] : 1.0;
+        continue;
+      }
+      if (kept != i) {
+        tasks[kept] = std::move(tasks[i]);
+        completed[kept] = completed[i];
+        if (weighted) {
+          weights[kept] = weights[i];
+        }
+      }
+      kept++;
+    }
+    tasks.resize(kept);
+    completed.resize(kept);
+    if (weighted) {
+      weights.resize(kept);
+    } else {
+      weights.clear();
+    }
+  }
 };
+
+/// The weights of a saved search are written as whole units of this many
+/// to the whole.
+inline constexpr double kWeightUnits = 1099511627776.0;  // 2^40
 
 /// Numbers and markers read one after the other from a saved position.
 class ResumeReader {
@@ -156,6 +201,21 @@ bool readResumeTail(const char* at, unsigned int flag, SplitSearchState<Task>& s
     }
     state.reported.insert(sig);
   }
+  // the weights, when they are there and whole; without them all are alike
+  if (r.expect('W')) {
+    unsigned long long w = 0;
+    if (!r.next(w)) {
+      return false;
+    }
+    state.doneWeight = static_cast<double>(w) / kWeightUnits;
+    state.weights.resize(state.tasks.size());
+    for (double& weight : state.weights) {
+      if (!r.next(w)) {
+        return false;
+      }
+      weight = static_cast<double>(w) / kWeightUnits;
+    }
+  }
   return true;
 }
 
@@ -179,6 +239,16 @@ void writeResumeTail(std::string& out, unsigned int flag, std::uint64_t vectorRe
     for (const std::uint64_t sig : state.reported) {
       out += ' ';
       out += std::to_string(sig);
+    }
+    if (state.weights.size() == state.tasks.size() && !state.tasks.empty()) {
+      const auto units = [](double w) {
+        return std::to_string(static_cast<unsigned long long>(w * kWeightUnits + 0.5));
+      };
+      out += " W " + units(state.doneWeight);
+      for (const double w : state.weights) {
+        out += ' ';
+        out += units(w);
+      }
     }
   }
 }
