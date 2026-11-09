@@ -114,6 +114,15 @@ gap, so you can check a part before printing it.
 
 ![Like the STL export: the pieces chamfered and slightly shrunk, as they would be printed.](../../../assets/screens/guide/style-stl.png)
 
+**Uniform bevels** (View ▸ Draw with Uniform Bevels) draws each piece as one
+solid with a bevel of the same width on every edge, whatever the edge's
+angle, inside corners included. The checker pattern still shows the
+voxels. On triangle, rhombic and tetrahedra-octahedra grids, where
+Bevelled voxels makes the bevels wider or narrower with the angle, this
+shows the shapes more evenly.
+
+![Uniform bevels: each piece one solid, its edges bevelled evenly.](../../../assets/screens/guide/style-uniform.png)
+
 **Show through solid pieces** can be combined with any style. It shows the
 pieces hidden behind the front ones, like an x-ray. It helps when a small
 piece sits inside a cage.

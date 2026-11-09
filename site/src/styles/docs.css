@@ -1,8 +1,50 @@
 /* The user guide's pages (Starlight), on top of its own styles. */
 
-/* The page's body grows with the window up to 1000px, its padding included
-   (Starlight's default stops the text at 45rem). Pages without a sidebar
-   keep Starlight's wider rule. */
 :root {
+  /* The space each side of the page's text, between the sidebar and the
+     "On this page" column: as much as is seen above the title's letters
+     (40px of padding and about 11px of the title's line above its
+     capitals; Starlight gives 1-1.5rem). */
+  --docs-pad-x: 3.125rem;
+  /* The page's body grows with the window up to 1000px, its padding included
+     (Starlight's default stops the text at 45rem). Pages without a sidebar
+     keep Starlight's wider rule. */
   --sl-content-width: calc(1000px - 2 * var(--sl-content-pad-x));
+}
+
+/* Only with the sidebar beside the text; a phone keeps the narrow margin. */
+@media (min-width: 50rem) {
+  :root {
+    --sl-content-width: calc(1000px - 2 * var(--docs-pad-x));
+  }
+  .main-pane .content-panel {
+    padding-inline: var(--docs-pad-x);
+  }
+}
+
+/* The header: the logo centred on the bar, the search slid all the way to the
+   left (on a phone the bar keeps Starlight's own row). */
+@media (min-width: 50rem) {
+  .header {
+    position: relative;
+    grid-template-columns: 1fr auto;
+  }
+  .header .title-wrapper {
+    position: absolute;
+    inset-inline-start: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .header .title-wrapper .site-title img {
+    object-position: 50% 50%;
+  }
+  .header > div:nth-child(2) {
+    justify-content: flex-start;
+  }
+  .header site-search {
+    margin-inline-start: 0;
+  }
 }

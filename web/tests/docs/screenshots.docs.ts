@@ -27,7 +27,7 @@ async function shot(page: Page, name: string): Promise<void> {
 
 test('the guide screenshots', async () => {
   mkdirSync(OUT, { recursive: true });
-  const app = await launch();
+  const app = await launch({ scale: 2 });
   const { page } = app;
   try {
     await openFixture(page, FIXTURE);
@@ -62,7 +62,7 @@ for (const [kind, fixture] of [
 ] as const) {
   test(`the ${kind} screenshots`, async () => {
     mkdirSync(OUT, { recursive: true });
-    const app = await launch();
+    const app = await launch({ scale: 2 });
     const { page } = app;
     try {
       await openNested(page, fixture);

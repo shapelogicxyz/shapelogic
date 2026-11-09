@@ -115,7 +115,7 @@
       "type": "object",
       "description": "One parameter of a grid's STL mesher (stlExporter_c's getParameterName, getParameterType, getParameter of a new exporter, getParameterTooltip).",
       "properties": {
-        "name": {"type": "string", "description": "The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers; on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole."},
+        "name": {"type": "string", "description": "The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers, then this core's Uniform bevels and Bumpy (the uniform mesher, both off by default); on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole."},
         "type": {"enum": ["number", "positiveNumber", "positiveInteger", "switch"], "description": "The field: any number, a number of 0 or more, a whole number of 0 or more, or a check box (1 on, 0 off)."},
         "default": {"type": "number"},
         "tooltip": {"type": "string"}

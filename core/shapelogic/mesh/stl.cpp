@@ -10,6 +10,7 @@
 #include "shapelogic/mesh/cube_mesh.h"
 #include "shapelogic/mesh/mink_mesh.h"
 #include "shapelogic/mesh/modifiers.h"
+#include "shapelogic/mesh/uniform_mesh.h"
 #include "shapelogic/mesh/voxel_mesh.h"
 
 #include <array>
@@ -30,8 +31,9 @@ constexpr double kEpsilon = 1.0e-5;
 // before it gets there. Not a limit of the original.
 constexpr double kMaxRecursions = 6;
 
-// stl_0: the cube grids, the prisms, the rhombic and tetra-octa grids
-constexpr std::array<StlParameter, 6> kStl0 = {{
+// stl_0: the cube grids, the prisms, the rhombic and tetra-octa grids;
+// the last two are this core's (the uniform mesher)
+constexpr std::array<StlParameter, 8> kStl0 = {{
     {"Unit Size", StlParameterType::PositiveDouble, 10,
      "Basic unit size of the voxel, used for the x direction and as the default for the y and z "
      "direction"},
@@ -46,6 +48,12 @@ constexpr std::array<StlParameter, 6> kStl0 = {{
      "By how much should faces be inset into the voxel"},
     {"Interior chamfers", StlParameterType::Switch, 1,
      "Chamfer the concave (interior) edges as well as the convex ones"},
+    {"Uniform bevels", StlParameterType::Switch, 0,
+     "Bevel every edge to the same width whatever its angle, with the uniform mesher instead of "
+     "the original's; works on every grid"},
+    {"Bumpy", StlParameterType::Switch, 0,
+     "Each voxel a rounded body of its own, joined to its neighbours by a neck (uses the uniform "
+     "mesher)"},
 }};
 
 // stl_2: the sphere grid
@@ -82,6 +90,8 @@ Result<Polyhedron> stl0Mesh(const Voxel& v, std::span<const double> p) {
   const double bevel = p[3];
   const double shrink = p[4];
   const bool interiorChamfers = p[5] != 0;
+  const bool uniform = p[6] != 0;
+  const bool bumpy = p[7] != 0;
   if (v.countState(Voxel::kVariable) != 0) {
     return refuse("Shapes with variable voxels cannot be exported");
   }
@@ -105,6 +115,23 @@ Result<Polyhedron> stl0Mesh(const Voxel& v, std::span<const double> p) {
   const double scaleZ = (cubeScaleZ > kEpsilon) ? cubeScaleZ : cubeScale;
 
   const GridKind kind = v.getGridType().getType();
+  if (uniform || bumpy) {
+    // the uniform mesher: the cells stretched to the unit sizes first, so
+    // the bevels keep their width, then everything scaled to the unit
+    UniformMeshOptions o;
+    o.bevel = bevel / cubeScale;
+    o.offset = shrink / cubeScale;
+    o.convexBevelOnly = !interiorChamfers;
+    o.bumpy = bumpy;
+    o.stretch[1] = static_cast<float>(scaleY / cubeScale);
+    o.stretch[2] = static_cast<float>(scaleZ / cubeScale);
+    Result<Polyhedron> u = uniformMesh(v, o);
+    if (u) {
+      scalePolyhedron(*u, static_cast<float>(cubeScale), static_cast<float>(cubeScale),
+                      static_cast<float>(cubeScale));
+    }
+    return u;
+  }
   Result<Polyhedron> poly = fail(Errc::InvalidArgument, "No mesher for this grid");
   if (kind == GridKind::Bricks || kind == GridKind::Sliding || kind == GridKind::Stacking) {
     poly = cubePolyhedron(v, shrink / cubeScale, bevel / cubeScale, interiorChamfers);

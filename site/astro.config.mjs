@@ -31,7 +31,12 @@ export default defineConfig({
     starlight({
       title: 'ShapeLogic',
       description: 'An open source puzzle solver: design and solve interlocking and packing puzzles.',
-      logo: { src: './src/assets/puzzle_icon.jpg', alt: '' },
+      logo: {
+        light: './src/assets/logo_light.png',
+        dark: './src/assets/logo_dark.png',
+        alt: 'ShapeLogic',
+        replacesTitle: true,
+      },
       favicon: '/favicon.jpg',
       customCss: ['./src/styles/docs.css'],
       social: [

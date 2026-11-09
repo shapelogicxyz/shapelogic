@@ -61,6 +61,50 @@ import '../styles/landing.css';
 
       <section class="blog" aria-labelledby="news-heading">
         <h2 class="blog-heading" id="news-heading">News</h2>
+        <article class="post" aria-labelledby="post-v1-6">
+          <p class="post-meta">
+            <time datetime="2026-10-31">31 October 2026</time> · Release
+          </p>
+          <h3 id="post-v1-6">ShapeLogic v1.6: sliding puzzles with color restrictions and bigger searches</h3>
+          <p>
+            Version 1.6 lets you make a sliding puzzle's problems yourself, brings color restrictions
+            and turning pieces to sliding puzzles, and lets the Sliding Puzzle Solver search much
+            further, pausing and carrying on as it goes.
+          </p>
+          <ul>
+            <li>
+              <strong>Problems as on other puzzles.</strong> Make, copy and delete a sliding puzzle's
+              problems, choose a board as each result, and clone a board's start to its goal or back.
+            </li>
+            <li>
+              <strong>Color restrictions on sliding puzzles.</strong> The start and goal marks no
+              longer use the cell colors, so restriction colors and the color rules work as on every
+              grid, and up to 255 pieces can have a start or goal.
+            </li>
+            <li>
+              <strong>Pieces that can turn.</strong> <strong>Allow any orientation for unplaced
+              pieces</strong> and <strong>Include mirrored orientations</strong> let a piece with no
+              start or goal be placed turned or mirrored.
+            </li>
+            <li>
+              <strong>Bigger sliding searches.</strong> The solver keeps its memory use level and
+              writes the rest to disk, and searches back from the goal too when it is one arrangement.
+            </li>
+            <li>
+              <strong>Pause and carry on.</strong> <strong>Pause</strong> saves a sliding search and
+              <strong>Continue</strong> carries it on, also after it fills its disk space.
+            </li>
+          </ul>
+          <p>
+            The guide has new pages for the code base's testing suites and wider pages on large
+            windows, and the site has a new <a href="/research/">research</a> section. Read more in
+            <a href="/docs/puzzle-types/sliding/">Sliding</a>. Many small bug fixes and
+            improvements.
+          </p>
+          <p>
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.6">Release notes and downloads on GitHub</a>
+          </p>
+        </article>
         <article class="post" aria-labelledby="post-v1-5">
           <p class="post-meta">
             <time datetime="2026-10-29">29 October 2026</time> · Release

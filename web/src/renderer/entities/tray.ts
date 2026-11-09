@@ -5,8 +5,8 @@
 // engine says it holds (`sliding.tray`: each cell's start and goal, each
 // copy placed, the validity bar's reason), read again at each revision
 // while a board is shown, the marks in the pieces' colours, the copies
-// for the view's two trays, the preview's colour, and the validity bar's
-// words. From the original's grideditor.cpp (`drawStampPreview`'s
+// for the view's two trays, the copies' names, the preview's colour, and
+// the validity bar's words. From the original's grideditor.cpp (`drawStampPreview`'s
 // colours, the marks drawn in the piece's colour) and mainwindow_rods.cpp
 // (`refreshSlideValid`'s words and colours). DOM-free.
 
@@ -22,6 +22,12 @@ export type TrayReply = Methods['sliding.tray']['result'];
 /** A copy of a piece on a board: the piece and its cells [x, y, z]. */
 export interface TrayCopy {
   piece: string;
+  cells: readonly (readonly [number, number, number])[];
+}
+
+/** A copy's name written on a grid: the text and the copy's cells [x, y, z]. */
+export interface TrayName {
+  text: string;
   cells: readonly (readonly [number, number, number])[];
 }
 
@@ -77,6 +83,24 @@ export function marksOf(
     const z = Math.trunc(i / (X * Y));
     out.set(key([x, y, z]), shapeColour(shapes[index]?.colour ?? null, index));
   });
+  return out;
+}
+
+/**
+ * The name of each copy placed whose piece has one, with its cells (the
+ * starts, or the goals): the grids write it on the copy.
+ */
+export function namesOf(t: TrayReply, goal: boolean, shapes: readonly ShapeSummary[]): TrayName[] {
+  const out: TrayName[] = [];
+  for (const c of t.placed) {
+    const name = c.goal === goal ? (shapes.find((s) => s.id === c.piece)?.name ?? '') : '';
+    if (name !== '') {
+      out.push({
+        text: name,
+        cells: c.cells.map((q): [number, number, number] => [q[0], q[1], q[2]]),
+      });
+    }
+  }
   return out;
 }
 

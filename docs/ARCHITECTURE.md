@@ -650,6 +650,24 @@ frame by its Euler characteristic).
   at gap 0.02, bevel 0.05 with interior chamfers; the flat mesh where
   they fail). All of it gives the original's bytes for every fixture
   shape (`tests/data/stl_dump.txt`).
+- `uniform_mesh.h` (decision 0022, after BurrTools V2's polygen): one
+  mesher for every polyhedral grid from the cells' face polygons alone.
+  Each cell's bevel and gap directions come from the planes at its
+  corners (the two faces across the edges at a corner moved in by one
+  unit, scaled so the chamfer has one width at every edge angle: the
+  ported bevel's at a right angle); the cells
+  around an edge are found by walking face to face through the filled
+  neighbours, which decides convex from concave and finds the face at the
+  other end of the run; the strips between those two faces are the bevels
+  (bent) and gaps (flat), and their loose sides are chained by vertex id
+  into the polygons that close the corners. "Bumpy": every cell a rounded
+  body, necks to its neighbours. `MeshStyle::Uniform` is the view's
+  style on it (the drawing mesh's bevel 0.03 and gap 0.005, every edge:
+  a piece comes out as one chamfered solid, the gaps flat in its faces); the STL export's two
+  switches "Uniform bevels" and "Bumpy" (off by default, so the defaults
+  stay the original's) run it with the dialog's bevel, offset and
+  interior chamfers, the cells stretched to the unit sizes first. Sphere
+  grid: not handled (the drawing mesh in the view).
 
 ### app (exists: stage 6)
 What the front end does to a puzzle (decision 0011). Ported from the

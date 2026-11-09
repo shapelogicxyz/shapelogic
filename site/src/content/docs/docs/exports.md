@@ -77,6 +77,8 @@ grids:
 | **Bevel** | 0.3 | The size of the bevel cut on the edges. |
 | **Offset** | 0.01 | How far each face is pulled in. A small offset leaves a gap between pieces, so printed pieces fit together. |
 | **Interior chamfers** | on | Also bevel the inside (concave) edges, not only the outside ones. |
+| **Uniform bevels** | off | Use the uniform mesher instead of the original's: every edge gets a bevel of the same width whatever its angle, on every grid. Faster on large rhombic and tetrahedra-octahedra shapes. |
+| **Bumpy** | off | Each voxel becomes a rounded body of its own, joined to its neighbours by a neck (uses the uniform mesher). |
 
 The settings for sphere grids:
 
@@ -96,7 +98,8 @@ make an optional voxel. Make them fixed first, for example with **Repair &
 surface ▸ Make fixed** on the [Shapes tab](/docs/shapes-tab/#repair--surface).
 
 To see in the 3D view how the exported pieces will look, choose **Display ▸
-Like the STL export**.
+Like the STL export**. With **Uniform bevels** on, **Display ▸ Uniform
+bevels** is the closer match.
 
 ### Export Solution Pieces to STL
 

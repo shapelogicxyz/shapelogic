@@ -22,7 +22,10 @@
 // taking off the copy under the mouse. The cells of the layer next to the
 // one drawn (below or above, the Voxel hint layer setting) show faintly
 // under its empty cells, each in its own layer's outline: grideditor.cpp's
-// dimmed squares of the layer below, a sixth of the shape's colour.
+// dimmed squares of the layer below, a sixth of the shape's colour. A
+// copy's name, when the grid is given it, is written at the bottom centre
+// of the copy's cells in this layer, on a rounded box in the theme's
+// opposite (black on white in the dark theme, white on black in the light).
 
 import type { Grid } from '../../engine/api.generated.ts';
 import { cursorFor } from '../shell/cursors.ts';
@@ -30,13 +33,14 @@ import type { Tool } from '../shell/cursors.ts';
 import { esc } from '../shell/dom.ts';
 import { boardColour, dark, hex, light } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
+import { isDarkTheme } from '../shell/theme.ts';
 import { key } from './editor-state.ts';
 import { effectiveTool, modsOf } from './tools.ts';
 import type { Mods } from './tools.ts';
 import type { Box, Cell, EditorState, PlaneMap } from './editor-state.ts';
 import type { LayerGeometry } from './layer-geometry.ts';
 import type { CellValue } from './shape-cells.ts';
-import type { StampOutline } from './tray.ts';
+import type { StampOutline, TrayName } from './tray.ts';
 
 /** What the grid shows. */
 export interface GridInput {
@@ -50,14 +54,25 @@ export interface GridInput {
   shapeColour: string;
   /** The constraint colours by id, #rrggbb. */
   palette: ReadonlyMap<string, string>;
-  /** A sliding start/goal shape: its tiles, and the marks shown (pieces' colours by cell key); null for any other shape. */
-  tray?: { marks: ReadonlyMap<string, Rgb3>; own?: Rgb3 | null } | null;
+  /**
+   * A sliding start/goal shape: its tiles, the marks shown (pieces' colours
+   * by cell key), and the copies' names written on them; null for any other shape.
+   */
+  tray?: {
+    marks: ReadonlyMap<string, Rgb3>;
+    own?: Rgb3 | null;
+    names?: readonly TrayName[];
+  } | null;
   /** The layer hinted at under this one: its drawing and its cells (null: none). */
   hint?: { geo: LayerGeometry; cells: ReadonlyMap<string, CellValue> } | null;
 }
 
 /** How much of the shape's colour a hinted cell shows (the original's sixth). */
 const HINT_OPACITY = 1 / 6;
+/** The room around a copy's name inside its box, and between the box and the copy's bottom edge, in pixels. */
+const NAME_PAD_X = 4;
+const NAME_PAD_Y = 1.5;
+const NAME_GAP = 3;
 
 /** What the grid asks of the editor. */
 export interface GridHost {
@@ -251,21 +266,26 @@ export class Grid2D {
       let t = '';
       // cells too small for a number each: every second, fifth… one
       const every = Math.ceil(14 / this.sc);
+      // counted from 1 as the layers are (the cells' coordinates, the
+      // file's and the API's, still count from 0): 1, then each multiple
+      // of the step (1, 5, 10); at a step of 2, 1 would touch 2, so 2, 4, 6
+      const shown = (n: number): boolean => n % every === 0 || (n === 1 && every !== 2);
       const cy = rowsFlipped ? this.Y(ey, ey) - 7 : this.Y(0, ey) + 15;
       for (let c = 0; c < ex; c++) {
-        const n = flipped ? ex - 1 - c : c;
-        if (n % every === 0) {
+        const n = (flipped ? ex - 1 - c : c) + 1;
+        if (shown(n)) {
           t += `<text x="${this.X(c + 0.5).toFixed(1)}" y="${cy.toFixed(1)}">${n}</text>`;
         }
       }
       for (let r = 0; r < ey; r++) {
-        const n = rowsFlipped ? ey - 1 - r : r;
-        if (n % every === 0) {
+        const n = (rowsFlipped ? ey - 1 - r : r) + 1;
+        if (shown(n)) {
           t += `<text x="${(this.X(0) - 9).toFixed(1)}" y="${(this.Y(r + 0.5, ey) + 4).toFixed(1)}">${n}</text>`;
         }
       }
       b += `<g class="rul" text-anchor="middle" font-size="11" fill="var(--muted)" pointer-events="none">${t}</g>`;
     }
+    b += '<g class="names" pointer-events="none"></g>';
     b += '<g class="ovl" pointer-events="none"></g>';
     this.area.innerHTML = `<svg width="${aw}" height="${ah}" style="display:block" data-grid="${esc(input.grid)}">${b}</svg>`;
     this.svg = this.area.querySelector('svg');
@@ -365,6 +385,72 @@ export class Grid2D {
     if (this.svg !== null) {
       this.svg.dataset.cells = String(input.cells.size);
     }
+    this.paintNames(input);
+  }
+
+  // each copy's name at the bottom centre of its cells in this layer: the
+  // middle of its lowest cells on the screen, the box just above their
+  // bottom edge
+  private paintNames(input: GridInput): void {
+    const g = this.svg?.querySelector<SVGGElement>('.names');
+    if (g == null) {
+      return;
+    }
+    const names = input.tray?.names ?? [];
+    const h = input.geo.height;
+    const geoAt = new Map(input.geo.cells.map((c) => [key(c.at), c]));
+    let text = '';
+    for (const n of names) {
+      // each cell's span on the screen
+      const spans: { x0: number; x1: number; y1: number }[] = [];
+      for (const at of n.cells) {
+        const c = geoAt.get(key([at[0], at[1], at[2]]));
+        if (c === undefined) {
+          continue;
+        }
+        const pts: P2[] =
+          c.circle !== undefined
+            ? [
+                [c.circle.centre[0] - c.circle.radius, c.circle.centre[1] - c.circle.radius],
+                [c.circle.centre[0] + c.circle.radius, c.circle.centre[1] + c.circle.radius],
+              ]
+            : (c.polygon ?? []);
+        const xs = pts.map((q) => this.X(q[0]));
+        const ys = pts.map((q) => this.Y(q[1], h));
+        if (xs.length > 0) {
+          spans.push({ x0: Math.min(...xs), x1: Math.max(...xs), y1: Math.max(...ys) });
+        }
+      }
+      if (spans.length === 0) {
+        continue;
+      }
+      const bottom = Math.max(...spans.map((q) => q.y1));
+      const low = spans.filter((q) => q.y1 > bottom - 0.5);
+      const x = (Math.min(...low.map((q) => q.x0)) + Math.max(...low.map((q) => q.x1))) / 2;
+      text += `<text x="${x.toFixed(1)}" y="${(bottom - NAME_GAP - NAME_PAD_Y).toFixed(1)}">${esc(n.text)}</text>`;
+    }
+    const night = isDarkTheme();
+    g.setAttribute('fill', night ? '#000000' : '#ffffff');
+    g.setAttribute('text-anchor', 'middle');
+    g.setAttribute('dominant-baseline', 'text-after-edge');
+    g.setAttribute('style', 'font:600 calc(11px + var(--fs)) system-ui, sans-serif');
+    g.innerHTML = text;
+    // each name's box, measured as drawn, under it
+    for (const t of g.querySelectorAll<SVGTextElement>('text')) {
+      if (typeof t.getBBox !== 'function') {
+        break;
+      }
+      const b = t.getBBox();
+      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r.setAttribute('x', (b.x - NAME_PAD_X).toFixed(1));
+      r.setAttribute('y', (b.y - NAME_PAD_Y).toFixed(1));
+      r.setAttribute('width', (b.width + 2 * NAME_PAD_X).toFixed(1));
+      r.setAttribute('height', (b.height + 2 * NAME_PAD_Y).toFixed(1));
+      r.setAttribute('rx', '4');
+      r.setAttribute('fill', night ? '#ffffff' : '#000000');
+      t.before(r);
+    }
+    g.dataset.names = String(g.querySelectorAll('text').length);
   }
 
   // the box selection, the stroke's cells not answered yet, the cursor

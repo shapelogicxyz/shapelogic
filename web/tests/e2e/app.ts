@@ -67,10 +67,18 @@ const NO_SCROLLBARS = '::-webkit-scrollbar{display:none}';
  * (BT_AUTOSAVE_SECONDS; 20 minutes without), `userData` the app's data
  * directory (a new one, removed on close, unless given: a restart keeps
  * its settings in the one given), `args` the app's command line after its
- * main script (a file to open).
+ * main script (a file to open), `scale` the device pixel ratio to draw at
+ * whatever the display's (the guide's screenshots are taken at 2, so a
+ * non-Retina monitor does not halve them).
  */
 export async function launch(
-  opts: { callLog?: string; autosave?: number; userData?: string; args?: string[] } = {},
+  opts: {
+    callLog?: string;
+    autosave?: number;
+    userData?: string;
+    args?: string[];
+    scale?: number;
+  } = {},
 ): Promise<App> {
   // an editor's terminal may set ELECTRON_RUN_AS_NODE, which turns Electron into Node
   const env = Object.fromEntries(
@@ -89,8 +97,15 @@ export async function launch(
   env.BT_USER_DATA = userData;
   // the reference screenshots are taken in sRGB whatever display the window
   // lands on (Playwright's own Chromium does the same)
+  const scale =
+    opts.scale === undefined ? [] : [`--force-device-scale-factor=${String(opts.scale)}`];
   const app = await electron.launch({
-    args: ['--force-color-profile=srgb', resolve(WEB, 'out/main/index.js'), ...(opts.args ?? [])],
+    args: [
+      '--force-color-profile=srgb',
+      ...scale,
+      resolve(WEB, 'out/main/index.js'),
+      ...(opts.args ?? []),
+    ],
     cwd: WEB,
     env,
   });
@@ -313,7 +328,7 @@ export async function display(page: Page, key: string): Promise<void> {
 /** The style the view draws now. */
 export async function style(
   page: Page,
-  s: 'drawing' | 'wireframe' | 'flat' | 'stl',
+  s: 'drawing' | 'wireframe' | 'flat' | 'stl' | 'uniform',
 ): Promise<void> {
   await display(page, s);
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`:${s}$`));

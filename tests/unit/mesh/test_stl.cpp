@@ -218,7 +218,7 @@ TEST_CASE("cube STL exporter uses the lookup mesher", "[mesh][stl]") {
   for (const auto& c : cells) {
     v->setState(c[0], c[1], c[2], Voxel::kFilled);
   }
-  REQUIRE(stlParameters(GridKind::Bricks).size() == 6);
+  REQUIRE(stlParameters(GridKind::Bricks).size() == 8);
   std::vector<double> values = defaults(GridKind::Bricks);
   values[0] = 10;   // unit size
   values[3] = 1.0;  // bevel
@@ -481,7 +481,8 @@ TEST_CASE("STL parameters: each grid's, as the original's export dialog", "[mesh
   for (const GridKind g : {GridKind::Bricks, GridKind::TriangularPrism, GridKind::Rhombic,
                            GridKind::TetraOcta, GridKind::Sliding, GridKind::Stacking}) {
     const auto p = stlParameters(g);
-    REQUIRE(p.size() == 6);
+    // the original's six, then this core's two switches
+    REQUIRE(p.size() == 8);
     CHECK(p[0].name == "Unit Size");
     CHECK(p[0].defaultValue == 10);
     CHECK(p[3].name == "Bevel");
@@ -519,7 +520,7 @@ TEST_CASE("STL meshes: out-of-range values are refused with the original's words
   CHECK(with(2, -1) == "Unit size z too small");
   CHECK(with(3, -0.1) == "Bevel cannot be negative");
   CHECK(with(4, -0.1) == "Offset cannot be negative");
-  CHECK(refusal(*v, {10, 0, 0}) == "Expected 6 STL parameters, got 3");
+  CHECK(refusal(*v, {10, 0, 0}) == "Expected 8 STL parameters, got 3");
   // bevel and offset too large for the cell (the mesher's own words)
   CHECK(with(3, 6) == "gap + bevel must stay below half a cell");
   v->setState(1, 0, 0, Voxel::kVariable);
@@ -553,7 +554,7 @@ TEST_CASE("STL meshes: the unit sizes scale the axes, the volume is the cells'",
     v->setState(i & 1, (i >> 1) & 1, (i >> 2) & 1, Voxel::kFilled);
   }
   // plain cells: 8 cells of 10 x 20 x 30
-  const Result<Polyhedron> plain = stlMesh(*v, std::vector<double>{10, 20, 30, 0, 0, 1});
+  const Result<Polyhedron> plain = stlMesh(*v, std::vector<double>{10, 20, 30, 0, 0, 1, 0, 0});
   REQUIRE(plain);
   CHECK(vol(*plain) == Catch::Approx(8 * 10 * 20 * 30).epsilon(1e-5));
   // a bevel and an offset take material away
@@ -567,7 +568,7 @@ TEST_CASE("STL files: binary and text layouts", "[mesh][stl]") {
   const GridType gt(GridKind::Bricks);
   std::unique_ptr<Voxel> v = test::makeVoxel(gt, 1, 1, 1);
   v->setState(0, 0, 0, Voxel::kFilled);
-  const Result<Polyhedron> m = stlMesh(*v, std::vector<double>{1, 0, 0, 0, 0, 1});
+  const Result<Polyhedron> m = stlMesh(*v, std::vector<double>{1, 0, 0, 0, 0, 1, 0, 0});
   REQUIRE(m);
   const std::vector<std::uint8_t> b = stlFile(*m, "cube.stl", true);
   // the header: the name, zeros, then the count of the 12 triangles

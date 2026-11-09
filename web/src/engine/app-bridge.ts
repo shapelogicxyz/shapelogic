@@ -285,7 +285,7 @@ function isTheme(v: unknown): v is MenuState['theme'] {
 
 /** Whether a value is one of the 3D view's styles. */
 function isMeshStyle(v: unknown): v is MeshStyle {
-  return v === 'drawing' || v === 'flat' || v === 'wireframe' || v === 'stl';
+  return v === 'drawing' || v === 'flat' || v === 'wireframe' || v === 'stl' || v === 'uniform';
 }
 
 /** Whether a message from the main process is a command the renderer knows. */

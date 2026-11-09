@@ -1415,9 +1415,10 @@ def stl_exports(e):
     snap = e.call("document.open", {"path": str(FIXTURES / "CubeInCage.xmpuzzle")})
     params = e.call("export.stlParameters")["parameters"]
     check([q["name"] for q in params] == ["Unit Size", "Unit Size Y", "Unit Size Z", "Bevel", "Offset",
-                                           "Interior chamfers"], f"the cube grid's parameters {params}")
+                                           "Interior chamfers", "Uniform bevels", "Bumpy"],
+          f"the cube grid's parameters {params}")
     defaults = [q["default"] for q in params]
-    check(defaults == [10, 0, 0, 0.3, 0.01, 1], f"the defaults {defaults}")
+    check(defaults == [10, 0, 0, 0.3, 0.01, 1, 0, 0], f"the defaults {defaults}")
     shapes = [x["id"] for x in snap["shapes"]]
 
     # the pieces of the first solution, and their files as the original wrote them
@@ -1435,7 +1436,7 @@ def stl_exports(e):
     # the preview and its volume; the text file
     preview = e.call("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": defaults})
     check(preview["triangles"] > 0 and preview["volume"] > 0, f"the preview {preview}")
-    plain = e.call("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [1, 0, 0, 0, 0, 1]})
+    plain = e.call("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [1, 0, 0, 0, 0, 1, 0, 0]})
     cells = e.call("shape.info", {"shape": pieces[0]["shape"]})["fixed"]
     check(abs(plain["volume"] - cells) < 1e-3, f"plain cells of unit size: {plain['volume']} for {cells}")
     r = e.call("export.stl", {"shape": pieces[0]["shape"], "binary": False, "name": "frame"})
@@ -1445,7 +1446,7 @@ def stl_exports(e):
     # refusals
     e.fails("export.stl", {"shape": shapes[0]}, "invalid_argument")  # the result has variable cells
     e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [10, 0, 0]}, "invalid_argument")
-    e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [0, 0, 0, 0.3, 0.01, 1]},
+    e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": [0, 0, 0, 0.3, 0.01, 1, 0, 0]},
             "invalid_argument")
     e.fails("export.stlMesh", {"shape": pieces[0]["shape"], "parameters": ["10"]}, "invalid_params")
     e.fails("export.stl", {"shape": pieces[0]["shape"], "name": "a\nb"}, "invalid_argument")

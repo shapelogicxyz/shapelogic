@@ -91,7 +91,8 @@ const Names<mesh::MeshStyle>& meshStyleNames() {
   static const Names<mesh::MeshStyle> n = {{"drawing", mesh::MeshStyle::Drawing},
                                            {"wireframe", mesh::MeshStyle::Wireframe},
                                            {"flat", mesh::MeshStyle::Flat},
-                                           {"stl", mesh::MeshStyle::Stl}};
+                                           {"stl", mesh::MeshStyle::Stl},
+                                           {"uniform", mesh::MeshStyle::Uniform}};
   return n;
 }
 

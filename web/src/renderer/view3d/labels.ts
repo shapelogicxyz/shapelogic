@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The Solver view's piece labels (Search options ▸ Show piece labels): a
+// The Solver view's piece labels (Display ▸ Labels ▸ Show Piece Labels): a
 // sprite of a piece's label (S1, S1.2), black on a white box so that it
 // reads on any piece colour, which solution.ts places on the piece. A
 // sprite always faces the eye, so the text stays upright however the view

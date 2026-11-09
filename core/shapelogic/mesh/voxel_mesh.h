@@ -35,11 +35,21 @@ enum class MeshStyle : unsigned char {
   /// the view's "Draw pieces like STL export". Where the mesher fails,
   /// the flat mesh.
   Stl,
+  /// The uniform mesher's solid (uniform_mesh.h): the drawing mesh's
+  /// bevel (0.03) and gap (0.005), but the chamfer of one width on every
+  /// edge whatever its angle, concave edges too; neighbouring cells are
+  /// joined by flat strips, so a piece is one chamfered solid and only
+  /// the checker shows its cells; closed. Spheres: the drawing mesh.
+  /// Where the mesher fails, the drawing mesh.
+  Uniform,
 };
 
 /// The mesh of a shape in its own coordinates (mesh units, see
 /// grid_geometry.h). Each face carries its cell and side (what a click
 /// picks), its colour and its FaceFlag bits.
+/// The uniform style's bevel and gap, in cell units: the drawing mesh's.
+inline constexpr double kUniformBevel = 0.03;
+inline constexpr double kUniformOffset = 0.005;
 [[nodiscard]] Polyhedron shapeMesh(const Voxel& v, MeshStyle style);
 
 /// The mesh of cells with bevel and gap (getMeshInternal): with `fast`

@@ -23,7 +23,10 @@
 // sliding problem (section 8.2): Start and goal (slide-card.ts over
 // sliding.tray) in the selected piece's place, and the board's START and
 // GOAL trays with the copies placed at the top of the view
-// (view3d/trays.ts), the pieces scene's copies under them.
+// (view3d/trays.ts), the pieces scene's copies under them; in the 2D
+// focus, where the grids are large, the pieces scene alone. The Display
+// menu's Labels add the shapes' names to the pieces scene's labels and to
+// the Start and Goal grids.
 
 import type {
   FitStats,
@@ -129,6 +132,15 @@ export class PuzzleWorkspace {
     onLayout(() => {
       if (tab === 'puzzle') {
         this.renderScene();
+      }
+    });
+    // the Display menu's Labels: the pieces scene's names, the grids'
+    let labels = this.labelsKey();
+    view.onDisplay(() => {
+      const k = this.labelsKey();
+      if (k !== labels) {
+        labels = k;
+        this.render();
       }
     });
     // a board's chip follows the theme's board color
@@ -256,6 +268,17 @@ export class PuzzleWorkspace {
     updateStatus();
   }
 
+  /** The Display menu's Labels: the shapes' names in the pieces scene, on the Start and Goal grids. */
+  get labels(): { pieces: boolean; grids: boolean } {
+    const d = this.view3d.display;
+    return { pieces: d.pieceNames, grids: d.gridNames };
+  }
+
+  private labelsKey(): string {
+    const l = this.labels;
+    return `${String(l.pieces)}:${String(l.grids)}`;
+  }
+
   /** The board of a sliding problem was read: the view's trays and the status follow. */
   trayRead(): void {
     this.renderScene();
@@ -273,9 +296,11 @@ export class PuzzleWorkspace {
     }
     // a sliding board: its START and GOAL trays at the top of the view, the
     // pieces scene's copies under them (the board is the result, drawn as
-    // the trays; a selected piece is boxed among its copies)
+    // the trays; a selected piece is boxed among its copies); in the 2D
+    // focus the grids show the trays, and the view the pieces alone
     const trays = this.shown < 0 ? null : this.slide.trayModel();
-    this.view3d.setTray(trays);
+    const focus = byId('stage').classList.contains('f2d');
+    this.view3d.setTray(focus ? null : trays);
     if (d === null || snap === null || this.shown < 0) {
       this.view3d.setPieces(null);
     } else {
@@ -287,12 +312,18 @@ export class PuzzleWorkspace {
               null,
               d.parts.filter((p) => p.shape !== trays.tray),
             );
+      const named = this.labels.pieces;
       this.view3d.setPieces({
-        key: `${String(this.store.generation)}:${d.id}:${String(this.shown)}:${this.sel ?? ''}${trays === null ? '' : ':trays'}`,
+        key: `${String(this.store.generation)}:${d.id}:${String(this.shown)}:${this.sel ?? ''}${trays === null ? '' : focus ? ':focus' : ':trays'}${named ? ':named' : ''}`,
         items,
         hidden,
         selected: this.sel,
-        names: new Map(snap.shapes.map((s) => [s.id, s.label])),
+        names: new Map(
+          snap.shapes.map((s) => [
+            s.id,
+            named && s.name !== '' ? `${s.label} – ${s.name}` : s.label,
+          ]),
+        ),
         // the pieces drawn larger, the gaps between them smaller
         grow: PIECE_GROW,
       });

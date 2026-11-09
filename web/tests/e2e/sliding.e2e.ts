@@ -21,6 +21,7 @@ import type { Page } from '@playwright/test';
 import {
   BUILT,
   command,
+  display,
   ENGINE,
   engineCall,
   FIXTURES,
@@ -805,6 +806,65 @@ test('Focus 2D editor: the tip on a grid of 20 or more; one focus for Shapes and
     await sizeTo(page, tray, 1, 19);
     await toTab('2', 'puzzle');
     await expect(pzTip).toBeHidden();
+  } finally {
+    await a.close();
+  }
+});
+
+test('Labels: the names in the pieces scene and on Start and Goal; the 2D focus shows the pieces alone', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  try {
+    await openFixture(page, 'test_sliding_solver.xmpuzzle');
+    const tray = await idOf(page, 'B1');
+    const placed = await engineCall<{ placed: { piece: string; goal: boolean }[] }>(
+      page,
+      'sliding.tray',
+      { tray },
+    );
+    const named = placed.placed.find((c) => !c.goal)?.piece ?? '';
+    expect(named).not.toBe('');
+    const label = (await shapes(page)).find((s) => s.id === named)?.label ?? '';
+    await engineCall(page, 'shape.rename', { shape: named, name: 'Red car' });
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    const lab = page.locator(`#pzScene .pzbox[data-shape="${named}"] .pzlab`).first();
+    const startNames = page.locator('#sgStartGrid .names text');
+    const goalNames = page.locator('#sgGoalGrid .names text');
+
+    // both on to begin with: "S2 – Red car" in the scene, "Red car" on each grid's copy
+    await expect(lab).toContainText(`${label} – Red car`);
+    await expect(startNames.filter({ hasText: 'Red car' })).toHaveCount(
+      placed.placed.filter((c) => c.piece === named && !c.goal).length,
+    );
+    await expect(goalNames.filter({ hasText: 'Red car' })).toHaveCount(
+      placed.placed.filter((c) => c.piece === named && c.goal).length,
+    );
+    await expect(page.locator('#sgStartGrid .names rect')).toHaveCount(await startNames.count());
+
+    // each off on its own
+    await display(page, 'pieceNames');
+    await expect(lab).not.toContainText('Red car');
+    await expect(lab).toContainText(label);
+    await expect(startNames.filter({ hasText: 'Red car' })).not.toHaveCount(0);
+    await display(page, 'gridNames');
+    await expect(startNames).toHaveCount(0);
+    await expect(goalNames).toHaveCount(0);
+    await display(page, 'pieceNames');
+    await expect(lab).toContainText(`${label} – Red car`);
+    await expect(startNames).toHaveCount(0);
+    await display(page, 'gridNames');
+    await expect(startNames.filter({ hasText: 'Red car' })).not.toHaveCount(0);
+
+    // the 2D focus: no trays in the view, the pieces over all of it
+    await expect(page.locator('#trayTags span')).toHaveText(['START', 'GOAL']);
+    await page.click('#pzF2D');
+    await expect(page.locator('#stage')).toHaveClass(/\bf2d\b/);
+    await expect(page.locator('#trayTags span')).toHaveCount(0);
+    await expect(lab).toBeVisible();
+    await page.click('#pzF2D');
+    await expect(page.locator('#trayTags span')).toHaveText(['START', 'GOAL']);
   } finally {
     await a.close();
   }

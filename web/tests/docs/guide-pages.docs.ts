@@ -117,7 +117,7 @@ test.beforeAll(() => {
 });
 
 test('the 3D view and the Shapes tab', async () => {
-  const app = await launch();
+  const app = await launch({ scale: 2 });
   const { page } = app;
   try {
     await openFixture(page, 'CubeInCage.xmpuzzle');
@@ -157,7 +157,7 @@ test('the 3D view and the Shapes tab', async () => {
 });
 
 test('the Solver tab and the display styles', async () => {
-  const app = await launch();
+  const app = await launch({ scale: 2 });
   const { page } = app;
   try {
     await openFixture(page, 'CubeInCage.xmpuzzle');
@@ -188,7 +188,7 @@ test('the Solver tab and the display styles', async () => {
     await page.click('#slvViewSeg [data-v="list"]');
 
     // the Display menu's styles, on the solution shown
-    for (const s of ['drawing', 'flat', 'wireframe', 'stl'] as const) {
+    for (const s of ['drawing', 'flat', 'wireframe', 'stl', 'uniform'] as const) {
       await style(page, s);
       await crop(page, '#vp', `style-${s}`);
     }
@@ -216,7 +216,7 @@ test('the Solver tab and the display styles', async () => {
 });
 
 test('the Puzzle tab and color restrictions', async () => {
-  const app = await launch();
+  const app = await launch({ scale: 2 });
   const { page } = app;
   try {
     await openFixture(page, 'DraculasDentalDesaster.xmpuzzle');
@@ -253,7 +253,7 @@ test('the Puzzle tab and color restrictions', async () => {
 });
 
 test('the exports, the keys and the rotations', async () => {
-  const app = await launch();
+  const app = await launch({ scale: 2 });
   const { page } = app;
   try {
     await openFixture(page, 'CubeInCage.xmpuzzle');

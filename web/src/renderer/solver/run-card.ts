@@ -27,7 +27,6 @@
 import { isActive } from '../state/solves.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
-import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import {
   DEFAULT_LIMITS,
@@ -247,10 +246,6 @@ export class RunCard {
     const limits =
       `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1" title="Keep more of the solutions: skip one fewer between kept ones">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" title="1 keeps every solution; a higher number skips that many before the next one is kept" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1" title="Keep fewer of the solutions: skip one more between kept ones">${ic('plus', 12)}</button></div></div>` +
       `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10" title="Keep 10 fewer solutions">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" title="Keep at most this many solutions (0: all)" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10" title="Keep 10 more solutions">${ic('plus', 12)}</button></div></div>`;
-    // not a search option: a setting of the app, kept across sessions (prefs.ts)
-    const labelTip =
-      'Draw each piece’s label from the Shapes tab on it in the 3D view, always facing you';
-    const labels = `<div class="row2"><div class="t">Show piece labels<small>${labelTip}</small></div><div class="switch ${prefs.pieceLabels ? 'on' : ''}" data-pref="pieceLabels" role="switch" tabindex="0" aria-checked="${String(prefs.pieceLabels)}" title="${esc(labelTip)}"><span class="tr"></span></div></div>`;
     if (ws.stacking) {
       // the one solver of the board
       const solver = ws.stackingSolver;
@@ -263,8 +258,7 @@ export class RunCard {
           sw('justLevels') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
           limits +
-          sw('autosave') +
-          labels,
+          sw('autosave'),
       );
       return;
     }
@@ -284,8 +278,7 @@ export class RunCard {
           sw('verticalMoves') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}"><option value="${slider.solver}" selected>${esc(slider.label)}</option></select></div>` +
           limits +
-          sw('autosave') +
-          labels,
+          sw('autosave'),
       );
       return;
     }
@@ -300,8 +293,7 @@ export class RunCard {
         sw('strictColors') +
         `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell).</small></div><select data-o="solver" title="Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell)">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
         limits +
-        sw('autosave') +
-        labels,
+        sw('autosave'),
     );
   }
 
@@ -443,12 +435,6 @@ export class RunCard {
       }
       this.toggle(t);
     });
-    // the labels' switch follows the setting (also reset from the settings dialog)
-    onPrefs((changed) => {
-      if (changed.includes('pieceLabels')) {
-        this.renderOptions();
-      }
-    });
     byId('slvOptHead').addEventListener('click', () => {
       ws.optOpen = !ws.optOpen;
       this.render();
@@ -517,10 +503,6 @@ export class RunCard {
 
   // a switch of the options clicked: true when it was one
   private toggle(t: Element): boolean {
-    if (t.closest('.switch[data-pref="pieceLabels"]') !== null) {
-      setPrefs({ pieceLabels: !prefs.pieceLabels });
-      return true;
-    }
     const sw = t.closest<HTMLElement>('.switch[data-o]');
     if (sw === null) {
       return false;

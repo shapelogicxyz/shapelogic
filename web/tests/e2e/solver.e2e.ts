@@ -12,7 +12,8 @@
 // then carrying on (the autosave), Prepare then Continue, the error run of
 // the contract suite shown with its failure; two problems solved at once;
 // a sliding puzzle solved as bt solves it and played along its routes, a
-// stacking one too (stacking.e2e.ts plays it in transfers). Each test's call log holds no refusal the
+// stacking one too (stacking.e2e.ts plays it in transfers); the pieces'
+// labels from the Display menu. Each test's call log holds no refusal the
 // UI could have avoided (only the client's own superseded reads).
 
 import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
@@ -25,6 +26,7 @@ import type { Page } from '@playwright/test';
 import {
   answerDialogs,
   BUILT,
+  display,
   ENGINE,
   engineCall,
   FIXTURES,
@@ -191,6 +193,34 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('Display ▸ Labels: the pieces’ labels on the solution, a setting kept out of Search Options', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  try {
+    await openFixture(page, 'Bermuda.xmpuzzle');
+    await toSolver(page);
+    expect(await page.locator('#slvOpts').innerHTML()).not.toContain('piece labels');
+    await runButton(page, 'start');
+    await runEnded(page, 'finished');
+    const vp = page.locator('#vp');
+    await expect.poll(() => attr(page, '#vp', 'data-piece-labels')).toBe('');
+    // on: a label on each piece shown; off again: none
+    await display(page, 'solvedNames');
+    await expect(vp).toHaveAttribute('data-piece-labels', /\S/);
+    await page.click('#bDisp');
+    await expect(page.locator('#pop [data-k="solvedNames"]')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await page.keyboard.press('Escape');
+    await display(page, 'solvedNames');
+    await expect(vp).toHaveAttribute('data-piece-labels', '');
+  } finally {
+    await a.close();
   }
 });
 

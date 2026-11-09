@@ -75,11 +75,11 @@ export interface BuiltMesh {
 
 /**
  * Whether a style shows the checker (drawShape's `checker`): the bevelled
- * voxels and the wire frame; the flat style and the STL-like one paint a
- * piece in one colour.
+ * voxels, the uniform bevels and the wire frame; the flat style and the
+ * STL-like one paint a piece in one colour.
  */
 export function hasChecker(style: MeshStyle): boolean {
-  return style === 'drawing' || style === 'wireframe';
+  return style === 'drawing' || style === 'wireframe' || style === 'uniform';
 }
 
 /** The cell [x, y, z] of a cell index of a shape of this size. */

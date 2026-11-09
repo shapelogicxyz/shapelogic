@@ -13,6 +13,7 @@
 #include "shapelogic/mesh/grid_geometry.h"
 #include "shapelogic/mesh/mink_mesh.h"
 #include "shapelogic/mesh/modifiers.h"
+#include "shapelogic/mesh/uniform_mesh.h"
 
 #include <cstdint>
 #include <utility>
@@ -217,6 +218,18 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
         return std::move(*p);
       }
       return cellMesh(v, 0, 0, false);
+    }
+    case MeshStyle::Uniform: {
+      // every edge bevelled to one width, with the gap; the drawing mesh
+      // where the mesher cannot handle the cells
+      UniformMeshOptions o;
+      o.bevel = kUniformBevel;
+      o.offset = kUniformOffset;
+      Result<Polyhedron> p = uniformMesh(v, o);
+      if (p) {
+        return std::move(*p);
+      }
+      return cellMesh(v, 0.03, 0.005, true);
     }
   }
   BT_ASSERT_MSG(false, "unknown mesh style");

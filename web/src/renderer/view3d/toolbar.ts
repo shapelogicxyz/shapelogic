@@ -11,7 +11,10 @@
 // section 7.4: bevelled voxels, flat with edges, the wire frame, and from
 // deferred part 5 the STL-like one, section 10.3) and
 // "Show through solid pieces" (x-ray), which the mockup offered in the
-// Solver only. The Edit button shows the voxel editor's tool (stage 2).
+// Solver only, and the Labels: on the Puzzle tab the shapes' names after
+// their labels in the pieces scene and on a sliding board's Start and Goal
+// grids, on the Solver tab the pieces' labels on the solution (a setting
+// of the app, kept across sessions). The Edit button shows the voxel editor's tool (stage 2).
 
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import { toolIcon } from '../shell/cursors.ts';
@@ -21,7 +24,7 @@ import { ic } from '../shell/icons.ts';
 import type { IconName } from '../shell/icons.ts';
 import { editorVisible, layout, tab } from '../shell/layout.ts';
 import { closePop, openPop, popOpen, refreshPop } from '../shell/popover.ts';
-import { prefs } from '../shell/prefs.ts';
+import { prefs, setPrefs } from '../shell/prefs.ts';
 
 /** The Display menu's choices (the mockup's `st.disp`, `st.persp`, `st.colorView`). */
 export interface Display {
@@ -34,6 +37,10 @@ export interface Display {
   colourView: boolean;
   style: MeshStyle;
   xray: boolean;
+  /** The shapes' names after their labels in the Puzzle tab's pieces scene ("S2 – name"). */
+  pieceNames: boolean;
+  /** The pieces' names on a sliding board's Start and Goal grids. */
+  gridNames: boolean;
 }
 
 /** The navigation mode of a plain left drag. */
@@ -51,6 +58,8 @@ export interface ToolbarHost {
   display: Display;
   mode(): NavMode;
   setMode(m: NavMode): void;
+  /** Whether the document is a sliding puzzle (the Labels offer the grids' then). */
+  sliding(): boolean;
   /** A Display choice changed. */
   changed(): void;
   toggleFocus(): void;
@@ -173,6 +182,19 @@ export class Toolbar {
 <button data-k="layer" data-keep="1" title="Show the layer being edited as a slab in the 3D view" role="menuitemcheckbox" aria-checked="${d.layer}" ${ed ? '' : 'disabled'}>${ck(d.layer)}Active layer slab${needs}</button>
 <button data-k="dim" data-keep="1" title="Fade the layers other than the one being edited" role="menuitemcheckbox" aria-checked="${d.dim}" ${ed ? '' : 'disabled'}>${ck(d.dim)}Dim other layers${needs}</button><hr>`
         : '';
+    const grids = this.host.sliding()
+      ? `
+<button data-k="gridNames" data-keep="1" title="Show name labels on the pieces that are on the Start/Goal grids" role="menuitemcheckbox" aria-checked="${d.gridNames}">${ck(d.gridNames)}Show Grid Labels</button>`
+      : '';
+    const solved = prefs.pieceLabels;
+    const labels =
+      tab === 'puzzle'
+        ? `<hr><div class="ph">Labels</div>
+<button data-k="pieceNames" data-keep="1" title="Show name labels for the piece previews" role="menuitemcheckbox" aria-checked="${d.pieceNames}">${ck(d.pieceNames)}Show Piece Labels</button>${grids}`
+        : tab === 'solver'
+          ? `<hr><div class="ph">Labels</div>
+<button data-k="solvedNames" data-keep="1" title="Draw each piece’s label from the Shapes tab on it in the 3D view, always facing you" role="menuitemcheckbox" aria-checked="${solved}">${ck(solved)}Show Piece Labels</button>`
+          : '';
     return `${show}<div class="ph">Projection</div>
 <button data-k="persp" data-keep="1" title="Far things look smaller, as a camera sees them" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>
 <button data-k="ortho" data-keep="1" title="Parallel lines stay parallel: no perspective" role="menuitemradio" aria-checked="${!d.persp}">${ck(!d.persp)}Orthographic</button><hr>
@@ -184,7 +206,8 @@ export class Toolbar {
 <button data-k="flat" data-keep="1" title="Draw flat faces with edges" role="menuitemradio" aria-checked="${d.style === 'flat'}">${ck(d.style === 'flat')}Flat with edges</button>
 <button data-k="wireframe" data-keep="1" title="Draw wire frames" role="menuitemradio" aria-checked="${d.style === 'wireframe'}">${ck(d.style === 'wireframe')}Wire frame</button>
 <button data-k="stl" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'stl'}" title="The pieces as the STL export makes them: chamfered, with a gap, in one color">${ck(d.style === 'stl')}Like the STL export</button>
-<button data-k="xray" data-keep="1" title="See the pieces behind solid pieces" role="menuitemcheckbox" aria-checked="${d.xray}">${ck(d.xray)}Show through solid pieces</button>`;
+<button data-k="uniform" data-keep="1" role="menuitemradio" aria-checked="${d.style === 'uniform'}" title="Each piece as one solid with every edge bevelled to the same width, whatever its angle; the checker shows the voxels">${ck(d.style === 'uniform')}Uniform bevels</button>
+<button data-k="xray" data-keep="1" title="See the pieces behind solid pieces" role="menuitemcheckbox" aria-checked="${d.xray}">${ck(d.xray)}Show through solid pieces</button>${labels}`;
   }
 
   private choose(k: string): void {
@@ -206,13 +229,20 @@ export class Toolbar {
       case 'flat':
       case 'wireframe':
       case 'stl':
+      case 'uniform':
         d.style = k;
         break;
       case 'axes':
       case 'bounds':
       case 'layer':
       case 'dim':
+      case 'solvedNames':
+        // the view follows the setting (onPrefs)
+        setPrefs({ pieceLabels: !prefs.pieceLabels });
+        return;
       case 'xray':
+      case 'pieceNames':
+      case 'gridNames':
         d[k] = !d[k];
         break;
       default:

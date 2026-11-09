@@ -278,6 +278,10 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         cmd: 'style',
         style: 'stl',
       }),
+      radio('style.uniform', 'Draw with Uniform Bevels', s.style === 'uniform', {
+        cmd: 'style',
+        style: 'uniform',
+      }),
       ...(h.dev ? [SEP, { role: 'reload' as const }, { role: 'toggleDevTools' as const }] : []),
     ],
   };

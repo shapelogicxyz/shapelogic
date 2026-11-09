@@ -67,10 +67,12 @@ test('every shape of every fixture is drawn in every style', async () => {
   test.setTimeout(600_000);
   const { page } = a;
   let checked = 0;
-  // every shape the engine holds, in each of the three styles (counted from
-  // the engine, so a fixture added to the folder is counted too)
+  // every shape the engine holds, in each of the four styles made from the
+  // cells (counted from the engine, so a fixture added to the folder is
+  // counted too); the uniform one is the uniform mesher (decision 0022)
   let want = 0;
-  for (const s of ['drawing', 'wireframe', 'flat'] as const) {
+  const order = ['drawing', 'wireframe', 'flat', 'uniform'] as const;
+  for (const [i, s] of order.entries()) {
     for (const f of fixtures) {
       await openFixture(page, f);
       want += (await engineCall<{ shapes: unknown[] }>(page, 'shape.list')).shapes.length;
@@ -88,8 +90,9 @@ test('every shape of every fixture is drawn in every style', async () => {
         checked++;
       }
     }
-    if (s !== 'flat') {
-      await style(page, s === 'drawing' ? 'wireframe' : 'flat');
+    const next = order[i + 1];
+    if (next !== undefined) {
+      await style(page, next);
     }
   }
   expect(want).toBeGreaterThan(0);
@@ -149,6 +152,9 @@ for (const [name, file, label] of REFERENCES) {
     // the STL-like style (deferred part 5): the STL mesher's pieces in one colour
     await style(page, 'stl');
     await shot('stl');
+    // the uniform mesher's solid (decision 0022)
+    await style(page, 'uniform');
+    await shot('uniform');
     await style(page, 'drawing');
     await setting3d(page, 'lights');
     await shot('unlit');

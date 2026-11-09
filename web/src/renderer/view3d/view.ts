@@ -150,6 +150,8 @@ export class View3D {
     colourView: false,
     style: 'drawing',
     xray: false,
+    pieceNames: true,
+    gridNames: true,
   };
   mode: NavMode = 'orbit';
   /** The voxel editor's plane and layer (the slab, the dimmed layers). */
@@ -294,6 +296,7 @@ export class View3D {
       setMode: (m) => {
         this.setMode(m);
       },
+      sliding: () => this.store.snapshot?.grid === 'sliding',
       changed: () => {
         this.displayChanged();
       },
@@ -1049,7 +1052,7 @@ export class View3D {
     } else if (this.puzzleMode && this.trayShown) {
       tags = this.drawTrays();
     } else if (this.puzzleMode) {
-      this.drawPieces(0);
+      this.drawPiecesAlone();
     } else if (this.solverMode) {
       const r = this.renderer;
       const extent = this.solutionModel?.extent ?? [1, 1, 1];
@@ -1152,6 +1155,26 @@ export class View3D {
       r.gl.autoClear = auto;
       this.pieces.group.visible = true;
     }
+  }
+
+  // the pieces scene over the whole view, or over all of it above a
+  // sliding board's validity bar (the 2D focus, where the grids show the
+  // trays)
+  private drawPiecesAlone(): void {
+    const r = this.renderer;
+    const valid = byId('slideValid');
+    const y1 =
+      valid.offsetParent !== null && valid.offsetHeight > 0
+        ? Math.max(2, valid.offsetTop - 4)
+        : r.height;
+    if (y1 >= r.height) {
+      this.drawPieces(0);
+      return;
+    }
+    r.gl.clear();
+    r.band(0, y1, () => {
+      this.drawPieces(0);
+    });
   }
 
   // the pieces scene in the renderer's size; in a band `top` pixels down

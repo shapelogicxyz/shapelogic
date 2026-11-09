@@ -31,6 +31,7 @@ add_executable(bt_tests
   unit/mesh/test_meshes.cpp
   unit/mesh/test_stl.cpp
   unit/mesh/test_stl_dump.cpp
+  unit/mesh/test_uniform_mesh.cpp
   unit/model/test_model_dump.cpp
   unit/model/test_puzzle_model.cpp
   unit/solve/test_assembler.cpp

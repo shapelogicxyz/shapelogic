@@ -32,7 +32,14 @@ import type { Cell } from '../entities/editor-state.ts';
 import { Grid2D } from '../entities/grid2d.ts';
 import { squareLayer } from '../entities/layer-geometry.ts';
 import type { CellValue } from '../entities/shape-cells.ts';
-import { copiesOf, marksOf, outlineColour, TrayState, validity } from '../entities/tray.ts';
+import {
+  copiesOf,
+  marksOf,
+  namesOf,
+  outlineColour,
+  TrayState,
+  validity,
+} from '../entities/tray.ts';
 import type { TrayModel } from '../view3d/trays.ts';
 import { partOf } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
@@ -248,7 +255,10 @@ export class SlideCard {
         cells: this.cells ?? new Map(),
         shapeColour: '#888888',
         palette: new Map(),
-        tray: { marks: r === null ? new Map() : marksOf(r, p.goal, snap.shapes) },
+        tray: {
+          marks: r === null ? new Map() : marksOf(r, p.goal, snap.shapes),
+          names: r === null || !this.ws.labels.grids ? [] : namesOf(r, p.goal, snap.shapes),
+        },
       });
     }
   }

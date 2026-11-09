@@ -2527,7 +2527,7 @@ One parameter of a grid's STL mesher (stlExporter_c's getParameterName, getParam
 
 | name | type | | description |
 |---|---|---|---|
-| `name` | string | required | The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers; on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole. |
+| `name` | string | required | The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers, then this core's Uniform bevels and Bumpy (the uniform mesher, both off by default); on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole. |
 | `type` | `"number"` \| `"positiveNumber"` \| `"positiveInteger"` \| `"switch"` | required | The field: any number, a number of 0 or more, a whole number of 0 or more, or a check box (1 on, 0 off). |
 | `default` | number | required |  |
 | `tooltip` | string | required |  |
@@ -2692,9 +2692,9 @@ A button of the tool tabs; what the numbered ones do depends on the grid (shape.
 
 ### MeshStyle
 
-The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, or the STL export's mesh at the view's own parameters (the original's "Draw pieces like STL export": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one colour. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build).
+The 3D view's bevelled cells, the same closed with the wire-frame faces flagged, flat faces with edge lines, the STL export's mesh at the view's own parameters, or the uniform mesher's solid (every edge of the piece chamfered to one width whatever its angle, concave edges too; neighbouring cells joined by flat strips, so the checker alone shows the cells; closed; on the sphere grid the drawing mesh). The STL style is (the original's "Draw pieces like STL export": gap 0.02 and bevel 0.05 of a cell with the interior chamfers, the sphere grid's balls at two recursions; closed; the flat mesh where the mesher fails). The STL style's cell faces carry the checker flag, as the others', and bevels are flagged 16; the original drew it in one colour. It is made with the Manifold library on the prism, rhombic and tetra-octa grids and takes a while for large shapes (seconds in a release build).
 
-`"drawing"` \| `"wireframe"` \| `"flat"` \| `"stl"`
+`"drawing"` \| `"wireframe"` \| `"flat"` \| `"stl"` \| `"uniform"`
 
 ### ChangeKind
 

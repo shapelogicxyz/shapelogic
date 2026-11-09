@@ -50,6 +50,7 @@ add_library(btcore STATIC
   shapelogic/mesh/sphere_mesh.cpp
   shapelogic/mesh/stl.cpp
   shapelogic/mesh/triangulate.cpp
+  shapelogic/mesh/uniform_mesh.cpp
   shapelogic/mesh/vec3.cpp
   shapelogic/mesh/voxel_mesh.cpp
   shapelogic/model/assembly.cpp
