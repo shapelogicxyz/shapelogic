@@ -63,7 +63,7 @@ class TestGrids(unittest.TestCase):
 
     def test_every_grid(self):
         for grid in ("bricks", "triangular prisms", "spheres", "rhombic", "tetra-octa",
-                     "sliding", "stacking"):
+                     "sliding", "stacking", "hexagonal prisms", "cairo prisms"):
             self.assertEqual(shapelogic.Puzzle(grid).grid, grid)
             self.assertEqual(shapelogic.Puzzle(grid=grid).grid, grid)
 

@@ -221,7 +221,8 @@ PYBIND11_MODULE(shapelogic, m) {
       m, "Puzzle", "A ShapeLogic puzzle definition containing shapes and problems")
       .def(py::init<const std::string&>(), py::arg("grid") = "bricks",
            "Create a new empty puzzle; grid: 'bricks' (the standard 3D cubic grid), "
-           "'triangular prisms', 'spheres', 'rhombic', 'tetra-octa', 'sliding' or 'stacking'")
+           "'triangular prisms', 'spheres', 'rhombic', 'tetra-octa', 'sliding', 'stacking', "
+           "'hexagonal prisms' or 'cairo prisms'")
       .def_static("load", &PyPuzzle::load, py::arg("filename"),
                   "Load a puzzle from an .xmpuzzle file")
       .def("save", &PyPuzzle::save, py::arg("filename"), "Save the puzzle to an .xmpuzzle file")

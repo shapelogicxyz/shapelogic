@@ -50,7 +50,7 @@ import { tab } from '../shell/layout.ts';
 import { pieceSubColour, shapeColour } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { flash, reportError } from '../shell/status.ts';
-import { cellScale, gridExtent, placedAt } from '../view3d/extent.ts';
+import { cellToMesh, gridExtent, placedAt } from '../view3d/extent.ts';
 import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
@@ -677,13 +677,8 @@ export class Explorer {
     if (grid === undefined) {
       return;
     }
-    const scale = cellScale(grid);
     const onScreen = this.vectors.map((v): [number, number] => {
-      const s = this.host.view.pieceOnScreen(piece, [
-        v[0] * scale[0],
-        v[1] * scale[1],
-        v[2] * scale[2],
-      ]);
+      const s = this.host.view.pieceOnScreen(piece, cellToMesh(grid, v));
       return s === null ? [0, 0] : [s.dx, s.dy];
     });
     const d = dragDirection([dx, dy], onScreen);
@@ -1066,7 +1061,6 @@ export class Explorer {
       const resultId = this.host.detail()?.result ?? null;
       const resultSize = snap.shapes.find((s) => s.id === resultId)?.size ?? [1, 1, 1];
       const extent = gridExtent(snap.grid, resultSize);
-      const scale = cellScale(snap.grid);
       const built = items.map((it, i) => {
         const k = key(it);
         let b = this.built.get(k);
@@ -1105,8 +1099,8 @@ export class Explorer {
         // the result fills its own space; a piece's hotspot goes on its cell
         t:
           it.piece < 0
-            ? placedAt([0, 0, 0], [0, 0, 0], scale, extent)
-            : placedAt(it.at, replies[i]?.hotspot ?? [0, 0, 0], scale, extent),
+            ? placedAt([0, 0, 0], [0, 0, 0], snap.grid, extent)
+            : placedAt(it.at, replies[i]?.hotspot ?? [0, 0, 0], snap.grid, extent),
         q: [0, 0, 0, 1],
         visible: true,
         opacity: 1,
@@ -1115,11 +1109,10 @@ export class Explorer {
       if (mode === 'movements') {
         // each piece's step in each direction as it looks on the screen (the e2e tests drag by them)
         const grid = snap.grid;
-        const sc = cellScale(grid);
         const dirs: Record<string, [number, number][]> = {};
         for (const it of items) {
           dirs[String(it.piece)] = this.vectors.map((v) => {
-            const o = view.pieceOnScreen(it.piece, [v[0] * sc[0], v[1] * sc[1], v[2] * sc[2]]);
+            const o = view.pieceOnScreen(it.piece, cellToMesh(grid, v));
             return o === null ? [0, 0] : [Number(o.dx.toFixed(2)), Number(o.dy.toFixed(2))];
           });
         }

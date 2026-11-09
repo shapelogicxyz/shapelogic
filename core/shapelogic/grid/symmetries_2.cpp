@@ -104,6 +104,7 @@ class SphereSymmetries final : public Symmetries {
 
   unsigned int getNumTransformations() const override { return NUM_TRANSFORMATIONS; }
   unsigned int getNumTransformationsMirror() const override { return NUM_TRANSFORMATIONS_MIRROR; }
+  unsigned int getNumSymmetryGroups() const override { return size(); }
 
   bool symmetryContainsMirror(Symmetry sym) const override {
     // any bit at or above NUM_TRANSFORMATIONS is a mirror transformation

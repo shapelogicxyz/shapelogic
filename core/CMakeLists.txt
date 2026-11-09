@@ -17,12 +17,16 @@ add_library(btcore STATIC
   shapelogic/base/solve_state.cpp
   shapelogic/base/system.cpp
   shapelogic/base/thread_pool.cpp
+  shapelogic/grid/cairo_lattice.cpp
   shapelogic/grid/grid_type.cpp
   shapelogic/grid/symmetries_0.cpp
   shapelogic/grid/symmetries_1.cpp
   shapelogic/grid/symmetries_2.cpp
+  shapelogic/grid/symmetries_derived.cpp
   shapelogic/grid/voxel.cpp
   shapelogic/grid/voxel_bricks.cpp
+  shapelogic/grid/voxel_cairo.cpp
+  shapelogic/grid/voxel_hex.cpp
   shapelogic/grid/voxel_prisms.cpp
   shapelogic/grid/voxel_rhombic.cpp
   shapelogic/grid/voxel_spheres.cpp
@@ -45,6 +49,8 @@ add_library(btcore STATIC
   shapelogic/mesh/grid_geometry_1.cpp
   shapelogic/mesh/grid_geometry_3.cpp
   shapelogic/mesh/grid_geometry_4.cpp
+  shapelogic/mesh/grid_geometry_7.cpp
+  shapelogic/mesh/grid_geometry_8.cpp
   shapelogic/mesh/mink_mesh.cpp
   shapelogic/mesh/modifiers.cpp
   shapelogic/mesh/polyhedron.cpp

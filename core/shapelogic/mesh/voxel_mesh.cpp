@@ -29,7 +29,9 @@ int addCornerFace(Polyhedron& poly, VertexList& vl, const std::vector<float>& c)
   if (c.empty()) {
     return kNone;
   }
-  BT_ASSERT(c.size() == 9 || c.size() == 12);
+  // three or four corners on the original's grids; the new grids' faces
+  // have up to six
+  BT_ASSERT(c.size() >= 9 && c.size() % 3 == 0);
   std::vector<int> corners;
   for (std::size_t i = 0; i < c.size(); i += 3) {
     corners.push_back(vl.get(c[i], c[i + 1], c[i + 2]));
@@ -179,7 +181,33 @@ Polyhedron cellMesh(const Voxel& v, double bevel, double offset, bool fast) {
 }
 
 Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
-  if (v.getGridType().getType() == GridKind::Spheres) {
+  const GridKind kind = v.getGridType().getType();
+  if (kind == GridKind::Hexagonal || kind == GridKind::Cairo) {
+    // the new grids have no bevel tables: the uniform mesher draws every
+    // style (the wire frame is the drawing's flagged strips); the plain
+    // cells where it cannot
+    UniformMeshOptions o;
+    switch (style) {
+      case MeshStyle::Drawing:
+      case MeshStyle::Wireframe:
+      case MeshStyle::Uniform:
+        o.bevel = kUniformBevel;
+        o.offset = kUniformOffset;
+        break;
+      case MeshStyle::Flat:
+        break;
+      case MeshStyle::Stl:
+        o.bevel = 0.05;
+        o.offset = 0.02;
+        break;
+    }
+    Result<Polyhedron> p = uniformMesh(v, o);
+    if (p) {
+      return std::move(*p);
+    }
+    return cellMesh(v, 0, 0, false);
+  }
+  if (kind == GridKind::Spheres) {
     if (style == MeshStyle::Flat) {
       return cellMesh(v, 0, 0, false);
     }
@@ -207,7 +235,6 @@ Polyhedron shapeMesh(const Voxel& v, MeshStyle style) {
       // chamfers. A draw path must not fail: where the mesher does, the
       // flat mesh of the edge-line style is shown (the original also said
       // why on stderr).
-      const GridKind kind = v.getGridType().getType();
       Result<Polyhedron> p = fail(Errc::Unsupported, "grid without a chamfer mesher");
       if (kind == GridKind::Bricks || kind == GridKind::Sliding || kind == GridKind::Stacking) {
         p = cubePolyhedron(v, 0.02, 0.05, true);

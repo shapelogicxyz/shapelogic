@@ -1,6 +1,6 @@
 ---
 title: Puzzle Types
-description: The seven kinds of puzzle ShapeLogic handles, and how to choose one.
+description: The nine kinds of puzzle ShapeLogic handles, and how to choose one.
 ---
 
 When you choose **File ▸ New**, ShapeLogic asks which kind of puzzle to make.
@@ -17,6 +17,8 @@ grid has to be chosen before you start, so pick it first.
 | [Spheres](/docs/puzzle-types/spheres/) | Balls in the tightest packing | Pyramid and ball packing |
 | [Rhombic](/docs/puzzle-types/rhombic/) | Small tetrahedra cut from cubes | Rhombic dodecahedra, stellations |
 | [Tetrahedra-Octahedra](/docs/puzzle-types/tetra-octa/) | Tetrahedra and octahedra | Tetrahedron and octahedron puzzles |
+| [Hexagonal Prism](/docs/puzzle-types/hexagonal/) | Hexagonal prisms, a stacked honeycomb | Hex-tile and honeycomb puzzles (new in ShapeLogic) |
+| [Cairo Prism](/docs/puzzle-types/cairo/) | Prisms on the Cairo pentagonal tiling | Pentagon-tiling puzzles (new in ShapeLogic) |
 
 The workflow is the same for every type: draw the pieces on the **Shapes**
 workspace, set up the problem on **Puzzle**, and solve it on **Solver**. See
@@ -29,8 +31,8 @@ For **Brick** and **Triangular Prism** puzzles the solver finds every way the
 pieces fill the result, then checks which assemblies can really be taken apart
 and shows how.
 
-For **Spheres**, **Rhombic** and **Tetrahedra-Octahedra** puzzles there is no
-disassembler. The solver finds every assembly but cannot check whether it can
+For **Spheres**, **Rhombic**, **Tetrahedra-Octahedra**, **Hexagonal Prism**
+and **Cairo Prism** puzzles there is no disassembler. The solver finds every assembly but cannot check whether it can
 be taken apart. The Solver workspace offers **Assemble Only** (**Assemble and
 Disassemble** is greyed out); the Solutions count stays empty and the
 assemblies are what you get.

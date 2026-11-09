@@ -98,9 +98,9 @@ describe('the direction of an Alt-drag', () => {
 
 describe('a placed piece', () => {
   it('goes to its cell minus its hotspot, scaled, centred on the result', () => {
-    expect(placedAt([3, 2, 1], [1, 1, 0], [1, 1, 1], [4, 4, 2])).toEqual([0, -1, 0]);
+    expect(placedAt([3, 2, 1], [1, 1, 0], 'bricks', [4, 4, 2])).toEqual([0, -1, 0]);
     // the prisms' spacing: a cell is half a unit along x
-    const t = placedAt([4, 1, 0], [0, 0, 0], [0.5, Math.sqrt(3) / 2, 1], [3, Math.sqrt(3), 1]);
+    const t = placedAt([4, 1, 0], [0, 0, 0], 'prisms', [3, Math.sqrt(3), 1]);
     expect(t[0]).toBeCloseTo(0.5, 10);
     expect(t[1]).toBeCloseTo(0, 10);
     expect(t[2]).toBeCloseTo(-0.5, 10);

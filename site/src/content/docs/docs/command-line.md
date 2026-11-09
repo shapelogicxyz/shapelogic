@@ -109,8 +109,8 @@ shapelogic_cli [options] file [options]
 - **The puzzle type comes from the file.** A file is a brick, sliding or
   stacking puzzle (see [Puzzle types](/docs/puzzle-types/)). It decides which
   solvers and options apply. *Brick* here covers every grid that is assembled
-  and taken apart: cubes, triangular prisms, spheres, rhombic and
-  tetrahedra-octahedra. Options that don't apply to the file's type are refused
+  and taken apart: cubes, triangular prisms, spheres, rhombic,
+  tetrahedra-octahedra, hexagonal prisms and cairo prisms. Options that don't apply to the file's type are refused
   with a message, not ignored.
 
 The tool has four modes. Which one runs depends on the options:
@@ -276,7 +276,8 @@ shapelogic_cli -d PelikanBurr.xmpuzzle
 For brick puzzles, `-d` turns on the disassembler, so the tool reports which
 assemblies come apart and how. Only the assemblies that solve are printed.
 
-Spheres, Rhombic and Tetrahedra-Octahedra puzzles have no disassembler. With
+Spheres, Rhombic, Tetrahedra-Octahedra, Hexagonal Prism and Cairo Prism
+puzzles have no disassembler. With
 `-d` they still assemble, and report 0 solutions. To list their assemblies,
 leave out `-d` and use `-s`.
 
@@ -746,7 +747,8 @@ shapelogic_cli -d -o all --restart --limit 0 --save all-solutions.xmpuzzle puzzl
 shapelogic_cli -d --count-only -t 8 --progress --save counted.xmpuzzle puzzle.xmpuzzle
 ```
 
-On grids without a disassembler (Spheres, Rhombic, Tetrahedra-Octahedra),
+On grids without a disassembler (Spheres, Rhombic, Tetrahedra-Octahedra,
+Hexagonal Prism, Cairo Prism),
 `--save` with `-d` is refused:
 
 ```text

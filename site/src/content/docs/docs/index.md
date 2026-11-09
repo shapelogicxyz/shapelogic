@@ -11,7 +11,8 @@ New here? [Install](/docs/install/) the app, then follow
 and a first solve.
 
 Then read about the [puzzle types](/docs/puzzle-types/): Brick, Sliding,
-Stacking, Triangular Prism, Spheres, Rhombic and Tetrahedra-Octahedra.
+Stacking, Triangular Prism, Spheres, Rhombic, Tetrahedra-Octahedra, Hexagonal
+Prism and Cairo Prism.
 
 ## Using ShapeLogic
 

@@ -64,7 +64,17 @@ describe.skipIf(ENGINE === null)('the engine', () => {
     expect([...info.methods].sort()).toEqual([...METHOD_NAMES]);
     expect(info.protocol).toBe(1);
     expect(new Set(info.grids.map((g) => g.grid))).toEqual(
-      new Set(['bricks', 'prisms', 'spheres', 'rhombic', 'tetraOcta', 'sliding', 'stacking']),
+      new Set([
+        'bricks',
+        'prisms',
+        'spheres',
+        'rhombic',
+        'tetraOcta',
+        'sliding',
+        'stacking',
+        'hexagonal',
+        'cairo',
+      ]),
     );
   });
 

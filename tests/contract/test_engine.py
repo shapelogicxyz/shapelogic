@@ -61,7 +61,8 @@ def engine_info_and_settings(e):
     missing = set(e.api.methods) - methods
     check(not missing, f"methods of the schema the engine does not have: {sorted(missing)}")
     check({g["grid"] for g in info["grids"]} == {"bricks", "prisms", "spheres", "rhombic",
-                                                  "tetraOcta", "sliding", "stacking"}, "the grids")
+                                                  "tetraOcta", "sliding", "stacking", "hexagonal",
+                                                  "cairo"}, "the grids")
     check(info["hardwareThreads"] >= 1, "hardware threads")
     supported = {g["grid"]: g["supported"] for g in info["grids"]}
     check(all(supported.values()), f"what is solved {supported}")
@@ -325,7 +326,7 @@ def shapes(e):
 @test
 def shape_tasks_and_views(e):
     default = {g["grid"]: g["defaultSize"] for g in e.call("engine.info")["grids"]}
-    for grid in ("bricks", "prisms", "spheres", "rhombic", "tetraOcta"):
+    for grid in ("bricks", "prisms", "spheres", "rhombic", "tetraOcta", "hexagonal", "cairo"):
         e.call("document.new", {"grid": grid})
         tasks = e.call("shape.taskSet")["tasks"]
         check(tasks, f"{grid}: tasks")

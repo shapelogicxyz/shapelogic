@@ -9,7 +9,9 @@
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
+#include "shapelogic/grid/cairo_lattice.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/hex_lattice.h"
 #include "shapelogic/grid/voxel.h"
 
 #include <algorithm>
@@ -21,9 +23,13 @@ namespace bt::app {
 
 namespace {
 
+// (The cairo grid's corners are a whole number plus a multiple of its
+// offset, cairo::kOfs: xo and yo count those multiples.)
 struct Lattice {
   int x = 0;
   int y = 0;
+  int xo = 0;
+  int yo = 0;
   auto operator<=>(const Lattice&) const = default;
 };
 
@@ -117,13 +123,37 @@ Corners tetraOctaCorners(int x, int y, int z) {
   return {{xc + 1, yc + 1}, {xc, yc + 1}, {xc + 1, yc}};
 }
 
+// The hexagonal grid: lattice x in half cells, y in sixths of a row's
+// height (sqrt(3)/6); the centre of cell (x, y) at (2x + 1 + y, 3y + 2),
+// each row half a cell further right.
+Corners hexCorners(int x, int y) {
+  const int cx = 2 * x + 1 + y;
+  const int cy = 3 * y + 2;
+  return {{cx + 1, cy - 1}, {cx + 1, cy + 1}, {cx, cy + 2},
+          {cx - 1, cy + 1}, {cx - 1, cy - 1}, {cx, cy - 2}};
+}
+
+// The cairo grid: the pentagon's corners in lattice units, moved by one
+// as the meshes are, each coordinate a whole part and a count of offsets.
+Corners cairoCorners(int x, int y) {
+  Corners c;
+  for (const cairo::Point& p : cairo::pentagon(x, y)) {
+    c.push_back({p.x.a + 1, p.y.a + 1, p.x.o, p.y.o});
+  }
+  return c;
+}
+
 // Counter-clockwise, keeping the first corner.
 void counterClockwise(Corners& c) {
-  long area2 = 0;
+  double area2 = 0;
   for (std::size_t i = 0; i < c.size(); i++) {
     const Lattice& a = c[i];
     const Lattice& b = c[(i + 1) % c.size()];
-    area2 += long{a.x} * b.y - long{b.x} * a.y;
+    const double ax = a.x + a.xo * cairo::kOfs;
+    const double ay = a.y + a.yo * cairo::kOfs;
+    const double bx = b.x + b.xo * cairo::kOfs;
+    const double by = b.y + b.yo * cairo::kOfs;
+    area2 += ax * by - bx * ay;
   }
   if (area2 < 0) {
     std::reverse(c.begin() + 1, c.end());
@@ -141,6 +171,8 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
   // the lattice's units in cell units, and the extent (calcParameters)
   double ux = 1;
   double uy = 1;
+  // the cairo offset's unit (0 elsewhere)
+  double uo = 0;
   switch (grid) {
     case GridKind::TriangularPrism:
       ux = 0.5;
@@ -156,6 +188,18 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
     case GridKind::TetraOcta:
       g.width = (sx + 2) / 3;
       g.height = (sy + 2) / 3;
+      break;
+    case GridKind::Hexagonal:
+      ux = 0.5;
+      uy = std::sqrt(3.0) / 6;
+      g.width = sx + 0.5 * (sy - 1);
+      g.height = (3.0 * (sy - 1) + 4) * uy;
+      break;
+    case GridKind::Cairo:
+      ux = uy = cairo::kScale;
+      uo = cairo::kOfs * cairo::kScale;
+      g.width = (sx + 1) * cairo::kScale;
+      g.height = (sy + 1) * cairo::kScale;
       break;
     default:
       g.width = sx;
@@ -196,13 +240,19 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
         case GridKind::TetraOcta:
           c = tetraOctaCorners(x, y, z);
           break;
+        case GridKind::Hexagonal:
+          c = hexCorners(x, y);
+          break;
+        case GridKind::Cairo:
+          c = cairoCorners(x, y);
+          break;
         default:
           c = cubeCorners(x, y);
           break;
       }
       counterClockwise(c);
       for (const Lattice& p : c) {
-        cell.polygon.push_back({p.x * ux, p.y * uy});
+        cell.polygon.push_back({p.x * ux + p.xo * uo, p.y * uy + p.yo * uo});
       }
       cell.neighbours.assign(c.size(), -1);
       corners.push_back(std::move(c));

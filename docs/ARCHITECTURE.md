@@ -129,7 +129,19 @@ original (`tests/data/grid_dump.txt`, see "Testing against the original"),
 and against the cells' own geometry (`tests/unit/grid/test_grid_oracle.cpp`
 on `mesh/cell_geometry.h`: neighbours, transformations and groups rebuilt
 from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
-- `grid_type.h`: `GridKind` (the numbers are the file format's) and
+- `voxel_hex.h`, `hex_lattice.h`, `voxel_cairo.h`, `cairo_lattice.h`
+  (decision 0023, after BurrTools V2's grids): the hexagonal prism grid
+  (axial coordinates, every move a symmetry) and the cairo prism grid
+  (V2's coordinates: x + y odd, four kinds of pentagon, moves by the
+  lattice of (2, 2) and (2, -2)). `symmetries_derived.h`: their symmetry
+  tables derived at first use from their matrices (the composition table,
+  every subgroup, and the generator's unified, unique and minimizer
+  tables per group; the hexagonal grid gets the triangular prism grid's
+  54 groups, the cairo grid 35). No disassembler (idea 4), no scaling,
+  meshes by the uniform mesher.
+- `grid_type.h`: `GridKind` (the numbers are the file format's; 7 and 8,
+  the hexagonal and cairo prism grids, are this program's own, decision
+  0023) and
   `GridType`, a small value type: capabilities, `getSymmetries()`, and
   `makeVoxel()`, the factory for voxel spaces. The sliding and stacking
   grids are cube spaces; sliding puzzles are solved (model's `sliding.h`,

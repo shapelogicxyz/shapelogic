@@ -8,6 +8,8 @@
 import type { Grid } from '../../engine/api.generated.ts';
 import { esc } from './dom.ts';
 import brick from './new-grid-images/brick.png?url';
+import cairo from './new-grid-images/cairo.png?url';
+import hexagonal from './new-grid-images/hexagonal.png?url';
 import prism from './new-grid-images/prism.png?url';
 import rhombic from './new-grid-images/rhombic.png?url';
 import sliding from './new-grid-images/sliding.png?url';
@@ -102,6 +104,27 @@ export const gridInfo: Readonly<Record<Grid, GridInfo>> = {
     warning: noDisassembler,
     pictureOf: 'Four Piece Tetrahedron by Wayne Daniel',
     picture: tetraocta,
+  },
+  hexagonal: {
+    name: 'Hexagonal Prism',
+    description:
+      'Pieces are made of hexagonal prisms, like a honeycomb stacked in layers. Each row of a layer ' +
+      'sits half a cell to the right of the row below, so a shape\u2019s space is a slanted ' +
+      'parallelogram of cells. New in ShapeLogic: BurrTools has no such grid.',
+    warning: noDisassembler,
+    pictureOf: 'A honeycomb slab (an example shape)',
+    picture: hexagonal,
+  },
+  cairo: {
+    name: 'Cairo Prism',
+    description:
+      'Pieces are made of prisms on the Cairo pentagonal tiling: pentagons with five equal sides, ' +
+      'four of them meeting at every other corner, in four orientations. Only the cells with x + y ' +
+      'odd exist, and a shape keeps its look when moved by two cells diagonally or four along an ' +
+      'axis. New in ShapeLogic: BurrTools has no such grid.',
+    warning: noDisassembler,
+    pictureOf: 'A pentagon slab (an example shape)',
+    picture: cairo,
   },
 };
 

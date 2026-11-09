@@ -20,7 +20,8 @@ const Names<GridKind>& gridNames() {
       {"bricks", GridKind::Bricks},     {"prisms", GridKind::TriangularPrism},
       {"spheres", GridKind::Spheres},   {"rhombic", GridKind::Rhombic},
       {"tetraOcta", GridKind::TetraOcta}, {"sliding", GridKind::Sliding},
-      {"stacking", GridKind::Stacking},
+      {"stacking", GridKind::Stacking},   {"hexagonal", GridKind::Hexagonal},
+      {"cairo", GridKind::Cairo},
   };
   return n;
 }

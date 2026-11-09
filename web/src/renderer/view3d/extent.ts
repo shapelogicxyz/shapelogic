@@ -33,28 +33,43 @@ export function gridExtent(grid: Grid, size: Size): [number, number, number] {
       ];
     case 'tetraOcta':
       return [Math.trunc((x + 2) / 3), Math.trunc((y + 2) / 3), Math.trunc((z + 2) / 3)];
+    case 'hexagonal':
+      // each row half a cell further right; the rows' lowest and highest corners
+      return [x + 0.5 * (y - 1), 2 / Math.sqrt(3) + (y - 1) * (Math.sqrt(3) / 2), z];
+    case 'cairo':
+      // a cell's pentagon lies within one lattice unit of its coordinate
+      return [(x + 1) * Math.SQRT1_2, (y + 1) * Math.SQRT1_2, z];
   }
 }
 
 /**
  * Grid coordinates to mesh units (recalcSpaceCoordinates of the original's
- * voxel_0 to voxel_4): a linear scale per axis, so a cell minus a hotspot
- * is scaled as one.
+ * voxel_0 to voxel_4): a linear map, so a cell minus a hotspot maps as one.
+ * A scale per axis on every grid but the hexagonal one, whose rows are
+ * sheared half a cell each.
  */
-export function cellScale(grid: Grid): [number, number, number] {
+export function cellToMesh(
+  grid: Grid,
+  v: readonly [number, number, number],
+): [number, number, number] {
+  const [x, y, z] = v;
   switch (grid) {
     case 'bricks':
     case 'sliding':
     case 'stacking':
-      return [1, 1, 1];
+      return [x, y, z];
     case 'prisms':
-      return [0.5, Math.sqrt(3) / 2, 1];
+      return [0.5 * x, (Math.sqrt(3) / 2) * y, z];
     case 'spheres':
-      return [Math.SQRT1_2, Math.SQRT1_2, Math.SQRT1_2];
+      return [Math.SQRT1_2 * x, Math.SQRT1_2 * y, Math.SQRT1_2 * z];
     case 'rhombic':
-      return [0.4, 0.4, 0.4];
+      return [0.4 * x, 0.4 * y, 0.4 * z];
     case 'tetraOcta':
-      return [1 / 3, 1 / 3, 1 / 3];
+      return [x / 3, y / 3, z / 3];
+    case 'hexagonal':
+      return [x + 0.5 * y, (Math.sqrt(3) / 2) * y, z];
+    case 'cairo':
+      return [Math.SQRT1_2 * x, Math.SQRT1_2 * y, z];
   }
 }
 
@@ -68,11 +83,9 @@ export function cellScale(grid: Grid): [number, number, number] {
 export function placedAt(
   at: readonly [number, number, number],
   hotspot: readonly [number, number, number],
-  scale: readonly [number, number, number],
+  grid: Grid,
   extent: readonly [number, number, number],
 ): [number, number, number] {
-  return [0, 1, 2].map((k) => {
-    const i = k as 0 | 1 | 2;
-    return (at[i] - hotspot[i]) * scale[i] - extent[i] / 2;
-  }) as [number, number, number];
+  const m = cellToMesh(grid, [at[0] - hotspot[0], at[1] - hotspot[1], at[2] - hotspot[2]]);
+  return [m[0] - extent[0] / 2, m[1] - extent[1] / 2, m[2] - extent[2] / 2];
 }

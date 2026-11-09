@@ -4,7 +4,9 @@
 #include "shapelogic/mesh/grid_geometry.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/grid/cairo_lattice.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/hex_lattice.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/mesh/grid_geometry_tables.h"
 
@@ -35,6 +37,12 @@ void connectionFace(const Voxel& v, int x, int y, int z, int n, double bevel, do
       return;
     case GridKind::TetraOcta:
       detail::connectionFaceTetraOcta(x, y, z, n, bevel, offset, corners);
+      return;
+    case GridKind::Hexagonal:
+      detail::connectionFaceHex(x, y, z, n, corners);
+      return;
+    case GridKind::Cairo:
+      detail::connectionFaceCairo(x, y, z, n, corners);
       return;
   }
   BT_ASSERT_MSG(false, "unknown grid");
@@ -72,6 +80,19 @@ void calculateSize(const Voxel& v, float* x, float* y, float* z) {
       *y = static_cast<float>((v.getY() + 2) / 3);
       *z = static_cast<float>((v.getZ() + 2) / 3);
       return;
+    case GridKind::Hexagonal:
+      // each row reaches half a cell further right; the rows' lowest and
+      // highest corners
+      *x = static_cast<float>(sx + 0.5 * (sy - 1));
+      *y = static_cast<float>(2 * hex::kRadius + (sy - 1) * hex::kRow);
+      *z = static_cast<float>(sz);
+      return;
+    case GridKind::Cairo:
+      // a cell's pentagon lies within one lattice unit of its coordinate
+      *x = static_cast<float>((sx + 1) * cairo::kScale);
+      *y = static_cast<float>((sy + 1) * cairo::kScale);
+      *z = static_cast<float>(sz);
+      return;
   }
   BT_ASSERT_MSG(false, "unknown grid");
 }
@@ -100,6 +121,15 @@ void recalcSpaceCoordinates(const Voxel& v, float* x, float* y, float* z) {
       *x /= 3;
       *y /= 3;
       *z /= 3;
+      return;
+    case GridKind::Hexagonal:
+      // each row half a cell further right
+      *x = static_cast<float>(static_cast<double>(*x) + 0.5 * static_cast<double>(*y));
+      *y = static_cast<float>(static_cast<double>(*y) * hex::kRow);
+      return;
+    case GridKind::Cairo:
+      *x = static_cast<float>(static_cast<double>(*x) * cairo::kScale);
+      *y = static_cast<float>(static_cast<double>(*y) * cairo::kScale);
       return;
   }
   BT_ASSERT_MSG(false, "unknown grid");

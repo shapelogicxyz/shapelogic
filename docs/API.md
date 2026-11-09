@@ -103,7 +103,7 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
-| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
+| `grids.grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
 | `grids.label` | string | required |  |
 | `grids.assemble` | boolean | required | It has an assembler. |
 | `grids.disassemble` | boolean | required | It has a take-apart. |
@@ -206,7 +206,7 @@ Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
 
 Result: [Snapshot](#snapshot)
 
@@ -283,7 +283,7 @@ Params:
 
 | name | type | | description |
 |---|---|---|---|
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
 
 Result: [Snapshot](#snapshot)
 
@@ -2628,9 +2628,9 @@ number[]
 
 ### Grid
 
-The grid of a puzzle, fixed for its life.
+The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart.
 
-`"bricks"` \| `"prisms"` \| `"spheres"` \| `"rhombic"` \| `"tetraOcta"` \| `"sliding"` \| `"stacking"`
+`"bricks"` \| `"prisms"` \| `"spheres"` \| `"rhombic"` \| `"tetraOcta"` \| `"sliding"` \| `"stacking"` \| `"hexagonal"` \| `"cairo"`
 
 ### Solver
 
@@ -2858,7 +2858,7 @@ Everything a front end shows of the document's lists.
 |---|---|---|---|
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 | `dirty` | boolean | required |  |
-| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. |
+| `grid` | [Grid](#grid) | required | The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled, not taken apart. |
 | `path` | string or null | required | The file it was opened from or last saved to. |
 | `notes` | string | required |  |
 | `canUndo` | boolean | required |  |

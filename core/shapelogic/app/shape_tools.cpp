@@ -6,9 +6,14 @@
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
+#include "shapelogic/grid/cairo_lattice.h"
+#include "shapelogic/grid/hex_lattice.h"
+#include "shapelogic/grid/symmetries_derived.h"
 #include "shapelogic/grid/voxel.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <optional>
 
 namespace bt::app {
@@ -71,8 +76,40 @@ std::optional<Shift> nudge(GridKind grid, ShapeTask task) {
         case 32: return Shift{0, -1, -1};
         default: return std::nullopt;
       }
+    case GridKind::Hexagonal:
+      // along a row, from row to row (half a cell aside each), and layers
+      switch (t) {
+        case 0: return Shift{1, 0, 0};
+        case 1: return Shift{-1, 0, 0};
+        case 2: return Shift{0, 1, 0};
+        case 3: return Shift{0, -1, 0};
+        case 4: return Shift{0, 0, 1};
+        case 5: return Shift{0, 0, -1};
+        default: return std::nullopt;
+      }
+    case GridKind::Cairo:
+      // the lattice vectors: four along an axis, two and two diagonally
+      switch (t) {
+        case 0: return Shift{4, 0, 0};
+        case 1: return Shift{-4, 0, 0};
+        case 2: return Shift{0, 4, 0};
+        case 3: return Shift{0, -4, 0};
+        case 4: return Shift{0, 0, 1};
+        case 5: return Shift{0, 0, -1};
+        case 27: return Shift{2, 2, 0};
+        case 28: return Shift{-2, -2, 0};
+        case 29: return Shift{2, -2, 0};
+        case 30: return Shift{-2, 2, 0};
+        default: return std::nullopt;
+      }
   }
   return std::nullopt;
+}
+
+// The transformation of a derived grid with this matrix.
+std::optional<unsigned int> derivedTurn(const detail::DerivedSymmetries& sym,
+                                        const detail::DerivedSymmetries::Matrix& m) {
+  return sym.transformationOf(m);
 }
 
 // The transformation of a rotation or flip on a grid, or none.
@@ -120,6 +157,26 @@ std::optional<unsigned int> turn(GridKind grid, ShapeTask task) {
         case 14: return 141;
         default: return std::nullopt;
       }
+    case GridKind::Hexagonal:
+    case GridKind::Cairo: {
+      // by the matrix: a turn over about x or y, a turn about z clockwise
+      // (seen from above) or anticlockwise, the flips
+      const detail::DerivedSymmetries& sym =
+          grid == GridKind::Cairo ? detail::cairoSymmetries() : detail::hexagonalSymmetries();
+      const double a = grid == GridKind::Cairo ? 3.14159265358979323846 / 2 : 3.14159265358979323846 / 3;
+      const double c = std::cos(a);
+      const double s = std::sin(a);
+      switch (t) {
+        case 6: return derivedTurn(sym, {1, 0, 0, 0, -1, 0, 0, 0, -1});
+        case 9: return derivedTurn(sym, {-1, 0, 0, 0, 1, 0, 0, 0, -1});
+        case 10: return derivedTurn(sym, {c, s, 0, -s, c, 0, 0, 0, 1});
+        case 11: return derivedTurn(sym, {c, -s, 0, s, c, 0, 0, 0, 1});
+        case 12: return derivedTurn(sym, {-1, 0, 0, 0, 1, 0, 0, 0, 1});
+        case 13: return derivedTurn(sym, {1, 0, 0, 0, -1, 0, 0, 0, 1});
+        case 14: return derivedTurn(sym, {1, 0, 0, 0, 1, 0, 0, 0, -1});
+        default: return std::nullopt;
+      }
+    }
   }
   return std::nullopt;
 }
@@ -176,6 +233,15 @@ void toOrigin(Voxel& space, GridKind grid) {
     case GridKind::TetraOcta:
       space.translate(-(bx1 / 6) * 6, -(by1 / 6) * 6, -(bz1 / 6) * 6, 0);
       return;
+    case GridKind::Hexagonal:
+      space.translate(-bx1, -by1, -bz1, 0);
+      return;
+    case GridKind::Cairo: {
+      // a lattice vector only
+      const cairo::Fix f = cairo::fixToLattice(-bx1, -by1);
+      space.translate(-bx1 + f.a, -by1 + f.b, -bz1, 0);
+      return;
+    }
   }
 }
 
@@ -194,6 +260,24 @@ void centre(Voxel& space, GridKind grid) {
   const int bx2 = asInt(space.boundX2());
   const int by2 = asInt(space.boundY2());
   const int bz2 = asInt(space.boundZ2());
+
+  if (grid == GridKind::Cairo) {
+    // the nearest lattice vector that keeps the shape inside
+    const int wx = sx - (bx2 - bx1 + 1);
+    const int wy = sy - (by2 - by1 + 1);
+    int fx = wx / 2 - bx1;
+    int fy = wy / 2 - by1;
+    const cairo::Fix f = cairo::fixToLattice(fx, fy);
+    fx += f.a;
+    fy += f.b;
+    if (bx2 + fx >= sx || by2 + fy >= sy) {
+      // room for the move
+      space.resize(asUnsigned(std::max(sx, bx2 + fx + 1)), asUnsigned(std::max(sy, by2 + fy + 1)),
+                   space.getZ(), 0);
+    }
+    space.translate(fx, fy, (sz - (bz2 - bz1 + 1)) / 2 - bz1, 0);
+    return;
+  }
 
   if (grid == GridKind::Rhombic || grid == GridKind::TetraOcta) {
     // to the nearest block boundary
@@ -244,6 +328,7 @@ void centre(Voxel& space, GridKind grid) {
     space.resize(space.getX() + 2, space.getY(), space.getZ(), 0);
     fx += 2;
   }
+
   space.translate(fx / 2 - asInt(space.boundX1()), fy / 2 - asInt(space.boundY1()),
                   fz / 2 - asInt(space.boundZ1()), 0);
 }
@@ -287,6 +372,35 @@ constexpr ShapeTaskInfo kNudgesSpheres[] = {
     {ShapeTask::Nudge30, "Nudge", "Shift down along Z and up along Y", false},
     {ShapeTask::Nudge31, "Nudge", "Shift down along Z and left along X", false},
     {ShapeTask::Nudge32, "Nudge", "Shift down along Z and down along Y", false},
+};
+
+constexpr ShapeTaskInfo kNudgesHex[] = {
+    {ShapeTask::Nudge1, "Nudge", "Shift left along the row", false},
+    {ShapeTask::Nudge0, "Nudge", "Shift right along the row", false},
+    {ShapeTask::Nudge3, "Nudge", "Shift down a row", false},
+    {ShapeTask::Nudge2, "Nudge", "Shift up a row", false},
+    {ShapeTask::Nudge5, "Nudge", "Shift down along Z", false},
+    {ShapeTask::Nudge4, "Nudge", "Shift up along Z", false},
+};
+
+constexpr ShapeTaskInfo kNudgesCairo[] = {
+    {ShapeTask::Nudge1, "Nudge", "Shift left along X (four cells)", false},
+    {ShapeTask::Nudge0, "Nudge", "Shift right along X (four cells)", false},
+    {ShapeTask::Nudge3, "Nudge", "Shift down along Y (four cells)", false},
+    {ShapeTask::Nudge2, "Nudge", "Shift up along Y (four cells)", false},
+    {ShapeTask::Nudge30, "Nudge", "Shift up left along XY plane", false},
+    {ShapeTask::Nudge27, "Nudge", "Shift up right along XY plane", false},
+    {ShapeTask::Nudge28, "Nudge", "Shift down left along XY plane", false},
+    {ShapeTask::Nudge29, "Nudge", "Shift down right along XY plane", false},
+    {ShapeTask::Nudge5, "Nudge", "Shift down along Z", false},
+    {ShapeTask::Nudge4, "Nudge", "Shift up along Z", false},
+};
+
+constexpr ShapeTaskInfo kRotationsCairo[] = {
+    {ShapeTask::Rotate6, "Rotate", "Rotate 180° along X-Axis", false},
+    {ShapeTask::Rotate9, "Rotate", "Rotate 180° along Y-Axis", false},
+    {ShapeTask::Rotate10, "Rotate", "Rotate 90° clockwise along Z-Axis", false},
+    {ShapeTask::Rotate11, "Rotate", "Rotate 90° anticlockwise along Z-Axis", false},
 };
 
 constexpr ShapeTaskInfo kRotationsPrisms[] = {
@@ -369,6 +483,14 @@ std::vector<ShapeTaskInfo> taskSet(GridKind grid) {
       append(v, kNudgesSpheres);
       append(v, kRotations);
       break;
+    case GridKind::Hexagonal:
+      append(v, kNudgesHex);
+      append(v, kRotationsPrisms);
+      break;
+    case GridKind::Cairo:
+      append(v, kNudgesCairo);
+      append(v, kRotationsCairo);
+      break;
     default:
       append(v, kNudgesCube);
       append(v, kRotations);
@@ -376,18 +498,21 @@ std::vector<ShapeTaskInfo> taskSet(GridKind grid) {
   }
   append(v, kGrid);
   // Minimize: the cube grid only (the others said "not implemented");
-  // spheres have no scale buttons
+  // spheres have no scale buttons, nor do the new grids (a hexagon or a
+  // cairo pentagon is not made of smaller ones)
+  const bool scales =
+      grid != GridKind::Spheres && grid != GridKind::Hexagonal && grid != GridKind::Cairo;
   if (isCubeLike(grid)) {
     v.push_back(kMinimize);
   }
-  if (grid != GridKind::Spheres) {
+  if (scales) {
     append(v, kScales);
   }
   append(v, kConstrain);
   v.push_back(kFillHoles);
   // grid scale: not on the sphere and tetra-octa grids (the button did
-  // nothing there)
-  if (grid != GridKind::Spheres && grid != GridKind::TetraOcta) {
+  // nothing there), nor on the grids that do not scale
+  if (scales && grid != GridKind::TetraOcta) {
     v.push_back(kGridScale);
   }
   return v;
@@ -596,6 +721,9 @@ unsigned int defaultShapeSize(GridKind grid) {
       return 3;
     case GridKind::Sliding:
       return 6;
+    case GridKind::Cairo:
+      // two blocks of the tiling's period
+      return 8;
     default:
       return 4;
   }
@@ -607,6 +735,8 @@ unsigned int sizeUnit(GridKind grid) {
       return 5;
     case GridKind::TetraOcta:
       return 3;
+    case GridKind::Cairo:
+      return 4;
     default:
       return 1;
   }

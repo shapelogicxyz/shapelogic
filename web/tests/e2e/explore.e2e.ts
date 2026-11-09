@@ -24,7 +24,7 @@ import type { Page } from '@playwright/test';
 
 import { statsReport } from '../../src/renderer/explore/debug-stats.ts';
 import type { MovementNode, Placement, SolveStats } from '../../src/engine/api.generated.ts';
-import { cellScale, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
+import { cellToMesh, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
 import {
   BUILT,
   ENGINE,
@@ -69,11 +69,11 @@ async function expectedAt(
   shape: string,
   transformation: number,
   at: V3,
-  grid: Parameters<typeof cellScale>[0],
+  grid: Parameters<typeof cellToMesh>[0],
   extent: V3,
 ): Promise<V3> {
   const mesh = await engineCall<{ hotspot: V3 }>(page, 'shape.mesh', { shape, transformation });
-  return placedAt(at, mesh.hotspot, cellScale(grid), extent);
+  return placedAt(at, mesh.hotspot, grid, extent);
 }
 
 /** The pieces of the problem by number: their shapes (numbered part by part). */
@@ -87,9 +87,9 @@ async function pieceShapes(page: Page, problem: string): Promise<string[]> {
 async function resultExtent(
   page: Page,
   problem: string,
-): Promise<{ grid: Parameters<typeof cellScale>[0]; extent: V3 }> {
+): Promise<{ grid: Parameters<typeof cellToMesh>[0]; extent: V3 }> {
   const snap = await engineCall<{
-    grid: Parameters<typeof cellScale>[0];
+    grid: Parameters<typeof cellToMesh>[0];
     shapes: { id: string; size: V3 }[];
   }>(page, 'document.get');
   const d = await engineCall<{ result: string }>(page, 'problem.get', { problem });

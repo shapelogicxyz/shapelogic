@@ -100,12 +100,13 @@ still missing for idea 4 is the sweep test: which cells a cell passes
 through when moved one step along a direction (V2's Minkowski sweep with
 a convex-intersection check).
 
-**Not done, a separate project:** new grid kinds (hexagonal and cairo
-prisms) in File ▸ New. Everything keys on `GridKind` and the .xmpuzzle
-`type` attribute (the enum, 38 grid-kind switches in `app/shape_tools.cpp`,
-layer geometry, mesh tables, STL, the web `Grid` type), the symmetry
-tables of a new grid would have to be derived at run time or generated
-offline, and the original has no such grids to compare against.
+**New grid kinds done 2026-11-08** (decision 0023): Hexagonal Prism
+(`GridKind::Hexagonal`, 7) and Cairo Prism (`GridKind::Cairo`, 8) in
+File ▸ New, the user guide (puzzle-types/hexagonal, cairo) and the demo.
+Symmetry tables derived at first use (`symmetries_derived.h`), meshes by
+the uniform mesher, assemble-only. Tested by the grid oracle, the grid
+invariants and a brute-force domino-tiling count the assembler reproduces;
+the original has no such grids, so the oracle harness cannot cover them.
 - **We have:** per-grid `Voxel` subclasses with hand-written tables
   (`voxel_rhombic.cpp` carries a literal 24 by 15 edge-neighbour array),
   symmetry tables copied from generators that exist only in the original

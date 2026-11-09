@@ -269,7 +269,7 @@ describe.skipIf(ENGINE === null)('the exports and the engine', () => {
     const { shape } = await c.call('shape.create', { size: [1, 1, 1] });
     await c.call('shape.setCells', { shape, tool: 'fixed', cells: [[0, 0, 0]] });
     // plain cells, unit size 10
-    const parameters = [10, 0, 0, 0, 0, 1];
+    const parameters = [10, 0, 0, 0, 0, 1, 0, 0];
     const bin = fileBytes(await c.call('export.stl', { shape, parameters, name: 'cube' }));
     expect(bin.length).toBe(84 + 12 * 50);
     expect(new TextDecoder().decode(bin.subarray(0, 4))).toBe('cube');

@@ -167,9 +167,13 @@ TEST_CASE("symmetries: transAdd composes transformations", "[symmetry]") {
        GT_TETRA_OCTA all measure 576 (n=24, and voxel_0_c::transform, which
        GT_RHOMBIC/GT_TETRA_OCTA delegate to after padding, never fails);
        GT_TRIANGULAR_PRISM measures fewer because voxel_1_c::transform can
-       legitimately return false (src/lib/voxel_1.cpp:429). */
+       legitimately return false (src/lib/voxel_1.cpp:429). The hexagonal
+       grid has 12 plain transformations (144 pairs), the cairo grid 8
+       (64); their transform never fails. */
     const unsigned int expectedChecked =
-      (t == GridKind::TriangularPrism) ? 144u : 576u;
+      (t == GridKind::TriangularPrism || t == GridKind::Hexagonal) ? 144u
+      : (t == GridKind::Cairo)                                     ? 64u
+                                                                   : 576u;
     REQUIRE(checked == expectedChecked);
   }
 }

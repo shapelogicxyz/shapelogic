@@ -20,13 +20,14 @@ namespace bt::test {
 /// Every grid kind, for cases that loop over all of them.
 inline constexpr GridKind kAllGrids[] = {
     GridKind::Bricks,    GridKind::TriangularPrism, GridKind::Spheres,  GridKind::Rhombic,
-    GridKind::TetraOcta, GridKind::Sliding,         GridKind::Stacking,
+    GridKind::TetraOcta, GridKind::Sliding,         GridKind::Stacking, GridKind::Hexagonal,
+    GridKind::Cairo,
 };
 
-/// The five grids that have their own geometry (sliding and stacking use cubes).
+/// The seven grids that have their own geometry (sliding and stacking use cubes).
 inline constexpr GridKind kGeometryGrids[] = {
-    GridKind::Bricks, GridKind::TriangularPrism, GridKind::Spheres,
-    GridKind::Rhombic, GridKind::TetraOcta,
+    GridKind::Bricks,    GridKind::TriangularPrism, GridKind::Spheres, GridKind::Rhombic,
+    GridKind::TetraOcta, GridKind::Hexagonal,       GridKind::Cairo,
 };
 
 /// An empty voxel space of the given grid.

@@ -16,6 +16,9 @@ void connectionFaceRhombic(int x, int y, int z, int n, double bevel, double offs
                            std::vector<float>& corners);
 void connectionFaceTetraOcta(int x, int y, int z, int n, double bevel, double offset,
                              std::vector<float>& corners);
+// the new grids have no bevel faces (the uniform mesher draws them)
+void connectionFaceHex(int x, int y, int z, int n, std::vector<float>& corners);
+void connectionFaceCairo(int x, int y, int z, int n, std::vector<float>& corners);
 
 /// Floor division (intdiv_inf of the original).
 constexpr int floorDiv(int x, int y) { return x / y - ((x % y != 0 && ((x % y) ^ y) < 0) ? 1 : 0); }

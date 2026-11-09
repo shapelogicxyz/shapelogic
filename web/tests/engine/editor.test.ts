@@ -36,10 +36,18 @@ describe.skipIf(ENGINE === null)('the voxel editor and the engine', () => {
       { mirror: ['x', 'y', 'z'], span: [] },
       { mirror: ['z'], span: ['x'] },
     ];
-    for (const grid of ['bricks', 'prisms', 'spheres', 'rhombic', 'tetraOcta'] as Grid[]) {
+    for (const grid of [
+      'bricks',
+      'prisms',
+      'spheres',
+      'rhombic',
+      'tetraOcta',
+      'hexagonal',
+      'cairo',
+    ] as Grid[]) {
       for (const n of [4, 5]) {
         await c.call('document.new', { grid });
-        const unit = grid === 'rhombic' ? 5 : grid === 'tetraOcta' ? 3 : 1;
+        const unit = grid === 'rhombic' ? 5 : grid === 'tetraOcta' ? 3 : grid === 'cairo' ? 4 : 1;
         const shape = (await c.call('shape.create', { size: [n * unit, n * unit, n] })).shape;
         const size = (await c.call('shape.get', { shape })).shape.size;
         const valid = new Set<string>();

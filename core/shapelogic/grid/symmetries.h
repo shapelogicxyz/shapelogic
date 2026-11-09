@@ -35,6 +35,10 @@ class Symmetries {
   /// twice getNumTransformations()).
   [[nodiscard]] virtual unsigned int getNumTransformationsMirror() const = 0;
 
+  /// The number of symmetry groups the grid knows (`Symmetry` values below
+  /// it are valid); for spheres, the lists met so far.
+  [[nodiscard]] virtual unsigned int getNumSymmetryGroups() const = 0;
+
   /// True when group `s` contains transformation `t`.
   [[nodiscard]] virtual bool symmetrieContainsTransformation(Symmetry s, unsigned int t) const = 0;
 

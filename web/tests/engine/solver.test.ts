@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // What the Solver workspace computes or relies on, against the real
-// engine: the assembled view's placement (the client's cellScale and
+// engine: the assembled view's placement (the client's cellToMesh and
 // gridExtent tables, with the hotspot of shape.mesh {transformation}) puts
 // every piece of every fixture's first solutions where the player's first
 // pose does, on all five grids; the solutions pager, in every sort and
@@ -23,7 +23,7 @@ import type { SortKey } from '../../src/renderer/solver/pager.ts';
 import { SolutionPager } from '../../src/renderer/solver/pager.ts';
 import { PoseTrack, SAMPLES } from '../../src/renderer/solver/poses.ts';
 import { boardCentre, discAt } from '../../src/renderer/view3d/board.ts';
-import { cellScale, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
+import { gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
 
 describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
@@ -53,7 +53,6 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
           continue;
         }
         const extent = gridExtent(snap.grid, result.size);
-        const scale = cellScale(snap.grid);
         const page = await c.call('solution.page', { problem: prob.id, limit: 3 });
         for (const row of page.rows) {
           const got = await c.call('solution.get', { problem: prob.id, solution: row.id });
@@ -75,7 +74,7 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
               shape: piece.shape,
               transformation: piece.orientation,
             });
-            const at = placedAt(pl?.at ?? [0, 0, 0], mesh.hotspot, scale, extent);
+            const at = placedAt(pl?.at ?? [0, 0, 0], mesh.hotspot, snap.grid, extent);
             for (let k = 0; k < 3; k++) {
               const want = at[k] ?? 0;
               expect(
@@ -144,12 +143,11 @@ describe.skipIf(ENGINE === null)('the Solver workspace and the engine', () => {
             const pl = got.placements.find((q) => q.piece === piece.piece);
             const r = size.get(piece.shape) ?? 1;
             // assembled: the player's placedAt with the disc's centre, centred on the board
-            const at = placedAt(
-              pl?.at ?? [0, 0, 0],
-              [r, r, 0],
-              [1, 1, 1],
-              [2 * centre[0], 2 * centre[1], 2 * centre[2]],
-            );
+            const at = placedAt(pl?.at ?? [0, 0, 0], [r, r, 0], 'stacking', [
+              2 * centre[0],
+              2 * centre[1],
+              2 * centre[2],
+            ]);
             // the start's and the goal's board put the disc where the first and the last pose do
             const copy = piece.piece - pb.pieces.findIndex((q) => q.shape === piece.shape);
             const onStart = start.layout.discs.find(

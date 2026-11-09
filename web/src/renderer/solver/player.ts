@@ -37,7 +37,7 @@ import type { Rgb3 } from '../shell/piece-colours.ts';
 import { prefs } from '../shell/prefs.ts';
 import { flash, reportError } from '../shell/status.ts';
 import { boardExtent } from '../view3d/board.ts';
-import { cellScale, gridExtent, placedAt } from '../view3d/extent.ts';
+import { gridExtent, placedAt } from '../view3d/extent.ts';
 import { buildMesh } from '../view3d/mesh.ts';
 import type { BuiltMesh } from '../view3d/mesh.ts';
 import type { PieceMode, ScenePose, SolutionModel } from '../view3d/solution.ts';
@@ -259,7 +259,6 @@ export class Player {
       this.pieces = piecesOf(got.placements, this.host.detail(), store);
       this.host.changed();
       const { extent, centring } = this.frame();
-      const scale = cellScale(snap.grid);
       // a disc is placed by its centre (ensureHotspot), as the engine's poses place it
       const discs = snap.grid === 'stacking';
       const cache = this.host.view.meshCache;
@@ -292,7 +291,7 @@ export class Player {
           ? [size, size, 0]
           : [...(replies[i]?.hotspot ?? [0, 0, 0])];
         return {
-          t: placedAt(p.at, hotspot, scale, centring),
+          t: placedAt(p.at, hotspot, snap.grid, centring),
           q: [0, 0, 0, 1],
           visible: true,
           opacity: 1,

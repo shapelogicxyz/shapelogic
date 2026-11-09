@@ -90,6 +90,8 @@ std::unique_ptr<MovementCache> makeMovementCache(const Puzzle& puzzle, const Pro
     case GridKind::TetraOcta:
     case GridKind::Sliding:
     case GridKind::Stacking:
+    case GridKind::Hexagonal:
+    case GridKind::Cairo:
       break;
   }
   return nullptr;

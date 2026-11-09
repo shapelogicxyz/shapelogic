@@ -106,8 +106,13 @@ std::vector<CellAt> listed(const Voxel& v, const CellAt& c, unsigned int typ) {
 // The grids whose cells are polyhedra with corners shared with their
 // neighbours. The sphere grid's "faces" are those of the rhombic
 // dodecahedron around each ball: they still tell the face neighbours.
-constexpr GridKind kPolyGrids[] = {GridKind::Bricks, GridKind::TriangularPrism, GridKind::Rhombic,
-                                   GridKind::TetraOcta};
+constexpr GridKind kPolyGrids[] = {GridKind::Bricks,    GridKind::TriangularPrism,
+                                   GridKind::Rhombic,   GridKind::TetraOcta,
+                                   GridKind::Hexagonal, GridKind::Cairo};
+
+// The grids whose transformations form a group (the sphere grid's do not).
+constexpr GridKind kGroupGrids[] = {GridKind::Bricks, GridKind::TriangularPrism,
+                                    GridKind::Hexagonal, GridKind::Cairo};
 
 // The period of each grid's cell pattern along each axis: cells this far
 // apart are the same kind of cell.
@@ -125,19 +130,27 @@ int periodOf(GridKind k) {
     case GridKind::TetraOcta:
       // the 3x3x3 blocks alternate between two kinds
       return 6;
+    case GridKind::Hexagonal:
+      return 1;
+    case GridKind::Cairo:
+      // the lattice of the four kinds of pentagon
+      return 4;
   }
   return 1;
 }
 
-// The number of symmetry groups in the grid's generated table
-// (tabs_N/tablesizes.inc; the tables are not asked, so a change there
-// shows up here).
+// The number of symmetry groups in the grid's table: the generated
+// tables' counts (tabs_N/tablesizes.inc, pinned here so a change there
+// shows up), the derived grids' as they report them.
 unsigned int groupsOf(GridKind k) {
   switch (k) {
     case GridKind::TriangularPrism:
       return 54;
     case GridKind::Spheres:
       return 241;
+    case GridKind::Hexagonal:
+    case GridKind::Cairo:
+      return GridType(k).getSymmetries().getNumSymmetryGroups();
     default:
       return 98;
   }
@@ -480,7 +493,7 @@ TEST_CASE("grid oracle: the transformation tables form the group of the matrices
   // transformation has a matrix of its own, an inverse, and the identity
   // is 0 (the sphere grid's 240 are not a group: transAdd is undefined
   // for some pairs there, which test_symmetries covers).
-  for (const GridKind kind : {GridKind::Bricks, GridKind::TriangularPrism}) {
+  for (const GridKind kind : kGroupGrids) {
     INFO(toString(kind));
     const GridType gt(kind);
     const Symmetries& sym = gt.getSymmetries();
@@ -552,12 +565,13 @@ TEST_CASE("grid oracle: the symmetry groups are subgroups, the unique and minima
   // shape with group s looks the same under t1 and t2 when t1 then the
   // inverse of t2 is in s; isTransformationUnique picks one
   // transformation per such class, minimizeTransformation the smallest.
-  for (const GridKind kind : {GridKind::Bricks, GridKind::TriangularPrism}) {
+  for (const GridKind kind : kGroupGrids) {
     INFO(toString(kind));
     const GridType gt(kind);
     const Symmetries& sym = gt.getSymmetries();
     const unsigned int n = sym.getNumTransformationsMirror();
     const unsigned int groups = groupsOf(kind);
+    CHECK(sym.getNumSymmetryGroups() == groups);
     std::vector<unsigned int> inverse(n);
     for (unsigned int t = 0; t < n; t++) {
       for (unsigned int u = 0; u < n; u++) {
@@ -630,8 +644,11 @@ TEST_CASE("grid oracle: the symmetry groups are subgroups, the unique and minima
 
 TEST_CASE("grid oracle: a cell's bevel faces close it", "[grid][mesh]") {
   // the bevel faces of the mesh tables (connectionFace with n < 0) and
-  // the cell faces together are a closed solid for every kind of cell
-  for (const GridKind kind : kPolyGrids) {
+  // the cell faces together are a closed solid for every kind of cell (the
+  // original's grids: the new ones have no bevel tables, the uniform
+  // mesher draws them)
+  for (const GridKind kind : {GridKind::Bricks, GridKind::TriangularPrism, GridKind::Rhombic,
+                              GridKind::TetraOcta}) {
     INFO(toString(kind));
     const GridType gt(kind);
     const int period = periodOf(kind);

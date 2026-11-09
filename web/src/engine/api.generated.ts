@@ -352,7 +352,11 @@ export type Size = [number, number, number];
  */
 export type Point2 = [number, number];
 
-/** The grid of a puzzle, fixed for its life. */
+/**
+ * The grid of a puzzle, fixed for its life. hexagonal (hexagonal prisms in rows) and cairo (prisms
+ * on the Cairo pentagonal tiling) are this program's own (file type numbers 7 and 8): assembled,
+ * not taken apart.
+ */
 export type Grid =
   | 'bricks'
   | 'prisms'
@@ -360,7 +364,9 @@ export type Grid =
   | 'rhombic'
   | 'tetraOcta'
   | 'sliding'
-  | 'stacking';
+  | 'stacking'
+  | 'hexagonal'
+  | 'cairo';
 
 /** Complete (ShapeLogic), or Fast (Crowell): Andrew Crowell's take-apart. */
 export type Solver = 'classic' | 'crowell';

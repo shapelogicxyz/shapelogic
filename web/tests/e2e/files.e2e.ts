@@ -182,6 +182,8 @@ const NEW_NAMES: Record<string, string> = {
   spheres: 'Spheres',
   rhombic: 'Rhombic',
   tetraOcta: 'Tetrahedra-Octahedra',
+  hexagonal: 'Hexagonal Prism',
+  cairo: 'Cairo Prism',
 };
 
 test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', async () => {
@@ -194,7 +196,7 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
     );
     // every grid this version solves, sliding and stacking second and third (the original's order)
     const grids = info.grids.filter((g) => g.supported);
-    expect(grids.length).toBe(7);
+    expect(grids.length).toBe(9);
     // Cancel keeps the puzzle
     await openFixture(page, 'Bermuda.xmpuzzle');
     await menu(page, 'new');
@@ -202,7 +204,17 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
       await page
         .locator('#newPuzzle [data-grid]')
         .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.grid)),
-    ).toEqual(['bricks', 'sliding', 'stacking', 'prisms', 'spheres', 'rhombic', 'tetraOcta']);
+    ).toEqual([
+      'bricks',
+      'sliding',
+      'stacking',
+      'prisms',
+      'spheres',
+      'rhombic',
+      'tetraOcta',
+      'hexagonal',
+      'cairo',
+    ]);
     for (const g of grids) {
       await expect(page.locator(`#newPuzzle [data-grid="${g.grid}"]`)).toHaveText(
         NEW_NAMES[g.grid] ?? '',

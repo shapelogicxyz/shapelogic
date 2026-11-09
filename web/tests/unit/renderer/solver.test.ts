@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import type { SolutionRow, SolverSettings } from '../../../src/engine/api.generated.ts';
 import type { EngineApi } from '../../../src/engine/client-types.ts';
 import type { PoseArrays } from '../../../src/engine/frames.ts';
-import { cellScale } from '../../../src/renderer/view3d/extent.ts';
+import { cellToMesh } from '../../../src/renderer/view3d/extent.ts';
 import { PAGE, SolutionPager } from '../../../src/renderer/solver/pager.ts';
 import {
   CHUNK,
@@ -173,11 +173,15 @@ describe('the search options', () => {
   });
 
   it('place cells by the original’s recalcSpaceCoordinates spacing', () => {
-    expect(cellScale('bricks')).toEqual([1, 1, 1]);
-    expect(cellScale('prisms')).toEqual([0.5, Math.sqrt(3) / 2, 1]);
-    expect(cellScale('spheres')).toEqual([Math.SQRT1_2, Math.SQRT1_2, Math.SQRT1_2]);
-    expect(cellScale('rhombic')).toEqual([0.4, 0.4, 0.4]);
-    expect(cellScale('tetraOcta')[0]).toBeCloseTo(1 / 3);
+    const one: [number, number, number] = [1, 1, 1];
+    expect(cellToMesh('bricks', one)).toEqual([1, 1, 1]);
+    expect(cellToMesh('prisms', one)).toEqual([0.5, Math.sqrt(3) / 2, 1]);
+    expect(cellToMesh('spheres', one)).toEqual([Math.SQRT1_2, Math.SQRT1_2, Math.SQRT1_2]);
+    expect(cellToMesh('rhombic', one)).toEqual([0.4, 0.4, 0.4]);
+    expect(cellToMesh('tetraOcta', one)[0]).toBeCloseTo(1 / 3);
+    // the hexagonal grid's rows are sheared: a row up is half a cell right
+    expect(cellToMesh('hexagonal', [0, 2, 0])).toEqual([1, Math.sqrt(3), 0]);
+    expect(cellToMesh('cairo', [2, 0, 1])).toEqual([Math.SQRT2, 0, 1]);
   });
 });
 

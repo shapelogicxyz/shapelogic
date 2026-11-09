@@ -34,10 +34,18 @@ enum class GridKind : std::uint8_t {
   TetraOcta = 4,        ///< tetrahedra and octahedra, also a cut cube grid
   Sliding = 5,          ///< 2D brick tray for sliding puzzles (bt/model/sliding.h)
   Stacking = 6,         ///< discs on rods (bt/model/stacking.h)
+  Hexagonal = 7,        ///< hexagonal prisms in rows (decision 0023; not in the original)
+  Cairo = 8,            ///< cairo pentagon prisms (decision 0023; not in the original)
 };
 
 /// The number of grid kinds; `type` attributes at or above it are invalid.
-inline constexpr int kNumGridKinds = 7;
+inline constexpr int kNumGridKinds = 9;
+
+namespace detail {
+/// The symmetries of the hexagonal and cairo grids, derived at first use
+/// from their matrices (symmetries_derived.h).
+const Symmetries& derivedSymmetries(GridKind kind);
+}  // namespace detail
 
 /// A readable name, e.g. "bricks", for messages and tests.
 [[nodiscard]] std::string_view toString(GridKind k) noexcept;
@@ -70,6 +78,9 @@ class GridType {
         return *detail::kSymmetriesTable1;
       case GridKind::Spheres:
         return *detail::kSymmetriesTable2;
+      case GridKind::Hexagonal:
+      case GridKind::Cairo:
+        return detail::derivedSymmetries(kind_);
       case GridKind::Bricks:
       case GridKind::Rhombic:
       case GridKind::TetraOcta:

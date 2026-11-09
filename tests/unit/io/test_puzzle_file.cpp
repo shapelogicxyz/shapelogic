@@ -283,7 +283,8 @@ TEST_CASE("puzzle file: what the original refuses is refused", "[io][file]") {
   CHECK_THAT(parseError("<puzzle/>"), ContainsSubstring("'version'"));
   CHECK_THAT(parseError("<puzzle version=\"3\"/>"), ContainsSubstring("version 1 and 2"));
   CHECK_THAT(parseError("<problem version=\"2\"/>"), ContainsSubstring("puzzle"));
-  CHECK_THAT(parseError("<puzzle version=\"2\"><gridType type=\"7\"/></puzzle>"),
+  // 7 and 8 are this program's hexagonal and cairo grids (decision 0023)
+  CHECK_THAT(parseError("<puzzle version=\"2\"><gridType type=\"9\"/></puzzle>"),
              ContainsSubstring("unknown grid type"));
   CHECK_THAT(parseError("<puzzle version=\"2\"><gridType/></puzzle>"),
              ContainsSubstring("'type'"));

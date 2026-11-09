@@ -115,7 +115,7 @@ Result<Polyhedron> stl0Mesh(const Voxel& v, std::span<const double> p) {
   const double scaleZ = (cubeScaleZ > kEpsilon) ? cubeScaleZ : cubeScale;
 
   const GridKind kind = v.getGridType().getType();
-  if (uniform || bumpy) {
+  if (uniform || bumpy || kind == GridKind::Hexagonal || kind == GridKind::Cairo) {
     // the uniform mesher: the cells stretched to the unit sizes first, so
     // the bevels keep their width, then everything scaled to the unit
     UniformMeshOptions o;

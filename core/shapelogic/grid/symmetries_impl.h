@@ -48,6 +48,7 @@ class TableSymmetries final : public Symmetries {
 
   unsigned int getNumTransformations() const override { return kNumTrans; }
   unsigned int getNumTransformationsMirror() const override { return kNumTransMirror; }
+  unsigned int getNumSymmetryGroups() const override { return kNumGroups; }
 
   bool symmetryContainsMirror(Symmetry sym) const override {
     BT_ASSERT(sym < kNumGroups);
