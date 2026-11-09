@@ -125,7 +125,10 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 ### grid (exists)
 Ported from the original `voxel*.cpp`, `symmetries_*.cpp`, `tabs_*`,
 `gridtype.cpp`, `voxeltable.cpp`; checked value for value against the
-original (`tests/data/grid_dump.txt`, see "Testing against the original").
+original (`tests/data/grid_dump.txt`, see "Testing against the original"),
+and against the cells' own geometry (`tests/unit/grid/test_grid_oracle.cpp`:
+neighbours, transformations and groups rebuilt from the face polygons;
+docs/V2-IDEAS-PLAN.md, idea 2).
 - `grid_type.h`: `GridKind` (the numbers are the file format's) and
   `GridType`, a small value type: capabilities, `getSymmetries()`, and
   `makeVoxel()`, the factory for voxel spaces. The sliding and stacking

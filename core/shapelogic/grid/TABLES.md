@@ -23,6 +23,12 @@ list a shape can have, and the tree answered wrongly for one outside them.
 registry seeded from these tables, appending a list it has not met with
 its tables derived by the generator's rules (`deriveSphereTables`).
 
+The tables and the hand-written neighbour functions are checked against
+the cells' geometry by `tests/unit/grid/test_grid_oracle.cpp`: the
+neighbours from the corners the cells share, the transformations as
+rigid motions with the matrix table, the groups as subgroups with their
+coset representatives (docs/V2-IDEAS-PLAN.md, idea 2).
+
 `symcalc.inc` is the only file changed, and only in syntax. The original
 trees create and delete voxel spaces by hand; here every test node is
 `if (same(t)) {`, where `same` is defined by the including function with the

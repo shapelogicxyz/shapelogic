@@ -72,6 +72,27 @@ switches in the STL dialog.
   The edge-loop geometry this builds is reused by ideas 2 to 4.
 
 ### 2. A declarative grid description as a test oracle, later as a runtime
+**First stage done 2026-11-08:** `tests/unit/grid/test_grid_oracle.cpp`
+rebuilds the tables from the cells' face polygons (`connectionFace` at
+zero bevel and offset) and checks them: every cell a closed convex
+polyhedron; the face, edge and corner neighbour tables of every grid
+against the corners the cells share; every transformation a rigid
+motion of the cells with the matrix of `getTransformMatrix`; the
+transformation tables a group with that matrix product; every symmetry
+group a subgroup whose unique and minimal transformations are its coset
+representatives; the bevel faces closing each cell. All pass. Two
+findings, both the original's as well:
+- The rhombic and tetra-octa grids have no corner-neighbour table
+  (`getNeighbor` kind 2 answers false), though their cells do touch at
+  corners; a corner-connectivity check on them sees faces and edges
+  only. The geometry the test derives is what such a table would hold.
+- On those two grids `transformPoint` turns coordinates about their
+  origin as cubes', half a cell off the grids' symmetry centres, so some
+  turns land cells between cells or on cells of another kind. One
+  whole-cell offset per transformation puts them right, which is what
+  `Assembly::transform` supplies through the hotspot's real move; the
+  test finds and checks that offset. Brick and prism need none.
+The second stage, new grids, is not started.
 - **We have:** per-grid `Voxel` subclasses with hand-written tables
   (`voxel_rhombic.cpp` carries a literal 24 by 15 edge-neighbour array),
   symmetry tables copied from generators that exist only in the original

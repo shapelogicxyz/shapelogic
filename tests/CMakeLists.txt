@@ -20,6 +20,7 @@ add_executable(bt_tests
   unit/base/test_thread_pool.cpp
   unit/grid/test_grid_dump.cpp
   unit/grid/test_grid_invariants.cpp
+  unit/grid/test_grid_oracle.cpp
   unit/grid/test_grid_port.cpp
   unit/grid/test_symmetries.cpp
   unit/grid/test_voxel.cpp
