@@ -154,7 +154,7 @@ describe('the search options', () => {
     expect(writeOptions(on, {}, 'sliding')).not.toHaveProperty('keepAssemblies');
   });
 
-  it('only assemble on a grid without a take-apart (spheres, rhombic, tetra-octa)', () => {
+  it('only assemble on a grid without a take-apart (spheres)', () => {
     const base = { ...DEFAULT_OPTIONS, disassemble: true, checkRotations: true, justLevels: true };
     const n = normalize(base, null, 'brick', false);
     expect(n.options).toMatchObject({

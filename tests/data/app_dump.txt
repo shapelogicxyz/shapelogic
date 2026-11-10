@@ -367,6 +367,41 @@ mesh 22 drawing faces 984 vertices 1080 halfedges 3528 holes 0 ordered 80e199b54
 mesh 22 wireframe euler 1010 holes 0
 mesh 22 flat faces 84 vertices 62 halfedges 288 holes 0 ordered b5cb10d4a300c7ea canonical 15a417d1eeeb743a
 fit 0 Problem P1 result can contain 72 - 72 voxels, pieces (n = 12) contain 72 voxels
+file BrokenSticks.xmpuzzle
+shape 0 cells 384 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 29
+mesh 0 drawing faces 3264 vertices 3456 halfedges 11520 holes 0 ordered 124e51fb5be356d2 canonical c7a40fc7710b287f
+mesh 0 wireframe euler 2642 holes 0
+mesh 0 flat faces 384 vertices 194 halfedges 1152 holes 0 ordered 9632f818f8047a5f canonical ccc4a78e06bebdf4
+shape 1 cells 384 0 mirror 0 same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 29
+mesh 1 drawing faces 3264 vertices 3456 halfedges 11520 holes 0 ordered 280537b2e54be43f canonical c2c61f783a128485
+mesh 1 wireframe euler 2642 holes 0
+mesh 1 flat faces 384 vertices 194 halfedges 1152 holes 0 ordered 2e6aa64b1e8982fc canonical 756a84e6729e4c31
+shape 2 cells 52 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 2 drawing faces 588 vertices 612 halfedges 2070 holes 0 ordered c0c6fda09c9b393f canonical 603522e546f9e6f5
+mesh 2 wireframe euler 346 holes 0
+mesh 2 flat faces 78 vertices 41 halfedges 234 holes 0 ordered 4aab9932b49b4939 canonical 08340c8dba83c769
+shape 3 cells 64 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 3 drawing faces 724 vertices 756 halfedges 2550 holes 0 ordered e27f1c6875510343 canonical 5a0e94272992c004
+mesh 3 wireframe euler 412 holes 0
+mesh 3 flat faces 94 vertices 49 halfedges 282 holes 0 ordered 9b1db445f4fb86cd canonical c6839de50b8c3f9e
+shape 4 cells 76 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 4 drawing faces 852 vertices 888 halfedges 3000 holes 0 ordered 330b31ab352746f0 canonical 75607c9515676efd
+mesh 4 wireframe euler 488 holes 0
+mesh 4 flat faces 112 vertices 58 halfedges 336 holes 0 ordered b97fc248bb922f9a canonical cc8a3e058d47a868
+shape 5 cells 52 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 5 drawing faces 596 vertices 624 halfedges 2100 holes 0 ordered 3a4ff4d38f77295f canonical 94c31e4df49c4829
+mesh 5 wireframe euler 344 holes 0
+mesh 5 flat faces 76 vertices 40 halfedges 228 holes 0 ordered de8edbda568015c5 canonical 54d8d9c777b43924
+shape 6 cells 64 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 6 drawing faces 724 vertices 756 halfedges 2550 holes 0 ordered 287d97bc914af91c canonical 8d467418a4d11320
+mesh 6 wireframe euler 420 holes 0
+mesh 6 flat faces 94 vertices 49 halfedges 282 holes 0 ordered c8aca8d6a6311652 canonical cb1357355cc88456
+shape 7 cells 76 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 7 drawing faces 860 vertices 900 halfedges 3030 holes 0 ordered 1b039fea11944f20 canonical 743eae01acc6e152
+mesh 7 wireframe euler 486 holes 0
+mesh 7 flat faces 110 vertices 57 halfedges 330 holes 0 ordered a2d9fd96565ed3f7 canonical e70342b96ab3fe3e
+fit 0 Problem P1 result can contain 384 - 384 voxels, pieces (n = 6) contain 384 voxels
+fit 1 Problem P2 result can contain 384 - 384 voxels, pieces (n = 6) contain 384 voxels
 file CubeInCage.xmpuzzle
 shape 0 cells 60 39 mirror - same - complete - conn 1 1 1 holes 0 0 notch 0 mill 1 sym 96
 mesh 0 drawing faces 1702 vertices 1776 halfedges 6216 holes 0 ordered e1c51e1258fb6ba1 canonical 0327037a328c2d62
@@ -571,6 +606,36 @@ mesh 2 drawing faces 536 vertices 576 halfedges 1952 holes 0 ordered ded47e3eb62
 mesh 2 wireframe euler 354 holes 0
 mesh 2 flat faces 56 vertices 58 halfedges 224 holes 0 ordered 0045f4ce3568c40c canonical a615c06fd5c9ffe0
 fit 0 Problem P1 result can contain 14 - 24 voxels, pieces (n = 11) contain 14-24 voxels
+file DiagonalCube.xmpuzzle
+shape 0 cells 192 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 97
+mesh 0 drawing faces 1056 vertices 1152 halfedges 3744 holes 0 ordered 491fbb17cce24bd2 canonical 8447f95416ae1fdf
+mesh 0 wireframe euler 2018 holes 0
+mesh 0 flat faces 96 vertices 50 halfedges 288 holes 0 ordered 5a8d58390001a3c5 canonical 067f478aa571cfe6
+shape 1 cells 30 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 1 drawing faces 326 vertices 336 halfedges 1146 holes 0 ordered d4506ef63e64f5e4 canonical af9dc078e66a600d
+mesh 1 wireframe euler 152 holes 0
+mesh 1 flat faces 46 vertices 25 halfedges 138 holes 0 ordered 5c9fba18fc269a31 canonical 20a20911b3921c3c
+shape 2 cells 30 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 2 drawing faces 316 vertices 324 halfedges 1110 holes 0 ordered d1e513e0ccc7ecba canonical ad7bf198bb943ee8
+mesh 2 wireframe euler 152 holes 0
+mesh 2 flat faces 46 vertices 25 halfedges 138 holes 0 ordered 5e6956caeee0532d canonical 70ba305194b36aa8
+shape 3 cells 32 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 3 drawing faces 338 vertices 348 halfedges 1188 holes 0 ordered 75d07aa6761e3673 canonical ca2af82506630eb8
+mesh 3 wireframe euler 170 holes 0
+mesh 3 flat faces 48 vertices 26 halfedges 144 holes 0 ordered 0f98857d39986d2e canonical 28712963a78a18ff
+shape 4 cells 34 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 4 drawing faces 350 vertices 360 halfedges 1230 holes 0 ordered da04e0229ef6c829 canonical 738e44cf63b960ff
+mesh 4 wireframe euler 188 holes 0
+mesh 4 flat faces 50 vertices 27 halfedges 150 holes 0 ordered b01a448e68fab54f canonical 48581ee30f8ecb97
+shape 5 cells 34 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 5 drawing faces 360 vertices 372 halfedges 1266 holes 0 ordered f641082e448297a6 canonical 298341dcff873b9f
+mesh 5 wireframe euler 188 holes 0
+mesh 5 flat faces 50 vertices 27 halfedges 150 holes 0 ordered 1d90bd829d98401a canonical 3d091ab453c0be1a
+shape 6 cells 32 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 6 drawing faces 338 vertices 348 halfedges 1188 holes 0 ordered 220c044bff94c986 canonical 3e3002509cf08076
+mesh 6 wireframe euler 170 holes 0
+mesh 6 flat faces 48 vertices 26 halfedges 144 holes 0 ordered 20d05968985b2be4 canonical c0a0f9947eceaff8
+fit 0 Problem P1 result can contain 192 - 192 voxels, pieces (n = 6) contain 192 voxels
 file DraculasDentalDesaster.xmpuzzle
 shape 0 cells 152 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch 1 mill 1 sym 0
 mesh 0 drawing faces 3352 vertices 3648 halfedges 12192 holes 0 ordered e8be3ac479786967 canonical 81c1148ea24d3a04
@@ -928,6 +993,24 @@ mesh 2 drawing faces 504 vertices 528 halfedges 1776 holes 0 ordered 438b5a15403
 mesh 2 wireframe euler 1058 holes 0
 mesh 2 flat faces 64 vertices 34 halfedges 192 holes 0 ordered b73f8b2ff19372bc canonical 0a2a91542b085921
 fit 0 Problem P1 result can contain 104 - 104 voxels, pieces (n = 4) contain 104 voxels
+file HexSticks.xmpuzzle
+shape 0 cells 2256 0 mirror - same - complete - conn 1 1 1 holes 1 1 notch - mill - sym 29
+mesh 0 drawing faces 9384 vertices 10080 halfedges 33192 holes 0 ordered d0d204a000d66fb5 canonical f6312d8aed1d75ac
+mesh 0 wireframe euler 21364 holes 0
+mesh 0 flat faces 984 vertices 496 halfedges 2952 holes 0 ordered 659dd39e532123ac canonical 0bcf6a3968ae6ce8
+shape 1 cells 162 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 1 drawing faces 1310 vertices 1404 halfedges 4632 holes 0 ordered 334e9802f7cd6edc canonical 5f8b6f3210bb2bdb
+mesh 1 wireframe euler 1334 holes 0
+mesh 1 flat faces 140 vertices 72 halfedges 420 holes 0 ordered abcd9b98658d239e canonical 61efef27f2d88088
+shape 2 cells 188 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 16
+mesh 2 drawing faces 1384 vertices 1488 halfedges 4896 holes 0 ordered f1a2580dd49f2633 canonical 21ae2b185f3f4337
+mesh 2 wireframe euler 1658 holes 0
+mesh 2 flat faces 144 vertices 74 halfedges 432 holes 0 ordered aa4362909e1eee5b canonical ff02a3717351d9c1
+shape 3 cells 214 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 3 drawing faces 1424 vertices 1536 halfedges 5040 holes 0 ordered 51672dd0c6b10a3d canonical 9f58e57cf89912c4
+mesh 3 wireframe euler 2018 holes 0
+mesh 3 flat faces 144 vertices 74 halfedges 432 holes 0 ordered 67f4c78fd602afbd canonical 5684eb071785f3b9
+fit 0 Problem P1 result can contain 2256 - 2256 voxels, pieces (n = 12) contain 2256 voxels
 file PelikanBurr.xmpuzzle
 shape 0 cells 296 216 mirror - same - complete - conn 1 1 1 holes 0 0 notch 0 mill 1 sym 97
 mesh 0 drawing faces 6304 vertices 7104 halfedges 22848 holes 0 ordered 25c01c64ecab26f8 canonical f369898365f8c880
@@ -1831,6 +1914,36 @@ key 864 109.7500 0 1 -4.0000 -4.0000 -4.0000 0.0000 0.0000 0.0000 1.0000 1 1 -4.
 key 865 109.8750 0 1 -4.0000 -4.0000 -4.0000 0.0000 0.0000 0.0000 1.0000 1 1 -4.2500 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 2 1 6.0000 1.0000 7.0000 -0.5000 -0.5000 0.5000 0.5000 3 1 -2.0000 -4.0000 -2.0000 0.5000 0.5000 0.5000 -0.5000 4 1 6.0000 7.0000 1.0000 0.5000 -0.5000 0.5000 0.5000 5 1 1.0000 5.0000 -0.0000 0.5000 -0.5000 0.5000 -0.5000 6 1 10.7500 5.0000 5.0000 0.0000 -0.7071 0.7071 0.0000
 key 866 110.0000 0 1 -4.0000 -4.0000 -4.0000 0.0000 0.0000 0.0000 1.0000 1 1 -4.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 2 1 6.0000 1.0000 7.0000 -0.5000 -0.5000 0.5000 0.5000 3 1 -2.0000 -4.0000 -2.0000 0.5000 0.5000 0.5000 -0.5000 4 1 6.0000 7.0000 1.0000 0.5000 -0.5000 0.5000 0.5000 5 1 1.0000 5.0000 -0.0000 0.5000 -0.5000 0.5000 -0.5000 6 1 11.0000 5.0000 5.0000 0.0000 -0.7071 0.7071 0.0000
 key 867 111.0000 0 1 -4.0000 -4.0000 -4.0000 0.0000 0.0000 0.0000 1.0000 1 1 -4.0000 -2.0000 -2.0000 0.0000 0.0000 0.0000 1.0000 2 1 6.0000 1.0000 7.0000 -0.5000 -0.5000 0.5000 0.5000 3 1 -2.0000 -4.0000 -2.0000 0.5000 0.5000 0.5000 -0.5000 4 1 6.0000 7.0000 1.0000 0.5000 -0.5000 0.5000 0.5000 5 1 1.0000 5.0000 -0.0000 0.5000 -0.5000 0.5000 -0.5000 6 1 11.0000 5.0000 5.0000 0.0000 -0.7071 0.7071 0.0000
+file PermutatedThirdStellation.xmpuzzle
+shape 0 cells 288 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 97
+mesh 0 drawing faces 2160 vertices 2304 halfedges 7632 holes 0 ordered 0ba740b5a10f95fc canonical 30578d9709341a2e
+mesh 0 wireframe euler 2162 holes 0
+mesh 0 flat faces 240 vertices 122 halfedges 720 holes 0 ordered 968b60aca9bbcf40 canonical 2d6bf6a8c16bb713
+shape 1 cells 40 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 1 drawing faces 450 vertices 468 halfedges 1584 holes 0 ordered bbae19d8e2d0ef22 canonical 76c328ed2fd9398d
+mesh 1 wireframe euler 256 holes 0
+mesh 1 flat faces 60 vertices 32 halfedges 180 holes 0 ordered fac51c932ce71e58 canonical a4cbc878d53c2686
+shape 2 cells 48 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 2 drawing faces 540 vertices 564 halfedges 1902 holes 0 ordered d925420a7c1667cf canonical b82ba697f9bd7590
+mesh 2 wireframe euler 302 holes 0
+mesh 2 flat faces 70 vertices 37 halfedges 210 holes 0 ordered 8a4b52e9e441bc17 canonical 29fcf980156187a4
+shape 3 cells 56 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 3 drawing faces 622 vertices 648 halfedges 2190 holes 0 ordered e1a52ce216024e85 canonical 98a807ccf8811d22
+mesh 3 wireframe euler 348 holes 0
+mesh 3 flat faces 82 vertices 43 halfedges 246 holes 0 ordered b8fb3701437680c5 canonical 13e4655db2fc6fb1
+shape 4 cells 40 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 4 drawing faces 458 vertices 480 halfedges 1614 holes 0 ordered 33017c48ff964e3c canonical 8cfd6abe4840e846
+mesh 4 wireframe euler 264 holes 0
+mesh 4 flat faces 58 vertices 31 halfedges 174 holes 0 ordered b583c5021727bc6f canonical 07f63259d2cb9c1c
+shape 5 cells 48 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 5 drawing faces 540 vertices 564 halfedges 1902 holes 0 ordered 48dfa1ac55f2cba1 canonical 6bd7ec735c33aa56
+mesh 5 wireframe euler 310 holes 0
+mesh 5 flat faces 70 vertices 37 halfedges 210 holes 0 ordered 0a60bd19672616da canonical a94dba72bbee4b9e
+shape 6 cells 56 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 0
+mesh 6 drawing faces 630 vertices 660 halfedges 2220 holes 0 ordered 5a4e4dbf217892be canonical 457874f3f1a74c69
+mesh 6 wireframe euler 356 holes 0
+mesh 6 flat faces 80 vertices 42 halfedges 240 holes 0 ordered f1c33bf33589fb6e canonical 0afeeddbb85a8e54
+fit 0 Problem P1 result can contain 288 - 288 voxels, pieces (n = 6) contain 288 voxels
 file PiecesOfEight.xmpuzzle
 shape 0 cells 24 0 mirror - same - complete - conn 1 1 1 holes 0 0 notch - mill - sym 47
 mesh 0 drawing faces 252 vertices 264 halfedges 888 holes 0 ordered d51ed5f3e0851942 canonical 6a76399d5527d1a3

@@ -875,12 +875,40 @@ TEST_CASE("movement cache: prism grid queries do not depend on the order they ar
 
 TEST_CASE("movement cache: grids without a take-apart have none",
           "[solve][disasm][movementcache]") {
-  for (const GridKind t : {GridKind::Spheres, GridKind::Rhombic, GridKind::TetraOcta}) {
+  // balls have no faces to slide along; the sliding and stacking grids have
+  // searches of their own
+  for (const GridKind t : {GridKind::Spheres, GridKind::Sliding, GridKind::Stacking}) {
     INFO("grid " << toString(t));
     Puzzle p{GridType{t}};
     const unsigned int prob = p.addProblem();
     CHECK(makeMovementCache(p, p.getProblem(prob)) == nullptr);
+    CHECK(makeMovementCache(p, p.getProblem(prob), true) == nullptr);
     CHECK_FALSE(Disassembler::canDisassemble(p));
+  }
+}
+
+// Not in the original, which takes only cubes and prisms apart: the other
+// grids of polyhedra move by checks derived from their cells (decision
+// 0025; the take-aparts themselves are in test_derived_disassembly.cpp).
+TEST_CASE("movement cache: the grids of polyhedra have one, with their own directions",
+          "[solve][disasm][movementcache]") {
+  struct Case {
+    GridKind kind;
+    unsigned int directions;
+  };
+  for (const Case& c : {Case{GridKind::Bricks, 3}, Case{GridKind::TriangularPrism, 4},
+                        Case{GridKind::Rhombic, 13}, Case{GridKind::TetraOcta, 9},
+                        Case{GridKind::Hexagonal, 7}, Case{GridKind::Cairo, 5}}) {
+    INFO("grid " << toString(c.kind));
+    Puzzle p{GridType{c.kind}};
+    const unsigned int prob = p.addProblem();
+    for (const bool derived : {false, true}) {
+      const std::unique_ptr<MovementCache> cache =
+          makeMovementCache(p, p.getProblem(prob), derived);
+      REQUIRE(cache != nullptr);
+      CHECK(cache->numDirections() == c.directions);
+    }
+    CHECK(Disassembler::canDisassemble(p));
   }
 }
 

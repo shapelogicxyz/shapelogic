@@ -1612,6 +1612,50 @@ def keep_assemblies(e):
 
 
 @test
+def derived_take_apart(e):
+    """The grids whose movement checks come from their cells (decision
+    0025): solved with a take-apart, analysed, played back and explored
+    as cubes are. Spheres alone have none."""
+    info = e.call("engine.info")
+    can = {g["grid"] for g in info["grids"] if g["disassemble"]}
+    check(can == {"bricks", "prisms", "rhombic", "tetraOcta", "hexagonal", "cairo"},
+          f"the grids taken apart {sorted(can)}")
+    # the original's file: solved by it, so assemblies only
+    snap = e.call("document.open", {"path": str(FIXTURES / "DiagonalCube.xmpuzzle")})
+    p = snap["problems"][0]["id"]
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["assemblies"] == 2 and detail["solutions"] == 0, f"as the original left it {detail}")
+    start = len(e.events)
+    r = e.call("solution.analyse", {"problem": p, "which": "missing"})
+    check(r["total"] == 2, f"to analyse {r}")
+    end = e.wait_event("solution.analyseEnded", lambda q: q["problem"] == p, start=start)
+    check(end["done"] == 2 and end["separated"] == 1 and end["failure"] is None, f"analysed {end}")
+    e.wait_event("document.changed", lambda q: p in q["problems"], start=start, timeout=10)
+    # solved afresh: the one assembly that comes apart
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": True}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved")
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["assemblies"] == 2 and detail["solutions"] == 1, f"solved {detail}")
+    row = e.call("solution.page", {"problem": p})["rows"][0]
+    check(row["disassembly"] == "tree" and row["moves"] > 0, f"a solution with its moves {row}")
+    pb = e.call("playback.open", {"problem": p, "solution": row["id"]})
+    check(pb["steps"] > 0 and pb["movesText"], f"playback {pb['steps']} {pb['movesText']}")
+    poses = e.call("playback.poses", {"handle": pb["handle"], "samplesPerStep": 2})
+    f = e.frame(poses["frame"])
+    n = len(pb["pieces"])
+    check(poses["samples"] == pb["steps"] * 2 + 1 and poses["pieces"] == n, "pose counts")
+    first, last = f.array("translation")[:n * 3], f.array("translation")[-n * 3:]
+    check(any(abs(a - b) > 1e-3 for a, b in zip(first, last)), "the pieces have moved")
+    e.call("playback.close", {"handle": pb["handle"]})
+    mx = e.call("explore.openMovements", {"problem": p, "solution": row["id"]})
+    check(len(mx["vectors"]) == 13 and len(mx["directions"]) == 26, f"the rhombic directions {mx['vectors']}")
+    check(e.call("explore.analyse", {"handle": mx["handle"], "node": mx["root"]["node"]})["nodes"],
+          "moves from the start")
+    e.call("explore.close", {"handle": mx["handle"]})
+
+
+@test
 def shutdown(e):
     e.call("engine.shutdown")
     try:

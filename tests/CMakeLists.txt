@@ -31,6 +31,7 @@ add_executable(bt_tests
   unit/io/test_puzzle_file.cpp
   unit/io/test_roundtrip.cpp
   unit/io/test_xml.cpp
+  unit/mesh/test_cell_sweep.cpp
   unit/mesh/test_meshes.cpp
   unit/mesh/test_stl.cpp
   unit/mesh/test_stl_dump.cpp
@@ -39,8 +40,10 @@ add_executable(bt_tests
   unit/model/test_puzzle_model.cpp
   unit/solve/test_assembler.cpp
   unit/solve/test_assembler_1.cpp
+  unit/solve/test_derived_disassembly.cpp
   unit/solve/test_disassembly.cpp
   unit/solve/test_grouping.cpp
+  unit/solve/test_movement_checks.cpp
   unit/solve/test_positions.cpp
   unit/solve/test_rotation_solvers.cpp
   unit/solve/test_row_rotation_check.cpp

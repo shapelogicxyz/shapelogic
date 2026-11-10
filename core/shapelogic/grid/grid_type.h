@@ -50,7 +50,8 @@ const Symmetries& derivedSymmetries(GridKind kind);
 /// A readable name, e.g. "bricks", for messages and tests.
 [[nodiscard]] std::string_view toString(GridKind k) noexcept;
 
-/// What the original program can do with a grid (gridType_c::capabilities).
+/// What can be done with a grid (gridType_c::capabilities; the take-apart
+/// on more grids than the original's: solve/movement_checks.h).
 enum GridCapability : unsigned int {
   kCapAssemble = 1,     ///< the grid has an assembler
   kCapDisassemble = 2,  ///< the grid has a disassembler

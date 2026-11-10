@@ -68,8 +68,8 @@ const NO_SCROLLBARS = '::-webkit-scrollbar{display:none}';
  * directory (a new one, removed on close, unless given: a restart keeps
  * its settings in the one given), `args` the app's command line after its
  * main script (a file to open), `scale` the device pixel ratio to draw at
- * whatever the display's (the guide's screenshots are taken at 2, so a
- * non-Retina monitor does not halve them).
+ * whatever the display's (1 without: the guide's screenshots are taken at
+ * 2, so a non-Retina monitor does not halve them).
  */
 export async function launch(
   opts: {
@@ -95,10 +95,11 @@ export async function launch(
   }
   const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
   env.BT_USER_DATA = userData;
-  // the reference screenshots are taken in sRGB whatever display the window
-  // lands on (Playwright's own Chromium does the same)
-  const scale =
-    opts.scale === undefined ? [] : [`--force-device-scale-factor=${String(opts.scale)}`];
+  // the reference screenshots are taken in sRGB and at one device pixel a
+  // CSS pixel whatever display the window lands on (Playwright's own
+  // Chromium does the same): the layout's fractional edges round with the
+  // scale, so a Retina display drew the sliding board a pixel taller
+  const scale = [`--force-device-scale-factor=${String(opts.scale ?? 1)}`];
   const app = await electron.launch({
     args: [
       '--force-color-profile=srgb',

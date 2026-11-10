@@ -90,7 +90,7 @@ def text(f):
         return f"{type(e).__name__} at {e.start}"
 
 
-def describe(tag, puzzle, solve_it=True):
+def describe(tag, puzzle, solve_it=True, take_apart=True):
     emit(tag, "puzzle", repr(puzzle), puzzle.num_shapes, puzzle.num_problems, text(lambda: puzzle.comment))
     for s in puzzle.shapes:
         cells = [s.get(x, y, z) for z in range(s.size_z) for y in range(s.size_y) for x in range(s.size_x)]
@@ -106,7 +106,8 @@ def describe(tag, puzzle, solve_it=True):
         if p.result_shape_index < 0 or p.num_pieces == 0:
             continue
         solve_rows(f"{tag} p{p.index} assemblies", p, disassemble=False)
-        solve_rows(f"{tag} p{p.index} solutions", p, disassemble=True)
+        if take_apart:
+            solve_rows(f"{tag} p{p.index} solutions", p, disassemble=True)
         solve_rows(f"{tag} p{p.index} reduced, mirrors and rotations kept", p,
                    disassemble=False, reduce=True, keep_rotations=True, keep_mirror=True)
 
@@ -208,6 +209,8 @@ def main():
     ap.add_argument("--generated", type=int, default=0, help="puzzles built through the API")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--errors", action="store_true")
+    ap.add_argument("--assemble-only", action="store_true",
+                    help="no solve with the take-apart (grids only the new module takes apart)")
     a = ap.parse_args()
     ONE_THREAD = a.one_thread
     if a.errors:
@@ -215,7 +218,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         generated(a.generated, a.seed, tmp)
     for path in a.puzzles:
-        describe(os.path.basename(path), burrtools.load(path))
+        describe(os.path.basename(path), burrtools.load(path), take_apart=not a.assemble_only)
     return 0
 
 

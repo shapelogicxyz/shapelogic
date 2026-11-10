@@ -95,16 +95,17 @@ findings, both the original's as well:
 **Runtime half done 2026-11-08:** the derivation lives in core as
 `core/shapelogic/mesh/cell_geometry.h` (`cellPolyhedron`, `CellGeometry`
 with `run` and `derivedNeighbours`), shared by the uniform mesher and the
-oracle test, so a derived movement analysis (idea 4) can call it. What is
-still missing for idea 4 is the sweep test: which cells a cell passes
-through when moved one step along a direction (V2's Minkowski sweep with
-a convex-intersection check).
+oracle test, and the derived movement checks (idea 4) are built on it,
+with the sweep test that was still missing here: which cells a cell
+passes through when moved one step along a direction
+(`mesh/cell_sweep.h`).
 
 **New grid kinds done 2026-11-08** (decision 0023): Hexagonal Prism
 (`GridKind::Hexagonal`, 7) and Cairo Prism (`GridKind::Cairo`, 8) in
 File ▸ New, the user guide (puzzle-types/hexagonal, cairo) and the demo.
 Symmetry tables derived at first use (`symmetries_derived.h`), meshes by
-the uniform mesher, assemble-only. Tested by the grid oracle, the grid
+the uniform mesher, assemble-only until idea 4 gave them a take-apart.
+Tested by the grid oracle, the grid
 invariants and a brute-force domino-tiling count the assembler reproduces;
 the original has no such grids, so the oracle harness cannot cover them.
 - **We have:** per-grid `Voxel` subclasses with hand-written tables
@@ -148,7 +149,33 @@ the original has no such grids, so the oracle harness cannot cover them.
   `view3d`. A cheaper first step is XZ and YZ for the prism grid.
 
 ### 4. Derived movement checks for disassembly
-- **We have:** disassembly on bricks and triangular prisms only, with
+**Done 2026-11-09** (decision 0025): `core/shapelogic/mesh/cell_sweep.h`
+(which cells a moved cell passes through, by the separating axis theorem
+on the cells' polyhedra: exact, nothing shrunk),
+`core/shapelogic/solve/movement_checks.h` (the directions of each grid and
+the check cells derived from them, made on first use) and
+`MovementCacheDerived`. The rhombic, tetra-octa, hexagonal and cairo grids
+are taken apart: `-d` in the CLI, Assemble and Disassemble in the Solver,
+levels and moves, the animation, Movements and Analyse. Only Spheres
+keeps the "no disassembler" warning. Turns stay the cubes'.
+- **Directions:** rhombic 13 and tetra-octa 9 as V2 declares them;
+  hexagonal 7 (up, across the sides, along the sides) and cairo 5 (up and
+  the grid's four shortest moves in the plane) are new, V2 has none for
+  them.
+- **Tested without an original:** the derivation gives the original's
+  tables on cubes and triangular prisms, and with `--derived-checks` all
+  180 corpus puzzles match the original; the tetra-octa and rhombic
+  tables are V2's own, recorded by a tool built against V2's library
+  (`tests/oracle/v2_movement_checks.py`,
+  `tests/data/movement_checks_by_v2.txt`); every take-apart found is
+  played back on the cells, and a reference search written for the tests
+  must agree on the examples and on random puzzles of every grid.
+- **Where V2 does more:** its rhombic cells are halves of ours, so its
+  pieces can stop halfway along a cube's space diagonal; ours move the
+  whole diagonal. V2's answers for whole puzzles were not compared: its
+  files and piece cells differ, so the cross-check is at the level of the
+  check tables, where both programs can be asked the same question.
+- **We had:** disassembly on bricks and triangular prisms only, with
   movement rules ported per grid. Rhombic, tetra-octa and spheres show the
   "no disassembler" warning in File ▸ New and Assemble Only in the Solver.
 - **V2 has:** movement vectors declared per grid; the cells that must be
@@ -284,11 +311,11 @@ pointed elsewhere.
 | 1 Generic mesher | Medium | Better bevels, fast STL, bumpy mode |
 | 2 Grid oracle test | Low | None now; confidence and a path to new grids |
 | 3 Cutting-plane editor | High | Large, especially rhombic and tetra-octa |
-| 4 Derived movement | High | Disassembly on two more grids |
+| 4 Derived movement | Done | Disassembly on four more grids: rhombic, tetra-octa, hexagonal prism, cairo prism |
 | 5a Storage | Done (other way) | No database, no journal file: a running solve is kept in the rescue copy every minute or two, always, at no cost to the search and without touching the puzzle's file |
 | 5b Dancing cells | Done (other way) | Not built: no faster. The rotation check on matrix rows instead: identical-piece puzzles 4 to 6 times faster |
 | 5c Task splitting | Done | Idle cores in use; a paused solve loses no work |
 
 Suggested order: 1 first (self-contained, no compatibility risk, builds
 the edge-loop geometry the others reuse), then 2's test, then 3 or 4 as
-user demand shows.
+user demand shows. Done by 2026-11-09: 1, 2, 4 and 5; 3 is left.

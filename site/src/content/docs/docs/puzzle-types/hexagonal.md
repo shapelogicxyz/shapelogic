@@ -13,12 +13,6 @@ as hexagonal packing puzzles and stacked hex-tile puzzles.
 *Honeycomb Seven, an example puzzle: a honeycomb of seven cells in two
 layers.*
 
-:::caution
-This space grid has no disassembler. The solver finds every assembly but cannot
-check whether an assembly can be taken apart. The Solver workspace offers
-**Assemble Only**; **Assemble and Disassemble** is greyed out.
-:::
-
 ## How the grid is built
 
 A cell is a hexagonal prism, 1 across the flats and 1 high, with its flat
@@ -33,6 +27,17 @@ A cell touches six cells of its own layer at its sides, and the cells
 directly above and below at its top and bottom. It touches the six cells
 around the one above, and the six around the one below, along an edge only.
 No two cells of this grid touch at a corner alone.
+
+## Taking apart
+
+The disassembler works on this grid: use **Assemble and Disassemble** to find
+which assemblies come apart, with their levels and moves, and replay how the
+pieces come apart.
+
+Pieces move up and down, across the sides of the hexagons to the next cell
+(three directions, each both ways), and along the sides of the hexagons to the
+next cell but one (three more). A cell moved across a side passes between the
+two cells beside its way, so both must be free or move with it.
 
 ## On the Shapes workspace
 

@@ -34,13 +34,15 @@ std::string_view toString(GridKind k) noexcept {
 unsigned int GridType::getCapabilities() const noexcept {
   switch (kind_) {
     case GridKind::Bricks:
-    case GridKind::TriangularPrism: return kCapAssemble | kCapDisassemble | kCapStlExport;
-    case GridKind::Spheres:
+    case GridKind::TriangularPrism:
+    // not in the original: these take apart with movement checks derived
+    // from their cells (solve/movement_checks.h, decision 0025)
     case GridKind::Rhombic:
     case GridKind::TetraOcta:
-    // no movement analysis yet (docs/V2-IDEAS-PLAN.md idea 4)
     case GridKind::Hexagonal:
-    case GridKind::Cairo: return kCapAssemble | kCapStlExport;
+    case GridKind::Cairo: return kCapAssemble | kCapDisassemble | kCapStlExport;
+    // balls have no faces to slide along: no movement analysis
+    case GridKind::Spheres: return kCapAssemble | kCapStlExport;
     // assembling finds the start placements; a sliding search replaces take-apart
     case GridKind::Sliding: return kCapAssemble | kCapStlExport;
     // the stacking search is a solver of its own

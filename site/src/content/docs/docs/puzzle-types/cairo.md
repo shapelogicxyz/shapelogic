@@ -14,12 +14,6 @@ tiling, a favourite of puzzle designers for its irregular look.
 
 *Pentagon Slab, an example puzzle: a slab of the tiling in two layers.*
 
-:::caution
-This space grid has no disassembler. The solver finds every assembly but cannot
-check whether an assembly can be taken apart. The Solver workspace offers
-**Assemble Only**; **Assemble and Disassemble** is greyed out.
-:::
-
 ## How the grid is built
 
 The cells are numbered on a square grid, but only every other coordinate is
@@ -33,6 +27,18 @@ to them too.
 A cell touches five cells of its own layer at its sides, and the cells
 directly above and below at its top and bottom; cells that share only a
 corner in the tiling touch along the prism's edge.
+
+## Taking apart
+
+The disassembler works on this grid: use **Assemble and Disassemble** to find
+which assemblies come apart, with their levels and moves, and replay how the
+pieces come apart.
+
+Pieces move up and down, and within a layer by the shortest moves that keep a
+shape's look: two cells diagonally, either way, and four cells along x or y. A
+pentagon's sides run in none of these directions, so within a layer a piece
+needs room around its way; most take-aparts on this grid lift pieces out
+layer by layer.
 
 ## On the Shapes workspace
 

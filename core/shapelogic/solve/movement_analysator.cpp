@@ -29,7 +29,7 @@ std::uint64_t nowUs() {
 
 MovementAnalysator::MovementAnalysator(const Puzzle& puzzle, const Problem& problem,
                                        bool rotations, SolverType solver, Options options)
-    : cache_(makeMovementCache(puzzle, problem)),
+    : cache_(makeMovementCache(puzzle, problem, options.derivedChecks)),
       options_(options),
       piecenumber_(problem.getNumberOfPieces()) {
   // only a grid with a take-apart gets here

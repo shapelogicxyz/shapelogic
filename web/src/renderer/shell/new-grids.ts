@@ -30,6 +30,8 @@ export interface GridInfo {
   picture: string;
 }
 
+// Spheres only: the other grids' pieces are polyhedra, and their take-apart
+// comes from the cells' geometry (the engine's derived movement checks).
 const noDisassembler =
   'This space grid has no disassembler. The solver finds every assembly, every way the pieces fill ' +
   'the result, but cannot check whether an assembly can be taken apart, or show how. The Solver ' +
@@ -92,7 +94,7 @@ export const gridInfo: Readonly<Record<Grid, GridInfo>> = {
     description:
       'Pieces are made of small tetrahedra cut from cubes, so that they build rhombic dodecahedra, ' +
       'stellations and other shapes with faces that are not square.',
-    warning: noDisassembler,
+    warning: null,
     pictureOf: 'Diagonal Cube by Stewart Coffin',
     picture: rhombic,
   },
@@ -101,7 +103,7 @@ export const gridInfo: Readonly<Record<Grid, GridInfo>> = {
     description:
       'Pieces are made of tetrahedra and octahedra, which together fill space. Good for pyramid, ' +
       'tetrahedron and octahedron shaped puzzles. A piece may use both kinds of cell.',
-    warning: noDisassembler,
+    warning: null,
     pictureOf: 'Four Piece Tetrahedron by Wayne Daniel',
     picture: tetraocta,
   },
@@ -111,7 +113,7 @@ export const gridInfo: Readonly<Record<Grid, GridInfo>> = {
       'Pieces are made of hexagonal prisms, like a honeycomb stacked in layers. Each row of a layer ' +
       'sits half a cell to the right of the row below, so a shape\u2019s space is a slanted ' +
       'parallelogram of cells. New in ShapeLogic: BurrTools has no such grid.',
-    warning: noDisassembler,
+    warning: null,
     pictureOf: 'A honeycomb slab (an example shape)',
     picture: hexagonal,
   },
@@ -122,7 +124,7 @@ export const gridInfo: Readonly<Record<Grid, GridInfo>> = {
       'four of them meeting at every other corner, in four orientations. Only the cells with x + y ' +
       'odd exist, and a shape keeps its look when moved by two cells diagonally or four along an ' +
       'axis. New in ShapeLogic: BurrTools has no such grid.',
-    warning: noDisassembler,
+    warning: null,
     pictureOf: 'A pentagon slab (an example shape)',
     picture: cairo,
   },

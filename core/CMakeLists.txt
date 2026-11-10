@@ -42,6 +42,7 @@ add_library(btcore STATIC
   shapelogic/io/xml_pull_parser.cpp
   shapelogic/io/xml_writer.cpp
   shapelogic/mesh/cell_geometry.cpp
+  shapelogic/mesh/cell_sweep.cpp
   shapelogic/mesh/cube_mesh.cpp
   shapelogic/mesh/draw_mesh.cpp
   shapelogic/mesh/grid_geometry.cpp
@@ -79,7 +80,9 @@ add_library(btcore STATIC
   shapelogic/solve/movement_analysator.cpp
   shapelogic/solve/movement_cache.cpp
   shapelogic/solve/movement_cache_bricks.cpp
+  shapelogic/solve/movement_cache_derived.cpp
   shapelogic/solve/movement_cache_prisms.cpp
+  shapelogic/solve/movement_checks.cpp
   shapelogic/solve/node_hash.cpp
   shapelogic/solve/panex_search.cpp
   shapelogic/solve/placement_finder.cpp

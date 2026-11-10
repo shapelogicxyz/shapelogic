@@ -71,6 +71,7 @@ struct Options {
   bool fastAnalysis = true;
   bool fastRotations = true;
   bool rotationAnchor = true;
+  bool derivedChecks = false;  ///< --derived-checks
   unsigned int vectorMemoryMb = 256;
   bool rowRotationCheck = true;  ///< --no-row-check
   unsigned int splitTasks = 0;  ///< --split-tasks n (0: the assembler's choice)

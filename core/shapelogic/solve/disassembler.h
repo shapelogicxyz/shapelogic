@@ -117,7 +117,8 @@ class Disassembler {
   Disassembler(const Disassembler&) = delete;
   Disassembler& operator=(const Disassembler&) = delete;
 
-  /// True when the puzzle's grid has a take-apart (cubes and prisms).
+  /// True when the puzzle's grid has a take-apart (every grid of polyhedra:
+  /// not the spheres, nor the sliding and stacking puzzles).
   [[nodiscard]] static bool canDisassemble(const Puzzle& puzzle);
 
   /// Takes `assembly` (one of the problem's) apart. One take-apart at a

@@ -27,15 +27,16 @@ what is different about its type.
 
 ## What the solver can check
 
-For **Brick** and **Triangular Prism** puzzles the solver finds every way the
+For **Brick**, **Triangular Prism**, **Rhombic**, **Tetrahedra-Octahedra**,
+**Hexagonal Prism** and **Cairo Prism** puzzles the solver finds every way the
 pieces fill the result, then checks which assemblies can really be taken apart
-and shows how.
+and shows how. (BurrTools takes only the first two apart; ShapeLogic works out
+how the cells of the other grids can move from their shapes.)
 
-For **Spheres**, **Rhombic**, **Tetrahedra-Octahedra**, **Hexagonal Prism**
-and **Cairo Prism** puzzles there is no disassembler. The solver finds every assembly but cannot check whether it can
-be taken apart. The Solver workspace offers **Assemble Only** (**Assemble and
-Disassemble** is greyed out); the Solutions count stays empty and the
-assemblies are what you get.
+For **Spheres** puzzles there is no disassembler. The solver finds every
+assembly but cannot check whether it can be taken apart. The Solver workspace
+offers **Assemble Only** (**Assemble and Disassemble** is greyed out); the
+Solutions count stays empty and the assemblies are what you get.
 
 **Sliding** and **Stacking** puzzles are solved a different way: the solver
 finds the fewest moves from a start position to a goal position.

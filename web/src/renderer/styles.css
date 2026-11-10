@@ -212,11 +212,6 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .lchip.has::after{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;margin-left:4px;vertical-align:middle;opacity:.7}
 #garea{flex:1;min-width:0;display:grid;place-items:center;overflow:hidden}
 .gwrap{display:grid;user-select:none}
-.cells{display:grid;border:1px solid var(--line2);background:var(--line2);gap:1px;box-shadow:var(--shadow)}
-.cell{background:var(--panel);cursor:inherit;position:relative}
-.cell:hover{outline:2px solid var(--accent);outline-offset:-2px;z-index:1}
-.cell.sel::after{content:"";position:absolute;inset:0;background:var(--accentSoft);outline:2px dashed var(--accent);outline-offset:-2px}
-.cell.v{border:2px dashed rgba(255,255,255,.75)}
 .rrul,.crul{display:flex;font-size:calc(11px + var(--fs));color:var(--muted)}
 .rrul{flex-direction:column;border-right:3px solid;padding-right:4px;margin-right:2px}
 .rrul span{display:flex;align-items:center;justify-content:flex-end}

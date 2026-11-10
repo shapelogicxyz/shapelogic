@@ -44,6 +44,11 @@ class MovementAnalysator {
     /// The Classic turn generator's switches (SHAPELOGIC_NO_ROT_FAST,
     /// SHAPELOGIC_NO_ROT_ANCHOR).
     RotationMovesClassic::Options rotations;
+    /// On cubes and triangular prisms, use the movement checks derived
+    /// from the cells (MovementCacheDerived) in place of the original's
+    /// tables. The moves are the same either way: this is how the derived
+    /// checks, all the other grids have, are compared with the original.
+    bool derivedChecks = false;
   };
 
   /// An analysator for `problem` of `puzzle` (both must outlive it), on a

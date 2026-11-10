@@ -381,6 +381,7 @@ bt::DisassemblerOptions takeApartOptions(const Options& o, bt::ThreadPool* pool)
   d.analysis.fast = o.fastAnalysis;
   d.analysis.rotations.fast = o.fastRotations;
   d.analysis.rotations.anchor = o.rotationAnchor;
+  d.analysis.derivedChecks = o.derivedChecks;
   return d;
 }
 

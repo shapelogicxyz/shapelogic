@@ -11,12 +11,6 @@ may use both kinds of cell.
 
 *Four Piece Tetrahedron by Wayne Daniel.*
 
-:::caution
-This space grid has no disassembler. The solver finds every assembly but cannot
-check whether an assembly can be taken apart. The Solver workspace offers
-**Assemble Only**; **Assemble and Disassemble** is greyed out.
-:::
-
 ## How the grid is built
 
 Like the [rhombic grid](/docs/puzzle-types/rhombic/), this grid is made purely
@@ -27,6 +21,19 @@ squares, and the four together form an octahedron-shaped group.
 
 There are two ways to turn the cube in space, one a rotation of the other, and
 the two kinds of cube fill space in a checkerboard pattern.
+
+## Taking apart
+
+The disassembler works on this grid: use **Assemble and Disassemble** to find
+which assemblies come apart, with their levels and moves, and replay how the
+pieces come apart. BurrTools could only assemble these puzzles, so a file it
+solved holds assemblies only: **Manage solutions ▸ Analyse only the missing
+disassemblies** works out which of them come apart, without solving again.
+
+Pieces move in nine directions, each both ways: along the diagonals of the
+cubes' faces, which are the edges of the tetrahedra and octahedra, one cube at
+a time, and along the three axes, two cubes at a time (the cube next door is
+turned the other way, so a piece fits the grid again only two cubes on).
 
 ## Scale up when in doubt
 

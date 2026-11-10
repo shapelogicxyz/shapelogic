@@ -121,6 +121,9 @@ void usage(HelpKind kind) {
         "  --no-level-threads   take apart on one thread per assembly\n"
         "  --no-fast-analysis, --no-fast-rotations, --no-rotation-anchor\n"
         "                       the take-apart's slower reference paths\n"
+        "  --derived-checks     on cubes and triangular prisms, take apart with the\n"
+        "                       movement checks derived from the cells, as the other\n"
+        "                       grids do, not with the original's tables\n"
         "  --vector-memory MB   the most memory assembler 1's vector search may take\n"
         "                       (default 256; 0 turns it off)\n"
         "  --split-tasks N, --split-depth N\n"
@@ -326,6 +329,8 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.fastRotations = false;
     } else if (a == "--no-rotation-anchor") {
       o.rotationAnchor = false;
+    } else if (a == "--derived-checks") {
+      o.derivedChecks = true;
     } else if (a == "--original-drawings") {
       o.originalDrawings = true;
     } else if (a == "--nested-slides") {

@@ -75,12 +75,19 @@ function stlPositions(bytes: Uint8Array): Float32Array {
   return out;
 }
 
-/** The fixtures whose large shapes take the Minkowski mesher long, or are large spheres. */
+/**
+ * The fixtures whose large shapes take the Minkowski mesher long (the rhombic ones, the last four
+ * of them here for the take-apart's tests), or are large spheres.
+ */
 const SLOW = new Set([
   '12PieceSeparation.xmpuzzle',
   'AugmentedSecondStellation.xmpuzzle',
   'BallRoom.xmpuzzle',
   'BallRoom_solved.xmpuzzle',
+  'BrokenSticks.xmpuzzle',
+  'DiagonalCube.xmpuzzle',
+  'HexSticks.xmpuzzle',
+  'PermutatedThirdStellation.xmpuzzle',
 ]);
 
 describe.skipIf(ENGINE === null)('the exports and the engine', () => {

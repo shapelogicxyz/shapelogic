@@ -23,10 +23,15 @@ A solver stage is done only when the harness reports no differences
 | sliding | the 3 sliding fixtures and 32 puzzles made with the original's code (seven of them, the older-model ones with optional pieces, hold ShapeLogic's answers: decision 0014, difference 5) | ~1 min | sliding work (deferred part 1) |
 | stacking | the 2 stacking fixtures and 39 puzzles made with the original's code | seconds | stacking work (deferred part 3) |
 
-Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only (the
-grid has no take-apart). See `corpus.txt` for why `A` puzzles read the
-original's text summary: its `--json` aborts on those grids, a known bug of
-the original CLI. Sliding puzzles have their own flags: `N` nested slides,
+Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only in
+the original (its grid has no take-apart there). See `corpus.txt` for why
+`A` puzzles read the original's text summary: its `--json` aborts on those
+grids, a known bug of the original CLI. `D` (with `A`) = the new core takes
+the grid apart all the same, with movement checks derived from the cells
+(decision 0025): the original has no answer to compare, so `compare` looks
+at the assemblies only and asks that there are solutions; `files` and
+`text` solve these without `-d`, as before, and `python` leaves out their
+solve with the take-apart. Sliding puzzles have their own flags: `N` nested slides,
 `P` partially nested, `L` too long for the full search (fast and deep
 only), `O` compared on one thread only (see "Sliding puzzles" below);
 so have stacking puzzles: `Q` not for the Panex Solver, `L` no `-o all`
@@ -183,6 +188,23 @@ did (the old trees dropped first; with rotations and Crowell's take-apart
 for the rotation fixture) and saves them;
 `tests/unit/app/test_analysis_files.cpp` does the same with the new core's
 `solution.analyse` and compares the files byte for byte.
+
+One recording comes from BurrTools V2, not from the original: the cells
+that must be empty for each move on the tetra-octa and rhombic grids, which
+V2 computes and the original has no notion of (decision 0025).
+
+```bash
+python3 tests/oracle/v2_movement_checks.py --v2-repo <a built checkout of BurrTools V2>
+                                             # tests/data/movement_checks_by_v2.txt
+```
+
+`movement_checks_v2.cpp` is compiled against V2's libraries
+(`build/libburrtoolslib.a`, `build/libtoolslib.a`; `BT_V2_REPO` in place of
+the option) with the two grids' polyhedra read from V2's Lua scripts, and
+prints each grid's lattice, moves, cells (as centroids) and checks.
+`tests/unit/solve/test_movement_checks.cpp` maps V2's cells onto ours
+(V2 cuts the rhombic grid's cells in halves) and compares the tables cell
+by cell and move by move.
 
 ## File round trip (stage 2 onward)
 

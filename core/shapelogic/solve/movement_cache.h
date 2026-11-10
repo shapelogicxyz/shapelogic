@@ -7,7 +7,8 @@
 /// and offset and kept for the next time they are asked for.
 /// Ported from src/lib/movementcache.{h,cpp}, movementcache_0.{h,cpp}
 /// (cubes) and movementcache_1.{h,cpp} (triangular prisms), and
-/// gridType_c::getMovementCache.
+/// gridType_c::getMovementCache. The cache of the other grids
+/// (MovementCacheDerived) is new: the original had none for them.
 
 #include <cstddef>
 #include <memory>
@@ -17,6 +18,7 @@
 namespace bt {
 
 class GridType;
+struct MovementChecks;
 class Problem;
 class Puzzle;
 class Voxel;
@@ -110,9 +112,31 @@ class MovementCachePrisms final : public MovementCache {
                                          int dz) override;
 };
 
+/// The cache for the grids whose movement checks are derived from the
+/// cells' geometry (movement_checks.h; decision 0025): the rhombic,
+/// tetra-octa, hexagonal and cairo grids. The walk is the prisms' one,
+/// over the grid's own directions and check cells. Not in the original.
+class MovementCacheDerived final : public MovementCache {
+ public:
+  /// `checks` are the grid's (movementChecks) and must outlive the cache.
+  MovementCacheDerived(const Puzzle& puzzle, const Problem& problem, const MovementChecks& checks);
+
+  [[nodiscard]] unsigned int numDirections() const override;
+  void getDirection(unsigned int dir, int* x, int* y, int* z) const override;
+
+ private:
+  std::vector<unsigned int> moCalcValues(const Voxel& sh1, const Voxel& sh2, int dx, int dy,
+                                         int dz) override;
+
+  const MovementChecks& checks_;
+};
+
 /// The cache for the grid of `puzzle`, or null for a grid without take-apart
-/// (gridType_c::getMovementCache).
+/// (gridType_c::getMovementCache). With `derivedChecks`, cubes and
+/// triangular prisms get the derived cache too (an A/B switch: the values
+/// are the same).
 [[nodiscard]] std::unique_ptr<MovementCache> makeMovementCache(const Puzzle& puzzle,
-                                                               const Problem& problem);
+                                                               const Problem& problem,
+                                                               bool derivedChecks = false);
 
 }  // namespace bt

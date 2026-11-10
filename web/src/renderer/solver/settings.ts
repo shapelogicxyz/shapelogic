@@ -331,7 +331,7 @@ export interface Normalized {
  * the thorough check rules Keep Rotated out. The sort by moves, level or
  * rotations needs the take-apart (the mockup's rule): without it the solve
  * keeps them unsorted. A grid without a take-apart (canDisassemble false:
- * spheres, rhombic, tetra-octa) only assembles, so the take-apart, Just
+ * spheres) only assembles, so the take-apart, Just
  * Levels and Check Rotations are off and greyed.
  */
 export function normalize(

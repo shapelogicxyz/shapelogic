@@ -7,11 +7,17 @@
 #         slow  benchmarks and final checks only (minutes each)
 #   flags "-" none
 #         "R" rotation take-apart (-R)
-#         "A" assemble only: the grid has no take-apart (spheres, rhombic,
-#             tetra-octa). The original burrTxt --json always takes apart and
-#             aborts on these grids, so the harness reads its plain `-q`
-#             summary instead; the new bt --json must report assemblies with
-#             solutions 0 and no level.
+#         "A" assemble only in the original: the grid has no take-apart
+#             there (spheres, rhombic, tetra-octa). The original burrTxt
+#             --json always takes apart and aborts on these grids, so the
+#             harness reads its plain `-q` summary instead; the new bt --json
+#             must report assemblies with solutions 0 and no level.
+#         "D" (with "A") the new core takes the grid apart with its derived
+#             movement checks (rhombic, tetra-octa; decision 0025): of the
+#             --json answer only the assemblies are compared, the original
+#             having no solutions to compare with (the unit tests check
+#             those: tests/unit/solve/test_derived_disassembly.cpp), and the
+#             new bt must report solutions. Runs without -d stay as for "A".
 #         "N" sliding: --nested-slides; "P" sliding: --partial-nested
 #         "O" sliding: several starts. A shorter path to a picture already
 #             counted counts again, so on several threads the counts depend
@@ -47,15 +53,15 @@ fast  -  examples/PelikanBurr.xmpuzzle
 fast  -  examples/Prisgon.xmpuzzle
 fast  -  examples/SolidSixPieceBurrs.xmpuzzle
 fast  R  test/test_rotation_solvers.xmpuzzle
-fast  A  examples/12PieceSeparation.xmpuzzle
-fast  A  examples/AugmentedSecondStellation.xmpuzzle
+fast  AD examples/12PieceSeparation.xmpuzzle
+fast  AD examples/AugmentedSecondStellation.xmpuzzle
 fast  A  examples/BallRoom.xmpuzzle
-fast  A  examples/BrokenSticks.xmpuzzle
-fast  A  examples/DiagonalCube.xmpuzzle
-fast  A  examples/FourPieceTetrahedron.xmpuzzle
-fast  A  examples/HexSticks.xmpuzzle
-fast  A  examples/PermutatedThirdStellation.xmpuzzle
-fast  A  examples/PiecesOfEight.xmpuzzle
+fast  AD examples/BrokenSticks.xmpuzzle
+fast  AD examples/DiagonalCube.xmpuzzle
+fast  AD examples/FourPieceTetrahedron.xmpuzzle
+fast  AD examples/HexSticks.xmpuzzle
+fast  AD examples/PermutatedThirdStellation.xmpuzzle
+fast  AD examples/PiecesOfEight.xmpuzzle
 
 full  R  tictest/performance/puzzles/**/*.xmpuzzle
 

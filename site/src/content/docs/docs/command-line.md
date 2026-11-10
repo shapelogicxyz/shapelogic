@@ -273,13 +273,13 @@ With `-q` the `level:` lines are left out, unless `-o all` is given.
 shapelogic_cli -d PelikanBurr.xmpuzzle
 ```
 
-For brick puzzles, `-d` turns on the disassembler, so the tool reports which
-assemblies come apart and how. Only the assemblies that solve are printed.
+For brick, Triangular Prism, Rhombic, Tetrahedra-Octahedra, Hexagonal Prism
+and Cairo Prism puzzles, `-d` turns on the disassembler, so the tool reports
+which assemblies come apart and how. Only the assemblies that solve are
+printed. (`burrTxt` takes only cubes and triangular prisms apart.)
 
-Spheres, Rhombic, Tetrahedra-Octahedra, Hexagonal Prism and Cairo Prism
-puzzles have no disassembler. With
-`-d` they still assemble, and report 0 solutions. To list their assemblies,
-leave out `-d` and use `-s`.
+Spheres puzzles have no disassembler. With `-d` they still assemble, and
+report 0 solutions. To list their assemblies, leave out `-d` and use `-s`.
 
 ### `-q`: quiet
 
@@ -748,9 +748,7 @@ shapelogic_cli -d -o all --restart --limit 0 --save all-solutions.xmpuzzle puzzl
 shapelogic_cli -d --count-only -t 8 --progress --save counted.xmpuzzle puzzle.xmpuzzle
 ```
 
-On grids without a disassembler (Spheres, Rhombic, Tetrahedra-Octahedra,
-Hexagonal Prism, Cairo Prism),
-`--save` with `-d` is refused:
+On the Spheres grid, which has no disassembler, `--save` with `-d` is refused:
 
 ```text
 Sorry, this space grid doesn't have a disassembler (yet)
@@ -893,6 +891,7 @@ don't need them to solve puzzles.
 | `--no-fast-analysis` | Use the take-apart's slower reference path for analysing moves. |
 | `--no-fast-rotations` | Use the slower reference path for rotations (with `-R`). |
 | `--no-rotation-anchor` | Use the slower reference path for anchoring rotations (with `-R`). |
+| `--derived-checks` | On cubes and triangular prisms, take apart with the movement checks worked out from the cells' shapes, as the rhombic, tetra-octa, hexagonal and Cairo grids do, instead of the original's tables. |
 | `--vector-memory MB` | The most memory the vector search of assembler 1 may take. Default 256; `0` turns that search off. |
 | `--original-drawings` | Draw `-p`'s parts as `burrTxt` did, with the wrong shapes below the first separation. Only for comparing output with `burrTxt`. |
 

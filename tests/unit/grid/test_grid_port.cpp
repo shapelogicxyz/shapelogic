@@ -48,8 +48,13 @@ TEST_CASE("grid: capabilities and transformation counts match the original", "[g
   CHECK(GridType(GridKind::TriangularPrism).getCapabilities() ==
         (kCapAssemble | kCapDisassemble | kCapStlExport));
   CHECK(GridType(GridKind::Spheres).getCapabilities() == (kCapAssemble | kCapStlExport));
-  CHECK(GridType(GridKind::Rhombic).getCapabilities() == (kCapAssemble | kCapStlExport));
-  CHECK(GridType(GridKind::TetraOcta).getCapabilities() == (kCapAssemble | kCapStlExport));
+  // not as the original has it: these take apart, with movement checks
+  // derived from their cells (decision 0025)
+  for (const GridKind k :
+       {GridKind::Rhombic, GridKind::TetraOcta, GridKind::Hexagonal, GridKind::Cairo}) {
+    INFO("grid " << toString(k));
+    CHECK(GridType(k).getCapabilities() == (kCapAssemble | kCapDisassemble | kCapStlExport));
+  }
   CHECK(GridType(GridKind::Sliding).getCapabilities() == (kCapAssemble | kCapStlExport));
   CHECK(GridType(GridKind::Stacking).getCapabilities() == kCapStlExport);
 

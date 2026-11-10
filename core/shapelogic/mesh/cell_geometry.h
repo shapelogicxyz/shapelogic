@@ -15,8 +15,8 @@
 /// V2 derives the same from each grid's registered polyhedra
 /// (src/lib/grid.cpp); here the derivation serves the uniform mesher
 /// (uniform_mesh.h), checks the hand-written tables
-/// (tests/unit/grid/test_grid_oracle.cpp) and is what a derived movement
-/// analysis (idea 4) would build on.
+/// (tests/unit/grid/test_grid_oracle.cpp) and is what the derived movement
+/// checks (idea 4: cell_sweep.h, solve/movement_checks.h) are built on.
 
 #include "shapelogic/base/error.h"
 #include "shapelogic/mesh/vec3.h"

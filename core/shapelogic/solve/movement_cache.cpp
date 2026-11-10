@@ -9,6 +9,7 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
+#include "shapelogic/solve/movement_checks.h"
 
 #include <algorithm>
 
@@ -79,22 +80,24 @@ void MovementCache::getMoValue(int dx, int dy, int dz, unsigned char t1, unsigne
   std::copy_n(it->second.begin(), numDirections(), movements);
 }
 
-std::unique_ptr<MovementCache> makeMovementCache(const Puzzle& puzzle, const Problem& problem) {
-  switch (puzzle.getGridType().getType()) {
-    case GridKind::Bricks:
+std::unique_ptr<MovementCache> makeMovementCache(const Puzzle& puzzle, const Problem& problem,
+                                                 bool derivedChecks) {
+  const GridKind kind = puzzle.getGridType().getType();
+  if (!derivedChecks) {
+    if (kind == GridKind::Bricks) {
       return std::make_unique<MovementCacheBricks>(puzzle, problem);
-    case GridKind::TriangularPrism:
+    }
+    if (kind == GridKind::TriangularPrism) {
       return std::make_unique<MovementCachePrisms>(puzzle, problem);
-    case GridKind::Spheres:
-    case GridKind::Rhombic:
-    case GridKind::TetraOcta:
-    case GridKind::Sliding:
-    case GridKind::Stacking:
-    case GridKind::Hexagonal:
-    case GridKind::Cairo:
-      break;
+    }
   }
-  return nullptr;
+  // not in the original: the checks derived from the cells (decision 0025);
+  // spheres, and the sliding and stacking grids, have none
+  const MovementChecks* checks = movementChecks(kind);
+  if (checks == nullptr) {
+    return nullptr;
+  }
+  return std::make_unique<MovementCacheDerived>(puzzle, problem, *checks);
 }
 
 }  // namespace bt

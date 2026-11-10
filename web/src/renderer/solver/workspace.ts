@@ -367,7 +367,7 @@ export class SolverWorkspace {
     return familyOf(this.store.snapshot?.grid);
   }
 
-  /** Whether the puzzle's grid has a take-apart (spheres, rhombic and tetra-octa have none). */
+  /** Whether the puzzle's grid has a take-apart (spheres have none). */
   get canDisassemble(): boolean {
     const grid = this.store.snapshot?.grid;
     return this.store.info?.grids.find((g) => g.grid === grid)?.disassemble !== false;

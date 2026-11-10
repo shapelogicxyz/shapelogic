@@ -558,7 +558,8 @@ TEST_CASE("solve session: abort throws the solve away", "[solve][session]") {
 
 TEST_CASE("solve session: what it refuses", "[solve][session]") {
   SECTION("a grid without take-apart, asked to take apart") {
-    Puzzle p = fresh("AugmentedSecondStellation.xmpuzzle");
+    // spheres: the grids of polyhedra all take apart (decision 0025)
+    Puzzle p = fresh("BallRoom.xmpuzzle");
     SolveSession s(p, p.getProblem(0), takeApart());
     const Result<void> r = s.start();
     REQUIRE_FALSE(r.has_value());
@@ -819,6 +820,43 @@ TEST_CASE("solve session: take-apart workers, level threads and progress from an
     CHECK(st.disasmWorkers == 2);
     CHECK(st.assembliesFound == one.assemblies);
   }
+}
+
+TEST_CASE("solve session: the grids with derived movement checks, on one thread and several",
+          "[solve][session][parallel]") {
+  // Rhombic and tetra-octa puzzles take apart with tables derived from
+  // the cells (decision 0025), made once and read by every take-apart
+  // worker and level thread: the results are one thread's. Bermuda (a
+  // symmetry breaker, on prisms) with the derived tables in place of the
+  // original's finds what it finds with those.
+  struct Case {
+    const char* file;
+    std::uint64_t assemblies;
+    std::uint64_t solutions;
+  };
+  for (const Case c : {Case{"PiecesOfEight.xmpuzzle", 6, 5}, Case{"BrokenSticks.xmpuzzle", 2, 1},
+                       Case{"FourPieceTetrahedron.xmpuzzle", 1, 1}}) {
+    INFO(c.file);
+    SolveOptions o = takeApart(1);
+    o.solutionLimit = 0;
+    const Totals one = straight(c.file, o);
+    CHECK(one.assemblies == c.assemblies);
+    CHECK(one.solutions == c.solutions);
+    CHECK(one.saved.size() == c.solutions);
+
+    o.threads = 4;
+    o.takeApartWorkers = 2;
+    o.takeApart.levelThreadCostUs = 0;
+    CHECK(straight(c.file, o) == one);
+  }
+
+  SolveOptions o = takeApart(4);
+  o.solutionLimit = 0;
+  o.takeApart.levelThreadCostUs = 0;
+  const Totals byTables = straight("Bermuda.xmpuzzle", o);
+  CHECK(byTables.solutions == 1);
+  o.takeApart.analysis.derivedChecks = true;
+  CHECK(straight("Bermuda.xmpuzzle", o) == byTables);
 }
 
 TEST_CASE("solve session: a moved hotspot does not lose the solution", "[solve][session]") {

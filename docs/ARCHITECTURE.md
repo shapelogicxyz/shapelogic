@@ -137,8 +137,8 @@ from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
   tables derived at first use from their matrices (the composition table,
   every subgroup, and the generator's unified, unique and minimizer
   tables per group; the hexagonal grid gets the triangular prism grid's
-  54 groups, the cairo grid 35). No disassembler (idea 4), no scaling,
-  meshes by the uniform mesher.
+  54 groups, the cairo grid 35). No scaling, meshes by the uniform
+  mesher; taken apart with derived movement checks (decision 0025).
 - `grid_type.h`: `GridKind` (the numbers are the file format's; 7 and 8,
   the hexagonal and cairo prism grids, are this program's own, decision
   0023) and
@@ -407,6 +407,11 @@ the problem).
 `disasmtomoves`; checked against the original by the harness (every field of
 the summary on all 180 corpus puzzles, Classic and Crowell, 1
 and all threads; the solved files solution by solution, `compare-files`).
+The take-apart of the rhombic, tetra-octa, hexagonal and cairo grids is
+not the original's, which has none for them: their movement checks are
+derived from the cells (decision 0025, after BurrTools V2), and the same
+derivation gives the original's answers on cubes and prisms
+(`--derived-checks` through the harness). Spheres are assembled only.
 - `disassembler.h`: `Disassembler`, the take-apart of one problem's
   assemblies: `disassemble(assembly, stop) -> TakeApartResult` (the
   `Separation`, or none, and whether it was stopped), `progress()`
@@ -431,7 +436,25 @@ and all threads; the solved files solution by solution, `compare-files`).
 - `movement_analysator.h`: `MovementAnalysator`, Bill Cutler's moves from
   one position (removals, groups, slides with merging, then turns); one per
   thread. `movement_cache.h`: `MovementCache` with `MovementCacheBricks`
-  and `MovementCachePrisms`, `makeMovementCache()`.
+  and `MovementCachePrisms` (the original's tables), `MovementCacheDerived`
+  (the other grids: the prisms' walk over derived checks) and
+  `makeMovementCache()`.
+- `movement_checks.h` (decision 0025, not in the original):
+  `movementDirections(kind)`, the directions pieces move in on a grid and
+  the box after which the grid repeats (the cells' edge directions, one
+  step the shortest move of the grid onto itself: 13 on the rhombic grid,
+  9 on the tetra-octa, 7 on the hexagonal, 5 on the cairo; none for
+  spheres); `deriveMovementChecks`, for each direction and kind of cell
+  the cells it passes through in one step (`mesh/cell_sweep.h`);
+  `movementChecks(kind)`, a grid's table made on first use and kept,
+  immutable. `MovementAnalysator::Options::derivedChecks`
+  (`--derived-checks`) runs cubes and prisms on the derived tables too,
+  an A/B switch with the same answers. The tetra-octa and rhombic tables
+  are checked against a recording of BurrTools V2's
+  (`tests/data/movement_checks_by_v2.txt`), the take-apart on these grids
+  by playing every move back on the cells and by a reference search
+  (`tests/unit/solve/test_derived_disassembly.cpp`,
+  `movement_test_helpers.h`).
 - `rotation_rules.h`: `RotationRules`, whether a 90 degree turn of a body is
   possible (sandwich, perpendicular planes, axis cross, the bevelled arc
   sweep with wiggles), bit for bit the original's answers.
@@ -691,7 +714,15 @@ frame by its Euler characteristic).
   neighbours from the corners the cells share: what `getNeighbor` should
   list). The uniform mesher is built on it and
   `tests/unit/grid/test_grid_oracle.cpp` checks the hand-written tables
-  against it; a derived movement analysis (idea 4) would start here.
+  against it, and the derived movement checks start here.
+- `cell_sweep.h` (decision 0025, after BurrTools V2's
+  `calculateMovementChecks`): `sweepEnters`, whether a cell moved in a
+  straight line passes through another (the separating axis theorem on
+  the two polyhedra and the move: exact, nothing shrunk; cells that only
+  touch the way do not count), and `sweptCells`, the cells a cell passes
+  through in a step of cell coordinates (refused when the step does not
+  move the grid onto itself). `solve/movement_checks.h` derives the
+  take-apart's tables from it.
 - `uniform_mesh.h` (decision 0022, after BurrTools V2's polygen): one
   mesher for every polyhedral grid on `cell_geometry.h`.
   Each cell's bevel and gap directions come from the planes at its
@@ -1865,6 +1896,13 @@ player).
   triangles, its view meshes, one text file) and `oracle.py stl-solution`
   (its solution export of CubeInCage, the dialog's naming copied from
   GUI code); see tests/oracle/README.md.
+  One recording is BurrTools V2's, not the original's:
+  `v2_movement_checks.py` builds `movement_checks_v2.cpp` against a V2
+  checkout and records the movement checks V2 computes for its
+  octahedral and rhombic grids (`tests/data/movement_checks_by_v2.txt`,
+  decision 0025). The corpus flag `D` marks the grids only the new core
+  takes apart: the original's assemblies are compared and solutions are
+  asked for.
   `oracle.py panex-resume` stops Panex searches in one program at a sweep
   of depths (`panex_resume_old` and `bt_panex_resume`, `stopAtDepth`) and
   carries them on in both (the saved folders byte for byte the same, the

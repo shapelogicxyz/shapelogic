@@ -12,12 +12,6 @@ by Stewart Coffin.
 
 *Diagonal Cube by Stewart Coffin.*
 
-:::caution
-This space grid has no disassembler. The solver finds every assembly but cannot
-check whether an assembly can be taken apart. The Solver workspace offers
-**Assemble Only**; **Assemble and Disassemble** is greyed out.
-:::
-
 ## How the grid is built
 
 The basic cell is a tetrahedron. Cutting a cube along its six 45° diagonal
@@ -32,6 +26,21 @@ blocks derived from the rhombic dodecahedron: a six-sided centre block, two
 prism blocks, a square octahedron, a square pyramid and a tetrahedral block.
 Six copies of the centre block are nearly always the centre of a puzzle, and
 other blocks are attached to its faces.
+
+## Taking apart
+
+The disassembler works on this grid: use **Assemble and Disassemble** to find
+which assemblies come apart, with their levels and moves, and replay how the
+pieces come apart. BurrTools could only assemble these puzzles, so a file it
+solved holds assemblies only: **Manage solutions ▸ Analyse only the missing
+disassemblies** works out which of them come apart, without solving again.
+
+Pieces move in 13 directions, each both ways: along the edges of the cubes the
+tetrahedra are cut from, along the diagonals of the cubes' faces, and along the
+cubes' space diagonals. One step is the shortest move that puts a piece back on
+the grid: one cube along an edge, the whole diagonal of a face, or the whole
+diagonal of a cube. A take-apart in which a piece must stop halfway along a
+cube's space diagonal and go on another way is not found.
 
 ## Scale up by 2 when in doubt
 

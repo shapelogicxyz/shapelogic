@@ -70,6 +70,13 @@ FetchContent_MakeAvailable(manifold)
 if(BT_SANITIZE MATCHES "address")
   target_compile_options(manifold PRIVATE -fno-sanitize=all)
 endif()
+# Manifold 3.5.2's headers name std::istream without including a header
+# that declares it (mesh.h, manifold.h: ReadOBJ). Emscripten 7's libc++ no
+# longer brings it in by way of the others, so the WebAssembly build gets
+# <iosfwd> ahead of every file that sees those headers.
+if(EMSCRIPTEN)
+  target_compile_options(manifold PUBLIC -include iosfwd)
+endif()
 
 # pybind11: the Python module (python/, deferred part 7), the original's
 # release (its subprojects/pybind11.wrap). Only when the module is built.

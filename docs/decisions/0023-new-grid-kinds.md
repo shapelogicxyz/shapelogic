@@ -76,4 +76,5 @@ count of domino tilings that the assembler must reproduce.
 - Scale tools (Double, Triple, grid scale) are not offered on the new
   grids; nor is grid conversion.
 - A derived movement analysis (idea 4) would give these grids a
-  disassembler; until then they are assemble-only.
+  disassembler; until then they are assemble-only. (It did: decision
+  0025.)

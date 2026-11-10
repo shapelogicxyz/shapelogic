@@ -320,7 +320,14 @@ def cmd_compare(args: argparse.Namespace) -> int:
             rows.append((e.rel, "NEW FAILED", got["error"]))
             failures += 1
         else:
-            diffs = [f"{k}: {want.get(k)} != {got.get(k)}" for k in fields if want.get(k) != got.get(k)]
+            # "D": the original has no take-apart on the grid, the new core
+            # has (derived movement checks): only the assemblies compare
+            derived = "D" in e.flags
+            compared_fields = tuple(k for k in fields if k == "assemblies") if derived else fields
+            diffs = [f"{k}: {want.get(k)} != {got.get(k)}" for k in compared_fields
+                     if want.get(k) != got.get(k)]
+            if derived and "solutions" in fields and not got.get("solutions"):
+                diffs.append("no solutions from the derived take-apart")
             if diffs:
                 rows.append((e.rel, "MISMATCH", "; ".join(diffs)))
                 failures += 1
@@ -1319,9 +1326,10 @@ def cmd_python(args: argparse.Namespace) -> int:
     jobs: list[tuple[str, list[str], bool]] = [
         ("errors and generated puzzles", ["--errors", "--generated", str(args.generated)], True)]
     for e in select(load_corpus(args.old_repo), args.tier, args.filter):
-        path = str(entry_path(args.old_repo, e.rel))
-        jobs.append((f"{e.rel} (one thread)", [path], True))
-        jobs.append((f"{e.rel} (all threads)", [path], False))
+        # a grid only the new core takes apart ("D"): the solves without the take-apart
+        argv = [str(entry_path(args.old_repo, e.rel)), *(["--assemble-only"] if "D" in e.flags else [])]
+        jobs.append((f"{e.rel} (one thread)", argv, True))
+        jobs.append((f"{e.rel} (all threads)", argv, False))
 
     def one(job):
         label, argv, one_thread = job
