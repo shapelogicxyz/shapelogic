@@ -61,6 +61,52 @@ import '../styles/landing.css';
 
       <section class="blog" aria-labelledby="news-heading">
         <h2 class="blog-heading" id="news-heading">News</h2>
+        <article class="post" aria-labelledby="post-v1-7">
+          <p class="post-meta">
+            <time datetime="2026-11-10">10 November 2026</time> · Release
+          </p>
+          <h3 id="post-v1-7">ShapeLogic v1.7: two new grids, disassembly on more grids, and faster solving</h3>
+          <p>
+            Version 1.7 adds the Hexagonal Prism and Cairo Prism grids, takes apart puzzles on four
+            more grids, draws pieces with even bevels, and keeps every core busy to the end of a solve.
+          </p>
+          <ul>
+            <li>
+              <strong>Two new grids.</strong> <strong>File &#9656; New</strong> makes puzzles from
+              hexagonal prisms or from prisms on the Cairo pentagonal tiling.
+            </li>
+            <li>
+              <strong>Disassembly on more grids.</strong> Rhombic, tetra-octa, hexagonal prism and
+              Cairo prism puzzles are now taken apart as well as assembled.
+            </li>
+            <li>
+              <strong>Uniform bevels.</strong> A new style draws each piece as one solid with every
+              edge bevelled to the same width, in the view and in the STL export.
+            </li>
+            <li>
+              <strong>Faster solving.</strong> Puzzles with many identical pieces solve 4 to 6 times
+              faster, and idle threads take over work from busy ones, so a paused solve loses nothing.
+            </li>
+            <li>
+              <strong>Crash recovery, always on.</strong> A rescue copy of a running solve replaces
+              Autosave, and your puzzle's file is written only when you save it.
+            </li>
+            <li>
+              <strong>Search Options defaults.</strong> <strong>Settings &#9656; Search Options</strong>
+              sets what a new problem's search starts with, and every setting shows its default.
+            </li>
+          </ul>
+          <p>
+            Sliding puzzles show each piece's name on Start and Goal, and the update dialog's
+            <strong>Details</strong> now shows what is new. Read more in
+            <a href="/docs/puzzle-types/hexagonal/">Hexagonal Prism</a> and
+            <a href="/docs/puzzle-types/cairo/">Cairo Prism</a>. Many small bug fixes and
+            improvements.
+          </p>
+          <p>
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7">Release notes and downloads on GitHub</a>
+          </p>
+        </article>
         <article class="post" aria-labelledby="post-v1-6">
           <p class="post-meta">
             <time datetime="2026-10-31">31 October 2026</time> · Release
