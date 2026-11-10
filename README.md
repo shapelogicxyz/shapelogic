@@ -1,51 +1,96 @@
+<p align="center">
+  <img src="site/public/assets/banner.png" alt="ShapeLogic" width="800" />
+</p>
+
 # ShapeLogic
 
-A fork of [BurrTools](https://burrtools.sourceforge.net/) (the original is by
-Andreas Röver and contributors; see AUTHORS) with a rebuilt core: the
-designer and solver for interlocking (burr) puzzles, with the puzzle model, the
-`.xmpuzzle` file format, the assembly and disassembly solvers, and an engine
-process that a new web front end will drive.
+**ShapeLogic designs and solves mechanical puzzles.** Draw the pieces, draw
+the shape they should make, and ShapeLogic finds every way the pieces fit
+together. For interlocking puzzles it then works out which of those
+assemblies can really be taken apart, and plays the moves back step by step
+in 3D. For sliding and stacking puzzles it finds the fewest moves from the
+start position to the goal.
 
-The original application stays the reference: every ported solver must give
-the same answers on a corpus of 180 puzzles before it counts as done.
+Puzzle designers use it to check that a new design has exactly one solution,
+to count the moves needed to take it apart, and to export the pieces as STL
+files for 3D printing. Puzzle collectors use it to solve, study and share
+the puzzles on their shelf.
 
-**Status:** the core's stages 0 to 8 and the web front end's stages 1a to
-8 are done: grids, model and file format, the assemblers, the take-apart
-(with rotation moves), the solve session, the app layer (document, undo,
-commands, meshes, playback, explorers), `shapelogic_engine`, the JSON-RPC engine
-the front end talks to, `shapelogic_cli`, which solves and takes apart as the
-original's `burrTxt` and `burrTxt2`, and the Electron front end in `web/`.
-The deferred features follow part by part
-([docs/DEFERRED-PLAN.md](docs/DEFERRED-PLAN.md)): sliding puzzles are
-solved in the core, the engine and `shapelogic_cli` (part 1) and made, edited, solved
-and played in the front end (part 2); stacking and Panex puzzles are solved
-in the core and `shapelogic_cli` (part 3a: the stacking search, the Panex search with
-its saved searches) and edited and solved through the document and the
-engine (part 3b: rod sets, discs and stacks, `stacking.*`, saved searches
-in the engine's Panex folder) and made, edited, solved and played in the
-front end (part 4: the disc list, the Rods card, the board and its stacks,
-the Panex solves paused and carried on from the app's own folder); the
-STL meshes of every grid (part 5: the cube grids' chamfer table and the
-Minkowski mesher on Manifold, the same files as the original's) are
-exported from both STL dialogs and drawn in the view's STL-like style;
-PuzzleSolver3D and Puzzlecad files are imported, Puzzlecad files exported
-and cube-grid puzzles converted to the rhombic and tetra-octa grids as the
-original does (part 6); and the `shapelogic` Python module keeps the
-original module's API over the new core, sliding and stacking puzzles
-included (part 7, [python/README.md](python/README.md)). See
-[docs/PLAN.md](docs/PLAN.md).
+ShapeLogic is free and open source, and runs on macOS, Windows and Linux.
 
-## Building
+## Download
+
+Download the installer for your system from the
+[**latest release**](https://github.com/shapelogicxyz/shapelogic/releases/latest).
+
+| System | File |
+|---|---|
+| macOS (Apple silicon or Intel) | `.dmg`, signed and notarised by Apple |
+| Windows | `.exe` installer |
+| Linux (x64 or ARM) | `.deb` or `.AppImage` |
+
+[Install](https://shapelogic.xyz/docs/install/) in the user guide says which
+file fits your computer. Want to look first? Try the
+[demo](https://shapelogic.xyz/demo/) in your browser, with nothing to install.
+
+## The puzzles it solves
+
+Every puzzle is built on a grid, the shape of the cells its pieces are made
+of. ShapeLogic has nine:
+
+- **[Brick](https://shapelogic.xyz/docs/puzzle-types/brick/)**: pieces made of cubes, as in burrs and box-packing puzzles.
+- **[Sliding](https://shapelogic.xyz/docs/puzzle-types/sliding/)**: flat pieces slid around a tray from a start position to a goal, as in Klotski or the 15-puzzle.
+- **[Stacking](https://shapelogic.xyz/docs/puzzle-types/stacking/)**: discs moved between rods, as in the Tower of Hanoi and Panex.
+- **[Triangular Prism](https://shapelogic.xyz/docs/puzzle-types/triangular-prism/)**: pieces made of prisms with a triangular base, stacked in layers.
+- **[Spheres](https://shapelogic.xyz/docs/puzzle-types/spheres/)**: pieces made of balls in the tightest packing, for pyramid and ball-packing puzzles.
+- **[Rhombic](https://shapelogic.xyz/docs/puzzle-types/rhombic/)**: pieces made of small tetrahedra cut from cubes, which build rhombic dodecahedra, stellations and diagonally cut cubes.
+- **[Tetrahedra-Octahedra](https://shapelogic.xyz/docs/puzzle-types/tetra-octa/)**: pieces made of tetrahedra and octahedra, for tetrahedron and octahedron shaped puzzles.
+- **[Hexagonal Prism](https://shapelogic.xyz/docs/puzzle-types/hexagonal/)**: pieces made of hexagonal prisms, a honeycomb stacked in layers (new in ShapeLogic).
+- **[Cairo Prism](https://shapelogic.xyz/docs/puzzle-types/cairo/)**: pieces made of prisms on the Cairo pentagonal tiling (new in ShapeLogic).
+
+## The website
+
+[**shapelogic.xyz**](https://shapelogic.xyz) has:
+
+- **[User Guide](https://shapelogic.xyz/docs/)**: how to install ShapeLogic,
+  draw shapes, set up a puzzle, solve it and play back the solution, with a
+  page for each puzzle type, the command line tool and the code base.
+- **[Demo](https://shapelogic.xyz/demo/)**: the app running in your browser,
+  opened on a solved puzzle so you can explore before you download.
+- **[Research](https://shapelogic.xyz/research/)**: papers on puzzles,
+  such as the geometry of golden rhombus puzzles and how the Panex solver
+  finds its shortest solutions.
+- **News**: what each release adds.
+
+## Where it comes from
+
+ShapeLogic is a fork of [BurrTools](https://burrtools.sourceforge.net/), the
+puzzle software by Andreas Röver and contributors, rebuilt from the ground
+up: a new solver core in C++23, a new interface, and new puzzle types and
+modes. Its algorithms are ported from BurrTools and checked against the
+original's answers on a corpus of 180 puzzles. It opens BurrTools'
+`.xmpuzzle` files, so existing puzzle collections come straight across.
+
+ShapeLogic is not meant to replace BurrTools, which is still developed and
+remains an excellent tool. Use whichever suits the puzzle in front of you, or
+both.
+
+## Building and running from the command line
 
 Requirements: CMake 3.28+, Ninja, a C++23 compiler (Apple clang 17+, GCC 13+,
 MinGW-w64 GCC 13+), Python 3.10+ and [just](https://github.com/casey/just).
-Optional: LLVM for `just check` / `just format`.
+The app also needs Node 22. Optional: LLVM for `just check` / `just format`.
 
 ```bash
-just build        # build/dev
+just build        # build the solver core, engine and command line tool (build/dev)
 just test         # unit tests
+just app-install  # install the app's packages (once)
+just app-dev      # run the app
 just oracle       # compare with the original BurrTools (needs ../burr-tools built, or BT_OLD_REPO)
 ```
+
+`just` on its own lists every recipe, and [AGENTS.md](AGENTS.md) explains
+them.
 
 Outputs: `build/<preset>/engine/shapelogic_engine` (the engine: JSON-RPC 2.0 on
 stdin and stdout), `build/<preset>/cli/shapelogic_cli` (command-line solver),
@@ -53,8 +98,30 @@ stdin and stdout), `build/<preset>/cli/shapelogic_cli` (command-line solver),
 finds Python's headers; `just python-wheel` makes its wheel),
 `build/<preset>/tests/bt_tests`.
 
+`shapelogic_cli` solves puzzle files without the app's window:
+
+```bash
+shapelogic_cli -d CubeInCage.xmpuzzle      # find the assemblies, check which come apart
+shapelogic_cli --json CubeInCage.xmpuzzle  # one line of JSON for scripts
+```
+
+[Command line tool](https://shapelogic.xyz/docs/command-line/) in the user
+guide explains every option.
+
+## About and Contact
+
+ShapeLogic is free open-source software, built and maintained by Colin
+Deisenroth.
+
+- Contact: [shapelogic.xyz@gmail.com](mailto:shapelogic.xyz@gmail.com)
+- Submit issues on the [Issues](https://github.com/shapelogicxyz/shapelogic/issues)
+  section above
+- Find me on the [Mechanical Puzzle Discord](https://discord.com/invite/6cQQV9BTYY) in the `#burr-tools` channel, or
+  in a DM to ColinD
+
 ## Documentation
 
+- [RELEASE_NOTES.md](RELEASE_NOTES.md): what changed in each release
 - [docs/PLAN.md](docs/PLAN.md): stages and status
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code is organised
 - [docs/decisions/](docs/decisions/): why it is organised that way

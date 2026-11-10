@@ -56,7 +56,7 @@ import type { SortKey } from './pager.ts';
 import { Player } from './player.ts';
 import { RunCard } from './run-card.ts';
 import {
-  DEFAULT_LIMITS,
+  defaultLimits,
   DEFAULT_OPTIONS,
   defaultsOf,
   familyOf,
@@ -114,7 +114,9 @@ export class SolverWorkspace {
   /** The options shown (the problem's stored ones until changed). */
   options: SearchOptions = { ...DEFAULT_OPTIONS };
   /** The original's Display Limit and Keep Each: not stored with a problem. */
-  limits: Limits = { ...DEFAULT_LIMITS };
+  limits: Limits = defaultLimits();
+  /** The limits were changed here: the settings' defaults no longer move them. */
+  private limitsSet = false;
   /** Whether "Search options" is open. */
   optOpen = false;
   /** The solutions: the stored order or a sort, as a list or a slider. */
@@ -288,17 +290,21 @@ export class SolverWorkspace {
       if (changed.includes('fade')) {
         this.player.restyle();
       }
-      // the Default solver type: shown at once for a problem that stored none
-      const d = this.detail;
-      if (
-        changed.includes('solverType') &&
-        d !== null &&
-        this.family === 'brick' &&
-        d.solverSettings.solverType === undefined
-      ) {
-        this.options = readOptions(d.solverSettings, undefined, this.family, this.canDisassemble);
-        this.render();
+      // the Search Options' defaults (the settings dialog): shown at once for
+      // a problem that stored none of its own, and for the limits (which no
+      // problem stores) until they are changed here
+      const defaults = changed.filter((k) => k === 'solverType' || k.startsWith('opt'));
+      if (defaults.length === 0) {
+        return;
       }
+      if (!this.limitsSet) {
+        this.limits = defaultLimits();
+      }
+      const d = this.detail;
+      if (d !== null && !this.editingOptions) {
+        this.options = readOptions(d.solverSettings, undefined, this.family, this.canDisassemble);
+      }
+      this.render();
     });
     this.installKeys();
     this.documentChanged();
@@ -785,10 +791,6 @@ export class SolverWorkspace {
     if (d !== null && (before?.id !== d.id || !this.editingOptions)) {
       this.options = readOptions(d.solverSettings, undefined, this.family, this.canDisassemble);
     }
-    if (d !== null) {
-      // a stacking search saves itself (its own 20 minutes): no save point
-      this.autosave.want(d.id, this.options.autosave && !this.stacking);
-    }
     const left = byId('leftS');
     left.dataset.problem = this.current ?? '';
     left.dataset.revision = String(revision);
@@ -1023,6 +1025,7 @@ export class SolverWorkspace {
 
   /** Keep at most / keep every n-th (not stored, as the original's). */
   setLimits(change: Partial<Limits>): void {
+    this.limitsSet = true;
     this.limits = {
       keepAtMost: Math.max(0, Math.round(change.keepAtMost ?? this.limits.keepAtMost)),
       keepEach: Math.max(1, Math.round(change.keepEach ?? this.limits.keepEach)),

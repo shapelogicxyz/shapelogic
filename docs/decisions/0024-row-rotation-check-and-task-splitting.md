@@ -4,7 +4,9 @@
 `core/shapelogic/solve/row_rotation_check.h`,
 `core/shapelogic/solve/search_run.h` (`SplitTasks`),
 `core/shapelogic/solve/subtree_split.h`,
-`core/shapelogic/solve/resume_state.h`
+`core/shapelogic/solve/resume_state.h`,
+`core/shapelogic/base/save_cadence.h`,
+`web/src/renderer/solver/autosave.ts`
 
 ## Context
 Idea 5 of the BurrTools V2 comparison asked three things: SQLite as the
@@ -114,6 +116,62 @@ read what a split search of this version leaves.
 (docs/V2-IDEAS-PLAN.md, 5a). The autosave's pause at a save point is the
 crash safety; with tasks left where they stood it no longer costs the
 work in hand.
+
+**One thread, and no signatures where none are needed** (added with the
+crash recovery journal below). The vector search on one thread was the one
+search left that began again after a stop (it kept only how many assemblies
+it had reported, flag 3). It is now a split search of one task, the whole
+search, in both assemblers: stopped, it is left as its untried branches and
+carries on from them. A flag 3 position of the original or an older version
+still continues the old way. A stop that finds the one task untouched puts
+the search back at its start.
+
+With every task left exactly and no two tasks holding the same assembly,
+nothing is found twice, and `SplitSearchState::exact` says so: such a search
+hands assemblies over without looking them up in, or adding them to, the
+set of signatures (`SearchRun::deliverUnlessStopped`), which for millions
+of assemblies cost more than the search. Assembler 0's tasks are always so
+(a search loaded with signatures in its file keeps to them); assembler 1's
+only when the search is one task, because the tasks its plain search makes
+overlap when the vector search takes them. An assembly not taken because
+the run is stopped leaves its node as a branch not begun; one that was
+taken does not, so it is not found again.
+
+**The crash recovery journal** (in the place of the Solver's Autosave).
+With a save point free of cost, the fixed 20 minutes went: the first save
+comes a minute into a solve, each next one when the time since the last is
+at least a minute and at least 50 times what the last save took (its pause,
+the take-aparts it waited for, the write, the restart), and only when the
+solve has moved (`web/src/renderer/solver/cadence.ts`; the stacking and
+sliding searches' own saves keep to the same rule,
+`core/shapelogic/base/save_cadence.h`).
+
+It writes the rescue copy, never the puzzle's file, and it is not an
+option. The autosave saved the document to its file, which put everything
+unsaved there without being asked: the solve's partial results, and the
+edits made before Solve was pressed, over a file that may have been opened
+only to try something; in a synced folder it was an upload a minute, and a
+position this version leaves the original cannot always read. Those were
+the reasons to turn it off, and all of them come from where it wrote. The
+rescue copy (stage 6) already holds a document with the file it belongs to
+and reopens as that document with its unsaved changes; written at a save
+point it holds the solve's position too, so the solve is continued after a
+crash. With the user's file untouched nothing is gained by turning the
+journal off: the Solver has no box for it, the settings no default, and the
+original's stored Autosave box is read and written back and not looked at
+(a stacking search always saves itself). What is given up: the copy is on
+this machine, so a solve is no longer mirrored into a file that may be
+backed up elsewhere unless the user saves it (File ▸ Save during a solve
+pauses at a save point, saves, and carries on).
+
+There is no journal file beside the document either: a position can only
+be taken by pausing the search, so solutions appended between two pauses
+would be found again on recovery, and an append-only file would be no more
+than this, with a format of its own. Appending to the puzzle's own file is
+out for another reason: its XML ends with the root element's close, so
+anything appended is no longer a document, and writing in place gives up
+the atomic save. The settings dialog has a Search Options page for what a
+problem's options start at.
 
 ## Consequences
 - Problems with many pieces of one shape solve 4 to 6 times faster on one

@@ -1497,15 +1497,19 @@ def cmd_resume_check(args: argparse.Namespace) -> int:
                     failures += 1
                     continue
                 directions = (("old", "new"), ("new", "old"))
-                # the deterministic searches save the very same position
+                # The deterministic searches report the same assemblies before
+                # the pause, and the plain search saves the very same position.
+                # (The vector search does not: the original's begins again and
+                # passes over what it reported, the new one keeps its place as
+                # a split search of one task, decision 0024.)
                 if threads == 1:
                     checks += 1
-                    if paused["old"]["text"] != paused["new"]["text"] or \
+                    if (plain and paused["old"]["text"] != paused["new"]["text"]) or \
                             paused["old"]["assemblies"] != paused["new"]["assemblies"]:
                         print(f"MISMATCH     {rel} [{mode}] stop {stop_after}: positions differ\n"
                               f"  old: {paused['old']['text'][:120]}\n  new: {paused['new']['text'][:120]}")
                         failures += 1
-                    else:
+                    elif plain:
                         same_text += 1
             for src, dst in directions:
                 # A split search of assembler 1 stopped by the new program

@@ -545,10 +545,11 @@ for (const grid of GRIDS) {
       }
       const size1 = (await shapeGet(page, s3)).shape.size;
       let added = false;
-      for (let iy = 0; iy < 11 && !added; iy++) {
-        for (let ix = 0; ix < 11 && !added; ix++) {
-          const x = vp.x + vp.width * (0.25 + 0.05 * ix);
-          const y = vp.y + vp.height * (0.25 + 0.05 * iy);
+      // fine enough that a small face is hit whatever the view's size
+      for (let iy = 0; iy < 21 && !added; iy++) {
+        for (let ix = 0; ix < 21 && !added; ix++) {
+          const x = vp.x + vp.width * (0.25 + 0.025 * ix);
+          const y = vp.y + vp.height * (0.25 + 0.025 * iy);
           await page.mouse.move(x, y);
           const m = /^Cell (\d+), (\d+), (\d+) · side (\d+)$/.exec(
             (await page.locator('#stCursor').textContent()) ?? '',

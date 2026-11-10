@@ -198,7 +198,9 @@ class Assembler1 final : public Assembler {
   void generateSubtreeTasks(SearchRun& run, std::vector<SearchStacks>& tasks,
                             unsigned int targetTasks, unsigned int maxDepth);
   void parallelMultiSearch(SearchRun& run, unsigned int workers, const SearchOptions& options);
-  void reportParallelSolution(SearchRun& run, const std::vector<unsigned int>& solutionRows,
+  /// False when the run is stopped and the assembly was not taken (the
+  /// search leaves its node for the next run).
+  bool reportParallelSolution(SearchRun& run, const std::vector<unsigned int>& solutionRows,
                               RowRotationCheck::Scratch& scratch);
   /// Makes rowCheck_ for a run, or clears it when the check does not apply.
   void prepareRowCheck(const SearchOptions& options);
@@ -207,6 +209,13 @@ class Assembler1 final : public Assembler {
   [[nodiscard]] bool rowCheckRejects(const std::vector<unsigned int>& rows,
                                      RowRotationCheck::Scratch& scratch) const;
   [[nodiscard]] bool simdFits(const SearchOptions& options) const;
+  /// True when the split search is one task not begun, the whole search (a
+  /// vector search on one thread stopped before it did anything).
+  [[nodiscard]] bool wholeSearchLeft() const {
+    return split_.tasks.size() == 1 && !split_.completed[0] &&
+           split_.tasks[0].atSubtreeRoot() && split_.tasks[0].taskStack.size() == 1 &&
+           split_.tasks[0].rows.empty();
+  }
   /// Whether the matrix is one the vector search can take at all, whatever
   /// the options say of memory.
   [[nodiscard]] bool vectorPossible() const;

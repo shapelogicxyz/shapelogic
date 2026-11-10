@@ -2,7 +2,8 @@
 //
 // The workspaces and the cards. From docs/mockup/index.html: `layout`,
 // `applyLayout` (a card collapses to a narrow rail; the 3D view takes the
-// focus, both cards railed), `setTab` and `LAYS` (each workspace keeps its
+// focus, both cards railed on Shapes; on Puzzle both cards narrower, on
+// Solver the left card gone and the Solutions card narrower), `setTab` and `LAYS` (each workspace keeps its
 // own layout), `renderRail` (Entities, Puzzle, Solver), and the collapse
 // buttons and rails of the cards (`[data-collapse]`, `.crail`). The
 // layouts are kept across sessions (stage 6: persist.ts). The 2D

@@ -72,7 +72,8 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | | Lighting | on |
 | | Fade out removed pieces | on |
 | Solver | Worker threads | 1-32 (machine dependent) |
-| | Default solver type | Complete / Fast (Complete) |
+| Search Options | (a note: the defaults of the Solver's Search Options, for a problem that saved none; an option on the Solver tab changes that problem only) | |
+| | Every option of the Solver's Search Options, in its order, "(Only: …)" under the name of one only some puzzle types have: Always show Assemblies, Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, the five sliding boxes, Solver type (Complete / Fast), Keep every n-th, Limit | as shipped: the original's |
 | | Memory: Search memory | 2 GB to three quarters of the machine's memory (Automatic: half of it); replaces Enable High Memory |
 | | Disk space: Sliding disk space | Automatic (half the free space, at most 200 GB), 10 GB to 5 TB |
 | | Disk space: Stacking disk space | Automatic (half the free space, at most 200 GB), 10 GB to 5 TB |
@@ -282,7 +283,8 @@ it all).
 2. **This fork's solver options:** solver type (Complete (ShapeLogic), Fast (Crowell)),
    Check Rotations (rotation take-apart), Just Levels, Strict Color
    Restrictions, Deep Symmetry Check, Autosave every
-   20 minutes, **Abort** (hard stop that clears the results, separate from
+   20 minutes (not an option here: a running solve is always kept in the
+   rescue copy, as often as that stays cheap, decision 0024), **Abort** (hard stop that clears the results, separate from
    Pause), paused-solve import/export, debug statistics panel.
 3. **Sliding and Stacking/Panex puzzles**: sliding in section 8 (deferred
    part 2); stacking in section 9 (deferred part 4): rods, disc sizes, start/goal
@@ -442,7 +444,7 @@ where the problem's counts are.
   pieces** and under it **Include mirrored orientations** (only with it),
   both off, which the original did not have (every piece is placed as
   drawn; with them, a piece with no start or goal may be turned, and
-  mirrored); Just count, Keep every n-th, the limit and Autosave stay. Keep mirror, Keep rotated, the thorough rotation check,
+  mirrored); Just count, Keep every n-th and the limit stay. Keep mirror, Keep rotated, the thorough rotation check,
   Strict colours and the sort are not shown (a sliding solve keeps every
   start and matches colours strictly; a path found goes last). They are
   stored with the problem under the file's names (`nestedSlides`,
@@ -604,8 +606,9 @@ disc lies flat, the rods stand up).
   "Panex Solver" for Panex columns, else "Stacking Solver"
   (`engine.info.stackingSolvers`, `SolveOptions.stacking.solver`), with
   the help of `mainwindow_help.cpp`; Keep every n-th, Limit, and
-  **Autosave every 20 min** (here: the search saves itself every 20
-  minutes; the original's PAR_PANEX_NO_AUTOSAVE without it). Keep
+  no **Autosave every 20 min** (the search always saves itself as it
+  runs, a minute in and then as often as saving stays cheap; the
+  original's PAR_PANEX_NO_AUTOSAVE is never set). Keep
   mirror, Keep rotated, the thorough check, Strict colours and the sort
   are not shown.
 - **Run:** Solve, Continue, Pause, Abort; no Prepare (a stacking search

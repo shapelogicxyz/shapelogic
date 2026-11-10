@@ -10,7 +10,11 @@
 // the threads' and the memory's ranges are the machine's (engine.info's
 // hardware threads and memory). The search memory replaced the Solver
 // tab's Enable High Memory. The shortcuts page prints the one keyboard
-// table (keys.ts).
+// table (keys.ts). The Search Options page (not in the mockup) sets what
+// the Solver's Search Options start at for a problem that stored none of
+// its own: every option of that section, with its name and help from the
+// Solver's card (solver/option-text.ts), and "(Only: …)" under the name of
+// one that only some puzzle types have.
 
 import type { Settings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
@@ -21,9 +25,10 @@ import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
 import type { KeyRow } from './keys.ts';
-import { DEFAULTS, NEW_SIZE_MAX, prefs, setPrefs, SIDE_MAX, SIDE_MIN } from './prefs.ts';
+import { DEFAULTS, LIMIT_MAX, NEW_SIZE_MAX, prefs, setPrefs, SIDE_MAX, SIDE_MIN } from './prefs.ts';
 import type { Prefs } from './prefs.ts';
 import { reportError } from './status.ts';
+import { KEEP_AT_MOST, KEEP_EACH, LABEL, TIP } from '../solver/option-text.ts';
 
 type Row = (
   | { k: keyof Prefs; t: string; d: string; type: 'sw' }
@@ -42,12 +47,26 @@ type Row = (
   | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] }
   | { k: keyof Prefs; t: string; d: string; type: 'colour' }
   | { t: string; d: string; type: 'widths' }
+  | {
+      k: NumKey;
+      t: string;
+      d: string;
+      /** A whole number with steppers: from `min`, in steps of `step`. */
+      type: 'num';
+      min: number;
+      step: number;
+    }
 ) & {
   /** Shown only while this holds (a setting another one makes matter). */
   when?: () => boolean;
   /** The heading of the rows of a page it starts, until the next one. */
   group?: string;
+  /** The puzzle types that have the setting, when not all do: "(Only: …)" under its name. */
+  only?: string;
 };
+
+/** The settings a number row sets. */
+type NumKey = 'optKeepEach' | 'optKeepAtMost';
 
 /** The side card width settings, as the widths row shows them. */
 const WIDTHS = [
@@ -117,8 +136,15 @@ function stepOf(steps: readonly number[], v: number, auto: number): number {
 interface Page {
   id: string;
   name: string;
+  /** What the page is for, under its heading. */
+  note?: string;
   rows: readonly Row[];
 }
+
+/** The puzzle types of "(Only: …)": Normal Burrs is every type but Sliding and Stacking. */
+const BURRS = 'Normal Burrs';
+const SLIDING = 'Sliding';
+const STACKING = 'Stacking';
 
 const SET: readonly Page[] = [
   {
@@ -292,13 +318,6 @@ const SET: readonly Page[] = [
         min: 1,
       },
       {
-        k: 'solverType',
-        t: 'Default solver type',
-        d: 'The Solver type a problem starts with when it has none saved: Complete (ShapeLogic) or Fast (Crowell). A problem that saved its own keeps it. Sliding and stacking puzzles have solvers of their own.',
-        type: 'seg',
-        opts: ['Complete', 'Fast'],
-      },
-      {
         k: 'memGB',
         t: 'Search memory',
         d: 'The memory a sliding or stacking search may fill with the arrangements it has found before it stops. Automatic is half of this computer’s memory. More lets a large search go further; the choices go up to three quarters of the memory, so the computer stays usable while it runs. The Sliding Puzzle Solver keeps older moves on disk, so it needs memory only for the widest move.',
@@ -326,6 +345,109 @@ const SET: readonly Page[] = [
       },
     ],
   },
+  {
+    id: 'search',
+    name: 'Search Options',
+    note: `These are the defaults for the <b>Search Options</b> shown in the Solver: what a problem starts with when it has saved none of its own. Changing an option on the Solver tab changes it for that problem only (it is saved with the puzzle), and leaves these defaults as they are. Where an option exists only for some puzzle types, they are named under it; ${BURRS} are every puzzle type but ${SLIDING} and ${STACKING}.`,
+    rows: [
+      {
+        k: 'optKeepAssemblies',
+        t: LABEL.keepAssemblies,
+        d: TIP.keepAssemblies,
+        type: 'sw',
+        only: BURRS,
+      },
+      { k: 'optJustCount', t: LABEL.justCount, d: TIP.justCount, type: 'sw' },
+      {
+        k: 'optJustLevels',
+        t: LABEL.justLevels,
+        d: TIP.justLevels,
+        type: 'sw',
+        only: `${BURRS}, ${STACKING}`,
+      },
+      { k: 'optKeepMirrors', t: LABEL.keepMirrors, d: TIP.keepMirrors, type: 'sw', only: BURRS },
+      {
+        k: 'optKeepRotations',
+        t: LABEL.keepRotations,
+        d: TIP.keepRotations,
+        type: 'sw',
+        only: BURRS,
+      },
+      {
+        k: 'optDeepSymmetry',
+        t: LABEL.deepSymmetry,
+        d: TIP.deepSymmetry,
+        type: 'sw',
+        only: BURRS,
+      },
+      {
+        k: 'optStrictColors',
+        t: LABEL.strictColors,
+        d: TIP.strictColors,
+        type: 'sw',
+        only: BURRS,
+      },
+      {
+        k: 'optAnyOrientation',
+        t: LABEL.anyOrientation,
+        d: TIP.anyOrientation,
+        type: 'sw',
+        only: SLIDING,
+      },
+      {
+        k: 'optMirroredOrientations',
+        t: LABEL.mirroredOrientations,
+        d: TIP.mirroredOrientations,
+        type: 'sw',
+        only: SLIDING,
+      },
+      {
+        k: 'optNestedSlides',
+        t: LABEL.nestedSlides,
+        d: TIP.nestedSlides,
+        type: 'sw',
+        only: SLIDING,
+      },
+      {
+        k: 'optPartialNested',
+        t: LABEL.partialNested,
+        d: TIP.partialNested,
+        type: 'sw',
+        only: SLIDING,
+      },
+      {
+        k: 'optVerticalMoves',
+        t: LABEL.verticalMoves,
+        d: TIP.verticalMoves,
+        type: 'sw',
+        only: SLIDING,
+      },
+      {
+        k: 'solverType',
+        t: 'Solver type',
+        d: 'The Solver type a problem starts with when it has none saved: Complete (ShapeLogic) or Fast (Crowell). A problem that saved its own keeps it. Sliding and stacking puzzles have solvers of their own.',
+        type: 'seg',
+        opts: ['Complete', 'Fast'],
+        only: BURRS,
+      },
+      {
+        k: 'optKeepEach',
+        t: KEEP_EACH.label,
+        d: `${KEEP_EACH.tip}. No problem saves this: the Solver starts with it each time ShapeLogic starts.`,
+        type: 'num',
+        min: 1,
+        step: 1,
+      },
+      {
+        k: 'optKeepAtMost',
+        t: KEEP_AT_MOST.label,
+        d: `${KEEP_AT_MOST.tip}. No problem saves this: the Solver starts with it each time ShapeLogic starts.`,
+        type: 'num',
+        min: 0,
+        step: 10,
+      },
+    ],
+  },
 ];
 
 let page = 'general';
@@ -343,7 +465,26 @@ function threadsShown(): number {
   return prefs.threads === 0 ? maxThreads() : prefs.threads;
 }
 
+/** The row's name with, under it, the puzzle types that have the setting when not all do. */
+const nameHtml = (r: Row): string =>
+  `<b>${esc(r.t)}</b>${r.only === undefined ? '' : `<em class="only">(Only: ${esc(r.only)})</em>`}`;
+
+/** A number held to a number row's range. */
+const numValue = (r: { min: number }, n: number): number =>
+  Math.min(LIMIT_MAX, Math.max(r.min, Math.round(n)));
+
+/** The number row of a setting. */
+function numRow(k: string): (Row & { type: 'num' }) | undefined {
+  const row = SET.flatMap((p) => p.rows).find((x) => x.type === 'num' && x.k === k);
+  return row?.type === 'num' ? row : undefined;
+}
+
 function rowHtml(r: Row): string {
+  if (r.type === 'num') {
+    const v = prefs[r.k];
+    const what = r.t.toLowerCase();
+    return `<div class="setrow"><div class="t">${nameHtml(r)}<span>${esc(r.d)}</span></div><div class="step"><button data-num="${r.k}" data-s="-1" title="${esc(`Decrease ${what} by ${String(r.step)}`)}" ${v <= r.min ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-num="${r.k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(r.t)}" title="${esc(r.d)}"><button data-num="${r.k}" data-s="1" title="${esc(`Increase ${what} by ${String(r.step)}`)}" ${v >= LIMIT_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div></div>`;
+  }
   if (r.type === 'widths') {
     const steps = WIDTHS.map(({ k, name }) => {
       const v = prefs[k];
@@ -403,7 +544,7 @@ function rowHtml(r: Row): string {
   }
   // more than three choices do not fit beside the text: they go under it
   const under = r.type === 'seg' && r.opts.length > 3;
-  return `<div class="setrow${under ? ' under' : ''}"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div>${c}</div>`;
+  return `<div class="setrow${under ? ' under' : ''}"><div class="t">${nameHtml(r)}<span>${esc(r.d)}</span></div>${c}</div>`;
 }
 
 /** The keys of a row as kbd chips (the mockup's kbKeys). */
@@ -454,7 +595,9 @@ export function renderSettings(): void {
   if (query !== '') {
     const q = query.toLowerCase();
     for (const p of SET) {
-      const rs = p.rows.filter((r) => shown(r) && `${r.t} ${r.d}`.toLowerCase().includes(q));
+      const rs = p.rows.filter(
+        (r) => shown(r) && `${r.t} ${r.only ?? ''} ${r.d}`.toLowerCase().includes(q),
+      );
       if (rs.length > 0) {
         h += `<h3>${esc(p.name)}</h3>` + rowsHtml(rs);
       }
@@ -485,6 +628,7 @@ export function renderSettings(): void {
     if (p !== undefined) {
       h =
         `<div class="pgh"><h3>${esc(p.name)}</h3><button class="btn sm" data-reset="${p.id}" title="Restore this section’s settings to their default values">Reset section</button></div>` +
+        (p.note === undefined ? '' : `<div class="kbnote" id="setNote">${p.note}</div>`) +
         rowsHtml(p.rows.filter(shown));
     }
   }
@@ -646,6 +790,14 @@ export function installSettings(s: Store): void {
       const k = b.dataset.w as (typeof WIDTHS)[number]['k'];
       change({ [k]: sideWidth(prefs[k] + WIDTH_STEP * Number(b.dataset.s)) });
       pg.querySelector<HTMLElement>(`button[data-w="${k}"][data-s="${b.dataset.s}"]`)?.focus();
+    } else if (b.dataset.num !== undefined && b.dataset.s !== undefined) {
+      const row = numRow(b.dataset.num);
+      if (row !== undefined) {
+        change({ [row.k]: numValue(row, prefs[row.k] + row.step * Number(b.dataset.s)) });
+        pg.querySelector<HTMLElement>(
+          `button[data-num="${row.k}"][data-s="${b.dataset.s}"]`,
+        )?.focus();
+      }
     } else if (b.dataset.n !== undefined && b.dataset.s !== undefined) {
       const k = b.dataset.n as XyzKey;
       change({ [k]: newSize(prefs[k] + Number(b.dataset.s)) });
@@ -666,6 +818,16 @@ export function installSettings(s: Store): void {
       const n = Number(t.value.trim());
       if (t.value.trim() !== '' && Number.isFinite(n)) {
         change({ [t.dataset.w]: sideWidth(Math.round(n)) });
+      }
+      renderSettings();
+      return;
+    }
+    if (t.dataset.num !== undefined) {
+      // a number typed in: whole, in the row's range; anything else shows the number again
+      const row = numRow(t.dataset.num);
+      const n = Number(t.value.trim());
+      if (row !== undefined && t.value.trim() !== '' && Number.isFinite(n)) {
+        change({ [row.k]: numValue(row, n) });
       }
       renderSettings();
       return;
@@ -704,7 +866,7 @@ export function installSettings(s: Store): void {
     }
   });
   pg.addEventListener('keydown', (e) => {
-    const v = (e.target as Element).closest<HTMLInputElement>('input[data-n]');
+    const v = (e.target as Element).closest<HTMLInputElement>('input[data-n],input[data-num]');
     if (v !== null && e.key === 'Enter') {
       v.blur();
       return;

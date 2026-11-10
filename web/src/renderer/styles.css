@@ -297,6 +297,8 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .setgrp{margin:22px 0 0;font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .setrow.under{flex-direction:column;gap:10px}
 .setrow .t{flex:1}.setrow .t b{display:block;font-weight:600;margin-bottom:2px}.setrow .t span{color:var(--muted);font-size:calc(12px + var(--fs));line-height:1.45;display:block}
+.setrow .t em.only{display:block;font-style:normal;font-size:calc(12px + var(--fs));color:var(--muted);margin:-1px 0 3px}
+.setrow>.step{flex:none}.setrow>.step .v{width:64px}
 .setrow .switch{margin:0;flex:none}
 .setrow .xyzsets{width:260px;flex:none;display:flex;flex-direction:column;gap:6px}.setrow .xyzsets small{color:var(--muted);font-size:calc(11px + var(--fs));font-weight:600;margin-bottom:-2px}.setrow .xyzsets small:not(:first-child){margin-top:6px}
 .kbrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
@@ -382,8 +384,10 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .rbtn.on::before{content:"";position:absolute;left:-6px;top:13px;bottom:13px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
 /* ---- tab switching ---- */
 #stage[data-tab=puzzle].f2d,#stage[data-tab=solver].f2d{--lw:var(--lwx);--rw:var(--rwx);--cw:1fr}
-#stage[data-tab=puzzle].f3d .puz,#stage[data-tab=solver].f3d .slv,#stage[data-tab=solver] .ent,#stage[data-tab=solver] .puz{display:none}
-#stage[data-tab=puzzle].f3d .body,#stage[data-tab=solver].f3d .body{grid-template-columns:1fr}
+/* the 3D focus: on Puzzle both cards at 70% of their width, on Solver the Solutions card alone at 70% */
+#stage[data-tab=solver].f3d #leftS,#stage[data-tab=solver] .ent,#stage[data-tab=solver] .puz{display:none}
+#stage[data-tab=puzzle].f3d .body{grid-template-columns:calc(var(--lwx) * .7) 1fr calc(var(--rwx) * .7)}
+#stage[data-tab=solver].f3d .body{grid-template-columns:1fr calc(var(--rwx) * .7)}
 #stage:not([data-tab=solver]) .slv{display:none}
 #stage[data-tab=puzzle] .ent,#stage[data-tab=puzzle] .ent-only,#stage[data-tab=solver] .ent-only{display:none}
 #stage:not([data-tab=puzzle]) .puz-only{display:none}
@@ -936,6 +940,15 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 #pzLib.closed{display:none}
 #pzUsed>.pz-empty{grid-column:1/-1}
 #pzUsed .ut{width:auto;min-width:0}
+/* the Puzzle tab's left card narrow (the 3D focus, or a narrow Sidebar width): Minimal's tiles, two a row; the library's hint left out (as Minimal does); In this puzzle's buttons on a row of their own, sharing it */
+#leftP{container:pzleft/inline-size}
+@container pzleft (max-width:299px){
+  #pzLib,#pzUsed{--tilew:100px}
+  #pzLibHint{display:none}
+  #pzUsedHead{flex-wrap:wrap;height:auto;row-gap:0;padding-top:7px;padding-bottom:8px}
+  #pzUsedHead .sp{flex-basis:100%;height:6px}
+  #pzUsedHead .btn{flex:1 1 0;justify-content:center}
+}
 #pzLib .lc{min-width:0}#pzLib .lc .pl{min-width:0;flex:0 1 auto}#pzLib .lc .la{margin-left:auto;flex:none}
 #slvOpts{margin-left:12px;padding-left:14px;border-left:2px solid var(--line)}
 #boardsSec:not([hidden]) ~ #shapesHead [data-collapse]{display:none}

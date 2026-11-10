@@ -362,9 +362,9 @@ class Assembler0::Worker {
     return erg;
   }
 
-  void solution() {
+  bool solution() {
     flushIterations();
-    parent_.reportParallelSolution(run_, rows_.data(), pos_, rowScratch_);
+    return parent_.reportParallelSolution(run_, rows_.data(), pos_, rowScratch_);
   }
 
   // The steps of the first `depth` levels as a task.
@@ -472,17 +472,12 @@ class Assembler0::Worker {
         break;
       }
 
-      if (!n_.right[0]) {
-        solution();
-        // An assembly found once the run is stopped is not handed over
-        // (SearchRun::deliverOnce): this node is left as not begun, and the
-        // next run finds it. One handed over just before is found again
-        // too, and passed over by its signature.
-        if (run_.stopRequested()) {
-          leave();
-          stopped = true;
-          break;
-        }
+      // An assembly found once the run is stopped is not handed over: this
+      // node is left as not begun, and the next run finds it.
+      if (!n_.right[0] && !solution()) {
+        leave();
+        stopped = true;
+        break;
       }
 
       if (pos_ == piecenumber) {
@@ -629,20 +624,25 @@ class Assembler0::Worker {
 // the cover (in any order), checked against its rotated copies and against
 // what was reported before, and handed over. Called by the worker threads,
 // the plain ones and the vector ones alike.
-void Assembler0::reportParallelSolution(SearchRun& run, const unsigned int* solutionRows,
+bool Assembler0::reportParallelSolution(SearchRun& run, const unsigned int* solutionRows,
                                         unsigned int count, RowRotationCheck::Scratch& scratch) {
   if (!run.hasCallback()) {
-    return;
+    return true;
   }
 
   if (rowCheck_ != nullptr && rowCheckRejects(solutionRows, count, scratch)) {
-    return;
+    return true;
   }
 
   Assembly assembly = matrix_.assemblyFromRows(puzzle_.getGridType(), solutionRows, count);
 
   if (rowCheck_ == nullptr && filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
-    return;
+    return true;
+  }
+
+  // tasks that never overlap and are left exactly: nothing is found twice
+  if (split_.exact) {
+    return run.deliverUnlessStopped(std::move(assembly));
   }
 
   // the signature: what tells this assembly from the others; an unplaced
@@ -656,7 +656,7 @@ void Assembler0::reportParallelSolution(SearchRun& run, const unsigned int* solu
     sig = fnvMix(sig, static_cast<std::uint32_t>(placed ? p.zpos : 0));
   }
 
-  run.deliverOnce(std::move(assembly), sig, split_.reported);
+  return run.deliverOnce(std::move(assembly), sig, split_.reported);
 }
 
 void Assembler0::generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned int targetTasks,
@@ -761,8 +761,12 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
   warmShapeCaches(puzzle_, problem_);
 
   if (split_.tasks.empty()) {
+    // one thread with the vector search: one task, the whole search (the
+    // split is the plain search's choice of rows, which the vector search
+    // makes better by itself)
+    const bool whole = workers == 1 && simdFits(options);
     const unsigned int targetTasks =
-        options.splitTasks > 0 ? options.splitTasks : splitTaskTarget(workers);
+        whole ? 1 : options.splitTasks > 0 ? options.splitTasks : splitTaskTarget(workers);
     const unsigned int maxDepth =
         std::min(piecenumber > 1 ? piecenumber - 1 : 1U,
                  options.splitDepth > 0 ? options.splitDepth : kSplitDepth);
@@ -773,6 +777,9 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
       split_.weights.push_back(t.weight);
     }
     split_.doneWeight = 0;
+    // prefixes of the rows of one column each: no two hold the same
+    // assembly, and a stop leaves each where it stood
+    split_.exact = true;
   }
 
   taskProgress_.begin(split_.weights, split_.completed, split_.doneWeight);
@@ -838,9 +845,8 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
           prefixRows,
           [this, &drain](const std::vector<unsigned int>& nodes) -> bool {
             drain();
-            self.reportParallelSolution(run, nodes.data(),
-                                        static_cast<unsigned int>(nodes.size()), rowScratch);
-            return !run.stopRequested();
+            return self.reportParallelSolution(
+                run, nodes.data(), static_cast<unsigned int>(nodes.size()), rowScratch);
           },
           run.token(), taskIter,
           [this, &drain](float fraction) {
@@ -906,6 +912,12 @@ void Assembler0::parallelMultiSearch(SearchRun& run, unsigned int workers,
   if (std::find(split_.completed.begin(), split_.completed.end(), 0) ==
       split_.completed.end()) {
     pos_ = piecenumber + 1;
+    split_.clearTasks();
+    split_.interrupted = false;
+  } else if (split_.tasks.size() == 1 && split_.tasks[0].prefix.empty()) {
+    // Stopped with the whole search still one task: nothing of it was begun
+    // (a task begun is replaced by what is left of it). The search stands
+    // at its start, and the next run may search another way.
     split_.clearTasks();
     split_.interrupted = false;
   } else {
@@ -1060,18 +1072,20 @@ RunEnd Assembler0::assemble(const AssemblyCallback& callback, const SearchOption
   prepareRowCheck(options);
   const unsigned int threads = effectiveThreads(options.threads, options.pool);
 
-  // A stopped search carries on the way it ran: the vector search passing
-  // over what it reported (also when this run asks for no vector search:
-  // the plain search cannot skip), the split search with its remaining
-  // tasks, whatever the thread count.
+  // A stopped search carries on the way it ran: the split search with its
+  // remaining tasks, whatever the thread count; and a vector search an
+  // older version stopped (which kept only how many assemblies it had
+  // reported) passing over those, also when this run asks for no vector
+  // search (the plain search cannot skip). The vector search on one thread
+  // is a split search of one task, the whole search: stopped, it is left as
+  // the branches it had not tried and carries on from them, where a vector
+  // search by itself would have to begin again.
   SearchOptions vectorAnyway = options;
   vectorAnyway.vectorSearch = true;
   if (split_.vectorSkip > 0 && canUseSimd(vectorAnyway)) {
     simdSearch(run, vectorAnyway);
-  } else if (atStart() && (threads > 1 || !split_.tasks.empty())) {
+  } else if (atStart() && (threads > 1 || !split_.tasks.empty() || canUseSimd(options))) {
     parallelMultiSearch(run, threads, options);
-  } else if (canUseSimd(options)) {
-    simdSearch(run, options);
   } else {
     // not the fraction of an earlier search that reported by tasks
     taskProgress_.reset();
@@ -1200,6 +1214,9 @@ AssemblerError Assembler0::restorePosition(std::string_view text, std::string_vi
       return AssemblerError::CannotRestoreSyntax;
     }
     tail.interrupted = true;
+    // With no assembly reported, none can be found again: the tasks of a
+    // search this version stopped, or of one that had found nothing yet.
+    tail.exact = tail.reported.empty();
 
     // Such a search starts from the untouched matrix. A file written before
     // the rows were cleared on a stop may still name a row here (the last

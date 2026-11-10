@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   search.keepLimit = std::strtoull(argv[6], nullptr, 10);
   search.diskBudget = std::strtoull(argv[7], nullptr, 10);
   search.threads = static_cast<unsigned int>(std::atoi(argv[8]));
-  search.autosaveMinutes = 0;
+  search.autosave = false;
   if (mode == "pause") {
     if (argc < 10) {
       std::fputs("pause needs a depth\n", stderr);

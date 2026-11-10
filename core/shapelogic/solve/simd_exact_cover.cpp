@@ -480,6 +480,9 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
     }
   }
   bool first = true;
+  if constexpr (Split) {
+    ctx.frames[depth].bestCol = bestCol;
+  }
 
   // branch on every row still possible that covers bestCol
   for (std::size_t i = 0; i < currActive.size(); i++) {
@@ -489,7 +492,7 @@ void SimdExactCover<BitsetType>::search(unsigned int depth, const BitsetType& oc
     }
 
     if constexpr (Split) {
-      ctx.frames[depth] = {bestCol, static_cast<std::uint32_t>(i)};
+      ctx.frames[depth].pos = static_cast<std::uint32_t>(i);
       // the level anew each time: a hand-off from below moves the depth
       // the levels are counted from while this loop runs
       if (const unsigned int now = depth - ctx.baseDepth; now < kProgressLevels && !first) {

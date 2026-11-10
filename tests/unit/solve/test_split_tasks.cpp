@@ -284,3 +284,85 @@ TEST_CASE("Split search: paused again and again it carries on where it stopped",
     }
   }
 }
+
+// The vector search on one thread was the one search that began again after
+// a stop (it kept only how many assemblies it had reported): stopped more
+// often than it took, it never finished. It is a split search of one task
+// now, and carries on from the branches it had not tried; with nothing
+// found twice, it keeps no signatures.
+TEST_CASE("Split search: on one thread the vector search keeps its place too",
+          "[solve][assembler][resume]") {
+  // the puzzle, and the flags its stopped search may save: assembler 0's
+  // split search (2), assembler 1's (4, or 5 with the branches left), and
+  // the plain search (0) where the matrix is not one for the vector search
+  struct One {
+    const char* name;
+    Puzzle puzzle;
+    std::string flags;
+  };
+  std::vector<One> ones;
+  ones.push_back({"assembler 0: the pentominoes in 3 x 20", test::pentominoPuzzle(20, 3), "2"});
+  ones.push_back({"assembler 1: Cube in Cage", test::loadFixture("CubeInCage.xmpuzzle"), "45"});
+  ones.push_back({"assembler 1: Demo Piece Generator",
+                  test::loadFixture("DemoPieceGenerator.xmpuzzle"), "0"});
+
+  for (const One& one : ones) {
+    INFO(one.name);
+    Fingerprints all;
+    std::uint64_t work = 0;
+    {
+      const std::unique_ptr<Assembler> a = prepare(one.puzzle);
+      const test::RunResult r = runOnce(*a, searchOptions(1, nullptr));
+      REQUIRE(r.end == RunEnd::Finished);
+      all = r.found;
+      work = a->iterations();
+    }
+    REQUIRE(all.size() >= 2);
+    // a stop every eighth of the assemblies or so
+    const std::size_t each = std::max<std::size_t>(1, all.size() / 8);
+
+    // stopped by the callback, carried on in memory and through a saved
+    // position by turns
+    std::unique_ptr<Assembler> a = prepare(one.puzzle);
+    Fingerprints found;
+    std::uint64_t done = 0;
+    unsigned int runs = 0;
+    bool viaSave = false;
+    for (;;) {
+      REQUIRE(++runs < 2000);
+      std::size_t thisRun = 0;
+      const std::uint64_t before = a->iterations();
+      const RunEnd end = a->assemble(
+          [&found, &thisRun, each](Assembly asm_) {
+            found.insert(test::fingerprint(asm_));
+            return ++thisRun < each;
+          },
+          searchOptions(1, nullptr), StopToken{});
+      // (a restored assembler 1 counts from nothing, assembler 0 from what
+      // its position says)
+      done += a->iterations() - before;
+      if (end == RunEnd::Finished) {
+        break;
+      }
+      const SavedPosition pos = a->savePosition();
+      INFO(pos.text.substr(0, 100));
+      // not the vector search's old position (flag 3, a count to pass over)
+      CHECK(one.flags.find(pos.text[0]) != std::string::npos);
+      // a split search with nothing found twice keeps no signatures (looked
+      // at before the first reload: assembler 1 keeps them for a search it
+      // loaded)
+      if (runs == 1 && pos.text[0] != '0') {
+        CHECK(pos.text.find(" S 0") != std::string::npos);
+      }
+      viaSave = !viaSave;
+      if (viaSave) {
+        a = prepare(one.puzzle);
+        REQUIRE(a->restorePosition(pos.text, pos.version) == AssemblerError::None);
+      }
+    }
+    CHECK(runs > 1);
+    CHECK(found == all);
+    // carried on, not begun again: about the work of one search
+    CHECK(done < 2 * work + 1000);
+  }
+}

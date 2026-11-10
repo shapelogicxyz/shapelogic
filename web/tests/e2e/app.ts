@@ -37,7 +37,7 @@ export const ENGINE: string | null = (() => {
 export const BUILT = existsSync(resolve(WEB, 'out/main/index.js'));
 
 /** The window's content size of every test (screenshots depend on it). */
-export const WINDOW = { width: 1280, height: 800 } as const;
+export const WINDOW = { width: 1500, height: 900 } as const;
 
 export interface App {
   app: ElectronApplication;

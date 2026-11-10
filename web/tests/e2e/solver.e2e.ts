@@ -13,7 +13,7 @@
 // the contract suite shown with its failure; two problems solved at once;
 // a sliding puzzle solved as bt solves it and played along its routes, a
 // stacking one too (stacking.e2e.ts plays it in transfers); the pieces'
-// labels from the Display menu. Each test's call log holds no refusal the
+// labels from the Display menu; the 3D focus's cards. Each test's call log holds no refusal the
 // UI could have avoided (only the client's own superseded reads).
 
 import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
@@ -219,6 +219,61 @@ test('Display ▸ Labels: the pieces’ labels on the solution, a setting kept o
     await page.keyboard.press('Escape');
     await display(page, 'solvedNames');
     await expect(vp).toHaveAttribute('data-piece-labels', '');
+  } finally {
+    await a.close();
+  }
+});
+
+test('the 3D focus: on Puzzle both cards at 70% of their width; on Solver the Solutions card alone, at 70%', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  const width = async (sel: string): Promise<number> =>
+    (await page.locator(sel).boundingBox())?.width ?? 0;
+  // the cards' widths once the grid's transition is over
+  const settledWidth = async (sel: string, near: number): Promise<void> => {
+    await expect.poll(() => width(sel)).toBeGreaterThan(near - 2);
+    await expect.poll(() => width(sel)).toBeLessThan(near + 2);
+  };
+  try {
+    await openFixture(page, 'Bermuda.xmpuzzle');
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    const left = await width('#leftP');
+    const right = await width('#rightP');
+    await page.click('#bF3D');
+    await expect(page.locator('#stage')).toHaveClass(/\bf3d\b/);
+    await expect(page.locator('#leftP')).toBeVisible();
+    await expect(page.locator('#rightP')).toBeVisible();
+    await settledWidth('#leftP', left * 0.7);
+    await settledWidth('#rightP', right * 0.7);
+    // the narrow left card: nothing cut off at its right edge, two tiles a row
+    const edge = await page.locator('#leftP').boundingBox();
+    for (const sel of ['#pzNew', '#pzAll', '#pzClear', '#pzLibTog']) {
+      const b = await page.locator(sel).boundingBox();
+      expect(b, sel).not.toBeNull();
+      expect((b?.x ?? 0) + (b?.width ?? 0), sel).toBeLessThanOrEqual(
+        (edge?.x ?? 0) + (edge?.width ?? 0),
+      );
+    }
+    await expect(page.locator('#pzLibHint')).toBeHidden();
+    const tops = await page.$$eval('#pzUsed .ut', (els) =>
+      els.slice(0, 2).map((e) => Math.round(e.getBoundingClientRect().top)),
+    );
+    expect(tops[0]).toBe(tops[1]);
+    await page.click('#bF3D');
+    await settledWidth('#rightP', right);
+
+    // the Solutions card is as wide as the Puzzle tab's right card
+    await toSolver(page);
+    await settledWidth('#rightS', right);
+    await page.click('#bF3D');
+    await expect(page.locator('#stage')).toHaveClass(/\bf3d\b/);
+    await expect(page.locator('#leftS')).toBeHidden();
+    await expect(page.locator('#rightS')).toBeVisible();
+    await settledWidth('#rightS', right * 0.7);
+    await page.click('#bF3D');
+    await expect(page.locator('#leftS')).toBeVisible();
   } finally {
     await a.close();
   }
@@ -490,13 +545,17 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await expect(page.locator('#slvRun [data-r="abort"]')).toBeEnabled();
     await expect(page.locator('#slvRun [data-r="pause"]')).toBeDisabled();
 
-    // carried on: the autosave pauses at a save point, saves the file, carries on
+    // carried on: the crash recovery journal pauses at a save point, writes
+    // the rescue copy (which names the file) and carries on; the puzzle's
+    // own file is not touched
     await runButton(page, 'continue');
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
     await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', '1', {
       timeout: 30_000,
     });
-    expect(statSync(file).mtimeMs).toBeGreaterThan(saved0);
+    await expect(page.locator('#stage')).toHaveAttribute('data-rescued', /^\d+$/);
+    expect((await page.evaluate(() => window.btApp.readRescue()))?.info.path).toBe(file);
+    expect(statSync(file).mtimeMs).toBe(saved0);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
       timeout: 15_000,
     });
@@ -669,5 +728,157 @@ test('two problems solved at once; sliding and stacking solved', async () => {
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the crash recovery journal keeps a puzzle without a file in the rescue copy too', async () => {
+  test.setTimeout(120_000);
+  const { log } = tmpLog();
+  // saves no closer than two seconds (a minute in the app)
+  const a = await launch({ callLog: log, autosave: 2 });
+  const page = a.page;
+  try {
+    await newDocument(page, 'bricks');
+    await engineCall(page, 'settings.set', { threads: 1 });
+    await dominoBox(page, 2, 4, 5);
+    await toSolver(page);
+    await expect(page.locator('#fname')).toHaveText(/^Untitled/);
+    // not an option: the Search Options have no box for it
+    await page.click('#slvOptHead');
+    await expect(page.locator('#slvOpts .switch[data-o="justCount"]')).toBeVisible();
+    await expect(page.locator('#slvOpts .switch[data-o="autosave"]')).toHaveCount(0);
+    // with take-apart: a long solve on one thread
+    await page.click('#slvMode [data-m="dis"]');
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
+    // a save point: the rescue copy is written, and the solve carries on
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', '1', {
+      timeout: 30_000,
+    });
+    await expect(page.locator('#stage')).toHaveAttribute('data-rescued', /^\d+$/);
+    await expect(page.locator('#fname')).toHaveText(/^Untitled/);
+    const at = Number(await attr(page, '#leftS', 'data-assemblies'));
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
+      timeout: 15_000,
+    });
+    await expect
+      .poll(async () => Number(await attr(page, '#leftS', 'data-assemblies')))
+      .toBeGreaterThan(at);
+    const found = await page.evaluate(() => window.btApp.readRescue());
+    expect(found?.info.path).toBeNull();
+    await runButton(page, 'abort');
+    await confirm(page, /^Clear the solve\?$/, true);
+    await runEnded(page, 'idle');
+  } finally {
+    await a.close();
+  }
+});
+
+test('the settings’ Search Options are what a problem’s search options start at', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'bricks');
+    await dominoBox(page, 2, 2, 2);
+    await toSolver(page);
+    await page.click('#slvOptHead');
+    const mirrors = page.locator('#slvOpts .switch[data-o="keepMirrors"]');
+    const limit = page.locator('#slvOpts input[data-sti="keepAtMost"]');
+    await expect(mirrors).toHaveAttribute('aria-checked', 'false');
+    await expect(limit).toHaveValue('100');
+
+    // the page: below Solver, its note, the options with the puzzle types that have them
+    await page.keyboard.press('Control+,');
+    await expect(page.locator('#setNav button')).toHaveText([
+      'General',
+      'Grid editor',
+      '3D view',
+      'Solver',
+      'Search Options',
+      'Keyboard shortcuts',
+    ]);
+    await page.click('#setNav [data-p="search"]');
+    await expect(page.locator('#setNote')).toContainText(
+      'These are the defaults for the Search Options shown in the Solver',
+    );
+    const row = (name: string) =>
+      page.locator('#setPg .setrow', {
+        has: page.locator('b', { hasText: new RegExp(`^${name}$`) }),
+      });
+    await expect(row('Just Count').locator('em.only')).toHaveCount(0);
+    await expect(row('Just Levels').locator('em.only')).toHaveText(
+      '(Only: Normal Burrs, Stacking)',
+    );
+    await expect(row('Allow Nested Slides').locator('em.only')).toHaveText('(Only: Sliding)');
+    await expect(row('Keep Mirror Solutions').locator('em.only')).toHaveText(
+      '(Only: Normal Burrs)',
+    );
+    await expect(page.locator('#setPg .setrow b')).toHaveText([
+      'Always show Assemblies',
+      'Just Count',
+      'Just Levels',
+      'Keep Mirror Solutions',
+      'Keep Rotated Solutions',
+      'Deep Symmetry Check',
+      'Strict Color Restrictions',
+      'Allow any orientation for unplaced pieces',
+      'Include mirrored orientations',
+      'Allow Nested Slides',
+      'Allow Partially Nested',
+      'Allow Vertical Moves',
+      'Solver type',
+      'Keep every n-th',
+      'Limit',
+    ]);
+
+    // a default changed: the problem, which stored none, shows it at once
+    await page.click('#setPg .switch[data-k="optKeepMirrors"]');
+    await page.locator('#setPg input[data-num="optKeepAtMost"]').fill('250');
+    await page.locator('#setPg input[data-num="optKeepAtMost"]').press('Enter');
+    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('250');
+    await page.click('#setPg button[data-num="optKeepAtMost"][data-s="1"]');
+    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('260');
+    await page.keyboard.press('Escape');
+    await expect(mirrors).toHaveAttribute('aria-checked', 'true');
+    await expect(limit).toHaveValue('260');
+
+    // changed on the Solver tab: the problem's own from now on, the default as it was
+    await mirrors.click();
+    await solverSettled(page);
+    await expect(mirrors).toHaveAttribute('aria-checked', 'false');
+    await limit.fill('40');
+    await limit.press('Tab');
+    await expect(limit).toHaveValue('40');
+    await page.keyboard.press('Control+,');
+    await page.click('#setNav [data-p="search"]');
+    await expect(page.locator('#setPg .switch[data-k="optKeepMirrors"]')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('260');
+    // the default moved again: the problem keeps what it stored, the limit what was typed
+    await page.click('#setPg .switch[data-k="optKeepRotations"]');
+    await page.click('#setPg button[data-num="optKeepAtMost"][data-s="-1"]');
+    await page.keyboard.press('Escape');
+    await expect(mirrors).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('#slvOpts .switch[data-o="keepRotations"]')).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await expect(limit).toHaveValue('40');
+
+    // Reset section: the shipped defaults
+    await page.keyboard.press('Control+,');
+    await page.click('#setNav [data-p="search"]');
+    await page.click('#setPg [data-reset="search"]');
+    await expect(page.locator('#setPg .switch[data-k="optKeepMirrors"]')).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await expect(page.locator('#setPg input[data-num="optKeepAtMost"]')).toHaveValue('100');
+    await page.keyboard.press('Escape');
+  } finally {
+    await a.close();
   }
 });

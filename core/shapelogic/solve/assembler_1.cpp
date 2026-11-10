@@ -1499,12 +1499,10 @@ class Assembler1::Worker {
 
           if (s.nextRowStack.back() < p.headerNodes_) {
             if (n.right[0] == 0) {
-              parent_.reportParallelSolution(run_, s.rows, rowScratch_);
               // An assembly found once the run is stopped is not handed
-              // over (SearchRun::deliverOnce): the frame is left as not
-              // begun, and the next run finds it again (one handed over
-              // just before is passed over by its signature).
-              if (run_.stopRequested()) {
+              // over: the frame is left as not begun, and the next run
+              // finds it again.
+              if (!parent_.reportParallelSolution(run_, s.rows, rowScratch_)) {
                 leave(baseDepth);
                 return false;
               }
@@ -1683,21 +1681,27 @@ class Assembler1::Worker {
 // placed (in any order), checked against its rotated copies and against
 // what was reported before, and handed over. Called by the worker threads,
 // the plain ones and the vector ones alike.
-void Assembler1::reportParallelSolution(SearchRun& run,
+bool Assembler1::reportParallelSolution(SearchRun& run,
                                         const std::vector<unsigned int>& solutionRows,
                                         RowRotationCheck::Scratch& scratch) {
   if (!run.hasCallback()) {
-    return;
+    return true;
   }
 
   if (rowCheck_ != nullptr && rowCheckRejects(solutionRows, scratch)) {
-    return;
+    return true;
   }
 
   Assembly assembly = assemblyFromRows(solutionRows);
 
   if (rowCheck_ == nullptr && filter_.rejects(assembly, puzzle_, problem_, strictColors_)) {
-    return;
+    return true;
+  }
+
+  // one task, the whole search, left exactly at every stop: nothing is
+  // found twice
+  if (split_.exact) {
+    return run.deliverUnlessStopped(std::move(assembly));
   }
 
   // What tells this assembly from the others, to report it once only. It is
@@ -1730,7 +1734,7 @@ void Assembler1::reportParallelSolution(SearchRun& run,
     }
   }
 
-  run.deliverOnce(std::move(assembly), sig, split_.reported);
+  return run.deliverOnce(std::move(assembly), sig, split_.reported);
 }
 
 // The tasks of a split search: the plain search from its start, cut off
@@ -1964,7 +1968,16 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
         options.splitTasks > 0 ? options.splitTasks : splitTaskTarget(workers);
     const unsigned int maxDepth =
         std::min(piecenumber_, options.splitDepth > 0 ? options.splitDepth : kSplitDepth);
-    generateSubtreeTasks(run, split_.tasks, targetTasks, maxDepth);
+    if (workers == 1 && simdFits(options) && !rowOrderSignatures_) {
+      // one thread with the vector search: one task, the whole search (the
+      // stacks at the root). Its branches never overlap; the tasks the
+      // plain search makes do when the vector search takes them (see
+      // below), so only this search goes without signatures.
+      split_.tasks.assign(1, stacks_);
+      split_.exact = true;
+    } else {
+      generateSubtreeTasks(run, split_.tasks, targetTasks, maxDepth);
+    }
     for (SearchStacks& t : split_.tasks) {
       t.base = static_cast<unsigned int>(t.taskStack.size());
     }
@@ -1983,6 +1996,11 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
   const bool allDone = std::find(split_.completed.begin(), split_.completed.end(), 0) ==
                        split_.completed.end();
   if (run.stopRequested() || allDone) {
+    if (run.stopRequested() && wholeSearchLeft()) {
+      // nothing of it begun: the search stands at its start
+      split_.clearTasks();
+      split_.interrupted = false;
+    }
     if (!run.stopRequested()) {
       // The original only reported this as finished through its progress;
       // the search is through, so its stacks say so too.
@@ -2048,8 +2066,7 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
           task.rows, task.hiddenRows,
           [this, &drain](const std::vector<unsigned int>& nodes) -> bool {
             drain();
-            self.reportParallelSolution(run, nodes, rowScratch);
-            return !run.stopRequested();
+            return self.reportParallelSolution(run, nodes, rowScratch);
           },
           run.token(), taskIter,
           [this, &drain](float fraction) {
@@ -2126,6 +2143,12 @@ void Assembler1::parallelMultiSearch(SearchRun& run, unsigned int workers,
     split_.clearTasks();
     split_.interrupted = false;
     rowOrderSignatures_ = false;
+  } else if (wholeSearchLeft()) {
+    // Stopped with the whole search still one task: nothing of it was begun
+    // (a task begun is replaced by what is left of it). The search stands
+    // at its start, and the next run may search another way.
+    split_.clearTasks();
+    split_.interrupted = false;
   } else {
     // Stopped part way. The tasks are what is left of the search: the ones
     // not begun, and in place of each one a thread was in, where it stood
@@ -2365,7 +2388,12 @@ RunEnd Assembler1::assemble(const AssemblyCallback& callback, const SearchOption
     vectorAnyway.vectorMemoryBudget = std::numeric_limits<std::uint64_t>::max();
     if (split_.vectorSkip > 0 && canUseSimd(vectorAnyway)) {
       simdSearch(run, vectorAnyway);
-    } else if (atRoot() && (threads > 1 || !split_.tasks.empty())) {
+    } else if (atRoot() && (threads > 1 || !split_.tasks.empty() ||
+                            (canUseSimd(options) && !rowOrderSignatures_))) {
+      // on one thread the vector search is a split search of one task, the
+      // whole search: stopped, it is left as the branches it had not tried
+      // and carries on from them, where a vector search by itself would
+      // have to begin again
       parallelMultiSearch(run, threads, options);
     } else if (canUseSimd(options)) {
       simdSearch(run, options);

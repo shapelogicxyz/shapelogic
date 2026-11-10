@@ -121,13 +121,41 @@ Keeps at most this many solutions. **0** keeps them all. The default is
 **100**. The solver goes on counting after the limit, so the **Solutions**
 count is still right. Not saved with the problem.
 
-### Autosave every 20 min
+### Crash recovery
 
-On by default. Twenty minutes into a solve and every twenty minutes after,
-the solve pauses where it can be saved, the puzzle is saved to its file, and
-the solve carries on. If the computer crashes you lose at most twenty
-minutes. For a stacking puzzle, the search saves itself instead, and
-**Continue** carries it on.
+There is no option for this: it is always on. While a solve runs,
+ShapeLogic keeps a **rescue copy** of the puzzle with the solve's results
+and its place in the search. If ShapeLogic or the computer crashes, the next
+start offers to reopen that copy, and **Continue** carries the solve on from
+where the copy was written.
+
+The copy is kept in ShapeLogic's own data folder. Your puzzle's file is
+never written unless you save it: a solve does not change the file on disk,
+whatever you edited before starting it. **File ▸ Save** during a solve
+pauses it for a moment, saves, and carries on.
+
+The first copy is written about a minute into the solve. After that the
+copies are spaced by what they cost: writing them takes no more than about
+2% of the solve's time, and two are never less than a minute apart. A solve
+with slow take-aparts or a very long list of solutions is copied less often,
+and nothing is written while the solve has not moved on. Pausing for a copy
+loses none of the search's work, on one thread or on many. After a crash you
+usually lose a minute or two.
+
+A stacking puzzle's search saves itself by the same rule, in its own files,
+and **Continue** carries it on. (The original's **Autosave every 20 min**
+box is gone; a puzzle that stored it keeps what it stored, and it is not
+looked at.)
+
+### Setting the defaults
+
+What the search options start at, for a problem that has saved none of its
+own, is set in **Settings ▸ Search Options** (`Ctrl+,` or `⌘,` on a Mac):
+every option of this section is listed there, with the puzzle types that
+have it under its name. Changing an option here on the Solver tab changes it
+for that problem only (it is saved with the puzzle) and leaves the default
+as it is. **Keep every n-th** and **Limit**, which no problem saves, start
+at their defaults each time ShapeLogic starts.
 
 ### Options for sliding puzzles
 

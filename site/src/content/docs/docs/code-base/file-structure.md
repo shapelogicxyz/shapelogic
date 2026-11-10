@@ -70,7 +70,7 @@ comment at the top.
 | `src/renderer/view3d/` | the 3D view in three.js: `view.ts`, `renderer.ts`, `camera.ts`, `mesh.ts`, `material.ts`, `scene.ts`, `pieces.ts`, `solution.ts`, `picking.ts`, `meshcache.ts`, `svg.ts` |
 | `src/renderer/entities/` | the Shapes workspace: the shapes list, the voxel editor (`grid2d.ts`, `edit3d.ts`, `stroke.ts`), the inspector, the status window |
 | `src/renderer/puzzle/` | the Puzzle workspace: problems, the pieces card, the piece card, the pieces scene layout |
-| `src/renderer/solver/` | the Solver workspace: `workspace.ts`, `run-card.ts`, `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`, `autosave.ts`, `stats-panel.ts` |
+| `src/renderer/solver/` | the Solver workspace: `workspace.ts`, `run-card.ts`, `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`, `option-text.ts`, `autosave.ts`, `cadence.ts`, `stats-panel.ts` |
 | `src/renderer/explore/` | the step-by-step assembly and movement explorers and the debug statistics |
 | `src/renderer/export/` | File ▸ Export: image, vector image, STL, glTF |
 | `src/demo/` | the website's browser demo: the engine's WebAssembly transport and a stand-in for Electron's menus and dialogs |

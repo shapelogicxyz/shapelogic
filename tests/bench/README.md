@@ -233,3 +233,15 @@ bookkeeping the vector searches keep for handing branches on cost every
 search 2 to 3%. They are compiled twice now (`search<Split>`), and a
 search that does not split is the code it was; one that does pays about
 2% for it, which the hand-offs win back from five threads or so.
+
+**One thread through the task list** (with the crash recovery journal, the
+same day). The vector search on one thread is a split search of one task
+now, so that it keeps its place at a pause; and a search whose tasks never
+overlap keeps no signatures of what it reported. Against the original,
+best of 3 (the sets of 2): the pentominoes (-r) on one thread 0.97, Solid
+Six Piece Burrs 0.57, the take-apart rows 0.92 to 0.96, the tetromino box
+0.99 on one thread and 1.03 on ten, 20 dominoes 0.13, the ranges box 0.32;
+Burr-Glar 0.60 on one thread (15.9 s) and 0.20 on four (4.4 s against
+22.2 s; without the signatures, a second faster than above). A one-thread
+solve of the 3x4x5 pentominoes paused every 3 s took 60 s to reach 13%
+before; it finishes in 13.7 s, the time of one never paused.

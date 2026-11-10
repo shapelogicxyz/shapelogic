@@ -66,6 +66,28 @@ export interface Prefs {
   panexDiskGB: number;
   /** The Solver type of a problem that stored none (not sliding or stacking): classic or crowell. */
   solverType: 'Complete' | 'Fast';
+  /**
+   * The Solver's Search Options of a problem that stored none (the settings
+   * dialog's Search Options page; solver/settings.ts's defaultsOf): the
+   * boxes by their stored names, and the two limits, which no problem
+   * stores.
+   */
+  optKeepAssemblies: boolean;
+  optJustCount: boolean;
+  optJustLevels: boolean;
+  optKeepMirrors: boolean;
+  optKeepRotations: boolean;
+  optDeepSymmetry: boolean;
+  optStrictColors: boolean;
+  optAnyOrientation: boolean;
+  optMirroredOrientations: boolean;
+  optNestedSlides: boolean;
+  optPartialNested: boolean;
+  optVerticalMoves: boolean;
+  /** Keep every n-th solution (1: each). */
+  optKeepEach: number;
+  /** Keep at most this many solutions (0: all). */
+  optKeepAtMost: number;
 }
 
 /** The defaults (the engine's for undo depth, threads, memory and disk). */
@@ -104,6 +126,20 @@ export const DEFAULTS: Readonly<Prefs> = {
   slideDiskGB: 0,
   panexDiskGB: 0,
   solverType: 'Complete',
+  optKeepAssemblies: false,
+  optJustCount: false,
+  optJustLevels: false,
+  optKeepMirrors: false,
+  optKeepRotations: false,
+  optDeepSymmetry: false,
+  optStrictColors: true,
+  optAnyOrientation: false,
+  optMirroredOrientations: false,
+  optNestedSlides: false,
+  optPartialNested: false,
+  optVerticalMoves: false,
+  optKeepEach: 1,
+  optKeepAtMost: 100,
 };
 
 /** The settings now. */
@@ -165,6 +201,9 @@ export const SIDE_MAX = 600;
 /** The side card width settings, each SIDE_MIN to SIDE_MAX. */
 const SIDE: readonly (keyof Prefs)[] = ['sideL', 'sideR'];
 
+/** The most the Search Options' two limits take. */
+export const LIMIT_MAX = 100_000;
+
 /** The stored settings that are well formed. */
 export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
   const out: Partial<Record<keyof Prefs, unknown>> = {};
@@ -181,9 +220,11 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
             ? typeof v === 'number' && Number.isInteger(v) && v >= SIDE_MIN && v <= SIDE_MAX
             : k === 'boardColourLight' || k === 'boardColourDark'
               ? typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
-              : typeof DEFAULTS[k] === 'number'
-                ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
-                : typeof v === typeof DEFAULTS[k];
+              : k === 'optKeepEach'
+                ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= LIMIT_MAX
+                : typeof DEFAULTS[k] === 'number'
+                  ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
+                  : typeof v === typeof DEFAULTS[k];
     if (ok) {
       out[k] = v;
     }

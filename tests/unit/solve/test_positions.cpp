@@ -104,14 +104,27 @@ TEST_CASE("positions: searches the original paused continue here",
     both.insert(rest.found.begin(), rest.found.end());
     CHECK(both == all);
 
-    // paused here on one thread, the same text and the same assemblies
+    // paused here on one thread, the same assemblies; and the plain search
+    // saves the same text (the vector search does not: the original's
+    // begins again and passes over what it reported, this one keeps its
+    // place as a split search of one task, and carries on from there)
     if (r.threads == 1) {
       auto b = prepared(p, r.solver, r.reduce);
       const test::RunResult first = test::runOnce(*b, options, {}, r.stopAfter);
       CHECK(first.found == r.before);
       const SavedPosition mine = b->savePosition();
       CHECK(mine.version == r.position.version);
-      CHECK(mine.text == r.position.text);
+      if (r.plain) {
+        CHECK(mine.text == r.position.text);
+      } else {
+        auto c = prepared(p, r.solver, r.reduce);
+        REQUIRE(c->restorePosition(mine.text, mine.version) == AssemblerError::None);
+        const test::RunResult more = test::runOnce(*c, options);
+        CHECK(more.end == RunEnd::Finished);
+        Fingerprints mineBoth = first.found;
+        mineBoth.insert(more.found.begin(), more.found.end());
+        CHECK(mineBoth == all);
+      }
     }
   }
   CHECK(assembler1 >= 15);

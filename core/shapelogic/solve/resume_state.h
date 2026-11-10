@@ -55,6 +55,13 @@ struct SplitSearchState {
   std::uint64_t vectorDone = 0;
   /// The last run of a split or vector search stopped before its end.
   bool interrupted = false;
+  /// The tasks never overlap, and every run left them exactly where it
+  /// stood: no assembly is found twice, so none is looked up in `reported`
+  /// and none recorded there (for a search with millions of assemblies the
+  /// signatures cost more than the search). Set by the assembler when it
+  /// makes such tasks; a search loaded from a file has it only when the
+  /// file says so much.
+  bool exact = false;
 
   /// Forget the split (the search is through, or starts over).
   void clearTasks() {
@@ -63,6 +70,7 @@ struct SplitSearchState {
     weights.clear();
     doneWeight = 0;
     reported.clear();
+    exact = false;
   }
 
   /// Drops the finished tasks, keeping their weight in doneWeight: a search

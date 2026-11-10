@@ -168,7 +168,7 @@ and `Solution` with the original module's names.
 | The 3D view | `view3d/view.ts`, `renderer.ts`, `camera.ts`, `scene.ts`, `pieces.ts`, `solution.ts`, `mesh.ts`, `material.ts`, `picking.ts`, `meshcache.ts` | `View3D`, `ViewRenderer`, `ShapeScene`, `PiecesScene`, `SolutionScene`, `buildMesh` |
 | The Shapes workspace | `entities/workspace.ts`, `shapes-list.ts`, `editor-card.ts`, `grid2d.ts`, `edit3d.ts`, `stroke.ts`, `inspector.ts`, `status-window.ts` | `EntitiesWorkspace`, `Grid2D`, `Edit3D`, `Stroke` (a drag as one undo group) |
 | The Puzzle workspace | `puzzle/workspace.ts`, `problems.ts`, `pieces-card.ts`, `piece-card.ts`, `layout.ts` | `PuzzleWorkspace`, `ProblemsList`, `PiecesCard`, `PieceCard` |
-| The Solver workspace | `solver/workspace.ts`, `run-card.ts`, `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`, `autosave.ts`, `stats-panel.ts` | `SolverWorkspace` (`run`, `pause`, `abort`), `RunCard`, `SolutionsCard`, `Player`, `PoseTrack`, `SolutionPager`, `solveOptions`, `Autosave` |
+| The Solver workspace | `solver/workspace.ts`, `run-card.ts`, `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`, `option-text.ts`, `autosave.ts`, `cadence.ts`, `stats-panel.ts` | `SolverWorkspace` (`run`, `pause`, `abort`), `RunCard`, `SolutionsCard`, `Player`, `PoseTrack`, `SolutionPager`, `solveOptions`, `Autosave` |
 | Explorers and exports | `explore/explorer.ts`, `explore/tree.ts`, `export/exports.ts`, `export/glb.ts`, `export/stl-dialogs.ts` | `Explorer`, `Exports` |
 
 ## Tests by area

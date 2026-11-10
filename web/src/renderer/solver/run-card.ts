@@ -13,7 +13,9 @@
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
 // (mainwindow_layout.cpp) where the mockup had none: Solve, Pause, Abort,
-// Check Rotations, Strict Colours, the solver type, Autosave. A sliding
+// Check Rotations, Strict Colours, the solver type. The original's
+// Autosave box is not shown: the crash recovery journal in its place is
+// always on (autosave.ts). A sliding
 // puzzle (docs/webui-spec.md, section 8.3) shows the original's sliding
 // boxes and solvers instead (mainwindow_layout.cpp's tooltips,
 // mainwindow_help.cpp's solver help), "Find Solutions" for the second
@@ -29,8 +31,15 @@ import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import {
-  DEFAULT_LIMITS,
-  DEFAULT_OPTIONS,
+  KEEP_AT_MOST,
+  KEEP_EACH,
+  LABEL,
+  SOLVER_TYPE_TIP,
+  STACKING_TIP,
+  TIP,
+} from './option-text.ts';
+import {
+  defaultLimits,
   defaultsOf,
   effectiveSort,
   normalize,
@@ -40,45 +49,6 @@ import {
 import type { BoxName, SearchOptions } from './settings.ts';
 import { formatSpan } from './span.ts';
 import type { SolverWorkspace } from './workspace.ts';
-
-/** The switches' help (the mockup's SVTIP, the original's tooltips for the rest). */
-const TIP: Record<BoxName, string> = {
-  disassemble:
-    'Check each assembly for a complete disassembly; only assemblies that can be taken apart are listed.',
-  justLevels:
-    'Check disassemblies but keep only their level, not the moves. Recompute them later with “Analyse”.',
-  checkRotations: 'Also try 90 degree piece rotations while taking the assemblies apart.',
-  justCount: 'Only count solutions; they are dropped as soon as they are found.',
-  keepMirrors:
-    'Do not remove solutions that are mirror images of others (useful with piece ranges).',
-  keepRotations: 'Do not remove solutions that are only rotations of others.',
-  deepSymmetry:
-    'A more thorough, slower check for duplicate solutions: removes translations and rotations that are not in the symmetry of the result shape.',
-  strictColors:
-    'A voxel with a color fits only a result voxel of that same color, not a neutral one; a voxel with no color fits only a result voxel that also has none.',
-  nestedSlides:
-    'A piece may slide together with the pieces nested inside its outline, such as a piece in another piece’s pocket. Pieces that only touch never slide together.',
-  partialNested:
-    'With Allow Nested Slides: a piece may also slide together with a piece that sits partly in its outline, such as a piece in another piece’s pocket that sticks out of it. Pieces that only touch never slide together.',
-  verticalMoves:
-    'On a tray more than one layer deep, a piece may also move up and down: lifted out over the other pieces and put down somewhere else. Off, every piece slides only in its own layer.',
-  anyOrientation:
-    'A piece with neither a start nor a goal on the board may be placed in any of its quarter turns. Off, every piece is placed as it is drawn. Either way a piece keeps its orientation as it slides.',
-  mirroredOrientations:
-    'With Allow any orientation for unplaced pieces: those pieces may also be placed mirrored, as if turned over.',
-  keepAssemblies:
-    'Always show Assembly results even when Disassemble is selected and no Disassemblies are found. Disassemblies will be shown at the top of the results.',
-  autosave:
-    'Twenty minutes into a solve and every twenty minutes after, the solve pauses where it can be saved, the puzzle is saved to its file, and the solve carries on.',
-};
-
-/** The stacking puzzles' tooltips where they differ (mainwindow_layout.cpp, mainwindow_solve.cpp). */
-const STACKING_TIP: Partial<Record<BoxName, string>> = {
-  disassemble:
-    'Search for a shortest sequence of rod transfers from the start stacking to the goal.',
-  autosave:
-    'Save the search 20 minutes into the run and every 20 minutes after, so a crash loses little: Continue carries it on. Unchecked, the search is saved only when you press Pause.',
-};
 
 /** The stacking solvers' help (mainwindow_help.cpp, their first lines). */
 const STACKING_SOLVER_TIP: Record<'stacking' | 'panex', string> = {
@@ -91,25 +61,6 @@ const STACKING_SOLVER_TIP: Record<'stacking' | 'panex', string> = {
 /** The sliding solver's help (mainwindow_help.cpp, its first lines). */
 const SLIDING_SOLVER_TIP =
   'Each start is searched for the fewest moves to the goal, with no limit: the solver either finds the fewest moves or proves there is no solution, keeping older moves on disk.';
-
-/** The switches' names: the original's (mainwindow_layout.cpp), so they match its documentation. */
-const LABEL: Record<BoxName, string> = {
-  disassemble: 'Assemblies and disassembly',
-  justLevels: 'Just Levels',
-  checkRotations: 'Check Rotations',
-  justCount: 'Just Count',
-  keepMirrors: 'Keep Mirror Solutions',
-  keepRotations: 'Keep Rotated Solutions',
-  deepSymmetry: 'Deep Symmetry Check',
-  strictColors: 'Strict Color Restrictions',
-  nestedSlides: 'Allow Nested Slides',
-  partialNested: 'Allow Partially Nested',
-  verticalMoves: 'Allow Vertical Moves',
-  anyOrientation: 'Allow any orientation for unplaced pieces',
-  mirroredOrientations: 'Include mirrored orientations',
-  autosave: 'Autosave every 20 min',
-  keepAssemblies: 'Always show Assemblies',
-};
 
 export class RunCard {
   private readonly ws: SolverWorkspace;
@@ -215,24 +166,26 @@ export class RunCard {
     const tip = (k: BoxName): string => (ws.stacking ? (STACKING_TIP[k] ?? TIP[k]) : TIP[k]);
     const sw = (k: BoxName, sub = false): string =>
       `<div class="row2${sub ? ' sub' : ''}"><div class="t">${LABEL[k]}<small>${tip(k)}</small></div><div class="switch ${o[k] ? 'on' : ''} ${disabled.has(k) ? 'off' : ''}" data-o="${k}" role="switch" tabindex="0" aria-checked="${String(o[k])}" title="${esc(tip(k))}"><span class="tr"></span></div></div>`;
-    const def = defaultsOf(ws.family);
+    // how many differ from the defaults (the settings dialog's Search Options)
+    const def = normalize(defaultsOf(ws.family), null, ws.family, ws.canDisassemble).options;
+    const defLim = defaultLimits();
+    const brick = !ws.sliding && !ws.stacking;
     const changed = [
-      o.justCount !== DEFAULT_OPTIONS.justCount,
-      o.justLevels !== DEFAULT_OPTIONS.justLevels,
-      o.keepMirrors !== DEFAULT_OPTIONS.keepMirrors,
-      o.keepRotations !== DEFAULT_OPTIONS.keepRotations,
-      o.deepSymmetry !== DEFAULT_OPTIONS.deepSymmetry,
-      o.strictColors !== DEFAULT_OPTIONS.strictColors,
-      o.solver !== def.solver,
-      o.autosave !== DEFAULT_OPTIONS.autosave,
-      !ws.sliding && !ws.stacking && o.keepAssemblies,
-      ws.sliding && o.nestedSlides,
-      ws.sliding && o.partialNested,
-      ws.sliding && o.verticalMoves,
-      ws.sliding && o.anyOrientation,
-      ws.sliding && o.mirroredOrientations,
-      lim.keepEach !== DEFAULT_LIMITS.keepEach,
-      lim.keepAtMost !== DEFAULT_LIMITS.keepAtMost,
+      o.justCount !== def.justCount,
+      !ws.sliding && o.justLevels !== def.justLevels,
+      brick && o.keepMirrors !== def.keepMirrors,
+      brick && o.keepRotations !== def.keepRotations,
+      brick && o.deepSymmetry !== def.deepSymmetry,
+      brick && o.strictColors !== def.strictColors,
+      brick && o.solver !== def.solver,
+      brick && o.keepAssemblies !== def.keepAssemblies,
+      ws.sliding && o.nestedSlides !== def.nestedSlides,
+      ws.sliding && o.partialNested !== def.partialNested,
+      ws.sliding && o.verticalMoves !== def.verticalMoves,
+      ws.sliding && o.anyOrientation !== def.anyOrientation,
+      ws.sliding && o.mirroredOrientations !== def.mirroredOrientations,
+      lim.keepEach !== defLim.keepEach,
+      lim.keepAtMost !== defLim.keepAtMost,
     ].filter(Boolean).length;
     setHtml(
       byId('slvOptHead'),
@@ -244,8 +197,8 @@ export class RunCard {
       { solver: 'classic' as const, label: 'Complete (ShapeLogic)' },
     ];
     const limits =
-      `<div class="row2"><div class="t">Keep every n-th<small>Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept</small></div><div class="step"><button data-st="keepEach" data-d="-1" title="Keep more of the solutions: skip one fewer between kept ones">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" title="1 keeps every solution; a higher number skips that many before the next one is kept" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1" title="Keep fewer of the solutions: skip one more between kept ones">${ic('plus', 12)}</button></div></div>` +
-      `<div class="row2"><div class="t">Limit<small>Keep at most this many solutions (0: all)</small></div><div class="step"><button data-st="keepAtMost" data-d="-10" title="Keep 10 fewer solutions">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" title="Keep at most this many solutions (0: all)" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10" title="Keep 10 more solutions">${ic('plus', 12)}</button></div></div>`;
+      `<div class="row2"><div class="t">${KEEP_EACH.label}<small>${KEEP_EACH.tip}</small></div><div class="step"><button data-st="keepEach" data-d="-1" title="Keep more of the solutions: skip one fewer between kept ones">${ic('minus', 12)}</button><input class="v" data-sti="keepEach" title="1 keeps every solution; a higher number skips that many before the next one is kept" value="${String(lim.keepEach)}"><button data-st="keepEach" data-d="1" title="Keep fewer of the solutions: skip one more between kept ones">${ic('plus', 12)}</button></div></div>` +
+      `<div class="row2"><div class="t">${KEEP_AT_MOST.label}<small>${KEEP_AT_MOST.tip}</small></div><div class="step"><button data-st="keepAtMost" data-d="-10" title="Keep 10 fewer solutions">${ic('minus', 12)}</button><input class="v" data-sti="keepAtMost" title="${KEEP_AT_MOST.tip}" value="${String(lim.keepAtMost)}"><button data-st="keepAtMost" data-d="10" title="Keep 10 more solutions">${ic('plus', 12)}</button></div></div>`;
     if (ws.stacking) {
       // the one solver of the board
       const solver = ws.stackingSolver;
@@ -257,8 +210,7 @@ export class RunCard {
         sw('justCount') +
           sw('justLevels') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
-          limits +
-          sw('autosave'),
+          limits,
       );
       return;
     }
@@ -277,8 +229,7 @@ export class RunCard {
           sw('partialNested') +
           sw('verticalMoves') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}"><option value="${slider.solver}" selected>${esc(slider.label)}</option></select></div>` +
-          limits +
-          sw('autosave'),
+          limits,
       );
       return;
     }
@@ -291,9 +242,8 @@ export class RunCard {
         sw('keepRotations') +
         sw('deepSymmetry') +
         sw('strictColors') +
-        `<div class="row2 wrap"><div class="t">Solver type<small>Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell).</small></div><select data-o="solver" title="Which take-apart the solve uses: Complete (ShapeLogic) or Fast (Crowell)">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
-        limits +
-        sw('autosave'),
+        `<div class="row2 wrap"><div class="t">Solver type<small>${SOLVER_TYPE_TIP}</small></div><select data-o="solver" title="${SOLVER_TYPE_TIP}">${solvers.map((s) => `<option value="${s.solver}" ${o.solver === s.solver ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>` +
+        limits,
     );
   }
 

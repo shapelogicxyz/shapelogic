@@ -71,6 +71,6 @@ type follows the board: the **Panex Solver** for Panex-style columns, the
 **Stacking Solver** for everything else. The result is one solution; the player
 replays it, each move a lift, a move across and a drop.
 
-Big Panex puzzles can take a long time. The Panex search saves itself every 20
-minutes, so **Pause** keeps its progress, and **Continue** carries on later. If a problem has a saved search, **Solve** asks
+Big Panex puzzles can take a long time. The Panex search saves itself as it
+runs, and **Pause** keeps its progress, and **Continue** carries on later. If a problem has a saved search, **Solve** asks
 whether to continue it or start over.

@@ -16,9 +16,12 @@
 // the engine was not running: both are offered at the next start. Nothing
 // is written while a solve or
 // an analysis is active or a call that may start one is under way (the
-// engine refuses saveBytes then; the solve's own autosave keeps its
-// work). Writes and removals run one at a time, in order, so a
-// removal is never overtaken by a write that started before it.
+// engine refuses saveBytes then). While a solve runs the crash recovery
+// journal writes the copy instead (solver/autosave.ts, `saveNow`): it
+// pauses the solve at a save point for it, so the copy holds the solve's
+// results and its position, and reopened, the solve is continued. Writes
+// and removals run one at a time, in order, so a removal is never
+// overtaken by a write that started before it.
 
 import type { BtApp, RescueInfo } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
@@ -138,7 +141,9 @@ export class Rescue {
     this.timer = window.setTimeout(() => {
       this.timer = null;
       this.lastWrite = Date.now();
-      void this.enqueue(() => this.write());
+      void this.enqueue(async () => {
+        await this.write();
+      });
     }, wait);
   }
 
@@ -155,18 +160,37 @@ export class Rescue {
     return p;
   }
 
-  private async write(): Promise<void> {
-    const snap = this.store.snapshot;
-    if (this.stopped() || snap === null || !snap.dirty || snap.solving) {
-      return;
+  /**
+   * Writes the copy now: the crash recovery journal's save point
+   * (solver/autosave.ts), which has paused the solves for it. True when the
+   * copy was written.
+   */
+  async saveNow(): Promise<boolean> {
+    if (this.stopped()) {
+      return false;
     }
-    if (!this.quiet()) {
+    this.cancel();
+    let ok = false;
+    await this.enqueue(async () => {
+      ok = await this.write(true);
+    }).catch(noop);
+    return ok;
+  }
+
+  // `atSavePoint`: the journal paused the solves for this write, so what is
+  // "under way" is its own save, and the snapshot may still say solving
+  private async write(atSavePoint = false): Promise<boolean> {
+    const snap = this.store.snapshot;
+    if (this.stopped() || snap === null || !snap.dirty || (snap.solving && !atSavePoint)) {
+      return false;
+    }
+    if (!atSavePoint && !this.quiet()) {
       // something under way: a moment later
       this.timer ??= window.setTimeout(() => {
         this.timer = null;
         this.changed();
       }, AFTER_MS);
-      return;
+      return false;
     }
     const gen = this.store.generation;
     let data: string;
@@ -174,11 +198,11 @@ export class Rescue {
       data = (await this.store.engine.call('document.saveBytes')).data;
     } catch {
       // a run started, or the engine went: the next change writes again
-      return;
+      return false;
     }
     const now = this.store.snapshot;
     if (this.stopped() || this.store.generation !== gen || now?.dirty !== true) {
-      return;
+      return false;
     }
     const info: RescueInfo = {
       path: now.path,
@@ -186,10 +210,12 @@ export class Rescue {
       revision: snap.revision,
       time: Date.now(),
     };
+    let ok = false;
     try {
       await this.app.writeRescue(data, info);
       this.copy = true;
       this.written(snap.revision);
+      ok = true;
     } catch (e) {
       reportError(e, 'The rescue copy could not be written');
     }
@@ -197,6 +223,7 @@ export class Rescue {
     if (this.store.snapshot !== null && this.store.snapshot.revision !== snap.revision) {
       this.changed();
     }
+    return ok;
   }
 
   /** Offers the copy, if there is one: after the engine died, or one a last session left. */

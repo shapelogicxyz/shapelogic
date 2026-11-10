@@ -612,7 +612,8 @@ A large Panex puzzle can take hours. The search **saves itself**:
 - when you press **Ctrl-C** (press it a second time to quit at once, without
   saving);
 - when it runs out of memory;
-- every 20 minutes.
+- as it runs: about a minute in, and after that as often as saving costs no
+  more than about 2% of the search's time (never less than a minute apart).
 
 To carry on, run **the same command** again. The tool prints
 `continuing <the saved search>` and picks up where it stopped. When a search

@@ -195,15 +195,19 @@ pointed elsewhere.
   than the 20 minutes between saves could not finish with autosave on.
   Fixed with 5c: a stopped task is left as exactly what remains of it.
   Nothing else was built for storage.
-- **If crash safety at solution granularity is ever asked for**, the
-  design is an **append-only journal**, not a database: a file beside the
-  document (`<name>.xmpuzzle.journal`), one `<solution>` element per line
-  as the .xmpuzzle writes it, plus a position checkpoint every few
-  minutes; written by the solve session's result thread as solutions
-  arrive; on the next open the engine finds it, offers recovery, folds it
-  into the document and deletes it after a clean save. No dependency, no
-  schema, readable by the same scripts. Not planned until asked: the
-  autosave bounds a crash's loss to its interval.
+- **Built instead of a journal file (2026-11-09): the crash recovery
+  journal**, in the place of the Solver's Autosave. While a solve runs, the
+  puzzle with the solve's results and position is written to the rescue
+  copy: the first time a minute in, then spaced so that it costs no more
+  than about 2% of the solve's time (never under a minute apart), and only
+  when the solve has moved. It is always on and never writes the puzzle's
+  own file, which was the one reason to turn the autosave off; after a
+  crash the next start offers the copy and the solve is continued. Solves
+  on one thread keep their place at a save too (they did not: the vector
+  search began again). An append-only file beside the document was weighed
+  and left out: a position can only be taken by pausing the search, so
+  what such a file held past the last pause would be found again on
+  recovery; it would be this, plus a format.
 - **Measured, what a save costs:** 83,442 assemblies kept and written
   (20 dominoes in 2 x 4 x 5, `--save --limit 0`): 1.0 s on top of a 0.2 s
   solve, a 0.7 MB file (19.9 MB of XML before compression), 0.2 s to load
@@ -281,7 +285,7 @@ pointed elsewhere.
 | 2 Grid oracle test | Low | None now; confidence and a path to new grids |
 | 3 Cutting-plane editor | High | Large, especially rhombic and tetra-octa |
 | 4 Derived movement | High | Disassembly on two more grids |
-| 5a Storage | n/a | Not built; the autosave's pause no longer costs the work in hand |
+| 5a Storage | Done (other way) | No database, no journal file: a running solve is kept in the rescue copy every minute or two, always, at no cost to the search and without touching the puzzle's file |
 | 5b Dancing cells | Done (other way) | Not built: no faster. The rotation check on matrix rows instead: identical-piece puzzles 4 to 6 times faster |
 | 5c Task splitting | Done | Idle cores in use; a paused solve loses no work |
 

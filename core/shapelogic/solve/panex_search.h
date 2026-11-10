@@ -105,9 +105,12 @@ struct PanexSearch {
   /// (diskBudgetFor in base/system.h). The fuller it gets, the fewer levels
   /// are kept, and the longer tracing the path back takes.
   std::uint64_t diskBudget = 0;
-  /// Save the search this often, the first time this long into the run, so
-  /// a crash loses no more. 0 saves only when the search stops.
-  unsigned int autosaveMinutes = 20;
+  /// Save the search as it runs, so that a crash loses little: a minute
+  /// in, then as often as saving stays cheap (SaveCadence). Off, it is
+  /// saved only when it stops. autosaveFloorSeconds is the least time
+  /// between two saves (the tests ask for less).
+  bool autosave = true;
+  unsigned int autosaveFloorSeconds = 60;
   /// For the tests: stop once both ends together are this many moves deep.
   std::uint64_t stopAtDepth = 0;
   /// The threads the levels are spread over, and the newest saved level

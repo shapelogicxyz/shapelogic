@@ -115,7 +115,7 @@ describe('the stacking solver options', () => {
     expect([...levels.disabled].sort()).toEqual(['disassemble', 'justCount']);
   });
 
-  it('solve with the board one solver and the search own autosave', () => {
+  it('solve with the board one solver; the search saves itself whatever the Autosave box stored', () => {
     expect(stackingSolverOf(true)).toBe('panex');
     expect(stackingSolverOf(false)).toBe('stacking');
     const o = { ...readOptions({}, undefined, 'stacking'), autosave: false };
@@ -124,7 +124,7 @@ describe('the stacking solver options', () => {
       justCount: false,
       keepAtMost: 100,
       keepEach: 1,
-      stacking: { solver: 'panex', autosave: false },
+      stacking: { solver: 'panex' },
     });
     expect(solveOptions(o, DEFAULT_LIMITS).stacking).toBeUndefined();
   });

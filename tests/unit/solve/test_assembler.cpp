@@ -583,7 +583,8 @@ TEST_CASE("Assembler 0: a paused search saved in a puzzle file carries on after 
     bool vector;
     char flag;
   };
-  for (const Path path : {Path{1, false, '0'}, Path{1, true, '3'}, Path{4, true, '2'}}) {
+  // (the vector search on one thread is a split search of one task)
+  for (const Path path : {Path{1, false, '0'}, Path{1, true, '2'}, Path{4, true, '2'}}) {
     INFO(path.threads << " threads" << (path.vector ? "" : ", plain"));
     Puzzle p = test::loadFixture("DraculasDentalDesaster.xmpuzzle");
     Problem& pr = p.getProblem(0);
@@ -679,13 +680,15 @@ std::size_t pelikanNodes(const Puzzle& p) {
 }
 
 std::vector<std::string> pelikanPositions(const Puzzle& p, ThreadPool& pool) {
+  // a stopped vector search's as the original and older versions wrote it
+  // (flag 3): this version's keeps its place as a split search does
   std::vector<std::string> texts;
-  for (const auto& [threads, vector] : {std::pair{1U, false}, std::pair{1U, true},
-                                        std::pair{4U, false}}) {
+  for (const auto& [threads, vector] : {std::pair{1U, false}, std::pair{4U, false}}) {
     auto a = madeA0(p);
     (void)runOnce(*a, searchOptions(threads, &pool, vector), {}, 3);
     texts.push_back(a->savePosition().text);
   }
+  texts.insert(texts.begin() + 1, test::recordedPosition("PelikanBurr.xmpuzzle classic 1 0 1 4"));
   REQUIRE(texts[0][0] == '0');
   REQUIRE(texts[1][0] == '3');
   REQUIRE(texts[2][0] == '2');

@@ -258,9 +258,11 @@ TEST_CASE("sliding session: a save point lets the search under way finish, a pau
     untilSearching(s);
     s.pauseAtSavePoint();
     s.wait();
-    // the one start was searched to its limit and counted; the assembler
-    // stopped after it (its position saved), so the solve is paused
-    REQUIRE(s.state() == SolveState::Paused);
+    // The one start was searched to its limit and counted. The assembler
+    // had no other start to look for, so its search was through when it
+    // came to the stop, and the solve is finished (with anything left of
+    // the assembly search, it would be paused there, its position saved).
+    REQUIRE(s.state() == SolveState::Finished);
     const Problem& pr = p.getProblem(0);
     CHECK(pr.getNumAssemblies() == 1);
     CHECK(pr.getNumSolutions() == 0);
@@ -270,11 +272,6 @@ TEST_CASE("sliding session: a save point lets the search under way finish, a pau
     CHECK(s.note().ends_with(
         " arrangements. There may be solutions the solver did not find. Try Enable High "
         "Memory."));
-    // carried on, the assembler finds no other start
-    REQUIRE(s.resume().has_value());
-    s.wait();
-    CHECK(s.state() == SolveState::Finished);
-    CHECK(pr.getNumAssemblies() == 1);
   }
   {
     Puzzle p = swapped(4);

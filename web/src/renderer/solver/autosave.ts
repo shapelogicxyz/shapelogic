@@ -1,23 +1,43 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Autosave (the problem's stored setting, the original's "Autosave every
-// 20 min"): twenty minutes into a solve and every twenty minutes after, the
-// solves under way pause at a save point (solve.savePoint: the assembly
-// stops where it can be saved, the take-aparts under way finish), the
-// puzzle is saved to its file (document.save: refused while any run is
-// active, so every run is paused first, decision 0010), and the solves
-// paused for it carry on (solve.continue, with the options they ran
-// with). A run's pause is waited for by its revision (the solve record's
-// end), not its state; the save is the store's, which waits for the
-// snapshot that shows the document clean. A puzzle without a file (opened by its bytes) is
-// not saved: it says so once a solve. `saveAtSavePoint` is the path a save
-// refused while solving offers (stage 6's Save and Save As, with a path). The interval is 20
-// minutes; BT_AUTOSAVE_SECONDS (the main process passes it in the page's
-// address) shortens it for the e2e tests. A stacking puzzle is not
-// autosaved here (its search saves itself every 20 minutes, the original's
-// PAR_PANEX_NO_AUTOSAVE without the box), and a save while its search runs
-// pauses it (solve.pause: the search saves itself; a stacking solve has no
-// save point), saves, and carries it on.
+// The crash recovery journal (in the place of the original's "Autosave
+// every 20 min"): while a solve runs, the puzzle with the solve's results
+// and position is written to the rescue copy now and then, so that a crash
+// loses little. It is always on, and it never writes the puzzle's own file:
+// that stays what the user last saved (File ▸ Save), whatever was edited
+// before the solve and whatever the solve has found. The rescue copy
+// (shell/rescue.ts) is in the app's data directory and names the puzzle's
+// file; after a crash the next start offers it, and it reopens as that
+// puzzle with its unsaved changes, the solve paused where the copy was
+// written, to be continued.
+//
+// How: the solves under way pause at a save point (solve.savePoint: the
+// assembly stops where it can be saved, the take-aparts under way finish;
+// the engine refuses the document's bytes while any run is active, so every
+// run is paused first, decision 0010), the rescue copy is written
+// (`rescue`), and the solves paused for it carry on (solve.continue, with
+// the options they ran with).
+//
+// When: the first save a minute into the solves, then spaced by what the
+// last save cost (cadence.ts: its pause, the take-aparts it waited for, the
+// write and the restart, 50 times that, never under a minute), and only
+// when the solves have moved since the last one. The original's fixed 20
+// minutes threw away what each thread had done in its task at every save,
+// so it could not come more often; a save point costs no search work now
+// (decision 0024). The page's `autosave` parameter (BT_AUTOSAVE_SECONDS,
+// which the main process passes in the page's address) sets the least time
+// between saves in seconds, for the e2e tests.
+//
+// A run's pause is waited for by its revision (the solve record's end),
+// not its state. `saveAtSavePoint` is also what a save asked for while
+// solving does (File ▸ Save and Save As): the same pause, the puzzle saved
+// to its file by the store (which waits for the snapshot that shows the
+// document clean), the solves carried on. A stacking puzzle is not written
+// from here (its search saves itself by the same rule, in its own files),
+// and a save while its search runs pauses it (solve.pause: the search
+// saves itself; a stacking solve has no save point), saves, and carries it
+// on. The problems' stored `autosave` (the original's box) is not looked
+// at.
 
 import type { SolveOptions } from '../../engine/api.generated.ts';
 import { isActive } from '../state/solves.ts';
@@ -25,11 +45,12 @@ import type { Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
 import { byId } from '../shell/dom.ts';
 import { flash, reportError } from '../shell/status.ts';
+import { FLOOR_MS, nextWait } from './cadence.ts';
 
-/** The interval in milliseconds: 20 minutes, or the page's `autosave` parameter (seconds). */
-function interval(): number {
+/** The least time between saves in milliseconds: a minute, or the page's `autosave` parameter (seconds). */
+function floor(): number {
   const s = Number(new URLSearchParams(window.location.search).get('autosave'));
-  return Number.isFinite(s) && s > 0 ? s * 1000 : 20 * 60 * 1000;
+  return Number.isFinite(s) && s > 0 ? s * 1000 : FLOOR_MS;
 }
 
 export class Autosave {
@@ -38,15 +59,22 @@ export class Autosave {
   private readonly store: Store;
   private readonly solves: Solves;
   private readonly optionsOf: (problem: string) => SolveOptions;
-  /** Which problems want autosave (their stored setting), by id. */
-  private readonly wanted = new Map<string, boolean>();
-  private readonly every = interval();
+  private readonly floor = floor();
+  /** The wait before the next save, from `since` (cadence.ts). */
+  private wait = this.floor;
   /** When the solves under way started or were last saved. */
   private since: number | null = null;
+  /** How far the solves were at the last save (`mark`). */
+  private saved = '';
+  /**
+   * Writes the rescue copy now (shell/rescue.ts); true when it was written.
+   * Set by the shell once the copy exists; without it (the demo, which has
+   * nowhere to keep one) there is no journal.
+   */
+  rescue: (() => Promise<boolean>) | null = null;
   /** A solve paused for the save was continued (the workspace waits for its end again). */
   private readonly continued: (problem: string) => void;
   private saving = false;
-  private toldNoFile = false;
 
   constructor(
     store: Store,
@@ -62,13 +90,8 @@ export class Autosave {
       () => {
         this.tick();
       },
-      Math.min(1000, this.every / 4),
+      Math.min(1000, this.floor / 4),
     );
-  }
-
-  /** A problem's setting (the workspace tells it when it reads or stores the options). */
-  want(problem: string, on: boolean): void {
-    this.wanted.set(problem, on);
   }
 
   private tick(): void {
@@ -76,31 +99,45 @@ export class Autosave {
     const now = Date.now();
     if (active.length === 0) {
       this.since = null;
-      this.toldNoFile = false;
+      this.wait = this.floor;
+      this.saved = '';
       return;
     }
     if (this.since === null) {
       this.since = now;
       return;
     }
-    if (this.saving || now - this.since < this.every) {
+    if (this.saving || now - this.since < this.wait) {
       return;
     }
-    if (
-      !active.some((p) => this.wanted.get(p) ?? true) ||
-      this.store.snapshot?.grid === 'stacking'
-    ) {
+    // nowhere to write, or a stacking search, which saves itself
+    if (this.rescue === null || this.store.snapshot?.grid === 'stacking') {
       return;
     }
-    this.since = now;
-    if (this.store.snapshot?.path === null) {
-      if (!this.toldNoFile) {
-        this.toldNoFile = true;
-        flash('Autosave: the puzzle has no file to save to yet', 5000);
-      }
+    // nothing new since the last save: not yet
+    const mark = this.mark(active);
+    if (mark === this.saved) {
       return;
     }
-    void this.saveAtSavePoint();
+    void this.journal(mark);
+  }
+
+  // How far the solves under way are: what their last progress told.
+  private mark(active: readonly string[]): string {
+    return active.map((p) => JSON.stringify(this.solves.peek(p)?.progress ?? null)).join('|');
+  }
+
+  // One save of the journal, timed: the next comes no sooner than its cost allows.
+  private async journal(mark: string): Promise<void> {
+    const began = Date.now();
+    try {
+      await this.saveAtSavePoint(undefined, false, true);
+    } finally {
+      const now = Date.now();
+      this.wait = nextWait(now - began, this.floor);
+      this.since = now;
+      this.saved = mark;
+    }
   }
 
   /** A save at a save point is under way (its pauses, its save, its continues). */
@@ -128,12 +165,13 @@ export class Autosave {
   }
 
   /**
-   * Pauses the solves under way at a save point, saves the puzzle to its
-   * file (or to `path`: File ▸ Save As, a puzzle without a file), and
-   * carries the paused ones on; the file saved to, or null when it could
-   * not save. `byUser`: File ▸ Save asked (what the flash says).
+   * Pauses the solves under way at a save point, saves, and carries the
+   * paused ones on. File ▸ Save and Save As (`byUser`): the puzzle to its
+   * file, or to `path`; the file saved to, or null when it could not save.
+   * The crash recovery journal (`journal`): the rescue copy, never the
+   * puzzle's file; null.
    */
-  async saveAtSavePoint(path?: string, byUser = false): Promise<string | null> {
+  async saveAtSavePoint(path?: string, byUser = false, journal = false): Promise<string | null> {
     if (this.saving) {
       if (byUser) {
         flash('A save is under way already');
@@ -176,19 +214,22 @@ export class Autosave {
         }
         return null;
       }
+      if (journal) {
+        // the rescue copy keeps the solve; the puzzle's file is the user's to save
+        if (this.rescue !== null && (await this.rescue())) {
+          this.saves++;
+          byId('leftS').dataset.autosaved = String(this.saves);
+          flash('Crash recovery copy saved — the solve carries on');
+        }
+        return null;
+      }
       const saved = await this.store.save(path);
       this.saves++;
       byId('leftS').dataset.autosaved = String(this.saves);
-      flash(
-        paused.length === 0
-          ? 'Saved'
-          : byUser
-            ? 'Saved at a save point — the solve carries on'
-            : 'Autosaved — the solve carries on',
-      );
+      flash(paused.length === 0 ? 'Saved' : 'Saved at a save point — the solve carries on');
       return saved;
     } catch (x) {
-      reportError(x, byUser ? 'Save' : 'Autosave');
+      reportError(x, byUser ? 'Save' : 'Crash recovery journal');
       return null;
     } finally {
       // the solves paused for the save carry on (unless the document is gone)

@@ -66,7 +66,6 @@ export type BoxName =
   | 'verticalMoves'
   | 'anyOrientation'
   | 'mirroredOrientations'
-  | 'autosave'
   | 'keepAssemblies';
 
 /** The options as the Solver card shows and edits them. */
@@ -89,6 +88,12 @@ export interface SearchOptions {
   anyOrientation: boolean;
   /** Sliding: and mirrored (Include mirrored orientations; needs anyOrientation). */
   mirroredOrientations: boolean;
+  /**
+   * The original's Autosave box as the problem stored it: read and written
+   * back as it was, and not looked at. The crash recovery journal that took
+   * its place is always on, and writes to the rescue copy, not to the
+   * puzzle's file (autosave.ts).
+   */
   autosave: boolean;
   /** With the take-apart: also keep the assemblies that do not come apart (Always show Assemblies; not in the original). */
   keepAssemblies: boolean;
@@ -129,13 +134,45 @@ export const DEFAULT_STACKING: Readonly<SearchOptions> = {
   disassemble: true,
 };
 
-/** The defaults of a family's problems; the brick ones' solver is the Default solver type setting's. */
+/**
+ * The options a family's problems start with when they stored none: the
+ * settings dialog's Search Options (shell/prefs.ts; as shipped, the
+ * constants above). The modes are not settings (Find Solutions checked at
+ * first on a sliding or stacking puzzle). As set, not yet as the family's
+ * rules leave them: `readOptions` and the Solver's card apply `normalize`,
+ * where a default that does not go with another, or with the family, gives
+ * way.
+ */
 export function defaultsOf(family: Family): Readonly<SearchOptions> {
-  return family === 'sliding'
-    ? DEFAULT_SLIDING
-    : family === 'stacking'
-      ? DEFAULT_STACKING
-      : { ...DEFAULT_OPTIONS, solver: prefs.solverType === 'Fast' ? 'crowell' : 'classic' };
+  const o: SearchOptions = {
+    ...(family === 'sliding'
+      ? DEFAULT_SLIDING
+      : family === 'stacking'
+        ? DEFAULT_STACKING
+        : DEFAULT_OPTIONS),
+    justCount: prefs.optJustCount,
+    justLevels: prefs.optJustLevels,
+    deepSymmetry: prefs.optDeepSymmetry,
+    keepMirrors: prefs.optKeepMirrors,
+    keepRotations: prefs.optKeepRotations,
+    strictColors: prefs.optStrictColors,
+    nestedSlides: prefs.optNestedSlides,
+    partialNested: prefs.optPartialNested,
+    verticalMoves: prefs.optVerticalMoves,
+    anyOrientation: prefs.optAnyOrientation,
+    mirroredOrientations: prefs.optMirroredOrientations,
+    keepAssemblies: prefs.optKeepAssemblies,
+    solver: family === 'brick' && prefs.solverType === 'Fast' ? 'crowell' : 'classic',
+  };
+  return o;
+}
+
+/** The two limits a solve starts with: the settings dialog's Search Options. */
+export function defaultLimits(): Limits {
+  return {
+    keepAtMost: Math.max(0, Math.round(prefs.optKeepAtMost)),
+    keepEach: Math.max(1, Math.round(prefs.optKeepEach)),
+  };
 }
 
 /** The boxes a sliding puzzle shows (updateSolverOptionCheckboxes' setVis). */
@@ -147,7 +184,6 @@ export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'nestedSlides',
   'partialNested',
   'verticalMoves',
-  'autosave',
 ]);
 
 /** The boxes only a sliding puzzle shows. */
@@ -164,7 +200,6 @@ export const STACKING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'disassemble',
   'justLevels',
   'justCount',
-  'autosave',
 ]);
 
 /**
@@ -216,7 +251,6 @@ export function readOptions(
     'verticalMoves',
     'anyOrientation',
     'mirroredOrientations',
-    'autosave',
     'keepAssemblies',
   ];
   for (const b of boxes) {
@@ -224,6 +258,10 @@ export function readOptions(
     if (typeof v === 'boolean') {
       o[b] = v;
     }
+  }
+  // the original's Autosave box: kept as stored, for the file
+  if (typeof stored.autosave === 'boolean') {
+    o.autosave = stored.autosave;
   }
   const st = stored.solverType;
   if (family === 'brick' && typeof st === 'string' && (SOLVERS as readonly string[]).includes(st)) {
@@ -430,14 +468,15 @@ export function solveOptions(
 ): SolveOptions {
   if (family === 'stacking') {
     // the solve thread's flags (cb_BtnCont): Find Solutions or Just Count,
-    // the search's own autosave, the one solver of the board (the memory
-    // is the engine's setting)
+    // the one solver of the board (the memory is the engine's setting; the
+    // search saves itself as it runs, the engine's default, whatever the
+    // problem stored for the original's Autosave box)
     return {
       disassemble: o.disassemble,
       justCount: o.justCount,
       keepAtMost: Math.max(0, Math.round(limits.keepAtMost)),
       keepEach: Math.max(1, Math.round(limits.keepEach)),
-      stacking: { solver: stackingSolver, autosave: o.autosave },
+      stacking: { solver: stackingSolver },
     };
   }
   if (family === 'sliding') {

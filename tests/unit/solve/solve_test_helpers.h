@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <random>
 #include <set>
@@ -42,6 +43,27 @@ inline std::string fingerprint(const Assembly& a) {
     }
   }
   return s;
+}
+
+/// The saved position of a search the original paused, from
+/// tests/data/positions_by_original.txt: the TEXT under the line
+/// "POS <fixture> <solver> <threads> <plain> <reduce> <stopAfter>". The
+/// tests take from it what this version no longer writes itself (a vector
+/// search stopped on one thread, flag 3: here that search is a split search
+/// of one task and keeps its place).
+inline std::string recordedPosition(const std::string& pos) {
+  std::ifstream in("tests/data/positions_by_original.txt");
+  REQUIRE(in);
+  std::string line;
+  bool found = false;
+  while (std::getline(in, line)) {
+    if (found && line.rfind("TEXT ", 0) == 0) {
+      return line.substr(5);
+    }
+    found = found || line == "POS " + pos;
+  }
+  FAIL("no recorded position " << pos);
+  return {};
 }
 
 /// Search options for `threads` threads from `pool`, with or without the

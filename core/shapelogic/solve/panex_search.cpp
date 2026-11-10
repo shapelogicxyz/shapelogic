@@ -16,6 +16,7 @@
 // first job of the next level's expansion, or at once when something
 // needs the file first (finishWrite). The files are the same either way.
 #include "shapelogic/solve/panex_search.h"
+#include "shapelogic/base/save_cadence.h"
 
 #include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
@@ -1218,7 +1219,7 @@ class Searcher {
       }
       return false;
     };
-    auto lastSave = std::chrono::steady_clock::now();
+    SaveCadence saves(std::chrono::seconds(search_.autosaveFloorSeconds));
 
     while (!found) {
       if (stopped() || (top && search_.stopAtDepth != 0 && deep() >= search_.stopAtDepth)) {
@@ -1331,13 +1332,12 @@ class Searcher {
       inMemory(0);
 
       // An autosave also moves levels still kept in memory to disk.
-      if (saveTo != nullptr && search_.autosaveMinutes != 0 &&
-          std::chrono::steady_clock::now() - lastSave >=
-              std::chrono::minutes(search_.autosaveMinutes)) {
+      if (saveTo != nullptr && search_.autosave && saves.due()) {
+        const auto saveBegan = SaveCadence::Clock::now();
         if (!saveState()) {
           return diskFailed();
         }
-        lastSave = std::chrono::steady_clock::now();
+        saves.saved(saveBegan);
       }
     }
     if (!finishWrite()) {

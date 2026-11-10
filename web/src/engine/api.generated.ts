@@ -1063,8 +1063,8 @@ export interface StackingOptions {
    */
   highMemory?: boolean;
   /**
-   * The Panex search saves itself every 20 minutes (default true); off, only when it stops (the
-   * GUI's Autosave box).
+   * The Panex search saves itself as it runs (default true): a minute in, then as often as saving
+   * costs it no more than about 2% of its time; off, only when it stops (the app leaves it on).
    */
   autosave?: boolean;
 }

@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
-#include <fstream>
 #include <iterator>
 #include <random>
 #include <set>
@@ -374,19 +373,8 @@ TEST_CASE("Assembler 1: a split search saved by an older version carries on",
   // an assembler to that kind, so start from a split search with its tasks
   // as the split made them and nothing reported: the tasks of the search
   // the original paused on four threads (tests/data/positions_by_original.txt).
-  std::string older;
+  std::string older = test::recordedPosition("CubeInCage.xmpuzzle classic 4 0 1 1");
   {
-    std::ifstream in("tests/data/positions_by_original.txt");
-    REQUIRE(in);
-    std::string line;
-    bool found = false;
-    while (std::getline(in, line)) {
-      if (found && line.rfind("TEXT ", 0) == 0) {
-        older = line.substr(5);
-        break;
-      }
-      found = found || line == "POS CubeInCage.xmpuzzle classic 4 0 1 1";
-    }
     REQUIRE(older.compare(0, 2, "4 ") == 0);
     // no task finished and nothing reported: valid for either kind
     const std::size_t c = older.find(" C ");
@@ -590,7 +578,8 @@ TEST_CASE("Assembler 1: a paused search saved in a puzzle file carries on after 
     bool vector;
     char flag;
   };
-  for (const Path path : {Path{1, false, '0'}, Path{1, true, '3'}, Path{4, true, '4'}}) {
+  // (the vector search on one thread is a split search of one task)
+  for (const Path path : {Path{1, false, '0'}, Path{1, true, '4'}, Path{4, true, '4'}}) {
     INFO(path.threads << " threads" << (path.vector ? "" : ", plain"));
     Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
     Problem& pr = p.getProblem(0);
@@ -655,14 +644,17 @@ TEST_CASE("Assembler 1: a damaged position is refused before it is used",
   ThreadPool pool(4);
   const Puzzle p = test::loadFixture("CubeInCage.xmpuzzle");
 
-  // positions of each kind to damage
+  // positions of each kind to damage: the plain search's, a stopped vector
+  // search's as the original and older versions wrote it (flag 3), the
+  // split search's
   std::vector<std::string> texts;
-  for (const auto& [threads, vector] : {std::pair{1U, false}, std::pair{1U, true},
-                                        std::pair{4U, true}}) {
+  for (const auto& [threads, vector] : {std::pair{1U, false}, std::pair{4U, true}}) {
     auto a = made(p);
     (void)runOnce(*a, searchOptions(threads, &pool, vector), {}, 40);
     texts.push_back(a->savePosition().text);
   }
+  texts.insert(texts.begin() + 1,
+               test::recordedPosition("CubeInCage.xmpuzzle classic 1 0 1 32"));
   REQUIRE(texts[0][0] == '0');
   REQUIRE(texts[1][0] == '3');
   REQUIRE((texts[2][0] == '4' || texts[2][0] == '5'));

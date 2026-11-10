@@ -98,7 +98,9 @@ class Assembler0 final : public Assembler {
   void generateSubtreeTasks(std::vector<SubtreeTask>& tasks, unsigned int targetTasks,
                             unsigned int maxDepth);
   void parallelMultiSearch(SearchRun& run, unsigned int workers, const SearchOptions& options);
-  void reportParallelSolution(SearchRun& run, const unsigned int* solutionRows,
+  /// False when the run is stopped and the assembly was not taken (the
+  /// search leaves its node for the next run).
+  bool reportParallelSolution(SearchRun& run, const unsigned int* solutionRows,
                               unsigned int count, RowRotationCheck::Scratch& scratch);
   /// Makes rowCheck_ for a run, or clears it when the check does not apply.
   void prepareRowCheck(const SearchOptions& options);

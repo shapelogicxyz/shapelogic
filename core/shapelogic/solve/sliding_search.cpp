@@ -6,6 +6,7 @@
 // level search's streamed levels, its search from both ends, its thinned
 // levels and its saved searches are new (see LevelSearch).
 #include "shapelogic/solve/sliding_search.h"
+#include "shapelogic/base/save_cadence.h"
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/int_cast.h"
@@ -2790,7 +2791,7 @@ class LevelSearch {
   // The main loop: a level at a time, from the narrower end.
   SlideOutcome loop(std::vector<Key>& chain) {
     const auto started = std::chrono::steady_clock::now();
-    auto lastSave = started;
+    SaveCadence saves(std::chrono::seconds(search_.autosaveFloorSeconds), started);
     const std::uint64_t meetFrom = search_.meetFrom != 0 ? search_.meetFrom : kDefaultMeetFrom;
     const auto depthNow = [&]() { return std::uint64_t{fwd_.depth} + bwd_.depth; };
     if (search_.depthProgress != nullptr) {
@@ -2923,13 +2924,12 @@ class LevelSearch {
       releaseFreeMemory();
 
       // An autosave, so a crash loses no more than this.
-      if (search_.autosaveMinutes != 0 && folder_.hasBase() &&
-          std::chrono::steady_clock::now() - lastSave >=
-              std::chrono::minutes(search_.autosaveMinutes)) {
+      if (search_.autosave && folder_.hasBase() && saves.due()) {
+        const auto saveBegan = SaveCadence::Clock::now();
         if (!saveState()) {
           return failed();
         }
-        lastSave = std::chrono::steady_clock::now();
+        saves.saved(saveBegan);
       }
     }
   }

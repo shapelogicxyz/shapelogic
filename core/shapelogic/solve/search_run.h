@@ -67,8 +67,15 @@ class SearchRun {
   /// (the next run finds it again) or when `signature` is in `reported` (a
   /// task searched again after a stop finds again what it reported before);
   /// otherwise the signature is recorded and the assembly handed over.
-  void deliverOnce(Assembly assembly, std::uint64_t signature,
+  /// False when the run is stopped and the assembly was not taken: the
+  /// search then leaves the place it found it at for the next run.
+  bool deliverOnce(Assembly assembly, std::uint64_t signature,
                    std::unordered_set<std::uint64_t>& reported);
+
+  /// The same for a search whose tasks never overlap and are left exactly
+  /// where they stood at a stop (SplitSearchState::exact): nothing is found
+  /// twice, so no signatures are kept. False when the run is stopped.
+  bool deliverUnlessStopped(Assembly assembly);
 
  private:
   /// Calls the callback (the lock held) and stops the run as it answers.

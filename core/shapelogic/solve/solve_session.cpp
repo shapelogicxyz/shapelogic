@@ -817,7 +817,7 @@ void SolveSession::runStacking(const Plan& plan) {
     search.depth = &searchDepth_;
     search.traced = &searchTraced_;
     search.resume = true;
-    search.autosaveMinutes = o.stacking.autosave ? 20 : 0;
+    search.autosave = o.stacking.autosave;
     search.workDir = o.stacking.workDir;
     search.diskBudget = o.stacking.diskBudget;
     search.towerRule = o.stacking.towerRule;

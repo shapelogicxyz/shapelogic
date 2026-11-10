@@ -507,7 +507,7 @@ one).
   own free space. A search stopped by its token, and one that stopped on
   disk (unless a write had failed), is saved in its folder (`slide-<fingerprint>/state.bin` naming its sets)
   and a search of the same start carries it on (`resume`, `resumed`,
-  `saved`; `autosaveMinutes`); `discardSaved` drops a problem's saved
+  `saved`; `autosave`, by `base/save_cadence.h`'s rule); `discardSaved` drops a problem's saved
   searches (a solve that starts afresh, an abort), `sweepSaved` the ones
   untouched for a month (each sliding run). `SlidingOptions` and `slideSearchFor()`: the GUI's
   boxes for its one solver, the Sliding Puzzle Solver
@@ -1482,11 +1482,17 @@ What exists after stage 8:
     old, read again; `solutionsAdded` at the version it has is ignored;
     DOM-free), `settings.ts` (the options over the stored `SolverSettings`:
     the original's rules, the two spellings, `SolveOptions`, the limits
-    not stored), `autosave.ts` (`Autosave`: every 20 minutes while a solve
-    with the setting runs: `solve.savePoint` on every run under way, their
-    ends waited for by revision, `document.save`, `solve.continue`, none
-    of it once another document replaced the one it paused; a puzzle
-    without a file is not saved, said once; `saveAtSavePoint(path)` is
+    not stored; `defaultsOf` and `defaultLimits`: what a problem that stored
+    none starts with, the settings dialog's Search Options page over
+    `shell/prefs.ts`), `option-text.ts` (the options' names and help, for
+    the Solver's card and that page), `autosave.ts` (`Autosave`, the crash recovery journal, always on:
+    while a solve runs, saves spaced by what the last one cost
+    (`cadence.ts`: a minute in, then 50 times the cost of the last save,
+    never under a minute; only when the solves have moved): `solve.savePoint`
+    on every run under way, their ends waited for by revision, the rescue
+    copy written (`Rescue.saveNow`; never the puzzle's file),
+    `solve.continue`, none of it once another document replaced the one it
+    paused; `saveAtSavePoint(path)` is
     also File ▸ Save's path while a solve runs, the save the store's),
     `to-shapes.ts` and `to-shapes-form.ts` (stage 6: Edit ▸ Convert
     Assemblies to Pieces, the original's dialog over `solution.toShapes`:

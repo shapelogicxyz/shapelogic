@@ -27,19 +27,32 @@ void SearchRun::deliver(Assembly assembly) {
   handOver(std::move(assembly));
 }
 
-void SearchRun::deliverOnce(Assembly assembly, std::uint64_t signature,
+bool SearchRun::deliverOnce(Assembly assembly, std::uint64_t signature,
                             std::unordered_set<std::uint64_t>& reported) {
   if (!callback_) {
-    return;
+    return true;
   }
   const std::lock_guard<std::mutex> lock(mutex_);
   if (stopRequested()) {
-    return;
+    return false;
   }
   if (!reported.insert(signature).second) {
-    return;
+    return true;
   }
   handOver(std::move(assembly));
+  return true;
+}
+
+bool SearchRun::deliverUnlessStopped(Assembly assembly) {
+  if (!callback_) {
+    return true;
+  }
+  const std::lock_guard<std::mutex> lock(mutex_);
+  if (stopRequested()) {
+    return false;
+  }
+  handOver(std::move(assembly));
+  return true;
 }
 
 void TaskProgress::begin(const std::vector<double>& weights,

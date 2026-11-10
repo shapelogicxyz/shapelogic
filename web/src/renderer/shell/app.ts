@@ -177,6 +177,8 @@ export function startApp(saved: StoredState = {}): {
       !runsUnderWay() &&
       !(store.snapshot?.problems.some((p) => p.analysing) ?? false),
   );
+  // the crash recovery journal writes a puzzle without a file to the rescue copy
+  solver.autosave.rescue = () => rescue.saveNow();
   const files = new Files(
     store,
     app,

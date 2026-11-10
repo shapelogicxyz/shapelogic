@@ -149,9 +149,12 @@ struct SlideSearch {
   /// search stopped by its token is saved there, and so is one that filled
   /// its disk budget or the disk). Off, a saved search is thrown away.
   bool resume = true;
-  /// Save the search this often as it runs, so a crash loses no more. 0
-  /// saves only when the search stops.
-  unsigned int autosaveMinutes = 20;
+  /// Save the search as it runs, so that a crash loses little: a minute
+  /// in, then as often as saving stays cheap (SaveCadence). Off, it is
+  /// saved only when it stops. autosaveFloorSeconds is the least time
+  /// between two saves (the tests ask for less).
+  bool autosave = true;
+  unsigned int autosaveFloorSeconds = 60;
   /// Search from the goal as well once a level has this many arrangements,
   /// when the goal is one arrangement (not with nested slides): the ends
   /// meet in the middle, and the path is as short. 0 for the default, a

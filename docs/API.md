@@ -3034,7 +3034,7 @@ A stacking puzzle's search (the solve thread's stacking flags). A stacking solve
 |---|---|---|---|
 | `solver` | [StackingSolver](#stackingsolver) |  | Default: the Panex Solver for a problem on Panex columns, else the Stacking Solver (the original's menu offered only that one). |
 | `highMemory` | boolean |  | Hold up to half the machine's memory in stackings (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part. |
-| `autosave` | boolean |  | The Panex search saves itself every 20 minutes (default true); off, only when it stops (the GUI's Autosave box). |
+| `autosave` | boolean |  | The Panex search saves itself as it runs (default true): a minute in, then as often as saving costs it no more than about 2% of its time; off, only when it stops (the app leaves it on). |
 
 ### TakeApartProgress
 
