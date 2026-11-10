@@ -600,6 +600,7 @@ describe('the IPC handlers', () => {
       status: 'newer',
       current: '1.3.0',
       latest: 'v1.4',
+      notes: '',
     });
     // once a run, whichever window asks
     expect(await invoke('bt:check-updates', ours, true)).toBeNull();

@@ -559,7 +559,9 @@ for (const grid of GRIDS) {
           if (m === null || (quarter !== 'tl' && quarter !== 'bl')) {
             continue;
           }
-          const cell: Cell = [Number(m[1]), Number(m[2]), Number(m[3])];
+          // (the cube grids' status counts from 1, the engine's cells from 0)
+          const from = cube ? 1 : 0;
+          const cell: Cell = [Number(m[1]) - from, Number(m[2]) - from, Number(m[3]) - from];
           const face = Number(m[4]);
           const across = (
             await engineCall<{ cell: Cell | null }>(page, 'grid.neighbour', {
@@ -598,7 +600,7 @@ for (const grid of GRIDS) {
             await page.keyboard.up('Control');
             await settled(page);
             expect((await shapeGet(page, s3)).cells.map((c) => key(c.at))).not.toContain(
-              `${m2[1]},${m2[2]},${m2[3]}`,
+              [m2[1], m2[2], m2[3]].map((v) => String(Number(v) - from)).join(','),
             );
           }
           added = true;

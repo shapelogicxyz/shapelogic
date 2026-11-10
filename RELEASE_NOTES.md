@@ -4,6 +4,23 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
+## [ShapeLogic v1.7](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7) (10 November 2026)
+
+### What's new
+
+- **Two new grids: Hexagonal Prism and Cairo Prism.** **File ▸ New** makes puzzles from hexagonal prisms or from prisms on the Cairo pentagonal tiling, a space of any size. The solver assembles them and takes them apart, and the guide has a page for each.
+- **Disassembly on more grids.** Rhombic, tetra-octa, hexagonal prism and Cairo prism puzzles are now taken apart as well as assembled. Only spheres are still assembled only.
+- **Uniform bevels.** A new style in **Display** draws each piece as one solid with every edge bevelled to the same width, whatever its angle, on every grid but spheres. The STL export has **Uniform bevels** and **Bumpy** switches, off by default, and a large rhombic piece exports in a fraction of a second instead of about a minute.
+- **Faster solving with many identical pieces.** The check that drops an assembly already found in another orientation now works on the solver's own rows, which makes puzzles with many pieces of one shape 4 to 6 times faster.
+- **Every core busy to the end.** A thread that runs out of work takes over untried branches from a busy one, so the last part of a long solve no longer runs on a single core. A paused solve keeps its place and loses no work, on one thread too.
+- **Crash recovery, always on.** While a solve runs, ShapeLogic keeps a rescue copy of the puzzle with its results and its place in the search, which the next start offers to reopen. It replaces **Autosave every 20 min**: your puzzle's file is never written unless you save it.
+- **Search Options defaults.** **Settings ▸ Search Options** sets what the Solver's Search Options start at for a problem that has none of its own, including the solver type. Every setting now shows its default under its description.
+- **Release notes in the update dialog.** When a new version is out, **Details** shows what is new in it.
+- **Sliding puzzles.** Each piece's name is written on the Start and Goal grids, the piece previews under the trays grow to fill the space and keep their labels apart, and the rulers and the cursor's coordinates count from 1.
+- **More in the guide.** Pages for the two new grids, crash recovery and setting the defaults, and the new ShapeLogic logo on the website.
+
+Many small bug fixes and improvements.
+
 ## [ShapeLogic v1.6](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.6) (1 November 2026)
 
 ### What's new

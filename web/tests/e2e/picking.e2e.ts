@@ -249,7 +249,10 @@ test('a click on a face names the cell and side the frame holds, on every fixtur
       await selectShape(page, s.id);
       const [sx, sy] = toScreen(hit.x, hit.y);
       await page.mouse.click(sx, sy);
-      const [cx, cy, cz] = cellOf(arrays.voxel[hit.t] ?? 0, s.size);
+      // the cube grids' status counts from 1, as their rulers and layers do
+      // (stacking puzzles were left out above)
+      const from = doc.grid === 'bricks' || doc.grid === 'sliding' ? 1 : 0;
+      const [cx, cy, cz] = cellOf(arrays.voxel[hit.t] ?? 0, s.size).map((c) => c + from);
       const face = arrays.voxelFace[hit.t] ?? -1;
       const want = `Cell ${cx}, ${cy}, ${cz} · ${face < 0 ? 'edge' : `side ${face}`}`;
       await expect(page.locator('#stCursor'), `${f} ${s.label}`).toHaveText(want);

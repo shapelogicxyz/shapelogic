@@ -557,9 +557,10 @@ export class EntitiesWorkspace {
     if (cell === null || s === null) {
       setCursor('');
     } else if (isCube(grid)) {
-      // the cell's coordinates, not its column and row (which run backwards on a flipped axis)
+      // the cell's coordinates, not its column and row (which run backwards on a
+      // flipped axis), counted from 1 as the rulers and the layers are
       const p = planeMap(this.state.plane, s.size);
-      const at = (a: 'X' | 'Y' | 'Z'): string => `${a}${String(cell['XYZ'.indexOf(a)] ?? 0)}`;
+      const at = (a: 'X' | 'Y' | 'Z'): string => `${a}${String((cell['XYZ'.indexOf(a)] ?? 0) + 1)}`;
       setCursor(`Cursor ${at(p.ca)} ${at(p.ra)} · ${at(p.la)}`);
     } else {
       setCursor(`Cell ${cell.join(', ')}`);

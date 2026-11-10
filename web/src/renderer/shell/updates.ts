@@ -3,14 +3,16 @@
 // Whether a newer ShapeLogic is out (the main process asks GitHub,
 // main/updates.ts): a few seconds after startup when the setting is on, and
 // at any time from Check for Updates… (Help; the application menu on
-// macOS). A newer release is offered in a dialog: Download opens its page,
-// Skip This Version keeps the startup check quiet about it, Later does
-// nothing. About shows the latest release once a check has seen it.
+// macOS). A newer release is offered in a dialog: Details opens the
+// release's notes in it (from GitHub's answer, release-notes.ts), Download
+// opens its page, Skip This Version keeps the startup check quiet about it,
+// Later does nothing. About shows the latest release once a check has seen it.
 
 import type { BtApp, UpdateResult } from '../../engine/app-bridge.ts';
 import { openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
 import { prefs } from './prefs.ts';
+import { notesHtml } from './release-notes.ts';
 
 /** How long after startup the check waits, so it never slows the window's first moments. */
 const STARTUP_DELAY_MS = 5000;
@@ -30,14 +32,18 @@ function shown(version: string): string {
   return `v${version.replace(/^(\d+\.\d+)\.0$/, '$1')}`;
 }
 
-/** Offers a newer release. */
+/** Offers a newer release; Details shows its notes in the dialog, which grows to hold them. */
 export async function showUpdate(app: BtApp, r: UpdateResult & { status: 'newer' }): Promise<void> {
+  const notes = notesHtml(r.notes);
   const key = await openDialog({
     id: 'update',
     title: 'Update available',
     body: `<p><b>ShapeLogic ${esc(r.latest)}</b> is available. You have ${esc(shown(r.current))}.</p>
-<p>Download opens the release page, where you can read what is new and get the installer for your system.</p>`,
+<p>${notes === '' ? 'Download opens the release page, where you can read what is new and get the installer for your system.' : 'Details shows what is new. Download opens the release page, where you can get the installer for your system.'}</p>${notes === '' ? '' : `<div class="relnotes" role="region" aria-label="${esc(`What is new in ${r.latest}`)}" tabindex="0" hidden>${notes}</div>`}`,
     buttons: [
+      ...(notes === ''
+        ? []
+        : [{ key: 'details', label: 'Details', tip: `Show what is new in ${r.latest}` }]),
       { key: 'later', label: 'Later', tip: 'Ask again the next time ShapeLogic starts' },
       {
         key: 'skip',
@@ -52,6 +58,23 @@ export async function showUpdate(app: BtApp, r: UpdateResult & { status: 'newer'
         tip: 'Open the release page in your browser',
       },
     ],
+    // Details opens and closes the notes, the dialog kept open
+    onAnswer: (k, el) => {
+      if (k !== 'details') {
+        return undefined;
+      }
+      const box = el.querySelector<HTMLElement>('.relnotes');
+      const btn = el.querySelector<HTMLElement>('[data-x="details"]');
+      if (box !== null && btn !== null) {
+        const open = box.hidden !== false;
+        box.hidden = !open;
+        el.querySelector('.cfm')?.classList.toggle('notes', open);
+        btn.textContent = open ? 'Hide Details' : 'Details';
+        btn.title = open ? 'Hide the release notes' : `Show what is new in ${r.latest}`;
+        btn.setAttribute('aria-expanded', String(open));
+      }
+      return false;
+    },
   });
   if (key === 'download') {
     app.openReleases();

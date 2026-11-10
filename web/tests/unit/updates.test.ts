@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkForUpdate,
   compareVersions,
+  NOTES_MAX,
   parseVersion,
   RELEASES_API,
 } from '../../src/main/updates.ts';
@@ -57,6 +58,24 @@ describe('the check', () => {
       status: 'newer',
       current: '1.3.0',
       latest: 'v1.4',
+      notes: '',
+    });
+  });
+
+  it('passes on the release’s notes, trimmed and held to NOTES_MAX', async () => {
+    expect(
+      await checkForUpdate(
+        '1.3.0',
+        answer({ tag_name: 'v1.4', body: '\n# ShapeLogic v1.4\n\n- New.\n' }),
+      ),
+    ).toMatchObject({ status: 'newer', notes: '# ShapeLogic v1.4\n\n- New.' });
+    const long = await checkForUpdate(
+      '1.3.0',
+      answer({ tag_name: 'v1.4', body: 'x'.repeat(NOTES_MAX + 5) }),
+    );
+    expect(long.status === 'newer' ? long.notes.length : 0).toBe(NOTES_MAX);
+    expect(await checkForUpdate('1.3.0', answer({ tag_name: 'v1.4', body: null }))).toMatchObject({
+      notes: '',
     });
   });
 

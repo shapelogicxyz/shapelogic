@@ -292,6 +292,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .setgrp{margin:22px 0 0;font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .setrow.under{flex-direction:column;gap:10px}
 .setrow .t{flex:1}.setrow .t b{display:block;font-weight:600;margin-bottom:2px}.setrow .t span{color:var(--muted);font-size:calc(12px + var(--fs));line-height:1.45;display:block}
+.setrow .t span.def{margin-top:2px;font-weight:600}
 .setrow .t em.only{display:block;font-style:normal;font-size:calc(12px + var(--fs));color:var(--muted);margin:-1px 0 3px}
 .setrow>.step{flex:none}.setrow>.step .v{width:64px}
 .setrow .switch{margin:0;flex:none}
@@ -999,6 +1000,14 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .cfm .cb p b{color:var(--text)}
 .cfm.wide{width:min(620px,calc(100% - 48px));max-height:calc(100% - 80px);display:flex;flex-direction:column}
 .cfm.wide .cb{overflow:auto;min-height:0;margin:0 -4px 12px;padding:0 4px}
+/* the update dialog: Details on the left, the release notes it opens in a box that scrolls */
+#update .bt [data-x="details"]{margin-right:auto}
+#update .cfm{width:min(480px,calc(100% - 48px))}#update .cfm.notes{width:min(640px,calc(100% - 48px))}
+#update .relnotes{max-height:min(46vh,440px);overflow:auto;margin:0 0 14px;padding:4px 14px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);line-height:1.5;user-select:text}
+#update .relnotes h4,#update .relnotes h5,#update .relnotes h6{margin:12px 0 6px;font-size:calc(13px + var(--fs))}
+#update .relnotes p{margin:8px 0;color:var(--text)}
+#update .relnotes ul{margin:6px 0 10px;padding-left:20px}#update .relnotes li{margin:0 0 6px}
+#update .relnotes code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace;white-space:nowrap}
 .cfm .kbsearch,.cfm .form input:not([type]),.cfm .form select{height:30px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:0 10px;font:inherit}
 .cfm .kbsearch{width:100%;margin:4px 0 4px}
 .cfm textarea.notes{width:100%;box-sizing:border-box;min-height:220px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:8px 10px;font:inherit;resize:vertical}

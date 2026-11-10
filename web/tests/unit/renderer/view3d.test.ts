@@ -142,6 +142,8 @@ describe('mesh.ts', () => {
     const p = pickOf(m, 1);
     expect(p).toEqual({ triangle: 3, voxel: 5, cell: [1, 2, 0], face: 5, flags: FLAG.wireframe });
     expect(p === null ? '' : describePick(p)).toBe('Cell 1, 2, 0 · side 5');
+    // the cube grids count from 1, as their rulers and layers do
+    expect(p === null ? '' : describePick(p, true)).toBe('Cell 2, 3, 1 · side 5');
     expect(pickOf(m, 2)).toBeNull();
     const bevel = buildMesh(
       frame([{ corners: square(0), voxel: 0, face: -1, flags: 0 }]),

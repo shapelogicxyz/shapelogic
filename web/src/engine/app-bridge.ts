@@ -112,10 +112,11 @@ export type HelpLink = 'tutorial' | 'guide' | 'author';
 
 /**
  * What the update check found (main/updates.ts): the latest release
- * (`v1.4`) newer than this version, the same or older, or no answer.
+ * (`v1.4`) newer than this version, with its notes (Markdown, '' when it
+ * has none), the same or older, or no answer.
  */
 export type UpdateResult =
-  | { status: 'newer'; current: string; latest: string }
+  | { status: 'newer'; current: string; latest: string; notes: string }
   | { status: 'current'; current: string; latest: string }
   | { status: 'error'; current: string; error: string };
 

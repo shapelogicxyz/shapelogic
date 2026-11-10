@@ -1098,7 +1098,7 @@ export class View3D {
   // a sliding board's two trays in the Puzzle view, and their titles: the
   // whole view, or with pieces to show, the pieces scene in a band over the
   // validity bar as tall as it needs (at most PIECES_SHARE of the free
-  // height), and the trays fitted at the home view into the space between
+  // height; as many copies a row as show them largest), and the trays fitted at the home view into the space between
   // the view's tag and that band. The trays are drawn last over the whole
   // view, so a zoom or a turn that takes them past their space is not cut
   // off.
@@ -1131,8 +1131,7 @@ export class View3D {
         ? Math.max(y0 + 2, valid.offsetTop - 4)
         : full;
     const free = y1 - y0;
-    const top =
-      y1 - Math.round(Math.min(this.pieces.heightFor(r.width, true), free * PIECES_SHARE));
+    const top = y1 - Math.round(this.pieces.bandHeight(r.width, free * PIECES_SHARE));
     // the view's background, then the pieces in their band
     r.gl.clear();
     this.trays.group.visible = false;
@@ -1308,7 +1307,9 @@ export class View3D {
     this.lastPick = p;
     this.overSpace = over;
     this.lastLayerCell = layerCell;
-    setCursor(p === null ? '' : describePick(p));
+    const grid = this.store.snapshot?.grid;
+    const cube = grid === 'bricks' || grid === 'sliding' || grid === 'stacking';
+    setCursor(p === null ? '' : describePick(p, cube));
     byId('vp').dataset.quarter = p?.quarter ?? '';
     this.edit?.hover(p, this.mods, over, layerCell);
   }

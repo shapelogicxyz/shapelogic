@@ -36,8 +36,8 @@ export const MAX_COPIES = 100;
 /** How much larger than a piece's place the result's is. */
 export const RESULT_SIZE = 1.6;
 
-/** The distance between the copies in a row, and between the rows. */
-const PITCH_X = 5.2;
+/** The distance between the copies in a row (the least: the scene widens it for long labels), and between the rows. */
+export const PITCH_X = 5.2;
 const PITCH_Y = 6.6;
 /**
  * The first row of copies, under the result: its half height (2.2 times
@@ -88,11 +88,11 @@ export function puzLayout(
 }
 
 /**
- * Places the items for `cols` copies a row: the result and the selected
- * piece side by side at the top (the result alone in the middle), the
- * copies in rows under them, both centred on x = 0.
+ * Places the items for `cols` copies a row, `pitch` apart: the result and
+ * the selected piece side by side at the top (the result alone in the
+ * middle), the copies in rows under them, both centred on x = 0.
  */
-export function arrange(items: SceneItem[], cols: number): void {
+export function arrange(items: SceneItem[], cols: number, pitch = PITCH_X): void {
   const top = items.filter((i) => i.role !== 'piece');
   const both = top.length > 1;
   for (const it of top) {
@@ -104,7 +104,7 @@ export function arrange(items: SceneItem[], cols: number): void {
   copies.forEach((it, i) => {
     // a short last row is centred too
     const inRow = Math.min(c, copies.length - Math.floor(i / c) * c);
-    it.pos = [((i % c) - (inRow - 1) / 2) * PITCH_X, y0 - Math.floor(i / c) * PITCH_Y];
+    it.pos = [((i % c) - (inRow - 1) / 2) * pitch, y0 - Math.floor(i / c) * PITCH_Y];
   });
 }
 

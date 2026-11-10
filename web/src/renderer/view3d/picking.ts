@@ -107,8 +107,13 @@ function sideMiddle(mesh: BuiltMesh, voxel: number, face: number): Vector3 | nul
   return total > 0 ? sum.divideScalar(total) : null;
 }
 
-/** The status bar's words for a pick (the mockup's "Cell …" of its non-cube grids). */
-export function describePick(p: Pick): string {
-  const [x, y, z] = p.cell;
-  return `Cell ${x}, ${y}, ${z} · ${p.face < 0 ? 'edge' : `side ${p.face}`}`;
+/**
+ * The status bar's words for a pick (the mockup's "Cell …" of its non-cube
+ * grids); `fromOne`: the coordinates counted from 1, as the cube grids'
+ * rulers and layers are (the cells' own, the file's and the API's, count
+ * from 0).
+ */
+export function describePick(p: Pick, fromOne = false): string {
+  const [x, y, z] = p.cell.map((c) => c + (fromOne ? 1 : 0));
+  return `Cell ${String(x)}, ${String(y)}, ${String(z)} · ${p.face < 0 ? 'edge' : `side ${String(p.face)}`}`;
 }

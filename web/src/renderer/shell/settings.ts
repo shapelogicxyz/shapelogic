@@ -465,6 +465,32 @@ function threadsShown(): number {
   return prefs.threads === 0 ? maxThreads() : prefs.threads;
 }
 
+/** A row's default, as the "Default:" line under its description says it. */
+function defaultText(r: Row): string {
+  const on = (k: keyof Prefs): string => String(DEFAULTS[k]);
+  switch (r.type) {
+    case 'sw':
+      return DEFAULTS[r.k] === true ? 'On' : 'Off';
+    case 'steps':
+      return r.label(DEFAULTS[r.k] as number);
+    case 'slider':
+      return DEFAULTS[r.k] === 0 ? `${String(maxThreads())} (all)` : on(r.k);
+    case 'xyz':
+      return r.sets.map((x) => `${x.name} ${x.k.map(on).join(' × ')}`).join(', ');
+    case 'widths':
+      return WIDTHS.map(({ k, name }) => `${name} ${on(k)} px`).join(', ');
+    case 'colour':
+    case 'seg':
+    case 'select':
+    case 'num':
+      return on(r.k);
+  }
+}
+
+/** The description with the default under it. */
+const descHtml = (r: Row): string =>
+  `<span>${esc(r.d)}</span><span class="def">Default: ${esc(defaultText(r))}</span>`;
+
 /** The row's name with, under it, the puzzle types that have the setting when not all do. */
 const nameHtml = (r: Row): string =>
   `<b>${esc(r.t)}</b>${r.only === undefined ? '' : `<em class="only">(Only: ${esc(r.only)})</em>`}`;
@@ -483,7 +509,7 @@ function rowHtml(r: Row): string {
   if (r.type === 'num') {
     const v = prefs[r.k];
     const what = r.t.toLowerCase();
-    return `<div class="setrow"><div class="t">${nameHtml(r)}<span>${esc(r.d)}</span></div><div class="step"><button data-num="${r.k}" data-s="-1" title="${esc(`Decrease ${what} by ${String(r.step)}`)}" ${v <= r.min ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-num="${r.k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(r.t)}" title="${esc(r.d)}"><button data-num="${r.k}" data-s="1" title="${esc(`Increase ${what} by ${String(r.step)}`)}" ${v >= LIMIT_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div></div>`;
+    return `<div class="setrow"><div class="t">${nameHtml(r)}${descHtml(r)}</div><div class="step"><button data-num="${r.k}" data-s="-1" title="${esc(`Decrease ${what} by ${String(r.step)}`)}" ${v <= r.min ? 'disabled' : ''}>${ic('minus', 12)}</button><input class="v" data-num="${r.k}" value="${String(v)}" inputmode="numeric" aria-label="${esc(r.t)}" title="${esc(r.d)}"><button data-num="${r.k}" data-s="1" title="${esc(`Increase ${what} by ${String(r.step)}`)}" ${v >= LIMIT_MAX ? 'disabled' : ''}>${ic('plus', 12)}</button></div></div>`;
   }
   if (r.type === 'widths') {
     const steps = WIDTHS.map(({ k, name }) => {
@@ -493,7 +519,7 @@ function rowHtml(r: Row): string {
     const sets = WIDTHS.map(
       (x, i) => `<small>${esc(x.name)}</small><div class="size3">${steps[i] ?? ''}</div>`,
     ).join('');
-    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div><div class="xyzsets">${sets}</div></div>`;
+    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b>${descHtml(r)}</div><div class="xyzsets">${sets}</div></div>`;
   }
   if (r.type === 'xyz') {
     const sets = r.sets
@@ -508,7 +534,7 @@ function rowHtml(r: Row): string {
         return `<small>${esc(x.name)}</small><div class="size3">${steps}</div>`;
       })
       .join('');
-    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b><span>${esc(r.d)}</span></div><div class="xyzsets">${sets}</div></div>`;
+    return `<div class="setrow"><div class="t"><b>${esc(r.t)}</b>${descHtml(r)}</div><div class="xyzsets">${sets}</div></div>`;
   }
   const v = prefs[r.k];
   let c = '';
@@ -544,7 +570,7 @@ function rowHtml(r: Row): string {
   }
   // more than three choices do not fit beside the text: they go under it
   const under = r.type === 'seg' && r.opts.length > 3;
-  return `<div class="setrow${under ? ' under' : ''}"><div class="t">${nameHtml(r)}<span>${esc(r.d)}</span></div>${c}</div>`;
+  return `<div class="setrow${under ? ' under' : ''}"><div class="t">${nameHtml(r)}${descHtml(r)}</div>${c}</div>`;
 }
 
 /** The keys of a row as kbd chips (the mockup's kbKeys). */

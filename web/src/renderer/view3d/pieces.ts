@@ -24,7 +24,7 @@ import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import type { MeshStyle } from '../../engine/api.generated.ts';
-import { arrange, label, RESULT_SIZE } from '../puzzle/layout.ts';
+import { arrange, label, PITCH_X, RESULT_SIZE } from '../puzzle/layout.ts';
 import type { SceneItem } from '../puzzle/layout.ts';
 import { esc } from '../shell/dom.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
@@ -125,9 +125,14 @@ export class PiecesScene {
   private selected: string | null = null;
   /** The layout's size and the scale from the mockup's units to world units. */
   private bounds = { w: 1, h: 1, k: 1 };
-  /** The items laid out (their own copies, moved by `arrange`), and the copies a row now. */
+  /** The items laid out (their own copies, moved by `arrange`), the copies a row now and their pitch. */
   private laid: SceneItem[] = [];
   private cols = 5;
+  private pitch = PITCH_X;
+  /** The copies a row in a band under a sliding board's trays (`bandHeight`'s). */
+  private bandCols = 5;
+  /** The widest copy's label in CSS pixels (-1: not measured since the model was set). */
+  private labelW = -1;
   /** How much larger than its place each piece is drawn (PiecesModel.grow). */
   private grow = 1;
   /** The view's zoom: each piece grows or shrinks where it stands. */
@@ -208,6 +213,8 @@ export class PiecesScene {
     this.grow = model.grow ?? 1;
     this.laid = model.items.map((i) => ({ ...i, pos: [i.pos[0], i.pos[1]] }));
     this.cols = 5;
+    this.pitch = PITCH_X;
+    this.labelW = -1;
     arrange(this.laid, this.cols);
     const b = this.boundsOf(this.laid);
     this.bounds = { w: b.w, h: b.h, k };
@@ -286,28 +293,45 @@ export class PiecesScene {
   /**
    * The scale (pixels per world unit) for a viewport, the
    * mockup's `sc`, and the layout's largest extent in world units
-   * (`tight`: less margin above and below).
+   * (`tight`: a band under a sliding board's trays, with the copies a row
+   * `bandHeight` chose and less margin above and below).
    */
   scale(w: number, h: number, zoom: number, tight = false): { sc: number; reach: number } {
-    // a band under a sliding board's trays keeps rows of five (its height
-    // follows the layout); the whole view takes the rows that show the
-    // pieces largest
-    this.layOut(tight ? 5 : this.bestCols(w, h));
-    this.setZoom(zoom);
-    const { w: lw, h: lh, k } = this.bounds;
     // the copies DROP_PX lower under the result, the same pixels at any
     // size: the layout fits the height less that, the top row moved up
     // half of it and the copies down the other half
     const dropPx = !tight && this.laid.some((i) => i.role === 'result') ? DROP_PX : 0;
-    const sc =
-      Math.min(w / ((lw + PAD_X) * k), Math.max(1, h - dropPx) / ((lh + padY(tight)) * k)) * 0.92 ||
-      1;
+    const cols = tight ? this.bandCols : this.bestCols(w, h, dropPx);
+    const f = this.fit(cols, w, h, tight, dropPx);
+    this.layOut(cols, f.pitch);
+    this.setZoom(zoom);
+    const { w: lw, h: lh, k } = this.bounds;
+    const sc = f.s / k || 1;
     const drop = dropPx / sc;
     if (Math.abs(drop - this.drop) > 1e-9) {
       this.drop = drop;
       this.position();
     }
     return { sc, reach: Math.hypot(lw, lh) * k * Math.max(1, zoom) };
+  }
+
+  /**
+   * The height of a band under a sliding board's trays, `w` wide and at
+   * most `most` tall, that shows the pieces largest: the copies a row
+   * chosen for it (kept for `scale`), and the height they need at that
+   * size.
+   */
+  bandHeight(w: number, most: number): number {
+    let best: Fit | null = null;
+    for (let c = 1; c <= this.maxCols(); c++) {
+      const f = this.fit(c, w, most, true, 0);
+      // more copies a row only for a clearly larger scale: no flicker between two
+      if (best === null || f.s > best.s * 1.001) {
+        best = f;
+        this.bandCols = c;
+      }
+    }
+    return best === null ? most : Math.min(most, best.height);
   }
 
   // the zoom: each piece scaled where it stands, the layout kept
@@ -322,31 +346,80 @@ export class PiecesScene {
   }
 
   // the copies a row that give the largest scale in a viewport
-  private bestCols(w: number, h: number): number {
-    const n = this.laid.filter((i) => i.role === 'piece').length;
+  private bestCols(w: number, h: number, dropPx: number): number {
     let best = this.cols;
     let most = 0;
-    const trial = this.laid.map((i) => ({ ...i }));
-    for (let c = 1; c <= Math.max(1, Math.min(n, 12)); c++) {
-      arrange(trial, c);
-      const b = this.boundsOf(trial);
-      const sc = Math.min(w / (b.w + PAD_X), h / (b.h + padY(false)));
+    for (let c = 1; c <= this.maxCols(); c++) {
+      const s = this.fit(c, w, h, false, dropPx).s;
       // a wider row only for a clearly larger scale: no flicker between two
-      if (sc > most * 1.001) {
-        most = sc;
+      if (s > most * 1.001) {
+        most = s;
         best = c;
       }
     }
     return best;
   }
 
-  // the items for `cols` copies a row, the groups moved to them
-  private layOut(cols: number): void {
-    if (cols === this.cols) {
+  private maxCols(): number {
+    const n = this.laid.filter((i) => i.role === 'piece').length;
+    return Math.max(1, Math.min(n, MAX_COLS));
+  }
+
+  // the layout of `cols` copies a row in a viewport: its scale (pixels per
+  // mockup unit, its margin taken), the pitch that keeps the copies' labels
+  // LABEL_GAP apart at it, and the height it takes. The copies' rows are
+  // as wide as their pitch makes them, the result's row as it is.
+  private fit(cols: number, w: number, h: number, tight: boolean, dropPx: number): Fit {
+    const trial = this.laid.map((i) => ({ ...i }));
+    arrange(trial, cols);
+    const all = this.boundsOf(trial);
+    const copies = trial.filter((i) => i.role === 'piece');
+    const tops = trial.filter((i) => i.role !== 'piece');
+    const gaps = Math.min(cols, copies.length) - 1;
+    const top = tops.length === 0 ? 0 : this.boundsOf(tops).w;
+    const row = copies.length === 0 ? 0 : this.boundsOf(copies).w;
+    const fill = FILL * w;
+    let s = fill / (PAD_X + Math.max(top, row));
+    const lab = gaps > 0 ? this.labelWidth() + LABEL_GAP : 0;
+    if (gaps > 0 && s * PITCH_X < lab) {
+      // the labels set the pitch: the rows' copies less their gaps keep scaling
+      s = Math.min((fill - gaps * lab) / (PAD_X + row - gaps * PITCH_X), fill / (PAD_X + top));
+    }
+    const tall = all.h + padY(tight);
+    s = Math.min(s, (FILL * Math.max(1, h - dropPx)) / tall);
+    s = Math.max(s, 1e-3);
+    return {
+      s,
+      pitch: gaps > 0 ? Math.max(PITCH_X, lab / s) : PITCH_X,
+      height: (s * tall) / FILL + dropPx,
+    };
+  }
+
+  // the widest copy's label, measured once per model (not while the overlay is hidden)
+  private labelWidth(): number {
+    if (this.labelW < 0) {
+      let most = 0;
+      for (const d of this.items) {
+        if (d.item.role === 'piece') {
+          most = Math.max(most, d.box.querySelector<HTMLElement>('.pzlab')?.offsetWidth ?? 0);
+        }
+      }
+      if (most === 0) {
+        return 0;
+      }
+      this.labelW = most;
+    }
+    return this.labelW;
+  }
+
+  // the items for `cols` copies a row, `pitch` apart, the groups moved to them
+  private layOut(cols: number, pitch: number): void {
+    if (cols === this.cols && Math.abs(pitch - this.pitch) < 1e-9) {
       return;
     }
     this.cols = cols;
-    arrange(this.laid, cols);
+    this.pitch = pitch;
+    arrange(this.laid, cols, pitch);
     const b = this.boundsOf(this.laid);
     this.bounds = { w: b.w, h: b.h, k: this.bounds.k };
     this.position();
@@ -383,16 +456,6 @@ export class PiecesScene {
       );
       d.group.position.copy(d.at);
     }
-  }
-
-  /**
-   * The height at which a viewport `w` wide shows the layout as large as
-   * its width allows (`tight`: with the margin above and below cut, as
-   * `scale` cuts it).
-   */
-  heightFor(w: number, tight = false): number {
-    const { w: lw, h: lh } = this.bounds;
-    return (w * (lh + padY(tight))) / (lw + PAD_X);
   }
 
   /** Turns every item about its own centre to the camera's orientation. */
@@ -555,6 +618,25 @@ function outlineOf(m: PieceMesh, q: Quaternion): number {
 
 /** How far the copies sit lower under the result than the layout puts them, in pixels. */
 const DROP_PX = 35;
+
+/** The share of the viewport the layout fills (the rest a margin). */
+const FILL = 0.92;
+
+/** The most copies a row. */
+const MAX_COLS = 20;
+
+/** The least space between two copies' labels in a row, in pixels. */
+const LABEL_GAP = 12;
+
+/** A layout's fit in a viewport (`PiecesScene.fit`). */
+interface Fit {
+  /** Pixels per mockup unit. */
+  s: number;
+  /** The copies' pitch in a row, in mockup units. */
+  pitch: number;
+  /** The height it takes, in pixels. */
+  height: number;
+}
 
 /** The layout's margin left and right, in the mockup's units. */
 const PAD_X = 1.5;
