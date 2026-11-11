@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace bt::io {
 
@@ -51,16 +52,51 @@ inline constexpr std::uint64_t kMaxImportCells = std::uint64_t{1} << 27;
 [[nodiscard]] Result<Puzzle> readPuzzlecad(std::string_view text,
                                            std::uint64_t maxCells = kMaxImportCells);
 
+/// The most pieces a Puzzlecad export writes copies of (the caller's check).
+inline constexpr std::uint64_t kMaxPuzzlecadCopies = 4096;
+
+/// What a Puzzlecad export writes beyond the original's file.
+struct PuzzlecadOptions {
+  /// Each of the problem's parts as many times as the problem has it (its
+  /// maximum), not each distinct shape once.
+  bool copies = false;
+  /// A sliding puzzle's trays, its start/goal shapes (writePuzzlecad);
+  /// nothing on other grids.
+  bool tray = false;
+  /// The height in cells of the wall around a tray, which grows the tray
+  /// by a cell on each side; 0 for none.
+  unsigned int lip = 0;
+  /// Without a problem, the shapes to write (indices, in this order)
+  /// rather than every shape; a start/goal shape is left out.
+  std::vector<unsigned int> shapes;
+};
+
 /// The puzzlecad OpenSCAD file of a problem's pieces (saveOpenScadPuzzle;
 /// the original's MagellanTIC.scad layout): the distinct shapes of
-/// `problem`'s parts but its result, or, when that leaves none, every
-/// shape of the puzzle but that result (every shape when the problem is
-/// null), each as its bounding box's layers in a `burr_plate`.
-/// `sourceName`'s last path component is named in the header comment ("unknown" when empty). Nothing (the original's false)
-/// when no shape has a filled or variable cell. Cube grid only: the
+/// `problem`'s parts but its result (each copy with options.copies), or,
+/// when that leaves none, every shape of the puzzle but that result (every
+/// shape when the problem is null, or options.shapes when it lists some),
+/// each as its bounding box's layers in a
+/// `burr_plate`. `sourceName`'s last path component is named in the header
+/// comment ("unknown" when empty). Nothing (the original's false) when no
+/// shape has a filled or variable cell. Cube and sliding grids only: the
 /// caller refuses other grids.
+///
+/// A sliding puzzle's start/goal shapes are never pieces. With
+/// options.tray (sliding grid only) its trays come first: the problem's
+/// start/goal shape, else every one. A tray is a floor layer under its
+/// bounding box and wall layers on it, the cells the tray leaves empty, as
+/// many as options.lip (at least one, none when there is no wall cell); a
+/// lip grows the floor by a cell on each side and walls the ring around it.
+///
+/// A cube-grid puzzle's file is the original's, its "burr_scal" typo
+/// fixed and without its disabled `packing_box` placeholder. A sliding puzzle's has beveled units and no inset, each tray a
+/// `packing_box` of its own (all but the first disabled with `*`), then
+/// the pieces' `burr_plate` (disabled while a box is written), both scaled
+/// to [16, 16, 5.6] mm.
 [[nodiscard]] std::optional<std::string> writePuzzlecad(const Puzzle& puzzle,
                                                         const Problem* problem,
-                                                        std::string_view sourceName);
+                                                        std::string_view sourceName,
+                                                        const PuzzlecadOptions& options = {});
 
 }  // namespace bt::io

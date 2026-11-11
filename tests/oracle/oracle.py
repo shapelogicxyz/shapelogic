@@ -1163,6 +1163,13 @@ def run_pair_tool(argv: list[str], timeout: float) -> tuple[str, bytes]:
     return ("refused" if proc.returncode == 3 else "failed"), (lines[-1] if lines else "").encode()
 
 
+def as_shapelogic_writes(scad: bytes) -> bytes:
+    """The original's Puzzlecad export as ShapeLogic's writes it: its comment's
+    typo fixed ("burr_scal") and without its disabled packing_box placeholder."""
+    return (scad.replace(b"// Use burr_scal = ", b"// Use burr_scale = ")
+            .replace(b"*packing_box(\n\n$box_wall_thickness = 4\n);\n\n", b""))
+
+
 def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: float) -> dict:
     """One job of `oracle.py imports`: both programs, the same arguments, the outputs compared."""
     mode, args = job[0], list(job[1:])
@@ -1183,7 +1190,7 @@ def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: 
         if a != b:
             return {"status": "MISMATCH", "detail": "saves differ: " + first_difference(
                 semantic(out / "new.xmpuzzle"), semantic(out / "old.xmpuzzle"))}
-    elif old[1] != new[1]:
+    elif as_shapelogic_writes(old[1]) != new[1]:
         return {"status": "MISMATCH", "detail": "the exported texts differ"}
     else:
         (out / "export.scad").write_bytes(old[1])
@@ -1377,7 +1384,7 @@ def cmd_record_imports(args: argparse.Namespace) -> int:
         elif proc.returncode != 0:
             raise RuntimeError(f"{argv}: {proc.stderr.decode().strip()}")
         elif stdout:
-            out.write_bytes(proc.stdout)
+            out.write_bytes(as_shapelogic_writes(proc.stdout))
 
     for f in sorted(IMPORT_INPUTS.iterdir()):
         if f.suffix in (".puz", ".scad"):

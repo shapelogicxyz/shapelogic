@@ -1,7 +1,8 @@
 # 0014: Sliding puzzles in the core, the engine and the CLI
 
 **Status:** accepted (deferred part 1); the start marks moved out of the
-cell colours later (decision 0021); `core/shapelogic/model/sliding.h`,
+cell colours later (decision 0021), and from the board to each problem
+(decision 0027); `core/shapelogic/model/sliding.h`,
 `core/shapelogic/solve/sliding_search.h`, `core/shapelogic/solve/slide_levels.h`,
 `core/shapelogic/app/document_sliding.cpp`, `engine/methods_sliding.cpp`,
 `api/sliding.json`

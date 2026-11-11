@@ -42,6 +42,7 @@ export const NO_STATE: MenuState = {
   paused: false,
   solutions: false,
   shapes: false,
+  scad: false,
   animation: false,
   colourView: false,
   style: 'drawing',
@@ -162,7 +163,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         id: 'export',
         label: 'Export',
         submenu: [
-          item('export.scad', 'Puzzlecad (OpenSCAD)…', { cmd: 'exportScad' }, doc && s.shapes),
+          item('export.scad', 'Puzzlecad (OpenSCAD)…', { cmd: 'exportScad' }, doc && s.scad),
           item('export.image', 'Image…', { cmd: 'exportImage' }, doc),
           item('export.vector', 'Vector Image…', { cmd: 'exportVector' }, doc),
           item('export.stl', 'STL…', { cmd: 'exportStl' }, doc && s.shapes),

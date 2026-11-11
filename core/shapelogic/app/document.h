@@ -28,8 +28,10 @@
 #include "shapelogic/base/error.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/io/imports.h"
 #include "shapelogic/mesh/draw_mesh.h"
 #include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/sliding.h"
 #include "shapelogic/model/stacking_types.h"
 #include "shapelogic/solve/solve_progress.h"
 #include "shapelogic/solve/solve_session.h"
@@ -223,12 +225,15 @@ class Document {
   /// The Puzzlecad OpenSCAD file of a problem's pieces (cb_Export_Scad;
   /// io::writePuzzlecad): `problem`'s distinct shapes but its result (when
   /// it has none, every other shape), or every shape when no problem is
-  /// given; `sourceName`,
+  /// given, with the copies and trays `options` asks for; `sourceName`,
   /// the puzzle's file (or the export's when it has none), is named in its
   /// header. InvalidArgument with the original's words for a puzzle not on
-  /// the cube grid, without shapes, or without a cell to write.
+  /// the cube or sliding grid, without shapes, or without a cell to write,
+  /// for a tray off the sliding grid, and for copies of more than
+  /// io::kMaxPuzzlecadCopies pieces.
   [[nodiscard]] Result<std::string> exportPuzzlecad(std::optional<Id> problem,
-                                                    std::string_view sourceName) const;
+                                                    std::string_view sourceName,
+                                                    const io::PuzzlecadOptions& options = {}) const;
 
   /// Saves (gzip, as the original); the document is clean afterwards.
   /// Refused while a solve runs (save at a save point instead).
@@ -428,20 +433,23 @@ class Document {
   /// one of several copies is one more copy's (refused once every copy the
   /// problem has is placed); a copy that is exactly there already is taken
   /// off. Refused (InvalidArgument) with the reason when it does not fit.
-  /// The copies are `problem`'s, whose result must be the tray (0: the
-  /// tray's first problem's). Returns whether the piece is there now.
+  /// The start or goal is `problem`'s (decision 0027), whose result must
+  /// be the tray (0: the tray's first problem); the other problems on the
+  /// tray keep theirs. Refused when no problem uses the tray. Returns
+  /// whether the piece is there now.
   Result<bool> placeStamp(Id tray, Id piece, int x, int y, int z, bool goal, Id problem = 0);
-  /// The problem `problem` (0: none, null), read for the
-  /// sliding.* calls that name one, when its result is
-  /// the start/goal shape `tray`; refused when it is not.
+  /// The problem `problem`, read for the sliding.* calls that name one,
+  /// when its result is the start/goal shape `tray`; refused when it is
+  /// not. 0 is the tray's first problem, null when no problem uses it.
   [[nodiscard]] Result<const Problem*> trayProblemOf(Id problem, unsigned int tray) const;
-  /// Takes off the start or goal of the copy that covers (x, y, z) (the
-  /// right click); false when there is none.
-  Result<bool> clearStampAt(Id tray, int x, int y, int z, bool goal);
-  /// Copies every start onto the goals (toGoal), or every goal onto the
-  /// starts (sliding.clone), replacing what that side had. Refused
-  /// (InvalidArgument) with the reason when a start is on a corridor.
-  Result<void> cloneStamps(Id tray, bool toGoal);
+  /// Takes off `problem`'s start or goal of the copy that covers (x, y, z)
+  /// (the right click); false when there is none.
+  Result<bool> clearStampAt(Id tray, int x, int y, int z, bool goal, Id problem = 0);
+  /// Copies every start of `problem` onto its goals (toGoal), or every
+  /// goal onto its starts (sliding.clone), replacing what that side had.
+  /// Refused (InvalidArgument) with the reason when a start is on a
+  /// corridor.
+  Result<void> cloneStamps(Id tray, bool toGoal, Id problem = 0);
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //
@@ -682,6 +690,20 @@ class Document {
   bool boardsAbovePieces();
   /// The sliding part of changeShape, after shape `shape` was edited.
   void slidingShapeChanged(unsigned int shape);
+  /// The problem whose starts and goals a sliding.* command changes: the
+  /// one named (trayProblemOf), refused when no problem uses the tray.
+  [[nodiscard]] Result<unsigned int> stampProblem(Id problem, unsigned int tray) const;
+  /// Before an edit of shape `shape`, made on `v` (the shape itself or the
+  /// copy that will replace it): when it is a sliding puzzle's start/goal
+  /// shape, what takes its problems' starts and goals along
+  /// (sliding::beginBoardEdit); empty for any other shape. Read the tags
+  /// (sliding::readBoardTags) once `v` is edited, before it is compared.
+  [[nodiscard]] std::vector<sliding::BoardEdit> beginBoardEdit(unsigned int shape, Voxel& v) const;
+  /// After the edited shape is the puzzle's: the problems on it get the
+  /// starts and goals that are still whole, where their cells now are, and
+  /// follow the board (syncSliding), with a notice of the pieces that lost
+  /// one. Nothing for an empty `edit`.
+  void finishBoardEdit(const std::vector<sliding::BoardEdit>& edit);
   /// After moveShape took piece `shape` past the 63rd place and its marks
   /// off the start/goal shapes `trays` (sliding::noteShapeSwap): the
   /// problems follow, with a notice.

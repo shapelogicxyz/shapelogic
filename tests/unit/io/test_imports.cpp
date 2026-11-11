@@ -6,6 +6,7 @@
 // against what the original made of them (tests/data/imports_by_original/,
 // `oracle.py record-imports`), through the document as the engine calls it.
 #include "shapelogic/app/document.h"
+#include "shapelogic/app/shape_tools.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/imports.h"
@@ -16,6 +17,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -221,6 +223,36 @@ TEST_CASE("imports: only cube-grid puzzles with shapes export to Puzzlecad", "[i
   r = d->exportPuzzlecad(Id{999999}, "");
   REQUIRE_FALSE(r.has_value());
   CHECK(r.error().code == Errc::NotFound);
+}
+
+TEST_CASE("imports: a Puzzlecad export's copies and chosen shapes, no tray on the cube grid",
+          "[io][imports]") {
+  Document d(GridKind::Bricks);
+  const Id result = d.createShape(std::array<unsigned int, 3>{2, 2, 1}).value();
+  REQUIRE(d.editCells(result, CellTool::Fixed, 0, 0, {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}).has_value());
+  const Id bar = d.createShape(std::array<unsigned int, 3>{1, 1, 1}).value();
+  REQUIRE(d.editCells(bar, CellTool::Fixed, 0, 0, {{0, 0, 0}}).has_value());
+  const Id p = d.createProblem().value();
+  REQUIRE(d.setResult(p, result).has_value());
+  REQUIRE(d.setPieceCount(p, bar, 3, 3).has_value());
+  const auto plate = [&d](std::optional<Id> problem, const io::PuzzlecadOptions& o) {
+    const Result<std::string> text = d.exportPuzzlecad(problem, "", o);
+    REQUIRE(text.has_value());
+    return text->substr(text->find("burr_plate(["));
+  };
+  // the original's: each shape once, the result a piece without a problem
+  CHECK(plate(p, {}) == "burr_plate([\n    [ \"x\" ],\n]);\n");
+  CHECK(plate(std::nullopt, {}) == "burr_plate([\n    [ \"xx|x.\" ],\n    [ \"x\" ],\n]);\n");
+  // every copy
+  CHECK(plate(p, {.copies = true}) ==
+        "burr_plate([\n    [ \"x\" ],\n    [ \"x\" ],\n    [ \"x\" ],\n]);\n");
+  // the shapes chosen, in their order
+  CHECK(plate(std::nullopt, {.shapes = {1, 0}}) ==
+        "burr_plate([\n    [ \"x\" ],\n    [ \"xx|x.\" ],\n]);\n");
+  // trays are a sliding puzzle's
+  const Result<std::string> tray = d.exportPuzzlecad(p, "", {.tray = true, .lip = 1});
+  REQUIRE_FALSE(tray.has_value());
+  CHECK(tray.error().message == "A tray is exported only for sliding puzzles.");
 }
 
 TEST_CASE("imports: the header names the file, without its folders", "[io][imports]") {

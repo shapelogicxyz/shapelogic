@@ -100,8 +100,8 @@ const btApp: BtApp = {
       throw new Error(r.error ?? 'the file could not be written');
     }
   },
-  chooseFolder() {
-    return ipcRenderer.invoke('bt:choose-folder') as Promise<string | null>;
+  chooseFolder(save = false) {
+    return ipcRenderer.invoke('bt:choose-folder', save) as Promise<string | null>;
   },
   async existingExports(folder, names) {
     return ((await ipcRenderer.invoke('bt:existing-exports', folder, names)) as number | null) ?? 0;

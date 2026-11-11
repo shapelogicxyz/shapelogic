@@ -287,7 +287,7 @@ void SolutionIterator::runSession(Problem& problem) {
     // what the GUI checked before a sliding solve (Document::solveLaunch)
     if (problem.resultValid() &&
         sliding::isStartGoalShape(&puzzle_->getShape(problem.getResultId()))) {
-      if (const std::string why = sliding::startGoalError(*puzzle_, problem.getResultId());
+      if (const std::string why = sliding::startGoalError(*puzzle_, problem.getResultId(), &problem);
           !why.empty()) {
         pushItem(QueueItem{QueueItem::Type::Error, {}, why});
         return;

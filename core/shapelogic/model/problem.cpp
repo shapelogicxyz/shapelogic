@@ -53,6 +53,7 @@ Problem Problem::copyDefinition() const {
   p.rodSetId_ = rodSetId_;
   p.startMap_ = startMap_;
   p.goalMap_ = goalMap_;
+  p.slideMarks_ = slideMarks_;
   p.preserved_ = preserved_;
   return p;
 }
@@ -65,12 +66,14 @@ void Problem::setResultId(const Puzzle& puzzle, unsigned int shape) {
   if (shape != result_) {
     removeAllSolutions();
     result_ = shape;
+    slideMarks_.clear();
   }
 }
 
 void Problem::clearResult() {
   removeAllSolutions();
   result_ = kNoShape;
+  slideMarks_.clear();
 }
 
 const Voxel& Problem::resultShape(const Puzzle& puzzle) const {
@@ -97,6 +100,7 @@ void Problem::removeShape(unsigned int idx) {
   if (result_ == idx) {
     editProblem();
     result_ = kNoShape;
+    slideMarks_.clear();
   }
 
   if (goal_ == idx) {

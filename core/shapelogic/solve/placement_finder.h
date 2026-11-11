@@ -12,6 +12,7 @@ namespace bt {
 
 class Problem;
 class Puzzle;
+class SlideMarks;
 class Voxel;
 
 /// Enumerates the placements of rotated pieces inside a result shape.
@@ -26,7 +27,8 @@ class Voxel;
 class PlacementFinder {
  public:
   /// A finder for `result`, with the colour rules of `problem`; with
-  /// startLocks, the result's start marks hold the pieces to their starts
+  /// startLocks, the problem's start marks on the result
+  /// (Problem::slideMarks) hold the pieces to their starts
   /// (MatrixOptions::startLocks).
   PlacementFinder(const Puzzle& puzzle, const Problem& problem, const Voxel& result,
                   bool strictColors = false, bool startLocks = false);
@@ -54,6 +56,7 @@ class PlacementFinder {
   };
 
   const Voxel& res_;
+  const SlideMarks& marks_;  ///< the problem's starts on the result
   bool startLocks_;
   std::vector<ResultVoxel> resultVoxels_;   ///< all non-empty voxels of the result
   unsigned int colorTableWidth_;            ///< number of colours + 1

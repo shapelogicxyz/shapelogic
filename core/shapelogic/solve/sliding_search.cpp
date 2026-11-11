@@ -107,6 +107,7 @@ class GoalCheck {
   GoalCheck(const Puzzle& puzzle, const Problem& problem, const std::vector<const Voxel*>& pieces)
       : pieces_(pieces) {
     tray_ = problem.resultValid() ? &problem.resultShape(puzzle) : nullptr;
+    marks_ = &problem.slideMarks();
     startGoal_ = tray_ != nullptr && isStartGoalShape(tray_);
     goal_ = (!startGoal_ && problem.goalValid()) ? &puzzle.getShape(problem.getGoalId()) : nullptr;
 
@@ -131,7 +132,7 @@ class GoalCheck {
         const unsigned int col = shapeId + 1;
         unsigned int marked = 0;
         for (unsigned int gi = 0; gi < tray_->getXYZ(); gi++) {
-          if (tray_->getGoalPiece(gi) == col) {
+          if (marks_->goal(gi) == col) {
             color_[i] = col;
             marked++;
           }
@@ -190,8 +191,9 @@ class GoalCheck {
         if (!isFloor(*tray_, tx, ty, tz) ||
             tray_->getState(asUnsigned(tx), asUnsigned(ty), asUnsigned(tz)) == Voxel::kVariable) {
           ok = false;
-        } else if (color_[i] != 0 && tray_->getGoalPiece(asUnsigned(tx), asUnsigned(ty),
-                                                         asUnsigned(tz)) != color_[i]) {
+        } else if (color_[i] != 0 &&
+                   marks_->goal(tray_->getIndex(asUnsigned(tx), asUnsigned(ty),
+                                                asUnsigned(tz))) != color_[i]) {
           onGoal = false;
         }
       });
@@ -264,6 +266,7 @@ class GoalCheck {
 
   const std::vector<const Voxel*>& pieces_;
   const Voxel* tray_ = nullptr;
+  const SlideMarks* marks_ = nullptr;  ///< the problem's goals on the tray
   const Voxel* goal_ = nullptr;
   bool startGoal_ = false;
   // The goal colour of each piece; 0 when the goal does not place it.
@@ -1302,8 +1305,8 @@ std::uint64_t problemKeyOf(const Puzzle& puzzle, const Problem& problem) {
   f.mix(tray.getZ());
   for (unsigned int i = 0; i < tray.getXYZ(); i++) {
     f.mix(tray.getState(i));
-    f.mix(tray.getStartPiece(i));
-    f.mix(tray.getGoalPiece(i));
+    f.mix(problem.slideMarks().start(i));
+    f.mix(problem.slideMarks().goal(i));
   }
   for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
     const Voxel& shape = problem.partShape(puzzle, part);

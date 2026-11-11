@@ -8,11 +8,18 @@
 /// A sliding puzzle (GridKind::Sliding) has pieces, which are plain shapes,
 /// and start/goal shapes, whose names begin "sg:<n>:": a tray whose empty
 /// cells are walls, whose variable cells are corridors a piece may cross
-/// but not stop on, with each cell's start mark (Voxel::getStartPiece) the
-/// start of a piece (shape index + 1) and its goal mark (getGoalPiece) the
-/// goal of one. The cells' colours are the user's restriction colours, as
-/// on every grid (the original kept the starts in them; a file of its is
-/// converted as it loads, convertLegacyStarts). Trays and pieces may be
+/// but not stop on. The starts and goals are the problem's whose result
+/// the start/goal shape is (Problem::slideMarks, decision 0027): per cell
+/// of the shape, a start mark, the start of a piece (shape index + 1), and
+/// a goal mark, the goal of one. So several problems may share a board,
+/// each with a layout of its own, and a board that is edited takes its
+/// problems' starts and goals with its cells (BoardEdit). The cells'
+/// colours are the user's restriction colours, as on every grid (the
+/// original kept the starts in them and the goals on the shape; a file of
+/// its is converted as it loads, convertLegacyStarts, and so is a file of
+/// ours from when the marks were the shape's, adoptBoardMarks). The
+/// functions below that take a tray and marks take one problem's marks
+/// with its board. Trays and pieces may be
 /// more than one layer deep; a start or goal
 /// marks every cell its piece fills, in every layer. A piece the problem
 /// has several copies of may have a start and a goal for each: its marks
@@ -45,6 +52,7 @@ namespace bt {
 class Assembly;
 class Problem;
 class Puzzle;
+class SlideMarks;
 class Voxel;
 }  // namespace bt
 
@@ -101,7 +109,8 @@ unsigned int addStartGoalShape(Puzzle& puzzle, unsigned int sx, unsigned int sy,
 /// problems of no start/goal shape go, a missing one is added, each is
 /// named as its shape shows (displayName), no start/goal shape is a piece
 /// of one, every piece stamped on a shape is a part of its problem (at
-/// least one), and the start locks are refreshed.
+/// least one), and the start locks are refreshed. Marks drawn on a
+/// start/goal shape itself become its problems' (adoptBoardMarks).
 void syncSlidingProblems(Puzzle& puzzle);
 
 /// The document's sync: the problems are the user's, made and given a
@@ -120,7 +129,8 @@ void syncSlidingParts(Puzzle& puzzle);
 /// Toggles the mark of shapeId on one cell of a start/goal shape, the
 /// start or (goal) the goal. False when the cell is not floor or the shape
 /// is beyond the 255 that can be marked.
-bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool goal);
+bool toggleCellMark(const Voxel* tray, SlideMarks* marks, int x, int y, int z,
+                    unsigned int shapeId, bool goal);
 
 /// Marks the whole of a piece as its start (goal false) or its goal on a
 /// start/goal shape, as the piece is drawn, from a click on cell (x, y) of
@@ -132,25 +142,28 @@ bool toggleCellMark(Voxel* tray, int x, int y, int z, unsigned int shapeId, bool
 /// piece's earlier start or goal; with more, it is one more copy's, beside
 /// the others (refused once every copy has one). Empty on success, else
 /// why it does not fit, and nothing changes.
-std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
-                       bool goal, unsigned int copies = 1);
+std::string stampPiece(const Voxel* tray, SlideMarks* marks, const Voxel* piece,
+                       unsigned int shapeId, int x, int y, int z, bool goal,
+                       unsigned int copies = 1);
 
 /// The tray cells stampPiece would mark: at the lowest height that fits, or
 /// when none does, the lowest that puts a layer of the piece on layer z
 /// (then stampFits says why). Empty when no height does that. Sorted lowest
-/// layer first, top row first, left to right.
-[[nodiscard]] std::vector<TrayCell> stampCells(const Voxel* tray, const Voxel* piece,
-                                               unsigned int shapeId, int x, int y, int z,
-                                               bool goal, unsigned int copies = 1);
+/// layer first, top row first, left to right. Without a tray nothing is
+/// checked; without marks the tray has none.
+[[nodiscard]] std::vector<TrayCell> stampCells(const Voxel* tray, const SlideMarks* marks,
+                                               const Voxel* piece, unsigned int shapeId, int x,
+                                               int y, int z, bool goal, unsigned int copies = 1);
 
 /// Why stampPiece would refuse, or empty when the piece fits; changes nothing.
-[[nodiscard]] std::string stampFits(const Voxel* tray, const Voxel* piece, unsigned int shapeId,
-                                    int x, int y, int z, bool goal, unsigned int copies = 1);
+[[nodiscard]] std::string stampFits(const Voxel* tray, const SlideMarks* marks,
+                                    const Voxel* piece, unsigned int shapeId, int x, int y,
+                                    int z, bool goal, unsigned int copies = 1);
 
 /// True when one of shapeId's starts or goals is exactly where stampPiece
 /// would put it.
-[[nodiscard]] bool stampIsAt(const Voxel* tray, const Voxel* piece, unsigned int shapeId, int x,
-                             int y, int z, bool goal);
+[[nodiscard]] bool stampIsAt(const Voxel* tray, const SlideMarks* marks, const Voxel* piece,
+                             unsigned int shapeId, int x, int y, int z, bool goal);
 
 /// The starts (goal false) or goals of a piece on a start/goal shape, one
 /// list of cells a copy (each sorted as stampCells sorts them, the copies
@@ -158,46 +171,48 @@ std::string stampPiece(Voxel* tray, const Voxel* piece, unsigned int shapeId, in
 /// when it has none; nullopt when the marks are not whole pieces. A split
 /// is the only one there is: the first marked cell left is always the
 /// first cell of a copy.
-[[nodiscard]] std::optional<std::vector<std::vector<TrayCell>>> stampCopies(const Voxel& tray,
-                                                                           const Voxel& piece,
-                                                                           unsigned int shapeId,
-                                                                           bool goal);
+[[nodiscard]] std::optional<std::vector<std::vector<TrayCell>>> stampCopies(
+    const Voxel& tray, const SlideMarks& marks, const Voxel& piece, unsigned int shapeId,
+    bool goal);
 
 /// Takes off the start or goal of shapeId's copy that covers (x, y, z):
 /// that copy's cells (all of shapeId's marks when they are not whole
 /// pieces). True when one covered it.
-bool clearCopyAt(Voxel* tray, const Voxel* piece, unsigned int shapeId, int x, int y, int z,
-                 bool goal);
+bool clearCopyAt(const Voxel* tray, SlideMarks* marks, const Voxel* piece, unsigned int shapeId,
+                 int x, int y, int z, bool goal);
 
-/// After piece shapeId was edited: removes its start and goal from every
-/// start/goal shape where they are no longer the piece's shape. Returns the
-/// start/goal shapes that lost one; an edit that leaves the shape as it
-/// was, such as moving it in its grid, removes nothing.
+/// After piece shapeId was edited: removes its starts and goals from every
+/// problem where they are no longer the piece's shape. Returns the
+/// start/goal shapes of the problems that lost one, in order; an edit that
+/// leaves the shape as it was, such as moving it in its grid, removes
+/// nothing.
 std::vector<unsigned int> dropChangedStamps(Puzzle& puzzle, unsigned int shapeId);
 
-/// Removes shapeId's start or goal; true when it had one.
-bool clearStamp(Voxel* tray, unsigned int shapeId, bool goal);
+/// Removes shapeId's starts or goals; true when it had one.
+bool clearStamp(SlideMarks* marks, unsigned int shapeId, bool goal);
 
 /// Why copyStamps would refuse (a start on a variable cell cannot be a
-/// goal), or empty when it would not; changes nothing.
-[[nodiscard]] std::string copyStampsRefusal(const Puzzle& puzzle, unsigned int trayShape,
+/// goal; the problem's result is no start/goal shape), or empty when it
+/// would not; changes nothing.
+[[nodiscard]] std::string copyStampsRefusal(const Puzzle& puzzle, const Problem& problem,
                                             bool toGoal);
 
-/// Copies every start of start/goal shape trayShape onto its goals
-/// (toGoal), or every goal onto its starts, replacing what that side had.
-/// Empty on success, else why not (copyStampsRefusal), and nothing changes.
-std::string copyStamps(Puzzle& puzzle, unsigned int trayShape, bool toGoal);
+/// Copies every start of the problem onto its goals (toGoal), or every
+/// goal onto its starts, replacing what that side had. Empty on success,
+/// else why not (copyStampsRefusal), and nothing changes.
+std::string copyStamps(const Puzzle& puzzle, Problem& problem, bool toGoal);
 
 /// The piece whose start or goal covers (x, y, z), or ~0u.
-[[nodiscard]] unsigned int stampAt(const Voxel* tray, int x, int y, int z, bool goal);
+[[nodiscard]] unsigned int stampAt(const Voxel* tray, const SlideMarks* marks, int x, int y, int z,
+                                   bool goal);
 
 /// Empty when the start/goal shape trayShape describes a puzzle that can be
 /// solved, else what is wrong: starts or goals that are not whole pieces,
 /// more of them than the problem has copies, or no piece with every copy
 /// at a start and at a goal. A piece may have a goal without a start (it
 /// starts anywhere) and starts or goals for only some of its copies. The
-/// copies are `problem`'s (one whose result is trayShape), or with none
-/// those of trayProblem.
+/// starts, goals and copies are `problem`'s (one whose result is
+/// trayShape), or with none those of trayProblem.
 [[nodiscard]] std::string startGoalError(const Puzzle& puzzle, unsigned int trayShape,
                                          const Problem* problem = nullptr);
 
@@ -236,10 +251,11 @@ std::string copyStamps(Puzzle& puzzle, unsigned int trayShape, bool toGoal);
 [[nodiscard]] bool startFillsStamps(const Puzzle& puzzle, const Problem& problem,
                                     const Assembly& assembly);
 
-/// Renumbers the marks of the start/goal shapes before shape shapeId is
-/// removed (its own go), or when shapes a and b swap places. A mark is a
-/// byte, so a stamped piece swapped past the 255th place loses its start
-/// and goal: noteShapeSwap returns the start/goal shapes that lost one.
+/// Renumbers the problems' marks before shape shapeId is removed (its own
+/// go), or before shapes a and b swap places. A mark is a byte, so a
+/// stamped piece swapped past the 255th place loses its start and goal:
+/// noteShapeSwap returns the start/goal shapes of the problems that lost
+/// one, in order, as they are numbered after the swap.
 void noteShapeRemoved(Puzzle& puzzle, unsigned int shapeId);
 std::vector<unsigned int> noteShapeSwap(Puzzle& puzzle, unsigned int a, unsigned int b);
 
@@ -298,8 +314,63 @@ bool prepareForSolving(Puzzle& puzzle, Problem& problem);
 /// cell colours and paints each piece in its mark: the starts become start
 /// marks, the colours go, and so does the palette the locks needed, unless
 /// a problem has colour rules of its own. Nothing happens to a puzzle
-/// without start/goal shapes (the older model).
+/// without start/goal shapes (the older model). The marks then go to the
+/// problems (adoptBoardMarks).
 void convertLegacyStarts(Puzzle& puzzle);
+
+/// Marks a shape itself carries (Voxel::getStartPiece, getGoalPiece: what
+/// a file from before the marks were the problems' holds, decision 0021)
+/// become the marks of every problem whose result the start/goal shape is,
+/// and the shapes carry none any more. Those of a start/goal shape that is
+/// no problem's result are dropped.
+void adoptBoardMarks(Puzzle& puzzle);
+
+/// What an edit of a start/goal shape needs to take the starts and goals
+/// of its problems along: before the edit each marked cell gets a tag,
+/// carried by the cell itself through whatever the edit does (the shape's
+/// own mark bytes, which every Voxel operation moves with its cells and
+/// drops with a cell that is emptied); after it the tags say where each
+/// cell went. A start or goal whose cells are all still there, on the
+/// floor, and still the piece as drawn stays, where its cells now are
+/// (a board resized, moved in its grid or trimmed keeps its layout); one
+/// that lost a cell, or whose cells no longer make the piece, goes whole.
+struct BoardEdit {
+  /// One start or goal of a piece in a problem: a whole copy as drawn, or
+  /// (whole false) all its marks when they are no whole copies.
+  struct Stamp {
+    unsigned int problem;            ///< the problem's index
+    unsigned int shapeId;            ///< the piece
+    bool goal;                       ///< a goal, else a start
+    bool whole;                      ///< a whole copy of the piece
+    std::vector<unsigned int> tags;  ///< its cells' tags (from 1)
+  };
+  unsigned int tray = 0;                         ///< the start/goal shape
+  std::vector<Stamp> stamps;                     ///< every problem's starts and goals on it
+  std::vector<unsigned int> cells;               ///< per tag, the cell's index before the edit
+  std::vector<std::vector<unsigned int>> moved;  ///< per tag, the cells that carry it after
+};
+
+/// Starts following an edit of start/goal shape trayShape: tags the marked
+/// cells of `v`, the shape that will be edited (the puzzle's, or a copy of
+/// it that will replace it).
+[[nodiscard]] BoardEdit beginBoardEdit(const Puzzle& puzzle, unsigned int trayShape, Voxel& v);
+
+/// After the edit: reads where the tagged cells of `v` went and takes the
+/// tags off it.
+void readBoardTags(BoardEdit& edit, Voxel& v);
+
+/// Once the edited shape is the puzzle's: gives each problem on it the
+/// starts and goals that are still there, at their cells' new places.
+/// Returns the pieces that lost a start or a goal, in order.
+std::vector<unsigned int> applyBoardEdit(Puzzle& puzzle, const BoardEdit& edit);
+
+/// Makes shape trayShape the problem's result. A problem that goes from
+/// one start/goal shape to another keeps the starts and goals that fit the
+/// new one at the same cells (whole, on its floor, a goal on no variable
+/// cell); the others go. Returns the pieces that lost a start or a goal,
+/// in order.
+std::vector<unsigned int> changeBoard(Puzzle& puzzle, unsigned int problem,
+                                      unsigned int trayShape);
 
 /// True when prepareForSolving would change anything (without changing it).
 [[nodiscard]] bool needsPreparing(const Puzzle& puzzle, const Problem& problem);

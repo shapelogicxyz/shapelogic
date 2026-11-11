@@ -7,7 +7,8 @@
 // SVG drawn by the page like the view and a reference image of it; STL
 // of a shape (deferred part 5: the grid's parameters with the original's
 // labels, the preview and its volume, a refusal in the original's words,
-// the file the original writes, byte for byte, binary and text);
+// the file the original writes, byte for byte, binary and text; several
+// shapes picked into the second list, a file each in a folder);
 // Solutions ▸ Export to STL (the pieces of CubeInCage's first solution
 // into a folder: the original's names and bytes, the question before
 // files are replaced); Solution Animation of a solution the Solver
@@ -267,7 +268,9 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
     await menu(page, 'export.stl');
     const dlg = page.locator('#exportStl');
     await expect(dlg).toBeVisible();
-    await expect(dlg.locator('[data-f="shape"]')).toHaveValue(shape?.id ?? '');
+    // the shape shown is the one to export, the rest are left to pick
+    await expect(dlg.locator('[data-f="chosen"] option')).toHaveCount(1);
+    await expect(dlg.locator('[data-f="chosen"] option')).toHaveAttribute('value', shape?.id ?? '');
     await expect(dlg.locator('label[title]')).toHaveText([
       'Unit Size',
       'Unit Size Y',
@@ -276,7 +279,7 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
       'Offset',
       'Interior chamfers',
       'Uniform bevels',
-      'Bumpy',
+      'Unit Beveled',
       'Binary STL',
     ]);
     await expect(dlg.locator('[data-p="0"]')).toHaveValue('10.00');
@@ -326,6 +329,36 @@ test('STL of a shape, Solution Animation of the solution shown, and the refusals
     await expect(page.locator('#stText')).toContainText('read-only');
     expect(readFileSync(locked, 'utf8')).toBe('old');
     expect(statSync(locked).mode & 0o777).toBe(0o444);
+
+    // several shapes: a file each in a folder, named as a solution's pieces are
+    const all = await shapes(page);
+    await dlg.locator('[data-a="addAll"]').click();
+    await expect(dlg.locator('[data-f="chosen"] option')).toHaveCount(all.length);
+    await expect(dlg.locator('[data-f="all"] option')).toHaveCount(0);
+    // but the result, whose variable cells have no mesh
+    const [result, ...pieces] = all;
+    await dlg.locator('[data-f="chosen"]').selectOption(result?.id ?? '');
+    await dlg.locator('[data-a="remove"]').click();
+    await expect(dlg.locator('[data-f="all"] option')).toHaveCount(1);
+    const many = join(dir, 'many');
+    mkdirSync(many);
+    await answerDialogs(page, { open: many });
+    await dlg.locator('[data-x="go"]').click();
+    await expect(dlg).toHaveAttribute('data-exported', '1');
+    await expect(dlg.locator('[data-f="status"]')).toHaveText(
+      `Done — exported ${String(pieces.length)} shape(s).`,
+    );
+    const { fileNames } = await engineCall<{ fileNames: string[] }>(page, 'export.stlFileNames', {
+      shapes: pieces.map((s) => s.id),
+    });
+    expect(readdirSync(many).sort()).toEqual([...fileNames].sort());
+    // none chosen: nothing to export; a shape picked back is previewed
+    await dlg.locator('[data-a="removeAll"]').click();
+    await expect(dlg.locator('[data-x="go"]')).toBeDisabled();
+    await dlg.locator('[data-f="all"]').selectOption(shape?.id ?? '');
+    await dlg.locator('[data-a="add"]').click();
+    await expect(dlg.locator('[data-x="go"]')).toBeEnabled();
+    await expect(dlg).toHaveAttribute('data-preview', shape?.id ?? '');
     await dlg.locator('[data-x="close"]').click();
     await expect(dlg).toBeHidden();
     // a path no dialog gave is not written

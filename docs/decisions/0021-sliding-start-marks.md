@@ -1,6 +1,8 @@
 # 0021: Sliding start marks apart from the colours
 
-**Status:** accepted; `core/shapelogic/grid/voxel.h` (`startPiece_`),
+**Status:** accepted; the marks moved from the start/goal shape to each
+problem later (decision 0027: the voxel's bytes are carriers only, and the
+file writes `<slideMarks>` in the problem); `core/shapelogic/grid/voxel.h` (`startPiece_`),
 `core/shapelogic/model/sliding.h`, `core/shapelogic/io/puzzle_file.cpp`,
 `core/shapelogic/solve/assembler.h` (`MatrixOptions::startLocks`),
 `core/shapelogic/solve/placement_finder.h`

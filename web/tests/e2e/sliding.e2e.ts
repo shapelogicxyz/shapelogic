@@ -9,7 +9,8 @@
 // --json`; played step by step on the engine's poses with the walls
 // drawn; the nested fixture with and without nested slides; what the
 // original greyed out hidden; the notices in message boxes; copies of a
-// piece placed one by one.
+// piece placed one by one; problems on one board, each with starts and
+// goals of its own, taken along when the board is edited.
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -35,7 +36,7 @@ import {
   shapes,
 } from './app.ts';
 import { clickCell, settled, shapeGet } from './editor.ts';
-import { definition, problemGet, pzSettled } from './puzzle.ts';
+import { currentProblem, definition, problemGet, pzSettled } from './puzzle.ts';
 import type { Problem } from './puzzle.ts';
 import {
   btJson,
@@ -622,6 +623,89 @@ test('copies of a piece: a start and a goal for each, placed one by one', async 
     await runEnded(page, 'finished');
     expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(2);
     expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBeGreaterThan(0);
+  } finally {
+    await a.close();
+  }
+});
+
+test('problems on one board: a copy has starts and goals of its own; an edited board takes both along', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  try {
+    // a 4 by 1 board and a unit piece: P1 starts it on the left, its goal on the right
+    await newDocument(page, 'sliding');
+    await page.click('#btnNewBoard');
+    await settled(page);
+    for (const [d, n] of [
+      [0, 2],
+      [1, 5],
+    ] as const) {
+      for (let i = 0; i < n; i++) {
+        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await settled(page);
+      }
+    }
+    const tray = await idOf(page, 'B1');
+    const one = await piece(page, [[0, 0]]);
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    await boardProblem(page, tray);
+    await page.click('#pzAll');
+    await pzSettled(page);
+    await stamp(page, one, [0, 0]);
+    await stamp(page, one, [3, 0], true);
+    const first = await currentProblem(page);
+    const trayOf = (problem: string): Promise<Tray> =>
+      engineCall<Tray>(page, 'sliding.tray', { tray, problem });
+    const was = await trayOf(first);
+    expect(was.starts).toEqual([one, null, null, null]);
+    expect(was.goals).toEqual([null, null, null, one]);
+
+    // its copy, on the same board, begins as it is; moved there, P1 stays
+    await page.click(`#pzProblems .row[data-id="${first}"] [data-a="dup"]`);
+    await pzSettled(page);
+    const second = await currentProblem(page);
+    expect(second).not.toBe(first);
+    expect((await problemGet(page, second)).result).toBe(tray);
+    expect(await trayOf(second)).toEqual(was);
+    await stamp(page, one, [1, 0]);
+    await stamp(page, one, [2, 0], true);
+    expect((await trayOf(second)).starts).toEqual([null, one, null, null]);
+    expect((await trayOf(second)).goals).toEqual([null, null, one, null]);
+    expect(await trayOf(first)).toEqual(was);
+    // the right click and the clone are the shown problem's too
+    await boardClick(page, true, [2, 0], 'right');
+    expect((await trayOf(second)).goals).toEqual([null, null, null, null]);
+    expect(await trayOf(first)).toEqual(was);
+    // each problem shown has its own in the grids
+    const goals = page.locator(`#sgGoalParts [data-sp="${one}"] .n`);
+    await expect(goals).toHaveText('0/1');
+    await page.click(`#pzProblems .row[data-id="${first}"] .chip`);
+    await pzSettled(page);
+    await expect(goals).toHaveText('1/1');
+    await page.click(`#pzProblems .row[data-id="${second}"] .chip`);
+    await pzSettled(page);
+    await expect(goals).toHaveText('0/1');
+    await stamp(page, one, [2, 0], true);
+
+    // the board's right cell made a wall: P1's goal there goes (and is
+    // said), its start and all of P2's stay
+    await page.keyboard.press('Control+1');
+    await settled(page);
+    await selectShape(page, tray);
+    await page.click('#toolStrip [data-t="erase"]');
+    await clickCell(page, [3, 0, 0]);
+    await expect(page.locator('#notice .cb')).toContainText(
+      'The board changed under S1: the starts and goals that lost a cell were removed.',
+    );
+    await page.click('#notice [data-x="ok"]');
+    const p1 = await trayOf(first);
+    expect(p1.starts).toEqual([one, null, null, null]);
+    expect(p1.goals).toEqual([null, null, null, null]);
+    const p2 = await trayOf(second);
+    expect(p2.starts).toEqual([null, one, null, null]);
+    expect(p2.goals).toEqual([null, null, one, null]);
   } finally {
     await a.close();
   }

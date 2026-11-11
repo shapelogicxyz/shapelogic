@@ -152,8 +152,9 @@ from the face polygons; docs/V2-IDEAS-PLAN.md, idea 2).
   and bounding-box queries, comparison, connectivity, and the editing
   operations (`translate`, `resize`, `minimizePiece`, `fillHoles`,
   `actionOnSpace`, `scale`, `scaleDown`, `resizeInclude`, `unionintersect`).
-  It also carries the sliding/stacking data (goal marks, disc size, shape
-  colour) and the file attributes it does not know, so files round-trip.
+  It also carries the sliding/stacking data (start and goal marks, which
+  only carry a sliding file's or an edited board's marks to the problems,
+  decision 0027; disc size, shape colour) and the file attributes it does not know, so files round-trip.
   Copy with `clone()`; the grid is stored by value, so a voxel space never
   dangles.
 - `voxel_bricks`, `voxel_prisms`, `voxel_spheres`, `voxel_rhombic`,
@@ -227,8 +228,13 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
 - `sliding.h` (deferred part 1, decision 0014; the tray part of
   `sliding.{h,cpp}`): a sliding puzzle's start/goal shapes (names
   `sg:<n>:`; a tray whose empty cells are walls and variable cells
-  corridors, each cell's start mark the start of a piece and its goal
-  mark the goal of one, both apart from its colour, decision 0021), the
+  corridors), the starts and goals each problem has on its board
+  (`slide_marks.h`, `Problem::slideMarks`: per cell a start mark and a
+  goal mark, apart from the colours, decision 0021, and the problem's
+  own, so problems share a board, decision 0027; `adoptBoardMarks` gives
+  an older file's to the problems, `beginBoardEdit`, `readBoardTags` and
+  `applyBoardEdit` take them along when the board's cells are edited,
+  `changeBoard` when a problem is given another board), the
   stamps (`stampPiece`, `stampFits`,
   `stampIsAt`, `clearStamp`, `stampAt`, `dropChangedStamps`),
   `syncSlidingProblems` (the original's: one problem per start/goal
@@ -733,11 +739,11 @@ frame by its Euler characteristic).
   neighbours, which decides convex from concave and finds the face at the
   other end of the run; the strips between those two faces are the bevels
   (bent) and gaps (flat), and their loose sides are chained by vertex id
-  into the polygons that close the corners. "Bumpy": every cell a rounded
+  into the polygons that close the corners. "Unit Beveled": every cell a rounded
   body, necks to its neighbours. `MeshStyle::Uniform` is the view's
   style on it (the drawing mesh's bevel 0.03 and gap 0.005, every edge:
   a piece comes out as one chamfered solid, the gaps flat in its faces); the STL export's two
-  switches "Uniform bevels" and "Bumpy" (off by default, so the defaults
+  switches "Uniform bevels" and "Unit Beveled" (off by default, so the defaults
   stay the original's) run it with the dialog's bevel, offset and
   interior chamfers, the cells stretched to the unit sizes first. Sphere
   grid: not handled (the drawing mesh in the view).
@@ -771,7 +777,10 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   rules for edits while solving are decision 0011; they hold while an
   analysis runs too (`solving()` covers both). Sliding puzzles (decision
   0014; `document_sliding.cpp`): `addStartGoal`, `placeStamp` (the
-  editor's click), `clearStampAt`; the shape commands keep stamps and
+  editor's click), `clearStampAt`, `cloneStamps`, each on one problem's
+  starts and goals (decision 0027; an edit of a board keeps, in every
+  problem on it, the stamps whose cells survive and removes the others
+  with a notice); the shape commands keep stamps and
   problems in step (deleting, moving, duplicating and renaming a
   start/goal shape; an edit that changes a stamped piece's shape takes its
   stamps off and says so in `ChangeSet::notice`, as does moving a stamped

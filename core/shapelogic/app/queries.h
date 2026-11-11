@@ -17,6 +17,7 @@
 #include "shapelogic/model/stacking.h"
 
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -128,5 +129,10 @@ struct StlPiece {
 /// earlier piece's file has that name, then ".stl".
 [[nodiscard]] std::vector<StlPiece> stlPieces(const Puzzle& puzzle, const Problem& problem,
                                               const Solution& solution);
+
+/// The file names of shapes' STL files, in the order given, named as
+/// stlPieces names them (File ▸ Export ▸ STL with several shapes chosen).
+[[nodiscard]] std::vector<std::string> stlFileNames(const Puzzle& puzzle,
+                                                    std::span<const unsigned int> shapes);
 
 }  // namespace bt::app

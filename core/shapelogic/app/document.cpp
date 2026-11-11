@@ -131,12 +131,18 @@ Result<Document> Document::convertGrid(GridKind target) const {
 }
 
 Result<std::string> Document::exportPuzzlecad(std::optional<Id> problem,
-                                              std::string_view sourceName) const {
-  if (puzzle_->getGridType().getType() != GridKind::Bricks) {
+                                              std::string_view sourceName,
+                                              const io::PuzzlecadOptions& options) const {
+  // a sliding puzzle's tray is a brick grid one layer or more deep: its pieces export as bricks
+  const GridKind grid = puzzle_->getGridType().getType();
+  if (grid != GridKind::Bricks && grid != GridKind::Sliding) {
     return fail(Errc::InvalidArgument, "Puzzlecad export is only available for cube-grid puzzles.");
   }
   if (puzzle_->getNumberOfShapes() == 0) {
     return fail(Errc::InvalidArgument, "Nothing to export.");
+  }
+  if (options.tray && grid != GridKind::Sliding) {
+    return fail(Errc::InvalidArgument, "A tray is exported only for sliding puzzles.");
   }
   std::optional<std::string> text;
   if (problem) {
@@ -144,12 +150,23 @@ Result<std::string> Document::exportPuzzlecad(std::optional<Id> problem,
     if (!p) {
       return std::unexpected(p.error());
     }
+    if (options.copies) {
+      std::uint64_t copies = 0;
+      const Problem& pr = puzzle_->getProblem(*p);
+      for (unsigned int i = 0; i < pr.getNumberOfParts(); i++) {
+        copies += pr.getPartMaximum(i);
+      }
+      if (copies > io::kMaxPuzzlecadCopies) {
+        return fail(Errc::InvalidArgument, "The problem has too many pieces to export (at most " +
+                                               std::to_string(io::kMaxPuzzlecadCopies) + ").");
+      }
+    }
     // a problem being solved keeps its parts; its solve writes the rest
-    text = readProblem(*p, [this, sourceName](const Problem& pr) {
-      return io::writePuzzlecad(*puzzle_, &pr, sourceName);
+    text = readProblem(*p, [this, sourceName, &options](const Problem& pr) {
+      return io::writePuzzlecad(*puzzle_, &pr, sourceName, options);
     });
   } else {
-    text = io::writePuzzlecad(*puzzle_, nullptr, sourceName);
+    text = io::writePuzzlecad(*puzzle_, nullptr, sourceName, options);
   }
   if (!text) {
     return fail(Errc::InvalidArgument, "Could not export puzzlecad file.");

@@ -269,9 +269,11 @@ TEST_CASE("puzzle file: voxel content, colours and goal marks", "[io][file]") {
   CHECK(v.getGoalPiece(1) == 2);
   CHECK(v.getGoalPiece(2) == 0);  // goal marks of empty cells go
   CHECK(v.getGoalPiece(3) == 1);
+  // a shape's goal marks are read only to be given to the problems on a
+  // start/goal shape (decision 0027): they are not written
   CHECK_THAT(io::writePuzzle(p),
              ContainsSubstring("<voxel x=\"4\" y=\"1\" z=\"1\" hx=\"1\" weight=\"3\" name=\"n\" "
-                               "diskSize=\"2\" color=\"#00FF10\" goal=\"0,2,0,1\" "
+                               "diskSize=\"2\" color=\"#00FF10\" "
                                "type=\"0\">#1+63_#</voxel>"));
 }
 
@@ -527,32 +529,59 @@ TEST_CASE("puzzle file: a save keeps the file's permissions", "[io][file]") {
   std::filesystem::remove_all(dir);
 }
 
-// A sliding puzzle's start marks have an attribute of their own, start=,
-// beside goal=; a file of the original's keeps them as the cell colours of
-// its start/goal shapes, with the pieces painted in their marks and a
-// palette for the locks: converted as it loads, written the new way.
+// A sliding puzzle's starts and goals are each problem's own (decision
+// 0027), written in the problem (<slideMarks>). A file from when they were
+// the start/goal shape's (the voxel's start= and goal=, decision 0021) has
+// them given to the problems on that shape as it loads; a file of the
+// original's keeps the starts as the cell colours of its start/goal
+// shapes, with the pieces painted in their marks and a palette for the
+// locks: converted as it loads. Both are written the new way.
 TEST_CASE("file: sliding start marks are read, written and converted from colours",
           "[io][sliding]") {
   const Result<Puzzle> p = io::parsePuzzle(
       "<?xml version=\"1.0\"?><puzzle version=\"2\"><gridType type=\"5\"/><shapes>"
       "<voxel x=\"2\" y=\"2\" z=\"1\" name=\"sg:1:\" start=\"2,0,0,3\" goal=\"0,2,0,0\" "
-      "type=\"0\">####</voxel></shapes></puzzle>");
+      "type=\"0\">####</voxel>"
+      "<voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#</voxel>"
+      "<voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#</voxel></shapes>"
+      "<problems><problem><result id=\"0\"/></problem><problem><result id=\"0\"/></problem>"
+      "<problem/></problems></puzzle>");
   REQUIRE(p.has_value());
   const Voxel& v = p->getShape(0);
-  CHECK(v.getStartPiece(0) == 2);
-  CHECK(v.getStartPiece(3) == 3);
-  CHECK(v.getGoalPiece(1) == 2);
+  // every problem on the shape gets them, and the shape keeps none
+  for (const unsigned int problem : {0U, 1U}) {
+    const SlideMarks& m = p->getProblem(problem).slideMarks();
+    CHECK(m.start(0) == 2);
+    CHECK(m.start(3) == 3);
+    CHECK(m.goal(1) == 2);
+  }
+  CHECK(p->getProblem(2).slideMarks().empty());
+  CHECK_FALSE(v.hasStartPieces());
+  CHECK_FALSE(v.hasGoalPieces());
   CHECK(v.getColor(0) == 0);
   const std::string out = io::writePuzzle(*p);
-  CHECK(out.find("start=\"2,0,0,3\"") != std::string::npos);
-  CHECK(out.find("goal=\"0,2,0,0\"") != std::string::npos);
+  CHECK(out.find("slideMarks=\"problem\"") != std::string::npos);
+  CHECK(out.find("<slideMarks start=\"2,0,0,3\" goal=\"0,2\"/>") != std::string::npos);
+  CHECK(out.find("<voxel x=\"2\" y=\"2\" z=\"1\" name=\"sg:1:\" type=\"0\">") !=
+        std::string::npos);
+  // read again: each problem's own, and a change to one stays its own
+  Result<Puzzle> again1 = io::parsePuzzle(out);
+  REQUIRE(again1.has_value());
+  CHECK(again1->getProblem(0).slideMarks() == p->getProblem(0).slideMarks());
+  again1->getProblem(1).editSlideMarks().set(2, true, 3);
+  const Result<Puzzle> again2 = io::parsePuzzle(io::writePuzzle(*again1));
+  REQUIRE(again2.has_value());
+  CHECK(again2->getProblem(0).slideMarks() == p->getProblem(0).slideMarks());
+  CHECK(again2->getProblem(1).slideMarks() == again1->getProblem(1).slideMarks());
+  CHECK(again2->getProblem(1).slideMarks().goal(2) == 3);
 
   // the original's Klotski: starts as colours, pieces painted, 11 colours
   Puzzle k = test::loadFixture("sliding/slide_klotski.xmpuzzle");
   const Voxel& tray = k.getShape(0);
   CHECK(sliding::isStartGoalShape(&tray));
-  CHECK(tray.hasStartPieces());
-  CHECK(tray.getStartPiece(1, 0, 0) == 2);
+  REQUIRE(k.getNumberOfProblems() > 0);
+  CHECK(k.getProblem(0).slideMarks().start(tray.getIndex(1, 0, 0)) == 2);
+  CHECK_FALSE(tray.hasStartPieces());
   CHECK(k.colorNumber() == 0);
   for (unsigned int s = 0; s < k.getNumberOfShapes(); s++) {
     for (unsigned int i = 0; i < k.getShape(s).getXYZ(); i++) {
@@ -563,6 +592,7 @@ TEST_CASE("file: sliding start marks are read, written and converted from colour
   const Result<Puzzle> again = io::parsePuzzle(io::writePuzzle(k));
   REQUIRE(again.has_value());
   CHECK(again->getShape(0) == tray);
+  CHECK(again->getProblem(0).slideMarks() == k.getProblem(0).slideMarks());
   CHECK(again->colorNumber() == 0);
-  CHECK(io::writePuzzle(k).find("start=") != std::string::npos);
+  CHECK(io::writePuzzle(k).find("<slideMarks start=") != std::string::npos);
 }

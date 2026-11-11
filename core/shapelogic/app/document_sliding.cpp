@@ -5,7 +5,10 @@
 // syncSlidingProblems that follow them. The original made sliding shapes
 // one layer deep on load (flattenPieces); here they keep their layers. The
 // original gave each start/goal shape a problem of its own; here the user
-// makes the problems and chooses their boards (syncSlidingParts).
+// makes the problems and chooses their boards (syncSlidingParts), and the
+// starts and goals are each problem's own (decision 0027): the commands
+// here change one problem's, and an edited board takes them along
+// (beginBoardEdit, finishBoardEdit).
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/document_internal.h"
 #include "shapelogic/grid/voxel.h"
@@ -79,24 +82,21 @@ void Document::slidingShapeChanged(unsigned int shape) {
   if (sliding::isStartGoalShape(&v) || sliding::isHiddenSlidingShape(&v) || shape >= 255) {
     return;
   }
-  // only when a start/goal shape has a mark of it
+  // only when a problem has a mark of it
   const unsigned int mark = shape + 1;
   bool marked = false;
-  for (unsigned int t = 0; t < puzzle_->getNumberOfShapes() && !marked; t++) {
-    const Voxel& tray = puzzle_->getShape(t);
-    if (!sliding::isStartGoalShape(&tray)) {
-      continue;
-    }
-    for (unsigned int i = 0; i < tray.getXYZ() && !marked; i++) {
-      marked = tray.getStartPiece(i) == mark || tray.getGoalPiece(i) == mark;
+  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems() && !marked; p++) {
+    const SlideMarks& marks = puzzle_->getProblem(p).slideMarks();
+    for (std::size_t i = 0; i < marks.size() && !marked; i++) {
+      marked = marks.start(i) == mark || marks.goal(i) == mark;
     }
   }
   if (!marked) {
     return;
   }
   // A piece whose shape changed no longer fits its starts and goals: they
-  // come off every start/goal shape (an edit that leaves the shape as it
-  // was, such as moving it in its grid, removes nothing).
+  // come off every problem (an edit that leaves the shape as it was, such
+  // as moving it in its grid, removes nothing).
   touchWhole();
   const std::vector<unsigned int> trays = sliding::dropChangedStamps(*puzzle_, shape);
   if (trays.empty()) {
@@ -131,7 +131,7 @@ bool Document::slidingRequired(unsigned int problem, unsigned int shape) const {
 
 Result<const Problem*> Document::trayProblemOf(Id problem, unsigned int tray) const {
   if (problem == 0) {
-    return static_cast<const Problem*>(nullptr);
+    return sliding::trayProblem(*puzzle_, tray);
   }
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
@@ -142,6 +142,44 @@ Result<const Problem*> Document::trayProblemOf(Id problem, unsigned int tray) co
     return fail(Errc::InvalidArgument, "the problem's result is not this board");
   }
   return &pr;
+}
+
+Result<unsigned int> Document::stampProblem(Id problem, unsigned int tray) const {
+  const Result<const Problem*> on = trayProblemOf(problem, tray);
+  if (!on) {
+    return std::unexpected(on.error());
+  }
+  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
+    if (&puzzle_->getProblem(p) == *on) {
+      return p;
+    }
+  }
+  // the starts and goals are a problem's: a board no problem uses has none
+  return fail(Errc::InvalidArgument,
+              "No problem uses this board: choose it as a problem's result first.");
+}
+
+std::vector<sliding::BoardEdit> Document::beginBoardEdit(unsigned int shape, Voxel& v) const {
+  std::vector<sliding::BoardEdit> edit;
+  if (sliding::isSliding(*puzzle_) && sliding::isStartGoalShape(&puzzle_->getShape(shape))) {
+    edit.push_back(sliding::beginBoardEdit(*puzzle_, shape, v));
+  }
+  return edit;
+}
+
+void Document::finishBoardEdit(const std::vector<sliding::BoardEdit>& edit) {
+  if (edit.empty()) {
+    return;
+  }
+  touchWhole();
+  const std::vector<unsigned int> lost = sliding::applyBoardEdit(*puzzle_, edit.front());
+  // the walls and floor of a start/goal shape: its problems follow (the
+  // grid editor's RS_CHANGESQUARE)
+  syncSliding();
+  if (!lost.empty()) {
+    lastChange_.notice = "The board changed under " + shapeList(*puzzle_, lost) +
+                         ": the starts and goals that lost a cell were removed.";
+  }
 }
 
 Result<Id> Document::addStartGoal(std::array<unsigned int, 3> size) {
@@ -190,49 +228,48 @@ Result<bool> Document::placeStamp(Id tray, Id piece, int x, int y, int z, bool g
   if (sliding::isStartGoalShape(&pieceShape) || sliding::isHiddenSlidingShape(&pieceShape)) {
     return fail(Errc::InvalidArgument, "a start/goal shape is no piece");
   }
-  const Result<const Problem*> on = trayProblemOf(problem, *t);
-  if (!on) {
-    return std::unexpected(on.error());
+  const Result<unsigned int> p = stampProblem(problem, *t);
+  if (!p) {
+    return std::unexpected(p.error());
   }
+  const Problem* on = &puzzle_->getProblem(*p);
+  const SlideMarks& had = on->slideMarks();
   // A whole piece at a time: it goes with its top-left cell there, moving
   // it if it was elsewhere (a piece of one copy) or beside its other copies,
   // or the copy that is exactly there is taken off.
-  const unsigned int copies = sliding::pieceCopies(*puzzle_, *t, *s, *on);
-  const bool there = sliding::stampIsAt(&trayShape, &pieceShape, *s, x, y, z, goal);
+  const unsigned int copies = sliding::pieceCopies(*puzzle_, *t, *s, on);
+  const bool there = sliding::stampIsAt(&trayShape, &had, &pieceShape, *s, x, y, z, goal);
   if (!there) {
     const std::string why =
-        sliding::stampFits(&trayShape, &pieceShape, *s, x, y, z, goal, copies);
+        sliding::stampFits(&trayShape, &had, &pieceShape, *s, x, y, z, goal, copies);
     if (!why.empty()) {
       return fail(Errc::InvalidArgument, why);
     }
   }
   StepGuard g(*this, goal ? "Place goal" : "Place start");
   touchWhole();
-  Voxel& v = puzzle_->getShape(*t);
+  const Voxel& v = puzzle_->getShape(*t);
+  SlideMarks* marks = &puzzle_->getProblem(*p).editSlideMarks();
   if (there) {
     const std::vector<sliding::TrayCell> cells =
-        sliding::stampCells(&v, &puzzle_->getShape(*s), *s, x, y, z, goal, copies);
+        sliding::stampCells(&v, marks, &puzzle_->getShape(*s), *s, x, y, z, goal, copies);
     BT_ASSERT_MSG(!cells.empty(), "a stamp that was there has no cells");
     const sliding::TrayCell& c = cells.front();
-    (void)sliding::clearCopyAt(&v, &puzzle_->getShape(*s), *s, c[0], c[1], c[2], goal);
+    (void)sliding::clearCopyAt(&v, marks, &puzzle_->getShape(*s), *s, c[0], c[1], c[2], goal);
   } else {
     const std::string why =
-        sliding::stampPiece(&v, &puzzle_->getShape(*s), *s, x, y, z, goal, copies);
+        sliding::stampPiece(&v, marks, &puzzle_->getShape(*s), *s, x, y, z, goal, copies);
     BT_ASSERT_MSG(why.empty(), "a stamp that fit did not");
   }
   syncSliding();
-  // the problems of this start/goal shape lose what they had found
-  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-    const Problem& pr = puzzle_->getProblem(p);
-    if (pr.resultValid() && pr.getResultId() == *t) {
-      problemChanged(p);
-    }
-  }
+  // the problem loses what it had found; the others on this board have
+  // starts and goals of their own
+  problemChanged(*p);
   g.commit(kChangeAll);
   return !there;
 }
 
-Result<bool> Document::clearStampAt(Id tray, int x, int y, int z, bool goal) {
+Result<bool> Document::clearStampAt(Id tray, int x, int y, int z, bool goal, Id problem) {
   if (!sliding::isSliding(*puzzle_)) {
     return fail(Errc::Unsupported, "only sliding puzzles have starts and goals");
   }
@@ -246,27 +283,27 @@ Result<bool> Document::clearStampAt(Id tray, int x, int y, int z, bool goal) {
   if (!sliding::isStartGoalShape(&puzzle_->getShape(*t))) {
     return fail(Errc::InvalidArgument, "Choose a start/goal shape.");
   }
-  const unsigned int under = sliding::stampAt(&puzzle_->getShape(*t), x, y, z, goal);
+  const Result<unsigned int> p = stampProblem(problem, *t);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  const unsigned int under = sliding::stampAt(
+      &puzzle_->getShape(*t), &puzzle_->getProblem(*p).slideMarks(), x, y, z, goal);
   if (under == static_cast<unsigned int>(-1)) {
     return false;
   }
   StepGuard g(*this, goal ? "Remove goal" : "Remove start");
   touchWhole();
   // the copy under the cell, not the piece's other copies
-  (void)sliding::clearCopyAt(&puzzle_->getShape(*t), &puzzle_->getShape(under), under, x, y, z,
-                             goal);
+  (void)sliding::clearCopyAt(&puzzle_->getShape(*t), &puzzle_->getProblem(*p).editSlideMarks(),
+                             &puzzle_->getShape(under), under, x, y, z, goal);
   syncSliding();
-  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-    const Problem& pr = puzzle_->getProblem(p);
-    if (pr.resultValid() && pr.getResultId() == *t) {
-      problemChanged(p);
-    }
-  }
+  problemChanged(*p);
   g.commit(kChangeAll);
   return true;
 }
 
-Result<void> Document::cloneStamps(Id tray, bool toGoal) {
+Result<void> Document::cloneStamps(Id tray, bool toGoal, Id problem) {
   if (!sliding::isSliding(*puzzle_)) {
     return fail(Errc::Unsupported, "only sliding puzzles have starts and goals");
   }
@@ -280,21 +317,22 @@ Result<void> Document::cloneStamps(Id tray, bool toGoal) {
   if (!sliding::isStartGoalShape(&puzzle_->getShape(*t))) {
     return fail(Errc::InvalidArgument, "Choose a start/goal shape.");
   }
+  const Result<unsigned int> p = stampProblem(problem, *t);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
   // refused before the step opens, so a refusal leaves no undo step
-  if (const std::string why = sliding::copyStampsRefusal(*puzzle_, *t, toGoal); !why.empty()) {
+  if (const std::string why =
+          sliding::copyStampsRefusal(*puzzle_, puzzle_->getProblem(*p), toGoal);
+      !why.empty()) {
     return fail(Errc::InvalidArgument, why);
   }
   StepGuard g(*this, toGoal ? "Clone start to goal" : "Clone goal to start");
   touchWhole();
-  const std::string why = sliding::copyStamps(*puzzle_, *t, toGoal);
+  const std::string why = sliding::copyStamps(*puzzle_, puzzle_->getProblem(*p), toGoal);
   BT_ASSERT_MSG(why.empty(), "a clone that was checked was refused");
   syncSliding();
-  for (unsigned int p = 0; p < puzzle_->getNumberOfProblems(); p++) {
-    const Problem& pr = puzzle_->getProblem(p);
-    if (pr.resultValid() && pr.getResultId() == *t) {
-      problemChanged(p);
-    }
-  }
+  problemChanged(*p);
   g.commit(kChangeAll);
   return {};
 }

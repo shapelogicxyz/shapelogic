@@ -45,7 +45,7 @@ struct StlParameter {
 /// The parameters of the grid's STL mesher, in the original's order (the
 /// values passed to stlMesh follow it): the cube grids, the prisms, the
 /// rhombic and the tetra-octa grids share stl_0's six, then two of this
-/// core's own, "Uniform bevels" and "Bumpy" (the uniform mesher,
+/// core's own, "Uniform bevels" and "Unit Beveled" (the uniform mesher,
 /// uniform_mesh.h; both off by default, so the defaults give the
 /// original's mesh); the sphere grid has stl_2's eight.
 [[nodiscard]] std::span<const StlParameter> stlParameters(GridKind grid);

@@ -3,9 +3,20 @@
 #include "convert.h"
 #include "engine.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
 namespace bt::engine {
 
 namespace {
+
+// the highest tray lip of a Puzzlecad export, in cells
+constexpr std::int64_t kMaxLip = 16;
+// the most shapes a Puzzlecad export is given
+constexpr std::size_t kMaxShapes = 65536;
 
 Reply documentNew(State& s, Params& p) {
   const GridKind grid = p.choice("grid", gridNames());
@@ -76,7 +87,34 @@ Reply documentImport(State& s, Params& p) {
 Reply documentExportPuzzlecad(State& s, Params& p) {
   const std::optional<app::Id> problem = p.optId("problem", IdKind::Problem);
   const std::string name = p.optString("name").value_or("");
+  io::PuzzlecadOptions options;
+  options.copies = p.optBoolean("copies", false);
+  options.tray = p.optBoolean("tray", false);
+  options.lip = static_cast<unsigned int>(p.optInteger("lip", 0, 0, kMaxLip));
+  std::vector<app::Id> shapes;
+  if (p.has("shapes")) {
+    const Json& list = p.value("shapes");
+    if (!list.is_array() || list.empty() || list.size() > kMaxShapes) {
+      p.fail("'shapes' must be a list of 1 to 65536 shape ids");
+    } else if (problem) {
+      p.fail("give 'problem' or 'shapes', not both");
+    } else {
+      for (const Json& v : list) {
+        const std::optional<std::uint64_t> id =
+            v.is_string() ? parseId(IdKind::Shape, v.get<std::string>()) : std::nullopt;
+        if (!id) {
+          p.fail("'shapes' must be a list of shape ids (s1, ...)");
+          break;
+        }
+        shapes.push_back(*id);
+      }
+    }
+  }
   BTE_CHECK(p.finish());
+  for (const app::Id id : shapes) {
+    BTE_TRY(const unsigned int index, s.document().shapeIndex(id));
+    options.shapes.push_back(index);
+  }
   // the name goes into a comment line of the file
   if (name.size() > 255) {
     return coreError(Errc::InvalidArgument, "the name is longer than 255 bytes");
@@ -88,7 +126,7 @@ Reply documentExportPuzzlecad(State& s, Params& p) {
   }
   // the puzzle's file, or the export's when it has none (cb_Export_Scad)
   const std::string source = s.path ? s.path->string() : name;
-  BTE_TRY(std::string text, s.document().exportPuzzlecad(problem, source));
+  BTE_TRY(std::string text, s.document().exportPuzzlecad(problem, source, options));
   return Json{{"text", std::move(text)}};
 }
 

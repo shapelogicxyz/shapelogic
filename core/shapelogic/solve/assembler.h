@@ -47,7 +47,7 @@ struct MatrixOptions {
   bool keepRotations = false;      ///< report rotated assemblies too
   bool completeRotations = false;  ///< check every transformation for duplicates
   bool strictColors = false;       ///< a voxel fits only a result voxel of its own colour
-  /// A sliding solve: the result's start marks (Voxel::getStartPiece) hold
+  /// A sliding solve: the problem's start marks (Problem::slideMarks) hold
   /// the pieces to their starts. A placement lies wholly on its own piece's
   /// start cells, or, for a part freeStarts allows (one with starts for
   /// fewer than all its copies, or none), wholly on cells that are no

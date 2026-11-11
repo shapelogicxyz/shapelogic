@@ -8,10 +8,12 @@
 /// Ported from src/lib/problem.{h,cpp} (XML reading and writing lives in
 /// bt/io; the solver hooks such as setAssembler come with stages 3 and 5).
 /// A stacking problem's board and its start and goal stacks are here too
-/// (the rules that read them are bt/model/stacking.h).
+/// (the rules that read them are bt/model/stacking.h), and a sliding
+/// problem's starts and goals on its board (bt/model/sliding.h).
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/model/assembly.h"
+#include "shapelogic/model/slide_marks.h"
 #include "shapelogic/model/solution.h"
 #include "shapelogic/model/stacking_types.h"
 #include "shapelogic/model/xml_element.h"
@@ -94,9 +96,11 @@ class Problem {
 
   // ---- result and goal shapes ---------------------------------------------
 
-  /// Sets the result shape; a different shape drops all solutions.
+  /// Sets the result shape; a different shape drops all solutions and the
+  /// sliding starts and goals (they are cells of the result).
   void setResultId(const Puzzle& puzzle, unsigned int shape);
-  /// Unsets the result shape and drops all solutions.
+  /// Unsets the result shape and drops all solutions and the sliding
+  /// starts and goals.
   void clearResult();
   [[nodiscard]] bool resultValid() const { return result_ != kNoShape; }
   [[nodiscard]] unsigned int getResultId() const {
@@ -131,6 +135,15 @@ class Problem {
   [[nodiscard]] const stacking::StackMap& goalStacks() const { return goalMap_; }
   [[nodiscard]] stacking::StackMap& editStart() { return startMap_; }
   [[nodiscard]] stacking::StackMap& editGoal() { return goalMap_; }
+
+  // ---- sliding -----------------------------------------------------------------
+
+  /// The starts and goals of a sliding problem, on the cells of its result
+  /// (a start/goal shape). They go when the result changes or is removed;
+  /// sliding::noteShapeRemoved and noteShapeSwap keep the pieces they name
+  /// in step with the puzzle's shapes.
+  [[nodiscard]] const SlideMarks& slideMarks() const { return slideMarks_; }
+  [[nodiscard]] SlideMarks& editSlideMarks() { return slideMarks_; }
 
   // ---- parts and pieces -----------------------------------------------------
 
@@ -422,6 +435,8 @@ class Problem {
   unsigned int rodSetId_ = stacking::kNoRodSet;
   stacking::StackMap startMap_;
   stacking::StackMap goalMap_;
+
+  SlideMarks slideMarks_;
 
   PreservedXml preserved_;
 };

@@ -23,6 +23,7 @@ import type { Page } from '@playwright/test';
 import {
   answerDialogs,
   BUILT,
+  command,
   ENGINE,
   engineCall,
   FIXTURES,
@@ -137,20 +138,97 @@ test('File ▸ Export ▸ Puzzlecad writes the text the original wrote', async (
     // a name without the extension gets it
     await answerDialogs(page, { save: join(dir, 'pelikan') });
     await menu(page, 'export.scad');
+    // the options: the problem's pieces; no tray choices on the cube grid
+    const opts = page.locator('#exportScad');
+    await expect(opts).toBeVisible();
+    await expect(opts.locator('[data-f="problems"]')).toBeChecked();
+    await expect(opts.locator('[data-f="tray"]')).toHaveCount(0);
+    await expect(opts.locator('[data-f="lip"]')).toHaveCount(0);
+    await opts.locator('[data-x="go"]').click();
     await expect.poll(() => existsSync(join(dir, 'pelikan.scad'))).toBe(true);
     expect(readFileSync(join(dir, 'pelikan.scad'), 'utf8')).toBe(
       readFileSync(join(RECORDED, 'PelikanBurr.p0.scad'), 'utf8'),
     );
 
-    // not the cube grid: refused in the original's words before a file is asked for
-    await openFixture(page, 'Bermuda.xmpuzzle');
-    await answerDialogs(page, { save: join(dir, 'bermuda.scad') });
+    // every piece shape, chosen in the lists
+    await answerDialogs(page, { save: join(dir, 'pieces.scad') });
     await menu(page, 'export.scad');
-    await expect(page.locator('#exportScadFailed')).toContainText(
-      'Puzzlecad export is only available for cube-grid puzzles.',
+    await opts.locator('[data-f="pieces"]').check();
+    await expect(opts.locator('[data-f="problem"]')).toBeDisabled();
+    // the shapes start on the left; none chosen is said so
+    await expect(opts.locator('[data-f="chosen"] option')).toHaveCount(0);
+    await opts.locator('[data-x="go"]').click();
+    await expect(opts.locator('[data-f="err"]')).toContainText('Choose the shapes');
+    await opts.locator('[data-a="addAll"]').click();
+    await expect(opts.locator('[data-f="all"] option')).toHaveCount(0);
+    await opts.locator('[data-x="go"]').click();
+    await expect.poll(() => existsSync(join(dir, 'pieces.scad'))).toBe(true);
+    expect(readFileSync(join(dir, 'pieces.scad'), 'utf8')).toBe(
+      readFileSync(join(RECORDED, 'PelikanBurr.p1.scad'), 'utf8'),
     );
-    await page.click('#exportScadFailed [data-x="ok"]');
-    expect(existsSync(join(dir, 'bermuda.scad'))).toBe(false);
+
+    // the pieces chosen last for this document are kept; one moved back
+    await answerDialogs(page, { save: join(dir, 'some.scad') });
+    await menu(page, 'export.scad');
+    await expect(opts.locator('[data-f="pieces"]')).toBeChecked();
+    const all = await opts
+      .locator('[data-f="chosen"] option')
+      .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+    expect(all.length).toBeGreaterThan(1);
+    await expect(opts.locator('[data-f="all"] option')).toHaveCount(0);
+    await opts.locator('[data-f="chosen"]').selectOption(all[0] ?? '');
+    await opts.locator('[data-a="remove"]').click();
+    await opts.locator('[data-x="go"]').click();
+    await expect.poll(() => existsSync(join(dir, 'some.scad'))).toBe(true);
+    const { text: some } = await engineCall<{ text: string }>(page, 'document.exportPuzzlecad', {
+      shapes: all.slice(1),
+    });
+    expect(readFileSync(join(dir, 'some.scad'), 'utf8')).toBe(some);
+    // none chosen
+    await menu(page, 'export.scad');
+    await opts.locator('[data-a="removeAll"]').click();
+    await expect(opts.locator('[data-f="chosen"] option')).toHaveCount(0);
+    // Problems greys the lists
+    await opts.locator('[data-f="problems"]').check();
+    await expect(opts.locator('[data-f="all"]')).toBeDisabled();
+    await opts.locator('[data-x="cancel"]').click();
+
+    // a sliding puzzle: the board as a tray, with a lip two voxels high
+    const slide = resolve(FIXTURES, 'sliding/slide_klotski.xmpuzzle');
+    await command(page, { cmd: 'openPath', path: slide });
+    await expect(page.locator('#fname')).toHaveText('slide_klotski.xmpuzzle');
+    await answerDialogs(page, { save: join(dir, 'klotski.scad') });
+    await menu(page, 'export.scad');
+    await expect(opts.locator('[data-f="tray"]')).toBeChecked();
+    await expect(opts.locator('[data-f="lip"]')).toBeChecked();
+    await opts.locator('[data-f="problems"]').check();
+    await opts.locator('[data-f="height"]').fill('0');
+    await opts.locator('[data-x="go"]').click();
+    await expect(opts.locator('[data-f="err"]')).toContainText('from 1 to 16');
+    await opts.locator('[data-f="height"]').fill('2');
+    const problem = await opts.locator('[data-f="problem"]').inputValue();
+    await opts.locator('[data-x="go"]').click();
+    await expect.poll(() => existsSync(join(dir, 'klotski.scad'))).toBe(true);
+    const { text: klotski } = await engineCall<{ text: string }>(page, 'document.exportPuzzlecad', {
+      problem,
+      copies: true,
+      tray: true,
+      lip: 2,
+    });
+    expect(readFileSync(join(dir, 'klotski.scad'), 'utf8')).toBe(klotski);
+    expect(klotski).toContain('packing_box([');
+
+    // not the brick or sliding grid: greyed (the engine refuses it in the original's words)
+    await openFixture(page, 'Bermuda.xmpuzzle');
+    await expect.poll(async () => (await menuItem(page, 'export.scad'))?.enabled).toBe(false);
+    await expect
+      .poll(() =>
+        engineCall(page, 'document.exportPuzzlecad', {}).then(
+          () => '',
+          (e: unknown) => String(e),
+        ),
+      )
+      .toContain('Puzzlecad export is only available for cube-grid puzzles.');
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

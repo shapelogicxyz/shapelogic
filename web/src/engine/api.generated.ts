@@ -86,8 +86,8 @@ export interface NodeParam {
 export interface StlParameter {
   /**
    * The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers,
-   * then this core's Uniform bevels and Bumpy (the uniform mesher, both off by default); on the
-   * sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner
+   * then this core's Uniform bevels and Unit Beveled (the uniform mesher, both off by default); on
+   * the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner
    * radius, Hole diameter, Square Hole.
    */
   name: string;
@@ -1430,13 +1430,23 @@ export interface Methods {
   };
   /**
    * The puzzlecad OpenSCAD file of a problem's pieces (File ▸ Export ▸ Puzzlecad (OpenSCAD)): the
-   * distinct shapes of its parts but the result (when that leaves none, every shape but the
-   * result), or every shape when no problem is given, each as the layers of its bounding box in
-   * one burr_plate, in the layout of puzzlecad's MagellanTIC.scad. The header comment names the
-   * document's file, or `name` when it has none ("unknown" without either). Only for cube-grid
-   * puzzles with shapes (the original's "Puzzlecad export is only available for cube-grid
-   * puzzles.", "Nothing to export."), and some shape must have a cell ("Could not export puzzlecad
-   * file."): invalid_argument. Allowed while solving.
+   * distinct shapes of its parts but the result, or with `copies` each part as many times as the
+   * problem has it (its maximum count; at most 4096 pieces); when that leaves none, every shape
+   * but the result; every shape when no problem is given (or the `shapes` listed). Each is the
+   * layers of its bounding box in one burr_plate, in the layout of puzzlecad's MagellanTIC.scad. A
+   * sliding puzzle's start/goal shapes are never pieces; with `tray` (sliding puzzles only, else
+   * invalid_argument) its trays are written too: the problem's board, else every board. A tray is
+   * a floor layer under its bounding box with wall layers on it, the cells it leaves empty: `lip`
+   * of them (at least one; none when it has no empty cell), and a lip grows the floor by a cell on
+   * each side and walls the ring around it. On the cube grid the file is the original's, its
+   * "burr_scal" comment typo fixed and without its disabled packing_box placeholder; on the
+   * sliding grid each tray is a packing_box (all but the first disabled with *), then the pieces'
+   * burr_plate (disabled while a box is written), scaled to [16, 16, 5.6] mm with beveled units
+   * and no inset. The header comment names the document's file, or `name` when it has none
+   * ("unknown" without either). Only for cube-grid and sliding puzzles with shapes (the original's
+   * "Puzzlecad export is only available for cube-grid puzzles.", "Nothing to export."), and some
+   * shape must have a cell ("Could not export puzzlecad file."): invalid_argument. Allowed while
+   * solving.
    * (document.json)
    */
   'document.exportPuzzlecad': {
@@ -1447,6 +1457,30 @@ export interface Methods {
        * no control characters.
        */
       name?: string;
+      /**
+       * With a problem, each part as many times as the problem has it, not each distinct shape
+       * once. Default false.
+       */
+      copies?: boolean;
+      /**
+       * A sliding puzzle's trays (its boards) as packing boxes; only on the sliding grid. Default
+       * false.
+       */
+      tray?: boolean;
+      /**
+       * The height in cells of the wall around a tray (the tray grown by a cell on each side); 0,
+       * the default, for none.
+       * @minimum 0
+       * @maximum 16
+       */
+      lip?: number;
+      /**
+       * Without a problem (giving both: invalid_params): the shapes to write as pieces, in this
+       * order, rather than every shape; a start/goal shape is left out.
+       * @minItems 1
+       * @maxItems 65536
+       */
+      shapes?: ShapeId[];
     };
     result: {
       text: string;
@@ -1987,6 +2021,27 @@ export interface Methods {
         /** @minLength 5 */
         fileName: string;
       })[];
+    };
+    errors: 'not_found';
+  };
+  /**
+   * The file names of shapes' STL files when several are exported together (File ▸ Export ▸ STL
+   * with several shapes, a file each in one folder), in the order given, named as
+   * export.solutionPieces names them: the shape's name, or S<n> without one, every byte but ASCII
+   * letters, digits, '-' and '_' made '_', '-S<n>' added when an earlier shape's file has that
+   * name, then '.stl'. Allowed while solving.
+   * (export.json)
+   */
+  'export.stlFileNames': {
+    params: {
+      /**
+       * @minItems 1
+       * @maxItems 65536
+       */
+      shapes: ShapeId[];
+    };
+    result: {
+      fileNames: string[];
     };
     errors: 'not_found';
   };
@@ -2750,8 +2805,7 @@ export interface Methods {
    * one more copy's start or goal, beside the others, refused once every copy has one; a copy that
    * is exactly there already is taken off. Refused (invalid_argument) with the reason when it does
    * not fit: off the floor, on another piece's or another copy's start or goal, a goal on a
-   * corridor, every copy placed. The problems of the start/goal shape lose what they had found.
-   * One undo step.
+   * corridor, every copy placed. The problem loses what it had found. One undo step.
    * (sliding.json)
    */
   'sliding.place': {
@@ -2762,7 +2816,8 @@ export interface Methods {
       goal: boolean;
       /**
        * The problem shown, whose result must be this board (refused otherwise, invalid_argument):
-       * its counts are the copies. Without it, the board's first problem's.
+       * the starts and goals are its own, its counts the copies. Without it, the board's first
+       * problem.
        */
       problem?: ProblemId;
     };
@@ -2774,8 +2829,8 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Takes off the start or goal of the copy that covers a cell (the editor's right click), not the
-   * piece's other copies. One undo step; nothing when none covers it.
+   * Takes off a problem's start or goal of the copy that covers a cell (the editor's right click),
+   * not the piece's other copies. One undo step; nothing when none covers it.
    * (sliding.json)
    */
   'sliding.clearAt': {
@@ -2783,6 +2838,11 @@ export interface Methods {
       tray: ShapeId;
       at: TrayCell;
       goal: boolean;
+      /**
+       * The problem whose starts and goals these are, whose result must be this board (refused
+       * otherwise, invalid_argument). Without it, the board's first problem.
+       */
+      problem?: ProblemId;
     };
     result: {
       cleared: boolean;
@@ -2791,17 +2851,22 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * Copies every start of a start/goal shape onto its goals (toGoal true), or every goal onto its
-   * starts, replacing what that side had (the Puzzle workspace's Clone start to goal and Clone
-   * goal to start). Refused (invalid_argument) with the reason when a start is on a variable cell
-   * (a goal cannot be on one). The problems of the start/goal shape lose what they had found. One
-   * undo step.
+   * Copies every start a problem has on its start/goal shape onto its goals (toGoal true), or
+   * every goal onto its starts, replacing what that side had (the Puzzle workspace's Clone start
+   * to goal and Clone goal to start). Refused (invalid_argument) with the reason when a start is
+   * on a variable cell (a goal cannot be on one). The problem loses what it had found. One undo
+   * step.
    * (sliding.json)
    */
   'sliding.clone': {
     params: {
       tray: ShapeId;
       toGoal: boolean;
+      /**
+       * The problem whose starts and goals these are, whose result must be this board (refused
+       * otherwise, invalid_argument). Without it, the board's first problem.
+       */
+      problem?: ProblemId;
     };
     result: {
       revision: Revision;
@@ -2809,11 +2874,12 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
   };
   /**
-   * What a start/goal shape holds: its number and name, each cell's start and goal (the piece
-   * stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can
-   * be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more
-   * of them than the problem has copies, or no piece with every copy at a start and at a goal),
-   * the stamps larger than their pieces' copies (null, or the message), and its floor cells.
+   * What a start/goal shape holds for a problem: its number and name, each cell's start and goal
+   * (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells,
+   * whether it can be solved (the validity bar: null, or why not: starts or goals that are not
+   * whole pieces, more of them than the problem has copies, or no piece with every copy at a start
+   * and at a goal), the stamps larger than their pieces' copies (null, or the message), and its
+   * floor cells.
    * (sliding.json)
    */
   'sliding.tray': {
@@ -2821,7 +2887,8 @@ export interface Methods {
       tray: ShapeId;
       /**
        * The problem shown, whose result must be this board (refused otherwise, invalid_argument):
-       * its counts are the copies. Without it, the board's first problem's.
+       * the starts and goals are its own, its counts the copies. Without it, the board's first
+       * problem.
        */
       problem?: ProblemId;
     };
@@ -2865,7 +2932,8 @@ export interface Methods {
       goal: boolean;
       /**
        * The problem shown, whose result must be this board (refused otherwise, invalid_argument):
-       * its counts are the copies. Without it, the board's first problem's.
+       * the starts and goals are its own, its counts the copies. Without it, the board's first
+       * problem.
        */
       problem?: ProblemId;
     };
@@ -3611,6 +3679,7 @@ export const METHOD_NAMES = [
   'explore.step',
   'export.solutionPieces',
   'export.stl',
+  'export.stlFileNames',
   'export.stlMesh',
   'export.stlParameters',
   'grid.geometry',

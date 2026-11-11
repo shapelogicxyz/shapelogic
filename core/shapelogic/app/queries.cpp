@@ -243,8 +243,21 @@ std::vector<StlPiece> stlPieces(const Puzzle& puzzle, const Problem& problem,
     }
     counts[problem.getShapeIdOfPart(problem.getPartIdToPieceId(i))]++;
   }
+  std::vector<unsigned int> shapes;
+  for (const auto& entry : counts) {
+    shapes.push_back(entry.first);
+  }
+  const std::vector<std::string> names = stlFileNames(puzzle, shapes);
   std::vector<StlPiece> pieces;
-  for (const auto& [shape, count] : counts) {
+  for (std::size_t i = 0; i < shapes.size(); i++) {
+    pieces.push_back({shapes[i], counts[shapes[i]], names[i]});
+  }
+  return pieces;
+}
+
+std::vector<std::string> stlFileNames(const Puzzle& puzzle, std::span<const unsigned int> shapes) {
+  std::vector<std::string> names;
+  for (const unsigned int shape : shapes) {
     std::string raw = puzzle.getShape(shape).getName();
     if (raw.empty()) {
       raw = "S" + std::to_string(shape + 1);
@@ -252,15 +265,15 @@ std::vector<StlPiece> stlPieces(const Puzzle& puzzle, const Problem& problem,
     // Two pieces can share a name, or names that become the same file
     // name: a second file would overwrite the first. They are told apart.
     std::string base = safeName(raw);
-    for (const StlPiece& other : pieces) {
-      if (other.fileName == base + ".stl") {
+    for (const std::string& other : names) {
+      if (other == base + ".stl") {
         base += "-S" + std::to_string(shape + 1);
         break;
       }
     }
-    pieces.push_back({shape, count, base + ".stl"});
+    names.push_back(base + ".stl");
   }
-  return pieces;
+  return names;
 }
 
 }  // namespace bt::app

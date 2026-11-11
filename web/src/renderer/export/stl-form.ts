@@ -85,9 +85,9 @@ export function overwriteQuestion(existing: number): string {
   return `${String(existing)} output file(s) already exist. Overwrite?`;
 }
 
-/** The status line after an Export All. */
-export function exportedLine(exported: number, errors: number): string {
+/** The status line after an Export All: so many piece types (or `what`), and the errors. */
+export function exportedLine(exported: number, errors: number, what = 'piece type(s)'): string {
   return errors === 0
-    ? `Done — exported ${String(exported)} piece type(s).`
-    : `Done — exported ${String(exported)} piece type(s), ${String(errors)} error(s).`;
+    ? `Done — exported ${String(exported)} ${what}.`
+    : `Done — exported ${String(exported)} ${what}, ${String(errors)} error(s).`;
 }

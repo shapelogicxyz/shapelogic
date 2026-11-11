@@ -377,7 +377,7 @@ export class SlideCard {
     try {
       await ws.mutateQuiet<{ revision: number }>(() =>
         right || piece === null
-          ? e.call('sliding.clearAt', { tray, at, goal })
+          ? e.call('sliding.clearAt', { tray, at, goal, problem })
           : e.call('sliding.place', { tray, problem, piece, at, goal }),
       );
     } catch (err) {
@@ -423,11 +423,12 @@ export class SlideCard {
   private async clone(toGoal: boolean): Promise<void> {
     const tray = this.board;
     const ws = this.ws;
-    if (tray === null || ws.refuse()) {
+    const problem = ws.current;
+    if (tray === null || problem === null || ws.refuse()) {
       return;
     }
     try {
-      await ws.mutateQuiet(() => ws.store.engine.call('sliding.clone', { tray, toGoal }));
+      await ws.mutateQuiet(() => ws.store.engine.call('sliding.clone', { tray, toGoal, problem }));
     } catch (err) {
       if (err instanceof EngineError && err.errc === 'invalid_argument') {
         flash(err.detail, 5000);

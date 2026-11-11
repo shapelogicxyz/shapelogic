@@ -180,6 +180,33 @@ GridType readGridType(const XmlElement& e) {
   return GridType(static_cast<GridKind>(type));
 }
 
+/// The start or goal marks of a sliding puzzle as a file lists them: one
+/// comma-separated number per cell. set(i, mark) is called for each cell
+/// below `cells` that has a number.
+template <class Set>
+void readMarkList(const std::string& attr, unsigned int cells, Set set) {
+  if (attr.empty()) {
+    return;
+  }
+  unsigned int gi = 0;
+  unsigned int val = 0;
+  bool inNum = false;
+  for (std::size_t pos = 0; pos <= attr.size(); pos++) {
+    const char ch = pos < attr.size() ? attr[pos] : ',';
+    if (ch >= '0' && ch <= '9') {
+      val = val * 10 + static_cast<unsigned int>(ch - '0');
+      inNum = true;
+    } else if (ch == ',') {
+      if (inNum && gi < cells) {
+        set(gi, static_cast<unsigned char>(val));
+      }
+      gi++;
+      val = 0;
+      inNum = false;
+    }
+  }
+}
+
 std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   auto required = [&e](const char* name) {
     const std::string* v = e.findAttribute(name);
@@ -257,32 +284,14 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
     error(e, "not enough voxels defined for voxelspace");
   }
 
-  // start and goal marks of sliding puzzles: one comma-separated number
-  // per cell (the original wrote only goal; the starts were the colours)
-  auto readMarks = [&](const std::string& attr, void (Voxel::*set)(unsigned int, unsigned int)) {
-    if (attr.empty()) {
-      return;
-    }
-    unsigned int gi = 0;
-    unsigned int val = 0;
-    bool inNum = false;
-    for (std::size_t pos = 0; pos <= attr.size(); pos++) {
-      const char ch = pos < attr.size() ? attr[pos] : ',';
-      if (ch >= '0' && ch <= '9') {
-        val = val * 10 + static_cast<unsigned int>(ch - '0');
-        inNum = true;
-      } else if (ch == ',') {
-        if (inNum && gi < v->getXYZ()) {
-          ((*v).*set)(gi, static_cast<unsigned char>(val));
-        }
-        gi++;
-        val = 0;
-        inNum = false;
-      }
-    }
-  };
-  readMarks(e.attribute("start"), &Voxel::setStartPiece);
-  readMarks(e.attribute("goal"), &Voxel::setGoalPiece);
+  // Start and goal marks of sliding puzzles as files had them before they
+  // were the problems' (decision 0027; the original wrote only goal, the
+  // starts were the colours): the shape carries them until the puzzle is
+  // read, then they go to its problems (sliding::adoptBoardMarks).
+  readMarkList(e.attribute("start"), v->getXYZ(),
+               [&v](unsigned int i, unsigned int mark) { v->setStartPiece(i, mark); });
+  readMarkList(e.attribute("goal"), v->getXYZ(),
+               [&v](unsigned int i, unsigned int mark) { v->setGoalPiece(i, mark); });
 
   v->setHotspot(atoiOf(e.attribute("hx")), atoiOf(e.attribute("hy")), atoiOf(e.attribute("hz")));
   v->setName(e.attribute("name"));
@@ -643,6 +652,7 @@ enum ProblemSlot : unsigned int {
   kSlotResult,
   kSlotGoal,
   kSlotStacking,
+  kSlotSlideMarks,
   kSlotSolverOptions,
   kSlotBitmap,
   kSlotAssembler,
@@ -742,6 +752,29 @@ void readStacking(const XmlElement& e, Problem& prob) {
       prob.editStart() = readStackMap(c);
     } else if (c.name == "goal") {
       prob.editGoal() = readStackMap(c);
+    }
+  }
+}
+
+/// The most cells a problem's <slideMarks> may name (a board is at most
+/// 1024 cells each way; an edited file can hold anything).
+constexpr unsigned int kMaxMarkCells = 1U << 30U;
+
+/// A problem's <slideMarks>: its starts and goals on its board.
+void readSlideMarks(const XmlElement& e, Problem& prob) {
+  SlideMarks& marks = prob.editSlideMarks();
+  marks.clear();
+  for (int goal = 0; goal < 2; goal++) {
+    // the last cell first, so the marks grow once
+    std::vector<std::pair<unsigned int, unsigned int>> read;
+    readMarkList(e.attribute(goal != 0 ? "goal" : "start"), kMaxMarkCells,
+                 [&read](unsigned int i, unsigned int mark) {
+                   if (mark != 0) {
+                     read.emplace_back(i, mark);
+                   }
+                 });
+    for (auto it = read.rbegin(); it != read.rend(); ++it) {
+      marks.set(it->first, goal != 0, it->second);
     }
   }
 }
@@ -885,6 +918,9 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
     } else if (c.name == "stacking") {
       keep.known(kSlotStacking);
       readStacking(c, prob);
+    } else if (c.name == "slideMarks") {
+      keep.known(kSlotSlideMarks);
+      readSlideMarks(c, prob);
     } else if (c.name == "solutions" || c.name == "solutionsWithRotations") {
       keep.known(kSlotSolutions);
       if (c.name == "solutionsWithRotations") {
@@ -1000,11 +1036,15 @@ Puzzle readPuzzleElement(const XmlElement& root) {
 
   Puzzle puzzle;
   bool haveGrid = false;
-  // a sliding file from before the start marks had a place of their own
-  // keeps them as colours: no shape says start
+  // A sliding file says where its starts and goals are: slideMarks
+  // "problem", each problem has its own (decision 0027). Without that they
+  // are the start/goal shapes': a shape that says start has both as marks
+  // (decision 0021), and when none does the starts are the shapes' colours
+  // (the original).
+  const bool problemMarks = root.attribute("slideMarks") == "problem";
   bool startMarks = false;
   Keeper keep(puzzle.preserved());
-  keep.attributes(root, {"version"});
+  keep.attributes(root, {"version", "slideMarks"});
 
   for (const XmlElement& c : root.children) {
     if (c.name == "gridType") {
@@ -1059,8 +1099,22 @@ Puzzle readPuzzleElement(const XmlElement& root) {
   if (puzzle.getGridType().getType() == GridKind::Stacking && puzzle.rodSetCount() == 0) {
     puzzle.addRodSet();
   }
-  if (puzzle.getGridType().getType() == GridKind::Sliding && !startMarks) {
-    sliding::convertLegacyStarts(puzzle);
+  if (puzzle.getGridType().getType() == GridKind::Sliding && !problemMarks) {
+    if (startMarks) {
+      sliding::adoptBoardMarks(puzzle);
+    } else {
+      sliding::convertLegacyStarts(puzzle);
+    }
+  }
+  if (problemMarks) {
+    // the marks are the problems': a shape carries none
+    for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
+      Voxel& v = puzzle.getShape(s);
+      for (unsigned int i = 0; i < v.getXYZ() && (v.hasStartPieces() || v.hasGoalPieces()); i++) {
+        v.setStartPiece(i, 0);
+        v.setGoalPiece(i, 0);
+      }
+    }
   }
 
   return puzzle;
@@ -1117,24 +1171,6 @@ void writeVoxel(XmlWriter& xml, const Voxel& v) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     std::snprintf(c.data(), c.size(), "#%06X", asUnsigned(v.getShapeColor()) & 0xFFFFFF);
     xml.newAttrib("color", c.data());
-  }
-
-  // the start and goal marks of a sliding puzzle's start/goal shape
-  const auto marks = [&v](unsigned int (Voxel::*get)(unsigned int) const) {
-    std::string g;
-    for (unsigned int i = 0; i < v.getXYZ(); i++) {
-      if (i != 0) {
-        g += ',';
-      }
-      g += std::to_string((v.*get)(i));
-    }
-    return g;
-  };
-  if (v.hasStartPieces()) {
-    xml.newAttrib("start", marks(&Voxel::getStartPiece));
-  }
-  if (v.hasGoalPieces()) {
-    xml.newAttrib("goal", marks(&Voxel::getGoalPiece));
   }
 
   // room for other formats one day
@@ -1391,6 +1427,32 @@ void writeStacking(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
   xml.endTag("stacking");
 }
 
+/// A problem's <slideMarks>: the starts and goals of a sliding problem on
+/// its board, a comma-separated mark per cell up to the last marked one
+/// (a mark is a piece's shape index + 1; 0 for none). Written when it has
+/// any.
+void writeSlideMarks(XmlWriter& xml, const Problem& prob) {
+  const SlideMarks& marks = prob.slideMarks();
+  if (marks.empty()) {
+    return;
+  }
+  xml.newTag("slideMarks");
+  for (int goal = 0; goal < 2; goal++) {
+    if (!marks.any(goal != 0)) {
+      continue;
+    }
+    std::string list;
+    for (std::size_t i = 0; i < marks.size(goal != 0); i++) {
+      if (i != 0) {
+        list += ',';
+      }
+      list += std::to_string(marks.get(i, goal != 0));
+    }
+    xml.newAttrib(goal != 0 ? "goal" : "start", list);
+  }
+  xml.endTag("slideMarks");
+}
+
 /// The puzzle's <rodSets> (stacking::saveRodSets): on a stacking puzzle, or
 /// when there are any.
 void writeRodSets(XmlWriter& xml, const Puzzle& puzzle) {
@@ -1506,6 +1568,9 @@ void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
   writeKept(xml, kept, kSlotStacking);
   writeStacking(xml, puzzle, prob);
 
+  writeKept(xml, kept, kSlotSlideMarks);
+  writeSlideMarks(xml, prob);
+
   writeKept(xml, kept, kSlotSolverOptions);
   if (!prob.getSolverOptions().empty()) {
     xml.newTag("solverOptions");
@@ -1602,6 +1667,10 @@ std::string writePuzzle(const Puzzle& puzzle) {
 
   xml.newTag("puzzle");
   xml.newAttrib("version", "2");
+  if (puzzle.getGridType().getType() == GridKind::Sliding) {
+    // the starts and goals are the problems' (see readPuzzleElement)
+    xml.newAttrib("slideMarks", "problem");
+  }
   writeKeptAttributes(xml, kept);
 
   writeKept(xml, kept, kSlotGridType);

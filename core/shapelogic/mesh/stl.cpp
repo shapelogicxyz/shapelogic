@@ -51,7 +51,7 @@ constexpr std::array<StlParameter, 8> kStl0 = {{
     {"Uniform bevels", StlParameterType::Switch, 0,
      "Bevel every edge to the same width whatever its angle, with the uniform mesher instead of "
      "the original's; works on every grid"},
-    {"Bumpy", StlParameterType::Switch, 0,
+    {"Unit Beveled", StlParameterType::Switch, 0,
      "Each voxel a rounded body of its own, joined to its neighbours by a neck (uses the uniform "
      "mesher)"},
 }};

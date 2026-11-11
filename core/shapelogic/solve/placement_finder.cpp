@@ -13,7 +13,7 @@ namespace bt {
 
 PlacementFinder::PlacementFinder(const Puzzle& puzzle, const Problem& problem,
                                  const Voxel& result, bool strictColors, bool startLocks)
-    : res_(result), startLocks_(startLocks), colorTableWidth_(puzzle.colorNumber() + 1) {
+    : res_(result), marks_(problem.slideMarks()), startLocks_(startLocks), colorTableWidth_(puzzle.colorNumber() + 1) {
   if (colorTableWidth_ > 1) {
     colorAllowed_.resize(colorTableWidth_ * colorTableWidth_);
     for (unsigned int p = 0; p < colorTableWidth_; p++) {
@@ -136,7 +136,7 @@ void PlacementFinder::find(const Voxel& rotation, std::vector<long>& voxelOffset
       bool none = true;
       for (std::size_t v = 0; v < voxels && (own || none); v++) {
         const unsigned int mark =
-            res_.getStartPiece(static_cast<unsigned int>(base + voxelOffsets[v]));
+            marks_.start(static_cast<std::size_t>(base + voxelOffsets[v]));
         own = own && mark == lock.id;
         none = none && mark == 0;
       }

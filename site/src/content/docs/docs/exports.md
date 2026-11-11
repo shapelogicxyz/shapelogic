@@ -12,7 +12,7 @@ puzzle itself is not changed.
 | **Puzzlecad (OpenSCAD)…** | an OpenSCAD file (`.scad`) | design printable pieces in OpenSCAD with Puzzlecad |
 | **Image…** | a PNG picture of the 3D view | share a picture of a shape or a solution |
 | **Vector Image…** | an SVG drawing of the 3D view | print, or edit in a drawing program, at any size |
-| **STL…** | an STL mesh of one shape (`.stl`) | 3D print a shape |
+| **STL…** | STL meshes of shapes (`.stl`) | 3D print shapes |
 | **Solution Animation (GLB)…** | an animated 3D model (`.glb`) | show a disassembly in 3D viewers, on the web or in AR |
 | **Paused Solver State…** | a paused solve (`.slsolve`) | carry a solve on, on another computer |
 
@@ -21,15 +21,38 @@ An item is greyed out when there is nothing for it to export, for example
 
 ## Puzzlecad (OpenSCAD)…
 
-Writes the pieces of the problem shown on the [Puzzle tab](/docs/puzzle-tab/)
-as a file for **Puzzlecad**, the OpenSCAD library for designing and 3D
-printing puzzles. Each different piece shape is written once (not the
-result), as layers of voxels, all in one `burr_plate`, laid out like
-Puzzlecad's own examples. Open the file in OpenSCAD with Puzzlecad installed
-to render the pieces and export them for printing.
+Writes pieces as a file for **Puzzlecad**, the OpenSCAD library for
+designing and 3D printing puzzles: each piece as layers of voxels, all in
+one `burr_plate`, laid out like Puzzlecad's own examples. Open the file in
+OpenSCAD with Puzzlecad installed to render the pieces and export them for
+printing. First choose what to write:
 
-- Only for **brick** (cube grid) puzzles.
-- It can be used while a solve is running.
+- **Pieces**: the shapes you choose, once each. Pick them in the same two
+  lists as [STL…](#stl): **All shapes** on the left, **To export** on the
+  right, with the arrow buttons between them. The shapes start on the
+  left; after an export the dialog remembers the ones you chose for that
+  puzzle. A sliding puzzle's boards are not listed: they are trays.
+- **Problems**: the pieces of the problem you choose (the one shown on the
+  [Puzzle tab](/docs/puzzle-tab/) to start with), as many of each as the
+  problem has, so a problem with three copies of a piece gets three. The
+  result is not a piece.
+- **Export Tray** (sliding puzzles only): also write the board as a tray
+  for the pieces (the problem's board, or every board). The tray is a
+  floor one voxel thick with walls where the board has no cell. On to
+  start with.
+- **Add Tray Lip** (sliding puzzles only): a wall around the tray, the tray made one voxel bigger on
+  each side to take it, of the **Height** you give in voxels (1 to 16);
+  the tray's own walls are as high. Without it the tray's walls are one
+  voxel high.
+
+For a sliding puzzle the file is laid out for flat pieces: the tray is a
+Puzzlecad `packing_box` (16 mm voxels, 5.6 mm thick, 8 mm walls) and the
+pieces follow in a `burr_plate` that starts switched off with OpenSCAD's
+`*`, so the box is rendered first; remove the `*` to render the pieces.
+
+The dialog remembers your choices. The menu item is greyed out except for
+**brick** (cube grid) and **sliding** puzzles, and it can be used while a
+solve is running.
 
 ## Image…
 
@@ -54,17 +77,25 @@ packaging. It asks only where to save.
 
 ## STL…
 
-Saves one shape as an **STL** mesh for 3D printing or CAD.
+Saves shapes as **STL** meshes for 3D printing or CAD, one file per shape.
 
 ![The Export STL dialog: the size and bevel settings on the left, a preview of the shape on the right.](../../../assets/screens/guide/export-stl.png)
 
-- **Shape**: the shape to export. The preview on the right updates as you
-  change the settings, and shows the mesh's **volume**.
+- **Shapes**: two lists side by side. **All shapes** on the left, **To
+  export** on the right; it starts with the shape you were looking at.
+  Select shapes and press **→** to move them to the right (**⇒** moves
+  them all), or **←** and **⇐** to move them back. A double click moves a
+  shape across too. The preview on the right shows the shape you last
+  clicked in either list, updates as you change the settings, and shows
+  the mesh's **volume**.
 - **Normal** / **Insides**: show the mesh as it is, or cut open to check its
   inside.
 - **Binary STL**: on, a smaller binary file; off, a text file you can read
   in an editor.
-- **Export STL…** asks where to save, and **Close** closes the dialog.
+- **Export STL…** with one shape to export asks where to save it. With
+  several it asks for a folder and writes a file for each shape, named
+  after the shape (or S1, S2, … without a name), and asks before replacing
+  files already there. **Close** closes the dialog.
 
 The settings for brick, triangular prism, rhombic and tetrahedra-octahedra
 grids:
@@ -78,7 +109,7 @@ grids:
 | **Offset** | 0.01 | How far each face is pulled in. A small offset leaves a gap between pieces, so printed pieces fit together. |
 | **Interior chamfers** | on | Also bevel the inside (concave) edges, not only the outside ones. |
 | **Uniform bevels** | off | Use the uniform mesher instead of the original's: every edge gets a bevel of the same width whatever its angle, on every grid. Faster on large rhombic and tetrahedra-octahedra shapes. |
-| **Bumpy** | off | Each voxel becomes a rounded body of its own, joined to its neighbours by a neck (uses the uniform mesher). |
+| **Unit Beveled** | off | Each voxel becomes a rounded body of its own, joined to its neighbours by a neck (uses the uniform mesher). |
 
 The settings for sphere grids:
 

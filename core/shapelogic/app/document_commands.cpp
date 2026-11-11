@@ -360,21 +360,21 @@ Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
   }
   // on a copy first: an edit that changes nothing leaves no step
   std::unique_ptr<Voxel> v = puzzle_->getShape(*s).clone();
+  // a sliding board's cells take its problems' starts and goals along
+  std::vector<sliding::BoardEdit> board = beginBoardEdit(*s, *v);
   const unsigned int n = app::editCells(*v, tool, colourNumber, symmetry, cells);
+  for (sliding::BoardEdit& b : board) {
+    sliding::readBoardTags(b, *v);
+  }
   if (n == 0) {
     return 0U;
   }
-  const bool slidingPuzzle = sliding::isSliding(*puzzle_);
   StepGuard g(*this, "Edit cells");
   touchShape(*s);
   (void)puzzle_->replaceShape(*s, std::move(v));
   lastChange_.shapes = {shape};
   shapeChanged(*s);
-  // the walls and floor of a start/goal shape: its problem follows (the
-  // grid editor's RS_CHANGESQUARE)
-  if (slidingPuzzle && sliding::isStartGoalShape(&puzzle_->getShape(*s))) {
-    syncSliding();
-  }
+  finishBoardEdit(board);
   g.commit(kChangeShapes | lastChange_.what);
   return n;
 }
@@ -461,9 +461,15 @@ Result<void> Document::resizeShape(Id shape, unsigned int x, unsigned int y, uns
       continue;
     }
     touchShape(i);
+    // a sliding board keeps the starts and goals that still have their cells
+    std::vector<sliding::BoardEdit> board = beginBoardEdit(i, v);
     v.resize(sizes[i][0], sizes[i][1], sizes[i][2], 0);
+    for (sliding::BoardEdit& b : board) {
+      sliding::readBoardTags(b, v);
+    }
     lastChange_.shapes.push_back(ids_.shapes[i]);
     shapeChanged(i);
+    finishBoardEdit(board);
   }
   g.commit(kChangeShapes | lastChange_.what);
   return {};
@@ -505,6 +511,16 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   for (const unsigned int i : which) {
     copies.push_back(puzzle_->getShape(i).clone());
   }
+  // a sliding board's cells take its problems' starts and goals along
+  std::vector<std::vector<sliding::BoardEdit>> boards;
+  for (std::size_t k = 0; k < which.size(); k++) {
+    boards.push_back(beginBoardEdit(which[k], *copies[k]));
+  }
+  const auto readTags = [&boards, &copies](std::size_t k) {
+    for (sliding::BoardEdit& b : boards[k]) {
+      sliding::readBoardTags(b, *copies[k]);
+    }
+  };
   TaskOutcome mine;
   std::vector<bool> changedShape(which.size(), false);
   if (task == ShapeTask::Minimize) {
@@ -514,6 +530,7 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
     }
     minimizeShapes(all);
     for (std::size_t k = 0; k < which.size(); k++) {
+      readTags(k);
       const Voxel& before = puzzle_->getShape(which[k]);
       const Voxel& after = *copies[k];
       changedShape[k] = !(after == before) || after.getHx() != before.getHx() ||
@@ -525,6 +542,7 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   } else {
     for (std::size_t k = 0; k < which.size(); k++) {
       const Result<TaskOutcome> o = applyTask(*copies[k], task);
+      readTags(k);
       if (!o) {
         return std::unexpected(o.error());
       }
@@ -544,6 +562,7 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
     (void)puzzle_->replaceShape(which[k], std::move(copies[k]));
     lastChange_.shapes.push_back(ids_.shapes[which[k]]);
     shapeChanged(which[k]);
+    finishBoardEdit(boards[k]);
   }
   g.commit(kChangeShapes | lastChange_.what);
   return mine;
@@ -782,11 +801,26 @@ Result<void> Document::setResult(Id problem, Id shape) {
   touchProblem(*p);
   // a piece no more
   pr.setShapeMaximum(*puzzle_, *s, 0);
-  pr.setResultId(*puzzle_, *s);
+  // a sliding problem takes the starts and goals that fit the new board
+  // along (changeBoard)
+  std::vector<unsigned int> lost;
+  if (slidingPuzzle) {
+    lost = sliding::changeBoard(*puzzle_, *p, *s);
+  } else {
+    pr.setResultId(*puzzle_, *s);
+  }
   endSession(*p);
   lastChange_.problems = {problem};
   if (slidingPuzzle) {
     syncSliding();
+    if (!lost.empty()) {
+      std::string names;
+      for (const unsigned int piece : lost) {
+        names += (names.empty() ? "" : ", ") + sliding::shapeLabel(*puzzle_, piece);
+      }
+      lastChange_.notice = "The starts and goals that do not fit the new board were removed: " +
+                           names + ".";
+    }
   }
   g.commit(kChangeProblems | kChangeSolutions | lastChange_.what);
   return {};

@@ -3,7 +3,9 @@
 
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/imports.h"
+#include "shapelogic/model/sliding.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -591,6 +593,60 @@ bool shapeToLayers(const Voxel& v, std::vector<std::string>& layers) {
   return !layers.empty();
 }
 
+// A tray to print, in shapeToLayers' rows: a floor layer under the tray's
+// bounding box, and on it `height` wall layers, each the cells the tray's
+// layer at that height leaves empty (its walls; above its top, its top
+// layer's), with `ring` the box grown by a cell on each side and the ring
+// around it walled too. No wall layers when there is no wall cell.
+bool trayToBoard(const Voxel& v, bool ring, unsigned int height,
+                 std::vector<std::string>& layers) {
+  layers.clear();
+  if (v.countState(Voxel::kFilled) == 0 && v.countState(Voxel::kVariable) == 0) {
+    return false;
+  }
+
+  const unsigned int x0 = v.boundX1();
+  const unsigned int y0 = v.boundY1();
+  const unsigned int z0 = v.boundZ1();
+  const unsigned int z1 = v.boundZ2();
+  const unsigned int grow = ring ? 1 : 0;
+  const unsigned int w = v.boundX2() - x0 + 1 + 2 * grow;
+  const unsigned int h = v.boundY2() - y0 + 1 + 2 * grow;
+
+  std::string floor;
+  for (unsigned int y = 0; y < h; y++) {
+    if (y > 0) {
+      floor += '|';
+    }
+    floor.append(w, 'x');
+  }
+  layers.push_back(floor);
+
+  bool walls = false;
+  std::vector<std::string> above;
+  for (unsigned int k = 0; k < height; k++) {
+    const unsigned int z = std::min(z0 + k, z1);
+    std::string wall;
+    for (unsigned int y = 0; y < h; y++) {
+      if (y > 0) {
+        wall += '|';
+      }
+      for (unsigned int x = 0; x < w; x++) {
+        const bool edge = ring && (x == 0 || y == 0 || x + 1 == w || y + 1 == h);
+        const bool solid =
+            edge || v.getState(x0 + x - grow, y0 + y - grow, z) == Voxel::kEmpty;
+        walls = walls || solid;
+        wall += solid ? 'x' : '.';
+      }
+    }
+    above.push_back(wall);
+  }
+  if (walls) {
+    layers.insert(layers.end(), above.begin(), above.end());
+  }
+  return true;
+}
+
 std::string baseName(std::string_view path) {
   if (path.empty()) {
     return "unknown";
@@ -724,34 +780,59 @@ Result<Puzzle> readPuzzlecad(std::string_view text, std::uint64_t maxCells) {
 }
 
 std::optional<std::string> writePuzzlecad(const Puzzle& p, const Problem* problem,
-                                          std::string_view sourceName) {
+                                          std::string_view sourceName,
+                                          const PuzzlecadOptions& options) {
   std::vector<unsigned int> shapeIds;
   std::int64_t skipResult = -1;
+  if (problem != nullptr && problem->resultValid()) {
+    skipResult = problem->getResultId();
+  }
 
-  if (problem != nullptr) {
-    if (problem->resultValid()) {
-      skipResult = problem->getResultId();
-    }
-    for (unsigned int i = 0; i < problem->getNumberOfParts(); i++) {
-      const unsigned int id = problem->getShapeIdOfPart(i);
-      if (std::int64_t{id} == skipResult) {
-        continue;
-      }
-      bool seen = false;
-      for (const unsigned int k : shapeIds) {
-        if (k == id) {
-          seen = true;
+  // The trays, the shapes the pieces go in: a sliding puzzle's start/goal
+  // shapes, never pieces (other grids have none).
+  const bool slidingGrid = sliding::isSliding(p);
+  std::vector<unsigned int> trays;
+  if (slidingGrid) {
+    if (skipResult >= 0 &&
+        sliding::isStartGoalShape(&p.getShape(static_cast<unsigned int>(skipResult)))) {
+      trays.push_back(static_cast<unsigned int>(skipResult));
+    } else {
+      for (unsigned int s = 0; s < p.getNumberOfShapes(); s++) {
+        if (sliding::isStartGoalShape(&p.getShape(s))) {
+          trays.push_back(s);
         }
       }
-      if (!seen) {
+    }
+  }
+  const auto tray = [&p, slidingGrid](unsigned int id) {
+    return slidingGrid && sliding::isStartGoalShape(&p.getShape(id));
+  };
+
+  if (problem != nullptr) {
+    for (unsigned int i = 0; i < problem->getNumberOfParts(); i++) {
+      const unsigned int id = problem->getShapeIdOfPart(i);
+      if (std::int64_t{id} == skipResult || tray(id)) {
+        continue;
+      }
+      if (options.copies) {
+        // every copy the problem has of the part, not the distinct shapes
+        shapeIds.insert(shapeIds.end(), problem->getPartMaximum(i), id);
+      } else if (std::ranges::find(shapeIds, id) == shapeIds.end()) {
         shapeIds.push_back(id);
       }
     }
   }
 
-  if (shapeIds.empty()) {
+  if (problem == nullptr && !options.shapes.empty()) {
+    // the shapes chosen, no others when none of them is a piece
+    for (const unsigned int s : options.shapes) {
+      if (s < p.getNumberOfShapes() && !tray(s)) {
+        shapeIds.push_back(s);
+      }
+    }
+  } else if (shapeIds.empty()) {
     for (unsigned int s = 0; s < p.getNumberOfShapes(); s++) {
-      if (std::int64_t{s} != skipResult) {
+      if (std::int64_t{s} != skipResult && !tray(s)) {
         shapeIds.push_back(s);
       }
     }
@@ -765,10 +846,22 @@ std::optional<std::string> writePuzzlecad(const Puzzle& p, const Problem* proble
     }
   }
 
-  if (pieces.empty()) {
+  // and the trays, when asked for, each a packing_box of its own
+  std::vector<std::vector<std::string>> boxes;
+  if (options.tray) {
+    for (const unsigned int id : trays) {
+      std::vector<std::string> layers;
+      if (trayToBoard(p.getShape(id), options.lip > 0, std::max(options.lip, 1U), layers)) {
+        boxes.push_back(layers);
+      }
+    }
+  }
+
+  if (pieces.empty() && boxes.empty()) {
     return std::nullopt;
   }
 
+  // the header; a sliding puzzle's pieces are beveled per unit and not inset
   std::string str =
       "include <puzzlecad.scad>\n"
       "\n"
@@ -782,44 +875,73 @@ std::optional<std::string> writePuzzlecad(const Puzzle& p, const Problem* proble
       "require_puzzlecad_version(\"2.3.1\");\n"
       "\n"
       "$plate_width = 240;\n"
-      "$plate_sep = 3;\n"
-      "$unit_beveled = false;\n"
+      "$plate_sep = 3;\n";
+  str += slidingGrid ? "$unit_beveled = true;\n" : "$unit_beveled = false;\n";
+  str +=
       "$auto_layout = true;\n"
       "\n"
-      "// Use burr_scal = 15.7 to match live cubes\n"
+      "// Use burr_scale = 15.7 to match live cubes\n"
       "$burr_scale = 15.7;\n"
       "$burr_bevel = 1.2;\n"
-      "\n"
-      "$burr_inset = 0.05;\n"
+      "\n";
+  str += slidingGrid ? "//$burr_inset = 0.05;\n" : "$burr_inset = 0.05;\n";
+  str +=
       "$joint_inset= 0.01;\n"
       "\n"
       "$box_wall_thickness = 4;\n"
       "$thatch_thickness = 4;\n"
-      "\n"
-      "*packing_box(\n"
-      "\n"
-      "$box_wall_thickness = 4\n"
-      ");\n"
-      "\n"
-      "burr_plate([\n";
+      "\n";
 
-  for (const std::vector<std::string>& piece : pieces) {
-    str += "    [ ";
-    for (std::size_t z = 0; z < piece.size(); z++) {
-      if (z != 0) {
-        str += "      ";
+  const auto plate = [&str, &pieces]() {
+    for (const std::vector<std::string>& piece : pieces) {
+      str += "    [ ";
+      for (std::size_t z = 0; z < piece.size(); z++) {
+        if (z != 0) {
+          str += "      ";
+        }
+        str += '"';
+        str += piece[z];
+        str += '"';
+        if (z + 1 < piece.size()) {
+          str += ",\n";
+        }
       }
-      str += '"';
-      str += piece[z];
-      str += '"';
-      if (z + 1 < piece.size()) {
-        str += ",\n";
-      }
+      str += " ],\n";
     }
-    str += " ],\n";
+  };
+
+  if (!slidingGrid) {
+    str += "burr_plate([\n";
+    plate();
+    str += "]);\n";
+    return str;
   }
 
-  str += "]);\n";
+  // sliding: the trays as packing boxes (all but the first disabled, since
+  // they would overlap), then the pieces' plate, disabled while a box is
+  // shown, each with the settings a sliding puzzle's flat pieces want
+  for (std::size_t b = 0; b < boxes.size(); b++) {
+    str += b == 0 ? "packing_box([\n" : "*packing_box([\n";
+    for (const std::string& layer : boxes[b]) {
+      str += "    \"" + layer + "\",\n";
+    }
+    str +=
+        "], $burr_scale = [16, 16, 5.6], $box_wall_thickness = [8, 8, 4]\n"
+        ");\n"
+        "// burr_scale = [16, 16, 5.6] will give 16mm wide pieces with 5.6mm thickness\n"
+        "// box_wall_thickness = [8, 8, 4] will give 8mm thick walls and 4mm thick base and top\n"
+        "// Try adding {label_text=Testing Label,label_orient=z+x+,label_scale=0.5,"
+        "label_hoffset=-0.5,label_voffset=-0.5} after an 'x' to put the label at that spot\n"
+        "\n";
+  }
+  if (!pieces.empty()) {
+    str += boxes.empty() ? "burr_plate([\n" : "*burr_plate([\n";
+    plate();
+    str +=
+        "], $burr_scale = [16, 16, 5.6], $unit_beveled = false, $burr_bevel = 1.0);\n"
+        "// unit_beveled = false to remove the groove lines on each voxel\n"
+        "// burr_bevel = 1 to increase how rounded the edges of the pieces are\n";
+  }
   return str;
 }
 

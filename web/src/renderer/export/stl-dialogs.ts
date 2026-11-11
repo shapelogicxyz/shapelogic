@@ -2,7 +2,8 @@
 //
 // The STL dialogs (deferred part 5; docs/webui-spec.md section 10). From
 // src/gui/stlexport.cpp (stlExport_c: File ▸ Export ▸ STL, the grid's
-// parameters, Binary STL, the shape, a preview of the mesh with its
+// parameters, Binary STL, the shape (here the shapes, picked into a second
+// list, each in a file of its own), a preview of the mesh with its
 // volume, normally or its insides; Export STL keeps the dialog open) and
 // src/gui/stlexportsolution.cpp (stlExportSolution_c: the parameters, the
 // output folder, the pieces placed in the solution, Export All with the
@@ -29,6 +30,7 @@ import {
   volumeLine,
 } from './stl-form.ts';
 import type { FieldValue } from './stl-form.ts';
+import { pickerHtml, ShapePicker } from './shape-picker.ts';
 import { StlPreview } from './stl-preview.ts';
 
 /** What the dialogs need of the app. */
@@ -99,7 +101,16 @@ function setStatus(el: HTMLElement, text: string, error = false): void {
   }
 }
 
-/** File ▸ Export ▸ STL: the dialog with the preview (stlExport_c). */
+/** The shapes a dialog last exported, by document: the next one starts with them. */
+let rememberedShapes: { path: string | null; shapes: string[] } | null = null;
+
+/**
+ * File ▸ Export ▸ STL: the dialog with the preview (stlExport_c), the shapes
+ * to export picked from every shape into a second list (the original
+ * exported one shape at a time). One shape is written to the file the save
+ * dialog gives; several, each to its own file in the folder the folder
+ * dialog gives, named as a solution's pieces are (export.stlFileNames).
+ */
 export async function shapeStlDialog(ctx: StlContext): Promise<void> {
   const { store, app } = ctx;
   const snap = store.snapshot;
@@ -122,11 +133,37 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
     return;
   }
 
+  // the shapes to export: the last ones for this document, else the shape shown
+  const kept = rememberedShapes?.path === snap.path ? rememberedShapes.shapes : [];
+  let previewed = first?.id ?? '';
   let preview: StlPreview | null = null;
   let generation = 0;
   let exporting = false;
-  const chosenShape = (el: HTMLElement): string =>
-    el.querySelector<HTMLSelectElement>('[data-f="shape"]')?.value ?? first?.id ?? '';
+  let dialogEl: HTMLElement | null = null;
+  // Export STL… is greyed with nothing to export
+  const syncGo = (): void => {
+    const go = dialogEl?.querySelector<HTMLButtonElement>('[data-x="go"]');
+    if (go != null) {
+      go.disabled = picker.ids().length === 0;
+    }
+  };
+  const picker = new ShapePicker(
+    shapes,
+    kept.some((id) => shapes.some((x) => x.id === id))
+      ? kept
+      : first === undefined
+        ? []
+        : [first.id],
+    {
+      onChange: syncGo,
+      onPick: (id) => {
+        if (id !== previewed && dialogEl !== null) {
+          previewed = id;
+          void update(dialogEl);
+        }
+      },
+    },
+  );
 
   // the preview of the shape at the values as they are (cb_Update3DView)
   const update = async (el: HTMLElement): Promise<void> => {
@@ -136,9 +173,13 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
       setStatus(el, read.error, true);
       return;
     }
-    const shape = chosenShape(el);
+    const shape = previewed;
     const index = shapes.findIndex((s) => s.id === shape);
+    if (index < 0) {
+      return;
+    }
     el.dataset.busy = '1';
+    el.dataset.preview = shape;
     setStatus(el, 'Building the mesh…');
     try {
       const r = await store.engine.call('export.stlMesh', { shape, parameters: read.values });
@@ -164,34 +205,102 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
     }
   };
 
-  // Export STL (exportSTL): the file from the save dialog, the dialog stays open
-  const exportFile = async (el: HTMLElement): Promise<void> => {
+  // Export STL… with one shape (exportSTL): the file from the save dialog
+  const exportOne = async (shapeId: string, values: number[], binary: boolean): Promise<void> => {
+    const shape = shapes.find((s) => s.id === shapeId);
+    if (shape === undefined) {
+      return;
+    }
+    const proposed = shape.name.trim() === '' ? `${ctx.base} ${shape.label}` : shape.name.trim();
+    const path = await app.chooseSave('stl', `${proposed}.stl`);
+    if (path === null) {
+      return;
+    }
+    const r = await store.engine.call('export.stl', {
+      shape: shape.id,
+      parameters: values,
+      binary,
+      name: baseName(path),
+    });
+    await ctx.write(path, fileBytes(r));
+  };
+
+  // Export STL… with several shapes: a file each into the folder chosen, as Export All writes them
+  const exportMany = async (
+    el: HTMLElement,
+    ids: string[],
+    values: number[],
+    binary: boolean,
+  ): Promise<void> => {
+    const to = await app.chooseFolder(true);
+    if (to === null) {
+      return;
+    }
+    const { fileNames } = await store.engine.call('export.stlFileNames', { shapes: ids });
+    const existing = await app.existingExports(to, fileNames);
+    if (existing > 0) {
+      const answer = await askChoice('stlOverwrite', 'Export STL', overwriteQuestion(existing), [
+        { key: 'cancel', label: 'Cancel' },
+        {
+          key: 'overwrite',
+          label: 'Overwrite',
+          kind: 'danger',
+          default: true,
+          tip: 'Replace the files that are already there',
+        },
+      ]);
+      if (answer !== 'overwrite') {
+        return;
+      }
+    }
+    let exported = 0;
+    let errors = 0;
+    setStatus(el, 'Exporting…');
+    for (const [i, shape] of ids.entries()) {
+      const fileName = fileNames[i] ?? `${shape}.stl`;
+      try {
+        const r = await store.engine.call('export.stl', {
+          shape,
+          parameters: values,
+          binary,
+          name: fileName,
+        });
+        await app.writeFolderExport(to, fileName, fileBytes(r));
+        exported++;
+      } catch (e) {
+        tell(`Error exporting ${fileName}:\n${message(e)}`);
+        errors++;
+      }
+    }
+    setStatus(el, exportedLine(exported, errors, 'shape(s)'), errors > 0);
+    if (exported > 0) {
+      flash(`Exported ${String(exported)} STL file(s) to ${baseName(to)}`);
+    }
+    el.dataset.exported = String(Number(el.dataset.exported ?? '0') + 1);
+  };
+
+  // Export STL…: the dialog stays open, as the original's
+  const exportFiles = async (el: HTMLElement): Promise<void> => {
     const read = readParameters(params, fieldsOf(el, params));
     if ('error' in read) {
       setStatus(el, read.error, true);
       return;
     }
-    const shape = shapes.find((s) => s.id === chosenShape(el));
-    if (shape === undefined || exporting) {
+    const ids = picker.ids();
+    if (ids.length === 0 || exporting) {
       return;
     }
     remembered.set(grid, fieldsOf(el, params));
+    rememberedShapes = { path: snap.path, shapes: ids };
     const binary = el.querySelector<HTMLInputElement>('[data-f="binary"]')?.checked ?? true;
     binaryChosen = binary;
-    const proposed = shape.name.trim() === '' ? `${ctx.base} ${shape.label}` : shape.name.trim();
     exporting = true;
     try {
-      const path = await app.chooseSave('stl', `${proposed}.stl`);
-      if (path === null) {
-        return;
+      if (ids.length === 1 && ids[0] !== undefined) {
+        await exportOne(ids[0], read.values, binary);
+      } else {
+        await exportMany(el, ids, read.values, binary);
       }
-      const r = await store.engine.call('export.stl', {
-        shape: shape.id,
-        parameters: read.values,
-        binary,
-        name: baseName(path),
-      });
-      await ctx.write(path, fileBytes(r));
     } catch (e) {
       if (e instanceof EngineError && e.errc === 'invalid_argument') {
         tell(e.detail);
@@ -210,7 +319,10 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
     body: `<div class="stl-dlg"><div class="form stl-side">
 <div class="stl-params">${parameterRows(params, fields)}</div>
 <label title="A binary STL file is smaller; a text STL file can be read in an editor"><input type="checkbox" data-f="binary" ${binaryChosen ? 'checked' : ''}> Binary STL</label>
-<label class="fl">Shape<select data-f="shape" title="The shape to export">${shapes.map((s) => `<option value="${esc(s.id)}" ${s === first ? 'selected' : ''}>${esc(s.label)}${s.name === '' ? '' : ` — ${esc(s.name)}`}</option>`).join('')}</select></label></div>
+${pickerHtml({
+  all: 'Every shape not chosen; select shapes and press → to export them',
+  chosen: 'The shapes to export: one to a file, several to a file each in a folder',
+})}</div>
 <div class="stl-look"><canvas class="stl-view" data-f="view"></canvas>
 <div class="stl-bar"><div class="stl-status" data-f="status"></div><div class="seg"><button data-mode="normal" class="on" title="Display STL object normally">Normal</button><button data-mode="insides" title="Display the insides of the STL object">Insides</button></div></div></div></div>`,
     buttons: [
@@ -219,15 +331,16 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
         key: 'go',
         label: 'Export STL…',
         kind: 'pri',
-        tip: 'Choose a file and write the shape to it as STL',
+        tip: 'Write the shapes to export as STL: one shape to a file you choose, several to a file each in a folder you choose',
       },
     ],
     onAnswer: (k, el) => {
       if (k === 'go') {
-        void exportFile(el);
+        void exportFiles(el);
         return false;
       }
       remembered.set(grid, fieldsOf(el, params));
+      rememberedShapes = { path: snap.path, shapes: picker.ids() };
       return true;
     },
   });
@@ -235,8 +348,11 @@ export async function shapeStlDialog(ctx: StlContext): Promise<void> {
   const canvas = el?.querySelector<HTMLCanvasElement>('[data-f="view"]');
   if (el !== null && canvas != null) {
     preview = new StlPreview(canvas, css('--canvas') || '#e4e8ef');
+    dialogEl = el;
+    picker.attach(el, [previewed]);
+    syncGo();
     el.addEventListener('change', (e) => {
-      if ((e.target as Element).closest('[data-p],[data-f="shape"]') !== null) {
+      if ((e.target as Element).closest('[data-p]') !== null) {
         void update(el);
       }
     });

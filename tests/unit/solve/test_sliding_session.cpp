@@ -390,7 +390,7 @@ TEST_CASE("sliding session: the holes are set up as a solve starts", "[sliding][
   for (unsigned int s = 1; s < p.getNumberOfShapes(); s++) {
     CHECK(pieceColor(p, s) == 0);
   }
-  CHECK(p.getShape(0).hasStartPieces());
+  CHECK(p.getProblem(0).slideMarks().any(false));
   pr.setMaxHoles(9);
   const Puzzle before = p;
   REQUIRE(prepareForSolving(p, pr));

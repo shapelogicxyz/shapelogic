@@ -1012,15 +1012,28 @@ def sliding_start_goal_shapes(e):
     red = e.call("colour.add", {"rgb": "#ff0000"})["colour"]
     e.call("colour.delete", {"colour": red})
     check(e.call("sliding.tray", {"tray": tray})["starts"][0] == two, "the marks stay")
-    # a copy of the problem shares the board; the calls that name a problem
-    # take its counts, and refuse one not on the board
+    # a copy of the problem shares the board, with starts and goals of its
+    # own (a copy of the first's); the calls that name a problem act on its
+    # own, with its counts, and refuse one not on the board
     q = e.call("problem.duplicate", {"problem": p})["problem"]
+    before = e.call("sliding.tray", {"tray": tray, "problem": p})
+    t = e.call("sliding.tray", {"tray": tray, "problem": q})
+    check(t["starts"] == before["starts"] and t["goals"] == before["goals"], f"q starts as p {t}")
     e.call("problem.setPieceCount", {"problem": q, "shape": two, "min": 2, "max": 2})
     pv = e.call("sliding.preview", {"tray": tray, "problem": q, "piece": two, "at": [2, 1], "goal": False})
     check(pv["fits"] and not pv["there"], f"a second copy in q {pv}")
     t = e.call("sliding.tray", {"tray": tray, "problem": q})
     check(t["error"] is not None, f"q has a copy of S2 without a start and goal {t}")
-    check(e.call("sliding.tray", {"tray": tray, "problem": p})["error"] is None, "p is valid")
+    e.call("sliding.place", {"tray": tray, "problem": q, "piece": two, "at": [2, 1], "goal": False})
+    check(e.call("sliding.clearAt", {"tray": tray, "at": [3, 0], "goal": False, "problem": q})["cleared"],
+          "S1 off q's start")
+    e.call("sliding.clone", {"tray": tray, "toGoal": True, "problem": q})
+    t = e.call("sliding.tray", {"tray": tray, "problem": q})
+    check(t["starts"][6] == two and t["starts"][3] is None and t["goals"] == t["starts"], f"q's own {t}")
+    after = e.call("sliding.tray", {"tray": tray, "problem": p})
+    check(after["starts"] == before["starts"] and after["goals"] == before["goals"], f"p as it was {after}")
+    check(e.call("sliding.tray", {"tray": tray})["starts"] == before["starts"], "without one: the first problem")
+    check(after["error"] is None, "p is valid")
     e.call("problem.clearResult", {"problem": q})
     e.fails("sliding.tray", {"tray": tray, "problem": q}, "invalid_argument")
     e.fails("sliding.place", {"tray": tray, "problem": q, "piece": one, "at": [2, 0], "goal": False},
@@ -1076,6 +1089,9 @@ def sliding_start_goal_shapes(e):
     deep = e.call("shape.create", {"size": [1, 1, 2]})["shape"]
     e.call("shape.setCells", {"shape": deep, "tool": "fixed", "cells": [[0, 0, 0], [0, 0, 1]]})
     box = e.call("sliding.addStartGoal", {"size": [2, 1, 3]})["shape"]
+    # the starts and goals are a problem's: a board of none takes none
+    e.fails("sliding.place", {"tray": box, "piece": deep, "at": [1, 0, 2], "goal": False}, "invalid_argument")
+    e.call("problem.setResult", {"problem": e.call("problem.create")["problem"], "shape": box})
     # a click on the top layer: the piece's top there, the lowest height that fits
     pv = e.call("sliding.preview", {"tray": box, "piece": deep, "at": [1, 0, 2], "goal": False})
     check(pv["fits"] and pv["cells"] == [[1, 0, 1], [1, 0, 2]], f"from the top layer {pv}")
@@ -1416,7 +1432,7 @@ def stl_exports(e):
     snap = e.call("document.open", {"path": str(FIXTURES / "CubeInCage.xmpuzzle")})
     params = e.call("export.stlParameters")["parameters"]
     check([q["name"] for q in params] == ["Unit Size", "Unit Size Y", "Unit Size Z", "Bevel", "Offset",
-                                           "Interior chamfers", "Uniform bevels", "Bumpy"],
+                                           "Interior chamfers", "Uniform bevels", "Unit Beveled"],
           f"the cube grid's parameters {params}")
     defaults = [q["default"] for q in params]
     check(defaults == [10, 0, 0, 0.3, 0.01, 1, 0, 0], f"the defaults {defaults}")
@@ -1454,6 +1470,11 @@ def stl_exports(e):
     e.fails("export.stl", {"shape": pieces[0]["shape"], "name": "x" * 256}, "invalid_argument")
     e.fails("export.stl", {"shape": "s999"}, "not_found")
     e.fails("export.solutionPieces", {"problem": p, "solution": "sol99999"}, "not_found")
+    # several shapes' files: named as the pieces are
+    names = e.call("export.stlFileNames", {"shapes": [x["shape"] for x in pieces]})["fileNames"]
+    check(names == [x["fileName"] for x in pieces], f"the shapes' file names {names}")
+    e.fails("export.stlFileNames", {"shapes": []}, "invalid_params")
+    e.fails("export.stlFileNames", {"shapes": ["s999"]}, "not_found")
 
     # the sphere grid: the original's mesh fails at 6 recursions, more are not built
     snap = e.call("document.open", {"path": str(FIXTURES / "BallRoom.xmpuzzle")})
@@ -1500,6 +1521,18 @@ def imports_exports_conversions(e):
     check(text == (IMPORTED / "PelikanBurr.p0.scad").read_text(), "PelikanBurr's export as the original's")
     check(e.call("document.exportPuzzlecad")["text"] == (IMPORTED / "PelikanBurr.p1.scad").read_text(),
           "every shape without a problem")
+    # the copies, and the result as a tray with a lip after the pieces
+    copies = e.call("document.exportPuzzlecad", {"problem": p, "copies": True})["text"]
+    check(copies == text, "PelikanBurr has one of each piece")
+    e.fails("document.exportPuzzlecad", {"problem": p, "tray": True, "lip": 2}, "invalid_argument")
+    e.fails("document.exportPuzzlecad", {"lip": 17}, "invalid_params")
+    # the shapes chosen as the pieces
+    shapes = [x["id"] for x in snap["shapes"]]
+    one = e.call("document.exportPuzzlecad", {"shapes": shapes[1:2]})["text"]
+    check(one.count('    [ "') == 1, f"one shape chosen: {one}")
+    e.fails("document.exportPuzzlecad", {"problem": p, "shapes": shapes[1:2]}, "invalid_params")
+    e.fails("document.exportPuzzlecad", {"shapes": []}, "invalid_params")
+    e.fails("document.exportPuzzlecad", {"shapes": ["s99999"]}, "not_found")
     # a document without a file names the export's
     e.call("document.import", {"format": "puzzlecad", "path": str(IMPORTS / "plate.scad")})
     text = e.call("document.exportPuzzlecad", {"name": "/some/where/plate.scad"})["text"]

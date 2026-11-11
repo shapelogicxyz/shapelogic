@@ -54,7 +54,11 @@ each, as you choose the result of a Brick puzzle.
    list's **Delete** removes a board. Problems that used it stay, without
    a board, until you choose another.
 3. Draw the board with the usual tools, as any other shape: **Fixed** is
-   floor, **Variable** is corridor and **Erase** is wall.
+   floor, **Variable** is corridor and **Erase** is wall. A board that
+   problems already use can still be changed: in every problem, the starts
+   and goals stay where they are, and a start or goal that loses one of
+   its cells (erased, or cut off by a smaller board) is removed whole, and
+   ShapeLogic tells you which pieces lost one.
 
 Sliding puzzles are edited in the XY plane, one layer at a time. Paint the
 pieces and the board with constraint colors to limit where a piece may
@@ -97,8 +101,11 @@ On the **Puzzle** workspace the board is the problem's result.
 1. Press **+ New** in the problems list to make a problem, then **Change…**
    beside its result and pick a board. **Change…** lists only the boards.
    You can make, copy and delete problems as on other puzzles, and several
-   problems can use the same board. They share its starts and goals, but
-   each has its own pieces and counts.
+   problems can use the same board. Each problem has its own starts and
+   goals on it, and its own pieces and counts, so one board can hold a
+   whole set of challenges. A copy of a problem begins with the same
+   starts and goals, and you can then change it without touching the
+   first.
 2. Add the pieces to **In this puzzle**, with as many copies of each as the
    puzzle has. Three blue blocks of the same shape are one piece with three
    copies.

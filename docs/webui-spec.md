@@ -674,9 +674,13 @@ A dialog "Export STL" (`#exportStl`), wide, in two columns:
   spheres: Sphere radius, Connection radius, Curvature radius, Offset,
   Recursions, Inner radius, Hole diameter, Square Hole): a number field
   for numbers (shown as the original's `%2.2f`), a whole-number field for
-  Recursions (`%i`), a check box for a switch. **Binary STL** (on). The
-  shape: a list of the puzzle's shapes (label, name), the selected shape
-  first chosen (the original's PieceSelector started at the first).
+  Recursions (`%i`), a check box for a switch. **Binary STL** (on).
+  **Shapes** (not the original's single PieceSelector): two multi-select
+  lists side by side, **All shapes** and **To export** (label, name), with
+  arrow buttons between them (→ the selected across, ⇒ all, ← and ⇐
+  back; a double click moves one). To export starts with the shapes last
+  exported from this document, else the shape selected. The preview shows
+  the shape last picked in either list.
 - **Right:** the preview, a small 3D view of the STL mesh of the chosen
   shape at the values as they are (drag turns it, the wheel zooms), in the
   piece's colour, lit, with the original's two modes as a pair of buttons:
@@ -690,8 +694,12 @@ A dialog "Export STL" (`#exportStl`), wide, in two columns:
 - A changed field or shape updates the preview (on change, as the
   original's field callbacks; a field that is not a number says so in the
   status line and keeps the last preview).
-- Buttons: **Close** (the original's Abort) and **Export STL…**: the
-  system's save dialog (the original's File name and Path fields and its
+- Buttons: **Close** (the original's Abort) and **Export STL…** (greyed
+  with nothing to export). With several shapes to export: the system's
+  folder dialog, then a file per shape named by the engine
+  (`export.stlFileNames`, as a solution's pieces), the question before
+  files are replaced and the status line "Done — exported n shape(s).",
+  as Export to STL (10.2). With one: the system's save dialog (the original's File name and Path fields and its
   "..." chooser), proposing "<shape name, else label>.stl" in the
   puzzle's folder; the system dialog asks before replacing a file (the
   original asked "File exists overwrite?"). The file's solid is named by
@@ -769,11 +777,24 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
 - Enabled when the puzzle has a shape with cells, as Export ▸ STL (the
   original enabled it with any shape and then said "Could not export
   puzzlecad file." when none had a cell).
-- The pieces are those of the problem the Puzzle workspace shows (the
-  original's problem selector), the first problem when it shows none.
+- Cube-grid and sliding puzzles (the original: the cube grid only); greyed
+  on the other grids (`scad` of the menu state). A sliding puzzle's file
+  has its own template (the trays in packing_box calls, the pieces'
+  burr_plate after them, api/document.json).
 - The engine is asked first: a puzzle it refuses gets the original's
-  message box before any file is asked for ("Puzzlecad export is only
+  message box before anything else is asked ("Puzzlecad export is only
   available for cube-grid puzzles.", "Nothing to export.").
+- Then a dialog "Export Puzzlecad (OpenSCAD)" (`#exportScad`; not the
+  original's, which wrote the problem's distinct pieces): radio buttons
+  **Pieces** (the shapes picked in the two lists of 10.1, every shape but
+  a sliding puzzle's boards, all on the left to start with, the ones
+  exported last kept per document; `shapes`)
+  and **Problems** (the lists greyed; the problem chosen
+  in the list under it, the Puzzle workspace's first, with every copy of
+  each part: `copies`); on a sliding puzzle only (absent on the brick
+  grid, where the engine refuses `tray`), check boxes **Export Tray**
+  (`tray`; on to start with) and **Add Tray Lip** with its **Height
+  (voxels)**, 1 to 16 (`lip`). The choices are kept for the next export.
 - Then the system's save dialog "Export Puzzlecad File" with "OpenSCAD
   Files (*.scad)", proposing "<puzzle name>.scad" beside the puzzle (the
   original proposed the puzzle's own path); it asks before replacing a

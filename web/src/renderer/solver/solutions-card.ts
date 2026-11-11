@@ -378,7 +378,9 @@ export class SolutionsCard {
   private exportMenu(): string {
     const ws = this.ws;
     // File ▸ Export's rules: Puzzlecad and STL need a shape with cells, the animation a disassembly shown
-    const shapes = ws.store.snapshot?.shapes.some((x) => x.fixed + x.variable > 0) ?? false;
+    const snap = ws.store.snapshot;
+    const shapes = snap?.shapes.some((x) => x.fixed + x.variable > 0) ?? false;
+    const scad = shapes && (snap?.grid === 'bricks' || snap?.grid === 'sliding');
     const animation = ws.player.problem !== null && ws.player.row?.disassembly === 'tree';
     const item = (k: string, label: string, tip: string, on: boolean): string =>
       `<button data-k="${k}" title="${tip}" ${on ? '' : 'disabled'}>${label}</button>`;
@@ -394,8 +396,8 @@ export class SolutionsCard {
       item(
         'scad',
         'Puzzlecad (OpenSCAD)…',
-        'Export the shapes as a Puzzlecad file for OpenSCAD',
-        shapes,
+        'Export the shapes as a Puzzlecad file for OpenSCAD (brick and sliding puzzles)',
+        scad,
       ) +
       item('image', 'Image…', 'Save the 3D view as a PNG image', true) +
       item('vector', 'Vector Image…', 'Save the 3D view as an SVG vector image', true) +

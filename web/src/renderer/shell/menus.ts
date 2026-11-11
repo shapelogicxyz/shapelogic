@@ -170,6 +170,9 @@ export class Menus {
       paused: p?.paused ?? false,
       solutions: snap?.problems.some((x) => x.saved > 0) ?? false,
       shapes: snap?.shapes.some((x) => x.fixed + x.variable > 0) ?? false,
+      scad:
+        (snap?.grid === 'bricks' || snap?.grid === 'sliding') &&
+        snap.shapes.some((x) => x.fixed + x.variable > 0),
       animation: snap !== null && this.h.animation(),
       colourView: this.view.display.colourView,
       style: this.view.display.style,

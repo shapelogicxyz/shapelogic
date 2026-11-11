@@ -272,10 +272,14 @@ describe('the menus', () => {
     expect(stl.get('style.drawing')?.checked).toBe(false);
     // the STL needs a shape with cells, the animation a solution with its moves shown
     const exports = commandItems(
-      build({ ...state, shapes: true, animation: true }, 'darwin').template,
+      build({ ...state, shapes: true, scad: true, animation: true }, 'darwin').template,
     );
     expect(exports.get('export.stl')?.enabled).toBe(true);
     expect(exports.get('export.scad')?.enabled).toBe(true);
+    // Puzzlecad only on the brick and sliding grids
+    const prisms = commandItems(build({ ...state, shapes: true }, 'darwin').template);
+    expect(prisms.get('export.stl')?.enabled).toBe(true);
+    expect(prisms.get('export.scad')?.enabled).toBe(false);
     expect(exports.get('export.glb')?.enabled).toBe(true);
     // the imports replace the document: offered with none open, as Open
     expect(none().get('import.ps3d')?.enabled).toBe(true);

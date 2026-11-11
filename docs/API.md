@@ -258,7 +258,7 @@ Errors: `invalid_argument`, `io_error`, `parse_error`
 
 ### `document.exportPuzzlecad`
 
-The puzzlecad OpenSCAD file of a problem's pieces (File ▸ Export ▸ Puzzlecad (OpenSCAD)): the distinct shapes of its parts but the result (when that leaves none, every shape but the result), or every shape when no problem is given, each as the layers of its bounding box in one burr_plate, in the layout of puzzlecad's MagellanTIC.scad. The header comment names the document's file, or `name` when it has none ("unknown" without either). Only for cube-grid puzzles with shapes (the original's "Puzzlecad export is only available for cube-grid puzzles.", "Nothing to export."), and some shape must have a cell ("Could not export puzzlecad file."): invalid_argument. Allowed while solving.
+The puzzlecad OpenSCAD file of a problem's pieces (File ▸ Export ▸ Puzzlecad (OpenSCAD)): the distinct shapes of its parts but the result, or with `copies` each part as many times as the problem has it (its maximum count; at most 4096 pieces); when that leaves none, every shape but the result; every shape when no problem is given (or the `shapes` listed). Each is the layers of its bounding box in one burr_plate, in the layout of puzzlecad's MagellanTIC.scad. A sliding puzzle's start/goal shapes are never pieces; with `tray` (sliding puzzles only, else invalid_argument) its trays are written too: the problem's board, else every board. A tray is a floor layer under its bounding box with wall layers on it, the cells it leaves empty: `lip` of them (at least one; none when it has no empty cell), and a lip grows the floor by a cell on each side and walls the ring around it. On the cube grid the file is the original's, its "burr_scal" comment typo fixed and without its disabled packing_box placeholder; on the sliding grid each tray is a packing_box (all but the first disabled with *), then the pieces' burr_plate (disabled while a box is written), scaled to [16, 16, 5.6] mm with beveled units and no inset. The header comment names the document's file, or `name` when it has none ("unknown" without either). Only for cube-grid and sliding puzzles with shapes (the original's "Puzzlecad export is only available for cube-grid puzzles.", "Nothing to export."), and some shape must have a cell ("Could not export puzzlecad file."): invalid_argument. Allowed while solving.
 
 Params:
 
@@ -266,6 +266,10 @@ Params:
 |---|---|---|---|
 | `problem` | [ProblemId](#problemid) |  | A problem; also names its solve and its analysis. |
 | `name` | string |  | The file being written, for the header when the document has no file. At most 255 bytes, no control characters. |
+| `copies` | boolean |  | With a problem, each part as many times as the problem has it, not each distinct shape once. Default false. |
+| `tray` | boolean |  | A sliding puzzle's trays (its boards) as packing boxes; only on the sliding grid. Default false. |
+| `lip` | integer |  | The height in cells of the wall around a tray (the tray grown by a cell on each side); 0, the default, for none. |
+| `shapes` | [ShapeId](#shapeid)[] |  | Without a problem (giving both: invalid_params): the shapes to write as pieces, in this order, rather than every shape; a start/goal shape is left out. |
 
 Result:
 
@@ -1263,7 +1267,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, and its stamps. A problem on a board keeps the pieces stamped on it as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
@@ -1286,7 +1290,7 @@ Errors: `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.place`
 
-The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice on that layer with its top-left cell there, at the lowest height that puts a layer of the piece on that layer and fits (on a tray of one layer, the piece's top-left cell there). A piece the problem has one copy of moves there if it was elsewhere; one of several copies is one more copy's start or goal, beside the others, refused once every copy has one; a copy that is exactly there already is taken off. Refused (invalid_argument) with the reason when it does not fit: off the floor, on another piece's or another copy's start or goal, a goal on a corridor, every copy placed. The problems of the start/goal shape lose what they had found. One undo step.
+The start/goal editor's click: the whole of a piece as its start (goal false) or its goal, placed from a click on cell 'at' (y rises upwards, as in the grid editor): the piece's slice on that layer with its top-left cell there, at the lowest height that puts a layer of the piece on that layer and fits (on a tray of one layer, the piece's top-left cell there). A piece the problem has one copy of moves there if it was elsewhere; one of several copies is one more copy's start or goal, beside the others, refused once every copy has one; a copy that is exactly there already is taken off. Refused (invalid_argument) with the reason when it does not fit: off the floor, on another piece's or another copy's start or goal, a goal on a corridor, every copy placed. The problem loses what it had found. One undo step.
 
 Params:
 
@@ -1296,7 +1300,7 @@ Params:
 | `piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `at` | TrayCell | required | A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0). |
 | `goal` | boolean | required |  |
-| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's. |
+| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): the starts and goals are its own, its counts the copies. Without it, the board's first problem. |
 
 Result:
 
@@ -1309,7 +1313,7 @@ Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.clearAt`
 
-Takes off the start or goal of the copy that covers a cell (the editor's right click), not the piece's other copies. One undo step; nothing when none covers it.
+Takes off a problem's start or goal of the copy that covers a cell (the editor's right click), not the piece's other copies. One undo step; nothing when none covers it.
 
 Params:
 
@@ -1318,6 +1322,7 @@ Params:
 | `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `at` | TrayCell | required | A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0). |
 | `goal` | boolean | required |  |
+| `problem` | [ProblemId](#problemid) |  | The problem whose starts and goals these are, whose result must be this board (refused otherwise, invalid_argument). Without it, the board's first problem. |
 
 Result:
 
@@ -1330,7 +1335,7 @@ Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.clone`
 
-Copies every start of a start/goal shape onto its goals (toGoal true), or every goal onto its starts, replacing what that side had (the Puzzle workspace's Clone start to goal and Clone goal to start). Refused (invalid_argument) with the reason when a start is on a variable cell (a goal cannot be on one). The problems of the start/goal shape lose what they had found. One undo step.
+Copies every start a problem has on its start/goal shape onto its goals (toGoal true), or every goal onto its starts, replacing what that side had (the Puzzle workspace's Clone start to goal and Clone goal to start). Refused (invalid_argument) with the reason when a start is on a variable cell (a goal cannot be on one). The problem loses what it had found. One undo step.
 
 Params:
 
@@ -1338,6 +1343,7 @@ Params:
 |---|---|---|---|
 | `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `toGoal` | boolean | required |  |
+| `problem` | [ProblemId](#problemid) |  | The problem whose starts and goals these are, whose result must be this board (refused otherwise, invalid_argument). Without it, the board's first problem. |
 
 Result:
 
@@ -1349,14 +1355,14 @@ Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
 
 ### `sliding.tray`
 
-What a start/goal shape holds: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.
+What a start/goal shape holds for a problem: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.
 
 Params:
 
 | name | type | | description |
 |---|---|---|---|
 | `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
-| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's. |
+| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): the starts and goals are its own, its counts the copies. Without it, the board's first problem. |
 
 Result:
 
@@ -1394,7 +1400,7 @@ Params:
 | `piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `at` | TrayCell | required | A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0). |
 | `goal` | boolean | required |  |
-| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): its counts are the copies. Without it, the board's first problem's. |
+| `problem` | [ProblemId](#problemid) |  | The problem shown, whose result must be this board (refused otherwise, invalid_argument): the starts and goals are its own, its counts the copies. Without it, the board's first problem. |
 
 Result:
 
@@ -2521,13 +2527,31 @@ Result:
 
 Errors: `not_found`
 
+### `export.stlFileNames`
+
+The file names of shapes' STL files when several are exported together (File ▸ Export ▸ STL with several shapes, a file each in one folder), in the order given, named as export.solutionPieces names them: the shape's name, or S<n> without one, every byte but ASCII letters, digits, '-' and '_' made '_', '-S<n>' added when an earlier shape's file has that name, then '.stl'. Allowed while solving.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shapes` | [ShapeId](#shapeid)[] | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `fileNames` | string[] | required |  |
+
+Errors: `not_found`
+
 #### StlParameter
 
 One parameter of a grid's STL mesher (stlExporter_c's getParameterName, getParameterType, getParameter of a new exporter, getParameterTooltip).
 
 | name | type | | description |
 |---|---|---|---|
-| `name` | string | required | The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers, then this core's Uniform bevels and Bumpy (the uniform mesher, both off by default); on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole. |
+| `name` | string | required | The original's label: Unit Size, Unit Size Y, Unit Size Z, Bevel, Offset, Interior chamfers, then this core's Uniform bevels and Unit Beveled (the uniform mesher, both off by default); on the sphere grid Sphere radius, Connection radius, Curvature radius, Offset, Recursions, Inner radius, Hole diameter, Square Hole. |
 | `type` | `"number"` \| `"positiveNumber"` \| `"positiveInteger"` \| `"switch"` | required | The field: any number, a number of 0 or more, a whole number of 0 or more, or a check box (1 on, 0 off). |
 | `default` | number | required |  |
 | `tooltip` | string | required |  |

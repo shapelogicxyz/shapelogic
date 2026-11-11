@@ -75,6 +75,8 @@ export interface MenuState {
   solutions: boolean;
   /** The puzzle has a shape with cells (Export ▸ STL). */
   shapes: boolean;
+  /** That, on the brick or sliding grid, the only ones Export ▸ Puzzlecad writes. */
+  scad: boolean;
   /** The Solver shows a solution with its moves stored (Export ▸ Solution Animation). */
   animation: boolean;
   colourView: boolean;
@@ -236,8 +238,12 @@ export interface BtApp {
    * file, a full disk, a path no dialog gave).
    */
   writeExport(path: string, data: Uint8Array): Promise<void>;
-  /** The folder dialog (a solution's STL files); null when cancelled. */
-  chooseFolder(): Promise<string | null>;
+  /**
+   * The folder dialog (a solution's STL files, several shapes'); null when
+   * cancelled. `save`: the files are written as soon as it is chosen, and
+   * its button says Save rather than Open.
+   */
+  chooseFolder(save?: boolean): Promise<string | null>;
   /** How many of these files the folder the folder dialog gave has already. */
   existingExports(folder: string, names: readonly string[]): Promise<number>;
   /**

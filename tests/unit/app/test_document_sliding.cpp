@@ -18,7 +18,9 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -49,12 +51,37 @@ Id board(Document& d, std::array<unsigned int, 3> size) {
   return tray;
 }
 
+// The starts and goals a board has: its first problem's (they are the
+// problem's, decision 0027); none on a board no problem uses.
+const SlideMarks& marksOn(const Document& d, const Voxel& tray) {
+  static const SlideMarks none;
+  for (unsigned int s = 0; s < d.puzzle().getNumberOfShapes(); s++) {
+    if (&d.puzzle().getShape(s) == &tray) {
+      const Problem* pr = sliding::trayProblem(d.puzzle(), s);
+      return pr != nullptr ? pr->slideMarks() : none;
+    }
+  }
+  return none;
+}
+
+// The piece whose start or goal covers a cell of a board (stampAt).
+unsigned int stampOn(const Document& d, const Voxel& tray, int x, int y, int z, bool goal) {
+  return sliding::stampAt(&tray, &marksOn(d, tray), x, y, z, goal);
+}
+
+// The start or goal mark of a cell of a board.
+unsigned int markOn(const Document& d, const Voxel& tray, unsigned int x, unsigned int y,
+                    unsigned int z, bool goal) {
+  return marksOn(d, tray).get(tray.getIndex(x, y, z), goal);
+}
+
 // The marks of a start/goal shape as text: per cell "start/goal".
 std::string marks(const Document& d, Id tray) {
   const Voxel& v = d.puzzle().getShape(index(d, tray));
+  const SlideMarks& m = marksOn(d, v);
   std::string out;
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
-    out += std::to_string(v.getStartPiece(i)) + "/" + std::to_string(v.getGoalPiece(i)) + " ";
+    out += std::to_string(m.start(i)) + "/" + std::to_string(m.goal(i)) + " ";
   }
   return out;
 }
@@ -117,10 +144,11 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
     CHECK(got.getPartMaximum(p) == 1);
   }
   const Voxel& wantTray = fixture.getShape(0);
-  const Voxel& gotTray = d.puzzle().getShape(index(d, tray));
+  CHECK(got.slideMarks().any(false));
+  CHECK(got.slideMarks().any(true));
   for (unsigned int i = 0; i < wantTray.getXYZ(); i++) {
-    CHECK(gotTray.getStartPiece(i) == wantTray.getStartPiece(i));
-    CHECK(gotTray.getGoalPiece(i) == wantTray.getGoalPiece(i));
+    CHECK(got.slideMarks().start(i) == want.slideMarks().start(i));
+    CHECK(got.slideMarks().goal(i) == want.slideMarks().goal(i));
   }
   // and the pieces carry no colours: the marks hold them to their starts
   for (unsigned int s = 1; s < d.puzzle().getNumberOfShapes(); s++) {
@@ -145,7 +173,7 @@ TEST_CASE("sliding document: the 81-move test puzzle built through the commands 
 
 TEST_CASE("sliding document: stamps are placed, moved, taken off and checked", "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({5, 3, 1}).value();
+  const Id tray = board(d, {5, 3, 1});
   const Id L = piece(d, 2, 2, {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}});
   const Id U = piece(d, 1, 1, {{0, 0, 0}});
 
@@ -156,7 +184,7 @@ TEST_CASE("sliding document: stamps are placed, moved, taken off and checked", "
   CHECK(d.placeStamp(tray, L, 1, 1, 0, false).value());
   // elsewhere: moved
   CHECK(roundTrip(d, [=](Document& x) { return x.placeStamp(tray, L, 0, 2, 0, false); }).value());
-  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 2, 0, false) == index(d, L));
+  CHECK(stampOn(d, d.puzzle().getShape(index(d, tray)), 0, 2, 0, false) == index(d, L));
 
   // what does not fit is refused with the reason, nothing changed
   refused(d, Errc::InvalidArgument,
@@ -181,7 +209,7 @@ TEST_CASE("sliding document: stamps are placed, moved, taken off and checked", "
 
 TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[app][sliding]") {
   Document d(GridKind::Sliding);
-  const Id tray = d.addStartGoal({4, 2, 1}).value();
+  const Id tray = board(d, {4, 2, 1});
   const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
   const Id b = piece(d, 1, 1, {{0, 0, 0}});
   REQUIRE(d.placeStamp(tray, a, 0, 1, 0, false).value());
@@ -192,15 +220,15 @@ TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[ap
   // start to goal: the goals become the starts, b's goal replaced
   roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, true); });
   const Voxel& v = d.puzzle().getShape(index(d, tray));
-  CHECK(v.getGoalPiece(0, 1, 0) == ma);
-  CHECK(v.getGoalPiece(1, 1, 0) == ma);
-  CHECK(v.getGoalPiece(3, 0, 0) == 0);
+  CHECK(markOn(d, v, 0, 1, 0, true) == ma);
+  CHECK(markOn(d, v, 1, 1, 0, true) == ma);
+  CHECK(markOn(d, v, 3, 0, 0, true) == 0);
   CHECK(sliding::startGoalError(d.puzzle(), index(d, tray)).empty());
 
   // goal to start, after the goal moved
   REQUIRE(d.placeStamp(tray, b, 3, 0, 0, true).value());
   roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, false); });
-  CHECK(d.puzzle().getShape(index(d, tray)).getStartPiece(3, 0, 0) == mb);
+  CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 3, 0, 0, false) == mb);
 
   // a start on a corridor cannot be a goal: refused, nothing changed
   REQUIRE(d.editCells(tray, CellTool::Variable, 0, 0, {{0, 0, 0}}).has_value());
@@ -224,11 +252,11 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
   SECTION("delete: the marks of the shapes above move down, the shape's own go") {
     roundTrip(d, [=](Document& x) { return x.deleteShape(a); });
     const Voxel& t = d.puzzle().getShape(index(d, tray));
-    CHECK(sliding::stampAt(&t, 0, 0, 0, false) == static_cast<unsigned int>(-1));
+    CHECK(stampOn(d, t, 0, 0, 0, false) == static_cast<unsigned int>(-1));
     // b is a shape lower now, and so is its mark
     CHECK(index(d, b) == ib - 1);
-    CHECK(sliding::stampAt(&t, 2, 2, 0, false) == index(d, b));
-    CHECK(sliding::stampAt(&t, 0, 2, 0, true) == index(d, b));
+    CHECK(stampOn(d, t, 2, 2, 0, false) == index(d, b));
+    CHECK(stampOn(d, t, 0, 2, 0, true) == index(d, b));
     // and the problem keeps b alone
     REQUIRE(d.puzzle().getProblem(0).getNumberOfParts() == 1);
     CHECK(d.puzzle().getProblem(0).getShapeIdOfPart(0) == index(d, b));
@@ -236,15 +264,17 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
   SECTION("move: the marks follow") {
     roundTrip(d, [=](Document& x) { return x.moveShape(b, ia); });
     const Voxel& t = d.puzzle().getShape(index(d, tray));
-    CHECK(sliding::stampAt(&t, 2, 2, 0, false) == index(d, b));
-    CHECK(sliding::stampAt(&t, 0, 0, 0, false) == index(d, a));
-    CHECK(sliding::stampAt(&t, 0, 2, 0, true) == index(d, b));
+    CHECK(stampOn(d, t, 2, 2, 0, false) == index(d, b));
+    CHECK(stampOn(d, t, 0, 0, 0, false) == index(d, a));
+    CHECK(stampOn(d, t, 0, 2, 0, true) == index(d, b));
   }
   SECTION("duplicate a start/goal shape: the next number, no problem") {
     const Id copy = roundTrip(d, [=](Document& x) { return x.duplicateShape(tray); }).value();
     CHECK(d.puzzle().getShape(index(d, copy)).getName() == "sg:2:");
     CHECK(d.problemIds().size() == 1);
-    CHECK(marks(d, copy) == marks(d, tray));
+    // the starts and goals are the problem's: the copy, no problem's yet, has none
+    CHECK(sliding::trayProblem(d.puzzle(), index(d, copy)) == nullptr);
+    CHECK(d.puzzle().getProblem(0).slideMarks().any(false));
     // a copy of a piece is a plain copy
     const Id pc = roundTrip(d, [=](Document& x) { return x.duplicateShape(a); }).value();
     CHECK(d.puzzle().getShape(index(d, pc)).getName().empty());
@@ -268,9 +298,9 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     CHECK(d.lastChange().notice ==
           "S2 changed shape: its start and goal were removed from B1.");
     const Voxel& t = d.puzzle().getShape(index(d, tray));
-    CHECK(sliding::stampAt(&t, 2, 2, 0, false) == static_cast<unsigned int>(-1));
-    CHECK(sliding::stampAt(&t, 0, 2, 0, true) == static_cast<unsigned int>(-1));
-    CHECK(sliding::stampAt(&t, 0, 0, 0, false) == ia);
+    CHECK(stampOn(d, t, 2, 2, 0, false) == static_cast<unsigned int>(-1));
+    CHECK(stampOn(d, t, 0, 2, 0, true) == static_cast<unsigned int>(-1));
+    CHECK(stampOn(d, t, 0, 0, 0, false) == ia);
     // b keeps its part (the original's sync only adds parts)
     CHECK(d.puzzle().getProblem(0).getShapeMaximum(ib) == 1);
     // one step: undone, everything is back
@@ -286,7 +316,7 @@ TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][
     roundTrip(d, [=](Document& x) {
       return x.editCells(tray, CellTool::Erase, 0, 0, {{0, 0, 0}});
     });
-    CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
+    CHECK(stampOn(d, d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
           static_cast<unsigned int>(-1));
     CHECK(d.puzzle().getProblem(0).getNumberOfParts() == 2);
   }
@@ -358,11 +388,12 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   CHECK_FALSE(d.puzzle().getProblem(0).resultValid());
   CHECK(d.puzzle().getProblem(0).getColorConstraints().empty());
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setResult(p, a); });
-  // stamped before any problem is on the board: one copy each
+  // a board no problem uses takes no starts or goals: they are a problem's
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(b1, a, 0, 0, 0, false); });
+  // chosen: the pieces then stamped on it come in, and the board is valid for it
+  roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
   REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false).value());
   REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true).value());
-  // chosen: the pieces stamped on it come in, and the board is valid for it
-  roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
   CHECK(d.puzzle().getProblem(0).getResultId() == index(d, b1));
   CHECK(d.puzzle().getProblem(0).getShapeMinimum(index(d, a)) == 1);
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, b2)) == 0);
@@ -372,29 +403,44 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   CHECK(d.puzzle().getShape(index(d, b1)).getName() == "sg:1:");
   roundTrip(d, [=](Document& x) { return x.renameShape(b1, "Klotski"); });
   CHECK(d.puzzle().getProblem(0).getName() == "Easy");
-  // another board: the other's stamps stay as parts, the new one's come in
-  REQUIRE(d.placeStamp(b2, c, 1, 0, 0, false).value());
+  // another board of the same size: the starts and goals go along, and
+  // back with what was added there
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, c)) == 0);
   roundTrip(d, [=](Document& x) { return x.setResult(p, b2); });
+  CHECK(d.lastChange().notice.empty());
+  CHECK(stampOn(d, d.puzzle().getShape(index(d, b2)), 0, 0, 0, false) == index(d, a));
+  CHECK(stampOn(d, d.puzzle().getShape(index(d, b2)), 3, 1, 0, true) == index(d, a));
+  REQUIRE(d.placeStamp(b2, c, 2, 0, 0, false).value());
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, c)) == 1);
   roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
+  CHECK(stampOn(d, d.puzzle().getShape(index(d, b1)), 2, 0, 0, false) == index(d, c));
 
   // two problems may share a board; the copies a stamp may have are the
   // problem's named
-  const Id q = roundTrip(d, [=](Document& x) { return x.duplicateProblem(p); }).value();
+  const Id q = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
+  roundTrip(d, [=](Document& x) { return x.setResult(q, b1); });
   CHECK(d.puzzle().getProblem(1).getResultId() == index(d, b1));
   roundTrip(d, [=](Document& x) { return x.setPieceCount(q, a, 2, 2); });
-  // in p, a has one copy: the stamp moves; in q a second copy is placed
-  CHECK(roundTrip(d, [=](Document& x) {
-          return x.placeStamp(b1, a, 1, 0, 0, false, q);
-        }).value());
-  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, b1)), 0, 0, 0, false) == index(d, a));
-  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, b1)), 1, 0, 0, false) == index(d, a));
-  // p, sharing the board, keeps a copy for each stamp
-  CHECK(d.puzzle().getProblem(0).getShapeMinimum(index(d, a)) == 2);
-  // the validity is the problem's: q has two copies of a, one at a goal
-  CHECK(sliding::startGoalError(d.puzzle(), index(d, b1), &d.puzzle().getProblem(1)) ==
-        sliding::startGoalError(d.puzzle(), index(d, b1), &d.puzzle().getProblem(0)));
+  // q starts with no starts or goals; its two copies of a are placed one
+  // by one (in p, with one copy, the start would move)
+  CHECK(d.puzzle().getProblem(1).slideMarks().empty());
+  const SlideMarks first = d.puzzle().getProblem(0).slideMarks();
+  for (const int x : {0, 1}) {
+    CHECK(roundTrip(d, [=](Document& z) {
+            return z.placeStamp(b1, a, x, 1, 0, false, q);
+          }).value());
+  }
+  const Voxel& shared = d.puzzle().getShape(index(d, b1));
+  const SlideMarks& second = d.puzzle().getProblem(1).slideMarks();
+  CHECK(sliding::stampAt(&shared, &second, 0, 1, 0, false) == index(d, a));
+  CHECK(sliding::stampAt(&shared, &second, 1, 1, 0, false) == index(d, a));
+  // p, sharing the board, keeps its own layout and its one copy
+  CHECK(d.puzzle().getProblem(0).slideMarks() == first);
+  CHECK(d.puzzle().getProblem(0).getShapeMinimum(index(d, a)) == 1);
+  // the validity is the problem's: p has a at a start and a goal, q no goal
+  CHECK(sliding::startGoalError(d.puzzle(), index(d, b1), &d.puzzle().getProblem(0)).empty());
+  CHECK_FALSE(
+      sliding::startGoalError(d.puzzle(), index(d, b1), &d.puzzle().getProblem(1)).empty());
   // a problem not on the board is refused
   refused(d, Errc::InvalidArgument,
           [=](Document& x) { return x.placeStamp(b2, c, 2, 0, 0, false, q); });
@@ -410,6 +456,204 @@ TEST_CASE("sliding document: the user makes the problems and chooses their board
   // and problems are deleted as on other grids
   roundTrip(d, [=](Document& x) { return x.deleteProblem(q); });
   CHECK(d.problemIds().size() == 1);
+}
+
+TEST_CASE("sliding document: problems share a board, each with starts and goals of its own",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id b1 = d.addStartGoal({4, 2, 1}).value();
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  // a board no problem uses has no starts or goals: they are a problem's
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.placeStamp(b1, a, 0, 0, 0, false); });
+  const Id p = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
+  roundTrip(d, [=](Document& x) { return x.setResult(p, b1); });
+  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false, p).value());
+  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true, p).value());
+
+  // the copy is on the same board, with a copy of the starts and goals
+  const Id q = roundTrip(d, [=](Document& x) { return x.duplicateProblem(p); }).value();
+  REQUIRE(d.shapeIds().size() == 2);
+  const unsigned int tray = index(d, b1);
+  CHECK(d.puzzle().getProblem(0).getResultId() == tray);
+  CHECK(d.puzzle().getProblem(1).getResultId() == tray);
+  CHECK(d.puzzle().getProblem(1).slideMarks() == d.puzzle().getProblem(0).slideMarks());
+  CHECK(d.puzzle().getProblem(1).getShapeMinimum(index(d, a)) == 1);
+  CHECK(sliding::startGoalError(d.puzzle(), tray, &d.puzzle().getProblem(1)).empty());
+
+  // a start moved in the copy leaves the original's where it was
+  const SlideMarks original = d.puzzle().getProblem(0).slideMarks();
+  REQUIRE(roundTrip(d, [=](Document& x) {
+            return x.placeStamp(b1, a, 1, 0, 0, false, q);
+          }).value());
+  const Voxel& v = d.puzzle().getShape(tray);
+  CHECK(d.puzzle().getProblem(0).slideMarks() == original);
+  CHECK(sliding::stampAt(&v, &d.puzzle().getProblem(0).slideMarks(), 0, 0, 0, false) ==
+        index(d, a));
+  CHECK(sliding::stampAt(&v, &d.puzzle().getProblem(1).slideMarks(), 1, 0, 0, false) ==
+        index(d, a));
+  CHECK(sliding::stampAt(&v, &d.puzzle().getProblem(1).slideMarks(), 0, 0, 0, false) ==
+        static_cast<unsigned int>(-1));
+
+  // so do the right click and the clone buttons
+  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(b1, 3, 1, 0, true, q); }).value());
+  CHECK(d.puzzle().getProblem(0).slideMarks() == original);
+  CHECK_FALSE(d.puzzle().getProblem(1).slideMarks().any(true));
+  roundTrip(d, [=](Document& x) { return x.cloneStamps(b1, true, q); });
+  CHECK(d.puzzle().getProblem(0).slideMarks() == original);
+  CHECK(sliding::stampAt(&v, &d.puzzle().getProblem(1).slideMarks(), 1, 0, 0, true) ==
+        index(d, a));
+  // without a problem named: the board's first
+  CHECK(roundTrip(d, [=](Document& x) { return x.clearStampAt(b1, 0, 0, 0, false); }).value());
+  CHECK_FALSE(d.puzzle().getProblem(0).slideMarks().any(false));
+  CHECK(d.puzzle().getProblem(1).slideMarks().any(false));
+
+  // the file keeps each problem's
+  const Result<Puzzle> again = io::parsePuzzle(io::writePuzzle(d.puzzle()));
+  REQUIRE(again.has_value());
+  CHECK(again->getProblem(0).slideMarks() == d.puzzle().getProblem(0).slideMarks());
+  CHECK(again->getProblem(1).slideMarks() == d.puzzle().getProblem(1).slideMarks());
+
+  // a problem without a board copies as before
+  const Id r = roundTrip(d, [](Document& x) { return x.createProblem(); }).value();
+  roundTrip(d, [=](Document& x) { return x.duplicateProblem(r); });
+  CHECK(d.shapeIds().size() == 2);
+  CHECK_FALSE(d.puzzle().getProblem(3).resultValid());
+}
+
+TEST_CASE("sliding document: an edited board takes its problems' starts and goals along",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id b1 = d.addStartGoal({4, 2, 1}).value();
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  const Id c = piece(d, 1, 1, {{0, 0, 0}});
+  const Id bar = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
+  const Id p = d.createProblem().value();
+  REQUIRE(d.setResult(p, b1).has_value());
+  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false, p).value());
+  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true, p).value());
+  REQUIRE(d.placeStamp(b1, c, 1, 1, 0, false, p).value());
+  REQUIRE(d.placeStamp(b1, bar, 1, 0, 0, false, p).value());
+  // a second problem on the board, with a layout of its own
+  const Id q = d.duplicateProblem(p).value();
+  REQUIRE(d.placeStamp(b1, a, 3, 0, 0, false, q).value());
+  const unsigned int ia = index(d, a);
+  const unsigned int ic = index(d, c);
+  const unsigned int ibar = index(d, bar);
+  const unsigned int none = static_cast<unsigned int>(-1);
+  const auto at = [&d, b1](unsigned int problem, int x, int y, bool goal) {
+    return sliding::stampAt(&d.puzzle().getShape(index(d, b1)),
+                            &d.puzzle().getProblem(problem).slideMarks(), x, y, 0, goal);
+  };
+  REQUIRE(at(0, 1, 0, false) == ibar);
+  REQUIRE(at(0, 2, 0, false) == ibar);
+  REQUIRE(at(1, 3, 0, false) == ia);
+
+  SECTION("a board that grows keeps every start and goal where it was") {
+    roundTrip(d, [=](Document& x) { return x.resizeShape(b1, 6, 3, 1, false); });
+    CHECK(d.lastChange().notice.empty());
+    CHECK(at(0, 0, 0, false) == ia);
+    CHECK(at(0, 3, 1, true) == ia);
+    CHECK(at(0, 1, 1, false) == ic);
+    CHECK(at(0, 1, 0, false) == ibar);
+    CHECK(at(0, 2, 0, false) == ibar);
+    CHECK(at(1, 3, 0, false) == ia);
+    CHECK(at(1, 0, 0, false) == none);
+    CHECK(d.puzzle().getProblem(0).getShapeMinimum(ibar) == 1);
+  }
+
+  SECTION("a board that shrinks loses the starts and goals of the cells that went") {
+    std::string notice;
+    roundTrip(d, [&notice, b1](Document& x) {
+      Result<void> r = x.resizeShape(b1, 3, 2, 1, false);
+      notice = x.lastChange().notice;
+      return r;
+    });
+    // the last column went: a's goal in one problem, its start in the other
+    CHECK(notice.find(sliding::shapeLabel(d.puzzle(), ia)) != std::string::npos);
+    CHECK(notice.find(sliding::shapeLabel(d.puzzle(), ibar)) == std::string::npos);
+    CHECK(at(0, 0, 0, false) == ia);
+    CHECK_FALSE(d.puzzle().getProblem(0).slideMarks().any(true));
+    CHECK(at(0, 1, 1, false) == ic);
+    CHECK(at(0, 1, 0, false) == ibar);
+    CHECK(at(0, 2, 0, false) == ibar);
+    CHECK(at(1, 0, 0, false) == none);
+    CHECK(at(1, 1, 1, false) == ic);
+    CHECK_FALSE(d.puzzle().getProblem(1).slideMarks().any(true));
+    CHECK_FALSE(sliding::hasStart(d.puzzle(), d.puzzle().getProblem(1), ia));
+  }
+
+  SECTION("a start with a cell made a wall goes whole; the others stay") {
+    std::string notice;
+    roundTrip(d, [&notice, b1](Document& x) {
+      Result<unsigned int> r = x.editCells(b1, CellTool::Erase, 0, 0, {{2, 0, 0}});
+      notice = x.lastChange().notice;
+      return r;
+    });
+    CHECK(notice.find(sliding::shapeLabel(d.puzzle(), ibar)) != std::string::npos);
+    for (const unsigned int problem : {0U, 1U}) {
+      CHECK(at(problem, 1, 0, false) == none);
+      CHECK(at(problem, 2, 0, false) == none);
+      CHECK(at(problem, 1, 1, false) == ic);
+      CHECK(at(problem, 3, 1, true) == ia);
+    }
+    CHECK(at(0, 0, 0, false) == ia);
+    CHECK(at(1, 3, 0, false) == ia);
+  }
+
+  SECTION("a goal whose cell becomes a corridor goes, a start there stays") {
+    roundTrip(d, [=](Document& x) {
+      return x.editCells(b1, CellTool::Variable, 0, 0, {{3, 1, 0}, {1, 1, 0}});
+    });
+    CHECK(at(0, 3, 1, true) == none);
+    CHECK(at(1, 3, 1, true) == none);
+    CHECK(at(0, 1, 1, false) == ic);
+    CHECK(at(0, 1, 0, false) == ibar);
+  }
+
+  SECTION("an edit beside the starts and goals removes none") {
+    // a wall where nothing is, then floor again
+    REQUIRE(d.clearStampAt(b1, 1, 1, 0, false, p).value());
+    const SlideMarks first = d.puzzle().getProblem(0).slideMarks();
+    const SlideMarks second = d.puzzle().getProblem(1).slideMarks();
+    roundTrip(d, [=](Document& x) { return x.editCells(b1, CellTool::Erase, 0, 0, {{2, 1, 0}}); });
+    CHECK(d.lastChange().notice.empty());
+    CHECK(d.puzzle().getProblem(0).slideMarks() == first);
+    CHECK(d.puzzle().getProblem(1).slideMarks() == second);
+  }
+}
+
+TEST_CASE("sliding document: a problem given another board keeps what fits it",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id b1 = d.addStartGoal({4, 2, 1}).value();
+  const Id b2 = d.addStartGoal({3, 2, 1}).value();
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  const Id c = piece(d, 1, 1, {{0, 0, 0}});
+  const Id p = d.createProblem().value();
+  REQUIRE(d.setResult(p, b1).has_value());
+  REQUIRE(d.placeStamp(b1, a, 0, 0, 0, false, p).value());
+  REQUIRE(d.placeStamp(b1, a, 3, 1, 0, true, p).value());
+  REQUIRE(d.placeStamp(b1, c, 1, 1, 0, false, p).value());
+  // another problem already on the second board keeps its own
+  const Id q = d.createProblem().value();
+  REQUIRE(d.setResult(q, b2).has_value());
+  REQUIRE(d.placeStamp(b2, c, 2, 0, 0, false, q).value());
+  const SlideMarks other = d.puzzle().getProblem(1).slideMarks();
+
+  std::string notice;
+  roundTrip(d, [&notice, p, b2](Document& x) {
+    Result<void> r = x.setResult(p, b2);
+    notice = x.lastChange().notice;
+    return r;
+  });
+  const Voxel& v = d.puzzle().getShape(index(d, b2));
+  const SlideMarks& m = d.puzzle().getProblem(0).slideMarks();
+  CHECK(sliding::stampAt(&v, &m, 0, 0, 0, false) == index(d, a));
+  CHECK(sliding::stampAt(&v, &m, 1, 1, 0, false) == index(d, c));
+  // the goal was on the column the new board does not have
+  CHECK_FALSE(m.any(true));
+  CHECK(notice.find(sliding::shapeLabel(d.puzzle(), index(d, a))) != std::string::npos);
+  CHECK(d.puzzle().getProblem(1).slideMarks() == other);
 }
 
 TEST_CASE("sliding document: shapes may have layers, pieces keep plain names",
@@ -469,8 +713,8 @@ TEST_CASE("sliding document: a piece moved past the 255th place loses its marks,
   const unsigned int it = index(d, tray);
   const auto cleared = [&] {
     const Voxel& t = d.puzzle().getShape(it);
-    return sliding::stampAt(&t, 0, 0, 0, false) == static_cast<unsigned int>(-1) &&
-           sliding::stampAt(&t, 2, 0, 0, true) == static_cast<unsigned int>(-1);
+    return stampOn(d, t, 0, 0, 0, false) == static_cast<unsigned int>(-1) &&
+           stampOn(d, t, 2, 0, 0, true) == static_cast<unsigned int>(-1);
   };
 
   // moved up past the place: its start and goal go, the problem follows
@@ -618,7 +862,7 @@ TEST_CASE("sliding document: copies of a piece have a start and a goal each", "[
   REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
   // one copy moves
   REQUIRE(d.placeStamp(tray, a, 1, 0, 0, false).value());
-  CHECK(sliding::stampAt(&d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
+  CHECK(stampOn(d, d.puzzle().getShape(index(d, tray)), 0, 0, 0, false) ==
         static_cast<unsigned int>(-1));
   // with three, each click is one more copy's, until all three are placed
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 3, 3); });
@@ -632,8 +876,92 @@ TEST_CASE("sliding document: copies of a piece have a start and a goal each", "[
   CHECK_FALSE(d.placeStamp(tray, a, 1, 0, 0, false).value());
   CHECK(d.clearStampAt(tray, 2, 0, 0, false).value());
   const Voxel& t = d.puzzle().getShape(index(d, tray));
-  CHECK(sliding::stampAt(&t, 0, 0, 0, false) == index(d, a));
-  CHECK(sliding::stampAt(&t, 1, 0, 0, false) == static_cast<unsigned int>(-1));
-  CHECK(sliding::stampAt(&t, 2, 0, 0, false) == static_cast<unsigned int>(-1));
+  CHECK(stampOn(d, t, 0, 0, 0, false) == index(d, a));
+  CHECK(stampOn(d, t, 1, 0, 0, false) == static_cast<unsigned int>(-1));
+  CHECK(stampOn(d, t, 2, 0, 0, false) == static_cast<unsigned int>(-1));
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 1, 1); });
+}
+
+TEST_CASE("sliding document: Puzzlecad export writes the board as a packing box, then the pieces",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id tray = board(d, {3, 2, 1});
+  // a wall in the tray's corner
+  REQUIRE(d.editCells(tray, CellTool::Erase, 0, 0, {{2, 1, 0}}).has_value());
+  const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
+  const Id p = d.problemIds().front();
+  REQUIRE(d.setPieceCount(p, a, 2, 2).has_value());
+  // the file after its settings
+  const auto body = [&d](std::optional<Id> problem, const io::PuzzlecadOptions& o) {
+    const Result<std::string> text = d.exportPuzzlecad(problem, "slide.xmpuzzle", o);
+    REQUIRE(text.has_value());
+    const std::string_view settings = "$thatch_thickness = 4;\n\n";
+    return text->substr(text->find(settings) + settings.size());
+  };
+  const std::string plateEnd =
+      "], $burr_scale = [16, 16, 5.6], $unit_beveled = false, $burr_bevel = 1.0);\n"
+      "// unit_beveled = false to remove the groove lines on each voxel\n"
+      "// burr_bevel = 1 to increase how rounded the edges of the pieces are\n";
+  const std::string boxEnd =
+      "], $burr_scale = [16, 16, 5.6], $box_wall_thickness = [8, 8, 4]\n"
+      ");\n"
+      "// burr_scale = [16, 16, 5.6] will give 16mm wide pieces with 5.6mm thickness\n"
+      "// box_wall_thickness = [8, 8, 4] will give 8mm thick walls and 4mm thick base and top\n"
+      "// Try adding {label_text=Testing Label,label_orient=z+x+,label_scale=0.5,"
+      "label_hoffset=-0.5,label_voffset=-0.5} after an 'x' to put the label at that spot\n"
+      "\n";
+
+  // the sliding settings: units beveled, no inset
+  const std::string text = d.exportPuzzlecad(p, "slide.xmpuzzle").value();
+  CHECK(text.contains("$unit_beveled = true;\n"));
+  CHECK(text.contains("\n//$burr_inset = 0.05;\n"));
+  CHECK(text.contains("// Use burr_scale = 15.7 to match live cubes\n"));
+
+  // the start/goal shape is never a piece; without a tray, the pieces alone, shown
+  for (const std::optional<Id> problem : {std::optional<Id>(p), std::optional<Id>()}) {
+    CHECK(body(problem, {}) == "burr_plate([\n    [ \"xx\" ],\n" + plateEnd);
+  }
+  // the problem's copies
+  CHECK(body(p, {.copies = true}) ==
+        "burr_plate([\n    [ \"xx\" ],\n    [ \"xx\" ],\n" + plateEnd);
+  // with a lip: the tray grown by a cell each side, a floor and a wall
+  // layer of the ring and the tray's wall, in the packing box; the pieces
+  // after it, not shown
+  const std::string lipped = "packing_box([\n"
+                             "    \"xxxxx|xxxxx|xxxxx|xxxxx\",\n"
+                             "    \"xxxxx|x...x|x..xx|xxxxx\",\n" +
+                             boxEnd + "*burr_plate([\n    [ \"xx\" ],\n" + plateEnd;
+  for (const std::optional<Id> problem : {std::optional<Id>(p), std::optional<Id>()}) {
+    CHECK(body(problem, {.tray = true, .lip = 1}) == lipped);
+  }
+  // a higher lip, and the tray's walls as high
+  CHECK(body(p, {.tray = true, .lip = 2}) ==
+        "packing_box([\n"
+        "    \"xxxxx|xxxxx|xxxxx|xxxxx\",\n"
+        "    \"xxxxx|x...x|x..xx|xxxxx\",\n"
+        "    \"xxxxx|x...x|x..xx|xxxxx\",\n" +
+            boxEnd + "*burr_plate([\n    [ \"xx\" ],\n" + plateEnd);
+  // no lip: the tray's box, its wall one cell high
+  CHECK(body(p, {.tray = true}) == "packing_box([\n"
+                                   "    \"xxx|xxx\",\n"
+                                   "    \"...|..x\",\n" +
+                                       boxEnd + "*burr_plate([\n    [ \"xx\" ],\n" + plateEnd);
+  // a second board: its box not shown, as the boxes would overlap
+  board(d, {2, 2, 1});
+  const std::string two = body(std::nullopt, {.tray = true, .lip = 1});
+  CHECK(two.starts_with("packing_box([\n"));
+  CHECK(two.contains(boxEnd + "*packing_box([\n"));
+  CHECK(two.ends_with("*burr_plate([\n    [ \"xx\" ],\n" + plateEnd));
+}
+
+TEST_CASE("sliding document: Puzzlecad copies are limited", "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  board(d, {3, 2, 1});
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  const Id p = d.problemIds().front();
+  REQUIRE(d.setPieceCount(p, a, 1, 5000).has_value());
+  const Result<std::string> r = d.exportPuzzlecad(p, "", {.copies = true});
+  REQUIRE_FALSE(r.has_value());
+  CHECK(r.error().code == Errc::InvalidArgument);
+  CHECK(d.exportPuzzlecad(p, "").has_value());
 }

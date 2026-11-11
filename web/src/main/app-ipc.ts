@@ -267,15 +267,18 @@ export function installAppIpc(h: AppIpcHost): void {
     }
   });
 
-  // a solution's STL files (deferred part 5): the folder dialog, then
-  // files of the engine's names in the folder it gave
-  ipcMain.handle('bt:choose-folder', async (e) => {
+  // a solution's STL files (deferred part 5) and several shapes' (File ▸
+  // Export ▸ STL): the folder dialog, then files of the engine's names in
+  // the folder it gave; its button says Save when the files are written
+  // straight away
+  ipcMain.handle('bt:choose-folder', async (e, save: unknown) => {
     const win = ours(e);
     if (win === null) {
       return null;
     }
     const r = await dialog.showOpenDialog(win, {
-      title: 'Choose the Output Folder',
+      title: save === true ? 'Export STL Files to a Folder' : 'Choose the Output Folder',
+      ...(save === true ? { buttonLabel: 'Save' } : {}),
       properties: ['openDirectory', 'createDirectory'],
       defaultPath: lastDir() ?? defaultDir(),
     });

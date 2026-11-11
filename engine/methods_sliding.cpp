@@ -68,48 +68,43 @@ Reply slidingClearAt(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const std::array<int, 3> at = p.pointOrCell("at", 0);
   const bool goal = p.boolean("goal");
+  const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
-  BTE_TRY(const bool cleared, s.document().clearStampAt(tray, at[0], at[1], at[2], goal));
+  BTE_TRY(const bool cleared,
+          s.document().clearStampAt(tray, at[0], at[1], at[2], goal, problem));
   return Json{{"cleared", cleared}, {"revision", s.revision()}};
 }
 
 Reply slidingClone(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const bool toGoal = p.boolean("toGoal");
+  const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().cloneStamps(tray, toGoal));
+  BTE_CHECK(s.document().cloneStamps(tray, toGoal, problem));
   return Json{{"revision", s.revision()}};
 }
 
 Reply slidingTray(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
-  const bool named = p.has("problem");
-  const app::Id problem = named ? p.id("problem", IdKind::Problem) : 0;
+  const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
   BTE_CHECK(p.finish());
   BTE_TRY(const unsigned int t, trayIndex(s, tray));
   BTE_TRY(const Problem* on, s.document().trayProblemOf(problem, t));
   const Puzzle& puzzle = s.document().puzzle();
   const Voxel& v = puzzle.getShape(t);
+  // the starts and goals are the problem's (decision 0027): the one named,
+  // else the first on this shape; a shape no problem uses has none
+  const SlideMarks none;
+  const SlideMarks& marks = on != nullptr ? on->slideMarks() : none;
   Json starts = Json::array();
   Json goals = Json::array();
   for (unsigned int i = 0; i < v.getXYZ(); i++) {
-    starts.push_back(markJson(s, v.getStartPiece(i)));
-    goals.push_back(markJson(s, v.getGoalPiece(i)));
+    starts.push_back(markJson(s, marks.start(i)));
+    goals.push_back(markJson(s, marks.goal(i)));
   }
-  // the stamps larger than their pieces, as the problem named (else the
-  // first on this shape) sees them
-  std::string overflow;
-  const std::vector<app::Id>& problems = s.document().problemIds();
-  for (unsigned int i = 0; i < problems.size() && overflow.empty(); i++) {
-    if (named && problems[i] != problem) {
-      continue;
-    }
-    overflow = s.document().readProblem(i, [&puzzle, t](const Problem& pr) {
-      return pr.resultValid() && pr.getResultId() == t
-                 ? sliding::stampOverflowMessage(puzzle, pr)
-                 : std::string();
-    });
-  }
+  // the stamps larger than their pieces
+  const std::string overflow =
+      on != nullptr ? sliding::stampOverflowMessage(puzzle, *on) : std::string();
   const std::string error = sliding::startGoalError(puzzle, t, on);
   // each copy placed, start and goal, as whole pieces (marks that are not
   // whole pieces: all of them as one)
@@ -121,12 +116,12 @@ Reply slidingTray(State& s, Params& p) {
     }
     for (const bool goal : {false, true}) {
       std::vector<std::vector<sliding::TrayCell>> copies;
-      if (auto split = sliding::stampCopies(v, piece, i, goal)) {
+      if (auto split = sliding::stampCopies(v, marks, piece, i, goal)) {
         copies = std::move(*split);
       } else {
         std::vector<sliding::TrayCell> all;
         for (unsigned int c = 0; c < v.getXYZ(); c++) {
-          if ((goal ? v.getGoalPiece(c) : v.getStartPiece(c)) == i + 1) {
+          if (marks.get(c, goal) == i + 1) {
             all.push_back({static_cast<int>(c % v.getX()),
                            static_cast<int>((c / v.getX()) % v.getY()),
                            static_cast<int>(c / (v.getX() * v.getY()))});
@@ -172,15 +167,18 @@ Reply slidingPreview(State& s, Params& p) {
     return coreError(Errc::InvalidArgument, "a start/goal shape is no piece");
   }
   const unsigned int copies = sliding::pieceCopies(puzzle, t, i, on);
+  const SlideMarks none;
+  const SlideMarks* marks = on != nullptr ? &on->slideMarks() : &none;
   Json cells = Json::array();
   for (const sliding::TrayCell& c :
-       sliding::stampCells(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal, copies)) {
+       sliding::stampCells(&trayShape, marks, &pieceShape, i, at[0], at[1], at[2], goal, copies)) {
     cells.push_back(Json::array({c[0], c[1], c[2]}));
   }
-  const bool there = sliding::stampIsAt(&trayShape, &pieceShape, i, at[0], at[1], at[2], goal);
+  const bool there =
+      sliding::stampIsAt(&trayShape, marks, &pieceShape, i, at[0], at[1], at[2], goal);
   const std::string why = there ? std::string()
-                                : sliding::stampFits(&trayShape, &pieceShape, i, at[0], at[1],
-                                                     at[2], goal, copies);
+                                : sliding::stampFits(&trayShape, marks, &pieceShape, i, at[0],
+                                                     at[1], at[2], goal, copies);
   return Json{{"cells", std::move(cells)},
               {"fits", why.empty()},
               {"why", why.empty() ? Json(nullptr) : Json(why)},

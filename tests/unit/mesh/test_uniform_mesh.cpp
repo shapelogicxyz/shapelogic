@@ -331,7 +331,7 @@ TEST_CASE("uniform mesh: the Uniform style and the STL switches", "[mesh][stl]")
   const auto params = stlParameters(GridKind::Rhombic);
   REQUIRE(params.size() == 8);
   CHECK(params[6].name == "Uniform bevels");
-  CHECK(params[7].name == "Bumpy");
+  CHECK(params[7].name == "Unit Beveled");
   CHECK(params[6].defaultValue == 0.0);
   CHECK(params[7].defaultValue == 0.0);
   std::vector<double> values;

@@ -2,7 +2,8 @@
 // export.* (api/export.json): the STL export (deferred part 5): each
 // grid's mesher parameters, a shape's STL mesh for the dialog's preview
 // and its volume, the STL file as bytes, and the pieces of a solution's
-// export with their file names.
+// export with their file names, and the file names of shapes exported
+// together.
 #include "convert.h"
 #include "engine.h"
 
@@ -12,6 +13,7 @@
 #include "shapelogic/mesh/stl.h"
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -24,6 +26,8 @@ namespace {
 constexpr std::size_t kMaxValues = 16;
 // the most bytes of a solid's name
 constexpr std::size_t kMaxName = 255;
+// the most shapes named at once
+constexpr std::size_t kMaxShapes = 65536;
 
 std::string_view typeName(mesh::StlParameterType t) {
   switch (t) {
@@ -124,6 +128,31 @@ Reply exportSolutionPieces(State& s, Params& p) {
   return Json{{"pieces", std::move(out)}};
 }
 
+Reply exportStlFileNames(State& s, Params& p) {
+  const Json& list = p.value("shapes");
+  std::vector<app::Id> ids;
+  if (!list.is_array() || list.empty() || list.size() > kMaxShapes) {
+    p.fail("'shapes' must be a list of 1 to 65536 shape ids");
+  } else {
+    for (const Json& v : list) {
+      const std::optional<std::uint64_t> id =
+          v.is_string() ? parseId(IdKind::Shape, v.get<std::string>()) : std::nullopt;
+      if (!id) {
+        p.fail("'shapes' must be a list of shape ids (s1, ...)");
+        break;
+      }
+      ids.push_back(*id);
+    }
+  }
+  BTE_CHECK(p.finish());
+  std::vector<unsigned int> shapes;
+  for (const app::Id id : ids) {
+    BTE_TRY(const unsigned int index, s.document().shapeIndex(id));
+    shapes.push_back(index);
+  }
+  return Json{{"fileNames", app::stlFileNames(s.document().puzzle(), shapes)}};
+}
+
 }  // namespace
 
 void addExportMethods(MethodTable& t) {
@@ -131,6 +160,7 @@ void addExportMethods(MethodTable& t) {
   t["export.stlMesh"] = exportStlMesh;
   t["export.stl"] = exportStl;
   t["export.solutionPieces"] = exportSolutionPieces;
+  t["export.stlFileNames"] = exportStlFileNames;
 }
 
 }  // namespace bt::engine

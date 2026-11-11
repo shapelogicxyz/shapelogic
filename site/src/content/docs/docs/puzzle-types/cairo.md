@@ -51,5 +51,5 @@ this tiling is not made of smaller ones.
 ## Drawing and export
 
 The 3D view and the STL export draw this grid with the uniform mesher, so
-every style and both the **Uniform bevels** and **Bumpy** switches of the
+every style and both the **Uniform bevels** and **Unit Beveled** switches of the
 [STL export](/docs/exports/#stl) work as on the other grids.

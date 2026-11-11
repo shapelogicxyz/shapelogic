@@ -12,7 +12,7 @@ $plate_sep = 3;
 $unit_beveled = false;
 $auto_layout = true;
 
-// Use burr_scal = 15.7 to match live cubes
+// Use burr_scale = 15.7 to match live cubes
 $burr_scale = 15.7;
 $burr_bevel = 1.2;
 
@@ -21,11 +21,6 @@ $joint_inset= 0.01;
 
 $box_wall_thickness = 4;
 $thatch_thickness = 4;
-
-*packing_box(
-
-$box_wall_thickness = 4
-);
 
 burr_plate([
     [ "xxxxxxxx|xxxxxxxx|xxxxxxxx|xxxxxxxx|xxxxxxxx|xxxxxxxx|xxxxxxxx|xxxxxxxx",

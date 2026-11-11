@@ -259,8 +259,11 @@ test('the exports, the keys and the rotations', async () => {
     await openFixture(page, 'CubeInCage.xmpuzzle');
     await menu(page, 'export.stl');
     await expect(page.locator('#exportStl .cfm')).toBeVisible();
-    // a piece: the result has variable voxels, which the STL export refuses
-    await page.selectOption('#exportStl [data-f="shape"]', { index: 1 });
+    // the pieces to export: the result has variable voxels, which the STL export refuses
+    await page.click('#exportStl [data-a="addAll"]');
+    await page.selectOption('#exportStl [data-f="chosen"]', { index: 0 });
+    await page.click('#exportStl [data-a="remove"]');
+    await page.selectOption('#exportStl [data-f="chosen"]', { index: 0 });
     await page.waitForTimeout(2000);
     await crop(page, '#exportStl .cfm', 'export-stl');
     await page.keyboard.press('Escape');
