@@ -4,7 +4,7 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
-## [ShapeLogic v1.7.1](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.1) (10 November 2026)
+## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 
 ### What's new in v1.7
 
@@ -25,6 +25,13 @@ Many small bug fixes and improvements.
 
 - **Choose the cache folder.** **Settings ▸ General ▸ Cache folder** sets where the solver keeps its cache data: what a sliding search writes to disk once it outgrows its memory, and the saved sliding and stacking searches, which can take a lot of disk space. **Choose Folder…** makes a ShapeLogic folder in the folder you pick and checks at once that it can write there. If the folder in use holds data, ShapeLogic says what it found and asks whether to move it to the new folder or delete it and start clean. **Use Default** goes back to the default folder.
 - **One default cache folder.** Sliding and stacking searches now share ShapeLogic's application data folder by default: `~/Library/Application Support/ShapeLogic` on a Mac, `%LOCALAPPDATA%\ShapeLogic` on Windows and `~/.local/share/shapelogic` on Linux. Saved searches in the old places move there the first time ShapeLogic starts.
+
+### v1.7.2 (11 November 2026)
+
+- **Export several shapes to STL.** **File ▸ Export ▸ STL** picks the shapes in two lists side by side, **All shapes** and **To export**, with arrow buttons between them. One shape is saved to a file as before; several are saved a file each into a folder you choose. The **Bumpy** switch is now called **Unit Beveled**.
+- **Puzzlecad export options.** **File ▸ Export ▸ Puzzlecad (OpenSCAD)** now asks what to write: **Pieces**, the shapes you pick in the same two lists, or **Problems**, a problem's pieces with every copy it has.
+- **Puzzlecad for sliding puzzles.** Sliding puzzles now export to Puzzlecad, laid out for flat pieces: **Export Tray** adds the board as a Puzzlecad packing box, and **Add Tray Lip** puts a wall around it of the height you choose. The export is greyed out on grids other than Brick and Sliding.
+- **Starts and goals per problem.** Problems that share a sliding board now each have their own starts and goals. A copied problem begins with the same ones and can be changed without touching the first. Editing a board keeps every problem's starts and goals in place and tells you which pieces lost one.
 
 ## [ShapeLogic v1.6](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.6) (1 November 2026)
 
