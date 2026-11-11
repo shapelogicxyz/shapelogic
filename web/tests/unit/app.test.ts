@@ -77,6 +77,7 @@ describe('the store of settings, layouts and recent files', () => {
     s.addRecent('/a.xmpuzzle');
     s.setLastDir('/puzzles');
     s.setSkipVersion('v1.4');
+    s.setCacheRoot('/big');
     expect(existsSync(join(d, 'state.json'))).toBe(false);
     vi.advanceTimersByTime(100);
     expect(existsSync(join(d, 'state.json.tmp'))).toBe(false);
@@ -87,6 +88,11 @@ describe('the store of settings, layouts and recent files', () => {
     expect(back.recent).toEqual(['/a.xmpuzzle']);
     expect(back.lastDir).toBe('/puzzles');
     expect(back.skipVersion).toBe('v1.4');
+    expect(back.cacheRoot).toBe('/big');
+    // back to the default cache folders: none stored
+    back.setCacheRoot(undefined);
+    back.flush();
+    expect(new StateStore(d).cacheRoot).toBeUndefined();
   });
 
   it('keeps the recent files newest first, once each, at most ten', () => {

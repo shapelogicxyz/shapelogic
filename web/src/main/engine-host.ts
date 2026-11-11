@@ -32,7 +32,7 @@ export interface EngineHostOptions {
   restartDelayMs?: (attempt: number) => number;
   /**
    * What the host tells each engine after its hello and before the window
-   * may call it (the app's folders: settings.set {panexFolder}); a failure
+   * may call it (the app's folders: settings.set {slideFolder, panexFolder}); a failure
    * fails the start.
    */
   setup?: (client: EngineClient) => Promise<void>;

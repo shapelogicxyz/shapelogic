@@ -102,6 +102,36 @@ looks. Changes apply at once.
   Shapes green, Puzzle blue, Solver red. **Boring** keeps the bar plain, with
   a small colored square beside the name.
 
+At the bottom of the page, **Cache folder** says where the solver keeps
+its cache data, which can take a lot of disk space: what a sliding search
+writes to disk once it outgrows its memory, and the saved sliding and
+stacking searches that **Continue** carries on, in a `sliding` and a
+`panex` folder. By default they are in ShapeLogic's folder in your system's
+application data folder:
+
+| System | Default cache folder |
+|---|---|
+| macOS | `~/Library/Application Support/ShapeLogic` |
+| Windows | `%LOCALAPPDATA%\ShapeLogic` |
+| Linux | `$XDG_DATA_HOME/shapelogic`, or `~/.local/share/shapelogic` |
+
+- **Choose Folder…** picks another folder, on a larger disk for example.
+  ShapeLogic makes a `ShapeLogic` folder inside it, with a `sliding` and a
+  `panex` folder, and checks at once that it can write there. If it
+  can't (you don't have permission to write in that folder), it says so and
+  keeps the cache folder it was using.
+- If the cache folder in use holds data, ShapeLogic says what it found (for
+  example "2 saved sliding searches (1.2 GB)") and asks whether to **Move
+  Data** to the new folder or **Delete and Start Clean**.
+- **Use Default** goes back to the default folder, asking the same question.
+- The cache folder can't be changed while a solve is running: pause or stop
+  it first. **Reset section** and **Restore all defaults** leave it as it is.
+- If the chosen folder can't be written when ShapeLogic starts (a disk that
+  is not connected), ShapeLogic goes back to the default folder and tells
+  you.
+- The [command line tool](/docs/command-line/) keeps its own folders, set
+  by its environment variables.
+
 ## Next
 
 You have seen the whole loop: shapes, a problem, a solve. A guide to building a

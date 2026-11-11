@@ -26,13 +26,15 @@
 // granted; no webview, no new window, no navigation; a call naming a file
 // the window was not handed refused before the engine sees it
 // (path-grants.ts), and so is a page's settings.set naming one of the
-// engine's folders: the main process sets the saved searches' folder
-// (`panex` in the app's data directory, deferred part 4) on every engine
-// before the page may call it; exports written only where the dialog said
-// (app-ipc.ts).
+// engine's folders: the main process sets the searches' folders (the
+// cache folder, cache-folder.ts: by default `sliding` and `panex` in the
+// system's application data folder for ShapeLogic)
+// on every engine before the page may call it, and again on every engine
+// when Settings ▸ General changes the cache folder; exports written only
+// where the dialog said (app-ipc.ts).
 //
-// For the e2e tests: BT_USER_DATA puts the app's data (the store, the saved searches, the
-// rescue copy) in a directory of the test's own; with BT_CALL_LOG set
+// For the e2e tests: BT_USER_DATA puts the app's data (the store, the default cache
+// folder's saved searches, the rescue copy) in a directory of the test's own; with BT_CALL_LOG set
 // every call the renderer makes is written to that file with how it ended
 // (a JSON line: method, errc), so the tests can check that the UI never
 // asked for what the engine refused; BT_AUTOSAVE_SECONDS shortens the
@@ -48,6 +50,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
 import { installAppIpc, openHelp } from './app-ipc.ts';
+import { appDataDir, CacheFolderManager, systemCacheDir } from './cache-folder.ts';
 import { cliLink, findCli } from './cli-tool.ts';
 import { findEngine } from './engine-path.ts';
 import { EngineHost } from './engine-host.ts';
@@ -115,10 +118,32 @@ interface WindowState {
 
 const servers = new Map<number, ReturnType<typeof serveEngine>>();
 const windows = new Map<number, WindowState>();
+/** Each window's engine host: a change of the cache folder reaches them all. */
+const hosts = new Map<number, EngineHost>();
 let store: StateStore;
+let cache: CacheFolderManager<WebContents>;
 let rescue: RescueStore;
 /** A quit is under way (before-quit came, the windows are asked to close). */
 let quitting = false;
+/**
+ * Where the cache folder is by default: the system's application data
+ * folder for ShapeLogic, with the earlier versions' default folders to move
+ * from (`sliding` in the system's cache folder, `panex` in Electron's data
+ * directory); a data directory of its own (BT_USER_DATA) holds it, and
+ * there is nothing earlier to move.
+ */
+function cacheDefaults(): { dataDir: string; legacy?: { slide: string; panex: string } } {
+  const userData = app.getPath('userData');
+  if (env.userData !== undefined) {
+    return { dataDir: userData };
+  }
+  const cache = systemCacheDir(process.platform, process.env);
+  return {
+    dataDir: appDataDir(process.platform, process.env) || userData,
+    legacy: { slide: cache === '' ? '' : join(cache, 'sliding'), panex: join(userData, 'panex') },
+  };
+}
+
 /** Files the system asked to open before a window could take them. */
 const pendingOpen: string[] = [];
 /**
@@ -252,12 +277,15 @@ function createWindow(first?: AppCommand): void {
       // one version for the app and the engine (CMakeLists.txt's)
       return NodeTransport.start(engine, { expectVersion: VERSION });
     },
-    // the saved searches of stacking solves in the app's data directory
-    // (deferred part 4), before the page may call the engine
+    // the searches' folders (the cache folder), before the page may call
+    // the engine
     setup: async (client) => {
-      await client.call('settings.set', { panexFolder: join(app.getPath('userData'), 'panex') });
+      await cache.start();
+      const f = cache.folders;
+      await client.call('settings.set', { slideFolder: f.slide, panexFolder: f.panex });
     },
   });
+  hosts.set(id, host);
   const serve = (): ReturnType<typeof serveEngine> =>
     serveEngine(
       host,
@@ -315,6 +343,8 @@ function createWindow(first?: AppCommand): void {
     windows.delete(id);
     servers.get(id)?.dispose();
     servers.delete(id);
+    hosts.delete(id);
+    void cache.forget(contents);
     void host.stop();
     updateMenu();
     if (w.quitAfterClose) {
@@ -539,6 +569,37 @@ void app.whenReady().then(async () => {
   }
   store = new StateStore(app.getPath('userData'));
   rescue = new RescueStore(app.getPath('userData'));
+  cache = new CacheFolderManager<WebContents>({
+    defaults: cacheDefaults(),
+    stored: () => store.cacheRoot,
+    store: (root) => {
+      store.setCacheRoot(root);
+    },
+    solving: async () => {
+      const answers = await Promise.all(
+        [...hosts.values()]
+          .filter((h) => h.status.state === 'running')
+          .map((h) =>
+            h.call('document.get').then(
+              (d) => d.solving,
+              () => false,
+            ),
+          ),
+      );
+      return answers.includes(true);
+    },
+    apply: async (f) => {
+      await Promise.all(
+        [...hosts.values()]
+          .filter((h) => h.status.state === 'running')
+          .map((h) =>
+            h
+              .call('settings.set', { slideFolder: f.slide, panexFolder: f.panex })
+              .catch(() => undefined),
+          ),
+      );
+    },
+  });
   pendingOpen.push(...argFiles());
   // the page and its files, from the renderer's directory and nowhere else
   protocol.handle(APP_SCHEME, (request) => {
@@ -573,6 +634,7 @@ void app.whenReady().then(async () => {
       webDir: WEB_DIR,
     }),
     cliLink: cliLink(process.platform),
+    cache,
     window: (sender) => windows.get(sender.id)?.win ?? null,
     setMenu: (sender, state) => {
       const w = windows.get(sender.id);

@@ -107,6 +107,48 @@ export interface CliToolInfo {
 export type CliToolResult =
   { ok: true; info: CliToolInfo } | { ok: false; error: string; cancelled?: boolean };
 
+/**
+ * The cache folder in use (main/cache-folder.ts): the engine's folders for
+ * sliding and stacking searches, in a folder the user chose or in the
+ * system's application data folder for ShapeLogic, the default.
+ */
+export interface CacheFolderInfo {
+  /** The `ShapeLogic` folder in the folder the user chose, or null for the default. */
+  custom: string | null;
+  /** The default: the system's application data folder for ShapeLogic. */
+  defaultFolder: string;
+  /** Where sliding searches keep their files ('' when there is nowhere: they stay in memory). */
+  slide: string;
+  /** Where stacking searches save themselves. */
+  panex: string;
+  /** What the start could not do (a folder chosen earlier that could not be written: the default is back), told once. */
+  notice?: string;
+}
+
+/**
+ * What choosing a cache folder found: the dialog cancelled; a solve running
+ * (or another window changing it); the folders in use; a folder that
+ * cannot be written (the folders in use stay); or one made and written,
+ * with what the folders in use hold ('' nothing), for `finishCacheFolder`.
+ */
+export type CacheChoice =
+  | { status: 'cancelled' }
+  | { status: 'busy'; reason: string }
+  | { status: 'same' }
+  | { status: 'invalid'; folder: string; error: string }
+  | { status: 'ready'; folder: string; found: string };
+
+/** What `finishCacheFolder` does with the data in the folders in use. */
+export type CacheAction = 'move' | 'purge' | 'cancel';
+
+/** Whether a value is a cache action. */
+export function isCacheAction(v: unknown): v is CacheAction {
+  return v === 'move' || v === 'purge' || v === 'cancel';
+}
+
+/** The answer of `finishCacheFolder`: the folders now in use, or why nothing changed. */
+export type CacheResult = { ok: true; info: CacheFolderInfo } | { ok: false; error: string };
+
 /** The links of the Help menu (the main process holds the addresses). */
 export type HelpLink = 'tutorial' | 'guide' | 'author';
 
@@ -238,6 +280,19 @@ export interface BtApp {
   installCliTool(): Promise<CliToolResult>;
   /** Removes the link Install made. */
   uninstallCliTool(): Promise<CliToolResult>;
+  /** The cache folder in use; null where there is none to choose (the demo). */
+  cacheFolder(): Promise<CacheFolderInfo | null>;
+  /**
+   * The folder dialog for a new cache folder (`useDefault`: no dialog, the
+   * default folder): its `ShapeLogic` folder is made and written at once.
+   * A `ready` choice waits for `finishCacheFolder`.
+   */
+  chooseCacheFolder(useDefault: boolean): Promise<CacheChoice>;
+  /**
+   * Takes the ready choice: moves the data of the folders in use into it or
+   * deletes it, then uses it; or, cancelled, keeps the folders in use.
+   */
+  finishCacheFolder(action: CacheAction): Promise<CacheResult>;
   /** Closes the window: the renderer answered a `close` command (nothing to save, or saved or given up). */
   closeWindow(): void;
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */

@@ -2,7 +2,8 @@
 //
 // The main process's store (stage 6): the renderer's settings and layouts,
 // the recent files, the window's bounds, the folder a file dialog gave
-// last and the release the update check is told to skip, kept in one JSON file in the
+// last, the release the update check is told to skip and the cache folder
+// the user chose (cache-folder.ts), kept in one JSON file in the
 // app's data directory (`state.json`). Read once when the app starts (a
 // file that is missing or not JSON is an empty store); written a moment
 // after a change, whole, to a temporary file renamed over the old one, so
@@ -31,6 +32,8 @@ interface Data {
   lastDir?: string;
   /** The update check (updates.ts): the release Skip This Version named. */
   updates?: { skip?: string };
+  /** The folder the cache folder was made in (cache-folder.ts); none for the defaults. */
+  cacheRoot?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -74,6 +77,9 @@ function parse(text: string): Data {
   }
   if (isRecord(v.updates) && typeof v.updates.skip === 'string' && v.updates.skip !== '') {
     d.updates = { skip: v.updates.skip };
+  }
+  if (typeof v.cacheRoot === 'string' && v.cacheRoot !== '') {
+    d.cacheRoot = v.cacheRoot;
   }
   return d;
 }
@@ -125,6 +131,22 @@ export class StateStore {
   setSkipVersion(version: string): void {
     if (version !== this.data.updates?.skip) {
       this.data.updates = { skip: version };
+      this.schedule();
+    }
+  }
+
+  /** The folder the user made the cache folder in; undefined for the defaults. */
+  get cacheRoot(): string | undefined {
+    return this.data.cacheRoot;
+  }
+
+  setCacheRoot(root: string | undefined): void {
+    if (root !== this.data.cacheRoot) {
+      if (root === undefined) {
+        delete this.data.cacheRoot;
+      } else {
+        this.data.cacheRoot = root;
+      }
       this.schedule();
     }
   }

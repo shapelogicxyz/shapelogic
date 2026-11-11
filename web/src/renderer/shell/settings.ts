@@ -14,20 +14,25 @@
 // the Solver's Search Options start at for a problem that stored none of
 // its own: every option of that section, with its name and help from the
 // Solver's card (solver/option-text.ts), and "(Only: …)" under the name of
-// one that only some puzzle types have.
+// one that only some puzzle types have. The General page's Cache folder
+// (not in the mockup) is the main process's (main/cache-folder.ts): it
+// shows the folder in use, and Choose Folder… and Use Default change it,
+// asking whether to move the data found there or delete it.
 
+import type { CacheAction, CacheFolderInfo } from '../../engine/app-bridge.ts';
 import type { Settings } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
 import { openColourPicker } from './colour-picker.ts';
+import { askChoice, closeDialog, openDialog, tell } from './dialog.ts';
 import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
 import type { KeyRow } from './keys.ts';
 import { DEFAULTS, LIMIT_MAX, NEW_SIZE_MAX, prefs, setPrefs, SIDE_MAX, SIDE_MIN } from './prefs.ts';
 import type { Prefs } from './prefs.ts';
-import { reportError } from './status.ts';
+import { flash, reportError } from './status.ts';
 import { KEEP_AT_MOST, KEEP_EACH, LABEL, TIP } from '../solver/option-text.ts';
 
 type Row = (
@@ -47,6 +52,8 @@ type Row = (
   | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] }
   | { k: keyof Prefs; t: string; d: string; type: 'colour' }
   | { t: string; d: string; type: 'widths' }
+  /** The cache folder: the main process's, not a setting of Prefs. */
+  | { t: string; d: string; type: 'cache' }
   | {
       k: NumKey;
       t: string;
@@ -92,7 +99,9 @@ const keysOf = (r: Row): readonly (keyof Prefs)[] =>
     ? r.sets.flatMap((x) => x.k)
     : r.type === 'widths'
       ? WIDTHS.map((x) => x.k)
-      : [r.k];
+      : r.type === 'cache'
+        ? []
+        : [r.k];
 
 /** Whether a row is shown now. */
 const shown = (r: Row): boolean => r.when?.() ?? true;
@@ -217,6 +226,12 @@ const SET: readonly Page[] = [
         t: 'Check for updates at startup',
         d: 'Ask GitHub once each time ShapeLogic starts whether a newer version is out, and say so if it is. You can also check any time by selecting "Check for Updates…" in the main dropdown menu.',
         type: 'sw',
+      },
+      {
+        t: 'Cache folder',
+        d: 'Where the solver keeps its cache data, which can take a lot of disk space: the files a sliding search writes once it outgrows its memory, and the saved searches of sliding and stacking puzzles that Continue carries on, in a sliding and a panex folder. By default it is ShapeLogic’s folder in your system’s application data folder. Choose Folder… makes a ShapeLogic folder in the folder you choose to hold it, and checks at once that it can write there. If the cache folder in use holds data, you are asked whether to move it to the new folder or delete it and start clean. It can’t be changed while a solve runs. Use Default goes back to the default folder; Reset section and Restore all defaults leave the cache folder as it is.',
+        type: 'cache',
+        when: () => cacheInfo !== null,
       },
     ],
   },
@@ -453,6 +468,8 @@ const SET: readonly Page[] = [
 let page = 'general';
 let query = '';
 let store: Store | null = null;
+/** The cache folder in use, from the main process; null until it says, or where there is none (the demo). */
+let cacheInfo: CacheFolderInfo | null = null;
 
 /** The machine's threads (the slider's end), from the engine. */
 function maxThreads(): number {
@@ -479,6 +496,8 @@ function defaultText(r: Row): string {
       return r.sets.map((x) => `${x.name} ${x.k.map(on).join(' × ')}`).join(', ');
     case 'widths':
       return WIDTHS.map(({ k, name }) => `${name} ${on(k)} px`).join(', ');
+    case 'cache':
+      return cacheInfo?.defaultFolder ?? 'ShapeLogic’s application data folder';
     case 'colour':
     case 'seg':
     case 'select':
@@ -505,7 +524,21 @@ function numRow(k: string): (Row & { type: 'num' }) | undefined {
   return row?.type === 'num' ? row : undefined;
 }
 
+/** The cache folder's row: the folder in use, under it its buttons. */
+function cacheRowHtml(r: Row): string {
+  const info = cacheInfo;
+  const path =
+    info === null
+      ? ''
+      : `<small>In use</small><code>${esc(info.custom ?? info.defaultFolder)}</code>`;
+  const isDefault = info?.custom === null;
+  return `<div class="setrow under"><div class="t">${nameHtml(r)}${descHtml(r)}</div><div class="cachefolder"><div class="cachepaths">${path}</div><div class="cachebt"><button class="btn sm" data-cache="choose" title="Choose the folder to keep the cache data in">Choose Folder…</button><button class="btn sm" data-cache="default" title="${esc(isDefault ? 'The default cache folder is in use' : 'Go back to the default cache folder')}" ${isDefault ? 'disabled' : ''}>Use Default</button></div></div></div>`;
+}
+
 function rowHtml(r: Row): string {
+  if (r.type === 'cache') {
+    return cacheRowHtml(r);
+  }
   if (r.type === 'num') {
     const v = prefs[r.k];
     const what = r.t.toLowerCase();
@@ -727,6 +760,92 @@ function change(c: Partial<Prefs>): void {
   }
 }
 
+/** The cache folder in use, in words. */
+const cacheName = (info: CacheFolderInfo | null): string =>
+  info === null ? 'the cache folder in use' : (info.custom ?? info.defaultFolder);
+
+/** Asks the main process for the cache folder in use again, and shows it. */
+async function refreshCache(): Promise<void> {
+  cacheInfo = await window.btApp.cacheFolder();
+  if (settingsOpen()) {
+    renderSettings();
+  }
+}
+
+/**
+ * Changes the cache folder: the folder dialog (or the defaults), the new
+ * folder made and written at once, then, when the folders in use hold
+ * data, whether to move it there or delete it and start clean.
+ */
+async function changeCache(useDefault: boolean): Promise<void> {
+  const app = window.btApp;
+  const c = await app.chooseCacheFolder(useDefault);
+  switch (c.status) {
+    case 'cancelled':
+    case 'same':
+      return;
+    case 'busy':
+      tell(c.reason);
+      return;
+    case 'invalid':
+      tell(
+        `The new cache destination is invalid: ${c.error} (${c.folder}). ShapeLogic keeps using ${cacheName(cacheInfo)}.`,
+      );
+      return;
+    case 'ready':
+      break;
+  }
+  let action: CacheAction = 'move';
+  if (c.found !== '') {
+    const k = await askChoice(
+      'cacheData',
+      'Cache Data Found',
+      `${cacheName(cacheInfo).replace(/^the/, 'The')} holds ${c.found}.\n\nMove it to ${c.folder}, or delete it and start clean there?`,
+      [
+        { key: 'cancel', label: 'Cancel', tip: 'Keep the cache folder in use and its data' },
+        {
+          key: 'purge',
+          label: 'Delete and Start Clean',
+          kind: 'danger',
+          tip: 'Delete the cache data, and use the new folder from empty',
+        },
+        {
+          key: 'move',
+          label: 'Move Data',
+          kind: 'pri',
+          default: true,
+          tip: 'Move the cache data to the new folder, and use it',
+        },
+      ],
+    );
+    action = k === 'move' || k === 'purge' ? k : 'cancel';
+  }
+  if (action === 'move' && c.found !== '') {
+    void openDialog({
+      id: 'cacheMoving',
+      title: 'Moving Cache Data',
+      body: `<p>Moving ${esc(c.found)} to ${esc(c.folder)}. On another disk this can take a while.</p>`,
+      buttons: [],
+      modalOnly: true,
+    });
+  }
+  const r = await app.finishCacheFolder(action).finally(() => {
+    closeDialog('cacheMoving');
+  });
+  if (!r.ok) {
+    tell(`The cache folder was not changed: ${r.error}.`);
+    await refreshCache();
+    return;
+  }
+  cacheInfo = r.info;
+  if (settingsOpen()) {
+    renderSettings();
+  }
+  if (action !== 'cancel') {
+    flash(`The cache folder is now ${cacheName(r.info)}`);
+  }
+}
+
 /** A new shape size held to the settings' range. */
 const newSize = (n: number): number => Math.min(NEW_SIZE_MAX, Math.max(1, n));
 
@@ -754,6 +873,17 @@ export function installSettings(s: Store): void {
       }
     }
   });
+  // the cache folder in use, and what the start found wrong with a folder chosen earlier
+  refreshCache().then(
+    () => {
+      if (cacheInfo?.notice !== undefined) {
+        tell(cacheInfo.notice);
+      }
+    },
+    (e: unknown) => {
+      reportError(e, 'The cache folder could not be read');
+    },
+  );
   byId('btnSettings').innerHTML = ic('gear');
   byId('setX').innerHTML = ic('close');
   byId('btnSettings').addEventListener('click', () => {
@@ -800,7 +930,12 @@ export function installSettings(s: Store): void {
     if (b === null) {
       return;
     }
-    if (b.dataset.colour !== undefined) {
+    if (b.dataset.cache !== undefined) {
+      changeCache(b.dataset.cache === 'default').catch((err: unknown) => {
+        closeDialog('cacheMoving');
+        reportError(err, 'The cache folder was not changed');
+      });
+    } else if (b.dataset.colour !== undefined) {
       const k = b.dataset.colour as 'boardColourLight' | 'boardColourDark';
       openColourPicker(b, {
         rgb: prefs[k],

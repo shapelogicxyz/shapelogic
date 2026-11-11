@@ -16,7 +16,10 @@
 // paused solve, the rescue record's file, a file dropped on the window.
 // The update check (updates.ts) asks GitHub here, once at startup and when
 // the menu asks; its Download opens a fixed address, never one the
-// renderer gives. Every message is checked before it is used, and only the app's windows
+// renderer gives. The cache folder (cache-folder.ts) is chosen in this
+// process's folder dialog, and what to do with the data there is the
+// renderer's answer to the choice it was handed, never a path of its own.
+// Every message is checked before it is used, and only the app's windows
 // are answered.
 
 import { app, dialog, ipcMain, shell } from 'electron';
@@ -25,6 +28,7 @@ import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 
 import {
+  isCacheAction,
   isExportKind,
   isFileKind,
   isMenuState,
@@ -40,6 +44,7 @@ import type {
   StoredState,
   UpdateResult,
 } from '../engine/app-bridge.ts';
+import type { CacheFolderManager } from './cache-folder.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
 import type { PathGrants } from './path-grants.ts';
@@ -128,6 +133,8 @@ export interface AppIpcHost {
   cliPath: string | null;
   /** Where Install links it, or null where this platform has no Install. */
   cliLink: string | null;
+  /** The cache folder in use and its choices. */
+  cache: CacheFolderManager<WebContents>;
   /** The app's window of a renderer, or null (not ours: not answered). */
   window(sender: WebContents): BrowserWindow | null;
   setMenu(sender: WebContents, state: MenuState): void;
@@ -420,6 +427,43 @@ export function installAppIpc(h: AppIpcHost): void {
         return uninstallCli(h.cliPath, h.cliLink, macPrivileged);
       default:
         return { ok: false, error: 'unknown operation' };
+    }
+  });
+
+  // the cache folder: the renderer names an operation, never a path
+  ipcMain.handle('bt:cache-folder', async (e, op: unknown, arg: unknown) => {
+    const win = ours(e);
+    if (win === null) {
+      return null;
+    }
+    switch (op) {
+      case 'info':
+        return h.cache.info();
+      case 'choose': {
+        if (typeof arg !== 'boolean') {
+          return null;
+        }
+        if (arg) {
+          return h.cache.choose(e.sender, undefined);
+        }
+        const r = await dialog.showOpenDialog(win, {
+          title: 'Choose the Cache Folder',
+          buttonLabel: 'Use This Folder',
+          message:
+            'ShapeLogic makes a ShapeLogic folder for its cache data in the folder you choose.',
+          properties: ['openDirectory', 'createDirectory'],
+          defaultPath: h.cache.chosen ?? app.getPath('home'),
+        });
+        const folder = r.canceled ? undefined : r.filePaths[0];
+        if (folder === undefined) {
+          return { status: 'cancelled' };
+        }
+        return h.cache.choose(e.sender, folder);
+      }
+      case 'finish':
+        return isCacheAction(arg) ? h.cache.finish(e.sender, arg) : null;
+      default:
+        return null;
     }
   });
 

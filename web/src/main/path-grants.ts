@@ -37,9 +37,11 @@ export const PATH_METHODS: readonly string[] = Object.keys(PATH_PARAMS);
 
 /**
  * The engine's settings that name a folder, which only the main process
- * sets (the saved searches' folder in the app's data directory, deferred
- * part 4): a search's folder is emptied and written by the engine, so a
- * page must not point it anywhere.
+ * sets (the cache folder, cache-folder.ts: by default the saved searches'
+ * folder in the app's data directory, deferred part 4): a search's folder
+ * is emptied and written by the engine, so a page must not point it
+ * anywhere; the page changes them only through the main process's folder
+ * dialog.
  */
 export const FOLDER_SETTINGS: readonly string[] = ['panexFolder', 'slideFolder'];
 

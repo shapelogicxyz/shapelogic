@@ -14,6 +14,9 @@ import { isAppCommand } from '../engine/app-bridge.ts';
 import type {
   AppCommand,
   BtApp,
+  CacheChoice,
+  CacheFolderInfo,
+  CacheResult,
   CliToolResult,
   RescueInfo,
   StoredState,
@@ -169,6 +172,28 @@ const btApp: BtApp = {
   },
   uninstallCliTool() {
     return ipcRenderer.invoke('bt:cli-tool', 'uninstall') as Promise<CliToolResult>;
+  },
+  cacheFolder() {
+    return ipcRenderer.invoke('bt:cache-folder', 'info') as Promise<CacheFolderInfo | null>;
+  },
+  async chooseCacheFolder(useDefault) {
+    return (
+      ((await ipcRenderer.invoke(
+        'bt:cache-folder',
+        'choose',
+        useDefault,
+      )) as CacheChoice | null) ?? {
+        status: 'cancelled',
+      }
+    );
+  },
+  async finishCacheFolder(action) {
+    return (
+      ((await ipcRenderer.invoke('bt:cache-folder', 'finish', action)) as CacheResult | null) ?? {
+        ok: false,
+        error: 'not a ShapeLogic window',
+      }
+    );
   },
   closeWindow() {
     ipcRenderer.send('bt:close', 'close');

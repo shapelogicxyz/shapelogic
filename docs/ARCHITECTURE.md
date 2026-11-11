@@ -1132,9 +1132,23 @@ What exists after stage 8:
   temporary file made exclusively and never one already at its name (the
   stage 8 audit); `ExportGrants`, the paths each window may write,
   Electron-free),
+  `cache-folder.ts` (Electron-free: the cache folder of Settings ▸
+  General, the engine's `slideFolder` and `panexFolder`, set on every
+  engine before its page may call it and again on every engine when it
+  changes: by default `sliding` and `panex` in the system's application
+  data folder for ShapeLogic (`appDataDir`: the local one on Windows, the
+  XDG data folder on Linux; what the earlier defaults, the system cache
+  folder's `sliding` and Electron's data directory's `panex`, hold moved
+  there at the start), or a `ShapeLogic` folder in a folder chosen in the
+  main process's folder dialog, made and written at once; `CacheFolderManager`, one choice at a time and none while a
+  solve runs in any window (`document.get`'s `solving`), describes what
+  the folders in use hold and moves it to the new folders (a rename, a copy
+  across disks, put back when a move fails) or deletes it; a folder chosen
+  earlier that cannot be written at the start is given up for the
+  defaults, and the first window told),
   `state-store.ts` (`StateStore`: `state.json` in the app's
   data directory: the renderer's settings and layouts, the recent files,
-  the window's bounds; read once, written a moment after a change to a
+  the window's bounds, the cache folder chosen; read once, written a moment after a change to a
   temporary file renamed over it; what is not well formed read as absent),
   `rescue.ts` (`RescueStore`: `__rescue.xmpuzzle`, the document's bytes,
   and `__rescue.json`, its record with a hash of the bytes, written record
