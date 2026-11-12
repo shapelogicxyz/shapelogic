@@ -61,6 +61,50 @@ import '../styles/landing.css';
 
       <section class="blog" aria-labelledby="news-heading">
         <h2 class="blog-heading" id="news-heading">News</h2>
+        <article class="post" aria-labelledby="post-v1-8">
+          <p class="post-meta">
+            <time datetime="2026-11-12">12 November 2026</time> · Release
+          </p>
+          <h3 id="post-v1-8">ShapeLogic v1.8: watch the search, and manage what it leaves on the disk</h3>
+          <p>
+            Version 1.8 shows a running search in the 3D view, lists the files that solves leave on
+            the disk, and makes stopping, pausing and clearing a solve clearer.
+          </p>
+          <ul>
+            <li>
+              <strong>Live preview.</strong> While a solve runs, the 3D view shows the arrangements a
+              sliding or stacking search is looking at, or the pieces of a puzzle being taken apart, a
+              few times a second.
+            </li>
+            <li>
+              <strong>Manage cache and autosave files.</strong>
+              <strong>View &#9656; Manage Cache and Autosave Files&hellip;</strong> lists paused
+              searches and crash recovery copies by puzzle, with their size and files, and deletes
+              them to free the space.
+            </li>
+            <li>
+              <strong>Abort and Reset.</strong> <strong>Abort</strong> throws away a running or paused
+              solve; <strong>Reset</strong> clears a finished one, and <strong>Undo</strong> brings it
+              back.
+            </li>
+            <li>
+              <strong>Searches share their memory.</strong> Sliding and stacking searches running at
+              once share the search memory instead of each taking all of it.
+            </li>
+            <li>
+              <strong>Clearer pausing.</strong> The Solver says what a pause is waiting for, and the
+              crash recovery copy now covers sliding solves too.
+            </li>
+          </ul>
+          <p>
+            Problems can be added while a solve runs, and the problems list says how each one's solve
+            stands. Read more in <a href="/docs/solver-tab/">The Solver tab</a>. Many small bug fixes
+            and improvements.
+          </p>
+          <p>
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/latest">Release notes and downloads on GitHub</a>
+          </p>
+        </article>
         <article class="post" aria-labelledby="post-v1-7">
           <p class="post-meta">
             <time datetime="2026-11-10">10 November 2026</time> · Release
