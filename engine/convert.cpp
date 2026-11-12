@@ -765,9 +765,10 @@ Json solutionRow(const Solution& sol, unsigned int index, bool stackingPuzzle) {
   return j;
 }
 
-Json placementsJson(const Assembly& a) {
+Json placementsJson(const Assembly& a) { return placementsJson(a.getPlacements()); }
+
+Json placementsJson(const std::vector<Placement>& pl) {
   Json out = Json::array();
-  const std::vector<Placement>& pl = a.getPlacements();
   for (unsigned int i = 0; i < pl.size(); i++) {
     const bool placed = pl[i].transformation != kUnplacedTrans;
     out.push_back(Json{{"piece", i},

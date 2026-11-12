@@ -127,6 +127,20 @@ Reply solveStatus(State& s, Params& p) {
               {"savedSearch", std::move(savedJson)}};
 }
 
+// The live preview: while it is on and a run is active, the poll sends
+// solve.preview with each solve.progress, when the search has a picture.
+Reply solvePreview(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  const bool on = p.boolean("on");
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().problemIndex(problem));
+  s.watches[problem].preview = on;
+  if (on) {
+    s.document().requestSolveSample(problem);
+  }
+  return Json::object();
+}
+
 Reply solveSearchFolders(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   BTE_CHECK(p.finish());
@@ -177,6 +191,7 @@ void addSolveMethods(MethodTable& t) {
   t["solve.abort"] = solveAbort;
   t["solve.reset"] = solveReset;
   t["solve.status"] = solveStatus;
+  t["solve.preview"] = solvePreview;
   t["solve.searchFolders"] = solveSearchFolders;
   t["solve.exportPaused"] = solveExportPaused;
   t["solve.importPaused"] = solveImportPaused;

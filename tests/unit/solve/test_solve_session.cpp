@@ -26,10 +26,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <random>
 #include <set>
 #include <string>
@@ -777,8 +779,8 @@ TEST_CASE("solve session: take-apart workers, level threads and progress from an
   // For ThreadSanitizer: a solve with take-apart workers whose levels are
   // spread over the pool (every level of two positions or more), a split
   // assembly search with rotation checks on a symmetry-breaking puzzle
-  // (Bermuda), progress and statistics read all the while, results equal
-  // to one thread's.
+  // (Bermuda), progress, statistics and live preview pictures read all the
+  // while, results equal to one thread's.
   struct Case {
     const char* file;
     bool rotations;
@@ -801,12 +803,17 @@ TEST_CASE("solve session: take-apart workers, level threads and progress from an
     Puzzle p = fresh(c.file);
     SolveSession s(p, p.getProblem(0), o);
     std::atomic<bool> done{false};
-    std::thread watcher([&s, &done] {
+    std::vector<SearchSnapshot> shots;
+    std::thread watcher([&s, &done, &shots] {
       while (!done.load()) {
         const SolveProgress pg = s.progress();
         (void)pg.activity();
         (void)s.stats();
         (void)s.readProblem([](const Problem& pr) { return pr.getNumberOfSavedSolutions(); });
+        if (std::optional<SearchSnapshot> shot = s.takeSample()) {
+          shots.push_back(std::move(*shot));
+        }
+        s.requestSample();
         std::this_thread::yield();
       }
     });
@@ -816,6 +823,15 @@ TEST_CASE("solve session: take-apart workers, level threads and progress from an
     watcher.join();
     REQUIRE(s.state() == SolveState::Finished);
     CHECK(totals(p.getProblem(0)) == one);
+    // a take-apart's positions: a placement per piece, some of them placed
+    const unsigned int pieces = p.getProblem(0).getNumberOfPieces();
+    for (const SearchSnapshot& shot : shots) {
+      CHECK(shot.source == SampleSource::TakeApart);
+      REQUIRE(shot.placements.size() == pieces);
+      CHECK(std::ranges::count_if(shot.placements, [](const Placement& pl) {
+              return pl.transformation != kUnplacedTrans;
+            }) >= 2);
+    }
     const SolveStats st = s.stats();
     CHECK(st.disasmWorkers == 2);
     CHECK(st.assembliesFound == one.assemblies);

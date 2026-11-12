@@ -1304,6 +1304,46 @@ def stacking_disc_colours(e):
 
 
 @test
+def solve_preview(e):
+    """The live preview: with solve.preview on, a running search's
+    arrangement follows its progress (a Panex search's stacking, a
+    take-apart's position); off, none comes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        e.call("settings.set", {"panexFolder": str(pathlib.Path(tmp) / "panex")})
+        puzzle = pathlib.Path(tmp) / "swap6.xmpuzzle"
+        puzzle.write_text(panex_swap(6))
+        p = e.call("document.open", {"path": str(puzzle)})["problems"][0]["id"]
+        e.fails("solve.preview", {"problem": "p999", "on": True}, "not_found")
+        e.call("solve.preview", {"problem": p, "on": True})
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": {"disassemble": True, "threads": 1}})
+        shot = e.wait_event("solve.preview", lambda x: x["problem"] == p, start=start, timeout=600)
+        pl = shot["placements"]
+        check(shot["source"] == "search" and len(pl) == 12 and
+              [x["piece"] for x in pl] == list(range(12)) and all(x["placed"] for x in pl),
+              f"a stacking of the Panex search {shot}")
+        # the twelve discs on the rods: no two in one place
+        check(len({tuple(x["at"]) for x in pl}) == 12, f"the discs' places {pl}")
+        e.call("solve.preview", {"problem": p, "on": False})
+        quiet = len(e.events)
+        for _ in range(3):
+            e.wait_event("solve.progress", lambda x: x["problem"] == p, start=len(e.events), timeout=60)
+        check(not any(x["method"] == "solve.preview" for x in e.events[quiet:]), "off, no pictures")
+        e.call("solve.abort", {"problem": p})
+
+    # a take-apart under way: the dominoes of the part it takes apart
+    p, _, _ = domino_box(e, 2, 4, 6)
+    e.call("solve.preview", {"problem": p, "on": True})
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": True, "threads": 1}})
+    shot = e.wait_event("solve.preview", lambda x: x["problem"] == p, start=start, timeout=600)
+    pl = shot["placements"]
+    check(shot["source"] == "takeApart" and len(pl) == 24 and sum(x["placed"] for x in pl) >= 2,
+          f"a take-apart's position {shot}")
+    e.call("solve.abort", {"problem": p})
+
+
+@test
 def stacking_solve_pause_saved_search_continue(e):
     """A Panex solve paused, its saved search told, exported with and
     without its levels, carried on by another engine (as after a restart),

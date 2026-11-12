@@ -32,6 +32,7 @@
 namespace bt {
 class Problem;
 class Puzzle;
+class SearchSample;
 class ThreadPool;
 }  // namespace bt
 
@@ -100,6 +101,9 @@ struct PanexSearch {
   /// When set, kept up to date with how many moves of the path are traced
   /// back, once the ends meet.
   std::atomic<std::uint64_t>* traced = nullptr;
+  /// When set, the search puts a picture of a stacking it is looking at
+  /// here when one is asked for (a live preview).
+  SearchSample* sample = nullptr;
   /// Carry on this problem's saved search, if there is one; otherwise start
   /// afresh.
   bool resume = false;

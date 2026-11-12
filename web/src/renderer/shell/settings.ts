@@ -14,7 +14,8 @@
 // the Solver's Search Options start at for a problem that stored none of
 // its own: every option of that section, with its name and help from the
 // Solver's card (solver/option-text.ts), and "(Only: …)" under the name of
-// one that only some puzzle types have. The General page's Cache folder
+// one that only some puzzle types have; first, the Live preview switch,
+// the same setting as the switch at the top of that section. The General page's Cache folder
 // (not in the mockup) is the main process's (main/cache-folder.ts): it
 // shows the folder in use, and Choose Folder… and Use Default change it,
 // asking whether to move the data found there or delete it.
@@ -33,7 +34,7 @@ import type { KeyRow } from './keys.ts';
 import { DEFAULTS, LIMIT_MAX, NEW_SIZE_MAX, prefs, setPrefs, SIDE_MAX, SIDE_MIN } from './prefs.ts';
 import type { Prefs } from './prefs.ts';
 import { flash, reportError } from './status.ts';
-import { KEEP_AT_MOST, KEEP_EACH, LABEL, TIP } from '../solver/option-text.ts';
+import { KEEP_AT_MOST, KEEP_EACH, LABEL, LIVE_PREVIEW, TIP } from '../solver/option-text.ts';
 
 type Row = (
   | { k: keyof Prefs; t: string; d: string; type: 'sw' }
@@ -399,6 +400,12 @@ const SET: readonly Page[] = [
     name: 'Search Options',
     note: `These are the defaults for the <b>Search Options</b> shown in the Solver: what a problem starts with when it has saved none of its own. Changing an option on the Solver tab changes it for that problem only (it is saved with the puzzle), and leaves these defaults as they are. Where an option exists only for some puzzle types, they are named under it; ${BURRS} are every puzzle type but ${SLIDING} and ${STACKING}.`,
     rows: [
+      {
+        k: 'livePreview',
+        t: LIVE_PREVIEW.label,
+        d: `${LIVE_PREVIEW.tip}. One setting for every problem, not saved with the puzzle: the switch at the top of the Solver's Search Options is this one. Not on spheres, which have nothing to show.`,
+        type: 'sw',
+      },
       {
         k: 'optKeepAssemblies',
         t: LABEL.keepAssemblies,

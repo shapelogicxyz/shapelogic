@@ -36,6 +36,7 @@ class Assembly;
 class NodeHash;
 class Problem;
 class Puzzle;
+class SearchSample;
 class ThreadPool;
 
 /// What a take-apart under way is doing, for showing progress. The search
@@ -87,6 +88,10 @@ struct DisassemblerOptions {
   double levelThreadCostUs = 400.0;
   /// The movement analysis's A/B switches.
   MovementAnalysator::Options analysis;
+  /// When set, the search puts a picture of the position it is at here
+  /// when one is asked for (a live preview). Must outlive the
+  /// disassembler.
+  SearchSample* sample = nullptr;
 };
 
 /// What a take-apart found.
@@ -155,6 +160,7 @@ class Disassembler {
                                             bool removed) const;
   bool subProbGrouping(const std::vector<unsigned int>& pn);
   [[nodiscard]] bool aborted() const { return stop_.stopRequested(); }
+  void putSample(const DisassemblerNode& node, const std::vector<unsigned int>& pieces) const;
 
   const Puzzle& puzzle_;
   const Problem& problem_;

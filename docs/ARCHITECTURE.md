@@ -604,7 +604,8 @@ and by pause/continue stress tests.
   autosave pause: the assembly stops, the take-aparts finish, Paused with
   the position in the problem; the owner saves and resumes), `abort()`
   (stop and drop everything), `wait()`; `state()`, `progress()`, `stats()`,
-  `failure()`, `readProblem(f)` and `setLiveSort()` from any thread.
+  `failure()`, `readProblem(f)`, `setLiveSort()`, `requestSample()` and
+  `takeSample()` from any thread.
   `SolveOptions` (the solve thread's PAR_ flags, `SolutionOrder`, the
   limit and drop of kept solutions, threads, take-apart workers, the
   assembly's and take-apart's A/B switches); `SolveFailure` (an
@@ -613,6 +614,14 @@ and by pause/continue stress tests.
 - `solve_progress.h`: `SolveProgress` (stage, counts, the take-aparts under
   way, the overall estimate that never goes back, time left, `activity()`
   text) and `SolveStats` (the debug panel's counts and times).
+- `search_sample.h`: `SearchSample`, the live preview's meeting point (a
+  watcher's `request()`; the next search thread past a point where it can
+  tell `claim()`s it and `put()`s a `SearchSnapshot`, a `Placement` per
+  piece in assembly order; `take()`). The slide search (a block's first
+  key, decoded), the stacking and Panex searches (`StackingPlacer` of
+  `model/stacking.h`) and the take-apart (a level's position, the part's
+  pieces placed) offer one through their options' `sample`; one that
+  nobody asks costs a relaxed load. The assembly search gives none.
 
 **Inside a run** (one thread of the session's own per run): moved
 hotspots are reset (before the matrix, and on every run); Preparing makes the
@@ -972,7 +981,9 @@ schema in `api/`, documented in the generated `docs/API.md`.
   takes in what has ended (a run's end, an analysis's results; the
   document keeps how each problem's last analysis ended); then per
   problem the solve's state as it is seen to change, progress at most
-  four times a second (and when a run ends), `solve.solutionsAdded` when
+  four times a second (and when a run ends), with it `solve.preview`
+  while the client turned it on (the picture asked for at the tick
+  before, and the next asked for), `solve.solutionsAdded` when
   the problem's `solutionsVersion()` moved, `solve.error`, the analysis's
   progress and end; then the `document.changed` of what was taken in, so
   a run's last state and an analysis's end always come before it (web
@@ -1293,7 +1304,8 @@ What exists after stage 8:
     and over between two polls too: `launch`; an abort's own change ends
     nothing, a paused solve aborted ends no run; a state told again is no
     run), `whenEnded`, the progress, the failure, the last
-    `solutionsAdded`, an analysis, the solver a run used (`pausedBt2`);
+    `solutionsAdded`, the last `solve.preview` of a run under way (gone
+    with its last state), an analysis, the solver a run used (`pausedBt2`);
     cleared when another document comes (its last idle and analyseEnded
     then meet no run, and whoever waits for a run's end, the autosave,
     is released).
@@ -1437,9 +1449,10 @@ What exists after stage 8:
     result's extent; solid, wire frame or hidden; wire frames over the
     solids with x-ray; a piece taken away faded through its opacity);
     `#vp` says `data-solution`, `data-solution-pieces`, `data-poses`,
-    `data-solution-view` (assembled or playback). The view keeps two
-    layers of solution models: the player's, and an explorer's shown over
-    it while it has one (`setSolution(model, layer)`, `poseSolution`;
+    `data-solution-view` (assembled or playback). The view keeps three
+    layers of solution models: the player's, an explorer's shown over
+    it while it has one, and the live preview's shown while neither has
+    one (`setSolution(model, layer)`, `poseSolution`;
     `#vp[data-solution-layer]`); `pieceOnScreen` (where a piece is on
     the screen and where a move by a vector would take it) and an
     Alt-drag on a piece that the Solver host takes (`movesPieces`,
@@ -1540,8 +1553,14 @@ What exists after stage 8:
     marked "Cannot be disassembled": the client remembers, the engine
     keeps no mark); the keys; the status line and the tag), `run-card.ts`
     (the left card: the problems list with each problem's solve, what to
-    check, the search options, the run's buttons, progress and counters,
-    a failure),
+    check, the search options with the Live preview switch at their top
+    (it switches while a run freezes the rest), the run's buttons,
+    progress and counters, a failure),
+    `live-preview.ts` (`LivePreview`: the newest `solve.preview` of the
+    problem shown's run on the view's preview layer, each piece's mesh in
+    its transformation, posed as the player places an assembled solution;
+    a picture that turns a piece fetches that mesh first; the workspace
+    turns `solve.preview` on for the problem shown while the setting is on),
     `solutions-card.ts` (the right card: the list, virtual, its rows paged
     as it scrolls, sorted by a header's click (again the other way, a
     third time the saved order), or the slider; the player's controls; an

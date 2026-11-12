@@ -971,6 +971,21 @@ Result<SolveStats> Document::solveStats(Id problem) const {
   return it->second->stats();
 }
 
+void Document::requestSolveSample(Id problem) {
+  const auto it = sessions_.find(problem);
+  if (it != sessions_.end()) {
+    it->second->requestSample();
+  }
+}
+
+std::optional<SearchSnapshot> Document::takeSolveSample(Id problem) {
+  const auto it = sessions_.find(problem);
+  if (it == sessions_.end()) {
+    return std::nullopt;
+  }
+  return it->second->takeSample();
+}
+
 std::optional<SolveFailure> Document::solveFailure(Id problem) const {
   const auto it = sessions_.find(problem);
   return it == sessions_.end() ? std::nullopt : it->second->failure();

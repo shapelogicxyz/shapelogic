@@ -167,16 +167,21 @@ TEST_CASE("sliding session: four threads find what one thread finds",
   CHECK(four == oneEndings);
 
   // a search spreading its levels over the session's threads, with the
-  // progress read meanwhile
+  // progress and live preview pictures read meanwhile
   Puzzle p = test::loadFixture("sliding/test_sliding_nested.xmpuzzle");
   p.getProblem(0).removeAllSolutions();
   SolveOptions o = findSolutions(4);
   o.sliding.nested = true;
   SolveSession s(p, p.getProblem(0), o);
   REQUIRE(s.start().has_value());
+  std::vector<SearchSnapshot> shots;
   while (isActive(s.state())) {
     (void)s.progress();
     (void)s.stats();
+    if (std::optional<SearchSnapshot> shot = s.takeSample()) {
+      shots.push_back(std::move(*shot));
+    }
+    s.requestSample();
     std::this_thread::yield();
   }
   s.wait();
@@ -185,6 +190,18 @@ TEST_CASE("sliding session: four threads find what one thread finds",
   REQUIRE(pr.getNumberOfSavedSolutions() == 1);
   CHECK(pr.getSavedSolution(0).getDisassembly()->getMoves() == 47);
   CHECK(s.note().empty());
+  // every piece placed, turned and in the layer the start has it (a
+  // piece slides, it does not turn)
+  CHECK_FALSE(shots.empty());
+  const Assembly& start = pr.getSavedSolution(0).getAssembly();
+  for (const SearchSnapshot& shot : shots) {
+    CHECK(shot.source == SampleSource::Search);
+    REQUIRE(shot.placements.size() == start.placementCount());
+    for (unsigned int i = 0; i < start.placementCount(); i++) {
+      CHECK(shot.placements[i].transformation == start.getTransformation(i));
+      CHECK(shot.placements[i].zpos == start.getZ(i));
+    }
+  }
 }
 
 TEST_CASE("sliding session: pausing and continuing finds every solution once",

@@ -50,6 +50,24 @@ header says how many options differ from the defaults (for example
 
 ![The search options for a brick puzzle, with their descriptions.](../../../assets/screens/guide/solver-options.png)
 
+### Live preview
+
+The first switch in the list, **Live preview** (on by default), shows what
+the search is doing in the 3D view, a few times a second, while no solution
+is chosen. A sliding or stacking puzzle shows the arrangements the search
+is looking at. With the disassembly check, the view shows the take-apart
+under way: the pieces of the part it is working on, in a position it has
+reached. The search for assemblies itself has nothing to show, so an
+Assemble Only run still says *Searching…*. Choosing a solution shows that
+solution; clearing the choice brings the preview back. The preview costs
+the search next to nothing.
+
+Unlike the other search options, it is one setting for every problem and
+is not saved with the puzzle, and it can be switched while a solve runs
+(open the list to reach it). **Settings ▸ Search Options** has the same
+switch. Sphere puzzles, which have no take-apart, do not show it. It is not
+in the browser demo, which does not run searches.
+
 ### Just Count
 
 Only counts the solutions. Each one is dropped as soon as it is found, so

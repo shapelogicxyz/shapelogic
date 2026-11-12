@@ -11,10 +11,12 @@
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/solve/assembler.h"
 #include "shapelogic/solve/node_hash.h"
+#include "shapelogic/solve/search_sample.h"
 
 #include <algorithm>
 #include <chrono>
 #include <unordered_set>
+#include <utility>
 
 namespace bt {
 
@@ -285,6 +287,9 @@ std::unique_ptr<Separation> Disassembler::searchLevels(const std::vector<unsigne
       if (aborted()) {
         return nullptr;
       }
+      if (options_.sample != nullptr && options_.sample->claim()) {
+        putSample(*level[pos], pieces);
+      }
 
       const std::size_t remaining = level.size() - pos;
       std::size_t batch = 1;
@@ -460,6 +465,25 @@ std::unique_ptr<Separation> Disassembler::searchLevels(const std::vector<unsigne
   // a position that separates the puzzle: on into the two parts, which
   // calls this search again for each
   return checkSubproblems(found.get(), pieces);
+}
+
+// The position as a picture: each piece of the part searched where the
+// position has it, the others not shown.
+void Disassembler::putSample(const DisassemblerNode& node,
+                             const std::vector<unsigned int>& pieces) const {
+  SearchSnapshot snap;
+  snap.source = SampleSource::TakeApart;
+  snap.placements.resize(problem_.getNumberOfPieces());
+  for (unsigned int i = 0; i < pieces.size(); i++) {
+    if (!node.isPieceRemoved(i) && pieces[i] < snap.placements.size()) {
+      Placement& p = snap.placements[pieces[i]];
+      p.transformation = static_cast<unsigned char>(node.getTrans(i));
+      p.xpos = node.getX(i);
+      p.ypos = node.getY(i);
+      p.zpos = node.getZ(i);
+    }
+  }
+  options_.sample->put(std::move(snap));
 }
 
 namespace {

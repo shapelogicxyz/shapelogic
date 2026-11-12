@@ -119,6 +119,9 @@ struct State {
     bool analysing = false;
     std::chrono::steady_clock::time_point analyseAt{};
     unsigned int analysed = 0;
+    /// solve.preview is on: the poll sends a picture of the search with
+    /// each solve.progress.
+    bool preview = false;
   };
   std::map<app::Id, Watch> watches;
   /// The revision document.changed last told.

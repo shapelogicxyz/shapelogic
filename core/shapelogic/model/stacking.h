@@ -188,6 +188,23 @@ inline constexpr unsigned int kStepsPerMove = 3;
 /// hotspot place (a solution's assembly).
 [[nodiscard]] Assembly startAssembly(const Puzzle& puzzle, const Problem& problem);
 
+/// Places the discs of any stacking of a problem as startAssembly places
+/// those of the start: each disc at its rod's x and its height on it, a
+/// disc on no rod unplaced. What a live preview shows of a stacking
+/// search; made once per search, then cheap.
+class StackingPlacer {
+ public:
+  StackingPlacer(const Puzzle& puzzle, const Problem& problem);
+
+  /// A placement per disc of the problem, numbered as discsOf numbers them.
+  [[nodiscard]] std::vector<Placement> place(const Stacking& stacking) const;
+
+ private:
+  const RodSet* board_ = nullptr;
+  std::vector<Disc> discs_;
+  std::vector<int> rodX_;
+};
+
 /// The width of the board, the animation's unit of distance.
 [[nodiscard]] unsigned int boardSpan(const Puzzle& puzzle, const Problem& problem);
 

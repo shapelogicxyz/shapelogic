@@ -6,6 +6,7 @@
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/search_sample.h"
 #include "shapelogic/solve/sliding_search.h"
 
 #include <algorithm>
@@ -31,7 +32,7 @@ constexpr std::uint64_t kTextStateBytes = 160;
 template <class Key, class Encode, class Decode>
 void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacking& start,
               const Stacking& goal, Encode enc, Decode dec, std::uint64_t stateBytes,
-              StackSearch& search, std::vector<Stacking>& path) {
+              const StackingPlacer& placer, StackSearch& search, std::vector<Stacking>& path) {
   // a shared budget is read again as the search goes (another search
   // starting shrinks it)
   const bool shared = search.maxStates == 0 && search.memoryShare != nullptr;
@@ -73,6 +74,9 @@ void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacki
     q.pop();
     visited++;
     Stacking cfg = dec(cur);
+    if (search.sample != nullptr && search.sample->claim()) {
+      search.sample->put(SearchSnapshot{SampleSource::Search, placer.place(cfg)});
+    }
     for (unsigned int from = 0; from < rods && !found; from++) {
       for (unsigned int to = 0; to < rods; to++) {
         if (!moveAllowed(board, pieces, cfg, from, to)) {
@@ -136,6 +140,7 @@ std::optional<Separation> findStackPath(const Puzzle& puzzle, const Problem& pro
   const auto n = static_cast<unsigned int>(pieces.size());
   const auto rods = static_cast<unsigned int>(start.size());
 
+  const StackingPlacer placer(puzzle, problem);
   std::vector<Stacking> path;
   if (start == goal) {
     path.push_back(start);
@@ -174,8 +179,8 @@ std::optional<Separation> findStackPath(const Puzzle& puzzle, const Problem& pro
         }
         return cfg;
       };
-      stackBfs<std::uint64_t>(board, pieces, start, goal, enc, dec, kPackedStateBytes, search,
-                              path);
+      stackBfs<std::uint64_t>(board, pieces, start, goal, enc, dec, kPackedStateBytes, placer,
+                              search, path);
     } else {
       auto enc = [n](const Stacking& cfg) {
         std::string key;
@@ -201,7 +206,8 @@ std::optional<Separation> findStackPath(const Puzzle& puzzle, const Problem& pro
         }
         return cfg;
       };
-      stackBfs<std::string>(board, pieces, start, goal, enc, dec, kTextStateBytes, search, path);
+      stackBfs<std::string>(board, pieces, start, goal, enc, dec, kTextStateBytes, placer, search,
+                            path);
     }
     if (path.empty()) {
       return std::nullopt;

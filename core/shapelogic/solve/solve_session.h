@@ -27,6 +27,7 @@
 #include "shapelogic/base/stop.h"
 #include "shapelogic/solve/assembler.h"
 #include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/search_sample.h"
 #include "shapelogic/solve/sliding_search.h"
 #include "shapelogic/solve/solve_progress.h"
 #include "shapelogic/solve/stack_search.h"
@@ -263,6 +264,16 @@ class SolveSession {
   /// The counts and times of the current or last run. Any thread.
   [[nodiscard]] SolveStats stats() const;
 
+  /// Asks the searches of the run for a picture of where they are (a live
+  /// preview): the slide or stacking search, or a take-apart under way,
+  /// puts one the next time it can; takeSample() has it then. The
+  /// assembly search gives none. Any thread.
+  void requestSample() noexcept { sample_.request(); }
+
+  /// The newest picture asked for with requestSample(), if one has come
+  /// since the last call. Any thread.
+  [[nodiscard]] std::optional<SearchSnapshot> takeSample() { return sample_.take(); }
+
   /// Keeps the saved solutions sorted by Problem::sortSolutions(method) as
   /// they come (a sort chosen while solving stays applied); -1 is off. Any
   /// thread.
@@ -464,6 +475,9 @@ class SolveSession {
   /// shared the memory (written by the run's thread, read by it for the
   /// notes).
   bool memoryShared_ = false;
+
+  /// Where requestSample() and the searches' pictures meet.
+  SearchSample sample_;
 
   std::atomic<int> liveSort_{-1};
   /// The furthest overall progress shown in this run.

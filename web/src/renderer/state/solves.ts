@@ -74,6 +74,8 @@ export interface SolveRecord {
   failure: SolveFailure | null;
   /** The last solve.solutionsAdded. */
   added: EventParams<'solve.solutionsAdded'> | null;
+  /** The last solve.preview of the run under way (the live preview); null when none has come or the run is over. */
+  preview: EventParams<'solve.preview'> | null;
   analysis: AnalysisRecord | null;
   /** The revision of the last run's end (its document.changed); -1 before one. */
   endRevision: number;
@@ -82,7 +84,16 @@ export interface SolveRecord {
 /** What changed in a record. */
 export interface SolvesChange {
   problem: string | null;
-  kind: 'state' | 'progress' | 'added' | 'error' | 'ended' | 'analysis' | 'launch' | 'cleared';
+  kind:
+    | 'state'
+    | 'progress'
+    | 'preview'
+    | 'added'
+    | 'error'
+    | 'ended'
+    | 'analysis'
+    | 'launch'
+    | 'cleared';
 }
 
 export class Solves {
@@ -98,6 +109,15 @@ export class Solves {
       const r = this.get(p.problem);
       r.progress = p.progress;
       this.emit({ problem: p.problem, kind: 'progress' });
+    });
+    events.on('solve.preview', (p) => {
+      const r = this.get(p.problem);
+      // one that crossed the run's last state is not shown
+      if (!isActive(r.state) && !r.launched) {
+        return;
+      }
+      r.preview = p;
+      this.emit({ problem: p.problem, kind: 'preview' });
     });
     events.on('solve.solutionsAdded', (p) => {
       this.get(p.problem).added = p;
@@ -151,6 +171,7 @@ export class Solves {
         progress: null,
         failure: null,
         added: null,
+        preview: null,
         analysis: null,
         endRevision: -1,
       };
@@ -172,6 +193,7 @@ export class Solves {
     const r = this.get(problem);
     r.launched = true;
     r.failure = null;
+    r.preview = null;
     if (solver !== null) {
       r.solver = solver;
     }
@@ -268,6 +290,7 @@ export class Solves {
     }
     if (!isActive(state)) {
       r.launched = false;
+      r.preview = null;
     }
     this.emit({ problem, kind: 'state' });
   }

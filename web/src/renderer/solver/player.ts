@@ -426,22 +426,9 @@ export class Player {
     }
   }
 
-  /**
-   * What the view frames (the result's extent, a stacking board's) and what
-   * the pieces are centred on, as an extent (placedAt takes its half): the
-   * result's, or twice a stacking board's middle.
-   */
+  /** What the view frames and what the pieces are centred on (solutionFrame). */
   private frame(): { extent: [number, number, number]; centring: [number, number, number] } {
-    const snap = this.host.store.snapshot;
-    const board = this.host.board();
-    if (snap?.grid === 'stacking' && board !== null) {
-      const c = board.centre;
-      return { extent: boardExtent(board.layout), centring: [2 * c[0], 2 * c[1], 2 * c[2]] };
-    }
-    const resultId = this.host.detail()?.result ?? null;
-    const result = snap?.shapes.find((s) => s.id === resultId);
-    const extent = gridExtent(snap?.grid ?? 'bricks', result?.size ?? [1, 1, 1]);
-    return { extent, centring: extent };
+    return solutionFrame(this.host.store, this.host.detail(), this.host.board());
   }
 
   // the model of the view: the pieces in the playback's order or the assembled view's
@@ -708,35 +695,71 @@ export function noMovesFlash(row: SolutionRow, inseparable: boolean): string {
     : 'No disassembly stored — use Analyse disassembly';
 }
 
-// the placed pieces of a solution: their shapes (pieces are numbered part
-// by part), labels and colours (the original's per copy)
+/** A piece of a problem as the Solver's view draws it. */
+export type ProblemPiece = Omit<PlayerPiece, 'transformation' | 'at'>;
+
+/**
+ * Every piece of a problem, by number: its shape (pieces are numbered part
+ * by part), label and colour (the original's per copy).
+ */
+export function problemPieces(detail: ProblemDetail | null, store: Store): ProblemPiece[] {
+  const parts = detail?.parts ?? [];
+  const snap = store.snapshot;
+  const out: ProblemPiece[] = [];
+  for (const part of parts) {
+    const i = store.indexOf(part.shape);
+    const s = snap?.shapes[i];
+    for (let q = 0; q < part.max; q++) {
+      out.push({
+        piece: out.length,
+        shape: part.shape,
+        label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
+        name: s === undefined ? '' : shownName(s),
+        colour: copyColour(s, i, q, snap?.colours ?? []),
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * What the Solver's view frames (the result's extent, a stacking board's)
+ * and what the pieces are centred on, as an extent (placedAt takes its
+ * half): the result's, or twice a stacking board's middle.
+ */
+export function solutionFrame(
+  store: Store,
+  detail: ProblemDetail | null,
+  board: { layout: BoardLayout; centre: [number, number, number] } | null,
+): { extent: [number, number, number]; centring: [number, number, number] } {
+  const snap = store.snapshot;
+  if (snap?.grid === 'stacking' && board !== null) {
+    const c = board.centre;
+    return { extent: boardExtent(board.layout), centring: [2 * c[0], 2 * c[1], 2 * c[2]] };
+  }
+  const resultId = detail?.result ?? null;
+  const result = snap?.shapes.find((s) => s.id === resultId);
+  const extent = gridExtent(snap?.grid ?? 'bricks', result?.size ?? [1, 1, 1]);
+  return { extent, centring: extent };
+}
+
+// the placed pieces of a solution, with where its placements put them
 function piecesOf(
   placements: readonly Placement[],
   detail: ProblemDetail | null,
   store: Store,
 ): PlayerPiece[] {
-  const parts = detail?.parts ?? [];
-  const snap = store.snapshot;
   const out: PlayerPiece[] = [];
-  let first = 0;
-  for (const part of parts) {
-    const i = store.indexOf(part.shape);
-    const s = snap?.shapes[i];
-    for (let q = 0; q < part.max; q++) {
-      const pl = placements[first + q];
-      if (pl?.placed === true) {
-        out.push({
-          piece: pl.piece,
-          shape: part.shape,
-          label: (s?.label ?? part.shape) + (part.max > 1 ? `.${String(q + 1)}` : ''),
-          name: s === undefined ? '' : shownName(s),
-          colour: copyColour(s, i, q, snap?.colours ?? []),
-          transformation: pl.transformation,
-          at: [pl.at[0], pl.at[1], pl.at[2]],
-        });
-      }
+  for (const p of problemPieces(detail, store)) {
+    const pl = placements[p.piece];
+    if (pl?.placed === true) {
+      out.push({
+        ...p,
+        piece: pl.piece,
+        transformation: pl.transformation,
+        at: [pl.at[0], pl.at[1], pl.at[2]],
+      });
     }
-    first += part.max;
   }
   return out;
 }

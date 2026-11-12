@@ -499,6 +499,12 @@ test('a Panex search paused, the app restarted, the search carried on from where
     expect(existsSync(join(userData, 'panex'))).toBe(true);
     expect(readdirSync(join(userData, 'panex')).length).toBeGreaterThan(0);
     await a.close();
+    // a crash recovery copy the journal wrote while the solve ran (once its
+    // save is due, on a busy machine) would be offered at the next start,
+    // over the Solver; this test is about the saved search (files.e2e.ts is
+    // about the copy)
+    rmSync(join(userData, '__rescue.xmpuzzle'), { force: true });
+    rmSync(join(userData, '__rescue.json'), { force: true });
 
     // a new start on the same data: Solve asks, Continue carries the search on
     a = await launch({ userData });
@@ -564,7 +570,10 @@ test('a paused Panex search is named after its puzzle in Manage Cache and Autosa
     await menu(page, 'cacheFiles');
     const dlg = page.locator('#cacheFiles');
     const title = `Paused stacking solve of swap7.xmpuzzle, ${problemName}`;
-    await expect(dlg.locator('.cf-row').first()).toContainText(title);
+    // chosen by its title: a crash recovery copy written after it would come first
+    const searchRow = dlg.locator('.cf-row', { hasText: title });
+    await expect(searchRow).toHaveCount(1);
+    await searchRow.click();
     const detail = dlg.locator('.cf-detail');
     await expect(detail.locator('h4')).toHaveText(title);
     await expect(detail).toContainText(file);
@@ -572,9 +581,12 @@ test('a paused Panex search is named after its puzzle in Manage Cache and Autosa
     // deleted: Continue has nothing to carry on
     await detail.locator('[data-act="delete"]').click();
     await page.locator('#cacheFilesDelete [data-x="delete"]').click();
-    await expect(dlg.locator('.cf-row')).toHaveCount(0);
-    await expect(dlg.locator('.cf-empty')).toBeVisible();
+    await expect(searchRow).toHaveCount(0);
     expect(readdirSync(join(userData, 'panex'))).toEqual([]);
+    // what may be left: the crash recovery copy, which the journal writes
+    // while a solve runs once its first save is due (a slow, busy machine)
+    const left = await dlg.locator('.cf-row').allInnerTexts();
+    expect(left.filter((t) => !t.startsWith('Crash recovery copy'))).toEqual([]);
     await dlg.locator('[data-x="close"]').click();
   } finally {
     await a.close();

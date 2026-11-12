@@ -579,6 +579,11 @@ class Document {
   [[nodiscard]] Result<SolveProgress> solveProgress(Id problem) const;
   [[nodiscard]] Result<SolveStats> solveStats(Id problem) const;
   [[nodiscard]] std::optional<SolveFailure> solveFailure(Id problem) const;
+  /// Asks a problem's run for a picture of where its search is, and takes
+  /// the newest that has come (SolveSession::requestSample, takeSample):
+  /// a live preview. Nothing when the problem has no solve.
+  void requestSolveSample(Id problem);
+  [[nodiscard]] std::optional<SearchSnapshot> takeSolveSample(Id problem);
   /// What a sliding or stacking solve's last run said (SolveSession::note:
   /// once through, or a stacking search that paused and saved itself);
   /// empty otherwise.

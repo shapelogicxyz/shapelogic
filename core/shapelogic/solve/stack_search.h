@@ -24,6 +24,7 @@
 namespace bt {
 class Problem;
 class Puzzle;
+class SearchSample;
 }  // namespace bt
 
 namespace bt::stacking {
@@ -56,6 +57,9 @@ struct StackSearch {
   StopToken stop;
   /// When set, kept up to date with the stackings visited so far.
   std::atomic<std::uint64_t>* progress = nullptr;
+  /// When set, the search puts a picture of the stacking it is at here
+  /// when one is asked for (a live preview).
+  SearchSample* sample = nullptr;
 
   /// Out: how the search ended, the stackings visited, and the limit used.
   StackOutcome outcome = StackOutcome::NoPath;

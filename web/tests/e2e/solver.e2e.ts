@@ -535,9 +535,22 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await expect
       .poll(async () => Number(await attr(page, '#leftS', 'data-assemblies')))
       .toBeGreaterThan(0);
+    // the live preview: the take-aparts' positions in the view while no
+    // solution is chosen; switched off in the Search Options (which open
+    // while the run freezes them), the view's message is back
+    await expect(page.locator('#vp')).toHaveAttribute('data-solution-layer', 'preview');
+    await expect(page.locator('#emptyMsg')).toHaveText('');
+    await page.click('#slvOptHead');
+    await page.click('#slvOpts .switch[data-live]');
+    await expect(page.locator('#vp')).toHaveAttribute('data-solution-layer', 'player');
+    await expect(page.locator('#emptyMsg')).not.toHaveText('');
+    await page.click('#slvOpts .switch[data-live]');
+    await expect(page.locator('#vp')).toHaveAttribute('data-solution-layer', 'preview');
     await expect(page.locator('#slvRun [data-r="abort"]')).toBeEnabled();
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
+    // a paused run has no preview
+    await expect(page.locator('#vp')).toHaveAttribute('data-solution-layer', 'player');
     const pausedAt = Number(await attr(page, '#leftS', 'data-assemblies'));
     expect(pausedAt).toBeGreaterThan(0);
     await expect(page.locator('#slvActivity')).toHaveText('Search paused');
@@ -841,6 +854,7 @@ test('the settings’ Search Options are what a problem’s search options start
       '(Only: Normal Burrs)',
     );
     await expect(page.locator('#setPg .setrow b')).toHaveText([
+      'Live preview',
       'Always show Assemblies',
       'Just Count',
       'Just Levels',
@@ -858,7 +872,11 @@ test('the settings’ Search Options are what a problem’s search options start
       'Limit',
     ]);
 
-    // a default changed: the problem, which stored none, shows it at once
+    // a default changed: the problem, which stored none, shows it at once;
+    // Live preview is the switch at the top of the Solver's Search Options
+    const live = page.locator('#slvOpts .row2').first().locator('.switch[data-live]');
+    await expect(live).toHaveAttribute('aria-checked', 'true');
+    await page.click('#setPg .switch[data-k="livePreview"]');
     await page.click('#setPg .switch[data-k="optKeepMirrors"]');
     await page.locator('#setPg input[data-num="optKeepAtMost"]').fill('250');
     await page.locator('#setPg input[data-num="optKeepAtMost"]').press('Enter');
@@ -868,6 +886,9 @@ test('the settings’ Search Options are what a problem’s search options start
     await page.keyboard.press('Escape');
     await expect(mirrors).toHaveAttribute('aria-checked', 'true');
     await expect(limit).toHaveValue('260');
+    await expect(live).toHaveAttribute('aria-checked', 'false');
+    await live.click();
+    await expect(live).toHaveAttribute('aria-checked', 'true');
 
     // changed on the Solver tab: the problem's own from now on, the default as it was
     await mirrors.click();
@@ -879,6 +900,10 @@ test('the settings’ Search Options are what a problem’s search options start
     await page.keyboard.press('Control+,');
     await page.click('#setNav [data-p="search"]');
     await expect(page.locator('#setPg .switch[data-k="optKeepMirrors"]')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.locator('#setPg .switch[data-k="livePreview"]')).toHaveAttribute(
       'aria-checked',
       'true',
     );

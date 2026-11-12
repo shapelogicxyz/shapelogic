@@ -31,11 +31,13 @@
 import { isActive } from '../state/solves.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
+import { prefs, setPrefs } from '../shell/prefs.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import {
   KEEP_AT_MOST,
   KEEP_EACH,
   LABEL,
+  LIVE_PREVIEW,
   SOLVER_TYPE_TIP,
   STACKING_TIP,
   TIP,
@@ -99,6 +101,19 @@ export class RunCard {
     this.renderOptions();
     this.renderRun();
     this.renderSort();
+  }
+
+  // the Live preview switch, first of the search options: on the grids
+  // whose runs have a search or a take-apart to show (not the spheres);
+  // it switches while a run is under way, when the options around it are frozen
+  private liveRow(): string {
+    const ws = this.ws;
+    if (!(ws.sliding || ws.stacking || ws.canDisassemble)) {
+      return '';
+    }
+    const on = prefs.livePreview;
+    const tip = LIVE_PREVIEW.tip;
+    return `<div class="row2 live"><div class="t">${LIVE_PREVIEW.label}<small>${tip}</small></div><div class="switch ${on ? 'on' : ''}" data-live="1" role="switch" tabindex="0" aria-checked="${String(on)}" title="${esc(tip)}"><span class="tr"></span></div></div>`;
   }
 
   /** Draws the problems list (also when another problem's solve changes state). */
@@ -308,7 +323,8 @@ export class RunCard {
         (solver === 'panex' ? 'Panex Solver' : 'Stacking Solver');
       setHtml(
         opts,
-        sw('justCount') +
+        this.liveRow() +
+          sw('justCount') +
           sw('justLevels') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${STACKING_SOLVER_TIP[solver]}</small></div><select data-o="stackingSolver" title="${esc(STACKING_SOLVER_TIP[solver])}"><option value="${solver}" selected>${esc(label)}</option></select></div>` +
           limits,
@@ -323,7 +339,8 @@ export class RunCard {
       };
       setHtml(
         opts,
-        sw('justCount') +
+        this.liveRow() +
+          sw('justCount') +
           sw('anyOrientation') +
           sw('mirroredOrientations', true) +
           sw('nestedSlides') +
@@ -336,7 +353,8 @@ export class RunCard {
     }
     setHtml(
       opts,
-      sw('keepAssemblies') +
+      this.liveRow() +
+        sw('keepAssemblies') +
         sw('justCount') +
         sw('justLevels') +
         sw('keepMirrors') +
@@ -500,7 +518,7 @@ export class RunCard {
     const opts = byId('slvOpts');
     opts.addEventListener('click', (e) => {
       const t = e.target as Element;
-      if (this.toggle(t)) {
+      if (this.flipLive(t) || this.toggle(t)) {
         return;
       }
       const b = t.closest<HTMLButtonElement>('button[data-st]');
@@ -521,7 +539,8 @@ export class RunCard {
     // a focused switch toggles with Space or Enter (the dialogs' row of the keyboard map)
     for (const id of ['slvMode', 'slvOpts']) {
       byId(id).addEventListener('keydown', (e) => {
-        if ((e.key === ' ' || e.key === 'Enter') && this.toggle(e.target as Element)) {
+        const t = e.target as Element;
+        if ((e.key === ' ' || e.key === 'Enter') && (this.flipLive(t) || this.toggle(t))) {
           e.preventDefault();
         }
       });
@@ -560,6 +579,16 @@ export class RunCard {
         void ws.setOption({ sortBy: t.value as SearchOptions['sortBy'] });
       }
     });
+  }
+
+  // the Live preview switch clicked: true when it was
+  private flipLive(t: Element): boolean {
+    if (t.closest('.switch[data-live]') === null) {
+      return false;
+    }
+    setPrefs({ livePreview: !prefs.livePreview });
+    this.renderOptions();
+    return true;
   }
 
   // a switch of the options clicked: true when it was one

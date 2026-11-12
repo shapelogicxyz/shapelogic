@@ -45,13 +45,14 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
 import { isTray } from '../shell/piece-colours.ts';
-import { onPrefs } from '../shell/prefs.ts';
+import { onPrefs, prefs } from '../shell/prefs.ts';
 import { chooseCacheFolder } from '../shell/settings.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
 import { Explorer } from '../explore/explorer.ts';
 import { Autosave } from './autosave.ts';
+import { LivePreview } from './live-preview.ts';
 import { SolutionPager } from './pager.ts';
 import type { SortKey } from './pager.ts';
 import { Player } from './player.ts';
@@ -109,6 +110,8 @@ export class SolverWorkspace {
   readonly edits: Edits;
   readonly solves: Solves;
   readonly player: Player;
+  /** The live preview of a run of the problem shown (under the player and the explorers). */
+  readonly preview: LivePreview;
   /** The problem shown, or null when the puzzle has none. */
   current: string | null = null;
   detail: ProblemDetail | null = null;
@@ -156,6 +159,11 @@ export class SolverWorkspace {
   private generation = -1;
   private loads = 0;
   private waiting: { revision: number; done: () => void }[] = [];
+  /** The problem the engine sends live preview pictures of (solve.preview), in a document's generation. */
+  private previewFor: { generation: number; problem: string | null } = {
+    generation: -1,
+    problem: null,
+  };
 
   constructor(store: Store, view: View3D, edits: Edits, solves: Solves) {
     this.store = store;
@@ -177,6 +185,19 @@ export class SolverWorkspace {
         const layout = this.board?.layout ?? null;
         const centre = this.board?.centre ?? null;
         return layout === null || centre === null ? null : { layout, centre };
+      },
+    });
+    this.preview = new LivePreview({
+      store,
+      view,
+      detail: () => this.detail,
+      board: () => {
+        const layout = this.board?.layout ?? null;
+        const centre = this.board?.centre ?? null;
+        return layout === null || centre === null ? null : { layout, centre };
+      },
+      changed: () => {
+        this.renderTag();
       },
     });
     this.runCard = new RunCard(this);
@@ -216,6 +237,7 @@ export class SolverWorkspace {
       styleChanged: () => {
         this.player.restyle();
         this.explorer.restyle();
+        this.preview.restyle();
       },
       movesPieces: () => this.explorer.movesPieces,
       pieceDragged: (piece, dx, dy) => {
@@ -243,11 +265,28 @@ export class SolverWorkspace {
           // the list may have changed (a removal, a run's end, an analysis)
           this.pager?.refresh();
         }
-      } else if (c.kind === 'status' && !store.running) {
-        this.shown = -1;
+      } else if (c.kind === 'status') {
+        if (!store.running) {
+          this.shown = -1;
+        }
+        // an engine started again knows nothing of the preview asked of the last
+        this.previewFor = { generation: -1, problem: null };
+        this.syncPreview();
       }
     });
     solves.subscribe((c) => {
+      if (c.kind === 'cleared') {
+        this.preview.clear();
+      } else if (c.problem !== null && c.problem === this.current) {
+        if (c.kind === 'preview') {
+          // a picture only: nothing else to draw
+          this.showPreview();
+          return;
+        }
+        if (c.kind === 'state' || c.kind === 'launch' || c.kind === 'ended') {
+          this.showPreview();
+        }
+      }
       if (c.kind === 'added' && c.problem !== null && c.problem === this.current) {
         const a = solves.peek(c.problem)?.added;
         if (a !== null && a !== undefined) {
@@ -294,6 +333,11 @@ export class SolverWorkspace {
     onPrefs((changed) => {
       if (changed.includes('fade')) {
         this.player.restyle();
+      }
+      if (changed.includes('livePreview')) {
+        this.syncPreview();
+        this.showPreview();
+        this.runCard.render();
       }
       // the Search Options' defaults (the settings dialog): shown at once for
       // a problem that stored none of its own, and for the limits (which no
@@ -444,6 +488,7 @@ export class SolverWorkspace {
     this.kind = null;
     this.board = null;
     this.savedSearch = null;
+    this.preview.clear();
     byId('leftS').dataset.revision = '';
     this.newPager(true);
     this.load();
@@ -452,6 +497,7 @@ export class SolverWorkspace {
 
   /** Draws the cards, the tag and the status. */
   render(): void {
+    this.syncPreview();
     this.runCard.render();
     this.solCard.render();
     this.explorer.refresh();
@@ -463,6 +509,40 @@ export class SolverWorkspace {
 
   private renderTag(): void {
     this.view3d.renderLabels();
+  }
+
+  /** Whether the view shows the live preview (nothing chosen, no explorer open, a picture drawn). */
+  get previewShown(): boolean {
+    return this.view3d.solutionLayer === 'preview';
+  }
+
+  // the newest picture of the problem shown's run, while the preview is on
+  private showPreview(): void {
+    const shot = this.current === null ? null : (this.solves.peek(this.current)?.preview ?? null);
+    this.preview.show(prefs.livePreview && shot?.problem === this.current ? shot : null);
+  }
+
+  // the engine sends pictures of the problem shown's runs, while the preview is on
+  private syncPreview(): void {
+    const store = this.store;
+    if (!store.running) {
+      return;
+    }
+    const want = prefs.livePreview ? this.current : null;
+    const generation = store.generation;
+    const was = this.previewFor.generation === generation ? this.previewFor.problem : null;
+    if (this.previewFor.generation === generation && was === want) {
+      return;
+    }
+    this.previewFor = { generation, problem: want };
+    // a problem gone, or an engine without the method (an older demo): nothing to tell
+    const quiet = (): void => undefined;
+    if (was !== null && store.snapshot?.problems.some((q) => q.id === was) === true) {
+      store.engine.call('solve.preview', { problem: was, on: false }).catch(quiet);
+    }
+    if (want !== null) {
+      store.engine.call('solve.preview', { problem: want, on: true }).catch(quiet);
+    }
   }
 
   /** The shown problem's chip style, by its place in the list. */
@@ -479,7 +559,8 @@ export class SolverWorkspace {
     const n = this.pager?.total ?? 0;
     const cur = this.player.row !== null && this.sel >= 0 && n > 0;
     const ex = this.explorer.tag();
-    return `<span class="chip" style="${this.probChip()}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : ''}`;
+    const live = this.previewShown ? '<span class="mute">· Live preview</span>' : '';
+    return `<span class="chip" style="${this.probChip()}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : live}`;
   }
 
   // the mockup's renderSolverScene's message over an empty scene
@@ -491,7 +572,7 @@ export class SolverWorkspace {
     if (snap.problems.length === 0) {
       return 'No problems — make one in the Puzzle workspace';
     }
-    if (this.player.row !== null || this.explorer.mode !== null) {
+    if (this.player.row !== null || this.explorer.mode !== null || this.previewShown) {
       return '';
     }
     if ((this.pager?.total ?? 0) > 0) {
@@ -693,6 +774,7 @@ export class SolverWorkspace {
       this.launched.clear();
       this.changeWaiters = [];
       this.player.close();
+      this.preview.clear();
       this.pager?.close();
       this.pager = null;
     }

@@ -502,6 +502,8 @@ Result<void> SolveSession::launchStacking(Mode mode) {
 // ---- the run -----------------------------------------------------------------------
 
 void SolveSession::run(const Plan& plan) {
+  // a picture of the last run is not one of this run's
+  sample_.discard();
   if (stacking_) {
     try {
       runStacking(plan);
@@ -863,6 +865,7 @@ void SolveSession::runStacking(const Plan& plan) {
     search.progress = &slideProgress_;
     search.depth = &searchDepth_;
     search.traced = &searchTraced_;
+    search.sample = &sample_;
     search.resume = true;
     search.autosave = o.stacking.autosave;
     search.workDir = o.stacking.workDir;
@@ -913,6 +916,7 @@ void SolveSession::runStacking(const Plan& plan) {
     search.memoryShare = o.memoryShare.get();
     search.stop = runToken();
     search.progress = &slideProgress_;
+    search.sample = &sample_;
     path = stacking::findStackPath(puzzle_, problem_, search);
     stopped = search.outcome == stacking::StackOutcome::Stopped;
     if (path) {
@@ -1096,6 +1100,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.stop = runToken();
       search.progress = &slideProgress_;
       search.depthProgress = &searchDepth_;
+      search.sample = &sample_;
       search.pool = slidePool_.get();
       search.memoryShare = o.memoryShare.get();
       search.stopProgress = &slideStop_;
@@ -1480,6 +1485,7 @@ void SolveSession::startWorkers(const Plan& plan, unsigned int workers, unsigned
   d.rotations = o.checkRotations;
   d.solver = o.solver;
   d.pool = pool.get();
+  d.sample = &sample_;
   std::vector<std::unique_ptr<Disassembler>> made;
   made.reserve(workers);
   for (unsigned int i = 0; i < workers; i++) {

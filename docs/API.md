@@ -1849,6 +1849,21 @@ Result:
 
 Errors: `not_found`
 
+### `solve.preview`
+
+Turns the live preview of a problem's solve on or off: while it is on and a run is active, each solve.progress is followed by a solve.preview with where the pieces stand in an arrangement the search is looking at, when it has one (a sliding or stacking search, or a take-apart under way; the assembly search gives none). Off by default; it stays as set across runs, and a document that is replaced turns it off. Taking the pictures costs the search next to nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `on` | boolean | required |  |
+
+Result: [Empty](#empty)
+
+Errors: `not_found`
+
 ### `solve.searchFolders`
 
 The folders of the cache folder that hold this problem's saved searches: on the sliding grid one in slideFolder for each start whose search was saved there (paused, or saved as it ran), on the stacking grid its search's folder in panexFolder when it is there; none on the other grids, and none for a search that saved nothing yet. The app names these folders after the puzzle in its cache manager (View ▸ Manage Cache and Autosave Files).
@@ -1932,6 +1947,16 @@ The saved solutions changed while solving (new ones, or the list thinned or re-s
 | `solutionsVersion` | [SolutionsVersion](#solutionsversion) | required | A counter the problem moves on every change of its saved list (a solution added, removed, re-sorted or edited), kept while the document is open: solution.page and solve.solutionsAdded carry it, so pages read at one value belong together and a client knows when to page again. |
 | `assemblies` | integer | required |  |
 | `solutions` | integer | required |  |
+
+### event `solve.preview`
+
+Where the pieces stand in an arrangement a running solve's search is looking at, for a live preview (solve.preview turns it on): after a solve.progress, at most four times a second. source 'search' is a sliding or stacking search's arrangement, 'takeApart' a position of a take-apart (only the pieces of the part it is taking apart are placed). The placements are a saved solution's assembly's (Placement.at where solution.get would put the piece); like pieces may swap places from one picture to the next.
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `source` | `"search"` \| `"takeApart"` | required |  |
+| `placements` | [Placement](#placement)[] | required |  |
 
 ### event `solve.error`
 

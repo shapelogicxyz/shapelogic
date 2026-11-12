@@ -19,6 +19,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -26,8 +27,10 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using namespace bt;
@@ -159,6 +162,15 @@ TEST_CASE("stacking session: one thread and four find the same path", "[stacking
     o.stacking.solver = StackingSolver::Panex;
     SolveSession s(puz, pr, o);
     REQUIRE(s.start().has_value());
+    // live preview pictures asked for all the while
+    std::vector<SearchSnapshot> shots;
+    while (isActive(s.state())) {
+      if (std::optional<SearchSnapshot> shot = s.takeSample()) {
+        shots.push_back(std::move(*shot));
+      }
+      s.requestSample();
+      std::this_thread::yield();
+    }
     s.wait();
     REQUIRE(s.state() == SolveState::Finished);
     CHECK(s.note().empty());
@@ -166,6 +178,25 @@ TEST_CASE("stacking session: one thread and four find the same path", "[stacking
     CHECK(pr.getNumAssemblies() == 1);
     CHECK(pr.getNumSolutions() == 1);
     checkPath(puz, pr, 128);
+    // the placer puts the start stacking where the solution's assembly has it
+    Stacking startSt;
+    Stacking goalSt;
+    std::vector<unsigned int> sizes;
+    REQUIRE(searchInput(puz, pr, startSt, goalSt, sizes));
+    CHECK(StackingPlacer(puz, pr).place(startSt) == startAssembly(puz, pr).getPlacements());
+    // each picture a stacking: every disc on a rod, no two in one place
+    const BoardLayout board = layoutBoard(puz, pr, false);
+    for (const SearchSnapshot& shot : shots) {
+      CHECK(shot.source == SampleSource::Search);
+      REQUIRE(shot.placements.size() == board.disks.size());
+      std::set<std::pair<int, int>> places;
+      for (const Placement& pl : shot.placements) {
+        CHECK(pl.transformation == 0);
+        CHECK(std::ranges::find(board.rodX, pl.xpos) != board.rodX.end());
+        places.emplace(pl.xpos, pl.zpos);
+      }
+      CHECK(places.size() == shot.placements.size());
+    }
     // the solution's assembly is the start stacking
     const Assembly& a = pr.getSavedSolution(0).getAssembly();
     const BoardLayout lay = layoutBoard(puz, pr, false);

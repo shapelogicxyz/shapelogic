@@ -18,6 +18,7 @@
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/solve/disasm_to_moves.h"
+#include "shapelogic/solve/search_sample.h"
 #include "shapelogic/solve/slide_levels.h"
 
 #include <algorithm>
@@ -83,6 +84,23 @@ struct Place {
 struct SlideState {
   std::vector<Place> places;
 };
+
+// An arrangement as a live preview's picture, when one is asked for: the
+// pieces are in the assembly's order.
+void putSample(SearchSample* sample, const SlideState& st) {
+  if (sample == nullptr || !sample->claim()) {
+    return;
+  }
+  SearchSnapshot snap;
+  snap.placements.resize(st.places.size());
+  for (std::size_t i = 0; i < st.places.size(); i++) {
+    snap.placements[i].transformation = st.places[i].trans;
+    snap.placements[i].xpos = st.places[i].x;
+    snap.placements[i].ypos = st.places[i].y;
+    snap.placements[i].zpos = st.places[i].z;
+  }
+  sample->put(std::move(snap));
+}
 
 std::string stateKey(const SlideState& s) {
   std::ostringstream os;
@@ -574,6 +592,7 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
     const SlideState cur = q.front();
     q.pop();
     visited++;
+    putSample(search.sample, cur);
 
     // One move is one piece going anywhere it can reach while the others
     // stay put, round corners included, so the search finds the fewest
@@ -2597,6 +2616,9 @@ class LevelSearch {
             store_.ioFailed();
             failed.store(true);
             break;
+          }
+          if (search_.sample != nullptr && !keys.empty() && search_.sample->wanted()) {
+            putSample(search_.sample, s_.decode(keys.front()));
           }
           for (const Key k : keys) {
             if (mover.expand(k, emit)) {

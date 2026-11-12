@@ -47,6 +47,7 @@ class Assembly;
 class DisasmToMoves;
 class Problem;
 class Puzzle;
+class SearchSample;
 class ThreadPool;
 }  // namespace bt
 
@@ -145,6 +146,9 @@ struct SlideSearch {
   /// When set, counts the levels searched out while the path is traced back
   /// across thinned levels.
   std::atomic<std::uint64_t>* traced = nullptr;
+  /// When set, the search puts a picture of an arrangement it is looking
+  /// at here when one is asked for (a live preview).
+  SearchSample* sample = nullptr;
   /// The threads the level search spreads its levels over; null for a pool
   /// of the search's own of `threads` threads.
   ThreadPool* pool = nullptr;

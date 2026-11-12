@@ -540,6 +540,37 @@ describe('the solve records', () => {
     expect(s.get('p1').failure).toBeNull();
   });
 
+  it('keep the newest live preview picture of a run under way, and drop it as the run ends', () => {
+    const bus = eventBus();
+    const s = new Solves(bus);
+    const kinds: string[] = [];
+    s.subscribe((c) => kinds.push(c.kind));
+    const shot = (x: number): unknown => ({
+      problem: 'p1',
+      source: 'search',
+      placements: [{ piece: 0, placed: true, transformation: 0, at: [x, 0, 0] }],
+    });
+    // one before any run is none of a run's
+    bus.emit('solve.preview', shot(0));
+    expect(s.get('p1').preview).toBeNull();
+    s.launch('p1', 'classic');
+    bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
+    bus.emit('solve.preview', shot(1));
+    bus.emit('solve.preview', shot(2));
+    expect(s.get('p1').preview?.placements[0]?.at).toEqual([2, 0, 0]);
+    expect(kinds.filter((k) => k === 'preview')).toHaveLength(2);
+    // the run's last state takes it away; one that crossed it is not kept
+    bus.emit('solve.state', { problem: 'p1', state: 'paused' });
+    expect(s.get('p1').preview).toBeNull();
+    bus.emit('solve.preview', shot(3));
+    expect(s.get('p1').preview).toBeNull();
+    // a new launch starts with none
+    bus.emit('solve.state', { problem: 'p1', state: 'assembling' });
+    bus.emit('solve.preview', shot(4));
+    s.launch('p1', 'classic');
+    expect(s.get('p1').preview).toBeNull();
+  });
+
   it('resolve a pending whenEnded when the document is replaced (clear), so autosave never hangs', async () => {
     const bus = eventBus();
     const s = new Solves(bus);

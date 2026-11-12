@@ -3280,6 +3280,23 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
+   * Turns the live preview of a problem's solve on or off: while it is on and a run is active,
+   * each solve.progress is followed by a solve.preview with where the pieces stand in an
+   * arrangement the search is looking at, when it has one (a sliding or stacking search, or a
+   * take-apart under way; the assembly search gives none). Off by default; it stays as set across
+   * runs, and a document that is replaced turns it off. Taking the pictures costs the search next
+   * to nothing.
+   * (solve.json)
+   */
+  'solve.preview': {
+    params: {
+      problem: ProblemId;
+      on: boolean;
+    };
+    result: Empty;
+    errors: 'not_found';
+  };
+  /**
    * The folders of the cache folder that hold this problem's saved searches: on the sliding grid
    * one in slideFolder for each start whose search was saved there (paused, or saved as it ran),
    * on the stacking grid its search's folder in panexFolder when it is there; none on the other
@@ -3709,6 +3726,22 @@ export interface Events {
     };
   };
   /**
+   * Where the pieces stand in an arrangement a running solve's search is looking at, for a live
+   * preview (solve.preview turns it on): after a solve.progress, at most four times a second.
+   * source 'search' is a sliding or stacking search's arrangement, 'takeApart' a position of a
+   * take-apart (only the pieces of the part it is taking apart are placed). The placements are a
+   * saved solution's assembly's (Placement.at where solution.get would put the piece); like pieces
+   * may swap places from one picture to the next.
+   * (solve.json)
+   */
+  'solve.preview': {
+    params: {
+      problem: ProblemId;
+      source: 'search' | 'takeApart';
+      placements: Placement[];
+    };
+  };
+  /**
    * A run ended in error.
    * (solve.json)
    */
@@ -3831,6 +3864,7 @@ export const METHOD_NAMES = [
   'solve.importPaused',
   'solve.pause',
   'solve.prepare',
+  'solve.preview',
   'solve.reset',
   'solve.savePoint',
   'solve.searchFolders',
@@ -3860,6 +3894,7 @@ export const EVENT_NAMES = [
   'solution.analyseEnded',
   'solution.analyseProgress',
   'solve.error',
+  'solve.preview',
   'solve.progress',
   'solve.solutionsAdded',
   'solve.state',

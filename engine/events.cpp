@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The events (decision 0012): document.changed after a change, and what
 // the background work does, polled: solve.state, solve.progress (at most
-// four times a second, and once when a run ends), solve.solutionsAdded,
-// solve.error, solution.analyseProgress and solution.analyseEnded.
+// four times a second, and once when a run ends), solve.preview (beside
+// solve.progress, while it is on), solve.solutionsAdded, solve.error,
+// solution.analyseProgress and solution.analyseEnded.
 #include "convert.h"
 #include "engine.h"
 
 #include <algorithm>
+#include <optional>
 
 namespace bt::engine {
 
@@ -40,6 +42,16 @@ void pollSolve(State& s, app::Id id, unsigned int index, State::Watch& w,
                                           {"progress", progressJson(*g)}});
     }
     w.progressAt = now;
+  }
+  if (w.preview && isActive(state) && due) {
+    // the picture asked for at the last tick, and the next one asked for
+    if (const std::optional<SearchSnapshot> snap = d.takeSolveSample(id)) {
+      const char* source = snap->source == SampleSource::TakeApart ? "takeApart" : "search";
+      s.out.notify("solve.preview", Json{{"problem", problemName(id)},
+                                         {"source", source},
+                                         {"placements", placementsJson(snap->placements)}});
+    }
+    d.requestSolveSample(id);
   }
   if (isActive(state) || changed) {
     // the saved list: the problem counts its changes (a solution added, a

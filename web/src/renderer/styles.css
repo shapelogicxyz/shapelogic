@@ -963,6 +963,8 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 #slvOpts{margin-left:12px;padding-left:14px;border-left:2px solid var(--line)}
 #boardsSec:not([hidden]) ~ #shapesHead [data-collapse]{display:none}
 #leftS.slvfrozen .slv-optsec{pointer-events:none;opacity:.5}
+#leftS.slvfrozen #slvOptSec{pointer-events:auto;opacity:1}
+#leftS.slvfrozen #slvOptSec .slv-opts>:not(.live){pointer-events:none;opacity:.5}
 .lbody .lspace{position:relative}
 .lbody .lrow{position:absolute;left:0;right:0}
 .lrow.ph{cursor:default}

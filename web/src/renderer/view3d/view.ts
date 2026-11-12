@@ -98,8 +98,11 @@ export interface SolverHost {
   pieceDragged(piece: number, dx: number, dy: number): void;
 }
 
-/** Who draws in the Solver's view: the player, or an explorer over it while one is open. */
-export type SolutionLayer = 'player' | 'explorer';
+/**
+ * Who draws in the Solver's view: the player, an explorer over it while one
+ * is open, or the live preview of a run under it (while the others have nothing).
+ */
+export type SolutionLayer = 'player' | 'explorer' | 'preview';
 
 /** What 3D editing does with the view's points (the Entities workspace). */
 export interface EditHost {
@@ -201,11 +204,18 @@ export class View3D {
   private piecesModel: PiecesModel | null = null;
   private readonly solution = new SolutionScene(labelSprite);
   private solutionModel: SolutionModel | null = null;
-  /** What each layer would show; the explorer's over the player's while it has a model. */
+  /**
+   * What each layer would show; the explorer's over the player's while it
+   * has a model, the preview's only while neither has one.
+   */
   private readonly layers: Record<
     SolutionLayer,
     { model: SolutionModel | null; poses: readonly ScenePose[] }
-  > = { player: { model: null, poses: [] }, explorer: { model: null, poses: [] } };
+  > = {
+    player: { model: null, poses: [] },
+    explorer: { model: null, poses: [] },
+    preview: { model: null, poses: [] },
+  };
   private shownLayer: SolutionLayer = 'player';
   /** What the pieces scene shows: the model's key and the style. */
   private piecesShown = '';
@@ -461,10 +471,15 @@ export class View3D {
 
   setSolution(model: SolutionModel | null, layer: SolutionLayer = 'player'): void {
     this.layers[layer].model = model;
-    if (layer === 'explorer' && model === null) {
-      this.layers.explorer.poses = [];
+    if (layer !== 'player' && model === null) {
+      this.layers[layer].poses = [];
     }
-    const shown: SolutionLayer = this.layers.explorer.model !== null ? 'explorer' : 'player';
+    const shown: SolutionLayer =
+      this.layers.explorer.model !== null
+        ? 'explorer'
+        : this.layers.player.model === null && this.layers.preview.model !== null
+          ? 'preview'
+          : 'player';
     if (layer !== shown && shown === this.shownLayer) {
       return;
     }
@@ -481,6 +496,11 @@ export class View3D {
     vp.dataset.poses = this.solution.posesShown();
     vp.dataset.solutionPieces = this.solution.describe();
     this.lookChanged();
+  }
+
+  /** The layer the Solver's view shows now. */
+  get solutionLayer(): SolutionLayer {
+    return this.shownLayer;
   }
 
   /** Places the solution's pieces (a pose per piece of the layer's model). */

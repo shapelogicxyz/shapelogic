@@ -95,6 +95,20 @@
       },
       "errors": ["not_found"]
     },
+    "solve.preview": {
+      "summary": "Turns the live preview of a problem's solve on or off: while it is on and a run is active, each solve.progress is followed by a solve.preview with where the pieces stand in an arrangement the search is looking at, when it has one (a sliding or stacking search, or a take-apart under way; the assembly search gives none). Off by default; it stays as set across runs, and a document that is replaced turns it off. Taking the pictures costs the search next to nothing.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "on": {"type": "boolean"}
+        },
+        "required": ["problem", "on"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Empty"},
+      "errors": ["not_found"]
+    },
     "solve.searchFolders": {
       "summary": "The folders of the cache folder that hold this problem's saved searches: on the sliding grid one in slideFolder for each start whose search was saved there (paused, or saved as it ran), on the stacking grid its search's folder in panexFolder when it is there; none on the other grids, and none for a search that saved nothing yet. The app names these folders after the puzzle in its cache manager (View ▸ Manage Cache and Autosave Files).",
       "params": {"$ref": "#/$defs/ProblemParam"},
@@ -181,6 +195,19 @@
           "solutions": {"type": "integer", "minimum": 0}
         },
         "required": ["problem", "saved", "solutionsVersion", "assemblies", "solutions"],
+        "additionalProperties": false
+      }
+    },
+    "solve.preview": {
+      "summary": "Where the pieces stand in an arrangement a running solve's search is looking at, for a live preview (solve.preview turns it on): after a solve.progress, at most four times a second. source 'search' is a sliding or stacking search's arrangement, 'takeApart' a position of a take-apart (only the pieces of the part it is taking apart are placed). The placements are a saved solution's assembly's (Placement.at where solution.get would put the piece); like pieces may swap places from one picture to the next.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "source": {"type": "string", "enum": ["search", "takeApart"]},
+          "placements": {"type": "array", "items": {"$ref": "types.json#/$defs/Placement"}}
+        },
+        "required": ["problem", "source", "placements"],
         "additionalProperties": false
       }
     },

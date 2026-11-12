@@ -149,6 +149,25 @@ describe.skipIf(ENGINE === null)('solving', () => {
     await fails(c.call('solve.abort', { problem: p }), 'invalid_state');
   }, 120_000);
 
+  it('sends live preview pictures of the take-aparts while asked, after the progress', async () => {
+    const c = s.client;
+    const { p } = await dominoBox(s, 2, 4, 5);
+    await c.call('solve.preview', { problem: p, on: true });
+    const from = s.events.length;
+    await c.call('solve.start', { problem: p, options: { disassemble: true, threads: 1 } });
+    const shot = await s.waitFor('solve.preview', (e) => e.problem === p, from, 60_000);
+    expect(shot.source).toBe('takeApart');
+    expect(shot.placements).toHaveLength(20);
+    expect(shot.placements.filter((x) => x.placed).length).toBeGreaterThanOrEqual(2);
+    // each comes after a solve.progress of the problem
+    const at = s.events.findIndex((e) => e.event === 'solve.preview');
+    const before = s.events.slice(from, at).reverse();
+    expect(before.find((e) => e.event.startsWith('solve.'))?.event).toBe('solve.progress');
+    await c.call('solve.preview', { problem: p, on: false });
+    await c.call('solve.abort', { problem: p });
+    await state(s, p, ['idle'], from, 30_000);
+  }, 120_000);
+
   it("ends a run with its last solve.state, then the document.changed of the run's revision", async () => {
     const c = s.client;
     const { p } = await dominoBox(s, 2, 4, 4);

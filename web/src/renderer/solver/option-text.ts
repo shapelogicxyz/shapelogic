@@ -63,6 +63,11 @@ export const LABEL: Record<BoxName, string> = {
 };
 
 /** The two limits' names and help. */
+/** The Live preview switch (a setting of the program, not of a problem). */
+export const LIVE_PREVIEW = {
+  label: 'Live preview',
+  tip: 'While a search runs and no solution is chosen, show the arrangements it is looking at in the view, a few times a second',
+} as const;
 export const KEEP_EACH = {
   label: 'Keep every n-th',
   tip: 'Keep a sample of a large number of solutions: 1 keeps each, higher numbers skip that many before the next one is kept',

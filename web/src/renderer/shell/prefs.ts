@@ -56,6 +56,8 @@ export interface Prefs {
   pieceLabels: boolean;
   /** The Solver's Piece display: labels only (Compact), not "S2 - name" (Full). */
   pieceCompact: boolean;
+  /** The Solver's 3D view: while a run searches, the arrangements it is looking at (the run card's Live preview). */
+  livePreview: boolean;
   /** Worker threads; 0 until the engine said (its 0 is every hardware thread). */
   threads: number;
   /** The memory a sliding or stacking search may fill, in GB; 0 automatic (the engine's searchMemoryGB). */
@@ -121,6 +123,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   fade: true,
   pieceLabels: false,
   pieceCompact: false,
+  livePreview: true,
   threads: 0,
   memGB: 0,
   slideDiskGB: 0,

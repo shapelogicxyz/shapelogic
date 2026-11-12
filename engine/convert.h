@@ -102,5 +102,7 @@ template <class E>
 /// A saved solution's row (solution.page) and the placements of an assembly.
 [[nodiscard]] Json solutionRow(const Solution& sol, unsigned int index, bool stackingPuzzle);
 [[nodiscard]] Json placementsJson(const Assembly& a);
+/// The same for placements a search's picture holds (SearchSnapshot).
+[[nodiscard]] Json placementsJson(const std::vector<Placement>& placements);
 
 }  // namespace bt::engine

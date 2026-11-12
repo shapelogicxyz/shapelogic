@@ -926,6 +926,31 @@ Assembly startAssembly(const Puzzle& puzzle, const Problem& problem) {
   return assm;
 }
 
+StackingPlacer::StackingPlacer(const Puzzle& puzzle, const Problem& problem)
+    : discs_(discsOf(puzzle, problem)) {
+  if (problem.rodSetValid(puzzle)) {
+    board_ = &puzzle.getRodSet(problem.getRodSetId());
+    rodX_ = layoutBoard(puzzle, problem, false).rodX;
+  }
+}
+
+std::vector<Placement> StackingPlacer::place(const Stacking& stacking) const {
+  std::vector<Placement> out(discs_.size());
+  if (board_ == nullptr) {
+    return out;
+  }
+  for (std::size_t r = 0; r < stacking.size() && r < rodX_.size(); r++) {
+    const std::vector<int> z =
+        discHeights(*board_, discs_, stacking[r], static_cast<unsigned int>(r));
+    for (std::size_t h = 0; h < stacking[r].size(); h++) {
+      if (stacking[r][h] < out.size()) {
+        out[stacking[r][h]] = Placement{0, rodX_[r], 0, z[h]};
+      }
+    }
+  }
+  return out;
+}
+
 unsigned int boardSpan(const Puzzle& puzzle, const Problem& problem) {
   const BoardLayout lay = layoutBoard(puzzle, problem, false);
   if (lay.rodCount == 0) {

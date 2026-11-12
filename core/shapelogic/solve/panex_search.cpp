@@ -23,6 +23,7 @@
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
 #include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/search_sample.h"
 #include "shapelogic/solve/sliding_search.h"
 
 #include <algorithm>
@@ -791,6 +792,9 @@ class Searcher {
                : budget_;
   }
 
+  // Turns a stacking into the picture a live preview asks for (set when
+  // the search has a sample).
+  const stacking::StackingPlacer* placer = nullptr;
   // Save the top search here, and carry on from resumeFrom when it is set.
   Store* store = nullptr;
   const SavedState* resumeFrom = nullptr;
@@ -946,6 +950,10 @@ class Searcher {
         out.clear();
         for (std::size_t i = lo; i < hi; i++) {
           rules_.decode(cur[i], s);
+          if (i == lo && placer != nullptr && search_.sample->claim()) {
+            search_.sample->put(
+                SearchSnapshot{SampleSource::Search, placer->place(rules_.toStacking(s))});
+          }
           rules_.moves(s, [&](const PState& st) { out.push_back(key(st)); });
         }
         radixSort(out, scratch, keyBits);
@@ -1802,6 +1810,11 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
                           : std::max(pool->cores() - 1, 1U);
 
   Searcher searcher(rules, search, *pool, threads, budget);
+  std::optional<stacking::StackingPlacer> placer;
+  if (search.sample != nullptr) {
+    placer.emplace(puzzle, problem);
+    searcher.placer = &*placer;
+  }
   searcher.startKey = startKey;
   searcher.goalKey = goalKey;
   if (rules.mirrorable && rules.mirror(startKey) == goalKey) {
