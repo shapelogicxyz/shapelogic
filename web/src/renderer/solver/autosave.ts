@@ -33,14 +33,17 @@
 // solving does (File ▸ Save and Save As): the same pause, the puzzle saved
 // to its file by the store (which waits for the snapshot that shows the
 // document clean), the solves carried on. A solve the user pauses while a
-// save waits for its save point (a sliding search under way reaches one
-// only when the search of its start is through) is the user's: it stays
-// paused (`hold`). A stacking puzzle is not written
-// from here (its search saves itself by the same rule, in its own files),
-// and a save while its search runs pauses it (solve.pause: the search
-// saves itself; a stacking solve has no save point), saves, and carries it
-// on. The problems' stored `autosave` (the original's box) is not looked
-// at.
+// save is under way is the user's: it stays paused (`hold`). A stacking
+// puzzle is not written from here (its search saves itself by the same
+// rule, in its own files), and a save while its search runs pauses it
+// (solve.pause: the search saves itself; a stacking solve has no save
+// point), saves, and carries it on. A sliding puzzle's solve is paused
+// too: a save point lets the slide search under way run to its end, which
+// on a large puzzle is the whole solve, so the save would wait for it;
+// paused, the search writes its levels to its folder (what it wrote since
+// its own last save) and Continue carries it on from there, redoing at
+// most the level cut short. The problems' stored `autosave` (the
+// original's box) is not looked at.
 
 import type { SolveOptions } from '../../engine/api.generated.ts';
 import { isActive } from '../state/solves.ts';
@@ -80,6 +83,8 @@ export class Autosave {
   private saving = false;
   /** The solves the user paused while the save under way waited: not carried on. */
   private readonly held = new Set<string>();
+  /** The solves the save under way pauses, to carry them on. */
+  private readonly pausing = new Set<string>();
 
   constructor(
     store: Store,
@@ -157,9 +162,9 @@ export class Autosave {
     }
   }
 
-  /** Whether the save under way will carry this solve on when it is through (its pause is the save's). */
+  /** Whether the save under way paused this solve and will carry it on when it is through. */
   carriesOn(problem: string): boolean {
-    return this.saving && !this.held.has(problem);
+    return this.saving && this.pausing.has(problem) && !this.held.has(problem);
   }
 
   /** Whether a run is under way (a save must wait for a save point). */
@@ -204,14 +209,18 @@ export class Autosave {
     const paused: string[] = [];
     try {
       const runs = this.activeRuns();
-      // a stacking search has no save point: it pauses, saving itself
-      const method = this.store.snapshot?.grid === 'stacking' ? 'solve.pause' : 'solve.savePoint';
+      // a stacking search has no save point, and a sliding one reaches it
+      // only with its start searched through: they pause, saving themselves
+      const grid = this.store.snapshot?.grid;
+      const method = grid === 'stacking' || grid === 'sliding' ? 'solve.pause' : 'solve.savePoint';
       for (const p of runs) {
+        this.pausing.add(p);
         try {
           await e.call(method, { problem: p });
           paused.push(p);
         } catch {
           // the run ended meanwhile: nothing to pause
+          this.pausing.delete(p);
         }
       }
       // each run's end (its revision), then the snapshot that shows it
@@ -267,6 +276,7 @@ export class Autosave {
         }
       }
       this.held.clear();
+      this.pausing.clear();
       this.saving = false;
     }
   }

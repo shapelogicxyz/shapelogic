@@ -556,12 +556,25 @@ export class SolverWorkspace {
     };
   }
 
+  /** Whether the run shown is paused by a save that carries it on (not by Pause, not aborted). */
+  savingFor(r: SolveRecord | null): boolean {
+    if (r === null || !this.autosave.carriesOn(r.problem)) {
+      return false;
+    }
+    const g = r.progress;
+    return g?.stage !== 'stopping' || g.stopKind !== 'abort';
+  }
+
   /** The Activity text: the solver's state (what it has found and gone through is details()). */
   activity(): string {
     const r = this.record;
     const p = this.problem;
     if (this.analysing) {
       return 'Analysing disassemblies';
+    }
+    // paused for a save (the crash recovery copy, File ▸ Save), to carry on
+    if (this.savingFor(r)) {
+      return 'Saving the search, then carrying on…';
     }
     if (r !== null && r.phase !== 'none' && r.progress !== null) {
       switch (r.progress.stage) {
@@ -633,7 +646,7 @@ export class SolverWorkspace {
         const what = this.stacking
           ? stackingDetails(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
           : slidingDetails(g.searched, g.searchDepth);
-        return stopping ? `${what} ${stopDetails(g, this.family)}` : what;
+        return stopping ? `${what} ${stopDetails(g, this.family, this.savingFor(r))}` : what;
       }
       // the engine's words for the stage (solveProgress_c::activity), and the search steps
       const what =

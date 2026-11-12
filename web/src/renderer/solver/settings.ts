@@ -580,10 +580,13 @@ export function slidingDetails(searched: number, depth: number): string {
  * sliding search finishes the level under way (merging it cannot be cut
  * short), then, for a pause, writes its levels to disk for Continue, so
  * much of so much; a Panex search saves itself; an abort keeps nothing.
+ * `carryOn`: the pause is a save's (the crash recovery copy, File ▸ Save),
+ * which carries the solve on.
  */
 export function stopDetails(
   g: Pick<SolveProgress, 'stopKind' | 'slideStop' | 'panexSearch'>,
   family: Family,
+  carryOn = false,
 ): string {
   const s = g.slideStop;
   if (g.stopKind === 'abort') {
@@ -592,15 +595,24 @@ export function stopDetails(
       : 'Aborting: waiting for the search to stop.';
   }
   if (s?.saving === true) {
-    return `Pausing: saving the search to disk for Continue, ${sizeText(s.doneBytes)} of ${sizeText(s.totalBytes)} written.`;
+    const written = `${sizeText(s.doneBytes)} of ${sizeText(s.totalBytes)} written`;
+    return carryOn
+      ? `Saving the search to disk, ${written}; then it carries on.`
+      : `Pausing: saving the search to disk for Continue, ${written}.`;
   }
   if (s !== null) {
-    return 'Pausing: finishing the level under way, which can’t be cut short; then the search is saved to disk for Continue.';
+    return carryOn
+      ? 'Finishing the level under way, which can’t be cut short; then the search is saved to disk and carries on.'
+      : 'Pausing: finishing the level under way, which can’t be cut short; then the search is saved to disk for Continue.';
   }
   if (family === 'stacking' && g.panexSearch) {
-    return 'Pausing: the search is saving itself for Continue.';
+    return carryOn
+      ? 'The search is saving itself; then it carries on.'
+      : 'Pausing: the search is saving itself for Continue.';
   }
-  return 'Pausing: waiting for the search to stop.';
+  return carryOn
+    ? 'Waiting for the search to stop; then it carries on.'
+    : 'Pausing: waiting for the search to stop.';
 }
 
 /**

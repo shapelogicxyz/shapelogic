@@ -1069,11 +1069,11 @@ test('the Boards list: above Shapes with + New Board, four and a half rows befor
   }
 });
 
-test('Pause while the crash recovery journal waits for a save point: the solve stays paused, its search saved', async () => {
+test('the crash recovery journal pauses a sliding search, saves, and carries it on; Pause stays paused', async () => {
   test.setTimeout(120_000);
   const { dir, log } = tmpLog();
-  // a journal every second: it asks for a save point, which a sliding search
-  // under way reaches only once its start is searched through
+  // a journal every second; a save point would wait for the slide search to
+  // end, so the journal pauses it instead
   const a = await launch({ callLog: log, autosave: 1 });
   const page = a.page;
   try {
@@ -1091,23 +1091,30 @@ test('Pause while the crash recovery journal waits for a save point: the solve s
         timeout: 20_000,
       },
     );
-    await expect
-      .poll(() => readCallLog(log).some((c) => c.method === 'solve.savePoint'), { timeout: 20_000 })
-      .toBe(true);
-    await runButton(page, 'pause');
-    await runEnded(page, 'paused');
-    // the journal, through waiting, saves the rescue copy and leaves the user's pause be
+    // the copy written while the search runs, the search carried on after it
     await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', '1', {
       timeout: 30_000,
     });
-    await solverSettled(page);
-    expect(readCallLog(log).some((c) => c.method === 'solve.continue')).toBe(false);
-    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'paused');
+    const calls = readCallLog(log).map((c) => c.method);
+    expect(calls).toContain('solve.pause');
+    expect(calls).toContain('solve.continue');
+    expect(calls).not.toContain('solve.savePoint');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
+    await expect(page.locator('#slvActivity')).toHaveText(/^Search active/);
+    await expect(page.locator('#slvDetails')).toContainText(
+      /moves deep\. Scanned .+ arrangements\./,
+    );
+
+    // the user's Pause: paused, the start not searched through
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
     await expect(page.locator('#slvActivity')).toHaveText('Search paused');
-    // the start is not searched through: the bar does not say it is
     await expect(page.locator('#slvPct')).toHaveText('0.0%');
     const sp = await shownProblem(page);
     await expect(page.locator(`#slvProbs .row[data-id="${sp}"] .st`)).toHaveText('paused');
+    expect(
+      await engineCall<{ state: string }>(page, 'solve.status', { problem: sp }),
+    ).toMatchObject({ state: 'paused' });
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

@@ -743,7 +743,8 @@ test('a save while solving at a save point; the paused solver state exported and
     expect(saved.problems.find((p) => p.state === 'solving')).toBeDefined();
 
     // Export ▸ Paused Solver State: refused while it runs, offered once paused
-    expect((await menuItem(page, 'exportPaused'))?.enabled).toBe(false);
+    // (the menus follow the solve now and then: the save's pause may still show)
+    await expect.poll(async () => (await menuItem(page, 'exportPaused'))?.enabled).toBe(false);
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
     await expect.poll(async () => (await menuItem(page, 'exportPaused'))?.enabled).toBe(true);

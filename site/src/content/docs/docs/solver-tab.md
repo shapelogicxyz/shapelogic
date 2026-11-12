@@ -143,6 +143,14 @@ and nothing is written while the solve has not moved on. Pausing for a copy
 loses none of the search's work, on one thread or on many. After a crash you
 usually lose a minute or two.
 
+A sliding puzzle's search is paused for each copy and saves itself first,
+as **Pause** does: Activity says *Saving the search, then carrying on*,
+the problems list says **saving**, and Details shows how much of the
+search is written. The search then carries on from what it saved; only
+the level it was in the middle of is searched again. On a large search
+the save can take a while, so the copies come less often. **File ▸ Save**
+during a sliding solve works the same way.
+
 A stacking puzzle's search saves itself by the same rule, in its own files,
 and **Continue** carries it on. (The original's **Autosave every 20 min**
 box is gone; a puzzle that stored it keeps what it stored, and it is not

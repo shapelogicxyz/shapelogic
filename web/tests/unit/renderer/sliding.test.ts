@@ -222,6 +222,13 @@ describe('the sliding options', () => {
     expect(
       stopDetails(stop({ saving: true, doneBytes: 1.25e9, totalBytes: 4.5e9 }), 'sliding'),
     ).toBe('Pausing: saving the search to disk for Continue, 1.3 GB of 4.5 GB written.');
+    // paused by a save that carries it on
+    expect(
+      stopDetails(stop({ saving: true, doneBytes: 2e8, totalBytes: 4.5e9 }), 'sliding', true),
+    ).toBe('Saving the search to disk, 200 MB of 4.5 GB written; then it carries on.');
+    expect(stopDetails(stop({ saving: false, doneBytes: 0, totalBytes: 0 }), 'sliding', true)).toBe(
+      'Finishing the level under way, which can’t be cut short; then the search is saved to disk and carries on.',
+    );
     expect(stopDetails(stop(null), 'sliding')).toBe('Pausing: waiting for the search to stop.');
     expect(stopDetails({ ...stop(null), panexSearch: true }, 'stacking')).toBe(
       'Pausing: the search is saving itself for Continue.',

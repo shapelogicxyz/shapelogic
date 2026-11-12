@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The note beside each problem in the Solver's problems list: its solve
-// under way (or being paused or aborted) or paused, else what a finished solve found (a sliding or
+// under way (or being paused, aborted, or saved to carry on) or paused, else what a finished solve found (a sliding or
 // stacking puzzle's fewest moves, or no solution; the other puzzles'
 // assemblies, or disassemblies when the problem takes them apart), its
 // count as short as it goes (12k, 15m). Platform-free (no DOM), so the
@@ -44,7 +44,8 @@ export interface ProblemNote {
  * The note beside a problem. `found` is null until its finished solve has
  * been read; `pausedSearch` is a stacking problem's saved search (its
  * started solve, which the snapshot's state does not show); `stop` is what
- * a run under way was asked to stop for (its progress's stopKind).
+ * a run under way was asked to stop for (its progress's stopKind), or
+ * `save`: paused by a save that carries it on (the crash recovery copy).
  */
 export function problemNote(
   state: SolveState,
@@ -52,8 +53,11 @@ export function problemNote(
   family: Family,
   found: FinishedSolve | null,
   pausedSearch = false,
-  stop: 'pause' | 'abort' | null = null,
+  stop: 'pause' | 'abort' | 'save' | null = null,
 ): ProblemNote {
+  if (stop === 'save' && (isActive(state) || state === 'paused')) {
+    return { kind: 'solving', text: 'saving' };
+  }
   if (isActive(state)) {
     const text = stop === 'pause' ? 'pausing' : stop === 'abort' ? 'aborting' : 'solving';
     return { kind: 'solving', text };

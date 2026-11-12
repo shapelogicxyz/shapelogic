@@ -115,14 +115,19 @@ export class RunCard {
           // the problem shown goes by its mode as chosen here, before it is stored
           const found =
             seen !== null && shown ? { ...seen, disassemble: ws.options.disassemble } : seen;
-          const g = ws.solves.peek(q.id)?.progress ?? null;
+          const r = ws.solves.peek(q.id);
+          const g = r?.progress ?? null;
           const note = problemNote(
             ws.stateOf(q.id),
             q,
             ws.family,
             found,
             shown && ws.stacking && ws.savedSearch !== null,
-            g?.stage === 'stopping' ? (g.stopKind ?? 'pause') : null,
+            ws.savingFor(r ?? null)
+              ? 'save'
+              : g?.stage === 'stopping'
+                ? (g.stopKind ?? 'pause')
+                : null,
           );
           return `<div class="row" role="option" aria-selected="false" data-id="${q.id}" title="Solve this problem"><span class="chip" style="${problemChipStyle(n)}">${esc(q.label)}</span><span class="lbl">${esc(q.name) || 'Problem'}</span>${note.kind === 'none' ? '' : `<span class="st ${note.kind}">${esc(note.text)}</span>`}</div>`;
         })
