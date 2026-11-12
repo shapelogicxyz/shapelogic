@@ -4,6 +4,23 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
+## [ShapeLogic v1.8](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8) (12 November 2026)
+
+### What's new
+
+- **Live preview of the search.** While a solve runs and no solution is chosen, the 3D view shows what the search is doing a few times a second: the arrangements a sliding or stacking search is looking at, or the pieces of a puzzle being taken apart. The **Live preview** switch is at the top of the Solver's **Search Options** and in **Settings ▸ Search Options**, and it can be switched while a solve runs.
+- **Manage cache and autosave files.** **View ▸ Manage Cache and Autosave Files…** lists what paused sliding and stacking solves, the crash recovery copy and unfinished searches have left on the disk, each named after its puzzle and problem, with its size, dates and files. Select one to see its details, or delete it to free the space.
+- **Abort and Reset.** While a solve runs or is paused, the last button is **Abort**: it throws the solve away, a paused solve opened from a file included. Once a solve is over it is **Reset**, which clears the problem's results, and **Undo** brings them back.
+- **Searches share their memory.** Sliding and stacking searches that run at the same time now share the **Search memory** instead of each taking all of it. The **Search memory** slider moves in 2 GB steps and warns when it is set above three quarters of the computer's memory.
+- **Clearer pausing.** While a solve pauses, **Activity** says *Pausing the search* and **Details** says what it is waiting for, such as a sliding search finishing its level or saving it to disk. A sliding solve no longer sits at 99.9% while its last start is searched.
+- **Crash recovery for sliding solves.** The crash recovery copy is now written while a sliding solve runs too: the search is paused for a moment, saved, and carried on.
+- **When the cache folder can't be written.** A sliding or stacking solve whose cache folder can't be written (a drive that is gone, a folder without permission) pauses before it starts and asks: **Choose Folder**, **Try Again** or **Abort Solve**.
+- **The problems list says more.** On the Solver tab each problem shows its solve's state, or what its finished solve found.
+- **Work while solving.** Problems can be added or copied while a solve runs, and the solve carries on.
+- **Sliding puzzles.** **Clear Start position board** and **Clear Goal position board** empty a board in one click, and the piece cards show how many of each piece there are.
+
+Many small bug fixes and improvements.
+
 ## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 
 ### What's new in v1.7
