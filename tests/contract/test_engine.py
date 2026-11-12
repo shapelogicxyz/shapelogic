@@ -742,6 +742,12 @@ def solving_session(e):
     check(e.call("solution.page", {"problem": p})["total"] == 0, "all removed")
     e.call("edit.undo")
     check(e.call("solution.page", {"problem": p})["total"] == 3, "removing is undone")
+    # Reset: the finished solve thrown away as a step
+    e.call("solve.reset", {"problem": p})
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["state"] == "unsolved" and detail["saved"] == 0, f"reset {detail['state']}")
+    e.call("edit.undo")
+    check(e.call("solution.page", {"problem": p})["total"] == 3, "the reset is undone")
 
     # saved and opened again, the solutions are there
     with tempfile.TemporaryDirectory() as tmp:

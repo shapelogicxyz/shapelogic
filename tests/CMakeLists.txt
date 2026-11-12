@@ -17,6 +17,7 @@ add_executable(bt_tests
   unit/engine/test_engine.cpp
   unit/base/test_solve_state.cpp
   unit/base/test_stop.cpp
+  unit/base/test_memory_share.cpp
   unit/base/test_system.cpp
   unit/base/test_thread_pool.cpp
   unit/grid/test_grid_dump.cpp

@@ -440,7 +440,7 @@
         "disasmCompleted": {"type": "integer", "minimum": 0},
         "disasmPending": {"type": "integer", "minimum": 0},
         "disasmWorkers": {"type": "integer", "minimum": 0},
-        "overall": {"type": "number", "description": "The whole solve, 0 to 1; never goes back during a run."},
+        "overall": {"type": "number", "description": "The whole solve, 0 to 1; never goes back during a run. A sliding puzzle's counts its starts searched through: a start still searched, or left for solve.continue by a pause, is not done."},
         "overallKnown": {"type": "boolean"},
         "levelFraction": {"type": "number"},
         "secondsLeft": {"type": ["number", "null"]},
@@ -448,9 +448,26 @@
         "searched": {"type": "integer", "minimum": 0, "description": "The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search)."},
         "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together."},
         "searchTraced": {"type": "integer", "minimum": 0, "description": "Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before."},
-        "panexSearch": {"type": "boolean", "description": "The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search')."}
+        "panexSearch": {"type": "boolean", "description": "The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search')."},
+        "stopKind": {"enum": ["pause", "abort", null], "description": "Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be continued) or an abort (solve.abort); null in every other stage."},
+        "slideStop": {
+          "oneOf": [
+            {
+              "type": "object",
+              "description": "Stage stopping with a sliding puzzle's search under way: until saving, the search finishes the step it has under way (the level being merged cannot be cut short); then, for a pause, it writes its levels still in memory to its folder (the engine's slideFolder), doneBytes of totalBytes, so that solve.continue can carry it on. An abort writes nothing.",
+              "properties": {
+                "saving": {"type": "boolean"},
+                "doneBytes": {"type": "integer", "minimum": 0},
+                "totalBytes": {"type": "integer", "minimum": 0}
+              },
+              "required": ["saving", "doneBytes", "totalBytes"],
+              "additionalProperties": false
+            },
+            {"type": "null"}
+          ]
+        }
       },
-      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch"],
+      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch", "stopKind", "slideStop"],
       "additionalProperties": false
     },
     "SolveStats": {

@@ -1068,3 +1068,48 @@ test('the Boards list: above Shapes with + New Board, four and a half rows befor
     await a.close();
   }
 });
+
+test('Pause while the crash recovery journal waits for a save point: the solve stays paused, its search saved', async () => {
+  test.setTimeout(120_000);
+  const { dir, log } = tmpLog();
+  // a journal every second: it asks for a save point, which a sliding search
+  // under way reaches only once its start is searched through
+  const a = await launch({ callLog: log, autosave: 1 });
+  const page = a.page;
+  try {
+    // the fifteen with two tiles swapped: one start, searched far longer than the test
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
+    await expect(page.locator('#slvDetails')).toContainText(
+      /moves deep\. Scanned .+ arrangements\./,
+      {
+        timeout: 20_000,
+      },
+    );
+    await expect
+      .poll(() => readCallLog(log).some((c) => c.method === 'solve.savePoint'), { timeout: 20_000 })
+      .toBe(true);
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    // the journal, through waiting, saves the rescue copy and leaves the user's pause be
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', '1', {
+      timeout: 30_000,
+    });
+    await solverSettled(page);
+    expect(readCallLog(log).some((c) => c.method === 'solve.continue')).toBe(false);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'paused');
+    await expect(page.locator('#slvActivity')).toHaveText('Search paused');
+    // the start is not searched through: the bar does not say it is
+    await expect(page.locator('#slvPct')).toHaveText('0.0%');
+    const sp = await shownProblem(page);
+    await expect(page.locator(`#slvProbs .row[data-id="${sp}"] .st`)).toHaveText('paused');
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

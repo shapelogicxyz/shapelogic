@@ -8,6 +8,7 @@
 // SolveSession; its undo case is the document's (test_document_stacking.cpp).
 #include "../model/model_test_helpers.h"
 
+#include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/grid_type.h"
@@ -712,6 +713,45 @@ TEST_CASE("panex: a stopped search carries on where it stopped", "[stacking][pan
   CHECK_FALSE(panex::solve(puz, pr, third));
   CHECK_FALSE(panex::savedSearch(puz, pr, dir).empty());
   panex::discardSaved(puz, pr, dir);
+  CHECK(panex::savedSearch(puz, pr, dir).empty());
+  std::filesystem::remove_all(dir);
+}
+
+// Decision 0028: a Panex search reads its share of the memory searches
+// running at once share each level. Its share cut below what its levels
+// need (searches starting beside it), it stops at its limit, saved, and
+// carries on to the same answer once it has the memory again.
+TEST_CASE("panex: a search stops at a share cut short, and carries on",
+          "[stacking][panex][memory][parallel]") {
+  const std::string dir = scratch("panex-share").string();
+  std::filesystem::remove_all(dir);
+  Puzzle puz = makeBoard();
+  Problem& pr = makePanexSwap(puz, 4);
+
+  MemoryShare shared(1000000000);
+  panex::PanexSearch first;
+  first.workDir = dir;
+  first.memoryShare = &shared;
+  unsigned int levels = 0;
+  first.onLevel = [&](const std::string&) {
+    if (++levels == 10) {
+      shared.setTotal(1);
+    }
+  };
+  CHECK_FALSE(panex::solve(puz, pr, first));
+  CHECK(first.outcome == panex::Outcome::Memory);
+  CHECK(first.saved);
+
+  shared.setTotal(1000000000);
+  panex::PanexSearch second;
+  second.workDir = dir;
+  second.resume = true;
+  second.memoryShare = &shared;
+  const std::optional<Separation> path = panex::solve(puz, pr, second);
+  REQUIRE(path);
+  CHECK(logicalMoves(*path) == 128);
+  CHECK(second.found > first.found);
+  checkTransfers(*path);
   CHECK(panex::savedSearch(puz, pr, dir).empty());
   std::filesystem::remove_all(dir);
 }

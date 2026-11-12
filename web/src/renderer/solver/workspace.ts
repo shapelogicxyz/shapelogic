@@ -46,6 +46,7 @@ import { onKey } from '../shell/keyboard.ts';
 import { onLayout, tab } from '../shell/layout.ts';
 import { isTray } from '../shell/piece-colours.ts';
 import { onPrefs } from '../shell/prefs.ts';
+import { chooseCacheFolder } from '../shell/settings.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
 import type { View3D } from '../view3d/view.ts';
 import { problemChipStyle } from '../puzzle/counts.ts';
@@ -70,6 +71,7 @@ import {
   solveOptions,
   stackingDetails,
   stackingSolverOf,
+  stopDetails,
   writeOptions,
 } from './settings.ts';
 import type { BoxName, Family, Limits, SearchOptions } from './settings.ts';
@@ -127,7 +129,7 @@ export class SolverWorkspace {
   /** The solution selected: its place in the sorted list and its id. */
   sel = -1;
   selId: string | null = null;
-  /** A run call under way (Solve, Prepare, Continue, Pause, Clear). */
+  /** A run call under way (Solve, Prepare, Continue, Pause, Abort). */
   calling = false;
   /** The snapshot revision the cards show, or -1 while loading. */
   shown = -1;
@@ -263,6 +265,9 @@ export class SolverWorkspace {
       }
       if (c.kind === 'ended' && c.problem === this.current && this.sel < 0) {
         this.pageChanged();
+      }
+      if (c.kind === 'ended' && c.problem !== null && this.family !== 'brick') {
+        void this.askFolder(c.problem);
       }
       if (c.problem === null || c.problem === this.current) {
         this.runCard.render();
@@ -561,7 +566,7 @@ export class SolverWorkspace {
     if (r !== null && r.phase !== 'none' && r.progress !== null) {
       switch (r.progress.stage) {
         case 'stopping':
-          return 'Stopping the search…';
+          return r.progress.stopKind === 'abort' ? 'Aborting the search…' : 'Pausing the search…';
         case 'paused':
           return 'Search paused';
         case 'done':
@@ -621,10 +626,14 @@ export class SolverWorkspace {
       g.stage !== 'done' &&
       g.stage !== 'error';
     if (running) {
-      if (g.stage === 'search') {
-        return this.stacking
+      // a sliding or stacking search being stopped keeps its line, and says
+      // what keeps it from stopping at once
+      const stopping = g.stage === 'stopping';
+      if (g.stage === 'search' || (stopping && this.family !== 'brick')) {
+        const what = this.stacking
           ? stackingDetails(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
           : slidingDetails(g.searched, g.searchDepth);
+        return stopping ? `${what} ${stopDetails(g, this.family)}` : what;
       }
       // the engine's words for the stage (solveProgress_c::activity), and the search steps
       const what =
@@ -1003,12 +1012,13 @@ export class SolverWorkspace {
    * A sliding or stacking run's note when it ends (the original's
    * bt_message of the solver note): whether a missing solution is proven,
    * the search gave up at a limit, or (a stacking search paused) where it
-   * was saved. Not for a pause to autosave, which carries on.
+   * was saved. Not for a pause to autosave, which carries on (a pause the
+   * user asked for meanwhile is told).
    */
   private async tellNote(problem: string): Promise<void> {
     const gen = this.store.generation;
     await this.solves.whenEnded(problem);
-    if (gen !== this.store.generation || this.autosave.busy) {
+    if (gen !== this.store.generation || this.autosave.carriesOn(problem)) {
       return;
     }
     try {
@@ -1081,17 +1091,25 @@ export class SolverWorkspace {
         return;
       }
     }
-    const options = this.optionsNow();
-    const solver: Solver = options.solver ?? 'classic';
-    const method =
-      kind === 'start' ? 'solve.start' : kind === 'prepare' ? 'solve.prepare' : 'solve.continue';
-    this.calling = true;
     if (kind !== 'continue') {
       // the run drops the solutions: nothing of them is read (or played) from now on
       this.sel = -1;
       this.selId = null;
       this.player.show(null, null);
     }
+    await this.launchRun(problem, kind, this.optionsNow());
+  }
+
+  /** The call of Solve, Prepare or Continue for a problem, shown or not. */
+  private async launchRun(
+    problem: string,
+    kind: 'start' | 'prepare' | 'continue',
+    options: ReturnType<typeof solveOptions>,
+  ): Promise<void> {
+    const solver: Solver = options.solver ?? 'classic';
+    const method =
+      kind === 'start' ? 'solve.start' : kind === 'prepare' ? 'solve.prepare' : 'solve.continue';
+    this.calling = true;
     this.runCard.render();
     try {
       await this.edits.track(
@@ -1113,6 +1131,89 @@ export class SolverWorkspace {
     }
   }
 
+  /** Problems whose cache folder question is open (askFolder): asked once at a time. */
+  private readonly askingFolder = new Set<string>();
+
+  /**
+   * A sliding or stacking run that paused before its search began because
+   * its cache folder could not be written (decision 0028; a drive that is
+   * gone, a folder without write access): whether to choose another cache
+   * folder, try again with the folder as it is, or abort the solve. Asked
+   * after any run's end (a run of another problem, one the autosave carried
+   * on); Escape leaves the solve paused for Continue.
+   */
+  private async askFolder(problem: string): Promise<void> {
+    const gen = this.store.generation;
+    if (this.askingFolder.has(problem)) {
+      return;
+    }
+    this.askingFolder.add(problem);
+    try {
+      let st;
+      try {
+        st = await this.store.engine.call('solve.status', { problem });
+      } catch (e) {
+        if (!(e instanceof EngineError) || e.errc !== 'not_found') {
+          reportError(e, 'The solve’s state could not be read');
+        }
+        return;
+      }
+      const f = st.folderFailure;
+      if (f === null || st.state !== 'paused') {
+        return;
+      }
+      const p = this.store.snapshot?.problems.find((q) => q.id === problem);
+      const name = p === undefined ? 'the problem' : p.name !== '' ? p.name : `problem ${p.label}`;
+      for (;;) {
+        if (gen !== this.store.generation) {
+          return;
+        }
+        const k = await askChoice(
+          'cacheUnwritable',
+          'Cache Folder Can’t Be Written',
+          `The solve of ${name} is paused before its search began: the search can’t write its files in the cache folder.\n\n${f.folder}: ${f.reason}.\n\nChoose another cache folder, try again with the cache folder as it is (once its drive is back, say), or abort the solve.`,
+          [
+            {
+              key: 'abort',
+              label: 'Abort Solve',
+              kind: 'danger',
+              tip: 'Throw the solve away: its solutions and its paused state',
+            },
+            {
+              key: 'retry',
+              label: 'Try Again',
+              tip: 'Continue the solve with the cache folder as it is',
+            },
+            {
+              key: 'choose',
+              label: 'Choose Folder…',
+              kind: 'pri',
+              default: true,
+              tip: 'Choose another cache folder in Settings, then continue the solve',
+            },
+          ],
+        );
+        if (gen !== this.store.generation) {
+          return;
+        }
+        if (k === 'choose' && !(await chooseCacheFolder())) {
+          // not changed (cancelled, or refused): asked again
+          continue;
+        }
+        if (k === 'choose' || k === 'retry') {
+          await this.launchRun(problem, 'continue', this.launchOptions(problem));
+        } else if (k === 'abort') {
+          await this.abortSolve(problem);
+        } else {
+          flash('The solve stays paused: Continue tries again');
+        }
+        return;
+      }
+    } finally {
+      this.askingFolder.delete(problem);
+    }
+  }
+
   // read through a call: the checker keeps the flags narrowed across an await
   private busyNow(): boolean {
     return this.calling || this.running || this.analysing;
@@ -1126,6 +1227,8 @@ export class SolverWorkspace {
       return;
     }
     this.calling = true;
+    // a crash recovery save waiting for its save point must not carry it on
+    this.autosave.hold(problem);
     this.runCard.render();
     try {
       await this.edits.track(this.store.engine.call('solve.pause', { problem }));
@@ -1138,8 +1241,29 @@ export class SolverWorkspace {
   }
 
   /**
+   * Whether the run card's last button is Abort rather than Reset: the
+   * solve shown is running or paused (in memory, left solving by a file,
+   * or a stacking search saved), as the original's setAbortLabel judged it.
+   */
+  get abortMode(): boolean {
+    if (this.current === null) {
+      return false;
+    }
+    const r = this.record;
+    const s = this.stateOf(this.current);
+    return (
+      (r !== null && r.phase !== 'none') ||
+      isActive(s) ||
+      s === 'paused' ||
+      this.savedSearch !== null ||
+      this.problem?.state === 'solving'
+    );
+  }
+
+  /**
    * Whether the solve shown can be aborted: a run under way, paused in
-   * memory, or a stacking problem's search saved on disk (abortable()).
+   * memory, a problem a file left solving, or a stacking problem's search
+   * saved on disk (abortable()).
    */
   get abortable(): boolean {
     const r = this.record;
@@ -1147,7 +1271,8 @@ export class SolverWorkspace {
       return false;
     }
     const s = this.stateOf(this.current);
-    if (this.savedSearch !== null && (r === null || r.phase === 'none') && !isActive(s)) {
+    const noRun = (r === null || r.phase === 'none') && !isActive(s);
+    if (noRun && (this.savedSearch !== null || this.problem?.state === 'solving')) {
       return true;
     }
     if (r === null) {
@@ -1156,16 +1281,25 @@ export class SolverWorkspace {
     return (r.phase === 'active' && isActive(s)) || (r.phase === 'none' && s === 'paused');
   }
 
-  /** Clear (the original's Abort): the hard stop, asked first (it cannot be undone, as in the original). */
+  /** Whether the solve shown is over and has results to reset (resettable()). */
+  get resettable(): boolean {
+    const p = this.problem;
+    if (p === null || this.calling || this.running || this.analysing || this.abortMode) {
+      return false;
+    }
+    return p.state !== 'unsolved' || p.saved > 0;
+  }
+
+  /** Abort (the original's): the hard stop, asked first (it cannot be undone, as in the original). */
   abort(): void {
     const problem = this.current;
     if (problem === null || !this.abortable) {
       return;
     }
     askConfirm(
-      'Clear the solve?',
+      'Abort the solve?',
       'Stop the solve of this problem if it is running and throw away all of it: its solutions, the paused state and any saved search. This cannot be undone.',
-      'Clear',
+      'Abort',
       () => {
         void this.doAbort(problem);
       },
@@ -1176,15 +1310,53 @@ export class SolverWorkspace {
     if (!this.abortable || problem !== this.current) {
       return;
     }
-    this.calling = true;
+    await this.abortSolve(problem);
+  }
+
+  /** Reset (the original's, for a solve that is over): its results thrown away as a step, asked first. */
+  reset(): void {
+    const problem = this.current;
+    if (problem === null || !this.resettable) {
+      return;
+    }
+    askConfirm(
+      'Reset the problem?',
+      'Throw away the solve of this problem: its solutions and what its search went through, so it is unsolved again. Undo (Ctrl+Z) brings them back.',
+      'Reset',
+      () => {
+        void this.doReset(problem);
+      },
+    );
+  }
+
+  private async doReset(problem: string): Promise<void> {
+    if (!this.resettable || problem !== this.current) {
+      return;
+    }
     this.player.holdOpen();
+    const r = await this.edits.mutate(
+      'Reset',
+      () => this.store.engine.call('solve.reset', { problem }),
+      (rev) => this.whenShown(rev),
+    );
+    if (r !== null) {
+      flash('Problem reset');
+    }
+  }
+
+  /** solve.abort for a problem, shown or not. */
+  private async abortSolve(problem: string): Promise<void> {
+    this.calling = true;
+    if (problem === this.current) {
+      this.player.holdOpen();
+    }
     this.runCard.render();
     try {
       const r = await this.edits.track(this.store.engine.call('solve.abort', { problem }));
       await this.whenShown(r.revision);
-      flash('Solve cleared');
+      flash('Solve aborted');
     } catch (e) {
-      reportError(e, 'Clear');
+      reportError(e, 'Abort');
     } finally {
       this.calling = false;
       this.render();

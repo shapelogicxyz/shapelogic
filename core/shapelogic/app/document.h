@@ -551,14 +551,19 @@ class Document {
   /// away: the results, the paused state and the saved position; waits
   /// for the run to end. Refused (InvalidState) when the problem has no
   /// such solve: a finished solve's solutions go through
-  /// deleteSolutions(All), which can be undone, and a paused solve from a
-  /// file is carried on (solveResume) or started over (solveStart). A
-  /// stacking problem whose search is saved in `stackingWorkDir` has a
-  /// solve under way too, though no run is in memory (the GUI's Abort was
-  /// offered for it): its saved search and its results go (cb_BtnAbort);
-  /// refused (InvalidState) while an identical problem's run is active on
-  /// the search they share.
+  /// deleteSolutions(All), which can be undone. A paused solve with no run
+  /// in memory is a solve under way too (the GUI's Abort was offered for
+  /// it): a problem a file left solving, and a stacking problem whose
+  /// search is saved in `stackingWorkDir`; its results, its saved position
+  /// and its saved search go (cb_BtnAbort); refused (InvalidState) while an
+  /// identical problem's run is active on the search they share.
   Result<void> solveAbort(Id problem, const std::string& stackingWorkDir = {});
+  /// Throws away the results of a problem whose solve is over (finished,
+  /// stopped at a limit, failed, or left by a change: the GUI's Reset):
+  /// its solutions, counts and state, as one undo step; nothing when it
+  /// has none. Refused (InvalidState) while a solve is under way, paused
+  /// included (solveAbort's), or the solutions are being taken apart.
+  Result<void> solveReset(Id problem, const std::string& stackingWorkDir = {});
   /// Waits for the run of a problem to end.
   Result<void> solveWait(Id problem);
   /// The state of a problem's solve (Idle when it has none).
@@ -570,6 +575,10 @@ class Document {
   /// once through, or a stacking search that paused and saved itself);
   /// empty otherwise.
   [[nodiscard]] std::string solveNote(Id problem) const;
+  /// Why a sliding or stacking solve's last run paused before its search
+  /// began: the search's folder could not be written
+  /// (SolveSession::folderFailure); empty otherwise.
+  [[nodiscard]] std::optional<FolderFailure> solveFolderFailure(Id problem) const;
   /// Whether any run or analysis is active (the guards of decision 0011
   /// hold for both).
   [[nodiscard]] bool solving() const;

@@ -60,8 +60,11 @@ export interface Settings {
    */
   panexDiskGB: number;
   /**
-   * The memory a sliding or stacking search may fill, in GB; 0, the default: half the machine's
-   * memory (engine.info's memoryBytes), at least 2 GB. It decides every solve's memory: a solve's
+   * The memory the sliding and stacking searches running at once share, in GB; 0, the default:
+   * half the machine's memory (engine.info's memoryBytes), at least 2 GB. Each search running gets
+   * an equal part, which shrinks when another starts and grows when one ends; a sliding search
+   * moves older levels to its files to keep to it, a stacking search stops at it (decision 0028).
+   * A change reaches the searches already running. It decides every solve's memory: a solve's
    * highMemory plays no part, and a note of a search that ran out of memory or disk names Settings
    * ▸ Solver.
    * @minimum 0
@@ -1125,7 +1128,10 @@ export interface SolveProgress {
   disasmPending: number;
   /** @minimum 0 */
   disasmWorkers: number;
-  /** The whole solve, 0 to 1; never goes back during a run. */
+  /**
+   * The whole solve, 0 to 1; never goes back during a run. A sliding puzzle's counts its starts
+   * searched through: a start still searched, or left for solve.continue by a pause, is not done.
+   */
   overall: number;
   overallKnown: boolean;
   levelFraction: number;
@@ -1160,6 +1166,18 @@ export interface SolveProgress {
    * search').
    */
   panexSearch: boolean;
+  /**
+   * Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be
+   * continued) or an abort (solve.abort); null in every other stage.
+   */
+  stopKind: 'pause' | 'abort' | null;
+  slideStop: {
+    saving: boolean;
+    /** @minimum 0 */
+    doneBytes: number;
+    /** @minimum 0 */
+    totalBytes: number;
+  } | null;
 }
 
 /** The debug statistics panel. */
@@ -3193,15 +3211,29 @@ export interface Methods {
    * The hard stop of a solve under way (a run active, or paused in memory): throws it away
    * (results, paused state, saved position) and waits for the run to end. Refused (invalid_state)
    * when the problem has no such solve, so a finished run's solutions are never lost by a late
-   * click: remove them with solution.delete {which: all}, which can be undone; a paused solve from
-   * a file is carried on with solve.continue or started over with solve.start. Two
-   * document.changed follow: the abort's own, then the run's end from the poll. A stacking problem
-   * whose search is saved (solve.status.savedSearch) has a solve under way though no run is in
-   * memory, as the original's Abort judged it: the search and the problem's results go, and one
+   * click: remove them with solution.delete {which: all}, which can be undone. Two
+   * document.changed follow: the abort's own, then the run's end from the poll. A paused solve
+   * with no run in memory is a solve under way too, as the original's Abort judged it: a problem a
+   * file left solving (its saved assembler position), and a stacking problem whose search is saved
+   * (solve.status.savedSearch); its results, the position and the search go, and one
    * document.changed follows.
    * (solve.json)
    */
   'solve.abort': {
+    params: SolveProblemParam;
+    result: Changed;
+    errors: 'not_found' | 'invalid_state';
+  };
+  /**
+   * Throws away the results of a problem whose solve is over (finished, stopped at a limit,
+   * failed, or with results from a file): its solutions, counts and solve state, so it is unsolved
+   * again, as one undo step (the original's Reset). Nothing changes when it has none. Refused
+   * (invalid_state) while a solve is under way, paused included, which is solve.abort's, so a
+   * Reset that a run's pause overtook throws nothing away; and while its solutions are being taken
+   * apart.
+   * (solve.json)
+   */
+  'solve.reset': {
     params: SolveProblemParam;
     result: Changed;
     errors: 'not_found' | 'invalid_state';
@@ -3223,6 +3255,11 @@ export interface Methods {
        * where it was saved (the original's solver note, shown in a message box); null otherwise.
        */
       note: string | null;
+      folderFailure: {
+        folder: string;
+        /** What was wrong with it, e.g. 'files cannot be written there'. */
+        reason: string;
+      } | null;
       /** Null while the problem's run is active, when there is none, and on other grids. */
       savedSearch: {
         /** e.g. 'a saved search 200 moves deep, 3.4M stackings'. */
@@ -3778,6 +3815,7 @@ export const METHOD_NAMES = [
   'solve.importPaused',
   'solve.pause',
   'solve.prepare',
+  'solve.reset',
   'solve.savePoint',
   'solve.start',
   'solve.status',

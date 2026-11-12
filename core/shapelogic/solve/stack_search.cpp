@@ -32,10 +32,13 @@ template <class Key, class Encode, class Decode>
 void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacking& start,
               const Stacking& goal, Encode enc, Decode dec, std::uint64_t stateBytes,
               StackSearch& search, std::vector<Stacking>& path) {
-  const std::uint64_t limit = search.maxStates != 0
-                                  ? search.maxStates
-                                  : sliding::memoryStates(stateBytes, search.highMemory,
-                                                          search.memoryBytes);
+  // a shared budget is read again as the search goes (another search
+  // starting shrinks it)
+  const bool shared = search.maxStates == 0 && search.memoryShare != nullptr;
+  std::uint64_t limit = search.maxStates != 0
+                            ? search.maxStates
+                            : sliding::memoryStates(stateBytes, search.highMemory,
+                                                    search.memoryBytes, search.memoryShare);
   search.memoryStates = limit;
   const auto rods = static_cast<unsigned int>(start.size());
 
@@ -60,6 +63,10 @@ void stackBfs(const RodSet& board, const std::vector<Disc>& pieces, const Stacki
       if (search.stop.stopRequested()) {
         search.outcome = StackOutcome::Stopped;
         break;
+      }
+      if (shared) {
+        limit = sliding::memoryStates(stateBytes, false, 0, search.memoryShare);
+        search.memoryStates = limit;
       }
     }
     const Key cur = q.front();

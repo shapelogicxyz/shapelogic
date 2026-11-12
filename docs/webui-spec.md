@@ -75,7 +75,7 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | Solver | Worker threads | 1-32 (machine dependent) |
 | Search Options | (a note: the defaults of the Solver's Search Options, for a problem that saved none; an option on the Solver tab changes that problem only) | |
 | | Every option of the Solver's Search Options, in its order, "(Only: …)" under the name of one only some puzzle types have: Always show Assemblies, Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, the five sliding boxes, Solver type (Complete / Fast), Keep every n-th, Limit | as shipped: the original's |
-| | Memory: Search memory | 2 GB to three quarters of the machine's memory (Automatic: half of it); replaces Enable High Memory |
+| | Memory: Search memory | 2 GB to 4 GB less than the machine's memory in steps of 2 GB (Automatic: half of it, the bold tick; a warning under the slider above three quarters), shared equally by the sliding and stacking searches running at once (decision 0028); replaces Enable High Memory |
 | | Disk space: Sliding disk space | Automatic (half the free space, at most 200 GB), 10 GB to 5 TB |
 | | Disk space: Stacking disk space | Automatic (half the free space, at most 200 GB), 10 GB to 5 TB |
 
@@ -286,7 +286,8 @@ it all).
    Restrictions, Deep Symmetry Check, Autosave every
    20 minutes (not an option here: a running solve is always kept in the
    rescue copy, as often as that stays cheap, decision 0024), **Abort** (hard stop that clears the results, separate from
-   Pause), paused-solve import/export, debug statistics panel.
+   Pause; **Reset** in its place once the solve is over, an undoable
+   solve.reset, the fork's setAbortLabel), paused-solve import/export, debug statistics panel.
 3. **Sliding and Stacking/Panex puzzles**: sliding in section 8 (deferred
    part 2); stacking in section 9 (deferred part 4): rods, disc sizes, start/goal
    trays, Panex columns, pocket column.

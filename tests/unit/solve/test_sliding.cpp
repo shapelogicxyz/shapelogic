@@ -6,6 +6,7 @@
 // process's own), followed by new cases in test_sliding_session.cpp.
 #include "../model/model_test_helpers.h"
 
+#include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/grid_type.h"
@@ -1301,6 +1302,46 @@ TEST_CASE("sliding: the search keeps its levels where it can", "[sliding]") {
 
 // The search runs on every core, but finds the same path each time, through
 // the same arrangements.
+
+// Decision 0028: a search reads its share of the memory searches running
+// at once share as it goes. With room it keeps every level in memory; its
+// share cut short as it runs (searches starting beside it), its older
+// levels go to its files, and it searches what it would have alone.
+TEST_CASE("sliding: a search keeps to its share of shared memory as it changes",
+          "[sliding][memory][parallel]") {
+  const OneWay w = oneWayPuzzle();
+  const std::filesystem::path dir = scratchDir("slideshare");
+
+  MemoryShare roomy(1000000000);
+  SlideSearch alone;
+  alone.nested = true;
+  alone.workDir = dir.string();
+  alone.memoryShare = &roomy;
+  CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, alone).has_value());
+  CHECK(alone.outcome == SlideOutcome::NoPath);
+  CHECK(alone.diskBytes == 0);
+
+  MemoryShare shared(1000000000);
+  SlideSearch cut;
+  cut.nested = true;
+  cut.workDir = dir.string();
+  cut.memoryShare = &shared;
+  unsigned int levels = 0;
+  cut.onLevel = [&](const std::string&) {
+    if (++levels == 2) {
+      shared.setTotal(1);
+    }
+  };
+  CHECK_FALSE(findSlidePath(w.puz, w.pr(), *w.start, cut).has_value());
+  CHECK(cut.outcome == SlideOutcome::NoPath);
+  CHECK(cut.diskBytes > 0);
+  CHECK(cut.visited == alone.visited);
+  CHECK(cut.depth == alone.depth);
+  // the limit it ended at, not the one it began with
+  CHECK(cut.memoryStates < alone.memoryStates);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
 TEST_CASE("sliding: the search finds the same path on any number of threads",
           "[sliding][parallel]") {
   std::vector<std::vector<int>> paths;
@@ -1822,6 +1863,45 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
   CHECK(other.saved);
   CHECK(std::filesystem::exists(dir));
   discardSaved(f.puz, f.pr(), dir.string());
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// A paused search tells what it writes as it saves itself (its levels
+// still in memory); an aborted one writes nothing, and its folder goes.
+TEST_CASE("sliding: a paused search tells its save, an aborted one saves nothing",
+          "[sliding][resume]") {
+  const std::filesystem::path dir = scratchDir("slidestop");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+
+  StopSource pause;
+  pause.request(StopKind::Pause);
+  SlideStopProgress told;
+  SlideSearch paused;
+  paused.workDir = dir.string();
+  paused.stop = pause.token();
+  paused.stopProgress = &told;
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, paused).has_value());
+  REQUIRE(paused.outcome == SlideOutcome::Stopped);
+  CHECK(paused.saved);
+  CHECK(told.saving.load());
+  CHECK(told.totalBytes.load() > 0);
+  CHECK(told.doneBytes.load() == told.totalBytes.load());
+  CHECK_FALSE(std::filesystem::is_empty(dir));
+
+  // an abort carries nothing on: the saved search is not written again, and goes
+  StopSource abort;
+  abort.request(StopKind::Abort);
+  SlideStopProgress none;
+  SlideSearch aborted;
+  aborted.workDir = dir.string();
+  aborted.stop = abort.token();
+  aborted.stopProgress = &none;
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, aborted).has_value());
+  CHECK(aborted.outcome == SlideOutcome::Stopped);
+  CHECK_FALSE(aborted.saved);
+  CHECK_FALSE(none.saving.load());
   CHECK(std::filesystem::is_empty(dir));
   std::filesystem::remove_all(dir);
 }

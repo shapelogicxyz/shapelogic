@@ -28,6 +28,7 @@
 /// SHAPELOGIC_SLIDE_DIR and SHAPELOGIC_SLIDE_DISK_GB (workDir, diskBudget,
 /// which the CLI and the engine set).
 
+#include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/model/disassembly.h"
 
@@ -60,16 +61,19 @@ using SlideShift = std::array<int, 3>;
 /// disk is the limit.
 inline constexpr std::uint64_t kSearchMemoryBytes = 2000000000ULL;
 
-/// The memory a search may fill with arrangements, in bytes: `bytes` when
-/// it is set; otherwise kSearchMemoryBytes, or with `high`, half the
-/// machine's physical memory. High never allows less than normal, and is
-/// the same as normal when the memory size cannot be read.
-[[nodiscard]] std::uint64_t memoryBudget(std::uint64_t bytes, bool high);
+/// The memory a search may fill with arrangements, in bytes: its share of
+/// `share` when that is set; else `bytes` when it is set; otherwise
+/// kSearchMemoryBytes, or with `high`, half the machine's physical memory.
+/// High never allows less than normal, and is the same as normal when the
+/// memory size cannot be read.
+[[nodiscard]] std::uint64_t memoryBudget(std::uint64_t bytes, bool high,
+                                         const MemoryShare* share = nullptr);
 
 /// Arrangements a search may hold when each takes stateBytes: as many as
-/// fit in memoryBudget(bytes, high), and at least one.
+/// fit in memoryBudget(bytes, high, share), and at least one.
 [[nodiscard]] std::uint64_t memoryStates(std::uint64_t stateBytes, bool high,
-                                         std::uint64_t bytes = 0);
+                                         std::uint64_t bytes = 0,
+                                         const MemoryShare* share = nullptr);
 
 /// How a slide search ended.
 enum class SlideOutcome : std::uint8_t {
@@ -88,6 +92,17 @@ using SlideLevelTrace = std::function<void(const std::string&)>;
 /// what the save writes: 100 MB.
 inline constexpr std::uint64_t kSlideSaveReserve = 100000000ULL;
 
+/// What a level search does once it has been asked to stop, for the
+/// solve's progress (read on other threads while the search writes it):
+/// until `saving`, it finishes what it has under way (the level being
+/// merged cannot be cut short); then it writes its sets still in memory to
+/// its folder, `doneBytes` of `totalBytes`, so that it can be carried on.
+struct SlideStopProgress {
+  std::atomic<bool> saving{false};
+  std::atomic<std::uint64_t> doneBytes{0};
+  std::atomic<std::uint64_t> totalBytes{0};
+};
+
 /// The settings of one slide search, and how it went.
 struct SlideSearch {
   /// Arrangements' worth of memory the search may fill (memoryStates each)
@@ -100,6 +115,12 @@ struct SlideSearch {
   /// bytes; 0 for the budget highMemory says (memoryBudget). Set, highMemory
   /// plays no part.
   std::uint64_t memoryBytes = 0;
+  /// When set (and maxMemoryStates is 0), the memory budget is this search's share
+  /// of what the searches running at once share, read again as the search
+  /// goes, so it shrinks when another search starts and grows when one
+  /// ends; memoryBytes and highMemory play no part. The caller holds a
+  /// lease on it for as long as the search runs.
+  const MemoryShare* memoryShare = nullptr;
   /// Let a piece carry what is nested in its outline.
   bool nested = false;
   /// Let a piece also carry what is partly nested in its outline: a piece
@@ -110,8 +131,12 @@ struct SlideSearch {
   /// On a tray more than one layer deep, let a piece also move up and
   /// down; off, every piece stays in its layer.
   bool verticalMoves = false;
-  /// Polled as the search runs; a stop request ends it (Stopped).
+  /// Polled as the search runs; a stop request ends it (Stopped). The
+  /// level search saves itself as it stops (see resume), unless the stop
+  /// is an abort, which throws the search away.
   StopToken stop;
+  /// When set, the level search tells what it does once stopped.
+  SlideStopProgress* stopProgress = nullptr;
   /// When set, kept up to date with the arrangements visited so far.
   std::atomic<std::uint64_t>* progress = nullptr;
   /// When set, the level search keeps it up to date with the moves it has

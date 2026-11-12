@@ -25,6 +25,12 @@ namespace bt {
 /// "available" does; elsewhere it is what the file system reports free.
 [[nodiscard]] std::optional<std::uint64_t> availableDiskBytes(const std::filesystem::path& dir);
 
+/// Why files cannot be written in `dir`, which is made first when it is not
+/// there; empty when they can. It writes a small file there and removes it
+/// again: a folder on a drive that is gone, or one without write access,
+/// is found out before a search counts on it.
+[[nodiscard]] std::string folderWriteError(const std::filesystem::path& dir);
+
 /// The most disk a search takes when it is not told how much: 200 GB.
 inline constexpr std::uint64_t kAutoDiskBudgetMax = 200000000000ULL;
 

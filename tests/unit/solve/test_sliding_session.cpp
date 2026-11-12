@@ -27,7 +27,9 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <memory>
+#include <optional>
 #include <random>
 #include <set>
 #include <string>
@@ -661,10 +663,19 @@ TEST_CASE("sliding session: a paused search is carried on from its folder",
   REQUIRE(s.start().has_value());
   untilSearching(s);
   s.pause();
+  // stopping, it says it pauses, and that a slide search is under way
+  const SolveProgress stopping = s.progress();
+  if (stopping.stage == SolveStage::Stopping) {
+    CHECK(stopping.pausing);
+    CHECK(stopping.slideStopping);
+  }
   s.wait();
   REQUIRE(s.state() == SolveState::Paused);
   const Problem& pr = p.getProblem(0);
   REQUIRE(pr.getPending().size() == 1);
+  // the one start is not searched through: the bar does not say it is
+  // (the assembly search, the start found, is)
+  CHECK(s.progress().overall == 0.0F);
   // the saved search, in its own folder
   REQUIRE(std::filesystem::is_directory(dir));
   CHECK_FALSE(std::filesystem::is_empty(dir));
@@ -725,6 +736,61 @@ TEST_CASE("sliding session: a search out of disk pauses for Continue",
   CHECK(s.note().find("Every reachable arrangement was searched") != std::string::npos);
   CHECK(std::filesystem::is_empty(dir));
   std::filesystem::remove_all(dir);
+}
+
+// A sliding run whose search folder cannot be written pauses before its
+// first search, the starts untouched (decision 0028); Continue tries again,
+// and with a folder it can write solves as a run that never paused.
+TEST_CASE("sliding session: a folder that cannot be written pauses the run",
+          "[sliding][session][parallel]") {
+  const std::filesystem::path base =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_folder";
+  std::filesystem::remove_all(base);
+  std::filesystem::create_directories(base);
+  const std::filesystem::path file = base / "not-a-folder";
+  { std::ofstream(file) << "x"; }
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = file.string();
+  const SlideTotals straight = straightSolve(manyStarts(), findSolutions(2), false);
+  Puzzle p = manyStarts();
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  const std::optional<FolderFailure> f = s.folderFailure();
+  REQUIRE(f);
+  CHECK(f->folder == file.string());
+  CHECK(p.getProblem(0).getNumAssemblies() == 0);
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  CHECK(s.folderFailure());
+  o.sliding.workDir = (base / "cache").string();
+  REQUIRE(s.setOptions(o).has_value());
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK_FALSE(s.folderFailure());
+  CHECK(slideTotals(p.getProblem(0), false) == straight);
+  std::filesystem::remove_all(base);
+}
+
+// A sliding run that takes apart holds a lease on the shared memory while
+// it runs (decision 0028), and gives it back when it pauses.
+TEST_CASE("sliding session: a run shares the memory while it runs",
+          "[sliding][session][parallel]") {
+  SolveOptions o = findSolutions(2);
+  o.memoryShare = std::make_shared<MemoryShare>(1000000000);
+  Puzzle p = swapped(4);
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  untilSearching(s);
+  CHECK(o.memoryShare->holders() == 1);
+  s.pause();
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  CHECK(o.memoryShare->holders() == 0);
+  s.abort();
 }
 
 // The cells' colours are the user's restriction colours again (the

@@ -766,6 +766,9 @@ test('a save while solving at a save point; the paused solver state exported and
     const p = imported.problems.find((x) => x.state === 'solving');
     expect(p).toBeDefined();
     await expect(page.locator('#leftS')).toHaveAttribute('data-problem', p?.id ?? '');
+    // paused from the file, no run in memory: Abort is offered
+    await expect(page.locator('#slvActivity')).toHaveText('Search paused');
+    await expect(page.locator('#slvRun [data-r="abort"]')).toBeEnabled();
     await runButton(page, 'continue');
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
       timeout: 30_000,

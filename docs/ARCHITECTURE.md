@@ -945,10 +945,22 @@ schema in `api/`, documented in the generated `docs/API.md`.
   writes into the folder its search saves in); `solve.savePoint` is
   refused on a stacking solve, whose search saves itself; a stacking
   solution's row counts transfers; `Settings`' `searchMemoryGB`, half the
-  machine's memory when 0, is every sliding and stacking solve's memory
-  in place of its `highMemory`, the GUI's Search memory setting, and the
-  notes of a search out of memory or disk name Settings ▸ Solver,
-  `SolveOptions::settingsPlace`; the disk budgets go by the free space,
+  machine's memory when 0, is the memory every sliding and stacking
+  search running at once shares in place of its `highMemory`, the GUI's
+  Search memory setting (decision 0028: `State::memory`, a
+  `MemoryShare` in base/memory_share.h that every solve's options hold; a
+  sliding run that takes apart and a stacking run hold a lease while they
+  run, and each search reads its part, the total over the leases, as it
+  goes: the level search sends older levels to its files, the Panex and
+  stacking searches stop at it; a change of the setting reaches the
+  searches running), and the notes of a search out of memory or disk
+  name Settings ▸ Solver, `SolveOptions::settingsPlace`, or the other
+  solves sharing the memory; a sliding run that takes apart and a run on
+  the Panex search first check that their folder can be written
+  (`folderWriteError` in base/system.h) and pause before the search when
+  it cannot, `solve.status.folderFailure` saying which folder and why,
+  and the Solver tab asks whether to choose another cache folder, try
+  again or clear the solve; the disk budgets go by the free space,
   `diskBudgetFor` in base/system.h), and the STL export (`export.*`,
   deferred part 5: `export.stlParameters`, `export.stlMesh` (a
   `MeshFrame` and the volume, the dialog's preview), `export.stl` (the

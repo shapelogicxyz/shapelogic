@@ -548,14 +548,13 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
   o.sliding.diskBudget = static_cast<std::uint64_t>(s.settings.slideDiskGB * 1e9);
   o.stacking.workDir = s.settings.panexFolder;
   o.stacking.diskBudget = static_cast<std::uint64_t>(s.settings.panexDiskGB * 1e9);
-  // the memory of both: the setting, or half the machine's (the GUI's
-  // Enable High Memory, which the setting replaced)
-  const std::uint64_t memory =
-      s.settings.searchMemoryGB > 0
-          ? static_cast<std::uint64_t>(s.settings.searchMemoryGB * 1e9)
-          : sliding::memoryBudget(0, true);
+  // the memory of both: a share of what the searches running at once
+  // share (decision 0028); memoryBytes is the whole of it, for a search
+  // that runs without the share
+  const std::uint64_t memory = s.settings.searchMemoryBytes();
   o.sliding.memoryBytes = memory;
   o.stacking.memoryBytes = memory;
+  o.memoryShare = s.memory;
   o.settingsPlace = "Settings ▸ Solver";
   if (j.is_null()) {
     return o;
@@ -666,6 +665,13 @@ Json progressJson(const SolveProgress& g) {
   j["searchDepth"] = g.searchDepth;
   j["searchTraced"] = g.searchTraced;
   j["panexSearch"] = g.panexSearch;
+  j["stopKind"] = g.stage != SolveStage::Stopping ? Json(nullptr)
+                  : g.pausing                     ? Json("pause")
+                                                  : Json("abort");
+  j["slideStop"] = g.slideStopping ? Json{{"saving", g.stopSaving},
+                                          {"doneBytes", g.stopBytes},
+                                          {"totalBytes", g.stopTotalBytes}}
+                                   : Json(nullptr);
   return j;
 }
 

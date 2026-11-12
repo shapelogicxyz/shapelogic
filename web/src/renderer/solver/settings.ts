@@ -37,11 +37,13 @@ import type {
   Grid,
   SolveOptions,
   Solver,
+  SolveProgress,
   SolverSettings,
   SortBy,
   StackingSolver,
 } from '../../engine/api.generated.ts';
 import { prefs } from '../shell/prefs.ts';
+import { sizeText } from '../state/stacking.ts';
 
 /** The puzzles whose Solver shows its own options: brick (every assembling grid), sliding, stacking. */
 export type Family = 'brick' | 'sliding' | 'stacking';
@@ -571,6 +573,34 @@ export function slidingDetails(searched: number, depth: number): string {
   return depth > 0
     ? `${shortCount(depth)} moves deep. Scanned ${shortCount(searched)} arrangements.`
     : `Scanned ${shortCount(searched)} arrangements.`;
+}
+
+/**
+ * What a run asked to stop is doing, after its search's Details line: a
+ * sliding search finishes the level under way (merging it cannot be cut
+ * short), then, for a pause, writes its levels to disk for Continue, so
+ * much of so much; a Panex search saves itself; an abort keeps nothing.
+ */
+export function stopDetails(
+  g: Pick<SolveProgress, 'stopKind' | 'slideStop' | 'panexSearch'>,
+  family: Family,
+): string {
+  const s = g.slideStop;
+  if (g.stopKind === 'abort') {
+    return s !== null
+      ? 'Aborting: finishing the level under way; nothing is saved.'
+      : 'Aborting: waiting for the search to stop.';
+  }
+  if (s?.saving === true) {
+    return `Pausing: saving the search to disk for Continue, ${sizeText(s.doneBytes)} of ${sizeText(s.totalBytes)} written.`;
+  }
+  if (s !== null) {
+    return 'Pausing: finishing the level under way, which can’t be cut short; then the search is saved to disk for Continue.';
+  }
+  if (family === 'stacking' && g.panexSearch) {
+    return 'Pausing: the search is saving itself for Continue.';
+  }
+  return 'Pausing: waiting for the search to stop.';
 }
 
 /**

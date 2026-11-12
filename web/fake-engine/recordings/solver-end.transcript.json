@@ -203,7 +203,9 @@
      "searched": 0,
      "searchDepth": 0,
      "searchTraced": 0,
-     "panexSearch": false
+     "panexSearch": false,
+     "stopKind": null,
+     "slideStop": null
     }
    }
   },
@@ -231,7 +233,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 50,
+     "elapsedMs": 55,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
@@ -252,7 +254,9 @@
      "searched": 0,
      "searchDepth": 0,
      "searchTraced": 0,
-     "panexSearch": false
+     "panexSearch": false,
+     "stopKind": null,
+     "slideStop": null
     }
    }
   },

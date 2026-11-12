@@ -144,6 +144,8 @@ Reply settingsSet(State& s, Params& p) {
   }
   if (searchMemoryGB) {
     s.settings.searchMemoryGB = *searchMemoryGB;
+    // the searches running now follow at their next level
+    s.memory->setTotal(s.settings.searchMemoryBytes());
   }
   return settingsJson(s);
 }

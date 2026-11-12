@@ -2,12 +2,14 @@
 //
 // The Solver's left card: the problem to solve (a list of the problems,
 // as the Puzzle workspace's, each with its solve's state, since several
-// may run; the one shown's result and piece shapes below it), what to check
+// may run, or what its finished solve found: problem-note.ts; the one
+// shown's result and piece shapes below it), what to check
 // (assemblies, or assemblies and their disassembly, with Just Levels and
 // Check Rotations), the search options (stored with the problem, the
 // original's rules greying out what does not apply; Keep at most and Keep
 // every n-th are not stored, as in the original), the run: Solve, Pause,
-// Continue, Clear (the original's Abort), the progress bar and the
+// Continue, Abort while a solve runs or is paused, else Reset (the
+// original's setAbortLabel), the progress bar and the
 // counters, a failure; Prepare in the explorers' section, and Sort by. From
 // docs/mockup/index.html: `renderSolver` (the left card's sections, their
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
@@ -43,11 +45,15 @@ import {
   defaultsOf,
   effectiveSort,
   normalize,
+  readOptions,
   shortCount,
   SORT_CHOICES,
 } from './settings.ts';
 import type { BoxName, SearchOptions } from './settings.ts';
+import { problemNote } from './problem-note.ts';
+import type { FinishedSolve } from './problem-note.ts';
 import { formatSpan } from './span.ts';
+import type { ProblemSummary } from '../../engine/api.generated.ts';
 import type { SolverWorkspace } from './workspace.ts';
 
 /** The stacking solvers' help (mainwindow_help.cpp, their first lines). */
@@ -64,6 +70,13 @@ const SLIDING_SOLVER_TIP =
 
 export class RunCard {
   private readonly ws: SolverWorkspace;
+  /** What each solved problem's finished solve was read to have found, by the document's generation. */
+  private readonly found = new Map<
+    string,
+    { generation: number; revision: number; found: FinishedSolve }
+  >();
+  /** The reads of finished solves under way: the revision read, by generation and problem. */
+  private readonly reading = new Map<string, number>();
 
   constructor(ws: SolverWorkspace) {
     this.ws = ws;
@@ -92,17 +105,100 @@ export class RunCard {
   renderProblems(): void {
     const ws = this.ws;
     const list = byId('slvProbs');
+    const revision = ws.store.snapshot?.revision ?? -1;
     setHtml(
       list,
       (ws.store.snapshot?.problems ?? [])
         .map((q, n) => {
-          const st = ws.stateOf(q.id);
-          const note = isActive(st) ? 'solving' : st === 'paused' ? 'paused' : '';
-          return `<div class="row" role="option" aria-selected="false" data-id="${q.id}" title="Solve this problem"><span class="chip" style="${problemChipStyle(n)}">${esc(q.label)}</span><span class="lbl">${esc(q.name) || 'Problem'}</span>${note === '' ? '' : `<span class="st ${note}">${note}</span>`}</div>`;
+          const shown = q.id === ws.problem?.id;
+          const seen = this.foundOf(q, revision);
+          // the problem shown goes by its mode as chosen here, before it is stored
+          const found =
+            seen !== null && shown ? { ...seen, disassemble: ws.options.disassemble } : seen;
+          const g = ws.solves.peek(q.id)?.progress ?? null;
+          const note = problemNote(
+            ws.stateOf(q.id),
+            q,
+            ws.family,
+            found,
+            shown && ws.stacking && ws.savedSearch !== null,
+            g?.stage === 'stopping' ? (g.stopKind ?? 'pause') : null,
+          );
+          return `<div class="row" role="option" aria-selected="false" data-id="${q.id}" title="Solve this problem"><span class="chip" style="${problemChipStyle(n)}">${esc(q.label)}</span><span class="lbl">${esc(q.name) || 'Problem'}</span>${note.kind === 'none' ? '' : `<span class="st ${note.kind}">${esc(note.text)}</span>`}</div>`;
         })
         .join(''),
     );
     markSelected(list, '.row', 'id', ws.problem?.id ?? null);
+  }
+
+  /**
+   * What a solved problem's finished solve found, as last read; reads it
+   * again (once per revision) when the document changed since. Null before
+   * the first read, and for a problem not solved.
+   */
+  private foundOf(q: ProblemSummary, revision: number): FinishedSolve | null {
+    const generation = this.ws.store.generation;
+    const seen = this.found.get(q.id);
+    if (q.state !== 'solved' || (seen !== undefined && seen.generation !== generation)) {
+      this.found.delete(q.id);
+      return null;
+    }
+    const key = `${String(generation)}:${q.id}`;
+    if ((seen === undefined || seen.revision < revision) && this.reading.get(key) !== revision) {
+      this.readFound(q.id, generation, revision);
+    }
+    return seen?.found ?? null;
+  }
+
+  /** Reads a problem's mode, and a sliding or stacking one's fewest moves (its first solution by moves). */
+  private readFound(id: string, generation: number, revision: number): void {
+    const ws = this.ws;
+    const engine = ws.store.engine;
+    const family = ws.family;
+    const canDisassemble = ws.canDisassemble;
+    const key = `${String(generation)}:${id}`;
+    this.reading.set(key, revision);
+    void engine
+      .call('problem.get', { problem: id }, { coalesce: `slvNote:problem.get:${id}` })
+      .then(async (d) => {
+        const disassemble = readOptions(
+          d.solverSettings,
+          undefined,
+          family,
+          canDisassemble,
+        ).disassemble;
+        const page =
+          family !== 'brick' && disassemble
+            ? await engine.call(
+                'solution.page',
+                { problem: id, sortBy: 'moves', offset: 0, limit: 1 },
+                { coalesce: `slvNote:solution.page:${id}` },
+              )
+            : null;
+        return { disassemble, moves: page?.rows[0]?.moves ?? null };
+      })
+      .then(
+        (found) => {
+          if (this.reading.get(key) === revision) {
+            this.reading.delete(key);
+          }
+          const was = this.found.get(id);
+          if (
+            ws.store.generation !== generation ||
+            (was !== undefined && was.revision > revision)
+          ) {
+            return;
+          }
+          this.found.set(id, { generation, revision, found });
+          this.renderProblems();
+        },
+        () => {
+          // superseded, gone, or the engine away: the next draw reads again
+          if (this.reading.get(key) === revision) {
+            this.reading.delete(key);
+          }
+        },
+      );
   }
 
   private renderProblem(): void {
@@ -291,7 +387,7 @@ export class RunCard {
       r.phase === 'active' &&
       isActive(s) &&
       r.progress?.stage !== 'stopping';
-    const canAbort = ws.abortable;
+    const aborting = ws.abortMode;
     const btn = (k: string, label: string, on: boolean, tip: string, pri = false): string =>
       `<button data-r="${k}" class="${pri ? 'pri' : ''}" ${on ? '' : 'disabled'} title="${tip}">${label}</button>`;
     setHtml(
@@ -314,12 +410,19 @@ export class RunCard {
               ? esc(`Carry on ${saved.description}`)
               : 'Resume a paused search',
         ) +
-        btn(
-          'abort',
-          'Clear',
-          canAbort,
-          'Stop at once and throw away everything kept of this problem’s solve: its results, the paused state and a saved search',
-        ),
+        (aborting
+          ? btn(
+              'abort',
+              'Abort',
+              ws.abortable,
+              'Stop at once and throw away everything kept of this problem’s solve: its results, the paused state and a saved search',
+            )
+          : btn(
+              'reset',
+              'Reset',
+              ws.resettable,
+              'Throw away this problem’s solve: its solutions and what its search went through (Undo brings them back)',
+            )),
     );
     // Prepare sits with the explorers it serves; a stacking search has nothing to prepare
     setHtml(
@@ -438,6 +541,9 @@ export class RunCard {
           break;
         case 'abort':
           ws.abort();
+          break;
+        case 'reset':
+          ws.reset();
           break;
       }
     };

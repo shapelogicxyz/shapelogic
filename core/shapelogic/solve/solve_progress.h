@@ -72,6 +72,17 @@ struct SolveProgress {
   /// search. Scanned N stackings.").
   std::uint64_t searchTraced = 0;
   bool panexSearch = false;
+  /// Stage Stopping: the stop is a pause (the solve is kept, to be
+  /// continued), not an abort.
+  bool pausing = false;
+  /// Stage Stopping with a slide search under way (slideStopping): until
+  /// stopSaving it finishes the step it has under way (the level being
+  /// merged cannot be cut short); then it writes its levels still in memory
+  /// to its folder, stopBytes of stopTotalBytes, to be carried on.
+  bool slideStopping = false;
+  bool stopSaving = false;
+  std::uint64_t stopBytes = 0;
+  std::uint64_t stopTotalBytes = 0;
 
   /// Taking apart: is it wanted, how many done, how many found and not
   /// done, by how many workers.

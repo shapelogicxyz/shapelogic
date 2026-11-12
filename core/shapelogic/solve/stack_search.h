@@ -12,6 +12,7 @@
 /// Ported from src/lib/stacking.{h,cpp} (findStackPath, stackBfs,
 /// stackSearch_c, stackOutcome_e).
 
+#include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/model/disassembly.h"
 
@@ -45,6 +46,12 @@ struct StackSearch {
   /// With maxStates 0, the memory the stackings may fill, in bytes; 0 for
   /// the budget highMemory says. Set, highMemory plays no part.
   std::uint64_t memoryBytes = 0;
+  /// When set (and maxStates is 0), the memory budget is this search's share
+  /// of what the searches running at once share, read again as the search
+  /// goes, so it shrinks when another search starts and grows when one
+  /// ends; memoryBytes and highMemory play no part. The caller holds a
+  /// lease on it for as long as the search runs.
+  const MemoryShare* memoryShare = nullptr;
   /// Polled as the search runs; a stop request ends it (Stopped).
   StopToken stop;
   /// When set, kept up to date with the stackings visited so far.

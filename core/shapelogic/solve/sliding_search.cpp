@@ -537,11 +537,14 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
   // Each arrangement held costs a map node with two copies of its key, plus
   // its share of the queue; measured at about 115 + 2 bytes per key
   // character, so this leaves some room.
-  const std::uint64_t memoryLimit =
+  const std::uint64_t stateBytes = 128 + 3 * std::uint64_t{startKey.size()};
+  // a shared budget is read again as the search goes (another search
+  // starting shrinks it)
+  const bool shared = search.maxMemoryStates == 0 && search.memoryShare != nullptr;
+  std::uint64_t memoryLimit =
       search.maxMemoryStates != 0
           ? search.maxMemoryStates
-          : memoryStates(128 + 3 * std::uint64_t{startKey.size()}, search.highMemory,
-                         search.memoryBytes);
+          : memoryStates(stateBytes, search.highMemory, search.memoryBytes, search.memoryShare);
   search.memoryStates = memoryLimit;
   q.push(initial);
   parent[startKey] = {"", n};
@@ -562,6 +565,10 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
       if (search.stop.stopRequested()) {
         search.outcome = SlideOutcome::Stopped;
         break;
+      }
+      if (shared) {
+        memoryLimit = memoryStates(stateBytes, false, 0, search.memoryShare);
+        search.memoryStates = memoryLimit;
       }
     }
     const SlideState cur = q.front();
@@ -1403,9 +1410,12 @@ class SetStore {
   using Set = levels::KeySet<Key>;
 
   // budget: the memory the sets and the threads' pieces may take together;
-  // setCap: the memory the sets alone may take before they go to files.
-  SetStore(SearchFolder& folder, std::uint64_t budget, std::uint64_t setCap)
-      : folder_(folder), budget_(budget), setCap_(std::min(setCap, budget)) {}
+  // setCap: the memory the sets alone may take before they go to files (0:
+  // the budget). With `share`, the budget is the search's share of it,
+  // read each time it is asked for (decision 0028).
+  SetStore(SearchFolder& folder, std::uint64_t budget, std::uint64_t setCap,
+           const MemoryShare* share)
+      : folder_(folder), budget_(budget), setCap_(setCap), share_(share) {}
 
   // Bytes the live sets take in memory, and on disk.
   std::pair<std::uint64_t, std::uint64_t> used() {
@@ -1420,12 +1430,13 @@ class SetStore {
     const std::lock_guard<std::mutex> lock(m_);
     const std::uint64_t mem = usedLocked().first;
     const std::uint64_t held = mem + pieces.load(std::memory_order_relaxed) + estimate;
+    const std::uint64_t budgetNow = budget();
     bool toMemory = false;
-    if (!file && mem + estimate <= setCap_ && held <= budget_) {
+    if (!file && mem + estimate <= setCap() && held <= budgetNow) {
       toMemory = true;
     } else if (folder_.open()) {
       toMemory = false;
-    } else if (!file && held <= budget_) {
+    } else if (!file && held <= budgetNow) {
       // nowhere to write: memory until the budget
       toMemory = true;
     } else {
@@ -1479,12 +1490,18 @@ class SetStore {
   }
 
   // The set written to a file instead (a saved search keeps only files);
-  // false when it cannot be.
-  bool toFile(SetPtr<Key>& set) {
+  // false when it cannot be. `written`, when set, counts its bytes as they
+  // go, by the share of its keys copied.
+  bool toFile(SetPtr<Key>& set, std::atomic<std::uint64_t>* written = nullptr) {
     if (!set || !set->inMemory()) {
       return true;
     }
-    SetPtr<Key> copy = make(set->bytes(), true);
+    const std::uint64_t bytes = set->bytes();
+    const double perKey =
+        static_cast<double>(bytes) / static_cast<double>(std::max<std::size_t>(set->size(), 1));
+    std::uint64_t copied = 0;
+    std::uint64_t told = 0;
+    SetPtr<Key> copy = make(bytes, true);
     if (!copy) {
       return false;
     }
@@ -1495,10 +1512,18 @@ class SetStore {
         ioFailed();
         return false;
       }
+      if (written != nullptr && (++copied & 0xFFFFU) == 0) {
+        const auto now = std::min(bytes, static_cast<std::uint64_t>(perKey * static_cast<double>(copied)));
+        written->fetch_add(now - told, std::memory_order_relaxed);
+        told = now;
+      }
     }
     if (c.failed() || !finish(copy)) {
       ioFailed();
       return false;
+    }
+    if (written != nullptr) {
+      written->fetch_add(bytes - told, std::memory_order_relaxed);
     }
     set = copy;
     return true;
@@ -1514,8 +1539,13 @@ class SetStore {
                       ". The disk may be full.";
   }
 
-  [[nodiscard]] std::uint64_t budget() const { return budget_; }
-  [[nodiscard]] std::uint64_t setCap() const { return setCap_; }
+  [[nodiscard]] std::uint64_t budget() const {
+    return share_ != nullptr ? std::max<std::uint64_t>(share_->share(), 1) : budget_;
+  }
+  [[nodiscard]] std::uint64_t setCap() const {
+    const std::uint64_t b = budget();
+    return setCap_ == 0 ? b : std::min(setCap_, b);
+  }
 
   // Bytes of sorted pieces the expanding threads hold at the moment.
   std::atomic<std::uint64_t> pieces{0};
@@ -1552,6 +1582,7 @@ class SetStore {
   SearchFolder& folder_;
   std::uint64_t budget_;
   std::uint64_t setCap_;
+  const MemoryShare* share_;
   std::mutex m_;
   std::mutex errorMutex_;
   std::vector<Entry> live_;
@@ -2170,11 +2201,12 @@ class LevelSearch {
         problemKey_(problemKey),
         searchKey_(searchKey),
         folder_(search.workDir, searchKey),
-        budget_(search.maxMemoryStates != 0
-                    ? search.maxMemoryStates * kLevelStateKeys * sizeof(Key)
-                    : memoryBudget(search.memoryBytes, search.highMemory)),
-        store_(folder_, budget_,
-               search.memoryLevelBytes != 0 ? search.memoryLevelBytes : budget_) {}
+        store_(folder_,
+               search.maxMemoryStates != 0
+                   ? search.maxMemoryStates * kLevelStateKeys * sizeof(Key)
+                   : memoryBudget(search.memoryBytes, search.highMemory),
+               search.memoryLevelBytes,
+               search.maxMemoryStates != 0 ? nullptr : search.memoryShare) {}
 
   // The search; chain gets the path's arrangements, start first, when the
   // goal is found. search_.outcome says how it ended.
@@ -2191,10 +2223,7 @@ class LevelSearch {
     for (unsigned int i = 0; i <= threads_; i++) {
       movers_.push_back(std::make_unique<SlideMover<Key>>(s_));
     }
-    search_.memoryStates =
-        search_.maxMemoryStates != 0
-            ? search_.maxMemoryStates
-            : memoryStates(kLevelStateKeys * sizeof(Key), search_.highMemory, search_.memoryBytes);
+    search_.memoryStates = std::max<std::uint64_t>(store_.budget() / (kLevelStateKeys * sizeof(Key)), 1);
     search_.depth = 0;
     search_.diskBytes = 0;
     search_.oneWayRepeats = 0;
@@ -2212,6 +2241,9 @@ class LevelSearch {
     }
     const SlideOutcome end = loop(chain);
     search_.outcome = end;
+    // a shared budget may have changed as the search ran: the limit it ended at
+    search_.memoryStates =
+        std::max<std::uint64_t>(store_.budget() / (kLevelStateKeys * sizeof(Key)), 1);
     search_.depth = std::uint64_t{fwd_.depth} + bwd_.depth;
     search_.levelInterval = interval_;
     search_.visited = visited_;
@@ -2223,11 +2255,13 @@ class LevelSearch {
     // to carry on: when paused, and when it filled its disk budget or the
     // disk (it stops with room left to save itself, so the user can raise
     // the budget or free space and carry on); not after a write failed.
-    const bool save = end == SlideOutcome::Stopped ||
+    // An abort throws the search away: it is not written first.
+    const bool stopped = end == SlideOutcome::Stopped;
+    const bool save = (stopped && search_.stop.kind() != StopKind::Abort) ||
                       (end == SlideOutcome::Disk && diskChosen_ &&
                        store_.failure != SlideOutcome::Disk);
     folder_.keep = false;
-    if (save && saveState()) {
+    if (save && saveState(stopped ? search_.stopProgress : nullptr)) {
       search_.saved = true;
       folder_.keep = true;
       // the files stay: the sets must not delete them as they go
@@ -2411,9 +2445,23 @@ class LevelSearch {
 
   // Writes the search's state to its folder, every set a file; false when
   // it cannot be.
-  bool saveState() {
+  // `told`, when set, hears what the save writes (a stopped search's).
+  bool saveState(SlideStopProgress* told = nullptr) {
     if (!folder_.open()) {
       return false;
+    }
+    if (told != nullptr) {
+      // what is still in memory, each set once
+      std::uint64_t total = 0;
+      std::set<const Set*> seen;
+      forEachLiveSet([&](SetPtr<Key>& set) {
+        if (set && set->inMemory() && seen.insert(set.get()).second) {
+          total += set->bytes();
+        }
+      });
+      told->doneBytes.store(0, std::memory_order_relaxed);
+      told->totalBytes.store(total, std::memory_order_relaxed);
+      told->saving.store(true, std::memory_order_release);
     }
     bool ok = true;
     std::map<const Set*, SetPtr<Key>> written;
@@ -2428,7 +2476,7 @@ class LevelSearch {
         return;
       }
       const Set* was = set.get();
-      ok = store_.toFile(set);
+      ok = store_.toFile(set, told != nullptr ? &told->doneBytes : nullptr);
       written.emplace(was, set);
     });
     if (!ok) {
@@ -2502,7 +2550,7 @@ class LevelSearch {
       return e;
     }
     const std::uint64_t cap =
-        std::max<std::uint64_t>(kPiece * sizeof(Key), budget_ / 2 / (threads_ + 1));
+        std::max<std::uint64_t>(kPiece * sizeof(Key), store_.budget() / 2 / (threads_ + 1));
     std::vector<std::unique_ptr<RunBuilder<Key>>> back;
     std::vector<std::unique_ptr<RunBuilder<Key>>> oneWay;
     for (unsigned int i = 0; i <= threads_; i++) {
@@ -3166,7 +3214,6 @@ class LevelSearch {
   std::uint64_t problemKey_;
   std::uint64_t searchKey_;
   SearchFolder folder_;
-  std::uint64_t budget_;
   SetStore<Key> store_;
   std::unique_ptr<ThreadPool> ownPool_;
   ThreadPool* pool_ = nullptr;
@@ -3312,18 +3359,22 @@ bool pathPieces(const Puzzle& puzzle, const Problem& problem, const State& a, un
 
 }  // namespace
 
-std::uint64_t memoryBudget(std::uint64_t bytes, bool high) {
+std::uint64_t memoryBudget(std::uint64_t bytes, bool high, const MemoryShare* share) {
+  if (share != nullptr) {
+    return std::max<std::uint64_t>(share->share(), 1);
+  }
   if (bytes != 0) {
     return bytes;
   }
   return high ? std::max(kSearchMemoryBytes, physicalMemoryBytes() / 2) : kSearchMemoryBytes;
 }
 
-std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t bytes) {
+std::uint64_t memoryStates(std::uint64_t stateBytes, bool high, std::uint64_t bytes,
+                           const MemoryShare* share) {
   if (stateBytes == 0) {
     stateBytes = 1;
   }
-  return std::max<std::uint64_t>(memoryBudget(bytes, high) / stateBytes, 1);
+  return std::max<std::uint64_t>(memoryBudget(bytes, high, share) / stateBytes, 1);
 }
 
 SlideSearch slideSearchFor(const SlidingOptions& options) {

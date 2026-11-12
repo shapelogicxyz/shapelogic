@@ -233,6 +233,8 @@ function progressAt(
       searchDepth: 0,
       searchTraced: 0,
       panexSearch: false,
+      stopKind: null,
+      slideStop: null,
     },
   };
 }

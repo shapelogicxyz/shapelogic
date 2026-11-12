@@ -8,6 +8,7 @@
 #include "shapelogic/solve/solve_session.h"
 
 #include "shapelogic/base/assert.h"
+#include "shapelogic/base/system.h"
 #include "shapelogic/base/thread_pool.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
@@ -22,6 +23,7 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <new>
 
 namespace bt {
 
@@ -36,6 +38,20 @@ std::string withCommas(std::uint64_t n) {
     out += digits[i];
   }
   return out;
+}
+
+// Whether other solves' searches share the memory with this run's at the
+// moment (decision 0028): its own lease is one of the holders.
+bool sharedNow(const SolveOptions& o) {
+  return o.memoryShare && o.memoryShare->holders() > 1;
+}
+
+// The note's words for a search that stopped at its share of the memory.
+std::string sharedMemoryWords(const SolveOptions& o) {
+  return "Other solves running at the same time share the Search memory: press Continue once "
+         "they have finished" +
+         (o.settingsPlace.empty() ? std::string(".")
+                                  : ", or give it more in " + o.settingsPlace + ".");
 }
 
 std::int64_t nowNs() {
@@ -354,7 +370,9 @@ Result<void> SolveSession::launch(Mode mode) {
     failure_.reset();
     workerError_ = nullptr;
     note_.clear();
+    folderFailure_.reset();
   }
+  memoryShared_ = false;
   // a sliding run counts its searches afresh (a new solve thread did)
   slideProgress_.store(0, std::memory_order_relaxed);
   searchDepth_.store(0, std::memory_order_relaxed);
@@ -450,7 +468,9 @@ Result<void> SolveSession::launchStacking(Mode mode) {
     failure_.reset();
     workerError_ = nullptr;
     note_.clear();
+    folderFailure_.reset();
   }
+  memoryShared_ = false;
   slideProgress_.store(0, std::memory_order_relaxed);
   searchDepth_.store(0, std::memory_order_relaxed);
   searchTraced_.store(0, std::memory_order_relaxed);
@@ -613,6 +633,19 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   const SolveOptions& o = plan.options;
   if (state_.load() == SolveState::Preparing) {
     state_.advance(SolveState::Assembling);
+  }
+  // A search that cannot write its folder would lose what outgrows its
+  // memory and could not save itself: the run pauses before it begins,
+  // where it stands, and Continue tries again (once the folder is back, or
+  // another is chosen).
+  if (sliding_ && o.disassemble && !folderWritable(o.sliding.workDir)) {
+    endRun(RunEnd::Stopped);
+    return;
+  }
+  // the searches' memory is shared with the other solves' while this runs
+  MemoryShare::Lease lease;
+  if (sliding_ && o.disassemble && o.memoryShare) {
+    lease = o.memoryShare->join();
   }
 
   {
@@ -790,6 +823,19 @@ void SolveSession::runStacking(const Plan& plan) {
   const SolveOptions& o = plan.options;
   const bool panexSolver = o.stacking.solver == stacking::StackingSolver::Panex;
   const bool countOnly = o.justCount;
+  const bool panexSearch = panexSolver || panex::unsupported(puzzle_, problem_, true).empty();
+  // The Panex search saves itself in its folder: one it cannot write
+  // pauses the run before it begins (the results as they were), and
+  // Continue tries again.
+  if (panexSearch && !folderWritable(o.stacking.workDir)) {
+    state_.advance(SolveState::Paused);
+    return;
+  }
+  // the search's memory is shared with the other solves' while this runs
+  MemoryShare::Lease lease;
+  if (o.memoryShare) {
+    lease = o.memoryShare->join();
+  }
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     problem_.removeAllSolutions();
@@ -804,7 +850,7 @@ void SolveSession::runStacking(const Plan& plan) {
   bool stopped = false;
   // The Panex Solver, and the Stacking Solver on any puzzle the same
   // search can hold: that search can pause, resume and autosave.
-  if (panexSolver || panex::unsupported(puzzle_, problem_, true).empty()) {
+  if (panexSearch) {
     // the levels on the solve's threads, a saved level written beside them
     // (the original's writer thread)
     ThreadPool pool(std::min(budget + 1, kMaxThreads));
@@ -812,6 +858,7 @@ void SolveSession::runStacking(const Plan& plan) {
     search.anyRules = !panexSolver;
     search.highMemory = o.stacking.highMemory;
     search.memoryBytes = o.stacking.memoryBytes;
+    search.memoryShare = o.memoryShare.get();
     search.stop = runToken();
     search.progress = &slideProgress_;
     search.depth = &searchDepth_;
@@ -842,7 +889,9 @@ void SolveSession::runStacking(const Plan& plan) {
     } else if (search.outcome == panex::Outcome::Memory) {
       note = "The search outgrew its memory after " + withCommas(search.found) +
              " stackings.";
-      if (!o.settingsPlace.empty()) {
+      if (search.saved && sharedNow(o)) {
+        note += " It is saved. " + sharedMemoryWords(o);
+      } else if (!o.settingsPlace.empty()) {
         note += search.saved ? " It is saved: give it more Search memory in " + o.settingsPlace +
                                    " and press Continue to carry on."
                              : " " + o.settingsPlace + " can give it more Search memory.";
@@ -861,6 +910,7 @@ void SolveSession::runStacking(const Plan& plan) {
     stacking::StackSearch search;
     search.highMemory = o.stacking.highMemory;
     search.memoryBytes = o.stacking.memoryBytes;
+    search.memoryShare = o.memoryShare.get();
     search.stop = runToken();
     search.progress = &slideProgress_;
     path = stacking::findStackPath(puzzle_, problem_, search);
@@ -872,9 +922,10 @@ void SolveSession::runStacking(const Plan& plan) {
     } else if (search.outcome == stacking::StackOutcome::Memory) {
       note = "The search reached its memory limit of " + withCommas(search.memoryStates) +
              " stackings. There may be a solution the solver did not find." +
-             (!o.settingsPlace.empty() ? " " + o.settingsPlace + " can give it more Search memory."
-              : search.highMemory      ? ""
-                                       : " Try Enable High Memory.");
+             (sharedNow(o)               ? " " + sharedMemoryWords(o)
+              : !o.settingsPlace.empty() ? " " + o.settingsPlace + " can give it more Search memory."
+              : search.highMemory        ? ""
+                                         : " Try Enable High Memory.");
     } else {
       note = "Every reachable stacking was searched: this puzzle has no solution.";
     }
@@ -941,6 +992,8 @@ void SolveSession::failRun(std::exception_ptr error) {
     f.message = e.what();
     f.file = e.file();
     f.line = e.line();
+  } catch (const std::bad_alloc&) {
+    f.message = "The solver ran out of memory.";
   } catch (const std::exception& e) {
     f.message = e.what();
   } catch (...) {
@@ -1044,11 +1097,21 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.progress = &slideProgress_;
       search.depthProgress = &searchDepth_;
       search.pool = slidePool_.get();
+      search.memoryShare = o.memoryShare.get();
+      search.stopProgress = &slideStop_;
+      slideStop_.saving.store(false, std::memory_order_relaxed);
+      slideSearching_.fetch_add(1, std::memory_order_relaxed);
       // The search reads the problem's definition and the shapes, which
       // nothing changes while the run is active; the lock is for what the
       // run writes, and is not held over a search.
-      std::optional<Separation> path =
-          sliding::findSlidePath(puzzle_, problem_, assembly, search);
+      std::optional<Separation> path;
+      try {
+        path = sliding::findSlidePath(puzzle_, problem_, assembly, search);
+      } catch (...) {
+        slideSearching_.fetch_sub(1, std::memory_order_relaxed);
+        throw;
+      }
+      slideSearching_.fetch_sub(1, std::memory_order_relaxed);
       searchDepth_.store(0, std::memory_order_relaxed);
 
       const std::lock_guard<std::mutex> lock(resultsMutex_);
@@ -1078,6 +1141,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
         if (search.outcome == sliding::SlideOutcome::Memory) {
           slideMemoryCut_ = true;
           slideMemoryStates_ = search.memoryStates;
+          memoryShared_ = memoryShared_ || sharedNow(o);
         }
       }
       if (path) {
@@ -1151,7 +1215,8 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
         msg += " The search is saved: press Continue to carry it on.";
       }
     } else if (!o.settingsPlace.empty() && slideMemoryCut_) {
-      msg += " " + o.settingsPlace + " can give it more Search memory.";
+      msg += memoryShared_ ? " " + sharedMemoryWords(o)
+                           : " " + o.settingsPlace + " can give it more Search memory.";
     } else if (slideMemoryCut_ && !o.sliding.highMemory) {
       msg += " Try Enable High Memory.";
     }
@@ -1568,6 +1633,24 @@ std::string SolveSession::note() const {
   return note_;
 }
 
+std::optional<FolderFailure> SolveSession::folderFailure() const {
+  const std::lock_guard<std::mutex> lock(failureMutex_);
+  return folderFailure_;
+}
+
+bool SolveSession::folderWritable(const std::string& folder) {
+  if (folder.empty()) {
+    return true;
+  }
+  std::string reason = folderWriteError(folder);
+  if (reason.empty()) {
+    return true;
+  }
+  const std::lock_guard<std::mutex> lock(failureMutex_);
+  folderFailure_ = FolderFailure{folder, std::move(reason)};
+  return false;
+}
+
 SolveProgress SolveSession::progress() const {
   SolveProgress p;
   p.elapsedMs = runMs();
@@ -1581,6 +1664,7 @@ SolveProgress SolveSession::progress() const {
   {
     const std::lock_guard<std::mutex> lock(runMutex_);
     stopping = isActive(st) && runStop_.stopRequested();
+    p.pausing = stopping && runStop_.kind() == StopKind::Pause;
     rotations = runOptions_.checkRotations;
     slideRun = runOptions_.disassemble;
     p.panexSearch = stacking_ && runOptions_.stacking.solver == stacking::StackingSolver::Panex;
@@ -1604,6 +1688,8 @@ SolveProgress SolveSession::progress() const {
   double usedSeconds = 0;
   unsigned int parts = 0;
   unsigned int pieces = 0;
+  // a sliding run's starts still to search: under way, or left by a pause
+  std::size_t slideOpen = 0;
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     p.assemblies = problem_.numAssembliesKnown() ? problem_.getNumAssemblies() : 0;
@@ -1618,7 +1704,9 @@ SolveProgress SolveSession::progress() const {
     }
     parts = problem_.getNumberOfParts();
     pieces = problem_.getNumberOfPieces();
+    slideOpen = problem_.getPending().size();
   }
+  slideOpen += slideSearching_.load(std::memory_order_relaxed);
   p.searched = slideProgress_.load(std::memory_order_relaxed);
   p.searchDepth = searchDepth_.load(std::memory_order_relaxed);
   p.searchTraced = searchTraced_.load(std::memory_order_relaxed);
@@ -1662,6 +1750,13 @@ SolveProgress SolveSession::progress() const {
   }
   if (stopping) {
     p.stage = SolveStage::Stopping;
+    p.slideStopping = slideSearching_.load(std::memory_order_relaxed) > 0;
+    if (p.slideStopping && slideStop_.saving.load(std::memory_order_acquire)) {
+      p.stopSaving = true;
+      p.stopTotalBytes = slideStop_.totalBytes.load(std::memory_order_relaxed);
+      p.stopBytes =
+          std::min(slideStop_.doneBytes.load(std::memory_order_relaxed), p.stopTotalBytes);
+    }
   }
 
   // the take-aparts under way, the longest running first
@@ -1699,6 +1794,14 @@ SolveProgress SolveSession::progress() const {
     p.overall = af;
     if (searching) {
       p.secondsLeft = asmLeft;
+    }
+    // A sliding run searches each start inside the assembly search, which
+    // is nearly through once it has found the last start: a start still
+    // searched, or left for Continue by a pause, is not done.
+    if (sliding_ && slideRun && slideOpen > 0) {
+      const double done = static_cast<double>(p.assemblies);
+      p.overall = static_cast<float>(static_cast<double>(af) * done /
+                                     (done + static_cast<double>(slideOpen)));
     }
 
   } else {
@@ -1782,6 +1885,10 @@ SolveProgress SolveSession::progress() const {
   float shown = progressShown_.load(std::memory_order_relaxed);
   while (p.overall > shown &&
          !progressShown_.compare_exchange_weak(shown, p.overall, std::memory_order_relaxed)) {
+  }
+  // an aborted solve has thrown away what it did
+  if (p.stage == SolveStage::Idle) {
+    p.overall = 0;
   }
 
   return p;

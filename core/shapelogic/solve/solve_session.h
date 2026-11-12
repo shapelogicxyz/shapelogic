@@ -22,6 +22,7 @@
 /// time, threads from pools the session makes.
 
 #include "shapelogic/base/error.h"
+#include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/solve/assembler.h"
@@ -122,6 +123,22 @@ struct SolveOptions {
   /// search that ran out of them; empty: the notes suggest Enable High
   /// Memory, as the original's did.
   std::string settingsPlace;
+  /// The memory the sliding and stacking searches of every solve running
+  /// at once share (decision 0028): a sliding run that takes apart and a
+  /// stacking run hold a lease on it while they run, and their searches
+  /// fill only their share. Null: each search has the memory its own
+  /// options give it (the CLI, the Python module).
+  std::shared_ptr<MemoryShare> memoryShare;
+};
+
+/// A sliding or stacking run that paused before its search began because
+/// the folder the search keeps its files in could not be written (a drive
+/// that is gone, a folder without write access).
+struct FolderFailure {
+  /// The folder (SlidingOptions::workDir or StackingOptions::workDir).
+  std::string folder;
+  /// What was wrong with it (folderWriteError).
+  std::string reason;
 };
 
 /// Why a run ended in the Error state.
@@ -234,6 +251,11 @@ class SolveSession {
   /// thread's notes of runStacking); empty otherwise. Any thread.
   [[nodiscard]] std::string note() const;
 
+  /// Why the last run paused before its search began: the search's folder
+  /// could not be written; empty otherwise. Continue tries again. Any
+  /// thread.
+  [[nodiscard]] std::optional<FolderFailure> folderFailure() const;
+
   /// Where the solve stands. Any thread; the overall figure never goes
   /// back during a run, whoever asks.
   [[nodiscard]] SolveProgress progress() const;
@@ -259,6 +281,10 @@ class SolveSession {
   /// The tests' seam: hands assemblies to a run's callback without a run,
   /// as the original's tests called the solve thread's callback.
   friend struct SolveSessionTestAccess;
+
+  /// Whether files can be written in a search's folder (none: yes); when
+  /// not, folderFailure() says why. On the run's thread.
+  bool folderWritable(const std::string& folder);
 
   /// An assembly waiting to be taken apart, with the numbers it was found
   /// with (disasmTask_c).
@@ -415,6 +441,10 @@ class SolveSession {
   /// (slideProgress_), how deep both ends are (searchDepth_), and the moves
   /// traced back once they met.
   std::atomic<std::uint64_t> searchTraced_{0};
+  /// The slide searches under way, and what one does once the run is
+  /// stopped (what it writes as it saves itself).
+  std::atomic<unsigned int> slideSearching_{0};
+  sliding::SlideStopProgress slideStop_;
   unsigned int slideStartsCut_ = 0;
   bool slideMemoryCut_ = false;
   std::uint64_t slideMemoryStates_ = 0;
@@ -428,6 +458,12 @@ class SolveSession {
   bool slideDiskHalted_ = false;
   /// note(), under failureMutex_.
   std::string note_;
+  /// folderFailure(), under failureMutex_.
+  std::optional<FolderFailure> folderFailure_;
+  /// A search of this run stopped at its memory limit while other searches
+  /// shared the memory (written by the run's thread, read by it for the
+  /// notes).
+  bool memoryShared_ = false;
 
   std::atomic<int> liveSort_{-1};
   /// The furthest overall progress shown in this run.

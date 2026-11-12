@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <system_error>
 
 #if defined(_WIN32)
@@ -125,6 +126,22 @@ std::string diskBudgetReason(const DiskBudget& budget) {
   return budget.bytes == kAutoDiskBudgetMax
              ? "the most it takes unless told, with " + std::string(gb) + " free there"
              : "half the " + std::string(gb) + " free there";
+}
+
+std::string folderWriteError(const std::filesystem::path& dir) {
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
+  if (!std::filesystem::is_directory(dir, ec)) {
+    return ec ? "it could not be made (" + ec.message() + ")" : "it could not be made";
+  }
+  const std::filesystem::path probe = dir / ".shapelogic-write-check";
+  bool written = false;
+  {
+    std::ofstream out(probe, std::ios::binary | std::ios::trunc);
+    written = out && (out << "ok") && out.flush();
+  }
+  std::filesystem::remove(probe, ec);
+  return written ? std::string() : "files cannot be written there";
 }
 
 bool readFileAt(int fd, std::uint64_t offset, void* buf, std::size_t len) {

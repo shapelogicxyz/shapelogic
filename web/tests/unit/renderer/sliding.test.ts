@@ -28,6 +28,7 @@ import {
   SLIDING_BOXES,
   slidingDetails,
   solveOptions,
+  stopDetails,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
 import { marksOf, outlineColour, copiesOf, validity } from '../../../src/renderer/entities/tray.ts';
@@ -205,6 +206,33 @@ describe('the sliding options', () => {
     expect(shortCount(23_534_000_000)).toBe('23.53 billion');
     expect(slidingDetails(12_345, 7)).toBe('7 moves deep. Scanned 12,345 arrangements.');
     expect(slidingDetails(5, 0)).toBe('Scanned 5 arrangements.');
+  });
+
+  it('say, as a search is paused, what keeps it from stopping at once', () => {
+    const stop = (
+      slideStop: { saving: boolean; doneBytes: number; totalBytes: number } | null,
+    ) => ({
+      stopKind: 'pause' as const,
+      slideStop,
+      panexSearch: false,
+    });
+    expect(stopDetails(stop({ saving: false, doneBytes: 0, totalBytes: 0 }), 'sliding')).toBe(
+      'Pausing: finishing the level under way, which can’t be cut short; then the search is saved to disk for Continue.',
+    );
+    expect(
+      stopDetails(stop({ saving: true, doneBytes: 1.25e9, totalBytes: 4.5e9 }), 'sliding'),
+    ).toBe('Pausing: saving the search to disk for Continue, 1.3 GB of 4.5 GB written.');
+    expect(stopDetails(stop(null), 'sliding')).toBe('Pausing: waiting for the search to stop.');
+    expect(stopDetails({ ...stop(null), panexSearch: true }, 'stacking')).toBe(
+      'Pausing: the search is saving itself for Continue.',
+    );
+    // an abort writes nothing
+    expect(
+      stopDetails(
+        { ...stop({ saving: false, doneBytes: 0, totalBytes: 0 }), stopKind: 'abort' },
+        'sliding',
+      ),
+    ).toBe('Aborting: finishing the level under way; nothing is saved.');
   });
 
   it('say what the solves went through as the original’s finished Activity line', () => {

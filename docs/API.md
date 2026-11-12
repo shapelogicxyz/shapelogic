@@ -192,7 +192,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `slideDiskGB` | number | required | The disk those levels may take, in GB (SHAPELOGIC_SLIDE_DISK_GB); 0, the default: half the free space, at most 200 GB. More than the disk has room for is held to its free space but a reserve (2 GB or a twentieth of it). On macOS the free space counts what the system frees on demand, as Finder does. |
 | `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
 | `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. More than the disk has room for is held to its free space but a reserve, as slideDiskGB is. |
-| `searchMemoryGB` | number | required | The memory a sliding or stacking search may fill, in GB; 0, the default: half the machine's memory (engine.info's memoryBytes), at least 2 GB. It decides every solve's memory: a solve's highMemory plays no part, and a note of a search that ran out of memory or disk names Settings ▸ Solver. |
+| `searchMemoryGB` | number | required | The memory the sliding and stacking searches running at once share, in GB; 0, the default: half the machine's memory (engine.info's memoryBytes), at least 2 GB. Each search running gets an equal part, which shrinks when another starts and grows when one ends; a sliding search moves older levels to its files to keep to it, a stacking search stops at it (decision 0028). A change reaches the searches already running. It decides every solve's memory: a solve's highMemory plays no part, and a note of a search that ran out of memory or disk names Settings ▸ Solver. |
 
 ## Document and history
 
@@ -1799,7 +1799,21 @@ Errors: `not_found`, `invalid_state`, `unsupported`
 
 ### `solve.abort`
 
-The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll. A stacking problem whose search is saved (solve.status.savedSearch) has a solve under way though no run is in memory, as the original's Abort judged it: the search and the problem's results go, and one document.changed follows.
+The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone. Two document.changed follow: the abort's own, then the run's end from the poll. A paused solve with no run in memory is a solve under way too, as the original's Abort judged it: a problem a file left solving (its saved assembler position), and a stacking problem whose search is saved (solve.status.savedSearch); its results, the position and the search go, and one document.changed follows.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `solve.reset`
+
+Throws away the results of a problem whose solve is over (finished, stopped at a limit, failed, or with results from a file): its solutions, counts and solve state, so it is unsolved again, as one undo step (the original's Reset). Nothing changes when it has none. Refused (invalid_state) while a solve is under way, paused included, which is solve.abort's, so a Reset that a run's pause overtook throws nothing away; and while its solutions are being taken apart.
 
 Params:
 
@@ -1830,6 +1844,7 @@ Result:
 | `stats` | [SolveStats](#solvestats) | required |  |
 | `failure` | [SolveFailure](#solvefailure) or null | required |  |
 | `note` | string or null | required | What a sliding or stacking solve's last run said when it was through, or a stacking search when it paused: whether a missing solution is proven, the search gave up at a limit, or where it was saved (the original's solver note, shown in a message box); null otherwise. |
+| `folderFailure` | object or null | required |  |
 | `savedSearch` | object or null | required | Null while the problem's run is active, when there is none, and on other grids. |
 
 Errors: `not_found`
@@ -3117,7 +3132,7 @@ One take-apart under way.
 | `disasmCompleted` | integer | required |  |
 | `disasmPending` | integer | required |  |
 | `disasmWorkers` | integer | required |  |
-| `overall` | number | required | The whole solve, 0 to 1; never goes back during a run. |
+| `overall` | number | required | The whole solve, 0 to 1; never goes back during a run. A sliding puzzle's counts its starts searched through: a start still searched, or left for solve.continue by a pause, is not done. |
 | `overallKnown` | boolean | required |  |
 | `levelFraction` | number | required |  |
 | `secondsLeft` | number or null | required |  |
@@ -3126,6 +3141,8 @@ One take-apart under way.
 | `searchDepth` | integer | required | How many moves deep a sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
 | `searchTraced` | integer | required | Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before. |
 | `panexSearch` | boolean | required | The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search'). |
+| `stopKind` | `"pause"` \| `"abort"` \| `null` | required | Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be continued) or an abort (solve.abort); null in every other stage. |
+| `slideStop` | object or null | required |  |
 
 ### SolveStats
 

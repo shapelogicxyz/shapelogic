@@ -32,7 +32,10 @@
 // not its state. `saveAtSavePoint` is also what a save asked for while
 // solving does (File ▸ Save and Save As): the same pause, the puzzle saved
 // to its file by the store (which waits for the snapshot that shows the
-// document clean), the solves carried on. A stacking puzzle is not written
+// document clean), the solves carried on. A solve the user pauses while a
+// save waits for its save point (a sliding search under way reaches one
+// only when the search of its start is through) is the user's: it stays
+// paused (`hold`). A stacking puzzle is not written
 // from here (its search saves itself by the same rule, in its own files),
 // and a save while its search runs pauses it (solve.pause: the search
 // saves itself; a stacking solve has no save point), saves, and carries it
@@ -75,6 +78,8 @@ export class Autosave {
   /** A solve paused for the save was continued (the workspace waits for its end again). */
   private readonly continued: (problem: string) => void;
   private saving = false;
+  /** The solves the user paused while the save under way waited: not carried on. */
+  private readonly held = new Set<string>();
 
   constructor(
     store: Store,
@@ -143,6 +148,18 @@ export class Autosave {
   /** A save at a save point is under way (its pauses, its save, its continues). */
   get busy(): boolean {
     return this.saving;
+  }
+
+  /** The user paused this solve (Pause): a save under way leaves it paused. */
+  hold(problem: string): void {
+    if (this.saving) {
+      this.held.add(problem);
+    }
+  }
+
+  /** Whether the save under way will carry this solve on when it is through (its pause is the save's). */
+  carriesOn(problem: string): boolean {
+    return this.saving && !this.held.has(problem);
   }
 
   /** Whether a run is under way (a save must wait for a save point). */
@@ -234,7 +251,11 @@ export class Autosave {
     } finally {
       // the solves paused for the save carry on (unless the document is gone)
       for (const p of paused) {
-        if (this.store.generation === gen && this.solves.peek(p)?.state === 'paused') {
+        if (
+          this.store.generation === gen &&
+          !this.held.has(p) &&
+          this.solves.peek(p)?.state === 'paused'
+        ) {
           const options = this.optionsOf(p);
           try {
             await e.call('solve.continue', { problem: p, options });
@@ -245,6 +266,7 @@ export class Autosave {
           }
         }
       }
+      this.held.clear();
       this.saving = false;
     }
   }

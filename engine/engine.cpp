@@ -30,8 +30,19 @@ std::string Settings::defaultPanexFolder() {
   return cache.empty() ? std::string() : (std::filesystem::path(cache) / "panex").string();
 }
 
+std::uint64_t Settings::searchMemoryBytes() const {
+  // the setting, or half the machine's (the GUI's Enable High Memory,
+  // which the setting replaced)
+  return searchMemoryGB > 0 ? static_cast<std::uint64_t>(searchMemoryGB * 1e9)
+                            : sliding::memoryBudget(0, true);
+}
+
 State::State(Output& output, std::ostream& logs, const MethodTable& table)
-    : out(output), log(logs), methods(table), doc(std::in_place, GridKind::Bricks) {}
+    : out(output),
+      log(logs),
+      methods(table),
+      memory(std::make_shared<MemoryShare>(settings.searchMemoryBytes())),
+      doc(std::in_place, GridKind::Bricks) {}
 
 void State::replaceDocument(app::Document d, std::optional<std::filesystem::path> from) {
   // the old document's work ends with it: tell the problems whose work the

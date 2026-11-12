@@ -241,9 +241,14 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
   await expect(page.locator('#setPg input[data-k="slideDiskGB"] + b')).toHaveText('20 GB');
   await page.locator('#setPg input[data-k="panexDiskGB"]').fill('7');
   await expect(page.locator('#setPg input[data-k="panexDiskGB"] + b')).toHaveText('1 TB');
-  await expect(page.locator('#setPg input[data-k="memGB"] + b')).toHaveText(/ GB \(automatic\)$/);
+  // the search memory's value is over its slider, its tick marks under it, automatic's bold
+  const memValue = page.locator('#setPg .rangebox:has(input[data-k="memGB"]) > b');
+  await expect(memValue).toHaveText(/ GB \(automatic\)$/);
+  await expect(page.locator('#setPg .rangebox .ticks i.auto')).toHaveCount(1);
+  await expect(page.locator('#setPg .rangebox .rangewarn')).toBeHidden();
   await page.locator('#setPg input[data-k="memGB"]').fill('0');
-  await expect(page.locator('#setPg input[data-k="memGB"] + b')).toHaveText('2 GB');
+  await expect(memValue).toHaveText('2 GB');
+  await expect(page.locator('#setPg .rangebox .rangewarn')).toBeHidden();
   await expect
     .poll(engineSettings)
     .toMatchObject({ slideDiskGB: 20, panexDiskGB: 1000, searchMemoryGB: 2 });

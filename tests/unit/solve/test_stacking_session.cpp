@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <random>
 #include <string>
@@ -334,6 +335,73 @@ TEST_CASE("stacking session: Solve starts afresh, Continue carries on", "[stacki
   CHECK(s.state() == SolveState::Finished);
   CHECK(pr.getNumSolutions() == 1);
   CHECK(pr.getNumAssemblies() == 1);
+}
+
+// A Panex search whose folder cannot be written pauses before it begins
+// (decision 0028); Continue tries again, and with a folder it can write
+// solves.
+TEST_CASE("stacking session: a folder that cannot be written pauses the run",
+          "[stacking][parallel]") {
+  Puzzle puz = panexSwap(4);
+  Problem& pr = puz.getProblem(0);
+  const std::filesystem::path file = std::filesystem::path(workDir()) / "not-a-folder";
+  { std::ofstream(file) << "x"; }
+  SolveOptions o = findSolutions(1);
+  o.stacking.workDir = file.string();
+  SolveSession s(puz, pr, o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  const std::optional<FolderFailure> f = s.folderFailure();
+  REQUIRE(f);
+  CHECK(f->folder == file.string());
+  CHECK_FALSE(f->reason.empty());
+  CHECK(pr.getNumberOfSavedSolutions() == 0);
+  // tried again as it is: paused again
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  CHECK(s.folderFailure());
+  // another folder
+  o.stacking.workDir = workDir();
+  REQUIRE(s.setOptions(o).has_value());
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  CHECK(s.state() == SolveState::Finished);
+  CHECK_FALSE(s.folderFailure());
+  CHECK(pr.getNumSolutions() == 1);
+  std::filesystem::remove(file);
+}
+
+// A stacking run holds a lease on the shared memory while it runs, and a
+// search that stops at its share while others hold leases says why.
+TEST_CASE("stacking session: a run shares the memory while it runs", "[stacking][parallel]") {
+  Puzzle puz = panexSwap(4);
+  Problem& pr = puz.getProblem(0);
+  SolveOptions o = findSolutions(1);
+  o.memoryShare = std::make_shared<MemoryShare>(1000000000);
+  o.settingsPlace = "Settings";
+  // another solve's search, already running, and no room for two
+  MemoryShare::Lease other = o.memoryShare->join();
+  o.memoryShare->setTotal(2);
+  SolveSession s(puz, pr, o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  // through, at its limit, the search saved for Continue
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(pr.getNumSolutions() == 0);
+  CHECK_FALSE(panex::savedSearch(puz, pr, workDir()).empty());
+  CHECK(o.memoryShare->holders() == 1);
+  CHECK(s.note().find("Other solves running at the same time share the Search memory") !=
+        std::string::npos);
+  // alone, with the memory back, it carries on to the end
+  other.release();
+  o.memoryShare->setTotal(1000000000);
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  CHECK(s.state() == SolveState::Finished);
+  CHECK(pr.getNumSolutions() == 1);
+  CHECK(o.memoryShare->holders() == 0);
 }
 
 TEST_CASE("stacking session: what Solve refuses, and the notes", "[stacking]") {

@@ -105,7 +105,8 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
     await expect(page.locator('#slvDetails')).toHaveText(
       /^Scanned .+ search steps\. Tried to take apart \d+ assemblies\.$/,
     );
-    await expect(page.locator('#slvRun [data-r="abort"]')).toBeDisabled();
+    // over: Reset, not Abort
+    await expect(page.locator('#slvRun [data-r="reset"]')).toBeEnabled();
     const detail = await engineCall<{ assemblies: number; solutions: number; saved: number }>(
       page,
       'problem.get',
@@ -564,14 +565,15 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
       .toBeGreaterThan(pausedAt);
     expect(existsSync(file)).toBe(true);
 
-    // aborted: asked first, the results thrown away, Abort greyed once over
+    // aborted: asked first, the results thrown away; once over the button is Reset, greyed with nothing kept
     await runButton(page, 'abort');
-    await confirm(page, /^Clear the solve\?$/, false);
+    await confirm(page, /^Abort the solve\?$/, false);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
     await runButton(page, 'abort');
-    await confirm(page, /^Clear the solve\?$/, true);
+    await confirm(page, /^Abort the solve\?$/, true);
     await runEnded(page, 'idle');
-    await expect(page.locator('#slvRun [data-r="abort"]')).toBeDisabled();
+    await expect(page.locator('#slvRun [data-r="abort"]')).toHaveCount(0);
+    await expect(page.locator('#slvRun [data-r="reset"]')).toBeDisabled();
     await expect(page.locator('#slvCount')).toHaveText('0');
     const gone = await engineCall<{ saved: number; state: string }>(page, 'problem.get', {
       problem: box.problem,
@@ -589,7 +591,26 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await runButton(page, 'continue');
     await runEnded(page, 'finished');
     expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBeGreaterThan(0);
-    await expect(page.locator('#slvRun [data-r="abort"]')).toBeDisabled();
+    await expect(page.locator('#slvRun [data-r="abort"]')).toHaveCount(0);
+    // the problems list says what it found
+    await expect(page.locator(`#slvProbs .row[data-id="${small.problem}"] .st`)).toHaveText(
+      /^\d+k? assembl(y|ies)$/,
+    );
+    // Reset: the finished solve thrown away, asked first, a step Undo takes back
+    const kept = Number(await attr(page, '#leftS', 'data-assemblies'));
+    await runButton(page, 'reset');
+    await confirm(page, /^Reset the problem\?$/, true);
+    await expect(page.locator('#slvActivity')).toHaveText('Ready to Solve');
+    await expect(page.locator('#slvRun [data-r="reset"]')).toBeDisabled();
+    expect(
+      await engineCall<{ saved: number; state: string }>(page, 'problem.get', {
+        problem: small.problem,
+      }),
+    ).toMatchObject({ saved: 0, state: 'unsolved' });
+    await engineCall(page, 'edit.undo');
+    await expect(page.locator('#slvActivity')).toHaveText('Search finished');
+    expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBe(kept);
+    await expect(page.locator('#slvRun [data-r="reset"]')).toBeEnabled();
 
     // the error run of the contract suite: three unit cubes cannot fill a 2x2x2 box
     const big = (await engineCall<{ shape: string }>(page, 'shape.create', { size: [2, 2, 2] }))
@@ -654,6 +675,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     expect(s1.state).toBe('assembling');
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
+    await expect(page.locator(`#slvProbs .row[data-id="${two.problem}"] .st`)).toHaveText('paused');
     // the first still runs
     await page.click(`#slvProbs .row[data-id="${one.problem}"]`);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
@@ -663,7 +685,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     // aborted, the lists can change again
     await toSolver(page);
     await runButton(page, 'abort');
-    await confirm(page, /^Clear the solve\?$/, true);
+    await confirm(page, /^Abort the solve\?$/, true);
     await runEnded(page, 'idle');
     await page.keyboard.press('Control+2');
     const before = (await engineCall<{ problems: unknown[] }>(page, 'document.get')).problems
@@ -700,6 +722,9 @@ test('two problems solved at once; sliding and stacking solved', async () => {
       limit: 1,
     });
     await expect(page.locator('#slvMoves')).toHaveText(String(slideRow.rows[0]?.moves));
+    await expect(page.locator(`#slvProbs .row[data-id="${sp}"] .st`)).toHaveText(
+      `${String(slideRow.rows[0]?.moves)} moves`,
+    );
     await expect(page.locator('#splayer')).toHaveAttribute('data-ready', '1');
     await expect(page.locator('#vp')).toHaveAttribute('data-solution-view', 'playback');
     const slide = await enginePoses(page, sp, await attr(page, '#splayer', 'data-solution'));
@@ -724,6 +749,7 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     ]);
     expect(Number(await attr(page, '#leftS', 'data-solutions'))).toBe(stacked.solutions);
     await expect(page.locator('#splayer')).toHaveAttribute('data-steps', '7');
+    await expect(page.locator('#slvProbs .row .st')).toHaveText('7 moves');
     expectNoRefusal(log);
   } finally {
     await a.close();
@@ -768,7 +794,7 @@ test('the crash recovery journal keeps a puzzle without a file in the rescue cop
     const found = await page.evaluate(() => window.btApp.readRescue());
     expect(found?.info.path).toBeNull();
     await runButton(page, 'abort');
-    await confirm(page, /^Clear the solve\?$/, true);
+    await confirm(page, /^Abort the solve\?$/, true);
     await runEnded(page, 'idle');
   } finally {
     await a.close();

@@ -783,6 +783,14 @@ class Searcher {
            std::uint64_t budget)
       : rules_(rules), search_(search), pool_(pool), threads_(threads), budget_(budget) {}
 
+  // The memory the levels may fill now: the search's share of a shared
+  // budget, read each level (decision 0028), or the budget it was given.
+  [[nodiscard]] std::uint64_t budget() const {
+    return search_.memoryShare != nullptr
+               ? std::max<std::uint64_t>(search_.memoryShare->share(), 1)
+               : budget_;
+  }
+
   // Save the top search here, and carry on from resumeFrom when it is set.
   Store* store = nullptr;
   const SavedState* resumeFrom = nullptr;
@@ -971,7 +979,7 @@ class Searcher {
   bool traceStored(char side, PKey x, unsigned int depth, Canon canon, std::vector<PKey>& out) {
     std::vector<PKey> back{x};
     PKey cur = x;
-    const auto room = static_cast<std::size_t>(budget_ / sizeof(PKey) / 2);
+    const auto room = static_cast<std::size_t>(budget() / sizeof(PKey) / 2);
     auto identity = [&](const PState& st) { return rules_.encode(st); };
     for (unsigned int d = depth; d > 0;) {
       if (stopped()) {
@@ -1093,9 +1101,12 @@ class Searcher {
     bool keep = true;
     bool onDisk = false;
     std::size_t keptKeys = 0;
-    const std::size_t keepCap = search_.keepLimit != 0
-                                    ? static_cast<std::size_t>(search_.keepLimit)
-                                    : static_cast<std::size_t>(budget_ / sizeof(PKey) / 4);
+    // (a shared budget is read again each level: a search starting beside
+    // this one sends the kept levels to disk sooner)
+    const auto keepCap = [&]() {
+      return search_.keepLimit != 0 ? static_cast<std::size_t>(search_.keepLimit)
+                                    : static_cast<std::size_t>(budget() / sizeof(PKey) / 4);
+    };
 
     bool found = false;
     if (top && resumeFrom != nullptr && resumeFrom->met != 0) {
@@ -1228,8 +1239,9 @@ class Searcher {
       Side& side = (mirrored || fwd.cur.size() <= bwd.cur.size()) ? fwd : bwd;
       Layer next;
       const std::uint64_t base = inMemory(0);
+      const std::uint64_t budgetNow = budget();
       const std::size_t room =
-          base >= budget_ ? 0 : static_cast<std::size_t>((budget_ - base) / sizeof(PKey) / 2);
+          base >= budgetNow ? 0 : static_cast<std::size_t>((budgetNow - base) / sizeof(PKey) / 2);
       if (!nextLevel(side.cur, side.prev, canonOf, room, next, &writer)) {
         return haltAndSave(stopped() ? Outcome::Stopped : Outcome::Memory);
       }
@@ -1243,7 +1255,7 @@ class Searcher {
       }
       if (keep) {
         keptKeys += next.size();
-        if (keptKeys > keepCap) {
+        if (keptKeys > keepCap()) {
           if (saveTo != nullptr) {
             if (!toDisk()) {
               return diskFailed();
@@ -1771,7 +1783,8 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
     }
   }
 
-  const std::uint64_t budget = sliding::memoryBudget(search.memoryBytes, search.highMemory);
+  const std::uint64_t budget =
+      sliding::memoryBudget(search.memoryBytes, search.highMemory, search.memoryShare);
 
   // the threads: the pool given, or one of the search's own, with a core
   // more than the levels' threads for the saved level being written (the

@@ -21,6 +21,7 @@
 #include <functional>
 #include <istream>
 #include <map>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -51,11 +52,14 @@ struct Settings {
   /// solve's export and import look for it there.
   std::string panexFolder = defaultPanexFolder();
   double panexDiskGB = 0;
-  /// The memory a sliding or stacking search may fill, in GB (0:
-  /// automatic, half the machine's memory and at least 2 GB). It takes the
-  /// place of a solve's highMemory, which the original's Enable High
-  /// Memory box set.
+  /// The memory the sliding and stacking searches running at once share,
+  /// in GB (0: automatic, half the machine's memory and at least 2 GB):
+  /// each gets an equal part of it (decision 0028). It takes the place of
+  /// a solve's highMemory, which the original's Enable High Memory box set.
   double searchMemoryGB = 0;
+
+  /// searchMemoryGB in bytes, the automatic amount for 0.
+  [[nodiscard]] std::uint64_t searchMemoryBytes() const;
 
   /// The user's cache folder's "sliding", or empty without one.
   static std::string defaultSlideFolder();
@@ -79,6 +83,10 @@ struct State {
   std::ostream& log;
   const MethodTable& methods;
   Settings settings;
+  /// The memory the searches of every solve running at once share
+  /// (settings.searchMemoryBytes(), decision 0028); every solve's options
+  /// hold it, so it outlives the documents.
+  std::shared_ptr<MemoryShare> memory;
   /// Always set; replaced by document.new, open and the paused import.
   std::optional<app::Document> doc;
   /// Where it was opened from or last saved to.

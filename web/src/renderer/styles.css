@@ -296,6 +296,19 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .setrow .t em.only{display:block;font-style:normal;font-size:calc(12px + var(--fs));color:var(--muted);margin:-1px 0 3px}
 .setrow>.step{flex:none}.setrow>.step .v{width:64px}
 .setrow .switch{margin:0;flex:none}
+/* a stacked slider (Search memory): the value over a taller slider, its tick marks under it set in by half the
+   18px thumb so each sits under the thumb's centre at its stop, the automatic stop's bold; the warning under them */
+.setrow .rangebox{width:260px;flex:none;display:flex;flex-direction:column}
+.rangebox>b{white-space:nowrap;margin-bottom:4px}
+.rangebox input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;margin:0;background:transparent;cursor:pointer}
+.rangebox input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--pct,0%),var(--line2) var(--pct,0%))}
+.rangebox input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent) var(--pct,0%),var(--line2) var(--pct,0%))}
+.rangebox input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 3px rgba(16,24,40,.3)}
+.rangebox input[type=range]::-moz-range-thumb{box-sizing:border-box;width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid var(--panel);box-shadow:0 1px 3px rgba(16,24,40,.3)}
+.rangebox .ticks{position:relative;height:9px;margin:0 9px}
+.rangebox .ticks i{position:absolute;top:0;width:1px;height:5px;background:var(--muted);transform:translateX(-50%)}
+.rangebox .ticks i.auto{width:3px;height:9px;border-radius:1px;background:var(--text)}
+.rangebox .rangewarn{margin-top:8px;color:var(--danger);font-size:calc(12px + var(--fs));line-height:1.45}
 .setrow .cachefolder{display:flex;flex-direction:column;gap:10px}.setrow .cachepaths{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline}.setrow .cachepaths small{color:var(--muted);font-size:calc(11px + var(--fs));font-weight:600;white-space:nowrap}.setrow .cachepaths code{font-size:calc(12px + var(--fs));overflow-wrap:anywhere}.setrow .cachebt{display:flex;gap:8px}
 .setrow .xyzsets{width:260px;flex:none;display:flex;flex-direction:column;gap:6px}.setrow .xyzsets small{color:var(--muted);font-size:calc(11px + var(--fs));font-weight:600;margin-bottom:-2px}.setrow .xyzsets small:not(:first-child){margin-top:6px}
 .kbrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}

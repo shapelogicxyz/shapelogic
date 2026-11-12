@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <random>
 #include <sstream>
@@ -401,6 +402,58 @@ TEST_CASE("engine: a stacking solve's events, polled while it runs, paused and c
   CHECK_FALSE(h.engine.busy());
 }
 
+// Decision 0028: Search memory is what the searches running at once share,
+// and a stacking solve whose Panex folder cannot be written pauses before
+// its search; solve.status says why, and Continue with a folder that can
+// be written solves.
+TEST_CASE("engine: shared search memory, and a search folder that cannot be written",
+          "[engine]") {
+  std::random_device rd;
+  const std::filesystem::path work =
+      std::filesystem::temp_directory_path() /
+      ("bt_test_engine_folder_" + std::to_string(rd()) + "_" + std::to_string(rd()));
+  struct Remove {
+    std::filesystem::path path;
+    ~Remove() {
+      std::error_code ec;
+      std::filesystem::remove_all(path, ec);
+    }
+  } remove{work};
+  std::filesystem::create_directories(work);
+  const std::filesystem::path file = work / "not-a-folder";
+  { std::ofstream(file) << "x"; }
+
+  Harness h;
+  h.result("settings.set", {{"searchMemoryGB", 3}});
+  CHECK(h.engine.state().memory->total() == 3000000000ULL);
+  h.result("settings.set", {{"panexFolder", file.string()}});
+  const Json snap = h.result(
+      "document.open", {{"path", "tests/data/puzzles/stacking/stack_panex_swap_5.xmpuzzle"}});
+  const std::string p = snap["problems"][0]["id"];
+  const app::Id id = *parseId(IdKind::Problem, p);
+  const Json options = {{"disassemble", true}, {"threads", 1}};
+  CHECK(h.result("solve.status", {{"problem", p}})["folderFailure"].is_null());
+  h.result("solve.start", {{"problem", p}, {"options", options}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  Json st = h.result("solve.status", {{"problem", p}});
+  CHECK(st["state"] == "paused");
+  REQUIRE(st["folderFailure"].is_object());
+  CHECK(st["folderFailure"]["folder"] == file.string());
+  CHECK_FALSE(st["folderFailure"]["reason"].get<std::string>().empty());
+  CHECK(h.engine.state().memory->holders() == 0);
+
+  // another folder, and Continue solves
+  h.result("settings.set", {{"panexFolder", (work / "panex").string()}});
+  h.result("solve.continue", {{"problem", p}, {"options", options}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  st = h.result("solve.status", {{"problem", p}});
+  CHECK(st["state"] == "finished");
+  CHECK(st["folderFailure"].is_null());
+  CHECK(h.result("solution.page", {{"problem", p}})["rows"].size() == 1);
+}
+
 TEST_CASE("engine: a run that ends before the next poll still tells its end", "[engine]") {
   Harness h;
   h.result("document.new", {{"grid", "bricks"}});
@@ -534,6 +587,81 @@ TEST_CASE("engine: solve.abort is the stop of a solve under way", "[engine]") {
   const Json after = h.result("problem.get", {{"problem", p}});
   CHECK(after["solve"] == "idle");
   CHECK(after["state"] == "unsolved");
+}
+
+TEST_CASE("engine: solve.abort throws away a paused solve from a file", "[engine]") {
+  std::random_device rd;
+  const std::filesystem::path path =
+      std::filesystem::temp_directory_path() /
+      ("bt_test_engine_abort_" + std::to_string(rd()) + "_" + std::to_string(rd()) + ".xmpuzzle");
+  struct Remove {
+    std::filesystem::path path;
+    ~Remove() {
+      std::error_code ec;
+      std::filesystem::remove(path, ec);
+    }
+  } remove{path};
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string box = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", box}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string domino = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", domino}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string p = h.result("problem.create")["problem"];
+  h.result("problem.setResult", {{"problem", p}, {"shape", box}});
+  h.result("problem.setPieceCount", {{"problem", p}, {"shape", domino}, {"min", 1}, {"max", 1}});
+  h.result("solve.prepare", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(*parseId(IdKind::Problem, p)).has_value());
+  h.engine.poll();
+  h.result("document.save", {{"path", path.string()}});
+  // reopened: the problem is left solving, with no run in memory (Activity: Search paused)
+  const Json snap = h.result("document.open", {{"path", path.string()}});
+  const std::string q = snap["problems"][0]["id"];
+  const Json before = h.result("problem.get", {{"problem", q}});
+  REQUIRE(before["state"] == "solving");
+  CHECK(before["solve"] == "idle");
+  h.result("solve.abort", {{"problem", q}});
+  const Json after = h.result("problem.get", {{"problem", q}});
+  CHECK(after["state"] == "unsolved");
+  CHECK(after["saved"] == 0);
+  CHECK_FALSE(after["savedPosition"].get<bool>());
+  // nothing is left to abort
+  CHECK(h.errc("solve.abort", {{"problem", q}}) == "invalid_state");
+}
+
+TEST_CASE("engine: solve.reset throws away a finished solve as a step", "[engine]") {
+  Harness h;
+  h.result("document.new", {{"grid", "bricks"}});
+  const std::string box = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", box}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string domino = h.result("shape.create", {{"size", {2, 1, 1}}})["shape"];
+  h.result("shape.setBox", {{"shape", domino}, {"tool", "fixed"}, {"from", {0, 0, 0}}, {"to", {1, 0, 0}}});
+  const std::string p = h.result("problem.create")["problem"];
+  h.result("problem.setResult", {{"problem", p}, {"shape", box}});
+  h.result("problem.setPieceCount", {{"problem", p}, {"shape", domino}, {"min", 1}, {"max", 1}});
+  const app::Id id = *parseId(IdKind::Problem, p);
+  // nothing to reset: nothing changes
+  const std::uint64_t rev = h.result("document.get")["revision"];
+  CHECK(h.result("solve.reset", {{"problem", p}})["revision"] == rev);
+  h.result("solve.start", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  CHECK(h.result("problem.get", {{"problem", p}})["state"] == "solved");
+  h.result("solve.reset", {{"problem", p}});
+  Json after = h.result("problem.get", {{"problem", p}});
+  CHECK(after["state"] == "unsolved");
+  CHECK(after["saved"] == 0);
+  CHECK(after["solve"] == "idle");
+  h.result("edit.undo");
+  after = h.result("problem.get", {{"problem", p}});
+  CHECK(after["state"] == "solved");
+  CHECK(after["saved"] == 1);
+  // a paused solve is solve.abort's
+  h.result("solve.prepare", {{"problem", p}});
+  REQUIRE(h.engine.state().document().solveWait(id).has_value());
+  h.engine.poll();
+  CHECK(h.errc("solve.reset", {{"problem", p}}) == "invalid_state");
+  CHECK(h.result("problem.get", {{"problem", p}})["solve"] == "paused");
 }
 
 namespace {

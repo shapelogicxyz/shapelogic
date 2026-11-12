@@ -18,7 +18,8 @@ later is solved the same way.
 The list at the top shows the puzzle's problems, as on the Puzzle tab. Click
 one to solve it; below the list are its result and how many piece shapes it
 uses. Several problems can solve at the same time; the list marks the ones
-that are **solving** or **paused**.
+that are **solving**, **pausing** (Pause pressed, the search not yet
+stopped) or **paused**.
 
 ## What to check
 
@@ -188,7 +189,7 @@ symmetry and color ones:
   **Pause** saves the search of the start under way, and **Continue**
   carries it on. A search that fills its disk space is saved the same way,
   and the solve pauses: raise **Sliding disk space** or free some disk,
-  then press **Continue**. **Solve** and **Clear** throw saved searches
+  then press **Continue**. **Solve** and **Abort** throw saved searches
   away.
 
 ### Options for stacking puzzles
@@ -209,11 +210,19 @@ How much memory and disk a sliding or stacking search may take is not a
 search option of the problem but a setting of the app, in **Settings ▸
 Solver** (`Ctrl+,` or `⌘,` on a Mac):
 
-- **Search memory**: the memory a sliding or stacking search may fill.
-  A stacking search stops there; the **Sliding Puzzle Solver** writes the
-  rest to disk. **Automatic** is half of the computer's memory; the slider
-  goes up to three quarters of it. This replaces the earlier **Enable High
-  Memory** option.
+- **Search memory**: the memory sliding and stacking searches may fill.
+  Searches running at the same time (several problems solved at once)
+  share it equally: each gets a smaller part when another starts, and a
+  larger one again when one ends. A stacking search stops at its part (a
+  Panex search is saved, and **Continue** carries it on once the others
+  have finished); the **Sliding Puzzle Solver** writes the rest to disk,
+  so a smaller part only slows it down. **Automatic** is half of the
+  computer's memory (the bold tick under the slider); the slider goes up
+  in steps of 2 GB to 4 GB less than the computer's memory. Above three
+  quarters of it a warning shows under the slider: so much memory can
+  make other applications and the operating system slow or unstable, and
+  in the worst case make ShapeLogic crash. This replaces the earlier
+  **Enable High Memory** option.
 - **Sliding disk space**: the disk the **Sliding Puzzle Solver** may fill
   while it runs, and keep for a paused search. **Automatic** is half the
   free space, at most 200 GB. As it fills, the solver keeps fewer of the
@@ -231,22 +240,38 @@ the free space includes the space macOS frees when it is needed, as Finder
 counts it. When a search stops at one of these limits, its message names the
 setting to raise.
 
+Before a sliding search (with **Find Solutions**) or a Panex search begins,
+ShapeLogic checks that it can write to its folder in the
+[cache folder](/docs/getting-started/). If it can't (the cache folder is on
+a disk that isn't connected, or you don't have permission to write there),
+the solve is paused before it begins and ShapeLogic asks what to do:
+
+- **Choose Folder…** picks another cache folder, as in Settings, then
+  carries the solve on there.
+- **Try Again** carries the solve on with the cache folder as it is, once
+  you have connected the disk, for example.
+- **Abort Solve** throws the solve away.
+
+Closing the question leaves the solve paused; **Continue** tries again.
+
 ## Run
 
-![The Run section: Solve, Pause, Continue and Clear, the progress bar, and the counters.](../../../assets/screens/guide/solver-run.png)
+![The Run section: Solve, Pause, Continue and Abort or Reset, the progress bar, and the counters.](../../../assets/screens/guide/solver-run.png)
 
 | Button | What it does |
 |---|---|
 | **Solve** | Runs the search from the start. Old results of this problem are removed. |
 | **Pause** | Stops the search where it can be carried on. Save the puzzle to keep the paused search in the file. |
 | **Continue** | Carries on a paused search. |
-| **Clear** | Stops at once and throws away everything kept of this problem's solve: its results, the paused state and any saved search. |
+| **Abort** | Shown while the solve runs or is paused, a paused solve opened from a file included. Stops at once and throws away everything kept of this problem's solve: its results, the paused state and any saved search. This can't be undone. |
+| **Reset** | Shown in place of Abort once the solve is over. Throws away this problem's results, so it is unsolved again; **Undo** brings them back. |
 
 Below the buttons:
 
 - the **progress bar** and its percentage;
 - **Activity**: the solver's state: Ready to Solve, Search active
-  (with the name of the solver), Search paused, Search finished;
+  (with the name of the solver), Pausing the search, Search paused,
+  Search finished;
 - **Moves** (sliding and stacking puzzles): the moves of the problem's
   solution, the fewest there are. These puzzles have one solution at
   most;
@@ -258,8 +283,12 @@ Below the buttons:
   puzzle how many moves deep it is and how many arrangements it has
   scanned. For a stacking puzzle, the states (stackings) scanned and the
   search depth: how many moves deep it searched from each end, about
-  half the solution's moves. Afterwards, the totals of every run of the
-  solve. These are saved with the problem in the
+  half the solution's moves. While a sliding or stacking search pauses,
+  the line stays and says what keeps it from stopping at once: a sliding
+  search finishes the level it is merging, then writes its levels to disk
+  so that Continue can carry it on (how much of how much is written);
+  this can take minutes once the search is large. Afterwards, the totals
+  of every run of the solve. These are saved with the problem in the
   puzzle file, as are the counts and the time used, so they show again
   when the file is opened and the problem chosen;
 - **Time used** and an estimate of the **Time left** ("unknown" until the

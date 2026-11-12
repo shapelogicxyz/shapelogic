@@ -35,7 +35,13 @@
       "errors": ["not_found", "invalid_state", "unsupported"]
     },
     "solve.abort": {
-      "summary": "The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone; a paused solve from a file is carried on with solve.continue or started over with solve.start. Two document.changed follow: the abort's own, then the run's end from the poll. A stacking problem whose search is saved (solve.status.savedSearch) has a solve under way though no run is in memory, as the original's Abort judged it: the search and the problem's results go, and one document.changed follows.",
+      "summary": "The hard stop of a solve under way (a run active, or paused in memory): throws it away (results, paused state, saved position) and waits for the run to end. Refused (invalid_state) when the problem has no such solve, so a finished run's solutions are never lost by a late click: remove them with solution.delete {which: all}, which can be undone. Two document.changed follow: the abort's own, then the run's end from the poll. A paused solve with no run in memory is a solve under way too, as the original's Abort judged it: a problem a file left solving (its saved assembler position), and a stacking problem whose search is saved (solve.status.savedSearch); its results, the position and the search go, and one document.changed follows.",
+      "params": {"$ref": "#/$defs/ProblemParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "solve.reset": {
+      "summary": "Throws away the results of a problem whose solve is over (finished, stopped at a limit, failed, or with results from a file): its solutions, counts and solve state, so it is unsolved again, as one undo step (the original's Reset). Nothing changes when it has none. Refused (invalid_state) while a solve is under way, paused included, which is solve.abort's, so a Reset that a run's pause overtook throws nothing away; and while its solutions are being taken apart.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_state"]
@@ -51,6 +57,21 @@
           "stats": {"$ref": "types.json#/$defs/SolveStats"},
           "failure": {"oneOf": [{"$ref": "types.json#/$defs/SolveFailure"}, {"type": "null"}]},
           "note": {"type": ["string", "null"], "description": "What a sliding or stacking solve's last run said when it was through, or a stacking search when it paused: whether a missing solution is proven, the search gave up at a limit, or where it was saved (the original's solver note, shown in a message box); null otherwise."},
+          "folderFailure": {
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "The last run of a sliding or stacking solve paused before its search began: the folder the search keeps its files in (the engine's slideFolder or panexFolder) could not be written, a drive that is gone or a folder without write access, say. The results are as they were; solve.continue tries again (after settings.set gives another folder, or as it is), solve.abort throws the solve away (decision 0028).",
+                "properties": {
+                  "folder": {"type": "string"},
+                  "reason": {"type": "string", "description": "What was wrong with it, e.g. 'files cannot be written there'."}
+                },
+                "required": ["folder", "reason"],
+                "additionalProperties": false
+              },
+              {"type": "null"}
+            ]
+          },
           "savedSearch": {
             "oneOf": [
               {
@@ -69,7 +90,7 @@
             "description": "Null while the problem's run is active, when there is none, and on other grids."
           }
         },
-        "required": ["state", "progress", "stats", "failure", "note", "savedSearch"],
+        "required": ["state", "progress", "stats", "failure", "note", "folderFailure", "savedSearch"],
         "additionalProperties": false
       },
       "errors": ["not_found"]

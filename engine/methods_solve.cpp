@@ -93,6 +93,13 @@ Reply solveAbort(State& s, Params& p) {
   return s.changed();
 }
 
+Reply solveReset(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().solveReset(problem, s.settings.panexFolder));
+  return s.changed();
+}
+
 Reply solveStatus(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   BTE_CHECK(p.finish());
@@ -101,6 +108,7 @@ Reply solveStatus(State& s, Params& p) {
   BTE_TRY(const SolveStats stats, d.solveStats(problem));
   const std::optional<SolveFailure> failure = d.solveFailure(problem);
   const std::string note = d.solveNote(problem);
+  const std::optional<FolderFailure> folder = d.solveFolderFailure(problem);
   BTE_TRY(const std::optional<app::SavedSearchInfo> saved,
           d.savedSearch(problem, s.settings.panexFolder));
   Json savedJson = nullptr;
@@ -114,6 +122,8 @@ Reply solveStatus(State& s, Params& p) {
               {"stats", statsJson(stats)},
               {"failure", failure ? failureJson(*failure) : Json(nullptr)},
               {"note", note.empty() ? Json(nullptr) : Json(note)},
+              {"folderFailure", folder ? Json{{"folder", folder->folder}, {"reason", folder->reason}}
+                                       : Json(nullptr)},
               {"savedSearch", std::move(savedJson)}};
 }
 
@@ -157,6 +167,7 @@ void addSolveMethods(MethodTable& t) {
   t["solve.pause"] = solvePause;
   t["solve.savePoint"] = solveSavePoint;
   t["solve.abort"] = solveAbort;
+  t["solve.reset"] = solveReset;
   t["solve.status"] = solveStatus;
   t["solve.exportPaused"] = solveExportPaused;
   t["solve.importPaused"] = solveImportPaused;

@@ -48,6 +48,10 @@ type Row = (
       /** The values the slider stops at, smallest first; 0 is automatic. */
       steps: () => readonly number[];
       label: (v: number) => string;
+      /** Laid out stacked: the value over a taller slider, tick marks under it (automatic's bold). */
+      ticks?: true;
+      /** The warning under the slider at a value, empty for none. */
+      warn?: (v: number) => string;
     }
   | { t: string; d: string; type: 'xyz'; sets: readonly XyzSet[] }
   | { k: keyof Prefs; t: string; d: string; type: 'colour' }
@@ -112,16 +116,44 @@ const memoryGB = (): number => (store?.info?.memoryBytes ?? 0) / 1e9;
 /** The automatic search memory in GB: half the machine's, at least 2 (the engine's). */
 const autoMemoryGB = (): number => Math.max(2, memoryGB() / 2);
 
-/** The search memory choices in GB, up to three quarters of the machine's. */
-const MEMORY_GB = [2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024];
-
-/** The search memory slider's stops: the choices, automatic (0) in its place among them. */
+/** The search memory slider's stops: every 2 GB up to 4 GB less than the machine's, automatic (0) in its place among them. */
 function memorySteps(): number[] {
-  const top = memoryGB() > 0 ? memoryGB() * 0.75 : 64;
+  const top = memoryGB() > 0 ? memoryGB() - 4 : 64;
   const auto = autoMemoryGB();
-  const fixed = MEMORY_GB.filter((g) => g <= top && Math.abs(g - auto) >= 1);
+  const fixed: number[] = [];
+  for (let g = 2; g <= top; g += 2) {
+    if (Math.abs(g - auto) >= 1) {
+      fixed.push(g);
+    }
+  }
   return [...fixed.filter((g) => g < auto), 0, ...fixed.filter((g) => g > auto)];
 }
+
+/** The warning under the search memory slider: above three quarters of the machine's memory. */
+const memoryWarn = (v: number): string =>
+  v !== 0 && memoryGB() > 0 && v > memoryGB() * 0.75
+    ? 'Very high memory allocation can make other applications and the operating system slow or unstable, and in the worst case can make ShapeLogic crash.'
+    : '';
+
+/** The most tick marks under a slider; past it only every few stops (and automatic) get one. */
+const TICKS_MAX = 60;
+
+/** The tick marks under a stacked slider, one per stop, automatic's bold. */
+function ticksHtml(steps: readonly number[]): string {
+  const every = Math.ceil(steps.length / TICKS_MAX);
+  const last = steps.length - 1;
+  return steps
+    .map((x, i) =>
+      x === 0 || i % every === 0 || i === last
+        ? `<i class="${x === 0 ? 'auto' : ''}" style="left:${String(last > 0 ? (i / last) * 100 : 50)}%"></i>`
+        : '',
+    )
+    .join('');
+}
+
+/** How far along a slider its value is, in percent: the filled part of a stacked slider's track. */
+const rangePct = (t: HTMLInputElement): string =>
+  `${String(Number(t.max) > 0 ? (Number(t.value) / Number(t.max)) * 100 : 0)}%`;
 
 /** The disk space choices in GB, automatic (0) first. */
 const DISK_GB = [0, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
@@ -335,10 +367,12 @@ const SET: readonly Page[] = [
       {
         k: 'memGB',
         t: 'Search memory',
-        d: 'The memory a sliding or stacking search may fill with the arrangements it has found before it stops. Automatic is half of this computer’s memory. More lets a large search go further; the choices go up to three quarters of the memory, so the computer stays usable while it runs. The Sliding Puzzle Solver keeps older moves on disk, so it needs memory only for the widest move.',
+        d: 'The memory sliding and stacking searches may fill with the arrangements they have found. Searches running at the same time share it equally: each gets a smaller part when another starts, and a larger one again when one ends. Automatic (the bold tick) is half of this computer’s memory. More lets a large search go further; the choices go up in steps of 2 GB to 4 GB less than the memory, and above three quarters of it the computer may become slow or unstable while a search runs. The Sliding Puzzle Solver keeps older moves on disk, so a smaller part only slows it down; a stacking search that outgrows its part stops, and a Panex search can be carried on with Continue once the others have finished.',
         type: 'steps',
         steps: memorySteps,
         label: (v) => (v === 0 ? `${gbText(autoMemoryGB())} (automatic)` : gbText(v)),
+        ticks: true,
+        warn: memoryWarn,
         group: 'Memory',
       },
       {
@@ -589,6 +623,14 @@ function rowHtml(r: Row): string {
       const steps = r.steps();
       const auto = r.k === 'memGB' ? autoMemoryGB() : 0;
       const n = v as number;
+      if (r.ticks === true) {
+        const warn = r.warn?.(n) ?? '';
+        const at = stepOf(steps, n, auto);
+        const pct = steps.length > 1 ? (at / (steps.length - 1)) * 100 : 0;
+        // the value over the slider, the tick marks and the warning under it
+        c = `<div class="rangebox"><b>${esc(r.label(n))}</b><input type="range" min="0" max="${String(steps.length - 1)}" step="1" value="${String(at)}" data-k="${r.k}" data-steps="${steps.join(',')}" aria-label="${esc(r.t)}" aria-valuetext="${esc(r.label(n))}" title="${esc(r.d)}" style="--pct:${String(pct)}%"><div class="ticks" aria-hidden="true">${ticksHtml(steps)}</div><div class="rangewarn" role="status" ${warn === '' ? 'hidden' : ''}>${esc(warn)}</div></div>`;
+        break;
+      }
       c = `<div style="display:flex;align-items:center;gap:10px;width:260px"><input type="range" min="0" max="${String(steps.length - 1)}" step="1" value="${String(stepOf(steps, n, auto))}" data-k="${r.k}" data-steps="${steps.join(',')}" aria-label="${esc(r.t)}" aria-valuetext="${esc(r.label(n))}" title="${esc(r.d)}" style="flex:1;accent-color:var(--accent)"><b style="width:118px;text-align:right;white-space:nowrap">${esc(r.label(n))}</b></div>`;
       break;
     }
@@ -775,23 +817,24 @@ async function refreshCache(): Promise<void> {
 /**
  * Changes the cache folder: the folder dialog (or the defaults), the new
  * folder made and written at once, then, when the folders in use hold
- * data, whether to move it there or delete it and start clean.
+ * data, whether to move it there or delete it and start clean. True when
+ * the cache folder is another now.
  */
-async function changeCache(useDefault: boolean): Promise<void> {
+async function changeCache(useDefault: boolean): Promise<boolean> {
   const app = window.btApp;
   const c = await app.chooseCacheFolder(useDefault);
   switch (c.status) {
     case 'cancelled':
     case 'same':
-      return;
+      return false;
     case 'busy':
       tell(c.reason);
-      return;
+      return false;
     case 'invalid':
       tell(
         `The new cache destination is invalid: ${c.error} (${c.folder}). ShapeLogic keeps using ${cacheName(cacheInfo)}.`,
       );
-      return;
+      return false;
     case 'ready':
       break;
   }
@@ -835,7 +878,7 @@ async function changeCache(useDefault: boolean): Promise<void> {
   if (!r.ok) {
     tell(`The cache folder was not changed: ${r.error}.`);
     await refreshCache();
-    return;
+    return false;
   }
   cacheInfo = r.info;
   if (settingsOpen()) {
@@ -844,6 +887,16 @@ async function changeCache(useDefault: boolean): Promise<void> {
   if (action !== 'cancel') {
     flash(`The cache folder is now ${cacheName(r.info)}`);
   }
+  return action !== 'cancel';
+}
+
+/**
+ * Settings ▸ General ▸ Cache folder's Choose Folder…, for the solver's
+ * question about a cache folder its search could not write (decision
+ * 0028). True when the cache folder is another now.
+ */
+export function chooseCacheFolder(): Promise<boolean> {
+  return changeCache(false);
 }
 
 /** A new shape size held to the settings' range. */
@@ -1020,8 +1073,18 @@ export function installSettings(s: Store): void {
     if (row?.type === 'steps' && t.dataset.steps !== undefined) {
       // the size the stop stands for, before the change is applied
       const v = Number(t.dataset.steps.split(',')[Number(t.value)] ?? 0);
-      t.nextElementSibling.textContent = row.label(v);
+      const box = t.closest('.rangebox');
+      (box?.querySelector('b') ?? t.nextElementSibling).textContent = row.label(v);
       t.setAttribute('aria-valuetext', row.label(v));
+      if (box !== null) {
+        t.style.setProperty('--pct', rangePct(t));
+        const warn = box.querySelector<HTMLElement>('.rangewarn');
+        if (warn !== null) {
+          const text = row.warn?.(v) ?? '';
+          warn.textContent = text;
+          warn.hidden = text === '';
+        }
+      }
     } else {
       t.nextElementSibling.textContent = t.value;
     }

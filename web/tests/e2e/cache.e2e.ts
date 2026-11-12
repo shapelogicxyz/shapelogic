@@ -3,7 +3,9 @@
 // Settings ▸ General ▸ Cache folder (main/cache-folder.ts): Choose Folder…
 // makes a ShapeLogic folder in the folder the dialog gave, says what the
 // folders in use hold and moves it there; Use Default brings it back; a
-// folder that cannot be written is refused and the folders in use stay.
+// folder that cannot be written is refused and the folders in use stay; a
+// solve whose search cannot write the cache folder pauses and asks what to
+// do (decision 0028).
 // The folder dialog is answered in the main process; the default cache
 // folder is the test's data directory (BT_USER_DATA).
 
@@ -14,8 +16,9 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { appOf, engineCall, launch } from './app.ts';
+import { appOf, ENGINE, BUILT, engineCall, launch, openFixture } from './app.ts';
 import type { App } from './app.ts';
+import { runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
 let a: App;
 let dir: string;
@@ -91,4 +94,51 @@ test('a folder that cannot be written is refused, and the folders in use stay', 
   await notice.locator('[data-x="ok"]').click();
   await expect(page.locator('#setPg [data-cache="default"]')).toBeDisabled();
   expect(existsSync(join(dir, 'ShapeLogic'))).toBe(false);
+});
+
+test('a solve whose cache folder cannot be written pauses and asks what to do', async () => {
+  test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
+  const { page } = a;
+  // a cache folder chosen, then its sliding folder a file: a drive that is
+  // gone, say
+  await openRow(page);
+  await dialogGives(page, dir);
+  await page.click('#setPg [data-cache="choose"]');
+  await expect(page.locator('#setPg .cachepaths')).toContainText(join(dir, 'ShapeLogic'));
+  await page.keyboard.press('Escape');
+  const gone = join(dir, 'ShapeLogic', 'sliding');
+  rmSync(gone, { recursive: true, force: true });
+  writeFileSync(gone, 'x');
+  await openFixture(page, 'test_sliding_solver.xmpuzzle');
+  await toSolver(page);
+  await page.click('#slvMode [data-m="dis"]');
+  await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+  await solverSettled(page);
+  await runButton(page, 'start');
+  const ask = page.locator('#cacheUnwritable');
+  await expect(ask).toContainText(gone);
+  await runEnded(page, 'paused');
+
+  // the drive is back: Try Again carries the solve on to its end
+  rmSync(gone);
+  await ask.locator('[data-x="retry"]').click();
+  await expect(ask).toHaveCount(0);
+  await runEnded(page, 'finished');
+  expect(Number(await page.getAttribute('#leftS', 'data-solutions'))).toBeGreaterThan(0);
+
+  // gone again: Choose Folder… gives the cache another folder, and the
+  // solve goes on there
+  rmSync(gone, { recursive: true, force: true });
+  writeFileSync(gone, 'x');
+  await runButton(page, 'start');
+  await expect(ask).toContainText(gone);
+  const other = join(dir, 'other');
+  mkdirSync(other);
+  await dialogGives(page, other);
+  await ask.locator('[data-x="choose"]').click();
+  await expect(ask).toHaveCount(0);
+  await runEnded(page, 'finished');
+  expect(await engineCall(page, 'settings.get')).toMatchObject({
+    slideFolder: join(other, 'ShapeLogic', 'sliding'),
+  });
 });

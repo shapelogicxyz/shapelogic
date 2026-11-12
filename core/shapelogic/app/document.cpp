@@ -870,18 +870,22 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
   }
   if (it == sessions_.end() ||
       (!isActive(it->second->state()) && it->second->state() != SolveState::Paused)) {
-    // a stacking search saved in its folder is a paused solve, on disk:
-    // the GUI's Abort threw it away with the problem's results
+    // a stacking search saved in its folder is a paused solve, on disk,
+    // and so is a problem a file left solving (its assembler position):
+    // the GUI's Abort threw either away with the problem's results
     // (cb_BtnAbort, abortable())
-    if (!stacking::isStacking(*puzzle_) ||
-        panex::savedSearch(*puzzle_, puzzle_->getProblem(*p), stackingWorkDir).empty()) {
+    Problem& pr = puzzle_->getProblem(*p);
+    const bool savedSearch =
+        stacking::isStacking(*puzzle_) && !panex::savedSearch(*puzzle_, pr, stackingWorkDir).empty();
+    if (!savedSearch && pr.getSolveState() != ProblemState::Solving) {
       return fail(Errc::InvalidState,
                   "the problem has no solve under way: remove its solutions instead");
     }
     endSession(*p);
-    Problem& pr = puzzle_->getProblem(*p);
     pr.removeAllSolutions();
-    panex::discardSaved(*puzzle_, pr, stackingWorkDir);
+    if (savedSearch) {
+      panex::discardSaved(*puzzle_, pr, stackingWorkDir);
+    }
     solveDirty_ = true;
     lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
     changed(kChangeSolutions | kChangeProblems);
@@ -891,6 +895,39 @@ Result<void> Document::solveAbort(Id problem, const std::string& stackingWorkDir
   solveDirty_ = true;
   lastChange_ = ChangeSet{kChangeSolutions | kChangeProblems, {}, {problem}, {}};
   changed(kChangeSolutions | kChangeProblems);
+  return {};
+}
+
+Result<void> Document::solveReset(Id problem, const std::string& stackingWorkDir) {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (Result<void> r = checkProblemFree(*p); !r) {
+    return r;
+  }
+  // a solve under way (paused in memory, left solving by a file, or a
+  // stacking search saved) is solveAbort's, which cannot be undone; so a
+  // Reset that a run's pause overtook throws nothing away
+  const auto it = sessions_.find(problem);
+  Problem& pr = puzzle_->getProblem(*p);
+  if ((it != sessions_.end() && it->second->state() == SolveState::Paused) ||
+      pr.getSolveState() == ProblemState::Solving ||
+      (stacking::isStacking(*puzzle_) &&
+       !panex::savedSearch(*puzzle_, pr, stackingWorkDir).empty())) {
+    return fail(Errc::InvalidState, "the problem has a solve under way: abort it instead");
+  }
+  if (pr.getSolveState() == ProblemState::Unsolved && pr.getNumberOfSavedSolutions() == 0 &&
+      pr.getPending().empty()) {
+    return {};
+  }
+  // the GUI's Reset (cb_BtnAbort when resettable()), a step here
+  StepGuard g(*this, "Reset solve");
+  touchProblem(*p);
+  pr.removeAllSolutions();
+  endSession(*p);
+  lastChange_.problems = {problem};
+  g.commit(kChangeSolutions | kChangeProblems);
   return {};
 }
 
@@ -940,6 +977,11 @@ std::optional<SolveFailure> Document::solveFailure(Id problem) const {
 std::string Document::solveNote(Id problem) const {
   const auto it = sessions_.find(problem);
   return it == sessions_.end() ? std::string() : it->second->note();
+}
+
+std::optional<FolderFailure> Document::solveFolderFailure(Id problem) const {
+  const auto it = sessions_.find(problem);
+  return it == sessions_.end() ? std::nullopt : it->second->folderFailure();
 }
 
 Result<std::optional<SavedSearchInfo>> Document::savedSearch(Id problem,
