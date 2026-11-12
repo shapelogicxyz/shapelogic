@@ -4,7 +4,8 @@
 // the engine (stage 6; the engine's half is bridge.ts): the menus'
 // commands one way and their state the other, the file dialogs, the
 // stored settings and layouts, the recent files, the rescue copy, the
-// help links, the window's close, and from stage 7 the exports' files.
+// help links, the window's close, from stage 7 the exports' files, and
+// the cache manager's items (View ▸ Manage Cache and Autosave Files).
 // The preload exposes it as `window.btApp`; the renderer never sees a path
 // it did not get from a dialog, a drop, the recent files or the rescue
 // copy's record, and the main process writes an export only to a path its
@@ -42,6 +43,8 @@ export type AppCommand =
   | { cmd: 'notes' }
   | { cmd: 'settings' }
   | { cmd: 'statusWindow' }
+  /** View ▸ Manage Cache and Autosave Files…: the dialog listing what solves, pauses, the journal and crashes left. */
+  | { cmd: 'cacheFiles' }
   | { cmd: 'colourView'; on: boolean }
   | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
@@ -150,6 +153,76 @@ export function isCacheAction(v: unknown): v is CacheAction {
 
 /** The answer of `finishCacheFolder`: the folders now in use, or why nothing changed. */
 export type CacheResult = { ok: true; info: CacheFolderInfo } | { ok: false; error: string };
+
+/**
+ * What an item of the cache manager is: a sliding or stacking search's
+ * folder (saved by a pause, or left unfinished by a crash), the rescue
+ * copy (the unsaved changes and the crash recovery journal), or other
+ * files in the search folders.
+ */
+export type CacheItemKind = 'sliding' | 'stacking' | 'rescue' | 'other';
+
+/**
+ * One item of View ▸ Manage Cache and Autosave Files (main/cache-files.ts):
+ * one thing the user would name, which may be several files or folders
+ * (the saved searches of a problem's starts, the rescue copy and its
+ * record). The main process names it and lists its files; the renderer
+ * deletes it by its id, never by a path.
+ */
+export interface CacheItem {
+  /** Stable while the item's files are: what `deleteCacheItem` takes. */
+  id: string;
+  kind: CacheItemKind;
+  /** Its name for people: "Paused sliding solve of Block 15.xmpuzzle". */
+  title: string;
+  /** What it is, what made it and what deleting it does, in a sentence or three. */
+  about: string;
+  /** The bytes of all its files. */
+  bytes: number;
+  /** The puzzle file it belongs to; null when it has none or it is not known. */
+  puzzle: string | null;
+  /** The puzzle's name when it has no file (a puzzle never saved); null when not known. */
+  puzzleName: string | null;
+  /** The problem it was solving; null when not known or not a solve's. */
+  problem: string | null;
+  /** When it was made and last written (ms since 1970). */
+  created: number;
+  modified: number;
+  /** Every file it is, by its full path (at most a thousand). */
+  files: string[];
+  /** The files beyond those listed. */
+  moreFiles: number;
+}
+
+/** What a window tells of the search folders its problem saved (solve.searchFolders). */
+export interface CacheLink {
+  /** Full paths, as solve.searchFolders gave them. */
+  folders: string[];
+  /** The document's file, or null for a puzzle without one. */
+  path: string | null;
+  /** The name the top bar shows. */
+  name: string;
+  /** The problem's name (its label when it has none). */
+  problem: string;
+}
+
+/** Whether a value is a cache link (the main process checks what the renderer sends). */
+export function isCacheLink(v: unknown): v is CacheLink {
+  if (typeof v !== 'object' || v === null) {
+    return false;
+  }
+  const l = v as Record<string, unknown>;
+  return (
+    Array.isArray(l.folders) &&
+    l.folders.every((f) => typeof f === 'string' && f !== '') &&
+    (l.path === null || (typeof l.path === 'string' && l.path !== '')) &&
+    typeof l.name === 'string' &&
+    typeof l.problem === 'string'
+  );
+}
+
+/** The answer to deleting a cache item: the items now there, or why not. */
+export type CacheDeleteResult = { ok: true; items: CacheItem[] } | { ok: false; error: string };
 
 /** The links of the Help menu (the main process holds the addresses). */
 export type HelpLink = 'tutorial' | 'guide' | 'author';
@@ -299,6 +372,12 @@ export interface BtApp {
    * deletes it, then uses it; or, cancelled, keeps the folders in use.
    */
   finishCacheFolder(action: CacheAction): Promise<CacheResult>;
+  /** What the cache folder and the rescue copy hold, newest first; null where there is none (the demo). */
+  cacheItems(): Promise<CacheItem[] | null>;
+  /** Deletes a cache item's files (refused while a solve runs, for a search's). */
+  deleteCacheItem(id: string): Promise<CacheDeleteResult>;
+  /** These search folders belong to this puzzle and problem: the cache manager names them so. */
+  linkCacheFolders(link: CacheLink): void;
   /** Closes the window: the renderer answered a `close` command (nothing to save, or saved or given up). */
   closeWindow(): void;
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */
@@ -330,6 +409,7 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'notes',
   'settings',
   'statusWindow',
+  'cacheFiles',
   'colourView',
   'style',
   'focus3d',

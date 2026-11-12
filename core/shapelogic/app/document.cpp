@@ -22,9 +22,11 @@
 #include "shapelogic/model/stacking.h"
 #include "shapelogic/solve/disassembler.h"
 #include "shapelogic/solve/panex_search.h"
+#include "shapelogic/solve/sliding_search.h"
 #include "shapelogic/solve/solver_type.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <utility>
 
 namespace bt::app {
@@ -1006,6 +1008,27 @@ Result<std::optional<SavedSearchInfo>> Document::savedSearch(Id problem,
   info.ms = panex::savedMs(*puzzle_, pr, workDir);
   info.levelBytes = io::savedLevelBytes(panex::searchFolder(*puzzle_, pr, workDir));
   return info;
+}
+
+Result<std::vector<std::string>> Document::searchFolders(Id problem, const std::string& slideDir,
+                                                         const std::string& panexDir) const {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  const Problem& pr = puzzle_->getProblem(*p);
+  if (sliding::isSliding(*puzzle_)) {
+    return sliding::savedFolders(*puzzle_, pr, slideDir);
+  }
+  std::vector<std::string> out;
+  if (stacking::isStacking(*puzzle_)) {
+    const std::string dir = panex::searchFolder(*puzzle_, pr, panexDir);
+    std::error_code ec;
+    if (!dir.empty() && std::filesystem::is_directory(dir, ec)) {
+      out.push_back(dir);
+    }
+  }
+  return out;
 }
 
 // ---- analysing and what background work did -----------------------------------------

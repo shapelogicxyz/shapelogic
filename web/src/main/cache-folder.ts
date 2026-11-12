@@ -433,6 +433,11 @@ export class CacheFolderManager<K extends WeakKey> {
     }
   }
 
+  /** Whether a solve or an analysis runs in any window (its search writes the folders). */
+  solving(): Promise<boolean> {
+    return this.host.solving();
+  }
+
   /** The folder the cache folder in use was made in; undefined for the defaults. */
   get chosen(): string | undefined {
     return this.root;

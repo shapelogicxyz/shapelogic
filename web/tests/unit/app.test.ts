@@ -32,6 +32,7 @@ import {
   isExportKind,
   isFileKind,
   isMenuState,
+  isCacheLink,
   isRescueInfo,
 } from '../../src/engine/app-bridge.ts';
 import type { AppCommand, MenuState } from '../../src/engine/app-bridge.ts';
@@ -329,6 +330,33 @@ describe('the menus', () => {
     expect(sent).toContainEqual({ cmd: 'colourView', on: true });
   });
 
+  it('has Manage Cache and Autosave Files under Reload in development, at the foot of View in a release', () => {
+    const viewOf = (dev: boolean): MenuItemConstructorOptions[] => {
+      const template = menuTemplate(state, {
+        platform: 'darwin',
+        name: 'ShapeLogic',
+        recent: [],
+        dev,
+        send: () => undefined,
+        openHelp: () => undefined,
+        clearRecent: () => undefined,
+      });
+      return template.find((m) => m.id === 'view')?.submenu as MenuItemConstructorOptions[];
+    };
+    const names = (items: MenuItemConstructorOptions[]): string[] =>
+      items.slice(-4).map((i) => i.role ?? i.id ?? i.type ?? '');
+    expect(names(viewOf(true))).toEqual(['separator', 'reload', 'cacheFiles', 'toggleDevTools']);
+    expect(names(viewOf(false)).slice(-2)).toEqual(['separator', 'cacheFiles']);
+    const { template, sent } = build(NO_STATE, 'win32');
+    const item = commandItems(template).get('cacheFiles');
+    expect(item?.label).toBe('Manage Cache and Autosave Files…');
+    // without a document too: it is about the disk, not the puzzle
+    expect(item?.enabled).toBe(true);
+    (item?.click as () => void)();
+    expect(sent).toEqual([{ cmd: 'cacheFiles' }]);
+    expect(isAppCommand({ cmd: 'cacheFiles' })).toBe(true);
+  });
+
   it('lists the recent files by name and folder, or says there are none', () => {
     expect(recentLabel('/Users/me/puzzles/a.xmpuzzle')).toBe('a.xmpuzzle — /Users/me/puzzles');
     expect(recentLabel('C:\\p\\a.xmpuzzle')).toBe('a.xmpuzzle — C:\\p');
@@ -358,6 +386,12 @@ describe('the bridge’s checks', () => {
     expect(isExportKind('puzzle')).toBe(false);
     expect(isRescueInfo({ path: null, name: 'x', revision: 1, time: 2 })).toBe(true);
     expect(isRescueInfo({ path: '', name: 'x', revision: 1, time: 2 })).toBe(false);
+    expect(isCacheLink({ folders: ['/c/slide-1'], path: null, name: 'x', problem: 'P1' })).toBe(
+      true,
+    );
+    expect(isCacheLink({ folders: [''], path: null, name: 'x', problem: 'P1' })).toBe(false);
+    expect(isCacheLink({ folders: ['/a'], path: '', name: 'x', problem: 'P1' })).toBe(false);
+    expect(isCacheLink({ folders: '/a', path: null, name: 'x', problem: 'P1' })).toBe(false);
   });
 });
 

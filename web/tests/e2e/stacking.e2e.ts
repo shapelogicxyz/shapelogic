@@ -27,6 +27,7 @@ import {
   engineCall,
   FIXTURES,
   launch,
+  menu,
   newDocument,
   readCallLog,
   settle,
@@ -527,6 +528,54 @@ test('a Panex search paused, the app restarted, the search carried on from where
     );
     await expect(page.locator('#slvMoves')).toHaveText('2,189');
     await solverSettled(page);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a paused Panex search is named after its puzzle in Manage Cache and Autosave Files', async () => {
+  test.setTimeout(120_000);
+  const dir = tmpDir();
+  const file = join(dir, 'swap7.xmpuzzle');
+  writeFileSync(file, panexSwap(7));
+  const userData = join(dir, 'data');
+  const a = await launch({ userData });
+  try {
+    const { page } = a;
+    await engineCall(page, 'settings.set', { threads: 1 });
+    await openPath(page, file);
+    await toSolver(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#slvDetails')).toContainText(/^Scanned .+ states\. Search depth: /, {
+      timeout: 20_000,
+    });
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    await page.click('#notice [data-x="ok"]');
+    const problem = await engineCall<{ name: string; label: string }>(page, 'problem.get', {
+      problem: await shownProblem(page),
+    });
+    const problemName = problem.name !== '' ? problem.name : problem.label;
+    // the window told the main process whose folder it is as the run ended
+    await expect
+      .poll(() => existsSync(join(userData, 'cache-links.json')), { timeout: 10_000 })
+      .toBe(true);
+    await menu(page, 'cacheFiles');
+    const dlg = page.locator('#cacheFiles');
+    const title = `Paused stacking solve of swap7.xmpuzzle, ${problemName}`;
+    await expect(dlg.locator('.cf-row').first()).toContainText(title);
+    const detail = dlg.locator('.cf-detail');
+    await expect(detail.locator('h4')).toHaveText(title);
+    await expect(detail).toContainText(file);
+    await expect(detail.locator('.cf-files')).toContainText(join(userData, 'panex'));
+    // deleted: Continue has nothing to carry on
+    await detail.locator('[data-act="delete"]').click();
+    await page.locator('#cacheFilesDelete [data-x="delete"]').click();
+    await expect(dlg.locator('.cf-row')).toHaveCount(0);
+    await expect(dlg.locator('.cf-empty')).toBeVisible();
+    expect(readdirSync(join(userData, 'panex'))).toEqual([]);
+    await dlg.locator('[data-x="close"]').click();
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

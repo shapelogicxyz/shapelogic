@@ -1167,6 +1167,19 @@ What exists after stage 8:
   across disks, put back when a move fails) or deletes it; a folder chosen
   earlier that cannot be written at the start is given up for the
   defaults, and the first window told),
+  `cache-files.ts` (Electron-free: View ▸ Manage Cache and Autosave
+  Files…, the cache folder's search folders and the rescue copy as items
+  named for people; `CacheLinks`, `cache-links.json` in the app's data
+  directory, the puzzle file and problem of each search folder by its
+  name, as each window tells it from `solve.searchFolders`
+  (`renderer/solver/cache-links.ts`: when a sliding or stacking run ends,
+  every minute while one runs, and for every problem when such a puzzle
+  opens), only folders directly in the folders in use and only a file the
+  window was handed; one problem's saved starts are one item, a folder
+  without `state.bin` an unfinished search, anything else one item per
+  folder; an item deleted by its id, found by listing again, a search's
+  refused while a solve runs; the renderer's dialog is
+  `renderer/shell/cache-files.ts`),
   `state-store.ts` (`StateStore`: `state.json` in the app's
   data directory: the renderer's settings and layouts, the recent files,
   the window's bounds, the cache folder chosen; read once, written a moment after a change to a

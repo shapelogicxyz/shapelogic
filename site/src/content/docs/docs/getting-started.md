@@ -132,6 +132,25 @@ application data folder:
 - The [command line tool](/docs/command-line/) keeps its own folders, set
   by its environment variables.
 
+### Managing the cache and autosave files
+
+**View ▸ Manage Cache and Autosave Files…** lists what solves, pauses, the
+crash recovery journal and crashes have left on the disk, by name rather
+than by file name: "Paused sliding solve of Block 15.xmpuzzle, Main", say,
+or "Crash recovery copy of Untitled". Each item can be several files: the
+saved searches of all the starts of one sliding problem are one item.
+
+Select an item to see below the list what it is, the disk space it takes,
+the puzzle file and problem it belongs to, when it was made and last
+written, and every file it is, by its full path. **Delete…** removes it
+from the disk after asking. Searches can't be deleted while a solve is
+running; a paused solve whose search you delete starts that search again
+from the beginning when you continue it. **Refresh** lists the files again.
+
+ShapeLogic records which puzzle a search belongs to when the search is
+saved. Searches saved by an earlier version, or by a puzzle never opened
+since, show "puzzle not known" until you open that puzzle again.
+
 ## Next
 
 You have seen the whole loop: shapes, a problem, a solve. A guide to building a

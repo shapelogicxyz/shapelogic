@@ -3280,6 +3280,22 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
+   * The folders of the cache folder that hold this problem's saved searches: on the sliding grid
+   * one in slideFolder for each start whose search was saved there (paused, or saved as it ran),
+   * on the stacking grid its search's folder in panexFolder when it is there; none on the other
+   * grids, and none for a search that saved nothing yet. The app names these folders after the
+   * puzzle in its cache manager (View ▸ Manage Cache and Autosave Files).
+   * (solve.json)
+   */
+  'solve.searchFolders': {
+    params: SolveProblemParam;
+    result: {
+      /** Full paths, sorted. */
+      folders: string[];
+    };
+    errors: 'not_found';
+  };
+  /**
    * Writes a paused solve as a .slsolve file (the original's BTSOLVE2: the puzzle and the
    * problem's number) to carry it on elsewhere. A stacking problem is paused when its search is
    * saved (solve.status.savedSearch): the file carries the search, packed.
@@ -3817,6 +3833,7 @@ export const METHOD_NAMES = [
   'solve.prepare',
   'solve.reset',
   'solve.savePoint',
+  'solve.searchFolders',
   'solve.start',
   'solve.status',
   'stacking.addRodSet',

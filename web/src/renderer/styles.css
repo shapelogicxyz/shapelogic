@@ -511,7 +511,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .slv-lab .sp{flex:1}.slv-lab.click{cursor:pointer}
 .slv-probsec{border-top:0;border-bottom:1px solid var(--line)}
 .slv-problems{overflow:auto;flex:none;margin:-6px -6px 0;padding:6px 0}
-.slv-problems .st{flex:none;color:var(--muted);font-size:calc(11px + var(--fs));padding-right:4px}.slv-problems .st.solving{color:var(--accent);font-weight:600}
+.slv-problems .st{flex:none;color:var(--accent);font-weight:600;font-size:calc(11px + var(--fs));padding-right:4px}
 .slv-pmeta{color:var(--muted);font-size:calc(12px + var(--fs))}
 .slv-mode{display:grid;gap:6px}
 .mcard{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;text-align:left;font:inherit;color:var(--text)}
@@ -1014,6 +1014,29 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .cfm .cb p b{color:var(--text)}
 .cfm.wide{width:min(620px,calc(100% - 48px));max-height:calc(100% - 80px);display:flex;flex-direction:column}
 .cfm.wide .cb{overflow:auto;min-height:0;margin:0 -4px 12px;padding:0 4px}
+/* View ▸ Manage Cache and Autosave Files (shell/cache-files.ts): the list on top, the selected item's details in the room below it */
+#cacheFiles .cfm.wide{width:min(780px,calc(100% - 48px))}
+#cacheFiles .bt [data-x="refresh"]{margin-right:auto}
+.cfm .cf-list{height:calc(5 * (40px + 2 * var(--fs)) + 6px);flex:none;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);padding:2px}
+.cfm .cf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.cf-row{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:calc(40px + 2 * var(--fs));box-sizing:border-box;padding:3px 10px;border-radius:6px;cursor:pointer;user-select:none}
+.cf-row:hover{background:var(--accentSoft)}
+.cf-row[aria-selected="true"]{background:var(--accent);color:#fff}
+.cf-row .cf-t{font-size:calc(13px + var(--fs));font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-row .cf-m{font-size:calc(11.5px + var(--fs));color:var(--muted)}
+.cf-row[aria-selected="true"] .cf-m{color:rgba(255,255,255,.85)}
+.cf-empty,.cf-none{padding:18px 12px;color:var(--muted);text-align:center}
+.cfm .cf-total{margin:4px 2px 8px;font-size:calc(11.5px + var(--fs));min-height:1.2em}
+.cfm .cb p.cf-err{color:var(--danger);margin:0 0 8px}
+.cf-detail{min-height:300px;border-top:1px solid var(--line);padding-top:10px}
+.cf-head{display:flex;align-items:flex-start;gap:12px;margin:0 0 4px}
+.cf-head h4{flex:1;min-width:0;margin:3px 0 0;font-size:calc(14px + var(--fs));overflow-wrap:anywhere}
+.cf-dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 14px;margin:0 0 10px;font-size:calc(13px + var(--fs))}
+.cf-dl dt{color:var(--muted);font-weight:600}
+.cf-dl dd{margin:0;min-width:0;overflow-wrap:anywhere;user-select:text}
+.cf-dl code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace}
+.cf-files{max-height:132px;overflow:auto;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.5;user-select:text}
+.cf-files>div{padding-left:2em;text-indent:-2em;overflow-wrap:anywhere}
 /* the bulk range dialog: Min above Max, each as wide as the card */
 #pzBulk .rngs{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}#pzBulk .step.sz input.v{flex:1;min-width:0;width:100%}
 /* the update dialog: Details on the left, the release notes it opens in a box that scrolls */

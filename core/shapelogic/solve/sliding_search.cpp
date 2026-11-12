@@ -3293,9 +3293,11 @@ bool tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tray
 
 }  // namespace
 
-void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir) {
+std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& problem,
+                                      const std::string& workDir) {
+  std::vector<std::string> out;
   if (workDir.empty() || !problem.resultValid()) {
-    return;
+    return out;
   }
   const std::uint64_t key = problemKeyOf(puzzle, problem);
   std::error_code ec;
@@ -3305,8 +3307,17 @@ void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::strin
     }
     SavedSearch st;
     if (readState(e.path(), st, false) && st.problemKey == key) {
-      std::filesystem::remove_all(e.path(), ec);
+      out.push_back(e.path().string());
     }
+  }
+  std::ranges::sort(out);
+  return out;
+}
+
+void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir) {
+  std::error_code ec;
+  for (const std::string& dir : savedFolders(puzzle, problem, workDir)) {
+    std::filesystem::remove_all(dir, ec);
   }
 }
 

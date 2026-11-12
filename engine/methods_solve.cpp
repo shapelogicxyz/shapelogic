@@ -127,6 +127,14 @@ Reply solveStatus(State& s, Params& p) {
               {"savedSearch", std::move(savedJson)}};
 }
 
+Reply solveSearchFolders(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  BTE_CHECK(p.finish());
+  BTE_TRY(const std::vector<std::string> folders,
+          s.document().searchFolders(problem, s.settings.slideFolder, s.settings.panexFolder));
+  return Json{{"folders", folders}};
+}
+
 Reply solveExportPaused(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   const std::string path = p.string("path");
@@ -169,6 +177,7 @@ void addSolveMethods(MethodTable& t) {
   t["solve.abort"] = solveAbort;
   t["solve.reset"] = solveReset;
   t["solve.status"] = solveStatus;
+  t["solve.searchFolders"] = solveSearchFolders;
   t["solve.exportPaused"] = solveExportPaused;
   t["solve.importPaused"] = solveImportPaused;
 }

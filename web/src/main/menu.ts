@@ -283,7 +283,11 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         cmd: 'style',
         style: 'uniform',
       }),
-      ...(h.dev ? [SEP, { role: 'reload' as const }, { role: 'toggleDevTools' as const }] : []),
+      SEP,
+      // under Reload in development, where Reload and the developer tools are
+      ...(h.dev ? [{ role: 'reload' as const }] : []),
+      item('cacheFiles', 'Manage Cache and Autosave Files…', { cmd: 'cacheFiles' }),
+      ...(h.dev ? [{ role: 'toggleDevTools' as const }] : []),
     ],
   };
 

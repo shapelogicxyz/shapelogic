@@ -15,7 +15,9 @@ import type {
   AppCommand,
   BtApp,
   CacheChoice,
+  CacheDeleteResult,
   CacheFolderInfo,
+  CacheItem,
   CacheResult,
   CliToolResult,
   RescueInfo,
@@ -194,6 +196,20 @@ const btApp: BtApp = {
         error: 'not a ShapeLogic window',
       }
     );
+  },
+  cacheItems() {
+    return ipcRenderer.invoke('bt:cache-files', 'list') as Promise<CacheItem[] | null>;
+  },
+  async deleteCacheItem(id) {
+    return (
+      ((await ipcRenderer.invoke('bt:cache-files', 'delete', id)) as CacheDeleteResult | null) ?? {
+        ok: false,
+        error: 'not a ShapeLogic window',
+      }
+    );
+  },
+  linkCacheFolders(link) {
+    ipcRenderer.send('bt:cache-link', link);
   },
   closeWindow() {
     ipcRenderer.send('bt:close', 'close');

@@ -1336,6 +1336,9 @@ def stacking_solve_pause_saved_search_continue(e):
         check(saved is not None and saved["description"].startswith("a saved search")
               and saved["levelBytes"] > 0, f"the saved search {saved}")
         check(st["note"] is not None and st["note"].startswith("Paused"), f"the note {st['note']!r}")
+        folders = e.call("solve.searchFolders", {"problem": p})["folders"]
+        check(len(folders) == 1 and pathlib.Path(folders[0]).parent == pathlib.Path(work)
+              and (pathlib.Path(folders[0]) / "state.bin").is_file(), f"the search's folder {folders}")
         detail = e.call("problem.get", {"problem": p})
         check(detail["state"] == "solved" and detail["saved"] == 0, f"the problem as the original wrote it {detail}")
 
@@ -1364,6 +1367,7 @@ def stacking_solve_pause_saved_search_continue(e):
             check(pb["steps"] == 881, f"the playback in transfers {pb}")
             f.call("playback.close", {"handle": pb["handle"]})
             check(f.call("solve.status", {"problem": q})["savedSearch"] is None, "a finished search keeps nothing")
+            check(f.call("solve.searchFolders", {"problem": q})["folders"] == [], "no folder kept")
 
             # imported: the saved search back in its folder, with or without levels
             for path, levels in ((with_levels, True), (without, False)):

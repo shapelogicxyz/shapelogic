@@ -522,6 +522,14 @@ class Document {
   /// problem's run on the search they share, and none on other grids.
   [[nodiscard]] Result<std::optional<SavedSearchInfo>> savedSearch(
       Id problem, const std::string& workDir) const;
+  /// The folders that hold this problem's saved searches (solve.searchFolders):
+  /// on the sliding grid one in slideDir for each start whose search was
+  /// saved, on the stacking grid its search's folder in panexDir when it is
+  /// there; none on the other grids. What the app's cache manager names
+  /// after the puzzle.
+  [[nodiscard]] Result<std::vector<std::string>> searchFolders(Id problem,
+                                                               const std::string& slideDir,
+                                                               const std::string& panexDir) const;
 
   // ---- queries ----------------------------------------------------------------
 

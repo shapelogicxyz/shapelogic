@@ -16,6 +16,7 @@ import type { AnimationSource } from '../export/exports.ts';
 import { StatusWindow } from '../entities/status-window.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
 import { PuzzleWorkspace } from '../puzzle/workspace.ts';
+import { CacheLinker } from '../solver/cache-links.ts';
 import { openToShapes } from '../solver/to-shapes.ts';
 import { SolverWorkspace } from '../solver/workspace.ts';
 import { isActive } from '../state/solves.ts';
@@ -28,6 +29,7 @@ import { installConfirm } from './confirm.ts';
 import { dialogOpen, installDialogs, tell } from './dialog.ts';
 import { Files } from './files.ts';
 import { Imports } from './imports.ts';
+import { openCacheFiles } from './cache-files.ts';
 import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
@@ -198,6 +200,8 @@ export function startApp(saved: StoredState = {}): {
     },
     () => rescue.discard(),
   );
+  // the cache manager names the search folders after the puzzle and problem
+  new CacheLinker(store, solves, app, () => files.name);
   const exports = new Exports(store, app, view, {
     get name() {
       return files.name;
@@ -278,6 +282,9 @@ export function startApp(saved: StoredState = {}): {
     },
     statusWindow: () => {
       status.open();
+    },
+    cacheFiles: () => {
+      void openCacheFiles(app);
     },
     about: () => {
       openAbout(store, app.version);

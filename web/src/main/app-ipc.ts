@@ -19,6 +19,10 @@
 // renderer gives. The cache folder (cache-folder.ts) is chosen in this
 // process's folder dialog, and what to do with the data there is the
 // renderer's answer to the choice it was handed, never a path of its own.
+// The cache manager (cache-files.ts) lists what the cache folder and the
+// rescue copy hold and deletes an item by the id it listed it by; a
+// window's links of its search folders name only folders in the cache
+// folder in use, and a puzzle file only one the window was handed.
 // Every message is checked before it is used, and only the app's windows
 // are answered.
 
@@ -29,6 +33,7 @@ import { basename, dirname, extname, join } from 'node:path';
 
 import {
   isCacheAction,
+  isCacheLink,
   isExportKind,
   isFileKind,
   isMenuState,
@@ -45,6 +50,8 @@ import type {
   UpdateResult,
 } from '../engine/app-bridge.ts';
 import type { CacheFolderManager } from './cache-folder.ts';
+import { deleteItem, listItems } from './cache-files.ts';
+import type { CacheLinks } from './cache-files.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
 import type { PathGrants } from './path-grants.ts';
@@ -135,6 +142,8 @@ export interface AppIpcHost {
   cliLink: string | null;
   /** The cache folder in use and its choices. */
   cache: CacheFolderManager<WebContents>;
+  /** The search folders' links to their puzzles (the cache manager's names). */
+  cacheLinks: CacheLinks;
   /** The app's window of a renderer, or null (not ours: not answered). */
   window(sender: WebContents): BrowserWindow | null;
   setMenu(sender: WebContents, state: MenuState): void;
@@ -468,6 +477,34 @@ export function installAppIpc(h: AppIpcHost): void {
       default:
         return null;
     }
+  });
+
+  // the cache manager: the renderer names an item by its id, never a path
+  ipcMain.handle('bt:cache-files', async (e, op: unknown, arg: unknown) => {
+    if (ours(e) === null) {
+      return null;
+    }
+    await h.cache.start();
+    const folders = h.cache.folders;
+    switch (op) {
+      case 'list':
+        return listItems(folders, h.rescue, h.cacheLinks);
+      case 'delete':
+        return typeof arg === 'string'
+          ? deleteItem(arg, folders, h.rescue, h.cacheLinks, () => h.cache.solving())
+          : { ok: false, error: 'unknown item' };
+      default:
+        return null;
+    }
+  });
+
+  ipcMain.on('bt:cache-link', (e, link: unknown) => {
+    if (ours(e) === null || !isCacheLink(link)) {
+      return;
+    }
+    // the puzzle's file only when the window was handed it, as the rescue record's
+    const path = link.path !== null && h.paths.allows(e.sender, link.path) ? link.path : null;
+    void h.cache.start().then(() => h.cacheLinks.record({ ...link, path }, h.cache.folders));
   });
 
   ipcMain.on('bt:menu-state', (e, state: unknown) => {

@@ -51,6 +51,7 @@ import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
 import { installAppIpc, openHelp } from './app-ipc.ts';
 import { appDataDir, CacheFolderManager, systemCacheDir } from './cache-folder.ts';
+import { CacheLinks, sweepOther } from './cache-files.ts';
 import { cliLink, findCli } from './cli-tool.ts';
 import { findEngine } from './engine-path.ts';
 import { EngineHost } from './engine-host.ts';
@@ -600,6 +601,11 @@ void app.whenReady().then(async () => {
       );
     },
   });
+  // the stray files of the search folders a week old go, unasked
+  void cache
+    .start()
+    .then(() => sweepOther(cache.folders))
+    .catch(() => undefined);
   pendingOpen.push(...argFiles());
   // the page and its files, from the renderer's directory and nowhere else
   protocol.handle(APP_SCHEME, (request) => {
@@ -635,6 +641,7 @@ void app.whenReady().then(async () => {
     }),
     cliLink: cliLink(process.platform),
     cache,
+    cacheLinks: new CacheLinks(app.getPath('userData')),
     window: (sender) => windows.get(sender.id)?.win ?? null,
     setMenu: (sender, state) => {
       const w = windows.get(sender.id);

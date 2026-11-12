@@ -1862,7 +1862,14 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
   CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, other).has_value());
   CHECK(other.saved);
   CHECK(std::filesystem::exists(dir));
+  // savedFolders names its folder (what the app's cache manager links to the puzzle)
+  const std::vector<std::string> folders = savedFolders(f.puz, f.pr(), dir.string());
+  REQUIRE(folders.size() == 1);
+  CHECK(std::filesystem::path(folders[0]).parent_path() == dir);
+  CHECK(std::filesystem::path(folders[0]).filename().string().starts_with("slide-"));
+  CHECK(savedFolders(f.puz, f.pr(), "").empty());
   discardSaved(f.puz, f.pr(), dir.string());
+  CHECK(savedFolders(f.puz, f.pr(), dir.string()).empty());
   CHECK(std::filesystem::is_empty(dir));
   std::filesystem::remove_all(dir);
 }

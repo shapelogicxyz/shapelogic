@@ -288,6 +288,11 @@ struct SlidingOptions {
 [[nodiscard]] std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& problem,
                                                       const Assembly& start, bool nested = false);
 
+/// The folders in workDir holding saved searches of this problem's starts
+/// (a folder each): what discardSaved deletes. Empty without a work folder.
+[[nodiscard]] std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& problem,
+                                                    const std::string& workDir);
+
 /// Deletes the saved searches of this problem's starts in workDir, if there
 /// are any (a solve that starts afresh).
 void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir);
