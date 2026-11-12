@@ -428,6 +428,19 @@ void Document::touchAppendedShape() {
   open_->parts.push_back(std::move(s));
 }
 
+void Document::touchAppendedProblem() {
+  touches_++;
+  const unsigned int index = puzzle_->getNumberOfProblems();
+  if (covered(SnapshotKind::AppendedProblem, index)) {
+    return;
+  }
+  // no problem saved: the document has it, after the command
+  Snapshot s;
+  s.kind = SnapshotKind::AppendedProblem;
+  s.index = index;
+  open_->parts.push_back(std::move(s));
+}
+
 void Document::touchWhole() {
   touches_++;
   if (covered(SnapshotKind::Whole, 0)) {
@@ -482,6 +495,22 @@ void Document::swapIn(Snapshot& s) {
         BT_ASSERT(puzzle_->getNumberOfShapes() == s.index);
         (void)puzzle_->addShape(std::move(s.shape));
         ids_.shapes.push_back(s.ids.shapes.front());
+      }
+      return;
+    case SnapshotKind::AppendedProblem:
+      if (!s.problem) {
+        // the problem is in the document: out with it (it is last; undo
+        // and redo end the sessions first)
+        BT_ASSERT(puzzle_->getNumberOfProblems() == s.index + 1);
+        s.problem = std::move(puzzle_->getProblem(s.index));
+        s.ids.problems = {ids_.problems.back()};
+        puzzle_->removeProblem(s.index);
+        ids_.problems.pop_back();
+      } else {
+        BT_ASSERT(puzzle_->getNumberOfProblems() == s.index);
+        (void)puzzle_->appendProblem(std::move(*s.problem));
+        s.problem.reset();
+        ids_.problems.push_back(s.ids.problems.front());
       }
       return;
   }

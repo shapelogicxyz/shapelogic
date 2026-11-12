@@ -27,7 +27,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -39,10 +38,12 @@ import { basename, join, resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+import { fileName, SWEEP } from '../helpers/fixtures.ts';
 import {
   answerDialogs,
   appOf,
   BUILT,
+  counted,
   ENGINE,
   engineCall,
   engines,
@@ -256,19 +257,18 @@ test('File ▸ New on every grid: the grid chosen once, an empty clean puzzle', 
   }
 });
 
-test('every fixture opened and saved as a copy: no change on open, the engine’s bytes', async () => {
+test('a fixture of each grid opened and saved as a copy: no change on open, the engine’s bytes', async () => {
   test.setTimeout(240_000);
   const dir = tmp();
   const log = join(dir, 'calls.log');
   const a = await launch({ callLog: log });
   try {
     const { page } = a;
-    const files = readdirSync(FIXTURES)
-      .filter((f) => f.endsWith('.xmpuzzle'))
-      .sort();
-    expect(files.length).toBeGreaterThan(15);
-    for (const f of files) {
-      const fixture = join(FIXTURES, f);
+    // one fixture of each grid (the C++ tests save every file as the original does)
+    const files = SWEEP.map((x) => fileName(x.file));
+    for (const { file } of SWEEP) {
+      const f = fileName(file);
+      const fixture = join(FIXTURES, file);
       await watchChanges(page);
       await answerDialogs(page, { open: fixture });
       const gen = await page.getAttribute('#stage', 'data-generation');
@@ -309,7 +309,7 @@ test('every fixture opened and saved as a copy: no change on open, the engine’
     await menu(page, 'saveAs');
     await menu(page, 'open');
     await expect(page.locator('#fname')).toHaveText('plain.xmpuzzle');
-    const refused = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    const refused = readCallLog(log).filter(counted);
     expect(refused).toEqual([]);
   } finally {
     await a.close();
@@ -779,8 +779,7 @@ test('a save while solving at a save point; the paused solver state exported and
     // document changes (the player treats not_found as gone)
     const refused = readCallLog(log).filter(
       (c) =>
-        c.errc !== null &&
-        c.errc !== 'superseded' &&
+        counted(c) &&
         c.method !== 'document.save' &&
         c.method !== 'shape.taskPreview' &&
         !(c.method === 'playback.open' && c.errc === 'not_found'),

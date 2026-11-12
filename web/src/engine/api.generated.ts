@@ -2179,22 +2179,23 @@ export interface Methods {
     errors: 'not_found';
   };
   /**
-   * Adds a problem; it allows each colour on itself.
+   * Adds a problem; it allows each colour on itself. Allowed while solving: the solves go on.
    * (problem.json)
    */
   'problem.create': {
     params: Record<string, never>;
     result: ProblemMade;
-    errors: 'invalid_argument' | 'invalid_state';
+    errors: 'invalid_argument';
   };
   /**
-   * Adds a copy of a problem's definition (no name, no solutions).
+   * Adds a copy of a problem's definition (no name, no solutions), of one being solved too.
+   * Allowed while solving: the solves go on.
    * (problem.json)
    */
   'problem.duplicate': {
     params: ProblemProblemParam;
     result: ProblemMade;
-    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
+    errors: 'not_found' | 'invalid_argument';
   };
   /**
    * Removes a problem.
@@ -2869,6 +2870,29 @@ export interface Methods {
       problem?: ProblemId;
     };
     result: {
+      revision: Revision;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Takes every start (goal false) or every goal a problem has off its start/goal shape (the
+   * Puzzle workspace's Clear Start position board and Clear Goal position board); cleared is
+   * false, and nothing changes, when that side had none. The problem loses what it had found. One
+   * undo step.
+   * (sliding.json)
+   */
+  'sliding.clear': {
+    params: {
+      tray: ShapeId;
+      goal: boolean;
+      /**
+       * The problem whose starts and goals these are, whose result must be this board (refused
+       * otherwise, invalid_argument). Without it, the board's first problem.
+       */
+      problem?: ProblemId;
+    };
+    result: {
+      cleared: boolean;
       revision: Revision;
     };
     errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
@@ -3734,6 +3758,7 @@ export const METHOD_NAMES = [
   'shape.taskPreview',
   'shape.taskSet',
   'sliding.addStartGoal',
+  'sliding.clear',
   'sliding.clearAt',
   'sliding.clone',
   'sliding.place',

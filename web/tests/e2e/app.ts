@@ -19,6 +19,8 @@ import { join, resolve } from 'node:path';
 import { _electron as electron, expect } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 
+import { fileName } from '../helpers/fixtures.ts';
+
 export const WEB = resolve(import.meta.dirname, '../..');
 export const ROOT = resolve(WEB, '..');
 export const FIXTURES = resolve(ROOT, 'tests/data/puzzles');
@@ -110,7 +112,9 @@ export async function launch(
     cwd: WEB,
     env,
   });
-  const page = await app.firstWindow();
+  // the tests run side by side (playwright.config.ts): a start can wait
+  // behind the others' and anything else the machine is doing
+  const page = await app.firstWindow({ timeout: 60_000 });
   apps.set(page, app);
   // an uncaught exception in the main process would show Electron's dialog
   // and hold the app, so a test would end in "the app did not quit" and say
@@ -283,7 +287,7 @@ async function dropChanges(page: Page): Promise<void> {
 }
 
 /**
- * Opens a fixture of tests/data/puzzles (as File ▸ Open Recent does, unsaved
+ * Opens a fixture of tests/data/puzzles (a path under it, as File ▸ Open Recent does, unsaved
  * changes given up) and waits for its first shape to be drawn.
  */
 export async function openFixture(page: Page, name: string): Promise<void> {
@@ -291,7 +295,7 @@ export async function openFixture(page: Page, name: string): Promise<void> {
   await command(page, { cmd: 'openPath', path: resolve(FIXTURES, name) });
   await dropChanges(page);
   await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
-  await expect(page.locator('#fname')).toHaveText(name);
+  await expect(page.locator('#fname')).toHaveText(fileName(name));
   const first = page.locator(SHAPE_ROWS).first();
   await expect(first).toHaveClass(/sel/);
   const id = await first.getAttribute('data-id');
@@ -380,6 +384,20 @@ export interface LoggedCall {
   id: number;
   method: string;
   errc: string | null;
+}
+
+/**
+ * A refusal a test counts against the app: not the client's own superseded
+ * reads, nor the rescue copy's read refused because a solve started after
+ * it looked (shell/rescue.ts writes the copy again at the next change; on a
+ * busy machine the window between the two is wider).
+ */
+export function counted(c: LoggedCall): boolean {
+  return (
+    c.errc !== null &&
+    c.errc !== 'superseded' &&
+    !(c.method === 'document.saveBytes' && c.errc === 'invalid_state')
+  );
 }
 
 /** The ids engineCall gives its calls, above any the page's proxy reaches. */

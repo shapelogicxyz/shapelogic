@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { BUILT, ENGINE, engineCall, launch, newDocument, readCallLog } from './app.ts';
+import { BUILT, counted, ENGINE, engineCall, launch, newDocument, readCallLog } from './app.ts';
 import { cellPoint, clickCell, settled, shapeGet } from './editor.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -122,7 +122,8 @@ test('the shapes are frozen while a solve runs', async () => {
     await expect(page.locator('#stText')).not.toContainText('pause the solve first');
     await clickCell(page, [0, 0, 0], { button: 'right' });
     expect((await shapeGet(page, box)).cells.length).toBe(before.cells.length - 1);
-    expect(readCallLog(log).filter((c) => c.errc === 'invalid_state')).toEqual([]);
+    // the frozen UI sent no edit the engine refused
+    expect(readCallLog(log).filter((c) => counted(c) && c.errc === 'invalid_state')).toEqual([]);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

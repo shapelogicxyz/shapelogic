@@ -84,6 +84,15 @@ Reply slidingClone(State& s, Params& p) {
   return Json{{"revision", s.revision()}};
 }
 
+Reply slidingClear(State& s, Params& p) {
+  const app::Id tray = p.id("tray", IdKind::Shape);
+  const bool goal = p.boolean("goal");
+  const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
+  BTE_CHECK(p.finish());
+  BTE_TRY(const bool cleared, s.document().clearStamps(tray, goal, problem));
+  return Json{{"cleared", cleared}, {"revision", s.revision()}};
+}
+
 Reply slidingTray(State& s, Params& p) {
   const app::Id tray = p.id("tray", IdKind::Shape);
   const app::Id problem = p.has("problem") ? p.id("problem", IdKind::Problem) : 0;
@@ -192,6 +201,7 @@ void addSlidingMethods(MethodTable& t) {
   t["sliding.place"] = slidingPlace;
   t["sliding.clearAt"] = slidingClearAt;
   t["sliding.clone"] = slidingClone;
+  t["sliding.clear"] = slidingClear;
   t["sliding.tray"] = slidingTray;
   t["sliding.preview"] = slidingPreview;
 }

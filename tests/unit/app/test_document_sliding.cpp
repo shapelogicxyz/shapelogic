@@ -238,6 +238,27 @@ TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[ap
   roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, false); });
 }
 
+TEST_CASE("sliding document: one side's board is cleared", "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id tray = board(d, {4, 2, 1});
+  const Id a = piece(d, 2, 1, {{0, 0, 0}, {1, 0, 0}});
+  const Id b = piece(d, 1, 1, {{0, 0, 0}});
+  REQUIRE(d.placeStamp(tray, a, 0, 1, 0, false).value());
+  REQUIRE(d.placeStamp(tray, b, 3, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, b, 3, 1, 0, true).value());
+  const unsigned int mb = index(d, b) + 1;
+
+  // the starts off, the goal kept
+  CHECK(roundTrip(d, [=](Document& x) { return x.clearStamps(tray, false); }).value());
+  CHECK_FALSE(d.puzzle().getProblem(0).slideMarks().any(false));
+  CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 3, 1, 0, true) == mb);
+  // nothing there: false, no step
+  CHECK_FALSE(d.clearStamps(tray, false).value());
+  CHECK(roundTrip(d, [=](Document& x) { return x.clearStamps(tray, true); }).value());
+  CHECK(d.puzzle().getProblem(0).slideMarks().empty());
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.clearStamps(a, true); });
+}
+
 TEST_CASE("sliding document: the shape commands keep the marks in step", "[app][sliding]") {
   Document d(GridKind::Sliding);
   const Id tray = board(d, {4, 3, 1});
@@ -331,9 +352,8 @@ TEST_CASE("sliding document: what the original greyed out is refused", "[app][sl
   const Id p = d.problemIds()[0];
 
   // the result is a board, never a piece; a stamped piece keeps a copy
-  // for each of its stamps, and may have more
+  // for each of its stamps while it stays, and may have more
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setResult(p, free); });
-  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.removePiece(p, a); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setPieceCount(p, a, 0, 3); });
   roundTrip(d, [=](Document& x) { return x.addPiece(p, a); });
   CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, a)) == 2);
@@ -880,6 +900,37 @@ TEST_CASE("sliding document: copies of a piece have a start and a goal each", "[
   CHECK(stampOn(d, t, 1, 0, 0, false) == static_cast<unsigned int>(-1));
   CHECK(stampOn(d, t, 2, 0, 0, false) == static_cast<unsigned int>(-1));
   roundTrip(d, [=](Document& x) { return x.setPieceCount(p, a, 1, 1); });
+}
+
+TEST_CASE("sliding document: a piece taken out of the puzzle takes its starts and goals along",
+          "[app][sliding]") {
+  Document d(GridKind::Sliding);
+  const Id tray = board(d, {4, 2, 1});
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  const Id b = piece(d, 1, 1, {{0, 0, 0}});
+  const Id p = d.problemIds()[0];
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, a, 3, 1, 0, true).value());
+  REQUIRE(d.placeStamp(tray, b, 1, 0, 0, false).value());
+  // the board as it is now (a whole-puzzle step replaces the shapes)
+  const auto at = [&](int x, int y, bool goal) {
+    return stampOn(d, d.puzzle().getShape(index(d, tray)), x, y, 0, goal);
+  };
+  // one fewer of its only copy (the tile's −) and a count of 0 (Remove
+  // from puzzle): the piece and its start and goal go, in one step; the
+  // other pieces keep theirs
+  roundTrip(d, [=](Document& x) { return x.removePiece(p, a); });
+  CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, a)) == 0);
+  CHECK(at(0, 0, false) == static_cast<unsigned int>(-1));
+  CHECK(at(3, 1, true) == static_cast<unsigned int>(-1));
+  CHECK(at(1, 0, false) == index(d, b));
+  roundTrip(d, [=](Document& x) { return x.setPieceCount(p, b, 0, 0); });
+  CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, b)) == 0);
+  CHECK(marks(d, tray) == "0/0 0/0 0/0 0/0 0/0 0/0 0/0 0/0 ");
+  // undone: the piece is back with its start
+  REQUIRE(d.undo().has_value());
+  CHECK(d.puzzle().getProblem(0).getShapeMaximum(index(d, b)) == 1);
+  CHECK(at(1, 0, false) == index(d, b));
 }
 
 TEST_CASE("sliding document: Puzzlecad export writes the board as a packing box, then the pieces",

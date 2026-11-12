@@ -913,7 +913,7 @@ Errors: `not_found`
 
 ### `problem.create`
 
-Adds a problem; it allows each colour on itself.
+Adds a problem; it allows each colour on itself. Allowed while solving: the solves go on.
 
 Params:
 
@@ -921,11 +921,11 @@ Params:
 
 Result: Made
 
-Errors: `invalid_argument`, `invalid_state`
+Errors: `invalid_argument`
 
 ### `problem.duplicate`
 
-Adds a copy of a problem's definition (no name, no solutions).
+Adds a copy of a problem's definition (no name, no solutions), of one being solved too. Allowed while solving: the solves go on.
 
 Params:
 
@@ -935,7 +935,7 @@ Params:
 
 Result: Made
 
-Errors: `not_found`, `invalid_argument`, `invalid_state`
+Errors: `not_found`, `invalid_argument`
 
 ### `problem.delete`
 
@@ -1349,6 +1349,27 @@ Result:
 
 | name | type | | description |
 |---|---|---|---|
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
+### `sliding.clear`
+
+Takes every start (goal false) or every goal a problem has off its start/goal shape (the Puzzle workspace's Clear Start position board and Clear Goal position board); cleared is false, and nothing changes, when that side had none. The problem loses what it had found. One undo step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `tray` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `goal` | boolean | required |  |
+| `problem` | [ProblemId](#problemid) |  | The problem whose starts and goals these are, whose result must be this board (refused otherwise, invalid_argument). Without it, the board's first problem. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `cleared` | boolean | required |  |
 | `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
 
 Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`

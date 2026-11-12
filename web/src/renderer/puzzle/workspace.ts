@@ -12,8 +12,9 @@
 // action is a call awaited until that revision is shown. While a solve or
 // an analysis runs, decision 0011's frozen parts are disabled and say
 // "pause the solve first" before any call: the lists while anything
-// solves (Snapshot.solving), a problem while it is solved or analysed
-// (ProblemSummary.solve, analysing). From docs/mockup/index.html:
+// solves (Snapshot.solving; a new problem or a copy is still added), a
+// problem while it is solved or analysed (ProblemSummary.solve,
+// analysing). From docs/mockup/index.html:
 // `renderPuzzle`, `pzStatus`, `pzTag`, `pzAdd`, `pzBump`, `pzChanged`,
 // `puzClick`, the keydown handler's Puzzle row, and `PZ`. A stacking
 // problem (docs/webui-spec.md, section 9.2): its board and stacks

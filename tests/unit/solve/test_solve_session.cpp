@@ -1238,7 +1238,10 @@ TEST_CASE("solve session: kept assemblies thin the same however the solve was pa
   }
   std::mt19937 rng(20261008);
   int paused = 0;
-  for (int trial = 0; trial < 8; trial++) {
+  // eight trials, and more while too few pauses have landed: on a busy
+  // machine (the tests run side by side) a solve may go faster or slower
+  // than the one timed above
+  for (int trial = 0; trial < 8 || (paused < 4 && trial < 64); trial++) {
     Puzzle p = fresh("DemoPieceGenerator.xmpuzzle");
     auto session = std::make_unique<SolveSession>(p, p.getProblem(0), o);
     REQUIRE(session->start().has_value());

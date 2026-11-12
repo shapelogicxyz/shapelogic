@@ -39,13 +39,13 @@ Constraint colors are painted onto voxels in the
 Paint both the pieces and the result. **Default** means no constraint color;
 voxels in the default color are **neutral**.
 
-To check where the colors are, choose **Display ▸ Voxel color** in the 3D
+To check where the colors are, choose **Display ▸ Constraint color** in the 3D
 view (or **View ▸ Display with Color Constraint Colors**). Every voxel is
 drawn in its constraint color instead of the shape's color:
 
 ![A shape in its normal color.](../../../assets/screens/guide/colors-piece-color.png)
 
-![The same shape with Voxel color on: its voxels in the two constraint colors, red and grey.](../../../assets/screens/guide/colors-voxel-color.png)
+![The same shape with Constraint color on: its voxels in the two constraint colors, red and grey.](../../../assets/screens/guide/colors-voxel-color.png)
 
 ## The color rules
 

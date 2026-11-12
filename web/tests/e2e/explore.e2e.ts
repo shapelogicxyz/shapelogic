@@ -15,7 +15,7 @@
 // fixture, its selections, and Remove selected as one undo step. Each
 // test's call log holds no refusal the UI could have avoided.
 
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,11 +25,12 @@ import type { Page } from '@playwright/test';
 import { statsReport } from '../../src/renderer/explore/debug-stats.ts';
 import type { MovementNode, Placement, SolveStats } from '../../src/engine/api.generated.ts';
 import { cellToMesh, gridExtent, placedAt } from '../../src/renderer/view3d/extent.ts';
+import { SWEEP } from '../helpers/fixtures.ts';
 import {
   BUILT,
+  counted,
   ENGINE,
   engineCall,
-  FIXTURES,
   launch,
   menu,
   openFixture,
@@ -55,7 +56,7 @@ function tmpLog(): { dir: string; log: string } {
 
 /** No call failed but the client's own superseded reads (and what the test itself expected to fail). */
 function expectNoRefusal(log: string): void {
-  const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+  const bad = readCallLog(log).filter(counted);
   expect(bad).toEqual([]);
 }
 
@@ -495,15 +496,14 @@ test('Bermuda solved: the movement tree as the contract session grows it', async
   }
 });
 
-test('the status window: its rows are shape.table’s on every fixture; select and remove', async () => {
+test('the status window: its rows are shape.table’s on every grid; select and remove', async () => {
   test.setTimeout(180_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
   const page = a.page;
   try {
-    const files = readdirSync(FIXTURES)
-      .filter((f) => f.endsWith('.xmpuzzle'))
-      .sort();
+    // one fixture of each grid (the C++ tests check every file's table against the original's)
+    const files = SWEEP.map((x) => x.file);
     await openFixture(page, files[0] ?? '');
     await menu(page, 'statusWindow');
     await expect(page.locator('#statusWin')).toBeVisible();

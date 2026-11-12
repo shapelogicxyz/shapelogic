@@ -22,6 +22,7 @@ import type { Page } from '@playwright/test';
 import {
   BUILT,
   command,
+  counted,
   ENGINE,
   engineCall,
   FIXTURES,
@@ -306,10 +307,7 @@ test('the Tower of Hanoi built from File ▸ New, saved as the fixture', async (
     expect(await savedText(page)).toBe(fileText(HANOI));
 
     const bad = readCallLog(log).filter(
-      (c) =>
-        c.errc !== null &&
-        c.errc !== 'superseded' &&
-        !(c.method === 'stacking.placeDisc' && c.errc === 'invalid_argument'),
+      (c) => counted(c) && !(c.method === 'stacking.placeDisc' && c.errc === 'invalid_argument'),
     );
     expect(bad).toEqual([]);
   } finally {
@@ -452,7 +450,7 @@ test('solved by the Stacking and the Panex Solver as bt; played in transfers on 
     await expect(page.locator('.hovertip')).toBeHidden();
     await settle(page);
     await expect(page).toHaveScreenshot('stacking-player.png');
-    const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    const bad = readCallLog(log).filter(counted);
     expect(bad).toEqual([]);
   } finally {
     await a.close();

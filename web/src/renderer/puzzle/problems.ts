@@ -5,9 +5,10 @@
 // duplicate (added last and shown), delete (never the last), rename in
 // place (the pencil or a double-click; Enter commits, Esc cancels; the
 // engine refuses what a name cannot hold and its message shows), reorder
-// by drag (problem.move; the labels renumber). The list's changes are
-// refused while anything is solved, a rename while that problem is
-// (decision 0011). From docs/mockup/index.html: `renderPuzzle`'s problem
+// by drag (problem.move; the labels renumber). Deleting and reordering
+// are refused while anything is solved, a rename while that problem is
+// (decision 0011); new and duplicate add at the end and go on, a copy of
+// the problem being solved too. From docs/mockup/index.html: `renderPuzzle`'s problem
 // rows, `pzRename`, `#pzNew`, the #pzProblems click, dblclick and drag
 // handlers.
 
@@ -63,9 +64,6 @@ export class ProblemsList {
   // ---- the actions ----
 
   private async create(): Promise<void> {
-    if (this.ws.refuseList()) {
-      return;
-    }
     const r = await this.ws.mutate('New problem', () =>
       this.ws.store.engine.call('problem.create'),
     );
@@ -83,9 +81,6 @@ export class ProblemsList {
       this.startRename(id);
       return;
     }
-    if (this.ws.refuseList()) {
-      return;
-    }
     const e = this.ws.store.engine;
     if (a === 'dup') {
       const r = await this.ws.mutate('Duplicate problem', () =>
@@ -94,7 +89,12 @@ export class ProblemsList {
       if (r !== null) {
         this.ws.selectProblem(r.problem);
       }
-    } else if (a === 'del' && problems.length > 1) {
+      return;
+    }
+    if (this.ws.refuseList()) {
+      return;
+    }
+    if (a === 'del' && problems.length > 1) {
       await this.ws.mutate('Delete problem', () => e.call('problem.delete', { problem: id }));
     }
   }

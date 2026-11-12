@@ -38,7 +38,6 @@ namespace bt {
 // public API keeps its checks.
 struct PuzzleFileAccess {
   static std::vector<std::uint32_t>& colors(Puzzle& p) { return p.colors_; }
-  static std::vector<Problem>& problems(Puzzle& p) { return p.problems_; }
   static void setGridType(Puzzle& p, GridType gt) { p.gt_ = gt; }
   static const std::vector<std::uint32_t>& colors(const Puzzle& p) { return p.colors_; }
 };
@@ -1081,7 +1080,7 @@ Puzzle readPuzzleElement(const XmlElement& root) {
       keep.known(kSlotProblems);
       for (const XmlElement& p : c.children) {
         if (p.name == "problem") {
-          A::problems(puzzle).push_back(readProblem(p, puzzle));
+          (void)puzzle.appendProblem(readProblem(p, puzzle));
         }
       }
     } else if (c.name == "comment") {

@@ -93,6 +93,8 @@ export default defineConfig({
             { label: 'Spheres', slug: 'docs/puzzle-types/spheres' },
             { label: 'Rhombic', slug: 'docs/puzzle-types/rhombic' },
             { label: 'Tetrahedra-Octahedra', slug: 'docs/puzzle-types/tetra-octa' },
+            { label: 'Hexagonal Prism', slug: 'docs/puzzle-types/hexagonal' },
+            { label: 'Cairo Prism', slug: 'docs/puzzle-types/cairo' },
           ],
         },
         {

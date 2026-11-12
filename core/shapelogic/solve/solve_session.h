@@ -154,8 +154,9 @@ struct SolveFailure {
 /// solutions, the pending assemblies, the saved position) and the shapes'
 /// hotspots (a moved one is reset as a run starts, before the matrix is
 /// made); others read the problem
-/// only through readProblem(), and nobody edits the puzzle. The puzzle and
-/// the problem must outlive the session and stay where they are.
+/// only through readProblem(), and nobody edits the puzzle but to add a
+/// problem (which moves no other). The puzzle and the problem must outlive
+/// the session and stay where they are.
 ///
 /// A pause keeps everything: assemblies queued or under way go back to the
 /// problem's pending list, the assembler's position is written into the

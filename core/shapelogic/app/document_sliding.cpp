@@ -337,4 +337,37 @@ Result<void> Document::cloneStamps(Id tray, bool toGoal, Id problem) {
   return {};
 }
 
+Result<bool> Document::clearStamps(Id tray, bool goal, Id problem) {
+  if (!sliding::isSliding(*puzzle_)) {
+    return fail(Errc::Unsupported, "only sliding puzzles have starts and goals");
+  }
+  if (Result<void> r = checkNotSolving(); !r) {
+    return std::unexpected(r.error());
+  }
+  const Result<unsigned int> t = shapeIndex(tray);
+  if (!t) {
+    return std::unexpected(t.error());
+  }
+  if (!sliding::isStartGoalShape(&puzzle_->getShape(*t))) {
+    return fail(Errc::InvalidArgument, "Choose a start/goal shape.");
+  }
+  const Result<unsigned int> p = stampProblem(problem, *t);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  if (!puzzle_->getProblem(*p).slideMarks().any(goal)) {
+    return false;
+  }
+  StepGuard g(*this, goal ? "Clear goal" : "Clear start");
+  touchWhole();
+  SlideMarks& marks = puzzle_->getProblem(*p).editSlideMarks();
+  for (std::size_t i = marks.size(goal); i-- > 0;) {
+    marks.set(i, goal, 0);
+  }
+  syncSliding();
+  problemChanged(*p);
+  g.commit(kChangeAll);
+  return true;
+}
+
 }  // namespace bt::app

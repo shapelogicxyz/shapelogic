@@ -662,17 +662,16 @@ Result<void> Document::deleteColour(Id colour) {
 
 // ---- problems ----------------------------------------------------------------------
 
+// A problem added at the end moves no other (Puzzle keeps each where it
+// is), so the sessions go on: allowed while solving (decision 0011).
+
 Result<Id> Document::createProblem() {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return std::unexpected(r.error());
-  }
   // the original greyed New, Copy and Delete problem out on a sliding
   // puzzle, whose problems followed its start/goal shapes; here the user
   // makes them and chooses a board as the result, with the colour rules
   // every grid starts with.
   StepGuard g(*this, "New problem");
-  touchWhole();
-  endSessions();
+  touchAppendedProblem();
   const unsigned int p = puzzle_->addProblem();
   for (unsigned int c = 0; c < puzzle_->colorNumber(); c++) {
     puzzle_->getProblem(p).allowPlacement(*puzzle_, c + 1, c + 1);
@@ -685,17 +684,16 @@ Result<Id> Document::createProblem() {
 }
 
 Result<Id> Document::duplicateProblem(Id problem) {
-  if (Result<void> r = checkNotSolving(); !r) {
-    return std::unexpected(r.error());
-  }
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
   }
   StepGuard g(*this, "Duplicate problem");
-  touchWhole();
-  endSessions();
-  (void)puzzle_->addProblem(puzzle_->getProblem(*p));
+  touchAppendedProblem();
+  // its definition, read while its solve does not write it (a run
+  // writes only the counts, solutions and position, which are not copied)
+  (void)puzzle_->appendProblem(
+      readProblem(*p, [](const Problem& pr) { return pr.copyDefinition(); }));
   const Id id = newId();
   ids_.problems.push_back(id);
   lastChange_.problems = {id};
@@ -884,16 +882,29 @@ Result<void> Document::setPieceCount(Id problem, Id shape, unsigned int min, uns
   if (pr.getShapeMinimum(*s) == min && pr.getShapeMaximum(*s) == max) {
     return {};
   }
-  // a copy for each of its starts and goals on the problem's board
+  // a copy for each of its starts and goals on the problem's board; a
+  // piece taken out of the puzzle takes its starts and goals along
+  const bool unstamp = max == 0 && slidingRequired(*p, *s);
   if (const unsigned int placed =
           sliding::isSliding(*puzzle_) ? sliding::stampedCopies(*puzzle_, pr, *s) : 0;
-      min < placed) {
+      !unstamp && min < placed) {
     return fail(Errc::InvalidArgument,
                 shapeLabelOf(*s) + " has " + std::to_string(placed) +
                     (placed == 1 ? " copy" : " copies") +
                     " placed at its start or goal on this problem's board: take one off first");
   }
   StepGuard g(*this, "Piece count");
+  if (unstamp) {
+    // as clearStampAt does: the marks are the problem's, the parts follow them
+    touchWhole();
+    (void)sliding::clearStamp(&pr.editSlideMarks(), *s, false);
+    (void)sliding::clearStamp(&pr.editSlideMarks(), *s, true);
+    pr.setShapeMaximum(*puzzle_, *s, 0);
+    syncSliding();
+    problemChanged(*p);
+    g.commit(kChangeProblems | kChangeSolutions);
+    return {};
+  }
   touchProblem(*p);
   pr.setShapeMaximum(*puzzle_, *s, max);
   if (max > 0) {

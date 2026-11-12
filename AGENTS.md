@@ -18,7 +18,7 @@ Use `just`. Do not invent ad-hoc build steps when a recipe exists.
 
 ```bash
 just build [preset]     # dev (default), release, asan, tsan (macOS: release-x64, release-arm64); output in build/<preset>
-just test               # unit + contract tests without [slow]; the quick loop
+just test               # unit + contract tests without [slow], side by side; the quick loop
 just test-all           # everything; run before calling a stage done
 just test-asan          # Address + UB sanitizers
 just test-tsan          # ThreadSanitizer on [parallel] cases (from stage 3)
@@ -39,7 +39,8 @@ just app-gen            # web/src/engine/api.generated.ts from api/*.json
 just app-check          # the front end's type checks, ESLint, Prettier
 just app-test           # its unit tests, and engine tests against build/release
 just app-dev            # run the app (electron-vite dev)
-just app-e2e            # build the app, run its Playwright e2e tests
+just app-e2e            # build the app, run its Playwright e2e tests side by side, then the timed one alone
+just app-e2e-timed      # only the timed e2e test (perf.e2e.ts), alone
 just app-dist [--dir]   # the packaged app for this platform (electron-builder), in web/dist
 just app-smoke          # the packaged app's smoke test (after just app-dist --dir)
 just site-build         # the website and user guide (site/): build, link check, the Help URLs
@@ -107,6 +108,22 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   races while real ones remain.
 - Fixtures live in `tests/data/`. Copy them from the original repo; do not
   read the original repo from unit tests (only the harness does that).
+  `tests/data/puzzles/new-grids/` holds the hexagonal and cairo puzzles,
+  made by this engine (the original has no such grids, so the tests that
+  compare every top-level fixture with the original's recordings skip
+  that folder; the new grids' own checks are in `test_puzzle_file.cpp`
+  and `tests/cli/test_cli.py`).
+- Per-fixture checks against the original belong in the C++ tests and the
+  oracle, which go through every file. The web tests (engine and e2e)
+  sweep one fixture of each grid, `web/tests/helpers/fixtures.ts`'s `SWEEP`:
+  what the front end does with a puzzle depends on its grid, not on which
+  puzzle it is. Add a file there only when its content takes the front end
+  down a path the others do not, and say which.
+- The tests run side by side: ctest runs `bt_tests` in shards (`unit-N`,
+  `BT_TEST_SHARDS`, the cases shuffled with a fixed seed) beside the
+  contract suite, which runs its tests at once (`--jobs`); the e2e tests
+  run in E2E_WORKERS apps at once. So no test may depend on another's
+  order or files, and only the `timed` e2e project may assert on time.
 - The Python module (`python/`, decision 0018): `python/tests/` (unittest;
   ctest `python` when the module is built, so `just test-all` runs it),
   the original's tests ported as they were plus new ones; the module

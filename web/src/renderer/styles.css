@@ -916,7 +916,7 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #stage.pzfrozen #pzResult .btn,#stage.pzfrozen #pzUsed .t2,#stage.pzfrozen #pzGrpTable td input,#stage.pzfrozen #pzGrpTable td select,
 #stage.pzfrozen #pzLib .la,#stage.pzfrozen #pzAll,#stage.pzfrozen #pzClear,#stage.pzfrozen #pzRangeAll,#stage.pzfrozen #pzSel>:not(.hd),#stage.pzfrozen #pzGroups .ib,
 #stage.pzfrozen #pzRules{pointer-events:none;opacity:.5}
-#stage.frozen #pzNew,#stage.frozen #pzProblems .acts [data-a=dup],#stage.frozen #pzProblems .acts [data-a=del]{pointer-events:none;opacity:.5}
+#stage.frozen #pzProblems .acts [data-a=del]{pointer-events:none;opacity:.5}
 
 /* ---- stage 4: what the mockup did not have ---- */
 .slv-run{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -1001,6 +1001,8 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .cfm .cb p b{color:var(--text)}
 .cfm.wide{width:min(620px,calc(100% - 48px));max-height:calc(100% - 80px);display:flex;flex-direction:column}
 .cfm.wide .cb{overflow:auto;min-height:0;margin:0 -4px 12px;padding:0 4px}
+/* the bulk range dialog: Min above Max, each as wide as the card */
+#pzBulk .rngs{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}#pzBulk .step.sz input.v{flex:1;min-width:0;width:100%}
 /* the update dialog: Details on the left, the release notes it opens in a box that scrolls */
 #update .bt [data-x="details"]{margin-right:auto}
 #update .cfm{width:min(480px,calc(100% - 48px))}#update .cfm.notes{width:min(640px,calc(100% - 48px))}

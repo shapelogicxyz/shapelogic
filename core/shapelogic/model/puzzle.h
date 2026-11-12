@@ -94,16 +94,19 @@ class Puzzle {
   /// Adds a copy of a problem's definition (Problem::copyDefinition); shape
   /// ids this puzzle does not have are dropped.
   unsigned int addProblem(const Problem& prob);
+  /// Adds the problem as it is, solutions and all (a file's, or one an
+  /// undo brings back); returns its index.
+  unsigned int appendProblem(Problem prob);
   [[nodiscard]] unsigned int getNumberOfProblems() const {
     return static_cast<unsigned int>(problems_.size());
   }
   [[nodiscard]] const Problem& getProblem(unsigned int p) const {
     BT_ASSERT(p < problems_.size());
-    return problems_[p];
+    return *problems_[p];
   }
   [[nodiscard]] Problem& getProblem(unsigned int p) {
     BT_ASSERT(p < problems_.size());
-    return problems_[p];
+    return *problems_[p];
   }
   void removeProblem(unsigned int p);
   void exchangeProblems(unsigned int p1, unsigned int p2);
@@ -148,7 +151,9 @@ class Puzzle {
 
   GridType gt_;
   std::vector<ClonePtr<Voxel>> shapes_;
-  std::vector<Problem> problems_;
+  /// Each problem stays where it is while others are added (a solve
+  /// holds its problem by reference, decision 0011).
+  std::vector<ClonePtr<Problem>> problems_;
   /// The boards of a stacking puzzle; empty on other grids.
   std::vector<stacking::RodSet> rodSets_;
   /// red in the lowest byte, then green, then blue

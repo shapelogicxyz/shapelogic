@@ -92,7 +92,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
-| `tests/data/` | test fixtures: `puzzles/` (copied from the original), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original; `puzzles/new-grids/`, the hexagonal and cairo puzzles, made by this engine, as the original has no such grids), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, FRONTEND-PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, mockup/ (Girish Sharma's mockup, vendored), core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies, whether the Python module is built (`Python.cmake`) |
@@ -1476,7 +1476,8 @@ What exists after stage 8:
     winning, `#leftP[data-problem]` and `[data-revision]` saying what is
     shown; every action a call awaited until the cards show its
     revision; the frozen state: the lists while anything solves
-    (`Snapshot.solving`), a problem while it is solved or analysed
+    (`Snapshot.solving`; New and Duplicate problem still add at the
+    end, decision 0011), a problem while it is solved or analysed
     (`ProblemSummary.solve`, `analysing`: `#stage.pzfrozen`), refused
     before any call; the keys + − Del; the status line
     `FitStats.statusLine`; the view's tag; the scene's model),
@@ -1734,7 +1735,7 @@ replays of the recorded Solver sessions: a run's end at its revision,
 one between two polls (the active states taken out), an abort's two
 changes, a paused abort's one, a new document's last events,
 `solutionsAdded` at the version paged ignored) and
-`tests/engine/` (the real engine: every fixture opened and drawn in every
+`tests/engine/` (the real engine: a fixture of each grid opened and drawn in every
 style, stage 7's scripted session, pause, save point, continue and abort,
 the event order of decision 0012, a killed engine restarted; the
 preview's mirror and span cells on every grid, the cube's faces against
@@ -1750,10 +1751,10 @@ grids, the stepped assembler's in the placements' frame, the movement
 tree against `explore.node`); by
 Playwright's Electron driver (`tests/e2e/`, the built app with the
 release engine: the IPC path, a killed engine, a reload with calls in
-flight, every fixture shape in every style, reference screenshots of each
-grid, picking on every fixture, the shell's keys, the settings, the
+flight, every shape of a fixture of each grid in every style, reference screenshots of each
+grid, picking on each grid, the shell's keys, the settings, the
 view's speed; the editor on each of the five grids, the shapes list, the
-frozen state, every shape of Bermuda and Prisgon rebuilt through the
+frozen state, every shape of Bermuda and CairoSlab rebuilt through the
 editor; the problems of CubeInCage and DemoPieceGenerator rebuilt
 through the Puzzle's actions, the chips, the table, the fit and the
 scene checked against the engine after each, a click and an orbit in

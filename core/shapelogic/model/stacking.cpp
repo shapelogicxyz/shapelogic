@@ -366,6 +366,9 @@ void generateDisk(Voxel& v, unsigned int size) {
 
   const unsigned int d = 2 * size + 1;
   v.resize(d, d, 1, Voxel::kEmpty);
+  // one bounding box at the end, not one per cell (a disc of size 100 has
+  // 40 000 cells)
+  v.skipRecalcBoundingBox(true);
   for (unsigned int y = 0; y < d; y++) {
     for (unsigned int x = 0; x < d; x++) {
       if (x == size && y == size) {
@@ -378,6 +381,7 @@ void generateDisk(Voxel& v, unsigned int size) {
       }
     }
   }
+  v.skipRecalcBoundingBox(false);
   v.setHotspot(static_cast<int>(size), static_cast<int>(size), 0);
   v.setDiskSize(size);
 }

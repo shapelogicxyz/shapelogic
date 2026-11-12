@@ -103,7 +103,8 @@ test('a puzzle file whose names hold markup shows them as text everywhere', asyn
     await nothingInjected(page, 'the notes');
     await page.keyboard.press('Escape');
     await menu(page, 'export.stl');
-    await expect(page.locator('.cfm select[data-f="shape"]')).toContainText(probe('s2'));
+    // the shape picker's two lists (all shapes, the ones to export)
+    await expect(page.locator('.cfm [data-f="picker"]')).toContainText(probe('s2'));
     await nothingInjected(page, 'the STL dialog');
     await page.keyboard.press('Escape');
 

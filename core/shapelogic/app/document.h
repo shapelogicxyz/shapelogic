@@ -171,8 +171,9 @@ struct DiscsPlaced {
 /// on their own threads; while a run is active (decision 0011) the
 /// document refuses (InvalidState) edits of shapes, of the shape, colour
 /// and problem lists, of problems being solved, undo, redo and saving;
-/// other problems, colour values and the notes can still be edited. A
-/// problem being solved is read through readProblem().
+/// other problems, colour values and the notes can still be edited, and a
+/// problem can be added at the end (new or a copy). A problem being solved
+/// is read through readProblem().
 class Document {
  public:
   /// A new empty puzzle on a grid (document.new); the grid never changes.
@@ -358,9 +359,11 @@ class Document {
 
   // ---- problems ---------------------------------------------------------------
 
-  /// Adds a problem; it allows each colour on itself.
+  /// Adds a problem; it allows each colour on itself. Allowed while
+  /// solving: the sessions go on.
   Result<Id> createProblem();
-  /// Adds a copy of a problem's definition (no name, no solutions).
+  /// Adds a copy of a problem's definition (no name, no solutions), of a
+  /// problem being solved too. Allowed while solving: the sessions go on.
   Result<Id> duplicateProblem(Id problem);
   Result<void> deleteProblem(Id problem);
   Result<void> moveProblem(Id problem, unsigned int toIndex);
@@ -450,6 +453,9 @@ class Document {
   /// Refused (InvalidArgument) with the reason when a start is on a
   /// corridor.
   Result<void> cloneStamps(Id tray, bool toGoal, Id problem = 0);
+  /// Takes every start (goal false) or every goal of `problem` off the
+  /// tray (sliding.clear); false when that side had none.
+  Result<bool> clearStamps(Id tray, bool goal, Id problem = 0);
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //
@@ -644,7 +650,15 @@ class Document {
   };
   /// What a snapshot saved: a shape, a problem, a colour's value, the
   /// notes, or everything.
-  enum class SnapshotKind : std::uint8_t { Shape, Problem, Colour, Notes, Whole, AppendedShape };
+  enum class SnapshotKind : std::uint8_t {
+    Shape,
+    Problem,
+    Colour,
+    Notes,
+    Whole,
+    AppendedShape,
+    AppendedProblem
+  };
   enum class LaunchMode : std::uint8_t { Start, Prepare, Resume };
   struct Snapshot;
   struct Step;
@@ -673,6 +687,9 @@ class Document {
   void touchWhole();
   /// Before a shape is added at the end: undo takes it out again.
   void touchAppendedShape();
+  /// Before a problem is added at the end: undo takes it out again. Saves
+  /// nothing, so it may be called while a run writes another problem.
+  void touchAppendedProblem();
   void swapIn(Snapshot& s);
   void pushStep(Step step);
   void changed(std::uint32_t what);

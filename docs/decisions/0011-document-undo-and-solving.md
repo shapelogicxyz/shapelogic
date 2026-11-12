@@ -57,6 +57,13 @@ read them (meshes, the status table) meanwhile. Simpler than the
 original's per-shape rule, and safe: a run's start reads every shape's
 hotspot.
 
+A problem can still be added at the end, new or a copy (of the problem
+being solved too, its definition read through `readProblem`): the puzzle
+keeps each problem in a place of its own (`ClonePtr`), so adding one
+moves none a session holds, and the step saves no copy of the puzzle
+(an appended-problem part, as for a shape added at the end) that would
+read a problem while its run writes it. The sessions go on.
+
 **Edits between runs** follow the original: an edit of a shape removes
 the solutions of every problem that uses it (`changeShape`); an edit of a
 problem's definition does what the original's did (the bulk range, the
@@ -64,8 +71,9 @@ colour rules, removing all pieces and a new result remove its solutions;
 a piece count leaves the problem Unknown, its solutions kept); either way
 the problem's session ends and its paused search goes. A change of the
 lists (and every undo or redo) ends every session, because the sessions
-hold references into the puzzle: a paused solve carries on from the
-position it wrote into its problem when it paused, through a new session.
+hold references into the puzzle (a problem added at the end does not):
+a paused solve carries on from the position it wrote into its problem
+when it paused, through a new session.
 A paused BurrTools 2 search cannot (decision 0009): while one is paused,
 such changes are refused until it is aborted or finished; a new shape at
 the end does not need the sessions to end and goes on.

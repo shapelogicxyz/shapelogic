@@ -14,13 +14,14 @@ build preset="dev":
     cmake --preset {{preset}} > /dev/null
     cmake --build --preset {{preset}}
 
-# Unit and contract tests, without the [slow] cases
+# Unit and contract tests, without the [slow] cases (side by side: the unit
+# tests are in shards, and the contract suite runs its tests at once)
 test preset="dev": (build preset)
-    ctest --preset {{preset}} -LE slow
+    ctest --preset {{preset}} -LE slow -j {{num_cpus()}}
 
 # Every test, [slow] included (run before calling a stage done)
 test-all preset="dev": (build preset)
-    ctest --preset {{preset}}
+    ctest --preset {{preset}} -j {{num_cpus()}}
 
 # Address + undefined-behaviour sanitizers
 test-asan: (test-all "asan")
@@ -120,9 +121,16 @@ app-test:
 app-dev:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
 
-# Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE)
+# Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE),
+# side by side (E2E_WORKERS apps at once, half the cores by default); without arguments the timed test
+# (perf.e2e.ts) follows, alone
 app-e2e *args:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e -- {{args}}
+    {{ if args == "" { "cd web && env -u ELECTRON_RUN_AS_NODE npx playwright test --project=timed" } else { "" } }}
+
+# Only the timed e2e test (perf.e2e.ts), alone
+app-e2e-timed:
+    cd web && env -u ELECTRON_RUN_AS_NODE npm run e2e-timed
 
 # Package the app (electron-builder, web/tools/dist.ts) for this platform with the release engine: `--dir` the unpacked app only, `--arch x64` an Intel Mac's (after `just build release-x64`)
 app-dist *args: (build "release")

@@ -9,7 +9,9 @@ event against the schema in api/. Run by ctest:
 
 import argparse
 import base64
+import concurrent.futures
 import gzip
+import os
 import pathlib
 import shutil
 import struct
@@ -764,7 +766,8 @@ def pause_continue_and_the_guards(e):
     # frozen while a run is active (decision 0011)
     e.fails("shape.setCells", {"shape": d, "tool": "erase", "cells": [[0, 0, 0]]}, "invalid_state")
     e.fails("shape.create", {}, "invalid_state")
-    e.fails("problem.create", {}, "invalid_state")
+    e.fails("problem.delete", {"problem": other}, "invalid_state")
+    e.fails("problem.move", {"problem": other, "toIndex": 0}, "invalid_state")
     e.fails("problem.rename", {"problem": p, "name": "x"}, "invalid_state")
     e.fails("edit.undo", {}, "invalid_state")
     e.fails("document.save", {"path": "/tmp/never.xmpuzzle"}, "invalid_state")
@@ -778,6 +781,14 @@ def pause_continue_and_the_guards(e):
     e.call("document.setNotes", {"text": "while solving"})
     e.call("colour.edit", {"colour": c1, "rgb": "#00ff00"})
     e.call("problem.rename", {"problem": other, "name": "not solving"})
+    # a problem added at the end, new or a copy of the one being solved
+    e.call("problem.create")
+    copy = e.call("problem.duplicate", {"problem": p})["problem"]
+    check(
+        e.call("problem.get", {"problem": copy})["parts"] == e.call("problem.get", {"problem": p})["parts"],
+        "the copy has the pieces",
+    )
+    check(e.call("problem.get", {"problem": p})["solve"] == "assembling", "the run goes on")
     e.call("shape.mesh", {"shape": d})
     e.call("problem.get", {"problem": p})
     e.call("solution.page", {"problem": p})
@@ -1004,7 +1015,9 @@ def sliding_start_goal_shapes(e):
     check(parts[two]["placed"] == 1 and parts[one]["placed"] == 1, f"placed copies {parts}")
     check(sorted((x["piece"], x["goal"], len(x["cells"])) for x in t["placed"])
           == sorted([(two, False, 2), (two, True, 2), (one, False, 1)]), f"the copies {t['placed']}")
-    e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 0}, "invalid_argument")
+    # a placed copy keeps its count while the piece stays (a count of 0
+    # takes it out, its starts and goals along)
+    e.fails("problem.setPieceCount", {"problem": p, "shape": two, "min": 0, "max": 3}, "invalid_argument")
     e.fails("problem.setResult", {"problem": p, "shape": one}, "invalid_argument")
     # the colours are the user's, as on every grid (the original kept the
     # marks in them): none from the marks; one added and deleted leaves them
@@ -1064,6 +1077,14 @@ def sliding_start_goal_shapes(e):
     t = e.call("sliding.tray", {"tray": tray})
     check(t["goals"] == t["starts"] and t["goals"][3] == one, f"cloned {t['goals']}")
     e.fails("sliding.clone", {"tray": one, "toGoal": False}, "invalid_argument")
+    # the goals cleared, the starts kept; again: nothing to clear; undone
+    check(e.call("sliding.clear", {"tray": tray, "goal": True})["cleared"], "goals cleared")
+    t = e.call("sliding.tray", {"tray": tray})
+    check(all(g is None for g in t["goals"]) and t["starts"][3] == one, f"only the goals {t}")
+    check(not e.call("sliding.clear", {"tray": tray, "goal": True})["cleared"], "nothing left")
+    e.fails("sliding.clear", {"tray": one, "goal": False}, "invalid_argument")
+    e.call("edit.undo")
+    check(e.call("sliding.tray", {"tray": tray})["goals"][3] == one, "the goals back")
     e.call("edit.undo")
     e.call("edit.undo")
 
@@ -1700,9 +1721,30 @@ def shutdown(e):
 
 # ---- the runner --------------------------------------------------------------------------------
 
+def run_one(t, engine, api):
+    """Runs one test on an engine of its own: (passed, its report, the methods it called)."""
+    e = Engine(engine, api)
+    t0 = time.monotonic()
+    try:
+        t(e)
+        if e.proc.poll() is None:
+            e.drain(0.1)
+        e.close()
+        return True, f"PASS {t.__name__} ({time.monotonic() - t0:.1f} s)", e.called
+    except Exception:  # noqa: BLE001
+        report = f"FAIL {t.__name__}\n{traceback.format_exc()}"
+        if e.stderr:
+            report += "engine stderr:\n" + "".join(e.stderr[-30:])
+        if e.proc.poll() is None:
+            e.proc.kill()
+        return False, report, e.called
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--engine", required=True)
+    # each test has an engine of its own, so they run side by side
+    ap.add_argument("--jobs", "-j", type=int, default=os.cpu_count() or 1)
     ap.add_argument("names", nargs="*")
     args = ap.parse_args()
     api = Api()
@@ -1713,23 +1755,14 @@ def main():
     failed = 0
     called = set()
     selected = [t for t in TESTS if not args.names or t.__name__ in args.names]
-    for t in selected:
-        e = Engine(args.engine, api)
-        try:
-            t(e)
-            if e.proc.poll() is None:
-                e.drain(0.1)
-            e.close()
-            print(f"PASS {t.__name__}")
-        except Exception:  # noqa: BLE001
-            failed += 1
-            print(f"FAIL {t.__name__}")
-            traceback.print_exc()
-            if e.stderr:
-                print("engine stderr:\n" + "".join(e.stderr[-30:]))
-            if e.proc.poll() is None:
-                e.proc.kill()
-        called |= e.called
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        runs = [pool.submit(run_one, t, args.engine, api) for t in selected]
+        # reported in the file's order, each as it ends
+        for run in runs:
+            passed, report, methods = run.result()
+            print(report, flush=True)
+            failed += 0 if passed else 1
+            called |= methods
     if not args.names:
         # every method of the schema has been called with success at least once
         uncalled = sorted(set(api.methods) - called)

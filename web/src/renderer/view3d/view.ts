@@ -691,6 +691,10 @@ export class View3D {
     this.renderTag();
     this.trays.load();
     this.board.load();
+    // any mesh still on its way is stale now, even when what is shown is
+    // already right (wire frame, then back to the shown style: the wire
+    // frame's mesh must not land over it)
+    const n = ++this.loading;
     if (snap === null || shape === null) {
       this.shownKey = '';
       this.scene.setMesh(null);
@@ -705,7 +709,6 @@ export class View3D {
       this.lookChanged();
       return;
     }
-    const n = ++this.loading;
     const size = shape.size;
     const revision = snap.revision;
     this.cache.get(shape.id, style, revision).then(
@@ -770,6 +773,8 @@ export class View3D {
     const style = this.display.style;
     const shown = `${model?.key ?? ''}:${style}`;
     if (shown === this.piecesShown) {
+      // a scene still on its way is stale: this one is already shown
+      ++this.piecesLoading;
       return;
     }
     const n = ++this.piecesLoading;

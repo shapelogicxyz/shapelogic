@@ -173,12 +173,13 @@ export class PiecesCard {
   private usedTile(s: ShapeSummary, p: Part): string {
     const g = groupOf(p);
     const c = this.ws.chip(s.id);
-    // a piece starts or goals need keeps a copy for each (the engine refuses fewer)
+    // a piece starts or goals need keeps a copy for each (the engine refuses
+    // fewer) while it stays; its last copy takes its starts and goals along
     const fewer =
-      p.placed > 0 && p.min <= p.placed
+      p.placed > 0 && p.min <= p.placed && p.max > 1
         ? `disabled title="${placedTip(p)}"`
-        : 'title="One fewer (at 0 the piece leaves the puzzle)"';
-    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="${String(!p.required)}" title="${esc(this.title(s))}${p.required ? ` — ${REQUIRED}` : ' — drag onto “All pieces” to remove'}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${fewer}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" title="One more">+</button></div>${s.weight !== 1 ? `<div class="t3"><span class="wl">Weight: </span>${String(s.weight)}</div>` : ''}</div></div>`;
+        : `title="One fewer (at 0 the piece leaves the puzzle${p.required ? ', its starts and goals taken off the board' : ''})"`;
+    return `<div class="ut${s.weight !== 1 ? ' wt' : ''}" data-u="${s.id}" draggable="true" title="${esc(this.title(s))} — drag onto “All pieces” to remove${p.required ? ' (its starts and goals are taken off the board)' : ''}"><i class="uc" style="background:${c.bg}"></i><div class="ub"><div class="t1"><span class="gripd">${ic('grip', 12)}</span><b>${esc(s.label)}</b>${s.name !== '' ? `<span class="pl">${esc(s.name)}</span>` : ''}${g > 0 ? `<span class="gb">G${String(g)}</span>` : ''}</div><div class="t2"><button data-d="-1" ${fewer}>−</button><span class="cnt">${countText(p)}</span><button data-d="1" title="One more">+</button></div>${s.weight !== 1 ? `<div class="t3"><span class="wl">Weight: </span>${String(s.weight)}</div>` : ''}</div></div>`;
   }
 
   // the mockup's pzLibChip
@@ -289,9 +290,9 @@ export class PiecesCard {
     d.className = 'cfm-scrim';
     d.id = 'pzBulk';
     const step = (k: 'mn' | 'mx', label: string, v: number): string =>
-      `<div class="step sz inl" style="flex:1"><button data-r="${k}-" title="Decrease">${ic('minus', 12)}</button><span class="il">${label}</span><input class="v" value="${String(v)}" data-r="${k}" aria-label="${label}"><button data-r="${k}+" title="Increase">${ic('plus', 12)}</button></div>`;
+      `<div class="step sz inl"><button data-r="${k}-" title="Decrease">${ic('minus', 12)}</button><span class="il">${label}</span><input class="v" value="${String(v)}" data-r="${k}" aria-label="${label}"><button data-r="${k}+" title="Increase">${ic('plus', 12)}</button></div>`;
     const draw = (): void => {
-      d.innerHTML = `<div class="cfm" role="dialog" aria-modal="true"><h3>Set range for all pieces</h3><p>Every piece in this puzzle gets the same minimum and maximum count (${String(n)} pieces).</p><div style="display:flex;gap:10px;margin-bottom:14px">${step('mn', 'Min', mn)}${step('mx', 'Max', mx)}</div><div class="bt"><button class="btn" data-x="0">Cancel</button><button class="btn pri" data-x="1">Apply</button></div></div>`;
+      d.innerHTML = `<div class="cfm" role="dialog" aria-modal="true"><h3>Set range for all pieces</h3><p>Every piece in this puzzle gets the same minimum and maximum count (${String(n)} pieces).</p><div class="rngs">${step('mn', 'Min', mn)}${step('mx', 'Max', mx)}</div><div class="bt"><button class="btn" data-x="0">Cancel</button><button class="btn pri" data-x="1">Apply</button></div></div>`;
     };
     const fix = (): void => {
       mn = Math.max(0, mn);

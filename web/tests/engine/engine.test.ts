@@ -4,9 +4,6 @@
 // fixture opened and every shape's mesh in every style, a line over the
 // engine's limit, the error codes.
 
-import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ERROR_CODES, METHOD_NAMES } from '../../src/engine/api.generated.ts';
@@ -16,6 +13,7 @@ import { EngineError } from '../../src/engine/errors.ts';
 import { meshArrays } from '../../src/engine/frames.ts';
 import { engineVersion, NodeTransport } from '../../src/engine/node-transport.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
+import { GRIDS, SWEEP } from '../helpers/fixtures.ts';
 
 async function failure(p: Promise<unknown>): Promise<EngineError> {
   try {
@@ -35,9 +33,8 @@ function expectCode(e: EngineError, errc: keyof typeof ERROR_CODES): void {
   expect(ERROR_CODES[errc] as readonly number[]).toContain(e.code);
 }
 
-const fixtures = readdirSync(resolve(ROOT, FIXTURES))
-  .filter((f) => f.endsWith('.xmpuzzle'))
-  .sort();
+// one of each grid (the C++ tests and the oracle read every file)
+const fixtures = SWEEP.map((f) => f.file);
 
 describe.skipIf(ENGINE === null)('the engine', () => {
   let s: Session;
@@ -78,8 +75,7 @@ describe.skipIf(ENGINE === null)('the engine', () => {
     );
   });
 
-  it('opens every fixture, quietly', async () => {
-    expect(fixtures.length).toBeGreaterThanOrEqual(19);
+  it('opens a fixture of each grid, quietly', async () => {
     const grids = new Set<string>();
     for (const f of fixtures) {
       const from = s.events.length;
@@ -91,12 +87,10 @@ describe.skipIf(ENGINE === null)('the engine', () => {
       await s.drain(20);
       expect(s.events.slice(from).filter((e) => e.event === 'document.changed')).toEqual([]);
     }
-    expect(grids).toEqual(
-      new Set(['bricks', 'prisms', 'spheres', 'rhombic', 'tetraOcta', 'sliding', 'stacking']),
-    );
+    expect(grids).toEqual(new Set(GRIDS));
   });
 
-  it('draws every shape of every fixture in every style, the frames fitting their counts', async () => {
+  it('draws every shape of a fixture of each grid in every style, the frames fitting their counts', async () => {
     const styles: MeshStyle[] = ['drawing', 'wireframe', 'flat'];
     let meshes = 0;
     for (const f of fixtures) {

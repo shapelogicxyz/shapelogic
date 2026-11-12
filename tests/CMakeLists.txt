@@ -60,10 +60,21 @@ target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain manifold:
 bt_set_warnings(bt_tests)
 
 # Run from the source root so fixtures resolve as tests/data/...
-add_test(NAME unit COMMAND bt_tests "~[slow]" WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-add_test(NAME unit-slow COMMAND bt_tests "[slow]" --allow-running-no-tests
-         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-set_tests_properties(unit-slow PROPERTIES LABELS slow)
+# The cases are split into shards that ctest runs side by side (`ctest -j`).
+# A shard is a run of the case list, so the list is shuffled first, the same
+# way in every shard (a fixed seed; no test uses Catch2's random numbers),
+# which spreads the slow cases of one file over the shards.
+set(BT_TEST_SHARDS 8 CACHE STRING "How many shards the unit tests are split into")
+math(EXPR last_shard "${BT_TEST_SHARDS} - 1")
+foreach(i RANGE ${last_shard})
+  add_test(NAME unit-${i} COMMAND bt_tests "~[slow]" --order rand --rng-seed 1
+           --shard-count ${BT_TEST_SHARDS} --shard-index ${i}
+           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+  add_test(NAME unit-slow-${i} COMMAND bt_tests "[slow]" --allow-running-no-tests
+           --order rand --rng-seed 1 --shard-count ${BT_TEST_SHARDS} --shard-index ${i}
+           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+  set_tests_properties(unit-slow-${i} PROPERTIES LABELS slow)
+endforeach()
 
 # The engine's contract (decision 0012): the schema checks itself, docs/API.md
 # is what api/gen_api_md.py makes of it, and shapelogic_engine, driven as a

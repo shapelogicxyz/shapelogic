@@ -124,7 +124,8 @@ TEST_CASE("document solving: while a run is active the puzzle is frozen but for 
     });
     refusedWhileSolving(d, [](Document& x) { return x.createShape(); });
     refusedWhileSolving(d, [s](Document& x) { return x.renameShape(s, "no"); });
-    refusedWhileSolving(d, [](Document& x) { return x.createProblem(); });
+    refusedWhileSolving(d, [other](Document& x) { return x.deleteProblem(other); });
+    refusedWhileSolving(d, [other](Document& x) { return x.moveProblem(other, 0); });
     refusedWhileSolving(d, [c](Document& x) { return x.deleteColour(c); });
     refusedWhileSolving(d, [p](Document& x) { return x.renameProblem(p, "no"); });
     refusedWhileSolving(d, [p](Document& x) { return x.addOneOfEach(p); });
@@ -139,6 +140,9 @@ TEST_CASE("document solving: while a run is active the puzzle is frozen but for 
     CHECK(d.setNotes("noted while solving").has_value());
     CHECK(d.editColour(c, Rgb{9, 9, 9}).has_value());
     CHECK(d.renameProblem(other, "the other").has_value());
+    // a problem added at the end moves none: the run goes on
+    CHECK(d.createProblem().has_value());
+    CHECK(d.duplicateProblem(other).has_value());
     CHECK(d.exportPuzzlecad(other, "x").has_value());
     CHECK(d.exportPuzzlecad(std::nullopt, "x").has_value());
     CHECK(isActive(d.solveState(p)));
@@ -191,12 +195,58 @@ TEST_CASE("document solving: a paused solve survives a change of the lists", "[a
     landed = d.solveState(p) == SolveState::Paused;
   }
   REQUIRE(landed);
+  // a problem added at the end leaves the session be; one deleted ends it
   const Id q = d.createProblem().value();
+  CHECK(d.solveState(p) == SolveState::Paused);
+  REQUIRE(d.deleteProblem(q).has_value());
   CHECK(d.solveState(p) == SolveState::Idle);
   CHECK(d.puzzle().getProblem(0).getSolveState() == ProblemState::Solving);
   solveToEnd(d, p, takeApart(1));
   CHECK(totals(d, 0) == want);
-  (void)q;
+}
+
+TEST_CASE("document solving: problems added while a run is active", "[app][solving][parallel]") {
+  // new ones and copies of the problem being solved, as the run writes it;
+  // the run's answers are a straight run's, and undo takes them out again
+  Document d = fresh("DemoPieceGenerator.xmpuzzle");
+  const Id p = d.problemIds().front();
+  REQUIRE(d.solveStart(p, takeApart(4)).has_value());
+  // one for sure while it runs (it cannot end while its problem is read)
+  unsigned int added = 0;
+  d.readProblem(0, [&](const Problem&) {
+    REQUIRE(isActive(d.solveState(p)));
+    REQUIRE(d.createProblem().has_value());
+    added++;
+  });
+  // fewer than the undo depth, so that all of them can be undone
+  while (isActive(d.solveState(p)) && added < 20) {
+    const Result<Id> r = added % 2 == 1 ? d.duplicateProblem(p) : d.createProblem();
+    REQUIRE(r.has_value());
+    CHECK(d.solveState(*r) == SolveState::Idle);
+    added++;
+  }
+  REQUIRE(d.solveWait(p).has_value());
+  CHECK(d.solveState(p) == SolveState::Finished);
+  CHECK(totals(d, 0) == Totals{928, 927});
+  CHECK(d.problemIds().size() == 1 + added);
+  if (added > 1) {
+    // a copy has the definition, not the solutions
+    const Problem& copy = d.puzzle().getProblem(2);
+    CHECK(copy.getNumberOfParts() == d.puzzle().getProblem(0).getNumberOfParts());
+    CHECK(copy.getResultId() == d.puzzle().getProblem(0).getResultId());
+    CHECK(copy.getNumberOfSavedSolutions() == 0);
+    CHECK(copy.getSolveState() == ProblemState::Unsolved);
+  }
+  const std::vector<Id> ids = d.problemIds();
+  for (unsigned int i = 0; i < added; i++) {
+    REQUIRE(d.undo().has_value());
+  }
+  CHECK(d.problemIds().size() == 1);
+  CHECK(totals(d, 0) == Totals{928, 927});
+  for (unsigned int i = 0; i < added; i++) {
+    REQUIRE(d.redo().has_value());
+  }
+  CHECK(d.problemIds() == ids);
 }
 
 TEST_CASE("document solving: the autosave flow and saving", "[app][solving][resume]") {

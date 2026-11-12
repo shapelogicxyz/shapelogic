@@ -34,13 +34,18 @@ just app-gen       # src/engine/api.generated.ts from api/*.json (after a schema
 just app-check     # type checks (node and renderer projects), ESLint, Prettier
 just app-test      # unit tests; the engine tests too when the release engine exists
 just app-dev       # the app (electron-vite dev, reloads on change)
-just app-e2e       # build, then the end-to-end tests (Playwright's Electron driver)
+just app-e2e       # build, then the end-to-end tests (Playwright's Electron driver), then the timed one
+just app-e2e-timed # only the timed test (perf.e2e.ts), alone
 ```
 
 `just app-e2e -g picking` passes arguments to Playwright;
 `--update-snapshots` records the reference screenshots again (look at them
 first: `tests/e2e/__screenshots__`). The e2e tests open windows on the
-screen, one at a time. Both recipes clear `ELECTRON_RUN_AS_NODE`, which
+screen, several at a time: each test has an app, an engine and a data
+directory of its own, and `E2E_WORKERS` apps run at once (half the cores
+by default; `E2E_WORKERS=1` for one at a time). The test that times the
+app (`perf.e2e.ts`) is the `timed` project, run alone after the others.
+Both recipes clear `ELECTRON_RUN_AS_NODE`, which
 some editors' terminals set and which turns Electron into plain Node.
 
 Inside `web/`: `npm run format` reformats, `npm run record` records the

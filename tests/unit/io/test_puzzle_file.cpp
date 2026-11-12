@@ -4,6 +4,7 @@
 
 #include "../model/model_test_helpers.h"
 
+#include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/paused_solve.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/io/xml_document.h"
@@ -14,6 +15,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -95,6 +97,29 @@ TEST_CASE("puzzle file: every fixture is saved byte for byte as the original sav
     checked++;
   }
   REQUIRE(checked >= 9);
+}
+
+// The grids the original does not have (decision 0023) cannot be compared
+// with it: their fixtures (tests/data/puzzles/new-grids, written by this
+// engine) are saved as they were written, and read back to themselves.
+TEST_CASE("puzzle file: the new grids' fixtures are saved byte for byte as they were written",
+          "[io][file]") {
+  std::set<GridKind> grids;
+  for (const auto& entry : std::filesystem::directory_iterator("tests/data/puzzles/new-grids")) {
+    const std::filesystem::path& path = entry.path();
+    if (path.extension() != ".xmpuzzle") {
+      continue;
+    }
+    INFO(path.filename().string());
+    const Result<std::string> written = io::readMaybeGzipFile(path);
+    REQUIRE(written.has_value());
+    const Puzzle p = test::loadFixture("new-grids/" + path.filename().string());
+    grids.insert(p.getGridType().getType());
+    CHECK(p.getNumberOfProblems() == 2);
+    CHECK(io::writePuzzle(p) == *written);
+    CHECK(io::writePuzzle(parse(*written)) == *written);
+  }
+  CHECK(grids == std::set<GridKind>{GridKind::Hexagonal, GridKind::Cairo});
 }
 
 TEST_CASE("puzzle file: content the model does not know is kept in place", "[io][file]") {

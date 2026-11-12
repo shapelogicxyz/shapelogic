@@ -392,18 +392,32 @@ export class SlideCard {
     }
   }
 
-  // More options: Start cloned to Goal or Goal to Start, asked first when the target has pieces
+  // More options: Start cloned to Goal or Goal to Start, asked first when the target has pieces;
+  // either board cleared, asked first (off while it has none)
   private more(anchor: Element): void {
     const none = this.board === null ? 'disabled' : '';
+    const off = (goal: boolean): string =>
+      this.reply?.placed.some((c) => c.goal === goal) === true ? '' : 'disabled';
     openPop(
       anchor,
-      `<button data-k="goal" ${none} title="Copy the start positions to the goal, replacing what it has">Clone start position to goal position</button><button data-k="start" ${none} title="Copy the goal positions to the start, replacing what it has">Clone goal position to start position</button>`,
+      `<button data-k="goal" ${none} title="Copy the start positions to the goal, replacing what it has">Clone start position to goal position</button><button data-k="start" ${none} title="Copy the goal positions to the start, replacing what it has">Clone goal position to start position</button><hr><button data-k="clearStart" ${off(false)} title="Take every piece off the start board">Clear Start position board</button><button data-k="clearGoal" ${off(true)} title="Take every piece off the goal board">Clear Goal position board</button>`,
       (k) => {
-        const toGoal = k === 'goal';
         const r = this.reply;
         if (r === null || this.ws.refuse()) {
           return;
         }
+        if (k === 'clearStart' || k === 'clearGoal') {
+          const goal = k === 'clearGoal';
+          const side = goal ? 'goal' : 'start';
+          askConfirm(
+            goal ? 'Clear the goal board?' : 'Clear the start board?',
+            `Every piece will be taken off the ${side} board.`,
+            'Clear',
+            () => void this.clear(goal),
+          );
+          return;
+        }
+        const toGoal = k === 'goal';
         if (!r.placed.some((c) => c.goal === toGoal)) {
           void this.clone(toGoal);
           return;
@@ -417,6 +431,21 @@ export class SlideCard {
         );
       },
     );
+  }
+
+  // one board cleared (sliding.clear): one undo step
+  private async clear(goal: boolean): Promise<void> {
+    const tray = this.board;
+    const ws = this.ws;
+    const problem = ws.current;
+    if (tray === null || problem === null || ws.refuse()) {
+      return;
+    }
+    try {
+      await ws.mutateQuiet(() => ws.store.engine.call('sliding.clear', { tray, goal, problem }));
+    } catch (err) {
+      reportError(err, goal ? 'The goal could not be cleared' : 'The start could not be cleared');
+    }
   }
 
   // the clone itself (sliding.clone): one undo step; the reason of a refusal goes to the status bar

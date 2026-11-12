@@ -359,14 +359,15 @@ test('the 81-move puzzle built from New, solved as bt, played with its walls', a
       .toBe(13);
 
     // new, copied and deleted problems and Change… as on other grids; no
-    // groups or rules; a placed piece has no fewer copies than are placed,
-    // and may have more
+    // groups or rules; a placed piece has no fewer copies than are placed
+    // while it stays (the − of its only copy takes it out, with its start
+    // and goal), and may have more
     await expect(page.locator('#pzNew')).toBeVisible();
     await expect(page.locator('#pzProblems [data-a="dup"]')).toHaveCount(1);
     await expect(page.locator('#pzProblems [data-a="del"]')).toHaveCount(1);
     await expect(page.locator('#pzChange')).toBeVisible();
     await expect(page.locator('#pzRules')).toBeHidden();
-    await expect(page.locator('#pzUsed [data-u] [data-d="-1"]').first()).toBeDisabled();
+    await expect(page.locator('#pzUsed [data-u] [data-d="-1"]').first()).toBeEnabled();
     await expect(page.locator('#pzUsed [data-u] [data-d="1"]').first()).toBeEnabled();
 
     // solved by the sliding solver: as bt counts and moves it; the problem
@@ -628,6 +629,65 @@ test('copies of a piece: a start and a goal for each, placed one by one', async 
   }
 });
 
+test('a piece taken out of the puzzle takes its starts and goals off the board', async () => {
+  test.setTimeout(120_000);
+  const a = await launch();
+  const page = a.page;
+  try {
+    // a 4 by 1 board, two unit pieces, each with a start; S1 with a goal too
+    await newDocument(page, 'sliding');
+    await page.click('#btnNewBoard');
+    await settled(page);
+    for (const [d, n] of [
+      [0, 2],
+      [1, 5],
+    ] as const) {
+      for (let i = 0; i < n; i++) {
+        await page.click(`#sizeSteppers [data-d="${String(d)}"][data-s="-1"]`);
+        await settled(page);
+      }
+    }
+    const tray = await idOf(page, 'B1');
+    const one = await piece(page, [[0, 0]]);
+    const two = await piece(page, [[0, 0]]);
+    await page.keyboard.press('Control+2');
+    await pzSettled(page);
+    await boardProblem(page, tray);
+    await page.click('#pzAll');
+    await pzSettled(page);
+    await stamp(page, one, [0, 0]);
+    await stamp(page, one, [3, 0], true);
+    await stamp(page, two, [1, 0]);
+    const placed = async (): Promise<string[]> =>
+      (
+        await engineCall<{ placed: { piece: string; goal: boolean }[] }>(page, 'sliding.tray', {
+          tray,
+        })
+      ).placed.map((c) => `${c.piece}${c.goal ? ' goal' : ''}`);
+    expect((await placed()).sort()).toEqual([one, `${one} goal`, two].sort());
+
+    // the − of S1's only copy: out of the puzzle, its start and goal off both boards
+    await page.click(`#pzUsed [data-u="${one}"] [data-d="-1"]`);
+    await pzSettled(page);
+    await expect(page.locator(`#pzUsed [data-u="${one}"]`)).toHaveCount(0);
+    expect(await placed()).toEqual([two]);
+    // one undo step brings both back
+    await page.keyboard.press('Control+z');
+    await pzSettled(page);
+    await expect(page.locator(`#pzUsed [data-u="${one}"]`)).toHaveCount(1);
+    expect((await placed()).sort()).toEqual([one, `${one} goal`, two].sort());
+    // Remove from puzzle (Del) does the same
+    await page.click(`#pzUsed [data-u="${two}"] b`);
+    await expect(page.locator('#pzSel')).toHaveAttribute('data-shape', two);
+    await page.keyboard.press('Delete');
+    await pzSettled(page);
+    await expect(page.locator(`#pzUsed [data-u="${two}"]`)).toHaveCount(0);
+    expect((await placed()).sort()).toEqual([one, `${one} goal`].sort());
+  } finally {
+    await a.close();
+  }
+});
+
 test('problems on one board: a copy has starts and goals of its own; an edited board takes both along', async () => {
   test.setTimeout(120_000);
   const a = await launch();
@@ -711,7 +771,7 @@ test('problems on one board: a copy has starts and goals of its own; an edited b
   }
 });
 
-test('More options: Start cloned to Goal and back, asked first when the target has pieces', async () => {
+test('More options: Start cloned to Goal and back, asked first when the target has pieces; a board cleared', async () => {
   test.setTimeout(120_000);
   const a = await launch();
   const page = a.page;
@@ -727,7 +787,7 @@ test('More options: Start cloned to Goal and back, asked first when the target h
     await page.click('#pzAll');
     await pzSettled(page);
     const tr = (): Promise<Tray> => engineCall<Tray>(page, 'sliding.tray', { tray });
-    const clone = async (key: 'goal' | 'start'): Promise<void> => {
+    const clone = async (key: 'goal' | 'start' | 'clearGoal' | 'clearStart'): Promise<void> => {
       await page.click('#pzMore');
       await page.click(`#pop [data-k="${key}"]`);
       await expect(page.locator('#pop')).toBeHidden();
@@ -756,6 +816,23 @@ test('More options: Start cloned to Goal and back, asked first when the target h
     await page.keyboard.press('Control+z');
     await pzSettled(page);
     await expect.poll(async () => (await tr()).starts).toEqual(before);
+
+    // Clear Goal position board: asked, the goals off, the starts kept; then off
+    await clone('clearGoal');
+    await expect(page.locator('.cfm')).toContainText(
+      'Every piece will be taken off the goal board',
+    );
+    await page.click('.cfm [data-x="1"]');
+    await pzSettled(page);
+    await expect.poll(async () => (await tr()).goals.every((g) => g === null)).toBe(true);
+    expect((await tr()).starts).toEqual(before);
+    await page.click('#pzMore');
+    await expect(page.locator('#pop [data-k="clearGoal"]')).toBeDisabled();
+    await expect(page.locator('#pop [data-k="clearStart"]')).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+z');
+    await pzSettled(page);
+    await expect.poll(async () => (await tr()).goals.filter((g) => g === one)).toHaveLength(1);
   } finally {
     await a.close();
   }

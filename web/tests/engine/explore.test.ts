@@ -9,13 +9,11 @@
 // movement tree is the engine's after Analyse, Add move, a matching move and Prune tree
 // (every row's node as explore.node gives it, the pruned ones gone).
 
-import { readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { MovementTree } from '../../src/renderer/explore/tree.ts';
-import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
+import { ENGINE, FIXTURES, Session } from '../helpers/engine.ts';
+import { GRIDS, SWEEP } from '../helpers/fixtures.ts';
 
 describe.skipIf(ENGINE === null)('the explorers and the engine', () => {
   let s: Session;
@@ -31,8 +29,7 @@ describe.skipIf(ENGINE === null)('the explorers and the engine', () => {
     const c = s.client;
     const grids = new Set<string>();
     let found = 0;
-    const files = readdirSync(resolve(ROOT, FIXTURES)).filter((f) => f.endsWith('.xmpuzzle'));
-    for (const f of files.sort()) {
+    for (const f of SWEEP.map((x) => x.file)) {
       const snap = await c.call('document.open', { path: `${FIXTURES}/${f}` });
       if (snap.grid === 'sliding' || snap.grid === 'stacking') {
         continue;
@@ -62,8 +59,10 @@ describe.skipIf(ENGINE === null)('the explorers and the engine', () => {
         grids.add(snap.grid);
       }
     }
-    expect([...grids].sort()).toEqual(['bricks', 'prisms', 'rhombic', 'spheres', 'tetraOcta']);
-    expect(found).toBeGreaterThan(200);
+    expect([...grids].sort()).toEqual(
+      GRIDS.filter((g) => g !== 'sliding' && g !== 'stacking').sort(),
+    );
+    expect(found).toBeGreaterThan(90);
   });
 
   it('steps to a complete set in the placements’ frame', async () => {

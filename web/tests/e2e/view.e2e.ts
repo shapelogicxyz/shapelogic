@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The 3D view draws every shape of every fixture in the three styles, and
-// one shape of each grid in each look (drawing, wireframe, flat, the
+// The 3D view draws every shape of a fixture of each grid (tests/helpers/
+// fixtures.ts) in the styles made from the cells, and one shape of each
+// grid in each look (drawing, wireframe, flat, the
 // STL-like style of deferred part 5, unlit, orthographic, the colour view)
 // as reference screenshots
 // (tests/e2e/__screenshots__, compared with a tolerance; recorded with
 // `npx playwright test --update-snapshots` after a look beside the
 // original GUI, docs/handoff/web-1b.md).
 
-import { readdirSync } from 'node:fs';
-
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+import { SWEEP } from '../helpers/fixtures.ts';
 import {
   BUILT,
   display,
   ENGINE,
   engineCall,
-  FIXTURES,
   launch,
   openFixture,
   selectShape,
@@ -48,9 +47,7 @@ test.afterEach(async () => {
   expect(errors).toEqual([]);
 });
 
-const fixtures = readdirSync(FIXTURES)
-  .filter((f) => f.endsWith('.xmpuzzle'))
-  .sort();
+const fixtures = SWEEP.map((f) => f.file);
 
 /** The triangles the last render drew. */
 async function drawn(page: Page): Promise<number> {
@@ -63,23 +60,24 @@ async function voxels(page: Page): Promise<number> {
   return Number(/has (\d+) voxels/.exec(t)?.[1] ?? 'NaN');
 }
 
-test('every shape of every fixture is drawn in every style', async () => {
-  test.setTimeout(600_000);
-  const { page } = a;
-  let checked = 0;
-  // every shape the engine holds, in each of the four styles made from the
-  // cells (counted from the engine, so a fixture added to the folder is
-  // counted too); the uniform one is the uniform mesher (decision 0022)
-  let want = 0;
-  const order = ['drawing', 'wireframe', 'flat', 'uniform'] as const;
-  for (const [i, s] of order.entries()) {
-    for (const f of fixtures) {
+// every shape the engine holds, in each of the four styles made from the
+// cells (counted from the engine, so a fixture added to the list is counted
+// too); the uniform one is the uniform mesher (decision 0022); a test a
+// style, so the four run side by side
+for (const s of ['drawing', 'wireframe', 'flat', 'uniform'] as const) {
+  test(`every shape of a fixture of each grid is drawn in the ${s} style`, async () => {
+    test.setTimeout(300_000);
+    const { page } = a;
+    let checked = 0;
+    let want = 0;
+    for (const [i, f] of fixtures.entries()) {
       await openFixture(page, f);
-      want += (await engineCall<{ shapes: unknown[] }>(page, 'shape.list')).shapes.length;
-      if (s !== 'drawing') {
-        // the style is the view's: a new document keeps it
-        await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`:${s}$`));
+      if (i === 0 && s !== 'drawing') {
+        await style(page, s);
       }
+      want += (await engineCall<{ shapes: unknown[] }>(page, 'shape.list')).shapes.length;
+      // the style is the view's: a new document keeps it
+      await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`:${s}$`));
       for (const { id } of await shapes(page)) {
         await selectShape(page, id);
         await expect(page.locator('#vp')).toHaveAttribute('data-shown', `${id}:${s}`);
@@ -90,16 +88,12 @@ test('every shape of every fixture is drawn in every style', async () => {
         checked++;
       }
     }
-    const next = order[i + 1];
-    if (next !== undefined) {
-      await style(page, next);
-    }
-  }
-  expect(want).toBeGreaterThan(0);
-  expect(checked).toBe(want);
-});
+    expect(want).toBeGreaterThan(0);
+    expect(checked).toBe(want);
+  });
+}
 
-test('every fixture is drawn unlit, orthographic and in its colours', async () => {
+test('a fixture of each grid is drawn unlit, orthographic and in its colours', async () => {
   test.setTimeout(300_000);
   const { page } = a;
   for (const f of fixtures) {
@@ -126,9 +120,11 @@ const REFERENCES = [
   ['bricks', 'CubeInCage.xmpuzzle', 'S1'],
   ['bricks-colours', 'DraculasDentalDesaster.xmpuzzle', 'S1'],
   ['prisms', 'Bermuda.xmpuzzle', 'S1'],
-  ['spheres', 'BallRoom.xmpuzzle', 'S1'],
+  ['spheres', 'BallRoom_solved.xmpuzzle', 'S1'],
   ['rhombic', 'AugmentedSecondStellation.xmpuzzle', 'S2'],
   ['tetraocta', 'FourPieceTetrahedron.xmpuzzle', 'S1'],
+  ['hexagonal', 'new-grids/HexSlab.xmpuzzle', 'S2'],
+  ['cairo', 'new-grids/CairoSlab.xmpuzzle', 'S2'],
 ] as const;
 
 for (const [name, file, label] of REFERENCES) {

@@ -480,7 +480,6 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     await page.locator(`${tile(dom)} .t2 [data-d="1"]`).dispatchEvent('click');
     await page.locator('#pzChange').dispatchEvent('click');
     await page.locator('#pzRules [data-rule="allowAll"]').dispatchEvent('click');
-    await page.locator('#pzNew').dispatchEvent('click');
     await page.click(tile(dom), { button: 'right' });
     await page.click('#pop [data-k="up"]');
     await expect(page.locator('#stText')).toHaveText('Pause the solve first');
@@ -494,7 +493,8 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
             m.startsWith('problem.') && !['problem.get', 'problem.fit', 'problem.kind'].includes(m),
         );
     expect(edits(mark)).toEqual([]);
-    // P2 is not being solved: its pieces can be edited, the list cannot
+    // P2 is not being solved: its pieces can be edited; problems can be
+    // added (a copy of P1 too) but not deleted
     await page.click(`#pzProblems .row[data-id="${p2}"] .chip`);
     await expect(page.locator('#leftP')).toHaveAttribute('data-problem', p2);
     await expect(page.locator('#stage')).toHaveAttribute('data-pzfrozen', '0');
@@ -503,9 +503,27 @@ test('problems, colour rules, the frozen problem, sliding and stacking puzzles',
     expect((await problemGet(page, p2)).parts).toEqual([
       { shape: dom, min: 1, max: 1, groups: [], required: false, placed: 0 },
     ]);
-    await page.locator(`#pzProblems .row[data-id="${p2}"] [data-a=dup]`).dispatchEvent('click');
+    await page.locator(`#pzProblems .row[data-id="${p2}"] [data-a=del]`).dispatchEvent('click');
     await expect(page.locator('#stText')).toHaveText('Pause the solve first');
     expect(edits(mark)).toEqual(['problem.addPiece']);
+    const rows = await page.locator('#pzProblems .row').count();
+    await page.locator(`#pzProblems .row[data-id="${p1}"] [data-a=dup]`).dispatchEvent('click');
+    await expect(page.locator('#pzProblems .row')).toHaveCount(rows + 1);
+    await pzSettled(page);
+    const copy = await currentProblem(page);
+    expect(copy).not.toBe(p1);
+    await expect(page.locator('#stage')).toHaveAttribute('data-pzfrozen', '0');
+    expect((await problemGet(page, copy)).parts).toEqual([
+      { shape: dom, min: 24, max: 24, groups: [], required: false, placed: 0 },
+    ]);
+    await page.click('#pzNew');
+    await expect(page.locator('#pzProblems .row')).toHaveCount(rows + 2);
+    await pzSettled(page);
+    expect(edits(mark)).toEqual(['problem.addPiece', 'problem.duplicate', 'problem.create']);
+    await expect(page.locator(`#pzProblems .row[data-id="${p1}"]`)).toHaveAttribute(
+      'title',
+      /being solved/,
+    );
     await engineCall(page, 'solve.abort', { problem: p1 });
     await page.click(`#pzProblems .row[data-id="${p1}"] .chip`);
     await expect(page.locator('#stage')).toHaveAttribute('data-pzfrozen', '0');

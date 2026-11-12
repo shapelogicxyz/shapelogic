@@ -29,8 +29,8 @@ void Puzzle::removeShape(unsigned int idx) {
   BT_ASSERT(idx < shapes_.size());
 
   // first the problems, then the shape itself
-  for (Problem& p : problems_) {
-    p.removeShape(idx);
+  for (ClonePtr<Problem>& p : problems_) {
+    p->removeShape(idx);
   }
 
   shapes_.erase(shapes_.begin() + idx);
@@ -51,8 +51,8 @@ void Puzzle::exchangeShapes(unsigned int s1, unsigned int s2) {
 
   std::swap(shapes_[s1], shapes_[s2]);
 
-  for (Problem& p : problems_) {
-    p.exchangeShapes(s1, s2);
+  for (ClonePtr<Problem>& p : problems_) {
+    p->exchangeShapes(s1, s2);
   }
 }
 
@@ -81,7 +81,8 @@ void Puzzle::removeColor(unsigned int col) {
 
   // the colour rules: drop those with the colour, renumber the higher ones
   const auto n = static_cast<unsigned int>(colors_.size());
-  for (Problem& prob : problems_) {
+  for (ClonePtr<Problem>& pp : problems_) {
+    Problem& prob = *pp;
     for (unsigned int c = 0; c <= n; c++) {
       prob.disallowPlacement(*this, col, c);
       prob.disallowPlacement(*this, c, col);
@@ -123,8 +124,7 @@ Rgb Puzzle::getColor(unsigned int idx) const {
 }
 
 unsigned int Puzzle::addProblem() {
-  problems_.emplace_back();
-  return static_cast<unsigned int>(problems_.size() - 1);
+  return appendProblem(Problem{});
 }
 
 unsigned int Puzzle::addProblem(const Problem& prob) {
@@ -133,7 +133,11 @@ unsigned int Puzzle::addProblem(const Problem& prob) {
   // a problem from another puzzle may name shapes this one does not have
   copy.dropShapesFrom(getNumberOfShapes());
 
-  problems_.push_back(std::move(copy));
+  return appendProblem(std::move(copy));
+}
+
+unsigned int Puzzle::appendProblem(Problem prob) {
+  problems_.emplace_back(std::make_unique<Problem>(std::move(prob)));
   return static_cast<unsigned int>(problems_.size() - 1);
 }
 
@@ -144,7 +148,8 @@ unsigned int Puzzle::addRodSet(const stacking::RodSet& set) {
 
 void Puzzle::removeRodSet(unsigned int idx) {
   BT_ASSERT(idx < rodSets_.size());
-  for (Problem& p : problems_) {
+  for (ClonePtr<Problem>& pp : problems_) {
+    Problem& p = *pp;
     const unsigned int id = p.getRodSetId();
     if (id == idx) {
       p.clearRodSet();
@@ -159,7 +164,8 @@ void Puzzle::exchangeRodSets(unsigned int a, unsigned int b) {
   BT_ASSERT(a < rodSets_.size());
   BT_ASSERT(b < rodSets_.size());
   std::swap(rodSets_[a], rodSets_[b]);
-  for (Problem& p : problems_) {
+  for (ClonePtr<Problem>& pp : problems_) {
+    Problem& p = *pp;
     const unsigned int id = p.getRodSetId();
     if (id == a) {
       p.setRodSetId(b);

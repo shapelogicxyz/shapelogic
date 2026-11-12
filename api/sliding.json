@@ -88,6 +88,29 @@
       },
       "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
     },
+    "sliding.clear": {
+      "summary": "Takes every start (goal false) or every goal a problem has off its start/goal shape (the Puzzle workspace's Clear Start position board and Clear Goal position board); cleared is false, and nothing changes, when that side had none. The problem loses what it had found. One undo step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "tray": {"$ref": "types.json#/$defs/ShapeId"},
+          "goal": {"type": "boolean"},
+          "problem": {"$ref": "types.json#/$defs/ProblemId", "description": "The problem whose starts and goals these are, whose result must be this board (refused otherwise, invalid_argument). Without it, the board's first problem."}
+        },
+        "required": ["tray", "goal"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "cleared": {"type": "boolean"},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["cleared", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
+    },
     "sliding.tray": {
       "summary": "What a start/goal shape holds for a problem: its number and name, each cell's start and goal (the piece stamped there, cells indexed x + X*(y + Y*z)), each copy placed with its cells, whether it can be solved (the validity bar: null, or why not: starts or goals that are not whole pieces, more of them than the problem has copies, or no piece with every copy at a start and at a goal), the stamps larger than their pieces' copies (null, or the message), and its floor cells.",
       "params": {

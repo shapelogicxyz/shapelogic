@@ -21,16 +21,16 @@
       "errors": ["not_found"]
     },
     "problem.create": {
-      "summary": "Adds a problem; it allows each colour on itself.",
+      "summary": "Adds a problem; it allows each colour on itself. Allowed while solving: the solves go on.",
       "params": {"type": "object", "properties": {}, "additionalProperties": false},
       "result": {"$ref": "#/$defs/Made"},
-      "errors": ["invalid_argument", "invalid_state"]
+      "errors": ["invalid_argument"]
     },
     "problem.duplicate": {
-      "summary": "Adds a copy of a problem's definition (no name, no solutions).",
+      "summary": "Adds a copy of a problem's definition (no name, no solutions), of one being solved too. Allowed while solving: the solves go on.",
       "params": {"$ref": "#/$defs/ProblemParam"},
       "result": {"$ref": "#/$defs/Made"},
-      "errors": ["not_found", "invalid_argument", "invalid_state"]
+      "errors": ["not_found", "invalid_argument"]
     },
     "problem.delete": {
       "summary": "Removes a problem.",

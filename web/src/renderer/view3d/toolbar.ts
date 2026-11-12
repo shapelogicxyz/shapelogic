@@ -199,8 +199,8 @@ export class Toolbar {
 <button data-k="persp" data-keep="1" title="Far things look smaller, as a camera sees them" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>
 <button data-k="ortho" data-keep="1" title="Parallel lines stay parallel: no perspective" role="menuitemradio" aria-checked="${!d.persp}">${ck(!d.persp)}Orthographic</button><hr>
 <div class="ph">Voxel color</div>
-<button data-k="cpiece" data-keep="1" title="Display normally, each piece in its shape’s color" role="menuitemradio" aria-checked="${!d.colourView}">${ck(!d.colourView)}Piece color</button>
-<button data-k="cvox" data-keep="1" title="Display each voxel in its color constraint color" role="menuitemradio" aria-checked="${d.colourView}">${ck(d.colourView)}Voxel color</button><hr>
+<button data-k="cpiece" data-keep="1" title="Display normally, each piece in its shape’s color" role="menuitemradio" aria-checked="${!d.colourView}">${ck(!d.colourView)}Shape color</button>
+<button data-k="cvox" data-keep="1" title="Display each voxel in its color constraint color" role="menuitemradio" aria-checked="${d.colourView}">${ck(d.colourView)}Constraint color</button><hr>
 <div class="ph">Style</div>
 <button data-k="drawing" data-keep="1" title="Draw each voxel separately, with bevelled edges" role="menuitemradio" aria-checked="${d.style === 'drawing'}">${ck(d.style === 'drawing')}Bevelled voxels</button>
 <button data-k="flat" data-keep="1" title="Draw flat faces with edges" role="menuitemradio" aria-checked="${d.style === 'flat'}">${ck(d.style === 'flat')}Flat with edges</button>
@@ -232,14 +232,14 @@ export class Toolbar {
       case 'uniform':
         d.style = k;
         break;
-      case 'axes':
-      case 'bounds':
-      case 'layer':
-      case 'dim':
       case 'solvedNames':
         // the view follows the setting (onPrefs)
         setPrefs({ pieceLabels: !prefs.pieceLabels });
         return;
+      case 'axes':
+      case 'bounds':
+      case 'layer':
+      case 'dim':
       case 'xray':
       case 'pieceNames':
       case 'gridNames':

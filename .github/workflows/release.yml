@@ -197,7 +197,7 @@ jobs:
           cmake --build --preset release
       - name: Unit tests (x64 is a real x86-64 machine, so the AVX2 kernels run)
         continue-on-error: true # failures show in the log but do not stop the installers
-        run: ctest --preset release -LE slow
+        run: ctest --preset release -LE slow -j 4
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
@@ -253,7 +253,7 @@ jobs:
       - name: Unit tests (a real x86-64 machine, so the AVX2 kernels run)
         continue-on-error: true # failures show in the log but do not stop the installers
         shell: msys2 {0}
-        run: ctest --preset release -LE slow
+        run: ctest --preset release -LE slow -j 4
       - name: Install the front end's packages
         run: npm ci
         working-directory: web
@@ -295,7 +295,7 @@ jobs:
       - name: Unit tests (Apple silicon only, the Intel engine cannot run natively here)
         continue-on-error: true # failures show in the log but do not stop the installers
         if: matrix.arch == 'arm64'
-        run: ctest --preset release -LE slow
+        run: ctest --preset release -LE slow -j 4
       - name: Install the front end's packages
         run: npm ci
         working-directory: web

@@ -22,6 +22,7 @@ import type { MeshArrays } from '../../src/engine/frames.ts';
 import { ANIMATION_SAMPLES, animationGlb } from '../../src/renderer/export/glb.ts';
 import { PoseTrack } from '../../src/renderer/solver/poses.ts';
 import { ENGINE, FIXTURES, ROOT, Session } from '../helpers/engine.ts';
+import { SWEEP } from '../helpers/fixtures.ts';
 import { Glb, installFileReader, validateGlb } from '../helpers/gltf.ts';
 
 const SECONDS = 0.5;
@@ -76,19 +77,11 @@ function stlPositions(bytes: Uint8Array): Float32Array {
 }
 
 /**
- * The fixtures whose large shapes take the Minkowski mesher long (the rhombic ones, the last four
- * of them here for the take-apart's tests), or are large spheres.
+ * The grids whose STL meshes take the Minkowski mesher long (the rhombic
+ * one) or are many small spheres: their STL files are checked by the C++
+ * tests (test_stl_dump.cpp), against the original's.
  */
-const SLOW = new Set([
-  '12PieceSeparation.xmpuzzle',
-  'AugmentedSecondStellation.xmpuzzle',
-  'BallRoom.xmpuzzle',
-  'BallRoom_solved.xmpuzzle',
-  'BrokenSticks.xmpuzzle',
-  'DiagonalCube.xmpuzzle',
-  'HexSticks.xmpuzzle',
-  'PermutatedThirdStellation.xmpuzzle',
-]);
+const SLOW = new Set(['rhombic', 'spheres']);
 
 describe.skipIf(ENGINE === null)('the exports and the engine', () => {
   let s: Session;
@@ -302,15 +295,12 @@ describe.skipIf(ENGINE === null)('the exports and the engine', () => {
     expect(text.match(/facet normal/g)).toHaveLength(12);
   });
 
-  it('writes an STL of every fixture shape that a viewer loads, a closed surface of its size', async () => {
+  it('writes an STL of every shape of a fixture of each grid that a viewer loads, a closed surface of its size', async () => {
     const c = s.client;
     const loader = new STLLoader();
     let shapes = 0;
     let shared = 0;
-    const files = readdirSync(resolve(ROOT, FIXTURES)).filter(
-      (f) => f.endsWith('.xmpuzzle') && !SLOW.has(f),
-    );
-    for (const f of files.sort()) {
+    for (const f of SWEEP.filter((x) => !SLOW.has(x.grid)).map((x) => x.file)) {
       const snap = await c.call('document.open', { path: `${FIXTURES}/${f}` });
       for (const shape of snap.shapes.filter((x) => x.variable === 0 && x.fixed > 0)) {
         const what = `${f} ${shape.id}`;
@@ -331,7 +321,7 @@ describe.skipIf(ENGINE === null)('the exports and the engine', () => {
         shapes++;
       }
     }
-    expect(shapes).toBeGreaterThan(100);
+    expect(shapes).toBeGreaterThan(90);
     // one edge of Bermuda's shape 22 carries four triangles, as the original's file
     // (docs/handoff/deferred-5.md, "Found in the original")
     expect(shared).toBe(1);

@@ -405,7 +405,10 @@ where the problem's counts are.
   **Clone goal position to start position** (`sliding.clone`, one undo
   step): when the side cloned to has pieces, a question first ("Pieces
   were found on the goal board…", Cancel / Clear and clone); a start on
-  a variable cell is refused with the reason in the status bar.
+  a variable cell is refused with the reason in the status bar. Below
+  them, **Clear Start position board** and **Clear Goal position board**
+  (`sliding.clear`, one undo step) take every piece off that side, asked
+  first (Cancel / Clear); each is off while its side has no pieces.
 - **Validity bar** (under the 3D view, `refreshSlideValid`): green "Valid
   Start/Goal positions for pieces in Start and Goal of this board" or red
   "Invalid Start/Goal positions - <reason>" (`sliding.tray.error`: starts

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Picking over tests/data/puzzles: the view turned to the front (the view
+// Picking on a fixture of each grid (tests/helpers/fixtures.ts): the view turned to the front (the view
 // cube's +Z face) and made orthographic, a click on a face of a shape names
 // the cell and side the frame's arrays hold for the triangle under it. The
 // expected triangle is found in the frame's arrays, taken from an engine of
 // the test's own through the client's views (meshArrays), as the front-most
 // triangle at a point well inside its cell's side.
-
-import { readdirSync } from 'node:fs';
 
 import { expect, test } from '@playwright/test';
 
@@ -18,12 +16,12 @@ import { NodeTransport } from '../../src/engine/node-transport.ts';
 import { HOME, pixelsPerUnit, quatOf, toView } from '../../src/renderer/view3d/camera.ts';
 import { gridExtent } from '../../src/renderer/view3d/extent.ts';
 import { cellOf, FLAG } from '../../src/renderer/view3d/mesh.ts';
+import { SWEEP } from '../helpers/fixtures.ts';
 import {
   BUILT,
   camera,
   display,
   ENGINE,
-  FIXTURES,
   launch,
   openFixture,
   ROOT,
@@ -35,9 +33,7 @@ import type { App } from './app.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
-const fixtures = readdirSync(FIXTURES)
-  .filter((f) => f.endsWith('.xmpuzzle'))
-  .sort();
+const fixtures = SWEEP.map((f) => f.file);
 
 type P3 = [number, number, number];
 
@@ -185,7 +181,7 @@ test.afterEach(async () => {
   await a.close();
 });
 
-test('a click on a face names the cell and side the frame holds, on every fixture', async () => {
+test('a click on a face names the cell and side the frame holds, on every grid', async () => {
   test.setTimeout(300_000);
   const { page } = a;
   await openFixture(page, fixtures[0] ?? '');

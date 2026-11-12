@@ -247,13 +247,31 @@ def test_save_ask_and_retake() -> None:
         check("save with --json", r.returncode == 2, str(r.returncode))
 
 
+def test_new_grids() -> None:
+    """The hexagonal and cairo fixtures (the original has no such grids): solved
+    again with take-apart, every problem finds what the file holds."""
+    import gzip
+    import re
+    files = sorted((PUZZLES / "new-grids").glob("*.xmpuzzle"))
+    check("new grids", len(files) == 2, str(files))
+    for f in files:
+        xml = gzip.decompress(f.read_bytes()).decode()
+        saved = re.findall(r'<problem name="[^"]*" state="2" assemblies="(\d+)" solutions="(\d+)"', xml)
+        check(f"{f.name} solved", len(saved) == 2, str(saved))
+        for i, (assemblies, solutions) in enumerate(saved):
+            r = run("--json", "-o", str(i), f)
+            j = json.loads(r.stdout) if r.returncode == 0 else {}
+            check(f"{f.name} problem {i}", (j.get("assemblies"), j.get("solutions")) ==
+                  (int(assemblies), int(solutions)) and j.get("level", 0) >= 1, r.stdout + r.stderr)
+
+
 def main() -> int:
     global BT
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bt", type=Path, required=True)
     BT = p.parse_args().bt
     for test in (test_help_and_mistakes, test_stacking, test_sliding, test_no_result, test_solving,
-                 test_save_ask_and_retake):
+                 test_save_ask_and_retake, test_new_grids):
         test()
     print(f"{'all passed' if not failures else f'{len(failures)} failed'}")
     return 1 if failures else 0

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Every shape of Bermuda and of Prisgon rebuilt from its cell list through
+// Every shape of Bermuda (triangular prisms) and of CairoSlab (the cairo
+// grid, whose cells are every other point) rebuilt from its cell list through
 // the editor's actions (FRONTEND-PLAN.md, stage 2's gate): a new puzzle on
 // the fixture's grid, then for each shape New, the size steppers, a rename
 // (F2), the weight buttons, and its cells layer by layer with the fixed
 // and variable tools, drawn as drags along runs of cells next to each
-// other (the engine's layer drawing says which are) or clicks; the
-// result's shape.get equals the fixture's, and the engine refused nothing.
+// other (the engine's layer drawing says which are) or clicks, then its
+// constraint colours painted (+ in the palette, its swatch, Paint); the
+// result's shape.get equals the fixture's (the colours by the order they
+// were made), and the engine refused nothing.
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,13 +31,20 @@ interface GeoCell {
 
 const key = (c: readonly number[]): string => c.join(',');
 
-/** What is compared: the summary but the id and label, and the cells. */
-function comparable(g: ShapeGet): unknown {
+/** What is compared: the summary but the id and label, and the cells (colours as `colour` names them). */
+function comparable(g: ShapeGet, colour: (id: string) => string = (id) => id): unknown {
   const s = g.shape;
   return {
     shape: [s.name, s.size, s.fixed, s.variable, s.weight, s.colour],
-    cells: g.cells,
+    cells: g.cells.map((c) => (c.colour === undefined ? c : { ...c, colour: colour(c.colour) })),
   };
+}
+
+/** The constraint colours' ids, in the palette's order. */
+async function colourIds(page: Page): Promise<string[]> {
+  return (await engineCall<{ colours: { id: string }[] }>(page, 'colour.list')).colours.map(
+    (c) => c.id,
+  );
 }
 
 /** Runs of cells of one layer drawn as drags: each next cell shares an edge with the one before. */
@@ -70,7 +80,11 @@ async function steps(page: Page, shape: string, axis: number, target: number): P
   }
 }
 
-async function rebuild(page: Page, want: ShapeGet): Promise<string> {
+/**
+ * Rebuilds a shape; `made` maps the fixture's colour ids to the ones made
+ * here, and grows as a shape needs another.
+ */
+async function rebuild(page: Page, want: ShapeGet, made: Map<string, string>): Promise<string> {
   const before = await page.locator('#shapeList .row').count();
   await page.click('#btnNew');
   await expect(page.locator('#shapeList .row')).toHaveCount(before + 1);
@@ -109,10 +123,31 @@ async function rebuild(page: Page, want: ShapeGet): Promise<string> {
       }
     }
   }
+  const painted = want.cells.filter((c) => c.colour !== undefined);
+  for (const from of [...new Set(painted.map((c) => c.colour ?? ''))]) {
+    let to = made.get(from);
+    if (to === undefined) {
+      const before = await colourIds(page);
+      await page.click('#cAdd');
+      await settled(page);
+      to = (await colourIds(page)).find((c) => !before.includes(c)) ?? '';
+      made.set(from, to);
+    }
+    await page.click(`#colFoot .sw[data-c="${to}"]`);
+    await page.keyboard.press('4');
+    await expect(page.locator('#cPaint')).toHaveClass(/\bon\b/);
+    for (const c of painted.filter((x) => x.colour === from)) {
+      await layer(page, c.at[2]);
+      await clickCell(page, c.at);
+    }
+    // Default again: a new cell takes the colour chosen
+    await page.click('#colFoot .sw.def');
+    await settled(page);
+  }
   return id;
 }
 
-for (const fixture of ['Bermuda.xmpuzzle', 'Prisgon.xmpuzzle']) {
+for (const fixture of ['Bermuda.xmpuzzle', 'new-grids/CairoSlab.xmpuzzle']) {
   test(`every shape of ${fixture} rebuilt through the editor`, async () => {
     test.setTimeout(600_000);
     const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-'));
@@ -130,9 +165,14 @@ for (const fixture of ['Bermuda.xmpuzzle', 'Prisgon.xmpuzzle']) {
         wants.push(await shapeGet(page, s.id));
       }
       await newDocument(page, snap.grid);
+      const made = new Map<string, string>();
       for (const want of wants) {
-        const id = await rebuild(page, want);
-        expect(comparable(await shapeGet(page, id)), want.shape.label).toEqual(comparable(want));
+        const id = await rebuild(page, want, made);
+        const ours = new Map([...made].map(([from, to]) => [to, from]));
+        expect(
+          comparable(await shapeGet(page, id), (c) => ours.get(c) ?? c),
+          want.shape.label,
+        ).toEqual(comparable(want));
       }
       const refused = readCallLog(log).filter(
         (c) => c.errc === 'invalid_state' || c.errc === 'invalid_argument',

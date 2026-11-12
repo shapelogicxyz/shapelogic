@@ -78,9 +78,9 @@ These appear on the Shapes tab only.
 
 ### Voxel color
 
-- **Piece color**: each piece is drawn in its shape's color. This is the
+- **Shape color**: each piece is drawn in its shape's color. This is the
   normal view.
-- **Voxel color**: each voxel is drawn in its constraint color, the color you
+- **Constraint color**: each voxel is drawn in its constraint color, the color you
   painted with the voxel editor's **Paint** tool. Use it to check where the
   colors are. See [Color Restrictions](/docs/color-restrictions/).
 
