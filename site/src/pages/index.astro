@@ -65,7 +65,8 @@ import '../styles/landing.css';
           <p class="post-meta">
             <time datetime="2026-11-12">12 November 2026</time> · Release
           </p>
-          <h3 id="post-v1-8">ShapeLogic v1.8: watch the search, and manage what it leaves on the disk</h3>
+          <h3 id="post-v1-8">ShapeLogic v1.8.1: watch the search, and manage what it leaves on the disk</h3>
+          <h4 class="post-notes">Notes for release v1.8:</h4>
           <p>
             Version 1.8 shows a running search in the 3D view, lists the files that solves leave on
             the disk, and makes stopping, pausing and clearing a solve clearer.
@@ -100,6 +101,17 @@ import '../styles/landing.css';
             Problems can be added while a solve runs, and the problems list says how each one's solve
             stands. Read more in <a href="/docs/solver-tab/">The Solver tab</a>. Many small bug fixes
             and improvements.
+          </p>
+          <h4 class="post-notes">Notes for minor release v1.8.1:</h4>
+          <p>
+            <strong>Optimized paths</strong> solve a sliding board of blocks in seconds instead of
+            hours: when the board divides into a grid of cells that its blocks fill, the pieces stop
+            only on that grid. <strong>Solve</strong> asks first, or the new
+            <strong>Automatically use optimized paths</strong> option uses it every time. A small
+            piece in an empty cell of the grid is now searched once rather than once for each place it
+            could stop, which finds the same fewest moves in about half the time. While a sliding solve
+            runs, a <strong>Performance Analysis</strong> times each move and estimates how long the
+            moves ahead will take, up to 100 moves deep.
           </p>
           <p>
             <a href="https://github.com/shapelogicxyz/shapelogic/releases/latest">Release notes and downloads on GitHub</a>
