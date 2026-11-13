@@ -4,9 +4,9 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
-## [ShapeLogic v1.8](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8) (12 November 2026)
+## [ShapeLogic v1.8.1](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.1) (13 November 2026)
 
-### What's new
+### What's new in v1.8
 
 - **Live preview of the search.** While a solve runs and no solution is chosen, the 3D view shows what the search is doing a few times a second: the arrangements a sliding or stacking search is looking at, or the pieces of a puzzle being taken apart. The **Live preview** switch is at the top of the Solver's **Search Options** and in **Settings ▸ Search Options**, and it can be switched while a solve runs.
 - **Manage cache and autosave files.** **View ▸ Manage Cache and Autosave Files…** lists what paused sliding and stacking solves, the crash recovery copy and unfinished searches have left on the disk, each named after its puzzle and problem, with its size, dates and files. Select one to see its details, or delete it to free the space.
@@ -20,6 +20,13 @@ and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 - **Sliding puzzles.** **Clear Start position board** and **Clear Goal position board** empty a board in one click, and the piece cards show how many of each piece there are.
 
 Many small bug fixes and improvements.
+
+### v1.8.1 (13 November 2026)
+
+- **Optimized paths for boards of blocks.** On a sliding board that divides into a grid of cells that its blocks fill, such as an 18 by 18 board of 6 by 6 blocks, the pieces can now stop only on that grid: blocks on its lines, smaller pieces where they fit in a block's hole or where they start or end. A board that took hours can take seconds. **Solve** asks first whenever a board fits such a grid, with **Use Optimized Paths** and **Full Search**, or the new **Automatically use optimized paths** search option uses the grid every time. The path found may have more moves than the fewest, and "no solution" proves nothing, so a result found this way is marked *(optimized)* and offers **Full Search**. The command line tool has `--optimized-paths`.
+- **Small pieces searched once per cell.** With optimized paths and **Allow Nested Slides**, a small piece that can reach every place it could stop in an empty cell of the grid counts as one arrangement, not one for each place, and it is put in the right place once a block arrives over it. The same fewest moves are found in about a third of the arrangements and in about half the time.
+- **Performance Analysis.** While a sliding solve runs or is paused and no solution has been found yet, a box under the solutions list times each move deep the search goes, shows how much longer each move takes than the one before, and estimates every fifth move ahead up to 100 moves deep. A paused solve keeps the times, in the puzzle file too.
+- **Paused sliding solves carry on cleanly.** A sliding solve with nested slides that was paused and carried on no longer searches part of its earlier moves again, and a solved problem no longer leaves a saved search behind in **Manage Cache and Autosave Files**.
 
 ## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 
