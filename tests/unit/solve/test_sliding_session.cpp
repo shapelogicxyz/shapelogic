@@ -10,6 +10,7 @@
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/disassembly.h"
 #include "shapelogic/model/problem.h"
@@ -146,6 +147,14 @@ void untilSearching(const SolveSession& s) {
     if (p.stage == SolveStage::Other && p.searched > 0) {
       return;
     }
+    REQUIRE(isActive(s.state()));
+    std::this_thread::yield();
+  }
+}
+
+// Waits until the run's search goes deeper than `depth` moves.
+void untilDeeper(const SolveSession& s, std::uint64_t depth) {
+  while (s.progress().searchDepth <= depth) {
     REQUIRE(isActive(s.state()));
     std::this_thread::yield();
   }
@@ -679,6 +688,7 @@ TEST_CASE("sliding session: a paused search is carried on from its folder",
   SolveSession s(p, p.getProblem(0), o);
   REQUIRE(s.start().has_value());
   untilSearching(s);
+  untilDeeper(s, 2);
   s.pause();
   // stopping, it says it pauses, and that a slide search is under way
   const SolveProgress stopping = s.progress();
@@ -693,6 +703,12 @@ TEST_CASE("sliding session: a paused search is carried on from its folder",
   // the one start is not searched through: the bar does not say it is
   // (the assembly search, the start found, is)
   CHECK(s.progress().overall == 0.0F);
+  // what the run counted is what the problem keeps
+  const std::uint64_t searched = pr.getSearched();
+  CHECK(searched > 0);
+  CHECK(s.progress().searched == searched);
+  CHECK(pr.getSearchDepth() > 0);
+  CHECK(s.progress().searchDepth == pr.getSearchDepth());
   // the saved search, in its own folder
   REQUIRE(std::filesystem::is_directory(dir));
   CHECK_FALSE(std::filesystem::is_empty(dir));
@@ -700,14 +716,21 @@ TEST_CASE("sliding session: a paused search is carried on from its folder",
   // longer stops the search, so it is paused once more rather than run to
   // its end
   REQUIRE(s.resume().has_value());
-  untilSearching(s);
+  // the count goes on from the problem's, counting the search's saved
+  // arrangements once
+  CHECK(s.progress().searched >= searched);
+  untilDeeper(s, pr.getSearchDepth());
   s.pause();
   s.wait();
   REQUIRE(s.state() == SolveState::Paused);
   CHECK_FALSE(std::filesystem::is_empty(dir));
+  CHECK(pr.getSearched() > searched);
+  CHECK(s.progress().searched == pr.getSearched());
+  CHECK(s.progress().searchDepth == pr.getSearchDepth());
   // a solve from the start throws the saved search away
   s.abort();
   CHECK(std::filesystem::is_empty(dir));
+  CHECK(pr.getSearched() == 0);
   std::filesystem::remove_all(dir);
 }
 
@@ -751,6 +774,42 @@ TEST_CASE("sliding session: a search out of disk pauses for Continue",
   CHECK(p.getProblem(0).getPending().empty());
   CHECK(p.getProblem(0).getNumSolutions() == 0);
   CHECK(s.note().find("Every reachable arrangement was searched") != std::string::npos);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// A saved search the next run cannot carry on (its folder named for a
+// build or options that name the search differently) is started afresh;
+// once the problem is solved, the saved one goes too.
+TEST_CASE("sliding session: a finished solve leaves no saved search of its problem",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_stale";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 1;
+  o.sliding.diskBudget = 1;
+  Puzzle p = swapped(3);
+  {
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+  }
+  const std::vector<std::string> saved = savedFolders(p, p.getProblem(0), dir.string());
+  REQUIRE(saved.size() == 1);
+  const std::filesystem::path stale = dir / "slide-0000000000000000";
+  std::filesystem::rename(saved[0], stale);
+  REQUIRE(savedFolders(p, p.getProblem(0), dir.string()) ==
+          std::vector<std::string>{stale.string()});
+  o.sliding.memoryBytes = 0;
+  o.sliding.diskBudget = 0;
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.resume().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK_FALSE(std::filesystem::exists(stale));
   CHECK(std::filesystem::is_empty(dir));
   std::filesystem::remove_all(dir);
 }
@@ -851,4 +910,283 @@ TEST_CASE("sliding session: colour rules restrict where a free piece starts",
   Puzzle allowed = puzzle(true);
   allowed.getProblem(0).allowPlacement(allowed, 1, 2);
   CHECK(straightSolve(allowed, findSolutions(1), false).assemblies == 8);
+}
+
+namespace {
+
+// Optimized paths (decision 0029): a 6x6 board of 3x3 blocks, one cell
+// empty. U is a cup, open at y = 0, holding the unit piece p in its pocket;
+// F1 and F2 are whole. The blocks go round the empty cell: F1 down, U right
+// (carrying p, with nested slides), F2 up, three moves.
+Puzzle cupAndBlocks() {
+  Puzzle puz{GridType(GridKind::Sliding)};
+  const unsigned int trayId = addStartGoalShape(puz, 6, 6);
+  const unsigned int u = addBlock(puz, 3, 3);
+  puz.getShape(u).setState(1, 0, 0, Voxel::kEmpty);
+  puz.getShape(u).setState(1, 1, 0, Voxel::kEmpty);
+  const unsigned int f1 = addBlock(puz, 3, 3);
+  const unsigned int f2 = addBlock(puz, 3, 3);
+  const unsigned int p = addBlock(puz, 1, 1);
+  Voxel& tray = puz.getShape(trayId);
+  auto stamp = [&tray](unsigned int shape, const Voxel& piece, unsigned int x0, unsigned int y0,
+                       bool goal) {
+    for (unsigned int y = 0; y < piece.getY(); y++) {
+      for (unsigned int x = 0; x < piece.getX(); x++) {
+        if (piece.getState(x, y, 0) == Voxel::kEmpty) {
+          continue;
+        }
+        if (goal) {
+          tray.setGoalPiece(tray.getIndex(x0 + x, y0 + y, 0), shape + 1);
+        } else {
+          tray.setStartPiece(x0 + x, y0 + y, 0, shape + 1);
+        }
+      }
+    }
+  };
+  stamp(u, puz.getShape(u), 0, 0, false);
+  stamp(f1, puz.getShape(f1), 3, 0, false);
+  stamp(f2, puz.getShape(f2), 0, 3, false);
+  stamp(p, puz.getShape(p), 1, 1, false);
+  stamp(u, puz.getShape(u), 3, 0, true);
+  stamp(f1, puz.getShape(f1), 3, 3, true);
+  stamp(f2, puz.getShape(f2), 0, 0, true);
+  stamp(p, puz.getShape(p), 4, 1, true);
+  syncSlidingProblems(puz);
+  return puz;
+}
+
+// A corridor of four cells with a pocket above its second: units a and b
+// swap places only by b waiting in the pocket, which is off a grid of 2.
+Puzzle corridorSwap() {
+  Puzzle puz{GridType(GridKind::Sliding)};
+  const unsigned int trayId = addStartGoalShape(puz, 4, 2);
+  const unsigned int a = addBlock(puz, 1, 1);
+  const unsigned int b = addBlock(puz, 1, 1);
+  Voxel& tray = puz.getShape(trayId);
+  for (const unsigned int x : {0U, 2U, 3U}) {
+    tray.setState(x, 1, 0, Voxel::kEmpty);
+  }
+  tray.setStartPiece(0, 0, 0, a + 1);
+  tray.setStartPiece(1, 0, 0, b + 1);
+  tray.setGoalPiece(tray.getIndex(1, 0, 0), a + 1);
+  tray.setGoalPiece(tray.getIndex(0, 0, 0), b + 1);
+  syncSlidingProblems(puz);
+  return puz;
+}
+
+}  // namespace
+
+TEST_CASE("sliding: optimized paths find the grid a board of blocks fits", "[sliding]") {
+  const Puzzle p = cupAndBlocks();
+  const SlideGrid g = slideGridFor(p, p.getProblem(0));
+  CHECK(g.size == 3);
+  // each block stops at 16 places on the empty board, 4 on the grid; p at
+  // 36, and on the grid at the 8 where it sits in a cup's pocket
+  CHECK(g.stops == 3 * 16 + 36);
+  CHECK(g.gridStops == 3 * 4 + 8);
+
+  SlidingOptions o;
+  CHECK(searchGrid(p, p.getProblem(0), o) == 0);
+  o.optimizedPaths = true;
+  CHECK(searchGrid(p, p.getProblem(0), o) == 3);
+  o.grid = 2;
+  CHECK(searchGrid(p, p.getProblem(0), o) == 2);
+
+  // a board of unit pieces fits no grid that leaves fewer stops
+  const Puzzle corridor = corridorSwap();
+  CHECK(slideGridFor(corridor, corridor.getProblem(0)).size == 0);
+}
+
+TEST_CASE("sliding session: optimized paths find the fewest moves of a board of blocks",
+          "[sliding][session]") {
+  SolveOptions full = findSolutions(1);
+  full.sliding.nested = true;
+  Puzzle every = cupAndBlocks();
+  SolveSession e(every, every.getProblem(0), full);
+  REQUIRE(e.start().has_value());
+  e.wait();
+  const SlideTotals all = slideTotals(every.getProblem(0), false);
+  CHECK(every.getProblem(0).getSlideGrid() == 0);
+
+  SolveOptions optimized = full;
+  optimized.sliding.optimizedPaths = true;
+  Puzzle p = cupAndBlocks();
+  SolveSession s(p, p.getProblem(0), optimized);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  const Problem& pr = p.getProblem(0);
+  const SlideTotals grid = slideTotals(pr, false);
+  CHECK(grid == all);
+  CHECK(pr.getSlideGrid() == 3);
+  CHECK(pr.getSearched() < every.getProblem(0).getSearched());
+  CHECK(s.note().empty());
+
+  // every stop of the path is on the grid: the blocks on its lines
+  REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+  const Separation& path = *pr.getSavedSolution(0).getDisassembly();
+  CHECK(path.getMoves() == 3);
+  for (unsigned int k = 0; k <= path.getMoves(); k++) {
+    for (unsigned int i = 0; i < 3; i++) {
+      CHECK(path.getState(k).getX(i) % 3 == 0);
+      CHECK(path.getState(k).getY(i) % 3 == 0);
+    }
+  }
+
+  // the stops of a grid cell told apart (the A/B switch): the same result
+  SolveOptions apart = optimized;
+  apart.sliding.gridStopsApart = true;
+  Puzzle q = cupAndBlocks();
+  SolveSession a(q, q.getProblem(0), apart);
+  REQUIRE(a.start().has_value());
+  a.wait();
+  CHECK(slideTotals(q.getProblem(0), false) == all);
+  CHECK(pr.getSearched() <= q.getProblem(0).getSearched());
+
+  // the grid goes with the results
+  p.getProblem(0).removeAllSolutions();
+  CHECK(p.getProblem(0).getSlideGrid() == 0);
+}
+
+TEST_CASE("sliding session: optimized paths say a full search may find what they miss",
+          "[sliding][session]") {
+  Puzzle every = corridorSwap();
+  const SlideTotals all = straightSolve(every, findSolutions(1), false);
+  CHECK(all.solutions == 1);
+  REQUIRE(all.endings.size() == 1);
+  CHECK(all.endings.begin()->ends_with(" 4"));
+
+  // held to a grid of 2, b cannot wait in the pocket
+  SolveOptions o = findSolutions(1);
+  o.sliding.grid = 2;
+  Puzzle p = corridorSwap();
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(p.getProblem(0).getNumSolutions() == 0);
+  CHECK(p.getProblem(0).getSlideGrid() == 2);
+  CHECK(s.note() ==
+        "Every arrangement optimized paths reach was searched: with the pieces stopping only on "
+        "a 2-cell grid, none reaches the goal. A full search, which tries every stop, may still "
+        "find a solution.");
+
+  // the legacy search keeps to the grid too
+  o.sliding.legacy = true;
+  Puzzle legacy = corridorSwap();
+  SolveSession l(legacy, legacy.getProblem(0), o);
+  REQUIRE(l.start().has_value());
+  l.wait();
+  CHECK(legacy.getProblem(0).getNumSolutions() == 0);
+  o.sliding.grid = 0;
+  Puzzle legacyAll = corridorSwap();
+  CHECK(straightSolve(legacyAll, o, false).solutions == 1);
+}
+
+TEST_CASE("sliding session: each move's time is kept while the solve is open",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_level_times";
+  std::filesystem::remove_all(dir);
+  // the 4x4 tray of fifteen with the swap: searched long enough to pause
+  // several moves deep
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  Puzzle p = swapped(4);
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  untilSearching(s);
+  SolveProgress g = s.progress();
+  while (g.slideLevelMs.size() < 8 && isActive(s.state())) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    g = s.progress();
+  }
+  REQUIRE(g.slideLevelMs.size() >= 8);
+  s.pause();
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  // the problem keeps them, one a move, as deep as the search went
+  const Problem& pr = p.getProblem(0);
+  const std::vector<std::uint64_t> kept = pr.getSlideLevelMs();
+  CHECK(kept.size() >= g.slideLevelMs.size());
+  CHECK(std::equal(g.slideLevelMs.begin(), g.slideLevelMs.end(), kept.begin()));
+  CHECK(s.progress().slideLevelRunningMs == 0);
+
+  // carried on: the times go on from where they were
+  REQUIRE(s.resume().has_value());
+  untilSearching(s);
+  g = s.progress();
+  while (g.slideLevelMs.size() <= kept.size() && isActive(s.state())) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    g = s.progress();
+  }
+  REQUIRE(g.slideLevelMs.size() > kept.size());
+  CHECK(std::equal(kept.begin(), kept.end(), g.slideLevelMs.begin()));
+  s.abort();
+  // thrown away with the solve
+  CHECK(p.getProblem(0).getSlideLevelMs().empty());
+  std::filesystem::remove_all(dir);
+
+  // a solve that is through keeps none
+  SolveOptions nested = findSolutions(1);
+  nested.sliding.nested = true;
+  Puzzle done = cupAndBlocks();
+  SolveSession d(done, done.getProblem(0), nested);
+  REQUIRE(d.start().has_value());
+  d.wait();
+  REQUIRE(d.state() == SolveState::Finished);
+  CHECK(done.getProblem(0).getSlideLevelMs().empty());
+}
+
+TEST_CASE("sliding session: a paused solve opened without times goes on from untimed moves",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_untimed";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  Puzzle p = swapped(4);
+  {
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    untilSearching(s);
+    while (s.progress().slideLevelMs.size() < 8 && isActive(s.state())) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    s.pause();
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+  }
+  const std::uint64_t depth = p.getProblem(0).getSlideLevelMs().size();
+  REQUIRE(depth >= 8);
+  // the problem keeps how deep the search went
+  CHECK(p.getProblem(0).getSearchDepth() == depth);
+
+  // the file as a version that kept no times wrote it
+  std::string xml = io::writePuzzle(p);
+  const std::size_t at = xml.find(" slideLevelMs=\"");
+  REQUIRE(at != std::string::npos);
+  xml.erase(at, xml.find('"', at + 15) + 1 - at);
+  Result<Puzzle> opened = io::parsePuzzle(xml);
+  REQUIRE(opened.has_value());
+  // its moves searched are there, untimed, and written so
+  const Problem& pr = opened->getProblem(0);
+  CHECK(pr.getSlideLevelMs() == std::vector<std::uint64_t>(depth, kUntimedMs));
+  CHECK(io::writePuzzle(*opened).find(" slideLevelMs=\"- - -") != std::string::npos);
+
+  // carried on: the moves searched since are timed after the untimed ones
+  SolveSession s(*opened, opened->getProblem(0), o);
+  REQUIRE(s.resume().has_value());
+  untilSearching(s);
+  SolveProgress g = s.progress();
+  while (g.slideLevelMs.size() < depth + 2 && isActive(s.state())) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    g = s.progress();
+  }
+  REQUIRE(g.slideLevelMs.size() >= depth + 2);
+  for (std::size_t k = 0; k < g.slideLevelMs.size(); k++) {
+    CHECK((g.slideLevelMs[k] == kUntimedMs) == (k < depth));
+  }
+  s.abort();
+  std::filesystem::remove_all(dir);
 }

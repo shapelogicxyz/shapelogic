@@ -34,6 +34,7 @@
 #include "shapelogic/solve/solver_type.h"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -442,9 +443,11 @@ class SolveSession {
 
   /// The slide searches of a run: the pool the search spreads its levels
   /// over (made per run, with the solve's thread budget), the
-  /// arrangements the search under way has visited and how deep it is,
-  /// and what the run's searches came to (the solve thread's slide
-  /// members; the counts under resultsMutex_).
+  /// arrangements the solve's searches have visited (its runs before this
+  /// one included: a run starts it at the problem's count, and its end
+  /// puts it back there) and how deep the search under way is, and what
+  /// the run's searches came to (the solve thread's slide members; the
+  /// counts under resultsMutex_).
   std::unique_ptr<ThreadPool> slidePool_;
   std::atomic<std::uint64_t> slideProgress_{0};
   std::atomic<std::uint64_t> searchDepth_{0};
@@ -458,6 +461,18 @@ class SolveSession {
   sliding::SlideStopProgress slideStop_;
   unsigned int slideStartsCut_ = 0;
   bool slideMemoryCut_ = false;
+  /// The grid this run's slide searches hold their stops to (optimized
+  /// paths, sliding::searchGrid); 0 for every stop. Set as the run begins.
+  int slideGrid_ = 0;
+  /// The timing of the slide search's moves (the problem keeps their
+  /// times, Problem::getSlideLevelMs): when the move under way began, and
+  /// whether a search is timing one. Under resultsMutex_.
+  std::chrono::steady_clock::time_point levelStart_;
+  bool levelTiming_ = false;
+  /// The slide search is `depth` moves deep (SlideSearch::onDepth): the
+  /// move just finished is timed, or the times are made to fit a search
+  /// that begins or is carried on.
+  void onSlideDepth(std::uint64_t depth);
   std::uint64_t slideMemoryStates_ = 0;
   std::string slideDiskError_;
   bool slideDiskHeldToFree_ = false;

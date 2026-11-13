@@ -86,6 +86,7 @@ export interface Prefs {
   optNestedSlides: boolean;
   optPartialNested: boolean;
   optVerticalMoves: boolean;
+  optOptimizedPaths: boolean;
   /** Keep every n-th solution (1: each). */
   optKeepEach: number;
   /** Keep at most this many solutions (0: all). */
@@ -141,6 +142,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   optNestedSlides: false,
   optPartialNested: false,
   optVerticalMoves: false,
+  optOptimizedPaths: false,
   optKeepEach: 1,
   optKeepAtMost: 100,
 };

@@ -479,6 +479,13 @@ const SET: readonly Page[] = [
         only: SLIDING,
       },
       {
+        k: 'optOptimizedPaths',
+        t: LABEL.optimizedPaths,
+        d: TIP.optimizedPaths,
+        type: 'sw',
+        only: SLIDING,
+      },
+      {
         k: 'solverType',
         t: 'Solver type',
         d: 'The Solver type a problem starts with when it has none saved: Complete (ShapeLogic) or Fast (Crowell). A problem that saved its own keeps it. Sliding and stacking puzzles have solvers of their own.',

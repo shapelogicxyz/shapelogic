@@ -345,6 +345,13 @@ Result<void> SolveSession::launch(Mode mode) {
   if (sliding_) {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     (void)sliding::prepareForSolving(puzzle_, problem_);
+    // optimized paths: the grid is worked out once a run, from the board
+    // as it is now; the problem keeps it with what the run finds
+    slideGrid_ = sliding::searchGrid(puzzle_, problem_, o.sliding);
+    if (slideGrid_ > 1) {
+      problem_.setSlideGrid(static_cast<unsigned int>(slideGrid_));
+    }
+    levelTiming_ = false;
   }
 
   Plan plan;
@@ -373,8 +380,13 @@ Result<void> SolveSession::launch(Mode mode) {
     folderFailure_.reset();
   }
   memoryShared_ = false;
-  // a sliding run counts its searches afresh (a new solve thread did)
-  slideProgress_.store(0, std::memory_order_relaxed);
+  // a sliding run's searches count on from the solve's runs before it
+  // (nothing, once Solve has dropped them): the searches add what they
+  // visit, so the count while it runs and once it stops is one
+  {
+    const std::lock_guard<std::mutex> lock(resultsMutex_);
+    slideProgress_.store(sliding_ ? problem_.getSearched() : 0, std::memory_order_relaxed);
+  }
   searchDepth_.store(0, std::memory_order_relaxed);
   slideStartsCut_ = 0;
   slideMemoryCut_ = false;
@@ -795,12 +807,12 @@ void SolveSession::endRun(RunEnd end) {
     finished = stop == StopKind::None && end == RunEnd::Finished && problem_.getPending().empty();
     problem_.addTimeMs(ms);
     runTimeAdded_ = true;
-    // what the GUI recorded when a solve stopped (recordSearchStats): a
-    // sliding search counts afresh each run, the assembler carries its
-    // count on
+    // what the GUI recorded when a solve stopped (recordSearchStats): the
+    // sliding searches' count, which went on from the problem's, and the
+    // assembler's, which carries its own on
     if (sliding_) {
       problem_.setSearchStats(
-          problem_.getSearched() + slideProgress_.load(std::memory_order_relaxed),
+          slideProgress_.load(std::memory_order_relaxed),
           std::max(problem_.getSearchDepth(), searchDepth_.load(std::memory_order_relaxed)),
           problem_.getTriedApart());
     } else {
@@ -810,9 +822,18 @@ void SolveSession::endRun(RunEnd end) {
     }
     if (finished) {
       problem_.finishedSolving();
+      // the forecast is for a solve under way
+      problem_.setSlideLevelMs({});
     } else {
       storePosition(problem_, *assembler_);
     }
+  }
+  // A search removes its folder as it ends, but a saved search of the
+  // problem that this run could not carry on (saved by a build or with
+  // options that name it differently) would stay, listed as a paused solve
+  // of a problem that is solved.
+  if (finished && sliding_) {
+    sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
   }
   state_.advance(finished ? SolveState::Finished : SolveState::Paused);
 }
@@ -1096,6 +1117,8 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
   if (!o.justCount) {
     if (o.disassemble) {
       sliding::SlideSearch search = sliding::slideSearchFor(o.sliding);
+      search.grid = slideGrid_;
+      search.onDepth = [this](std::uint64_t depth) { onSlideDepth(depth); };
       // a save point lets the search under way finish (stopSoft)
       search.stop = runToken();
       search.progress = &slideProgress_;
@@ -1117,9 +1140,16 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
         throw;
       }
       slideSearching_.fetch_sub(1, std::memory_order_relaxed);
-      searchDepth_.store(0, std::memory_order_relaxed);
+      // the progress counts the next start's depth afresh; the problem keeps
+      // the deepest a search went (the run's end read the counter after it
+      // was cleared, so a sliding problem kept none)
+      const std::uint64_t reached = searchDepth_.exchange(0, std::memory_order_relaxed);
 
       const std::lock_guard<std::mutex> lock(resultsMutex_);
+      levelTiming_ = false;
+      problem_.setSearchStats(problem_.getSearched(),
+                              std::max(problem_.getSearchDepth(), reached),
+                              problem_.getTriedApart());
       // paused in the middle of this start's search: it is searched again
       // on the next run instead of counted as one with no solution
       if (search.outcome == sliding::SlideOutcome::Stopped) {
@@ -1198,6 +1228,26 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
   return true;
 }
 
+// The problem keeps the times: a move that ends one deeper than the times
+// known is timed; any other depth is a search beginning (a new start, at
+// 0) or carried on (from its saved depth), and the times are cut to it or
+// padded with untimed moves (a search saved before the times were kept).
+// Then the next move's clock starts.
+void SolveSession::onSlideDepth(std::uint64_t depth) {
+  const auto now = std::chrono::steady_clock::now();
+  const std::lock_guard<std::mutex> lock(resultsMutex_);
+  std::vector<std::uint64_t> ms = problem_.getSlideLevelMs();
+  if (levelTiming_ && depth == ms.size() + 1) {
+    ms.push_back(static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - levelStart_).count()));
+  } else {
+    ms.resize(static_cast<std::size_t>(depth), kUntimedMs);
+  }
+  problem_.setSlideLevelMs(std::move(ms));
+  levelStart_ = now;
+  levelTiming_ = true;
+}
+
 // Under resultsMutex_. Whether a missing solution is proven or the search
 // gave up (solveThread_c::slidingSummary, word for word).
 std::string SolveSession::slidingSummary(const SolveOptions& o) const {
@@ -1226,6 +1276,13 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
       msg += " Try Enable High Memory.";
     }
     return msg;
+  }
+  if (problem_.getNumSolutions() == 0 && problem_.getNumAssemblies() > 0 && slideGrid_ > 1) {
+    return "Every arrangement optimized paths reach was searched: with the pieces stopping "
+           "only on a " +
+           std::to_string(slideGrid_) +
+           "-cell grid, none reaches the goal. A full search, which tries every stop, may still "
+           "find a solution.";
   }
   if (problem_.getNumSolutions() == 0 && problem_.getNumAssemblies() > 0) {
     std::string msg =
@@ -1696,6 +1753,7 @@ SolveProgress SolveSession::progress() const {
   unsigned int pieces = 0;
   // a sliding run's starts still to search: under way, or left by a pause
   std::size_t slideOpen = 0;
+  std::uint64_t deepest = 0;
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     p.assemblies = problem_.numAssembliesKnown() ? problem_.getNumAssemblies() : 0;
@@ -1711,10 +1769,19 @@ SolveProgress SolveSession::progress() const {
     parts = problem_.getNumberOfParts();
     pieces = problem_.getNumberOfPieces();
     slideOpen = problem_.getPending().size();
+    // the deepest the solve's slide searches went, as the problem keeps it
+    deepest = sliding_ && !stacking_ ? problem_.getSearchDepth() : 0;
+    p.slideLevelMs = problem_.getSlideLevelMs();
+    if (levelTiming_) {
+      p.slideLevelRunningMs = static_cast<std::uint64_t>(
+          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                levelStart_)
+              .count());
+    }
   }
   slideOpen += slideSearching_.load(std::memory_order_relaxed);
   p.searched = slideProgress_.load(std::memory_order_relaxed);
-  p.searchDepth = searchDepth_.load(std::memory_order_relaxed);
+  p.searchDepth = std::max(deepest, searchDepth_.load(std::memory_order_relaxed));
   p.searchTraced = searchTraced_.load(std::memory_order_relaxed);
   p.disasmCompleted = completed_.load(std::memory_order_relaxed);
   p.disasmPending = pending_.load(std::memory_order_relaxed);

@@ -162,6 +162,13 @@ void usage(HelpKind kind) {
         "  --high-memory\n"
         "          let the search keep up to half of this computer's memory in\n"
         "          arrangements before it writes to disk, instead of about 2 GB\n"
+        "  --optimized-paths\n"
+        "          when the board divides into a grid of cells that the blocks fill\n"
+        "          (a 3x3 board of 6x6 blocks, say), pieces stop only on that grid:\n"
+        "          blocks on its lines, smaller pieces where they fit in a block's hole\n"
+        "          or start or end. A much smaller search that limits the search\n"
+        "          space: its path may have more moves than the fewest, and no\n"
+        "          solution then proves nothing\n"
         "  --solver TYPE   \"Sliding Puzzle Solver\" (also: sliding), the only one: it\n"
         "          finds the fewest moves or proves there is no solution, on every core\n"
         "          (-t n to limit); what outgrows its memory goes to disk, so free disk\n"
@@ -177,10 +184,11 @@ void usage(HelpKind kind) {
         "\n  Switches for benchmarks and comparisons (the answers stay the same):\n"
         "  --slide-legacy   the original search over text keys\n"
         "  --slide-apart    like pieces told apart instead of searched as one\n"
+        "  --slide-stops-apart  with --optimized-paths and --nested-slides: the stops\n"
+        "                   inside a grid cell told apart instead of searched as one\n"
         "  --slide-trace    each level of the search on stderr\n"
-        "  --slide-step N   pieces stop only where they are a multiple of N cells from\n"
-        "                   their start in x and y (a smaller search; a path it finds is\n"
-        "                   real, but no solution then proves nothing)\n",
+        "  --slide-grid N   --optimized-paths on a grid of N cells, whether or not the\n"
+        "                   board fits it (its answers are those of a restricted search)\n",
         stdout);
     return;
   }
@@ -347,17 +355,21 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.mirroredOrientations = true;
     } else if (a == "--high-memory") {
       o.highMemory = true;
+    } else if (a == "--optimized-paths") {
+      o.optimizedPaths = true;
     } else if (a == "--slide-legacy") {
       o.slideLegacy = true;
     } else if (a == "--slide-apart") {
       o.slideApart = true;
-    } else if (a == "--slide-step") {
-      unsigned int step = 0;
-      if (!hasValue || !parseCount(argv[i + 1], &step) || step == 0) {
-        std::fprintf(stderr, "shapelogic_cli: %s requires a positive number\n", argv[i]);
+    } else if (a == "--slide-stops-apart") {
+      o.slideStopsApart = true;
+    } else if (a == "--slide-grid") {
+      unsigned int size = 0;
+      if (!hasValue || !parseCount(argv[i + 1], &size) || size < 2 || size > 1024) {
+        std::fprintf(stderr, "shapelogic_cli: %s requires a number from 2 to 1024\n", argv[i]);
         return kExitUsage;
       }
-      o.slideStep = static_cast<int>(step);
+      o.slideGrid = static_cast<int>(size);
       i++;
     } else if (a == "--slide-trace") {
       o.slideTrace = true;

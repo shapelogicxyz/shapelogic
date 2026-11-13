@@ -748,13 +748,15 @@ export interface ProblemSummary {
   timeMs: number | null;
   /**
    * How much the solves of the problem went through, kept with it in the file (the original's
-   * recordSearchStats): the assembler's search steps, a sliding search's arrangements, a stacking
-   * search's stackings (found, for the Panex search); 0 when unknown.
+   * recordSearchStats): the assembler's search steps, a sliding solve's arrangements (every run of
+   * the solve: what SolveProgress.searched showed when its last run stopped; solve.start begins it
+   * at 0), a stacking search's stackings (found, for the Panex search); 0 when unknown.
    * @minimum 0
    */
   searched: number;
   /**
-   * How many moves deep a sliding or Panex search went; 0 when unknown or for the other searches.
+   * How many moves deep a sliding solve's searches went (the deepest), or a Panex search; 0 when
+   * unknown or for the other searches.
    * @minimum 0
    */
   searchDepth: number;
@@ -763,6 +765,14 @@ export interface ProblemSummary {
    * @minimum 0
    */
   triedApart: number;
+  /**
+   * The grid a sliding solve held its stops to (optimized paths: cells a side;
+   * SlidingOptions.optimizedPaths), kept with the problem in the file and dropped with its
+   * results: its solutions were found on that grid, so a shorter one may exist, and its 'no
+   * solution' proves nothing. 0 when every stop was searched.
+   * @minimum 0
+   */
+  slideGrid: number;
 }
 
 /** Everything a front end shows of the document's lists. */
@@ -848,10 +858,11 @@ export interface Part {
  * front end decides what they mean). Settings of other versions are kept as strings. These names
  * are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations,
  * strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested,
- * verticalMoves, anyOrientation, mirroredOrientations and highMemory are sliding's nestedSlides,
- * partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory, a sliding
- * puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part:
- * there is one sliding solver). highMemory belongs to the stacking solvers too.
+ * verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's
+ * nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths
+ * and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as
+ * stored and plays no part: there is one sliding solver). highMemory belongs to the stacking
+ * solvers too.
  */
 export interface SolverSettings {
   disassemble?: boolean;
@@ -867,6 +878,8 @@ export interface SolverSettings {
   verticalMoves?: boolean;
   anyOrientation?: boolean;
   mirroredOrientations?: boolean;
+  /** Automatically use optimized paths (not in the original). */
+  optimizedPaths?: boolean;
   highMemory?: boolean;
   autosave?: boolean;
   /** Always show Assemblies (not in the original). */
@@ -906,6 +919,8 @@ export interface ProblemDetail {
   searchDepth: number;
   /** @minimum 0 */
   triedApart: number;
+  /** @minimum 0 */
+  slideGrid: number;
   parts: Part[];
   /**
    * The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'.
@@ -923,6 +938,12 @@ export interface ProblemDetail {
     start: Stacks;
     goal: Stacks;
   } | null;
+  /**
+   * A sliding solve that is open (under way or paused, kept in the file): the forecast from the
+   * times of the moves its search has searched (runningMs 0; while it runs, solve.progress has the
+   * live one). Null when there are none, and once the solve is through.
+   */
+  slideForecast: SlideForecast | null;
 }
 
 /** Whether the pieces can fill the result (the fit summary). */
@@ -1039,6 +1060,16 @@ export interface SlidingOptions {
    */
   mirroredOrientations?: boolean;
   /**
+   * Automatically use optimized paths: when the board fits a grid (sliding.gridAdvice), every
+   * piece stops only on it, blocks on its lines and smaller pieces at the offsets where pieces of
+   * their cells start or fill a goal or fit in a block's hole; pieces still pass through the cells
+   * between. The grid is worked out as each run begins and kept with the problem
+   * (ProblemSummary.slideGrid). A far smaller search that limits the search space: a path it finds
+   * is real but may have more than the fewest moves, and 'no solution' proves nothing (the note
+   * says so). Off (the default), every stop is searched; with no grid found, too.
+   */
+  optimizedPaths?: boolean;
+  /**
    * Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable
    * High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no
    * part.
@@ -1144,14 +1175,17 @@ export interface SolveProgress {
    */
   activity: string;
   /**
-   * The sliding search under way: the arrangements it has visited; the stacking search: the
-   * stackings it has searched (found, for the Panex search).
+   * A sliding solve: the arrangements its searches have visited, its runs before this one included
+   * (ProblemSummary.searched, which a run's end sets to it; a search carried on from its folder
+   * adds only what it visits now); the stacking search: the stackings it has searched (found, for
+   * the Panex search).
    * @minimum 0
    */
   searched: number;
   /**
-   * How many moves deep a sliding search is (0 before its first level, and for the other
-   * searches); how many moves deep both ends of the Panex search are together.
+   * How many moves deep a sliding solve's searches have gone, the deepest (0 before the first
+   * one's first level, and for the other searches); how many moves deep both ends of the Panex
+   * search are together.
    * @minimum 0
    */
   searchDepth: number;
@@ -1178,6 +1212,61 @@ export interface SolveProgress {
     /** @minimum 0 */
     totalBytes: number;
   } | null;
+  /**
+   * A sliding solve: the forecast from the times of the moves the slide search under way (or
+   * paused) has searched, and how long the move it is on has run. Null before a move is timed, and
+   * on other grids.
+   */
+  slideForecast: SlideForecast | null;
+}
+
+/**
+ * How long a slide search will take to go deeper (the Solver's Performance Analysis): the time
+ * each move deep took, the rate the times grow at (the geometric mean of the newest five ratios of
+ * moves that took 20 ms or more), and from it every fifth move to 100 past the search's depth: the
+ * next move takes the last one's time times the growth, or as long as it has run when that is
+ * longer, each move after it the one before times the growth. Times are held to a thousand years.
+ */
+export interface SlideForecast {
+  /**
+   * The moves searched to (the times known).
+   * @minimum 0
+   */
+  depth: number;
+  /**
+   * How long each move took: entry k is move k + 1; null for a move not timed (searched before the
+   * times were kept: a paused solve opened from a file without them has its moves so, and the
+   * times go on from them). The growth and the estimates start once two moves in a row have been
+   * timed.
+   */
+  levelMs: (number | null)[];
+  /**
+   * How long the move under way has run; 0 when none is.
+   * @minimum 0
+   */
+  runningMs: number;
+  /**
+   * Each move's time over the one before; null when fewer than two measurable moves follow one
+   * another (then there are no estimates).
+   */
+  growth: number | null;
+  estimates: ({
+    /**
+     * Moves deep: a multiple of 5, up to 100.
+     * @minimum 1
+     */
+    depth: number;
+    /**
+     * How long that move will take.
+     * @minimum 0
+     */
+    levelMs: number;
+    /**
+     * How long until the search has searched that deep, from now.
+     * @minimum 0
+     */
+    fromNowMs: number;
+  })[];
 }
 
 /** The debug statistics panel. */
@@ -2988,6 +3077,40 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument';
   };
   /**
+   * Whether optimized paths would narrow a sliding problem's search (decision 0029), from its
+   * board and the starts and goals stamped: the largest grid that divides the board's floor, whose
+   * cells some piece (a block) measures a multiple of and on whose lines every such piece starts
+   * and fills its goals, and that leaves fewer stops; with it, every piece stops only where pieces
+   * of its cells start or fill a goal, or where it fits in a block's hole. The Solver asks before
+   * a solve whether to use it (SlidingOptions.optimizedPaths). Changes nothing.
+   * (sliding.json)
+   */
+  'sliding.gridAdvice': {
+    params: {
+      problem: ProblemId;
+    };
+    result: {
+      /**
+       * Cells a side; 0 when the board fits no such grid (or the problem has no board or no
+       * starts), and optimized paths would search every stop.
+       * @minimum 0
+       */
+      grid: number;
+      /**
+       * The places the problem's pieces can stop on the empty board, summed over the pieces (each
+       * copy counted); 0 without a grid.
+       * @minimum 0
+       */
+      stops: number;
+      /**
+       * Those the grid leaves (fewer than stops); 0 without a grid.
+       * @minimum 0
+       */
+      gridStops: number;
+    };
+    errors: 'not_found' | 'unsupported';
+  };
+  /**
    * A slice of the saved solutions, sorted: list (the stored order), assembly (found order),
    * level, moves or pieces (the original's sort buttons); descending sorts by the swapped
    * comparison, so ties keep their order.
@@ -3847,6 +3970,7 @@ export const METHOD_NAMES = [
   'sliding.clear',
   'sliding.clearAt',
   'sliding.clone',
+  'sliding.gridAdvice',
   'sliding.place',
   'sliding.preview',
   'sliding.tray',

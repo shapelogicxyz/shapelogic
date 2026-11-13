@@ -430,7 +430,8 @@
      "timeMs": 1000,
      "searched": 0,
      "searchDepth": 0,
-     "triedApart": 0
+     "triedApart": 0,
+     "slideGrid": 0
     }
    ],
    "rodSets": []
@@ -1518,10 +1519,11 @@
    "assemblies": 1,
    "solutions": 1,
    "saved": 1,
-   "timeMs": 29,
+   "timeMs": 22,
    "searched": 1866,
    "searchDepth": 0,
    "triedApart": 1,
+   "slideGrid": 0,
    "parts": [
     {
      "shape": "s1",
@@ -1624,7 +1626,8 @@
    "maxHoles": null,
    "savedPosition": false,
    "solverSettings": {},
-   "stacks": null
+   "stacks": null,
+   "slideForecast": null
   },
   {
    "total": 1,
@@ -2137,7 +2140,8 @@
      "searchTraced": 0,
      "panexSearch": false,
      "stopKind": null,
-     "slideStop": null
+     "slideStop": null,
+     "slideForecast": null
     }
    }
   },
@@ -2166,7 +2170,7 @@
     "progress": {
      "stage": "done",
      "elapsedMs": 52,
-     "usedMs": 29,
+     "usedMs": 22,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,
@@ -2188,7 +2192,8 @@
      "searchTraced": 0,
      "panexSearch": false,
      "stopKind": null,
-     "slideStop": null
+     "slideStop": null,
+     "slideForecast": null
     }
    }
   },

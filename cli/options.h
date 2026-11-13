@@ -48,6 +48,7 @@ struct Options {
   bool anyOrientation = false;        ///< --any-orientation: unplaced pieces may turn
   bool mirroredOrientations = false;  ///< --mirrored-orientations (implies --any-orientation)
   bool highMemory = false;     ///< --high-memory
+  bool optimizedPaths = false;  ///< --optimized-paths: stops held to the grid the board fits
 
   // burrTxt's stacking options (--high-memory and --restart too)
   bool panexSolver = false;          ///< --solver of a stacking puzzle: the Panex Solver
@@ -80,7 +81,9 @@ struct Options {
   // the slide search's (the original's SHAPELOGIC_SLIDE_* switches)
   bool slideLegacy = false;  ///< --slide-legacy: the search over text keys
   bool slideApart = false;   ///< --slide-apart: like pieces told apart
-  int slideStep = 1;         ///< --slide-step N: pieces stop only N cells apart in x and y
+  /// --slide-stops-apart: the stops inside a grid cell told apart
+  bool slideStopsApart = false;
+  int slideGrid = 0;         ///< --slide-grid N: stops held to a grid of N cells (optimized paths)
   bool slideTrace = false;   ///< --slide-trace: each level of the search on stderr
   // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)
   bool noTowerRule = false;  ///< --no-tower-rule: the classic tower searched too

@@ -53,6 +53,16 @@ describe('the problems list notes', () => {
       '5k moves',
     );
     expect(problemNote('idle', solved, 'stacking', dis).text).toBe('no solution');
+    // optimized paths: neither the fewest moves nor none is proven
+    const grid = { ...solved, slideGrid: 6 };
+    expect(problemNote('idle', grid, 'sliding', { disassemble: true, moves: 40 }).text).toBe(
+      '40 moves (optimized)',
+    );
+    expect(problemNote('idle', grid, 'sliding', dis).text).toBe('no solution (optimized)');
+    expect(
+      problemNote('idle', { ...solved, slideGrid: 0 }, 'sliding', { disassemble: true, moves: 1 })
+        .text,
+    ).toBe('1 move');
     expect(problemNote('idle', solved, 'sliding', asm).text).toBe('12k assemblies');
     // nothing before the read, nor for a problem not solved
     expect(problemNote('idle', solved, 'brick', null).kind).toBe('none');

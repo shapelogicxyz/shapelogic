@@ -23,7 +23,9 @@
 // have, off by default so that a piece stays in its layer; and after Just
 // Count, Allow any orientation for unplaced pieces with its Include
 // mirrored orientations (only with it), off by default so that every
-// piece is placed as drawn. On a
+// piece is placed as drawn; and above the Solver Type, Automatically use
+// optimized paths (decision 0029), off by default: with it off, Solve asks
+// first when the board fits a grid (workspace.ts). On a
 // stacking puzzle (section 9.3): Find Solutions checked at first
 // (stackingDisasmDefaulted), Just Levels kept (the search ignores it), no
 // Check Rotations, Strict Colours or symmetry options, and one solver by
@@ -68,6 +70,7 @@ export type BoxName =
   | 'verticalMoves'
   | 'anyOrientation'
   | 'mirroredOrientations'
+  | 'optimizedPaths'
   | 'keepAssemblies';
 
 /** The options as the Solver card shows and edits them. */
@@ -90,6 +93,8 @@ export interface SearchOptions {
   anyOrientation: boolean;
   /** Sliding: and mirrored (Include mirrored orientations; needs anyOrientation). */
   mirroredOrientations: boolean;
+  /** Sliding: hold the stops to the grid the board fits (Automatically use optimized paths). */
+  optimizedPaths: boolean;
   /**
    * The original's Autosave box as the problem stored it: read and written
    * back as it was, and not looked at. The crash recovery journal that took
@@ -118,6 +123,7 @@ export const DEFAULT_OPTIONS: Readonly<SearchOptions> = {
   verticalMoves: false,
   anyOrientation: false,
   mirroredOrientations: false,
+  optimizedPaths: false,
   autosave: true,
   keepAssemblies: false,
   solver: 'classic',
@@ -163,6 +169,7 @@ export function defaultsOf(family: Family): Readonly<SearchOptions> {
     verticalMoves: prefs.optVerticalMoves,
     anyOrientation: prefs.optAnyOrientation,
     mirroredOrientations: prefs.optMirroredOrientations,
+    optimizedPaths: prefs.optOptimizedPaths,
     keepAssemblies: prefs.optKeepAssemblies,
     solver: family === 'brick' && prefs.solverType === 'Fast' ? 'crowell' : 'classic',
   };
@@ -186,6 +193,7 @@ export const SLIDING_BOXES: ReadonlySet<BoxName> = new Set<BoxName>([
   'nestedSlides',
   'partialNested',
   'verticalMoves',
+  'optimizedPaths',
 ]);
 
 /** The boxes only a sliding puzzle shows. */
@@ -195,6 +203,7 @@ export const SLIDING_ONLY: ReadonlySet<BoxName> = new Set<BoxName>([
   'nestedSlides',
   'partialNested',
   'verticalMoves',
+  'optimizedPaths',
 ]);
 
 /** The boxes a stacking puzzle shows (updateSolverOptionCheckboxes' setVis). */
@@ -253,6 +262,7 @@ export function readOptions(
     'verticalMoves',
     'anyOrientation',
     'mirroredOrientations',
+    'optimizedPaths',
     'keepAssemblies',
   ];
   for (const b of boxes) {
@@ -314,6 +324,7 @@ export function writeOptions(
     out.verticalMoves = o.verticalMoves;
     out.anyOrientation = o.anyOrientation;
     out.mirroredOrientations = o.mirroredOrientations;
+    out.optimizedPaths = o.optimizedPaths;
   }
   return out;
 }
@@ -358,6 +369,7 @@ export function normalize(
     o.verticalMoves = false;
     o.anyOrientation = false;
     o.mirroredOrientations = false;
+    o.optimizedPaths = false;
     o.keepAssemblies = false;
     if (changed === 'justLevels' && o.justLevels) {
       o.justCount = false;
@@ -494,6 +506,7 @@ export function solveOptions(
         verticalMoves: o.verticalMoves,
         anyOrientation: o.anyOrientation,
         mirroredOrientations: o.anyOrientation && o.mirroredOrientations,
+        optimizedPaths: o.optimizedPaths,
       },
     };
   }
@@ -512,6 +525,15 @@ export function solveOptions(
     keepAtMost: Math.max(0, Math.round(limits.keepAtMost)),
     keepEach: Math.max(1, Math.round(limits.keepEach)),
   };
+}
+
+/**
+ * A sliding solve's options with optimized paths on or off: the Solve
+ * dialog's choice, or the full search offered when they found nothing, for
+ * that solve only (the problem's stored box stays as it was).
+ */
+export function withOptimizedPaths(o: SolveOptions, on: boolean): SolveOptions {
+  return o.sliding === undefined ? o : { ...o, sliding: { ...o.sliding, optimizedPaths: on } };
 }
 
 /** Whether two option sets store the same. */
@@ -619,16 +641,21 @@ export function stopDetails(
  * The Details line of a problem not being solved: what its solves went
  * through, as kept in the file (mainwindow.cpp's finishedActivity without
  * its "Finished.", a stacking search's as it shows while it runs); empty
- * when nothing is known.
+ * when nothing is known. `open`: the solve is not through (paused, or so
+ * in the file), and a sliding one says what it said while it ran.
  */
 export function savedDetails(
   family: Family,
   searched: number,
   depth: number,
   apart: number,
+  open = false,
 ): string {
   if (family === 'stacking') {
     return searched > 0 || depth > 0 ? stackingSearched(searched, depth) : '';
+  }
+  if (family === 'sliding' && open) {
+    return searched > 0 || depth > 0 ? slidingDetails(searched, depth) : '';
   }
   const what = family === 'sliding' ? 'arrangements' : 'search steps';
   const parts: string[] = [];

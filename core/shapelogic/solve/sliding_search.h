@@ -138,7 +138,10 @@ struct SlideSearch {
   StopToken stop;
   /// When set, the level search tells what it does once stopped.
   SlideStopProgress* stopProgress = nullptr;
-  /// When set, kept up to date with the arrangements visited so far.
+  /// When set, the arrangements the search visits are added to it as it
+  /// goes, so that it can count a whole solve's searches: a search carried
+  /// on adds only those it visits now (its saved count is in `visited`),
+  /// and a level cut short by a stop takes its own back off.
   std::atomic<std::uint64_t>* progress = nullptr;
   /// When set, the level search keeps it up to date with the moves it has
   /// searched to (both ends together).
@@ -202,13 +205,30 @@ struct SlideSearch {
   /// apart instead of searched as one.
   bool legacy = false;
   bool likePiecesApart = false;
-  /// Coarse moves: a piece may stop only where it is a multiple of this
-  /// many cells from its start in x and in y (it still passes through the
-  /// cells between). 1 searches every stop. Above 1 the search is a
-  /// restriction: a path it finds is real, but NoPath proves nothing.
-  int step = 1;
+  /// Optimized paths: with a size above 1, a piece may stop only where its
+  /// place, x and y modulo the size, is one of its grid offsets: an offset
+  /// at which a piece of the same cells starts or fills a goal, or lies
+  /// wholly in the outline of another piece at one of that piece's offsets
+  /// (a block's hole). A piece with no such offset stops anywhere. Pieces
+  /// still pass through the cells between. The search is a restriction: a
+  /// path it finds is real but may have more than the fewest moves, and
+  /// NoPath proves nothing. 0 or 1 searches every stop.
+  ///
+  /// With nested slides the stops a piece has inside one cell of the grid
+  /// are searched as one where the piece can be at any of them (loose
+  /// stops, decision 0031): the same moves found, in fewer arrangements.
+  int grid = 0;
+  /// A/B switch: with a grid, every stop of a grid cell told apart instead
+  /// of searched as one.
+  bool gridStopsApart = false;
   /// Told each level the level search finishes; empty for none.
   SlideLevelTrace onLevel;
+  /// The level search: told how many moves deep it is (both ends
+  /// together) as it begins (a search carried on: the depth it goes on
+  /// from, whose moves the caller may not have times for) and each time it is a move deeper, on the search's thread, so
+  /// that the caller can time each move (the Performance Analysis). Empty
+  /// for none.
+  std::function<void(std::uint64_t)> onDepth;
 
   /// Out: how the search ended, and how many arrangements it visited.
   SlideOutcome outcome = SlideOutcome::NoPath;
@@ -226,6 +246,10 @@ struct SlideSearch {
   /// when it stopped (a search with `resume` carries it on).
   bool resumed = false;
   bool saved = false;
+  /// Out, for the level search: the stops inside a grid cell were searched
+  /// as one (see grid). Then `visited` counts arrangements that may each
+  /// stand for several.
+  bool looseStops = false;
   /// Out, for the level search with nested slides: arrangements reached by a
   /// move that cannot be made backwards that had been reached two or more
   /// moves earlier, so had to be looked for on disk.
@@ -271,9 +295,41 @@ struct SlidingOptions {
   /// The A/B switches (SlideSearch).
   bool legacy = false;
   bool likePiecesApart = false;
-  /// SlideSearch::step.
-  int step = 1;
+  bool gridStopsApart = false;
+  /// Hold the stops to the grid slideGridFor finds for the problem, when
+  /// it finds one (the Solver's Automatically use optimized paths): a
+  /// smaller search, whose path may have more than the fewest moves.
+  bool optimizedPaths = false;
+  /// A/B switch: SlideSearch::grid of this size, whether or not the board
+  /// fits it; above 1 it takes the place of optimizedPaths' grid.
+  int grid = 0;
 };
+
+/// The grid optimized paths would hold a sliding problem's stops to, and
+/// how far it narrows them.
+struct SlideGrid {
+  /// Cells a side (SlideSearch::grid); 0 when the board fits no grid that
+  /// leaves fewer stops.
+  int size = 0;
+  /// The places the problem's pieces can stop on the empty board, summed
+  /// over the pieces: all of them, and those the grid leaves.
+  std::uint64_t stops = 0;
+  std::uint64_t gridStops = 0;
+};
+
+/// The grid for optimized paths: the largest size above 1 that divides the
+/// board's floor (its bounding box) in x and y, for which at least one
+/// piece measures a multiple of it in x and y (a block) and every such
+/// piece starts and fills its goals on the grid's lines, and which leaves
+/// fewer stops. Each piece's offsets are found as SlideSearch::grid finds
+/// them, from the starts and goals stamped. None for a problem whose result
+/// is no start/goal shape, or that has no starts.
+[[nodiscard]] SlideGrid slideGridFor(const Puzzle& puzzle, const Problem& problem);
+
+/// The grid a solve's searches use: options.grid when above 1, else with
+/// optimizedPaths the size slideGridFor finds (0 when none), else 0.
+[[nodiscard]] int searchGrid(const Puzzle& puzzle, const Problem& problem,
+                             const SlidingOptions& options);
 
 /// A search set up as the options say (nested, partialNested,
 /// verticalMoves, highMemory, memoryBytes, workDir, diskBudget, the

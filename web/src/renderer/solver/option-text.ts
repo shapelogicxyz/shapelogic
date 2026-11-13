@@ -34,6 +34,8 @@ export const TIP: Record<BoxName, string> = {
     'A piece with neither a start nor a goal on the board may be placed in any of its quarter turns. Off, every piece is placed as it is drawn. Either way a piece keeps its orientation as it slides.',
   mirroredOrientations:
     'With Allow any orientation for unplaced pieces: those pieces may also be placed mirrored, as if turned over.',
+  optimizedPaths:
+    'When the board divides into a grid of cells that its blocks fill (a 3×3 board of 6×6 blocks, say), every piece stops only on that grid: blocks on its lines, smaller pieces where they fit in a block’s hole or where they start or end. This limits the search space, so the search is far smaller and faster, but a solution it finds may have more moves than the fewest, and when it finds none a full search may still find one. Off, Solve asks first when the board fits such a grid.',
   keepAssemblies:
     'Always show Assembly results even when Disassemble is selected and no Disassemblies are found. Disassemblies will be shown at the top of the results.',
 };
@@ -59,6 +61,7 @@ export const LABEL: Record<BoxName, string> = {
   verticalMoves: 'Allow Vertical Moves',
   anyOrientation: 'Allow any orientation for unplaced pieces',
   mirroredOrientations: 'Include mirrored orientations',
+  optimizedPaths: 'Automatically use optimized paths',
   keepAssemblies: 'Always show Assemblies',
 };
 

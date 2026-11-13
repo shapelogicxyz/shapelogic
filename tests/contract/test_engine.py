@@ -960,6 +960,75 @@ def sliding_solve_pause_continue_and_play(e):
 
 
 @test
+def sliding_grid_advice(e):
+    e.call("document.new", {"grid": "sliding"})
+    # three 2x2 blocks on a 4x4 board: a grid of 2 cells
+    blocks = []
+    for _ in range(3):
+        b = e.call("shape.create", {"size": [2, 2, 1]})["shape"]
+        e.call("shape.setCells", {"shape": b, "tool": "fixed",
+                                  "cells": [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]})
+        blocks.append(b)
+    tray = e.call("sliding.addStartGoal", {"size": [4, 4]})["shape"]
+    p = e.call("problem.create")["problem"]
+    e.call("problem.setResult", {"problem": p, "shape": tray})
+    check(e.call("sliding.gridAdvice", {"problem": p}) == {"grid": 0, "stops": 0, "gridStops": 0},
+          "no starts: no grid")
+    for b, start, goal in zip(blocks, ([0, 1], [2, 1], [0, 3]), ([2, 3], [0, 3], [2, 1])):
+        check(e.call("sliding.place", {"tray": tray, "problem": p, "piece": b, "at": start,
+                                       "goal": False})["placed"], "a start")
+        check(e.call("sliding.place", {"tray": tray, "problem": p, "piece": b, "at": goal,
+                                       "goal": True})["placed"], "a goal")
+    a = e.call("sliding.gridAdvice", {"problem": p})
+    # each block stops at 9 places on the empty board, 4 of them on the grid
+    check(a == {"grid": 2, "stops": 27, "gridStops": 12}, f"the advice {a}")
+    check(e.call("document.get")["problems"][0]["slideGrid"] == 0, "no solve, no grid kept")
+    e.fails("sliding.gridAdvice", {"problem": "p999"}, "not_found")
+
+    # a fixed 2x2 block in a corner gives the board a grid of 2; units a and
+    # b swap along the bottom row only by b waiting in the pocket above its
+    # second cell, which is off the grid
+    e.call("document.new", {"grid": "sliding"})
+    block = e.call("shape.create", {"size": [2, 2, 1]})["shape"]
+    e.call("shape.setCells", {"shape": block, "tool": "fixed",
+                              "cells": [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]]})
+    units = []
+    for _ in range(2):
+        u = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+        e.call("shape.setCells", {"shape": u, "tool": "fixed", "cells": [[0, 0, 0]]})
+        units.append(u)
+    tray = e.call("sliding.addStartGoal", {"size": [4, 4]})["shape"]
+    e.call("shape.setCells", {"shape": tray, "tool": "erase", "cells": [
+        [0, 1, 0], [2, 1, 0], [3, 1, 0], [0, 2, 0], [1, 2, 0], [0, 3, 0], [1, 3, 0]]})
+    p = e.call("problem.create")["problem"]
+    e.call("problem.setResult", {"problem": p, "shape": tray})
+    a, b = units
+    for piece, start, goal in ((block, [2, 3], [2, 3]), (a, [0, 0], [1, 0]), (b, [1, 0], [0, 0])):
+        e.call("sliding.place", {"tray": tray, "problem": p, "piece": piece, "at": start, "goal": False})
+        e.call("sliding.place", {"tray": tray, "problem": p, "piece": piece, "at": goal, "goal": True})
+    check(e.call("sliding.tray", {"tray": tray, "problem": p})["error"] is None, "solvable")
+    check(e.call("sliding.gridAdvice", {"problem": p})["grid"] == 2, "a grid of 2")
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": True,
+                                                     "sliding": {"optimizedPaths": True}}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved on the grid")
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["slideGrid"] == 2 and detail["solutions"] == 0, f"no path on the grid {detail}")
+    note = e.call("solve.status", {"problem": p})["note"]
+    check(note is not None and "2-cell grid" in note and "A full search" in note, f"the note {note}")
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": True}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "solved in full")
+    detail = e.call("problem.get", {"problem": p})
+    check(detail["slideGrid"] == 0 and detail["solutions"] == 1, f"the full search {detail}")
+    rows = e.call("solution.page", {"problem": p, "sortBy": "list", "limit": 10})["rows"]
+    check([r["moves"] for r in rows] == [4], f"four moves {rows}")
+    e.call("document.new", {"grid": "bricks"})
+    q = e.call("problem.create")["problem"]
+    e.fails("sliding.gridAdvice", {"problem": q}, "unsupported")
+
+
+@test
 def sliding_start_goal_shapes(e):
     e.call("document.new", {"grid": "sliding"})
     # two pieces: one cell, and two cells side by side

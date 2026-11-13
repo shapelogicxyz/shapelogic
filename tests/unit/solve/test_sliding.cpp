@@ -1820,12 +1820,16 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
   CHECK(first.saved);
   CHECK(first.visited >= 4000);
   CHECK(first.visited < straight.visited);
+  // the progress was told what the search kept (a level cut short is not)
+  CHECK(progress.load() == first.visited);
   CHECK(std::filesystem::is_directory(dir));
   CHECK_FALSE(std::filesystem::is_empty(dir));
 
   SlideSearch second;
   second.threads = 3;
   second.workDir = dir.string();
+  // carried on, it adds only what it visits now
+  second.progress = &progress;
   const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
   REQUIRE(rest.has_value());
   CHECK(second.resumed);
@@ -1834,6 +1838,7 @@ TEST_CASE("sliding: a stopped search is saved and carried on", "[sliding][resume
   CHECK(rest->getMoves() == 81);
   CHECK(placesAlong(*rest) == placesAlong(*whole));
   CHECK(second.visited == straight.visited);
+  CHECK(progress.load() == straight.visited);
   // the folder goes with the search
   CHECK(std::filesystem::is_empty(dir));
 
@@ -2152,4 +2157,482 @@ TEST_CASE("sliding: optional pieces give the same layouts on every search",
   for (const std::set<std::string>& s : seen) {
     CHECK(s == seen[0]);
   }
+}
+
+namespace {
+
+// Loose stops (decision 0031): a board of 3x3 blocks on a grid of 3, some
+// of them cups, with small pieces in their pockets and in the empty cells.
+// Every piece has a start; `places` says where the pieces with a goal must
+// end.
+struct GridBoard {
+  Puzzle puz{GridType(GridKind::Sliding)};
+  std::unique_ptr<Assembly> start;
+  struct Place {
+    int x;
+    int y;
+    int goalX;  // negative: it may end anywhere
+    int goalY;
+    bool block;
+  };
+  std::vector<Place> places;
+  [[nodiscard]] const Problem& pr() const { return puz.getProblem(0); }
+};
+
+using BoardCells = std::vector<std::pair<int, int>>;
+
+// A 3x3 block without the cells of `hole`.
+BoardCells blockWithout(const BoardCells& hole) {
+  BoardCells cells;
+  for (int cy = 0; cy < 3; cy++) {
+    for (int cx = 0; cx < 3; cx++) {
+      if (std::find(hole.begin(), hole.end(), std::pair<int, int>{cx, cy}) == hole.end()) {
+        cells.emplace_back(cx, cy);
+      }
+    }
+  }
+  return cells;
+}
+
+// The board W x H of pieces of these cells, each at its place.
+GridBoard gridBoardOf(int W, int H, const std::vector<BoardCells>& shapes,
+                      const std::vector<GridBoard::Place>& places) {
+  GridBoard g;
+  const unsigned int trayId =
+      addStartGoalShape(g.puz, static_cast<unsigned int>(W), static_cast<unsigned int>(H));
+  g.start = std::make_unique<Assembly>(g.puz.getGridType());
+  g.places = places;
+  for (std::size_t i = 0; i < shapes.size(); i++) {
+    const GridBoard::Place& at = places[i];
+    const unsigned int id = g.puz.addShape(3, 3, 1);
+    for (const std::pair<int, int> c : shapes[i]) {
+      g.puz.getShape(id).setState(static_cast<unsigned int>(c.first),
+                                  static_cast<unsigned int>(c.second), 0, kFilled);
+      Voxel& tray = g.puz.getShape(trayId);
+      tray.setStartPiece(static_cast<unsigned int>(at.x + c.first),
+                         static_cast<unsigned int>(at.y + c.second), 0, id + 1);
+      if (at.goalX >= 0) {
+        tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(at.goalX + c.first),
+                                        static_cast<unsigned int>(at.goalY + c.second), 0),
+                          id + 1);
+      }
+    }
+    g.start->addPlacement(0, at.x, at.y, 0);
+  }
+  syncSlidingProblems(g.puz);
+  return g;
+}
+
+// A 9x6 board, three cells by two. U is a cup open at the top and L one
+// open to the left; p, q and r are unit pieces, which stop at three places
+// in a cell of the grid (where a pocket of U or L would hold them):
+//   .p. .q. .r.
+//   ... ... ...
+//   ... ... ...
+//   U.U ... LLL
+//   U.U ... ..L
+//   UUU ... LLL
+// U must end top right with p in its pocket and L bottom left with q in
+// its own; r may end anywhere. With `reachable` off U's goal takes in a
+// cell where no piece may stop, so the search goes through everything
+// (a smaller everything without r, `units` 2).
+GridBoard cupsAndUnits(bool reachable, int units = 3) {
+  const BoardCells unit = {{0, 0}};
+  std::vector<BoardCells> shapes = {blockWithout({{1, 0}, {1, 1}}), blockWithout({{0, 1}, {1, 1}}),
+                                    unit, unit};
+  std::vector<GridBoard::Place> places = {
+      {0, 3, 6, 0, true}, {6, 3, 0, 3, true}, {1, 0, 7, 1, false}, {4, 0, 1, 4, false}};
+  if (units > 2) {
+    shapes.push_back(unit);
+    places.push_back({7, 0, -1, -1, false});
+  }
+  GridBoard g = gridBoardOf(9, 6, shapes, places);
+  if (!reachable) {
+    g.puz.getShape(0).setState(8, 2, 0, kVariable);
+    syncSlidingProblems(g.puz);
+  }
+  return g;
+}
+
+// A board made from `seed`: blocks of several kinds in cells of the grid,
+// one to three small pieces anywhere they fit, and goals for some of the
+// pieces from a second layout made the same way.
+GridBoard gridBoard(std::uint64_t seed) {
+  std::uint64_t x = seed * 0x9e3779b97f4a7c15ULL + 88172645463325252ULL;
+  auto rnd = [&x](int n) {
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    return static_cast<int>((x >> 11) % static_cast<std::uint64_t>(n));
+  };
+  // the cells a block leaves empty: none, the cups open to each side, a
+  // ring, a corner cut out, a notch
+  const std::vector<BoardCells> holes = {
+      {},
+      {{1, 0}, {1, 1}},
+      {{0, 1}, {1, 1}},
+      {{1, 1}, {2, 1}},
+      {{1, 1}, {1, 2}},
+      {{1, 1}},
+      {{0, 0}, {1, 0}, {0, 1}, {1, 1}},
+      {{1, 0}},
+  };
+  const std::vector<BoardCells> smalls = {{{0, 0}}, {{0, 0}, {1, 0}}, {{0, 0}, {0, 1}}};
+
+  const int cw = 2 + rnd(2);
+  const int ch = cw == 3 ? 2 + rnd(2) : 2;
+  const int W = 3 * cw;
+  const int H = 3 * ch;
+  const int blocks = cw * ch - 1 - rnd(cw * ch > 4 ? 3 : 2);
+  const int small = 1 + rnd(3);
+
+  std::vector<BoardCells> shapes;
+  for (int b = 0; b < blocks; b++) {
+    shapes.push_back(blockWithout(holes[static_cast<std::size_t>(rnd(2) == 0 ? rnd(5) : rnd(8))]));
+  }
+  for (int s = 0; s < small; s++) {
+    shapes.push_back(smalls[static_cast<std::size_t>(rnd(2) == 0 ? 0 : rnd(3))]);
+  }
+
+  // a layout: the blocks in cells of the grid, then the small pieces where
+  // they fit (negative: nowhere)
+  auto layout = [&](std::vector<std::pair<int, int>>& at) {
+    std::vector<int> cell(static_cast<std::size_t>(cw * ch));
+    for (std::size_t i = 0; i < cell.size(); i++) {
+      cell[i] = static_cast<int>(i);
+    }
+    for (std::size_t i = cell.size(); i > 1; i--) {
+      std::swap(cell[i - 1], cell[static_cast<std::size_t>(rnd(static_cast<int>(i)))]);
+    }
+    std::vector<int> occ(static_cast<std::size_t>(W * H), 0);
+    at.assign(shapes.size(), {-1, -1});
+    for (std::size_t i = 0; i < shapes.size(); i++) {
+      for (int tries = 0; tries < 50 && at[i].first < 0; tries++) {
+        const bool block = i < static_cast<std::size_t>(blocks);
+        const int px = block ? 3 * (cell[i] % cw) : rnd(W);
+        const int py = block ? 3 * (cell[i] / cw) : rnd(H);
+        bool fits = true;
+        for (const std::pair<int, int> c : shapes[i]) {
+          if (px + c.first >= W || py + c.second >= H ||
+              occ[static_cast<std::size_t>((py + c.second) * W + px + c.first)] != 0) {
+            fits = false;
+          }
+        }
+        if (!fits) {
+          continue;
+        }
+        for (const std::pair<int, int> c : shapes[i]) {
+          occ[static_cast<std::size_t>((py + c.second) * W + px + c.first)] = 1;
+        }
+        at[i] = {px, py};
+      }
+    }
+  };
+  std::vector<std::pair<int, int>> from;
+  std::vector<std::pair<int, int>> to;
+  layout(from);
+  layout(to);
+
+  std::vector<BoardCells> placed;
+  std::vector<GridBoard::Place> places;
+  for (std::size_t i = 0; i < shapes.size(); i++) {
+    if (from[i].first < 0) {
+      continue;
+    }
+    // the first piece always has a goal, the others half the time
+    const bool goal = to[i].first >= 0 && (places.empty() || rnd(2) == 0);
+    placed.push_back(shapes[i]);
+    places.push_back({from[i].first, from[i].second, goal ? to[i].first : -1,
+                      goal ? to[i].second : -1, i < static_cast<std::size_t>(blocks)});
+  }
+  return gridBoardOf(W, H, placed, places);
+}
+
+// A path of the board: from its start to its goals, every step a slide,
+// the blocks stopping only on the grid's lines.
+void checkGridPath(const GridBoard& g, const Separation& path) {
+  REQUIRE(path.getPieceNumber() == g.places.size());
+  const State& first = path.getState(0);
+  const State& last = path.getState(path.getMoves());
+  for (unsigned int i = 0; i < g.places.size(); i++) {
+    const GridBoard::Place& p = g.places[i];
+    CHECK(first.getX(i) == p.x);
+    CHECK(first.getY(i) == p.y);
+    if (p.goalX >= 0) {
+      CHECK(last.getX(i) == p.goalX);
+      CHECK(last.getY(i) == p.goalY);
+    }
+  }
+  for (unsigned int step = 0; step < path.getMoves(); step++) {
+    INFO("step " << step);
+    std::vector<unsigned int> movers;
+    CHECK(slideRoute(g.puz, g.pr(), path, step, &movers).size() >= 2);
+    for (unsigned int i = 0; i < g.places.size(); i++) {
+      if (g.places[i].block) {
+        CHECK(path.getState(step + 1).getX(i) % 3 == 0);
+        CHECK(path.getState(step + 1).getY(i) % 3 == 0);
+      }
+    }
+  }
+}
+
+// What the boards of seeds [from, to) come to, searched with the stops of
+// a grid cell as one and told apart: the two must agree on which boards
+// have a path and on its moves. A board either search has no memory for
+// (maxStates) is left out.
+struct LooseTally {
+  int compared = 0;
+  int found = 0;
+  int loose = 0;
+  int longest = 0;
+};
+
+LooseTally compareLoose(std::uint64_t from, std::uint64_t to, std::uint64_t maxStates,
+                        bool withLegacy) {
+  LooseTally t;
+  for (std::uint64_t seed = from; seed < to; seed++) {
+    const GridBoard g = gridBoard(seed);
+    INFO("seed " << seed);
+    SlideSearch one;
+    one.nested = true;
+    one.partialNested = seed % 3 == 0;
+    one.grid = 3;
+    one.threads = 1 + static_cast<unsigned int>(seed % 4);
+    one.maxMemoryStates = maxStates;
+    SlideSearch apart = one;
+    apart.gridStopsApart = true;
+    const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+    const std::optional<Separation> each = findSlidePath(g.puz, g.pr(), *g.start, apart);
+    CHECK_FALSE(apart.looseStops);
+    if (one.outcome == SlideOutcome::Memory || apart.outcome == SlideOutcome::Memory) {
+      continue;
+    }
+    t.compared++;
+    CHECK(one.outcome == apart.outcome);
+    CHECK(path.has_value() == each.has_value());
+    if (path && each) {
+      CHECK(path->getMoves() == each->getMoves());
+      checkGridPath(g, *path);
+      checkGridPath(g, *each);
+      t.found++;
+      t.longest = std::max(t.longest, static_cast<int>(path->getMoves()));
+    }
+    if (one.looseStops) {
+      t.loose++;
+    }
+    if (withLegacy) {
+      SlideSearch legacy;
+      legacy.nested = true;
+      legacy.partialNested = one.partialNested;
+      legacy.grid = 3;
+      legacy.legacy = true;
+      legacy.maxMemoryStates = maxStates;
+      const std::optional<Separation> old = findSlidePath(g.puz, g.pr(), *g.start, legacy);
+      if (legacy.outcome != SlideOutcome::Memory) {
+        CHECK(legacy.outcome == one.outcome);
+        if (old && path) {
+          CHECK(old->getMoves() == path->getMoves());
+        }
+      }
+    }
+  }
+  return t;
+}
+
+}  // namespace
+
+// On a grid with nested slides the stops a piece has inside one cell of
+// the grid are searched as one (loose stops, decision 0031): the same
+// search in fewer arrangements. The path has the moves of the search that
+// tells the stops apart, and is a real one; a search with no path goes
+// through fewer arrangements.
+TEST_CASE("sliding: the stops of a grid cell are searched as one", "[sliding]") {
+  const GridBoard g = cupsAndUnits(true);
+  SlideSearch one;
+  one.nested = true;
+  one.grid = 3;
+  const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+  REQUIRE(path.has_value());
+  CHECK(one.looseStops);
+  checkGridPath(g, *path);
+
+  SlideSearch apart;
+  apart.nested = true;
+  apart.grid = 3;
+  apart.gridStopsApart = true;
+  const std::optional<Separation> each = findSlidePath(g.puz, g.pr(), *g.start, apart);
+  REQUIRE(each.has_value());
+  CHECK_FALSE(apart.looseStops);
+  checkGridPath(g, *each);
+  CHECK(path->getMoves() == each->getMoves());
+
+  // loose stops are for the grid's searches with nested slides only (a
+  // search stopped as it begins says how it would go)
+  StopSource stop;
+  stop.request(StopKind::Pause);
+  SlideSearch plain;
+  plain.grid = 3;
+  plain.stop = stop.token();
+  (void)findSlidePath(g.puz, g.pr(), *g.start, plain);
+  CHECK_FALSE(plain.looseStops);
+  SlideSearch full;
+  full.nested = true;
+  full.stop = stop.token();
+  (void)findSlidePath(g.puz, g.pr(), *g.start, full);
+  CHECK_FALSE(full.looseStops);
+
+  const GridBoard none = cupsAndUnits(false, 2);
+  SlideSearch all;
+  all.nested = true;
+  all.grid = 3;
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, all).has_value());
+  CHECK(all.outcome == SlideOutcome::NoPath);
+  SlideSearch allApart = apart;
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, allApart).has_value());
+  CHECK(allApart.outcome == SlideOutcome::NoPath);
+  CHECK(all.visited < allApart.visited);
+}
+
+// A search with the stops of a grid cell as one is saved and carried on as
+// any other; one saved with every stop told apart (or before there were
+// loose stops) is carried on as it was begun.
+TEST_CASE("sliding: a search with the stops of a grid cell as one is carried on",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slideloose");
+  std::filesystem::remove_all(dir);
+  auto gridSearch = [] {
+    SlideSearch s;
+    s.nested = true;
+    s.grid = 3;
+    s.threads = 2;
+    return s;
+  };
+  auto stoppedAt = [&](const GridBoard& g, std::uint64_t depth, bool apart = false) {
+    StopSource stop;
+    SlideSearch first = gridSearch();
+    first.gridStopsApart = apart;
+    first.workDir = dir.string();
+    first.stop = stop.token();
+    first.onDepth = [&](std::uint64_t at) {
+      if (at >= depth) {
+        stop.request(StopKind::Pause);
+      }
+    };
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+    CHECK(first.outcome == SlideOutcome::Stopped);
+    CHECK(first.saved);
+    CHECK(first.looseStops == !apart);
+    return first.visited;
+  };
+
+  const GridBoard g = cupsAndUnits(true);
+  SlideSearch straight = gridSearch();
+  const std::optional<Separation> whole = findSlidePath(g.puz, g.pr(), *g.start, straight);
+  REQUIRE(whole.has_value());
+  CHECK(stoppedAt(g, 3) < straight.visited);
+  SlideSearch second = gridSearch();
+  second.workDir = dir.string();
+  const std::optional<Separation> rest = findSlidePath(g.puz, g.pr(), *g.start, second);
+  REQUIRE(rest.has_value());
+  CHECK(second.resumed);
+  CHECK(second.looseStops);
+  CHECK(rest->getMoves() == whole->getMoves());
+  checkGridPath(g, *rest);
+  CHECK(second.visited == straight.visited);
+
+  // a search with no path: carried on, the arrangements of the whole one
+  const GridBoard none = cupsAndUnits(false, 2);
+  SlideSearch all = gridSearch();
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, all).has_value());
+  REQUIRE(all.outcome == SlideOutcome::NoPath);
+  CHECK(stoppedAt(none, 6) < all.visited);
+  SlideSearch on = gridSearch();
+  on.workDir = dir.string();
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, on).has_value());
+  CHECK(on.resumed);
+  CHECK(on.outcome == SlideOutcome::NoPath);
+  CHECK(on.visited == all.visited);
+
+  // The same with the stops told apart. (A search stopped between two
+  // levels is saved with one still to go into those the one-way moves are
+  // looked for in; carried on, it puts the level there.)
+  SlideSearch allApart = gridSearch();
+  allApart.gridStopsApart = true;
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, allApart).has_value());
+  CHECK(stoppedAt(none, 6, true) < allApart.visited);
+  SlideSearch onApart = gridSearch();
+  onApart.gridStopsApart = true;
+  onApart.workDir = dir.string();
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, onApart).has_value());
+  CHECK(onApart.resumed);
+  CHECK_FALSE(onApart.looseStops);
+  CHECK(onApart.outcome == SlideOutcome::NoPath);
+  CHECK(onApart.visited == allApart.visited);
+
+  // saved with the stops told apart, it is carried on so
+  StopSource once;
+  once.request(StopKind::Pause);
+  SlideSearch old = gridSearch();
+  old.gridStopsApart = true;
+  old.workDir = dir.string();
+  old.stop = once.token();
+  CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, old).has_value());
+  CHECK(old.saved);
+  SlideSearch later = gridSearch();
+  later.workDir = dir.string();
+  const std::optional<Separation> same = findSlidePath(g.puz, g.pr(), *g.start, later);
+  REQUIRE(same.has_value());
+  CHECK(later.resumed);
+  CHECK_FALSE(later.looseStops);
+  CHECK(same->getMoves() == whole->getMoves());
+  // and the next search of the start has them as one again
+  SlideSearch next = gridSearch();
+  next.workDir = dir.string();
+  REQUIRE(findSlidePath(g.puz, g.pr(), *g.start, next).has_value());
+  CHECK_FALSE(next.resumed);
+  CHECK(next.looseStops);
+  std::filesystem::remove_all(dir);
+}
+
+// The same on boards of every kind: whole blocks, cups, rings and blocks
+// with a corner cut out, small pieces that lie across the grid's lines,
+// pieces with and without goals, with and without partial nesting.
+TEST_CASE("sliding: the stops of a grid cell searched as one give the same fewest moves",
+          "[sliding][parallel]") {
+  const LooseTally t = compareLoose(0, 16, 6000, false);
+  // the boards are worth the comparison: most collapse, some have a path
+  CHECK(t.compared > 8);
+  CHECK(t.loose > 6);
+  CHECK(t.found > 3);
+}
+
+// More of them, and larger searches: with three small pieces loose at once,
+// and a board searched to the end.
+TEST_CASE("sliding: the stops of a grid cell searched as one, more boards",
+          "[sliding][parallel][slow]") {
+  const LooseTally t = compareLoose(0, 60, 20000, false);
+  // the boards are worth the comparison: most collapse, many have a path
+  CHECK(t.compared > 40);
+  CHECK(t.loose > 30);
+  CHECK(t.found > 15);
+  CHECK(t.longest >= 8);
+
+  const GridBoard none = cupsAndUnits(false);
+  SlideSearch all;
+  all.nested = true;
+  all.grid = 3;
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, all).has_value());
+  CHECK(all.outcome == SlideOutcome::NoPath);
+  SlideSearch allApart = all;
+  allApart.gridStopsApart = true;
+  CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, allApart).has_value());
+  CHECK(allApart.outcome == SlideOutcome::NoPath);
+  CHECK(all.visited < allApart.visited);
+}
+
+TEST_CASE("sliding: fuzz, the stops of a grid cell searched as one agree with them apart",
+          "[.fuzz][sliding]") {
+  const LooseTally t = compareLoose(1000, 4000, 300000, true);
+  WARN("loose stops fuzz: " << t.compared << " compared, " << t.found << " with a path (longest "
+                            << t.longest << "), " << t.loose << " collapsed");
 }

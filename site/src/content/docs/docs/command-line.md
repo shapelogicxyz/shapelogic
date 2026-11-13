@@ -28,7 +28,7 @@ under [`--save`](#--save-solve-and-write-the-solved-file).
   - [What a solve does](#what-a-solve-does) · [Output](#output) · [The level text](#the-level-text)
   - [`-d`](#-d-solve-completely) · [`-q`](#-q-quiet) · [`-s`](#-s-print-the-assemblies) · [`-p`](#-p-print-the-moves) · [`-n`](#-n-no-newline) · [`-o`](#-o-choose-the-problem) · [`-r`](#-r-reduce-the-placements) · [`-t`](#-t-threads) · [`--progress`](#--progress)
 - [Brick puzzles](#brick-puzzles-1): [`--solver`](#--solver-complete-or-fast) · [`-R`](#-r-rotations) · [`-C`](#-c-strict-colours)
-- [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--vertical-moves`](#--vertical-moves) · [`--any-orientation`, `--mirrored-orientations`](#--any-orientation-and---mirrored-orientations) · [`--high-memory`](#--high-memory)
+- [Sliding puzzles](#sliding-puzzles-1): [`--solver`](#--solver-one-solver) · [`--nested-slides`, `--partial-nested`](#--nested-slides-and---partial-nested) · [`--vertical-moves`](#--vertical-moves) · [`--optimized-paths`](#--optimized-paths) · [`--any-orientation`, `--mirrored-orientations`](#--any-orientation-and---mirrored-orientations) · [`--high-memory`](#--high-memory)
 - [Stacking puzzles](#stacking-puzzles-1): [`--solver`](#--solver-stacking-or-panex) · [Long Panex searches](#long-panex-searches-stop-and-carry-on)
 - [`--json`: machine-readable output](#--json-machine-readable-output)
 - [`--save`: solve and write the solved file](#--save-solve-and-write-the-solved-file)
@@ -164,6 +164,7 @@ The tool has four modes. Which one runs depends on the options:
 | `--nested-slides` | A piece carries the pieces nested inside its outline. |
 | `--partial-nested` | Also carry pieces only partly inside. Implies `--nested-slides`. |
 | `--vertical-moves` | On a tray more than one layer deep, pieces may also move up and down. |
+| `--optimized-paths` | On a board of blocks that fits a grid, pieces stop only on that grid: a much smaller search that may miss the fewest moves. |
 | `--any-orientation` | A piece with no start and no goal may be placed in any quarter turn. |
 | `--mirrored-orientations` | Those pieces may also be placed mirrored. Implies `--any-orientation`. |
 | `--high-memory` | Keep up to half the computer's memory of arrangements in memory instead of about 2 GB. |
@@ -537,6 +538,23 @@ On a tray more than one layer deep, a piece may also move up and down, lifted
 over the other pieces and put down somewhere else. Without it every piece
 slides only in its own layer. One layer deep, it changes nothing.
 
+### `--optimized-paths`
+
+```sh
+shapelogic_cli -d --nested-slides --optimized-paths board-of-blocks.xmpuzzle
+```
+
+For a board that divides into a grid of cells that its blocks fill, such as
+an 18 by 18 board of 6 by 6 blocks. Every piece then stops only on that grid:
+blocks on its lines, smaller pieces where they fit in a block's hole or where
+they start or end. They still pass through the cells in between. The search
+is much smaller, so a board that takes hours can take seconds. But it limits
+the search space: the path it finds may have more moves than the fewest, and
+when it finds none, a full search may still find one. Before solving it prints
+the grid (`optimized paths: the pieces stop only on a 6-cell grid`), or that
+the board fits none, in which case every stop is searched. The Solver tab's
+**Automatically use optimized paths** is the same option.
+
 ### `--any-orientation` and `--mirrored-orientations`
 
 ```sh
@@ -901,7 +919,9 @@ don't need them to solve puzzles.
 |---|---|
 | `--slide-legacy` | The original search over text keys. |
 | `--slide-apart` | Treat identical pieces as different, instead of searching them as one. |
+| `--slide-stops-apart` | With `--optimized-paths` and `--nested-slides`: search each place a small piece can stop inside a grid cell on its own, instead of all of them as one. |
 | `--slide-trace` | Print each level of the search to stderr. |
+| `--slide-grid N` | `--optimized-paths` on a grid of `N` cells, whether or not the board fits it. Its answers are a restricted search's. |
 
 **Stacking puzzles:**
 

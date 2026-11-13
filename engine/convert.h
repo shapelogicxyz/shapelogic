@@ -96,6 +96,10 @@ template <class E>
 /// The options of a solve: the request's (null: none) over the settings.
 [[nodiscard]] RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j);
 [[nodiscard]] Json progressJson(const SolveProgress& p);
+/// A slide search's forecast (sliding::slideForecast) from its moves'
+/// times; null when there are none.
+[[nodiscard]] Json slideForecastJson(const std::vector<std::uint64_t>& levelMs,
+                                     std::uint64_t runningMs);
 [[nodiscard]] Json statsJson(const SolveStats& t);
 [[nodiscard]] Json failureJson(const SolveFailure& f);
 [[nodiscard]] Json takeApartJson(const DisassemblyProgress& d);

@@ -558,6 +558,8 @@ void Problem::makeUnknown() {
   searched_ = 0;
   searchDepth_ = 0;
   triedApart_ = 0;
+  slideGrid_ = 0;
+  slideLevelMs_.clear();
 }
 
 std::vector<PendingAssembly> Problem::takePending() {
@@ -580,6 +582,8 @@ void Problem::removeAllSolutions() {
   searched_ = 0;
   searchDepth_ = 0;
   triedApart_ = 0;
+  slideGrid_ = 0;
+  slideLevelMs_.clear();
 }
 
 // ---- solutions ------------------------------------------------------------------

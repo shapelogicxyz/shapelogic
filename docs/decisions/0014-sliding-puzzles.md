@@ -2,7 +2,9 @@
 
 **Status:** accepted (deferred part 1); the start marks moved out of the
 cell colours later (decision 0021), and from the board to each problem
-(decision 0027); `core/shapelogic/model/sliding.h`,
+(decision 0027); optimized paths hold a search to the grid a board of
+blocks fits (decision 0029), where the stops of a grid cell are searched as
+one (decision 0031); `core/shapelogic/model/sliding.h`,
 `core/shapelogic/solve/sliding_search.h`, `core/shapelogic/solve/slide_levels.h`,
 `core/shapelogic/app/document_sliding.cpp`, `engine/methods_sliding.cpp`,
 `api/sliding.json`

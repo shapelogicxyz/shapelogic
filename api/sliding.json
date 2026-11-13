@@ -179,6 +179,28 @@
         "additionalProperties": false
       },
       "errors": ["not_found", "unsupported", "invalid_argument"]
+    },
+    "sliding.gridAdvice": {
+      "summary": "Whether optimized paths would narrow a sliding problem's search (decision 0029), from its board and the starts and goals stamped: the largest grid that divides the board's floor, whose cells some piece (a block) measures a multiple of and on whose lines every such piece starts and fills its goals, and that leaves fewer stops; with it, every piece stops only where pieces of its cells start or fill a goal, or where it fits in a block's hole. The Solver asks before a solve whether to use it (SlidingOptions.optimizedPaths). Changes nothing.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"}
+        },
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "grid": {"type": "integer", "minimum": 0, "description": "Cells a side; 0 when the board fits no such grid (or the problem has no board or no starts), and optimized paths would search every stop."},
+          "stops": {"type": "integer", "minimum": 0, "description": "The places the problem's pieces can stop on the empty board, summed over the pieces (each copy counted); 0 without a grid."},
+          "gridStops": {"type": "integer", "minimum": 0, "description": "Those the grid leaves (fewer than stops); 0 without a grid."}
+        },
+        "required": ["grid", "stops", "gridStops"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported"]
     }
   },
   "events": {},

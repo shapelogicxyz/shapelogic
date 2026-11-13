@@ -867,6 +867,7 @@ test('the settings’ Search Options are what a problem’s search options start
       'Allow Nested Slides',
       'Allow Partially Nested',
       'Allow Vertical Moves',
+      'Automatically use optimized paths',
       'Solver type',
       'Keep every n-th',
       'Limit',

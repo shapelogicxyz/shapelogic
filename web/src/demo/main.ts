@@ -235,6 +235,7 @@ function progressAt(
       panexSearch: false,
       stopKind: null,
       slideStop: null,
+      slideForecast: null,
     },
   };
 }

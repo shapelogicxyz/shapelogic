@@ -449,11 +449,27 @@ where the problem's counts are.
   pieces** and under it **Include mirrored orientations** (only with it),
   both off, which the original did not have (every piece is placed as
   drawn; with them, a piece with no start or goal may be turned, and
-  mirrored); Just count, Keep every n-th and the limit stay. Keep mirror, Keep rotated, the thorough rotation check,
+  mirrored); above the Solver type, **Automatically use optimized paths**
+  (decision 0029), off, which the original did not have: with it the
+  stops are held to the grid a board of blocks fits; with it off, Solve
+  asks first when the board fits one (`sliding.gridAdvice`: the grid and
+  the stops it leaves; **Use Optimized Paths** for that solve, **Full
+  Search**, **Cancel** or Escape solves nothing), a result found so is "(optimized)" in
+  the problems list, and when it finds no solution the note offers **Full
+  Search**; Just count, Keep every n-th and the limit stay.
+- **Performance Analysis** (decision 0030): while a sliding solve is under
+  way or paused and no solution is listed, a second dashed box under the
+  empty solutions card: how deep the search is, how long the last move took
+  and the move under way has run, the growth of the moves' times, and every
+  fifth move to 100 with that move's time and the time until it ("From
+  now", or "Once continued" when paused), from `solve.progress`'s
+  `slideForecast` (a paused problem's from `problem.get`); it scrolls when
+  taller than the card, and goes when the solve is through. A paused
+  sliding solve's empty card says "Search paused" and to press Continue. Keep mirror, Keep rotated, the thorough rotation check,
   Strict colours and the sort are not shown (a sliding solve keeps every
   start and matches colours strictly; a path found goes last). They are
   stored with the problem under the file's names (`nestedSlides`,
-  `partialNested`, `anyOrientation`, `mirroredOrientations`, `highMemory`; a stored `solverType`, the original's
+  `partialNested`, `anyOrientation`, `mirroredOrientations`, `optimizedPaths`, `highMemory`; a stored `solverType`, the original's
   fast, deep or full, is kept as it was and not written).
 - **Run:** Solve and Prepare are off while the tray's starts and goals
   are invalid, with "Fix the start and goal on the Puzzle tab first:
@@ -465,7 +481,10 @@ where the problem's counts are.
   says "Search finished" and Details the problem's search statistics
   (`ProblemSummary.searched`, `searchDepth`, kept in the file), as the
   original's finished Activity line: "Scanned N arrangements. Searched N
-  moves deep.". The solver's **note** (`solve.status.note`:
+  moves deep.". The count is the solve's, every run of it: paused (or
+  opened paused from a file), Details says what it said as the search ran,
+  in its words, and Continue counts on from there; Solve starts it at 0.
+  The solver's **note** (`solve.status.note`:
   "no solution, proven", or the limit that stopped it) comes in a
   message box when the run ends, as `bt_message`.
 - **Player:** the moves follow their routes (a move round a corner turns

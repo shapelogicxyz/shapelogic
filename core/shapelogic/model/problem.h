@@ -22,9 +22,14 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bt {
+
+/// A move of a slide search whose time is not known (Problem::getSlideLevelMs):
+/// one searched before the times were kept, such as by an older version.
+inline constexpr std::uint64_t kUntimedMs = ~std::uint64_t{0};
 
 class Puzzle;
 class Voxel;
@@ -273,6 +278,23 @@ class Problem {
     triedApart_ = apart;
   }
 
+  /// The grid a sliding solve held its stops to (optimized paths, the
+  /// cells a side of SlideSearch::grid), so that its solutions are known to
+  /// be found on it; 0 when every stop was searched. Kept in the file, and
+  /// dropped with the counts.
+  [[nodiscard]] unsigned int getSlideGrid() const { return slideGrid_; }
+  void setSlideGrid(unsigned int size) { slideGrid_ = size; }
+
+  /// How long each move deep of the slide search under way took, in
+  /// milliseconds (entry k is move k + 1; kUntimedMs when not known): what
+  /// the Performance Analysis forecasts from (bt/solve/slide_forecast.h).
+  /// Kept while the solve is open, so a paused one and its crash recovery
+  /// copy have it; dropped when the solve is through and with the counts.
+  [[nodiscard]] const std::vector<std::uint64_t>& getSlideLevelMs() const {
+    return slideLevelMs_;
+  }
+  void setSlideLevelMs(std::vector<std::uint64_t> ms) { slideLevelMs_ = std::move(ms); }
+
   /// Marks the problem as being solved (without a saved position).
   void markSolving() { state_ = ProblemState::Solving; }
   /// Marks solving as finished.
@@ -430,6 +452,8 @@ class Problem {
   std::uint64_t searched_ = 0;
   std::uint64_t searchDepth_ = 0;
   std::uint64_t triedApart_ = 0;
+  unsigned int slideGrid_ = 0;
+  std::vector<std::uint64_t> slideLevelMs_;
   unsigned int maxHoles_ = kNoMaxHoles;
 
   unsigned int rodSetId_ = stacking::kNoRodSet;

@@ -300,6 +300,7 @@ export class RunCard {
       ws.sliding && o.verticalMoves !== def.verticalMoves,
       ws.sliding && o.anyOrientation !== def.anyOrientation,
       ws.sliding && o.mirroredOrientations !== def.mirroredOrientations,
+      ws.sliding && o.optimizedPaths !== def.optimizedPaths,
       lim.keepEach !== defLim.keepEach,
       lim.keepAtMost !== defLim.keepAtMost,
     ].filter(Boolean).length;
@@ -346,6 +347,7 @@ export class RunCard {
           sw('nestedSlides') +
           sw('partialNested') +
           sw('verticalMoves') +
+          sw('optimizedPaths') +
           `<div class="row2 wrap"><div class="t">Solver type<small>${SLIDING_SOLVER_TIP}</small></div><select data-o="slidingSolver" title="${esc(SLIDING_SOLVER_TIP)}"><option value="${slider.solver}" selected>${esc(slider.label)}</option></select></div>` +
           limits,
       );

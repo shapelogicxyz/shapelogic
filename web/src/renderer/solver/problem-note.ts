@@ -2,8 +2,9 @@
 //
 // The note beside each problem in the Solver's problems list: its solve
 // under way (or being paused, aborted, or saved to carry on) or paused, else what a finished solve found (a sliding or
-// stacking puzzle's fewest moves, or no solution; the other puzzles'
-// assemblies, or disassemblies when the problem takes them apart), its
+// stacking puzzle's fewest moves, or no solution, said to be optimized when
+// a sliding solve held its stops to a grid; the other puzzles' assemblies,
+// or disassemblies when the problem takes them apart), its
 // count as short as it goes (12k, 15m). Platform-free (no DOM), so the
 // unit tests drive it.
 
@@ -49,7 +50,8 @@ export interface ProblemNote {
  */
 export function problemNote(
   state: SolveState,
-  p: Pick<ProblemSummary, 'state' | 'assemblies' | 'solutions'>,
+  p: Pick<ProblemSummary, 'state' | 'assemblies' | 'solutions'> &
+    Partial<Pick<ProblemSummary, 'slideGrid'>>,
   family: Family,
   found: FinishedSolve | null,
   pausedSearch = false,
@@ -77,9 +79,13 @@ export function problemNote(
     text: `${compactCount(n)} ${n === 1 ? one : many}`,
   });
   if (family !== 'brick' && found.disassemble) {
-    return found.moves === null
-      ? { kind: 'found', text: 'no solution' }
-      : count(found.moves, 'move', 'moves');
+    // optimized paths (decision 0029): not proven the fewest, nor none
+    const grid = (p.slideGrid ?? 0) > 0 ? ' (optimized)' : '';
+    if (found.moves === null) {
+      return { kind: 'found', text: `no solution${grid}` };
+    }
+    const n = count(found.moves, 'move', 'moves');
+    return { kind: n.kind, text: n.text + grid };
   }
   const n = found.disassemble ? p.solutions : p.assemblies;
   if (n === null) {

@@ -6,6 +6,7 @@
 
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/sliding.h"
+#include "shapelogic/solve/sliding_search.h"
 
 #include <array>
 #include <string>
@@ -194,6 +195,18 @@ Reply slidingPreview(State& s, Params& p) {
               {"there", there}};
 }
 
+Reply slidingGridAdvice(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  BTE_CHECK(p.finish());
+  BTE_TRY(const unsigned int index, s.document().problemIndex(problem));
+  const Puzzle& puzzle = s.document().puzzle();
+  if (!sliding::isSliding(puzzle)) {
+    return coreError(Errc::Unsupported, "only sliding puzzles have optimized paths");
+  }
+  const sliding::SlideGrid g = sliding::slideGridFor(puzzle, puzzle.getProblem(index));
+  return Json{{"grid", g.size}, {"stops", g.stops}, {"gridStops", g.gridStops}};
+}
+
 }  // namespace
 
 void addSlidingMethods(MethodTable& t) {
@@ -204,6 +217,7 @@ void addSlidingMethods(MethodTable& t) {
   t["sliding.clear"] = slidingClear;
   t["sliding.tray"] = slidingTray;
   t["sliding.preview"] = slidingPreview;
+  t["sliding.gridAdvice"] = slidingGridAdvice;
 }
 
 }  // namespace bt::engine

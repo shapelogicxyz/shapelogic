@@ -71,6 +71,12 @@ struct SolveProgress {
   /// moves deep. Found N stackings."), not the Stacking Solver ("Stacking
   /// search. Scanned N stackings.").
   std::uint64_t searchTraced = 0;
+  /// A sliding solve: how long each move deep of the slide search under way
+  /// (or paused) took (Problem::getSlideLevelMs), and how long the move it
+  /// is on has run so far (0 when no search is under way): what the
+  /// Performance Analysis forecasts from (bt/solve/slide_forecast.h).
+  std::vector<std::uint64_t> slideLevelMs;
+  std::uint64_t slideLevelRunningMs = 0;
   bool panexSearch = false;
   /// Stage Stopping: the stop is a pause (the solve is kept, to be
   /// continued), not an abort.

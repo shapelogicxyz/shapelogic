@@ -538,7 +538,20 @@ one).
   and a search of the same start carries it on (`resume`, `resumed`,
   `saved`; `autosave`, by `base/save_cadence.h`'s rule); `discardSaved` drops a problem's saved
   searches (a solve that starts afresh, an abort), `sweepSaved` the ones
-  untouched for a month (each sliding run). `SlidingOptions` and `slideSearchFor()`: the GUI's
+  untouched for a month (each sliding run). Optimized paths (decision
+  0029): with `grid` a piece stops only at its offsets on that grid (those
+  where a piece of its cells starts or fills a goal, or fits in another's
+  hole), a restriction; `slideGridFor` finds the grid a board of blocks
+  fits and the stops it leaves, `searchGrid` the grid a run uses
+  (`optimizedPaths`, or the A/B `grid`). Loose stops (decision 0031): on a
+  grid with nested slides the stops a piece has inside one cell of the grid
+  are one position, at which the piece is at any of them, so small pieces
+  in empty cells are one arrangement and not one for each stop
+  (`expandLoose`; `looseStops`, the A/B `gridStopsApart`); each new level
+  drops the arrangements that an arrangement already searched stands for
+  (`dropCovered`), and the path is placed, every piece at a real stop, as
+  it is traced back. A nested search carried on puts the levels its saved
+  visited sets lack back into them (`restoreVisited`). `SlidingOptions` and `slideSearchFor()`: the GUI's
   boxes for its one solver, the Sliding Puzzle Solver
   (`kSlidingSolverName`). `slideRoute` and `applySlideRoutes`: a move's path
   through corridors (its corners) and the player's driver following it;
@@ -552,8 +565,16 @@ one).
   and was saved, which also ends the run (the callback answers false), so
   the solve pauses and Continue carries it on; a save point lets the search under
   way finish; `note()` is the original's summary (starts the memory or disk cut,
-  everything searched) and the progress has stage `Other` with `searched`
-  and `searchDepth`. Take-apart workers are not used.
+  everything searched, or with optimized paths that a full search may find
+  what they missed) and the progress has stage `Other` with `searched`
+  and `searchDepth`. A run with optimized paths works out its grid as it
+  begins and keeps it with the problem (`Problem::slideGrid`, saved with
+  the results). The session times each move deep of the search under way
+  (`SlideSearch::onDepth`, decision 0030) and keeps the times with the
+  problem (`Problem::slideLevelMs`, in the file while the solve is open);
+  `slide_forecast.h`'s `slideForecast` turns them into the Performance
+  Analysis (the growth, and every fifth move to 100), in the progress and
+  in a paused problem's detail. Take-apart workers are not used.
 
 **The stacking searches** (deferred part 3a, decision 0015). Ported from
 `stacking.cpp`'s search and `panex.{h,cpp}`; checked by the harness (the

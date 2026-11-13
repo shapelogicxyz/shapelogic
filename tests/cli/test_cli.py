@@ -59,7 +59,10 @@ def test_help_and_mistakes() -> None:
                        (["--restart"], "go with --save"),
                        (["--nested-slides"], "--nested-slides is for sliding puzzles; this is a brick"),
                        (["--partial-nested"], "--partial-nested is for sliding puzzles"),
-                       (["--high-memory"], "--high-memory is for sliding and stacking puzzles")):
+                       (["--high-memory"], "--high-memory is for sliding and stacking puzzles"),
+                       (["--optimized-paths"], "--optimized-paths is for sliding puzzles"),
+                       (["--slide-grid", "3"], "--slide-grid is for sliding puzzles"),
+                       (["--slide-grid", "1"], "--slide-grid requires a number from 2 to 1024")):
         r = run(*args, CUBE)
         check(f"refused {args}", r.returncode == 2 and text in r.stderr, f"{r.returncode} {r.stderr!r}")
     # burrTxt ignored the Panex options on other puzzles
@@ -151,6 +154,23 @@ def test_sliding() -> None:
     check("nested with", r.returncode == 0 and json.loads(r.stdout).get("dotlevel") == "47", r.stdout)
     r = run("-q", "-d", "--partial-nested", nested)
     check("partially nested", "1 solutions" in r.stdout, r.stdout)
+    # optimized paths: a 4x5 tray fits no grid, so every stop is searched;
+    # a grid asked for is used, and its finding no path is said to prove nothing
+    r = run("-d", "--optimized-paths", slider)
+    check("optimized paths, no grid", r.returncode == 0 and
+          "optimized paths: the board fits no grid, so every stop is searched" in r.stdout and
+          "level: 81" in r.stdout, r.stdout[-300:])
+    r = run("-d", "--slide-grid", "5", slider)
+    check("a grid of 5", r.returncode == 0 and
+          "optimized paths: the pieces stop only on a 5-cell grid" in r.stdout and
+          "no solution with optimized paths (a 5-cell grid); a full search may find one" in r.stdout,
+          r.stdout[-300:])
+    # the stops of a grid cell told apart, a benchmark switch: the same answer
+    # (but for the count of arrangements and the time)
+    answers = [[line for line in run("-d", "--nested-slides", "--slide-grid", "2", *extra,
+                                     nested).stdout.splitlines() if "iterations" not in line]
+               for extra in ([], ["--slide-stops-apart"])]
+    check("stops apart", len(answers[0]) > 3 and answers[0] == answers[1], str(answers[1][-3:]))
     # --save solves it as the GUI did; -a and -x read the solved file
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "solved.xmpuzzle"

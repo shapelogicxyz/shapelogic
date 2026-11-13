@@ -177,7 +177,7 @@ PYBIND11_MODULE(shapelogic, m) {
           "solve",
           [](const PyProblem& p, bool disassemble, bool reduce, bool keepRotations,
              bool keepMirror, unsigned int threads, bool nestedSlides, bool partialNested, bool verticalMoves, bool anyOrientation, bool mirroredOrientations, bool highMemory,
-             const std::string& stackingSolver, const std::string& workDir) {
+             bool optimizedPaths, const std::string& stackingSolver, const std::string& workDir) {
             IteratorOptions o;
             o.disassemble = disassemble;
             o.reduce = reduce;
@@ -190,6 +190,7 @@ PYBIND11_MODULE(shapelogic, m) {
             o.sliding.anyOrientation = anyOrientation || mirroredOrientations;
             o.sliding.mirroredOrientations = mirroredOrientations;
             o.sliding.highMemory = highMemory;
+            o.sliding.optimizedPaths = optimizedPaths;
             o.sliding.workDir = workDir;
             o.stacking.solver = stackingSolverByName(stackingSolver);
             o.stacking.highMemory = highMemory;
@@ -200,7 +201,8 @@ PYBIND11_MODULE(shapelogic, m) {
           py::arg("keep_rotations") = false, py::arg("keep_mirror") = false, py::kw_only(),
           py::arg("threads") = 0, py::arg("nested_slides") = false, py::arg("partial_nested") = false,
           py::arg("vertical_moves") = false, py::arg("any_orientation") = false,
-          py::arg("mirrored_orientations") = false, py::arg("high_memory") = false, py::arg("stacking_solver") = "stacking",
+          py::arg("mirrored_orientations") = false, py::arg("high_memory") = false,
+          py::arg("optimized_paths") = false, py::arg("stacking_solver") = "stacking",
           py::arg("work_dir") = "",
           "Start solving the problem and return an iterator yielding Solution objects.\n\n"
           "The solve works on a copy of the puzzle as it is now. threads: 0 for every "
@@ -208,7 +210,10 @@ PYBIND11_MODULE(shapelogic, m) {
           "nested_slides, partial_nested, vertical_moves (up and down on a tray of "
           "several layers), any_orientation (a piece with neither a start nor a goal "
           "may be placed in any quarter turn; every other piece as drawn), "
-          "mirrored_orientations (and mirrored; implies any_orientation), high_memory. A stacking puzzle: "
+          "mirrored_orientations (and mirrored; implies any_orientation), high_memory, "
+          "optimized_paths (when the board fits a grid of blocks, every piece stops only "
+          "on it: a far smaller search whose path may have more than the fewest moves, "
+          "and whose finding no solution proves nothing). A stacking puzzle: "
           "stacking_solver 'stacking' or 'panex', high_memory. work_dir: where a "
           "sliding search or a Panex search keeps its levels (empty: in memory).")
       .def("__repr__", [](const PyProblem& p) {

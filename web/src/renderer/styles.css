@@ -551,6 +551,12 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .slv-meta div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 8px}.slv-meta small{display:block;color:var(--muted);font-size:calc(10.5px + var(--fs));text-transform:uppercase;letter-spacing:.3px}.slv-meta b{font-size:calc(13px + var(--fs));font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .slv-empty{margin:4px 14px 14px;padding:14px;border:1px dashed var(--line2);border-radius:10px;color:var(--muted);font-size:calc(12.5px + var(--fs));line-height:1.5}
 .slv-empty b{color:var(--text);display:block;margin-bottom:4px;font-size:calc(13px + var(--fs))}.slv-empty .btn{margin-top:8px}
+.slv-perf{margin:10px 0 0}
+.slv-sel>.slv-nav:has(.slv-perf){overflow-y:auto;min-height:0}
+.slv-perf-t{width:100%;margin-top:8px;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.slv-perf-t th,.slv-perf-t td{white-space:nowrap}
+.slv-perf-t th{text-align:left;font-weight:600;color:var(--text);padding:2px 6px 4px 0;border-bottom:1px solid var(--line2)}
+.slv-perf-t td{padding:2px 6px 2px 0}.slv-perf-t th:first-child,.slv-perf-t td:first-child{text-align:right;padding-right:14px;width:1%;white-space:nowrap}
 .slv-sort,.slv-act{padding:0 14px 12px}
 .slv-sort .seg{display:flex}.slv-sort .seg button{flex:1}
 .slv-act{display:flex;gap:8px}.slv-act .btn{flex:1}

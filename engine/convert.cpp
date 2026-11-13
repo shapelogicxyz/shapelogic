@@ -6,6 +6,7 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/model/stacking.h"
+#include "shapelogic/solve/slide_forecast.h"
 
 #include <array>
 #include <charconv>
@@ -218,6 +219,7 @@ void problemFields(const State& s, unsigned int index, const Problem& pr, Json& 
   j["searched"] = pr.getSearched();
   j["searchDepth"] = pr.getSearchDepth();
   j["triedApart"] = pr.getTriedApart();
+  j["slideGrid"] = pr.getSlideGrid();
 }
 
 }  // namespace
@@ -358,6 +360,8 @@ Json problemDetail(const State& s, unsigned int index) {
                       ? Json{{"start", stacksJson(s, pr.startStacks())},
                              {"goal", stacksJson(s, pr.goalStacks())}}
                       : Json(nullptr);
+    // the times are kept only while the solve is open
+    j["slideForecast"] = slideForecastJson(pr.getSlideLevelMs(), 0);
     return j;
   });
 }
@@ -480,13 +484,14 @@ namespace {
 // The original's check boxes (mainwindow_solve.cpp's optionNames), and
 // verticalMoves, which sliding trays of several layers added,
 // anyOrientation and mirroredOrientations (a sliding piece's orientation),
-// and keepAssemblies (Always show Assemblies).
-constexpr std::array<std::string_view, 16> kSolverBoxes = {
+// keepAssemblies (Always show Assemblies) and optimizedPaths (Automatically
+// use optimized paths).
+constexpr std::array<std::string_view, 17> kSolverBoxes = {
     "disassemble",   "checkRotations", "justCount",      "justLevels",
     "deepSymmetry",  "keepMirrors",    "keepRotations",  "strictColors",
     "nestedSlides",  "partialNested",  "verticalMoves",  "anyOrientation",
     "mirroredOrientations",            "highMemory",     "autosave",
-    "keepAssemblies"};
+    "keepAssemblies", "optimizedPaths"};
 
 bool isBox(std::string_view name) {
   for (const std::string_view b : kSolverBoxes) {
@@ -592,6 +597,7 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
       o.sliding.mirroredOrientations =
           sp.optBoolean("mirroredOrientations", o.sliding.mirroredOrientations);
       o.sliding.highMemory = sp.optBoolean("highMemory", o.sliding.highMemory);
+      o.sliding.optimizedPaths = sp.optBoolean("optimizedPaths", o.sliding.optimizedPaths);
       if (RpcResult<void> r = sp.finish(); !r) {
         RpcError e = r.error();
         e.message = "options: sliding: " + e.message;
@@ -640,6 +646,27 @@ Json takeApartJson(const DisassemblyProgress& d) {
   return j;
 }
 
+Json slideForecastJson(const std::vector<std::uint64_t>& levelMs, std::uint64_t runningMs) {
+  if (levelMs.empty()) {
+    return nullptr;
+  }
+  const sliding::SlideForecast f = sliding::slideForecast(levelMs, runningMs);
+  Json estimates = Json::array();
+  for (const sliding::SlideEstimate& e : f.estimates) {
+    estimates.push_back(Json{{"depth", e.depth}, {"levelMs", e.levelMs}, {"fromNowMs", e.fromNowMs}});
+  }
+  // a move not timed (searched before the times were kept) is null
+  Json times = Json::array();
+  for (const std::uint64_t ms : f.levelMs) {
+    times.push_back(ms == kUntimedMs ? Json(nullptr) : Json(ms));
+  }
+  return Json{{"depth", f.depth},
+              {"levelMs", std::move(times)},
+              {"runningMs", f.runningMs},
+              {"growth", f.growth > 0 ? Json(f.growth) : Json(nullptr)},
+              {"estimates", std::move(estimates)}};
+}
+
 Json progressJson(const SolveProgress& g) {
   Json j = Json::object();
   j["stage"] = solveStageName(g.stage);
@@ -672,6 +699,7 @@ Json progressJson(const SolveProgress& g) {
                                           {"doneBytes", g.stopBytes},
                                           {"totalBytes", g.stopTotalBytes}}
                                    : Json(nullptr);
+  j["slideForecast"] = slideForecastJson(g.slideLevelMs, g.slideLevelRunningMs);
   return j;
 }
 

@@ -21,7 +21,9 @@ import { ic } from '../shell/icons.ts';
 import { openPop } from '../shell/popover.ts';
 import { hex } from '../shell/piece-colours.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
+import { isActive } from '../state/solves.ts';
 import type { SortKey } from './pager.ts';
+import { performanceHtml } from './performance.ts';
 import type { FileExport, RemoveWhich, SolverWorkspace } from './workspace.ts';
 
 /** The sort buttons (the mockup's SVSORT; `assembly` is its search order). */
@@ -147,10 +149,13 @@ export class SolutionsCard {
     box.dataset.sort = `${ws.sortBy}:${ws.descending ? 'desc' : 'asc'}`;
     box.dataset.version = String(pager?.version ?? '');
     if (n === 0) {
+      // the Performance Analysis drawn in a box of its own: as the run's
+      // progress comes, the card (what scrolls) stays, and so does its scroll
       setHtml(
         box,
-        `<div class="slv-nav">${this.navLines(-1, 0)}<div class="slv-empty" style="margin:0">${this.whyEmpty()}</div></div>`,
+        `<div class="slv-nav">${this.navLines(-1, 0)}<div class="slv-empty" style="margin:0">${this.whyEmpty()}</div><div id="slvPerfBox"></div></div>`,
       );
+      setHtml(byId('slvPerfBox'), this.performancePanel());
       return;
     }
     if (ws.view === 'list') {
@@ -184,6 +189,35 @@ export class SolutionsCard {
     );
   }
 
+  /** A run's progress came: the Performance Analysis follows it while no solution shows. */
+  renderProgress(): void {
+    if ((this.ws.pager?.total ?? 0) === 0) {
+      this.renderSel();
+    }
+  }
+
+  /**
+   * A sliding solve under way or paused (in memory, or kept in the file):
+   * the Performance Analysis (performance.ts) under the empty card, from
+   * the run's progress while it runs, else from the problem's detail.
+   */
+  private performancePanel(): string {
+    const ws = this.ws;
+    const id = ws.current;
+    if (!ws.sliding || id === null) {
+      return '';
+    }
+    const s = ws.stateOf(id);
+    const active = isActive(s);
+    const open = active || s === 'paused' || ws.problem?.state === 'solving';
+    const live = active ? (ws.solves.peek(id)?.progress?.slideForecast ?? null) : null;
+    const f = live ?? (open ? (ws.detail?.slideForecast ?? null) : null);
+    if (f === null) {
+      return '';
+    }
+    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active)}</div>`;
+  }
+
   private whyEmpty(): string {
     const ws = this.ws;
     const s = ws.current === null ? 'idle' : ws.stateOf(ws.current);
@@ -193,6 +227,10 @@ export class SolutionsCard {
     }
     if (s === 'preparing' || s === 'assembling' || s === 'draining') {
       return '<b>Searching…</b>Solutions appear here as they are found.';
+    }
+    // a sliding solve paused, in memory or kept in the file: Continue goes on
+    if (ws.sliding && (s === 'paused' || (s === 'idle' && p?.state === 'solving'))) {
+      return '<b>Search paused</b>Press <b style="display:inline">Continue</b> to carry the search on; solutions appear here as they are found.';
     }
     if (p?.state === 'solved' && (p.assemblies ?? 0) === 0) {
       return '<b>No assemblies found</b>The pieces cannot fill the result with the current ranges and color rules. Review the Puzzle tab.';

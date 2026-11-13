@@ -190,11 +190,12 @@
         "solutions": {"type": ["integer", "null"], "description": "Solutions found, when known."},
         "saved": {"type": "integer", "minimum": 0, "description": "Saved solutions."},
         "timeMs": {"type": ["integer", "null"], "description": "Time spent solving, when known."},
-        "searched": {"type": "integer", "minimum": 0, "description": "How much the solves of the problem went through, kept with it in the file (the original's recordSearchStats): the assembler's search steps, a sliding search's arrangements, a stacking search's stackings (found, for the Panex search); 0 when unknown."},
-        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding or Panex search went; 0 when unknown or for the other searches."},
-        "triedApart": {"type": "integer", "minimum": 0, "description": "The assemblies the solves tried to take apart; 0 when unknown."}
+        "searched": {"type": "integer", "minimum": 0, "description": "How much the solves of the problem went through, kept with it in the file (the original's recordSearchStats): the assembler's search steps, a sliding solve's arrangements (every run of the solve: what SolveProgress.searched showed when its last run stopped; solve.start begins it at 0), a stacking search's stackings (found, for the Panex search); 0 when unknown."},
+        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding solve's searches went (the deepest), or a Panex search; 0 when unknown or for the other searches."},
+        "triedApart": {"type": "integer", "minimum": 0, "description": "The assemblies the solves tried to take apart; 0 when unknown."},
+        "slideGrid": {"type": "integer", "minimum": 0, "description": "The grid a sliding solve held its stops to (optimized paths: cells a side; SlidingOptions.optimizedPaths), kept with the problem in the file and dropped with its results: its solutions were found on that grid, so a shorter one may exist, and its 'no solution' proves nothing. 0 when every stop was searched."}
       },
-      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart", "slideGrid"],
       "additionalProperties": false
     },
     "Snapshot": {
@@ -264,7 +265,7 @@
     },
     "SolverSettings": {
       "type": "object",
-      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
+      "description": "The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.",
       "properties": {
         "disassemble": {"type": "boolean"},
         "checkRotations": {"type": "boolean"},
@@ -279,6 +280,7 @@
         "verticalMoves": {"type": "boolean"},
         "anyOrientation": {"type": "boolean"},
         "mirroredOrientations": {"type": "boolean"},
+        "optimizedPaths": {"type": "boolean", "description": "Automatically use optimized paths (not in the original)."},
         "highMemory": {"type": "boolean"},
         "autosave": {"type": "boolean"},
         "keepAssemblies": {"type": "boolean", "description": "Always show Assemblies (not in the original)."},
@@ -306,6 +308,7 @@
         "searched": {"type": "integer", "minimum": 0},
         "searchDepth": {"type": "integer", "minimum": 0},
         "triedApart": {"type": "integer", "minimum": 0},
+        "slideGrid": {"type": "integer", "minimum": 0},
         "parts": {"type": "array", "items": {"$ref": "#/$defs/Part"}},
         "colourRules": {
           "type": "array",
@@ -332,9 +335,13 @@
             {"type": "null"}
           ],
           "description": "Null on other grids."
+        },
+        "slideForecast": {
+          "oneOf": [{"$ref": "#/$defs/SlideForecast"}, {"type": "null"}],
+          "description": "A sliding solve that is open (under way or paused, kept in the file): the forecast from the times of the moves its search has searched (runningMs 0; while it runs, solve.progress has the live one). Null when there are none, and once the solve is through."
         }
       },
-      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings", "stacks"],
+      "required": ["id", "label", "name", "result", "rodSet", "pieces", "state", "solve", "analysing", "assemblies", "solutions", "saved", "timeMs", "searched", "searchDepth", "triedApart", "slideGrid", "parts", "colourRules", "maxHoles", "savedPosition", "solverSettings", "stacks", "slideForecast"],
       "additionalProperties": false
     },
     "FitStats": {
@@ -390,6 +397,7 @@
         "verticalMoves": {"type": "boolean", "description": "On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer."},
         "anyOrientation": {"type": "boolean", "description": "A piece with neither a start nor a goal on the board may be placed in any quarter turn in its layers (Allow any orientation for unplaced pieces); off (the default), every piece is placed as drawn. Either way a piece keeps its orientation as it slides, and a piece with a start or a goal keeps the one drawn."},
         "mirroredOrientations": {"type": "boolean", "description": "With anyOrientation, those pieces may also be placed as the mirror images of those turns: turned over, on a tray one layer deep (Include mirrored orientations)."},
+        "optimizedPaths": {"type": "boolean", "description": "Automatically use optimized paths: when the board fits a grid (sliding.gridAdvice), every piece stops only on it, blocks on its lines and smaller pieces at the offsets where pieces of their cells start or fill a goal or fit in a block's hole; pieces still pass through the cells between. The grid is worked out as each run begins and kept with the problem (ProblemSummary.slideGrid). A far smaller search that limits the search space: a path it finds is real but may have more than the fewest moves, and 'no solution' proves nothing (the note says so). Off (the default), every stop is searched; with no grid found, too."},
         "highMemory": {"type": "boolean", "description": "Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part."}
       },
       "additionalProperties": false
@@ -445,8 +453,8 @@
         "levelFraction": {"type": "number"},
         "secondsLeft": {"type": ["number", "null"]},
         "activity": {"type": "string", "description": "The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search. Scanned N stackings.')."},
-        "searched": {"type": "integer", "minimum": 0, "description": "The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search)."},
-        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together."},
+        "searched": {"type": "integer", "minimum": 0, "description": "A sliding solve: the arrangements its searches have visited, its runs before this one included (ProblemSummary.searched, which a run's end sets to it; a search carried on from its folder adds only what it visits now); the stacking search: the stackings it has searched (found, for the Panex search)."},
+        "searchDepth": {"type": "integer", "minimum": 0, "description": "How many moves deep a sliding solve's searches have gone, the deepest (0 before the first one's first level, and for the other searches); how many moves deep both ends of the Panex search are together."},
         "searchTraced": {"type": "integer", "minimum": 0, "description": "Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before."},
         "panexSearch": {"type": "boolean", "description": "The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search')."},
         "stopKind": {"enum": ["pause", "abort", null], "description": "Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be continued) or an abort (solve.abort); null in every other stage."},
@@ -465,9 +473,38 @@
             },
             {"type": "null"}
           ]
+        },
+        "slideForecast": {
+          "oneOf": [{"$ref": "#/$defs/SlideForecast"}, {"type": "null"}],
+          "description": "A sliding solve: the forecast from the times of the moves the slide search under way (or paused) has searched, and how long the move it is on has run. Null before a move is timed, and on other grids."
         }
       },
-      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch", "stopKind", "slideStop"],
+      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch", "stopKind", "slideStop", "slideForecast"],
+      "additionalProperties": false
+    },
+    "SlideForecast": {
+      "type": "object",
+      "description": "How long a slide search will take to go deeper (the Solver's Performance Analysis): the time each move deep took, the rate the times grow at (the geometric mean of the newest five ratios of moves that took 20 ms or more), and from it every fifth move to 100 past the search's depth: the next move takes the last one's time times the growth, or as long as it has run when that is longer, each move after it the one before times the growth. Times are held to a thousand years.",
+      "properties": {
+        "depth": {"type": "integer", "minimum": 0, "description": "The moves searched to (the times known)."},
+        "levelMs": {"type": "array", "items": {"type": ["integer", "null"], "minimum": 0}, "description": "How long each move took: entry k is move k + 1; null for a move not timed (searched before the times were kept: a paused solve opened from a file without them has its moves so, and the times go on from them). The growth and the estimates start once two moves in a row have been timed."},
+        "runningMs": {"type": "integer", "minimum": 0, "description": "How long the move under way has run; 0 when none is."},
+        "growth": {"type": ["number", "null"], "description": "Each move's time over the one before; null when fewer than two measurable moves follow one another (then there are no estimates)."},
+        "estimates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "depth": {"type": "integer", "minimum": 1, "description": "Moves deep: a multiple of 5, up to 100."},
+              "levelMs": {"type": "integer", "minimum": 0, "description": "How long that move will take."},
+              "fromNowMs": {"type": "integer", "minimum": 0, "description": "How long until the search has searched that deep, from now."}
+            },
+            "required": ["depth", "levelMs", "fromNowMs"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["depth", "levelMs", "runningMs", "growth", "estimates"],
       "additionalProperties": false
     },
     "SolveStats": {

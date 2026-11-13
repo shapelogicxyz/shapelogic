@@ -316,14 +316,18 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   }
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
-  s.step = o.slideStep;
+  s.gridStopsApart = o.slideStopsApart;
+  s.optimizedPaths = o.optimizedPaths;
+  s.grid = o.slideGrid;
   return s;
 }
 
-// A slide search set up for one start, on the threads of `pool`.
-bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool) {
+// A slide search set up for one start, on the threads of `pool`, its stops
+// held to `grid` (optimized paths; 0 for every stop).
+bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool, int grid) {
   bt::sliding::SlideSearch search = bt::sliding::slideSearchFor(slidingOptions(o));
   search.pool = pool;
+  search.grid = grid;
   if (o.slideTrace) {
     search.onLevel = [](const std::string& line) { std::fprintf(stderr, "%s\n", line.c_str()); };
   }
@@ -685,9 +689,17 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                                                         takeApartOptions(o, takeApartPool.get()));
     }
 
+    // optimized paths: the grid the problem's stops are held to, once
+    int slideGrid = 0;
     if (o.disassemble && sliding) {
       // a saved slide search of a start is carried on, unless --restart
       const bt::sliding::SlidingOptions so = slidingOptions(o);
+      slideGrid = bt::sliding::searchGrid(puzzle, problem, so);
+      if (!o.quiet && slideGrid > 1) {
+        std::printf("optimized paths: the pieces stop only on a %d-cell grid\n", slideGrid);
+      } else if (!o.quiet && o.optimizedPaths && o.slideGrid <= 1) {
+        std::printf("optimized paths: the board fits no grid, so every stop is searched\n");
+      }
       if (o.restart) {
         bt::sliding::discardSaved(puzzle, problem, so.workDir);
       }
@@ -736,7 +748,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
           assemblies++;
           seenAssemblies.store(assemblies, std::memory_order_relaxed);
           if (o.disassemble && sliding) {
-            bt::sliding::SlideSearch search = slideSearch(o, slidePool.get());
+            bt::sliding::SlideSearch search = slideSearch(o, slidePool.get(), slideGrid);
             const std::optional<bt::Separation> path =
                 bt::sliding::findSlidePath(puzzle, problem, assembly, search);
             if (search.outcome == bt::sliding::SlideOutcome::Memory ||
@@ -844,9 +856,10 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                 "SHAPELOGIC_SLIDE_DISK_GB, then run the same command again to carry it on, or "
                 "add --restart to start over\n");
           }
-        } else if (solutions == 0 && assemblies > 0 && o.slideStep > 1) {
-          std::printf("no solution with --slide-step %d; one may need stops in between\n",
-                      o.slideStep);
+        } else if (solutions == 0 && assemblies > 0 && slideGrid > 1) {
+          std::printf("no solution with optimized paths (a %d-cell grid); a full search may "
+                      "find one\n",
+                      slideGrid);
         } else if (solutions == 0 && assemblies > 0) {
           std::printf("every reachable arrangement was searched: no solution%s\n",
                       !o.nestedSlides     ? " (without --nested-slides)"
@@ -884,7 +897,8 @@ int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
     const bt::Problem& problem = puzzle.getProblem(pr);
     for (unsigned int sol = 0; sol < problem.getNumberOfSavedSolutions(); sol++) {
       const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
-      bt::sliding::SlideSearch search = slideSearch(o, &pool);
+      bt::sliding::SlideSearch search =
+          slideSearch(o, &pool, bt::sliding::searchGrid(puzzle, problem, slidingOptions(o)));
       const std::optional<bt::Separation> path =
           bt::sliding::findSlidePath(puzzle, problem, assembly, search);
       if (!path) {
@@ -1167,11 +1181,13 @@ int main(int argc, char** argv) {
   bt::Puzzle& puzzle = *loaded;
 
   const PuzzleKind kind = puzzleKind(puzzle);
-  if ((o.verticalMoves || o.anyOrientation || o.slideStep > 1) && kind != PuzzleKind::Sliding) {
+  if ((o.verticalMoves || o.anyOrientation || o.optimizedPaths || o.slideGrid > 1) &&
+      kind != PuzzleKind::Sliding) {
     std::fprintf(stderr, "shapelogic_cli: %s is for sliding puzzles; this is a %s puzzle\n",
                  o.verticalMoves    ? "--vertical-moves"
                  : o.anyOrientation ? "--any-orientation"
-                                    : "--slide-step",
+                 : o.optimizedPaths ? "--optimized-paths"
+                                    : "--slide-grid",
                  kindName(kind));
     return kExitUsage;
   }

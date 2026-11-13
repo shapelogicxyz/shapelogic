@@ -93,6 +93,7 @@ add_library(btcore STATIC
   shapelogic/solve/search_run.cpp
   shapelogic/solve/simd_exact_cover.cpp
   shapelogic/solve/simd_huang_cover.cpp
+  shapelogic/solve/slide_forecast.cpp
   shapelogic/solve/sliding_search.cpp
   shapelogic/solve/solve_progress.cpp
   shapelogic/solve/solve_session.cpp

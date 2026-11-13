@@ -55,6 +55,7 @@ import { Autosave } from './autosave.ts';
 import { LivePreview } from './live-preview.ts';
 import { SolutionPager } from './pager.ts';
 import type { SortKey } from './pager.ts';
+import { LABEL } from './option-text.ts';
 import { Player } from './player.ts';
 import { RunCard } from './run-card.ts';
 import {
@@ -73,6 +74,7 @@ import {
   stackingDetails,
   stackingSolverOf,
   stopDetails,
+  withOptimizedPaths,
   writeOptions,
 } from './settings.ts';
 import type { BoxName, Family, Limits, SearchOptions } from './settings.ts';
@@ -311,6 +313,7 @@ export class SolverWorkspace {
       if (c.problem === null || c.problem === this.current) {
         this.runCard.render();
         this.solCard.renderActions();
+        this.solCard.renderProgress();
         this.explorer.refresh();
         if (tab === 'solver') {
           updateStatus();
@@ -736,7 +739,9 @@ export class SolverWorkspace {
       return [what, steps].filter((x) => x !== '').join(' ');
     }
     const p = this.problem;
-    return p === null ? '' : savedDetails(this.family, p.searched, p.searchDepth, p.triedApart);
+    return p === null
+      ? ''
+      : savedDetails(this.family, p.searched, p.searchDepth, p.triedApart, p.state === 'solving');
   }
 
   /** The name of the solver the options choose, from the engine's list. */
@@ -1118,14 +1123,52 @@ export class SolverWorkspace {
     }
     try {
       const st = await this.store.engine.call('solve.status', { problem });
-      if (st.note !== null && gen === this.store.generation) {
-        tell(st.note);
+      if (st.note === null || gen !== this.store.generation) {
+        return;
       }
+      if (this.family === 'sliding') {
+        const p = await this.store.engine.call('problem.get', { problem });
+        if (gen !== this.store.generation) {
+          return;
+        }
+        if (p.slideGrid > 0 && p.solutions === 0 && p.state === 'solved') {
+          await this.offerFullSearch(problem, st.note);
+          return;
+        }
+      }
+      tell(st.note);
     } catch (e) {
       if (!(e instanceof EngineError) || e.errc !== 'not_found') {
         reportError(e, 'The solver’s note could not be read');
       }
     }
+  }
+
+  /**
+   * Optimized paths found no solution (decision 0029): the note, and a
+   * full search of every stop offered in its place.
+   */
+  private async offerFullSearch(problem: string, note: string): Promise<void> {
+    const gen = this.store.generation;
+    const k = await askChoice('optimizedNoPath', 'No Solution with Optimized Paths', note, [
+      { key: 'ok', label: 'OK' },
+      {
+        key: 'full',
+        label: 'Full Search',
+        kind: 'pri',
+        default: true,
+        tip: 'Solve again, searching every stop',
+      },
+    ]);
+    if (k !== 'full' || gen !== this.store.generation || this.calling) {
+      return;
+    }
+    if (problem === this.current) {
+      this.sel = -1;
+      this.selId = null;
+      this.player.show(null, null);
+    }
+    await this.launchRun(problem, 'start', withOptimizedPaths(this.launchOptions(problem), false));
   }
 
   /** Keep at most / keep every n-th (not stored, as the original's). */
@@ -1186,13 +1229,71 @@ export class SolverWorkspace {
         return;
       }
     }
+    let options = this.optionsNow();
+    if (this.sliding && kind !== 'prepare' && options.sliding?.optimizedPaths !== true) {
+      if (kind === 'continue') {
+        // a run that used optimized paths goes on with them
+        if (this.launched.get(problem)?.sliding?.optimizedPaths === true) {
+          options = withOptimizedPaths(options, true);
+        }
+      } else {
+        const use = await this.askOptimizedPaths(problem);
+        if (use === null || problem !== this.current || this.busyNow()) {
+          return;
+        }
+        if (use) {
+          options = withOptimizedPaths(options, true);
+        }
+      }
+    }
     if (kind !== 'continue') {
       // the run drops the solutions: nothing of them is read (or played) from now on
       this.sel = -1;
       this.selId = null;
       this.player.show(null, null);
     }
-    await this.launchRun(problem, kind, this.optionsNow());
+    await this.launchRun(problem, kind, options);
+  }
+
+  /**
+   * Solve on a sliding puzzle whose Automatically use optimized paths is
+   * off (decision 0029): when the board fits a grid (sliding.gridAdvice),
+   * whether this solve should hold the stops to it. True to use it, false
+   * for the full search (and when the board fits none), null when the
+   * question was cancelled.
+   */
+  private async askOptimizedPaths(problem: string): Promise<boolean | null> {
+    let advice;
+    try {
+      advice = await this.store.engine.call('sliding.gridAdvice', { problem });
+    } catch (e) {
+      reportError(e, 'The board could not be looked at for optimized paths');
+      return false;
+    }
+    if (advice.grid === 0) {
+      return false;
+    }
+    const k = await askChoice(
+      'optimizedPaths',
+      'Use Optimized Paths?',
+      `This board fits a ${String(advice.grid)}-cell grid. With optimized paths every piece stops only on it: blocks on its lines, smaller pieces where they fit in a block’s hole or where they start or end. The pieces can then stop in ${advice.gridStops.toLocaleString('en-US')} places instead of ${advice.stops.toLocaleString('en-US')}.\n\nThe search is far smaller and faster, but a solution it finds may have more moves than the fewest, and if it finds none a full search may still find one.\n\nTo use optimized paths without being asked, turn on ${LABEL.optimizedPaths} in the Search Options.`,
+      [
+        { key: 'cancel', label: 'Cancel', tip: 'Solve nothing' },
+        {
+          key: 'full',
+          label: 'Full Search',
+          tip: 'Search every stop: the fewest moves, or proof that there is no solution',
+        },
+        {
+          key: 'optimized',
+          label: 'Use Optimized Paths',
+          kind: 'pri',
+          default: true,
+          tip: 'Search only the stops on the grid, for this solve',
+        },
+      ],
+    );
+    return k === null || k === 'cancel' ? null : k === 'optimized';
   }
 
   /** The call of Solve, Prepare or Continue for a problem, shown or not. */

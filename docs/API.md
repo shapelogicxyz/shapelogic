@@ -1434,6 +1434,26 @@ Result:
 
 Errors: `not_found`, `unsupported`, `invalid_argument`
 
+### `sliding.gridAdvice`
+
+Whether optimized paths would narrow a sliding problem's search (decision 0029), from its board and the starts and goals stamped: the largest grid that divides the board's floor, whose cells some piece (a block) measures a multiple of and on whose lines every such piece starts and fills its goals, and that leaves fewer stops; with it, every piece stops only where pieces of its cells start or fill a goal, or where it fits in a block's hole. The Solver asks before a solve whether to use it (SlidingOptions.optimizedPaths). Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `grid` | integer | required | Cells a side; 0 when the board fits no such grid (or the problem has no board or no starts), and optimized paths would search every stop. |
+| `stops` | integer | required | The places the problem's pieces can stop on the empty board, summed over the pieces (each copy counted); 0 without a grid. |
+| `gridStops` | integer | required | Those the grid leaves (fewer than stops); 0 without a grid. |
+
+Errors: `not_found`, `unsupported`
+
 ## Stacking puzzles
 
 A stacking puzzle's rod sets, discs and stacks (decision 0015; the original's Rods panel, disc list and the stacking branches of its Problems tab). Its shapes are discs: shape.create makes one of size 1, stacking.setDiscSize sizes it; the cell editor and the tool tabs are refused, as the original hid them. A puzzle has one rod set at least; a problem stands on one (its rodSet) and holds the discs of each rod at its start and its goal (problem.get's stacks); its pieces are the discs on them, so the Problems tab's brick commands (problem.setResult, the counts and ranges, problem.movePart, the groups) are refused and these are used instead. Each command is one undo step; a rod set is not changed while anything is solved, a problem's stacks not while it is. Refused (unsupported) on other grids.
@@ -2949,9 +2969,10 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `solutions` | integer or null | required | Solutions found, when known. |
 | `saved` | integer | required | Saved solutions. |
 | `timeMs` | integer or null | required | Time spent solving, when known. |
-| `searched` | integer | required | How much the solves of the problem went through, kept with it in the file (the original's recordSearchStats): the assembler's search steps, a sliding search's arrangements, a stacking search's stackings (found, for the Panex search); 0 when unknown. |
-| `searchDepth` | integer | required | How many moves deep a sliding or Panex search went; 0 when unknown or for the other searches. |
+| `searched` | integer | required | How much the solves of the problem went through, kept with it in the file (the original's recordSearchStats): the assembler's search steps, a sliding solve's arrangements (every run of the solve: what SolveProgress.searched showed when its last run stopped; solve.start begins it at 0), a stacking search's stackings (found, for the Panex search); 0 when unknown. |
+| `searchDepth` | integer | required | How many moves deep a sliding solve's searches went (the deepest), or a Panex search; 0 when unknown or for the other searches. |
 | `triedApart` | integer | required | The assemblies the solves tried to take apart; 0 when unknown. |
+| `slideGrid` | integer | required | The grid a sliding solve held its stops to (optimized paths: cells a side; SlidingOptions.optimizedPaths), kept with the problem in the file and dropped with its results: its solutions were found on that grid, so a shorter one may exist, and its 'no solution' proves nothing. 0 when every stop was searched. |
 
 ### Snapshot
 
@@ -3015,7 +3036,7 @@ A row of the status window.
 
 ### SolverSettings
 
-The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
+The Solver tab's settings stored with a problem (saved in the file, the original's names; the front end decides what they mean). Settings of other versions are kept as strings. These names are the file's and stay: SolveOptions uses the API's (deepSymmetry is completeRotations, strictColors is strictColours, justLevels is justLevels; nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory are sliding's nestedSlides, partialNested, verticalMoves, anyOrientation, mirroredOrientations, optimizedPaths and highMemory, a sliding puzzle's solverType, the original's fast, deep or full, is kept as stored and plays no part: there is one sliding solver). highMemory belongs to the stacking solvers too.
 
 | name | type | | description |
 |---|---|---|---|
@@ -3032,6 +3053,7 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `verticalMoves` | boolean |  |  |
 | `anyOrientation` | boolean |  |  |
 | `mirroredOrientations` | boolean |  |  |
+| `optimizedPaths` | boolean |  | Automatically use optimized paths (not in the original). |
 | `highMemory` | boolean |  |  |
 | `autosave` | boolean |  |  |
 | `keepAssemblies` | boolean |  | Always show Assemblies (not in the original). |
@@ -3059,12 +3081,14 @@ The Solver tab's settings stored with a problem (saved in the file, the original
 | `searched` | integer | required |  |
 | `searchDepth` | integer | required |  |
 | `triedApart` | integer | required |  |
+| `slideGrid` | integer | required |  |
 | `parts` | [Part](#part)[] | required |  |
 | `colourRules` | object[] | required | The allowed pairs: a piece cell of colour 'piece' may sit on a result cell of colour 'result'. |
 | `maxHoles` | integer or null | required |  |
 | `savedPosition` | boolean | required | A paused search position is stored (solve.continue carries on from it). |
 | `solverSettings` | [SolverSettings](#solversettings) | required |  |
 | `stacks` | object or null | required | Null on other grids. |
+| `slideForecast` | [SlideForecast](#slideforecast) or null | required | A sliding solve that is open (under way or paused, kept in the file): the forecast from the times of the moves its search has searched (runningMs 0; while it runs, solve.progress has the live one). Null when there are none, and once the solve is through. |
 
 `colourRules`:
 
@@ -3127,6 +3151,7 @@ A sliding puzzle's search (the solve thread's sliding flags). A sliding solve al
 | `verticalMoves` | boolean |  | On a tray more than one layer deep, a piece may also move up and down (Allow Vertical Moves); off (the default), every piece stays in its layer. |
 | `anyOrientation` | boolean |  | A piece with neither a start nor a goal on the board may be placed in any quarter turn in its layers (Allow any orientation for unplaced pieces); off (the default), every piece is placed as drawn. Either way a piece keeps its orientation as it slides, and a piece with a start or a goal keeps the one drawn. |
 | `mirroredOrientations` | boolean |  | With anyOrientation, those pieces may also be placed as the mirror images of those turns: turned over, on a tray one layer deep (Include mirrored orientations). |
+| `optimizedPaths` | boolean |  | Automatically use optimized paths: when the board fits a grid (sliding.gridAdvice), every piece stops only on it, blocks on its lines and smaller pieces at the offsets where pieces of their cells start or fill a goal or fit in a block's hole; pieces still pass through the cells between. The grid is worked out as each run begins and kept with the problem (ProblemSummary.slideGrid). A far smaller search that limits the search space: a path it finds is real but may have more than the fewest moves, and 'no solution' proves nothing (the note says so). Off (the default), every stop is searched; with no grid found, too. |
 | `highMemory` | boolean |  | Hold up to half the machine's memory in arrangements, not about 2 GB (the original's Enable High Memory). The engine's searchMemoryGB setting decides the memory instead, so this plays no part. |
 
 ### StackingOptions
@@ -3180,12 +3205,33 @@ One take-apart under way.
 | `levelFraction` | number | required |  |
 | `secondsLeft` | number or null | required |  |
 | `activity` | string | required | The original's status text (empty in the search stage, which the original GUI told as 'Sliding search, N moves deep. Scanned N arrangements.', 'Panex search, N moves deep. Found N stackings.', 'Panex search, tracing the path. Traced N of M moves.' or 'Stacking search. Scanned N stackings.'). |
-| `searched` | integer | required | The sliding search under way: the arrangements it has visited; the stacking search: the stackings it has searched (found, for the Panex search). |
-| `searchDepth` | integer | required | How many moves deep a sliding search is (0 before its first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
+| `searched` | integer | required | A sliding solve: the arrangements its searches have visited, its runs before this one included (ProblemSummary.searched, which a run's end sets to it; a search carried on from its folder adds only what it visits now); the stacking search: the stackings it has searched (found, for the Panex search). |
+| `searchDepth` | integer | required | How many moves deep a sliding solve's searches have gone, the deepest (0 before the first one's first level, and for the other searches); how many moves deep both ends of the Panex search are together. |
 | `searchTraced` | integer | required | Once the ends of the Panex search have met: how many moves of the path are traced back (of searchDepth); 0 before. |
 | `panexSearch` | boolean | required | The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search'). |
 | `stopKind` | `"pause"` \| `"abort"` \| `null` | required | Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be continued) or an abort (solve.abort); null in every other stage. |
 | `slideStop` | object or null | required |  |
+| `slideForecast` | [SlideForecast](#slideforecast) or null | required | A sliding solve: the forecast from the times of the moves the slide search under way (or paused) has searched, and how long the move it is on has run. Null before a move is timed, and on other grids. |
+
+### SlideForecast
+
+How long a slide search will take to go deeper (the Solver's Performance Analysis): the time each move deep took, the rate the times grow at (the geometric mean of the newest five ratios of moves that took 20 ms or more), and from it every fifth move to 100 past the search's depth: the next move takes the last one's time times the growth, or as long as it has run when that is longer, each move after it the one before times the growth. Times are held to a thousand years.
+
+| name | type | | description |
+|---|---|---|---|
+| `depth` | integer | required | The moves searched to (the times known). |
+| `levelMs` | integer or null[] | required | How long each move took: entry k is move k + 1; null for a move not timed (searched before the times were kept: a paused solve opened from a file without them has its moves so, and the times go on from them). The growth and the estimates start once two moves in a row have been timed. |
+| `runningMs` | integer | required | How long the move under way has run; 0 when none is. |
+| `growth` | number or null | required | Each move's time over the one before; null when fewer than two measurable moves follow one another (then there are no estimates). |
+| `estimates` | object[] | required |  |
+
+`estimates`:
+
+| name | type | | description |
+|---|---|---|---|
+| `estimates.depth` | integer | required | Moves deep: a multiple of 5, up to 100. |
+| `estimates.levelMs` | integer | required | How long that move will take. |
+| `estimates.fromNowMs` | integer | required | How long until the search has searched that deep, from now. |
 
 ### SolveStats
 

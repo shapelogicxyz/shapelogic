@@ -1,6 +1,6 @@
 ---
 title: Solver Tab Options
-description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow any orientation for unplaced pieces, Include mirrored orientations, Allow Nested Slides, Allow Partially Nested and Allow Vertical Moves; the memory and disk space a sliding or stacking search may take; Sort by, the step-by-step explorer and the solutions list."
+description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow any orientation for unplaced pieces, Include mirrored orientations, Allow Nested Slides, Allow Partially Nested, Allow Vertical Moves and Automatically use optimized paths; the memory and disk space a sliding or stacking search may take; Sort by, the step-by-step explorer and the solutions list."
 ---
 
 The **Solver** tab (`Ctrl+3`, `⌘3` on a Mac) searches for the ways the pieces
@@ -207,6 +207,22 @@ symmetry and color ones:
 - **Allow Vertical Moves**: on a tray with more than one layer, a piece may
   also move up and down, lifted over the other pieces and put down somewhere
   else. Off (the default), every piece slides only in its own layer.
+- **Automatically use optimized paths**: for a board that divides into a
+  grid of cells that its blocks fill, such as an 18 by 18 board of 6 by 6
+  blocks. Every piece then stops only on that grid: blocks on its lines,
+  smaller pieces where they fit in a block's hole or where they start or
+  end. Pieces still pass through the cells in between. This limits the
+  search space, so the search is much smaller: a board of blocks that takes
+  hours can take seconds. The cost is that a solution it finds may have more
+  moves than the fewest. And when it finds none, a full search may still
+  find one, since some puzzles need a block parked part of the way. Off (the
+  default), **Solve** first asks whenever the board fits such a grid. It
+  names the grid and how many places the pieces can stop in with it and
+  without it. **Use Optimized Paths** uses the grid for that solve only, and
+  **Full Search** searches every stop; **Cancel** solves nothing. A result found this way is marked
+  *(optimized)* in the problems list, and is saved that way. When optimized
+  paths find no solution, the message offers **Full Search**. A board that
+  fits no grid is always searched in full.
 - **Solver type**: the **Sliding Puzzle Solver**, the only one. Each start
   is searched for the fewest moves to the goal with no limit on the
   arrangements it looks at: it either finds the fewest moves or proves there
@@ -217,6 +233,20 @@ symmetry and color ones:
   and the solve pauses: raise **Sliding disk space** or free some disk,
   then press **Continue**. **Solve** and **Abort** throw saved searches
   away.
+
+While a sliding solve runs, or is paused, and no solution has been found
+yet, a **Performance Analysis** box sits under the empty solutions list. It
+times each move deep the search goes and shows how much longer each move
+takes than the one before, worked out from the last few moves. From that it
+estimates every fifth move ahead, up to 100 moves deep: how long that move
+will take, and how long until the search gets there. The estimates are
+worked out again each time a move ends, so they settle as the search goes
+on. The first few are rough. A paused solve keeps the times, also in the
+puzzle file and its crash recovery copy, so the box comes back when the
+puzzle is opened again. Its times count from when you press **Continue**.
+A solve paused by an older version, which kept no times, shows its moves
+without times. Its estimates start once two more moves have been timed
+after **Continue**. The box goes once the solve is through.
 
 ### Options for stacking puzzles
 

@@ -43,6 +43,7 @@
    "searched": 265,
    "searchDepth": 0,
    "triedApart": 7,
+   "slideGrid": 0,
    "parts": [
     {
      "shape": "s2",
@@ -57,7 +58,8 @@
    "maxHoles": null,
    "savedPosition": false,
    "solverSettings": {},
-   "stacks": null
+   "stacks": null,
+   "slideForecast": null
   }
  ],
  "events": [
@@ -205,7 +207,8 @@
      "searchTraced": 0,
      "panexSearch": false,
      "stopKind": null,
-     "slideStop": null
+     "slideStop": null,
+     "slideForecast": null
     }
    }
   },
@@ -233,7 +236,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 55,
+     "elapsedMs": 52,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
@@ -256,7 +259,8 @@
      "searchTraced": 0,
      "panexSearch": false,
      "stopKind": null,
-     "slideStop": null
+     "slideStop": null,
+     "slideForecast": null
     }
    }
   },

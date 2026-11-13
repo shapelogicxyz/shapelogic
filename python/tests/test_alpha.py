@@ -218,6 +218,12 @@ class TestSliding(unittest.TestCase):
         self.assertEqual(solutions[0].level, 81)
         self.assertEqual(solutions[0].total_moves, 81)
 
+    def test_optimized_paths_on_a_board_that_fits_no_grid(self):
+        # a 4x5 tray fits no grid: every stop is searched, as without them
+        puzzle = shapelogic.load(puzzle_path("test_sliding_solver.xmpuzzle"))
+        solutions = list(puzzle.problems[0].solve(optimized_paths=True))
+        self.assertEqual([s.moves_text for s in solutions], ["81"])
+
     def test_start_layouts_without_the_search(self):
         puzzle = shapelogic.load(puzzle_path("test_sliding_solver.xmpuzzle"))
         layouts = list(puzzle.problems[0].solve(disassemble=False))

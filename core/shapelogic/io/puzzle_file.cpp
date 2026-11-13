@@ -785,7 +785,7 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
 
   Keeper keep(prob.preserved());
   keep.attributes(e, {"name", "state", "assemblies", "solutions", "time", "timeMs", "searched",
-                      "searchDepth", "triedApart", "maxHoles"});
+                      "searchDepth", "triedApart", "slideGrid", "slideLevelMs", "maxHoles"});
 
   std::string str = e.attribute("maxHoles");
   if (!str.empty()) {
@@ -834,6 +834,25 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
       apart = strtoulOf(str);
     }
     prob.setSearchStats(searched, depth, apart);
+    str = e.attribute("slideGrid");
+    if (!str.empty()) {
+      prob.setSlideGrid(static_cast<unsigned int>(strtoulOf(str)));
+    }
+    // each move's time, "-" for one not timed
+    str = e.attribute("slideLevelMs");
+    std::vector<std::uint64_t> ms;
+    std::istringstream in(str);
+    std::string v;
+    while (in >> v) {
+      ms.push_back(v == "-" ? kUntimedMs : strtoullOf(v));
+    }
+    // a sliding solve paused by a version that kept no times: the moves
+    // searched are there, untimed, and the times go on from them
+    if (ms.empty() && depth > 0 && prob.getSolveState() == ProblemState::Solving &&
+        sliding::isSliding(puzzle)) {
+      ms.assign(static_cast<std::size_t>(depth), kUntimedMs);
+    }
+    prob.setSlideLevelMs(std::move(ms));
   }
 
   unsigned int pieces = 0;
@@ -1510,6 +1529,16 @@ void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
     }
     if (prob.getTriedApart() != 0) {
       xml.newAttrib("triedApart", prob.getTriedApart());
+    }
+    if (prob.getSlideGrid() != 0) {
+      xml.newAttrib("slideGrid", prob.getSlideGrid());
+    }
+    if (!prob.getSlideLevelMs().empty()) {
+      std::string ms;
+      for (const std::uint64_t v : prob.getSlideLevelMs()) {
+        ms += (ms.empty() ? "" : " ") + (v == kUntimedMs ? std::string("-") : std::to_string(v));
+      }
+      xml.newAttrib("slideLevelMs", ms);
     }
   }
 

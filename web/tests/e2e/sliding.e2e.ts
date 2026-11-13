@@ -10,7 +10,9 @@
 // drawn; the nested fixture with and without nested slides; what the
 // original greyed out hidden; the notices in message boxes; copies of a
 // piece placed one by one; problems on one board, each with starts and
-// goals of its own, taken along when the board is edited.
+// goals of its own, taken along when the board is edited; optimized paths
+// asked about before a solve, and the full search offered when they find
+// no solution.
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1110,11 +1112,242 @@ test('the crash recovery journal pauses a sliding search, saves, and carries it 
     await runEnded(page, 'paused');
     await expect(page.locator('#slvActivity')).toHaveText('Search paused');
     await expect(page.locator('#slvPct')).toHaveText('0.0%');
+    // paused, the Details line says it as it did while the search ran
+    await expect(page.locator('#slvDetails')).toContainText(
+      /^\S+ moves deep\. Scanned .+ arrangements\.$/,
+    );
     const sp = await shownProblem(page);
     await expect(page.locator(`#slvProbs .row[data-id="${sp}"] .st`)).toHaveText('paused');
     expect(
       await engineCall<{ state: string }>(page, 'solve.status', { problem: sp }),
     ).toMatchObject({ state: 'paused' });
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('optimized paths: asked about before a solve, the full search offered when they find none', async () => {
+  test.setTimeout(120_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log });
+  const page = a.page;
+  try {
+    // a fixed 2x2 block in a corner gives the 4x4 board a grid of 2; units
+    // a and b swap along the bottom row only by b waiting in the pocket
+    // above its second cell, which is off the grid
+    await newDocument(page, 'sliding');
+    const cells = (c: [number, number][]) => c.map(([x, y]) => [x, y, 0]);
+    const block = (await engineCall<{ shape: string }>(page, 'shape.create', { size: [2, 2, 1] }))
+      .shape;
+    await engineCall(page, 'shape.setCells', {
+      shape: block,
+      tool: 'fixed',
+      cells: cells([
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ]),
+    });
+    const units: string[] = [];
+    for (let k = 0; k < 2; k++) {
+      const u = (await engineCall<{ shape: string }>(page, 'shape.create', { size: [1, 1, 1] }))
+        .shape;
+      await engineCall(page, 'shape.setCells', { shape: u, tool: 'fixed', cells: cells([[0, 0]]) });
+      units.push(u);
+    }
+    const tray = (
+      await engineCall<{ shape: string }>(page, 'sliding.addStartGoal', { size: [4, 4] })
+    ).shape;
+    await engineCall(page, 'shape.setCells', {
+      shape: tray,
+      tool: 'erase',
+      cells: cells([
+        [0, 1],
+        [2, 1],
+        [3, 1],
+        [0, 2],
+        [1, 2],
+        [0, 3],
+        [1, 3],
+      ]),
+    });
+    const p = (await engineCall<{ problem: string }>(page, 'problem.create')).problem;
+    await engineCall(page, 'problem.setResult', { problem: p, shape: tray });
+    const [ua, ub] = units;
+    const stamps: [string, [number, number], [number, number]][] = [
+      [block, [2, 3], [2, 3]],
+      [ua ?? '', [0, 0], [1, 0]],
+      [ub ?? '', [1, 0], [0, 0]],
+    ];
+    for (const [piece, start, goal] of stamps) {
+      for (const [at, isGoal] of [
+        [start, false],
+        [goal, true],
+      ] as const) {
+        await engineCall(page, 'sliding.place', {
+          tray,
+          problem: p,
+          piece,
+          at,
+          goal: isGoal,
+        });
+      }
+    }
+
+    await toSolver(page);
+    expect(await shownProblem(page)).toBe(p);
+    await page.click('#slvOptHead');
+    // the switch, off, last before the Solver type
+    const sw = page.locator('#slvOpts [data-o="optimizedPaths"]');
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    const order = await page
+      .locator('#slvOpts .switch[data-o]')
+      .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.o));
+    expect(order.at(-1)).toBe('optimizedPaths');
+    const note = page.locator(`#slvProbs .row[data-id="${p}"] .st`);
+
+    // Solve asks; with optimized paths there is no solution, and the full
+    // search offered in its place finds the four moves
+    await runButton(page, 'start');
+    const ask = page.locator('#optimizedPaths');
+    await expect(ask).toContainText('This board fits a 2-cell grid.');
+    await expect(ask).toContainText('Automatically use optimized paths');
+    await page.click('#optimizedPaths [data-x="optimized"]');
+    const none = page.locator('#optimizedNoPath');
+    await expect(none).toContainText('2-cell grid, none reaches the goal');
+    await page.click('#optimizedNoPath [data-x="full"]');
+    await runEnded(page, 'finished');
+    await expect(note).toHaveText('4 moves');
+    const found = (): Promise<{ slideGrid: number; solutions: number | null }> =>
+      engineCall(page, 'problem.get', { problem: p });
+    expect(await found()).toMatchObject({ slideGrid: 0, solutions: 1 });
+
+    // cancelled, nothing is solved
+    await runButton(page, 'start');
+    await expect(ask).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(ask).toHaveCount(0);
+    await solverSettled(page);
+    expect((await found()).solutions).toBe(1);
+    // and so with its Cancel button, the first
+    await runButton(page, 'start');
+    await expect(ask.locator('[data-x]').first()).toHaveAttribute('data-x', 'cancel');
+    await page.click('#optimizedPaths [data-x="cancel"]');
+    await expect(ask).toHaveCount(0);
+    await solverSettled(page);
+    expect((await found()).solutions).toBe(1);
+
+    // with the switch on, Solve does not ask; the switch is stored
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(none).toBeVisible();
+    await expect(ask).toHaveCount(0);
+    await page.click('#optimizedNoPath [data-x="ok"]');
+    await runEnded(page, 'finished');
+    await expect(note).toHaveText('no solution (optimized)');
+    expect(await found()).toMatchObject({ slideGrid: 2, solutions: 0 });
+    const stored = await engineCall<{ solverSettings: { optimizedPaths?: boolean } }>(
+      page,
+      'problem.get',
+      { problem: p },
+    );
+    expect(stored.solverSettings.optimizedPaths).toBe(true);
+    const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    expect(bad).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('Performance Analysis: the moves’ times and the estimates while a sliding solve runs and is paused', async () => {
+  test.setTimeout(120_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log });
+  const page = a.page;
+  try {
+    // the fifteen with two tiles swapped: one start, searched far longer than the test
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    await runButton(page, 'start');
+    // under the empty card, once the moves take measurable time: every
+    // fifth move to come, to 100
+    const perf = page.locator('#slvSel #slvPerf');
+    await expect(perf.locator('b').first()).toHaveText('Performance Analysis');
+    await expect(perf.locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
+    await expect(perf).toContainText(/Searched \d+ moves deep/);
+    await expect(perf.locator('th').nth(2)).toHaveText('From now');
+    // the rows and the depth read together (the panel follows each progress)
+    const shown = await perf.evaluate((el) => ({
+      text: el.textContent,
+      depths: [...el.querySelectorAll<HTMLElement>('tbody tr')].map((r) => Number(r.dataset.depth)),
+    }));
+    const depths = shown.depths;
+    const deep = Number(/Searched (\d+) moves deep/.exec(shown.text)?.[1]);
+    expect(depths[0]).toBe((Math.floor(deep / 5) + 1) * 5);
+    expect(depths.at(-1)).toBe(100);
+    expect(depths.every((d, i) => i === 0 || d === (depths[i - 1] ?? 0) + 5)).toBe(true);
+    // the card that scrolls is kept as the panel follows: its scroll stays
+    await page.locator('#slvSel > .slv-nav').evaluate((el) => {
+      el.dataset.kept = '1';
+    });
+    // worked out again as the search goes deeper
+    await expect(perf).not.toContainText(`Searched ${String(deep)} moves deep`, {
+      timeout: 30_000,
+    });
+    await expect(page.locator('#slvSel > .slv-nav')).toHaveAttribute('data-kept', '1');
+
+    // paused: kept, counted from when it is continued, and in the file
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    await expect(perf.locator('th').nth(2)).toHaveText('Once continued');
+    const sp = await shownProblem(page);
+    const detail = await engineCall<{ slideForecast: { depth: number; levelMs: number[] } | null }>(
+      page,
+      'problem.get',
+      { problem: sp },
+    );
+    expect(detail.slideForecast?.levelMs.length).toBe(detail.slideForecast?.depth);
+    const saved = await engineCall<{ data: string }>(page, 'document.saveBytes');
+    const xml = Buffer.from(saved.data, 'base64').toString('latin1');
+    expect(xml).toMatch(/ slideLevelMs="\d+( \d+)*"/);
+
+    // the same paused solve as a version that kept no times saved it:
+    // opened, its moves searched are there without times; carried on, the
+    // estimates start once two moves have been timed
+    const old = join(dir, 'no-times.xmpuzzle');
+    writeFileSync(old, xml.replace(/ slideLevelMs="[^"]*"/, ''), 'latin1');
+    await openPath(page, old);
+    await toSolver(page);
+    await expect(perf).toContainText(
+      new RegExp(
+        `Searched ${String(detail.slideForecast?.depth)} moves deep\\. No times were kept for moves 1 to ${String(detail.slideForecast?.depth)}\\.`,
+      ),
+    );
+    await expect(perf).toContainText('Estimates start once two moves in a row have been timed.');
+    await expect(perf.locator('table')).toHaveCount(0);
+    await runButton(page, 'continue');
+    await expect(perf.locator('tbody tr').first()).toBeVisible({ timeout: 60_000 });
+    await expect(perf).toContainText(
+      `No times were kept for moves 1 to ${String(detail.slideForecast?.depth)}.`,
+    );
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+
+    // thrown away with the solve
+    await runButton(page, 'abort');
+    await page.locator('.cfm [data-x="1"]').click();
+    await runEnded(page, 'idle');
+    await expect(perf).toHaveCount(0);
+    const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
+    expect(bad).toEqual([]);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

@@ -50,12 +50,14 @@ function detail(parts: Part[], result: string | null = 's1'): ProblemDetail {
     searched: 0,
     searchDepth: 0,
     triedApart: 0,
+    slideGrid: 0,
     parts,
     colourRules: [],
     maxHoles: null,
     savedPosition: false,
     solverSettings: {},
     stacks: null,
+    slideForecast: null,
   };
 }
 

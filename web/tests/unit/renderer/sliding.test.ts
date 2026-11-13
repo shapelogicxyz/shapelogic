@@ -29,6 +29,7 @@ import {
   slidingDetails,
   solveOptions,
   stopDetails,
+  withOptimizedPaths,
   writeOptions,
 } from '../../../src/renderer/solver/settings.ts';
 import { marksOf, outlineColour, copiesOf, validity } from '../../../src/renderer/entities/tray.ts';
@@ -152,6 +153,7 @@ describe('the sliding options', () => {
         verticalMoves: false,
         anyOrientation: false,
         mirroredOrientations: false,
+        optimizedPaths: false,
       },
     });
     expect(
@@ -161,6 +163,28 @@ describe('the sliding options', () => {
       solveOptions({ ...o, nestedSlides: true }, DEFAULT_LIMITS, 'sliding').sliding?.partialNested,
     ).toBe(true);
     expect(solveOptions(readOptions({}), DEFAULT_LIMITS).sliding).toBeUndefined();
+  });
+
+  it('use optimized paths only when asked: the stored box, or one solve', () => {
+    const o = readOptions({}, undefined, 'sliding');
+    expect(o.optimizedPaths).toBe(false);
+    expect(SLIDING_BOXES.has('optimizedPaths')).toBe(true);
+    const on = readOptions({ optimizedPaths: true }, undefined, 'sliding');
+    expect(on.optimizedPaths).toBe(true);
+    expect(solveOptions(on, DEFAULT_LIMITS, 'sliding').sliding?.optimizedPaths).toBe(true);
+    // stored with a sliding puzzle's problems only
+    expect(writeOptions(on, {}, 'sliding').optimizedPaths).toBe(true);
+    expect('optimizedPaths' in writeOptions(readOptions({}), {})).toBe(false);
+    // the Solve dialog's choice, for that solve only
+    const full = solveOptions(o, DEFAULT_LIMITS, 'sliding');
+    expect(withOptimizedPaths(full, true).sliding?.optimizedPaths).toBe(true);
+    expect(full.sliding?.optimizedPaths).toBe(false);
+    expect(withOptimizedPaths(solveOptions(on, DEFAULT_LIMITS, 'sliding'), false).sliding).toEqual(
+      full.sliding,
+    );
+    // nothing for a solve that is not sliding
+    const brick = solveOptions(readOptions({}), DEFAULT_LIMITS);
+    expect(withOptimizedPaths(brick, true)).toBe(brick);
   });
 
   it('place every piece as drawn unless unplaced ones may turn; mirrored only with that', () => {
@@ -255,6 +279,14 @@ describe('the sliding options', () => {
     );
     expect(savedDetails('stacking', 0, 0, 0)).toBe('');
     expect(savedDetails('brick', 0, 0, 0)).toBe('');
+  });
+
+  it('say what a paused sliding solve went through as it said while it ran', () => {
+    expect(savedDetails('sliding', 52_620_000_000, 31, 0, true)).toBe(
+      '31 moves deep. Scanned 52.62 billion arrangements.',
+    );
+    expect(savedDetails('sliding', 5, 0, 0, true)).toBe(slidingDetails(5, 0));
+    expect(savedDetails('sliding', 0, 0, 0, true)).toBe('');
   });
 
   it('name the solver of a search under way', () => {
