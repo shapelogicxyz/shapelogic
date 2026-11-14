@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.8.2",
   "inputs": [
     "CMakeLists.txt",
     "CMakePresets.json",
@@ -12,6 +12,6 @@
     "web/package-lock.json",
     "site/public/examples/PelikanBurr.xmpuzzle"
   ],
-  "hash": "976d5f046d6e813f0c2cc05c10eca9a7b226a472bef4f321756df773681f4865",
-  "built": "2026-11-13T17:47:50.716Z"
+  "hash": "fa48f92a6c7cca6e2e9e37362ffc6f2c2487b2fdb103cb536bb7479d81a5fb5d",
+  "built": "2026-11-14T05:28:38.267Z"
 }
