@@ -34,6 +34,8 @@ Many small bug fixes and improvements.
 - **Bigger boards of blocks on the fast search.** With optimized paths the search now counts only the places a piece can stop on the grid, so larger boards now run in the fast search, which uses every core and the disk and shows the moves deep and the **Performance Analysis**. The search often needs about half the memory.
 - **Continue on a solve paused in an earlier version.** A solve with nested slides and optimized paths that was paused in v1.8.1 or earlier can only be carried on from the start alone. **Continue** asks first: **Solve Again** searches from both ends, which is far faster, and **Continue** carries the saved search on, which is only worth it when it has already run for a long time and is likely close to its end. A solve paused in this version carries on at full speed with no question.
 - **Solve after a pause starts afresh.** **Solve** on a paused sliding solve now throws the saved search away, as the guide says, instead of carrying it on.
+- **Pieces in the shapes' order.** On the Puzzle tab, **In this puzzle** lists a problem's pieces in the same order as **All pieces**, as tiles, in the table and in the 3D view. **Move earlier**, **Move later** and dragging one tile onto another are gone, as the order now follows the shapes.
+- **Switch problems from the collapsed card.** When the Puzzle tab's problems card is collapsed, or in **Focus 2D editor** on a sliding puzzle, it becomes a narrow strip with a chip for each problem and a **+** for a new one.
 
 ## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 
