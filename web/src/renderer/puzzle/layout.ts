@@ -8,8 +8,7 @@
 // are the mockup's units, in which a piece is about four wide (the result
 // RESULT_SIZE times that); the scene scales them to its largest piece;
 // `label` is what it writes over or under each. The copies follow the
-// problem's parts (its piece numbering), where the mockup went through
-// the shapes in order.
+// parts in the order given (the shapes' order, as "All pieces" lists them).
 
 import type { Part } from '../../engine/api.generated.ts';
 

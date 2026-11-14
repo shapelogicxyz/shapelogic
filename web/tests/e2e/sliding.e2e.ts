@@ -882,7 +882,7 @@ async function sizeTo(page: Page, shape: string, axis: number, n: number): Promi
   await settled(page);
 }
 
-test('Focus 2D editor: the tip on a grid of 20 or more; one focus for Shapes and Puzzle, kept across the tabs', async () => {
+test('Focus 2D editor: the tip on a grid of 20 or more; one focus for Shapes and Puzzle, kept across the tabs; the problems in a rail', async () => {
   test.setTimeout(120_000);
   const a = await launch();
   const page = a.page;
@@ -929,6 +929,20 @@ test('Focus 2D editor: the tip on a grid of 20 or more; one focus for Shapes and
     await expect(puzzleBtn).toHaveClass(/\bact\b/);
     await expect(page.locator('#pzSlide')).toHaveCSS('display', 'grid');
     await expect(pzTip).toBeHidden();
+    // the Problems card a rail, as the Shapes card: a chip per problem, New adds one and shows it
+    const rail = page.locator('#leftP > .crail');
+    const first = await currentProblem(page);
+    await expect(page.locator('#pzProblems')).toBeHidden();
+    await expect(rail.locator('.chip')).toHaveText(['P1']);
+    await expect(rail.locator('.chip[aria-pressed="true"]')).toHaveText('P1');
+    await rail.locator('[data-a="new"]').click();
+    await expect(rail.locator('.chip')).toHaveText(['P1', 'P2']);
+    await expect(rail.locator('.chip[aria-pressed="true"]')).toHaveText('P2');
+    expect(await currentProblem(page)).not.toBe(first);
+    await rail.locator('.chip', { hasText: 'P1' }).click();
+    await expect(page.locator('#leftP')).toHaveAttribute('data-problem', first);
+    await expect(rail.locator('.chip[aria-pressed="true"]')).toHaveText('P1');
+    await expect(stage).toHaveClass(/\bf2d\b/);
     // the Solver has no 2D editor; back on Shapes the focus is still on
     await toSolver(page);
     await expect(stage).not.toHaveClass(/\bf2d\b/);

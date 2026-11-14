@@ -50,7 +50,14 @@ import type { View3D } from '../view3d/view.ts';
 import { rodSetText } from '../state/stacking.ts';
 import { rodAt, stackValidity } from '../state/stacking.ts';
 import { StacksCard } from './stacks-card.ts';
-import { nextCount, nextGroup, partOf, problemChipStyle, solveActive } from './counts.ts';
+import {
+  inShapeOrder,
+  nextCount,
+  nextGroup,
+  partOf,
+  problemChipStyle,
+  solveActive,
+} from './counts.ts';
 import { puzLayout } from './layout.ts';
 import { PiecesCard } from './pieces-card.ts';
 import { PieceCard } from './piece-card.ts';
@@ -307,11 +314,11 @@ export class PuzzleWorkspace {
     } else {
       const { items, hidden } =
         trays === null
-          ? puzLayout(d.result, this.sel, d.parts)
+          ? puzLayout(d.result, this.sel, inShapeOrder(d.parts, snap.shapes))
           : puzLayout(
               null,
               null,
-              d.parts.filter((p) => p.shape !== trays.tray),
+              inShapeOrder(d.parts, snap.shapes).filter((p) => p.shape !== trays.tray),
             );
       const named = this.labels.pieces;
       this.view3d.setPieces({
@@ -766,49 +773,6 @@ export class PuzzleWorkspace {
       return;
     }
     await this.mutate('Clear result', () => this.engine.call('problem.clearResult', { problem }));
-  }
-
-  /** Moves a piece one place earlier or later (the pieces renumber). */
-  async movePart(shape: string, delta: -1 | 1): Promise<void> {
-    const problem = this.current;
-    if (problem === null || this.refuse()) {
-      return;
-    }
-    await this.mutate('Move piece', () =>
-      this.engine.call('problem.movePart', { problem, shape, delta }),
-    );
-  }
-
-  /** Moves a piece to a place among the pieces: one undo step. */
-  async moveTo(shape: string, to: number): Promise<void> {
-    const problem = this.current;
-    const parts = this.detail?.parts ?? [];
-    const from = parts.findIndex((p) => p.shape === shape);
-    if (problem === null || from < 0 || to === from || to < 0 || to >= parts.length) {
-      return;
-    }
-    if (this.refuse()) {
-      return;
-    }
-    const delta = to > from ? 1 : -1;
-    const e = this.engine;
-    await this.mutate('Move piece', async () => {
-      // one step: the moves in a group, closed whatever failed inside it
-      await e.call('edit.begin', { label: 'Move piece' });
-      let failed: Error | null = null;
-      try {
-        for (let i = from; i !== to; i += delta) {
-          await e.call('problem.movePart', { problem, shape, delta });
-        }
-      } catch (x) {
-        failed = x instanceof Error ? x : new Error(String(x));
-      }
-      const r = await e.call('edit.end');
-      if (failed !== null) {
-        throw failed;
-      }
-      return r;
-    });
   }
 
   /** Puts all copies of a piece in a group (0: none; 'new': a new group). */

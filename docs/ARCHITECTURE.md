@@ -1565,10 +1565,13 @@ What exists after stage 8:
     before any call; the keys + − Del; the status line
     `FitStats.statusLine`; the view's tag; the scene's model),
     `problems.ts` (`ProblemsList`: new, duplicate, delete but never the
-    last, rename in place, reorder by drag), `pieces-card.ts`
+    last, rename in place, reorder by drag; the card's rail, collapsed
+    or in the 2D focus, a chip per problem and New, as the Shapes
+    card's), `pieces-card.ts`
     (`PiecesCard`: the result and Change…, the parts as chips or a
-    table, "All pieces", drag and drop in, out and between tiles (a move
-    as one undo step: `movePart` in an edit group), the More menu and
+    table in the shapes' order (`inShapeOrder`, as "All pieces" lists
+    them; the engine keeps the order they were added in, its piece
+    numbering), "All pieces", drag and drop in and out, the More menu and
     the bulk range dialog, the right-click menus, the fit summary from
     `FitStats` (`#pzSummary[data-fit]`)), `piece-card.ts` (`PieceCard`: the selected piece's
     copies or range with the switch, its group and the copies in it, the

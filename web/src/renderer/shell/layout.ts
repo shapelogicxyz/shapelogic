@@ -155,7 +155,8 @@ export function installLayout(): void {
   for (const b of $$('[data-collapse]')) {
     b.innerHTML = ic(b.dataset.collapse === 'L' ? 'panelL' : 'panelR');
   }
-  // the collapsed cards' rails; the Entities cards' rails are filled by their views
+  // the collapsed cards' rails; the Entities cards' rails are filled by their views, the
+  // Problems card's by its list (its chips, as the Shapes card's)
   const rails: [string, 'L' | 'R', string, string][] = [
     ['#leftP', 'L', 'Puzzle problems', 'Problems'],
     ['#leftS', 'L', 'Solver', 'Solver'],

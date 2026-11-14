@@ -41,7 +41,7 @@ import {
   validity,
 } from '../entities/tray.ts';
 import type { TrayModel } from '../view3d/trays.ts';
-import { partOf } from './counts.ts';
+import { inShapeOrder, partOf } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
 type ShapeReply = Methods['shape.get']['result'];
@@ -271,9 +271,10 @@ export class SlideCard {
     if (d === null) {
       return '';
     }
-    return d.parts
+    const shapes = ws.store.snapshot?.shapes ?? [];
+    return inShapeOrder(d.parts, shapes)
       .map((part) => {
-        const s = ws.store.snapshot?.shapes.find((x) => x.id === part.shape);
+        const s = shapes.find((x) => x.id === part.shape);
         if (s === undefined) {
           return '';
         }

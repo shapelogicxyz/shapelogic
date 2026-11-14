@@ -32,6 +32,16 @@ export function partOf(detail: ProblemDetail | null, shape: string | null): Part
   return shape === null ? undefined : detail?.parts.find((p) => p.shape === shape);
 }
 
+/**
+ * A problem's parts in the shapes' order, as "All pieces" lists them (the
+ * chips, the table and the scene; the engine keeps them in the order they
+ * were added, its piece numbering).
+ */
+export function inShapeOrder(parts: readonly Part[], shapes: readonly { id: string }[]): Part[] {
+  const at = new Map(shapes.map((s, i) => [s.id, i]));
+  return [...parts].sort((a, b) => (at.get(a.shape) ?? Infinity) - (at.get(b.shape) ?? Infinity));
+}
+
 /** The count of a part as the chips show it: ×n, min–max, or 0 (the mockup's pzCount). */
 export function countText(part: Pick<Part, 'min' | 'max'> | undefined): string {
   if (part === undefined || part.max <= 0) {

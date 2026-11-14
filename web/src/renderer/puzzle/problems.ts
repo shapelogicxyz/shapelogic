@@ -8,7 +8,9 @@
 // by drag (problem.move; the labels renumber). Deleting and reordering
 // are refused while anything is solved, a rename while that problem is
 // (decision 0011); new and duplicate add at the end and go on, a copy of
-// the problem being solved too. From docs/mockup/index.html: `renderPuzzle`'s problem
+// the problem being solved too. The card's rail (collapsed, or the 2D
+// focus on a sliding problem) holds a chip per problem and New, as the
+// Shapes card's. From docs/mockup/index.html: `renderPuzzle`'s problem
 // rows, `pzRename`, `#pzNew`, the #pzProblems click, dblclick and drag
 // handlers.
 
@@ -46,6 +48,7 @@ export class ProblemsList {
     if (i >= 0) {
       this.lastIndex = i;
     }
+    this.renderRail(problems, cur);
     if (this.renaming !== null) {
       return;
     }
@@ -59,6 +62,27 @@ export class ProblemsList {
         .join(''),
     );
     markSelected(this.list, '.row', 'id', cur);
+  }
+
+  // the card's rail (collapsed, or the 2D focus on a sliding problem), as
+  // the Shapes card's: its problems' chips to show one, and New
+  private renderRail(problems: readonly ProblemSummary[], cur: string | null): void {
+    const rail = byId('leftP').querySelector<HTMLElement>('.crail');
+    if (rail === null) {
+      return;
+    }
+    setHtml(
+      rail,
+      `<button class="ib" data-expand="L" title="Expand Puzzle problems">${ic('panelL')}</button>` +
+        problems
+          .map((q, n) => {
+            const ring =
+              q.id === cur ? 'box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent);' : '';
+            return `<button class="chip" data-id="${q.id}" title="${esc(q.label)}${q.name !== '' ? ` – ${esc(q.name)}` : ''}" aria-pressed="${String(q.id === cur)}" style="${problemChipStyle(n)};border:0;cursor:pointer;min-width:34px;${ring}">${esc(q.label)}</button>`;
+          })
+          .join('') +
+        `<button class="ib" data-a="new" title="New problem">${ic('plus')}</button>`,
+    );
   }
 
   // ---- the actions ----
@@ -166,6 +190,19 @@ export class ProblemsList {
   private install(): void {
     const list = this.list;
     byId('pzNew').addEventListener('click', () => void this.create());
+    // the rail (layout.ts made it; its expand button is the layout's)
+    byId('leftP').addEventListener('click', (e) => {
+      const t = e.target as Element;
+      if (t.closest('.crail') === null) {
+        return;
+      }
+      const id = t.closest<HTMLElement>('.chip[data-id]')?.dataset.id;
+      if (id !== undefined) {
+        this.ws.selectProblem(id);
+      } else if (t.closest('[data-a="new"]') !== null) {
+        void this.create();
+      }
+    });
     list.addEventListener('click', (e) => {
       const t = e.target as Element;
       const id = t.closest<HTMLElement>('.row')?.dataset.id;

@@ -127,9 +127,14 @@ export async function table(page: Page): Promise<Shown[]> {
   );
 }
 
+/** The parts in the shapes' order (`order`: the shapes' ids), as "All pieces" lists them. */
+export function inShapeOrder(p: Problem, order: readonly string[]): Part[] {
+  return [...p.parts].sort((a, b) => order.indexOf(a.shape) - order.indexOf(b.shape));
+}
+
 /** The parts as the chips and the table must show them. */
-export function expected(p: Problem): Shown[] {
-  return p.parts.map((x) => ({
+export function expected(p: Problem, order: readonly string[]): Shown[] {
+  return inShapeOrder(p, order).map((x) => ({
     shape: x.shape,
     min: x.min,
     max: x.max,
@@ -138,7 +143,12 @@ export function expected(p: Problem): Shown[] {
 }
 
 /** The pieces scene as it must be: the result, the selected piece, every copy (optional ones faded). */
-export function expectedScene(p: Problem, selected: string | null, board = false): string {
+export function expectedScene(
+  p: Problem,
+  order: readonly string[],
+  selected: string | null,
+  board = false,
+): string {
   const out: string[] = [];
   // under a sliding board's trays: only the copies (the board is the result, drawn as the trays)
   if (p.result !== null && !board) {
@@ -147,7 +157,7 @@ export function expectedScene(p: Problem, selected: string | null, board = false
   if (selected !== null && selected !== p.result && !board) {
     out.push(`selected:${selected}:1/1`);
   }
-  for (const x of p.parts.filter((q) => !board || q.shape !== p.result)) {
+  for (const x of inShapeOrder(p, order).filter((q) => !board || q.shape !== p.result)) {
     for (let k = 0; k < x.max; k++) {
       out.push(`piece:${x.shape}:${String(k + 1)}/${String(x.max)}${k >= x.min ? ':faded' : ''}`);
     }
@@ -168,7 +178,10 @@ export async function checkShown(page: Page): Promise<Problem> {
   const fit = await engineCall<{ statusLine: string; verdict: string }>(page, 'problem.fit', {
     problem: id,
   });
-  const want = expected(p);
+  const order = (await engineCall<{ shapes: { id: string }[] }>(page, 'shape.list')).shapes.map(
+    (s) => s.id,
+  );
+  const want = expected(p, order);
   // the chips and the Groups table (drawn when collapsed too) show the same
   expect(await chips(page)).toEqual(want);
   expect(await table(page)).toEqual(want);
@@ -189,7 +202,7 @@ export async function checkShown(page: Page): Promise<Problem> {
         .locator(`:is(#boardList, #shapeList) .row[data-id="${p.result}"] .chip`)
         .textContent()) ?? '',
     );
-  const scene = expectedScene(p, sel, board);
+  const scene = expectedScene(p, order, sel, board);
   await expect(page.locator('#vp')).toHaveAttribute('data-scene', scene);
   await expect(page.locator('#vp')).toHaveAttribute(
     'data-scene-meshes',

@@ -3,7 +3,8 @@
 // The Puzzle workspace (FRONTEND-PLAN.md, stage 3's gate): the problem of
 // CubeInCage and of a piece-range fixture (DemoPieceGenerator) built from
 // an empty problem through the UI's actions (Change…, double-click, drags
-// in and out and between tiles, the tiles' and the library's + and −, the
+// in and out (a tile dropped on another stays: the tiles keep the shapes'
+// order), the tiles' and the library's + and −, the
 // menus, the keys, the table's fields, the selected piece's steppers,
 // switch and groups, the More menu and the bulk range), equal to the
 // fixture's problem.get; after every action the chips and the table agree
@@ -120,20 +121,15 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     await select(page, lib('s5'));
     await page.keyboard.press('+');
     let p = await checkShown(page);
+    // the engine keeps the order they were added in, the tiles and the scene the shapes' order
     expect(p.parts.map((x) => x.shape)).toEqual(['s2', 's3', 's4', 's6', 's5']);
-    // the order: S5 moved earlier by its menu; S6 dragged onto S2 and back to the end
-    await menu(page, tile('s5'), 'earlier');
-    p = await checkShown(page);
-    expect(p.parts.map((x) => x.shape)).toEqual(['s2', 's3', 's4', 's5', 's6']);
+    expect(
+      await page.$$eval('#pzUsed .ut', (ts) => ts.map((t) => (t as HTMLElement).dataset.u)),
+    ).toEqual(['s2', 's3', 's4', 's5', 's6']);
+    // a tile dropped on another stays where it is
     await page.dragAndDrop(`${tile('s6')} .t1`, `${tile('s2')} .t1`);
     p = await checkShown(page);
-    expect(p.parts.map((x) => x.shape)).toEqual(['s6', 's2', 's3', 's4', 's5']);
-    expect((await engineCall<{ undo: string[] }>(page, 'edit.history')).undo.at(-1)).toBe(
-      'Move piece',
-    );
-    await page.dragAndDrop(`${tile('s6')} .t1`, `${tile('s5')} .t1`);
-    p = await checkShown(page);
-    expect(p.parts.map((x) => x.shape)).toEqual(['s2', 's3', 's4', 's5', 's6']);
+    expect(p.parts.map((x) => x.shape)).toEqual(['s2', 's3', 's4', 's6', 's5']);
 
     // the keys on S4: one more, one fewer; Del on S6, then S6 back
     await select(page, tile('s4'));
@@ -146,7 +142,14 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     await expect(page.locator('#stText')).toHaveText('Removed from the puzzle');
     expect((await checkShown(page)).parts.map((x) => x.shape)).not.toContain('s6');
     await page.dblclick(`${lib('s6')} b`);
-    await checkShown(page);
+    // back at the end: the engine's order is the shapes' now
+    expect((await checkShown(page)).parts.map((x) => x.shape)).toEqual([
+      's2',
+      's3',
+      's4',
+      's5',
+      's6',
+    ]);
     // one fewer by the tile's −, back by the menu's one more
     await page.click(`${tile('s3')} .t2 [data-d="-1"]`);
     await checkShown(page);
@@ -260,7 +263,6 @@ test('CubeInCage’s problem built from an empty problem through the UI', async 
     const calls = readCallLog(log);
     expect(refusals(calls)).toEqual([]);
     expect(calls.some((c) => c.method === 'problem.setGroupCount')).toBe(true);
-    expect(calls.some((c) => c.method === 'problem.movePart')).toBe(true);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

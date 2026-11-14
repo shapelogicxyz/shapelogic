@@ -2,14 +2,14 @@
 //
 // The pieces of the Puzzle workspace's left card: the result (its cells
 // and "can hold n–m" from problem.fit, Change…), the pieces in the puzzle
-// as chips (the problem's parts in their order; −/+ are the original's
+// as chips (the problem's parts in the shapes' order, as "All pieces"
+// lists them; −/+ are the original's
 // one fewer / one more, minimum and maximum both) with All +1 and Clear All,
 // the Groups section (a table of count or range, group and weight (−/+;
 // shown on a tile as "Weight: n" when not 1), and "Set range
 // for all pieces"; collapsed at first), "All pieces" (every shape but the result: drag a chip in,
-// double-click it or press its +; drag a tile out to take it out; a tile
-// dropped on another moves it there), the right-click menus (one more, one
-// fewer, remove, set as result; move earlier and later for a tile), the
+// double-click it or press its +; drag a tile out to take it out), the
+// right-click menus (one more, one fewer, remove, set as result), the
 // fit summary (FitStats). From docs/mockup/index.html:
 // `renderPuzzle`, `pzUsedTile`, `pzLibChip`, `pzMenu`, `pzBulkRange`,
 // `pzDragStart`, `pzDragEnd`, and the handlers of #pzResult, #pzUsed, #pzLib,
@@ -18,13 +18,13 @@
 // for all pieces".
 
 import type { Part, ShapeSummary } from '../../engine/api.generated.ts';
-import { $$, byId, esc, markSelected, setHtml } from '../shell/dom.ts';
+import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { openPop, openPopAt } from '../shell/popover.ts';
 import { isTray, shownName } from '../shell/piece-colours.ts';
 import { flash } from '../shell/status.ts';
-import { countText, groupOf, groupsOf, partOf, rng } from './counts.ts';
+import { countText, groupOf, groupsOf, inShapeOrder, partOf, rng } from './counts.ts';
 import type { PuzzleWorkspace } from './workspace.ts';
 
 const cells = (s: ShapeSummary): number => s.fixed + s.variable;
@@ -68,7 +68,7 @@ export class PiecesCard {
     const d = ws.detail;
     const shapes = this.shapes;
     const result = d?.result ?? null;
-    const parts = d?.parts ?? [];
+    const parts = inShapeOrder(d?.parts ?? [], shapes);
     // a sliding puzzle's boards are no pieces: only the problems show them
     const others = shapes.filter((s) => s.id !== result && !isTray(s));
     const byShape = new Map(shapes.map((s) => [s.id, s]));
@@ -233,21 +233,16 @@ export class PiecesCard {
 
   // ---- menus ----
 
-  // the mockup's pzMenu: one more, one fewer, remove, set as result (and a tile's moves)
+  // the mockup's pzMenu: one more, one fewer, remove, set as result
   private menu(e: MouseEvent, u: string): void {
     e.preventDefault();
     const ws = this.ws;
     ws.select(u);
-    const parts = ws.detail?.parts ?? [];
-    const i = parts.findIndex((p) => p.shape === u);
-    const inPuzzle = i >= 0;
-    const moves = inPuzzle
-      ? `<hr><button data-k="earlier" ${i === 0 ? 'disabled' : ''} title="Move this piece one place earlier in the puzzle">Move earlier</button><button data-k="later" ${i === parts.length - 1 ? 'disabled' : ''} title="Move this piece one place later in the puzzle">Move later</button>`
-      : '';
+    const inPuzzle = partOf(ws.detail, u) !== undefined;
     openPopAt(
       e.clientX,
       e.clientY,
-      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${moves}${ws.store.snapshot?.grid === 'sliding' ? '' : '<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>'}`,
+      `<div class="ph">Piece ${esc(ws.labelOf(u))}</div><button data-k="up" title="Use one more of this piece">One more (+1)<span class="kb">+</span></button><button data-k="dn" ${inPuzzle ? '' : 'disabled'} title="Use one fewer of this piece; at 0 it leaves the puzzle">One fewer (−1)<span class="kb">−</span></button><button data-k="off" ${inPuzzle ? '' : 'disabled'} title="Take this piece out of the puzzle">Remove from puzzle<span class="kb">Del</span></button>${ws.store.snapshot?.grid === 'sliding' ? '' : '<hr><button data-k="res" title="Make this shape the problem’s result">Set as result</button>'}`,
       (k) => {
         switch (k) {
           case 'up':
@@ -258,12 +253,6 @@ export class PiecesCard {
             break;
           case 'off':
             void ws.remove(u);
-            break;
-          case 'earlier':
-            void ws.movePart(u, -1);
-            break;
-          case 'later':
-            void ws.movePart(u, 1);
             break;
           case 'res':
             void ws.setResult(u);
@@ -485,7 +474,8 @@ export class PiecesCard {
       ws.render();
     });
     // drag and drop between "All pieces" and "In this puzzle" (the mockup's
-    // pzDragStart, pzDragEnd and drop handlers), and within the puzzle
+    // pzDragStart, pzDragEnd and drop handlers; its moves within the puzzle
+    // are gone: the tiles keep the shapes' order)
     const start = (e: DragEvent, u: string, from: 'lib' | 'used'): void => {
       this.drag = { u, from };
       if (e.dataTransfer !== null) {
@@ -498,9 +488,6 @@ export class PiecesCard {
       this.drag = null;
       used.classList.remove('drop-ok');
       lib.classList.remove('drop-ok');
-      for (const t of $$('.ut.mv', used)) {
-        t.classList.remove('mv');
-      }
     };
     lib.addEventListener('dragstart', (e) => {
       const u = (e.target as Element).closest<HTMLElement>('.lc')?.dataset.u;
@@ -517,34 +504,18 @@ export class PiecesCard {
     lib.addEventListener('dragend', end);
     used.addEventListener('dragend', end);
     used.addEventListener('dragover', (e) => {
-      const d = this.drag;
-      if (d === null) {
-        return;
-      }
-      const over = (e.target as Element).closest<HTMLElement>('.ut');
-      if (d.from === 'lib' || (over !== null && over.dataset.u !== d.u)) {
+      if (this.drag?.from === 'lib') {
         e.preventDefault();
-      }
-      if (d.from === 'used') {
-        for (const t of $$('.ut', used)) {
-          t.classList.toggle('mv', t === over && t.dataset.u !== d.u);
-        }
       }
     });
     used.addEventListener('drop', (e) => {
       const d = this.drag;
-      if (d === null) {
+      if (d?.from !== 'lib') {
         return;
       }
       e.preventDefault();
-      const over = (e.target as Element).closest<HTMLElement>('.ut')?.dataset.u;
       end();
-      if (d.from === 'lib') {
-        void ws.add(d.u);
-      } else if (over !== undefined && over !== d.u) {
-        const to = (ws.detail?.parts ?? []).findIndex((p) => p.shape === over);
-        void ws.moveTo(d.u, to);
-      }
+      void ws.add(d.u);
     });
     for (const el of [lib, libHead]) {
       el.addEventListener('dragover', (e) => {

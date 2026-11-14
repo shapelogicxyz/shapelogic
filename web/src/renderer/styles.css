@@ -929,7 +929,6 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 #stage[data-tab=puzzle] .vtag{max-width:calc(50% - 140px)}
 #stage[data-tab=puzzle] .vtag>span{flex:none;white-space:nowrap}
 #stage[data-tab=puzzle] .vtag>.nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.ut.mv{border-left:2px solid var(--accent)}
 .pzs .gw .step.sz{width:150px;flex:none;min-width:0}.pzs .gw .step.sz input.v{min-width:0;width:100%}
 .pzs .gseg button .gc{font-weight:500;opacity:.8;margin-left:3px}
 #stage.pzfrozen #pzResult .btn,#stage.pzfrozen #pzUsed .t2,#stage.pzfrozen #pzGrpTable td input,#stage.pzfrozen #pzGrpTable td select,
@@ -1139,6 +1138,9 @@ html:is([data-density=compact],[data-density=minimal]) #boardList{max-height:cal
 #stage[data-tab=puzzle].sld.f2d{--lw:var(--railw);--cw:360px;--rw:1fr}
 #stage[data-tab=puzzle].sld.f2d #leftP>*:not(.crail){display:none}
 #stage[data-tab=puzzle].sld.f2d #leftP>.crail{display:flex}
+/* the Problems rail: a chip per problem (problems.ts), scrolling when they are many */
+#leftP>.crail{overflow-y:auto;scrollbar-width:none;min-height:0}
+#leftP>.crail>*{flex:none}
 #stage.sld.f2d .pzslide{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr)}
 /* the panes share their rows, so both grids get the same room however their pieces wrap */
 #stage.sld.f2d .sgpane{display:grid;grid-row:1/5;grid-template-rows:subgrid;min-width:0}

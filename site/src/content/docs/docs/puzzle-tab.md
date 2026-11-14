@@ -28,6 +28,9 @@ the same shapes, for example the same pieces packed into different boxes.
   there.
 - The selected problem's row has **Rename**, **Duplicate** and **Delete**
   buttons. Drag a row by its grip to reorder the problems.
+- When the card is collapsed (`Ctrl+[`), or in **Focus 2D editor** on a
+  sliding puzzle, it becomes a narrow strip with each problem's chip, so
+  you can still switch problems, and a **+** for a new one.
 
 ## All pieces
 
@@ -48,7 +51,8 @@ piece's right-click menu does the same.
 
 ## In this puzzle
 
-The pieces this problem uses, as tiles:
+The pieces this problem uses, as tiles, in the same order as **All
+pieces**:
 
 - **−** and **+** change the number of copies. At 0 the piece leaves the
   puzzle. With a piece selected, the `+` and `−` keys do the same.
@@ -57,8 +61,8 @@ The pieces this problem uses, as tiles:
 - Drag a tile out of the card to remove it, or press `Del` with it selected.
 - A tile whose shape has a weight other than 1 shows it at the bottom, such
   as **Weight: 2** (see [Piece Weights](/docs/piece-weights/)).
-- Right-click a tile for **Move earlier**, **Move later**, one more, one
-  fewer, **Remove from puzzle** and **Set as result**.
+- Right-click a tile for one more, one fewer, **Remove from puzzle** and
+  **Set as result**.
 
 ## Groups
 
