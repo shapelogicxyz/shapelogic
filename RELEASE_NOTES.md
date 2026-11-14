@@ -4,7 +4,7 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
-## [ShapeLogic v1.8.1](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.1) (13 November 2026)
+## [ShapeLogic v1.8.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.2) (13 November 2026)
 
 ### What's new in v1.8
 
@@ -27,6 +27,13 @@ Many small bug fixes and improvements.
 - **Small pieces searched once per cell.** With optimized paths and **Allow Nested Slides**, a small piece that can reach every place it could stop in an empty cell of the grid counts as one arrangement, not one for each place, and it is put in the right place once a block arrives over it. The same fewest moves are found in about a third of the arrangements and in about half the time.
 - **Performance Analysis.** While a sliding solve runs or is paused and no solution has been found yet, a box under the solutions list times each move deep the search goes, shows how much longer each move takes than the one before, and estimates every fifth move ahead up to 100 moves deep. A paused solve keeps the times, in the puzzle file too.
 - **Paused sliding solves carry on cleanly.** A sliding solve with nested slides that was paused and carried on no longer searches part of its earlier moves again, and a solved problem no longer leaves a saved search behind in **Manage Cache and Autosave Files**.
+
+### v1.8.2 (13 November 2026)
+
+- **Nested slides searched from both ends.** A sliding solve with **Allow Nested Slides** now searches back from the goal as well as forward from the start, until the two meet, whenever every piece has a goal position. Each end goes only half as deep, which is a small part of the arrangements: a board that took two and a half hours takes 19 seconds, and one that was never solved takes 9. Copies of a piece that each have a goal are searched from both ends too, with or without nested slides.
+- **Bigger boards of blocks on the fast search.** With optimized paths the search now counts only the places a piece can stop on the grid, so larger boards now run in the fast search, which uses every core and the disk and shows the moves deep and the **Performance Analysis**. The search often needs about half the memory.
+- **Continue on a solve paused in an earlier version.** A solve with nested slides and optimized paths that was paused in v1.8.1 or earlier can only be carried on from the start alone. **Continue** asks first: **Solve Again** searches from both ends, which is far faster, and **Continue** carries the saved search on, which is only worth it when it has already run for a long time and is likely close to its end. A solve paused in this version carries on at full speed with no question.
+- **Solve after a pause starts afresh.** **Solve** on a paused sliding solve now throws the saved search away, as the guide says, instead of carrying it on.
 
 ## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 
