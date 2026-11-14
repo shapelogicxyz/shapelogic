@@ -39,6 +39,7 @@ just app-gen            # web/src/engine/api.generated.ts from api/*.json
 just app-check          # the front end's type checks, ESLint, Prettier
 just app-test           # its unit tests, and engine tests against build/release
 just app-dev            # run the app (electron-vite dev)
+just app-release        # the same with the release engine (built first): the fast one for long solves
 just app-e2e            # build the app, run its Playwright e2e tests side by side, then the timed one alone
 just app-e2e-timed      # only the timed e2e test (perf.e2e.ts), alone
 just app-dist [--dir]   # the packaged app for this platform (electron-builder), in web/dist

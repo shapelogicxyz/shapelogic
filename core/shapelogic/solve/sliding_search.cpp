@@ -889,7 +889,14 @@ struct PosTable {
   std::vector<int> cls;
   std::vector<std::vector<int>> members;
   std::vector<std::uint64_t> core;
-  // Where this piece's position number sits in a packed arrangement.
+  // What a packed arrangement holds for the piece: the code of its
+  // position. Only the positions it may stop at have one (-1 for the
+  // others), counted in position order, so that the few stops a grid leaves
+  // take few bits; row gives each code's position. Without a grid, and with
+  // SlideSearch::plainKeys, every position's code is its own number.
+  std::vector<int> code;
+  std::vector<int> row;
+  // Where the code sits in a packed arrangement.
   unsigned int shift = 0;
   std::uint64_t bits = 0;
 
@@ -979,13 +986,14 @@ void buildLoose(PosTable& t, const Cell3List& cells, const Cell3List& outline,
 
 // Builds the position tables. False when they cannot hold this search: a
 // piece with no cells or nowhere to go, a start off the floor, or more
-// positions than keyBits bits can number; and (unlike the original, which
+// codes than keyBits bits can number; and (unlike the original, which
 // overran its fixed arrays there) more than 64 pieces with nested slides.
-// With `loose`, the pieces get their loose stops (buildLoose).
+// With `loose`, the pieces get their loose stops (buildLoose); with
+// `plainKeys`, every position a code (PosTable::code).
 bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
                  const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
                  const GoalCheck& goals, unsigned int keyBits, bool vertical,
-                 const StopGrid& stops, bool loose, std::size_t& words,
+                 const StopGrid& stops, bool loose, bool plainKeys, std::size_t& words,
                  std::vector<PosTable>& tables) {
   const int W = asInt(tray.getX());
   const int H = asInt(tray.getY());
@@ -1108,8 +1116,15 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
       buildLoose(t, cells[i], outlines[i], stops, i, floorX, floorY, words);
     }
 
+    t.code.assign(t.px.size(), -1);
+    for (std::size_t k = 0; k < t.px.size(); k++) {
+      if (plainKeys || t.rest[k] != 0) {
+        t.code[k] = asInt(t.row.size());
+        t.row.push_back(asInt(k));
+      }
+    }
     unsigned int width = 1;
-    while (width < 64 && (std::uint64_t{1} << width) < t.px.size()) {
+    while (width < 64 && (std::uint64_t{1} << width) < t.row.size()) {
       width++;
     }
     if (used + width > keyBits) {
@@ -1129,9 +1144,10 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
 constexpr std::uint64_t kLevelStateKeys = 3;
 
 // The arrangements of one slide search over position tables. An arrangement
-// is one position number per piece packed into a Key (64 bits, or 128 for
-// trays that need more). Read only once built, so every thread of a search
-// shares one.
+// is one code per piece, that of its position (PosTable::code), packed into
+// a Key (64 bits, or 128 for trays that need more). posOf and with turn the
+// codes to positions and back: everything else works on positions. Read
+// only once built, so every thread of a search shares one.
 template <class Key>
 struct SlideSpace {
   // Pieces of an arrangement that covers looks at: with more that could be
@@ -1160,24 +1176,30 @@ struct SlideSpace {
   // arrangement may hold loose positions, and stands for the piece at
   // every stop of the class (concretes).
   bool loose = false;
+  // Whether some position of a piece has no code (PosTable::code): the keys
+  // are not those of a search with a code for every position.
+  bool compact = false;
   // The goal, for the pieces whose copies count together (GoalCheck::counts).
   const GoalCheck* goals = nullptr;
 
   // False when the tables cannot hold this search. With looseStops the
-  // pieces get their loose stops (buildLoose).
+  // pieces get their loose stops (buildLoose); with plainKeys every
+  // position has a code.
   bool build(const Voxel& tray, const std::vector<Cell3List>& cells,
              const std::vector<Cell3List>& outlines, bool nest, const SlideState& init,
              const GoalCheck& goalCheck, bool likePiecesApart, bool verticalMoves,
-             const StopGrid& stopGrid, bool looseStops) {
+             const StopGrid& stopGrid, bool looseStops, bool plainKeys) {
     goals = &goalCheck;
     vertical = verticalMoves;
     stops = stopGrid;
     if (!buildTables(tray, cells, outlines, nest, init, goalCheck,
                      static_cast<unsigned int>(8 * sizeof(Key)), vertical, stops, looseStops,
-                     words, t)) {
+                     plainKeys, words, t)) {
       return false;
     }
     loose = std::any_of(t.begin(), t.end(), [](const PosTable& p) { return !p.members.empty(); });
+    compact = std::any_of(t.begin(), t.end(),
+                          [](const PosTable& p) { return p.row.size() != p.px.size(); });
     n = static_cast<unsigned int>(init.places.size());
     nested = nest;
     initial = init;
@@ -1185,10 +1207,11 @@ struct SlideSpace {
     trayH = asInt(tray.getY());
     trayD = asInt(tray.getZ());
 
+    // a piece's start is one of its stops (stopGridFor)
     startKey = 0;
     for (unsigned int i = 0; i < n; i++) {
       const Place& p = init.places[i];
-      startKey |= static_cast<Key>(t[i].at(p.x, p.y, p.z)) << t[i].shift;
+      startKey |= field(i, t[i].at(p.x, p.y, p.z));
     }
 
     // Pieces that are copies of one another (same cells, same places, same
@@ -1203,7 +1226,7 @@ struct SlideSpace {
         for (std::vector<unsigned int>& g : groups) {
           const unsigned int j = g[0];
           if (sameCells(cells[i], cells[j]) && t[i].px == t[j].px && t[i].py == t[j].py &&
-              t[i].pz == t[j].pz && t[i].atGoal == t[j].atGoal) {
+              t[i].pz == t[j].pz && t[i].atGoal == t[j].atGoal && t[i].code == t[j].code) {
             g.push_back(i);
             placed = true;
             break;
@@ -1224,13 +1247,20 @@ struct SlideSpace {
   }
 
   [[nodiscard]] int posOf(Key key, unsigned int i) const {
-    return static_cast<int>((key >> t[i].shift) & t[i].bits);
+    return t[i].row[static_cast<std::size_t>((key >> t[i].shift) & t[i].bits)];
+  }
+
+  // Piece i's part of a key with the piece at position p, one it may stop
+  // at: the others have no code.
+  [[nodiscard]] Key field(unsigned int i, int p) const {
+    const int code = t[i].code[idx(p)];
+    BT_ASSERT(code >= 0);
+    return static_cast<Key>(code) << t[i].shift;
   }
 
   // key with piece i at position p.
   [[nodiscard]] Key with(Key key, unsigned int i, int p) const {
-    return (key & ~(static_cast<Key>(t[i].bits) << t[i].shift)) |
-           (static_cast<Key>(p) << t[i].shift);
+    return (key & ~(static_cast<Key>(t[i].bits) << t[i].shift)) | field(i, p);
   }
 
   // The arrangements key stands for: each loose piece at every stop of its
@@ -1340,7 +1370,8 @@ struct SlideSpace {
   }
 
   // The arrangement standing for key and every one that differs from it
-  // only by which copy sits where.
+  // only by which copy sits where. Copies share their codes, which rise
+  // with the positions, so the codes are sorted as they are.
   [[nodiscard]] Key canon(Key key) const {
     for (const std::vector<unsigned int>& g : copies) {
       // a move changes one position, so this is nearly sorted already
@@ -1445,7 +1476,7 @@ class SlideMover {
           if (tp.rest[idx(nb)] == 0) {
             continue;
           }
-          if (emit(clear | (static_cast<Key>(nb) << tp.shift), false)) {
+          if (emit(clear | s_.field(pi, nb), false)) {
             return true;
           }
         }
@@ -1484,9 +1515,12 @@ class SlideMover {
             others_[w] &= ~gm[w];
           }
         }
-        // The group's key at shift d, or false when it does not fit.
-        auto shifted = [&](const SlideShift& d, Key& key) {
+        // Whether the group fits at shift d, and whether every piece of it
+        // may stop there: then key is the group's arrangement (a place
+        // where a piece may not stop has no code to put in one).
+        auto shifted = [&](const SlideShift& d, Key& key, bool& rests) {
           key = cur;
+          rests = true;
           for (unsigned int g = 0; g < members; g++) {
             const unsigned int m = group[g];
             const std::size_t at = idx(pos_[m]);
@@ -1494,8 +1528,11 @@ class SlideMover {
             if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
               return false;
             }
-            key = (key & ~(static_cast<Key>(t[m].bits) << t[m].shift)) |
-                  (static_cast<Key>(p) << t[m].shift);
+            if (t[m].rest[idx(p)] == 0) {
+              rests = false;
+            } else if (rests) {
+              key = s_.with(key, m, p);
+            }
           }
           return true;
         };
@@ -1524,16 +1561,13 @@ class SlideMover {
               continue;
             }
             Key key = 0;
-            if (seenAt(nb) == shiftEpoch_ || !shifted(nb, key)) {
+            bool rests = false;
+            if (seenAt(nb) == shiftEpoch_ || !shifted(nb, key, rests)) {
               continue;
             }
             seenAt(nb) = shiftEpoch_;
             shiftQueue_.push_back(nb);
             // every piece of the group must be able to stop there
-            bool rests = true;
-            for (unsigned int g = 0; g < members && rests; g++) {
-              rests = t[group[g]].rest[idx(s_.posOf(key, group[g]))] != 0;
-            }
             if (!rests) {
               continue;
             }
@@ -1706,7 +1740,7 @@ class SlideMover {
         for (const int reached : reachOrder_) {
           const std::size_t r = idx(reached);
           const unsigned char* row = &reachedAt_[r * places];
-          const Key to = clear | (static_cast<Key>(r) << tp.shift);
+          const Key to = clear | s_.field(pi, reached);
           const int c = tp.cls[r];
           if (c < 0) {
             if (emitPlaces(row, to, settled, emit)) {
@@ -1727,8 +1761,7 @@ class SlideMover {
                 whole[x] &= reachedAt_[idx(m) * places + x];
               }
             }
-            if (emitPlaces(whole, clear | (static_cast<Key>(tp.real + idx(c)) << tp.shift),
-                           settled, emit)) {
+            if (emitPlaces(whole, clear | s_.field(pi, asInt(tp.real) + c), settled, emit)) {
               return true;
             }
           }
@@ -1901,8 +1934,7 @@ class SlideMover {
     const PosTable& tp = s_.t[pi];
     if (tp.members.empty()) {
       for (std::size_t f = 0; f < count; f++) {
-        if (tp.rest[idx(list[f])] != 0 &&
-            emit(clear | (static_cast<Key>(list[f]) << tp.shift), oneWay)) {
+        if (tp.rest[idx(list[f])] != 0 && emit(clear | s_.field(pi, list[f]), oneWay)) {
           return true;
         }
       }
@@ -1942,7 +1974,7 @@ class SlideMover {
           p = tp.real + idx(c);
         }
       }
-      if (emit(clear | (static_cast<Key>(p) << tp.shift), oneWay)) {
+      if (emit(clear | s_.field(pi, asInt(p)), oneWay)) {
         return true;
       }
     }
@@ -2089,8 +2121,10 @@ class SlideMover {
     const std::vector<PosTable>& t = s_.t;
     const std::size_t words = s_.words;
     std::uint64_t touched = 0;
-    auto shifted = [&](const SlideShift& d, Key& key) {
+    // as expand's: key is the group's arrangement when every piece may stop
+    auto shifted = [&](const SlideShift& d, Key& key, bool& rests) {
       key = cur;
+      rests = true;
       std::uint64_t near = 0;
       for (unsigned int g = 0; g < members; g++) {
         const unsigned int m = group[g];
@@ -2102,7 +2136,11 @@ class SlideMover {
         if (soft != nullptr && overlaps(&t[m].mask[idx(p) * words], soft, words)) {
           near |= softTouched(m, &t[m].mask[idx(p) * words]);
         }
-        key = s_.with(key, m, p);
+        if (t[m].rest[idx(p)] == 0) {
+          rests = false;
+        } else if (rests) {
+          key = s_.with(key, m, p);
+        }
       }
       touched |= near;
       return true;
@@ -2131,15 +2169,12 @@ class SlideMover {
         }
         const std::size_t at = indexOf(nb);
         Key key = 0;
-        if (shiftSeen_[at] == shiftEpoch_ || !shifted(nb, key)) {
+        bool rests = false;
+        if (shiftSeen_[at] == shiftEpoch_ || !shifted(nb, key, rests)) {
           continue;
         }
         shiftSeen_[at] = shiftEpoch_;
         shiftQueue_.push_back(nb);
-        bool rests = true;
-        for (unsigned int g = 0; g < members && rests; g++) {
-          rests = t[group[g]].rest[idx(s_.posOf(key, group[g]))] != 0;
-        }
         if (rests) {
           groupStops_.push_back({at, 0, key});
         }
@@ -3452,7 +3487,7 @@ class LevelSearch {
       if (at < 0 || t.rest[idx(at)] == 0) {
         return std::nullopt;
       }
-      g |= static_cast<Key>(at) << t.shift;
+      g |= s_.field(i, at);
     }
     return s_.canon(g);
   }
@@ -4615,36 +4650,29 @@ class LevelSearch {
   bool diskChosen_ = false;
 };
 
-// Mixed into the name of a search with loose stops (tableSearch).
+// Mixed into the name of a search with loose stops, and of one whose keys
+// hold codes for the stops only (tableSearch).
 constexpr unsigned int kLooseFormat = 0x4c53;
+constexpr unsigned int kCompactFormat = 0x434b;
 
 // The slide search over position tables: a move is a flood fill over the
 // piece's own positions against a bit mask of the cells the others cover.
-// It goes level by level (LevelSearch). False, having searched nothing,
-// when the tables cannot hold this search.
+// It goes level by level (LevelSearch). `loose` and `plainKeys` choose the
+// tables (SlideSpace::build). False, having searched nothing, when the
+// tables cannot hold this search in a Key, and with `savedOnly` when no
+// search with these tables is saved.
 template <class Key>
 bool tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
                  const std::vector<Cell3List>& cells, const std::vector<Cell3List>& outlines,
                  bool nested, const SlideState& initial, const GoalCheck& goals,
-                 const StopGrid& stops, SlideSearch& search, std::vector<SlideState>& path) {
-  // Loose stops only with nested slides: one-way moves, which the loose
-  // arrangements make more of, are looked for in the levels kept, and only
-  // nested slides keep them.
-  const bool wantLoose = nested && stops.size > 1 && !search.gridStopsApart;
+                 const StopGrid& stops, bool loose, bool plainKeys, bool savedOnly,
+                 SlideSearch& search, std::vector<SlideState>& path) {
   SlideSpace<Key> space;
-  auto build = [&](bool loose) {
-    space = SlideSpace<Key>();
-    if (!space.build(tray, cells, outlines, nested, initial, goals, search.likePiecesApart,
-                     search.verticalMoves, stops, loose)) {
-      return false;
-    }
-    space.partial = nested && search.partialNested;
-    return true;
-  };
-  // the loose stops may take a bit more a piece than the key has
-  if (!build(wantLoose) && (!wantLoose || !build(false))) {
+  if (!space.build(tray, cells, outlines, nested, initial, goals, search.likePiecesApart,
+                   search.verticalMoves, stops, loose, plainKeys)) {
     return false;
   }
+  space.partial = nested && search.partialNested;
 
   // Names the search: the problem, the start and everything the search
   // depends on, so a saved search is carried on only by its own.
@@ -4686,23 +4714,19 @@ bool tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tray
         f.mix(g);
       }
     }
-    // only with loose stops, so the searches saved without are carried on
+    // only with loose stops, and only with codes for the stops alone, so
+    // the searches saved without are carried on (findSlidePath)
     if (space.loose) {
       f.mix(kLooseFormat);
     }
+    if (space.compact) {
+      f.mix(kCompactFormat);
+    }
     return f.value();
   };
-  std::uint64_t name = nameOf();
-  if (space.loose && search.resume && !search.workDir.empty() &&
-      !SearchFolder(search.workDir, name).exists()) {
-    // a search of this start saved before there were loose stops, or with
-    // them off, is carried on as it was begun
-    const SlideSpace<Key> withLoose = space;
-    if (build(false) && SearchFolder(search.workDir, nameOf()).exists()) {
-      name = nameOf();
-    } else {
-      space = withLoose;
-    }
+  const std::uint64_t name = nameOf();
+  if (savedOnly && !SearchFolder(search.workDir, name).exists()) {
+    return false;
   }
   search.looseStops = space.loose;
 
@@ -4823,6 +4847,7 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   s.legacy = options.legacy;
   s.likePiecesApart = options.likePiecesApart;
   s.gridStopsApart = options.gridStopsApart;
+  s.plainKeys = options.plainKeys;
   s.verticalMoves = options.verticalMoves;
   s.grid = options.grid > 1 ? options.grid : 0;
   return s;
@@ -5050,14 +5075,45 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   std::vector<SlideState> path;
   bool searched = false;
   if (!search.legacy) {
-    searched = tableSearch<std::uint64_t>(puzzle, problem, tray, cells, outlines, nested, initial,
-                                          goals, stops, search, path);
+    // The tables in the narrow key, then in the wide one.
+    auto table = [&](bool loose, bool plainKeys, bool savedOnly) {
+      if (tableSearch<std::uint64_t>(puzzle, problem, tray, cells, outlines, nested, initial,
+                                     goals, stops, loose, plainKeys, savedOnly, search, path)) {
+        return true;
+      }
 #ifdef __SIZEOF_INT128__
-    if (!searched) {
-      searched = tableSearch<WideKey>(puzzle, problem, tray, cells, outlines, nested, initial,
-                                      goals, stops, search, path);
-    }
+      if (tableSearch<WideKey>(puzzle, problem, tray, cells, outlines, nested, initial, goals,
+                               stops, loose, plainKeys, savedOnly, search, path)) {
+        return true;
+      }
 #endif
+      return false;
+    };
+    // Loose stops only with nested slides: one-way moves, which the loose
+    // arrangements make more of, are looked for in the levels kept, and only
+    // nested slides keep them.
+    const bool wantLoose = nested && grid && !search.gridStopsApart;
+    // A search saved for this start is carried on as it was begun: with
+    // loose stops or with them apart, and with the keys it has (those saved
+    // by an earlier build have a code for every position). Only a grid
+    // gives the tables more than one form.
+    if (grid && search.resume && !savedFolders(puzzle, problem, search.workDir).empty()) {
+      for (const bool loose : {true, false}) {
+        for (const bool plainKeys : {false, true}) {
+          if (!searched && (wantLoose || !loose) && (plainKeys || !search.plainKeys)) {
+            searched = table(loose, plainKeys, true);
+          }
+        }
+      }
+    }
+    // Loose stops in either key before stops apart: they may take a bit
+    // more a piece than the narrow key has.
+    if (!searched && wantLoose) {
+      searched = table(true, search.plainKeys, false);
+    }
+    if (!searched) {
+      searched = table(false, search.plainKeys, false);
+    }
   }
   if (!searched) {
     legacySearch(tray, cells, outlines, nested, initial, goals, stops, search, path);

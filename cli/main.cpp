@@ -317,6 +317,7 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
   s.gridStopsApart = o.slideStopsApart;
+  s.plainKeys = o.slidePlainKeys;
   s.optimizedPaths = o.optimizedPaths;
   s.grid = o.slideGrid;
   return s;

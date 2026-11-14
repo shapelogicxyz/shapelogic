@@ -34,6 +34,7 @@ just app-gen       # src/engine/api.generated.ts from api/*.json (after a schema
 just app-check     # type checks (node and renderer projects), ESLint, Prettier
 just app-test      # unit tests; the engine tests too when the release engine exists
 just app-dev       # the app (electron-vite dev, reloads on change)
+just app-release   # the same with the release engine (built first): the fast one for long solves
 just app-e2e       # build, then the end-to-end tests (Playwright's Electron driver), then the timed one
 just app-e2e-timed # only the timed test (perf.e2e.ts), alone
 ```

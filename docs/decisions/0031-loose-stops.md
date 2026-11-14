@@ -103,6 +103,10 @@ loose or not.
 `SlideSearch::gridStopsApart` (`SlidingOptions::gridStopsApart`,
 `shapelogic_cli --slide-stops-apart`) is the A/B switch.
 
+Since decision 0032 the extra numbers are tried in the wide key before the
+loose stops are given up: "when the extra numbers do not fit the key" means
+128 bits, not the 64 the stops apart would fit.
+
 ## Measurements
 "Abe 1 to 6 Heart", nested slides, optimized paths (a 6-cell grid), release
 build, one run each; arrangements summed over the levels:

@@ -505,7 +505,9 @@ one).
   take any quarter turn, with `mirroredOrientations` mirrored too) and never
   turns; positions keyed in 64 or 128 bits (the original's
   text keys with `legacy`; puzzles of more than 64 pieces with nested
-  slides use those, where the original overran its tables); copies of
+  slides use those, where the original overran its tables), a number for
+  each position a piece fits the empty tray at, or with a grid for each
+  of its stops only (decision 0032; the A/B `plainKeys`); copies of
   like pieces searched as one. There is no limit on the arrangements
   visited (the original's Fast and Deep solvers, which stopped at 250,000
   and 1,000,000, and its queue search are not kept): `SlideSearch` holds

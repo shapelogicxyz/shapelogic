@@ -186,6 +186,8 @@ void usage(HelpKind kind) {
         "  --slide-apart    like pieces told apart instead of searched as one\n"
         "  --slide-stops-apart  with --optimized-paths and --nested-slides: the stops\n"
         "                   inside a grid cell told apart instead of searched as one\n"
+        "  --slide-plain-keys  with --optimized-paths: every position of a piece\n"
+        "                   numbered in the search's keys, not only its stops\n"
         "  --slide-trace    each level of the search on stderr\n"
         "  --slide-grid N   --optimized-paths on a grid of N cells, whether or not the\n"
         "                   board fits it (its answers are those of a restricted search)\n",
@@ -363,6 +365,8 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideApart = true;
     } else if (a == "--slide-stops-apart") {
       o.slideStopsApart = true;
+    } else if (a == "--slide-plain-keys") {
+      o.slidePlainKeys = true;
     } else if (a == "--slide-grid") {
       unsigned int size = 0;
       if (!hasValue || !parseCount(argv[i + 1], &size) || size < 2 || size > 1024) {

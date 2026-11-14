@@ -121,6 +121,10 @@ app-test:
 app-dev:
     cd web && env -u ELECTRON_RUN_AS_NODE npm run dev
 
+# Run the app as app-dev does, with build/release's engine (built first): the optimised engine, for long solves
+app-release: (build "release")
+    cd web && env -u ELECTRON_RUN_AS_NODE BT_ENGINE="{{justfile_directory()}}/build/release/engine/shapelogic_engine" npm run dev
+
 # Build the app and run its end-to-end tests (Playwright's Electron driver; the release engine or BT_ENGINE),
 # side by side (E2E_WORKERS apps at once, half the cores by default); without arguments the timed test
 # (perf.e2e.ts) follows, alone

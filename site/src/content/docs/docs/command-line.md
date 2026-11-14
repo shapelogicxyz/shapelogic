@@ -920,6 +920,7 @@ don't need them to solve puzzles.
 | `--slide-legacy` | The original search over text keys. |
 | `--slide-apart` | Treat identical pieces as different, instead of searching them as one. |
 | `--slide-stops-apart` | With `--optimized-paths` and `--nested-slides`: search each place a small piece can stop inside a grid cell on its own, instead of all of them as one. |
+| `--slide-plain-keys` | With `--optimized-paths`: number every position of a piece in the search's keys, as a full search does, instead of only the places it can stop. The same search in more memory; a large board may then fall back to the original search. |
 | `--slide-trace` | Print each level of the search to stderr. |
 | `--slide-grid N` | `--optimized-paths` on a grid of `N` cells, whether or not the board fits it. Its answers are a restricted search's. |
 

@@ -221,6 +221,11 @@ struct SlideSearch {
   /// A/B switch: with a grid, every stop of a grid cell told apart instead
   /// of searched as one.
   bool gridStopsApart = false;
+  /// A/B switch: with a grid, an arrangement numbers every position of a
+  /// piece, as it does without one, instead of only the positions the grid
+  /// lets it stop at. The same search in more bits: a board that fits the
+  /// key only with the stops numbered goes to the search over text keys.
+  bool plainKeys = false;
   /// Told each level the level search finishes; empty for none.
   SlideLevelTrace onLevel;
   /// The level search: told how many moves deep it is (both ends
@@ -296,6 +301,7 @@ struct SlidingOptions {
   bool legacy = false;
   bool likePiecesApart = false;
   bool gridStopsApart = false;
+  bool plainKeys = false;
   /// Hold the stops to the grid slideGridFor finds for the problem, when
   /// it finds one (the Solver's Automatically use optimized paths): a
   /// smaller search, whose path may have more than the fewest moves.

@@ -91,6 +91,10 @@ With nested slides the stops a small piece has inside one cell of the grid
 are searched as one (loose stops, decision 0031): the same moves in fewer
 arrangements.
 
+The search's keys number only the stops the grid leaves a piece (decision
+0032), so a board too big for the level search with every stop fits it with
+optimized paths.
+
 ## Consequences
 - A board of blocks solves in seconds where it took hours, at the risk of a
   longer path or a missed one, which the dialog and the result's label say.

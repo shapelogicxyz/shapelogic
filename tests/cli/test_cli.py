@@ -165,12 +165,14 @@ def test_sliding() -> None:
           "optimized paths: the pieces stop only on a 5-cell grid" in r.stdout and
           "no solution with optimized paths (a 5-cell grid); a full search may find one" in r.stdout,
           r.stdout[-300:])
-    # the stops of a grid cell told apart, a benchmark switch: the same answer
-    # (but for the count of arrangements and the time)
+    # the stops of a grid cell told apart, and every position numbered in the
+    # keys, benchmark switches: the same answer (but for the count of
+    # arrangements and the time)
     answers = [[line for line in run("-d", "--nested-slides", "--slide-grid", "2", *extra,
                                      nested).stdout.splitlines() if "iterations" not in line]
-               for extra in ([], ["--slide-stops-apart"])]
+               for extra in ([], ["--slide-stops-apart"], ["--slide-plain-keys"])]
     check("stops apart", len(answers[0]) > 3 and answers[0] == answers[1], str(answers[1][-3:]))
+    check("plain keys", answers[0] == answers[2], str(answers[2][-3:]))
     # --save solves it as the GUI did; -a and -x read the solved file
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "solved.xmpuzzle"

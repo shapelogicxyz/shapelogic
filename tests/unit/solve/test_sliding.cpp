@@ -2529,7 +2529,8 @@ TEST_CASE("sliding: a search with the stops of a grid cell as one is carried on"
   SlideSearch straight = gridSearch();
   const std::optional<Separation> whole = findSlidePath(g.puz, g.pr(), *g.start, straight);
   REQUIRE(whole.has_value());
-  CHECK(stoppedAt(g, 3) < straight.visited);
+  const std::uint64_t before = stoppedAt(g, 3);
+  CHECK(before < straight.visited);
   SlideSearch second = gridSearch();
   second.workDir = dir.string();
   const std::optional<Separation> rest = findSlidePath(g.puz, g.pr(), *g.start, second);
@@ -2538,7 +2539,10 @@ TEST_CASE("sliding: a search with the stops of a grid cell as one is carried on"
   CHECK(second.looseStops);
   CHECK(rest->getMoves() == whole->getMoves());
   checkGridPath(g, *rest);
-  CHECK(second.visited == straight.visited);
+  // the level the path is found on ends where the threads happen to be, so
+  // the two counts are only near each other; the search below, with no
+  // path, counts every arrangement once
+  CHECK(second.visited > before);
 
   // a search with no path: carried on, the arrangements of the whole one
   const GridBoard none = cupsAndUnits(false, 2);
@@ -2635,4 +2639,268 @@ TEST_CASE("sliding: fuzz, the stops of a grid cell searched as one agree with th
   const LooseTally t = compareLoose(1000, 4000, 300000, true);
   WARN("loose stops fuzz: " << t.compared << " compared, " << t.found << " with a path (longest "
                             << t.longest << "), " << t.loose << " collapsed");
+}
+
+namespace {
+
+// A board cw x ch cells of 3x3 blocks with one cell empty, bottom right.
+// The blocks in the cells of `cups` (numbered row by row) are cups open at
+// the top with a unit piece in the pocket. The goal has the empty cell top
+// left: the bottom row's blocks one cell to the right, then the left
+// column's one cell down, each one move and none to spare.
+GridBoard blockBoard(int cw, int ch, const std::vector<int>& cups) {
+  std::vector<BoardCells> shapes;
+  std::vector<GridBoard::Place> places;
+  std::vector<GridBoard::Place> units;
+  for (int cell = 0; cell < cw * ch - 1; cell++) {
+    const int cx = cell % cw;
+    const int cy = cell / cw;
+    const int gx = cy == ch - 1 ? cx + 1 : cx;
+    const int gy = cx == 0 && cy < ch - 1 ? cy + 1 : cy;
+    const bool cup = std::find(cups.begin(), cups.end(), cell) != cups.end();
+    shapes.push_back(blockWithout(cup ? BoardCells{{1, 0}, {1, 1}} : BoardCells{}));
+    places.push_back({3 * cx, 3 * cy, 3 * gx, 3 * gy, true});
+    if (cup) {
+      units.push_back({3 * cx + 1, 3 * cy + 1, 3 * gx + 1, 3 * gy + 1, false});
+    }
+  }
+  for (const GridBoard::Place& u : units) {
+    shapes.push_back({{0, 0}});
+    places.push_back(u);
+  }
+  return gridBoardOf(3 * cw, 3 * ch, shapes, places);
+}
+
+// What a search's levels came to: "start level 3: 120 arrangements" each.
+struct LevelSizes {
+  std::vector<std::string> lines;
+  void watch(SlideSearch& s) {
+    s.onLevel = [this](const std::string& line) {
+      lines.push_back(line.substr(0, line.find(", one-way")));
+    };
+  }
+};
+
+}  // namespace
+
+// With a grid a key holds a number for each stop of a piece, not for every
+// position it fits (the A/B switch plainKeys): the same search, level for
+// level and step for step, in fewer bits.
+TEST_CASE("sliding: a grid's keys number only the stops", "[sliding][parallel]") {
+  std::vector<GridBoard> boards;
+  boards.push_back(cupsAndUnits(true));
+  boards.push_back(cupsAndUnits(false, 2));
+  boards.push_back(blockBoard(3, 2, {1, 3}));
+  for (std::uint64_t seed = 0; seed < 10; seed++) {
+    boards.push_back(gridBoard(seed));
+  }
+  int found = 0;
+  int loose = 0;
+  for (std::size_t b = 0; b < boards.size(); b++) {
+    const GridBoard& g = boards[b];
+    // nested slides with loose stops and with the stops apart, on one thread
+    // and on several; then the grid without nested slides
+    for (int kind = 0; kind < 5; kind++) {
+      INFO("board " << b << " kind " << kind);
+      SlideSearch compact;
+      compact.nested = kind < 4;
+      compact.partialNested = compact.nested && b % 3 == 0;
+      compact.gridStopsApart = kind == 1 || kind == 3;
+      compact.threads = kind >= 2 ? 3 : 1;
+      compact.grid = 3;
+      compact.maxMemoryStates = 6000;
+      SlideSearch plain = compact;
+      plain.plainKeys = true;
+      LevelSizes compactLevels;
+      LevelSizes plainLevels;
+      compactLevels.watch(compact);
+      plainLevels.watch(plain);
+      const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, compact);
+      const std::optional<Separation> same = findSlidePath(g.puz, g.pr(), *g.start, plain);
+      CHECK(compact.looseStops == plain.looseStops);
+      loose += compact.looseStops ? 1 : 0;
+      if (compact.outcome == SlideOutcome::Memory || plain.outcome == SlideOutcome::Memory) {
+        // a wider key, and the threads' own buffers, fill the memory a level
+        // sooner or later: the levels both finished are the same
+        const std::size_t both = std::min(compactLevels.lines.size(), plainLevels.lines.size());
+        CHECK(both > 0);
+        compactLevels.lines.resize(both);
+        plainLevels.lines.resize(both);
+        CHECK(compactLevels.lines == plainLevels.lines);
+        continue;
+      }
+      CHECK(compact.outcome == plain.outcome);
+      CHECK(compactLevels.lines == plainLevels.lines);
+      REQUIRE(path.has_value() == same.has_value());
+      if (path) {
+        CHECK(path->getMoves() == same->getMoves());
+        checkGridPath(g, *path);
+        found++;
+      }
+      if (compact.threads == 1) {
+        // several threads end the last level where they happen to be
+        CHECK(compact.visited == plain.visited);
+        if (path) {
+          CHECK(placesAlong(*path) == placesAlong(*same));
+        }
+      }
+    }
+  }
+  // the boards are worth the comparison
+  CHECK(found > 15);
+  CHECK(loose > 10);
+}
+
+// A board whose pieces fit the empty tray in more places than a key can
+// number is searched level by level all the same when a grid leaves few
+// enough stops; with every position numbered it goes to the search over
+// text keys, which finds a path as short.
+TEST_CASE("sliding: a board too big for its positions is searched by its stops", "[sliding]") {
+  // 19 blocks at 130 places each and three units: 176 bits, or 113
+  const GridBoard g = blockBoard(5, 4, {6, 10, 18});
+  SlideSearch stops;
+  stops.nested = true;
+  stops.grid = 3;
+  stops.threads = 2;
+  LevelSizes levels;
+  levels.watch(stops);
+  const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, stops);
+  REQUIRE(path.has_value());
+  CHECK(path->getMoves() == 7);
+  CHECK(stops.looseStops);
+  CHECK_FALSE(levels.lines.empty());
+  checkGridPath(g, *path);
+
+  SlideSearch apart = stops;
+  apart.gridStopsApart = true;
+  const std::optional<Separation> each = findSlidePath(g.puz, g.pr(), *g.start, apart);
+  REQUIRE(each.has_value());
+  CHECK(each->getMoves() == 7);
+
+  // every position numbered: no key holds it, so the level search is not run
+  SlideSearch plain;
+  plain.nested = true;
+  plain.grid = 3;
+  plain.plainKeys = true;
+  LevelSizes none;
+  none.watch(plain);
+  const std::optional<Separation> old = findSlidePath(g.puz, g.pr(), *g.start, plain);
+  REQUIRE(old.has_value());
+  CHECK(old->getMoves() == 7);
+  CHECK(none.lines.empty());
+  checkGridPath(g, *old);
+}
+
+// Loose stops may take a bit more a piece than the stops apart do. A board
+// that fits the narrow key only with the stops apart is searched with loose
+// stops in the wide key: the wide key is tried before the loose stops are
+// given up.
+TEST_CASE("sliding: loose stops take the wide key before they are given up", "[sliding]") {
+  // 11 blocks at 12 stops and 4 units at 24 stops, or 36 with the loose
+  // ones: 64 bits apart, 68 loose
+  const GridBoard g = blockBoard(4, 3, {1, 2, 5, 6});
+  SlideSearch one;
+  one.nested = true;
+  one.grid = 3;
+  const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+  REQUIRE(path.has_value());
+  CHECK(one.looseStops);
+  CHECK(path->getMoves() == 5);
+  checkGridPath(g, *path);
+
+  SlideSearch apart = one;
+  apart.gridStopsApart = true;
+  const std::optional<Separation> each = findSlidePath(g.puz, g.pr(), *g.start, apart);
+  REQUIRE(each.has_value());
+  CHECK_FALSE(apart.looseStops);
+  CHECK(each->getMoves() == 5);
+  // the wide key shows in what an arrangement costs the search
+  CHECK(one.memoryStates < apart.memoryStates);
+}
+
+// A grid search saved with every position numbered, as the builds before
+// the stops were numbered saved them, is carried on as it was begun. The
+// A/B switch itself does not take up a search saved without it.
+TEST_CASE("sliding: a grid search saved with every position numbered is carried on",
+          "[sliding][resume]") {
+  const std::filesystem::path dir = scratchDir("slideplain");
+  std::filesystem::remove_all(dir);
+  const GridBoard g = cupsAndUnits(true);
+  for (const bool nested : {true, false}) {
+    INFO("nested " << nested);
+    // one thread, so that the level the path is found on counts the same
+    // arrangements each time
+    auto gridSearch = [&] {
+      SlideSearch s;
+      s.nested = nested;
+      s.grid = 3;
+      s.threads = 1;
+      return s;
+    };
+    auto stopped = [&](bool plainKeys) {
+      StopSource stop;
+      SlideSearch first = gridSearch();
+      first.plainKeys = plainKeys;
+      first.workDir = dir.string();
+      first.stop = stop.token();
+      first.onDepth = [&](std::uint64_t at) {
+        if (at >= 3) {
+          stop.request(StopKind::Pause);
+        }
+      };
+      CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+      CHECK(first.outcome == SlideOutcome::Stopped);
+      CHECK(first.saved);
+    };
+    SlideSearch straight = gridSearch();
+    const std::optional<Separation> whole = findSlidePath(g.puz, g.pr(), *g.start, straight);
+
+    stopped(true);
+    SlideSearch later = gridSearch();
+    later.workDir = dir.string();
+    const std::optional<Separation> rest = findSlidePath(g.puz, g.pr(), *g.start, later);
+    CHECK(later.resumed);
+    CHECK(later.looseStops == straight.looseStops);
+    CHECK(later.outcome == straight.outcome);
+    CHECK(later.visited == straight.visited);
+    REQUIRE(rest.has_value() == whole.has_value());
+    if (rest) {
+      CHECK(placesAlong(*rest) == placesAlong(*whole));
+    }
+
+    // saved with the stops numbered: the switch begins its own search
+    stopped(false);
+    SlideSearch other = gridSearch();
+    other.plainKeys = true;
+    other.workDir = dir.string();
+    (void)findSlidePath(g.puz, g.pr(), *g.start, other);
+    CHECK_FALSE(other.resumed);
+    CHECK(other.visited == straight.visited);
+    SlideSearch own = gridSearch();
+    own.workDir = dir.string();
+    (void)findSlidePath(g.puz, g.pr(), *g.start, own);
+    CHECK(own.resumed);
+    CHECK(own.visited == straight.visited);
+  }
+
+  // without a grid every position is a stop: the keys, and so the saved
+  // searches, are the same with the switch and without
+  const SlideFixture f = eightPuzzle();
+  StopSource stop;
+  SlideSearch first;
+  first.plainKeys = true;
+  first.workDir = dir.string();
+  first.stop = stop.token();
+  first.onDepth = [&](std::uint64_t at) {
+    if (at >= 4) {
+      stop.request(StopKind::Pause);
+    }
+  };
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+  CHECK(first.saved);
+  SlideSearch second;
+  second.workDir = dir.string();
+  CHECK(findSlidePath(f.puz, f.pr(), *f.start, second).has_value());
+  CHECK(second.resumed);
+  std::filesystem::remove_all(dir);
 }
