@@ -3111,6 +3111,31 @@ export interface Methods {
     errors: 'not_found' | 'unsupported';
   };
   /**
+   * Whether solve.continue with these options would carry a paused sliding solve's saved search on
+   * from the start alone where solve.start would search from the start and from the goal until the
+   * two meet (decision 0033), which is far faster: a search with nested slides and optimized paths
+   * that a version before the two ends saved. Such a search is carried on as it was begun, so the
+   * Solver asks before Continue whether to solve again from the start instead. Changes nothing.
+   * (sliding.json)
+   */
+  'sliding.resumeAdvice': {
+    params: {
+      problem: ProblemId;
+      options?: SolveOptions;
+    };
+    result: {
+      /**
+       * True when a start the paused solve keeps for its next run has a search saved in
+       * slideFolder that goes on from the start alone, and a new search of it would go from both
+       * ends. False otherwise: nothing paused or saved, a search saved from both ends, a problem
+       * that is searched from the start alone anyway (a piece that may end anywhere, partly nested
+       * pieces), other options (no nested slides, no grid), and while the problem's run is active.
+       */
+      fromStartAlone: boolean;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
    * A slice of the saved solutions, sorted: list (the stored order), assembly (found order),
    * level, moves or pieces (the original's sort buttons); descending sorts by the swapped
    * comparison, so ties keep their order.
@@ -3973,6 +3998,7 @@ export const METHOD_NAMES = [
   'sliding.gridAdvice',
   'sliding.place',
   'sliding.preview',
+  'sliding.resumeAdvice',
   'sliding.tray',
   'solution.analyse',
   'solution.analyseStatus',

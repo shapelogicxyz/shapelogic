@@ -207,6 +207,19 @@ Reply slidingGridAdvice(State& s, Params& p) {
   return Json{{"grid", g.size}, {"stops", g.stops}, {"gridStops", g.gridStops}};
 }
 
+Reply slidingResumeAdvice(State& s, Params& p) {
+  const app::Id problem = p.id("problem", IdKind::Problem);
+  const Json given = p.has("options") ? p.value("options") : Json(nullptr);
+  BTE_CHECK(p.finish());
+  BTE_TRY(const SolveOptions options, solveOptionsFrom(s, given));
+  BTE_CHECK(s.document().problemIndex(problem));
+  if (!sliding::isSliding(s.document().puzzle())) {
+    return coreError(Errc::Unsupported, "only sliding puzzles have sliding searches");
+  }
+  BTE_TRY(const bool alone, s.document().slideFromStartAlone(problem, options.sliding));
+  return Json{{"fromStartAlone", alone}};
+}
+
 }  // namespace
 
 void addSlidingMethods(MethodTable& t) {
@@ -218,6 +231,7 @@ void addSlidingMethods(MethodTable& t) {
   t["sliding.tray"] = slidingTray;
   t["sliding.preview"] = slidingPreview;
   t["sliding.gridAdvice"] = slidingGridAdvice;
+  t["sliding.resumeAdvice"] = slidingResumeAdvice;
 }
 
 }  // namespace bt::engine

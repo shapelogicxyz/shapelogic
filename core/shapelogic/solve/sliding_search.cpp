@@ -389,6 +389,68 @@ bool sameCells(const Cell3List& a, const Cell3List& b) {
          });
 }
 
+// The most pieces that could ever be nested in one piece at once, those
+// nested in the nested ones too: a bound, never too low. A piece nests in
+// another when its cells lie in the other's outline, so in its holes (the
+// outline less the cells), which have room for only so many of the smallest
+// piece that fits them at all.
+unsigned int nestedBound(const std::vector<Cell3List>& cells,
+                         const std::vector<Cell3List>& outlines) {
+  const std::size_t n = cells.size();
+  using Cell = std::array<int, 3>;
+  std::vector<std::set<Cell>> holes(n);
+  for (std::size_t i = 0; i < n; i++) {
+    for (const Cell3& c : outlines[i]) {
+      holes[i].insert({c.x, c.y, c.z});
+    }
+    for (const Cell3& c : cells[i]) {
+      holes[i].erase({c.x, c.y, c.z});
+    }
+  }
+  // fits[b]: the pieces that fit b's holes at some shift
+  std::vector<std::vector<std::size_t>> fits(n);
+  std::vector<std::size_t> room(n, 0);
+  for (std::size_t b = 0; b < n; b++) {
+    std::size_t smallest = 0;
+    for (std::size_t a = 0; a < n; a++) {
+      if (a == b || cells[a].empty() || cells[a].size() > holes[b].size()) {
+        continue;
+      }
+      const Cell3& first = cells[a][0];
+      const bool fitsIn = std::any_of(holes[b].begin(), holes[b].end(), [&](const Cell& h) {
+        return std::all_of(cells[a].begin(), cells[a].end(), [&](const Cell3& c) {
+          return holes[b].contains(
+              {c.x - first.x + h[0], c.y - first.y + h[1], c.z - first.z + h[2]});
+        });
+      });
+      if (fitsIn) {
+        fits[b].push_back(a);
+        smallest = smallest == 0 ? cells[a].size() : std::min(smallest, cells[a].size());
+      }
+    }
+    room[b] = smallest == 0 ? 0 : holes[b].size() / smallest;
+  }
+  std::size_t most = 0;
+  for (std::size_t outer = 0; outer < n; outer++) {
+    // everything that could be in the group: what fits outer, what fits that
+    std::vector<char> in(n, 0);
+    std::vector<std::size_t> queue{outer};
+    in[outer] = 1;
+    std::size_t rooms = 0;
+    for (std::size_t head = 0; head < queue.size(); head++) {
+      rooms += room[queue[head]];
+      for (const std::size_t a : fits[queue[head]]) {
+        if (in[a] == 0) {
+          in[a] = 1;
+          queue.push_back(a);
+        }
+      }
+    }
+    most = std::max(most, std::min(queue.size() - 1, rooms));
+  }
+  return static_cast<unsigned int>(most);
+}
+
 // SlideSearch::grid: the offsets, x and y modulo the grid's size, at which
 // each piece may stop. A piece with none stops anywhere, so a piece the
 // grid knows nothing of is never held still by it.
@@ -1179,6 +1241,9 @@ struct SlideSpace {
   // Whether some position of a piece has no code (PosTable::code): the keys
   // are not those of a search with a code for every position.
   bool compact = false;
+  // With nested: the moves can be worked out backwards too (SlideMover::
+  // movesBack), so the search may run from the goal as well (tableSearch).
+  bool backMoves = false;
   // The goal, for the pieces whose copies count together (GoalCheck::counts).
   const GoalCheck* goals = nullptr;
 
@@ -1393,6 +1458,99 @@ struct SlideSpace {
     return key;
   }
 
+  // The goal when it is one arrangement, canonical: then the search can
+  // run from both ends. None with pieces that may end in several places,
+  // copies that count together, or a goal where a piece may not stop.
+  // Copies of a piece (see build) are one arrangement when there is one
+  // way for them to take the places they may end and stop at, none lying
+  // on another: a copy at each of as many places, or places that overlap
+  // (two blocks to end side by side fit their goal's cells at every shift
+  // between) but hold all the copies in one way only.
+  [[nodiscard]] std::optional<Key> singleGoal() const {
+    if (goals != nullptr && goals->counts()) {
+      return std::nullopt;
+    }
+    std::vector<std::vector<unsigned int>> groups = copies;
+    std::vector<char> grouped(n, 0);
+    for (const std::vector<unsigned int>& g : copies) {
+      for (const unsigned int i : g) {
+        grouped[i] = 1;
+      }
+    }
+    for (unsigned int i = 0; i < n; i++) {
+      if (grouped[i] == 0) {
+        groups.push_back({i});
+      }
+    }
+    Key g = 0;
+    std::vector<std::uint64_t> covered(words, 0);
+    for (const std::vector<unsigned int>& group : groups) {
+      const PosTable& tp = t[group[0]];
+      std::vector<int> rows;
+      for (std::size_t p = 0; p < tp.atGoal.size(); p++) {
+        if (tp.atGoal[p] != 0 && tp.rest[p] != 0) {
+          rows.push_back(static_cast<int>(p));
+        }
+      }
+      std::vector<std::uint64_t> used(words, 0);
+      std::vector<int> chosen;
+      std::vector<int> only;
+      int ways = 0;
+      int tries = kMaxGoalTries;
+      goalWays(tp, rows, 0, group.size(), used, chosen, only, ways, tries);
+      if (ways != 1 || tries <= 0) {
+        return std::nullopt;
+      }
+      for (std::size_t k = 0; k < group.size(); k++) {
+        // pieces that would end on one another have no such arrangement
+        const std::uint64_t* m = &tp.mask[idx(only[k]) * words];
+        for (std::size_t w = 0; w < words; w++) {
+          if ((covered[w] & m[w]) != 0) {
+            return std::nullopt;
+          }
+          covered[w] |= m[w];
+        }
+        g |= field(group[k], only[k]);
+      }
+    }
+    return canon(g);
+  }
+
+  // singleGoal: the ways `left` more copies take rows from `from` on, none
+  // on another. `ways` is counted to 2, the first way kept in `only`;
+  // `tries` bounds the work (0 or less: given up).
+  static constexpr int kMaxGoalTries = 100000;
+  void goalWays(const PosTable& tp, const std::vector<int>& rows, std::size_t from,
+                std::size_t left, std::vector<std::uint64_t>& used, std::vector<int>& chosen,
+                std::vector<int>& only, int& ways, int& tries) const {
+    if (left == 0) {
+      if (ways++ == 0) {
+        only = chosen;
+      }
+      return;
+    }
+    for (std::size_t r = from; r + left <= rows.size() && ways < 2 && tries > 0; r++) {
+      tries--;
+      const std::uint64_t* m = &tp.mask[idx(rows[r]) * words];
+      bool clash = false;
+      for (std::size_t w = 0; w < words; w++) {
+        clash = clash || (used[w] & m[w]) != 0;
+      }
+      if (clash) {
+        continue;
+      }
+      for (std::size_t w = 0; w < words; w++) {
+        used[w] |= m[w];
+      }
+      chosen.push_back(rows[r]);
+      goalWays(tp, rows, r + 1, left - 1, used, chosen, only, ways, tries);
+      chosen.pop_back();
+      for (std::size_t w = 0; w < words; w++) {
+        used[w] &= ~m[w];
+      }
+    }
+  }
+
   [[nodiscard]] bool isGoal(Key key) const {
     if (goals != nullptr && goals->counts()) {
       return goals->reached([&](std::size_t i) {
@@ -1433,9 +1591,10 @@ class SlideMover {
   // carried pieces nested in the mover; while emit runs, undoable(next) says
   // whether that same group can move back. Each piece alone, then with what
   // is nested in it; positions in the order a breadth-first fill finds
-  // them, which is the order of legacySearch.
+  // them, which is the order of legacySearch. With solosOnly the pieces
+  // move alone only.
   template <class F>
-  bool expand(const Key cur, F&& emit) {
+  bool expand(const Key cur, F&& emit, bool solosOnly = false) {
     const std::vector<PosTable>& t = s_.t;
     const std::size_t words = s_.words;
     const unsigned int n = s_.n;
@@ -1482,7 +1641,7 @@ class SlideMover {
         }
       }
 
-      if (!s_.nested) {
+      if (!s_.nested || solosOnly) {
         continue;
       }
       // The wholly nested group, then with partial nesting the larger group
@@ -1515,66 +1674,74 @@ class SlideMover {
             others_[w] &= ~gm[w];
           }
         }
-        // Whether the group fits at shift d, and whether every piece of it
-        // may stop there: then key is the group's arrangement (a place
-        // where a piece may not stop has no code to put in one).
-        auto shifted = [&](const SlideShift& d, Key& key, bool& rests) {
-          key = cur;
-          rests = true;
-          for (unsigned int g = 0; g < members; g++) {
-            const unsigned int m = group[g];
-            const std::size_t at = idx(pos_[m]);
-            const int p = t[m].at(t[m].px[at] + d[0], t[m].py[at] + d[1], t[m].pz[at] + d[2]);
-            if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
-              return false;
-            }
-            if (t[m].rest[idx(p)] == 0) {
-              rests = false;
-            } else if (rests) {
-              key = s_.with(key, m, p);
-            }
-          }
+        if (floodShifts(cur, group.data(), members, [&](Key key) { return emit(key, true); })) {
           return true;
-        };
-        // a flood over the shifts the group can make, as for one piece
-        if (++shiftEpoch_ == 0) {
-          std::fill(shiftSeen_.begin(), shiftSeen_.end(), 0);
-          shiftEpoch_ = 1;
         }
-        const int trayW = s_.trayW;
-        const int trayH = s_.trayH;
-        const int trayD = s_.trayD;
-        auto seenAt = [&](const SlideShift& d) -> unsigned int& {
-          return shiftSeen_[idx(((d[2] + trayD) * (2 * trayH + 1) + (d[1] + trayH)) *
-                                    (2 * trayW + 1) +
-                                (d[0] + trayW))];
-        };
-        seenAt({0, 0, 0}) = shiftEpoch_;
-        shiftQueue_.assign(1, {0, 0, 0});
-        for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
-          const SlideShift c = shiftQueue_[head];
-          for (int d = 0; d < dirsFor(s_.vertical); d++) {
-            const SlideShift nb{c[0] + kDx[d], c[1] + kDy[d], c[2] + kDz[d]};
-            // a shift as wide as the tray fits nothing
-            if (nb[0] < -trayW || nb[0] > trayW || nb[1] < -trayH || nb[1] > trayH ||
-                nb[2] < -trayD || nb[2] > trayD) {
-              continue;
-            }
-            Key key = 0;
-            bool rests = false;
-            if (seenAt(nb) == shiftEpoch_ || !shifted(nb, key, rests)) {
-              continue;
-            }
-            seenAt(nb) = shiftEpoch_;
-            shiftQueue_.push_back(nb);
-            // every piece of the group must be able to stop there
-            if (!rests) {
-              continue;
-            }
-            if (emit(key, true)) {
-              return true;
-            }
+      }
+    }
+    return false;
+  }
+
+  // The moves made backwards, for the search from the goal with nested
+  // slides (SlideSpace::backMoves): emit(before, oneWay) with every
+  // arrangement that cur is one move from, until emit returns true; then it
+  // returns true itself.
+  //
+  // A piece that moved alone goes back the way it came. A group that came
+  // to cur was its outer piece and some of what is nested in it at cur: it
+  // may have closed round the rest on its way. So the outer piece is slid
+  // away with each part of what it holds, the rest left where it is, and
+  // an arrangement counts where that part is all that is nested in the
+  // outer piece there (from there the group's move leads to cur).
+  //
+  // oneWay as moves tells it, for a search backwards: set when no move of
+  // cur leads to `before`, which is when the group left part of what it
+  // holds behind (cur's own move takes all of it).
+  template <class F>
+  bool movesBack(const Key cur, F&& emit) {
+    BT_ASSERT(s_.backMoves);
+    if (expand(cur, [&](Key before, bool) { return emit(before, false); }, true)) {
+      return true;
+    }
+    // expand left cur's positions in pos_ and its cells in occupied_
+    const std::vector<PosTable>& t = s_.t;
+    const std::size_t words = s_.words;
+    for (unsigned int pi = 0; pi < s_.n; pi++) {
+      std::array<unsigned int, 64> full{};
+      unsigned int fullCount = 0;
+      const std::uint64_t fullSet = groupAt(pos_.data(), pi, full.data(), fullCount, false);
+      if (fullCount < 2) {
+        continue;
+      }
+      // every part of what is nested, as the bits of a number
+      const std::uint64_t parts = (std::uint64_t{1} << (fullCount - 1)) - 1;
+      for (std::uint64_t part = 1; part <= parts; part++) {
+        std::array<unsigned int, 64> group{};
+        unsigned int members = 0;
+        group[members++] = pi;
+        std::uint64_t inGroup = std::uint64_t{1} << pi;
+        for (unsigned int j = 1; j < fullCount; j++) {
+          if (((part >> (j - 1)) & 1) != 0) {
+            group[members++] = full[j];
+            inGroup |= std::uint64_t{1} << full[j];
           }
+        }
+        others_ = occupied_;
+        for (unsigned int g = 0; g < members; g++) {
+          const unsigned int m = group[g];
+          const std::uint64_t* gm = &t[m].mask[idx(pos_[m]) * words];
+          for (std::size_t w = 0; w < words; w++) {
+            others_[w] &= ~gm[w];
+          }
+        }
+        // undoable: whether the outer piece holds just this group there
+        lastOuter_ = pi;
+        lastGroup_ = inGroup;
+        lastWide_ = false;
+        const bool oneWay = inGroup != fullSet;
+        if (floodShifts(cur, group.data(), members,
+                        [&](Key before) { return undoable(before) && emit(before, oneWay); })) {
+          return true;
         }
       }
     }
@@ -2093,6 +2260,74 @@ class SlideMover {
       const unsigned int a = group[g];
       if (overlaps(&s_.t[a].outline[idx(at[a]) * s_.words], looseAll_.data(), s_.words)) {
         return true;
+      }
+    }
+    return false;
+  }
+
+  // A flood over the shifts the group can make from cur, the cells of the
+  // other pieces in others_, as for one piece: each(key) with the group's
+  // arrangement at every shift where each of its pieces may stop, until
+  // each returns true; then it returns true itself.
+  template <class F>
+  bool floodShifts(const Key cur, const unsigned int* group, unsigned int members, F&& each) {
+    const std::vector<PosTable>& t = s_.t;
+    const std::size_t words = s_.words;
+    // Whether the group fits at shift d, and whether every piece of it
+    // may stop there: then key is the group's arrangement (a place
+    // where a piece may not stop has no code to put in one).
+    auto shifted = [&](const SlideShift& d, Key& key, bool& rests) {
+      key = cur;
+      rests = true;
+      for (unsigned int g = 0; g < members; g++) {
+        const unsigned int m = group[g];
+        const std::size_t at = idx(pos_[m]);
+        const int p = t[m].at(t[m].px[at] + d[0], t[m].py[at] + d[1], t[m].pz[at] + d[2]);
+        if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
+          return false;
+        }
+        if (t[m].rest[idx(p)] == 0) {
+          rests = false;
+        } else if (rests) {
+          key = s_.with(key, m, p);
+        }
+      }
+      return true;
+    };
+    if (++shiftEpoch_ == 0) {
+      std::fill(shiftSeen_.begin(), shiftSeen_.end(), 0);
+      shiftEpoch_ = 1;
+    }
+    const int trayW = s_.trayW;
+    const int trayH = s_.trayH;
+    const int trayD = s_.trayD;
+    auto seenAt = [&](const SlideShift& d) -> unsigned int& {
+      return shiftSeen_[idx(((d[2] + trayD) * (2 * trayH + 1) + (d[1] + trayH)) *
+                                (2 * trayW + 1) +
+                            (d[0] + trayW))];
+    };
+    seenAt({0, 0, 0}) = shiftEpoch_;
+    shiftQueue_.assign(1, {0, 0, 0});
+    for (std::size_t head = 0; head < shiftQueue_.size(); head++) {
+      const SlideShift c = shiftQueue_[head];
+      for (int d = 0; d < dirsFor(s_.vertical); d++) {
+        const SlideShift nb{c[0] + kDx[d], c[1] + kDy[d], c[2] + kDz[d]};
+        // a shift as wide as the tray fits nothing
+        if (nb[0] < -trayW || nb[0] > trayW || nb[1] < -trayH || nb[1] > trayH ||
+            nb[2] < -trayD || nb[2] > trayD) {
+          continue;
+        }
+        Key key = 0;
+        bool rests = false;
+        if (seenAt(nb) == shiftEpoch_ || !shifted(nb, key, rests)) {
+          continue;
+        }
+        seenAt(nb) = shiftEpoch_;
+        shiftQueue_.push_back(nb);
+        // every piece of the group must be able to stop there
+        if (rests && each(key)) {
+          return true;
+        }
       }
     }
     return false;
@@ -3085,6 +3320,10 @@ constexpr std::size_t kBlocksPerGrab = 8;
 // Arrangements in a level from which the search goes on from the goal too
 // (SlideSearch::meetFrom 0).
 constexpr std::uint64_t kDefaultMeetFrom = 1000000;
+// The same with nested slides, where the search from one end has the wider
+// levels to fear: it keeps them all, and a grid's loose stops are given up
+// for the search from both ends (findSlidePath).
+constexpr std::uint64_t kNestedMeetFrom = 1;
 
 template <class Key>
 class RunBuilder {
@@ -3203,6 +3442,12 @@ struct Expanded {
 // folder; a search of the same start carries it on.
 
 constexpr std::array<char, 8> kStateMagic = {'B', 'T', 'S', 'L', 'S', 'V', '0', '1'};
+// A search from both ends with nested slides, which also names the goal
+// end's visited sets. A name of its own, so that a build from before such
+// searches takes the state for none of its own rather than carry the goal
+// end on with the moves made forwards; every other search is saved as it
+// always was, and read by any build.
+constexpr std::array<char, 8> kStateMagicBothNested = {'B', 'T', 'S', 'L', 'S', 'V', '0', '2'};
 
 struct SavedSide {
   unsigned int depth = 0;
@@ -3221,7 +3466,10 @@ struct SavedSearch {
   bool nested = false;
   bool bidirectional = false;
   SavedSide side[2];
+  // The start end's visited sets, and the goal end's (only a search from
+  // both ends with nested slides has those).
   std::vector<std::string> visitedSets;
+  std::vector<std::string> goalVisitedSets;
 };
 
 template <class T>
@@ -3251,7 +3499,8 @@ bool writeState(const std::filesystem::path& dir, const SavedSearch& st) {
   const std::filesystem::path tmp = dir / "state.tmp";
   {
     std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-    out.write(kStateMagic.data(), kStateMagic.size());
+    const bool bothNested = st.nested && st.bidirectional;
+    out.write(bothNested ? kStateMagicBothNested.data() : kStateMagic.data(), kStateMagic.size());
     put(out, st.problemKey);
     put(out, st.searchKey);
     put(out, st.visited);
@@ -3274,6 +3523,12 @@ bool writeState(const std::filesystem::path& dir, const SavedSearch& st) {
     for (const std::string& name : st.visitedSets) {
       putString(out, name);
     }
+    if (bothNested) {
+      put(out, static_cast<std::uint32_t>(st.goalVisitedSets.size()));
+      for (const std::string& name : st.goalVisitedSets) {
+        putString(out, name);
+      }
+    }
     if (!out) {
       return false;
     }
@@ -3289,7 +3544,8 @@ bool readState(const std::filesystem::path& dir, SavedSearch& st, bool whole) {
   std::ifstream in(dir / "state.bin", std::ios::binary);
   std::array<char, kStateMagic.size()> magic{};
   in.read(magic.data(), magic.size());
-  if (!in || magic != kStateMagic) {
+  const bool bothNested = magic == kStateMagicBothNested;
+  if (!in || (magic != kStateMagic && !bothNested)) {
     return false;
   }
   get(in, st.problemKey);
@@ -3325,18 +3581,23 @@ bool readState(const std::filesystem::path& dir, SavedSearch& st, bool whole) {
       }
     }
   }
-  std::uint32_t n = 0;
-  get(in, n);
-  if (!in || n > 100000) {
-    return false;
-  }
-  st.visitedSets.resize(n);
-  for (std::string& name : st.visitedSets) {
-    if (!getString(in, name)) {
+  for (std::vector<std::string>* sets : {&st.visitedSets, &st.goalVisitedSets}) {
+    if (sets == &st.goalVisitedSets && !bothNested) {
+      break;
+    }
+    std::uint32_t n = 0;
+    get(in, n);
+    if (!in || n > 100000) {
       return false;
     }
+    sets->resize(n);
+    for (std::string& name : *sets) {
+      if (!getString(in, name)) {
+        return false;
+      }
+    }
   }
-  return static_cast<bool>(in) && st.interval != 0;
+  return static_cast<bool>(in) && st.interval != 0 && bothNested == (st.nested && st.bidirectional);
 }
 
 // ---------------------------------------------------------------------------
@@ -3360,7 +3621,10 @@ bool readState(const std::filesystem::path& dir, SavedSearch& st, bool whole) {
 //  - When the goal is one arrangement and a level has grown wide, the
 //    search goes on from the goal as well, always growing the narrower end,
 //    until the two ends meet (the Panex search's way): the path is as
-//    short, and far fewer arrangements are visited.
+//    short, and far fewer arrangements are visited. With nested slides the
+//    goal end makes the moves backwards (SlideMover::movesBack), where the
+//    tables have them (SlideSpace::backMoves), and each end looks for its
+//    one-way moves in its own older levels.
 //  - The older levels are kept for tracing the path back. Without nested
 //    slides, when they outgrow the disk every other one goes (the gaps are
 //    filled, when the path is traced, by a small search out from the
@@ -3413,7 +3677,7 @@ class LevelSearch {
     search_.saved = false;
     search_.resumed = false;
     search_.outcome = SlideOutcome::NoPath;
-    goal_ = singleGoal();
+    goal_ = s_.singleGoal();
     if (!s_.nested && search_.keepEvery > 1) {
       interval_ = search_.keepEvery;
     }
@@ -3461,36 +3725,13 @@ class LevelSearch {
     SetPtr<Key> cur;
     unsigned int depth = 0;
     std::vector<std::pair<unsigned int, SetPtr<Key>>> stored;
+    // With nested slides: the older levels merged into a few sets, largest
+    // first, to look in; and the level to merge in next.
+    std::vector<SetPtr<Key>> visited;
+    SetPtr<Key> pending;
   };
 
   enum class StepEnd : std::uint8_t { Next, Hit, Stopped, Failed };
-
-  // The goal when it is one arrangement, canonical: then the search can
-  // run from both ends. None with pieces that may end in several places,
-  // copies that count together, or a goal where a piece may not stop.
-  std::optional<Key> singleGoal() const {
-    if (s_.goals != nullptr && s_.goals->counts()) {
-      return std::nullopt;
-    }
-    Key g = 0;
-    for (unsigned int i = 0; i < s_.n; i++) {
-      const PosTable& t = s_.t[i];
-      int at = -1;
-      for (std::size_t p = 0; p < t.atGoal.size(); p++) {
-        if (t.atGoal[p] != 0) {
-          if (at >= 0) {
-            return std::nullopt;
-          }
-          at = static_cast<int>(p);
-        }
-      }
-      if (at < 0 || t.rest[idx(at)] == 0) {
-        return std::nullopt;
-      }
-      g |= s_.field(i, at);
-    }
-    return s_.canon(g);
-  }
 
   // A set of one key.
   SetPtr<Key> single(Key k) {
@@ -3573,18 +3814,21 @@ class LevelSearch {
         side.stored.emplace_back(level, set);
       }
     }
-    for (const std::string& name : st.visitedSets) {
-      SetPtr<Key> set;
-      if (!openSet(name, set)) {
-        return false;
+    for (int i = 0; i < 2; i++) {
+      for (const std::string& name : i == 0 ? st.visitedSets : st.goalVisitedSets) {
+        SetPtr<Key> set;
+        if (!openSet(name, set)) {
+          return false;
+        }
+        sides[i]->visited.push_back(set);
       }
-      visitedSets_.push_back(set);
     }
     if (!fwd_.cur || (st.bidirectional && !bwd_.cur)) {
       return false;
     }
     bidirectional_ = st.bidirectional;
-    if (bidirectional_ && !goal_) {
+    // a goal end needs the goal, and with nested slides the moves backwards
+    if (bidirectional_ && (!goal_ || (s_.nested && !s_.backMoves))) {
       return false;
     }
     interval_ = st.interval;
@@ -3599,10 +3843,12 @@ class LevelSearch {
         std::filesystem::remove(e.path(), ec);
       }
     }
-    for (const SetPtr<Key>& set : visitedSets_) {
-      (void)set->reload();
+    for (const Side* side : sides) {
+      for (const SetPtr<Key>& set : side->visited) {
+        (void)set->reload();
+      }
     }
-    if (!restoreVisited()) {
+    if (!restoreVisited(fwd_) || !restoreVisited(bwd_)) {
       return false;
     }
     // chosen once the saved sets are open, so that they count as its own
@@ -3617,12 +3863,12 @@ class LevelSearch {
   // or not at all, so each kept level is looked for by its first
   // arrangement and goes in when it is not there: without it the one-way
   // moves that lead into it would be searched all over again.
-  bool restoreVisited() {
+  bool restoreVisited(Side& side) {
     if (!s_.nested) {
       return true;
     }
-    for (const auto& [level, set] : fwd_.stored) {
-      if (level + 2 > fwd_.depth || set->size() == 0) {
+    for (const auto& [level, set] : side.stored) {
+      if (level + 2 > side.depth || set->size() == 0) {
         continue;
       }
       if (!set->reload()) {
@@ -3630,14 +3876,14 @@ class LevelSearch {
       }
       const Key first = set->firstKey(0);
       char found = 0;
-      for (const SetPtr<Key>& in : visitedSets_) {
+      for (const SetPtr<Key>& in : side.visited) {
         typename Set::Reader reader(*in, std::size_t{1} << 12);
         if (!in->reload() || !reader.ok() || !in->find(&first, 1, &found, reader)) {
           return false;
         }
       }
       if (found == 0) {
-        if (!insertVisited(set)) {
+        if (!insertVisited(set, side.visited)) {
           return false;
         }
       } else if (set.use_count() == 1) {
@@ -3658,9 +3904,9 @@ class LevelSearch {
       for (auto& [level, set] : side->stored) {
         f(set);
       }
-    }
-    for (SetPtr<Key>& set : visitedSets_) {
-      f(set);
+      for (SetPtr<Key>& set : side->visited) {
+        f(set);
+      }
     }
   }
 
@@ -3724,8 +3970,11 @@ class LevelSearch {
         st.side[i].stored.emplace_back(level, nameOf(set));
       }
     }
-    for (const SetPtr<Key>& set : visitedSets_) {
+    for (const SetPtr<Key>& set : fwd_.visited) {
       st.visitedSets.push_back(nameOf(set));
+    }
+    for (const SetPtr<Key>& set : bwd_.visited) {
+      st.goalVisitedSets.push_back(nameOf(set));
     }
     if (!writeState(folder_.dir, st)) {
       return false;
@@ -3769,10 +4018,12 @@ class LevelSearch {
     return why == SlideOutcome::NoPath ? SlideOutcome::Memory : why;
   }
 
-  // Expands `cur` on every thread; `extra` runs on one thread first (the
-  // merge of the level that left memory into the visited sets).
+  // Expands `cur` on every thread, with the moves made backwards when
+  // `backward` (the goal end's, with nested slides); `extra` runs on one
+  // thread first (the merge of the level that left memory into the visited
+  // sets).
   Expanded<Key> expand(Set& cur, bool checkGoal, bool mayStop,
-                       const std::function<bool()>& extra) {
+                       const std::function<bool()>& extra, bool backward) {
     Expanded<Key> e;
     if (!cur.reload()) {
       store_.ioFailed();
@@ -3832,7 +4083,7 @@ class LevelSearch {
             putSample(search_.sample, s_.decode(keys.front()));
           }
           for (const Key k : keys) {
-            if (mover.moves(k, emit)) {
+            if (backward ? mover.movesBack(k, emit) : mover.moves(k, emit)) {
               if (localFail) {
                 failed.store(true);
               } else {
@@ -3879,12 +4130,15 @@ class LevelSearch {
 
   // The level after side.cur into next: everything one move from it that is
   // in neither it nor side.prev (nor, by a one-way move, in any older
-  // level). With `intersect`, the first arrangement of next also in it
-  // (met). oneWayReached and oneWayNew count the level's one-way moves.
+  // level of the side). With `intersect`, the first arrangement of next
+  // also in it (met). oneWayReached and oneWayNew count the level's one-way
+  // moves. The goal end of a search with nested slides takes the moves
+  // backwards: its levels are the arrangements so many moves before the
+  // goal.
   StepEnd step(Side& side, const SetPtr<Key>& intersect, bool checkGoal, bool mayStop,
                const std::function<bool()>& extra, SetPtr<Key>& next, std::optional<Key>& met,
                std::uint64_t& oneWayReached, std::uint64_t& oneWayNew) {
-    Expanded<Key> e = expand(*side.cur, checkGoal, mayStop, extra);
+    Expanded<Key> e = expand(*side.cur, checkGoal, mayStop, extra, &side == &bwd_ && s_.nested);
     if (e.failed) {
       return StepEnd::Failed;
     }
@@ -3903,7 +4157,7 @@ class LevelSearch {
       Merge<Key> one;
       one.inputs = std::move(e.oneWay);
       one.subtract = {side.cur, side.prev};
-      one.filter = &visitedSets_;
+      one.filter = &side.visited;
       if (!runMerge(one, store_, *pool_, threads_)) {
         return StepEnd::Failed;
       }
@@ -3942,7 +4196,7 @@ class LevelSearch {
   // be searched in place all over again, beside the arrangements that have
   // it loose.
   bool dropCovered(Side& side, std::vector<SetPtr<Key>>& parts) {
-    std::vector<SetPtr<Key>> in = visitedSets_;
+    std::vector<SetPtr<Key>> in = side.visited;
     for (const SetPtr<Key>& set : {side.prev, side.cur}) {
       if (set && set->size() != 0) {
         in.push_back(set);
@@ -4080,7 +4334,7 @@ class LevelSearch {
         side.stored.emplace_back(level, old);
       }
       // the start too: a one-way move may lead back to it
-      pendingVisited_ = old;
+      side.pending = old;
     } else if (level != 0 && level % interval_ == 0) {
       // only kept for tracing the path back: no index till then
       old->release();
@@ -4089,16 +4343,15 @@ class LevelSearch {
     }
   }
 
-  // Merges a level into the visited sets: the newest sets while one is no
-  // more than twice the size of the one after it, so there are only a few
-  // to look in (runs on one thread while the others expand).
-  bool insertVisited(const SetPtr<Key>& newest) {
-    visitedSets_.push_back(newest);
-    while (visitedSets_.size() >= 2 &&
-           visitedSets_[visitedSets_.size() - 2]->size() <= 2 * visitedSets_.back()->size()) {
-      const SetPtr<Key> a = visitedSets_[visitedSets_.size() - 2];
-      const SetPtr<Key> b = visitedSets_.back();
-      visitedSets_.resize(visitedSets_.size() - 2);
+  // Merges a level into an end's visited sets: the newest sets while one is
+  // no more than twice the size of the one after it, so there are only a
+  // few to look in (runs on one thread while the others expand).
+  bool insertVisited(const SetPtr<Key>& newest, std::vector<SetPtr<Key>>& sets) {
+    sets.push_back(newest);
+    while (sets.size() >= 2 && sets[sets.size() - 2]->size() <= 2 * sets.back()->size()) {
+      const SetPtr<Key> a = sets[sets.size() - 2];
+      const SetPtr<Key> b = sets.back();
+      sets.resize(sets.size() - 2);
       if (!a->reload() || !b->reload()) {
         store_.ioFailed();
         return false;
@@ -4131,7 +4384,7 @@ class LevelSearch {
         store_.ioFailed();
         return false;
       }
-      visitedSets_.push_back(m);
+      sets.push_back(m);
     }
     // a level only kept for tracing the path needs no index till then
     for (Side* side : {&fwd_, &bwd_}) {
@@ -4189,10 +4442,10 @@ class LevelSearch {
             largest = &set;
           }
         }
-      }
-      for (SetPtr<Key>& set : visitedSets_) {
-        if (set->inMemory() && (largest == nullptr || set->bytes() > (*largest)->bytes())) {
-          largest = &set;
+        for (SetPtr<Key>& set : side->visited) {
+          if (set->inMemory() && (largest == nullptr || set->bytes() > (*largest)->bytes())) {
+            largest = &set;
+          }
         }
       }
       if (largest == nullptr) {
@@ -4215,7 +4468,9 @@ class LevelSearch {
   SlideOutcome loop(std::vector<Key>& chain) {
     const auto started = std::chrono::steady_clock::now();
     SaveCadence saves(std::chrono::seconds(search_.autosaveFloorSeconds), started);
-    const std::uint64_t meetFrom = search_.meetFrom != 0 ? search_.meetFrom : kDefaultMeetFrom;
+    const std::uint64_t meetFrom = search_.meetFrom != 0 ? search_.meetFrom
+                                   : s_.nested           ? kNestedMeetFrom
+                                                         : kDefaultMeetFrom;
     const auto depthNow = [&]() { return std::uint64_t{fwd_.depth} + bwd_.depth; };
     if (search_.depthProgress != nullptr) {
       search_.depthProgress->store(depthNow(), std::memory_order_relaxed);
@@ -4229,11 +4484,18 @@ class LevelSearch {
       }
       Side& side = (bidirectional_ && bwd_.cur->size() < fwd_.cur->size()) ? bwd_ : fwd_;
       Side& other = (&side == &fwd_) ? bwd_ : fwd_;
+      // the levels that left the two newest, either end's, into its
+      // visited sets while this level is expanded
       std::function<bool()> extra;
-      if (pendingVisited_) {
-        SetPtr<Key> level = pendingVisited_;
-        pendingVisited_.reset();
-        extra = [this, level]() { return insertVisited(level); };
+      if (fwd_.pending || bwd_.pending) {
+        SetPtr<Key> ours;
+        SetPtr<Key> theirs;
+        ours.swap(fwd_.pending);
+        theirs.swap(bwd_.pending);
+        extra = [this, ours, theirs]() {
+          return (!ours || insertVisited(ours, fwd_.visited)) &&
+                 (!theirs || insertVisited(theirs, bwd_.visited));
+        };
       }
       SetPtr<Key> next;
       std::optional<Key> met;
@@ -4328,7 +4590,9 @@ class LevelSearch {
 
       // From the goal too, once a level is wide and the goal is one
       // arrangement: the goal cannot be any nearer than the levels so far.
-      if (!bidirectional_ && goal_ && !s_.nested && fwd_.cur->size() >= meetFrom) {
+      // With nested slides only where the moves can be made backwards.
+      if (!bidirectional_ && goal_ && !search_.oneEnd && (!s_.nested || s_.backMoves) &&
+          fwd_.cur->size() >= meetFrom) {
         bwd_.cur = single(*goal_);
         if (!bwd_.cur) {
           return failed();
@@ -4345,7 +4609,7 @@ class LevelSearch {
             "disk %.1f MB, memory %.1f MB, %.1f s",
             &side == &fwd_ ? "start" : "goal", side.depth, next->size(),
             static_cast<unsigned long long>(oneWayReached),
-            static_cast<unsigned long long>(oneWayNew), visitedSets_.size(), interval_,
+            static_cast<unsigned long long>(oneWayNew), side.visited.size(), interval_,
             static_cast<double>(used.second) / 1e6, static_cast<double>(used.first) / 1e6,
             std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
         search_.onLevel(line);
@@ -4401,8 +4665,10 @@ class LevelSearch {
   // An arrangement of `before` one move from x, the first in the order the
   // moves are tried, by moving backwards from x; failing that (x reached
   // only by moves that cannot be made backwards) the first arrangement of
-  // `before` that reaches x.
-  bool stepBack(Key x, const SetPtr<Key>& before, Key& y) {
+  // `before` that reaches x. With towardGoal, `before` is a level of the
+  // goal end of a search with nested slides, a move nearer the goal: the
+  // arrangement is one that x's own moves lead to, one-way or not.
+  bool stepBack(Key x, const SetPtr<Key>& before, Key& y, bool towardGoal) {
     if (!before->reload()) {
       store_.ioFailed();
       return false;
@@ -4410,7 +4676,7 @@ class LevelSearch {
     SlideMover<Key>& mover = *movers_[0];
     std::vector<Key> cand;
     mover.moves(x, [&](Key raw, bool oneWay) {
-      if (!oneWay || s_.loose) {
+      if (!oneWay || s_.loose || towardGoal) {
         cand.push_back(s_.canon(raw));
       }
       return false;
@@ -4448,6 +4714,9 @@ class LevelSearch {
       y = c;
       return true;
     }
+    // a level of the goal end is made of the arrangements that move into
+    // the one before it
+    BT_ASSERT(!towardGoal);
     // Try every arrangement of the level before, keeping the first.
     std::mutex bestMutex;
     std::optional<Key> best;
@@ -4498,10 +4767,11 @@ class LevelSearch {
   // arrangement of the level before, through the levels kept, searching
   // out from x across the gaps where levels were thinned.
   bool traceSide(Side& side, Key x, unsigned int level, std::vector<Key>& chain) {
+    const bool towardGoal = &side == &bwd_ && s_.nested;
     while (level > 0) {
       if (const SetPtr<Key> before = levelAt(side, level - 1)) {
         Key y = 0;
-        if (!stepBack(x, before, y)) {
+        if (!stepBack(x, before, y, towardGoal)) {
           return false;
         }
         chain.push_back(y);
@@ -4551,7 +4821,7 @@ class LevelSearch {
       Key z = *met;
       for (unsigned int i = r - 1; i >= 1; i--) {
         Key y = 0;
-        if (!stepBack(z, ballLevels[i], y)) {
+        if (!stepBack(z, ballLevels[i], y, false)) {
           return false;
         }
         back.push_back(y);
@@ -4640,10 +4910,6 @@ class LevelSearch {
   bool bidirectional_ = false;
   unsigned int interval_ = 1;
   std::atomic<std::uint64_t> visited_{0};
-  // With nested slides: the older levels merged into a few sets, largest
-  // first, to look in; and the level to merge in next.
-  std::vector<SetPtr<Key>> visitedSets_;
-  SetPtr<Key> pendingVisited_;
   // The sets the last save named (see saveState).
   std::vector<SetPtr<Key>> pinned_;
   DiskBudget disk_;
@@ -4655,89 +4921,226 @@ class LevelSearch {
 constexpr unsigned int kLooseFormat = 0x4c53;
 constexpr unsigned int kCompactFormat = 0x434b;
 
-// The slide search over position tables: a move is a flood fill over the
-// piece's own positions against a bit mask of the cells the others cover.
-// It goes level by level (LevelSearch). `loose` and `plainKeys` choose the
-// tables (SlideSpace::build). False, having searched nothing, when the
-// tables cannot hold this search in a Key, and with `savedOnly` when no
-// search with these tables is saved.
+// The most pieces nested in one piece at once for which the moves are made
+// backwards (SlideMover::movesBack tries every part of what a piece holds,
+// twice as many with each piece more).
+constexpr unsigned int kMaxBackNested = 6;
+
+// Whether a nested search over these tables can make its moves backwards:
+// not from an arrangement with loose stops, nor with partly nested pieces.
 template <class Key>
-bool tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
-                 const std::vector<Cell3List>& cells, const std::vector<Cell3List>& outlines,
-                 bool nested, const SlideState& initial, const GoalCheck& goals,
-                 const StopGrid& stops, bool loose, bool plainKeys, bool savedOnly,
-                 SlideSearch& search, std::vector<SlideState>& path) {
+bool canMoveBack(const SlideSpace<Key>& space, const std::vector<Cell3List>& cells,
+                 const std::vector<Cell3List>& outlines) {
+  return space.nested && !space.loose && !space.partial &&
+         nestedBound(cells, outlines) <= kMaxBackNested;
+}
+
+// What tableSearch did: searched; nothing, because the key cannot hold the
+// search (or with savedOnly none is saved), which a wider key may; nothing,
+// because the search asked for is not one these tables can make in any key.
+enum class Tabled { Searched, NoFit, NotThis };
+
+// The tables of a search and what it goes by.
+template <class Key>
+struct NamedSpace {
   SlideSpace<Key> space;
+  std::uint64_t problemKey = 0;
+  // Names the search: the folder of a saved one.
+  std::uint64_t name = 0;
+};
+
+// Builds the tables of a search and names it. `loose` and `plainKeys`
+// choose the tables (SlideSpace::build); with `bothEnds` only a search that
+// can go from the goal as well is made (nested slides: see findSlidePath).
+// Nothing when they are made, else why not (NoFit or NotThis).
+template <class Key>
+std::optional<Tabled> nameSpace(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
+                                const std::vector<Cell3List>& cells,
+                                const std::vector<Cell3List>& outlines, bool nested,
+                                const SlideState& initial, const GoalCheck& goals,
+                                const StopGrid& stops, bool loose, bool plainKeys, bool bothEnds,
+                                const SlideSearch& search, NamedSpace<Key>& out) {
+  SlideSpace<Key>& space = out.space;
   if (!space.build(tray, cells, outlines, nested, initial, goals, search.likePiecesApart,
                    search.verticalMoves, stops, loose, plainKeys)) {
-    return false;
+    return Tabled::NoFit;
   }
   space.partial = nested && search.partialNested;
+  space.backMoves = canMoveBack(space, cells, outlines);
+  if (bothEnds && !(space.backMoves && space.singleGoal())) {
+    return Tabled::NotThis;
+  }
 
   // Names the search: the problem, the start and everything the search
   // depends on, so a saved search is carried on only by its own.
-  const std::uint64_t problemKey = problemKeyOf(puzzle, problem);
-  auto nameOf = [&]() {
-    Fingerprint f;
-    f.mix(problemKey);
-    f.mix(static_cast<unsigned int>(sizeof(Key)));
-    f.mix(nested);
-    f.mix(space.partial);
-    f.mix(space.vertical);
-    // without a grid what the coarse step of 1 mixed, so the searches saved
-    // before the grid are carried on
-    f.mix(stops.size > 1 ? stops.size : 1);
-    if (stops.size > 1) {
-      for (const std::vector<std::array<int, 2>>& v : stops.offsets) {
-        f.mix(static_cast<unsigned int>(v.size()));
-        for (const std::array<int, 2>& o : v) {
-          f.mix(o[0]);
-          f.mix(o[1]);
-        }
+  out.problemKey = problemKeyOf(puzzle, problem);
+  Fingerprint f;
+  f.mix(out.problemKey);
+  f.mix(static_cast<unsigned int>(sizeof(Key)));
+  f.mix(nested);
+  f.mix(space.partial);
+  f.mix(space.vertical);
+  // without a grid what the coarse step of 1 mixed, so the searches saved
+  // before the grid are carried on
+  f.mix(stops.size > 1 ? stops.size : 1);
+  if (stops.size > 1) {
+    for (const std::vector<std::array<int, 2>>& v : stops.offsets) {
+      f.mix(static_cast<unsigned int>(v.size()));
+      for (const std::array<int, 2>& o : v) {
+        f.mix(o[0]);
+        f.mix(o[1]);
       }
     }
-    f.mix(search.likePiecesApart);
-    f.mix(space.n);
-    f.mix(space.startKey);
-    for (unsigned int i = 0; i < space.n; i++) {
-      for (const Cell3& c : cells[i]) {
-        f.mix(c.x);
-        f.mix(c.y);
-        f.mix(c.z);
-      }
-      const Place& p = initial.places[i];
-      f.mix(p.x);
-      f.mix(p.y);
-      f.mix(p.z);
-      f.mix(p.trans);
-      for (const char g : space.t[i].atGoal) {
-        f.mix(g);
-      }
+  }
+  f.mix(search.likePiecesApart);
+  f.mix(space.n);
+  f.mix(space.startKey);
+  for (unsigned int i = 0; i < space.n; i++) {
+    for (const Cell3& c : cells[i]) {
+      f.mix(c.x);
+      f.mix(c.y);
+      f.mix(c.z);
     }
-    // only with loose stops, and only with codes for the stops alone, so
-    // the searches saved without are carried on (findSlidePath)
-    if (space.loose) {
-      f.mix(kLooseFormat);
+    const Place& p = initial.places[i];
+    f.mix(p.x);
+    f.mix(p.y);
+    f.mix(p.z);
+    f.mix(p.trans);
+    for (const char g : space.t[i].atGoal) {
+      f.mix(g);
     }
-    if (space.compact) {
-      f.mix(kCompactFormat);
-    }
-    return f.value();
-  };
-  const std::uint64_t name = nameOf();
-  if (savedOnly && !SearchFolder(search.workDir, name).exists()) {
-    return false;
+  }
+  // only with loose stops, and only with codes for the stops alone, so
+  // the searches saved without are carried on (findSlidePath)
+  if (space.loose) {
+    f.mix(kLooseFormat);
+  }
+  if (space.compact) {
+    f.mix(kCompactFormat);
+  }
+  out.name = f.value();
+  return std::nullopt;
+}
+
+// The slide search over position tables: a move is a flood fill over the
+// piece's own positions against a bit mask of the cells the others cover.
+// It goes level by level (LevelSearch). `loose`, `plainKeys` and `bothEnds`
+// choose the search (nameSpace). With `savedOnly` only a saved search is
+// carried on.
+template <class Key>
+Tabled tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
+                   const std::vector<Cell3List>& cells, const std::vector<Cell3List>& outlines,
+                   bool nested, const SlideState& initial, const GoalCheck& goals,
+                   const StopGrid& stops, bool loose, bool plainKeys, bool savedOnly,
+                   bool bothEnds, SlideSearch& search, std::vector<SlideState>& path) {
+  NamedSpace<Key> named;
+  if (const std::optional<Tabled> no =
+          nameSpace(puzzle, problem, tray, cells, outlines, nested, initial, goals, stops, loose,
+                    plainKeys, bothEnds, search, named)) {
+    return *no;
+  }
+  const SlideSpace<Key>& space = named.space;
+  if (savedOnly && !SearchFolder(search.workDir, named.name).exists()) {
+    return Tabled::NoFit;
   }
   search.looseStops = space.loose;
 
   std::vector<Key> chain;
-  LevelSearch<Key> level(space, search, problemKey, name);
+  LevelSearch<Key> level(space, search, named.problemKey, named.name);
   level.run(chain);
   if (!chain.empty()) {
     chainToPath(space, chain, path);
   }
-  return true;
+  return Tabled::Searched;
 }
+
+// What tableSearch would do with the same arguments, nothing searched:
+// Searched where it would search (with `savedOnly`, carry a saved search
+// on).
+template <class Key>
+Tabled tableProbe(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
+                  const std::vector<Cell3List>& cells, const std::vector<Cell3List>& outlines,
+                  bool nested, const SlideState& initial, const GoalCheck& goals,
+                  const StopGrid& stops, bool loose, bool plainKeys, bool savedOnly, bool bothEnds,
+                  const SlideSearch& search) {
+  NamedSpace<Key> named;
+  if (const std::optional<Tabled> no =
+          nameSpace(puzzle, problem, tray, cells, outlines, nested, initial, goals, stops, loose,
+                    plainKeys, bothEnds, search, named)) {
+    return *no;
+  }
+  if (savedOnly && !SearchFolder(search.workDir, named.name).exists()) {
+    return Tabled::NoFit;
+  }
+  return Tabled::Searched;
+}
+
+// What a search of a problem from a start works on. Filled in place and
+// never moved: the goals look at the pieces through `pieces`.
+struct SlideSetup {
+  SlideSetup() = default;
+  SlideSetup(const SlideSetup&) = delete;
+  SlideSetup& operator=(const SlideSetup&) = delete;
+
+  // The pieces as placed at the start; owned here, seen through `pieces`.
+  std::vector<std::unique_ptr<Voxel>> owned;
+  std::vector<const Voxel*> pieces;
+  SlideState initial;
+  std::optional<GoalCheck> goals;
+  std::vector<Cell3List> cells;
+  std::vector<Cell3List> outlines;
+  StopGrid stops;
+
+  // The pieces, the start and the goals; false when the start does not
+  // place every piece.
+  bool place(const Puzzle& puzzle, const Problem& problem, const Assembly& start) {
+    const unsigned int n = start.placementCount();
+    if (n == 0) {
+      return false;
+    }
+    owned.resize(n);
+    pieces.assign(n, nullptr);
+    initial.places.resize(n);
+    unsigned int pc = 0;
+    for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
+      for (unsigned int j = 0; j < problem.getPartMaximum(part); j++) {
+        if (pc >= n || !start.isPlaced(pc)) {
+          return false;
+        }
+        owned[pc] = problem.partShape(puzzle, part).clone();
+        if (!owned[pc]->transform(start.getTransformation(pc))) {
+          return false;
+        }
+        pieces[pc] = owned[pc].get();
+        initial.places[pc].x = start.getX(pc);
+        initial.places[pc].y = start.getY(pc);
+        initial.places[pc].trans = start.getTransformation(pc);
+        initial.places[pc].z = start.getZ(pc);
+        pc++;
+      }
+    }
+    goals.emplace(puzzle, problem, pieces);
+    return true;
+  }
+
+  // The pieces' cells and outlines and the grid's stops (SlideSearch::grid;
+  // none below 2), after place.
+  void shapes(const Voxel& tray, bool nested, int gridSize) {
+    // the grid's holes are the outlines' too
+    const bool grid = gridSize > 1;
+    const std::size_t n = pieces.size();
+    cells.resize(n);
+    outlines.resize(n);
+    for (std::size_t i = 0; i < n; i++) {
+      cells[i] = cellsOf(*pieces[i]);
+      if (nested || grid) {
+        outlines[i] = outlineOf(*pieces[i]);
+      }
+    }
+    stops = grid ? stopGridFor(gridSize, cells, outlines, knownPlaces(tray, cells, initial, *goals))
+                 : stopGridFor(0, cells, outlines, {});
+  }
+};
 
 }  // namespace
 
@@ -4848,6 +5251,7 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   s.likePiecesApart = options.likePiecesApart;
   s.gridStopsApart = options.gridStopsApart;
   s.plainKeys = options.plainKeys;
+  s.oneEnd = options.oneEnd;
   s.verticalMoves = options.verticalMoves;
   s.grid = options.grid > 1 ? options.grid : 0;
   return s;
@@ -5010,42 +5414,19 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   }
 
   const Voxel& tray = problem.resultShape(puzzle);
-  const unsigned int n = start.placementCount();
-  if (n == 0) {
+  SlideSetup setup;
+  if (!setup.place(puzzle, problem, start)) {
     return std::nullopt;
   }
-
-  // the pieces as placed at the start; owned here, seen through `pieces`
-  std::vector<std::unique_ptr<Voxel>> owned(n);
-  std::vector<const Voxel*> pieces(n, nullptr);
-  SlideState initial;
-  initial.places.resize(n);
-
-  unsigned int pc = 0;
-  for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
-    for (unsigned int j = 0; j < problem.getPartMaximum(part); j++) {
-      if (pc >= n || !start.isPlaced(pc)) {
-        return std::nullopt;
-      }
-      owned[pc] = problem.partShape(puzzle, part).clone();
-      if (!owned[pc]->transform(start.getTransformation(pc))) {
-        return std::nullopt;
-      }
-      pieces[pc] = owned[pc].get();
-      initial.places[pc].x = start.getX(pc);
-      initial.places[pc].y = start.getY(pc);
-      initial.places[pc].trans = start.getTransformation(pc);
-      initial.places[pc].z = start.getZ(pc);
-      pc++;
-    }
-  }
+  const unsigned int n = start.placementCount();
+  const SlideState& initial = setup.initial;
+  const GoalCheck& goals = *setup.goals;
 
   std::vector<unsigned int> pcs(n);
   for (unsigned int i = 0; i < n; i++) {
     pcs[i] = i;
   }
 
-  const GoalCheck goals(puzzle, problem, pieces);
   if (goals.all(initial)) {
     search.outcome = SlideOutcome::Found;
     Separation sep(ClonePtr<Separation>(), ClonePtr<Separation>(), pcs);
@@ -5057,37 +5438,29 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
     return sep;
   }
 
-  // the grid's holes are the outlines' too
   const bool grid = search.grid > 1;
-  std::vector<Cell3List> cells(n);
-  std::vector<Cell3List> outlines(n);
-  for (unsigned int i = 0; i < n; i++) {
-    cells[i] = cellsOf(*pieces[i]);
-    if (nested || grid) {
-      outlines[i] = outlineOf(*pieces[i]);
-    }
-  }
-  const StopGrid stops =
-      grid ? stopGridFor(search.grid, cells, outlines, knownPlaces(tray, cells, initial, goals))
-           : stopGridFor(0, cells, outlines, {});
+  setup.shapes(tray, nested, search.grid);
+  const std::vector<Cell3List>& cells = setup.cells;
+  const std::vector<Cell3List>& outlines = setup.outlines;
+  const StopGrid& stops = setup.stops;
 
   // start to goal, in order; empty when no path was found
   std::vector<SlideState> path;
   bool searched = false;
   if (!search.legacy) {
     // The tables in the narrow key, then in the wide one.
-    auto table = [&](bool loose, bool plainKeys, bool savedOnly) {
-      if (tableSearch<std::uint64_t>(puzzle, problem, tray, cells, outlines, nested, initial,
-                                     goals, stops, loose, plainKeys, savedOnly, search, path)) {
-        return true;
-      }
+    auto table = [&](bool loose, bool plainKeys, bool savedOnly, bool bothEnds) {
+      Tabled done =
+          tableSearch<std::uint64_t>(puzzle, problem, tray, cells, outlines, nested, initial,
+                                     goals, stops, loose, plainKeys, savedOnly, bothEnds, search,
+                                     path);
 #ifdef __SIZEOF_INT128__
-      if (tableSearch<WideKey>(puzzle, problem, tray, cells, outlines, nested, initial, goals,
-                               stops, loose, plainKeys, savedOnly, search, path)) {
-        return true;
+      if (done == Tabled::NoFit) {
+        done = tableSearch<WideKey>(puzzle, problem, tray, cells, outlines, nested, initial, goals,
+                                    stops, loose, plainKeys, savedOnly, bothEnds, search, path);
       }
 #endif
-      return false;
+      return done == Tabled::Searched;
     };
     // Loose stops only with nested slides: one-way moves, which the loose
     // arrangements make more of, are looked for in the levels kept, and only
@@ -5096,23 +5469,31 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
     // A search saved for this start is carried on as it was begun: with
     // loose stops or with them apart, and with the keys it has (those saved
     // by an earlier build have a code for every position). Only a grid
-    // gives the tables more than one form.
+    // gives the tables more than one form. (A search from both ends is one
+    // with the stops apart.)
     if (grid && search.resume && !savedFolders(puzzle, problem, search.workDir).empty()) {
       for (const bool loose : {true, false}) {
         for (const bool plainKeys : {false, true}) {
           if (!searched && (wantLoose || !loose) && (plainKeys || !search.plainKeys)) {
-            searched = table(loose, plainKeys, true);
+            searched = table(loose, plainKeys, true, false);
           }
         }
       }
     }
+    // From both ends where the search can: the two ends hold the same
+    // arrangements, so the stops are apart, and what that costs (up to
+    // about three times the arrangements a level) is little beside the
+    // levels the meeting saves.
+    if (!searched && wantLoose && !search.oneEnd) {
+      searched = table(false, search.plainKeys, false, true);
+    }
     // Loose stops in either key before stops apart: they may take a bit
     // more a piece than the narrow key has.
     if (!searched && wantLoose) {
-      searched = table(true, search.plainKeys, false);
+      searched = table(true, search.plainKeys, false, false);
     }
     if (!searched) {
-      searched = table(false, search.plainKeys, false);
+      searched = table(false, search.plainKeys, false, false);
     }
   }
   if (!searched) {
@@ -5137,6 +5518,158 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
     sep.addstate(std::move(st));
   }
   return sep;
+}
+
+bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Assembly& start,
+                         const SlideSearch& search) {
+  const bool nested = search.nested || search.partialNested;
+  // what findSlidePath asks before its saved pass carries on a search with
+  // loose stops, and before it searches from both ends
+  if (!nested || search.grid <= 1 || search.gridStopsApart || search.oneEnd || search.legacy ||
+      !search.resume || !problem.resultValid() ||
+      savedFolders(puzzle, problem, search.workDir).empty()) {
+    return false;
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  SlideSetup setup;
+  if (!setup.place(puzzle, problem, start) || setup.goals->all(setup.initial)) {
+    return false;
+  }
+  setup.shapes(tray, nested, search.grid);
+
+  // the tables in the narrow key, then in the wide one, as findSlidePath
+  // tries them
+  auto would = [&](bool loose, bool plainKeys, bool savedOnly, bool bothEnds) {
+    Tabled done = tableProbe<std::uint64_t>(puzzle, problem, tray, setup.cells, setup.outlines,
+                                            nested, setup.initial, *setup.goals, setup.stops,
+                                            loose, plainKeys, savedOnly, bothEnds, search);
+#ifdef __SIZEOF_INT128__
+    if (done == Tabled::NoFit) {
+      done = tableProbe<WideKey>(puzzle, problem, tray, setup.cells, setup.outlines, nested,
+                                 setup.initial, *setup.goals, setup.stops, loose, plainKeys,
+                                 savedOnly, bothEnds, search);
+    }
+#endif
+    return done == Tabled::Searched;
+  };
+  // a search saved with loose stops is one from the start alone: those
+  // arrangements have no moves backwards
+  const bool saved = (!search.plainKeys && would(true, false, true, false)) ||
+                     would(true, true, true, false);
+  return saved && would(false, search.plainKeys, false, true);
+}
+
+bool pendingFromStartAlone(const Puzzle& puzzle, const Problem& problem,
+                           const SlidingOptions& options) {
+  if (problem.getPending().empty()) {
+    return false;
+  }
+  SlideSearch search = slideSearchFor(options);
+  search.grid = searchGrid(puzzle, problem, options);
+  return std::any_of(problem.getPending().begin(), problem.getPending().end(),
+                     [&](const PendingAssembly& p) {
+                       return savedFromStartAlone(puzzle, problem, p.assembly, search);
+                     });
+}
+
+SlideBackCheck checkSlideMovesBack(const Puzzle& puzzle, const Problem& problem,
+                                   const Assembly& start, const SlideSearch& search,
+                                   std::uint64_t limit) {
+  using Key = std::uint64_t;
+  SlideBackCheck out;
+  if (!problem.resultValid()) {
+    return out;
+  }
+  const bool nested = search.nested || search.partialNested;
+  const Voxel& tray = problem.resultShape(puzzle);
+  SlideSetup setup;
+  if (!setup.place(puzzle, problem, start)) {
+    return out;
+  }
+  setup.shapes(tray, nested, search.grid);
+  SlideSpace<Key> space;
+  if (!space.build(tray, setup.cells, setup.outlines, nested, setup.initial, *setup.goals,
+                   search.likePiecesApart, search.verticalMoves, setup.stops, false,
+                   search.plainKeys)) {
+    return out;
+  }
+  space.partial = nested && search.partialNested;
+  space.backMoves = canMoveBack(space, setup.cells, setup.outlines);
+  if (!space.backMoves) {
+    return out;
+  }
+
+  SlideMover<Key> mover(space);
+  const auto sorted = [](std::vector<Key>& v) {
+    std::sort(v.begin(), v.end());
+    v.erase(std::unique(v.begin(), v.end()), v.end());
+  };
+  const auto has = [](const std::vector<Key>& v, Key k) {
+    return std::binary_search(v.begin(), v.end(), k);
+  };
+  // an arrangement's moves, worked out once (also of one the start does
+  // not lead to, which the backward side may give)
+  std::map<Key, std::vector<Key>> after;
+  const auto movesOf = [&](Key x) -> const std::vector<Key>& {
+    const auto [it, fresh] = after.try_emplace(x);
+    if (fresh) {
+      std::vector<Key>& to = it->second;
+      mover.moves(x, [&](Key raw, bool) {
+        to.push_back(space.canon(raw));
+        return false;
+      });
+      sorted(to);
+    }
+    return it->second;
+  };
+
+  std::vector<Key> reached{space.startCanon};
+  std::set<Key> seen{space.startCanon};
+  for (std::size_t head = 0; head < reached.size(); head++) {
+    if (reached.size() > limit) {
+      return out;
+    }
+    const Key x = reached[head];
+    for (const Key y : movesOf(x)) {
+      out.moves++;
+      if (seen.insert(y).second) {
+        reached.push_back(y);
+      }
+    }
+  }
+  out.arrangements = reached.size();
+
+  std::map<Key, std::vector<Key>> before;
+  std::vector<Key> twoWay;
+  for (const Key y : reached) {
+    std::vector<Key>& from = before[y];
+    twoWay.clear();
+    mover.movesBack(y, [&](Key raw, bool oneWay) {
+      const Key x = space.canon(raw);
+      from.push_back(x);
+      if (oneWay) {
+        out.oneWay++;
+      } else {
+        twoWay.push_back(x);
+      }
+      return false;
+    });
+    sorted(from);
+    sorted(twoWay);
+    for (const Key x : from) {
+      out.extra += has(movesOf(x), y) ? 0 : 1;
+    }
+    for (const Key x : twoWay) {
+      out.wronglyTwoWay += has(movesOf(y), x) ? 0 : 1;
+    }
+  }
+  for (const Key x : reached) {
+    for (const Key y : movesOf(x)) {
+      out.missing += has(before[y], x) ? 0 : 1;
+    }
+  }
+  out.checked = true;
+  return out;
 }
 
 std::vector<SlideShift> slideRoute(const Puzzle& puzzle, const Problem& problem,

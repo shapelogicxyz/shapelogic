@@ -43,13 +43,17 @@ has no tests. The stages below build the same two ideas properly.
 - [x] Stage A: compact keys and the build order (2026-11-13; decision
   0032). 8 Heart now runs in the level search: 59 moves deep in 105 s
   from the start alone.
-- [ ] Stage B: the two-ended search with nested slides
+- [x] Stage B: the two-ended search with nested slides (2026-11-13;
+  decision 0033, `docs/handoff/slide-two-ends.md`). 6 Heart's four
+  problems: 50, 50, 56 and 47 moves in 8.9 s, 5.1 s, 19.2 s and 6.1 s.
 - 8 Heart Board 1 with the prototype: stopped on 2026-11-13 after 1 h
   24 min, to leave the machine quiet for the stages' measurements. It was
   160 moves deep with no meeting (start level 80: 452,613,104
   arrangements; goal level 79: 398,835,803; 68 GB on disk). Its saved
-  search was scratch data and is deleted. The search is run again from
-  the start with the real build once Stage B is in.
+  search was scratch data and is deleted.
+- 8 Heart Board 1 with Stage B's release build: started from the
+  beginning on 2026-11-13 (default memory and disk limits). The outcome
+  goes here when it ends.
 
 ## Stage A: compact keys and the build order
 
@@ -136,7 +140,11 @@ arrangement, in fewer bits.
    double with each). It then runs with the stops apart, decided when
    the tables are built, because a loose arrangement has no backward
    moves yet and the two ends must hold the same kind of key. Otherwise
-   the search is as today: one end, loose stops.
+   the search is as today: one end, loose stops. (As built: `findSlidePath`
+   tries the both-ends tables first, in 64 bits and in 128, and the goal
+   end starts with the first level, `kNestedMeetFrom`; the limit on
+   nested pieces is `kMaxBackNested`, 6, against a bound from the room in
+   each piece's holes.)
 6. **One goal with like pieces.** `singleGoal` gives up when a piece
    has more than one goal row, which copies of a piece always have. A
    group of k copies with exactly k goal rows is one arrangement: the
@@ -148,9 +156,11 @@ arrangement, in fewer bits.
    finds one-way moves by trying them forwards. A test checks every
    step of a returned path is a legal move.
 8. **Saving and carrying on.** `state.bin` names the goal end's visited
-   sets (a new field, read as absent from older states, which have no
-   goal end with nested slides). A search saved one-ended with loose
-   stops by an earlier build is carried on as it was begun.
+   sets. A search saved one-ended with loose stops by an earlier build is
+   carried on as it was begun. (As built: a both-ended nested search is
+   saved under a state name of its own, `BTSLSV02`, not as a field read
+   as absent, so that an earlier build does not carry its goal end on
+   with forward moves; every other search is saved as it was.)
 9. **An A/B switch.** `SlideSearch::oneEnd` (`bt --slide-one-end`): the
    search from the start only, for the tests and the benchmark.
 10. **Tests:**
@@ -162,7 +172,10 @@ arrangement, in fewer bits.
       the path of an uninterrupted run;
     - a goal that is not one arrangement, partial nesting, and too many
       nested pieces each fall back to one end and still solve;
-    - no path: an end that runs out reports no solution.
+    - no path: an end that runs out reports no solution. (As built,
+      also: a hand-made board where the goal end finds one-way
+      arrangements in its own older levels, which the generated boards
+      and 6 Heart never do; decision 0033 says why.)
 11. **What the user sees.** Nothing new to set. The run card's "moves
     deep" is the sum of the two ends, as it is for other puzzles. The
     paths found with optimized paths and nested slides may differ from
@@ -217,6 +230,10 @@ In the order they are likely to matter.
    search. A wider key (192 or 256 bits) would put every puzzle on the
    level search and leave the legacy search as the A/B switch only.
    Until then the legacy search could at least report its depth.
-9. **Searches saved by earlier builds.** They are carried on as begun,
-   one-ended. To get the two ends the user solves again from the
-   start; say so where the Solver offers Continue, if it comes up.
+9. **Searches saved by earlier builds.** Done (2026-11-13). One saved
+   with loose stops (every optimized nested solve of an earlier build) is
+   carried on as begun, one-ended; the Solver's Continue now asks first
+   and offers to solve again from both ends (`sliding.resumeAdvice`,
+   decision 0033). Solve also throws saved searches away now, which it
+   did not. (One saved with the stops apart or without a grid takes up
+   the goal end as it is carried on.)

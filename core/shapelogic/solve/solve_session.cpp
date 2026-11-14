@@ -294,6 +294,11 @@ Result<void> SolveSession::launch(Mode mode) {
       problem_.removeAllSolutions();
     }
     dropAssembler();
+    // so the saved searches of the problem's starts go too: one left here
+    // would be carried on by the search of its start, as it was begun
+    if (sliding_) {
+      sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
+    }
   }
   if (st == SolveState::Finished || st == SolveState::Error) {
     state_.advance(SolveState::Idle);
@@ -449,9 +454,6 @@ Result<void> SolveSession::launchStacking(Mode mode) {
   // first); Continue carries it on, as both stacking solvers do.
   if (mode == Mode::Start) {
     panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
-    if (sliding_) {
-      sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
-    }
   }
   // The hotspots where a stacking solve has them: a disc's at its centre
   // (cb_BtnCont's ensureHotspot); no change when the owner set them so

@@ -949,6 +949,9 @@ def sliding_solve_pause_continue_and_play(e):
         if state == "paused":
             # the start under way went back to be searched again: not counted yet
             check(e.call("problem.get", {"problem": p})["assemblies"] == 0, "the start not counted")
+            # nothing saved by an earlier version: Continue has nothing to ask
+            check(e.call("sliding.resumeAdvice", {"problem": p, "options": find}) ==
+                  {"fromStartAlone": False}, "carried on as a new search would go")
             start = len(e.events)
             e.call("solve.continue", {"problem": p, "options": find})
             state = wait_state(e, p, ["finished", "error"], start)
@@ -984,6 +987,15 @@ def sliding_grid_advice(e):
     check(a == {"grid": 2, "stops": 27, "gridStops": 12}, f"the advice {a}")
     check(e.call("document.get")["problems"][0]["slideGrid"] == 0, "no solve, no grid kept")
     e.fails("sliding.gridAdvice", {"problem": "p999"}, "not_found")
+    # no paused solve, so no saved search to carry on from the start alone
+    nested = {"disassemble": True, "sliding": {"nestedSlides": True, "optimizedPaths": True}}
+    check(e.call("sliding.resumeAdvice", {"problem": p}) == {"fromStartAlone": False},
+          "nothing paused")
+    check(e.call("sliding.resumeAdvice", {"problem": p, "options": nested}) ==
+          {"fromStartAlone": False}, "nothing paused, with nested slides on the grid")
+    e.fails("sliding.resumeAdvice", {"problem": "p999"}, "not_found")
+    e.fails("sliding.resumeAdvice", {"problem": p, "options": {"sliding": {"nestedSlides": 1}}},
+            "invalid_params")
 
     # a fixed 2x2 block in a corner gives the board a grid of 2; units a and
     # b swap along the bottom row only by b waiting in the pocket above its
@@ -1026,6 +1038,38 @@ def sliding_grid_advice(e):
     e.call("document.new", {"grid": "bricks"})
     q = e.call("problem.create")["problem"]
     e.fails("sliding.gridAdvice", {"problem": q}, "unsupported")
+    e.fails("sliding.resumeAdvice", {"problem": q}, "unsupported")
+
+
+@test
+def sliding_resume_advice(e):
+    # a board as release v1.8.1 paused it (nested slides, optimized paths): its saved search
+    # goes on from the start alone, where this build would search from both ends
+    paused = ROOT / "tests" / "data" / "slide_paused_by_v1.8.1"
+    name = "slide-cafc026be534476e"
+    nested = {"disassemble": True, "sliding": {"nestedSlides": True, "optimizedPaths": True}}
+    was = e.call("settings.get")["slideFolder"]
+    for again in (False, True):
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copytree(paused / name, pathlib.Path(tmp) / name)
+            e.call("settings.set", {"slideFolder": tmp})
+            snap = e.call("document.open", {"path": str(paused / "cup_and_blocks.xmpuzzle")})
+            p = snap["problems"][0]["id"]
+            check(snap["problems"][0]["slideGrid"] == 3, "the grid it was paused with")
+            check(e.call("sliding.resumeAdvice", {"problem": p, "options": nested}) ==
+                  {"fromStartAlone": True}, "saved from the start alone")
+            # not the search a solve without the grid looks for
+            check(e.call("sliding.resumeAdvice", {"problem": p, "options": {"disassemble": True}}) ==
+                  {"fromStartAlone": False}, "another search without optimized paths")
+            start = len(e.events)
+            e.call("solve.start" if again else "solve.continue", {"problem": p, "options": nested})
+            check(wait_state(e, p, ["finished", "error"], start) == "finished", "solved")
+            page = e.call("solution.page", {"problem": p})
+            check(len(page["rows"]) == 1 and page["rows"][0]["moves"] == 3, f"the solution {page['rows']}")
+            check(not os.listdir(tmp), "no saved search left")
+            check(e.call("sliding.resumeAdvice", {"problem": p, "options": nested}) ==
+                  {"fromStartAlone": False}, "nothing paused any more")
+            e.call("settings.set", {"slideFolder": was})
 
 
 @test

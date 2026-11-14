@@ -92,7 +92,7 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
 | `tests/cli/` | `test_cli.py` (ctest `cli`): `shapelogic_cli`'s options, refusals and modes on the fixtures |
 | `tests/oracle/` | the comparison harness against the original BurrTools |
 | `tests/bench/` | `bench.py`: solve speed against the original, back to back |
-| `tests/data/` | test fixtures: `puzzles/` (copied from the original; `puzzles/new-grids/`, the hexagonal and cairo puzzles, made by this engine, as the original has no such grids), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`) |
+| `tests/data/` | test fixtures: `puzzles/` (copied from the original; `puzzles/new-grids/`, the hexagonal and cairo puzzles, made by this engine, as the original has no such grids), the original's recordings (`grid_dump.txt`, `model_dump.txt`, `app_dump.txt`, `saved_by_original/`, `positions_by_original.txt`, `analysed_by_original/`), `slide_paused_by_v1.8.1/` (a sliding solve paused by release v1.8.1's engine, the document and the search folder it left, with the script that made it: decision 0033) |
 | `tests/tools/` | small programs the harness drives (`bt_roundtrip`, `bt_resume`, `bt_solutions`) |
 | `docs/` | this file, PLAN.md, FRONTEND-PLAN.md, API.md (generated), decisions/, handoff/, webui-spec.md, mockup/ (Girish Sharma's mockup, vendored), core-api.md (the draft API.md replaced) |
 | `cmake/` | warnings, sanitizers, dependencies, whether the Python module is built (`Python.cmake`) |
@@ -527,7 +527,24 @@ one).
   from the goal too once a level is a million arrangements wide
   (`meetFrom`), growing the narrower end until they meet, as the Panex
   search does; smaller puzzles take the same path as before, which the
-  oracle compares state by state. The older levels are kept for tracing
+  oracle compares state by state. Copies of a piece with a goal each are
+  one arrangement at the goal when the goal's cells hold them in one way
+  (`singleGoal`). With nested slides (decision 0033) the goal end starts at
+  the first level and makes the moves backwards (`SlideMover::movesBack`:
+  a group that arrived was the outer piece and some part of what it holds
+  now, since it may have closed round the rest); each end looks for its
+  one-way moves in its own older levels, and the path's goal half is traced
+  forwards. That takes whole nesting, every stop told apart and no piece
+  that could hold more than `kMaxBackNested` others (`canMoveBack`); with
+  a grid the search from both ends is tried before the loose stops, and
+  where it cannot run the search goes from the start alone as before (the
+  A/B `oneEnd`). A search saved from the start alone with loose stops (by
+  v1.8.1 or earlier) is carried on that way; `savedFromStartAlone` and
+  `pendingFromStartAlone` say when a new search would go from both ends
+  instead (the engine's `sliding.resumeAdvice`, which the Solver's
+  Continue asks before it offers to solve again). `checkSlideMovesBack` is the tests' proof of the backward
+  moves: over every arrangement a board comes to, they are exactly the
+  moves. The older levels are kept for tracing
   the path back; without nested slides every other one goes when they
   near the disk budget (`levelInterval`), the gaps searched out from the
   arrangement being traced when the path is found. The search also stops
@@ -571,7 +588,9 @@ one).
   what they missed) and the progress has stage `Other` with `searched`
   and `searchDepth`. A run with optimized paths works out its grid as it
   begins and keeps it with the problem (`Problem::slideGrid`, saved with
-  the results). The session times each move deep of the search under way
+  the results). A solve that starts afresh drops the problem's saved
+  searches first (`launch`; decision 0033), so only Continue carries one
+  on. The session times each move deep of the search under way
   (`SlideSearch::onDepth`, decision 0030) and keeps the times with the
   problem (`Problem::slideLevelMs`, in the file while the solve is open);
   `slide_forecast.h`'s `slideForecast` turns them into the Performance
@@ -812,7 +831,9 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   editor's click), `clearStampAt`, `cloneStamps`, each on one problem's
   starts and goals (decision 0027; an edit of a board keeps, in every
   problem on it, the stamps whose cells survive and removes the others
-  with a notice); the shape commands keep stamps and
+  with a notice); `slideFromStartAlone` (whether a paused problem's saved
+  search would go on from the start alone where a new one would go from
+  both ends, decision 0033); the shape commands keep stamps and
   problems in step (deleting, moving, duplicating and renaming a
   start/goal shape; an edit that changes a stamped piece's shape takes its
   stamps off and says so in `ChangeSet::notice`, as does moving a stamped
@@ -959,7 +980,8 @@ schema in `api/`, documented in the generated `docs/API.md`.
   in any style), explorers (`ax` and `mx` handles; the movement
   explorer names the grid's directions by label and by step, `vectors`:
   a prism's x step is 2), sliding puzzles (`sliding.*`: the start/goal
-  editor's actions and reads; a sliding solve's options in
+  editor's actions and reads; `sliding.resumeAdvice`, what Continue
+  would carry on; a sliding solve's options in
   `SolveOptions.sliding`, its note in `solve.status`; `Settings`'
   `slideFolder` and `slideDiskGB`, the original's SHAPELOGIC_SLIDE_DIR and
   SHAPELOGIC_SLIDE_DISK_GB, go into every sliding solve's options),
@@ -1727,7 +1749,11 @@ What exists after stage 8:
     `slidingDetails` for the Details line), Solve greyed while the
     tray is invalid (`SolverWorkspace.slideError`), the solver's note in
     a message box when a run is through (`tellNote`, also after an
-    autosave's continue), Movements and Analyse not offered on a grid
+    autosave's continue), Continue with optimized paths when the problem
+    keeps a grid, asking first where the saved search would go on from
+    the start alone (`askFromStartAlone`: `sliding.resumeAdvice`, then
+    `#fromStartAlone` with Solve Again, the default, and Continue;
+    decision 0033), Movements and Analyse not offered on a grid
     without a take-apart; the notices (`Store.onNotice`:
     `document.changed.notice` and an opened file's `Snapshot.notice`) in
     message boxes (`dialog.ts`'s `tell`, one at a time); File ▸ New's
@@ -1926,7 +1952,9 @@ fixture's; played with the walls drawn, every whole step's poses the
 engine's; the nested fixture with and without nested slides and a
 partially nested pocket as `bt`; the notices; reference screenshots of
 the board drawn, its Start and goal, the two trays and the walls; copies
-of a piece placed one by one, a third refused, one taken off, solved). Deferred
+of a piece placed one by one, a third refused, one taken off, solved; a
+search paused in v1.8.1, `tests/data/slide_paused_by_v1.8.1/`: Continue's
+question left, answered Solve Again and answered Continue). Deferred
 part 4: `tests/e2e/stacking.e2e.ts` (the Tower of Hanoi and a Panex swap
 of three-disc towers built from File ▸ New through the disc list, the
 Rods card and the Stacks card, saved byte for byte as the fixtures;

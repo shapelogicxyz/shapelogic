@@ -14,7 +14,7 @@
 // asked about before a solve, and the full search offered when they find
 // no solution.
 
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
@@ -24,6 +24,7 @@ import type { Page } from '@playwright/test';
 import {
   BUILT,
   command,
+  counted,
   display,
   ENGINE,
   engineCall,
@@ -1258,6 +1259,86 @@ test('optimized paths: asked about before a solve, the full search offered when 
     expect(stored.solverSettings.optimizedPaths).toBe(true);
     const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
     expect(bad).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a search paused in v1.8.1: Continue asks whether to solve again from both ends', async () => {
+  test.setTimeout(120_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log });
+  const page = a.page;
+  try {
+    // tests/data/slide_paused_by_v1.8.1: a board paused by release v1.8.1's
+    // engine with nested slides on a grid, and the search it saved from the
+    // start alone, put in this app's cache folder
+    const paused = resolve(FIXTURES, '../slide_paused_by_v1.8.1');
+    const name = 'slide-cafc026be534476e';
+    const { slideFolder } = await engineCall<{ slideFolder: string }>(page, 'settings.get');
+    const saved = join(slideFolder, name);
+    const open = async (): Promise<string> => {
+      mkdirSync(slideFolder, { recursive: true });
+      cpSync(join(paused, name), saved, { recursive: true });
+      await openFixture(page, '../slide_paused_by_v1.8.1/cup_and_blocks.xmpuzzle');
+      await toSolver(page);
+      await solverSettled(page);
+      return shownProblem(page);
+    };
+    const found = (p: string): Promise<{ slideGrid: number; solutions: number | null }> =>
+      engineCall(page, 'problem.get', { problem: p });
+    const calls = (): string[] => readCallLog(log).map((c) => c.method);
+    const ask = page.locator('#fromStartAlone');
+
+    // the box Automatically use optimized paths is off in the file: the
+    // grid the problem keeps says the paused solve used them
+    let p = await open();
+    await expect(page.locator('#slvOpts [data-o="optimizedPaths"]')).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await runButton(page, 'continue');
+    await expect(ask).toContainText('paused in an earlier version');
+    await expect(ask).toContainText('likely very close to its end');
+    expect(
+      await ask
+        .locator('[data-x]')
+        .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.x)),
+    ).toEqual(['continue', 'start']);
+    // dismissed: still paused, the saved search kept
+    await page.keyboard.press('Escape');
+    await expect(ask).toHaveCount(0);
+    await solverSettled(page);
+    expect(await found(p)).toMatchObject({ solutions: 0 });
+    expect(existsSync(saved)).toBe(true);
+    expect(calls()).not.toContain('solve.continue');
+    expect(calls()).not.toContain('solve.start');
+
+    // Solve Again: a new search on the grid, the saved one thrown away
+    await runButton(page, 'continue');
+    await page.click('#fromStartAlone [data-x="start"]');
+    await runEnded(page, 'finished');
+    await expect(page.locator(`#slvProbs .row[data-id="${p}"] .st`)).toHaveText(
+      '3 moves (optimized)',
+    );
+    expect(await found(p)).toMatchObject({ slideGrid: 3, solutions: 1 });
+    expect(existsSync(saved)).toBe(false);
+    expect(calls()).toContain('solve.start');
+    expect(calls()).not.toContain('solve.continue');
+
+    // Continue: the saved search carried on to its end
+    p = await open();
+    await runButton(page, 'continue');
+    await page.click('#fromStartAlone [data-x="continue"]');
+    await runEnded(page, 'finished');
+    await expect(page.locator(`#slvProbs .row[data-id="${p}"] .st`)).toHaveText(
+      '3 moves (optimized)',
+    );
+    expect(await found(p)).toMatchObject({ slideGrid: 3, solutions: 1 });
+    expect(existsSync(saved)).toBe(false);
+    expect(calls()).toContain('solve.continue');
+    expect(readCallLog(log).filter(counted)).toEqual([]);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

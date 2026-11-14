@@ -107,6 +107,14 @@ Since decision 0032 the extra numbers are tried in the wide key before the
 loose stops are given up: "when the extra numbers do not fit the key" means
 128 bits, not the 64 the stops apart would fit.
 
+Since decision 0033 a new search with nested slides whose goal is one
+arrangement goes from both ends with the stops apart, where its moves can
+be made backwards: a loose arrangement has no backward moves yet, and the
+meeting saves more than the loose stops do. Loose stops are for the
+searches that go from the start alone (a piece that may end anywhere,
+partial nesting, a piece that could hold more than six others,
+`SlideSearch::oneEnd`).
+
 ## Measurements
 "Abe 1 to 6 Heart", nested slides, optimized paths (a 6-cell grid), release
 build, one run each; arrangements summed over the levels:
@@ -135,7 +143,9 @@ loose; without `dropCovered` it took 158,016.
 - A full search and a grid search without nested slides are unchanged,
   answer for answer and arrangement for arrangement.
 - An optimized solve paused before this is carried on with its stops told
-  apart. Solving again from the start uses loose stops.
+  apart. Solving again from the start uses loose stops (since decision
+  0033: both ends with the stops apart where that search can be made,
+  loose stops otherwise).
 - Soft spots: `covers` looks at six pieces at most, so with more small
   pieces loose at once some covered arrangements stay (more work, the same
   answer). `dropCovered` looks every new arrangement up in every visited

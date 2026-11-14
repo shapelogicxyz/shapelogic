@@ -456,7 +456,14 @@ where the problem's counts are.
   the stops it leaves; **Use Optimized Paths** for that solve, **Full
   Search**, **Cancel** or Escape solves nothing), a result found so is "(optimized)" in
   the problems list, and when it finds no solution the note offers **Full
-  Search**; Just count, Keep every n-th and the limit stay.
+  Search**; Continue goes on with optimized paths when the paused problem
+  keeps a grid (`slideGrid`), whatever the switch says now, and asks first
+  when the saved search would go on from the start alone where a new one
+  would go from both ends (decision 0033, `sliding.resumeAdvice`: a search
+  with nested slides on a grid paused in v1.8.1 or earlier): **Solve
+  Again** (the default; a new search from both ends, the saved one thrown
+  away), **Continue** (the saved search to its end), Escape leaves the
+  solve paused; Just count, Keep every n-th and the limit stay.
 - **Performance Analysis** (decision 0030): while a sliding solve is under
   way or paused and no solution is listed, a second dashed box under the
   empty solutions card: how deep the search is, how long the last move took

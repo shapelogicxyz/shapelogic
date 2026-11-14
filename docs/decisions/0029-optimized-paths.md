@@ -95,6 +95,11 @@ The search's keys number only the stops the grid leaves a piece (decision
 0032), so a board too big for the level search with every stop fits it with
 optimized paths.
 
+With nested slides and a goal position for every piece the search goes
+from the start and from the goal until the two meet (decision 0033), with
+the stops of a cell apart; otherwise from the start alone with loose
+stops.
+
 ## Consequences
 - A board of blocks solves in seconds where it took hours, at the risk of a
   longer path or a missed one, which the dialog and the result's label say.

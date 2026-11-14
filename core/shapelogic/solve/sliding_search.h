@@ -14,9 +14,10 @@
 /// breadth first, level by level, every level a sorted set that lives in
 /// memory while the memory budget allows and in a file otherwise, spreads
 /// each level over threads, searches from the goal too once a level is wide
-/// (when the goal is one arrangement), and is saved when it is stopped so
-/// that a search of the same start carries it on. It finds a path with the
-/// fewest moves, the same every run, or proves there is none.
+/// (when the goal is one arrangement; with nested slides from the first
+/// level, where the moves can be made backwards), and is saved when it is
+/// stopped so that a search of the same start carries it on. It finds a
+/// path with the fewest moves, the same every run, or proves there is none.
 ///
 /// Ported from src/lib/sliding.{h,cpp} (the search, routes and outcomes;
 /// the tray model is bt/model/sliding.h). The original's Fast and Deep
@@ -188,11 +189,20 @@ struct SlideSearch {
   bool autosave = true;
   unsigned int autosaveFloorSeconds = 60;
   /// Search from the goal as well once a level has this many arrangements,
-  /// when the goal is one arrangement (not with nested slides): the ends
-  /// meet in the middle, and the path is as short. 0 for the default, a
-  /// million; smaller puzzles find the same path as a search from the
-  /// start alone.
+  /// when the goal is one arrangement: the ends meet in the middle, and the
+  /// path is as short. 0 for the default, a million; smaller puzzles find
+  /// the same path as a search from the start alone.
+  ///
+  /// With nested slides the default is the first level, and the goal end
+  /// makes the moves backwards (decision 0033). It does so only with whole
+  /// nesting (not partialNested), with every stop told apart, and while no
+  /// piece could hold more than a few others; otherwise the search goes
+  /// from the start alone. With a grid the search from both ends is taken
+  /// before the loose stops, which only a search from the start can use.
   std::uint64_t meetFrom = 0;
+  /// A/B switch: a new search goes from the start alone. (A saved search
+  /// that has a goal end is carried on with it.)
+  bool oneEnd = false;
   /// Keep every this-many-th level for tracing the path back from the
   /// start (1: every level; the search thins them further as the disk
   /// fills). Above 1 the gaps are searched when the path is traced: the
@@ -217,6 +227,7 @@ struct SlideSearch {
   /// With nested slides the stops a piece has inside one cell of the grid
   /// are searched as one where the piece can be at any of them (loose
   /// stops, decision 0031): the same moves found, in fewer arrangements.
+  /// Only a search from the start alone has them (see meetFrom).
   int grid = 0;
   /// A/B switch: with a grid, every stop of a grid cell told apart instead
   /// of searched as one.
@@ -302,6 +313,7 @@ struct SlidingOptions {
   bool likePiecesApart = false;
   bool gridStopsApart = false;
   bool plainKeys = false;
+  bool oneEnd = false;
   /// Hold the stops to the grid slideGridFor finds for the problem, when
   /// it finds one (the Solver's Automatically use optimized paths): a
   /// smaller search, whose path may have more than the fewest moves.
@@ -353,6 +365,49 @@ struct SlideGrid {
 /// findSlidePath with the default search, and nested slides or not.
 [[nodiscard]] std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& problem,
                                                       const Assembly& start, bool nested = false);
+
+/// Whether carrying on this start's saved search (findSlidePath with
+/// `resume`) would go on from the start alone where a new search would go
+/// from both ends: a search with nested slides saved with the stops of a
+/// grid cell as one, which has no moves backwards (every such search saved
+/// before decision 0033), of a start whose search from both ends is
+/// possible. `search` gives the options, as for findSlidePath; nothing is
+/// searched or changed.
+[[nodiscard]] bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem,
+                                       const Assembly& start, const SlideSearch& search);
+
+/// The same of a paused solve: whether it holds of a start the problem
+/// keeps for the next run (Problem::getPending), searched as a solve with
+/// these options would (slideSearchFor, the grid searchGrid finds).
+[[nodiscard]] bool pendingFromStartAlone(const Puzzle& puzzle, const Problem& problem,
+                                         const SlidingOptions& options);
+
+/// What checkSlideMovesBack found.
+struct SlideBackCheck {
+  /// False when nothing was checked: the search of this problem does not
+  /// make its moves backwards (SlideSearch::meetFrom), the tables do not
+  /// fit 64 bits, or more arrangements than the limit can be reached.
+  bool checked = false;
+  /// The arrangements reached from the start, and the moves between them.
+  std::uint64_t arrangements = 0;
+  std::uint64_t moves = 0;
+  /// Moves made backwards that were told one-way (no move leads back).
+  std::uint64_t oneWay = 0;
+  /// Moves the backward side did not give; arrangements it gave that no
+  /// move leads from; and moves it told two-way that no move undoes. All 0
+  /// when the moves made backwards are exactly the moves.
+  std::uint64_t missing = 0;
+  std::uint64_t extra = 0;
+  std::uint64_t wronglyTwoWay = 0;
+};
+
+/// For the tests: the moves the search from the goal makes backwards with
+/// nested slides, checked against the moves themselves over every
+/// arrangement reached from the start (at most `limit`). `search` gives
+/// the options, as for findSlidePath; nothing is searched or saved.
+[[nodiscard]] SlideBackCheck checkSlideMovesBack(const Puzzle& puzzle, const Problem& problem,
+                                                 const Assembly& start, const SlideSearch& search,
+                                                 std::uint64_t limit);
 
 /// The folders in workDir holding saved searches of this problem's starts
 /// (a folder each): what discardSaved deletes. Empty without a work folder.

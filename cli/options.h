@@ -85,6 +85,8 @@ struct Options {
   bool slideStopsApart = false;
   /// --slide-plain-keys: with a grid, every position numbered in the keys
   bool slidePlainKeys = false;
+  /// --slide-one-end: a new search goes from the start alone
+  bool slideOneEnd = false;
   int slideGrid = 0;         ///< --slide-grid N: stops held to a grid of N cells (optimized paths)
   bool slideTrace = false;   ///< --slide-trace: each level of the search on stderr
   // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)

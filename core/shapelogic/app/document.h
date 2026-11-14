@@ -531,6 +531,14 @@ class Document {
                                                                const std::string& slideDir,
                                                                const std::string& panexDir) const;
 
+  /// Whether Continue would carry a sliding problem's paused search on from
+  /// the start alone where Solve would search from both ends
+  /// (sliding::pendingFromStartAlone, sliding.resumeAdvice): a search saved
+  /// by a version before the two ends. `options` are the solve's. False
+  /// while the problem's run is active, and on the other grids.
+  [[nodiscard]] Result<bool> slideFromStartAlone(Id problem,
+                                                 const sliding::SlidingOptions& options) const;
+
   // ---- queries ----------------------------------------------------------------
 
   [[nodiscard]] Result<FitStats> fit(Id problem) const;

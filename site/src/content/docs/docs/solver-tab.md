@@ -227,12 +227,26 @@ symmetry and color ones:
   is searched for the fewest moves to the goal with no limit on the
   arrangements it looks at: it either finds the fewest moves or proves there
   is no solution, on every core, writing what outgrows its memory to disk.
-  It stops early only when it fills the disk space it may use (see below).
+  When every piece has a goal position, it also searches back from the goal
+  until the two ends meet (from the first move with **Allow Nested Slides**,
+  otherwise once the search grows wide), which takes far fewer arrangements.
+  A puzzle with a piece that may end anywhere, or solved with **Allow
+  Partially Nested**, is searched from the start alone. It stops early only
+  when it fills the disk space it may use (see below).
   **Pause** saves the search of the start under way, and **Continue**
   carries it on. A search that fills its disk space is saved the same way,
   and the solve pauses: raise **Sliding disk space** or free some disk,
   then press **Continue**. **Solve** and **Abort** throw saved searches
   away.
+  A search with **Allow Nested Slides** and optimized paths that was paused
+  in version 1.8.1 or earlier was saved from the start alone, and can only
+  be carried on that way. **Continue** then asks first: **Solve Again**
+  throws the saved search away and searches from both ends, which is far
+  faster (a solve of hours can take seconds); **Continue** carries the
+  saved search on to its end, which is only reasonable when it has already
+  run for a long time and is likely very close to its end. Closing the
+  question leaves the solve paused. A search paused in this version is
+  saved with both ends and carried on at full speed, with no question.
 
 While a sliding solve runs, or is paused, and no solution has been found
 yet, a **Performance Analysis** box sits under the empty solutions list. It
@@ -336,7 +350,8 @@ Below the buttons:
   disassembly check);
 - **Details**: how much the search has gone through. While it runs:
   what it is working on and the search steps scanned, or for a sliding
-  puzzle how many moves deep it is and how many arrangements it has
+  puzzle how many moves deep it is (from the start and from the goal
+  together, when it searches from both) and how many arrangements it has
   scanned. For a stacking puzzle, the states (stackings) scanned and the
   search depth: how many moves deep it searched from each end, about
   half the solution's moves. While a sliding or stacking search pauses,

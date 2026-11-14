@@ -2176,6 +2176,13 @@ struct GridBoard {
     bool block;
   };
   std::vector<Place> places;
+  // What it was made of (gridBoardOf), for a board like it with other goals.
+  int W = 0;
+  int H = 0;
+  std::vector<std::vector<std::pair<int, int>>> shapes;
+  // For each piece the first of the copies it is one of: itself, but for
+  // the copies of a piece.
+  std::vector<std::size_t> copyOf;
   [[nodiscard]] const Problem& pr() const { return puz.getProblem(0); }
 };
 
@@ -2194,30 +2201,58 @@ BoardCells blockWithout(const BoardCells& hole) {
   return cells;
 }
 
-// The board W x H of pieces of these cells, each at its place.
+// The board W x H of pieces of these cells, each at its place. With
+// `copies` the whole blocks are the copies of one piece and the unit pieces
+// of another, each kind after the first of it: its starts and its goals are
+// any copy's.
 GridBoard gridBoardOf(int W, int H, const std::vector<BoardCells>& shapes,
-                      const std::vector<GridBoard::Place>& places) {
+                      const std::vector<GridBoard::Place>& places, bool copies = false) {
   GridBoard g;
   const unsigned int trayId =
       addStartGoalShape(g.puz, static_cast<unsigned int>(W), static_cast<unsigned int>(H));
   g.start = std::make_unique<Assembly>(g.puz.getGridType());
-  g.places = places;
+  g.W = W;
+  g.H = H;
+  std::vector<char> taken(shapes.size(), 0);
   for (std::size_t i = 0; i < shapes.size(); i++) {
-    const GridBoard::Place& at = places[i];
-    const unsigned int id = g.puz.addShape(3, 3, 1);
+    if (taken[i] != 0) {
+      continue;
+    }
+    int w = 3;
+    int h = 3;
+    for (const std::pair<int, int> c : shapes[i]) {
+      w = std::max(w, c.first + 1);
+      h = std::max(h, c.second + 1);
+    }
+    const unsigned int id =
+        g.puz.addShape(static_cast<unsigned int>(w), static_cast<unsigned int>(h), 1);
     for (const std::pair<int, int> c : shapes[i]) {
       g.puz.getShape(id).setState(static_cast<unsigned int>(c.first),
                                   static_cast<unsigned int>(c.second), 0, kFilled);
-      Voxel& tray = g.puz.getShape(trayId);
-      tray.setStartPiece(static_cast<unsigned int>(at.x + c.first),
-                         static_cast<unsigned int>(at.y + c.second), 0, id + 1);
-      if (at.goalX >= 0) {
-        tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(at.goalX + c.first),
-                                        static_cast<unsigned int>(at.goalY + c.second), 0),
-                          id + 1);
-      }
     }
-    g.start->addPlacement(0, at.x, at.y, 0);
+    const bool alike = copies && (shapes[i].size() == 1 || shapes[i].size() == 9);
+    const std::size_t first = g.places.size();
+    for (std::size_t j = i; j < shapes.size(); j++) {
+      if (taken[j] != 0 || (j != i && !(alike && shapes[j] == shapes[i]))) {
+        continue;
+      }
+      taken[j] = 1;
+      const GridBoard::Place& at = places[j];
+      for (const std::pair<int, int> c : shapes[j]) {
+        Voxel& tray = g.puz.getShape(trayId);
+        tray.setStartPiece(static_cast<unsigned int>(at.x + c.first),
+                           static_cast<unsigned int>(at.y + c.second), 0, id + 1);
+        if (at.goalX >= 0) {
+          tray.setGoalPiece(tray.getIndex(static_cast<unsigned int>(at.goalX + c.first),
+                                          static_cast<unsigned int>(at.goalY + c.second), 0),
+                            id + 1);
+        }
+      }
+      g.start->addPlacement(0, at.x, at.y, 0);
+      g.places.push_back(at);
+      g.shapes.push_back(shapes[j]);
+      g.copyOf.push_back(first);
+    }
   }
   syncSlidingProblems(g.puz);
   return g;
@@ -2349,18 +2384,37 @@ GridBoard gridBoard(std::uint64_t seed) {
 }
 
 // A path of the board: from its start to its goals, every step a slide,
-// the blocks stopping only on the grid's lines.
-void checkGridPath(const GridBoard& g, const Separation& path) {
+// the blocks stopping only on the grid's lines (not when the board was
+// searched without the grid).
+void checkGridPath(const GridBoard& g, const Separation& path, bool onGrid = true) {
   REQUIRE(path.getPieceNumber() == g.places.size());
   const State& first = path.getState(0);
   const State& last = path.getState(path.getMoves());
+  // the copies of a piece take its starts and its goals in any order
   for (unsigned int i = 0; i < g.places.size(); i++) {
-    const GridBoard::Place& p = g.places[i];
-    CHECK(first.getX(i) == p.x);
-    CHECK(first.getY(i) == p.y);
-    if (p.goalX >= 0) {
-      CHECK(last.getX(i) == p.goalX);
-      CHECK(last.getY(i) == p.goalY);
+    if (g.copyOf[i] != i) {
+      continue;
+    }
+    std::vector<std::pair<int, int>> starts;
+    std::vector<std::pair<int, int>> began;
+    std::vector<std::pair<int, int>> goals;
+    std::vector<std::pair<int, int>> ended;
+    for (unsigned int j = i; j < g.places.size() && g.copyOf[j] == i; j++) {
+      const GridBoard::Place& p = g.places[j];
+      starts.emplace_back(p.x, p.y);
+      began.emplace_back(first.getX(j), first.getY(j));
+      ended.emplace_back(last.getX(j), last.getY(j));
+      if (p.goalX >= 0) {
+        goals.emplace_back(p.goalX, p.goalY);
+      }
+    }
+    std::sort(starts.begin(), starts.end());
+    std::sort(began.begin(), began.end());
+    std::sort(goals.begin(), goals.end());
+    std::sort(ended.begin(), ended.end());
+    CHECK(began == starts);
+    if (!goals.empty()) {
+      CHECK(ended == goals);
     }
   }
   for (unsigned int step = 0; step < path.getMoves(); step++) {
@@ -2368,7 +2422,7 @@ void checkGridPath(const GridBoard& g, const Separation& path) {
     std::vector<unsigned int> movers;
     CHECK(slideRoute(g.puz, g.pr(), path, step, &movers).size() >= 2);
     for (unsigned int i = 0; i < g.places.size(); i++) {
-      if (g.places[i].block) {
+      if (onGrid && g.places[i].block) {
         CHECK(path.getState(step + 1).getX(i) % 3 == 0);
         CHECK(path.getState(step + 1).getY(i) % 3 == 0);
       }
@@ -2647,8 +2701,9 @@ namespace {
 // The blocks in the cells of `cups` (numbered row by row) are cups open at
 // the top with a unit piece in the pocket. The goal has the empty cell top
 // left: the bottom row's blocks one cell to the right, then the left
-// column's one cell down, each one move and none to spare.
-GridBoard blockBoard(int cw, int ch, const std::vector<int>& cups) {
+// column's one cell down, each one move and none to spare. With `copies`
+// the whole blocks are copies of one piece and the unit pieces of another.
+GridBoard blockBoard(int cw, int ch, const std::vector<int>& cups, bool copies = false) {
   std::vector<BoardCells> shapes;
   std::vector<GridBoard::Place> places;
   std::vector<GridBoard::Place> units;
@@ -2668,7 +2723,7 @@ GridBoard blockBoard(int cw, int ch, const std::vector<int>& cups) {
     shapes.push_back({{0, 0}});
     places.push_back(u);
   }
-  return gridBoardOf(3 * cw, 3 * ch, shapes, places);
+  return gridBoardOf(3 * cw, 3 * ch, shapes, places, copies);
 }
 
 // What a search's levels came to: "start level 3: 120 arrangements" each.
@@ -2678,6 +2733,11 @@ struct LevelSizes {
     s.onLevel = [this](const std::string& line) {
       lines.push_back(line.substr(0, line.find(", one-way")));
     };
+  }
+  // Whether the search went from the goal as well.
+  [[nodiscard]] bool fromGoal() const {
+    return std::any_of(lines.begin(), lines.end(),
+                       [](const std::string& line) { return line.starts_with("goal"); });
   }
 };
 
@@ -2758,10 +2818,16 @@ TEST_CASE("sliding: a grid's keys number only the stops", "[sliding][parallel]")
 TEST_CASE("sliding: a board too big for its positions is searched by its stops", "[sliding]") {
   // 19 blocks at 130 places each and three units: 176 bits, or 113
   const GridBoard g = blockBoard(5, 4, {6, 10, 18});
+  // from the start alone, where the stops are loose
   SlideSearch stops;
   stops.nested = true;
   stops.grid = 3;
   stops.threads = 2;
+  stops.oneEnd = true;
+  SlideSearch apart = stops;
+  apart.gridStopsApart = true;
+  SlideSearch ends = stops;
+  ends.oneEnd = false;
   LevelSizes levels;
   levels.watch(stops);
   const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, stops);
@@ -2769,13 +2835,22 @@ TEST_CASE("sliding: a board too big for its positions is searched by its stops",
   CHECK(path->getMoves() == 7);
   CHECK(stops.looseStops);
   CHECK_FALSE(levels.lines.empty());
+  CHECK_FALSE(levels.fromGoal());
   checkGridPath(g, *path);
 
-  SlideSearch apart = stops;
-  apart.gridStopsApart = true;
   const std::optional<Separation> each = findSlidePath(g.puz, g.pr(), *g.start, apart);
   REQUIRE(each.has_value());
   CHECK(each->getMoves() == 7);
+
+  // its goal is one arrangement: from both ends, in the wide key
+  LevelSizes both;
+  both.watch(ends);
+  const std::optional<Separation> met = findSlidePath(g.puz, g.pr(), *g.start, ends);
+  REQUIRE(met.has_value());
+  CHECK(met->getMoves() == 7);
+  CHECK(both.fromGoal());
+  CHECK_FALSE(ends.looseStops);
+  checkGridPath(g, *met);
 
   // every position numbered: no key holds it, so the level search is not run
   SlideSearch plain;
@@ -2799,9 +2874,11 @@ TEST_CASE("sliding: loose stops take the wide key before they are given up", "[s
   // 11 blocks at 12 stops and 4 units at 24 stops, or 36 with the loose
   // ones: 64 bits apart, 68 loose
   const GridBoard g = blockBoard(4, 3, {1, 2, 5, 6});
+  // from the start alone: a search from both ends has the stops apart
   SlideSearch one;
   one.nested = true;
   one.grid = 3;
+  one.oneEnd = true;
   const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
   REQUIRE(path.has_value());
   CHECK(one.looseStops);
@@ -2902,5 +2979,740 @@ TEST_CASE("sliding: a grid search saved with every position numbered is carried 
   second.workDir = dir.string();
   CHECK(findSlidePath(f.puz, f.pr(), *f.start, second).has_value());
   CHECK(second.resumed);
+  std::filesystem::remove_all(dir);
+}
+
+namespace {
+
+// The board with every piece's goal where a path left it: a goal that is
+// one arrangement, and one the board comes to.
+GridBoard endAsGoal(const GridBoard& g, const Separation& path) {
+  std::vector<GridBoard::Place> places = g.places;
+  const State& last = path.getState(path.getMoves());
+  for (unsigned int i = 0; i < places.size(); i++) {
+    places[i].goalX = last.getX(i);
+    places[i].goalY = last.getY(i);
+  }
+  return gridBoardOf(g.W, g.H, g.shapes, places);
+}
+
+// The board of `seed` with its goal made one arrangement: where the fewest
+// moves from the start alone leave every piece.
+GridBoard settledBoard(std::uint64_t seed) {
+  const GridBoard g = gridBoard(seed);
+  SlideSearch one;
+  one.nested = true;
+  one.grid = 3;
+  one.oneEnd = true;
+  one.maxMemoryStates = 30000;
+  const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+  REQUIRE(path.has_value());
+  return endAsGoal(g, *path);
+}
+
+// The pieces of oneWayPuzzle as a board, for a search without a grid: the
+// C carrying A can close round a unit piece it passes, and cannot leave it
+// behind again. The C must end at (cx, cy), the others anywhere.
+GridBoard oneWayBoard(int cx, int cy) {
+  const BoardCells unit = {{0, 0}};
+  const BoardCells block = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+  const BoardCells c = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {0, 2}, {1, 2}, {2, 2}};
+  return gridBoardOf(5, 5, {c, unit, unit, block, unit, unit, block},
+                     {{0, 0, cx, cy, false},
+                      {1, 1, -1, -1, false},
+                      {4, 1, -1, -1, false},
+                      {2, 3, -1, -1, false},
+                      {3, 0, -1, -1, false},
+                      {4, 3, -1, -1, false},
+                      {0, 3, -1, -1, false}});
+}
+
+// Three blocks in the four cells of a 6x6 board, the first a cup with a
+// unit piece in its pocket. The goal has the cup and the block beside it
+// swapped: no sliding does that.
+GridBoard swappedBlocks() {
+  return gridBoardOf(
+      6, 6, {blockWithout({{1, 0}, {1, 1}}), blockWithout({}), blockWithout({}), {{0, 0}}},
+      {{0, 0, 3, 0, true}, {3, 0, 0, 0, true}, {0, 3, 0, 3, true}, {1, 1, 4, 1, false}});
+}
+
+// A 7x5 board (searched without a grid): a cup five cells wide with a
+// pocket of nine, open at the top, `units` copies of a unit piece in the
+// pocket, and a bar in the cup's way:
+//   .......
+//   C...C..
+//   C...C..
+//   CuuuC..
+//   CCCCCBB
+// The cup is to go two cells to the right with what it holds, each unit
+// where it lies in it, and the bar to the bottom left: three moves.
+GridBoard fullCup(int units) {
+  BoardCells cup;
+  for (int y = 0; y < 4; y++) {
+    cup.emplace_back(0, y);
+    cup.emplace_back(4, y);
+  }
+  for (int x = 1; x < 4; x++) {
+    cup.emplace_back(x, 3);
+  }
+  std::vector<BoardCells> shapes = {cup, {{0, 0}, {1, 0}}};
+  std::vector<GridBoard::Place> places = {{0, 1, 2, 1, false}, {5, 4, 0, 4, false}};
+  for (int k = 0; k < units; k++) {
+    const int x = 1 + k % 3;
+    const int y = 3 - k / 3;
+    shapes.push_back({{0, 0}});
+    places.push_back({x, y, x + 2, y, false});
+  }
+  return gridBoardOf(7, 5, shapes, places, true);
+}
+
+// A 4x3 board (searched without a grid, and without nested slides): a bar
+// and eight copies of a unit piece. The bar is to go to the bottom right,
+// with the units over the cells they lie on now, whichever on which:
+//   BBuu
+//   uuuu
+//   uu..
+GridBoard barAmongUnits() {
+  std::vector<BoardCells> shapes = {{{0, 0}, {1, 0}}};
+  std::vector<GridBoard::Place> places = {{0, 0, 2, 2, false}};
+  const BoardCells at = {{2, 0}, {3, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 1}, {0, 2}, {1, 2}};
+  for (const std::pair<int, int> c : at) {
+    shapes.push_back({{0, 0}});
+    places.push_back({c.first, c.second, c.first, c.second, false});
+  }
+  return gridBoardOf(4, 3, shapes, places, true);
+}
+
+// The board searched, and whether the search went from the goal as well.
+std::optional<Separation> searched(const GridBoard& g, SlideSearch& s, bool& fromGoal) {
+  LevelSizes levels;
+  levels.watch(s);
+  std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, s);
+  s.onLevel = nullptr;
+  fromGoal = levels.fromGoal();
+  return path;
+}
+
+// A search with nested slides (grid 0: every position a stop).
+SlideSearch nestedSearch(int grid) {
+  SlideSearch s;
+  s.nested = true;
+  s.grid = grid;
+  return s;
+}
+
+// What boards searched from the start alone and from both ends came to.
+struct EndsTally {
+  int compared = 0;
+  int found = 0;
+  int fromGoal = 0;
+  int longest = 0;
+};
+
+// The board searched from the start alone and from both ends, on one thread
+// and on three: the two agree on whether there is a path and on its moves,
+// and each path is one of the board. A search from both ends has the stops
+// of a grid cell apart. A board either search has no memory for is left out.
+void compareEnds(const GridBoard& g, int grid, std::uint64_t maxStates, EndsTally& t) {
+  for (const unsigned int threads : {1U, 3U}) {
+    INFO("threads " << threads);
+    SlideSearch one = nestedSearch(grid);
+    one.threads = threads;
+    one.maxMemoryStates = maxStates;
+    SlideSearch both = one;
+    one.oneEnd = true;
+    bool fromGoal = false;
+    const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+    const std::optional<Separation> met = searched(g, both, fromGoal);
+    if (one.outcome == SlideOutcome::Memory || both.outcome == SlideOutcome::Memory) {
+      continue;
+    }
+    t.compared++;
+    CHECK(one.outcome == both.outcome);
+    REQUIRE(path.has_value() == met.has_value());
+    if (fromGoal) {
+      // (a path met before the goal's first level is counted says nothing)
+      t.fromGoal++;
+      CHECK_FALSE(both.looseStops);
+    }
+    if (path) {
+      CHECK(met->getMoves() == path->getMoves());
+      checkGridPath(g, *path, grid != 0);
+      checkGridPath(g, *met, grid != 0);
+      t.found++;
+      t.longest = std::max(t.longest, static_cast<int>(path->getMoves()));
+    }
+  }
+}
+
+// What checkSlideMovesBack found over boards.
+struct BackTally {
+  int checked = 0;
+  std::uint64_t arrangements = 0;
+  std::uint64_t oneWay = 0;
+};
+
+// The moves made backwards on the board are exactly its moves.
+void checkBack(const Puzzle& puz, const Problem& pr, const Assembly& start, int grid,
+               std::uint64_t limit, BackTally& t) {
+  const SlideBackCheck c = checkSlideMovesBack(puz, pr, start, nestedSearch(grid), limit);
+  if (!c.checked) {
+    return;
+  }
+  t.checked++;
+  t.arrangements += c.arrangements;
+  t.oneWay += c.oneWay;
+  CHECK(c.moves >= c.arrangements - 1);
+  CHECK(c.missing == 0);
+  CHECK(c.extra == 0);
+  CHECK(c.wronglyTwoWay == 0);
+}
+
+void checkBack(const GridBoard& g, int grid, std::uint64_t limit, BackTally& t) {
+  checkBack(g.puz, g.pr(), *g.start, grid, limit, t);
+}
+
+}  // namespace
+
+// With nested slides a group may close round a piece it passes, and that
+// move cannot be made backwards as it came. The search from the goal makes
+// the moves backwards (decision 0033): for every arrangement a board can
+// come to, the arrangements it gives are exactly those one move before, and
+// a move it calls two-way is one the pieces can undo.
+TEST_CASE("sliding: the moves made backwards are the moves", "[sliding]") {
+  BackTally t;
+  {
+    // every position a stop; the C closes round the unit pieces
+    const OneWay w = oneWayPuzzle();
+    checkBack(w.puz, w.pr(), *w.start, 0, 100000, t);
+    CHECK(t.checked == 1);
+    CHECK(t.arrangements > 1000);
+    CHECK(t.oneWay > 0);
+  }
+  checkBack(cupsAndUnits(false, 2), 3, 100000, t);
+  checkBack(blockBoard(3, 2, {1, 3}), 3, 100000, t);
+  checkBack(blockBoard(3, 2, {1, 3}, true), 3, 100000, t);
+  checkBack(swappedBlocks(), 3, 100000, t);
+  checkBack(fullCup(2), 0, 100000, t);
+  CHECK(t.checked == 6);
+
+  BackTally boards;
+  for (std::uint64_t seed = 0; seed < 40; seed++) {
+    INFO("seed " << seed);
+    checkBack(gridBoard(seed), 3, 20000, boards);
+  }
+  // the boards are worth the check: most are small enough, some have
+  // moves that cannot be undone
+  CHECK(boards.checked > 15);
+  CHECK(boards.oneWay > 0);
+}
+
+TEST_CASE("sliding: fuzz, the moves made backwards are the moves", "[.fuzz][sliding]") {
+  BackTally t;
+  for (std::uint64_t seed = 1000; seed < 3000; seed++) {
+    INFO("seed " << seed);
+    checkBack(gridBoard(seed), 3, 300000, t);
+  }
+  WARN("moves backwards fuzz: " << t.checked << " boards, " << t.arrangements
+                                << " arrangements, " << t.oneWay << " one-way moves");
+}
+
+// With nested slides the search goes from both ends when the goal is one
+// arrangement (decision 0033): the fewest moves of the search from the
+// start alone, and a path of the board, on one thread and on several.
+TEST_CASE("sliding: nested slides searched from both ends give the same fewest moves",
+          "[sliding][parallel]") {
+  EndsTally t;
+  {
+    INFO("blocks");
+    compareEnds(blockBoard(3, 2, {1, 3}), 3, 20000, t);
+    compareEnds(blockBoard(3, 3, {0, 4}), 3, 20000, t);
+    // whole blocks that are copies of a piece, and unit pieces of another
+    compareEnds(blockBoard(3, 3, {0, 4, 7}, true), 3, 20000, t);
+    // no path
+    compareEnds(swappedBlocks(), 3, 20000, t);
+    CHECK(t.compared == 8);
+    CHECK(t.fromGoal == 8);
+    CHECK(t.found == 6);
+  }
+  for (std::uint64_t seed = 0; seed < 24; seed++) {
+    INFO("seed " << seed);
+    const GridBoard g = gridBoard(seed);
+    // as it is made: few have a goal that is one arrangement
+    compareEnds(g, 3, 20000, t);
+    SlideSearch one = nestedSearch(3);
+    one.oneEnd = true;
+    one.maxMemoryStates = 20000;
+    const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+    if (path && path->getMoves() >= 2) {
+      INFO("with every piece's goal where its path ends");
+      compareEnds(endAsGoal(g, *path), 3, 20000, t);
+    }
+  }
+  {
+    // without a grid: the C that closes round a unit piece, to where it
+    // gets with moves that cannot be undone; and blocks a cell at a time
+    INFO("no grid");
+    for (const int cx : {1, 2}) {
+      const GridBoard g = oneWayBoard(cx, 2);
+      SlideSearch one = nestedSearch(0);
+      one.oneEnd = true;
+      const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+      REQUIRE(path.has_value());
+      const int before = t.fromGoal;
+      compareEnds(endAsGoal(g, *path), 0, 100000, t);
+      CHECK(t.fromGoal == before + 2);
+    }
+    const int before = t.fromGoal;
+    compareEnds(blockBoard(3, 2, {1, 3}), 0, 100000, t);
+    CHECK(t.fromGoal == before + 2);
+  }
+  // the boards are worth the comparison
+  CHECK(t.compared > 60);
+  CHECK(t.found > 40);
+  CHECK(t.fromGoal > 20);
+  CHECK(t.longest >= 10);
+}
+
+// More of them, and larger searches.
+TEST_CASE("sliding: nested slides searched from both ends, more boards",
+          "[sliding][parallel][slow]") {
+  EndsTally t;
+  for (std::uint64_t seed = 24; seed < 80; seed++) {
+    INFO("seed " << seed);
+    const GridBoard g = gridBoard(seed);
+    SlideSearch one = nestedSearch(3);
+    one.oneEnd = true;
+    one.maxMemoryStates = 60000;
+    const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+    if (path && path->getMoves() >= 2) {
+      compareEnds(endAsGoal(g, *path), 3, 60000, t);
+    }
+  }
+  CHECK(t.compared > 40);
+  CHECK(t.fromGoal > 40);
+  CHECK(t.longest >= 14);
+}
+
+TEST_CASE("sliding: fuzz, nested slides searched from both ends", "[.fuzz][sliding]") {
+  EndsTally t;
+  for (std::uint64_t seed = 1000; seed < 3000; seed++) {
+    INFO("seed " << seed);
+    const GridBoard g = gridBoard(seed);
+    compareEnds(g, 3, 300000, t);
+    SlideSearch one = nestedSearch(3);
+    one.oneEnd = true;
+    one.maxMemoryStates = 300000;
+    const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+    if (path && path->getMoves() >= 2) {
+      compareEnds(endAsGoal(g, *path), 3, 300000, t);
+    }
+  }
+  WARN("both ends fuzz: " << t.compared << " compared, " << t.found << " with a path (longest "
+                          << t.longest << "), " << t.fromGoal << " from the goal as well");
+}
+
+// Where the search cannot make its moves backwards, or the goal is not one
+// arrangement, it goes from the start alone as before, and still solves.
+TEST_CASE("sliding: nested slides are searched from the start alone where they must be",
+          "[sliding]") {
+  bool fromGoal = false;
+  {
+    // a piece that may end anywhere: the goal is many arrangements
+    const GridBoard g = cupsAndUnits(true);
+    SlideSearch s = nestedSearch(3);
+    const std::optional<Separation> path = searched(g, s, fromGoal);
+    REQUIRE(path.has_value());
+    CHECK_FALSE(fromGoal);
+    CHECK(s.looseStops);
+    checkGridPath(g, *path);
+  }
+  {
+    // partial nesting has no moves backwards
+    const GridBoard g = blockBoard(3, 2, {1, 3});
+    SlideSearch s = nestedSearch(3);
+    s.partialNested = true;
+    const std::optional<Separation> path = searched(g, s, fromGoal);
+    REQUIRE(path.has_value());
+    CHECK(path->getMoves() == 3);
+    CHECK_FALSE(fromGoal);
+    CHECK(s.looseStops);
+    checkGridPath(g, *path);
+    SlideSearch partial = nestedSearch(3);
+    partial.partialNested = true;
+    CHECK_FALSE(checkSlideMovesBack(g.puz, g.pr(), *g.start, partial, 100000).checked);
+  }
+  {
+    // the A/B switch
+    const GridBoard g = blockBoard(3, 2, {1, 3});
+    SlideSearch s = nestedSearch(3);
+    s.oneEnd = true;
+    const std::optional<Separation> path = searched(g, s, fromGoal);
+    REQUIRE(path.has_value());
+    CHECK(path->getMoves() == 3);
+    CHECK_FALSE(fromGoal);
+    CHECK(s.looseStops);
+    SlideSearch both = nestedSearch(3);
+    REQUIRE(searched(g, both, fromGoal).has_value());
+    CHECK(fromGoal);
+    CHECK_FALSE(both.looseStops);
+  }
+  // A piece that could hold more pieces than the backward moves list the
+  // subsets of: five units and the bar could be in the cup together, and
+  // that is the most.
+  for (const int units : {5, 6}) {
+    INFO("units " << units);
+    const GridBoard g = fullCup(units);
+    SlideSearch s = nestedSearch(0);
+    const std::optional<Separation> path = searched(g, s, fromGoal);
+    REQUIRE(path.has_value());
+    CHECK(path->getMoves() == 3);
+    CHECK(fromGoal == (units == 5));
+    checkGridPath(g, *path, false);
+    if (units == 6) {
+      CHECK_FALSE(checkSlideMovesBack(g.puz, g.pr(), *g.start, nestedSearch(0), 100000).checked);
+    }
+    SlideSearch one = nestedSearch(0);
+    one.oneEnd = true;
+    const std::optional<Separation> same = findSlidePath(g.puz, g.pr(), *g.start, one);
+    REQUIRE(same.has_value());
+    CHECK(same->getMoves() == 3);
+  }
+}
+
+// The goal end drops a one-way arrangement that one of its own older levels
+// holds, as the start end does; without that a search with no path would go
+// round such arrangements and never end. It takes a goal where a piece with
+// another already nested in it can close round a third: undoing that is two
+// moves, so going back from the goal the arrangement before the closing
+// comes up again two levels after it was first reached.
+TEST_CASE("sliding: the goal end looks for its one-way moves in its own older levels",
+          "[sliding][parallel]") {
+  const BoardCells unit = {{0, 0}};
+  const BoardCells c = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {0, 2}, {1, 2}, {2, 2}};
+  const BoardCells ring = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}};
+  const GridBoard g = gridBoardOf(6, 6, {c, unit, unit, ring, unit},
+                                  {{0, 0, 0, 0, false},    // the C, open to the right
+                                   {1, 1, 1, 1, false},    // a unit in its pocket
+                                   {5, 1, 5, 1, false},    // one the two can close round
+                                   {0, 3, 0, 3, false},    // a closed ring
+                                   {5, 4, 1, 4, false}});  // a unit to end inside it: no path
+  // From the start alone the board is some 400,000 arrangements, more than
+  // the searches here may hold: the goal end is the one that runs out. (And
+  // a goal end going round would come to the same limit, not go on for ever.)
+  const std::uint64_t limit = 100000;
+  SlideSearch one = nestedSearch(0);
+  one.oneEnd = true;
+  one.maxMemoryStates = limit;
+  CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, one).has_value());
+  REQUIRE(one.outcome == SlideOutcome::Memory);
+
+  std::uint64_t visited = 0;
+  for (const unsigned int threads : {1U, 3U}) {
+    INFO("threads " << threads);
+    SlideSearch both = nestedSearch(0);
+    both.threads = threads;
+    both.maxMemoryStates = limit;
+    unsigned long long reached = 0;
+    unsigned long long fresh = 0;
+    both.onLevel = [&](const std::string& line) {
+      unsigned int level = 0;
+      unsigned long long size = 0;
+      unsigned long long r = 0;
+      unsigned long long n = 0;
+      if (std::sscanf(line.c_str(), "goal level %u: %llu arrangements, one-way %llu, %llu new",
+                      &level, &size, &r, &n) == 4) {
+        reached += r;
+        fresh += n;
+      }
+    };
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, both).has_value());
+    REQUIRE(both.outcome == SlideOutcome::NoPath);
+    CHECK(fresh > 0);
+    CHECK(fresh < reached);
+    if (threads == 1) {
+      visited = both.visited;
+    } else {
+      CHECK(both.visited == visited);
+    }
+  }
+}
+
+// Copies of a piece with a goal for each are one arrangement at the goal,
+// whichever copy ends where: such a puzzle is searched from both ends, with
+// nested slides and without.
+TEST_CASE("sliding: copies of a piece with a goal each are searched from both ends",
+          "[sliding]") {
+  const GridBoard g = barAmongUnits();
+  SlideSearch one;
+  const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+  REQUIRE(path.has_value());
+  CHECK(path->getMoves() > 3);
+  checkGridPath(g, *path, false);
+
+  SlideSearch both;
+  both.meetFrom = 1;
+  bool fromGoal = false;
+  const std::optional<Separation> met = searched(g, both, fromGoal);
+  REQUIRE(met.has_value());
+  CHECK(fromGoal);
+  CHECK(met->getMoves() == path->getMoves());
+  checkGridPath(g, *met, false);
+
+  // whole blocks side by side at the goal: the cells they are to cover fit
+  // one of them at every shift between, and still hold them in one way
+  const GridBoard blocks = blockBoard(3, 3, {0, 4, 7}, true);
+  SlideSearch nested = nestedSearch(3);
+  const std::optional<Separation> moved = searched(blocks, nested, fromGoal);
+  REQUIRE(moved.has_value());
+  CHECK(fromGoal);
+  CHECK(moved->getMoves() == 4);
+  checkGridPath(blocks, *moved);
+}
+
+// A search from both ends with nested slides is saved with what each end
+// has been through and carried on to the fewest moves, stopped wherever.
+TEST_CASE("sliding: a search from both ends with nested slides is carried on",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slideends");
+  std::filesystem::remove_all(dir);
+  auto gridSearch = [] {
+    SlideSearch s = nestedSearch(3);
+    s.threads = 2;
+    return s;
+  };
+  // stopped `depth` moves deep (both ends together) and saved
+  auto stoppedAt = [&](const GridBoard& g, std::uint64_t depth, SlideSearch first) {
+    StopSource stop;
+    first.workDir = dir.string();
+    first.stop = stop.token();
+    first.onDepth = [&](std::uint64_t at) {
+      if (at >= depth) {
+        stop.request(StopKind::Pause);
+      }
+    };
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+    CHECK(first.outcome == SlideOutcome::Stopped);
+    CHECK(first.saved);
+    return first;
+  };
+
+  const GridBoard g = settledBoard(37);
+  bool fromGoal = false;
+  SlideSearch straight = gridSearch();
+  const std::optional<Separation> whole = searched(g, straight, fromGoal);
+  REQUIRE(whole.has_value());
+  REQUIRE(fromGoal);
+  const unsigned int moves = whole->getMoves();
+  REQUIRE(moves >= 14);
+  for (const std::uint64_t depth : {1U, 2U, 5U, 8U, moves - 3U, moves - 1U}) {
+    INFO("stopped " << depth << " moves deep");
+    const SlideSearch first = stoppedAt(g, depth, gridSearch());
+    CHECK_FALSE(first.looseStops);
+    SlideSearch second = gridSearch();
+    second.threads = 3;
+    second.workDir = dir.string();
+    const std::optional<Separation> rest = searched(g, second, fromGoal);
+    REQUIRE(rest.has_value());
+    CHECK(second.resumed);
+    CHECK_FALSE(second.looseStops);
+    CHECK(rest->getMoves() == moves);
+    checkGridPath(g, *rest);
+    if (depth + 6 < moves) {
+      CHECK(fromGoal);
+    }
+    CHECK(std::filesystem::is_empty(dir));
+  }
+
+  // no path: carried on, the arrangements of the whole search
+  const GridBoard none = swappedBlocks();
+  SlideSearch all = gridSearch();
+  CHECK_FALSE(searched(none, all, fromGoal).has_value());
+  REQUIRE(all.outcome == SlideOutcome::NoPath);
+  CHECK(fromGoal);
+  for (const std::uint64_t depth : {2U, 3U, 6U}) {
+    INFO("stopped " << depth << " moves deep");
+    CHECK(stoppedAt(none, depth, gridSearch()).visited < all.visited);
+    SlideSearch on = gridSearch();
+    on.workDir = dir.string();
+    CHECK_FALSE(findSlidePath(none.puz, none.pr(), *none.start, on).has_value());
+    CHECK(on.resumed);
+    CHECK(on.outcome == SlideOutcome::NoPath);
+    CHECK(on.visited == all.visited);
+  }
+
+  // saved from both ends, it is carried on so by the A/B switch too
+  (void)stoppedAt(g, 3, gridSearch());
+  SlideSearch switched = gridSearch();
+  switched.oneEnd = true;
+  switched.workDir = dir.string();
+  const std::optional<Separation> same = searched(g, switched, fromGoal);
+  REQUIRE(same.has_value());
+  CHECK(switched.resumed);
+  CHECK(fromGoal);
+  CHECK(same->getMoves() == moves);
+
+  // Saved from the start alone with the stops of a cell as one (as the
+  // builds before the two ends saved it), it is carried on as it was begun:
+  // those arrangements have no moves backwards.
+  SlideSearch alone = gridSearch();
+  alone.oneEnd = true;
+  CHECK(stoppedAt(g, 3, alone).looseStops);
+  SlideSearch later = gridSearch();
+  later.workDir = dir.string();
+  const std::optional<Separation> loose = searched(g, later, fromGoal);
+  REQUIRE(loose.has_value());
+  CHECK(later.resumed);
+  CHECK(later.looseStops);
+  CHECK_FALSE(fromGoal);
+  CHECK(loose->getMoves() == moves);
+  checkGridPath(g, *loose);
+
+  // Saved from the start alone with the stops apart, it takes up the goal
+  // end as it is carried on.
+  alone.gridStopsApart = true;
+  CHECK_FALSE(stoppedAt(g, 3, alone).looseStops);
+  SlideSearch joined = gridSearch();
+  joined.workDir = dir.string();
+  const std::optional<Separation> apart = searched(g, joined, fromGoal);
+  REQUIRE(apart.has_value());
+  CHECK(joined.resumed);
+  CHECK_FALSE(joined.looseStops);
+  CHECK(fromGoal);
+  CHECK(apart->getMoves() == moves);
+  checkGridPath(g, *apart);
+
+  // and a search with nothing saved goes from both ends again
+  SlideSearch next = gridSearch();
+  next.workDir = dir.string();
+  REQUIRE(searched(g, next, fromGoal).has_value());
+  CHECK_FALSE(next.resumed);
+  CHECK(fromGoal);
+  std::filesystem::remove_all(dir);
+}
+
+// What the Solver asks before Continue (decision 0033): a search saved with
+// the stops of a cell as one goes on from the start alone, and where a new
+// search would go from both ends that is worth saying.
+TEST_CASE("sliding: a search saved from the start alone is told where both ends would do",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidealone");
+  std::filesystem::remove_all(dir);
+  auto gridSearch = [] {
+    SlideSearch s = nestedSearch(3);
+    s.threads = 2;
+    return s;
+  };
+  // stopped `depth` moves deep and saved
+  auto stopped = [&](const GridBoard& b, SlideSearch first, std::uint64_t depth) {
+    StopSource stop;
+    first.workDir = dir.string();
+    first.stop = stop.token();
+    first.onDepth = [&](std::uint64_t at) {
+      if (at >= depth) {
+        stop.request(StopKind::Pause);
+      }
+    };
+    CHECK_FALSE(findSlidePath(b.puz, b.pr(), *b.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Stopped);
+    REQUIRE(first.saved);
+    return first;
+  };
+  auto alone = [&](const GridBoard& b, SlideSearch s) {
+    s.workDir = dir.string();
+    return savedFromStartAlone(b.puz, b.pr(), *b.start, s);
+  };
+  auto discard = [&](const GridBoard& b) {
+    discardSaved(b.puz, b.pr(), dir.string());
+    CHECK(std::filesystem::is_empty(dir));
+  };
+
+  GridBoard g = settledBoard(37);
+  // nothing saved; saved from both ends, as this build saves it
+  CHECK_FALSE(alone(g, gridSearch()));
+  CHECK_FALSE(stopped(g, gridSearch(), 3).looseStops);
+  CHECK_FALSE(alone(g, gridSearch()));
+  discard(g);
+
+  // Saved from the start alone with the stops of a cell as one, as the
+  // builds before the two ends saved it: with codes for the stops only
+  // (decision 0032's) and for every position (v1.8.1's).
+  for (const bool plain : {false, true}) {
+    INFO("plain keys " << plain);
+    SlideSearch first = gridSearch();
+    first.oneEnd = true;
+    first.plainKeys = plain;
+    CHECK(stopped(g, first, 3).looseStops);
+    CHECK(alone(g, gridSearch()));
+    // not for a search that would go from the start alone anyway, or that
+    // is not this saved one
+    SlideSearch other = gridSearch();
+    other.oneEnd = true;
+    CHECK_FALSE(alone(g, other));
+    other = gridSearch();
+    other.gridStopsApart = true;
+    CHECK_FALSE(alone(g, other));
+    other = gridSearch();
+    other.partialNested = true;
+    CHECK_FALSE(alone(g, other));
+    other = gridSearch();
+    other.nested = false;
+    CHECK_FALSE(alone(g, other));
+    other = gridSearch();
+    other.grid = 0;
+    CHECK_FALSE(alone(g, other));
+    other = gridSearch();
+    other.resume = false;
+    CHECK_FALSE(alone(g, other));
+    other = gridSearch();
+    other.workDir = (dir / "elsewhere").string();
+    CHECK_FALSE(savedFromStartAlone(g.puz, g.pr(), *g.start, other));
+
+    // the paused solve's question: of the starts it keeps for its next run
+    SlidingOptions options;
+    options.nested = true;
+    options.grid = 3;
+    options.workDir = dir.string();
+    Problem& pr = g.puz.getProblem(0);
+    CHECK_FALSE(pendingFromStartAlone(g.puz, pr, options));
+    pr.addPending(PendingAssembly{*g.start, false, 0, 0});
+    CHECK(pendingFromStartAlone(g.puz, pr, options));
+    options.oneEnd = true;
+    CHECK_FALSE(pendingFromStartAlone(g.puz, pr, options));
+    (void)pr.takePending();
+
+    // asking changed nothing: it is carried on as it was begun, to the
+    // moves of the search from both ends
+    bool fromGoal = false;
+    SlideSearch whole = gridSearch();
+    const std::optional<Separation> both = searched(g, whole, fromGoal);
+    REQUIRE(both.has_value());
+    SlideSearch on = gridSearch();
+    on.workDir = dir.string();
+    const std::optional<Separation> rest = searched(g, on, fromGoal);
+    REQUIRE(rest.has_value());
+    CHECK(on.resumed);
+    CHECK(on.looseStops);
+    CHECK_FALSE(fromGoal);
+    CHECK(rest->getMoves() == both->getMoves());
+    CHECK(std::filesystem::is_empty(dir));
+    CHECK_FALSE(alone(g, gridSearch()));
+  }
+
+  // saved from the start alone with the stops apart: carried on, it takes
+  // up the goal end
+  SlideSearch apart = gridSearch();
+  apart.oneEnd = true;
+  apart.gridStopsApart = true;
+  CHECK_FALSE(stopped(g, apart, 3).looseStops);
+  CHECK_FALSE(alone(g, gridSearch()));
+  discard(g);
+
+  // a piece that may end anywhere: searched from the start alone, saved or
+  // not
+  const GridBoard many = cupsAndUnits(true);
+  CHECK(stopped(many, gridSearch(), 1).looseStops);
+  CHECK_FALSE(alone(many, gridSearch()));
+  discard(many);
   std::filesystem::remove_all(dir);
 }

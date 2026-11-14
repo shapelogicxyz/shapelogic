@@ -1454,6 +1454,25 @@ Result:
 
 Errors: `not_found`, `unsupported`
 
+### `sliding.resumeAdvice`
+
+Whether solve.continue with these options would carry a paused sliding solve's saved search on from the start alone where solve.start would search from the start and from the goal until the two meet (decision 0033), which is far faster: a search with nested slides and optimized paths that a version before the two ends saved. Such a search is carried on as it was begun, so the Solver asks before Continue whether to solve again from the start instead. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `options` | [SolveOptions](#solveoptions) |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `fromStartAlone` | boolean | required | True when a start the paused solve keeps for its next run has a search saved in slideFolder that goes on from the start alone, and a new search of it would go from both ends. False otherwise: nothing paused or saved, a search saved from both ends, a problem that is searched from the start alone anyway (a piece that may end anywhere, partly nested pieces), other options (no nested slides, no grid), and while the problem's run is active. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
 ## Stacking puzzles
 
 A stacking puzzle's rod sets, discs and stacks (decision 0015; the original's Rods panel, disc list and the stacking branches of its Problems tab). Its shapes are discs: shape.create makes one of size 1, stacking.setDiscSize sizes it; the cell editor and the tool tabs are refused, as the original hid them. A puzzle has one rod set at least; a problem stands on one (its rodSet) and holds the discs of each rod at its start and its goal (problem.get's stacks); its pieces are the discs on them, so the Problems tab's brick commands (problem.setResult, the counts and ranges, problem.movePart, the groups) are refused and these are used instead. Each command is one undo step; a rod set is not changed while anything is solved, a problem's stacks not while it is. Refused (unsupported) on other grids.

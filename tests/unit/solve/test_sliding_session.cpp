@@ -1048,6 +1048,148 @@ TEST_CASE("sliding session: optimized paths find the fewest moves of a board of 
   CHECK(p.getProblem(0).getSlideGrid() == 0);
 }
 
+// What the Solver asks before Continue (decision 0033): this build saves a
+// search with nested slides on a grid from both ends and carries it on so; a
+// search saved from the start alone, as the versions before saved it, goes
+// on that way, and the paused problem says so.
+TEST_CASE("sliding session: a paused search saved from the start alone is told",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_alone";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.nested = true;
+  o.sliding.optimizedPaths = true;
+  o.sliding.workDir = dir.string();
+  for (const bool oneEnd : {false, true}) {
+    INFO("saved from the start alone " << oneEnd);
+    Puzzle p = cupAndBlocks();
+    const Problem& pr = p.getProblem(0);
+    CHECK_FALSE(pendingFromStartAlone(p, pr, o.sliding));
+    {
+      // out of disk with its first level: saved, the run paused
+      SolveOptions tight = o;
+      tight.sliding.memoryBytes = 1;
+      tight.sliding.diskBudget = 1;
+      tight.sliding.oneEnd = oneEnd;
+      SolveSession s(p, p.getProblem(0), tight);
+      REQUIRE(s.start().has_value());
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+      REQUIRE(pr.getPending().size() == 1);
+      CHECK_FALSE(std::filesystem::is_empty(dir));
+    }
+    CHECK(pendingFromStartAlone(p, pr, o.sliding) == oneEnd);
+    // carried on as it was begun, to the same three moves
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.resume().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+    CHECK(pr.getSavedSolution(0).getDisassembly()->getMoves() == 3);
+    CHECK(std::filesystem::is_empty(dir));
+    CHECK_FALSE(pendingFromStartAlone(p, pr, o.sliding));
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// Solve starts afresh: a saved search left in the folder would be carried
+// on by the search of its start, from the start alone if it was saved so.
+TEST_CASE("sliding session: Solve throws the saved search away", "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_afresh";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.nested = true;
+  o.sliding.optimizedPaths = true;
+  o.sliding.workDir = dir.string();
+  // out of disk with its first level: saved, the run paused
+  SolveOptions tight = o;
+  tight.sliding.memoryBytes = 1;
+  tight.sliding.diskBudget = 1;
+  Puzzle p = cupAndBlocks();
+  const Problem& pr = p.getProblem(0);
+  auto folders = [&] {
+    return std::distance(std::filesystem::directory_iterator(dir),
+                         std::filesystem::directory_iterator());
+  };
+  {
+    SolveOptions alone = tight;
+    alone.sliding.oneEnd = true;
+    SolveSession s(p, p.getProblem(0), alone);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    CHECK(folders() == 1);
+    CHECK(pendingFromStartAlone(p, pr, o.sliding));
+  }
+  {
+    // solved again, paused the same way: the search saved now is this
+    // run's, from both ends
+    SolveSession s(p, p.getProblem(0), tight);
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    REQUIRE(pr.getPending().size() == 1);
+    CHECK(folders() == 1);
+    CHECK_FALSE(pendingFromStartAlone(p, pr, o.sliding));
+  }
+  SolveSession s(p, p.getProblem(0), o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+  CHECK(pr.getSavedSolution(0).getDisassembly()->getMoves() == 3);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// The same board as release v1.8.1 left it (tests/data/slide_paused_by_v1.8.1:
+// built and solved through its engine with nested slides and optimized
+// paths, paused by a disk budget of nothing, the document saved): its
+// search is found by the name that version gave it, told as saved from the
+// start alone, carried on by Continue and thrown away by Solve.
+TEST_CASE("sliding session: a search paused in v1.8.1 is told, carried on or solved again",
+          "[sliding][session][resume]") {
+  const std::filesystem::path from = "tests/data/slide_paused_by_v1.8.1";
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_v181";
+  SolveOptions o = findSolutions(2);
+  o.sliding.nested = true;
+  o.sliding.optimizedPaths = true;
+  o.sliding.workDir = dir.string();
+  for (const bool again : {false, true}) {
+    INFO("solved again " << again);
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    std::filesystem::copy(from / "slide-cafc026be534476e", dir / "slide-cafc026be534476e");
+    Result<Puzzle> loaded = io::loadPuzzle(from / "cup_and_blocks.xmpuzzle");
+    REQUIRE(loaded.has_value());
+    Puzzle& p = *loaded;
+    const Problem& pr = p.getProblem(0);
+    REQUIRE(pr.getPending().size() == 1);
+    CHECK(pr.getSlideGrid() == 3);
+    CHECK(pendingFromStartAlone(p, pr, o.sliding));
+    // not the search a solve without the grid, or without nested slides, looks for
+    SolveOptions other = o;
+    other.sliding.optimizedPaths = false;
+    CHECK_FALSE(pendingFromStartAlone(p, pr, other.sliding));
+    other = o;
+    other.sliding.nested = false;
+    CHECK_FALSE(pendingFromStartAlone(p, pr, other.sliding));
+
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE((again ? s.start() : s.resume()).has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+    CHECK(pr.getSavedSolution(0).getDisassembly()->getMoves() == 3);
+    CHECK(std::filesystem::is_empty(dir));
+    CHECK_FALSE(pendingFromStartAlone(p, pr, o.sliding));
+  }
+  std::filesystem::remove_all(dir);
+}
+
 TEST_CASE("sliding session: optimized paths say a full search may find what they miss",
           "[sliding][session]") {
   Puzzle every = corridorSwap();

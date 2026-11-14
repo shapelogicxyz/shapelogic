@@ -1232,8 +1232,11 @@ export class SolverWorkspace {
     let options = this.optionsNow();
     if (this.sliding && kind !== 'prepare' && options.sliding?.optimizedPaths !== true) {
       if (kind === 'continue') {
-        // a run that used optimized paths goes on with them
-        if (this.launched.get(problem)?.sliding?.optimizedPaths === true) {
+        // a run that used optimized paths goes on with them: as this session
+        // started it, or (a file opened with the solve paused) by the grid
+        // the problem keeps
+        const kept = this.store.snapshot?.problems.find((q) => q.id === problem)?.slideGrid ?? 0;
+        if (this.launched.get(problem)?.sliding?.optimizedPaths ?? kept > 0) {
           options = withOptimizedPaths(options, true);
         }
       } else {
@@ -1246,6 +1249,13 @@ export class SolverWorkspace {
         }
       }
     }
+    if (this.sliding && kind === 'continue') {
+      const how = await this.askFromStartAlone(problem, options);
+      if (how === null || problem !== this.current || this.busyNow()) {
+        return;
+      }
+      kind = how;
+    }
     if (kind !== 'continue') {
       // the run drops the solutions: nothing of them is read (or played) from now on
       this.sel = -1;
@@ -1253,6 +1263,50 @@ export class SolverWorkspace {
       this.player.show(null, null);
     }
     await this.launchRun(problem, kind, options);
+  }
+
+  /**
+   * Continue on a sliding puzzle whose paused search an earlier version
+   * saved from the start alone, where a new search would go from both ends
+   * (decision 0033, sliding.resumeAdvice): whether to solve again with the
+   * far faster search or carry the saved one on. 'continue' without a
+   * question for every other paused search; null when the question was
+   * dismissed (the solve stays paused).
+   */
+  private async askFromStartAlone(
+    problem: string,
+    options: ReturnType<typeof solveOptions>,
+  ): Promise<'start' | 'continue' | null> {
+    let advice;
+    try {
+      advice = await this.store.engine.call('sliding.resumeAdvice', { problem, options });
+    } catch (e) {
+      reportError(e, 'The saved search could not be looked at');
+      return 'continue';
+    }
+    if (!advice.fromStartAlone) {
+      return 'continue';
+    }
+    const k = await askChoice(
+      'fromStartAlone',
+      'Solve Again with the Faster Search?',
+      'This solve was paused in an earlier version, which searched from the start only. This version searches from the start and from the goal until the two meet, which is far faster: a solve of hours can take seconds.\n\nThe saved search can only be carried on as it began, from the start alone. Solving again throws it away and begins a new search from both ends.\n\nCarrying on is only reasonable when the search has already run for a long time and is likely very close to its end.',
+      [
+        {
+          key: 'continue',
+          label: 'Continue',
+          tip: 'Carry on the saved search to its end, from the start alone',
+        },
+        {
+          key: 'start',
+          label: 'Solve Again',
+          kind: 'pri',
+          default: true,
+          tip: 'Throw the saved search away and solve from the start, searching from both ends',
+        },
+      ],
+    );
+    return k === 'start' || k === 'continue' ? k : null;
   }
 
   /**
