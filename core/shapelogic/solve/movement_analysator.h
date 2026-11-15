@@ -14,9 +14,11 @@
 #include "shapelogic/solve/disassembler_node.h"
 #include "shapelogic/solve/node_hash.h"
 #include "shapelogic/solve/rotation_moves_classic.h"
+#include "shapelogic/solve/simd_bitset.h"
 #include "shapelogic/solve/solver_type.h"
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -41,6 +43,10 @@ class MovementAnalysator {
     /// position, as before (SHAPELOGIC_NO_DISASM_FAST). The moves are the
     /// same either way.
     bool fast = true;
+    /// The vector instructions the fast analysis may use for closing the
+    /// matrix and for its bit masks (the original's
+    /// SHAPELOGIC_NO_DISASM_SIMD is none()). The moves are the same either way.
+    SimdKernels kernels;
     /// The Classic turn generator's switches (SHAPELOGIC_NO_ROT_FAST,
     /// SHAPELOGIC_NO_ROT_ANCHOR).
     RotationMovesClassic::Options rotations;
@@ -115,6 +121,7 @@ class MovementAnalysator {
   void prepareFill();
   void closureFull();
   void closeFrom(const std::vector<unsigned int>& fill);
+  void fillPushMasks(unsigned int nd, unsigned int step, std::uint64_t* even, std::uint64_t* odd);
   void beginSearchPhase(bool linear);
   void switchToRotationPhase();
   void flushSearchPhase();
@@ -143,11 +150,25 @@ class MovementAnalysator {
   std::vector<int> prevPlace_;
   std::vector<int> place_;
   std::vector<unsigned int> prevIds_;
-  /// One direction's matrix, pieces in use only, for closeFrom().
-  std::vector<unsigned int> dense_;
+  /// The closed matrix of the fast analysis: a block per direction of the
+  /// pieces in use, a row a piece (piece x against piece y at [y *
+  /// planeWidth_ + x]). A row is planeWidth_ long, the pieces rounded up to
+  /// whole vectors; what is past the pieces means nothing. Left by
+  /// closeFrom().
+  std::vector<unsigned int> planes_;
+  std::size_t planeWidth_ = 0;
+  /// The kernels of the fast analysis (Options::kernels): the closure of a
+  /// block, and for each of its rows the columns below a step, as bits.
+  void (*closeBlock_)(unsigned int* block, std::size_t n, std::size_t width) = nullptr;
+  void (*rowsBelow_)(const unsigned int* block, std::size_t n, std::size_t width,
+                     unsigned int step, std::uint64_t* masks) = nullptr;
+  /// The cache's directions (asked once: it is a virtual call).
+  unsigned int dirs_ = 0;
   /// checkmovementMasks: per direction (with its sign) and step, the pieces
-  /// each piece takes along, 64 words a set; pushValid_ says which sets are
-  /// worked out for the position at hand.
+  /// each piece takes along, 64 words a set. Both signs of a direction and
+  /// step are worked out together when first asked for; pushValid_ says
+  /// which are, for the position at hand. pushTemp_ holds the two sets of
+  /// a step that has no slot.
   static constexpr unsigned int kPushSlots = 16;
   std::vector<std::uint64_t> pushMasks_;
   std::vector<std::uint64_t> pushTemp_;

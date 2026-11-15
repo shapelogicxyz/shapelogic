@@ -59,7 +59,8 @@ add_executable(bt_tests
   unit/solve/test_solve_session.cpp
   unit/solve/test_split_tasks.cpp
   unit/solve/test_stacking.cpp
-  unit/solve/test_stacking_session.cpp)
+  unit/solve/test_stacking_session.cpp
+  unit/solve/test_take_apart_pool.cpp)
 
 target_link_libraries(bt_tests PRIVATE btengine Catch2::Catch2WithMain manifold::manifold)
 bt_set_warnings(bt_tests)

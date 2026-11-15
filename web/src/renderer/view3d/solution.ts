@@ -15,7 +15,8 @@
 // `renderSolverScene` (what is drawn, the two passes); the drawing is
 // three.js over the engine's meshes (mesh.ts, material.ts), as the other
 // scenes'. A sliding puzzle's tray has its walls drawn around its floor
-// (walls.ts). A piece's label (S1, S1.2) can be drawn on it: a sprite,
+// (walls.ts). A piece's label (S1, S1.2), its name from the Shapes tab
+// (cut to NAME_CHARS), or both ("S1 - name") can be drawn on it: a sprite,
 // facing the eye however the view turns, a white box with black text of a
 // fixed size on the screen, over everything, at the middle of the cell
 // nearest the piece's middle (on the piece even when it is hollow).
@@ -47,6 +48,30 @@ export interface ScenePiece {
   built: BuiltMesh | null;
   /** Its label (S1, S1.2), drawn on it when labels are shown; absent for none. */
   label?: string;
+  /** Its shape's name from the Shapes tab, drawn on it when names are shown; absent or empty for none. */
+  name?: string;
+}
+
+/** What a piece's sprite says: its label (S1), its name, or both. */
+export interface LabelShow {
+  label: boolean;
+  name: boolean;
+}
+
+/** The characters of a name drawn on a piece; the rest is cut off. */
+export const NAME_CHARS = 8;
+
+/** The text drawn on a piece: "S2", "name" (its first NAME_CHARS characters), "S2 - name", or '' for none. */
+export function pieceText(p: { label?: string; name?: string }, show: LabelShow): string {
+  const label = show.label ? (p.label ?? '') : '';
+  // by code point, so that an emoji is not split
+  const name = show.name
+    ? Array.from(p.name ?? '')
+        .slice(0, NAME_CHARS)
+        .join('')
+        .trim()
+    : '';
+  return label !== '' && name !== '' ? `${label} - ${name}` : label !== '' ? label : name;
 }
 
 /** What the scene shows; `key` names it (the e2e tests read it). */
@@ -89,6 +114,8 @@ interface PieceDraw {
   marks: Mesh | null;
   /** The label's sprite, made when labels are first shown; null: none yet. */
   label: Sprite | null;
+  /** The text its sprite says ('' for none). */
+  text: string;
 }
 
 /** Makes a label's sprite (labels.ts); null: none can be drawn. */
@@ -111,7 +138,7 @@ export class SolutionScene {
     palette: [],
   };
   private poses: ScenePose[] = [];
-  private labels = false;
+  private labels: LabelShow = { label: false, name: false };
   /** Pixels per mesh unit at the scene's plane (the labels' size). */
   private pixelsPerUnit = 1;
   /** Null: this scene draws no labels (the board's and the trays'). */
@@ -169,6 +196,7 @@ export class SolutionScene {
         edgeGeometry: null,
         marks: null,
         label: null,
+        text: '',
       };
       const b = piece.built;
       if (b !== null && piece.mode !== 'hidden') {
@@ -195,9 +223,9 @@ export class SolutionScene {
     this.setPoses(this.poses);
   }
 
-  /** Shows or hides the pieces' labels. */
-  setLabels(on: boolean): void {
-    this.labels = on;
+  /** Shows or hides the pieces' labels and names. */
+  setLabels(show: LabelShow): void {
+    this.labels = { ...show };
     this.applyLabels();
   }
 
@@ -209,11 +237,11 @@ export class SolutionScene {
     }
   }
 
-  /** The labels drawn now (the e2e tests read it): piece:label, of the pieces shown. */
+  /** The labels drawn now (the e2e tests read it): piece:text, of the pieces shown. */
   labelsShown(): string {
     return this.draws
       .filter((d) => d.label?.visible === true && d.group.visible)
-      .map((d) => `${String(d.piece.piece)}:${d.piece.label ?? ''}`)
+      .map((d) => `${String(d.piece.piece)}:${d.text}`)
       .join(' ');
   }
 
@@ -310,21 +338,37 @@ export class SolutionScene {
     }
   }
 
-  // the labels made when first shown, for the pieces drawn that have one
+  // the labels made when first shown, for the pieces drawn that have one;
+  // a label whose text changed (the other part turned on or off) made again
   private applyLabels(): void {
     for (const d of this.draws) {
-      const text = d.piece.label ?? '';
-      if (this.labels && d.label === null && d.faces !== null && text !== '') {
+      const text = pieceText(d.piece, this.labels);
+      if (d.label !== null && text !== '' && text !== d.text) {
+        this.dropLabel(d);
+      }
+      if (d.label === null && d.faces !== null && text !== '') {
         d.label = this.makeLabel?.(text) ?? null;
         if (d.label !== null) {
+          d.text = text;
           d.label.position.copy(labelSpot(d.faces.geometry));
           this.scaleLabel(d);
+          this.setOpacity(d, d.uniforms.uAlpha.value);
           d.group.add(d.label);
         }
       }
       if (d.label !== null) {
-        d.label.visible = this.labels;
+        d.label.visible = text !== '';
       }
+    }
+  }
+
+  private dropLabel(d: PieceDraw): void {
+    if (d.label !== null) {
+      d.group.remove(d.label);
+      d.label.material.map?.dispose();
+      d.label.material.dispose();
+      d.label = null;
+      d.text = '';
     }
   }
 
@@ -362,8 +406,7 @@ export class SolutionScene {
         (d.faces.material as ReturnType<typeof faceMaterial>).dispose();
       }
       d.edgeGeometry?.dispose();
-      d.label?.material.map?.dispose();
-      d.label?.material.dispose();
+      this.dropLabel(d);
     }
     this.draws = [];
   }

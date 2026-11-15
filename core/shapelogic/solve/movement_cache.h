@@ -12,7 +12,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace bt {
@@ -28,6 +27,10 @@ class Voxel;
 /// puzzle's for orientation 0.
 class MovementCache {
  public:
+  /// The value for two pieces with nothing of each other in the way: the
+  /// largest a cache gives.
+  static constexpr unsigned int kFree = 32000;
+
   /// A cache for the pieces of `problem`; puzzle and problem must outlive it.
   MovementCache(const Puzzle& puzzle, const Problem& problem);
   virtual ~MovementCache();
@@ -58,23 +61,23 @@ class MovementCache {
   virtual std::vector<unsigned int> moCalcValues(const Voxel& sh1, const Voxel& sh2, int dx, int dy,
                                                  int dz) = 0;
 
-  struct MoKey {
-    unsigned int s1 = 0;  ///< the first shape
-    unsigned int s2 = 0;  ///< the second shape
-    int dx = 0;           ///< the offset of the second
-    int dy = 0;
-    int dz = 0;
-    unsigned short t1 = 0;  ///< the orientations
-    unsigned short t2 = 0;
+  /// The values found so far, in an open-addressed table (linear probing, a
+  /// power of two of places, at most 70% full; the original's moTable). A
+  /// place is kKeyWords words of key (the two shapes, the offset of the
+  /// second, both orientations in one word) and the numDirections() values
+  /// after them, so a hit reads one stretch of memory: a take-apart on
+  /// several threads has a cache a thread, and they share the processor's.
+  /// An empty place has kEmpty for its first shape.
+  static constexpr std::size_t kKeyWords = 6;
+  static constexpr unsigned int kEmpty = 0xFFFFFFFFU;
+  /// The place of a key, or the empty place it goes to.
+  [[nodiscard]] unsigned int* moFind(const unsigned int* key);
+  void moGrow();
 
-    bool operator==(const MoKey& o) const = default;
-  };
-
-  struct MoKeyHash {
-    std::size_t operator()(const MoKey& k) const noexcept;
-  };
-
-  std::unordered_map<MoKey, std::vector<unsigned int>, MoKeyHash> moCache_;
+  std::vector<unsigned int> moTable_;
+  std::size_t moStride_ = 0;  ///< words a place
+  std::size_t moMask_ = 0;    ///< places - 1
+  std::size_t moCount_ = 0;   ///< places in use
 
   const GridType& gridType_;
   /// The puzzle's shape of each part (orientation 0), and the turned copies

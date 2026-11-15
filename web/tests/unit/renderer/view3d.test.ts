@@ -5,7 +5,8 @@
 // as the original's drawShrinkTriangle and drawShrinkQuadrilateral), a
 // pick's cell and side, the space's extent per grid, the camera's angles,
 // the Top Up orbit (the mockup's Drag) and the Free Spin arc-ball, the Z
-// axis directions' upright frames, and its animations.
+// axis directions' upright frames, its animations, and the text drawn on a
+// solution's piece (its label, its name cut short, or both).
 
 import { Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
@@ -37,6 +38,7 @@ import {
 } from '../../../src/renderer/view3d/mesh.ts';
 import { layerSlab } from '../../../src/renderer/view3d/overlays.ts';
 import { describePick, pickOf } from '../../../src/renderer/view3d/picking.ts';
+import { NAME_CHARS, pieceText } from '../../../src/renderer/view3d/solution.ts';
 
 /** A frame of polygons given as corner lists, emitted as the engine's fans. */
 function frame(
@@ -399,5 +401,25 @@ describe('camera.ts', () => {
   it('frames the space as the mockup: its largest side with a margin fills the view', () => {
     expect(pixelsPerUnit(800, 600, [3, 3, 3], 1)).toBeCloseTo(600 / (3 * 2.05 + 1.5), 9);
     expect(pixelsPerUnit(800, 600, [3, 10, 3], 2)).toBeCloseTo((600 / 22) * 2, 9);
+  });
+});
+
+describe('the text drawn on a solution piece', () => {
+  const p = { label: 'S2', name: 'My long label' };
+  it('says the label, the name cut to its first characters, or both', () => {
+    expect(NAME_CHARS).toBe(8);
+    expect(pieceText(p, { label: true, name: false })).toBe('S2');
+    expect(pieceText(p, { label: false, name: true })).toBe('My long');
+    expect(pieceText({ label: 'S2', name: 'Corner12' }, { label: true, name: true })).toBe(
+      'S2 - Corner12',
+    );
+    expect(pieceText(p, { label: false, name: false })).toBe('');
+  });
+  it('falls back to what there is, and keeps an emoji whole', () => {
+    expect(pieceText({ label: 'S3', name: '' }, { label: true, name: true })).toBe('S3');
+    expect(pieceText({ label: 'S3' }, { label: false, name: true })).toBe('');
+    expect(pieceText({ name: '🧩🧩🧩🧩🧩🧩🧩🧩🧩' }, { label: false, name: true })).toBe(
+      '🧩🧩🧩🧩🧩🧩🧩🧩',
+    );
   });
 });

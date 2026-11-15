@@ -385,6 +385,12 @@ searches, the search may use. `0` (the default) uses every core. Use a
 lower number to leave room for other work, or `-t 1` to compare against a
 single-threaded run. The answers do not depend on the number of threads.
 
+With `-d` on a brick puzzle, the assemblies are taken apart on several
+threads while the search goes on, and the results are printed in the order
+the assemblies were found. The search and the take-apart share the `-t`
+threads: a quarter of them take apart while the search is running, and all
+of them when the search has to wait for the take-apart or is finished.
+
 ### `--progress`
 
 ```sh
@@ -911,11 +917,12 @@ don't need them to solve puzzles.
 
 | Switch | Effect |
 |---|---|
-| `--no-simd` | Use only the plain search and scalar loops, not the vector (SIMD) code. |
+| `--no-simd` | Use only the plain search and scalar loops, not the vector (SIMD) code, in the assembly search and in the take-apart. |
 | `--no-row-check` | Check each assembly found against its rotations as a built assembly, not on the rows of the placement matrix. |
 | `--split-tasks N` | Split a search on several threads into at least `N` tasks before it starts. `0`, the default, lets the assembler choose (the tasks split further while they are searched). |
 | `--split-depth N` | Let that split go at most `N` pieces deep. `0`, the default, lets the assembler choose. |
 | `--no-level-threads` | Take each assembly apart on one thread, instead of spreading its levels over several. |
+| `--no-take-apart-pool` | Take the assemblies apart one after another on the thread that found them, instead of several at once on threads of their own. |
 | `--no-fast-analysis` | Use the take-apart's slower reference path for analysing moves. |
 | `--no-fast-rotations` | Use the slower reference path for rotations (with `-R`). |
 | `--no-rotation-anchor` | Use the slower reference path for anchoring rotations (with `-R`). |

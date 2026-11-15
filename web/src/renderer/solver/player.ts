@@ -453,7 +453,7 @@ export class Player {
           colour: p?.colour ?? [1, 1, 1],
           mode: this.mode(piece),
           built: built[i] ?? null,
-          ...(p === undefined ? {} : { label: p.label }),
+          ...(p === undefined ? {} : { label: p.label, name: p.name }),
         };
       }),
     };

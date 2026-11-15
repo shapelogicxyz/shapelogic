@@ -110,7 +110,8 @@ void usage(HelpKind kind) {
         "  -C      strict color restrictions: a voxel fits only a result voxel of the same color\n"
         "          (a colored voxel does not also fit a neutral one, and a neutral voxel\n"
         "          fits only a neutral result voxel)\n"
-        "  -t n    set number of worker threads for assembler (0 = auto)\n"
+        "  -t n    set number of worker threads for the assembler; with -d the\n"
+        "          take-apart shares them (0 = auto)\n"
         "  --solver TYPE   (default: Complete (ShapeLogic))\n"
         "            \"Complete (ShapeLogic)\"  complete take-apart (also: classic)\n"
         "            \"Fast (Crowell)\"         90° take-apart heuristics (also: crowell)\n"
@@ -119,6 +120,8 @@ void usage(HelpKind kind) {
         "  --no-row-check       check each assembly against its rotations as built, not\n"
         "                       on the rows of the matrix\n"
         "  --no-level-threads   take apart on one thread per assembly\n"
+        "  --no-take-apart-pool take the assemblies apart one after another, on the\n"
+        "                       thread that found them\n"
         "  --no-fast-analysis, --no-fast-rotations, --no-rotation-anchor\n"
         "                       the take-apart's slower reference paths\n"
         "  --derived-checks     on cubes and triangular prisms, take apart with the\n"
@@ -335,6 +338,8 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.rowRotationCheck = false;
     } else if (a == "--no-level-threads") {
       o.levelThreads = false;
+    } else if (a == "--no-take-apart-pool") {
+      o.takeApartPool = false;
     } else if (a == "--no-fast-analysis") {
       o.fastAnalysis = false;
     } else if (a == "--no-fast-rotations") {

@@ -35,6 +35,7 @@
 #include "shapelogic/solve/solve_session.h"
 #include "shapelogic/solve/solver_type.h"
 #include "shapelogic/solve/stack_search.h"
+#include "shapelogic/solve/take_apart_pool.h"
 
 #include <atomic>
 #include <chrono>
@@ -408,6 +409,9 @@ bt::DisassemblerOptions takeApartOptions(const Options& o, bt::ThreadPool* pool)
   d.pool = pool;
   d.levelThreads = o.levelThreads;
   d.analysis.fast = o.fastAnalysis;
+  if (o.noSimd) {
+    d.analysis.kernels = bt::SimdKernels::none();
+  }
   d.analysis.rotations.fast = o.fastRotations;
   d.analysis.rotations.anchor = o.rotationAnchor;
   d.analysis.derivedChecks = o.derivedChecks;
@@ -709,14 +713,33 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     // The take-apart, on grids that have one (the others report no
     // solutions, where the original aborted); a sliding "take-apart" is the
-    // slide search from each start to the goal
+    // slide search from each start to the goal. The assemblies are taken
+    // apart side by side on threads of their own (burrTxt's disassembler
+    // pool), the results printed in the order the assemblies were found; on
+    // one thread, or with --no-take-apart-pool, each where it is found.
+    const bool takeApart =
+        o.disassemble && !sliding && bt::Disassembler::canDisassemble(puzzle);
+    const bool pooled = takeApart && o.takeApartPool && budget > 1;
     std::unique_ptr<bt::Disassembler> disassembler;
-    if (o.disassemble && !sliding && bt::Disassembler::canDisassemble(puzzle)) {
+    bt::TakeApartPoolOptions poolOptions;
+    if (takeApart) {
       if (!takeApartPool) {
         takeApartPool = std::make_unique<bt::ThreadPool>(budget);
       }
-      disassembler = std::make_unique<bt::Disassembler>(puzzle, problem,
-                                                        takeApartOptions(o, takeApartPool.get()));
+      if (pooled) {
+        // with -t n the search and the take-aparts share the n threads
+        const bt::TakeApartThreads threads = bt::takeApartThreads(o.threads, budget);
+        if (o.threads > 0) {
+          search.threads = threads.search;
+        }
+        poolOptions.workers = threads.workers;
+        poolOptions.besideSearch = threads.beside;
+        poolOptions.searchCores = threads.search;
+        poolOptions.takeApart = takeApartOptions(o, takeApartPool.get());
+      } else {
+        disassembler = std::make_unique<bt::Disassembler>(
+            puzzle, problem, takeApartOptions(o, takeApartPool.get()));
+      }
     }
 
     // optimized paths: the grid the problem's stops are held to, once
@@ -756,23 +779,72 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     // and the same command carries it on
     bool slideSaved = false;
     std::atomic<unsigned long> seenAssemblies{0};
+
+    // What a take-apart found: counted and printed. From one thread at a
+    // time, in the order the assemblies were found (the pool sees to that).
+    const auto takenApart = [&](const bt::Assembly& assembly, const bt::TakeApartResult& r) {
+      if (!r.separation) {
+        return;
+      }
+      solutions++;
+      if (o.json) {
+        best.consider(r.separation->movesText());
+        return;
+      }
+      if (o.printAssembly) {
+        bt::cli::printAssembly(stdout, puzzle, problem, assembly);
+      }
+      if (!o.quiet || o.allProblems) {
+        std::printf("level: %s\n", r.separation->movesText().c_str());
+      }
+      if (o.printDisassembly) {
+        bt::cli::printSeparation(stdout, puzzle, problem, *r.separation, assembly,
+                                 o.originalDrawings);
+      }
+    };
+    // made before the ticker that reads it, and gone after it
+    std::unique_ptr<bt::TakeApartPool> takeAparts;
+    if (pooled) {
+      takeAparts = std::make_unique<bt::TakeApartPool>(
+          puzzle, problem, poolOptions,
+          [&](const bt::Assembly& a, bt::TakeApartResult& r) { takenApart(a, r); });
+    }
+
     ProgressTicker ticker(o.progress, [&] {
       const unsigned long seen = seenAssemblies.load(std::memory_order_relaxed);
       std::fprintf(stderr, "%7.1f s  assembly %5.1f%%, %lu found", secondsSince(start),
                    100.0 * static_cast<double>(assembler->finished()), seen);
-      if (disassembler) {
+      // the take-apart under way: the first of them, with a pool
+      std::optional<bt::DisassemblyProgress> shown;
+      std::size_t running = 0;
+      unsigned long long number = seen;
+      if (takeAparts) {
+        const std::vector<bt::DisassemblyProgress> all = takeAparts->progress();
+        running = all.size();
+        if (!all.empty()) {
+          shown = all.front();
+        }
+        number = takeAparts->delivered() + 1;
+      } else if (disassembler) {
         const bt::DisassemblyProgress dp = disassembler->progress();
         if (dp.active) {
-          std::fprintf(stderr, "  disassemble %lu: level %u: %llu/%llu, %llu positions", seen,
-                       dp.level, static_cast<unsigned long long>(dp.levelDone),
-                       static_cast<unsigned long long>(dp.levelSize),
-                       static_cast<unsigned long long>(dp.nodes));
-          if (dp.pieces > 2) {
-            std::fprintf(stderr, ", split %u/%u", dp.separations, dp.pieces - 1);
-          }
-          if (dp.threads > 1) {
-            std::fprintf(stderr, ", %u threads", dp.threads);
-          }
+          shown = dp;
+        }
+      }
+      if (shown) {
+        const bt::DisassemblyProgress& dp = *shown;
+        std::fprintf(stderr, "  disassemble %llu: level %u: %llu/%llu, %llu positions", number,
+                     dp.level, static_cast<unsigned long long>(dp.levelDone),
+                     static_cast<unsigned long long>(dp.levelSize),
+                     static_cast<unsigned long long>(dp.nodes));
+        if (dp.pieces > 2) {
+          std::fprintf(stderr, ", split %u/%u", dp.separations, dp.pieces - 1);
+        }
+        if (dp.threads > 1) {
+          std::fprintf(stderr, ", %u threads", dp.threads);
+        }
+        if (running > 1) {
+          std::fprintf(stderr, ", %zu take-aparts at once", running);
         }
       }
       std::fprintf(stderr, "\n");
@@ -832,31 +904,20 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                 }
               }
             }
+          } else if (takeAparts) {
+            takeAparts->submit(assembly);
           } else if (disassembler) {
-            const bt::TakeApartResult r = disassembler->disassemble(assembly);
-            if (r.separation) {
-              solutions++;
-              if (o.json) {
-                best.consider(r.separation->movesText());
-              } else {
-                if (o.printAssembly) {
-                  bt::cli::printAssembly(stdout, puzzle, problem, assembly);
-                }
-                if (!o.quiet || o.allProblems) {
-                  std::printf("level: %s\n", r.separation->movesText().c_str());
-                }
-                if (o.printDisassembly) {
-                  bt::cli::printSeparation(stdout, puzzle, problem, *r.separation, assembly,
-                                           o.originalDrawings);
-                }
-              }
-            }
+            takenApart(assembly, disassembler->disassemble(assembly));
           } else if (o.printAssembly && !o.disassemble) {
             bt::cli::printAssembly(stdout, puzzle, problem, assembly);
           }
           return true;
         },
         search, bt::StopToken{});
+    if (takeAparts) {
+      // the search is over: every thread takes apart what is left
+      takeAparts->finish();
+    }
     ticker.stop();
     if (end != bt::RunEnd::Finished && !slideSaved) {
       std::fprintf(stderr, "shapelogic_cli: the search stopped before its end\n");

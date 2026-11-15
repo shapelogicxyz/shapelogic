@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ported from src/lib/movementanalysator.cpp. SHAPELOGIC_NO_DISASM_FAST is
-// Options::fast.
+// Options::fast, SHAPELOGIC_NO_DISASM_SIMD Options::kernels. The closure's
+// kernels are after its rfw_avx2, rfw_neon and rfw_scalar.
 #include "shapelogic/solve/movement_analysator.h"
 
 #include "shapelogic/base/assert.h"
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <bit>
 #include <chrono>
+#include <cstddef>
 
 namespace bt {
 
@@ -25,6 +27,149 @@ std::uint64_t nowUs() {
       duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
 }
 
+// ---- the kernels of the fast analysis ----------------------------------------------
+//
+// A block is one direction's matrix of the n pieces in use: n rows of
+// `width` values, the pieces rounded up to a multiple of 8 so that a row is
+// whole vectors. block[y * width + x] is how far piece x can go against
+// piece y. What a row holds past the pieces means nothing: the vector
+// kernels work on it as on the rest, a column never reaches another column,
+// and nobody reads it as a value.
+//
+// closeBlock*: the shortest path between every two pieces (Floyd-Warshall),
+// in place. Row k does not change in round k (its own entry is 0), so the
+// other rows read it while they are written; a row with nothing between its
+// piece and piece k is left out (no value is above kFree and none grows, so
+// no way by k is shorter).
+//
+// rowsBelow*: masks[y] gets a bit for every x with block[y * width + x]
+// below `step`, for blocks of at most 64 pieces. The vector kernels set
+// bits past the pieces too, as the values there fall; the caller cuts them
+// off.
+
+void closeBlockScalar(unsigned int* block, std::size_t n, std::size_t width) {
+  for (std::size_t k = 0; k < n; k++) {
+    const unsigned int* __restrict via = block + k * width;
+    for (std::size_t y = 0; y < n; y++) {
+      if (y == k) {
+        continue;
+      }
+      unsigned int* __restrict row = block + y * width;
+      const unsigned int first = row[k];
+      if (first >= MovementCache::kFree) {
+        continue;
+      }
+      for (std::size_t x = 0; x < n; x++) {
+        row[x] = std::min(row[x], first + via[x]);
+      }
+    }
+  }
+}
+
+void rowsBelowScalar(const unsigned int* block, std::size_t n, std::size_t width,
+                     unsigned int step, std::uint64_t* masks) {
+  for (std::size_t y = 0; y < n; y++) {
+    const unsigned int* row = block + y * width;
+    std::uint64_t m = 0;
+    for (std::size_t x = 0; x < n; x++) {
+      m |= static_cast<std::uint64_t>(step > row[x]) << x;
+    }
+    masks[y] = m;
+  }
+}
+
+#if defined(BT_SIMD_NEON)
+void closeBlockNeon(unsigned int* block, std::size_t n, std::size_t width) {
+  for (std::size_t k = 0; k < n; k++) {
+    const unsigned int* via = block + k * width;
+    for (std::size_t y = 0; y < n; y++) {
+      if (y == k) {
+        continue;
+      }
+      unsigned int* row = block + y * width;
+      const unsigned int first = row[k];
+      if (first >= MovementCache::kFree) {
+        continue;
+      }
+      const uint32x4_t f = vdupq_n_u32(first);
+      for (std::size_t x = 0; x < width; x += 8) {
+        const uint32x4_t a = vminq_u32(vld1q_u32(row + x), vaddq_u32(f, vld1q_u32(via + x)));
+        const uint32x4_t b =
+            vminq_u32(vld1q_u32(row + x + 4), vaddq_u32(f, vld1q_u32(via + x + 4)));
+        vst1q_u32(row + x, a);
+        vst1q_u32(row + x + 4, b);
+      }
+    }
+  }
+}
+
+void rowsBelowNeon(const unsigned int* block, std::size_t n, std::size_t width, unsigned int step,
+                   std::uint64_t* masks) {
+  // each value's bit of its group of eight; a compare leaves all bits or none
+  static constexpr unsigned int kLow[4] = {1, 2, 4, 8};
+  static constexpr unsigned int kHigh[4] = {16, 32, 64, 128};
+  const uint32x4_t low = vld1q_u32(kLow);
+  const uint32x4_t high = vld1q_u32(kHigh);
+  const uint32x4_t s = vdupq_n_u32(step);
+  for (std::size_t y = 0; y < n; y++) {
+    const unsigned int* row = block + y * width;
+    std::uint64_t m = 0;
+    for (std::size_t x = 0; x < width; x += 8) {
+      const uint32x4_t a = vandq_u32(vcgtq_u32(s, vld1q_u32(row + x)), low);
+      const uint32x4_t b = vandq_u32(vcgtq_u32(s, vld1q_u32(row + x + 4)), high);
+      m |= std::uint64_t{vaddvq_u32(vorrq_u32(a, b))} << x;
+    }
+    masks[y] = m;
+  }
+}
+#endif
+
+#if defined(BT_SIMD_X86)
+__attribute__((target("avx2"))) void closeBlockAvx2(unsigned int* block, std::size_t n,
+                                                    std::size_t width) {
+  for (std::size_t k = 0; k < n; k++) {
+    const unsigned int* via = block + k * width;
+    for (std::size_t y = 0; y < n; y++) {
+      if (y == k) {
+        continue;
+      }
+      unsigned int* row = block + y * width;
+      const unsigned int first = row[k];
+      if (first >= MovementCache::kFree) {
+        continue;
+      }
+      const __m256i f = _mm256_set1_epi32(static_cast<int>(first));
+      for (std::size_t x = 0; x < width; x += 8) {
+        // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast): unaligned vector loads and stores
+        const __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i_u*>(via + x));
+        const __m256i r = _mm256_loadu_si256(reinterpret_cast<const __m256i_u*>(row + x));
+        _mm256_storeu_si256(reinterpret_cast<__m256i_u*>(row + x),
+                            _mm256_min_epu32(r, _mm256_add_epi32(f, v)));
+        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+      }
+    }
+  }
+}
+
+__attribute__((target("avx2"))) void rowsBelowAvx2(const unsigned int* block, std::size_t n,
+                                                   std::size_t width, unsigned int step,
+                                                   std::uint64_t* masks) {
+  // the values are far below 2^31: the signed compare is the unsigned one
+  const __m256i s = _mm256_set1_epi32(static_cast<int>(step));
+  for (std::size_t y = 0; y < n; y++) {
+    const unsigned int* row = block + y * width;
+    std::uint64_t m = 0;
+    for (std::size_t x = 0; x < width; x += 8) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): an unaligned vector load
+      const __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i_u*>(row + x));
+      const int bits = _mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpgt_epi32(s, v)));
+      m |= std::uint64_t{static_cast<unsigned int>(bits)} << x;
+    }
+    masks[y] = m;
+  }
+}
+#endif
+
 }  // namespace
 
 MovementAnalysator::MovementAnalysator(const Puzzle& puzzle, const Problem& problem,
@@ -35,7 +180,32 @@ MovementAnalysator::MovementAnalysator(const Puzzle& puzzle, const Problem& prob
   // only a grid with a take-apart gets here
   BT_ASSERT(cache_);
 
-  matrix_.assign(std::size_t{cache_->numDirections()} * piecenumber_ * piecenumber_, 0);
+  dirs_ = cache_->numDirections();
+  matrix_.assign(std::size_t{dirs_} * piecenumber_ * piecenumber_, 0);
+  planes_.assign(std::size_t{dirs_} * piecenumber_ * ((std::size_t{piecenumber_} + 7) & ~std::size_t{7}),
+                 MovementCache::kFree);
+  pushValid_.assign(std::size_t{dirs_} * kPushSlots, 0);
+  pushMasks_.assign(std::size_t{2} * dirs_ * kPushSlots * 64, 0);
+  pushTemp_.assign(std::size_t{2} * 64, 0);
+
+  closeBlock_ = closeBlockScalar;
+  rowsBelow_ = rowsBelowScalar;
+  switch (chooseKernel(options.kernels, false)) {
+#if defined(BT_SIMD_NEON)
+    case SimdKernel::Neon:
+      closeBlock_ = closeBlockNeon;
+      rowsBelow_ = rowsBelowNeon;
+      break;
+#endif
+#if defined(BT_SIMD_X86)
+    case SimdKernel::Avx2:
+      closeBlock_ = closeBlockAvx2;
+      rowsBelow_ = rowsBelowAvx2;
+      break;
+#endif
+    default:
+      break;
+  }
   movement_.assign(piecenumber_, 0);
   weights_.assign(piecenumber_, 0);
   check_.assign(piecenumber_, 0);
@@ -135,46 +305,62 @@ void MovementAnalysator::prepare() {
 }
 
 // The second part of Bill Cutler's algorithm on a copy of `fill`, left in
-// matrix_: how far a piece can go against another when the pieces between
-// may be pushed along. That is the shortest path between every two pieces,
-// which one Floyd-Warshall pass gives exactly; closureFull's sweeps until
-// nothing changes reach the same values in two or more passes.
+// planes_ (and, for more pieces than the bit masks hold, in matrix_ too):
+// how far a piece can go against another when the pieces between may be
+// pushed along. That is the shortest path between every two pieces, which
+// one Floyd-Warshall pass gives exactly; closureFull's sweeps until nothing
+// changes reach the same values in two or more passes.
 void MovementAnalysator::closeFrom(const std::vector<unsigned int>& fill) {
   const std::size_t n = pieces_->size();
-  const unsigned int dirs = cache_->numDirections();
+  const std::size_t width = (n + 7) & ~std::size_t{7};
+  const std::size_t dirs = dirs_;
 
-  dense_.resize(n * n);
+  planeWidth_ = width;
 
-  for (unsigned int d = 0; d < dirs; d++) {
-    // dense_[y * n + x]: piece x against piece y, as matrix_ holds it
+  for (std::size_t d = 0; d < dirs; d++) {
+    unsigned int* block = &planes_[d * piecenumber_ * width];
+
     for (std::size_t y = 0; y < n; y++) {
-      const unsigned int* row = &fill[(y * piecenumber_) * dirs + d];
+      const unsigned int* from = &fill[(y * piecenumber_) * dirs + d];
+      unsigned int* row = block + y * width;
       for (std::size_t x = 0; x < n; x++) {
-        dense_[y * n + x] = row[x * dirs];
+        row[x] = from[x * dirs];
       }
     }
 
-    for (std::size_t k = 0; k < n; k++) {
-      // row k does not change in round k (its own entry is 0), so the other
-      // rows can read it while they are written
-      const unsigned int* __restrict via = &dense_[k * n];
+    closeBlock_(block, n, width);
+
+    if (n > 64) {
+      // checkmovement's loops read matrix_
       for (std::size_t y = 0; y < n; y++) {
-        if (y == k) {
-          continue;
-        }
-        unsigned int* __restrict row = &dense_[y * n];
-        const unsigned int first = row[k];
+        const unsigned int* row = block + y * width;
+        unsigned int* to = &matrix_[(y * piecenumber_) * dirs + d];
         for (std::size_t x = 0; x < n; x++) {
-          row[x] = std::min(row[x], first + via[x]);
+          to[x * dirs] = row[x];
         }
       }
     }
+  }
+}
 
-    for (std::size_t y = 0; y < n; y++) {
-      unsigned int* row = &matrix_[(y * piecenumber_) * dirs + d];
-      for (std::size_t x = 0; x < n; x++) {
-        row[x * dirs] = dense_[y * n + x];
-      }
+// The pieces each piece takes along `step` units in direction nd, for both
+// signs: piece i takes piece j along when it cannot go that far against
+// it. With the sign that reads the matrix by rows (odd) that is row i of
+// the block; with the other, column i.
+void MovementAnalysator::fillPushMasks(unsigned int nd, unsigned int step, std::uint64_t* even,
+                                       std::uint64_t* odd) {
+  const auto n = static_cast<std::size_t>(nextPn_);
+  rowsBelow_(&planes_[std::size_t{nd} * piecenumber_ * planeWidth_], n, planeWidth_, step, odd);
+
+  const std::uint64_t all = n == 64 ? ~std::uint64_t{0} : (std::uint64_t{1} << n) - 1;
+  for (std::size_t i = 0; i < n; i++) {
+    // a piece does not push itself
+    odd[i] &= all & ~(std::uint64_t{1} << i);
+    even[i] = 0;
+  }
+  for (std::size_t j = 0; j < n; j++) {
+    for (std::uint64_t r = odd[j]; r != 0; r &= r - 1) {
+      even[std::countr_zero(r)] |= std::uint64_t{1} << j;
     }
   }
 }
@@ -380,43 +566,23 @@ bool MovementAnalysator::checkmovement(unsigned int maxPieces, unsigned int step
 // mask reaches. The same answer and the same movement_ as the loops.
 bool MovementAnalysator::checkmovementMasks(unsigned int maxPieces, unsigned int step) {
   const auto n = static_cast<unsigned int>(nextPn_);
-  const unsigned int dirs = cache_->numDirections();
   const unsigned int nd = nextdir_ >> 1;
-  BT_ASSERT(nd < dirs);
+  BT_ASSERT(nd < dirs_);
 
   // slot 0 is a removal, slots 1 .. kPushSlots - 1 the steps of that length
   const unsigned int slot = step < kPushSlots ? step : (step == 30000 ? 0 : kPushSlots);
-  std::uint64_t* pushes = nullptr;
-  bool fresh = true;
+  const std::uint64_t* pushes = nullptr;
   if (slot < kPushSlots) {
-    const std::size_t entry = std::size_t{nextdir_} * kPushSlots + slot;
-    if (pushValid_.size() < std::size_t{2} * dirs * kPushSlots) {
-      pushValid_.assign(std::size_t{2} * dirs * kPushSlots, 0);
-      pushMasks_.assign(std::size_t{2} * dirs * kPushSlots * 64, 0);
+    const std::size_t entry = std::size_t{nd} * kPushSlots + slot;
+    std::uint64_t* even = &pushMasks_[(std::size_t{2} * entry) * 64];
+    if (pushValid_[entry] == 0) {
+      fillPushMasks(nd, step, even, even + 64);
+      pushValid_[entry] = 1;
     }
-    pushes = &pushMasks_[entry * 64];
-    fresh = pushValid_[entry] == 0;
-    pushValid_[entry] = 1;
+    pushes = even + std::size_t{nextdir_ & 1} * 64;
   } else {
-    pushTemp_.resize(64);
-    pushes = pushTemp_.data();
-  }
-
-  if (fresh) {
-    for (unsigned int i = 0; i < n; i++) {
-      std::uint64_t m = 0;
-      // how far piece i can go against piece j, as checkmovement reads it
-      const unsigned int* v = (nextdir_ & 1) != 0
-                                  ? &matrix_[(std::size_t{piecenumber_} * i) * dirs + nd]
-                                  : &matrix_[std::size_t{i} * dirs + nd];
-      const std::size_t stride = (nextdir_ & 1) != 0 ? dirs : std::size_t{piecenumber_} * dirs;
-      for (unsigned int j = 0; j < n; j++) {
-        if (j != i && step > v[j * stride]) {
-          m |= std::uint64_t{1} << j;
-        }
-      }
-      pushes[i] = m;
-    }
+    fillPushMasks(nd, step, pushTemp_.data(), pushTemp_.data() + 64);
+    pushes = pushTemp_.data() + std::size_t{nextdir_ & 1} * 64;
   }
 
   std::uint64_t moving = std::uint64_t{1} << static_cast<unsigned int>(nextpiece_);

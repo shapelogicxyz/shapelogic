@@ -69,6 +69,7 @@ struct Options {
   // A/B switches
   bool noSimd = false;
   bool levelThreads = true;
+  bool takeApartPool = true;  ///< --no-take-apart-pool
   bool fastAnalysis = true;
   bool fastRotations = true;
   bool rotationAnchor = true;

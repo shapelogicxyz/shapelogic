@@ -52,8 +52,10 @@ export interface Prefs {
   boardColourDark: string;
   lights: boolean;
   fade: boolean;
-  /** The Solver's 3D view: each piece's label drawn on it (Search options). */
+  /** The Solver's 3D view: each piece's label (S2) drawn on it (Display ▸ Show Piece Names). */
   pieceLabels: boolean;
+  /** The Solver's 3D view: each piece's name from the Shapes tab drawn on it, cut to 8 characters (Display ▸ Show Piece Labels). */
+  pieceNames: boolean;
   /** The Solver's Piece display: labels only (Compact), not "S2 - name" (Full). */
   pieceCompact: boolean;
   /** The Solver's 3D view: while a run searches, the arrangements it is looking at (the run card's Live preview). */
@@ -123,6 +125,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   lights: true,
   fade: true,
   pieceLabels: false,
+  pieceNames: false,
   pieceCompact: false,
   livePreview: true,
   threads: 0,

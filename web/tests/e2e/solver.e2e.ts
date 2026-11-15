@@ -197,7 +197,7 @@ test('Bermuda: solved with take-apart as bt counts it, played, stepped, jumped, 
   }
 });
 
-test('Display ▸ Labels: the pieces’ labels on the solution, a setting kept out of Search Options', async () => {
+test('Display ▸ Labels: the pieces’ names (S2) and labels on the solution, settings kept out of Search Options', async () => {
   test.setTimeout(120_000);
   const a = await launch();
   const page = a.page;
@@ -218,7 +218,13 @@ test('Display ▸ Labels: the pieces’ labels on the solution, a setting kept o
       'true',
     );
     await page.keyboard.press('Escape');
+    // Bermuda's shapes have one-letter names: "S2 - A" with both on, "A" alone
+    await expect(vp).toHaveAttribute('data-piece-labels', /^\d+:S\d+( \d+:S\d+)*$/);
+    await display(page, 'solvedLabels');
+    await expect(vp).toHaveAttribute('data-piece-labels', /^\d+:S\d+ - [A-Z]( \d+:S\d+ - [A-Z])*$/);
     await display(page, 'solvedNames');
+    await expect(vp).toHaveAttribute('data-piece-labels', /^\d+:[A-Z]( \d+:[A-Z])*$/);
+    await display(page, 'solvedLabels');
     await expect(vp).toHaveAttribute('data-piece-labels', '');
   } finally {
     await a.close();

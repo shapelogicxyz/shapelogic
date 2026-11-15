@@ -360,7 +360,11 @@ export class View3D {
         this.cube.setVisible(prefs.cube);
         this.cube.draw();
       }
-      if (changed.includes('lights') || changed.includes('pieceLabels')) {
+      if (
+        changed.includes('lights') ||
+        changed.includes('pieceLabels') ||
+        changed.includes('pieceNames')
+      ) {
         this.lookChanged();
       }
       if (changed.includes('density')) {
@@ -953,7 +957,7 @@ export class View3D {
         xray: this.display.xray,
         palette: snap0?.colours.map((c) => c.rgb) ?? [],
       });
-      this.solution.setLabels(prefs.pieceLabels);
+      this.solution.setLabels({ label: prefs.pieceLabels, name: prefs.pieceNames });
       this.renderTag();
     }
     if (puzzle && !stacking) {

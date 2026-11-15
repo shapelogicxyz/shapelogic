@@ -99,7 +99,8 @@ add_library(btcore STATIC
   shapelogic/solve/solve_progress.cpp
   shapelogic/solve/solve_session.cpp
   shapelogic/solve/solver_type.cpp
-  shapelogic/solve/stack_search.cpp)
+  shapelogic/solve/stack_search.cpp
+  shapelogic/solve/take_apart_pool.cpp)
 
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")

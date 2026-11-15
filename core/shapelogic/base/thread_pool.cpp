@@ -23,6 +23,23 @@ ThreadSplit splitThreads(unsigned int n) noexcept {
   return s;
 }
 
+TakeApartThreads takeApartThreads(unsigned int threads, unsigned int cores) noexcept {
+  TakeApartThreads t;
+  if (threads > 0) {
+    const unsigned int limit = std::min(threads, kMaxThreads);
+    const ThreadSplit split = splitThreads(limit);
+    t.search = split.assembly;
+    t.workers = limit;
+    t.beside = split.disassembly;
+    return t;
+  }
+  const unsigned int all = std::clamp(cores, 1U, kMaxThreads);
+  t.search = all;
+  t.workers = all <= 2 ? 1 : std::min(all - 2, 16U);
+  t.beside = t.workers;
+  return t;
+}
+
 ThreadPool::ThreadPool(unsigned int cores) : total_(std::clamp(cores, 1U, kMaxThreads)) {
   threads_.reserve(total_ - 1);
   try {

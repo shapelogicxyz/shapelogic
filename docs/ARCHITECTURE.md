@@ -118,7 +118,13 @@ uses nothing. `core/` has no UI, does not print, and has no global state.
   `run(n, job)` runs a job on the caller and on lent threads, `addLoad()`
   for work on threads of its own; nesting cannot deadlock. `kMaxThreads`
   (256), `hardwareThreads()`, `splitThreads()` (assembly / take-apart share
-  of a budget). No process-wide limit, no `SHAPELOGIC_THREADS` (decision 0009).
+  of a budget), `takeApartThreads()` (the threads of a solve that takes its
+  assemblies apart as it finds them: with a thread limit the search gets its
+  share and the take-apart every thread, of which only its share works
+  while the search runs beside it; all work when the search waits for the
+  take-aparts or is over. Without a limit the search has every core and the
+  take-apart all but two). No process-wide limit, no `SHAPELOGIC_THREADS`
+  (decision 0009).
 - `stop.h` also makes a source from a token (`StopSource(const StopToken&)`):
   each search run stops itself through one without a flag of its own.
 
@@ -433,6 +439,19 @@ derivation gives the original's answers on cubes and prisms
   threads and put together in the order one thread would have found them).
   A separating position splits the problem into two parts, each taken
   apart in turn (`Grouping` for pieces that may stay together).
+- `take_apart_pool.h`: `TakeApartPool` (after the original's
+  `disassemblerPool_c`): the assemblies of a search taken apart side by
+  side, each worker thread with a `Disassembler` of its own, the results
+  handed on in the order the assemblies came (`submit()` from the search's
+  callback, which waits while too many are unfinished; `finish()`). Made
+  for millions of small take-aparts as well as a few long ones: a worker
+  takes several assemblies at once when they are small (by the time the
+  last took), looks for more for a moment before it sleeps, and is woken
+  only when those at work will not get to the queue soon.
+  `TakeApartPoolOptions`: the workers, how many work beside the search
+  (`takeApartThreads()`), the search's cores as load of the level pool.
+  The CLI's text solve uses it; the solve session has its own queue (it
+  keeps what is queued for a paused run).
 - `disassembler_node.h`: `DisassemblerNode` (the pieces' places and
   orientations, the position it came from, the move) and `NodeRef`, a
   counted reference (not atomic: a node's count is touched by one thread at
@@ -441,10 +460,18 @@ derivation gives the original's answers on cubes and prisms
   same position).
 - `movement_analysator.h`: `MovementAnalysator`, Bill Cutler's moves from
   one position (removals, groups, slides with merging, then turns); one per
-  thread. `movement_cache.h`: `MovementCache` with `MovementCacheBricks`
-  and `MovementCachePrisms` (the original's tables), `MovementCacheDerived`
-  (the other grids: the prisms' walk over derived checks) and
-  `makeMovementCache()`.
+  thread. Its fast path (`Options::fast`) keeps one block of values per
+  direction, a row a piece and padded to whole vectors: the closure
+  (Floyd-Warshall) and the bit masks of the pieces each piece pushes are
+  vector kernels over it (NEON, AVX2, or scalar loops: `Options::kernels`,
+  the same moves either way), the masks made for both signs of a direction
+  and step when first asked for. `movement_cache.h`: `MovementCache` with
+  `MovementCacheBricks` and `MovementCachePrisms` (the original's tables),
+  `MovementCacheDerived` (the other grids: the prisms' walk over derived
+  checks) and `makeMovementCache()`; the values found are kept in an
+  open-addressed table, key and values in one stretch (the original's
+  `moTable`: each take-apart thread has a cache, and they share the
+  processor's).
 - `movement_checks.h` (decision 0025, not in the original):
   `movementDirections(kind)`, the directions pieces move in on a grid and
   the box after which the grid repeats (the cells' edge directions, one
@@ -682,7 +709,11 @@ assembler on a pool of its threads; each assembly goes to a bounded queue
 (at least 64) that take-apart workers (one `Disassembler` each, their
 levels spread over a second pool that counts the assembly's and the busy
 workers' load with `addLoad`) empty; an assembly thread waits at a full
-queue and lends its cores meanwhile. Solutions go into the problem sorted
+queue and lends its cores meanwhile. With a thread limit
+(`takeApartThreads()`) there is a worker for every thread of it, of which
+the take-apart's share works while the search runs; all work once the
+search has had to wait at a full queue (until the queue is nearly empty
+again) and when it is over. Solutions go into the problem sorted
 (by moves, level or turns; equals by assembly number) up to the limit, or
 unsorted and thinned evenly. Draining waits for the queue; the run ends
 Finished (the search said so and all is taken apart), Paused (the position
@@ -1081,9 +1112,12 @@ byte, `just oracle-files` solves with `--save`).
   `--original-drawings` draws as burrTxt did (for the comparison).
 - `dot_level.h`: the level text read as burrTxt `--json` read it, the best
   level of a solve.
-- `main.cpp`: the modes. The solve (an `Assembler` per problem, each
-  assembly taken apart in its callback by one `Disassembler` whose levels
-  spread over a pool of their own, printing as asked; `--json` at the
+- `main.cpp`: the modes. The solve (an `Assembler` per problem, its
+  assemblies taken apart by a `TakeApartPool` whose results are printed
+  in the order the assemblies were found, the threads shared as
+  `takeApartThreads()` says; on one thread or with `--no-take-apart-pool`
+  each assembly in the search's callback by one `Disassembler`. The
+  levels of a take-apart spread over a pool of their own; `--json` at the
   end), `-x` (the saved solutions taken apart again), `-a` (the comment,
   the saved solutions), `--save` (a `SolveSession` as burrTxt2 ran its
   solve thread: a paused solve carried on unless `--restart`, the

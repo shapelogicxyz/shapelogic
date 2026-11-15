@@ -245,3 +245,51 @@ Burr-Glar 0.60 on one thread (15.9 s) and 0.20 on four (4.4 s against
 22.2 s; without the signatures, a second faster than above). A one-thread
 solve of the 3x4x5 pentominoes paused every 3 s took 60 s to reach 13%
 before; it finishes in 13.7 s, the time of one never paused.
+
+## Take-apart: the pool in the text solve, vector kernels (2026-11-15)
+
+M4 MacBook Air (4 performance and 6 efficiency cores), release build
+against the original's `build-rel` (d09cc299), wall clock of the whole
+program (the original's `burrTxt` prints no solve time), one solve at a
+time, alternating, best of 3, `-q -r -d -t 10`. Before, the text solve took
+every assembly apart in the search's callback, one at a time, where the
+original has its disassembler pool; and one take-apart cost half as much
+again as the original's.
+
+| puzzle | what it is | original s | before s | now s | now/original |
+|---|---|---|---|---|---|
+| Burr-Glar | 3.1 million small take-aparts | 18.63 | 66.77 | 10.94 | 0.59 |
+| cube_scad (imports_by_original) | 253,000 take-aparts of one move | 1.673 | 0.930 | 0.742 | 0.44 |
+| BigMazeNCubes | 144 take-aparts, one of level 59 | 0.022 | 0.061 | 0.024 | 1.07 |
+| Dereks_Dozen | 686 take-aparts, one of level 41 | 0.021 | 0.050 | 0.020 | 0.95 |
+| PelikanBurr | 12 take-aparts, one of level 99 | 0.046 | 0.050 | 0.034 | 0.74 |
+| DraculasDentalDesaster | 84 take-aparts | 0.054 | 0.070 | 0.056 | 1.04 |
+| SolidSixPieceBurrs | 588 take-aparts | 0.035 | 0.032 | 0.030 | 0.86 |
+
+(The rows of a few hundredths of a second hold 4 ms of starting the
+program, 0.7 ms more here than in the original.)
+
+What changed, Burr-Glar's take-apart as the measure:
+
+- **One take-apart, on one thread** (`-t 1`: 62.2 s before, 40.0 s now; the
+  original 43.3 s). Counted per assembly: 2.6 positions prepared and 617
+  movement checks. The closure of the movement matrix ran over 13 values a
+  row as a 12-value vector loop with its entry checks and a scalar rest,
+  and each bit mask of the checks was 13 scalar compares over strided
+  memory. Now a block per direction, rows padded to whole vectors:
+  `closeBlock*` and `rowsBelow*` (NEON, AVX2, scalar; `--no-simd` for the
+  scalar loops). A row skipped when nothing lies between the two pieces,
+  and masks made only when asked for, were tried first and gave 4%.
+- **The pool** (`TakeApartPool`, `--no-take-apart-pool` for the old way):
+  67 s to 23 s with a worker woken and the mutex taken for every assembly;
+  13 s with batches sized by the time the last take-aparts took and
+  workers that look for work a moment before they sleep (cube_scad, whose
+  take-aparts are 2 microseconds each, went from 1.8 s to 0.72 s with it).
+- **The movement cache as a flat table** (key and values in one stretch,
+  the original's `moTable`): 13 s to 9 s on every core. On one thread it
+  changes nothing; ten workers' caches as node maps no longer fit the
+  processor's.
+- **The thread limit** (`takeApartThreads()`): with `-t 10` a quarter of
+  the threads took apart, however far behind they were (the solve session,
+  `--save`: 34.8 s; without a limit 18.7 s). Now all of them do while the
+  search waits for them and when it is over.

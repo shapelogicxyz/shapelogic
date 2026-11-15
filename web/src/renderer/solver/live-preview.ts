@@ -232,7 +232,7 @@ export class LivePreview {
           colour: p?.colour ?? [1, 1, 1],
           mode: 'solid' as const,
           built: d.built,
-          ...(p === undefined ? {} : { label: p.label }),
+          ...(p === undefined ? {} : { label: p.label, name: p.name }),
         };
       }),
     };

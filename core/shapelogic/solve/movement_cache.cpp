@@ -15,18 +15,22 @@
 
 namespace bt {
 
-// The original's hash, in unsigned arithmetic (the same bits).
-std::size_t MovementCache::MoKeyHash::operator()(const MoKey& k) const noexcept {
-  auto u = [](int v) { return static_cast<unsigned int>(v); };
-  unsigned int val = u(k.dx) * 0x10101010U;
-  val += u(k.dy) * 0x14814814U;
-  val += u(k.dz) * 0x95145951U;
-  val += static_cast<unsigned int>(static_cast<unsigned char>(k.t1)) * 0x1A54941AU;
-  val += static_cast<unsigned int>(static_cast<unsigned char>(k.t2)) * 0x5AA59401U;
-  val += k.s1 * 0x01059a04U;
-  val += k.s2 * 0x9af42682U;
+namespace {
+
+// The original's hash, in unsigned arithmetic (the same bits), of a key as
+// the table holds it.
+std::size_t moHash(const unsigned int* key) noexcept {
+  unsigned int val = key[2] * 0x10101010U;
+  val += key[3] * 0x14814814U;
+  val += key[4] * 0x95145951U;
+  val += (key[5] & 0xFFFFU) * 0x1A54941AU;
+  val += (key[5] >> 16) * 0x5AA59401U;
+  val += key[0] * 0x01059a04U;
+  val += key[1] * 0x9af42682U;
   return val;
 }
+
+}  // namespace
 
 MovementCache::MovementCache(const Puzzle& puzzle, const Problem& problem)
     : gridType_(puzzle.getGridType()),
@@ -62,22 +66,62 @@ const Voxel& MovementCache::getTransformedShape(unsigned int s, unsigned char t)
   return *sh;
 }
 
+unsigned int* MovementCache::moFind(const unsigned int* key) {
+  for (std::size_t at = moHash(key) & moMask_;; at = (at + 1) & moMask_) {
+    unsigned int* place = &moTable_[at * moStride_];
+    if (place[0] == kEmpty || std::equal(key, key + kKeyWords, place)) {
+      return place;
+    }
+  }
+}
+
+// Twice the places (or the first ones), what is there put in again.
+void MovementCache::moGrow() {
+  std::vector<unsigned int> old;
+  old.swap(moTable_);
+  const std::size_t places = old.empty() ? 1024 : (moMask_ + 1) * 2;
+  moTable_.assign(places * moStride_, kEmpty);
+  moMask_ = places - 1;
+  for (std::size_t at = 0; at < old.size(); at += moStride_) {
+    if (old[at] != kEmpty) {
+      std::copy_n(&old[at], moStride_, moFind(&old[at]));
+    }
+  }
+}
+
 void MovementCache::getMoValue(int dx, int dy, int dz, unsigned char t1, unsigned char t2,
                                unsigned int p1, unsigned int p2, unsigned int* movements) {
   const unsigned int s1 = pieces_[p1];
   const unsigned int s2 = pieces_[p2];
+  const unsigned int dirs = numDirections();
 
-  const MoKey key{s1, s2, dx, dy, dz, t1, t2};
-
-  auto it = moCache_.find(key);
-  if (it == moCache_.end()) {
-    it = moCache_
-             .emplace(key, moCalcValues(getTransformedShape(s1, t1), getTransformedShape(s2, t2), dx,
-                                        dy, dz))
-             .first;
+  if (moTable_.empty()) {
+    moStride_ = kKeyWords + dirs;
+    moGrow();
   }
 
-  std::copy_n(it->second.begin(), numDirections(), movements);
+  const unsigned int key[kKeyWords] = {s1,
+                                       s2,
+                                       static_cast<unsigned int>(dx),
+                                       static_cast<unsigned int>(dy),
+                                       static_cast<unsigned int>(dz),
+                                       t1 | (static_cast<unsigned int>(t2) << 16)};
+  unsigned int* place = moFind(key);
+  if (place[0] == kEmpty) {
+    const std::vector<unsigned int> values =
+        moCalcValues(getTransformedShape(s1, t1), getTransformedShape(s2, t2), dx, dy, dz);
+    BT_ASSERT(values.size() >= dirs);
+    std::copy_n(key, kKeyWords, place);
+    std::copy_n(values.begin(), dirs, place + kKeyWords);
+    std::copy_n(place + kKeyWords, dirs, movements);
+    moCount_++;
+    if (moCount_ * 10 >= (moMask_ + 1) * 7) {
+      moGrow();
+    }
+    return;
+  }
+
+  std::copy_n(place + kKeyWords, dirs, movements);
 }
 
 std::unique_ptr<MovementCache> makeMovementCache(const Puzzle& puzzle, const Problem& problem,

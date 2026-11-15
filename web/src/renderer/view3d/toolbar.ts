@@ -187,13 +187,15 @@ export class Toolbar {
 <button data-k="gridNames" data-keep="1" title="Show name labels on the pieces that are on the Start/Goal grids" role="menuitemcheckbox" aria-checked="${d.gridNames}">${ck(d.gridNames)}Show Grid Labels</button>`
       : '';
     const solved = prefs.pieceLabels;
+    const named = prefs.pieceNames;
     const labels =
       tab === 'puzzle'
         ? `<hr><div class="ph">Labels</div>
 <button data-k="pieceNames" data-keep="1" title="Show name labels for the piece previews" role="menuitemcheckbox" aria-checked="${d.pieceNames}">${ck(d.pieceNames)}Show Piece Labels</button>${grids}`
         : tab === 'solver'
           ? `<hr><div class="ph">Labels</div>
-<button data-k="solvedNames" data-keep="1" title="Draw each piece’s label from the Shapes tab on it in the 3D view, always facing you" role="menuitemcheckbox" aria-checked="${solved}">${ck(solved)}Show Piece Labels</button>`
+<button data-k="solvedNames" data-keep="1" title="Draw each piece’s name, as “S2”, on it in the 3D view, always facing you" role="menuitemcheckbox" aria-checked="${solved}">${ck(solved)}Show Piece Names</button>
+<button data-k="solvedLabels" data-keep="1" title="Draw the label you gave each shape in the Shapes tab on its pieces in the 3D view (its first 8 characters); with Show Piece Names, as “S2 - label”" role="menuitemcheckbox" aria-checked="${named}">${ck(named)}Show Piece Labels</button>`
           : '';
     return `${show}<div class="ph">Projection</div>
 <button data-k="persp" data-keep="1" title="Far things look smaller, as a camera sees them" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>
@@ -235,6 +237,9 @@ export class Toolbar {
       case 'solvedNames':
         // the view follows the setting (onPrefs)
         setPrefs({ pieceLabels: !prefs.pieceLabels });
+        return;
+      case 'solvedLabels':
+        setPrefs({ pieceNames: !prefs.pieceNames });
         return;
       case 'axes':
       case 'bounds':

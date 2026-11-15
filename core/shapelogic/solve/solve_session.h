@@ -98,7 +98,10 @@ struct SolveOptions {
   unsigned int solutionDrop = 1;
   /// The threads of the solve, assembly and take-apart together; 0 for
   /// every hardware thread (the original without a thread limit). Clamped
-  /// to kMaxThreads.
+  /// to kMaxThreads. With a limit and a take-apart, the two share it as
+  /// takeApartThreads() says: a quarter take apart while the search runs
+  /// beside them, all of them when the search waits for the take-aparts or
+  /// is over.
   unsigned int threads = 0;
   /// Take-apart workers; 0 chooses (SHAPELOGIC_DISASM_WORKERS of the
   /// original). At most 64.
@@ -392,7 +395,8 @@ class SolveSession {
   void applyLiveSort();
 
   // the take-apart workers
-  void startWorkers(const Plan& plan, unsigned int workers, unsigned int budget);
+  void startWorkers(const Plan& plan, unsigned int workers, unsigned int beside,
+                    unsigned int budget);
   void workerLoop(Disassembler& disassembler);
   void stopWorkers();
   void waitDrained();
@@ -466,6 +470,16 @@ class SolveSession {
   std::size_t queueLimit_ = 64;
   bool workersStop_ = false;
   std::vector<std::thread> workers_;
+  /// The workers, and how many of them may be at work while the search
+  /// runs beside them (takeApartThreads(): fewer only with a thread
+  /// limit); the workers at work; whether the search still runs, and
+  /// whether the take-aparts fell behind it (enqueue() had to wait; until
+  /// the queue is nearly empty again). Under queueMutex_.
+  unsigned int workersTotal_ = 0;
+  unsigned int workersBeside_ = 0;
+  unsigned int working_ = 0;
+  bool searchBeside_ = false;
+  bool behind_ = false;
   /// The cores the assembly search counts for in the take-apart pool's
   /// load (given away while it waits at a full queue).
   std::atomic<int> assemblyLoad_{0};

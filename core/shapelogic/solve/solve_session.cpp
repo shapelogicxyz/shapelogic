@@ -73,17 +73,16 @@ std::uint64_t msSince(std::int64_t originNs) {
 // thread count the take-apart share of it, or every core less two (for the
 // assembly and the caller), at most 16 so that a large machine does not run
 // dozens of searches at once.
-unsigned int chooseWorkers(const SolveOptions& o, unsigned int budget) {
+// The take-apart's threads: the number asked for, none held back; else
+// takeApartThreads()'s (with a thread limit, every thread of it, a quarter
+// at work while the search runs beside them).
+TakeApartThreads chooseWorkers(const SolveOptions& o, unsigned int budget) {
+  TakeApartThreads t = takeApartThreads(o.threads, budget);
   if (o.takeApartWorkers > 0) {
-    return std::min(o.takeApartWorkers, 64U);
+    t.workers = std::min(o.takeApartWorkers, 64U);
+    t.beside = t.workers;
   }
-  if (o.threads > 0) {
-    return splitThreads(budget).disassembly;
-  }
-  if (budget <= 2) {
-    return 1;
-  }
-  return std::min(budget - 2, 16U);
+  return t;
 }
 
 // The assembly search's cores in the take-apart pool's load, for as long
@@ -737,7 +736,8 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   search.pool = &assemblyPool;
 
   if (o.disassemble && !sliding_) {
-    startWorkers(plan, chooseWorkers(o, budget), budget);
+    const TakeApartThreads workers = chooseWorkers(o, budget);
+    startWorkers(plan, workers.workers, workers.beside, budget);
   }
   // a sliding run searches each start in the assembly's callback; a full
   // search spreads its levels over the solve's threads (solveThreadBudget)
@@ -784,6 +784,12 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
                                plan.assemblyToken);
   }
   endPhase(assemblyMs_);
+  {
+    // no search beside the take-aparts any more: every worker may work
+    const std::lock_guard<std::mutex> lock(queueMutex_);
+    searchBeside_ = false;
+  }
+  queueCv_.notify_all();
 
   if (!runStopRequested()) {
     beginPhase(Phase::Drain);
@@ -1381,7 +1387,12 @@ void SolveSession::enqueue(Task task) {
     if (!room()) {
       // The assembly search stands still while this waits (its other
       // threads soon wait behind this one): its cores are not in use, and
-      // the take-aparts may borrow them for their levels.
+      // the take-aparts may borrow them for their levels. They are behind,
+      // too: every worker may work until the queue is nearly empty again.
+      if (!behind_) {
+        behind_ = true;
+        queueCv_.notify_all();
+      }
       const int given = assemblyLoad_.exchange(0, std::memory_order_acq_rel);
       if (given != 0) {
         takeApartPool_->addLoad(-given);
@@ -1582,7 +1593,8 @@ void SolveSession::applyLiveSort() {
 
 // ---- the take-apart workers --------------------------------------------------------
 
-void SolveSession::startWorkers(const Plan& plan, unsigned int workers, unsigned int budget) {
+void SolveSession::startWorkers(const Plan& plan, unsigned int workers, unsigned int beside,
+                                unsigned int budget) {
   const SolveOptions& o = plan.options;
   workerCount_.store(workers, std::memory_order_relaxed);
   queueLimit_ = std::max<std::size_t>(64, std::size_t{8} * workers);
@@ -1590,6 +1602,11 @@ void SolveSession::startWorkers(const Plan& plan, unsigned int workers, unsigned
     const std::lock_guard<std::mutex> lock(queueMutex_);
     workersStop_ = false;
     queue_.clear();
+    workersTotal_ = workers;
+    workersBeside_ = std::min(beside, workers);
+    working_ = 0;
+    searchBeside_ = true;
+    behind_ = false;
   }
 
   // A take-apart with no others waiting spreads each level of its search
@@ -1622,16 +1639,35 @@ void SolveSession::startWorkers(const Plan& plan, unsigned int workers, unsigned
 }
 
 void SolveSession::workerLoop(Disassembler& disassembler) {
+  // this worker took a task (it counts in working_ until it is back here)
+  bool worked = false;
   for (;;) {
     std::optional<Task> task;
     {
       std::unique_lock<std::mutex> lock(queueMutex_);
-      queueCv_.wait(lock, [this] { return !queue_.empty() || workersStop_; });
+      if (worked) {
+        working_--;
+      }
+      // With a thread limit only workersBeside_ work while the search runs
+      // beside them (the search's threads and they are the limit); all do
+      // when the take-aparts are behind (the search waits for them in
+      // enqueue()), when the search is over, and to clear the queue at a
+      // stop.
+      queueCv_.wait(lock, [this] {
+        const unsigned int limit = behind_ || !searchBeside_ ? workersTotal_ : workersBeside_;
+        return workersStop_ || (!queue_.empty() && working_ < limit);
+      });
       if (queue_.empty()) {
         return;
       }
       task.emplace(std::move(queue_.front()));
       queue_.pop_front();
+      working_++;
+      worked = true;
+      // caught up with the search: back to the workers that run beside it
+      if (behind_ && queue_.size() <= queueLimit_ / 4) {
+        behind_ = false;
+      }
     }
     spaceCv_.notify_one();
 

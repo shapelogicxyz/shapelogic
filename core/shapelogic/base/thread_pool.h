@@ -37,6 +37,25 @@ struct ThreadSplit {
 /// search; one each when n is below 2.
 [[nodiscard]] ThreadSplit splitThreads(unsigned int n) noexcept;
 
+/// The threads of a solve that takes its assemblies apart as it finds them.
+struct TakeApartThreads {
+  /// The assembly search's threads.
+  unsigned int search = 1;
+  /// The threads that take apart.
+  unsigned int workers = 1;
+  /// The most of them at work while the search runs beside them; all of
+  /// them work when the take-aparts fall behind the search (it waits for
+  /// them then) and once it is over.
+  unsigned int beside = 1;
+};
+
+/// With a thread limit (`threads` > 0): the limit split as splitThreads
+/// does while both run, and every thread for the take-aparts when the
+/// search waits for them or is over. Without one (`threads` 0, `cores` the
+/// machine's): the search on every core and the take-aparts on all but two
+/// (at most 16), none held back, as the original without a limit.
+[[nodiscard]] TakeApartThreads takeApartThreads(unsigned int threads, unsigned int cores) noexcept;
+
 /// Threads that are lent out for a piece of work and given back.
 ///
 /// The pool is made for a number of cores, the callers included. run()
