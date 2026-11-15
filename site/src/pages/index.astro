@@ -65,7 +65,7 @@ import '../styles/landing.css';
           <p class="post-meta">
             <time datetime="2026-11-12">12 November 2026</time> · Release
           </p>
-          <h3 id="post-v1-8">ShapeLogic v1.8.3: watch the search, and manage what it leaves on the disk</h3>
+          <h3 id="post-v1-8">ShapeLogic v1.8.4: watch the search, and manage what it leaves on the disk</h3>
           <h4 class="post-notes">Notes for release v1.8:</h4>
           <p>
             Version 1.8 shows a running search in the 3D view, lists the files that solves leave on
@@ -136,6 +136,19 @@ import '../styles/landing.css';
             <strong>Performance Analysis</strong> now
             estimates the next eleven rows past any depth instead of stopping at 100 moves, and the
             <strong>Disk space</strong> settings move in finer steps up to 5 TB.
+          </p>
+          <h4 class="post-notes">Notes for minor release v1.8.4:</h4>
+          <p>
+            <strong>File &#9656; New Window</strong> opens another window with its own puzzle and
+            solver, so you can edit one puzzle while another solves; the new
+            <strong>Window</strong> menu lists them, and each keeps its own crash recovery copy. A
+            file already open in one window opens <strong>(read-only)</strong> in the next, where
+            <strong>Save</strong> works as <strong>Save As</strong>, so two windows never overwrite
+            each other's work. Read more in
+            <a href="/docs/getting-started/#several-windows">Getting started</a>. Puzzles are taken
+            apart faster, on every thread once the search is done, and the Solver's
+            <strong>Display &#9656; Labels</strong> can show each piece's name, its label from the
+            Shapes tab, or both.
           </p>
           <p>
             <a href="https://github.com/shapelogicxyz/shapelogic/releases/latest">Release notes and downloads on GitHub</a>
