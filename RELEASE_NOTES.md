@@ -4,7 +4,7 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
-## [ShapeLogic v1.8.3](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.3) (15 November 2026)
+## [ShapeLogic v1.8.4](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.4) (15 November 2026)
 
 ### What's new in v1.8
 
@@ -44,6 +44,13 @@ Many small bug fixes and improvements.
 - **One solve of a problem at a time.** A sliding problem, or a stacking problem solved by the Panex search, keeps its search in the cache folder under the problem's name. Solving the same problem in two windows at once, or in the app and `shapelogic_cli`, made the two searches overwrite each other's files and could crash one of them. Now the second **Solve** or **Continue** does nothing and the status bar says *another solve of this problem is under way*; pause the first solve or let it finish, then try again.
 - **Performance Analysis past 100 moves.** The estimates now always show the next eleven rows, every fifth move from the next multiple of five (58 moves deep shows 60 to 110), instead of stopping at 100 moves deep.
 - **Finer disk space settings.** The **Disk space** sliders in **Settings** move in 25 GB steps up to 1 TB, then 100 GB steps to 2 TB and 500 GB steps to 5 TB, with tick marks under them.
+
+### v1.8.4 (15 November 2026)
+
+- **Several windows.** **File ▸ New Window** (`Shift+Ctrl+N`, `Shift+⌘N` on a Mac) opens another window with its own puzzle, its own solver and its own undo, so you can edit one puzzle while another solves. On Windows, Shift-clicking ShapeLogic on the taskbar or starting it again opens a new window too, and the new **Window** menu lists the open windows. Each window keeps its own crash recovery copy; after a crash, each copy is offered in one window. **Settings** apply to every window, and a quit asks about each window's unsaved changes in turn.
+- **The same file in two windows.** The first window to open a puzzle file owns it. Opened in a second window, it shows **(read-only)** after its name: you can edit and solve there, but **Save** works as **Save As** with a new name, so the two windows never overwrite each other's work.
+- **Faster take-apart.** Puzzles are taken apart faster: the moves of the pieces are worked out with the processor's vector instructions, and once the assembly search is finished or waiting, every thread takes assemblies apart. With `-d`, the command line tool takes several assemblies apart at once while the search goes on: one large puzzle that took 67 seconds now takes 11.
+- **Piece names and labels in the Solver.** **Display ▸ Labels** on the Solver tab has **Show Piece Names** (S2) and **Show Piece Labels** (the label from the Shapes tab). Turn on both to see "S2 - label" on each piece.
 
 ## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 
