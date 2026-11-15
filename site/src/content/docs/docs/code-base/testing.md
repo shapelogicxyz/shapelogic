@@ -86,9 +86,9 @@ Where the analysis cannot see why code is right, the line above it says so:
 `// NOLINTNEXTLINE(check): reason`. Homebrew's LLVM is not on the `PATH`
 by default; the recipe finds it in `/opt/homebrew/opt/llvm/bin` anyway.
 
-`just format` reformats the C++ sources with clang-format. It changes files
-rather than checking them, and it has never been run over the whole tree:
-format only the files you add.
+The sources' layout is not checked: `.clang-format` describes the style
+(Google's, 100 columns) for editors and for the fixes clang-tidy applies,
+and no recipe reformats the tree.
 
 ## The app
 

@@ -106,14 +106,6 @@ check *files: (build "dev")
       "$tidy" -quiet -clang-tidy-binary "$bin" "${sdk[@]}" -p build/dev "$(pwd)/(core|engine|cli|tests/unit)/.*\.cpp$"
     fi
 
-# Reformat the project's own sources with clang-format
-format:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    fmt=$(command -v clang-format || ls /opt/homebrew/opt/llvm/bin/clang-format 2>/dev/null || true)
-    if [ -z "$fmt" ]; then echo "clang-format not found: install LLVM (brew install llvm / apt install clang-format)"; exit 1; fi
-    git ls-files 'core/*.h' 'core/*.cpp' 'engine/*.cpp' 'cli/*.cpp' 'tests/*.h' 'tests/*.cpp' | xargs "$fmt" -i
-
 # ---- the web front end (web/, docs/FRONTEND-PLAN.md; needs Node 22) ----
 
 # Install the web front end's packages from its lockfile

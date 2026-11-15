@@ -34,7 +34,6 @@ just python-test [preset] # the Python module's tests (python/tests; the module 
 just python-wheel       # its wheel in build/wheel, installed into a fresh venv and tested there
 just oracle-baseline    # re-record the original's answers (rarely needed)
 just check [files]      # clang-tidy, every finding an error (needs LLVM installed); with names, only those sources
-just format             # clang-format over the whole tree (never run so far: format only files you add)
 just app-install        # the web front end's packages (npm ci; Node 22)
 just app-gen            # web/src/engine/api.generated.ts from api/*.json
 just app-check          # the front end's type checks, ESLint, Prettier

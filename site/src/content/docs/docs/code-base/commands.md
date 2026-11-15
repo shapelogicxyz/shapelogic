@@ -17,7 +17,7 @@ which ones to run after a change, is in
 | `just` | running the recipes |
 | Python 3 | the contract tests, the CLI tests, the harness, the API generator |
 | Node 22 | the app; Node 22.22 or newer for the website |
-| LLVM (optional) | `just check` (clang-tidy) and `just format` (clang-format) |
+| LLVM (optional) | `just check` (clang-tidy) |
 | Emscripten (optional) | `just site-demo`, the engine as WebAssembly |
 | The original BurrTools checkout (optional) | the comparison harness; at `../burr-tools` or `BT_OLD_REPO` |
 
@@ -41,7 +41,6 @@ just test-asan          # Address + UndefinedBehavior sanitizers
 just test-tsan          # ThreadSanitizer on the [parallel] cases, then the contract suite
 just gate [groups]      # every suite one after another, with a table of what passed
 just check [files]      # clang-tidy over the project's own sources, or those whose path matches
-just format             # clang-format
 just clean              # remove every build directory
 ```
 

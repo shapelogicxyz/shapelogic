@@ -79,7 +79,7 @@ both.
 
 Requirements: CMake 3.28+, Ninja, a C++23 compiler (Apple clang 17+, GCC 13+,
 MinGW-w64 GCC 13+), Python 3.10+ and [just](https://github.com/casey/just).
-The app also needs Node 22. Optional: LLVM for `just check` / `just format`.
+The app also needs Node 22. Optional: LLVM for `just check`.
 
 ```bash
 just build        # build the solver core, engine and command line tool (build/dev)

@@ -15,7 +15,7 @@ an Astro website. This page lists what each part is built with and why.
 | Task runner | `just` (the `justfile` at the root is the documented interface) |
 | Compilers | Apple clang 17, GCC 13, MinGW-w64 GCC 13, Emscripten 3.1 or newer |
 | Tests | Catch2 v3, one binary `bt_tests`; Python scripts for the engine's contract tests and the CLI |
-| Lint and format | clang-tidy and clang-format (optional, need LLVM) |
+| Lint | clang-tidy (optional, needs LLVM); `.clang-format` gives the style, nothing enforces it |
 | Sanitizers | AddressSanitizer with UndefinedBehaviorSanitizer (`asan` preset), ThreadSanitizer (`tsan` preset) |
 
 Decision record `docs/decisions/0001-language-and-build.md` explains the
