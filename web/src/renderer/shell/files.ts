@@ -12,6 +12,10 @@
 // where they can be saved, the puzzle is saved, they carry on). A file
 // opened or saved goes first in Open Recent. A file dropped that has no
 // path (from another application) is opened by its bytes, without a file.
+// Several windows (decision 0036): a file opened is claimed (the main
+// process's path-owners.ts); one another window owns is held read-only
+// here, so Save is Save As, under another name; Shift+Ctrl+N asks the main
+// process for a new window.
 
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Grid } from '../../engine/api.generated.ts';
@@ -55,14 +59,27 @@ export class Files {
   private closing = false;
   /** A close came while a save of the one under way ran (not taken: see close()). */
   private closeWaiting = false;
+  /** The document's file is open in another window, which owns it: Save is Save As. */
+  private readOnly = false;
 
   constructor(store: Store, app: BtApp, solver: FilesSolver, discardRescue: () => Promise<void>) {
     this.store = store;
     this.app = app;
     this.solver = solver;
     this.discardRescue = discardRescue;
+    app.onReadOnly((readOnly) => {
+      const was = this.readOnly;
+      this.readOnly = readOnly;
+      if (readOnly && !was) {
+        flash('Open in another window: read-only here; Save As keeps your changes', 6000);
+      }
+    });
     onKey('file.new', () => {
       void this.newPuzzle();
+      return true;
+    });
+    onKey('file.newWindow', () => {
+      app.newWindow();
       return true;
     });
     onKey('file.open', () => {
@@ -241,6 +258,8 @@ export class Files {
         return;
       }
       await this.store.openPath(path);
+      // held by this window now: owned, or read-only when another owns it
+      this.app.claimPath(path);
       this.app.addRecent(path);
       flash(`Opened ${baseName(path)}`);
     } catch (e) {
@@ -257,7 +276,8 @@ export class Files {
     if (!this.ready() || snap === null) {
       return false;
     }
-    if (snap.path === null) {
+    if (snap.path === null || this.readOnly) {
+      // read-only: the file is another window's; saved under another name
       return this.saveAs();
     }
     return this.saveTo(undefined);
@@ -268,7 +288,9 @@ export class Files {
     if (!this.ready()) {
       return false;
     }
-    const name = this.name.replace(/\.xmpuzzle$/i, '') + '.xmpuzzle';
+    const base = this.name.replace(/\.xmpuzzle$/i, '');
+    // a read-only copy proposes another name: the file is another window's
+    const name = `${base}${this.readOnly ? ' copy' : ''}.xmpuzzle`;
     const path = await this.app.chooseSave('puzzle', name);
     return path !== null && this.saveTo(path);
   }

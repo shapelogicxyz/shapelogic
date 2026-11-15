@@ -214,6 +214,24 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
       .poll(() => appOf(page).evaluate(() => (globalThis as unknown as { asked: number }).asked))
       .toBe(1);
   },
+  'Everywhere|Shift+Ctrl+N': async (c) => {
+    const { page } = c;
+    const app = appOf(page);
+    const count = (): Promise<number> =>
+      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length);
+    const [opened] = await Promise.all([
+      app.waitForEvent('window'),
+      page.keyboard.press('Shift+Control+N'),
+    ]);
+    await expect.poll(count).toBe(2);
+    // the puzzle's own question is not asked: a window of its own
+    await expect(page.locator('#newPuzzle')).toHaveCount(0);
+    const win = await app.browserWindow(opened);
+    await win.evaluate((w: Electron.BrowserWindow) => {
+      w.destroy();
+    });
+    await expect.poll(count).toBe(1);
+  },
   'Everywhere|Ctrl+S / Shift+Ctrl+S': async (c) => {
     const { page } = c;
     const file = join(c.dir, 'Bermuda.xmpuzzle');

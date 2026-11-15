@@ -151,6 +151,30 @@ ShapeLogic records which puzzle a search belongs to when the search is
 saved. Searches saved by an earlier version, or by a puzzle never opened
 since, show "puzzle not known" until you open that puzzle again.
 
+## Several windows
+
+**File ▸ New Window** (`Shift+Ctrl+N`, `Shift+⌘N` on a Mac) opens another
+window with an empty puzzle. Each window has its own puzzle, its own solver
+and its own undo, so you can edit one puzzle while another solves. **New**
+and **Open** still replace the puzzle in the window you are in. On Windows,
+Shift-clicking ShapeLogic on the taskbar also opens a new window, and so
+does starting ShapeLogic again. The **Window** menu lists the open windows.
+
+**The same file in two windows.** The first window that opens a puzzle file
+owns it. If you open that file in a second window, the second shows
+**(read-only)** after the file name. You can still edit and solve in that
+window, but **Save** there works as **Save As** and suggests a new name, so
+the two windows never overwrite each other's work. If you close the first
+window, the second stays read-only, because its copy may be older than the
+file on disk. Open the file again in that window to make it the owner.
+
+**Settings** apply to every window. Each window's solves use the whole
+**Threads** and **Search memory** settings, so two large solves running at
+once share the computer's cores and memory.
+
+When you quit with unsaved changes in several windows, ShapeLogic asks about
+each window in turn. **Cancel** in any of them stops the quit.
+
 ## Next
 
 You have seen the whole loop: shapes, a problem, a solve. A guide to building a

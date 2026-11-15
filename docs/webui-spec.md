@@ -248,6 +248,7 @@ it all).
 | Everywhere | Ctrl+1 / 2 / 3 | Entities / Puzzle / Solver |
 | | F1 | keyboard shortcuts |
 | | Ctrl+N / Ctrl+O, Ctrl+S / Shift+Ctrl+S, Ctrl+W | new, open; save, save as; close the window (the File menu, stage 6) |
+| | Shift+Ctrl+N | File ▸ New Window (decision 0036) |
 | | Ctrl+, | Settings |
 | | Ctrl+[ / Ctrl+] | collapse or expand left / right card |
 | | Esc | step back: close dialog → close menu → cancel rename → pause playback → exit focus |

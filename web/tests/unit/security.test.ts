@@ -499,6 +499,10 @@ describe('the IPC handlers', () => {
   let rescueInfo: { path: string | null } | null = null;
   const recent: string[] = [];
   const rescued: { path: string | null }[] = [];
+  // the windows (decision 0036): files claimed, New Window, settings sent to the others
+  const claimed: [number, string][] = [];
+  let newWindows = 0;
+  const toOthers: [string, unknown][] = [];
   // the update check: GitHub's latest release, and what Skip This Version stored
   let latestTag = 'v1.4';
   let skipped: string | undefined;
@@ -527,14 +531,28 @@ describe('the IPC handlers', () => {
         },
       },
       rescue: {
-        read: () =>
-          rescueInfo === null
-            ? null
-            : { data: '', info: { name: 'x', revision: 1, time: 0, path: rescueInfo.path } },
-        write: (_data: string, info: { path: string | null }) => rescued.push(info),
-        clear: () => undefined,
+        of: () => ({
+          read: () =>
+            rescueInfo === null
+              ? null
+              : { data: '', info: { name: 'x', revision: 1, time: 0, path: rescueInfo.path } },
+          write: (_data: string, info: { path: string | null }) => rescued.push(info),
+          clear: () => undefined,
+        }),
+        all: () => [],
       },
       paths,
+      owners: {
+        claim: (id: number, path: string) => claimed.push([id, path]),
+      },
+      newWindow: () => {
+        newWindows++;
+      },
+      others: () => [
+        {
+          send: (channel: string, value: unknown) => toOthers.push([channel, value]),
+        },
+      ],
       version: '1.3.0',
       packaged: true,
       fetch: () => Promise.resolve(Response.json({ tag_name: latestTag })),
@@ -694,6 +712,29 @@ describe('the IPC handlers', () => {
     await invoke('bt:rescue', ours, 'write', 'AAAA', info(null));
     await invoke('bt:rescue', foreign, 'write', 'AAAA', info(join(dir, 'chosen.xmpuzzle')));
     expect(rescued.map((r) => r.path)).toEqual([join(dir, 'chosen.xmpuzzle'), null, null]);
+  });
+
+  it('let a window claim only a file it was handed, ask for a window, and share its settings', async () => {
+    claimed.length = 0;
+    toOthers.length = 0;
+    newWindows = 0;
+    electron.openPaths = [join(dir, 'mine.xmpuzzle')];
+    await invoke('bt:choose-open', ours, 'puzzle');
+    const claim = electron.on.get('bt:claim-path');
+    claim?.({ sender: ours }, join(dir, 'mine.xmpuzzle'));
+    claim?.({ sender: ours }, '/etc/elsewhere.xmpuzzle');
+    claim?.({ sender: ours }, 42);
+    claim?.({ sender: foreign }, join(dir, 'mine.xmpuzzle'));
+    expect(claimed).toEqual([[1, join(dir, 'mine.xmpuzzle')]]);
+    electron.on.get('bt:new-window')?.({ sender: foreign });
+    electron.on.get('bt:new-window')?.({ sender: ours });
+    expect(newWindows).toBe(1);
+    const save = electron.on.get('bt:save-state');
+    save?.({ sender: ours }, 'prefs', { theme: 'Dark' });
+    // a layout is the window's own
+    save?.({ sender: ours }, 'layout', { focus: '3d' });
+    save?.({ sender: foreign }, 'prefs', { theme: 'Light' });
+    expect(toOthers).toEqual([['bt:prefs', { theme: 'Dark' }]]);
   });
 
   it('open only the help links, by name', () => {

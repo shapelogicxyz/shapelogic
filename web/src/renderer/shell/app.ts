@@ -133,6 +133,23 @@ export function startApp(saved: StoredState = {}): {
     slideDiskGB: prefs.slideDiskGB,
     panexDiskGB: prefs.panexDiskGB,
   });
+  // settings another window changed (persist.ts) reach this window's
+  // engine too; what it has already is not sent again
+  const takeEngineSettings = (): void => {
+    const now = store.settings;
+    if (now === null || !store.running) {
+      return;
+    }
+    const wanted = store.wantedSettings();
+    const change = Object.fromEntries(
+      Object.entries(wanted).filter(([k, v]) => now[k as keyof typeof now] !== v),
+    );
+    if (Object.keys(change).length > 0) {
+      store.setEngineSettings(change).catch(() => {
+        // the engine went: the next one is started with the settings wanted
+      });
+    }
+  };
   const solves = new Solves(engine);
   // another document (or engine): its problems' ids are new; the old
   // document's last idle and analyseEnded come after this
@@ -153,9 +170,9 @@ export function startApp(saved: StoredState = {}): {
   if (saved.layout !== undefined) {
     restoreLayout(saved.layout);
   }
-  keepState(app);
+  keepState(app, takeEngineSettings);
   installSettings(store);
-  installTopBar(store);
+  installTopBar(store, app);
   const view = new View3D(store);
   const edits = new Edits(store, solves);
   const entities = new EntitiesWorkspace(store, view, edits);

@@ -23,6 +23,7 @@ import { onPrefs, prefs, setPrefs } from './prefs.ts';
 /** The menu commands that are actions of the keyboard table. */
 const AS_KEY: Partial<Record<AppCommandName, KeyAction>> = {
   new: 'file.new',
+  newWindow: 'file.newWindow',
   open: 'file.open',
   save: 'file.save',
   saveAs: 'file.saveAs',

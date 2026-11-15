@@ -877,6 +877,7 @@ html[data-density=minimal] .pzh .seg button{padding:0 6px}
 
 /* ---- stage 1b: what the mockup did not have ---- */
 .fname .dirty{color:var(--accent);margin-left:6px}
+.fname .ro{color:var(--muted);margin-left:6px;font-size:.85em}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .later{flex:1;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:calc(12px + var(--fs));padding:24px;line-height:1.5}
 .empty.show{display:grid}

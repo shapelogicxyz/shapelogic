@@ -43,7 +43,8 @@ import {
   writeFileSafely,
 } from '../../src/main/export-file.ts';
 import { commandItems, menuTemplate, NO_STATE, recentLabel } from '../../src/main/menu.ts';
-import { RescueStore } from '../../src/main/rescue.ts';
+import { PathOwners } from '../../src/main/path-owners.ts';
+import { RescueSlots, RescueStore, rescueSlot } from '../../src/main/rescue.ts';
 import { RECENT_MAX, StateStore } from '../../src/main/state-store.ts';
 import {
   DEFAULTS,
@@ -172,6 +173,115 @@ describe('the rescue copy', () => {
     rmSync(join(d, '__rescue.json'));
     expect(r.read()?.info.path).toBeNull();
   });
+
+  it('names its slots’ files, slot 0 as the earlier versions’ one copy', () => {
+    expect(rescueSlot('__rescue.xmpuzzle')).toBe(0);
+    expect(rescueSlot('__rescue.json.tmp')).toBe(0);
+    expect(rescueSlot('__rescue-3.xmpuzzle')).toBe(3);
+    expect(rescueSlot('__rescue-3.json')).toBe(3);
+    expect(rescueSlot('__rescue-0.json')).toBeNull();
+    expect(rescueSlot('__rescue-x.json')).toBeNull();
+    expect(rescueSlot('state.json')).toBeNull();
+    const d = dir();
+    expect(new RescueStore(d, 2).file).toBe(join(d, '__rescue-2.xmpuzzle'));
+  });
+
+  it('gives each window a slot of its own, a copy left on disk to one window only', () => {
+    const d = dir();
+    // a session that died left copies in slots 0 and 2
+    new RescueStore(d, 0).write(data, info);
+    new RescueStore(d, 2).write(data, { ...info, name: 'c.xmpuzzle' });
+    const slots = new RescueSlots<string>(d);
+    expect(slots.of('a').slot).toBe(0);
+    expect(slots.of('a').slot).toBe(0);
+    // the next window takes the other copy left, not an empty slot before it
+    expect(slots.of('b').slot).toBe(2);
+    expect(slots.of('b').read()?.info.name).toBe('c.xmpuzzle');
+    // no copy left: the lowest free slot
+    expect(slots.of('c').slot).toBe(1);
+    expect(slots.all().map((r) => r.slot)).toEqual([0, 1, 2]);
+    // a window that closes frees its slot; a copy it left goes to the next window
+    slots.of('b').write(data, info);
+    slots.release('b');
+    expect(slots.of('d').slot).toBe(2);
+    expect(slots.of('d').read()).not.toBeNull();
+    slots.release('c');
+    expect(slots.all().map((r) => r.slot)).toEqual([0, 2]);
+  });
+});
+
+describe('the files the windows hold', () => {
+  const key = (p: string): string => p.toLowerCase();
+  const make = (): { owners: PathOwners<string>; told: [string, boolean][] } => {
+    const told: [string, boolean][] = [];
+    const owners = new PathOwners<string>((w, ro) => told.push([w, ro]), key);
+    return { owners, told };
+  };
+  const save = (path?: string): [string, unknown] => [
+    'document.save',
+    path === undefined ? {} : { path },
+  ];
+
+  it('lets the first window own a file and holds it read-only in another', () => {
+    const { owners, told } = make();
+    owners.hold('a', '/p/A.xmpuzzle');
+    owners.hold('b', '/p/a.xmpuzzle');
+    expect(owners.readOnly('a')).toBe(false);
+    expect(owners.readOnly('b')).toBe(true);
+    expect(told).toEqual([['b', true]]);
+    expect(owners.refusal('a', ...save())).toBeNull();
+    expect(owners.refusal('b', ...save())).toMatch(/open in another window/);
+    expect(owners.refusal('b', ...save('/p/a.xmpuzzle'))).toMatch(/open in another window/);
+    // Save As elsewhere: allowed, and the window owns its new file
+    expect(owners.refusal('b', ...save('/p/b.xmpuzzle'))).toBeNull();
+    owners.hold('b', '/p/b.xmpuzzle');
+    expect(owners.readOnly('b')).toBe(false);
+    expect(told).toEqual([
+      ['b', true],
+      ['b', false],
+    ]);
+    // nor may a window save over a file another owns
+    expect(owners.refusal('a', ...save('/p/b.xmpuzzle'))).toMatch(/open in another window/);
+    // other calls are not looked at
+    expect(owners.refusal('b', 'document.open', { path: '/p/a.xmpuzzle' })).toBeNull();
+  });
+
+  it('keeps a read-only window so when the owner goes, until it opens the file again', () => {
+    const { owners } = make();
+    owners.hold('a', '/p/a.xmpuzzle');
+    owners.hold('b', '/p/a.xmpuzzle');
+    owners.release('a');
+    expect(owners.owner('/p/a.xmpuzzle')).toBeUndefined();
+    // its next menu state names the same file: still read-only (its copy may be older)
+    owners.hold('b', '/p/a.xmpuzzle');
+    expect(owners.readOnly('b')).toBe(true);
+    expect(owners.refusal('b', ...save())).not.toBeNull();
+    // another window that opens it now owns it; b's copy may be saved over
+    owners.hold('c', '/p/a.xmpuzzle');
+    expect(owners.readOnly('c')).toBe(false);
+    expect(owners.refusal('c', ...save())).toBeNull();
+    owners.release('c');
+    // b opens the file again: it owns it
+    owners.claim('b', '/p/a.xmpuzzle');
+    expect(owners.readOnly('b')).toBe(false);
+    expect(owners.refusal('b', ...save())).toBeNull();
+  });
+
+  it('lets a file go when the document has another, or none', () => {
+    const { owners, told } = make();
+    owners.hold('a', '/p/a.xmpuzzle');
+    owners.hold('b', '/p/a.xmpuzzle');
+    // b's New: no file, not read-only
+    owners.hold('b', null);
+    expect(owners.readOnly('b')).toBe(false);
+    expect(told.at(-1)).toEqual(['b', false]);
+    // a opens another file: the first is free for b
+    owners.hold('a', '/p/c.xmpuzzle');
+    owners.claim('b', '/p/a.xmpuzzle');
+    expect(owners.readOnly('b')).toBe(false);
+    expect(owners.owner('/p/a.xmpuzzle')).toBe('b');
+    expect(owners.owner('/p/c.xmpuzzle')).toBe('a');
+  });
 });
 
 describe('the menus', () => {
@@ -191,6 +301,7 @@ describe('the menus', () => {
       settings: 'CmdOrCtrl+,',
     },
   };
+  const focused: number[] = [];
   const build = (
     s: MenuState,
     platform: string,
@@ -205,15 +316,22 @@ describe('the menus', () => {
       send: (c) => sent.push(c),
       openHelp: () => undefined,
       clearRecent: () => undefined,
+      windows: [
+        { id: 1, title: 'a.xmpuzzle — ShapeLogic', focused: true },
+        { id: 2, title: 'b.xmpuzzle — ShapeLogic', focused: false },
+      ],
+      focusWindow: (id) => {
+        focused.push(id);
+      },
     });
     return { template, sent };
   };
 
   it('has the original’s menus on each platform: About and Settings in the app menu on macOS', () => {
     const mac = build(state, 'darwin').template.map((m) => m.id);
-    expect(mac).toEqual(['app', 'file', 'edit', 'view', 'help']);
+    expect(mac).toEqual(['app', 'file', 'edit', 'view', 'window', 'help']);
     const win = build(state, 'win32').template.map((m) => m.id);
-    expect(win).toEqual(['file', 'edit', 'view', 'help']);
+    expect(win).toEqual(['file', 'edit', 'view', 'window', 'help']);
     const winItems = commandItems(build(state, 'win32').template);
     expect(winItems.has('about')).toBe(true);
     expect(winItems.has('settings')).toBe(true);
@@ -231,6 +349,24 @@ describe('the menus', () => {
     (commandItems(sends.template).get('checkUpdates')?.click as () => void)();
     expect(sends.sent).toContainEqual({ cmd: 'checkUpdates' });
     expect(isAppCommand({ cmd: 'checkUpdates' })).toBe(true);
+  });
+
+  it('has File ▸ New Window and a Window menu listing the windows (macOS’s own there)', () => {
+    const win = build(state, 'win32');
+    const items = commandItems(win.template);
+    (items.get('newWindow')?.click as () => void)();
+    expect(win.sent).toContainEqual({ cmd: 'newWindow' });
+    expect(isAppCommand({ cmd: 'newWindow' })).toBe(true);
+    const listed = win.template.find((m) => m.id === 'window')
+      ?.submenu as MenuItemConstructorOptions[];
+    const named = listed.filter((i) => i.id?.startsWith('window.') === true);
+    expect(named.map((i) => [i.label, i.checked])).toEqual([
+      ['a.xmpuzzle — ShapeLogic', true],
+      ['b.xmpuzzle — ShapeLogic', false],
+    ]);
+    (named[1]?.click as () => void)();
+    expect(focused).toEqual([2]);
+    expect(build(state, 'darwin').template.find((m) => m.id === 'window')?.role).toBe('windowMenu');
   });
 
   it('greys what this version cannot do, and what the state does not allow', () => {
@@ -340,6 +476,8 @@ describe('the menus', () => {
         send: () => undefined,
         openHelp: () => undefined,
         clearRecent: () => undefined,
+        windows: [],
+        focusWindow: () => undefined,
       });
       return template.find((m) => m.id === 'view')?.submenu as MenuItemConstructorOptions[];
     };

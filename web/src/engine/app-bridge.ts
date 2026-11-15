@@ -4,7 +4,8 @@
 // the engine (stage 6; the engine's half is bridge.ts): the menus'
 // commands one way and their state the other, the file dialogs, the
 // stored settings and layouts, the recent files, the rescue copy, the
-// help links, the window's close, from stage 7 the exports' files, and
+// help links, the window's close, the windows (New Window, a file held
+// read-only, the settings another window changed), from stage 7 the exports' files, and
 // the cache manager's items (View ▸ Manage Cache and Autosave Files).
 // The preload exposes it as `window.btApp`; the renderer never sees a path
 // it did not get from a dialog, a drop, the recent files or the rescue
@@ -17,6 +18,8 @@ import type { MeshStyle } from './api.generated.ts';
 /** A command of the menus (or the window: close), sent to the renderer. */
 export type AppCommand =
   | { cmd: 'new' }
+  /** File ▸ New Window (decision 0036): the main process opens one; the key asks it (BtApp.newWindow). */
+  | { cmd: 'newWindow' }
   | { cmd: 'open' }
   /** A file to open: Open Recent, a file the system opened with the app. */
   | { cmd: 'openPath'; path: string }
@@ -341,6 +344,21 @@ export interface BtApp {
   readRescue(): Promise<{ data: string; info: RescueInfo } | null>;
   /** Removes the rescue copy (saved, or its changes given up). */
   clearRescue(): Promise<void>;
+  /** File ▸ New Window: the main process opens another window (decision 0036). */
+  newWindow(): void;
+  /**
+   * The window opened this file (Open, Open Recent, a drop, the rescue
+   * copy's Reopen): it holds it, read-only when another window owns it.
+   */
+  claimPath(path: string): void;
+  /**
+   * Listens to whether the window holds its file read-only (another
+   * window owns it: Save is Save As); called at once with the state now.
+   * Returns the unsubscribe.
+   */
+  onReadOnly(handler: (readOnly: boolean) => void): () => void;
+  /** Listens to the settings another window changed; returns the unsubscribe. */
+  onPrefs(handler: (prefs: Record<string, unknown>) => void): () => void;
   /** Opens a help page in the system's browser. */
   openHelp(link: HelpLink): void;
   /**
@@ -388,6 +406,7 @@ export interface BtApp {
 
 const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'new',
+  'newWindow',
   'open',
   'openPath',
   'save',

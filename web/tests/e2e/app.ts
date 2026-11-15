@@ -163,6 +163,24 @@ export async function launch(
 }
 
 /**
+ * The page of a window the app opens after its first (File ▸ New Window, a
+ * second start without a file: decision 0036), once `open` asked for it and
+ * its first document is shown; the helpers take it as the first window's.
+ */
+export async function nextWindow(
+  app: ElectronApplication,
+  open: () => Promise<void>,
+): Promise<Page> {
+  const [page] = await Promise.all([app.waitForEvent('window', { timeout: 60_000 }), open()]);
+  apps.set(page, app);
+  await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running', {
+    timeout: 60_000,
+  });
+  await expect(page.locator('#stage')).toHaveAttribute('data-revision', /\d/);
+  return page;
+}
+
+/**
  * Ends the app without the question about unsaved changes (a test's
  * document is thrown away): the windows are destroyed, then the app closes.
  * An exception the main process did not catch (launch records them) fails

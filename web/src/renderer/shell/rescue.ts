@@ -260,6 +260,10 @@ export class Rescue {
       if (k === 'open') {
         try {
           await this.store.openRescue(found.data, info.path, info.name);
+          if (info.path !== null) {
+            // held by this window: read-only when another window owns the file
+            this.app.claimPath(info.path);
+          }
           flash(`Reopened the rescue copy of ${what}: save it to keep it`, 5000);
           return;
         } catch (e) {

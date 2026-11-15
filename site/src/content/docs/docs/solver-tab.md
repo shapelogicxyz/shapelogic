@@ -148,7 +148,9 @@ and its place in the search. If ShapeLogic or the computer crashes, the next
 start offers to reopen that copy, and **Continue** carries the solve on from
 where the copy was written.
 
-The copy is kept in ShapeLogic's own data folder. Your puzzle's file is
+The copy is kept in ShapeLogic's own data folder, one for each window. After
+a crash with several windows open, the next start offers one copy, and each
+**File ▸ New Window** offers the next one. Your puzzle's file is
 never written unless you save it: a solve does not change the file on disk,
 whatever you edited before starting it. **File ▸ Save** during a solve
 pauses it for a moment, saves, and carries on.

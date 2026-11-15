@@ -49,6 +49,14 @@ export function demoApp(version: string): DemoApp {
     writeRescue: () => Promise.resolve(),
     readRescue: () => Promise.resolve(null),
     clearRescue: () => Promise.resolve(),
+    // one page, one document: no other window, nothing held read-only
+    newWindow: nothing,
+    claimPath: nothing,
+    onReadOnly(handler) {
+      handler(false);
+      return nothing;
+    },
+    onPrefs: () => nothing,
     openHelp(link) {
       const page =
         link === 'author'

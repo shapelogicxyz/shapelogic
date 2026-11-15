@@ -40,6 +40,7 @@ instead, or change the desktop's window-moving key in its settings.
 | Step back: close a dialog, then a menu, cancel a rename, pause playback, leave focus mode | `Esc` | `Esc` |
 | Undo / redo | `Ctrl+Z` / `Shift+Ctrl+Z` | `⌘Z` / `Shift+⌘Z` |
 | New puzzle / open a puzzle | `Ctrl+N` / `Ctrl+O` | `⌘N` / `⌘O` |
+| New window (its own puzzle and engine) | `Shift+Ctrl+N` | `Shift+⌘N` |
 | Save / save as | `Ctrl+S` / `Shift+Ctrl+S` | `⌘S` / `Shift+⌘S` |
 | Close the window (asks about unsaved changes) | `Ctrl+W` | `⌘W` |
 | Move keyboard focus between controls | `Tab` / `Shift+Tab` | `Tab` / `Shift+Tab` |

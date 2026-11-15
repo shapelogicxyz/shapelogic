@@ -341,7 +341,7 @@ Windows 10 or 11 x64 machine:
   the solve stops).
 - **One rescue copy per app**: the app has one window at a time (a new
   one only when none is open, macOS's Dock); two windows would share the
-  copy.
+  copy. (Since decision 0036 there is one copy per window.)
 - When the host gives up on an engine (five quick deaths), there is no
   restart and so no offer this session; the copy stays and is offered at
   the next start.

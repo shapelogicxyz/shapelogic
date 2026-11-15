@@ -1223,9 +1223,14 @@ What exists after stage 8:
   can come between two statements); the window's close held and asked of
   the renderer (`close`), which answers `closeWindow` after its question
   about unsaved changes, or the question asked natively when the renderer
-  has not taken the close within 4 s; a quit held by a window's question
-  goes on once it closes, a close of the window's own meanwhile does not
-  give it up; the window's bounds kept;
+  has not taken the close within 4 s; a quit asks the windows one after
+  the other (`closeNextForQuit`, the focused first), a Cancel ends it and
+  the windows not asked yet stay, and a close of a window's own meanwhile
+  does not give it up; the window's bounds kept; several windows
+  (decision 0036): File ▸ New Window and a second start without a file
+  open one, cascaded from the focused window (`cascaded`), each with its
+  own engine and rescue slot; `PathOwners` decides which window owns each
+  file and refuses a save over another window's file or a read-only one;
   files the system opens with the app (macOS's `open-file`, a command
   line's `.xmpuzzle` or `.slsolve`); in development the renderer's
   warnings and errors are echoed to the terminal; `BT_USER_DATA` moves the
@@ -1286,7 +1291,16 @@ What exists after stage 8:
   `rescue.ts` (`RescueStore`: `__rescue.xmpuzzle`, the document's bytes,
   and `__rescue.json`, its record with a hash of the bytes, written record
   first, each by rename; a copy whose record does not match is offered as
-  a puzzle without a file).
+  a puzzle without a file; `RescueSlots`, decision 0036: one copy per
+  window, slot n as `__rescue-n.*`, slot 0 the earlier one copy's names; a
+  new window takes the lowest free slot holding a copy, so a copy left by a
+  crash is offered in one window only),
+  `path-owners.ts` (Electron-free, decision 0036: `PathOwners`, the file
+  each window holds, by realpath without case on macOS and Windows; the
+  first to hold a file owns it, another holds it read-only (told by
+  `bt:read-only`) until it opens the file again; `refusal` turns down a
+  `document.save` over a file another window owns, or over the window's
+  own read-only one).
   From stage 8, the security checklist: `security.ts` (Electron-free:
   the window's web preferences, sandboxed, context-isolated, no Node in
   the page, its workers or frames, no webview, no navigation by a drop;
@@ -1435,7 +1449,11 @@ What exists after stage 8:
     (`Autosave.saveAtSavePoint(path)`), an analysis told to finish first;
     the paused solver state exported and imported; a dropped file by its
     path, else by its bytes; a file opened or saved goes to Open Recent,
-    a recent file that cannot be read leaves it), `rescue.ts` (`Rescue`:
+    a recent file that cannot be read leaves it; decision 0036: a file
+    opened is claimed (`claimPath`), and one another window owns is held
+    read-only, so Save is Save As with "<name> copy" proposed, and the top
+    bar and title say "(read-only)", `#stage[data-read-only]`; Shift+Ctrl+N
+    asks for a new window), `rescue.ts` (`Rescue`:
     the rescue copy written by `document.saveBytes` 300 ms after a change,
     at most every 2 s, while the document is dirty and nothing solves,
     removed once it is clean; writes and removals in one queue; offered

@@ -67,6 +67,8 @@ export type KeyAction =
   | 'delete'
   /** The File menu's keys (stage 6): they act in a text field too. */
   | 'file.new'
+  /** Shift+Ctrl+N: File ▸ New Window (decision 0036). */
+  | 'file.newWindow'
   | 'file.open'
   | 'file.save'
   | 'file.saveAs'
@@ -158,8 +160,16 @@ export const KEY_MAP: readonly KeyRow[] = [
     keys: 'Ctrl+N / Ctrl+O',
     does: 'New puzzle (its grid is chosen once) / Open a puzzle',
     chords: [
-      { chord: mod('n', 'KeyN'), action: 'file.new' },
+      { chord: { key: 'n', code: 'KeyN', mod: true, shift: false }, action: 'file.new' },
       { chord: mod('o', 'KeyO'), action: 'file.open' },
+    ],
+  },
+  {
+    group: 'Everywhere',
+    keys: 'Shift+Ctrl+N',
+    does: 'New window (its own puzzle and engine)',
+    chords: [
+      { chord: { key: 'n', code: 'KeyN', mod: true, shift: true }, action: 'file.newWindow' },
     ],
   },
   {
@@ -481,6 +491,7 @@ export function keyGroups(): { group: string; sub?: string; rows: KeyRow[] }[] {
 /** The actions that act while a text field has the focus (they hold Ctrl or Cmd). */
 export const IN_TEXT: ReadonlySet<KeyAction> = new Set<KeyAction>([
   'file.new',
+  'file.newWindow',
   'file.open',
   'file.save',
   'file.saveAs',

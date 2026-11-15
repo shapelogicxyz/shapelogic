@@ -20,9 +20,13 @@
 // process's folder dialog, and what to do with the data there is the
 // renderer's answer to the choice it was handed, never a path of its own.
 // The cache manager (cache-files.ts) lists what the cache folder and the
-// rescue copy hold and deletes an item by the id it listed it by; a
+// rescue copies hold and deletes an item by the id it listed it by; a
 // window's links of its search folders name only folders in the cache
 // folder in use, and a puzzle file only one the window was handed.
+// Several windows (decision 0036): each has its own rescue copy (rescue.ts's
+// slots), a window tells which file it opened (path-owners.ts: the first
+// window to hold a file owns it, another holds it read-only), New Window
+// asks for another, and a change of the settings in one reaches the others.
 // Every message is checked before it is used, and only the app's windows
 // are answered.
 
@@ -55,7 +59,8 @@ import type { CacheLinks } from './cache-files.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
 import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
 import type { PathGrants } from './path-grants.ts';
-import type { RescueStore } from './rescue.ts';
+import type { PathOwners } from './path-owners.ts';
+import type { RescueSlots } from './rescue.ts';
 import { HELP_URLS, SYSTEM_URLS } from './security.ts';
 import type { StateStore } from './state-store.ts';
 import { checkForUpdate, parseVersion } from './updates.ts';
@@ -128,9 +133,12 @@ const folders = new FolderGrants<WebContents>();
 
 export interface AppIpcHost {
   store: StateStore;
-  rescue: RescueStore;
+  /** The windows' rescue copies, by the web contents' id. */
+  rescue: RescueSlots<number>;
   /** The files each window's engine may be given. */
   paths: PathGrants<WebContents>;
+  /** Which window owns each file it holds, by the web contents' id. */
+  owners: PathOwners<number>;
   version: string;
   /** Whether the app is packaged: only a packaged app checks for updates at startup. */
   packaged: boolean;
@@ -147,6 +155,10 @@ export interface AppIpcHost {
   /** The app's window of a renderer, or null (not ours: not answered). */
   window(sender: WebContents): BrowserWindow | null;
   setMenu(sender: WebContents, state: MenuState): void;
+  /** File ▸ New Window: another window, with an empty puzzle. */
+  newWindow(): void;
+  /** The app's windows but this one (a change of the settings reaches them). */
+  others(sender: WebContents): WebContents[];
   closeTaken(sender: WebContents): void;
   closeWindow(sender: WebContents): void;
   cancelQuit(sender: WebContents): void;
@@ -364,6 +376,25 @@ export function installAppIpc(h: AppIpcHost): void {
       !Array.isArray(value)
     ) {
       h.store.set(key, value as Record<string, unknown>);
+      if (key === 'prefs') {
+        // the settings are the app's: every window shows them (a layout is the window's own)
+        for (const c of h.others(e.sender)) {
+          c.send('bt:prefs', value);
+        }
+      }
+    }
+  });
+
+  // the window opened this file: it holds it, owned or read-only (path-owners.ts)
+  ipcMain.on('bt:claim-path', (e, path: unknown) => {
+    if (ours(e) !== null && typeof path === 'string' && h.paths.allows(e.sender, path)) {
+      h.owners.claim(e.sender.id, path);
+    }
+  });
+
+  ipcMain.on('bt:new-window', (e) => {
+    if (ours(e) !== null) {
+      h.newWindow();
     }
   });
 
@@ -392,11 +423,11 @@ export function installAppIpc(h: AppIpcHost): void {
           // the record's file is handed to the window that reads it: only
           // one this window was handed itself, else the copy has no file
           const path = info.path !== null && h.paths.allows(e.sender, info.path) ? info.path : null;
-          h.rescue.write(data, { ...info, path });
+          h.rescue.of(e.sender.id).write(data, { ...info, path });
         }
         return null;
       case 'read': {
-        const copy = h.rescue.read();
+        const copy = h.rescue.of(e.sender.id).read();
         if (copy?.info.path != null) {
           // the copy reopens as the document of its file
           h.paths.grant(e.sender, copy.info.path);
@@ -404,7 +435,7 @@ export function installAppIpc(h: AppIpcHost): void {
         return copy;
       }
       case 'clear':
-        h.rescue.clear();
+        h.rescue.of(e.sender.id).clear();
         return null;
       default:
         return null;
@@ -488,10 +519,10 @@ export function installAppIpc(h: AppIpcHost): void {
     const folders = h.cache.folders;
     switch (op) {
       case 'list':
-        return listItems(folders, h.rescue, h.cacheLinks);
+        return listItems(folders, h.rescue.all(), h.cacheLinks);
       case 'delete':
         return typeof arg === 'string'
-          ? deleteItem(arg, folders, h.rescue, h.cacheLinks, () => h.cache.solving())
+          ? deleteItem(arg, folders, h.rescue.all(), h.cacheLinks, () => h.cache.solving())
           : { ok: false, error: 'unknown item' };
       default:
         return null;

@@ -31,7 +31,7 @@ real engine, `e2e/` from stage 1b), `fake-engine/` (recorded sessions
 replayed).
 
 **Process model.** One `shapelogic_engine` per window, owned by an `EngineHost` in
-the main process. The renderer is sandboxed (`sandbox`, `contextIsolation`
+the main process (several windows, each with its own document: decision 0036). The renderer is sandboxed (`sandbox`, `contextIsolation`
 on, `nodeIntegration` off) and reaches the engine only through
 `window.bt`, which the preload exposes: calls go one way (`bt:call`),
 replies, events and the engine's status come back on one ordered channel
@@ -167,7 +167,8 @@ between markup in a puzzle's names and a script from disk, so the fuse
 that gives `file:` pages extra privileges is off too), with a CSP that
 allows nothing but its own files. Its session lets through the
 renderer's own files and nothing remote, grants no permission, and
-refuses webviews, new windows and navigation. A call that
+refuses webviews, new windows (a page's own; the app's New Window is the
+main process's, decision 0036) and navigation. A call that
 names a file (`document.open`, `openBytes`, `save`, `solve.importPaused`,
 `exportPaused`) goes to the engine only when the main process handed the
 window that path (its dialogs, the rescue record, a drop, a file opened

@@ -11,8 +11,9 @@
 // (`cache-links.json`, by folder name, so a move of the cache folder
 // keeps them). The folders of one problem's starts are one item; a folder
 // without its `state.bin` is a search that never saved (a crash, or one
-// running); anything else in the two folders is one item each. The rescue
-// copy and its record are one item, named from the record.
+// running); anything else in the two folders is one item each. Each
+// rescue copy (one per window, rescue.ts) and its record are one item,
+// named from the record.
 //
 // An item is deleted by its id, which the renderer has from the list:
 // the folders are listed again and the item found by it, so a path the
@@ -340,6 +341,11 @@ export interface RescueFiles {
   record: string;
 }
 
+/** The rescue copies: one, or every window's (rescue.ts's RescueSlots.all). */
+export type RescueCopies = RescueFiles | readonly RescueFiles[];
+
+const copies = (r: RescueCopies): readonly RescueFiles[] => ('file' in r ? [r] : r);
+
 async function rescueGroup(r: RescueFiles): Promise<Group | null> {
   const roots: string[] = [];
   for (const p of [r.file, r.record, `${r.file}.tmp`, `${r.record}.tmp`]) {
@@ -391,7 +397,7 @@ async function itemOf(g: Group): Promise<{ item: CacheItem; roots: string[] }> {
 /** The items with what each deletes, the newest first; links of folders gone are dropped. */
 async function listWithRoots(
   f: CacheFolders,
-  rescue: RescueFiles,
+  rescue: RescueCopies,
   links: CacheLinks,
 ): Promise<{ item: CacheItem; roots: string[] }[]> {
   const present = new Set<string>();
@@ -399,9 +405,11 @@ async function listWithRoots(
     ...(await searchGroups(f.slide, 'sliding', links, present)),
     ...(await searchGroups(f.panex, 'stacking', links, present)),
   ];
-  const r = await rescueGroup(rescue);
-  if (r !== null) {
-    groups.push(r);
+  for (const c of copies(rescue)) {
+    const r = await rescueGroup(c);
+    if (r !== null) {
+      groups.push(r);
+    }
   }
   await links.keep(present);
   const items = [];
@@ -414,7 +422,7 @@ async function listWithRoots(
 /** What the cache folder and the rescue copy hold, the newest first. */
 export async function listItems(
   f: CacheFolders,
-  rescue: RescueFiles,
+  rescue: RescueCopies,
   links: CacheLinks,
 ): Promise<CacheItem[]> {
   return (await listWithRoots(f, rescue, links)).map((x) => x.item);
@@ -432,7 +440,7 @@ const SOLVING =
 export async function deleteItem(
   id: string,
   f: CacheFolders,
-  rescue: RescueFiles,
+  rescue: RescueCopies,
   links: CacheLinks,
   solving: () => Promise<boolean>,
 ): Promise<{ ok: true; items: CacheItem[] } | { ok: false; error: string }> {

@@ -82,7 +82,7 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(42);
+    expect(seen.size).toBe(43);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
@@ -150,6 +150,7 @@ describe('the keyboard map', () => {
 
   it('has the File menu’s keys, which act in a text field too', () => {
     expect(actionOf(press('n', { ctrl: true }, 'KeyN'))).toBe('file.new');
+    expect(actionOf(press('N', { ctrl: true, shift: true }, 'KeyN'))).toBe('file.newWindow');
     expect(actionOf(press('o', { meta: true }, 'KeyO'))).toBe('file.open');
     expect(actionOf(press('s', { ctrl: true }, 'KeyS'))).toBe('file.save');
     expect(actionOf(press('S', { ctrl: true, shift: true }, 'KeyS'))).toBe('file.saveAs');
@@ -158,6 +159,7 @@ describe('the keyboard map', () => {
     expect([...IN_TEXT].sort()).toEqual([
       'file.close',
       'file.new',
+      'file.newWindow',
       'file.open',
       'file.save',
       'file.saveAs',
@@ -166,6 +168,7 @@ describe('the keyboard map', () => {
 
   it('writes the menus’ keys as Electron accelerators', () => {
     expect(accelerator('file.new')).toBe('CmdOrCtrl+N');
+    expect(accelerator('file.newWindow')).toBe('Shift+CmdOrCtrl+N');
     expect(accelerator('file.saveAs')).toBe('Shift+CmdOrCtrl+S');
     expect(accelerator('undo')).toBe('CmdOrCtrl+Z');
     expect(accelerator('redo')).toBe('Shift+CmdOrCtrl+Z');

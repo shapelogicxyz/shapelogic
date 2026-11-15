@@ -10,8 +10,11 @@
 // anaglyph modes. The keys shown
 // are the one keyboard table's (renderer/shell/keys.ts, sent in the
 // state): the menus show them and do not register them, so a key press
-// reaches the page and is handled once, by the table. Free of Electron but
-// for its types: index.ts builds the menu from this template.
+// reaches the page and is handled once, by the table. File ▸ New Window
+// and the Window menu (decision 0036) are the main process's: New Window
+// opens a window, and the Window menu lists the windows (macOS's own,
+// `windowMenu`; elsewhere the menu's items, from the host). Free of
+// Electron but for its types: index.ts builds the menu from this template.
 
 import type { MenuItemConstructorOptions } from 'electron';
 
@@ -29,6 +32,10 @@ export interface MenuHost {
   send(command: AppCommand): void;
   openHelp(link: HelpLink): void;
   clearRecent(): void;
+  /** The open windows, for the Window menu (Windows and Linux; macOS lists them itself). */
+  windows: readonly { id: number; title: string; focused: boolean }[];
+  /** Brings a window of the list to the front. */
+  focusWindow(id: number): void;
 }
 
 /** The state before the renderer has sent one: nothing open. */
@@ -129,6 +136,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
     label: '&File',
     submenu: [
       item('new', 'New…', { cmd: 'new' }, true, 'new'),
+      item('newWindow', 'New Window', { cmd: 'newWindow' }, true, 'newWindow'),
       item('open', 'Open…', { cmd: 'open' }, true, 'open'),
       {
         id: 'recent',
@@ -323,6 +331,27 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
     ],
   };
 
+  // macOS lists the windows in its own Window menu; elsewhere they are listed here
+  const windowMenu: MenuItemConstructorOptions = mac
+    ? { id: 'window', role: 'windowMenu' }
+    : {
+        id: 'window',
+        label: '&Window',
+        submenu: [
+          { role: 'minimize' },
+          SEP,
+          ...h.windows.map((w, i): MenuItemConstructorOptions => ({
+            id: `window.${String(i)}`,
+            label: w.title,
+            type: 'checkbox',
+            checked: w.focused,
+            click: () => {
+              h.focusWindow(w.id);
+            },
+          })),
+        ],
+      };
+
   const appMenu: MenuItemConstructorOptions = {
     id: 'app',
     label: h.name,
@@ -343,7 +372,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
     ],
   };
 
-  return mac ? [appMenu, file, edit, view, help] : [file, edit, view, help];
+  return mac ? [appMenu, file, edit, view, windowMenu, help] : [file, edit, view, windowMenu, help];
 }
 
 /** The ids of the menu items that send a command, with the command (for the tests). */

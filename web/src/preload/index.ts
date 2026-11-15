@@ -63,6 +63,19 @@ ipcRenderer.on('bt:command', (_event: IpcRendererEvent, command: unknown) => {
   }
 });
 
+// Whether the window holds its file read-only (main/path-owners.ts): kept
+// here, so a page that subscribes late (or a reload) gets the state now.
+let readOnly = false;
+const readOnlyHandlers = new Set<(readOnly: boolean) => void>();
+ipcRenderer.on('bt:read-only', (_event: IpcRendererEvent, value: unknown) => {
+  if (typeof value === 'boolean') {
+    readOnly = value;
+    for (const h of readOnlyHandlers) {
+      h(value);
+    }
+  }
+});
+
 const btApp: BtApp = {
   platform: info?.platform ?? '',
   version: info?.version ?? '',
@@ -149,6 +162,30 @@ const btApp: BtApp = {
   },
   async clearRescue() {
     await ipcRenderer.invoke('bt:rescue', 'clear');
+  },
+  newWindow() {
+    ipcRenderer.send('bt:new-window');
+  },
+  claimPath(path) {
+    ipcRenderer.send('bt:claim-path', path);
+  },
+  onReadOnly(handler) {
+    readOnlyHandlers.add(handler);
+    handler(readOnly);
+    return () => {
+      readOnlyHandlers.delete(handler);
+    };
+  },
+  onPrefs(handler) {
+    const listener = (_event: IpcRendererEvent, value: unknown): void => {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        handler(value as Record<string, unknown>);
+      }
+    };
+    ipcRenderer.on('bt:prefs', listener);
+    return () => {
+      ipcRenderer.removeListener('bt:prefs', listener);
+    };
   },
   openHelp(link) {
     ipcRenderer.send('bt:help', link);

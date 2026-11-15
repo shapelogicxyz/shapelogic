@@ -5,14 +5,19 @@
 // button. From docs/mockup/index.html: `.top`. The window's title says the same (the
 // name, a mark when changed). The temporary New…, Open… and Status…
 // buttons of the earlier stages are the menus' items since stage 6
-// (files.ts, menus.ts).
+// (files.ts, menus.ts). A file another window owns is marked read-only,
+// in the bar and the title (decision 0036).
 
+import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc } from './dom.ts';
 
 function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
+
+/** The window holds its file read-only (another window owns it). */
+let readOnly = false;
 
 /** Shows the document's name and state. */
 function render(store: Store): void {
@@ -27,13 +32,19 @@ function render(store: Store): void {
     return;
   }
   const name = snap.path !== null ? baseName(snap.path) : (store.displayName ?? 'Untitled');
+  const ro = readOnly && snap.path !== null;
   el.innerHTML =
-    esc(name) + (snap.dirty ? '<span class="dirty" title="Unsaved changes">●</span>' : '');
+    esc(name) +
+    (ro
+      ? '<span class="ro" title="Open in another window: Save As keeps the changes under another name">(read-only)</span>'
+      : '') +
+    (snap.dirty ? '<span class="dirty" title="Unsaved changes">●</span>' : '');
   el.title = snap.path ?? name;
-  document.title = `${snap.dirty ? '• ' : ''}${name} — ShapeLogic`;
+  document.title = `${snap.dirty ? '• ' : ''}${name}${ro ? ' (read-only)' : ''} — ShapeLogic`;
   // what the page shows, readable from outside (the e2e tests)
   stage.dataset.dirty = snap.dirty ? '1' : '0';
   stage.dataset.path = snap.path ?? '';
+  stage.dataset.readOnly = ro ? '1' : '0';
 }
 
 /**
@@ -57,11 +68,15 @@ function fitName(): void {
 }
 
 /** Wires the top bar to the store. */
-export function installTopBar(store: Store): void {
+export function installTopBar(store: Store, app: BtApp): void {
   store.subscribe((c) => {
     if (c.kind === 'document') {
       render(store);
     }
+  });
+  app.onReadOnly((r) => {
+    readOnly = r;
+    render(store);
   });
   render(store);
   // the window's size, the density, the font size and where the tabs are

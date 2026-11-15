@@ -15,9 +15,19 @@
 // question: the close is held and the renderer told (`close`); it asks
 // about unsaved changes and answers `closeWindow`. A renderer that does
 // not take the command within a few seconds (hung, or crashed) gets the
-// question natively, so a window can always be closed. A quit held by a
-// window's question goes on once that window closes. One app runs at a
-// time for a data directory: a second start hands its files to the first.
+// question natively, so a window can always be closed. A quit asks the
+// windows one after the other (the focused first): each closes once its
+// question is answered, a Cancel stops the quit, and the app quits once the
+// last has closed. One app runs at a time for a data directory: a second
+// start hands its files to the first, and one without files (Shift-click
+// on the taskbar, the launcher again) opens a new window in it.
+//
+// Several windows (decision 0036): File ▸ New Window opens one, each with
+// its own engine, its own rescue copy (rescue.ts's slots) and its own
+// document; a new window cascades from the focused one. The first window to
+// hold a puzzle file owns it; another that opens it holds it read-only
+// (path-owners.ts): its engine's save over that file is refused here, as a
+// save over a file another window owns.
 //
 // The security checklist (stage 8, security.ts): the window sandboxed and
 // isolated; the page the app's own, on its own scheme (`bt-app://app/`,
@@ -41,7 +51,18 @@
 // Solver's autosave (20 minutes), passed in the page's address. A
 // packaged app takes BT_USER_DATA only (security.ts's switches).
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  net,
+  protocol,
+  screen,
+  session,
+  shell,
+} from 'electron';
 import type { WebContents } from 'electron';
 import { appendFileSync, existsSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
@@ -60,7 +81,8 @@ import type { CallOutcome } from './engine-ipc.ts';
 import { menuTemplate, NO_STATE } from './menu.ts';
 import { gpuAction, probeFailure, retryArgs, WEBGL2_PROBE } from './gpu-check.ts';
 import { PathGrants, settingsRefusal } from './path-grants.ts';
-import { RescueStore } from './rescue.ts';
+import { PathOwners } from './path-owners.ts';
+import { RescueSlots } from './rescue.ts';
 import {
   allowedRequest,
   APP_SCHEME,
@@ -113,8 +135,6 @@ interface WindowState {
   allowClose: boolean;
   /** A close was sent and not yet taken. */
   closeTimer: ReturnType<typeof setTimeout> | null;
-  /** The close being asked came from a quit: quit once the window closed. */
-  quitAfterClose: boolean;
 }
 
 const servers = new Map<number, ReturnType<typeof serveEngine>>();
@@ -123,9 +143,21 @@ const windows = new Map<number, WindowState>();
 const hosts = new Map<number, EngineHost>();
 let store: StateStore;
 let cache: CacheFolderManager<WebContents>;
-let rescue: RescueStore;
-/** A quit is under way (before-quit came, the windows are asked to close). */
+let rescue: RescueSlots<number>;
+/**
+ * A quit is under way: the windows are asked to close one after the other
+ * (closeNextForQuit); a Cancel ends it.
+ */
 let quitting = false;
+/** Which window owns each puzzle file the windows hold (by web contents id). */
+const owners = new PathOwners<number>((id, readOnly) => {
+  const c = windows.get(id)?.win.webContents;
+  if (c !== undefined && !c.isDestroyed()) {
+    c.send('bt:read-only', readOnly);
+  }
+});
+/** How far a new window is put from the focused one, right and down. */
+const CASCADE = 24;
 /**
  * Where the cache folder is by default: the system's application data
  * folder for ShapeLogic, with the earlier versions' default folders to move
@@ -191,6 +223,10 @@ function updateMenu(): void {
     recent: store.recent,
     dev: !app.isPackaged,
     send: (command) => {
+      if (command.cmd === 'newWindow') {
+        createWindow();
+        return;
+      }
       const target = current();
       if (target === undefined) {
         if (command.cmd === 'new' || command.cmd === 'open' || command.cmd === 'openPath') {
@@ -204,6 +240,18 @@ function updateMenu(): void {
     openHelp,
     clearRecent: () => {
       store.clearRecent();
+    },
+    windows: [...windows.entries()]
+      .filter(([, x]) => !x.win.isDestroyed())
+      .map(([id, x]) => ({ id, title: x.win.getTitle(), focused: x === w && x.win.isFocused() })),
+    focusWindow: (id) => {
+      const x = windows.get(id);
+      if (x !== undefined && !x.win.isDestroyed()) {
+        if (x.win.isMinimized()) {
+          x.win.restore();
+        }
+        x.win.focus();
+      }
     },
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -234,18 +282,53 @@ async function askNatively(w: WindowState): Promise<void> {
     w.allowClose = true;
     w.win.close();
   } else {
-    w.quitAfterClose = false;
+    quitting = false;
   }
+}
+
+/** A quit's next step: the next window asked to close (the focused first), else the quit. */
+function closeNextForQuit(): void {
+  const next = current();
+  if (next === undefined) {
+    // quitting stays set: before-quit lets this one through
+    app.quit();
+    return;
+  }
+  next.win.close();
+}
+
+/** Where a new window goes: cascaded from the focused one, on its screen; null for the first. */
+function cascaded(width: number, height: number): { x: number; y: number } | null {
+  const from = current();
+  if (from === undefined || from.win.isDestroyed()) {
+    return null;
+  }
+  const b = from.win.getBounds();
+  const area = screen.getDisplayMatching(b).workArea;
+  let x = b.x + CASCADE;
+  let y = b.y + CASCADE;
+  if (x + width > area.x + area.width || y + height > area.y + area.height) {
+    // off the screen's edge: back to its top left corner
+    x = area.x;
+    y = area.y;
+  }
+  return { x, y };
 }
 
 function createWindow(first?: AppCommand): void {
   const bounds = store.bounds;
   const icon = join(WEB_DIR, 'packaging', 'icon.png');
+  const width = bounds?.width ?? 1280;
+  const height = bounds?.height ?? 800;
+  // the first window where the last was left; another cascaded from the focused one
+  const at = windows.size > 0 ? cascaded(width, height) : null;
+  const place =
+    at ?? (bounds === undefined || windows.size > 0 ? {} : { x: bounds.x, y: bounds.y });
   const win = new BrowserWindow({
     ...windowOptions(fileURLToPath(new URL('../preload/index.cjs', import.meta.url)), APP_NAME, {
-      width: bounds?.width ?? 1280,
-      height: bounds?.height ?? 800,
-      ...(bounds === undefined || windows.size > 0 ? {} : { x: bounds.x, y: bounds.y }),
+      width,
+      height,
+      ...place,
     }),
     // The window icon of Windows and Linux; macOS takes the app's.
     ...(existsSync(icon) ? { icon } : {}),
@@ -257,9 +340,10 @@ function createWindow(first?: AppCommand): void {
     menu: NO_STATE,
     allowClose: false,
     closeTimer: null,
-    quitAfterClose: false,
   };
   windows.set(id, w);
+  // its rescue copy's slot, kept while it lives (a reload, an engine restarted)
+  rescue.of(id);
   const engine = findEngine({
     packaged: app.isPackaged,
     resources: process.resourcesPath,
@@ -297,7 +381,9 @@ function createWindow(first?: AppCommand): void {
       },
       logCall,
       (method, params) =>
-        paths.refusal(contents, method, params) ?? settingsRefusal(method, params),
+        paths.refusal(contents, method, params) ??
+        settingsRefusal(method, params) ??
+        owners.refusal(id, method, params),
     );
   servers.set(id, serve());
   contents.on('did-start-navigation', (details) => {
@@ -317,12 +403,6 @@ function createWindow(first?: AppCommand): void {
       return;
     }
     e.preventDefault();
-    // a quit's close: the quit goes on once the window closed; a close of
-    // the window's own meanwhile (its button) does not give the quit up
-    if (quitting) {
-      w.quitAfterClose = true;
-      quitting = false;
-    }
     if (w.closeTimer !== null) {
       // asked already and not taken yet: the timer asks natively
       return;
@@ -345,11 +425,14 @@ function createWindow(first?: AppCommand): void {
     servers.get(id)?.dispose();
     servers.delete(id);
     hosts.delete(id);
+    owners.release(id);
+    // a copy the window left (not answered, or not saved) stays for the next window
+    rescue.release(id);
     void cache.forget(contents);
     void host.stop();
     updateMenu();
-    if (w.quitAfterClose) {
-      app.quit();
+    if (quitting) {
+      closeNextForQuit();
     }
   });
   const keepBounds = (): void => {
@@ -360,8 +443,19 @@ function createWindow(first?: AppCommand): void {
   win.on('resize', keepBounds);
   win.on('move', keepBounds);
   win.on('focus', updateMenu);
+  win.on('blur', updateMenu);
+  // the Window menu lists the windows by their titles
+  win.on('page-title-updated', () => {
+    setImmediate(updateMenu);
+  });
   win.once('ready-to-show', () => {
     win.show();
+  });
+  contents.on('did-finish-load', () => {
+    // a reload: the page is told again that its file is read-only
+    if (owners.readOnly(id)) {
+      contents.send('bt:read-only', true);
+    }
   });
   contents.once('did-finish-load', () => {
     for (const path of pendingOpen.splice(0)) {
@@ -432,9 +526,17 @@ if (!primary) {
   app.quit();
 }
 app.on('second-instance', (_e, _argv, _dir, data: unknown) => {
-  const files = (data as { files?: unknown } | null)?.files;
-  if (Array.isArray(files)) {
-    openFiles(files.filter((f): f is string => typeof f === 'string' && f !== ''));
+  const given = (data as { files?: unknown } | null)?.files;
+  const files = Array.isArray(given)
+    ? given.filter((f): f is string => typeof f === 'string' && f !== '')
+    : [];
+  if (files.length > 0) {
+    openFiles(files);
+  } else if (started && primary) {
+    // the app started again without a file (Shift-click on the taskbar,
+    // the launcher, `open -n`): another window
+    createWindow();
+    return;
   }
   const w = current();
   if (w !== undefined && !w.win.isDestroyed()) {
@@ -451,8 +553,17 @@ app.on('open-file', (e, path) => {
   openFiles([path]);
 });
 
-app.on('before-quit', () => {
-  quitting = true;
+// a quit asks the windows one at a time (closeNextForQuit), so a Cancel in
+// one leaves the others open; with none left it goes through
+app.on('before-quit', (e) => {
+  if (![...windows.values()].some((w) => !w.win.isDestroyed())) {
+    return;
+  }
+  e.preventDefault();
+  if (!quitting) {
+    quitting = true;
+    closeNextForQuit();
+  }
 });
 
 app.on('will-quit', () => {
@@ -569,7 +680,7 @@ void app.whenReady().then(async () => {
     app.dock?.setIcon(dockIcon);
   }
   store = new StateStore(app.getPath('userData'));
-  rescue = new RescueStore(app.getPath('userData'));
+  rescue = new RescueSlots<number>(app.getPath('userData'));
   cache = new CacheFolderManager<WebContents>({
     defaults: cacheDefaults(),
     stored: () => store.cacheRoot,
@@ -630,6 +741,7 @@ void app.whenReady().then(async () => {
     store,
     rescue,
     paths,
+    owners,
     version: VERSION,
     packaged: app.isPackaged,
     // not the default session: it cancels every remote request
@@ -647,9 +759,18 @@ void app.whenReady().then(async () => {
       const w = windows.get(sender.id);
       if (w !== undefined) {
         w.menu = state;
+        owners.hold(sender.id, state.path);
         updateMenu();
       }
     },
+    newWindow: () => {
+      createWindow();
+    },
+    others: (sender) =>
+      [...windows.values()]
+        .map((x) => x.win)
+        .filter((x) => !x.isDestroyed() && x.webContents.id !== sender.id)
+        .map((x) => x.webContents),
     closeTaken: (sender) => {
       const w = windows.get(sender.id);
       if (w?.closeTimer != null) {
@@ -665,9 +786,9 @@ void app.whenReady().then(async () => {
       }
     },
     cancelQuit: (sender) => {
-      const w = windows.get(sender.id);
-      if (w !== undefined) {
-        w.quitAfterClose = false;
+      if (windows.has(sender.id)) {
+        // a window's Cancel: the quit stops, the windows not asked yet stay open
+        quitting = false;
       }
     },
   });
