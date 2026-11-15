@@ -390,11 +390,17 @@ TEST_CASE("engine: a stacking solve's events, polled while it runs, paused and c
   REQUIRE(finished);
   h.out.str("");
   h.engine.poll();
-  const auto progress = std::find_if(events.begin(), events.end(), [](const Json& m) {
-    return m["method"] == "solve.progress" && m["params"]["progress"]["stage"] == "search";
-  });
-  REQUIRE(progress != events.end());
-  CHECK((*progress)["params"]["progress"]["panexSearch"] == true);
+  // every progress says the Panex Solver runs: the release build can search
+  // all 343 moves between two ticks, so a progress of the search stage itself
+  // need not come, but the one at the end always does
+  std::size_t progressed = 0;
+  for (const Json& m : events) {
+    if (m["method"] == "solve.progress") {
+      progressed++;
+      CHECK(m["params"]["progress"]["panexSearch"] == true);
+    }
+  }
+  CHECK(progressed > 0);
   const Json page = h.result("solution.page", {{"problem", p}});
   REQUIRE(page["rows"].size() == 1);
   CHECK(page["rows"][0]["moves"] == 343);
@@ -529,7 +535,7 @@ TEST_CASE("engine: a line over the limit is refused while it is read", "[engine]
   static std::istringstream in;
   {
     std::string input(Engine::kMaxLine + 1, 'x');
-    input += "\n";
+    input += '\n';
     input += R"({"jsonrpc":"2.0","id":7,"method":"settings.get"})"
              "\n";
     in.str(input);

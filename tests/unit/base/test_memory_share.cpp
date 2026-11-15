@@ -60,6 +60,7 @@ TEST_CASE("memory share: leases taken and given back on many threads at once",
   // (Catch's checks are not for other threads: they count what was wrong)
   std::atomic<int> wrong{0};
   std::vector<std::thread> threads;
+  threads.reserve(8);
   for (int t = 0; t < 8; t++) {
     threads.emplace_back([&m, &wrong] {
       for (int i = 0; i < 2000; i++) {

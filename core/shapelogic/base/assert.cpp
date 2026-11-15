@@ -8,11 +8,11 @@ void assertionFailed(const char* expr, const char* msg, const char* file, int li
   if (msg != nullptr) {
     what += " (";
     what += msg;
-    what += ")";
+    what += ')';
   }
   what += " at ";
   what += file;
-  what += ":";
+  what += ':';
   what += std::to_string(line);
   throw InternalError(what, file, line);
 }

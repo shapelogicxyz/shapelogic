@@ -109,19 +109,26 @@ STACKING_SOLVERS = ("panex",)
 
 
 @contextlib.contextmanager
-def panex_env(entry: "Entry"):
-    """The environment of a run: for a stacking puzzle, a Panex folder of
-    the run's own (SHAPELOGIC_PANEX_DIR), removed afterwards, so neither the
-    user's cache nor another run's saved search is ever touched or carried
-    on. None for other puzzles (the inherited environment)."""
-    if entry.tier != "stacking":
+def search_env(entry: "Entry"):
+    """The environment of a run: for a stacking puzzle a Panex folder of the
+    run's own (SHAPELOGIC_PANEX_DIR), for a sliding puzzle a search folder
+    of its own (SHAPELOGIC_SLIDE_DIR, the original's BURRTOOLS_SLIDE_DIR),
+    removed afterwards, so neither the user's cache nor another run's saved
+    search is ever touched or carried on: the runs of one puzzle go side by
+    side and would share one folder by the search's key. None for other
+    puzzles (the inherited environment)."""
+    if entry.tier == "stacking":
+        name, variables = "panex-tmp", ("SHAPELOGIC_PANEX_DIR",)
+    elif entry.tier == "sliding":
+        name, variables = "slide-tmp", ("SHAPELOGIC_SLIDE_DIR", "BURRTOOLS_SLIDE_DIR")
+    else:
         yield None
         return
-    root = WORK_DIR / "panex-tmp"
+    root = WORK_DIR / name
     root.mkdir(parents=True, exist_ok=True)
     folder = Path(tempfile.mkdtemp(dir=root))
     try:
-        yield {**os.environ, "SHAPELOGIC_PANEX_DIR": str(folder)}
+        yield {**os.environ, **{v: str(folder) for v in variables}}
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 
@@ -173,6 +180,34 @@ def flag_args(entry: Entry) -> list[str]:
     return args
 
 
+def one_end_args(entry: Entry) -> list[str]:
+    """What the new bt takes besides for a run that is compared state by
+    state with the original's (the solved files, the text): a slide search
+    from the start alone, as the original's goes. From both ends (decision
+    0033) the path has the same number of moves but may be another one; the
+    summaries (`compare`) check that search."""
+    return ["--slide-one-end"] if entry.tier == "sliding" else []
+
+
+# "H": the baseline holds ShapeLogic's answer, not the original's
+OWN_ANSWER = "ShapeLogic's answer, not the original's (decision 0014, difference 5)"
+COUNTS_RE = re.compile(rb"(\d+) assemblies and (\d+) solutions found")
+# the text runs of an "H" entry that search (the others read a solved file
+# or print the comment, and are compared as ever)
+OWN_ANSWER_RUNS = ("solve", "quiet", "all")
+
+
+def own_answer_difference(entry: Entry, assemblies, solutions, solver: str = "classic") -> str:
+    """For an "H" entry: empty when the counts of a run are the ones its
+    summary baseline holds, else what differs."""
+    want = json.loads(baseline_path(entry.tier, solver).read_text()).get(entry.rel)
+    if want is None:
+        return f"no entry in {baseline_path(entry.tier, solver).name}"
+    got = {"assemblies": assemblies, "solutions": solutions}
+    return "; ".join(f"{k}: {want.get(k)} (the summary baseline) != {v}" for k, v in got.items()
+                     if want.get(k) != v)
+
+
 def cli_args(entry: Entry, threads: int | None = None, solver: str = "classic") -> list[str]:
     args = ["--json", *solver_args(solver), *flag_args(entry)]
     if threads is not None:
@@ -205,7 +240,7 @@ def run_json(binary: Path, puzzle: Path, entry: Entry, timeout: float, old: bool
             else [str(binary), *cli_args(entry, threads, solver), str(puzzle)])
     start = time.monotonic()
     try:
-        with panex_env(entry) as env:
+        with search_env(entry) as env:
             proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False,
                                   env=env)
     except subprocess.TimeoutExpired:
@@ -262,7 +297,13 @@ def cmd_baseline(args: argparse.Namespace) -> int:
         by_tier.setdefault(e.tier, {})[e.rel] = {"flags": e.flags, **results[e.rel]}
     for tier, data in by_tier.items():
         path = baseline_path(tier, args.solver)
-        merged = json.loads(path.read_text()) if path.exists() and args.filter else {}
+        before = json.loads(path.read_text()) if path.exists() else {}
+        # an "H" entry holds ShapeLogic's answer: the original's does not replace it
+        for e in entries:
+            if e.tier == tier and "H" in e.flags and e.rel in before:
+                data[e.rel] = {**before[e.rel], "flags": e.flags}
+                print(f"kept {e.rel}: {OWN_ANSWER}", file=sys.stderr)
+        merged = before if args.filter else {}
         merged.update(data)
         path.write_text(json.dumps(dict(sorted(merged.items())), indent=1) + "\n")
         errors = sum(1 for v in data.values() if "error" in v)
@@ -415,7 +456,7 @@ def cmd_baseline_files(args: argparse.Namespace) -> int:
                      + solver_args(args.solver))
             argv = [str(old_bin), *flags, str(dst)]
         try:
-            with panex_env(e) as env:
+            with search_env(e) as env:
                 proc = subprocess.run(argv, capture_output=True, text=True,
                                       timeout=args.timeout, check=False, env=env)
             status = "ok" if proc.returncode == 0 else f"exit {proc.returncode}"
@@ -504,7 +545,7 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
         # the solve thread's run of slide_solve_old: one thread, every
         # solution kept, the full search unless the solver says
         flags = ["-q", "--restart", "-t", "1", "-d", "--limit", "0", *solver_args(args.solver),
-                 *flag_args(e)]
+                 *flag_args(e), *one_end_args(e)]
     elif e.tier == "stacking":
         # the solve thread's stacking run (stack_solve_old)
         flags = ["-q", "--restart", "-d", *solver_args(args.solver)]
@@ -513,7 +554,7 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
         # assemblies are not compared and keep the solve thread's limit
         flags = (["-q", "--restart"] + ([] if "A" in e.flags else ["-d", "--limit", "0"])
                  + (["-R"] if "R" in e.flags else []) + solver_args(args.solver))
-    with panex_env(e) as env:
+    with search_env(e) as env:
         err = run_tool([str(args.new_bt), "--save", str(new_file), *flags, str(new_in)], args.timeout,
                        env)
     if err:
@@ -523,6 +564,25 @@ def compare_files_one(e: Entry, args: argparse.Namespace) -> dict:
         new = read_solutions(args.dump_tool, new_file, args.timeout)
     except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         return {"status": "MISMATCH", "detail": f"cannot read: {exc}"}
+    if "H" in e.flags:
+        # the original's file holds its defect: the new file's assemblies
+        # are checked against the summary baseline, and every solution is
+        # kept. The summary counts a shorter path to an ending already
+        # counted again and the file keeps one solution an ending (in the
+        # original too: slide_many_starts, 116 and 114), so the file's
+        # solutions are at most the summary's, and none only when it has none
+        pn = new["problems"][0]
+        want = json.loads(baseline_path(e.tier, args.solver).read_text()).get(e.rel, {})
+        solutions = pn.get("solutions") or 0
+        diff = own_answer_difference(e, pn.get("assemblies"), want.get("solutions"), args.solver)
+        if not diff and not (min(1, want.get("solutions") or 0) <= solutions <= (want.get("solutions") or 0)):
+            diff = f"solutions: {solutions}, the summary baseline has {want.get('solutions')}"
+        if not diff and len(pn["saved"]) != solutions:
+            diff = f"saved solutions: {len(pn['saved'])} != {solutions}"
+        if diff:
+            return {"status": "MISMATCH", "detail": diff}
+        return {"status": "ok", "own": True,
+                "detail": f"{pn.get('assemblies')} assemblies, {pn.get('solutions')} solutions: {OWN_ANSWER}"}
     diff = (compare_solved_exactly(old, new) if e.tier in ("sliding", "stacking")
             else compare_solved(old, new, "A" in e.flags))
     if diff:
@@ -556,6 +616,9 @@ def cmd_compare_files(args: argparse.Namespace) -> int:
             print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
     print(f"\n{len(results) - failures}/{len(results)} solved files match the original's "
           f"(solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
+    own = sum(1 for r in results.values() if r.get("own"))
+    if own:
+        print(f"{own} of them hold {OWN_ANSWER}: their counts match the summary baseline")
     return 1 if failures else 0
 
 
@@ -637,12 +700,34 @@ def text_baseline_path(tier: str, solver: str) -> Path:
     return BASELINE_DIR / (f"text-{tier}.json" if solver == "classic" else f"text-{tier}-{solver}.json")
 
 
+def marks_as_shapelogic_draws(out: bytes) -> bytes:
+    """The original's drawing of a sliding puzzle's shapes, as ShapeLogic
+    draws them. The original keeps the start marks in the cells' colours
+    and draws a cell as 'a' + its state and colour - 1 (print.cpp: the
+    colour from bit 2 up); ShapeLogic lifts the marks off the colours as the
+    file loads (decision 0021), so there the cell is its state alone. Only
+    the shapes under "The puzzle:" are mapped, not the solutions' drawings,
+    which name pieces."""
+    lines = out.split(b"\n")
+    inside = False
+    for i, line in enumerate(lines):
+        if line == b" The puzzle:":
+            inside = True
+        elif line.startswith(b"====="):
+            inside = False
+        elif inside and line.startswith(b" !"):
+            lines[i] = bytes(0x61 + ((c - 0x61) & 3) if c >= 0x61 else c for c in line)
+    return b"\n".join(lines)
+
+
 def run_text(binary: Path, args: list[str], puzzle: Path, timeout: float, old: bool,
              entry: "Entry | None" = None) -> dict:
     """One run: its normalised stdout and stderr, and the exit code."""
-    argv = [str(binary), *args, *([] if old else ["--original-drawings"]), str(puzzle)]
+    sliding = entry is not None and entry.tier == "sliding"
+    ours = ["--original-drawings", *(one_end_args(entry) if sliding else [])]
+    argv = [str(binary), *args, *([] if old else ours), str(puzzle)]
     try:
-        with (panex_env(entry) if entry is not None else contextlib.nullcontext()) as env:
+        with (search_env(entry) if entry is not None else contextlib.nullcontext()) as env:
             proc = subprocess.run(argv, capture_output=True, timeout=timeout, check=False, env=env)
     except subprocess.TimeoutExpired:
         return {"error": f"timeout after {timeout:.0f}s"}
@@ -650,6 +735,9 @@ def run_text(binary: Path, args: list[str], puzzle: Path, timeout: float, old: b
     err = TEXT_TIME_RE.sub(b"in T seconds", proc.stderr)
     if old:
         err = TEXT_OLD_STDERR_SKIP.sub(b"", err)
+        # the older model ("H" entries) has no marks: its colours are colours
+        if sliding and "H" not in entry.flags:
+            out = marks_as_shapelogic_draws(out)
     # a path in a message is the run's own
     out = out.replace(str(puzzle).encode(), b"<file>")
     err = err.replace(str(puzzle).encode(), b"<file>")
@@ -763,6 +851,15 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
         got = text_digest(r)
         if "error" in got:
             return job, "NEW FAILED", got["error"]
+        if "H" in e.flags and name in OWN_ANSWER_RUNS:
+            # the original's text holds its defect: the run must end well
+            # with the counts of the summary baseline
+            m = COUNTS_RE.search(r["out"])
+            if got.get("exit") != 0 or not m:
+                return job, "MISMATCH", f"exit {got.get('exit', 'signal ' + str(got.get('crashed')))}, " \
+                                        f"{'no ' if not m else ''}summary line"
+            diff = own_answer_difference(e, int(m.group(1)), int(m.group(2)), args.solver)
+            return (job, "MISMATCH", diff) if diff else (job, "own", OWN_ANSWER)
         if "crashed" in want:
             prefix = hashlib.sha256(r["out"][:want["outBytes"]]).hexdigest()
             if got.get("exit") == 0 and prefix == want["out"]:
@@ -792,20 +889,25 @@ def cmd_compare_text(args: argparse.Namespace) -> int:
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         for n, (job, status, detail) in enumerate(pool.map(one, jobs), 1):
             rows.append((job[0].rel, job[1], status, detail))
-            if status != "ok":
+            if status not in ("ok", "own"):
                 print(f"[{n}/{len(jobs)}] {job[0].rel} {job[1]}: {status}", file=sys.stderr)
     failures = 0
     old_failed = 0
+    own = 0
     for rel, name, status, detail in sorted(rows):
         if status == "OLD FAILED":
             old_failed += 1
+        elif status == "own":
+            own += 1
         elif status != "ok":
             failures += 1
-        if status != "ok" or args.verbose:
+        if status not in ("ok", "own") or args.verbose:
             print(f"{status:12} {rel} {name}  {detail}")
-    compared = len(rows) - old_failed
+    compared = len(rows) - old_failed - own
     print(f"\n{compared - failures}/{compared} text runs match the original's "
           f"({len(entries)} puzzles; solver {args.solver})" + ("" if failures == 0 else f", {failures} do not"))
+    if own:
+        print(f"{own} more hold {OWN_ANSWER}: their counts match the summary baseline")
     if old_failed:
         print(f"{old_failed} not compared: the original gave no answer (OLD FAILED above)")
     return 1 if failures else 0
@@ -1038,6 +1140,20 @@ def roundtrip_one(old_tool: Path, new_tool: Path, src: Path, out: Path, timeout:
         return {"status": "MISMATCH", "detail": f"old: {old_err or 'ok'} | new: {new_err or 'ok'}"}
 
     sem_old, sem_new = semantic(old_out), semantic(new_out)
+    if sem_old != sem_new and ("slideMarks", "problem") in sem_new[1]:
+        # A sliding puzzle saved as decision 0027 has it (its starts and goals
+        # on its problems; the original does not read that): the new core reads
+        # the original's save as it reads the input, and its save reloads to itself.
+        new_of_old = out / "new_of_old.xmpuzzle"
+        err = run_tool([str(new_tool), str(old_out), str(new_of_old)], timeout)
+        if err or semantic(new_of_old) != sem_new:
+            return {"status": "MISMATCH", "detail": "the new core reads the original's save differently: "
+                    + (err or first_difference(semantic(new_of_old), sem_new))}
+        err = run_tool([str(new_tool), str(new_out), str(new2_out)], timeout)
+        if err or semantic(new2_out) != sem_new:
+            return {"status": "MISMATCH", "detail": f"new save is not a fixpoint: {err or first_difference(semantic(new2_out), sem_new)}"}
+        return {"status": "ok", "bytes": False, "input": False, "marks": True,
+                "detail": "saved with its problems' slide marks (decision 0027)"}
     if sem_old != sem_new:
         return {"status": "MISMATCH", "detail": "new save != original's save: " + first_difference(sem_new, sem_old)}
 
@@ -1100,12 +1216,16 @@ def cmd_roundtrip(args: argparse.Namespace) -> int:
             failures += 1
         if r["status"] != "ok" or args.verbose:
             print(f"{r['status']:12} {rel}  {r.get('detail', '')}")
-    ok = [r for r in results.values() if r["status"] == "ok"]
+    marks = [r for r in results.values() if r["status"] == "ok" and r.get("marks")]
+    ok = [r for r in results.values() if r["status"] == "ok" and not r.get("marks")]
     print(f"\n{len(results) - failures}/{len(results)} files: the new core saves what the original saves"
           + ("" if failures == 0 else f"; {failures} do not"))
     print(f"  {sum(1 for r in ok if r['bytes'])}/{len(ok)} byte-identical to the original's save")
     print(f"  {sum(1 for r in ok if r['input'])}/{len(ok)} the same as their input "
           "(the rest differ in what the original also normalises; -v lists them)")
+    if marks:
+        print(f"  {len(marks)} sliding puzzles saved with their problems' slide marks (decision 0027): "
+              "the original's save read as the input, the new save a fixpoint")
     return 1 if failures else 0
 
 
@@ -1164,10 +1284,16 @@ def run_pair_tool(argv: list[str], timeout: float) -> tuple[str, bytes]:
 
 
 def as_shapelogic_writes(scad: bytes) -> bytes:
-    """The original's Puzzlecad export as ShapeLogic's writes it: its comment's
-    typo fixed ("burr_scal") and without its disabled packing_box placeholder."""
-    return (scad.replace(b"// Use burr_scal = ", b"// Use burr_scale = ")
+    """The original's Puzzlecad export as ShapeLogic's writes it: the program's
+    new name in its header, its comment's typo fixed ("burr_scal") and without
+    its disabled packing_box placeholder."""
+    return (scad.replace(b"generated by BurrTools export", b"generated by ShapeLogic export")
+            .replace(b"// Use burr_scal = ", b"// Use burr_scale = ")
             .replace(b"*packing_box(\n\n$box_wall_thickness = 4\n);\n\n", b""))
+
+
+# The original's grid number of the sliding grid (gridType_c::GT_SLIDING).
+SLIDING_GRID = 5
 
 
 def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: float) -> dict:
@@ -1181,6 +1307,10 @@ def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: 
     new = run_pair_tool([str(new_tool), mode, *new_args], timeout)
     if old[0] == "failed" or new[0] == "failed":
         return {"status": "MISMATCH", "detail": f"old: {old[0]} {old[1].decode()} | new: {new[0]} {new[1].decode()}"}
+    if (mode == "scad-export" and old[0] == "refused" and new[0] == "ok"
+            and b"only available for cube-grid" in old[1] and puzzle_shapes(Path(args[0]))[0] == SLIDING_GRID):
+        # ShapeLogic exports a sliding tray's pieces as bricks; the original refuses
+        return {"status": "ours only", "detail": "a sliding puzzle exported; the original refuses"}
     if old[0] != new[0]:
         return {"status": "MISMATCH", "detail": f"old: {old[0]} {old[1].decode()} | new: {new[0]} {new[1].decode()}"}
     if old[0] == "refused":
@@ -1321,7 +1451,10 @@ def cmd_python(args: argparse.Namespace) -> int:
     """The Python module against the original's (deferred part 7): the same transcript
     (python_transcript.py) from both, for the error cases and puzzles built through the API, and
     for each corpus puzzle of the tiers: read, and solved for assemblies and solutions, on one
-    thread in order (numbers and iterations too) and on all threads as sorted lists."""
+    thread in order (numbers and iterations too) and on all threads as sorted lists. Every
+    problem of a fast, sliding or stacking puzzle is solved; of the full and slow tiers' TIC
+    files only the first, as the summaries and the text runs do: some hold further problems
+    that take hours (the third of ACornBox1n2 outlasts an hour in both modules)."""
     old_dir = args.old_module or old_python_module(args.old_repo)
     if old_dir is None:
         print(f"the original's Python module is not built: run `meson compile -C build` in {args.old_repo}",
@@ -1334,7 +1467,8 @@ def cmd_python(args: argparse.Namespace) -> int:
         ("errors and generated puzzles", ["--errors", "--generated", str(args.generated)], True)]
     for e in select(load_corpus(args.old_repo), args.tier, args.filter):
         # a grid only the new core takes apart ("D"): the solves without the take-apart
-        argv = [str(entry_path(args.old_repo, e.rel)), *(["--assemble-only"] if "D" in e.flags else [])]
+        argv = [str(entry_path(args.old_repo, e.rel)), *(["--assemble-only"] if "D" in e.flags else []),
+                *(["--first-problem"] if e.tier in ("full", "slow") else [])]
         jobs.append((f"{e.rel} (one thread)", argv, True))
         jobs.append((f"{e.rel} (all threads)", argv, False))
 

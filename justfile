@@ -83,13 +83,28 @@ python-wheel:
     "$tmp/try/bin/pip" -q install build/wheel/shapelogic-*.whl
     cd python/tests && "$tmp/try/bin/python" -m unittest -q
 
-# clang-tidy over the project's own sources (needs LLVM: brew install llvm)
-check: (build "dev")
+# Every test suite, one after another, with a table of what passed: `just gate`, `just gate unit oracle` (groups: tests/gate.sh), `just gate all`
+gate *groups:
+    bash tests/gate.sh {{groups}}
+
+# clang-tidy over the project's own sources (needs LLVM: brew install llvm); with file names (a regex each, of the path), only those sources
+check *files: (build "dev")
     #!/usr/bin/env bash
     set -euo pipefail
     tidy=$(command -v run-clang-tidy || ls /opt/homebrew/opt/llvm/bin/run-clang-tidy 2>/dev/null || true)
     if [ -z "$tidy" ]; then echo "clang-tidy not found: install LLVM (brew install llvm / apt install clang-tidy)"; exit 1; fi
-    "$tidy" -quiet -p build/dev "$(pwd)/(core|engine|cli|tests/unit)/.*\.cpp$"
+    # Homebrew's LLVM is not on the PATH: clang-tidy is beside run-clang-tidy
+    bin=$(command -v clang-tidy || echo "$(dirname "$tidy")/clang-tidy")
+    # On macOS the sources are read against the SDK the build's compiler
+    # uses: Homebrew's clang may default to an older one, whose library
+    # lacks what the build has (std::jthread)
+    sdk=()
+    if [ "$(uname)" = Darwin ]; then sdk=(-extra-arg=-isysroot "-extra-arg=$(xcrun --show-sdk-path)"); fi
+    if [ -n "{{files}}" ]; then
+      "$tidy" -quiet -clang-tidy-binary "$bin" "${sdk[@]}" -p build/dev {{files}}
+    else
+      "$tidy" -quiet -clang-tidy-binary "$bin" "${sdk[@]}" -p build/dev "$(pwd)/(core|engine|cli|tests/unit)/.*\.cpp$"
+    fi
 
 # Reformat the project's own sources with clang-format
 format:

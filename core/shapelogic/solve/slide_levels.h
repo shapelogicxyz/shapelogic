@@ -120,6 +120,8 @@ class ReadFile {
 struct FileCloser {
   void operator()(std::FILE* f) const {
     if (f != nullptr) {
+      // the FILE is owned by the unique_ptr this closes it for:
+      // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       std::fclose(f);
     }
   }
@@ -149,7 +151,10 @@ class KeySet {
     buf_.clear();
     indexed_ = true;
     if (!path_.empty()) {
+      // the FILE is owned by the unique_ptr this closes it for:
+      // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
       out_.reset(std::fopen(path_.string().c_str(), "wb"));
+      // NOLINTNEXTLINE(clang-analyzer-unix.Stream): out_ closes it (FileCloser)
       if (!out_) {
         path_.clear();
         return false;

@@ -299,6 +299,7 @@ const std::vector<ArcStep>& arcSteps() {
     const double halfPi = 1.5707963267948966;
     std::vector<ArcStep> v;
     // entry 0 is not used: the sweep samples steps 1 .. kArcSteps - 1
+    v.reserve(kArcSteps);
     for (int s = 0; s < kArcSteps; s++) {
       v.emplace_back(halfPi * static_cast<double>(s) / static_cast<double>(kArcSteps));
     }

@@ -109,7 +109,8 @@ describe.skipIf(ENGINE === null)('solving', () => {
     expect(await state(s, p, ['paused', 'finished'], from)).toBe('paused');
     const detail = await c.call('problem.get', { problem: p });
     expect([detail.state, detail.savedPosition, detail.solve]).toEqual(['solving', true, 'paused']);
-    expect((await c.call('solve.status', { problem: p })).progress.stage).toBe('paused');
+    const pausedAt = (await c.call('solve.status', { problem: p })).progress;
+    expect([pausedAt.stage, pausedAt.atSavePoint]).toEqual(['paused', false]);
     const dir = mkdtempSync(join(tmpdir(), 'bt-solving-'));
     try {
       await c.call('document.save', { path: join(dir, 'paused.xmpuzzle') });
@@ -122,6 +123,8 @@ describe.skipIf(ENGINE === null)('solving', () => {
     expect(await state(s, p, ['assembling', 'finished'], from)).toBe('assembling');
     await c.call('solve.savePoint', { problem: p });
     expect(await state(s, p, ['paused', 'finished'], from)).toBe('paused');
+    // paused at the save point asked for: the autosave saves and carries on
+    expect((await c.call('solve.status', { problem: p })).progress.atSavePoint).toBe(true);
     from = s.events.length;
     await c.call('solve.continue', { problem: p, options: one });
     expect(await state(s, p, ['assembling', 'draining', 'finished'], from)).not.toBe('finished');

@@ -14,6 +14,16 @@
 
 namespace bt::mesh {
 
+namespace {
+
+// The units of `per` cells that `cells` cells begin: a division in whole
+// numbers, rounded up (the rhombic and tetra-octa grids' cubes).
+unsigned int wholeUnits(unsigned int cells, unsigned int per) {
+  return (cells + per - 1) / per;
+}
+
+}  // namespace
+
 void connectionFace(const Voxel& v, int x, int y, int z, int n, double bevel, double offset,
                     std::vector<float>& corners) {
   switch (v.getGridType().getType()) {
@@ -71,14 +81,14 @@ void calculateSize(const Voxel& v, float* x, float* y, float* z) {
       *z = static_cast<float>(1 + (sz - 1) * std::sqrt(0.5));
       return;
     case GridKind::Rhombic:
-      *x = static_cast<float>(2 * ((v.getX() + 4) / 5));
-      *y = static_cast<float>(2 * ((v.getY() + 4) / 5));
-      *z = static_cast<float>(2 * ((v.getZ() + 4) / 5));
+      *x = static_cast<float>(2 * wholeUnits(v.getX(), 5));
+      *y = static_cast<float>(2 * wholeUnits(v.getY(), 5));
+      *z = static_cast<float>(2 * wholeUnits(v.getZ(), 5));
       return;
     case GridKind::TetraOcta:
-      *x = static_cast<float>((v.getX() + 2) / 3);
-      *y = static_cast<float>((v.getY() + 2) / 3);
-      *z = static_cast<float>((v.getZ() + 2) / 3);
+      *x = static_cast<float>(wholeUnits(v.getX(), 3));
+      *y = static_cast<float>(wholeUnits(v.getY(), 3));
+      *z = static_cast<float>(wholeUnits(v.getZ(), 3));
       return;
     case GridKind::Hexagonal:
       // each row reaches half a cell further right; the rows' lowest and

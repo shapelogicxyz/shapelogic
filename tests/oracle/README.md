@@ -20,7 +20,7 @@ A solver stage is done only when the harness reports no differences
 | fast | 19 bundled examples and fixtures | ~2 s | every run |
 | full | 158 TIC puzzles with rotation take-apart | ~23 s | before finishing a solver stage |
 | slow | Climburr_OldVer, CoverUp3, CornerCube | ~7 s | benchmarks, final checks |
-| sliding | the 3 sliding fixtures and 32 puzzles made with the original's code (seven of them, the older-model ones with optional pieces, hold ShapeLogic's answers: decision 0014, difference 5) | ~1 min | sliding work (deferred part 1) |
+| sliding | the 3 sliding fixtures and 32 puzzles made with the original's code (seven of them, the older-model ones with optional pieces, hold ShapeLogic's answers: flag `H`, decision 0014, difference 5) | ~4 min (one puzzle's search runs 3 min) | sliding work (deferred part 1) |
 | stacking | the 2 stacking fixtures and 39 puzzles made with the original's code | seconds | stacking work (deferred part 3) |
 
 Flags per puzzle: `R` = rotation take-apart (`-R`), `A` = assemble only in
@@ -33,7 +33,8 @@ at the assemblies only and asks that there are solutions; `files` and
 `text` solve these without `-d`, as before, and `python` leaves out their
 solve with the take-apart. Sliding puzzles have their own flags: `N` nested slides,
 `P` partially nested, `L` too long for the full search (fast and deep
-only), `O` compared on one thread only (see "Sliding puzzles" below);
+only), `O` compared on one thread only, `H` the baseline holds ShapeLogic's
+answer, not the original's (see "Sliding puzzles" below);
 so have stacking puzzles: `Q` not for the Panex Solver, `L` no `-o all`
 text run, `I` a setup that is not ready (see "Stacking puzzles" below). A
 path beginning `alpha:` is a file of this repo, not of the original's.
@@ -150,6 +151,37 @@ in `tests/data/slide_solved_by_original/`; `test_slide_routes.cpp` checks
 the port against them. Never add the commercial puzzle "One Way or
 Another".
 
+Four things the sliding runs do that the other tiers' do not:
+
+- **A search folder of its own for every run** (`SHAPELOGIC_SLIDE_DIR`,
+  the original's `BURRTOOLS_SLIDE_DIR`, under `work/slide-tmp`, removed
+  afterwards). The search's folder is named by the puzzle's key, so the
+  text runs of one puzzle, which go side by side, would share one folder
+  in the user's cache and carry on or overwrite each other's levels.
+- **The search from the start alone** (`--slide-one-end`) for `files`
+  and `text`, which compare the path state by state: from both ends
+  (decision 0033) the path has as many moves but may be another one. The
+  summaries (`just oracle --tier sliding`) run the search as it is by
+  default.
+- **The shapes' drawing mapped** in the original's text
+  (`marks_as_shapelogic_draws`): the original keeps the start marks in the
+  cells' colours and draws them; ShapeLogic lifts them off the colours as
+  the file loads (decision 0021) and draws the cell's state alone. The
+  mapping is made as the baseline is recorded, so `text-sliding.json`
+  holds the hashes of the mapped text.
+- **The `H` puzzles** (decision 0014, difference 5: the original finds
+  only the empty start layout of the seven older-model fixtures with
+  optional pieces). `oracle-baseline` keeps their entries of
+  `sliding.json`, which are ShapeLogic's answers; `files` and the text
+  runs that search (`solve`, `quiet`, `all`) check the counts against
+  those entries instead of the original's file and text, and the
+  summary line says how many there were. A solved file keeps one
+  solution an ending where the summary counts a shorter path to it
+  again (in the original too), so of a file the assemblies must be the
+  entry's and the solutions at most the entry's. Their other text runs
+  read the original's solved file or the comment and are compared as
+  ever.
+
 ## Recorded values for unit tests
 
 Parts that the CLI cannot reach are compared through recordings: a tool is
@@ -223,6 +255,12 @@ tiers, the sliding, stacking and rotation fixtures the corpus leaves out
 It also counts the files whose saves differ from their input; those are the
 normalisations the original makes too (`timeMs`, default attributes), listed
 with `-v`.
+
+A sliding puzzle is saved with its starts and goals on its problems
+(decision 0027: `slideMarks="problem"`, `<slideMarks>`), which the original
+does not read, so its save is not compared with the original's. Instead
+the new core must read the original's save to the same file it makes of
+the input, and its own save must load and save to itself.
 
 ## Saved search positions (stage 3 onward)
 
@@ -364,8 +402,11 @@ fixtures): converted to the rhombic and tetra-octa grids and to one the
 original refuses, exported to Puzzlecad for each problem and for none,
 each of the original's exports imported again, and a PuzzleSolver3D file
 made of each cube-grid puzzle's shapes (`ps3d_text`) imported. The saves
-must be the same bytes, the exports the same text, and a refusal must be a
-refusal in both. `record-imports` keeps the original's results for the
+must be the same bytes, the exports the same text (the original's with
+ShapeLogic's name in its header, `as_shapelogic_writes`), and a refusal
+must be a refusal in both, except a sliding puzzle's Puzzlecad export:
+ShapeLogic exports its pieces as bricks where the original refuses ("ours
+only"). `record-imports` keeps the original's results for the
 committed inputs and the cube-grid fixtures in
 `tests/data/imports_by_original/` (saves gzip-compressed as the original
 wrote them, `<input>_<ext>.refused` for a refusal) for
@@ -393,7 +434,12 @@ and for each corpus puzzle of the tiers (brick tiers only: the original's
 module assembled sliding and stacking puzzles as brick puzzles) every
 shape cell by cell, every problem with its piece counts, the reprs, and
 three solves of each problem (assemblies; solutions with their
-take-aparts; reduced with mirrors and rotations kept). Each is run twice:
+take-aparts; reduced with mirrors and rotations kept). Of a full or slow
+tier's file only the first problem is solved (`--first-problem`), as the
+summaries and the text runs do: some TIC files hold further problems that
+take hours (the third problem of ACornBox1n2 outlasts an hour in both
+modules, so the transcript never compared anything of that file). Each is
+run twice:
 on one thread (the original's module held to it by `SHAPELOGIC_THREADS=1`,
 the new one by `threads=1`), compared in order with the numbers and the
 search's iterations; and on all threads, compared as sorted lists without

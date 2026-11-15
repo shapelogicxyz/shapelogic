@@ -320,7 +320,7 @@ int startGoalNumber(const Voxel* v) {
   if (!isStartGoalShape(v)) {
     return 0;
   }
-  return std::atoi(v->getName().c_str() + 3);
+  return static_cast<int>(std::strtol(v->getName().c_str() + 3, nullptr, 10));
 }
 
 std::string startGoalUserName(const Voxel* v) {

@@ -14,6 +14,7 @@
 // asked about before a solve, and the full search offered when they find
 // no solution.
 
+import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -22,6 +23,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import {
+  answerDialogs,
   BUILT,
   command,
   counted,
@@ -1086,11 +1088,12 @@ test('the Boards list: above Shapes with + New Board, four and a half rows befor
   }
 });
 
-test('the crash recovery journal pauses a sliding search, saves, and carries it on; Pause stays paused', async () => {
+test('the crash recovery journal stops a sliding search at a save point, saves, and carries it on; Pause stays paused', async () => {
   test.setTimeout(120_000);
   const { dir, log } = tmpLog();
-  // a journal every second; a save point would wait for the slide search to
-  // end, so the journal pauses it instead
+  // a journal every second; the search stops at the end of the level it is
+  // on (a save point), so no level is cut short and searched again: a pause
+  // would hold a search whose levels take longer than that in place for good
   const a = await launch({ callLog: log, autosave: 1 });
   const page = a.page;
   try {
@@ -1113,14 +1116,24 @@ test('the crash recovery journal pauses a sliding search, saves, and carries it 
       timeout: 30_000,
     });
     const calls = readCallLog(log).map((c) => c.method);
-    expect(calls).toContain('solve.pause');
+    expect(calls).toContain('solve.savePoint');
     expect(calls).toContain('solve.continue');
-    expect(calls).not.toContain('solve.savePoint');
+    expect(calls).not.toContain('solve.pause');
+    // carried on from where it stopped: as deep as it was, or deeper
+    const deep = async (): Promise<number> =>
+      Number(/(\d+) moves deep/.exec((await page.locator('#slvDetails').textContent()) ?? '')?.[1]);
+    const before = await deep();
+    expect(before).toBeGreaterThan(0);
     await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
     await expect(page.locator('#slvActivity')).toHaveText(/^Search active/);
     await expect(page.locator('#slvDetails')).toContainText(
       /moves deep\. Scanned .+ arrangements\./,
     );
+    // save after save, the search gets deeper: none of them holds it back
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^([3-9]|\d\d+)$/, {
+      timeout: 60_000,
+    });
+    await expect.poll(deep, { timeout: 30_000 }).toBeGreaterThan(before);
 
     // the user's Pause: paused, the start not searched through
     await runButton(page, 'pause');
@@ -1136,6 +1149,79 @@ test('the crash recovery journal pauses a sliding search, saves, and carries it 
     expect(
       await engineCall<{ state: string }>(page, 'solve.status', { problem: sp }),
     ).toMatchObject({ state: 'paused' });
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a save while a sliding search runs pauses it, saves and carries it on, the journal waiting or not', async () => {
+  test.setTimeout(180_000);
+  const { dir, log } = tmpLog();
+  // a journal every second: before long it waits for the end of a level
+  // that takes longer than that, and a save the user asks for meanwhile
+  // must not wait with it
+  const a = await launch({ callLog: log, autosave: 1 });
+  const page = a.page;
+  try {
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', '1', {
+      timeout: 30_000,
+    });
+    // what the journal and the saves asked of the solve, in order
+    const asked = (): string[] =>
+      readCallLog(log)
+        .map((c) => c.method)
+        .filter((m) => m === 'solve.savePoint' || m === 'solve.pause' || m === 'solve.continue');
+    const file = join(dir, 'fifteen.xmpuzzle');
+    let joined = false;
+    for (let n = 0; n < 6 && !joined; n++) {
+      // the journal has asked for a save point and waits for the level's end
+      await expect.poll(() => asked().at(-1), { timeout: 60_000 }).toBe('solve.savePoint');
+      const before = asked().length;
+      const saves = Number(await page.locator('#leftS').getAttribute('data-autosaved'));
+      await answerDialogs(page, { save: file });
+      await page.keyboard.press('Control+Shift+s');
+      const ask = page.locator('#savePoint');
+      await expect(ask).toBeVisible();
+      await ask.locator('[data-x="save"]').click();
+      await expect(page.locator('#fname')).toHaveText(/^fifteen\.xmpuzzle/, { timeout: 30_000 });
+      await expect
+        .poll(async () => Number(await page.locator('#leftS').getAttribute('data-autosaved')))
+        .toBeGreaterThan(saves);
+      // saved by a pause, not at the level's end, and carried on
+      await expect.poll(() => asked().slice(before)).toContain('solve.continue');
+      const since = asked().slice(before);
+      expect(since).toContain('solve.pause');
+      // the save took the waiting journal's place: its pause follows the
+      // journal's save point with nothing carried on in between
+      joined = since[0] === 'solve.pause';
+      await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
+        timeout: 30_000,
+      });
+    }
+    expect(joined).toBe(true);
+    await expect(page.locator('#slvActivity')).toHaveText(/^Search active/);
+    // the file holds the solve paused, its start still to search
+    const out = spawnSync(ENGINE ?? '', [], {
+      input:
+        JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'document.open', params: { path: file } }) +
+        '\n',
+      encoding: 'utf8',
+    });
+    const saved = (
+      JSON.parse(out.stdout.split('\n')[0] ?? '{}') as {
+        result: { problems: { state: string }[] };
+      }
+    ).result;
+    expect(saved.problems.some((p) => p.state === 'solving')).toBe(true);
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });
@@ -1373,7 +1459,7 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     await solverSettled(page);
     await runButton(page, 'start');
     // under the empty card, once the moves take measurable time: every
-    // fifth move to come, to 100
+    // fifth move to come, eleven rows
     const perf = page.locator('#slvSel #slvPerf');
     await expect(perf.locator('b').first()).toHaveText('Performance Analysis');
     await expect(perf.locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
@@ -1387,7 +1473,8 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     const depths = shown.depths;
     const deep = Number(/Searched (\d+) moves deep/.exec(shown.text)?.[1]);
     expect(depths[0]).toBe((Math.floor(deep / 5) + 1) * 5);
-    expect(depths.at(-1)).toBe(100);
+    expect(depths).toHaveLength(11);
+    expect(depths.at(-1)).toBe((depths[0] ?? 0) + 50);
     expect(depths.every((d, i) => i === 0 || d === (depths[i - 1] ?? 0) + 5)).toBe(true);
     // the card that scrolls is kept as the panel follows: its scroll stays
     await page.locator('#slvSel > .slv-nav').evaluate((el) => {

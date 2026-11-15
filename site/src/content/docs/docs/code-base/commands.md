@@ -39,7 +39,8 @@ just test [preset]      # unit + contract tests without [slow]; the quick loop
 just test-all [preset]  # everything; run before calling work done
 just test-asan          # Address + UndefinedBehavior sanitizers
 just test-tsan          # ThreadSanitizer on the [parallel] cases, then the contract suite
-just check              # clang-tidy over the project's own sources
+just gate [groups]      # every suite one after another, with a table of what passed
+just check [files]      # clang-tidy over the project's own sources, or those whose path matches
 just format             # clang-format
 just clean              # remove every build directory
 ```

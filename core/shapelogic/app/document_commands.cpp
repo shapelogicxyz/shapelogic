@@ -77,7 +77,7 @@ Result<void> checkText(std::string_view text, bool oneLine, std::string_view wha
 
 // ---- notes ---------------------------------------------------------------------------
 
-Result<void> Document::setNotes(std::string text) {
+Result<void> Document::setNotes(const std::string& text) {
   if (Result<void> r = checkText(text, false, "the notes"); !r) {
     return r;
   }
@@ -508,11 +508,13 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   // on copies: a nudge that would push a shape out of the grid refuses
   // the whole command
   std::vector<std::unique_ptr<Voxel>> copies;
+  copies.reserve(which.size());
   for (const unsigned int i : which) {
     copies.push_back(puzzle_->getShape(i).clone());
   }
   // a sliding board's cells take its problems' starts and goals along
   std::vector<std::vector<sliding::BoardEdit>> boards;
+  boards.reserve(which.size());
   for (std::size_t k = 0; k < which.size(); k++) {
     boards.push_back(beginBoardEdit(which[k], *copies[k]));
   }
@@ -525,6 +527,7 @@ Result<TaskOutcome> Document::shapeTask(Id shape, ShapeTask task, bool toAll) {
   std::vector<bool> changedShape(which.size(), false);
   if (task == ShapeTask::Minimize) {
     std::vector<Voxel*> all;
+    all.reserve(copies.size());
     for (std::unique_ptr<Voxel>& c : copies) {
       all.push_back(c.get());
     }
@@ -746,7 +749,7 @@ Result<void> Document::moveProblem(Id problem, unsigned int toIndex) {
   return {};
 }
 
-Result<void> Document::renameProblem(Id problem, std::string name) {
+Result<void> Document::renameProblem(Id problem, const std::string& name) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());
@@ -1255,7 +1258,8 @@ Result<void> Document::setColourRules(Id problem, ColourPreset preset) {
   return {};
 }
 
-Result<void> Document::setSolverOptions(Id problem, std::map<std::string, std::string> options) {
+Result<void> Document::setSolverOptions(Id problem,
+                                        const std::map<std::string, std::string>& options) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
     return std::unexpected(p.error());

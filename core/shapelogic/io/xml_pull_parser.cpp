@@ -105,7 +105,7 @@ std::string XmlPullParser::stateName(int eventType) {
   }
 }
 
-void XmlPullParser::exception(const std::string& desc) {
+void XmlPullParser::exception(const std::string& desc) const {
   throw XmlParseError("xml Parser Exception : " + desc + " in state: " + stateName(type_) +
                       " at position: " + std::to_string(line_) + "; " +
                       std::to_string(column_));
@@ -594,7 +594,7 @@ void XmlPullParser::defineEntityReplacementText(const std::string& entity,
   entityMap_[entity] = value;
 }
 
-bool XmlPullParser::isWhitespace() {
+bool XmlPullParser::isWhitespace() const {
   if (type_ != TEXT && type_ != IGNORABLE_WHITESPACE && type_ != CDSECT) {
     exception(kIllegalType);
   }
@@ -605,7 +605,7 @@ std::string XmlPullParser::getText() const {
   return type_ < TEXT || (type_ == ENTITY_REF && unresolved_) ? std::string() : get(0);
 }
 
-bool XmlPullParser::isEmptyElementTag() {
+bool XmlPullParser::isEmptyElementTag() const {
   if (type_ != START_TAG) {
     exception(kIllegalType);
   }
@@ -684,7 +684,7 @@ int XmlPullParser::nextTag() {
   return type_;
 }
 
-void XmlPullParser::require(int type, const std::string& name) {
+void XmlPullParser::require(int type, const std::string& name) const {
   if (type != type_ || (!name.empty() && name != getName())) {
     exception("expected: " + stateName(type) + name);
   }

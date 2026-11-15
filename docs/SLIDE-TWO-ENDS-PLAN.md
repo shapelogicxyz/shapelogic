@@ -52,8 +52,12 @@ has no tests. The stages below build the same two ideas properly.
   arrangements; goal level 79: 398,835,803; 68 GB on disk). Its saved
   search was scratch data and is deleted.
 - 8 Heart Board 1 with Stage B's release build: started from the
-  beginning on 2026-11-13 (default memory and disk limits). The outcome
-  goes here when it ends.
+  beginning on 2026-11-13 (default memory and disk limits) and ended by
+  the user after 3 h 8 min, unsolved. It was 170 moves deep with no
+  meeting (start level 85: 870,152,130 arrangements; goal level 85:
+  873,477,536; 147 GB on disk, 4.7 GB of memory for the search, 10,593 s
+  to there), the levels still growing about 1.14 times each. Its saved
+  search was scratch data and is deleted.
 
 ## Stage A: compact keys and the build order
 

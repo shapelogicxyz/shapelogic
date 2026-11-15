@@ -236,22 +236,33 @@ test('settings apply at once: theme, density, font size, tooltips', async () => 
   await expect.poll(engineSettings).toMatchObject({ undoDepth: 100, threads: 1 });
   // the search memory and disk space too, in sections of their own
   await expect(page.locator('#setPg .setgrp')).toHaveText(['Memory', 'Disk space']);
-  await expect(page.locator('#setPg input[data-k="slideDiskGB"] + b')).toHaveText('Automatic');
+  // the disk space sliders are stacked as the search memory's is: 10 GB, every 25 GB to 1 TB,
+  // every 100 GB to 2 TB, every 500 GB to 5 TB
+  const slideValue = page.locator('#setPg .rangebox:has(input[data-k="slideDiskGB"]) > b');
+  const panexValue = page.locator('#setPg .rangebox:has(input[data-k="panexDiskGB"]) > b');
+  await expect(slideValue).toHaveText('Automatic');
   await page.locator('#setPg input[data-k="slideDiskGB"]').fill('2');
-  await expect(page.locator('#setPg input[data-k="slideDiskGB"] + b')).toHaveText('20 GB');
-  await page.locator('#setPg input[data-k="panexDiskGB"]').fill('7');
-  await expect(page.locator('#setPg input[data-k="panexDiskGB"] + b')).toHaveText('1 TB');
+  await expect(slideValue).toHaveText('25 GB');
+  await page.locator('#setPg input[data-k="panexDiskGB"]').fill('41');
+  await expect(panexValue).toHaveText('1 TB');
+  await page.locator('#setPg input[data-k="panexDiskGB"]').fill('51');
+  await expect(panexValue).toHaveText('2 TB');
+  await page.locator('#setPg input[data-k="panexDiskGB"]').fill('57');
+  await expect(panexValue).toHaveText('5 TB');
+  await page.locator('#setPg input[data-k="panexDiskGB"]').fill('41');
+  await expect(panexValue).toHaveText('1 TB');
   // the search memory's value is over its slider, its tick marks under it, automatic's bold
-  const memValue = page.locator('#setPg .rangebox:has(input[data-k="memGB"]) > b');
+  const memBox = page.locator('#setPg .rangebox:has(input[data-k="memGB"])');
+  const memValue = memBox.locator('> b');
   await expect(memValue).toHaveText(/ GB \(automatic\)$/);
-  await expect(page.locator('#setPg .rangebox .ticks i.auto')).toHaveCount(1);
-  await expect(page.locator('#setPg .rangebox .rangewarn')).toBeHidden();
+  await expect(memBox.locator('.ticks i.auto')).toHaveCount(1);
+  await expect(memBox.locator('.rangewarn')).toBeHidden();
   await page.locator('#setPg input[data-k="memGB"]').fill('0');
   await expect(memValue).toHaveText('2 GB');
-  await expect(page.locator('#setPg .rangebox .rangewarn')).toBeHidden();
+  await expect(memBox.locator('.rangewarn')).toBeHidden();
   await expect
     .poll(engineSettings)
-    .toMatchObject({ slideDiskGB: 20, panexDiskGB: 1000, searchMemoryGB: 2 });
+    .toMatchObject({ slideDiskGB: 25, panexDiskGB: 1000, searchMemoryGB: 2 });
   await page.click('#setDefaults');
   await expect.poll(engineSettings).toMatchObject({
     undoDepth: 25,

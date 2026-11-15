@@ -15,6 +15,7 @@
 #include "options.h"
 #include "text_print.h"
 
+#include "shapelogic/base/file_lock.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/base/system.h"
@@ -219,6 +220,7 @@ std::string panexWorkDir(const Options& o) {
   if (o.panexDir != nullptr) {
     return o.panexDir;
   }
+  // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
   if (const char* dir = std::getenv("SHAPELOGIC_PANEX_DIR")) {
     return dir;
   }
@@ -233,8 +235,9 @@ std::string panexWorkDir(const Options& o) {
 std::uint64_t panexDiskBudget(const Options& o) {
   double gb = o.panexDiskGB;
   if (gb <= 0) {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
     if (const char* e = std::getenv("SHAPELOGIC_PANEX_DISK_GB")) {
-      gb = std::atof(e);
+      gb = std::strtod(e, nullptr);
     }
   }
   return gb > 0 ? static_cast<std::uint64_t>(gb * 1e9) : 0;
@@ -294,6 +297,24 @@ void printStackPlan(const bt::Separation& path, const bt::Puzzle& puzzle,
   }
 }
 
+// Takes the lock of a problem's search folders for the solve that follows
+// (decision 0035): one solve of a problem at a time works in them. False,
+// with the reason on stderr, when another solve holds it; true with no
+// lock taken when the search has no folder (`path` empty) or the lock's
+// file cannot be made (the search then says what is wrong with the folder).
+bool lockSearches(bt::FileLock& lock, const std::string& path) {
+  if (path.empty()) {
+    return true;
+  }
+  std::error_code ec;
+  std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+  if (lock.tryAcquire(path) == bt::FileLock::Outcome::Busy) {
+    std::fprintf(stderr, "shapelogic_cli: %s\n", std::string(bt::kSolvedElsewhere).c_str());
+    return false;
+  }
+  return true;
+}
+
 // The slide search the command line asks for: burrTxt's flags, and where
 // the search keeps its older levels: $SHAPELOGIC_SLIDE_DIR, or else the
 // user's cache folder, and $SHAPELOGIC_SLIDE_DISK_GB (the original's
@@ -306,13 +327,15 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.anyOrientation = o.anyOrientation;
   s.mirroredOrientations = o.mirroredOrientations;
   s.highMemory = o.highMemory;
+  // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
   if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR")) {
     s.workDir = dir;
   } else if (const std::string cache = bt::userCacheDirectory(); !cache.empty()) {
     s.workDir = (std::filesystem::path(cache) / "sliding").string();
   }
+  // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
   if (const char* gb = std::getenv("SHAPELOGIC_SLIDE_DISK_GB")) {
-    s.diskBudget = static_cast<std::uint64_t>(std::atof(gb) * 1e9);
+    s.diskBudget = static_cast<std::uint64_t>(std::strtod(gb, nullptr) * 1e9);
   }
   s.legacy = o.slideLegacy;
   s.likePiecesApart = o.slideApart;
@@ -480,6 +503,8 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
   px.threads = o.threads;
   const bool usePanex =
       o.disassemble && (o.panexSolver || bt::panex::unsupported(puzzle, problem, true).empty());
+  // held till the search is over
+  bt::FileLock searchLock;
   if (usePanex) {
     const std::string why = bt::panex::unsupported(puzzle, problem, !o.panexSolver);
     if (!why.empty()) {
@@ -488,6 +513,9 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
     }
     px.anyRules = !o.panexSolver;
     px.workDir = panexWorkDir(o);
+    if (!lockSearches(searchLock, bt::panex::solveLockPath(puzzle, problem, px.workDir))) {
+      return kExitError;
+    }
     px.diskBudget = panexDiskBudget(o);
     px.towerRule = !o.noTowerRule;
     if (o.panexLog) {
@@ -693,9 +721,14 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
 
     // optimized paths: the grid the problem's stops are held to, once
     int slideGrid = 0;
+    // held till the problem's searches are over
+    bt::FileLock searchLock;
     if (o.disassemble && sliding) {
       // a saved slide search of a start is carried on, unless --restart
       const bt::sliding::SlidingOptions so = slidingOptions(o);
+      if (!lockSearches(searchLock, bt::sliding::solveLockPath(puzzle, problem, so.workDir))) {
+        return kExitError;
+      }
       slideGrid = bt::sliding::searchGrid(puzzle, problem, so);
       if (!o.quiet && slideGrid > 1) {
         std::printf("optimized paths: the pieces stop only on a %d-cell grid\n", slideGrid);
@@ -897,6 +930,11 @@ int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
   const ProblemRange range = problemRange(o, puzzle);
   for (unsigned int pr = range.first; pr < range.last; pr++) {
     const bt::Problem& problem = puzzle.getProblem(pr);
+    bt::FileLock searchLock;
+    if (!lockSearches(searchLock, bt::sliding::solveLockPath(puzzle, problem,
+                                                              slidingOptions(o).workDir))) {
+      return kExitError;
+    }
     for (unsigned int sol = 0; sol < problem.getNumberOfSavedSolutions(); sol++) {
       const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
       bt::sliding::SlideSearch search =
@@ -1162,6 +1200,8 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
 
 }  // namespace
 
+// an exception that gets here is a broken invariant: the program ends on it:
+// NOLINTNEXTLINE(bugprone-exception-escape)
 int main(int argc, char** argv) {
   Options o;
   if (const std::optional<int> code = bt::cli::parseArgs(argc, argv, o)) {

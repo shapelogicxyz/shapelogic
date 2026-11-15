@@ -4,7 +4,7 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
-## [ShapeLogic v1.8.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.2) (13 November 2026)
+## [ShapeLogic v1.8.3](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.3) (15 November 2026)
 
 ### What's new in v1.8
 
@@ -36,6 +36,14 @@ Many small bug fixes and improvements.
 - **Solve after a pause starts afresh.** **Solve** on a paused sliding solve now throws the saved search away, as the guide says, instead of carrying it on.
 - **Pieces in the shapes' order.** On the Puzzle tab, **In this puzzle** lists a problem's pieces in the same order as **All pieces**, as tiles, in the table and in the 3D view. **Move earlier**, **Move later** and dragging one tile onto another are gone, as the order now follows the shapes.
 - **Switch problems from the collapsed card.** When the Puzzle tab's problems card is collapsed, or in **Focus 2D editor** on a sliding puzzle, it becomes a narrow strip with a chip for each problem and a **+** for a new one.
+
+### v1.8.3 (15 November 2026)
+
+- **Crash recovery no longer holds up a long sliding search.** The crash recovery copy of a sliding solve is now written at the end of the level the search is on, so nothing is searched twice. Before, each copy paused the search in the middle of its level and the level was searched again; once a level took longer than a few minutes, every copy threw it away and a deep search stopped getting any further. A search paused in v1.8.2 carries on in this version from where it stopped.
+- **Save while a sliding solve runs.** **File ▸ Save** no longer says *A save is under way already* while the crash recovery copy waits for the end of a level: it saves at once, and the search carries on.
+- **One solve of a problem at a time.** A sliding problem, or a stacking problem solved by the Panex search, keeps its search in the cache folder under the problem's name. Solving the same problem in two windows at once, or in the app and `shapelogic_cli`, made the two searches overwrite each other's files and could crash one of them. Now the second **Solve** or **Continue** does nothing and the status bar says *another solve of this problem is under way*; pause the first solve or let it finish, then try again.
+- **Performance Analysis past 100 moves.** The estimates now always show the next eleven rows, every fifth move from the next multiple of five (58 moves deep shows 60 to 110), instead of stopping at 100 moves deep.
+- **Finer disk space settings.** The **Disk space** sliders in **Settings** move in 25 GB steps up to 1 TB, then 100 GB steps to 2 TB and 500 GB steps to 5 TB, with tick marks under them.
 
 ## [ShapeLogic v1.7.2](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.7.2) (11 November 2026)
 

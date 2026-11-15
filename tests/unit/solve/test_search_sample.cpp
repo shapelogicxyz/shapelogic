@@ -47,6 +47,7 @@ TEST_CASE("search sample: of threads racing for a request, one answers it",
     s.request();
     std::atomic<int> claimed{0};
     std::vector<std::thread> threads;
+    threads.reserve(4);
     for (int t = 0; t < 4; t++) {
       threads.emplace_back([&s, &claimed] {
         if (s.claim()) {

@@ -160,6 +160,7 @@ Result<std::vector<CellAt>> sweptCells(CellGeometry& g, CellAt c, CellAt step, C
   const CellPolyhedron* from = g.cell(c);
   const CellPolyhedron* end = g.cell(to);
   if (from == nullptr || end == nullptr) {
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a cell that is null has set the error
     return std::unexpected(*g.error());
   }
 
@@ -186,6 +187,8 @@ Result<std::vector<CellAt>> sweptCells(CellGeometry& g, CellAt c, CellAt step, C
         }
         const CellPolyhedron* other = g.cell(q);
         if (other == nullptr) {
+          // a cell that is null has set the error:
+          // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
           return std::unexpected(*g.error());
         }
         if (sweepEnters(*from, move, *other)) {

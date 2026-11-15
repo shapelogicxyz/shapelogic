@@ -266,6 +266,7 @@ void findOptimizedFaces(Polyhedron& poly, const std::vector<int>& corners,
       // the cap must lie on the solid, otherwise it would bridge a
       // concave corner: then the triangle fan
       std::vector<Vec3> cand;
+      cand.reserve(static_cast<std::size_t>(ret));
       for (int j = 0; j < ret; j++) {
         cand.push_back(poly.vertex(work[static_cast<std::size_t>(idx(offset + j))]).pos);
       }
@@ -276,6 +277,7 @@ void findOptimizedFaces(Polyhedron& poly, const std::vector<int>& corners,
 
     if (ret != 0) {
       std::vector<int> pts;
+      pts.reserve(static_cast<std::size_t>(ret));
       for (int j = 0; j < ret; j++) {
         pts.push_back(work[static_cast<std::size_t>(idx(offset + j))]);
       }

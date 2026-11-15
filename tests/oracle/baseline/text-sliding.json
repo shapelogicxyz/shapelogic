@@ -2,7 +2,7 @@
  "alpha:tests/data/puzzles/sliding/slide_all_variable.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "096d9bafae6ccb2ef9ecaf31fbafa59051313195dd6c1275478c558c7bc0c94e",
+   "out": "090dba17e73b184d90970effd7d793672903d65f37083fc5baac22a7645f9a84",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 17
   },
@@ -178,7 +178,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_00.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "8e032152e84fc896901c1d27b48fecb451ce9ff30a9b9c478aa25340e6a119ab",
+   "out": "6f49732b6cfbfa08cc206aa698c8be862c22b9398a2a433ea50f087f9f0d30dd",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 43
   },
@@ -222,7 +222,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_01.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "f89e5c73aec77191b827675f11e5806c758832595e5092f3a65f155f16fa881b",
+   "out": "3efa03ad901d18775fc0fe6516dd0adefe5c10817b76031b00e1a475d3d5183b",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 65
   },
@@ -266,7 +266,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_02.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "573fee6701c75674ab5c3895e8886c3f9b79ea3a6141dc3716e788a1902012c5",
+   "out": "234a9d7e16a375657cf45b8eac6f99f4ca1399dd29b2e7df709388a5be974388",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 44
   },
@@ -310,7 +310,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_03.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "f55bb49666b195ade4c30f03d3eb11b4185754ffb1c4530020b6d0879acaa50f",
+   "out": "be2e9cff9712f6f7631c351b60c883f5b349c4a72e5a7613d578cd938d45ef97",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 58
   },
@@ -354,7 +354,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_04.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "a5e029be0472acc05dcc41c24c33aa293c69ffdb544a05a50a0f9c435fd77543",
+   "out": "749be38c596656763654431c7bd6938bbf0a61f463e84a7f5ff092c7d21e47f2",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 64
   },
@@ -398,7 +398,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_05.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "698833f8a384e68b94255d31f36594bbe5048132b49e3c76cddcfb5d2bd27007",
+   "out": "0fd056443dbaa8f5a2e19587ffb6016a8c5afd94ef9a46c20a47ad8696f9ef2d",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 201
   },
@@ -442,7 +442,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_06.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "8796f1cdbdd69767e00e3c56f7469904db5788e0a0945f8e46121d8e5876b9c5",
+   "out": "c179e132ec1e5bbdfc6af09cc11eddc31e043fc0293e158c77b8524ee7bd4aee",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 45
   },
@@ -486,7 +486,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_07.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "17fd176ae9e532f370e5d11f6a3cbbcb7ca5a6d4765f212b168d8ea9b1e2cfae",
+   "out": "3c7303ace0005eb04b431a00946857f3af7bb4af6cd2ee461f2724923626ccbc",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 65
   },
@@ -530,7 +530,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_08.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "6fbbbed9614209d8d00b00e672c943aceb55484920d4a60dc7b41d6f706f5c14",
+   "out": "afc719c3e15ac40f9426b3bde929fb071b0b5c26d63c36ad4079d1a3a6b29ec9",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 50
   },
@@ -574,7 +574,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_09.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "d3fc0361e7ebd7052605f57ce3cce24051936e9ef02a33d7e00ae3d6afbd56ed",
+   "out": "3602b29bfbe718d4c268ba37cb2f7ed37831f56011806f325a72f496bb58e450",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 110
   },
@@ -618,7 +618,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_10.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "52330667c5e5789834666298d3818ae04cb9a5581478c34edb56226da5a9f70f",
+   "out": "070bc29e26c529e07a5dc95bc0ddc6a1af0dcecd66b45c96825b889f505d0008",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 57
   },
@@ -662,7 +662,7 @@
  "alpha:tests/data/puzzles/sliding/slide_fuzz_11.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "ba12b404133c9eae1333b9366efe1bc0925263736bb7c36cadf7ead5eab0274b",
+   "out": "7817b829c3aa1daff604c1ebfc2334bf2c6baf34d2d0c689ac13696e93e793a9",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 72
   },
@@ -706,7 +706,7 @@
  "alpha:tests/data/puzzles/sliding/slide_goal_on_variable.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "69606175f0ba48e5f67c5faf78f3e425877002c9d7cee2b5b1ee81531ec6f817",
+   "out": "55613aa3ff83d018b2b243671daecb10b50410c41cfeaafa740f4367ed56f55b",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 17
   },
@@ -750,7 +750,7 @@
  "alpha:tests/data/puzzles/sliding/slide_klotski.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "5df6c45f1ed9dcbc5646475d0170dedc6cef104dce804b28312e6b7175c8c858",
+   "out": "81fba4a8b219ecacccb00d1d89ee8e0c3244388c023956e4b5d0b8f7fc7126eb",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 981
   },
@@ -794,7 +794,7 @@
  "alpha:tests/data/puzzles/sliding/slide_like_pieces.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "a40b4920826e14ecab5d65434c8bb6ac6520600a65fb88abc4cfc38ccdd97871",
+   "out": "c97d87056a3b3b644f710362e89a75b6bd9b935d1df375b235f03de322a31025",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 132
   },
@@ -838,7 +838,7 @@
  "alpha:tests/data/puzzles/sliding/slide_many_starts.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "ded6546fcb8d5933e1a70012ba9f1ed32b4754309a1b9f73bee9ba8ef143498a",
+   "out": "5219dc26d70021846164df56fbd6c08e0e0be95ad72a6a51d774680d377233b8",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 3298
   },
@@ -926,7 +926,7 @@
  "alpha:tests/data/puzzles/sliding/slide_one_way.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "fc8e270513a65683f99159b33144b510dd76b4b9a8fc1cc5a685c9e24c771886",
+   "out": "36bdc26bb1e3d1ce4d1ee619c96269d5d2ba1a88efc2e6b3ed67afd29313e564",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 65
   },
@@ -1102,7 +1102,7 @@
  "alpha:tests/data/puzzles/sliding/slide_swapped_eight.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "2341dc0b77f0831fecb92c9cf6229fd6067478797b093dedd066bb5885120ae7",
+   "out": "e80c7b078045a6ec9e01c8995087bc257343b065e033120eea9562027f38a1ce",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 54
   },
@@ -1190,7 +1190,7 @@
  "alpha:tests/data/puzzles/sliding/slide_two_layers_open.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "d5295a799629759fb0cbbbce1044540c2f2ca723a57976cc4eef312d54484b34",
+   "out": "62c8176835d892c4427808ab58ea7bf7cc9832ad4450d5bd9f598043bed956d0",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 35
   },
@@ -1234,7 +1234,7 @@
  "alpha:tests/data/puzzles/sliding/slide_two_layers_shut.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "5105bb762596360c1873556c29ffbf66fee6658112150429911a805f4bb944e0",
+   "out": "87d8ba5bc1a490fa2d845d306b75f2093522caffb2506a82350fe352650afcdc",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 18
   },
@@ -1278,7 +1278,7 @@
  "alpha:tests/data/puzzles/sliding/slide_variable_crossed.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "7c32af612f377e8957928c5e099cbac845f269713311e6cf5603db0090190772",
+   "out": "67b8abd8288311b2dcd286d2e7293c7c1facbd9035abd213cb538ef4a47ae8f7",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 27
   },
@@ -1322,7 +1322,7 @@
  "alpha:tests/data/puzzles/sliding/slide_whole_piece.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "adf3ef28cac4390cf6a86443bd591843d73a4d4ffe0b0e8bd9ccb734d8fff2de",
+   "out": "906189c9997a510c6033c8a26c0139ae2595409dac24c87185c7d98a589dfe51",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 45
   },
@@ -1366,7 +1366,7 @@
  "alpha:tests/data/puzzles/sliding/slide_wide_keys.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "9218ebe175fabcb00fe85c682d9cfd6719c7376e173e6e31189fb66864dd8e2a",
+   "out": "b70d3bec081b779be0bb318c3b9938c5da23110370b68487621e965e1650a550",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 127
   },
@@ -1410,7 +1410,7 @@
  "examples/SliderByGiiker.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "98aec1dc3968242f64a383fede4629b0036205686e6ac385869fa9697935dd10",
+   "out": "3d663a0b1a388dd5d62997d84a794b295deb0fc657b8fa285a7eb052d0295156",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 1022
   },
@@ -1454,7 +1454,7 @@
  "test/test_sliding_nested.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "d530dcd5c365c620056c0a7e5955f4e04df28948c8e9c9beb185eda9c10218af",
+   "out": "9cccb49cc7dd16d70e029bb789c7ad5ac239449391cdb85b6d9c124b6a21eaf5",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 938
   },
@@ -1498,7 +1498,7 @@
  "test/test_sliding_solver.xmpuzzle": {
   "solve": {
    "exit": 0,
-   "out": "98aec1dc3968242f64a383fede4629b0036205686e6ac385869fa9697935dd10",
+   "out": "3d663a0b1a388dd5d62997d84a794b295deb0fc657b8fa285a7eb052d0295156",
    "err": "eb67fa02546cec1e54d5e3c5b06f97b0d642f922796b51a0d47d76c923c6703b",
    "lines": 1022
   },

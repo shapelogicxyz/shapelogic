@@ -591,6 +591,7 @@ class Mesher {
       }
       const int face = asInt(n);
       std::vector<int> ids;
+      ids.reserve(f.size());
       for (std::size_t i = 0; i < f.size(); i++) {
         ids.push_back(vertexOf(c, face, asInt(i)));
       }
@@ -634,6 +635,7 @@ class Mesher {
       const bool empty = geometry_.empty(f.across);
       if (empty) {
         std::vector<int> ids;
+        ids.reserve(f.size());
         for (std::size_t i = 0; i < f.size(); i++) {
           ids.push_back(vertexOf(c, face, asInt(i)));
         }

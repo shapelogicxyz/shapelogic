@@ -1,0 +1,24 @@
+# The unit tests: the checks of the repo's .clang-tidy, without those that
+# only meet test idioms.
+#   bugprone-unchecked-optional-access  REQUIRE(x) before *x is a check the
+#       analysis does not see (Catch2's macro)
+#   bugprone-unused-return-value  the tests' helpers call a document method
+#       for its effect and check the document afterwards
+#   bugprone-random-generator-seed  a fixed seed is what makes a test
+#       repeat
+#   bugprone-unchecked-string-to-number-conversion  sscanf and atoi read
+#       the tests' own recordings and switches, whose form the tests fix
+#   concurrency-mt-unsafe  getenv for a test's switch, before its threads
+#   performance-*  a test is not a hot path: its callbacks take an
+#       Assembly by value as AssemblyCallback hands it over, and its
+#       lists are filled without a reserve
+---
+InheritParentConfig: true
+Checks: >
+  -bugprone-unchecked-optional-access,
+  -bugprone-unused-return-value,
+  -bugprone-random-generator-seed,
+  -bugprone-unchecked-string-to-number-conversion,
+  -concurrency-mt-unsafe,
+  -performance-*
+...

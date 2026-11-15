@@ -152,6 +152,15 @@ void untilSearching(const SolveSession& s) {
   }
 }
 
+// Asks for a save point as soon as the run takes one (it does nothing while
+// the run prepares), and until the run has ended.
+void askSavePoint(SolveSession& s) {
+  while (isActive(s.state())) {
+    s.pauseAtSavePoint();
+    std::this_thread::yield();
+  }
+}
+
 // Waits until the run's search goes deeper than `depth` moves.
 void untilDeeper(const SolveSession& s, std::uint64_t depth) {
   while (s.progress().searchDepth <= depth) {
@@ -273,10 +282,11 @@ TEST_CASE("sliding session: a search out of memory names the program's settings"
   CHECK(t.note().ends_with(" Try Enable High Memory."));
 }
 
-TEST_CASE("sliding session: a save point lets the search under way finish, a pause does not",
+TEST_CASE("sliding session: a save point lets a search with no folder finish, a pause does not",
           "[sliding][session]") {
   // A 4x4 tray of fifteen with a swap no sliding makes: the search stops at
-  // its memory limit, kept small here.
+  // its memory limit, kept small here. With no folder it has nowhere to
+  // save itself at a save point.
   SolveOptions o = findSolutions(2);
   o.sliding.memoryBytes = 8000000;
   {
@@ -317,6 +327,106 @@ TEST_CASE("sliding session: a save point lets the search under way finish, a pau
     CHECK_FALSE(pr.getPending()[0].counted);
     CHECK(s.note().empty());
   }
+}
+
+// A search with a folder stops at a save point between two levels, saved,
+// its start kept: the run is Paused and says it paused there, and the next
+// run, asked at once, still ends a level further. A pause, and a search
+// that ran out of disk meanwhile, do not say so.
+TEST_CASE("sliding session: a save point pauses a search with a folder between two levels",
+          "[sliding][session][resume][parallel]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_savepoint";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 8000000;
+  {
+    Puzzle p = swapped(4);
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    untilSearching(s);
+    untilDeeper(s, 2);
+    CHECK_FALSE(s.progress().atSavePoint);
+    s.pauseAtSavePoint();
+    // the search goes on to the level's end: it is not told as stopping
+    CHECK(s.progress().stage != SolveStage::Stopping);
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    const Problem& pr = p.getProblem(0);
+    CHECK(s.progress().atSavePoint);
+    CHECK(pr.getNumAssemblies() == 0);
+    REQUIRE(pr.getPending().size() == 1);
+    CHECK_FALSE(pr.getPending()[0].counted);
+    CHECK(s.note().empty());
+    CHECK_FALSE(std::filesystem::is_empty(dir));
+    const std::uint64_t depth = pr.getSearchDepth();
+    const std::uint64_t searched = pr.getSearched();
+    CHECK(depth > 2);
+    CHECK(searched > 0);
+
+    // carried on and asked again as soon as it searches: a level further
+    for (int i = 0; i < 3; i++) {
+      const std::uint64_t before = pr.getSearchDepth();
+      const std::uint64_t count = pr.getSearched();
+      REQUIRE(s.resume().has_value());
+      CHECK_FALSE(s.progress().atSavePoint);
+      // asked for before the start's search has begun
+      askSavePoint(s);
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+      CHECK(s.progress().atSavePoint);
+      CHECK(pr.getSearchDepth() > before);
+      // what the level visited is kept, none of it taken back
+      CHECK(pr.getSearched() > count);
+      REQUIRE(pr.getPending().size() == 1);
+    }
+
+    // a pause is not a save point
+    REQUIRE(s.resume().has_value());
+    untilDeeper(s, pr.getSearchDepth());
+    s.pauseAtSavePoint();
+    s.pause();
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    CHECK_FALSE(s.progress().atSavePoint);
+    s.abort();
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  {
+    // out of disk with a save point asked for: paused for the disk, which
+    // the user is to see, not for the save
+    SolveOptions d = o;
+    d.sliding.memoryBytes = 1;
+    d.sliding.diskBudget = 1;
+    d.settingsPlace = "Settings";
+    Puzzle p = swapped(3);
+    SolveSession s(p, p.getProblem(0), d);
+    REQUIRE(s.start().has_value());
+    // asked for once the start is being searched (before that the
+    // assembly search would stop, with no start found)
+    while (isActive(s.state())) {
+      if (s.progress().searched > 0) {
+        s.pauseAtSavePoint();
+      }
+      std::this_thread::yield();
+    }
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    if (s.progress().atSavePoint) {
+      // stopped after its first level, before it had files to count
+      // against the disk: the next level's end finds the disk full
+      CHECK(p.getProblem(0).getPending().size() == 1);
+      REQUIRE(s.resume().has_value());
+      askSavePoint(s);
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+    }
+    CHECK_FALSE(s.progress().atSavePoint);
+    CHECK(s.note().find("press Continue") != std::string::npos);
+    s.abort();
+  }
+  std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("sliding session: a search that searched everything says so", "[sliding][session]") {
@@ -1330,5 +1440,80 @@ TEST_CASE("sliding session: a paused solve opened without times goes on from unt
     CHECK((g.slideLevelMs[k] == kUntimedMs) == (k < depth));
   }
   s.abort();
+  std::filesystem::remove_all(dir);
+}
+
+// One solve of a problem at a time works in its search folders (decision
+// 0035): while another holds the problem's lock, Solve and Continue are
+// refused before anything is dropped, and an abort leaves the saved
+// searches to the solve that works in them.
+TEST_CASE("sliding session: a problem another solve works on is refused",
+          "[sliding][session][lock]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_lock";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.nested = true;
+  o.sliding.optimizedPaths = true;
+  o.sliding.workDir = dir.string();
+  // out of disk with its first level: saved, the run paused
+  SolveOptions tight = o;
+  tight.sliding.memoryBytes = 1;
+  tight.sliding.diskBudget = 1;
+  Puzzle p = cupAndBlocks();
+  const Problem& pr = p.getProblem(0);
+  const std::string lockFile = solveLockPath(p, pr, dir.string());
+  REQUIRE_FALSE(lockFile.empty());
+  // the same problem in another document is the same lock; no folder, no lock
+  {
+    const Puzzle copy = cupAndBlocks();
+    CHECK(solveLockPath(copy, copy.getProblem(0), dir.string()) == lockFile);
+    CHECK(solveLockPath(p, pr, "").empty());
+  }
+  auto savedSearches = [&] { return savedFolders(p, pr, dir.string()).size(); };
+
+  SolveSession s(p, p.getProblem(0), tight);
+  FileLock other;
+  REQUIRE(other.tryAcquire(lockFile) == FileLock::Outcome::Held);
+  {
+    const Result<void> r = s.start();
+    REQUIRE_FALSE(r.has_value());
+    CHECK(r.error().code == Errc::IoError);
+    CHECK(r.error().message == kSolvedElsewhere);
+    CHECK(s.state() == SolveState::Idle);
+  }
+  other.release();
+
+  // the lock is the run's while it goes, and gone when the run is over
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  CHECK_FALSE(std::filesystem::exists(lockFile));
+  REQUIRE(pr.getPending().size() == 1);
+  REQUIRE(savedSearches() == 1);
+
+  // the other solve again: neither Continue nor Solve gets in, and what
+  // the paused solve holds stays as it is
+  REQUIRE(other.tryAcquire(lockFile) == FileLock::Outcome::Held);
+  CHECK_FALSE(s.resume().has_value());
+  CHECK_FALSE(s.start().has_value());
+  CHECK(s.state() == SolveState::Paused);
+  CHECK(pr.getPending().size() == 1);
+  CHECK(savedSearches() == 1);
+  // an abort throws this solve away, not the searches the other works in
+  s.abort();
+  CHECK(s.state() == SolveState::Idle);
+  CHECK(savedSearches() == 1);
+  CHECK(other.held());
+  other.release();
+
+  // alone again, the problem solves
+  REQUIRE(s.setOptions(o).has_value());
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(pr.getNumSolutions() == 1);
+  CHECK_FALSE(std::filesystem::exists(lockFile));
   std::filesystem::remove_all(dir);
 }

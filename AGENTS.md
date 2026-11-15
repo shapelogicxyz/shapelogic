@@ -20,6 +20,7 @@ Use `just`. Do not invent ad-hoc build steps when a recipe exists.
 just build [preset]     # dev (default), release, asan, tsan (macOS: release-x64, release-arm64); output in build/<preset>
 just test               # unit + contract tests without [slow], side by side; the quick loop
 just test-all           # everything; run before calling a stage done
+just gate [groups]      # every suite one after another, with a table of what passed (tests/gate.sh; ~75 min)
 just test-asan          # Address + UB sanitizers
 just test-tsan          # ThreadSanitizer on [parallel] cases (from stage 3)
 just oracle [--tier …]  # compare the new bt with the original burrTxt
@@ -32,8 +33,8 @@ just oracle-python      # the Python module's transcripts against the original m
 just python-test [preset] # the Python module's tests (python/tests; the module builds when Python's headers are found)
 just python-wheel       # its wheel in build/wheel, installed into a fresh venv and tested there
 just oracle-baseline    # re-record the original's answers (rarely needed)
-just check              # clang-tidy (needs LLVM installed)
-just format             # clang-format
+just check [files]      # clang-tidy, every finding an error (needs LLVM installed); with names, only those sources
+just format             # clang-format over the whole tree (never run so far: format only files you add)
 just app-install        # the web front end's packages (npm ci; Node 22)
 just app-gen            # web/src/engine/api.generated.ts from api/*.json
 just app-check          # the front end's type checks, ESLint, Prettier
@@ -129,6 +130,18 @@ just release-fetch vX.Y # a copy of a release's files in release/vX.Y
   ctest `python` when the module is built, so `just test-all` runs it),
   the original's tests ported as they were plus new ones; the module
   keeps the original module's names, so change them only with a reason.
+- No test writes in the user's cache folder, and no two solves share a
+  search folder (decision 0035: a second solve of a problem in the same
+  folder is refused). The engine's default folders follow
+  `SHAPELOGIC_SLIDE_DIR` and `SHAPELOGIC_PANEX_DIR`: the unit tests set them
+  per process (`tests/unit/test_search_folders.cpp`), the contract client
+  per engine, the CLI's tests and the web engine tests per run, the harness
+  per sliding or stacking run. A new suite that starts an engine or the CLI
+  does the same.
+- `just check` passes and must stay so. The checks are in `.clang-tidy`
+  (each one left out has its reason there; `tests/unit/.clang-tidy` leaves
+  out a few more). Where the analysis cannot see an invariant, say why on
+  the line above: `// NOLINTNEXTLINE(check): reason`; never a bare NOLINT.
 - The engine: `tests/unit/engine/` drives it in process; `tests/contract/`
   (ctest `contract`) drives `shapelogic_engine` as a subprocess and checks every
   reply and event against `api/`. A new method needs its schema entry, a

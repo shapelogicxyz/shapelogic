@@ -61,9 +61,11 @@ struct Settings {
   /// searchMemoryGB in bytes, the automatic amount for 0.
   [[nodiscard]] std::uint64_t searchMemoryBytes() const;
 
-  /// The user's cache folder's "sliding", or empty without one.
+  /// $SHAPELOGIC_SLIDE_DIR, else the user's cache folder's "sliding", or
+  /// empty without one.
   static std::string defaultSlideFolder();
-  /// The user's cache folder's "panex", or empty without one.
+  /// $SHAPELOGIC_PANEX_DIR, else the user's cache folder's "panex", or
+  /// empty without one.
   static std::string defaultPanexFolder();
 };
 
@@ -127,10 +129,13 @@ struct State {
   /// The revision document.changed last told.
   std::uint64_t announced = 0;
 
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
   [[nodiscard]] app::Document& document() { return *doc; }
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
   [[nodiscard]] const app::Document& document() const { return *doc; }
   /// The revision clients see: the document's, counted on from the
   /// documents before it, so that it never goes back.
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
   [[nodiscard]] std::uint64_t revision() const { return revisionBase_ + doc->revision(); }
   /// {revision}: the result of a mutating method.
   [[nodiscard]] Json changed() const { return Json{{"revision", revision()}}; }

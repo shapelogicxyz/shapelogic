@@ -66,6 +66,8 @@ Fix fixToLattice(int u, int v) noexcept {
   return best;
 }
 
+// the table is worked out from constants: nothing in it throws:
+// NOLINTNEXTLINE(bugprone-exception-escape)
 const Around& around(int kind) noexcept {
   static const std::array<Around, 4> all = [] {
     std::array<Around, 4> out{};

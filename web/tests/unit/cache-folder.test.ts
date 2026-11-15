@@ -25,6 +25,7 @@ import {
   CacheFolderManager,
   describe as describeContents,
   foldersFor,
+  isEmpty,
   moveData,
   overlap,
   prepare,
@@ -141,6 +142,17 @@ describe('the data in the folders', () => {
     );
     expect(sizeText(999)).toBe('999 bytes');
     expect(sizeText(340e6)).toBe('340 MB');
+  });
+
+  it('does not count the lock of a solve under way', async () => {
+    const f: CacheFolders = { slide: join(dir, 'sliding'), panex: join(dir, 'panex') };
+    mkdirSync(f.slide, { recursive: true });
+    mkdirSync(f.panex, { recursive: true });
+    writeFileSync(join(f.slide, `solve-${KEY_A}.lock`), '');
+    writeFileSync(join(f.panex, `${KEY_A}.lock`), '');
+    const c = await scan(f);
+    expect(isEmpty(c)).toBe(true);
+    expect(describeContents(c)).toBe('');
   });
 
   it('moves to the new folders, replacing a search of the same name there', async () => {

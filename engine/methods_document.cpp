@@ -166,7 +166,7 @@ Reply documentGet(State& s, Params& p) {
 Reply documentSetNotes(State& s, Params& p) {
   std::string text = p.string("text");
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setNotes(std::move(text)));
+  BTE_CHECK(s.document().setNotes(text));
   return s.changed();
 }
 

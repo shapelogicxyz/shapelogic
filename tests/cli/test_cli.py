@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -27,9 +28,17 @@ BT: Path = Path()
 failures: list[str] = []
 
 
+# search folders of this run's own, never the user's cache: the suites run
+# side by side, and two solves of one problem cannot work in the same
+# folders (decision 0035)
+FOLDERS = tempfile.TemporaryDirectory(prefix="sl_cli_")
+ENV = {**os.environ, "SHAPELOGIC_SLIDE_DIR": str(Path(FOLDERS.name) / "sliding"),
+       "SHAPELOGIC_PANEX_DIR": str(Path(FOLDERS.name) / "panex")}
+
+
 def run(*args: str | Path, timeout: float = 300) -> subprocess.CompletedProcess:
     return subprocess.run([str(BT), *map(str, args)], capture_output=True, text=True, timeout=timeout,
-                          check=False)
+                          check=False, env=ENV)
 
 
 def check(name: str, cond: bool, detail: str = "") -> None:

@@ -805,7 +805,8 @@ def pause_continue_and_the_guards(e):
     detail = e.call("problem.get", {"problem": p})
     check(detail["state"] == "solving" and detail["savedPosition"] and detail["solve"] == "paused", "paused")
     progress = e.call("solve.status", {"problem": p})["progress"]
-    check(progress["stage"] == "paused", f"stage {progress['stage']}")
+    check(progress["stage"] == "paused" and progress["atSavePoint"] is False,
+          f"stage {progress['stage']}, at a save point {progress['atSavePoint']}")
     with tempfile.TemporaryDirectory() as tmp:
         e.call("document.save", {"path": str(pathlib.Path(tmp) / "paused.xmpuzzle")})
     # carry on, pause at a save point, carry on, abort
@@ -814,6 +815,10 @@ def pause_continue_and_the_guards(e):
     check(wait_state(e, p, ("assembling", "finished"), start) == "assembling", "carried on")
     e.call("solve.savePoint", {"problem": p})
     check(wait_state(e, p, ("paused", "finished"), start) == "paused", "paused at a save point")
+    # the paused progress says it paused there (a pause's does not): whoever
+    # asked for the save point saves and carries the solve on
+    check(e.call("solve.status", {"problem": p})["progress"]["atSavePoint"] is True,
+          "paused at the save point asked for")
     start = len(e.events)
     e.call("solve.continue", {"problem": p, "options": one})
     check(wait_state(e, p, ("assembling", "draining", "finished"), start) != "finished", "carried on again")
@@ -960,6 +965,60 @@ def sliding_solve_pause_continue_and_play(e):
         check(note is not None and "reached its memory limit of" in note and
               "Settings ▸ Solver can give it more Search memory" in note, f"the note {note!r}")
         e.call("settings.set", {"slideFolder": was, "searchMemoryGB": memory})
+
+
+@test
+def one_solve_of_a_problem_at_a_time(e):
+    """Decision 0035: a solve holds its problem's search folders till its run
+    ends; the problem in another engine with the same folder, and a copy of
+    it, are refused meanwhile."""
+    with tempfile.TemporaryDirectory() as tmp:
+        was = e.call("settings.get")["slideFolder"]
+        e.call("settings.set", {"slideFolder": tmp})
+        # a search with no solution, far too large to end while this runs
+        puzzle = str(FIXTURES / "sliding" / "slide_swapped_fifteen.xmpuzzle")
+        p = e.call("document.open", {"path": puzzle})["problems"][0]["id"]
+        copy = e.call("problem.duplicate", {"problem": p})["problem"]
+        find = {"disassemble": True}
+        start = len(e.events)
+        e.call("solve.start", {"problem": p, "options": find})
+        # (in one document a second sliding solve is refused before the
+        # lock is asked for: the solves read the same shapes)
+        e.fails("solve.start", {"problem": copy, "options": find}, "invalid_state")
+        other = Engine(e.proc.args[0], e.api)
+        try:
+            other.call("settings.set", {"slideFolder": tmp})
+            q = other.call("document.open", {"path": puzzle})["problems"][0]["id"]
+            for method in ("solve.start", "solve.continue", "solve.prepare"):
+                refused = other.fails(method, {"problem": q, "options": find}, "io_error")
+                check("another solve of this problem is under way" in refused.error["message"],
+                      f"{method} in the other engine: {refused}")
+            check(other.call("problem.get", {"problem": q})["state"] == "unsolved", "untouched")
+            # without the folder nothing is shared: no lock (aborted at once)
+            other.call("settings.set", {"slideFolder": ""})
+            other.call("solve.start", {"problem": q, "options": find})
+            changed_event(other, other.call("solve.abort", {"problem": q})["revision"])
+            other.call("settings.set", {"slideFolder": tmp})
+
+            # paused, the first solve lets the folders go: the other engine
+            # takes them, and now Continue is refused here
+            e.call("solve.pause", {"problem": p})
+            check(wait_state(e, p, ["paused", "finished", "error"], start) == "paused", "paused")
+            other.call("solve.start", {"problem": q, "options": find})
+            e.fails("solve.continue", {"problem": p, "options": find}, "io_error")
+            e.fails("solve.start", {"problem": copy, "options": find}, "io_error")
+            changed_event(other, other.call("solve.abort", {"problem": q})["revision"])
+            # the other's abort over, the copy solves
+            e.call("solve.start", {"problem": copy, "options": find})
+            changed_event(e, e.call("solve.abort", {"problem": copy})["revision"])
+            changed_event(e, e.call("solve.abort", {"problem": p})["revision"])
+            other.close()
+            check(not other.problems, f"contract problems: {other.problems}")
+        finally:
+            if other.proc.poll() is None:
+                other.proc.kill()
+            e.called |= other.called
+        e.call("settings.set", {"slideFolder": was})
 
 
 @test
@@ -1665,7 +1724,9 @@ def stl_exports(e):
     ball = snap["shapes"][1]["id"]
     values = [q["default"] for q in e.call("export.stlParameters")["parameters"]]
     values[4] = 6
-    e.fails("export.stlMesh", {"shape": ball, "parameters": values}, "invalid_argument")
+    # the mesh is built before it is refused: about 20 s alone under ASan, more
+    # beside the other tests
+    e.fails("export.stlMesh", {"shape": ball, "parameters": values}, "invalid_argument", timeout=300)
     values[4] = 1
     check(e.call("export.stlMesh", {"shape": ball, "parameters": values})["triangles"] > 0,
           "a ball at one recursion")

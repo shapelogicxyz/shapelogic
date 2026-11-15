@@ -94,6 +94,7 @@ inline Separation withOrientations(const Separation& t, const Assembly& assm) {
   }
   Separation out(std::move(removed), std::move(left), t.getPieces());
   std::vector<int> dt;
+  dt.reserve(t.getPieceNumber());
   for (unsigned int i = 0; i < t.getPieceNumber(); i++) {
     dt.push_back(static_cast<int>(assm.getTransformation(t.getPieceName(i))));
   }

@@ -197,6 +197,11 @@ the same outcome and the same fewest moves on all.
   each fall back to one end and solve; copies with a goal each go from
   both ends; the hand-made board above ends with no path and its goal end
   drops arrangements its older levels hold.
+- The harness: the path from both ends has the original's number of moves
+  but need not be its path (`test/test_sliding_nested.xmpuzzle`: 47 moves,
+  another route). The comparisons that go state by state, the solved
+  files and the text, run with `--slide-one-end` and match the original's;
+  the summaries run the search as it is by default.
 - Soft spots: the stops apart take up to three times the arrangements a
   level where loose stops would do (backward moves for loose arrangements
   would give both). `nestedBound` is a bound, so a piece with roomy holes

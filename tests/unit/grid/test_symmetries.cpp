@@ -132,10 +132,12 @@ TEST_CASE("symmetries: transAdd composes transformations", "[symmetry]") {
        for this task; this comment exists so nobody mistakes the loop
        bound `n` for actual coverage of all `n` sphere transformations. */
     unsigned int checked = 0;
-    for (unsigned int t1 = 0; t1 < n; t1++)
+    for (unsigned int t1 = 0; t1 < n; t1++) {
       for (unsigned int t2 = 0; t2 < n; t2++) {
         unsigned char combined = sym.transAdd(static_cast<unsigned char>(t1), static_cast<unsigned char>(t2));
-        if (combined == kTransformUndefined) continue;
+        if (combined == kTransformUndefined) {
+          continue;
+        }
 
         INFO("t1 " << t1 << " t2 " << t2 << " combined " << static_cast<int>(combined));
 
@@ -146,13 +148,20 @@ TEST_CASE("symmetries: transAdd composes transformations", "[symmetry]") {
         });
         std::unique_ptr<Voxel> direct = stepwise->clone();
 
-        if (!stepwise->transform(t1)) continue;
-        if (!stepwise->transform(t2)) continue;
-        if (!direct->transform(combined)) continue;
+        if (!stepwise->transform(t1)) {
+          continue;
+        }
+        if (!stepwise->transform(t2)) {
+          continue;
+        }
+        if (!direct->transform(combined)) {
+          continue;
+        }
 
         checked++;
         REQUIRE(stepwise->identicalInBB(*direct));
       }
+    }
 
     /* REQUIRE(checked > 0) alone floors this branch's most valuable
        coverage at a single assertion: the continues just above skip
@@ -197,7 +206,9 @@ TEST_CASE("symmetries: a shape is identical to its own rotations", "[symmetry]")
       INFO("transformation " << tr);
 
       std::unique_ptr<Voxel> rotated = original->clone();
-      if (!rotated->transform(tr)) continue;
+      if (!rotated->transform(tr)) {
+        continue;
+      }
 
       /* a rotation never adds or removes material */
       REQUIRE(rotated->countState(Voxel::kFilled)
@@ -297,7 +308,9 @@ TEST_CASE("symmetries: normalizeTransformation returns a usable transformation",
       REQUIRE(norm <= tr);
 
       std::unique_ptr<Voxel> byTr = v->clone();
-      if (!byTr->transform(tr)) continue;
+      if (!byTr->transform(tr)) {
+        continue;
+      }
 
       std::unique_ptr<Voxel> byNorm = v->clone();
       REQUIRE(byNorm->transform(norm));

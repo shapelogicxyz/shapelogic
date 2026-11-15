@@ -159,12 +159,24 @@ struct MovementExplorer::Impl {
     bool firstPiece = true;
     for (unsigned int p = 0; p < from.pieces.size(); p++) {
       if (t.empty()) {
-        if (f.getX(p) > to.getX(p)) t += "-x";
-        if (f.getX(p) < to.getX(p)) t += "x";
-        if (f.getY(p) > to.getY(p)) t += "-y";
-        if (f.getY(p) < to.getY(p)) t += "y";
-        if (f.getZ(p) > to.getZ(p)) t += "-z";
-        if (f.getZ(p) < to.getZ(p)) t += "z";
+        if (f.getX(p) > to.getX(p)) {
+          t += "-x";
+        }
+        if (f.getX(p) < to.getX(p)) {
+          t += 'x';
+        }
+        if (f.getY(p) > to.getY(p)) {
+          t += "-y";
+        }
+        if (f.getY(p) < to.getY(p)) {
+          t += 'y';
+        }
+        if (f.getZ(p) > to.getZ(p)) {
+          t += "-z";
+        }
+        if (f.getZ(p) < to.getZ(p)) {
+          t += 'z';
+        }
       }
       if (f.getX(p) != to.getX(p) || f.getY(p) != to.getY(p) || f.getZ(p) != to.getZ(p)) {
         const unsigned int piece = from.pieces[p];
@@ -401,28 +413,28 @@ std::vector<std::string> MovementExplorer::directionLabels() const {
     std::string f;
     std::string r;
     if (x > 0) {
-      f += "x";
+      f += 'x';
       r += "-x";
     }
     if (x < 0) {
       f += "-x";
-      r += "x";
+      r += 'x';
     }
     if (y > 0) {
-      f += "y";
+      f += 'y';
       r += "-y";
     }
     if (y < 0) {
       f += "-y";
-      r += "y";
+      r += 'y';
     }
     if (z > 0) {
-      f += "z";
+      f += 'z';
       r += "-z";
     }
     if (z < 0) {
       f += "-z";
-      r += "z";
+      r += 'z';
     }
     out.push_back(f);
     out.push_back(r);

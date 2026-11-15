@@ -1519,7 +1519,7 @@
    "assemblies": 1,
    "solutions": 1,
    "saved": 1,
-   "timeMs": 22,
+   "timeMs": 20,
    "searched": 1866,
    "searchDepth": 0,
    "triedApart": 1,
@@ -2141,6 +2141,7 @@
      "panexSearch": false,
      "stopKind": null,
      "slideStop": null,
+     "atSavePoint": false,
      "slideForecast": null
     }
    }
@@ -2169,8 +2170,8 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 52,
-     "usedMs": 22,
+     "elapsedMs": 58,
+     "usedMs": 20,
      "piece": 0,
      "pieces": 0,
      "assemblyFraction": 1,
@@ -2193,6 +2194,7 @@
      "panexSearch": false,
      "stopKind": null,
      "slideStop": null,
+     "atSavePoint": false,
      "slideForecast": null
     }
    }

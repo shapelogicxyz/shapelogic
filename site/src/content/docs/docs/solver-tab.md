@@ -161,13 +161,19 @@ and nothing is written while the solve has not moved on. Pausing for a copy
 loses none of the search's work, on one thread or on many. After a crash you
 usually lose a minute or two.
 
-A sliding puzzle's search is paused for each copy and saves itself first,
-as **Pause** does: Activity says *Saving the search, then carrying on*,
-the problems list says **saving**, and Details shows how much of the
-search is written. The search then carries on from what it saved; only
-the level it was in the middle of is searched again. On a large search
-the save can take a while, so the copies come less often. **File ▸ Save**
-during a sliding solve works the same way.
+A sliding puzzle's search is copied at the end of the level it is on (a
+level is one move deeper). The search finishes that level, saves itself,
+the copy is written and the search carries on, with nothing searched
+twice. Until the level ends the solver looks as it always does. On a deep
+search a level can take many minutes, so the copies come once a level
+rather than once a minute. The search also saves itself into its cache
+folder after each level, so a crash loses at most the level under way.
+
+**File ▸ Save** during a sliding solve does not wait for the level to end.
+It pauses the search as **Pause** does: Activity says *Saving the search,
+then carrying on*, the problems list says **saving**, and Details shows how
+much of the search is written. The search then carries on from what it
+saved; only the level it was in the middle of is searched again.
 
 A stacking puzzle's search saves itself by the same rule, in its own files,
 and **Continue** carries it on. (The original's **Autosave every 20 min**
@@ -252,8 +258,9 @@ While a sliding solve runs, or is paused, and no solution has been found
 yet, a **Performance Analysis** box sits under the empty solutions list. It
 times each move deep the search goes and shows how much longer each move
 takes than the one before, worked out from the last few moves. From that it
-estimates every fifth move ahead, up to 100 moves deep: how long that move
-will take, and how long until the search gets there. The estimates are
+estimates every fifth move ahead, eleven rows from the next multiple of
+five (58 moves deep shows 60 to 110): how long that move will take, and how
+long until the search gets there. The estimates are
 worked out again each time a move ends, so they settle as the search goes
 on. The first few are rough. A paused solve keeps the times, also in the
 puzzle file and its crash recovery copy, so the box comes back when the
@@ -275,6 +282,14 @@ A [stacking puzzle](/docs/puzzle-types/stacking/) shows **Find Solutions**
   quitting.
 
 ### Memory and disk space
+
+A sliding problem, or a stacking problem solved by the Panex search, can
+be solved in one place at a time: its search keeps its files in the cache
+folder under the problem's name. If the same problem is being solved in
+another ShapeLogic window or by `shapelogic_cli`, **Solve** and **Continue**
+do nothing and the status bar says *another solve of this problem is under
+way*. Pause that solve or let it finish, then try again. Nothing of
+either solve is lost.
 
 How much memory and disk a sliding or stacking search may take is not a
 search option of the problem but a setting of the app, in **Settings ▸

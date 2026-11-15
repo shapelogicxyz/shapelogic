@@ -934,8 +934,15 @@ TEST_CASE("solve session: assemblies counted for a take-apart keep the solve ope
       if (s.state() != SolveState::Paused) {
         continue;
       }
-      landed = true;
       const Problem& pr = p.getProblem(0);
+      if (pr.getPending().empty()) {
+        // the take-apart was through as the pause came (a loaded machine):
+        // a miss, but the solve still ends right
+        solveToEnd(s);
+        CHECK(totals(pr) == expected);
+        continue;
+      }
+      landed = true;
       REQUIRE(pr.getPending().size() == 1);
       REQUIRE(pr.getPending()[0].counted);
 

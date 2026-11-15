@@ -393,7 +393,7 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
         std::fputs("shapelogic_cli: --panex-disk requires a number of GB\n", stderr);
         return kExitUsage;
       }
-      o.panexDiskGB = std::atof(argv[++i]);
+      o.panexDiskGB = std::strtod(argv[++i], nullptr);
     } else if (a == "--no-tower-rule") {
       o.noTowerRule = true;
     } else if (a == "--panex-log") {

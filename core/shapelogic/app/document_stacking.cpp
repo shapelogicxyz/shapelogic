@@ -466,6 +466,7 @@ Result<DiscsPlaced> Document::placeAllDiscs(Id problem, unsigned int rod, bool g
   }
   // largest first, so a size rule can still stack them on one rod
   std::vector<unsigned int> shapes;
+  shapes.reserve(puzzle_->getNumberOfShapes());
   for (unsigned int j = 0; j < puzzle_->getNumberOfShapes(); j++) {
     shapes.push_back(j);
   }

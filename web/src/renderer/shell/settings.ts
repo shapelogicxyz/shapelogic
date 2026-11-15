@@ -156,8 +156,14 @@ function ticksHtml(steps: readonly number[]): string {
 const rangePct = (t: HTMLInputElement): string =>
   `${String(Number(t.max) > 0 ? (Number(t.value) / Number(t.max)) * 100 : 0)}%`;
 
-/** The disk space choices in GB, automatic (0) first. */
-const DISK_GB = [0, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+/** The disk space choices in GB, automatic (0) first: 10 GB, then every 25 GB to 1 TB, every 100 GB to 2 TB and every 500 GB to 5 TB. */
+const DISK_GB: readonly number[] = [
+  0,
+  10,
+  ...Array.from({ length: 40 }, (_, i) => 25 * (i + 1)),
+  ...Array.from({ length: 10 }, (_, i) => 1000 + 100 * (i + 1)),
+  ...Array.from({ length: 6 }, (_, i) => 2000 + 500 * (i + 1)),
+];
 
 /** A size in GB as the sliders show it. */
 const gbText = (gb: number): string =>
@@ -383,6 +389,7 @@ const SET: readonly Page[] = [
         type: 'steps',
         steps: () => DISK_GB,
         label: (v) => (v === 0 ? 'Automatic' : gbText(v)),
+        ticks: true,
         group: 'Disk space',
       },
       {
@@ -392,6 +399,7 @@ const SET: readonly Page[] = [
         type: 'steps',
         steps: () => DISK_GB,
         label: (v) => (v === 0 ? 'Automatic' : gbText(v)),
+        ticks: true,
       },
     ],
   },

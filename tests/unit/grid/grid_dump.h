@@ -324,6 +324,7 @@ void dumpShape(std::ostream& o, int g, int i) {
 template <class A>
 void dumpTable(std::ostream& o, int g) {
   std::vector<std::unique_ptr<typename A::Voxel>> shapes;
+  shapes.reserve(kShapesPerGrid);
   for (int i = 0; i < kShapesPerGrid; i++) {
     shapes.push_back(makeShape<A>(g, i));
   }

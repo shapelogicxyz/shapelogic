@@ -318,6 +318,8 @@ Document::StepGuard::StepGuard(Document& doc, std::string label)
   first_ = doc_.open_->parts.size();
 }
 
+// undoing moves what the step holds: only a failed allocation could throw:
+// NOLINTNEXTLINE(bugprone-exception-escape)
 Document::StepGuard::~StepGuard() {
   if (committed_) {
     return;
@@ -463,6 +465,7 @@ void Document::swapIn(Snapshot& s) {
       s.shape = puzzle_->replaceShape(s.index, std::move(s.shape));
       return;
     case SnapshotKind::Problem:
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a problem's snapshot holds its problem
       std::swap(puzzle_->getProblem(s.index), *s.problem);
       return;
     case SnapshotKind::Colour: {

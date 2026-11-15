@@ -208,6 +208,7 @@
      "panexSearch": false,
      "stopKind": null,
      "slideStop": null,
+     "atSavePoint": false,
      "slideForecast": null
     }
    }
@@ -236,7 +237,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 52,
+     "elapsedMs": 56,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
@@ -260,6 +261,7 @@
      "panexSearch": false,
      "stopKind": null,
      "slideStop": null,
+     "atSavePoint": false,
      "slideForecast": null
     }
    }

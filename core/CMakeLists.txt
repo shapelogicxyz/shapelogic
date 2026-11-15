@@ -14,6 +14,7 @@ add_library(btcore STATIC
   shapelogic/app/shape_tools.cpp
   shapelogic/base/assert.cpp
   shapelogic/base/error.cpp
+  shapelogic/base/file_lock.cpp
   shapelogic/base/solve_state.cpp
   shapelogic/base/system.cpp
   shapelogic/base/thread_pool.cpp

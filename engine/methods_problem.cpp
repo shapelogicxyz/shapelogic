@@ -63,7 +63,7 @@ Reply problemRename(State& s, Params& p) {
   const app::Id problem = p.id("problem", IdKind::Problem);
   std::string name = p.string("name");
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().renameProblem(problem, std::move(name)));
+  BTE_CHECK(s.document().renameProblem(problem, name));
   return s.changed();
 }
 
@@ -221,7 +221,8 @@ Reply problemSetSolverSettings(State& s, Params& p) {
     }
   }
   BTE_CHECK(p.finish());
-  BTE_CHECK(s.document().setSolverOptions(problem, std::move(*o)));
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the options were read
+  BTE_CHECK(s.document().setSolverOptions(problem, *o));
   return s.changed();
 }
 

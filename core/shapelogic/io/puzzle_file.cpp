@@ -408,7 +408,7 @@ Assembly readAssembly(const XmlElement& e, unsigned int pieces, GridType gt) {
 }
 
 int parseDoubledPivot(const std::string& s) {
-  return static_cast<int>(std::floor(std::atof(s.c_str()) * 2.0 + 0.5));
+  return static_cast<int>(std::floor(std::strtod(s.c_str(), nullptr) * 2.0 + 0.5));
 }
 
 State readState(const XmlElement& e, unsigned int pn) {

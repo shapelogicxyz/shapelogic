@@ -309,7 +309,7 @@ class Document {
   // ---- notes ------------------------------------------------------------------
 
   /// The puzzle's comment (document.setNotes).
-  Result<void> setNotes(std::string text);
+  Result<void> setNotes(const std::string& text);
 
   // ---- shapes -----------------------------------------------------------------
 
@@ -367,7 +367,7 @@ class Document {
   Result<Id> duplicateProblem(Id problem);
   Result<void> deleteProblem(Id problem);
   Result<void> moveProblem(Id problem, unsigned int toIndex);
-  Result<void> renameProblem(Id problem, std::string name);
+  Result<void> renameProblem(Id problem, const std::string& name);
   /// Makes a shape the result (it stops being a piece).
   Result<void> setResult(Id problem, Id shape);
   /// Leaves the problem without a result; its solutions go (not in the original).
@@ -405,7 +405,7 @@ class Document {
   /// the original's names and values, saved in the file; the front end
   /// decides what they mean). Replaces them all; not while the problem is
   /// being solved.
-  Result<void> setSolverOptions(Id problem, std::map<std::string, std::string> options);
+  Result<void> setSolverOptions(Id problem, const std::map<std::string, std::string>& options);
 
   // ---- solutions --------------------------------------------------------------
 

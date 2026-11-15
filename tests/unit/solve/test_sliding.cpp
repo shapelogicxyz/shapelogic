@@ -1079,7 +1079,7 @@ TEST_CASE("sliding: partial nesting still lets a piece leave a partly nested one
 
 #ifdef __SIZEOF_INT128__
 namespace {
-__extension__ typedef unsigned __int128 Wide;
+__extension__ using Wide = unsigned __int128;
 }  // namespace
 
 TEST_CASE("sliding: a key set finds what was put in it, on disk and in memory", "[sliding]") {
@@ -1918,6 +1918,93 @@ TEST_CASE("sliding: a paused search tells its save, an aborted one saves nothing
   std::filesystem::remove_all(dir);
 }
 
+// A save point stops the level search between two levels: the level under
+// way is finished, nothing is searched twice when the search is carried
+// on, and a run that is asked at once still gets a level further, so a
+// search saved after every level reaches its end all the same (a stop
+// cuts the level short, and a stop a level could never get through).
+TEST_CASE("sliding: a save point stops a search between two levels",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidesavepoint");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+
+  SlideSearch straight;
+  straight.threads = 2;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+
+  // asked for before every run begins: each run searches one level
+  StopSource point;
+  point.request(StopKind::Pause);
+  std::atomic<std::uint64_t> progress{0};
+  std::uint64_t depth = 0;
+  std::uint64_t visited = 0;
+  unsigned int runs = 0;
+  std::optional<Separation> path;
+  for (;;) {
+    SlideStopProgress told;
+    SlideSearch run;
+    run.threads = 2;
+    run.workDir = dir.string();
+    run.progress = &progress;
+    run.savePoint = point.token();
+    run.stopProgress = &told;
+    path = findSlidePath(f.puz, f.pr(), *f.start, run);
+    runs++;
+    CHECK(run.resumed == (runs > 1));
+    if (path.has_value()) {
+      CHECK(run.outcome == SlideOutcome::Found);
+      CHECK_FALSE(run.saved);
+      visited = run.visited;
+      break;
+    }
+    REQUIRE(run.outcome == SlideOutcome::Stopped);
+    REQUIRE(run.saved);
+    // it tells its save as a paused search does
+    CHECK(told.saving.load());
+    // exactly a level further, and what it visited is kept: no level was
+    // cut short
+    REQUIRE(run.depth == depth + 1);
+    CHECK(run.visited > visited);
+    CHECK(progress.load() == run.visited);
+    depth = run.depth;
+    visited = run.visited;
+    REQUIRE(runs < 200);
+  }
+  CHECK(runs > 40);
+  CHECK(path->getMoves() == 81);
+  CHECK(placesAlong(*path) == placesAlong(*whole));
+  // every arrangement was visited once, whatever the stops in between
+  CHECK(visited == straight.visited);
+  CHECK(progress.load() == straight.visited);
+  CHECK(std::filesystem::is_empty(dir));
+
+  // with nowhere to save, a save point lets the search run to its end
+  SlideSearch nowhere;
+  nowhere.threads = 2;
+  nowhere.savePoint = point.token();
+  const std::optional<Separation> through = findSlidePath(f.puz, f.pr(), *f.start, nowhere);
+  REQUIRE(through.has_value());
+  CHECK(nowhere.outcome == SlideOutcome::Found);
+  CHECK(nowhere.visited == straight.visited);
+  CHECK(placesAlong(*through) == placesAlong(*whole));
+
+  // a stop asked for with it wins: the search stops at once, as paused
+  StopSource stop;
+  stop.request(StopKind::Pause);
+  SlideSearch both;
+  both.workDir = dir.string();
+  both.savePoint = point.token();
+  both.stop = stop.token();
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, both).has_value());
+  CHECK(both.outcome == SlideOutcome::Stopped);
+  CHECK(both.saved);
+  CHECK(both.depth == 0);
+  discardSaved(f.puz, f.pr(), dir.string());
+  std::filesystem::remove_all(dir);
+}
+
 // A disk nearly full (here: a reserve larger than any disk) stops the
 // search while it can still save itself, and once there is room again a
 // search of the same start carries it on to the same path.
@@ -2142,7 +2229,7 @@ TEST_CASE("sliding: optional pieces give the same layouts on every search",
               for (unsigned int i = 0; i < a.placementCount(); i++) {
                 key += a.isPlaced(i) ? std::to_string(a.getX(i)) + "," + std::to_string(a.getY(i))
                                      : std::string("x");
-                key += ";";
+                key += ';';
               }
               layouts.insert(key);
               return true;

@@ -71,9 +71,11 @@ TEST_CASE("grid: every grid offers valid coordinates to build a shape from", "[v
        count check above. Scanned to one assertion rather than three per
        coordinate. */
     bool allInBox = true;
-    for (auto [x, y, z] : coords)
-      if (x < 0 || x >= BOX || y < 0 || y >= BOX || z < 0 || z >= BOX)
+    for (auto [x, y, z] : coords) {
+      if (x < 0 || x >= BOX || y < 0 || y >= BOX || z < 0 || z >= BOX) {
         allInBox = false;
+      }
+    }
 
     REQUIRE(allInBox);
   }
@@ -102,7 +104,9 @@ TEST_CASE("grid: transforming a legal shape preserves how many cells it has", "[
       std::unique_ptr<Voxel> copy = shape->clone();
 
       INFO("transformation " << tr);
-      if (!copy->transform(tr)) continue;   // not realisable on this grid
+      if (!copy->transform(tr)) {
+        continue;  // not realisable on this grid
+      }
 
       realised++;
       REQUIRE(copy->countState(Voxel::kFilled) == cells);
@@ -139,14 +143,20 @@ TEST_CASE("grid: a transformation composed with its inverse is the identity on e
 
     for (unsigned int tr = 0; tr < n; tr++) {
       std::unique_ptr<Voxel> moved = shape->clone();
-      if (!moved->transform(tr)) continue;
+      if (!moved->transform(tr)) {
+        continue;
+      }
 
       /* look for a transformation that brings it back */
       bool foundInverse = false;
       for (unsigned int inv = 0; inv < n && !foundInverse; inv++) {
         std::unique_ptr<Voxel> back = moved->clone();
-        if (!back->transform(inv)) continue;
-        if (back->identicalInBB(*shape, false)) foundInverse = true;
+        if (!back->transform(inv)) {
+          continue;
+        }
+        if (back->identicalInBB(*shape, false)) {
+          foundInverse = true;
+        }
       }
 
       INFO("transformation " << tr << " has no inverse among the " << n
@@ -190,15 +200,25 @@ TEST_CASE("grid: the neighbour relation is symmetric on every grid", "[voxel][gr
     for (auto [x, y, z] : validCoordinates(*v, BOX)) {
       for (unsigned int i = 0; !asymmetric; i++) {
         int nx, ny, nz;
-        if (!v->getNeighbor(i, 0, x, y, z, &nx, &ny, &nz)) break;
-        if (!inBox(nx, ny, nz)) continue;
-        if (!v->validCoordinate(nx, ny, nz)) continue;
+        if (!v->getNeighbor(i, 0, x, y, z, &nx, &ny, &nz)) {
+          break;
+        }
+        if (!inBox(nx, ny, nz)) {
+          continue;
+        }
+        if (!v->validCoordinate(nx, ny, nz)) {
+          continue;
+        }
 
         bool mutual = false;
         for (unsigned int j = 0; !mutual; j++) {
           int bx, by, bz;
-          if (!v->getNeighbor(j, 0, nx, ny, nz, &bx, &by, &bz)) break;
-          if (bx == x && by == y && bz == z) mutual = true;
+          if (!v->getNeighbor(j, 0, nx, ny, nz, &bx, &by, &bz)) {
+            break;
+          }
+          if (bx == x && by == y && bz == z) {
+            mutual = true;
+          }
         }
 
         pairs++;
@@ -207,7 +227,9 @@ TEST_CASE("grid: the neighbour relation is symmetric on every grid", "[voxel][gr
           fx = x; fy = y; fz = z; gx = nx; gy = ny; gz = nz;
         }
       }
-      if (asymmetric) break;
+      if (asymmetric) {
+        break;
+      }
     }
 
     /* the grid must actually have produced some neighbour pairs, or the
@@ -234,10 +256,12 @@ TEST_CASE("grid: a cell is never its own neighbour on any grid", "[voxel][grid][
     unsigned int ftyp = 0, fidx = 0;
 
     for (auto [x, y, z] : validCoordinates(*v, BOX)) {
-      for (unsigned int typ = 0; typ < 3 && !selfNeighbour; typ++)
+      for (unsigned int typ = 0; typ < 3 && !selfNeighbour; typ++) {
         for (unsigned int i = 0; ; i++) {
           int nx, ny, nz;
-          if (!v->getNeighbor(i, typ, x, y, z, &nx, &ny, &nz)) break;
+          if (!v->getNeighbor(i, typ, x, y, z, &nx, &ny, &nz)) {
+            break;
+          }
           seen++;
           if (nx == x && ny == y && nz == z) {
             selfNeighbour = true;
@@ -245,7 +269,10 @@ TEST_CASE("grid: a cell is never its own neighbour on any grid", "[voxel][grid][
             break;
           }
         }
-      if (selfNeighbour) break;
+      }
+      if (selfNeighbour) {
+        break;
+      }
     }
 
     REQUIRE(seen > 0);
@@ -278,7 +305,9 @@ TEST_CASE("grid: normalizeTransformation picks a transformation that produces th
       REQUIRE(norm <= tr);
 
       std::unique_ptr<Voxel> byTr = shape->clone();
-      if (!byTr->transform(tr)) continue;
+      if (!byTr->transform(tr)) {
+        continue;
+      }
 
       std::unique_ptr<Voxel> byNorm = shape->clone();
       INFO("transformation " << tr << " normalised to " << static_cast<int>(norm));
@@ -438,11 +467,12 @@ TEST_CASE("grid: getTransformMatrix returns an orthogonal matrix for every trans
         double len2 = m[c]*m[c] + m[3+c]*m[3+c] + m[6+c]*m[6+c];
         REQUIRE(std::abs(len2 - 1.0) < 1e-6);
       }
-      for (int c1 = 0; c1 < 3; c1++)
+      for (int c1 = 0; c1 < 3; c1++) {
         for (int c2 = c1+1; c2 < 3; c2++) {
           double dot = m[c1]*m[c2] + m[3+c1]*m[3+c2] + m[6+c1]*m[6+c2];
           REQUIRE(std::abs(dot) < 1e-6);
         }
+      }
 
       double det = m[0]*(m[4]*m[8]-m[5]*m[7])
                  - m[1]*(m[3]*m[8]-m[5]*m[6])
@@ -504,8 +534,9 @@ namespace {
 
 bool nullSpaceOf3x3(const double m[9], double lambda, double axis[3]) {
   double a[9];
-  for (int i = 0; i < 9; i++)
+  for (int i = 0; i < 9; i++) {
     a[i] = m[i] + ((i % 3 == i / 3) ? lambda : 0.0);
+  }
 
   double cand[3][3] = {
     { a[1]*a[5]-a[2]*a[4], a[2]*a[3]-a[0]*a[5], a[0]*a[4]-a[1]*a[3] },
@@ -519,8 +550,9 @@ bool nullSpaceOf3x3(const double m[9], double lambda, double axis[3]) {
     double len = std::sqrt(cand[i][0]*cand[i][0] + cand[i][1]*cand[i][1] + cand[i][2]*cand[i][2]);
     if (len > bestLen) { bestLen = len; best = i; }
   }
-  if (best < 0)
+  if (best < 0) {
     return false;
+  }
 
   axis[0] = cand[best][0]/bestLen;
   axis[1] = cand[best][1]/bestLen;
@@ -541,8 +573,9 @@ int computeTransformGeometry(const Voxel& v, int transformIdx, double axis[3], d
     double trace = m[0] + m[4] + m[8];
     double cosA = std::max(-1.0, std::min(1.0, (trace - 1.0)*0.5));
     double angle = std::acos(cosA);
-    if (angle < 0.02)
+    if (angle < 0.02) {
       return 0;
+    }
 
     double w[3] = { m[7]-m[5], m[2]-m[6], m[3]-m[1] };
     double wlen = std::sqrt(w[0]*w[0] + w[1]*w[1] + w[2]*w[2]);
@@ -558,8 +591,9 @@ int computeTransformGeometry(const Voxel& v, int transformIdx, double axis[3], d
     return 1;
   }
 
-  if (det < 0)
+  if (det < 0) {
     return nullSpaceOf3x3(m, 1.0, axis) ? 2 : 0;
+  }
 
   return 0;
 }

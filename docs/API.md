@@ -1765,7 +1765,7 @@ One solve per problem (decision 0010), named by the problem's id. Starting calls
 
 ### `solve.start`
 
-Solves from the start, dropping what the problem holds of earlier solving (a stacking problem's saved search too: the original's Solve asked first, solve.status.savedSearch tells it). Refused (invalid_argument) with the original's message when the problem cannot be solved as it stands (no result, no pieces; a stacking problem without a rod set, with neither disassemble nor justCount, or whose stacks break its rules), and (unsupported) when its grid or solver cannot take it.
+Solves from the start, dropping what the problem holds of earlier solving (a stacking problem's saved search too: the original's Solve asked first, solve.status.savedSearch tells it). Refused (invalid_argument) with the original's message when the problem cannot be solved as it stands (no result, no pieces; a stacking problem without a rod set, with neither disassemble nor justCount, or whose stacks break its rules), and (unsupported) when its grid or solver cannot take it. Refused (io_error) before anything is dropped while another solve of the same problem works in its search folders: a sliding solve that searches or a stacking solve the Panex search takes, of a copy of the problem in this document or of the problem in another engine or shapelogic_cli with the same slideFolder or panexFolder. One solve of a problem at a time holds its folders, from the call till its run ends (paused, finished, aborted); so do solve.prepare and solve.continue (decision 0035).
 
 Params:
 
@@ -1776,11 +1776,11 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`, `io_error`
 
 ### `solve.prepare`
 
-Drops what the problem holds, builds the search (placements, reduce) and pauses. A stacking search has nothing to build (unsupported).
+Drops what the problem holds, builds the search (placements, reduce) and pauses. A stacking search has nothing to build (unsupported). Refused (io_error) while another solve of the same problem holds its search folders, as solve.start is.
 
 Params:
 
@@ -1791,11 +1791,11 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`, `io_error`
 
 ### `solve.continue`
 
-Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start.
+Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start. Refused (io_error) while another solve of the same problem holds its search folders, as solve.start is.
 
 Params:
 
@@ -1806,7 +1806,7 @@ Params:
 
 Result: [Changed](#changed)
 
-Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`
+Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`, `io_error`
 
 ### `solve.pause`
 
@@ -1824,7 +1824,7 @@ Errors: `not_found`, `invalid_state`
 
 ### `solve.savePoint`
 
-Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. The autosave: save, then solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved: its search saves itself every 20 minutes (StackingOptions.autosave) and when it stops.
+Asks the assembly search alone to pause where the solve can be saved; the take-aparts under way finish, then 'paused'. A sliding solve's search stops at the end of the level it is on, saved in its folder (the engine's slideFolder): no level is cut short, and each run that stops here is at least a level further, so saving a long search again and again cannot hold it in place (solve.pause cuts the level under way short, to be searched again). That can take as long as a level does. The autosave: when the run's last progress has atSavePoint, save, then solve.continue. Refused (unsupported) on a stacking solve, which the original never autosaved: its search saves itself every 20 minutes (StackingOptions.autosave) and when it stops.
 
 Params:
 
@@ -3230,11 +3230,12 @@ One take-apart under way.
 | `panexSearch` | boolean | required | The Panex Solver runs (its words: 'Panex search'), not the Stacking Solver ('Stacking search'). |
 | `stopKind` | `"pause"` \| `"abort"` \| `null` | required | Stage stopping: what the stop was asked for, a pause (solve.pause: the solve is kept, to be continued) or an abort (solve.abort); null in every other stage. |
 | `slideStop` | object or null | required |  |
+| `atSavePoint` | boolean | required | Stage paused: the run paused at the save point asked for (solve.savePoint) and for no other reason, so the one who asked saves and carries it on (solve.continue). False when it paused for anything else meanwhile (solve.pause, a slide search that ran out of disk), which is the user's to see, and in every other stage. |
 | `slideForecast` | [SlideForecast](#slideforecast) or null | required | A sliding solve: the forecast from the times of the moves the slide search under way (or paused) has searched, and how long the move it is on has run. Null before a move is timed, and on other grids. |
 
 ### SlideForecast
 
-How long a slide search will take to go deeper (the Solver's Performance Analysis): the time each move deep took, the rate the times grow at (the geometric mean of the newest five ratios of moves that took 20 ms or more), and from it every fifth move to 100 past the search's depth: the next move takes the last one's time times the growth, or as long as it has run when that is longer, each move after it the one before times the growth. Times are held to a thousand years.
+How long a slide search will take to go deeper (the Solver's Performance Analysis): the time each move deep took, the rate the times grow at (the geometric mean of the newest five ratios of moves that took 20 ms or more), and from it every fifth move past the search's depth, eleven of them (the first multiple of 5 past it and the ten after: 58 deep, 60 to 110): the next move takes the last one's time times the growth, or as long as it has run when that is longer, each move after it the one before times the growth. Times are held to a thousand years.
 
 | name | type | | description |
 |---|---|---|---|
@@ -3248,7 +3249,7 @@ How long a slide search will take to go deeper (the Solver's Performance Analysi
 
 | name | type | | description |
 |---|---|---|---|
-| `estimates.depth` | integer | required | Moves deep: a multiple of 5, up to 100. |
+| `estimates.depth` | integer | required | Moves deep: a multiple of 5. |
 | `estimates.levelMs` | integer | required | How long that move will take. |
 | `estimates.fromNowMs` | integer | required | How long until the search has searched that deep, from now. |
 

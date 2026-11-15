@@ -332,6 +332,7 @@ bool RowRotationCheck::rejects(Scratch& s) const {
         buildWhole(s);
         wholeBuilt = true;
       }
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access): buildWhole(s) has set both
       if (s.whole->smallerUnder(transforms_[j], puzzle_, problem_, pivot_, mirror_, *s.turned)) {
         return true;
       }

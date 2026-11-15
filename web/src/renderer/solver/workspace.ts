@@ -645,6 +645,11 @@ export class SolverWorkspace {
     if (r === null || !this.autosave.carriesOn(r.problem)) {
       return false;
     }
+    // a sliding search asked for a save point searches on to its level's
+    // end, and is shown searching until its run ends
+    if (r.phase === 'active' && isActive(r.state) && this.autosave.worksOn(r.problem)) {
+      return false;
+    }
     const g = r.progress;
     return g?.stage !== 'stopping' || g.stopKind !== 'abort';
   }

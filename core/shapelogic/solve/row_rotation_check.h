@@ -39,7 +39,7 @@ class RowRotationCheck {
  public:
   /// What a row stands for: a piece of this part, placed so.
   struct Row {
-    unsigned int part;
+    unsigned int part = 0;
     Placement placement;
   };
 

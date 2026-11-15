@@ -6,7 +6,8 @@ and once with the new one on PYTHONPATH, the two transcripts must be the
 same, line for line.
 
 It reads each puzzle given (shapes, cells, problems, piece counts, the
-reprs), solves each problem for its assemblies and for its solutions, builds
+reprs), solves each problem for its assemblies and for its solutions (with
+--first-problem only the first problem that can be solved), builds
 puzzles through the API from a seeded generator (saving them, solving
 them), and calls the API with wrong arguments (the exception's type).
 
@@ -90,7 +91,7 @@ def text(f):
         return f"{type(e).__name__} at {e.start}"
 
 
-def describe(tag, puzzle, solve_it=True, take_apart=True):
+def describe(tag, puzzle, solve_it=True, take_apart=True, first_only=False):
     emit(tag, "puzzle", repr(puzzle), puzzle.num_shapes, puzzle.num_problems, text(lambda: puzzle.comment))
     for s in puzzle.shapes:
         cells = [s.get(x, y, z) for z in range(s.size_z) for y in range(s.size_y) for x in range(s.size_x)]
@@ -110,6 +111,9 @@ def describe(tag, puzzle, solve_it=True, take_apart=True):
             solve_rows(f"{tag} p{p.index} solutions", p, disassemble=True)
         solve_rows(f"{tag} p{p.index} reduced, mirrors and rotations kept", p,
                    disassemble=False, reduce=True, keep_rotations=True, keep_mirror=True)
+        if first_only:
+            # the file's further problems are described above, not solved
+            break
 
 
 def generated(n, seed, tmp):
@@ -211,6 +215,9 @@ def main():
     ap.add_argument("--errors", action="store_true")
     ap.add_argument("--assemble-only", action="store_true",
                     help="no solve with the take-apart (grids only the new module takes apart)")
+    ap.add_argument("--first-problem", action="store_true",
+                    help="solve only the first problem that can be solved (a TIC file's further "
+                         "problems can take hours)")
     a = ap.parse_args()
     ONE_THREAD = a.one_thread
     if a.errors:
@@ -218,7 +225,8 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         generated(a.generated, a.seed, tmp)
     for path in a.puzzles:
-        describe(os.path.basename(path), burrtools.load(path), take_apart=not a.assemble_only)
+        describe(os.path.basename(path), burrtools.load(path), take_apart=not a.assemble_only,
+                 first_only=a.first_problem)
     return 0
 
 

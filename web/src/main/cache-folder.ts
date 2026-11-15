@@ -221,9 +221,13 @@ async function sizeOf(path: string): Promise<number> {
   return total;
 }
 
-/** The names in a folder; none when it is not there. */
+/**
+ * The names in a folder; none when it is not there. Not the lock of a solve
+ * under way (`solve-<key>.lock`, `<key>.lock`: decision 0035), which is no
+ * content: it goes when its run ends.
+ */
 const namesIn = async (dir: string): Promise<string[]> =>
-  dir === '' ? [] : readdir(dir).catch(() => []);
+  dir === '' ? [] : (await readdir(dir).catch(() => [])).filter((name) => !name.endsWith('.lock'));
 
 /** What a folder holds; `search` says which names are a saved search's folder. */
 async function contentsOf(dir: string, search: RegExp): Promise<FolderContents> {

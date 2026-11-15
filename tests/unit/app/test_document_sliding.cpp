@@ -26,7 +26,6 @@
 
 using namespace bt;
 using namespace bt::app;
-using bt::test::openFixture;
 using bt::test::refused;
 using bt::test::roundTrip;
 

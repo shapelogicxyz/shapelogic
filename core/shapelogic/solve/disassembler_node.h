@@ -225,6 +225,8 @@ inline NodeRef::NodeRef(const NodeRef& o) noexcept : p_(o.p_) {
   }
 }
 
+// the other's count goes up before this one's goes down:
+// NOLINTNEXTLINE(bugprone-unhandled-self-assignment)
 inline NodeRef& NodeRef::operator=(const NodeRef& o) noexcept {
   if (o.p_ != nullptr) {
     o.p_->refcount_++;

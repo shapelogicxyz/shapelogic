@@ -589,7 +589,7 @@ std::string setupError(const Puzzle& puzzle, const Problem& problem) {
       msg += " the goal is missing " + goalLacks;
     }
     if (!goalLacks.empty() && !startLacks.empty()) {
-      msg += ";";
+      msg += ';';
     }
     if (!startLacks.empty()) {
       msg += " the start is missing " + startLacks;

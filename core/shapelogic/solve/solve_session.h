@@ -22,6 +22,7 @@
 /// time, threads from pools the session makes.
 
 #include "shapelogic/base/error.h"
+#include "shapelogic/base/file_lock.h"
 #include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/base/stop.h"
@@ -43,6 +44,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -132,6 +134,14 @@ struct SolveOptions {
   /// options give it (the CLI, the Python module).
   std::shared_ptr<MemoryShare> memoryShare;
 };
+
+/// What start(), prepare() and resume() are refused with (IoError) while
+/// another solve of the same problem works in its search folders: a copy
+/// of the problem in this program, or the problem in another one
+/// (decision 0035).
+inline constexpr std::string_view kSolvedElsewhere =
+    "another solve of this problem is under way (a copy of the problem, another window, or "
+    "shapelogic_cli): pause it or let it finish first";
 
 /// A sliding or stacking run that paused before its search began because
 /// the folder the search keeps its files in could not be written (a drive
@@ -225,10 +235,15 @@ class SolveSession {
   /// can be saved; the take-aparts under way and queued finish first, then
   /// the run is Paused with its position in the problem (the autosave
   /// pause, stopSoft in the original). The owner then saves the puzzle and
-  /// calls resume(). Only while assembling or taking apart; otherwise
-  /// nothing happens (the next autosave will do). Nothing happens on a
-  /// stacking run either: its search saves itself (the GUI did not
-  /// autosave stacking solves). Does not wait. Any thread.
+  /// calls resume(). A sliding run's level search stops at the end of the
+  /// level it is on (SlideSearch::savePoint), saved in its folder, with
+  /// its start kept for the next run: no level is cut short, so however
+  /// often a save point is asked for the search gets further each run. A
+  /// run that paused here and for no other reason says so
+  /// (SolveProgress::atSavePoint). Only while assembling or taking apart;
+  /// otherwise nothing happens (the next autosave will do). Nothing
+  /// happens on a stacking run either: its search saves itself (the GUI
+  /// did not autosave stacking solves). Does not wait. Any thread.
   void pauseAtSavePoint();
 
   /// Stops a running solve and throws away everything of it: the results,
@@ -298,6 +313,21 @@ class SolveSession {
   /// not, folderFailure() says why. On the run's thread.
   bool folderWritable(const std::string& folder);
 
+  /// Takes the lock of the problem's search folders into `lock` (decision
+  /// 0035): a sliding solve that searches and a stacking solve the Panex
+  /// search takes work in folders named by the problem, where a second
+  /// solve of it would carry on, overwrite and delete the first one's
+  /// files. Busy when another solve holds it, in this program or another;
+  /// Held otherwise, `lock` left empty when the solve has no such folder
+  /// or the lock's file cannot be made (folderWritable then says why the
+  /// run cannot begin).
+  [[nodiscard]] FileLock::Outcome lockSearches(FileLock& lock) const;
+
+  /// The end of a run, on its thread: the lock of the search folders goes
+  /// before the state says the run is over, so that whoever sees it over
+  /// can start a solve of the problem at once.
+  void leave(SolveState state);
+
   /// An assembly waiting to be taken apart, with the numbers it was found
   /// with (disasmTask_c).
   struct Task {
@@ -340,12 +370,16 @@ class SolveSession {
   void endRun(RunEnd end);
   void runStacking(const Plan& plan);
   void endStackingRun(bool stopped);
-  void failRun(std::exception_ptr error);
+  void failRun(const std::exception_ptr& error);
   // the run's stop, read by the run's threads (it does not change while a
   // run is active)
   [[nodiscard]] StopToken runToken() const;
   [[nodiscard]] bool runStopRequested() const;
   [[nodiscard]] StopKind runStopKind() const;
+  // the assembly search's stop (the save points), and whether a save
+  // point, and no pause or abort, was asked for
+  [[nodiscard]] StopToken assemblyToken() const;
+  [[nodiscard]] bool savePointRequested() const;
 
   // what is found
   bool onAssembly(Assembly assembly);
@@ -363,7 +397,7 @@ class SolveSession {
   void stopWorkers();
   void waitDrained();
   void taskDone();
-  void recordFailure(std::exception_ptr error);
+  void recordFailure(const std::exception_ptr& error);
   void requestStop(const StopSource& source, StopKind kind);
 
   void beginPhase(Phase phase);
@@ -482,10 +516,21 @@ class SolveSession {
   /// starts this run (written by the callback, read on the run's thread
   /// after the assembler returns).
   bool slideDiskHalted_ = false;
+  /// A start's search stopped at a save point (SlideSearch::savePoint) and
+  /// its start went back as pending: no more starts this run, and no note
+  /// (written by the callback, read on the run's thread).
+  bool slideSavePointCut_ = false;
+  /// The last run paused at a save point and for no other reason
+  /// (SolveProgress::atSavePoint); written as the run ends.
+  std::atomic<bool> atSavePoint_{false};
   /// note(), under failureMutex_.
   std::string note_;
   /// folderFailure(), under failureMutex_.
   std::optional<FolderFailure> folderFailure_;
+  /// The lock of the problem's search folders while a run is under way
+  /// (lockSearches): taken by launch() under controlMutex_ with no run
+  /// active, let go by the run's thread as it ends (leave()).
+  FileLock searchLock_;
   /// A search of this run stopped at its memory limit while other searches
   /// shared the memory (written by the run's thread, read by it for the
   /// notes).

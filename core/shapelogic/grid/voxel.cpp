@@ -294,7 +294,11 @@ void Voxel::translate(int dx, int dy, int dz, VoxelType filler) {
     }
   }
   moveMarks(sx_ * sy_ * sz_, [&](std::size_t i) {
+    // a shape with cells to move has sizes that are not 0:
+    // NOLINTNEXTLINE(clang-analyzer-core.DivideZero)
     const unsigned int x = static_cast<unsigned int>(i) % sx_;
+    // a shape with cells to move has sizes that are not 0:
+    // NOLINTNEXTLINE(clang-analyzer-core.DivideZero)
     const unsigned int y = (static_cast<unsigned int>(i) / sx_) % sy_;
     const unsigned int z = static_cast<unsigned int>(i) / (sx_ * sy_);
     return target(x, y, z);

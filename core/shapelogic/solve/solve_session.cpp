@@ -23,7 +23,9 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <filesystem>
 #include <new>
+#include <system_error>
 
 namespace bt {
 
@@ -34,7 +36,9 @@ std::string withCommas(std::uint64_t n) {
   std::string digits = std::to_string(n);
   std::string out;
   for (std::size_t i = 0; i < digits.size(); ++i) {
-    if (i > 0 && (digits.size() - i) % 3 == 0) out += ',';
+    if (i > 0 && (digits.size() - i) % 3 == 0) {
+      out += ',';
+    }
     out += digits[i];
   }
   return out;
@@ -115,6 +119,8 @@ SolveSession::SolveSession(Puzzle& puzzle, Problem& problem, SolveOptions option
       sliding_(sliding::isSliding(puzzle)),
       stacking_(stacking::isStacking(puzzle)) {}
 
+// a mutex that cannot be locked is a broken invariant: the program ends on it:
+// NOLINTNEXTLINE(bugprone-exception-escape)
 SolveSession::~SolveSession() {
   pause();
   const std::lock_guard<std::mutex> control(controlMutex_);
@@ -188,11 +194,15 @@ void SolveSession::abort() {
   dropAssembler();
   // a stacking search saves itself as it stops: that goes too (cb_BtnAbort);
   // so do the saved slide searches of a sliding problem's starts
-  if (stacking_) {
-    panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
-  }
-  if (sliding_) {
-    sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
+  // (not while another solve of the problem works in them: decision 0035)
+  FileLock lock;
+  if (lockSearches(lock) != FileLock::Outcome::Busy) {
+    if (stacking_) {
+      panex::discardSaved(puzzle_, problem_, options_.stacking.workDir);
+    }
+    if (sliding_) {
+      sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
+    }
   }
   if (state_.load() != SolveState::Idle) {
     state_.advance(SolveState::Idle);
@@ -237,8 +247,27 @@ Result<void> SolveSession::launch(Mode mode) {
   }
   joinRunner();
 
+  // One solve of a problem at a time in its search folders (decision
+  // 0035), found out before anything of an earlier solve is dropped. The
+  // lock is the session's until the run it starts ends; a launch that is
+  // refused further down lets it go.
+  if (lockSearches(searchLock_) == FileLock::Outcome::Busy) {
+    return fail(Errc::IoError, std::string(kSolvedElsewhere));
+  }
+  struct LetGo {
+    FileLock& lock;
+    bool armed = true;
+    ~LetGo() {
+      if (armed) {
+        lock.release();
+      }
+    }
+  } letGo{searchLock_};
+
   if (stacking_) {
-    return launchStacking(mode);
+    Result<void> launched = launchStacking(mode);
+    letGo.armed = !launched.has_value();
+    return launched;
   }
 
   // what the original GUI checked before it made the solve thread
@@ -400,6 +429,8 @@ Result<void> SolveSession::launch(Mode mode) {
   slideDiskHeldToFree_ = false;
   slideDiskSaved_ = false;
   slideDiskHalted_ = false;
+  slideSavePointCut_ = false;
+  atSavePoint_.store(false, std::memory_order_relaxed);
   assemblerThreads_.store(1, std::memory_order_relaxed);
   workerCount_.store(0, std::memory_order_relaxed);
   pending_.store(0, std::memory_order_relaxed);
@@ -424,6 +455,7 @@ Result<void> SolveSession::launch(Mode mode) {
   // The first move is made here, before the thread exists, so that the
   // caller sees an active state as soon as this returns.
   state_.advance(reuse ? SolveState::Assembling : SolveState::Preparing);
+  letGo.armed = false;
   runner_ = std::thread([this, plan = std::move(plan)] { run(plan); });
   return {};
 }
@@ -551,7 +583,7 @@ void SolveSession::run(const Plan& plan) {
         const std::lock_guard<std::mutex> lock(resultsMutex_);
         storePosition(problem_, *assembler_);
       }
-      state_.advance(SolveState::Paused);
+      leave(SolveState::Paused);
       return;
     }
     assembleAndTakeApart(plan);
@@ -588,7 +620,7 @@ bool SolveSession::prepareSearch(const Plan& plan) {
       const std::lock_guard<std::mutex> lock(failureMutex_);
       failure_ = SolveFailure{err, a->errorParam(), std::string(errorMessage(err)), {}, 0};
     }
-    state_.advance(SolveState::Error);
+    leave(SolveState::Error);
     return false;
   }
 
@@ -603,7 +635,7 @@ bool SolveSession::prepareSearch(const Plan& plan) {
     if (runStopKind() == StopKind::Abort) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.removeAllSolutions();
-      state_.advance(SolveState::Idle);
+      leave(SolveState::Idle);
     } else {
       // a solve carried on keeps the time this run spent preparing
       {
@@ -613,7 +645,7 @@ bool SolveSession::prepareSearch(const Plan& plan) {
         }
         runTimeAdded_ = true;
       }
-      state_.advance(SolveState::Paused);
+      leave(SolveState::Paused);
     }
     return false;
   }
@@ -631,7 +663,7 @@ bool SolveSession::prepareSearch(const Plan& plan) {
       const std::lock_guard<std::mutex> lock(failureMutex_);
       failure_ = SolveFailure{restored, 0, std::string(errorMessage(restored)), {}, 0};
     }
-    state_.advance(SolveState::Error);
+    leave(SolveState::Error);
     return false;
   }
 
@@ -725,7 +757,10 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
     pend = problem_.takePending();
   }
   for (PendingAssembly& p : pend) {
-    if (runStopRequested() || slideDiskHalted_) {
+    // (a start whose search stopped at a save point is the run's last: the
+    // first one is searched even when the save point was asked for before
+    // it began, so that the run gets somewhere)
+    if (runStopRequested() || slideDiskHalted_ || slideSavePointCut_) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.addPending(std::move(p));
     } else if (!p.counted) {
@@ -771,8 +806,9 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   }
   slidePool_.reset();
 
-  // whether "no solution" is proven, or the search gave up
-  if (sliding_ && o.disassemble && !runStopRequested()) {
+  // whether "no solution" is proven, or the search gave up; not of a run
+  // whose search a save point stopped, which is not through
+  if (sliding_ && o.disassemble && !runStopRequested() && !slideSavePointCut_) {
     std::string note;
     {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
@@ -795,7 +831,7 @@ void SolveSession::endRun(RunEnd end) {
       problem_.removeAllSolutions();
     }
     dropAssembler();
-    state_.advance(SolveState::Idle);
+    leave(SolveState::Idle);
     return;
   }
 
@@ -807,6 +843,14 @@ void SolveSession::endRun(RunEnd end) {
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
     finished = stop == StopKind::None && end == RunEnd::Finished && problem_.getPending().empty();
+    // Paused at the save point asked for and for nothing else (not a
+    // pause, not a slide search out of disk): whoever asked saves and
+    // carries the solve on (progress().atSavePoint). The assembly search
+    // may be through all the same, with the start a slide search stopped
+    // at still to search.
+    atSavePoint_.store(
+        !finished && stop == StopKind::None && savePointRequested() && !slideDiskHalted_,
+        std::memory_order_relaxed);
     problem_.addTimeMs(ms);
     runTimeAdded_ = true;
     // what the GUI recorded when a solve stopped (recordSearchStats): the
@@ -837,7 +881,7 @@ void SolveSession::endRun(RunEnd end) {
   if (finished && sliding_) {
     sliding::discardSaved(puzzle_, problem_, options_.sliding.workDir);
   }
-  state_.advance(finished ? SolveState::Finished : SolveState::Paused);
+  leave(finished ? SolveState::Finished : SolveState::Paused);
 }
 
 // The solve thread's runStacking: one search from the start stacking to the
@@ -853,7 +897,7 @@ void SolveSession::runStacking(const Plan& plan) {
   // pauses the run before it begins (the results as they were), and
   // Continue tries again.
   if (panexSearch && !folderWritable(o.stacking.workDir)) {
-    state_.advance(SolveState::Paused);
+    leave(SolveState::Paused);
     return;
   }
   // the search's memory is shared with the other solves' while this runs
@@ -988,7 +1032,7 @@ void SolveSession::endStackingRun(bool stopped) {
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       problem_.removeAllSolutions();
     }
-    state_.advance(SolveState::Idle);
+    leave(SolveState::Idle);
     return;
   }
   {
@@ -1000,10 +1044,10 @@ void SolveSession::endStackingRun(bool stopped) {
         std::max(problem_.getSearchDepth(), searchDepth_.load(std::memory_order_relaxed)),
         problem_.getTriedApart());
   }
-  state_.advance(stopped ? SolveState::Paused : SolveState::Finished);
+  leave(stopped ? SolveState::Paused : SolveState::Finished);
 }
 
-void SolveSession::failRun(std::exception_ptr error) {
+void SolveSession::failRun(const std::exception_ptr& error) {
   // Everything stops; what the solve found is thrown away, as the original
   // did after an assert in its solve thread.
   requestStop(runStop_, StopKind::Abort);
@@ -1039,7 +1083,7 @@ void SolveSession::failRun(std::exception_ptr error) {
     failure_ = std::move(f);
   }
   if (isActive(state_.load())) {
-    state_.advance(SolveState::Error);
+    leave(SolveState::Error);
   }
 }
 
@@ -1048,6 +1092,13 @@ StopToken SolveSession::runToken() const { return runStop_.token(); }
 bool SolveSession::runStopRequested() const { return runStop_.stopRequested(); }
 
 StopKind SolveSession::runStopKind() const { return runStop_.kind(); }
+
+StopToken SolveSession::assemblyToken() const { return assemblyStop_.token(); }
+
+// A save point was asked for and nothing stronger: no pause, no abort.
+bool SolveSession::savePointRequested() const {
+  return assemblyStop_.stopRequested() && !runStop_.stopRequested();
+}
 
 // ---- what is found -----------------------------------------------------------------
 
@@ -1121,8 +1172,11 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       sliding::SlideSearch search = sliding::slideSearchFor(o.sliding);
       search.grid = slideGrid_;
       search.onDepth = [this](std::uint64_t depth) { onSlideDepth(depth); };
-      // a save point lets the search under way finish (stopSoft)
+      // A save point does not cut the search short (stopSoft): the level
+      // search stops at the end of the level it is on, saved, and its
+      // start waits as after a pause; any other search runs to its end.
       search.stop = runToken();
+      search.savePoint = assemblyToken();
       search.progress = &slideProgress_;
       search.depthProgress = &searchDepth_;
       search.sample = &sample_;
@@ -1155,6 +1209,9 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       // paused in the middle of this start's search: it is searched again
       // on the next run instead of counted as one with no solution
       if (search.outcome == sliding::SlideOutcome::Stopped) {
+        // stopped by a save point (no pause or abort was asked for): the
+        // assembly search stops with it, and no other start is searched
+        slideSavePointCut_ = slideSavePointCut_ || !runStopRequested();
         problem_.addPending(PendingAssembly{std::move(assembly), false, 0, 0});
         return true;
       }
@@ -1648,11 +1705,11 @@ void SolveSession::stopWorkers() {
   pending_.store(0, std::memory_order_relaxed);
 }
 
-void SolveSession::recordFailure(std::exception_ptr error) {
+void SolveSession::recordFailure(const std::exception_ptr& error) {
   {
     const std::lock_guard<std::mutex> lock(failureMutex_);
     if (!workerError_) {
-      workerError_ = std::move(error);
+      workerError_ = error;
     }
   }
   requestStop(runStop_, StopKind::Abort);
@@ -1701,6 +1758,31 @@ std::string SolveSession::note() const {
 std::optional<FolderFailure> SolveSession::folderFailure() const {
   const std::lock_guard<std::mutex> lock(failureMutex_);
   return folderFailure_;
+}
+
+FileLock::Outcome SolveSession::lockSearches(FileLock& lock) const {
+  std::string path;
+  std::string folder;
+  if (sliding_ && options_.disassemble) {
+    folder = options_.sliding.workDir;
+    path = sliding::solveLockPath(puzzle_, problem_, folder);
+  } else if (stacking_ && (options_.stacking.solver == stacking::StackingSolver::Panex ||
+                           panex::unsupported(puzzle_, problem_, true).empty())) {
+    folder = options_.stacking.workDir;
+    path = panex::solveLockPath(puzzle_, problem_, folder);
+  }
+  if (path.empty()) {
+    return FileLock::Outcome::Held;
+  }
+  std::error_code ec;
+  std::filesystem::create_directories(folder, ec);
+  return lock.tryAcquire(path) == FileLock::Outcome::Busy ? FileLock::Outcome::Busy
+                                                          : FileLock::Outcome::Held;
+}
+
+void SolveSession::leave(SolveState state) {
+  searchLock_.release();
+  state_.advance(state);
 }
 
 bool SolveSession::folderWritable(const std::string& folder) {
@@ -1815,6 +1897,7 @@ SolveProgress SolveSession::progress() const {
       break;
     case SolveState::Paused:
       p.stage = SolveStage::Paused;
+      p.atSavePoint = atSavePoint_.load(std::memory_order_relaxed);
       break;
     case SolveState::Finished:
       p.stage = SolveStage::Done;

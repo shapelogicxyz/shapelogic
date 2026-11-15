@@ -290,6 +290,7 @@ void Polyhedron::closeSurface() {
 
     // pts.second is the dst of a surface half-edge
     const int start = pts.second;
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores): the start value of the ported walk
     int v = start;
     std::stack<int> s;
     s.push(pts.second);

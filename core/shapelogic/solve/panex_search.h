@@ -61,6 +61,13 @@ namespace bt::panex {
 [[nodiscard]] std::string searchFolder(const Puzzle& puzzle, const Problem& problem,
                                        const std::string& workDir);
 
+/// The file a solve of this problem locks while it runs (FileLock), so
+/// that one solve at a time works in the problem's search folder (decision
+/// 0035): beside the folder, under its name. Empty when the search has no
+/// place (searchFolder).
+[[nodiscard]] std::string solveLockPath(const Puzzle& puzzle, const Problem& problem,
+                                        const std::string& workDir);
+
 /// Deletes the saved search of this problem in workDir, if there is one.
 void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir);
 

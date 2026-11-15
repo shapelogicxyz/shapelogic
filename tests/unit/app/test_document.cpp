@@ -85,7 +85,7 @@ TEST_CASE("document: new, open, save, and the ids of what it holds", "[app][docu
   CHECK_FALSE(again->dirty());
   again->markUnsaved();
   CHECK(again->dirty());
-  CHECK_FALSE(again->history().undo.size() > 0);
+  CHECK(again->history().undo.empty());
   REQUIRE(again->save(tmp).has_value());
   CHECK_FALSE(again->dirty());
   std::filesystem::remove(tmp);

@@ -911,7 +911,7 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
 
 #ifdef __SIZEOF_INT128__
 // The key of a search whose arrangements do not fit 64 bits.
-__extension__ typedef unsigned __int128 WideKey;
+__extension__ using WideKey = unsigned __int128;
 #endif
 
 // Every position one piece can take in the empty tray. Pieces only ever
@@ -3182,6 +3182,8 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
       found.assign(batch.size(), 0);
       for (std::size_t f = 0; f < readers.size(); f++) {
         if (!readers[f]->ok() ||
+            // a reader was made for every filter set above:
+            // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
             !(*m.filter)[f]->find(batch.data(), batch.size(), found.data(), *readers[f])) {
           return false;
         }
@@ -4226,10 +4228,12 @@ class LevelSearch {
     pool_->run(threads_, [&](unsigned int th) {
       RunBuilder<Key>& out = *drop[th];
       std::vector<std::unique_ptr<typename Set::Reader>> readers;
+      readers.reserve(in.size());
       for (const SetPtr<Key>& set : in) {
         readers.push_back(std::make_unique<typename Set::Reader>(*set, std::size_t{1} << 12));
       }
       std::vector<std::unique_ptr<typename Set::Reader>> own;
+      own.reserve(parts.size());
       for (const SetPtr<Key>& part : parts) {
         own.push_back(std::make_unique<typename Set::Reader>(*part));
       }
@@ -4325,7 +4329,7 @@ class LevelSearch {
   // when it is one the interval keeps (every level with nested slides,
   // which also go into the visited sets), else freed. The start is kept
   // from the beginning (start).
-  void ageOut(Side& side, SetPtr<Key> old, unsigned int level) {
+  void ageOut(Side& side, const SetPtr<Key>& old, unsigned int level) {
     if (!old) {
       return;
     }
@@ -4615,6 +4619,14 @@ class LevelSearch {
         search_.onLevel(line);
       }
       releaseFreeMemory();
+
+      // A save point asked for: here, with a level just done and none
+      // begun, the search stops and is saved (run) without redoing
+      // anything when it is carried on. Only after a level of this run, so
+      // that a run always gets further than it began.
+      if (folder_.hasBase() && search_.savePoint.stopRequested()) {
+        return SlideOutcome::Stopped;
+      }
 
       // An autosave, so a crash loses no more than this.
       if (search_.autosave && folder_.hasBase() && saves.due()) {
@@ -5137,6 +5149,7 @@ struct SlideSetup {
         outlines[i] = outlineOf(*pieces[i]);
       }
     }
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
     stops = grid ? stopGridFor(gridSize, cells, outlines, knownPlaces(tray, cells, initial, *goals))
                  : stopGridFor(0, cells, outlines, {});
   }
@@ -5163,6 +5176,17 @@ std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& probl
   }
   std::ranges::sort(out);
   return out;
+}
+
+std::string solveLockPath(const Puzzle& puzzle, const Problem& problem,
+                          const std::string& workDir) {
+  if (workDir.empty() || !problem.resultValid()) {
+    return "";
+  }
+  char name[40];
+  std::snprintf(name, sizeof(name), "solve-%016llx.lock",
+                static_cast<unsigned long long>(problemKeyOf(puzzle, problem)));
+  return (std::filesystem::path(workDir) / name).string();
 }
 
 void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir) {
@@ -5420,6 +5444,7 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   }
   const unsigned int n = start.placementCount();
   const SlideState& initial = setup.initial;
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
   const GoalCheck& goals = *setup.goals;
 
   std::vector<unsigned int> pcs(n);
@@ -5532,6 +5557,7 @@ bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Ass
   }
   const Voxel& tray = problem.resultShape(puzzle);
   SlideSetup setup;
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
   if (!setup.place(puzzle, problem, start) || setup.goals->all(setup.initial)) {
     return false;
   }
@@ -5588,6 +5614,7 @@ SlideBackCheck checkSlideMovesBack(const Puzzle& puzzle, const Problem& problem,
   }
   setup.shapes(tray, nested, search.grid);
   SlideSpace<Key> space;
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
   if (!space.build(tray, setup.cells, setup.outlines, nested, setup.initial, *setup.goals,
                    search.likePiecesApart, search.verticalMoves, setup.stops, false,
                    search.plainKeys)) {

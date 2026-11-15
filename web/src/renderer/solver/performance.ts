@@ -3,8 +3,8 @@
 // The Solver's Performance Analysis, under the empty solutions card of a
 // sliding puzzle whose solve is under way or paused: how long each move
 // deep of the slide search took, the rate those times grow at, and from it
-// how long the moves to come will take, every fifth move to 100 (the
-// engine's SlideForecast: solve.progress while the run is on, the
+// how long the moves to come will take, every fifth move for the next
+// eleven (58 moves deep: 60 to 110; the engine's SlideForecast: solve.progress while the run is on, the
 // problem's detail once it is paused; it is worked out again as each move
 // ends). It goes when the solve is through and the solution shows.
 // DOM-free (HTML strings of numbers and fixed words, nothing to escape),
@@ -88,11 +88,9 @@ export function performanceHtml(f: SlideForecast, paused: boolean): string {
     f.runningMs > 0 ? ` Move ${String(f.depth + 1)} has run ${durationText(f.runningMs)}.` : '';
   if (f.growth === null || f.estimates.length === 0) {
     const why =
-      f.depth >= 100
-        ? ''
-        : untimed > 0
-          ? ' Estimates start once two moves in a row have been timed.'
-          : ' Estimates appear once a few moves in a row have taken measurable time.';
+      untimed > 0
+        ? ' Estimates start once two moves in a row have been timed.'
+        : ' Estimates appear once a few moves in a row have taken measurable time.';
     return `<b>Performance Analysis</b>${done}${notKept}${running}${why}`;
   }
   const growth = `Each move takes about ${f.growth.toFixed(2)}× as long as the one before, from the last moves; worked out again as each move ends.`;

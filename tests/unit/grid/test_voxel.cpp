@@ -26,8 +26,9 @@ TEST_CASE("voxel: a new space has the requested size and is empty", "[voxel]") {
   REQUIRE(v->getZ() == 3);
   REQUIRE(v->getXYZ() == 6);
 
-  for (unsigned int i = 0; i < v->getXYZ(); i++)
+  for (unsigned int i = 0; i < v->getXYZ(); i++) {
     REQUIRE(v->getState(i) == Voxel::kEmpty);
+  }
 }
 
 TEST_CASE("voxel: every grid builds an empty space of the right size", "[voxel]") {
@@ -228,8 +229,8 @@ TEST_CASE("voxel: getIndex and indexToXYZ are inverses over the whole space", "[
     GridType gt(t);
     std::unique_ptr<Voxel> v = makeVoxel(gt, 3, 4, 5);
 
-    for (unsigned int z = 0; z < v->getZ(); z++)
-      for (unsigned int y = 0; y < v->getY(); y++)
+    for (unsigned int z = 0; z < v->getZ(); z++) {
+      for (unsigned int y = 0; y < v->getY(); y++) {
         for (unsigned int x = 0; x < v->getX(); x++) {
           const unsigned int idx = v->getIndex(x, y, z);
           REQUIRE(idx < v->getXYZ());
@@ -240,6 +241,8 @@ TEST_CASE("voxel: getIndex and indexToXYZ are inverses over the whole space", "[
           REQUIRE(ry == y);
           REQUIRE(rz == z);
         }
+      }
+    }
   }
 }
 
@@ -260,8 +263,9 @@ TEST_CASE("voxel: every index maps to a distinct coordinate", "[voxel][index]") 
     seen[i] = true;
   }
 
-  for (bool s : seen)
+  for (bool s : seen) {
     REQUIRE(s);
+  }
 }
 
 TEST_CASE("voxel: the bounding box tracks the filled voxels", "[voxel][bbox]") {

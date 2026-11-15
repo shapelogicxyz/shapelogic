@@ -89,6 +89,12 @@ struct SolveProgress {
   bool stopSaving = false;
   std::uint64_t stopBytes = 0;
   std::uint64_t stopTotalBytes = 0;
+  /// Stage Paused: the run paused at the save point it was asked for
+  /// (SolveSession::pauseAtSavePoint) and for no other reason, so whoever
+  /// asked saves and carries it on. False when it paused for anything
+  /// else meanwhile (a pause, a slide search out of disk), which the user
+  /// is to see.
+  bool atSavePoint = false;
 
   /// Taking apart: is it wanted, how many done, how many found and not
   /// done, by how many workers.

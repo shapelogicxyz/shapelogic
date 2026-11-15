@@ -114,7 +114,7 @@ std::string framesOf(const Problem& pr) {
     for (unsigned int i = 0; i < st.getPiecenumber(); i++) {
       out += std::to_string(st.getX(i)) + "," + std::to_string(st.getZ(i)) + " ";
     }
-    out += "\n";
+    out += '\n';
   }
   return out;
 }
@@ -586,4 +586,41 @@ TEST_CASE("stacking session: the progress of a Panex search", "[stacking][parall
   CHECK(pr.getSearchDepth() == p.searchDepth);
   // the run may be over before a look sees it searching
   (void)sawOther;
+}
+
+// One solve of a problem at a time works in its search folder (decision
+// 0035): while another holds the problem's lock, Solve and Continue are
+// refused; the lock is the run's while it goes.
+TEST_CASE("stacking session: a problem another solve works on is refused", "[stacking][lock]") {
+  Puzzle puz = panexSwap(5);
+  Problem& pr = puz.getProblem(0);
+  const std::string lockFile = panex::solveLockPath(puz, pr, workDir());
+  REQUIRE_FALSE(lockFile.empty());
+  CHECK(panex::solveLockPath(puz, pr, "").empty());
+
+  SolveSession s(puz, pr, findSolutions(1));
+  FileLock other;
+  REQUIRE(other.tryAcquire(lockFile) == FileLock::Outcome::Held);
+  for (const bool again : {false, true}) {
+    const Result<void> r = again ? s.resume() : s.start();
+    REQUIRE_FALSE(r.has_value());
+    CHECK(r.error().code == Errc::IoError);
+    CHECK(r.error().message == kSolvedElsewhere);
+    CHECK(s.state() == SolveState::Idle);
+  }
+  other.release();
+
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(pr.getNumSolutions() == 1);
+  CHECK_FALSE(std::filesystem::exists(lockFile));
+  // the Stacking Solver's own search keeps nothing on disk: no lock
+  SolveOptions plain = findSolutions(1);
+  plain.stacking.workDir.clear();
+  REQUIRE(other.tryAcquire(lockFile) == FileLock::Outcome::Held);
+  REQUIRE(s.setOptions(plain).has_value());
+  REQUIRE(s.start().has_value());
+  s.wait();
+  CHECK(s.state() == SolveState::Finished);
 }

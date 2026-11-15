@@ -24,6 +24,14 @@
 #             on the order the starts come in (in the original too): the
 #             baseline is one thread's (every sliding one is) and these are
 #             compared with --threads 1 only
+#         "H" sliding: the summary baseline holds ShapeLogic's answer, not
+#             the original's (the older-model fixtures with optional
+#             pieces: decision 0014, difference 5; the original finds one
+#             start layout, the empty one). `baseline` keeps the entry;
+#             the solved file and the text runs that search are checked
+#             against its counts, not against the original's (a solved
+#             file keeps one solution an ending, so it may hold fewer
+#             than the summary)
 #   tier  sliding  the sliding puzzles (deferred part 1): run with
 #         `--tier sliding`, the full search (burrTxt's default, bt's one
 #         sliding solver). "alpha:" paths are files of this repo:
@@ -74,21 +82,21 @@ sliding  -  test/test_sliding_solver.xmpuzzle
 sliding  -  examples/SliderByGiiker.xmpuzzle
 sliding  N  test/test_sliding_nested.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_all_variable.xmpuzzle
-sliding  O  alpha:tests/data/puzzles/sliding/slide_caterpillar.xmpuzzle
-sliding  O  alpha:tests/data/puzzles/sliding/slide_corridor.xmpuzzle
+sliding  OH  alpha:tests/data/puzzles/sliding/slide_caterpillar.xmpuzzle
+sliding  OH  alpha:tests/data/puzzles/sliding/slide_corridor.xmpuzzle
 sliding  O  alpha:tests/data/puzzles/sliding/slide_empty_floor.xmpuzzle
 sliding  N  alpha:tests/data/puzzles/sliding/slide_fuzz_*.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_goal_on_variable.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_klotski.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_like_pieces.xmpuzzle
 sliding  O  alpha:tests/data/puzzles/sliding/slide_many_starts.xmpuzzle
-sliding  O  alpha:tests/data/puzzles/sliding/slide_one_cell.xmpuzzle
+sliding  OH  alpha:tests/data/puzzles/sliding/slide_one_cell.xmpuzzle
 sliding  N  alpha:tests/data/puzzles/sliding/slide_one_way.xmpuzzle
-sliding  NO alpha:tests/data/puzzles/sliding/slide_pocket_nested.xmpuzzle
-sliding  PO alpha:tests/data/puzzles/sliding/slide_pocket_partial.xmpuzzle
-sliding  O  alpha:tests/data/puzzles/sliding/slide_shorter_path.xmpuzzle
+sliding  NOH alpha:tests/data/puzzles/sliding/slide_pocket_nested.xmpuzzle
+sliding  POH alpha:tests/data/puzzles/sliding/slide_pocket_partial.xmpuzzle
+sliding  OH  alpha:tests/data/puzzles/sliding/slide_shorter_path.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_swapped_eight.xmpuzzle
-sliding  O  alpha:tests/data/puzzles/sliding/slide_turn.xmpuzzle
+sliding  OH  alpha:tests/data/puzzles/sliding/slide_turn.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_two_layers_open.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_two_layers_shut.xmpuzzle
 sliding  -  alpha:tests/data/puzzles/sliding/slide_variable_crossed.xmpuzzle

@@ -244,11 +244,13 @@ std::vector<StlPiece> stlPieces(const Puzzle& puzzle, const Problem& problem,
     counts[problem.getShapeIdOfPart(problem.getPartIdToPieceId(i))]++;
   }
   std::vector<unsigned int> shapes;
+  shapes.reserve(counts.size());
   for (const auto& entry : counts) {
     shapes.push_back(entry.first);
   }
   const std::vector<std::string> names = stlFileNames(puzzle, shapes);
   std::vector<StlPiece> pieces;
+  pieces.reserve(shapes.size());
   for (std::size_t i = 0; i < shapes.size(); i++) {
     pieces.push_back({shapes[i], counts[shapes[i]], names[i]});
   }

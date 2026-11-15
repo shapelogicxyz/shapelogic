@@ -47,6 +47,7 @@ const cubeRegime_s* regimeOf(const cubeCase_s& c, double ratio) {
     return last;
   }
   for (int i = 0; i < c.nRegime; i++) {
+    // NOLINTNEXTLINE(clang-analyzer-core.NullDereference): nRegime counts the entries of regime
     const cubeRegime_s& R = c.regime[i];
     if (ratio >= R.lo && ratio <= R.hi) {
       return &R;

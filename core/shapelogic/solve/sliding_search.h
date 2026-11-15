@@ -137,6 +137,15 @@ struct SlideSearch {
   /// level search saves itself as it stops (see resume), unless the stop
   /// is an abort, which throws the search away.
   StopToken stop;
+  /// A save point: polled by the level search between two levels only, so
+  /// a request lets the level under way finish and then ends the search
+  /// (Stopped) saved as a stop saves it, with no level cut short. A search
+  /// carried on after it has lost nothing, and every run that stops here is
+  /// at least a level further than it began: saving a long search over and
+  /// over can never hold it at one level, however long a level takes. Not
+  /// polled with nowhere to save (no workDir), nor by the search over text
+  /// keys: those run to their end, as they do without it.
+  StopToken savePoint;
   /// When set, the level search tells what it does once stopped.
   SlideStopProgress* stopProgress = nullptr;
   /// When set, the arrangements the search visits are added to it as it
@@ -417,6 +426,15 @@ struct SlideBackCheck {
 /// Deletes the saved searches of this problem's starts in workDir, if there
 /// are any (a solve that starts afresh).
 void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir);
+
+/// The file a solve of this problem locks while it runs (FileLock), so
+/// that one solve at a time works in the problem's search folders: two
+/// would carry on, overwrite and delete each other's levels (decision
+/// 0035). Named by what names the problem's saved searches, so the same
+/// problem in another file, or a copy of it in this one, is the same lock.
+/// Empty without a work folder or a result.
+[[nodiscard]] std::string solveLockPath(const Puzzle& puzzle, const Problem& problem,
+                                        const std::string& workDir);
 
 /// Deletes the saved searches in workDir that nothing has touched for
 /// `days` days (searches of starts never searched again); returns how

@@ -582,8 +582,17 @@ one).
   in its callback on the session's slide pool; a stopped search puts its
   start back as pending, not counted, and so does one that ran out of disk
   and was saved, which also ends the run (the callback answers false), so
-  the solve pauses and Continue carries it on; a save point lets the search under
-  way finish; `note()` is the original's summary (starts the memory or disk cut,
+  the solve pauses and Continue carries it on; at a save point the level
+  search stops at the end of the level it is on, saved, its start pending
+  (`SlideSearch::savePoint`: no level is cut short, and each run ends a
+  level further, decision 0034), a search with no folder or over text keys
+  runs to its end, and a run that paused at the save point alone says so
+  (`SolveProgress::atSavePoint`); a solve that searches holds the lock of
+  the problem's search folders from its start to the end of its run
+  (`FileLock` in base/file_lock.h on `sliding::solveLockPath`, a stacking
+  solve on `panex::solveLockPath`), and a second solve of the same problem,
+  in this program or another, is refused with `IoError` before anything
+  is dropped (decision 0035); `note()` is the original's summary (starts the memory or disk cut,
   everything searched, or with optimized paths that a full search may find
   what they missed) and the progress has stage `Other` with `searched`
   and `searchDepth`. A run with optimized paths works out its grid as it
@@ -594,7 +603,7 @@ one).
   (`SlideSearch::onDepth`, decision 0030) and keeps the times with the
   problem (`Problem::slideLevelMs`, in the file while the solve is open);
   `slide_forecast.h`'s `slideForecast` turns them into the Performance
-  Analysis (the growth, and every fifth move to 100), in the progress and
+  Analysis (the growth, and every fifth move for the next eleven), in the progress and
   in a paused problem's detail. Take-apart workers are not used.
 
 **The stacking searches** (deferred part 3a, decision 0015). Ported from
@@ -1638,9 +1647,14 @@ What exists after stage 8:
     never under a minute; only when the solves have moved): `solve.savePoint`
     on every run under way, their ends waited for by revision, the rescue
     copy written (`Rescue.saveNow`; never the puzzle's file),
-    `solve.continue`, none of it once another document replaced the one it
-    paused; `saveAtSavePoint(path)` is
-    also File ▸ Save's path while a solve runs, the save the store's),
+    `solve.continue` for the runs that paused for the save (`atSavePoint`),
+    none of it once another document replaced the one it
+    paused; a sliding search works on to its level's end meanwhile, shown
+    searching (`worksOn`), and only the time from its end counts as the
+    save's cost (decision 0034); `saveAtSavePoint(path)` is
+    also File ▸ Save's path while a solve runs, the save the store's: it
+    pauses a sliding or stacking search, and joins or follows a journal
+    save under way),
     `to-shapes.ts` and `to-shapes-form.ts` (stage 6: Edit ▸ Convert
     Assemblies to Pieces, the original's dialog over `solution.toShapes`:
     source, destination, range, filters with their defaults (millable and

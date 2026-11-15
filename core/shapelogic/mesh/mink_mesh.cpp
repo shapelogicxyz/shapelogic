@@ -821,6 +821,7 @@ void extractFaces(const Manifold& m, Faces& out) {
         continue;  // flat: its neighbours' hulls cover it
       }
       std::vector<vec3> piece;
+      piece.reserve(3);
       for (std::size_t c = 0; c < 3; c++) {
         piece.push_back(P(t, c));
       }
@@ -1026,6 +1027,7 @@ void extractFaces(const Manifold& m, Faces& out) {
     convexPieces(p2, tt, cp);
     for (const std::vector<int>& p : cp) {
       std::vector<vec3> piece;
+      piece.reserve(p.size());
       for (const int i : p) {
         piece.push_back(pos[flat[asUnsigned(i)]]);
       }

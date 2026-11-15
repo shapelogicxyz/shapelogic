@@ -75,7 +75,7 @@ std::optional<std::uint64_t> availableDiskBytes(const std::filesystem::path& dir
   if (url != nullptr) {
     CFTypeRef value = nullptr;
     if (CFURLCopyResourcePropertyForKey(url, kCFURLVolumeAvailableCapacityForImportantUsageKey,
-                                        &value, nullptr) &&
+                                        static_cast<void*>(&value), nullptr) &&
         value != nullptr) {
       std::int64_t n = 0;
       if (CFGetTypeID(value) == CFNumberGetTypeID() &&
@@ -214,6 +214,8 @@ std::string userCacheDirectory() {
   }
   return "";
 #elif defined(__APPLE__)
+  // the environment is read by the programs before a thread is started:
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   if (const char* home = std::getenv("HOME")) {
     return std::string(home) + "/Library/Caches/ShapeLogic";
   }

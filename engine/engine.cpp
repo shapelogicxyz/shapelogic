@@ -7,6 +7,7 @@
 
 #include <array>
 #include <condition_variable>
+#include <cstdlib>
 #include <deque>
 #include <exception>
 #include <filesystem>
@@ -21,11 +22,21 @@ namespace bt::engine {
 // ---- state ------------------------------------------------------------------------------
 
 std::string Settings::defaultSlideFolder() {
+  // as the CLI: the variable before the cache folder (the tests give each
+  // engine a folder of its own this way; the app sets its folders itself)
+  // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
+  if (const char* dir = std::getenv("SHAPELOGIC_SLIDE_DIR"); dir != nullptr && *dir != 0) {
+    return dir;
+  }
   const std::string cache = userCacheDirectory();
   return cache.empty() ? std::string() : (std::filesystem::path(cache) / "sliding").string();
 }
 
 std::string Settings::defaultPanexFolder() {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe): the environment is read before a thread is started
+  if (const char* dir = std::getenv("SHAPELOGIC_PANEX_DIR"); dir != nullptr && *dir != 0) {
+    return dir;
+  }
   const std::string cache = userCacheDirectory();
   return cache.empty() ? std::string() : (std::filesystem::path(cache) / "panex").string();
 }
@@ -53,6 +64,7 @@ void State::replaceDocument(app::Document d, std::optional<std::filesystem::path
       queuedEvents.emplace_back("solve.state", Json{{"problem", problem}, {"state", "idle"}});
     }
     if (w.analysing) {
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access): the engine always holds a document
       const Result<app::AnalyseProgress> a = doc->analyseProgress(id);
       if (a) {
         queuedEvents.emplace_back("solution.analyseEnded",

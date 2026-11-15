@@ -250,6 +250,8 @@ void writeResumeTail(std::string& out, unsigned int flag, std::uint64_t vectorRe
     }
     if (state.weights.size() == state.tasks.size() && !state.tasks.empty()) {
       const auto units = [](double w) {
+        // a weight is never negative; the text as the original writes it:
+        // NOLINTNEXTLINE(bugprone-incorrect-roundings)
         return std::to_string(static_cast<unsigned long long>(w * kWeightUnits + 0.5));
       };
       out += " W " + units(state.doneWeight);

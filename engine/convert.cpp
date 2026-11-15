@@ -699,6 +699,7 @@ Json progressJson(const SolveProgress& g) {
                                           {"doneBytes", g.stopBytes},
                                           {"totalBytes", g.stopTotalBytes}}
                                    : Json(nullptr);
+  j["atSavePoint"] = g.atSavePoint;
   j["slideForecast"] = slideForecastJson(g.slideLevelMs, g.slideLevelRunningMs);
   return j;
 }

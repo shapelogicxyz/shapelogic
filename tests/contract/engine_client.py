@@ -4,11 +4,13 @@ requests, reads replies, events and binary frames (decision 0012), and
 checks every message against the schema in api/ as it arrives."""
 
 import json
+import os
 import pathlib
 import queue
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -80,8 +82,15 @@ class Engine:
 
     def __init__(self, path, api=None, cwd=ROOT):
         self.api = api or Api()
+        # search folders of the engine's own, never the user's cache: the
+        # tests run side by side, and two solves of one problem cannot work
+        # in the same folders (decision 0035)
+        self.folders = tempfile.TemporaryDirectory(prefix="sl_contract_")
+        env = {**os.environ,
+               "SHAPELOGIC_SLIDE_DIR": str(pathlib.Path(self.folders.name) / "sliding"),
+               "SHAPELOGIC_PANEX_DIR": str(pathlib.Path(self.folders.name) / "panex")}
         self.proc = subprocess.Popen([str(path)], cwd=cwd, stdin=subprocess.PIPE,
-                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         self.next_id = 1
         self.messages = queue.Queue()
         self.frames = {}
@@ -280,5 +289,6 @@ class Engine:
             except subprocess.TimeoutExpired:
                 self.proc.kill()
                 raise ContractError("the engine did not end at the end of its input") from None
+        self.folders.cleanup()
         if self.proc.returncode != 0:
             raise ContractError(f"the engine ended with status {self.proc.returncode}")

@@ -14,8 +14,9 @@ namespace bt::sliding {
 
 /// The forecast is given at every this-many moves deep...
 inline constexpr std::uint64_t kForecastEvery = 5;
-/// ...up to this many.
-inline constexpr std::uint64_t kForecastTo = 100;
+/// ...from the first multiple of kForecastEvery past the search's depth,
+/// with this many more after it (58 moves deep: 60 to 110).
+inline constexpr std::uint64_t kForecastAhead = 10;
 /// The growth is measured over the last this-many moves that took
 /// measurable time.
 inline constexpr unsigned int kForecastWindow = 5;
@@ -49,7 +50,8 @@ struct SlideForecast {
   /// two measurable moves follow one another (untimed moves are none),
   /// and there are no estimates.
   double growth = 0;
-  /// Every kForecastEvery moves past depth, up to kForecastTo.
+  /// Every kForecastEvery moves past depth: the first multiple of it and
+  /// the kForecastAhead after it.
   std::vector<SlideEstimate> estimates;
 };
 

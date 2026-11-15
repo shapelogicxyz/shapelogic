@@ -160,6 +160,12 @@ void counterClockwise(Corners& c) {
   }
 }
 
+// The units of `per` cells that `cells` cells begin: a division in whole
+// numbers, rounded up (the rhombic and tetra-octa grids' cubes).
+unsigned int wholeUnits(unsigned int cells, unsigned int per) {
+  return (cells + per - 1) / per;
+}
+
 }  // namespace
 
 LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
@@ -182,12 +188,12 @@ LayerGeometry layerGeometry(const Voxel& space, unsigned int layer) {
       break;
     case GridKind::Rhombic:
       ux = uy = 0.5;
-      g.width = (sx + 4) / 5;
-      g.height = (sy + 4) / 5;
+      g.width = wholeUnits(sx, 5);
+      g.height = wholeUnits(sy, 5);
       break;
     case GridKind::TetraOcta:
-      g.width = (sx + 2) / 3;
-      g.height = (sy + 2) / 3;
+      g.width = wholeUnits(sx, 3);
+      g.height = wholeUnits(sy, 3);
       break;
     case GridKind::Hexagonal:
       ux = 0.5;

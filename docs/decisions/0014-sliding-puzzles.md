@@ -120,7 +120,9 @@ original:
    number of threads. The sliding baseline's entries for those seven
    fixtures (`slide_caterpillar`, `slide_corridor`, `slide_one_cell`,
    `slide_pocket_nested`, `slide_pocket_partial`, `slide_shorter_path`,
-   `slide_turn`) are ShapeLogic's answers, not the original's.
+   `slide_turn`) are ShapeLogic's answers, not the original's (the
+   corpus flag `H`: re-recording the baseline keeps them, and the solved
+   files and text runs of those seven are checked against their counts).
 
 **Shapes of more than one layer** (added after the port). The original
 locked a sliding shape to one layer (the GUI's `lockZ`, `flattenPieces`

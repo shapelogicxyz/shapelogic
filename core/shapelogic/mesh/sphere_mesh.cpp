@@ -352,8 +352,9 @@ void outTriangle(
   face3[2] = par.vl->get(x3, y3, z3);
 
   // don't add degenerate triangles
-  if (face3[0] == face3[1] || face3[0] == face3[2] || face3[1] == face3[2])
+  if (face3[0] == face3[1] || face3[0] == face3[2] || face3[1] == face3[2]) {
     return;
+  }
 
   const int f = par.poly->addFace(face3);
   Face & ff = par.poly->face(f);
@@ -458,9 +459,15 @@ void drawTriangle(
     float z31 = (z3+z1)/2;
 
     // shift to the connection circles
-    if (edge12 >= 0) shiftToHoleBorder(edge12, &x12, &y12, &z12);
-    if (edge23 >= 0) shiftToHoleBorder(edge23, &x23, &y23, &z23);
-    if (edge31 >= 0) shiftToHoleBorder(edge31, &x31, &y31, &z31);
+    if (edge12 >= 0) {
+      shiftToHoleBorder(edge12, &x12, &y12, &z12);
+    }
+    if (edge23 >= 0) {
+      shiftToHoleBorder(edge23, &x23, &y23, &z23);
+    }
+    if (edge31 >= 0) {
+      shiftToHoleBorder(edge31, &x31, &y31, &z31);
+    }
 
     // recursively output the triangles, we need to keep the edge flags only for
     // the sides of the triangles that are still on the outside
@@ -476,10 +483,11 @@ void drawTriangle(
     // the sphere we are on
     float mult;
 
-    if (par.outside)
+    if (par.outside) {
       mult = par.sphere_rad-par.offset;
-    else
-      mult = par.inner_rad-par.offset;
+    } else {
+      mult = par.inner_rad - par.offset;
+    }
 
     // scale the triangle point onto the sphere
     x1 *= mult;
@@ -495,10 +503,11 @@ void drawTriangle(
     z3 *= mult;
 
     // if not outside reverse the order of points to flip surface
-    if (par.outside)
+    if (par.outside) {
       outTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, par);
-    else
+    } else {
       outTriangle(x1, y1, z1, x3, y3, z3, x2, y2, z2, par);
+    }
   }
 }
 
@@ -643,6 +652,8 @@ void drawHolePiece(
     float re = radius(end, par);
 
     float l;
+    // findPointOnArc sets its three results:
+    // NOLINTNEXTLINE(clang-analyzer-core.UndefinedBinaryOperatorResult)
     l = sqrt(x1s*x1s+y1s*y1s+z1s*z1s); x1s *= rs/l; y1s *= rs/l; z1s *= rs/l;
     l = sqrt(x2s*x2s+y2s*y2s+z2s*z2s); x2s *= rs/l; y2s *= rs/l; z2s *= rs/l;
 
@@ -692,16 +703,19 @@ void drawHole(
   else
   {
     // Outermost section of the connection (farthest from centre)
-    if (par.holeStart < par.lineEnd)
+    if (par.holeStart < par.lineEnd) {
       drawHolePiece(i, par.holeStart, par.lineEnd, x1, y1, z1, x2, y2, z2, 0, par);
+    }
 
     // Curvature transition
-    if (par.lineEnd < par.curvEnd)
+    if (par.lineEnd < par.curvEnd) {
       drawHolePiece(i, par.lineEnd, par.curvEnd, x1, y1, z1, x2, y2, z2, rec2, par);
+    }
 
     // Innermost, transition to the connector
-    if (par.curvEnd < 30*kPi/180)
-      drawHolePiece(i, par.curvEnd, 30*kPi/180, x1, y1, z1, x2, y2, z2, rec2, par);
+    if (par.curvEnd < 30 * kPi / 180) {
+      drawHolePiece(i, par.curvEnd, 30 * kPi / 180, x1, y1, z1, x2, y2, z2, rec2, par);
+    }
   }
 }
 
@@ -714,7 +728,9 @@ void shiftToConnectingHole(float px, float py, float pz, float rad,
 {
   float diff = sqrt((px-*x)*(px-*x)+(py-*y)*(py-*y)+(pz-*z)*(pz-*z));
 
-  if (diff < Epsilon) return;
+  if (diff < Epsilon) {
+    return;
+  }
 
   float s = 1.0 - rad/diff;
 
@@ -898,10 +914,11 @@ void makeSphere(uint16_t neighbors, int recursion, bool hollow, bool variable, g
 
   // when the sphere is a variable sphere, we use the variable face marker for the filling faces, this will end up with
   // black faces, otherwise we use the light marker to get lighter faces than the clickable faces
-  if (variable)
+  if (variable) {
     par.flags = kFaceVariable;
-  else
+  } else {
     par.flags = kFaceColorLight;
+  }
 
   // following faces are supposed to stay, when in wire frame mode
   par.flags |= kFaceWireframe;
@@ -1021,10 +1038,11 @@ void makeSphere(uint16_t neighbors, int recursion, bool hollow, bool variable, g
 
         // connectingHoleRadius is a diagonal measurement for square holes.
         // Thus, enlarge them by sqrt(2) for a side measurement.
-        if (par.hole_diam < 0)
+        if (par.hole_diam < 0) {
           connectingHoleRadius *= - (sqrt(2.0) * par.hole_diam);
-        else
+        } else {
           connectingHoleRadius *= par.hole_diam;
+        }
 
         shiftToConnectingHole(hx, hy, hz, connectingHoleRadius, &p3x, &p3y, &p3z);
         shiftToConnectingHole(hx, hy, hz, connectingHoleRadius, &p4x, &p4y, &p4z);
@@ -1040,8 +1058,12 @@ bool curvOk(float curvrad, float cnrad, float sprad, float offset)
   float curvx = cnrad*(sprad-offset)/2+curvrad;
   float curvy = sqrt((sprad-offset+curvrad)*(sprad-offset+curvrad)-curvx*curvx);
 
-  if (curvy > sprad) return false;
-  if (curvy/curvx < tan(60*kPi/180)) return false;
+  if (curvy > sprad) {
+    return false;
+  }
+  if (curvy / curvx < tan(60 * kPi / 180)) {
+    return false;
+  }
 
   return true;
 }
@@ -1087,8 +1109,12 @@ Polyhedron sphereMesh(const Voxel& v, float sphere_rad, float connection_rad, fl
     par.lineEnd = kPi / 2 - atan2(par.curvY, par.curvX - par.curvRad);
     par.curvEnd = kPi / 2 - atan2(par.curvY, par.curvX);
 
-    if (par.lineEnd < par.holeStart) par.lineEnd = par.holeStart;
-    if (par.curvEnd < par.lineEnd) par.curvEnd = par.lineEnd;
+    if (par.lineEnd < par.holeStart) {
+      par.lineEnd = par.holeStart;
+    }
+    if (par.curvEnd < par.lineEnd) {
+      par.curvEnd = par.lineEnd;
+    }
 
     for (unsigned int x = 0; x < v.getX(); x++) {
       for (unsigned int y = 0; y < v.getY(); y++) {
@@ -1103,7 +1129,9 @@ Polyhedron sphereMesh(const Voxel& v, float sphere_rad, float connection_rad, fl
             unsigned int idx = 0;
 
             while (v.getNeighbor(idx, 0, x, y, z, &nx, &ny, &nz)) {
-              if (v.validCoordinate(nx, ny, nz) && !v.isEmpty2(nx, ny, nz)) neighbors |= 1 << idx;
+              if (v.validCoordinate(nx, ny, nz) && !v.isEmpty2(nx, ny, nz)) {
+                neighbors |= 1 << idx;
+              }
               idx++;
             }
 

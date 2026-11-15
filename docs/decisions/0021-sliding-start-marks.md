@@ -52,6 +52,9 @@ asked only that the original's files load.
   fixtures without their lock colours; the byte-for-byte save test skips
   sliding fixtures (their saves are the new form). The oracle's roundtrip
   tier cannot compare sliding files any more; its summary and solved-file
-  comparisons still match, since the solve is the same.
+  comparisons still match, since the solve is the same. Its text
+  comparison maps the original's drawing of the shapes, which shows the
+  marks as colours, onto ours (`marks_as_shapelogic_draws` in
+  `tests/oracle/oracle.py`).
 - A saved slide search's key (`sliding_search.cpp`, `problemKeyOf`) names
   the start marks, so searches saved before this are not carried on.

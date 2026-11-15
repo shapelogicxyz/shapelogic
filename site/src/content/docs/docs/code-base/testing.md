@@ -9,6 +9,29 @@ comparison with the original BurrTools, and benchmarks. Each test below has
 a name you can refer to it by and the command that runs it. All the commands
 are `just` recipes from the root of the repository, except the benchmarks.
 
+## Everything at once: `just gate`
+
+`just gate` runs the suites one after another and ends with a table of what
+passed. A suite that fails does not stop the run. Each suite's output is in
+`build/gate/<nn>-<name>.log`, the table in `build/gate/summary.txt`, and the
+command fails if any suite did. It takes about an hour and a quarter; run it
+on a quiet machine.
+
+| Command | What runs |
+|---|---|
+| `just gate` | The groups `build`, `unit`, `sanitizers`, `python`, `oracle`, `app` and `check`. |
+| `just gate unit oracle` | Only the groups named. |
+| `just gate all` | Those and `e2e` (every Playwright spec), `site` and `dist`. |
+
+The `oracle` group records the original's solved files first when
+`tests/oracle/work` does not hold them. `tests/gate.sh` lists what each
+group runs.
+
+None of the suites writes in your cache folder. Each engine a test starts
+gets search folders of its own (`SHAPELOGIC_SLIDE_DIR`,
+`SHAPELOGIC_PANEX_DIR`), because two solves of one problem cannot share a
+folder.
+
 ## The core tests: `just test` and `just test-all`
 
 These seven are CTest tests, defined in `tests/CMakeLists.txt`.
@@ -55,10 +78,17 @@ slower than `just test-all`.
 
 | Name | Command | What it checks |
 |---|---|---|
-| **clang-tidy** | `just check` | Static analysis of the project's C++ sources. Needs LLVM (`brew install llvm`). |
+| **clang-tidy** | `just check` | Static analysis of the project's C++ sources: every finding is an error. `just check sliding_search` checks only the sources whose path matches. Needs LLVM (`brew install llvm`). |
+
+The checks are listed in `.clang-tidy`, with the reason for each one that is
+left out; `tests/unit/.clang-tidy` leaves out a few more for the tests.
+Where the analysis cannot see why code is right, the line above it says so:
+`// NOLINTNEXTLINE(check): reason`. Homebrew's LLVM is not on the `PATH`
+by default; the recipe finds it in `/opt/homebrew/opt/llvm/bin` anyway.
 
 `just format` reformats the C++ sources with clang-format. It changes files
-rather than checking them.
+rather than checking them, and it has never been run over the whole tree:
+format only the files you add.
 
 ## The app
 
@@ -93,10 +123,10 @@ harness reads the corpus's puzzle files from that checkout.
 | **oracle** | `just oracle [--tier …]` | Solve answers (assembly and solution counts, levels, moves) against the original's answers recorded in `tests/oracle/baseline/`. Tiers: `fast` (the default), `full`, `slow`, `sliding`, `stacking` and `all`. Other options: `--threads 1`, `--solver crowell`, `--filter <name>`, `-v`. |
 | **oracle-resume** | `just oracle-resume` | Pauses searches in one program and carries them on in the other: saved positions work both ways. |
 | **oracle-roundtrip** | `just oracle-roundtrip` | Loads and saves every corpus file in both programs and compares the files. |
-| **oracle-files** | `just oracle-files` | Solves as the original's `burrTxt2` does and compares the solved files. Run `python3 tests/oracle/oracle.py baseline-files --tier all` once first. |
-| **oracle-text** | `just oracle-text` | The command line tool's text output against the original's, byte for byte. Run `python3 tests/oracle/oracle.py baseline-text --tier all` once first. |
+| **oracle-files** | `just oracle-files` | Solves as the original's `burrTxt2` does and compares the solved files. Run `python3 tests/oracle/oracle.py baseline-files --tier all` once first. The `sliding` and `stacking` tiers are run by name (`--tier sliding`), after their own `baseline-files`. |
+| **oracle-text** | `just oracle-text` | The command line tool's text output against the original's, byte for byte. Run `python3 tests/oracle/oracle.py baseline-text --tier all` once first, and again whenever `baseline-files` was run: the text of the runs that read a solved file goes with that file. |
 | **oracle-imports** | `just oracle-imports` | Imports, the Puzzlecad export and grid conversion against the original's. |
-| **oracle-python** | `just oracle-python` | The Python module's results against the original module's. |
+| **oracle-python** | `just oracle-python` | The Python module's results against the original module's. `--tier all` takes under a minute: of the full and slow tiers' files only the first problem is solved. |
 
 `just oracle-baseline` records the original's answers again. It is rarely
 needed.
@@ -124,7 +154,8 @@ here and `just build-release` in `../burr-tools` (the benchmark uses its
 |---|---|
 | a method or event in `api/*.json` | `python3 api/apischema.py`, a contract call in `tests/contract/test_engine.py`, `python3 api/gen_api_md.py` (**api-docs** fails on a stale `docs/API.md`), `just app-gen` (**app-test** fails on stale types) |
 | what the engine sends | `npm run record` in `web/`, which records the fake engine's sessions the unit tests replay |
-| the C++ of a solver | `just test-all`, `just test-asan`, `just test-tsan`, and the **oracle** tiers it could touch |
+| the C++ of a solver | `just test-all`, `just test-asan`, `just test-tsan`, `just check` on the files you touched, and the **oracle** tiers it could touch |
+| a lot, or you are about to release | `just gate` |
 | the app's UI | `just app-check`, `just app-test`, `just app-e2e` (look at changed screenshots first), `just docs-screenshots` if the guide shows it, `just site-demo` (**site-build** fails on a stale demo) |
 | a page of this guide | `just site-build`; do not rename `/docs/` or `/docs/getting-started/`, which the app's Help menu opens |
 | a stage's worth of work | the "Finishing a stage" list in `AGENTS.md`, then `docs/ARCHITECTURE.md`, a hand-off note and the plan |

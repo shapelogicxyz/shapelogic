@@ -37,12 +37,26 @@
 // puzzle is not written from here (its search saves itself by the same
 // rule, in its own files), and a save while its search runs pauses it
 // (solve.pause: the search saves itself; a stacking solve has no save
-// point), saves, and carries it on. A sliding puzzle's solve is paused
-// too: a save point lets the slide search under way run to its end, which
-// on a large puzzle is the whole solve, so the save would wait for it;
-// paused, the search writes its levels to its folder (what it wrote since
-// its own last save) and Continue carries it on from there, redoing at
-// most the level cut short. The problems' stored `autosave` (the
+// point), saves, and carries it on.
+//
+// A sliding puzzle's search stops at a save point too, at the end of the
+// level it is on, saved in its folder: nothing is searched twice, and each
+// run ends at least a level further than it began. The journal asks for
+// that and waits, however long the level takes, while the search works on
+// (and is shown working: `worksOn`). It used to pause the search, which
+// cuts the level under way short to be searched again: once a level took
+// longer than the time between two saves, every save threw the level away
+// and the search stood still for good. Only the time from the run's end
+// counts as the save's cost. A save the user asks for (File ▸ Save) does
+// not wait for a level's end: it pauses the search, which is carried on
+// redoing the level cut short, once; asked for while the journal waits, it
+// takes the journal's place (`join`).
+//
+// A run is carried on only when it paused for the save: at the save point
+// asked for (its last progress says `atSavePoint`), or by the pause asked
+// for. One that ended on its own meanwhile (finished, a slide search out
+// of disk) is the user's to see: it is left as it is, and its note is told
+// (`carriesOn` is false of it). The problems' stored `autosave` (the
 // original's box) is not looked at.
 
 import type { SolveOptions } from '../../engine/api.generated.ts';
@@ -83,8 +97,18 @@ export class Autosave {
   private saving = false;
   /** The solves the user paused while the save under way waited: not carried on. */
   private readonly held = new Set<string>();
-  /** The solves the save under way pauses, to carry them on. */
-  private readonly pausing = new Set<string>();
+  /** The solves the save under way pauses, to carry them on, and how each was asked. */
+  private readonly pausing = new Map<string, 'pause' | 'savePoint'>();
+  /** The save under way asked sliding searches for a save point: they work on until it. */
+  private levelEnd = false;
+  /** The save under way when it is the journal's (a save the user asks for joins or follows it). */
+  private journalling: Promise<string | null> | null = null;
+  /** The save under way waits for its runs to end: a save the user asks for can still join it. */
+  private waiting = false;
+  /** A save the user asked for while the journal's waited: made in its place. */
+  private joined: { path: string | undefined; done: (saved: string | null) => void } | null = null;
+  /** When the sliding searches a save let work on to their save point had ended (`costFrom`). */
+  private slideEndedAt: number | null = null;
 
   constructor(
     store: Store,
@@ -144,10 +168,19 @@ export class Autosave {
       await this.saveAtSavePoint(undefined, false, true);
     } finally {
       const now = Date.now();
-      this.wait = nextWait(now - began, this.floor);
+      this.wait = nextWait(now - this.costFrom(began), this.floor);
       this.since = now;
       this.saved = mark;
     }
+  }
+
+  // When the save that began at `began` started to cost the solves time: a
+  // sliding search worked on until its save point, so that wait cost it
+  // nothing and the cost counts from its run's end.
+  private costFrom(began: number): number {
+    const ended = this.slideEndedAt;
+    this.slideEndedAt = null;
+    return ended ?? began;
   }
 
   /** A save at a save point is under way (its pauses, its save, its continues). */
@@ -162,9 +195,40 @@ export class Autosave {
     }
   }
 
-  /** Whether the save under way paused this solve and will carry it on when it is through. */
+  /**
+   * Whether the save under way paused this solve and will carry it on when
+   * it is through: not one whose run is over for another reason (finished,
+   * failed, or paused by something else than the save).
+   */
   carriesOn(problem: string): boolean {
-    return this.saving && this.pausing.has(problem) && !this.held.has(problem);
+    if (!this.saving || !this.pausing.has(problem) || this.held.has(problem)) {
+      return false;
+    }
+    const r = this.solves.peek(problem);
+    // till the run's end is told whole (its last progress), it is the save's
+    if (r?.phase !== 'none' || r.launched) {
+      return true;
+    }
+    return this.pausedForSave(problem);
+  }
+
+  /**
+   * Whether the save under way lets this solve's search work on until its
+   * save point (a sliding search, to the end of its level): it is shown
+   * searching, not saving, until its run ends.
+   */
+  worksOn(problem: string): boolean {
+    return this.saving && this.levelEnd && this.pausing.get(problem) === 'savePoint';
+  }
+
+  // Whether the run is paused, and for the save: by the pause asked for, or
+  // at the save point asked for (not by anything that happened meanwhile).
+  private pausedForSave(problem: string): boolean {
+    const r = this.solves.peek(problem);
+    return (
+      r?.state === 'paused' &&
+      (this.pausing.get(problem) === 'pause' || r.progress?.atSavePoint === true)
+    );
   }
 
   /** Whether a run is under way (a save must wait for a save point). */
@@ -195,11 +259,31 @@ export class Autosave {
    */
   async saveAtSavePoint(path?: string, byUser = false, journal = false): Promise<string | null> {
     if (this.saving) {
+      // the user's save while the journal's is under way: in its place while
+      // it still waits for its runs, else after it (it is through in a moment)
+      if (byUser && this.journalling !== null && this.joined === null) {
+        if (this.waiting) {
+          return this.join(path);
+        }
+        await this.journalling;
+        return this.saveAtSavePoint(path, true);
+      }
       if (byUser) {
         flash('A save is under way already');
       }
       return null;
     }
+    const save = this.save(path, byUser, journal);
+    this.journalling = journal ? save : null;
+    return save;
+  }
+
+  // saveAtSavePoint with no save under way; `saving` from its first step to its last.
+  private async save(
+    path: string | undefined,
+    byUser: boolean,
+    journal: boolean,
+  ): Promise<string | null> {
     this.saving = true;
     const e = this.store.engine;
     // the document being saved: if another replaces it while we wait (a run's
@@ -207,16 +291,20 @@ export class Autosave {
     // written with the new document's bytes
     const gen = this.store.generation;
     const paused: string[] = [];
+    let saved: string | null = null;
     try {
       const runs = this.activeRuns();
-      // a stacking search has no save point, and a sliding one reaches it
-      // only with its start searched through: they pause, saving themselves
+      // A stacking search has no save point: it pauses, saving itself. A
+      // sliding search reaches its save point at the end of the level it is
+      // on: the journal waits for that, a save the user asked for pauses it.
       const grid = this.store.snapshot?.grid;
-      const method = grid === 'stacking' || grid === 'sliding' ? 'solve.pause' : 'solve.savePoint';
+      const pause = grid === 'stacking' || (grid === 'sliding' && !journal);
+      const toLevelEnd = grid === 'sliding' && !pause;
+      this.levelEnd = toLevelEnd;
       for (const p of runs) {
-        this.pausing.add(p);
+        this.pausing.set(p, pause ? 'pause' : 'savePoint');
         try {
-          await e.call(method, { problem: p });
+          await e.call(pause ? 'solve.pause' : 'solve.savePoint', { problem: p });
           paused.push(p);
         } catch {
           // the run ended meanwhile: nothing to pause
@@ -224,23 +312,28 @@ export class Autosave {
         }
       }
       // each run's end (its revision), then the snapshot that shows it
+      this.waiting = true;
       let rev = 0;
       for (const p of paused) {
         rev = Math.max(rev, await this.solves.whenEnded(p));
       }
       await this.store.whenRevision(rev);
+      this.waiting = false;
+      this.slideEndedAt = toLevelEnd ? Date.now() : null;
+      // a save the user asked for meanwhile is made in the journal's place
+      const user = byUser || this.joined !== null;
       if (this.store.generation !== gen) {
         // another document replaced this one while we waited: do not save it
         return null;
       }
       if (this.activeRuns().length > 0) {
         // a run started meanwhile: no save this time
-        if (byUser) {
+        if (user) {
           flash('A solve started meanwhile: not saved', 5000);
         }
         return null;
       }
-      if (journal) {
+      if (journal && this.joined === null) {
         // the rescue copy keeps the solve; the puzzle's file is the user's to save
         if (this.rescue !== null && (await this.rescue())) {
           this.saves++;
@@ -249,35 +342,58 @@ export class Autosave {
         }
         return null;
       }
-      const saved = await this.store.save(path);
+      saved = await this.store.save(this.joined !== null ? this.joined.path : path);
       this.saves++;
       byId('leftS').dataset.autosaved = String(this.saves);
       flash(paused.length === 0 ? 'Saved' : 'Saved at a save point — the solve carries on');
       return saved;
     } catch (x) {
-      reportError(x, byUser ? 'Save' : 'Crash recovery journal');
+      reportError(x, byUser || this.joined !== null ? 'Save' : 'Crash recovery journal');
       return null;
     } finally {
-      // the solves paused for the save carry on (unless the document is gone)
+      this.waiting = false;
+      // The solves paused for the save carry on (unless the document is
+      // gone); one that paused for another reason stays as it is.
       for (const p of paused) {
-        if (
-          this.store.generation === gen &&
-          !this.held.has(p) &&
-          this.solves.peek(p)?.state === 'paused'
-        ) {
-          const options = this.optionsOf(p);
-          try {
-            await e.call('solve.continue', { problem: p, options });
-            this.solves.launch(p, options.solver ?? null);
-            this.continued(p);
-          } catch (x) {
-            reportError(x, 'Continue');
-          }
+        if (this.store.generation !== gen || this.held.has(p) || !this.pausedForSave(p)) {
+          continue;
+        }
+        const options = this.optionsOf(p);
+        try {
+          await e.call('solve.continue', { problem: p, options });
+          this.solves.launch(p, options.solver ?? null);
+          this.continued(p);
+        } catch (x) {
+          reportError(x, 'Continue');
         }
       }
+      const joined = this.joined;
+      this.joined = null;
       this.held.clear();
       this.pausing.clear();
+      this.levelEnd = false;
+      this.journalling = null;
       this.saving = false;
+      joined?.done(saved);
     }
+  }
+
+  // A save the user asks for while the journal waits for its runs to end:
+  // made in the journal's place once they have, the puzzle to its file. A
+  // sliding search the journal let work on to its save point is paused for
+  // it (the user does not wait for a level's end), and carried on after.
+  private join(path: string | undefined): Promise<string | null> {
+    const result = new Promise<string | null>((done) => {
+      this.joined = { path, done };
+    });
+    if (this.levelEnd) {
+      this.levelEnd = false;
+      for (const p of this.pausing.keys()) {
+        this.pausing.set(p, 'pause');
+        // refused when the run has ended meanwhile: nothing to pause
+        this.store.engine.call('solve.pause', { problem: p }).catch(() => undefined);
+      }
+    }
+    return result;
   }
 }

@@ -230,6 +230,7 @@ Reply shapeResize(State& s, Params& p) {
   const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
   const bool toAll = p.optBoolean("toAll", false);
   BTE_CHECK(p.finish());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   BTE_CHECK(s.document().resizeShape(shape, (*size)[0], (*size)[1], (*size)[2], toAll));
   return s.changed();
 }
@@ -298,6 +299,7 @@ Reply gridGeometry(State& s, Params& p) {
   const std::optional<std::array<unsigned int, 3>> size = readSize(p, "size");
   const unsigned int layer = p.count("layer");
   BTE_CHECK(p.finish());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   const auto [x, y, z] = *size;
   if (std::uint64_t{x} * y * z > kMaxCells || std::uint64_t{x} * y > kMaxLayerCells) {
     return coreError(Errc::InvalidArgument, "the space would be too large to draw");
@@ -335,6 +337,7 @@ Reply gridNeighbour(State& s, Params& p) {
   const std::array<int, 3> cell = p.cell("cell");
   const unsigned int face = p.count("face");
   BTE_CHECK(p.finish());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): p.finish() passed, so the size was read
   const auto [x, y, z] = *size;
   if (std::uint64_t{x} * y * z > kMaxCells) {
     return coreError(Errc::InvalidArgument, "the space would be too large");

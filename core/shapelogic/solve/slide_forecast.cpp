@@ -42,7 +42,7 @@ SlideForecast slideForecast(const std::vector<std::uint64_t>& levelMs, std::uint
     logSum += std::log(static_cast<double>(now) / static_cast<double>(before));
     ratios++;
   }
-  if (ratios == 0 || f.depth >= kForecastTo) {
+  if (ratios == 0) {
     return f;
   }
   f.growth = std::exp(logSum / ratios);
@@ -54,7 +54,10 @@ SlideForecast slideForecast(const std::vector<std::uint64_t>& levelMs, std::uint
   }
   double level = std::max<double>(static_cast<double>(levelMs[base - 1]), 1.0);
   double total = 0;
-  for (std::uint64_t d = base + 1; d <= kForecastTo; d++) {
+  // the rows move with the search: the first multiple of five past its
+  // depth and the ten after it
+  const std::uint64_t last = (f.depth / kForecastEvery + 1 + kForecastAhead) * kForecastEvery;
+  for (std::uint64_t d = base + 1; d <= last; d++) {
     level *= f.growth;
     if (d <= f.depth) {
       // searched already, untimed

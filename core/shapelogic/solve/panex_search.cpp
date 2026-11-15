@@ -1308,6 +1308,8 @@ class Searcher {
           search_.depth->store(2 * std::uint64_t{fwd.depth} - 1, std::memory_order_relaxed);
         }
         if (meet(fwd.cur, mirrorPrev, m.at)) {
+          // the loop's condition is kept true to its break:
+          // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
           found = true;
           m.fromStart = fwd.depth;
           m.fromGoal = fwd.depth - 1;
@@ -1332,6 +1334,8 @@ class Searcher {
           search_.depth->store(2 * std::uint64_t{fwd.depth}, std::memory_order_relaxed);
         }
         if (meet(fwd.cur, mirrorCur, m.at)) {
+          // the loop's condition is kept true to its break:
+          // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
           found = true;
           m.fromStart = fwd.depth;
           m.fromGoal = fwd.depth;
@@ -1734,6 +1738,12 @@ std::uint64_t savedMs(const Puzzle& puzzle, const Problem& problem, const std::s
     return 0;
   }
   return st.ms;
+}
+
+std::string solveLockPath(const Puzzle& puzzle, const Problem& problem,
+                          const std::string& workDir) {
+  const std::string folder = searchFolder(puzzle, problem, workDir);
+  return folder.empty() ? "" : folder + ".lock";
 }
 
 void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir) {

@@ -54,7 +54,7 @@ class XmlPullParser {
   [[nodiscard]] int getLineNumber() const { return line_; }
 
   /// True when the current text event is only whitespace.
-  bool isWhitespace();
+  bool isWhitespace() const;
 
   /// The text of the current text event.
   [[nodiscard]] std::string getText() const;
@@ -63,7 +63,7 @@ class XmlPullParser {
   [[nodiscard]] const std::string& getName() const { return name_; }
 
   /// True for an empty-element tag (`<a/>`).
-  bool isEmptyElementTag();
+  bool isEmptyElementTag() const;
 
   [[nodiscard]] int getAttributeCount() const { return attributeCount_; }
   std::string getAttributeName(int index);
@@ -85,7 +85,7 @@ class XmlPullParser {
   void prevTag() { skipNextTag_ = true; }
 
   /// Throws unless at an event of `type` (and, when given, named `name`).
-  void require(int type, const std::string& name);
+  void require(int type, const std::string& name) const;
 
   /// The text of the current element, which must have no child elements.
   std::string nextText();
@@ -94,7 +94,7 @@ class XmlPullParser {
   void skipSubTree();
 
   /// Throws XmlParseError with the current position.
-  [[noreturn]] void exception(const std::string& desc);
+  [[noreturn]] void exception(const std::string& desc) const;
 
  private:
   static std::string stateName(int eventType);

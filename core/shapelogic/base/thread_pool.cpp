@@ -29,6 +29,7 @@ ThreadPool::ThreadPool(unsigned int cores) : total_(std::clamp(cores, 1U, kMaxTh
     for (unsigned int i = 1; i < total_; i++) {
       threads_.emplace_back(&ThreadPool::threadMain, this);
     }
+  // NOLINTNEXTLINE(bugprone-empty-catch): fewer threads than asked for is no failure
   } catch (const std::system_error&) {
     // fewer threads than asked for: go on with the ones there are
   }

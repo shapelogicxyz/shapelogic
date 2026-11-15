@@ -21,6 +21,8 @@ int appendText(char* txt, int len, int at, std::string_view s) {
   const auto room = static_cast<std::size_t>(len - at);
   if (room > 0) {
     const std::size_t n = std::min(s.size(), room - 1);
+    // copied by its size, not as a C string:
+    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
     std::copy_n(s.data(), n, txt + at);
     txt[static_cast<std::size_t>(at) + n] = '\0';
   }

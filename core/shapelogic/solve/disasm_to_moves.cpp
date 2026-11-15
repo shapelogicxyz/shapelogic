@@ -64,6 +64,7 @@ void DisasmToMoves::setStep(float step, bool fadeOut, bool centerActive) {
   }
 
   doRecursive(&*tree_, s, moves_.data(), orients_.data(), centerActive, 0, 0, 0);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): tree_ is tested just above
   doRecursive(&*tree_, s + 1, moves2.data(), orients2.data(), centerActive, 0, 0, 0);
 
   for (unsigned int i = 0; i < maxPieceName_; i++) {

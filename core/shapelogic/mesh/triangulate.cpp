@@ -147,6 +147,7 @@ bool triangulateLoops(const std::vector<Point2>& pts, const std::vector<std::vec
     // spliced at the copy whose wedge holds the hole's outgoing edge (the
     // hole lies inside that copy's interior).
     {
+      // NOLINTNEXTLINE(clang-analyzer-core.DivideZero): a hole has points: hs is not 0
       const double hx = P(at(H, (mi + 1) % hs)).x;
       const double hy = P(at(H, (mi + 1) % hs)).y;
       for (int q = 0; q < n && Pi < 0; q++) {
@@ -164,7 +165,11 @@ bool triangulateLoops(const std::vector<Point2>& pts, const std::vector<std::vec
     double hitX = 1e300;
     double hitT = 0;
     bool found = false;
+    // the start values of the ported search, set on every path below:
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
     double Rx = Mx;
+    // the start values of the ported search, set on every path below:
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
     double Ry = My;
     if (Pi < 0) {
       // The closest edge hit by the ray +x from M. Only edges crossed

@@ -1323,7 +1323,7 @@ SavedPosition Assembler0::savePosition() const {
       out += "(" + std::to_string(rows_[j]) + " " + std::to_string(columns_[j]) + ")";
 
       if (j < pos_) {
-        out += " ";
+        out += ' ';
       }
     }
   }

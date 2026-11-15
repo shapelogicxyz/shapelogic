@@ -477,6 +477,12 @@ disk, so free disk space is what limits it:
 - It writes to the folder in `SHAPELOGIC_SLIDE_DIR`, or else to `sliding` in
   the user's cache folder (see [environment variables](#environment-variables)).
   A small search never touches the disk. The files go when the search ends.
+- One solve of a problem at a time uses that folder. While the app or
+  another `shapelogic_cli` is solving the same problem with the same folder,
+  a second solve ends at once with *another solve of this problem is under
+  way* (exit code 1): the two would overwrite each other's files. Pause the
+  other solve or let it finish, or give this one a folder of its own with
+  `SHAPELOGIC_SLIDE_DIR`. Saved Panex searches are held the same way.
 - `SHAPELOGIC_SLIDE_DISK_GB` limits the disk it may take. By default it may
   use half the free space, at most 200 GB. A larger value is held to the free
   space, less 2 GB or a twentieth of it, so the disk never fills up. On a Mac

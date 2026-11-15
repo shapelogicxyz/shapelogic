@@ -67,7 +67,11 @@ bool VoxelBricks::transform(unsigned int nr) {
     }
   }
   moveMarks(newSize, [&](std::size_t i) {
+    // a shape with cells to move has sizes that are not 0:
+    // NOLINTNEXTLINE(clang-analyzer-core.DivideZero)
     const int x = asInt(static_cast<unsigned int>(i) % sx_);
+    // a shape with cells to move has sizes that are not 0:
+    // NOLINTNEXTLINE(clang-analyzer-core.DivideZero)
     const int y = asInt((static_cast<unsigned int>(i) / sx_) % sy_);
     const int z = asInt(static_cast<unsigned int>(i) / (sx_ * sy_));
     return static_cast<long>(target(x, y, z));
