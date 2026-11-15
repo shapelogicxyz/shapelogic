@@ -65,7 +65,7 @@ import '../styles/landing.css';
           <p class="post-meta">
             <time datetime="2026-11-12">12 November 2026</time> · Release
           </p>
-          <h3 id="post-v1-8">ShapeLogic v1.8.2: watch the search, and manage what it leaves on the disk</h3>
+          <h3 id="post-v1-8">ShapeLogic v1.8.3: watch the search, and manage what it leaves on the disk</h3>
           <h4 class="post-notes">Notes for release v1.8:</h4>
           <p>
             Version 1.8 shows a running search in the 3D view, lists the files that solves leave on
@@ -123,6 +123,19 @@ import '../styles/landing.css';
             search, and <strong>Solve</strong> after a pause now starts afresh. On the Puzzle tab the
             pieces of a problem are listed in the shapes' order, and the collapsed problems card
             shows a chip for each problem.
+          </p>
+          <h4 class="post-notes">Notes for minor release v1.8.3:</h4>
+          <p>
+            The crash recovery copy of a sliding solve is now written at the end of the level the
+            search is on, so a long search is never held up by it: before, each copy cut the level
+            short to be searched again, and a deep search could stop getting any further. A search
+            paused in v1.8.2 carries on from where it stopped. <strong>File &#9656; Save</strong>
+            during a sliding solve saves at once. A sliding or Panex problem is solved in one place at
+            a time: a second solve of it in another window, or in <code>shapelogic_cli</code>, is
+            refused with a message instead of the two overwriting each other's search files. The
+            <strong>Performance Analysis</strong> now
+            estimates the next eleven rows past any depth instead of stopping at 100 moves, and the
+            <strong>Disk space</strong> settings move in finer steps up to 5 TB.
           </p>
           <p>
             <a href="https://github.com/shapelogicxyz/shapelogic/releases/latest">Release notes and downloads on GitHub</a>
