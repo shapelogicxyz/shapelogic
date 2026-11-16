@@ -1,0 +1,1470 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimized Paths</title>
+<meta name="description" content="How the Sliding Puzzle Solver's optimized paths option works on boards of blocks, how far its move counts can be trusted as the fewest possible, and why the normal full search takes so much longer.">
+<style>
+
+:root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0 auto; max-width: 860px; padding: 32px 16px 64px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; color: var(--ink); background: var(--page); }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--rule); break-after: avoid; }
+h3 { font-size: 16px; margin: 22px 0 6px; break-after: avoid; }
+p { margin: 0 0 10px; }
+.sub { color: var(--ink-2); font-size: 17px; margin-bottom: 4px; }
+.meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.box { background: var(--wash); border-radius: 8px; padding: 14px 18px; margin: 14px 0 18px; break-inside: avoid; }
+.box h3 { margin-top: 0; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; }
+li { margin-bottom: 4px; }
+figure { margin: 18px 0 20px; break-inside: avoid; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.row { display: flex; gap: 12px; }
+.row figure { flex: 1; margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 10px 0 16px; break-inside: avoid; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); }
+table.num td { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.num td:first-child, table.num th:first-child { text-align: left; }
+table.num th { text-align: right; }
+table.small { font-size: 11px; } table.small th, table.small td { padding: 3px 5px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+.formula { font-family: "Times New Roman", Times, serif; font-size: 17px; text-align: center; margin: 12px 0; }
+.tick, .legend, .note, .csub, .axlabel, .vlabel, .boxtext { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
+.tick { font-size: 11px; fill: var(--muted); } .axlabel { font-size: 11.5px; fill: var(--muted); }
+.legend, .note, .boxtext { font-size: 11.5px; fill: var(--ink-2); } .vlabel { font-size: 11px; fill: var(--ink-2); }
+.ctitle { font-size: 13.5px; font-weight: 600; fill: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.csub { font-size: 11px; fill: var(--muted); }
+.onfill { font-size: 10px; fill: #ffffff; font-family: system-ui, sans-serif; }
+.grid { stroke: var(--grid); stroke-width: 1; } .axis { stroke: var(--axis); stroke-width: 1; }
+.refs li { font-size: 13px; margin-bottom: 4px; }
+a { color: var(--accent); }
+.toc { columns: 2; font-size: 13.5px; } .toc li { margin-bottom: 2px; }
+@media (max-width: 700px) { .row { display: block; } .row figure { margin: 18px 0; } }
+@page { size: A4; margin: 17mm 15mm 18mm 15mm; @bottom-right { content: counter(page) ' / ' counter(pages); font: 8.5pt system-ui, sans-serif; color: #898781; } }
+@media print {
+  .refs li { font-size: 8.6pt; margin-bottom: 2pt; }
+  html, body { background: #fff; } body { max-width: none; padding: 0; font-size: 10.5pt; line-height: 1.42; }
+  :root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+  h1 { font-size: 24pt; } h2 { font-size: 15pt; margin-top: 22pt; } h3 { font-size: 11.5pt; }
+  table { font-size: 8.8pt; } table.small { font-size: 7.6pt; } figcaption { font-size: 9pt; } .meta { font-size: 9pt; } .sub { font-size: 12.5pt; }
+  .row { display: flex; } .pb { break-before: page; } a { color: inherit; text-decoration: none; }
+  .toc { columns: 2; }
+}
+
+
+@media screen {
+:root { --surface-1:#f3f6fb; --page:#ffffff; --ink:#0f1b2d; --ink-2:#55627a; --muted:#55627a; --grid:#dde4ef; --axis:#c5cfdf; --wash:#f3f6fb; --rule:#dde4ef; --accent:#1a73e8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; } }
+:root[data-theme="dark"] { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; }
+html { background: var(--page); }
+body { max-width: none; margin: 0; padding: 0; font-size: 17px; line-height: 1.6; background: var(--page); color: var(--ink); }
+main { max-width: 1060px; margin: 0 auto; padding: 48px 16px 64px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0 0 16px; }
+.sub { font-size: 19px; }
+a { color: var(--accent); }
+.banner { background: #fff; border-bottom: 1px solid var(--rule); margin: 0; width: auto; }
+.crumb { margin: 0 0 12px; font-size: 14px; }
+}
+.banner a, .banner img { display: block; } .banner img { width: 100%; max-width: 1000px; height: auto; margin: 0 auto; }
+.crumb a { color: var(--accent); }
+@media print { .banner, .crumb { display: none; } }
+
+.tw { overflow-x: auto; margin: 10px 0 16px; } .tw table { margin: 0; min-width: 540px; }
+table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
+.steps li { margin-bottom: 7px; }
+.lead { font-size: 1.05em; }
+.blk { fill: var(--series-1); fill-opacity: 0.26; } .sml { fill: var(--series-2); fill-opacity: 0.78; }
+.floor { fill: var(--page); } .edge { stroke: var(--ink-2); stroke-width: 1.1; fill: none; }
+.cellline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+.unitline { stroke: var(--grid); stroke-width: 0.6; }
+.pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
+
+</style></head><body>
+<header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
+<main>
+<nav class="crumb"><a href="/">ShapeLogic</a> › <a href="/research/">Research</a></nav>
+<h1>Optimized paths: a sliding search held to the grid, and how far to trust its answer</h1>
+<p class="sub">How the Solver's <b>Automatically use optimized paths</b> option works on boards of blocks, what its move counts prove, and why the normal full search takes so much longer</p>
+<p class="meta">16 November 2026 · Sources: <span class="mono">core/shapelogic/solve/sliding_search.cpp</span>, decision records 0029, 0031, 0032 and 0033; solves of "Abe 1 to 6 Heart" and of a scaled Klotski with <span class="mono">shapelogic_cli</span> (release 1.8.4, MacBook Air M4, 32 GB)</p>
+
+<div class="box"><h3>Summary</h3>
+<ul>
+<li><b>What it does.</b> On a board that divides into a grid of cells that its blocks fill, optimized paths lets a piece come to rest only on that grid. Pieces still slide through the places in between; they just may not stop there. On "Abe 1 to 6 Heart" this leaves 240 resting places out of 2,511.</li>
+<li><b>What is certain.</b> The search is the same exhaustive search as a normal solve, over fewer arrangements. The path it finds is a real solution, and it is the shortest of all solutions that only rest on the grid.</li>
+<li><b>What is not certain.</b> A solution that rests a piece off the grid could be shorter. So an <i>(optimized)</i> result is an upper limit on the fewest moves, not a proof of it, and "no solution" proves nothing.</li>
+<li><b>How good the limit is.</b> On boards where every piece is made of whole cells it is exact: this can be proved, and a Klotski scaled up two and three times confirms it (81 moves either way). On boards with small pieces riding in the blocks' holes, such as the Heart puzzles, it has matched the full search on all five problems where the full search finished (14 to 40 moves). The longer results, 47, 50 and 56 moves, have not been checked by a full search. A small hand-made board shows that the grid can miss: no solution on the grid, four moves in full.</li>
+<li><b>Why the normal Solve is so much slower.</b> It counts every resting place. On the same problem its levels were 207 times wider after 14 moves from each end, and the gap was still growing. On a 40-move problem the full search took 8,852 seconds and 5.09 billion arrangements; optimized paths took 2.3 seconds and 6.9 million.</li>
+</ul></div>
+
+<ol class="toc">
+<li><a href="#s1">What the search counts</a></li>
+<li><a href="#s2">The grid, and the stops it leaves</a></li>
+<li><a href="#s3">How the search uses the grid</a></li>
+<li><a href="#s4">How sure is the answer?</a></li>
+<li><a href="#s5">How it differs from the normal Solve</a></li>
+<li><a href="#s6">Which to use</a></li>
+</ol>
+
+<h2 id="s1">1. What the search counts</h2>
+
+<p>In a sliding puzzle one <b>move</b> is one piece sliding anywhere it can reach while the others stay where they are. It may go any distance and turn any number of corners. With <b>Allow Nested Slides</b>, a piece may also carry the pieces nested inside its outline. The Solver looks for the fewest such moves from the start to the goal.</p>
+<p>An <b>arrangement</b> is the position of every piece at once. The Solver searches level by level: every arrangement one move from the start, then every arrangement two moves away, and so on until the goal turns up. (The <a href="/research/searching-from-both-ends.html">companion page</a> describes that search and how it runs from both ends.) The work is the number of arrangements, so what matters is how many places each piece can come to rest. This page calls such a place a <b>stop</b>.</p>
+<p>The boards are drawn on a grid of small cells, and a piece can rest at every cell position it fits. Many sliding puzzles are coarser than they are drawn. Figure 1 shows one: an 18 by 18 board of six blocks, each 6 cells high and 6 or 12 wide, with seven 4 by 4 pieces riding in the blocks' holes. Its solutions only ever move a block by a whole block's width. But as far as the search can tell, a block that slides into an empty space can also stop one, two, three, four or five cells of the way in, and each of those is a new arrangement with moves of its own.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 330" width="640" height="330" class="chart" role="img" aria-label="The start and goal arrangements of Abe 1 to 6 Heart, Problem 3">
+<rect width="640" height="330" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">The board of "Abe 1 to 6 Heart", Problem 3: start and goal</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">18 by 18 cells; the dashed lines are the 6-cell grid the solver finds</text>
+<text x="166.0" y="58.0" class="note" text-anchor="middle">Start</text>
+<text x="474.0" y="58.0" class="note" text-anchor="middle">Goal</text>
+<rect x="40" y="66" width="252" height="252" class="floor"/>
+<rect x="40" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="68" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="82" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="68" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="82" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="94" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="94" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="108" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="108" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="122" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="122" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="136" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="136" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="40" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="68" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="82" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="152" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="166" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="180" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="68" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="82" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="152" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="166" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="180" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="222" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="236" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="250" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="264" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="222" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="236" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="250" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="264" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="152" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="194" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="194" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="194" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="194" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="96" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="40" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="68" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="82" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="54" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="68" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="82" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="96" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="110" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="152" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="166" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="180" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="138" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="152" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="166" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="180" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="124" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="194" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="222" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="236" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="250" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="264" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="222" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="236" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="250" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="264" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="208" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="278" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="40" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="40" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="40" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="40" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="54" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="68" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="82" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="138" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="138" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="138" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="138" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="152" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="166" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="180" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="222" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="236" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="250" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="264" y="304" width="14.3" height="14.3" class="sml"/>
+<path d="M40,66h14M54,66h14M68,66h14M82,66h14M96,66h14M110,66h14M54,94h14M68,94h14M82,94h14M96,94h14M40,150h14M54,150h14M68,150h14M82,150h14M96,150h14M110,150h14M124,150h14M138,150h14M152,150h14M166,150h14M180,150h14M194,150h14M208,150h14M222,150h14M236,150h14M250,150h14M264,150h14M278,150h14M152,164h14M166,164h14M180,164h14M194,164h14M54,178h14M68,178h14M82,178h14M96,178h14M222,178h14M236,178h14M250,178h14M264,178h14M152,220h14M166,220h14M180,220h14M194,220h14M40,234h14M54,234h14M68,234h14M82,234h14M96,234h14M110,234h14M124,234h14M138,234h14M152,234h14M166,234h14M180,234h14M194,234h14M208,234h14M222,234h14M236,234h14M250,234h14M264,234h14M278,234h14M40,248h14M54,248h14M68,248h14M82,248h14M138,262h14M152,262h14M166,262h14M180,262h14M222,262h14M236,262h14M250,262h14M264,262h14M40,304h14M54,304h14M68,304h14M82,304h14M40,318h14M54,318h14M68,318h14M82,318h14M96,318h14M110,318h14M124,318h14M138,318h14M152,318h14M166,318h14M180,318h14M194,318h14M208,318h14M222,318h14M236,318h14M250,318h14M264,318h14M278,318h14M40,66v14M40,80v14M40,94v14M40,108v14M40,122v14M40,136v14M40,150v14M40,164v14M40,178v14M40,192v14M40,206v14M40,220v14M40,234v14M40,248v14M40,262v14M40,276v14M40,290v14M40,304v14M54,94v14M54,108v14M54,122v14M54,136v14M54,178v14M54,192v14M54,206v14M54,220v14M96,248v14M96,262v14M96,276v14M96,290v14M110,94v14M110,108v14M110,122v14M110,136v14M110,178v14M110,192v14M110,206v14M110,220v14M124,66v14M124,80v14M124,94v14M124,108v14M124,122v14M124,136v14M124,234v14M124,248v14M124,262v14M124,276v14M124,290v14M124,304v14M138,262v14M138,276v14M138,290v14M138,304v14M152,164v14M152,178v14M152,192v14M152,206v14M194,262v14M194,276v14M194,290v14M194,304v14M208,150v14M208,164v14M208,178v14M208,192v14M208,206v14M208,220v14M208,234v14M208,248v14M208,262v14M208,276v14M208,290v14M208,304v14M222,178v14M222,192v14M222,206v14M222,220v14M222,262v14M222,276v14M222,290v14M222,304v14M278,178v14M278,192v14M278,206v14M278,220v14M278,262v14M278,276v14M278,290v14M278,304v14M292,150v14M292,164v14M292,178v14M292,192v14M292,206v14M292,220v14M292,234v14M292,248v14M292,262v14M292,276v14M292,290v14M292,304v14" class="edge"/>
+<line x1="124" y1="66" x2="124" y2="318" class="cellline"/>
+<line x1="40" y1="150" x2="292" y2="150" class="cellline"/>
+<line x1="208" y1="66" x2="208" y2="318" class="cellline"/>
+<line x1="40" y1="234" x2="292" y2="234" class="cellline"/>
+<rect x="40" y="66" width="252" height="252" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+<text x="82.0" y="126.0" class="pl" text-anchor="middle">f</text>
+<text x="180.0" y="196.0" class="pl" text-anchor="middle">a</text>
+<text x="82.0" y="210.0" class="pl" text-anchor="middle">b</text>
+<text x="250.0" y="210.0" class="pl" text-anchor="middle">d</text>
+<text x="68.0" y="280.0" class="pl" text-anchor="middle">e</text>
+<text x="166.0" y="294.0" class="pl" text-anchor="middle">g</text>
+<text x="250.0" y="294.0" class="pl" text-anchor="middle">c</text>
+<rect x="348" y="66" width="252" height="252" class="floor"/>
+<rect x="348" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="376" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="390" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="66" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="376" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="390" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="80" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="94" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="94" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="108" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="108" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="122" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="122" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="136" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="136" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="94" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="108" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="122" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="136" width="14.3" height="14.3" class="sml"/>
+<rect x="348" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="376" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="390" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="460" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="474" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="488" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="376" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="390" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="460" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="474" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="488" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="530" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="544" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="558" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="572" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="150" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="530" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="544" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="558" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="572" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="164" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="178" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="192" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="206" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="220" width="14.3" height="14.3" class="blk"/>
+<rect x="460" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="502" y="164" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="502" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="502" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="502" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="404" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="178" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="192" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="206" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="220" width="14.3" height="14.3" class="sml"/>
+<rect x="348" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="376" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="390" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="362" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="376" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="390" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="404" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="418" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="460" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="474" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="488" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="446" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="460" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="474" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="488" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="432" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="502" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="530" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="544" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="558" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="572" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="234" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="530" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="544" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="558" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="572" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="248" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="262" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="276" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="290" width="14.3" height="14.3" class="blk"/>
+<rect x="516" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="586" y="304" width="14.3" height="14.3" class="blk"/>
+<rect x="348" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="248" width="14.3" height="14.3" class="sml"/>
+<rect x="348" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="348" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="348" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="362" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="376" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="390" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="446" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="446" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="446" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="446" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="460" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="474" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="488" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="262" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="276" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="290" width="14.3" height="14.3" class="sml"/>
+<rect x="530" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="544" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="558" y="304" width="14.3" height="14.3" class="sml"/>
+<rect x="572" y="304" width="14.3" height="14.3" class="sml"/>
+<path d="M348,66h14M362,66h14M376,66h14M390,66h14M404,66h14M418,66h14M362,94h14M376,94h14M390,94h14M404,94h14M348,150h14M362,150h14M376,150h14M390,150h14M404,150h14M418,150h14M432,150h14M446,150h14M460,150h14M474,150h14M488,150h14M502,150h14M516,150h14M530,150h14M544,150h14M558,150h14M572,150h14M586,150h14M460,164h14M474,164h14M488,164h14M502,164h14M362,178h14M376,178h14M390,178h14M404,178h14M530,178h14M544,178h14M558,178h14M572,178h14M460,220h14M474,220h14M488,220h14M502,220h14M348,234h14M362,234h14M376,234h14M390,234h14M404,234h14M418,234h14M432,234h14M446,234h14M460,234h14M474,234h14M488,234h14M502,234h14M516,234h14M530,234h14M544,234h14M558,234h14M572,234h14M586,234h14M348,248h14M362,248h14M376,248h14M390,248h14M446,262h14M460,262h14M474,262h14M488,262h14M530,262h14M544,262h14M558,262h14M572,262h14M348,304h14M362,304h14M376,304h14M390,304h14M348,318h14M362,318h14M376,318h14M390,318h14M404,318h14M418,318h14M432,318h14M446,318h14M460,318h14M474,318h14M488,318h14M502,318h14M516,318h14M530,318h14M544,318h14M558,318h14M572,318h14M586,318h14M348,66v14M348,80v14M348,94v14M348,108v14M348,122v14M348,136v14M348,150v14M348,164v14M348,178v14M348,192v14M348,206v14M348,220v14M348,234v14M348,248v14M348,262v14M348,276v14M348,290v14M348,304v14M362,94v14M362,108v14M362,122v14M362,136v14M362,178v14M362,192v14M362,206v14M362,220v14M404,248v14M404,262v14M404,276v14M404,290v14M418,94v14M418,108v14M418,122v14M418,136v14M418,178v14M418,192v14M418,206v14M418,220v14M432,66v14M432,80v14M432,94v14M432,108v14M432,122v14M432,136v14M432,234v14M432,248v14M432,262v14M432,276v14M432,290v14M432,304v14M446,262v14M446,276v14M446,290v14M446,304v14M460,164v14M460,178v14M460,192v14M460,206v14M502,262v14M502,276v14M502,290v14M502,304v14M516,150v14M516,164v14M516,178v14M516,192v14M516,206v14M516,220v14M516,234v14M516,248v14M516,262v14M516,276v14M516,290v14M516,304v14M530,178v14M530,192v14M530,206v14M530,220v14M530,262v14M530,276v14M530,290v14M530,304v14M586,178v14M586,192v14M586,206v14M586,220v14M586,262v14M586,276v14M586,290v14M586,304v14M600,150v14M600,164v14M600,178v14M600,192v14M600,206v14M600,220v14M600,234v14M600,248v14M600,262v14M600,276v14M600,290v14M600,304v14" class="edge"/>
+<line x1="432" y1="66" x2="432" y2="318" class="cellline"/>
+<line x1="348" y1="150" x2="600" y2="150" class="cellline"/>
+<line x1="516" y1="66" x2="516" y2="318" class="cellline"/>
+<line x1="348" y1="234" x2="600" y2="234" class="cellline"/>
+<rect x="348" y="66" width="252" height="252" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+<text x="390.0" y="126.0" class="pl" text-anchor="middle">a</text>
+<text x="488.0" y="196.0" class="pl" text-anchor="middle">d</text>
+<text x="390.0" y="210.0" class="pl" text-anchor="middle">e</text>
+<text x="558.0" y="210.0" class="pl" text-anchor="middle">f</text>
+<text x="376.0" y="280.0" class="pl" text-anchor="middle">b</text>
+<text x="474.0" y="294.0" class="pl" text-anchor="middle">c</text>
+<text x="558.0" y="294.0" class="pl" text-anchor="middle">g</text>
+</svg><figcaption>Figure 1. Problem 3 of "Abe 1 to 6 Heart". Blocks are blue, small pieces orange; the letters show where each small piece has to go. The fewest moves found is 47.</figcaption></figure>
+
+<h2 id="s2">2. The grid, and the stops it leaves</h2>
+
+<h3>2.1 Finding the grid</h3>
+<p>The Solver works the grid out from the board. It takes the largest cell size, above one, for which all of these hold:</p>
+<ul>
+<li>the size divides the board's width and height;</li>
+<li>at least one piece measures a whole number of such cells each way (a <b>block</b>);</li>
+<li>every block starts on the grid's lines, and fills its goal on them;</li>
+<li>the grid leaves fewer stops than there were.</li>
+</ul>
+<p>For Figure 1 that is a size of 6: a 3 by 3 grid. A board that fits no such grid has no optimized search; the option then does nothing and every stop is searched.</p>
+
+<h3>2.2 Where each piece may stop</h3>
+<p>A piece may rest only where its position within a cell of the grid, its <b>offset</b>, is one that the grid allows it:</p>
+<ul>
+<li><b>Blocks</b> get the offsets at which they start and end, which by the rule above is the grid's lines. A block rests only in whole cells.</li>
+<li><b>Smaller pieces</b> get every offset at which a piece of the same shape starts or fills a goal. Pieces that swap places therefore share their offsets, and so do copies.</li>
+<li><b>Holes.</b> A piece also gets the offsets at which it lies wholly inside another piece's outline while that piece is on the grid. This covers a hole that no piece happens to start in.</li>
+<li><b>A piece with no offsets at all</b> may stop anywhere, so the grid never freezes a piece it knows nothing about.</li>
+</ul>
+<p>The seven small pieces of Figure 1 start and end in holes at three different offsets, so each of them has three stops in every cell of the grid.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 332" width="640" height="332" class="chart" role="img" aria-label="The stops of a block and of a small piece, with and without the grid">
+<rect width="640" height="332" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">Where a piece may stop on the empty board</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">Each dot is a stop, drawn where the piece's top left corner would be</text>
+<rect x="46" y="68" width="234" height="234" class="floor"/>
+<line x1="59" y1="68" x2="59" y2="302" class="unitline"/>
+<line x1="46" y1="81" x2="280" y2="81" class="unitline"/>
+<line x1="72" y1="68" x2="72" y2="302" class="unitline"/>
+<line x1="46" y1="94" x2="280" y2="94" class="unitline"/>
+<line x1="85" y1="68" x2="85" y2="302" class="unitline"/>
+<line x1="46" y1="107" x2="280" y2="107" class="unitline"/>
+<line x1="98" y1="68" x2="98" y2="302" class="unitline"/>
+<line x1="46" y1="120" x2="280" y2="120" class="unitline"/>
+<line x1="111" y1="68" x2="111" y2="302" class="unitline"/>
+<line x1="46" y1="133" x2="280" y2="133" class="unitline"/>
+<line x1="124" y1="68" x2="124" y2="302" class="cellline"/>
+<line x1="46" y1="146" x2="280" y2="146" class="cellline"/>
+<line x1="137" y1="68" x2="137" y2="302" class="unitline"/>
+<line x1="46" y1="159" x2="280" y2="159" class="unitline"/>
+<line x1="150" y1="68" x2="150" y2="302" class="unitline"/>
+<line x1="46" y1="172" x2="280" y2="172" class="unitline"/>
+<line x1="163" y1="68" x2="163" y2="302" class="unitline"/>
+<line x1="46" y1="185" x2="280" y2="185" class="unitline"/>
+<line x1="176" y1="68" x2="176" y2="302" class="unitline"/>
+<line x1="46" y1="198" x2="280" y2="198" class="unitline"/>
+<line x1="189" y1="68" x2="189" y2="302" class="unitline"/>
+<line x1="46" y1="211" x2="280" y2="211" class="unitline"/>
+<line x1="202" y1="68" x2="202" y2="302" class="cellline"/>
+<line x1="46" y1="224" x2="280" y2="224" class="cellline"/>
+<line x1="215" y1="68" x2="215" y2="302" class="unitline"/>
+<line x1="46" y1="237" x2="280" y2="237" class="unitline"/>
+<line x1="228" y1="68" x2="228" y2="302" class="unitline"/>
+<line x1="46" y1="250" x2="280" y2="250" class="unitline"/>
+<line x1="241" y1="68" x2="241" y2="302" class="unitline"/>
+<line x1="46" y1="263" x2="280" y2="263" class="unitline"/>
+<line x1="254" y1="68" x2="254" y2="302" class="unitline"/>
+<line x1="46" y1="276" x2="280" y2="276" class="unitline"/>
+<line x1="267" y1="68" x2="267" y2="302" class="unitline"/>
+<line x1="46" y1="289" x2="280" y2="289" class="unitline"/>
+<rect x="46" y="68" width="234" height="234" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+<rect x="124" y="146" width="78" height="78" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.4"/>
+<circle cx="46" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="59" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="72" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="85" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="98" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="111" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="124" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="137" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="150" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="163" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="176" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="189" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="202" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="46" cy="68" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="124" cy="68" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="202" cy="68" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="46" cy="146" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="124" cy="146" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="202" cy="146" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="46" cy="224" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="124" cy="224" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="202" cy="224" r="4" fill="var(--series-1)" stroke="var(--page)" stroke-width="1"/>
+<text x="163.0" y="60.0" class="note" text-anchor="middle">A 6 by 6 block</text>
+<text x="163.0" y="320.0" class="note" text-anchor="middle">169 stops in a full search, 9 on the grid</text>
+<rect x="360" y="68" width="234" height="234" class="floor"/>
+<line x1="373" y1="68" x2="373" y2="302" class="unitline"/>
+<line x1="360" y1="81" x2="594" y2="81" class="unitline"/>
+<line x1="386" y1="68" x2="386" y2="302" class="unitline"/>
+<line x1="360" y1="94" x2="594" y2="94" class="unitline"/>
+<line x1="399" y1="68" x2="399" y2="302" class="unitline"/>
+<line x1="360" y1="107" x2="594" y2="107" class="unitline"/>
+<line x1="412" y1="68" x2="412" y2="302" class="unitline"/>
+<line x1="360" y1="120" x2="594" y2="120" class="unitline"/>
+<line x1="425" y1="68" x2="425" y2="302" class="unitline"/>
+<line x1="360" y1="133" x2="594" y2="133" class="unitline"/>
+<line x1="438" y1="68" x2="438" y2="302" class="cellline"/>
+<line x1="360" y1="146" x2="594" y2="146" class="cellline"/>
+<line x1="451" y1="68" x2="451" y2="302" class="unitline"/>
+<line x1="360" y1="159" x2="594" y2="159" class="unitline"/>
+<line x1="464" y1="68" x2="464" y2="302" class="unitline"/>
+<line x1="360" y1="172" x2="594" y2="172" class="unitline"/>
+<line x1="477" y1="68" x2="477" y2="302" class="unitline"/>
+<line x1="360" y1="185" x2="594" y2="185" class="unitline"/>
+<line x1="490" y1="68" x2="490" y2="302" class="unitline"/>
+<line x1="360" y1="198" x2="594" y2="198" class="unitline"/>
+<line x1="503" y1="68" x2="503" y2="302" class="unitline"/>
+<line x1="360" y1="211" x2="594" y2="211" class="unitline"/>
+<line x1="516" y1="68" x2="516" y2="302" class="cellline"/>
+<line x1="360" y1="224" x2="594" y2="224" class="cellline"/>
+<line x1="529" y1="68" x2="529" y2="302" class="unitline"/>
+<line x1="360" y1="237" x2="594" y2="237" class="unitline"/>
+<line x1="542" y1="68" x2="542" y2="302" class="unitline"/>
+<line x1="360" y1="250" x2="594" y2="250" class="unitline"/>
+<line x1="555" y1="68" x2="555" y2="302" class="unitline"/>
+<line x1="360" y1="263" x2="594" y2="263" class="unitline"/>
+<line x1="568" y1="68" x2="568" y2="302" class="unitline"/>
+<line x1="360" y1="276" x2="594" y2="276" class="unitline"/>
+<line x1="581" y1="68" x2="581" y2="302" class="unitline"/>
+<line x1="360" y1="289" x2="594" y2="289" class="unitline"/>
+<rect x="360" y="68" width="234" height="234" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+<rect x="451" y="172" width="52" height="52" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.4"/>
+<circle cx="360" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="68" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="81" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="94" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="107" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="120" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="133" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="146" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="159" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="172" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="185" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="198" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="211" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="224" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="237" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="373" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="386" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="399" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="412" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="425" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="438" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="451" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="464" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="477" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="490" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="503" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="516" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="529" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="542" cy="250" r="1.5" fill="var(--muted)"/>
+<circle cx="360" cy="81" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="373" cy="94" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="386" cy="81" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="438" cy="81" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="451" cy="94" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="464" cy="81" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="516" cy="81" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="529" cy="94" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="542" cy="81" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="360" cy="159" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="373" cy="172" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="386" cy="159" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="438" cy="159" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="451" cy="172" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="464" cy="159" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="516" cy="159" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="529" cy="172" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="542" cy="159" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="360" cy="237" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="373" cy="250" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="386" cy="237" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="438" cy="237" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="451" cy="250" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="464" cy="237" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="516" cy="237" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="529" cy="250" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<circle cx="542" cy="237" r="4" fill="var(--series-2)" stroke="var(--page)" stroke-width="1"/>
+<text x="477.0" y="60.0" class="note" text-anchor="middle">A 4 by 4 piece</text>
+<text x="477.0" y="320.0" class="note" text-anchor="middle">225 stops in a full search, 27 on the grid</text>
+</svg><figcaption>Figure 2. Every stop of one block and of one small piece on the empty board of Figure 1. The small dots are the stops a full search counts; the large dots are the ones the grid leaves. One position of each piece is drawn.</figcaption></figure>
+<div class="tw"><table class="num">
+<tr><th>Pieces of Figure 1</th><th>Stops each, full search</th><th>Stops each, on the grid</th><th>Fewer by</th></tr>
+<tr><td>Five 6 by 6 blocks</td><td>169</td><td>9</td><td>18.8&times;</td></tr>
+<tr><td>One 12 by 6 block</td><td>91</td><td>6</td><td>15.2&times;</td></tr>
+<tr><td>Seven 4 by 4 pieces</td><td>225</td><td>27</td><td>8.3&times;</td></tr>
+<tr><td>All 13 pieces together</td><td>2,511</td><td>240</td><td>10.5&times;</td></tr>
+</table></div>
+<p>These totals are the ones the Solver shows in its question before a solve. They count stops on the empty board; the number of arrangements is roughly what you get by combining a stop for every piece, so a tenfold cut for each piece is a far larger cut for the board as a whole (section 5).</p>
+
+<h2 id="s3">3. How the search uses the grid</h2>
+
+<ul>
+<li><b>Pieces pass through, they do not stop.</b> When a piece moves, the search still follows it cell by cell through every position it can reach. It records an arrangement only where the piece is at a stop. So a block can cross an empty cell on its way to the next one, and a small piece can slide the length of the board, exactly as in a full search.</li>
+<li><b>A group stops only where all of it may.</b> With nested slides, a block that carries small pieces can rest only where every piece of the group is at one of its own stops.</li>
+<li><b>Shorter keys.</b> Each arrangement is stored as one number with a field for each piece. With the grid, a field only has to number the piece's stops, not all its positions. The Figure 1 board fits 64 bits this way and needs 128 in a full search. A larger board, "Abe 1 to 8 Heart", needs about 170 bits in full, which is more than the fast search can hold; with the grid it needs 100.</li>
+<li><b>Both ends.</b> When every piece has a goal position the search runs from the start and from the goal until the two meet, with or without the grid.</li>
+<li><b>Stops of one cell searched as one.</b> When the search has to run from the start alone, with nested slides, a small piece that could be at any of its stops in an otherwise empty cell is searched as a single arrangement, and put in the right place when a block arrives over it. This finds the same moves in about a third of the arrangements.</li>
+</ul>
+<p>The result says how it was found. The problems list shows <i>47 moves (optimized)</i> or <i>no solution (optimized)</i>, and the file keeps that label. When the option's box is off, <b>Solve</b> asks first whenever the board fits a grid: <b>Use Optimized Paths</b> for this solve, or <b>Full Search</b>.</p>
+
+<h2 id="s4">4. How sure is the answer?</h2>
+
+<p>The question has two halves, and they have different answers.</p>
+
+<h3>4.1 Within the grid: certain</h3>
+<p>Optimized paths is not a shortcut inside the search. It is the same exhaustive level search as a normal solve, run on a smaller set of arrangements. Everything that search guarantees still holds for that set:</p>
+<ul>
+<li>the path it returns is a real solution: every step is a legal move of the full puzzle;</li>
+<li>no solution that rests only at stops of the grid has fewer moves;</li>
+<li>if it reports no solution, then no solution rests only at stops of the grid.</li>
+</ul>
+<p>The search itself is checked heavily. Its results are compared in the tests with an older, independent search on thousands of generated boards; the search from both ends was compared with the search from one end on 5,669 boards; and every path returned is replayed move by move.</p>
+
+<h3>4.2 Against the true minimum: an upper limit</h3>
+<p>What the grid cannot rule out is a solution that parks a piece off the grid and is shorter for it. So the honest reading of <i>47 moves (optimized)</i> is "47 moves is possible, and the fewest is 47 or less". How often is it less? That depends on the kind of board.</p>
+
+<h3>4.3 Boards of whole-cell pieces: exact</h3>
+<p>If every piece is made of whole cells of the grid, the floor is too, every piece starts and ends on the grid's lines, and nested slides are off, then the grid loses nothing. The argument is short.</p>
+<p>Take any solution of the full puzzle. At every moment, pull each piece back to the nearest grid line on its left and the nearest one above it. In other words, round both of its coordinates down to a whole number of cells.</p>
+<ul>
+<li><b>Nothing overlaps.</b> Two whole cells that did not overlap were at least a cell apart in one direction. Rounding both down keeps them at least a cell apart. So pieces made of whole cells that did not overlap still do not.</li>
+<li><b>Nothing leaves the board.</b> A cell of a piece that was inside the floor rounds to a floor cell it was already touching.</li>
+<li><b>A move stays a move.</b> While one piece slides, the others do not move, so their rounded positions do not move either. The sliding piece's rounded position either stays put or steps one cell at a time through free cells. One move of the full solution becomes one move on the grid, or none.</li>
+</ul>
+<p>The start and the goal are on the grid, so rounding leaves them alone. The rounded solution is therefore a solution on the grid with no more moves than the one we started from. Applied to a shortest solution, it shows the grid has one just as short.</p>
+<p>This can be tested. Klotski is a board of whole-cell pieces whose fewest moves, counted the way ShapeLogic counts them, is known to be 81. Drawn at its usual size it has no grid to find. Drawn with every cell doubled or tripled, a full search has two or three times as many places to stop along every slide, and the Solver finds a grid of 2 or 3:</p>
+<div class="tw"><table class="num">
+<tr><th>Scale</th><th>Board</th><th>Grid found</th><th>Stops, full &rarr; grid</th><th>Full search: moves</th><th>arrangements</th><th>Optimized: moves</th><th>arrangements</th></tr>
+<tr><td>1&times;</td><td>4 by 5</td><td>none</td><td></td><td>81</td><td>23,791</td><td>81</td><td>23,791</td></tr>
+<tr><td>2&times;</td><td>8 by 10</td><td>2 cells</td><td>528 &rarr; 171</td><td>81</td><td>107,021</td><td>81</td><td>23,791</td></tr>
+<tr><td>3&times;</td><td>12 by 15</td><td>3 cells</td><td>1,081 &rarr; 171</td><td>81</td><td>302,909</td><td>81</td><td>23,791</td></tr>
+</table></div>
+<p>The full search finds 81 moves at every scale, while its work grows from 23,791 arrangements to 302,909. Optimized paths finds 81 as well, and at every scale it visits exactly the 23,791 arrangements of the small board: the grid has undone the scaling and nothing else. (At 1&times; no grid is found, so the optimized run is the full search.)</p>
+
+<h3>4.4 Boards with small pieces: not proved, and it can fail</h3>
+<p>The argument above needs whole cells. The Heart boards break that in two ways: the small pieces are smaller than a cell, and the blocks have holes. Rounding a small piece to the grid can push it out of the hole it sits in or into a wall. So nothing guarantees that a part-way stop never helps there, and there are two ways it could:</p>
+<ul>
+<li><b>A small piece may need to wait somewhere that is not one of its offsets.</b> Its stops are only the offsets at which pieces of its shape start, end or fit a hole. A pocket in the floor, or a spot half-way down a corridor, is not among them.</li>
+<li><b>A block parked part of the way</b> changes which holes face each other and which gaps are open. That could let a small piece cross between two blocks that never line up on the grid.</li>
+</ul>
+<p>The first is easy to show on a small board. Figure 3 is taken from the engine's tests. Two unit pieces have to change places along a corridor one cell wide. The only way is for one of them to step up into a pocket while the other passes. The corner block gives the board a grid of 2, and the pocket is one cell up, at an offset no unit piece starts or ends at. A full search solves the board in four moves. On the grid it has no solution.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 262" width="640" height="262" class="chart" role="img" aria-label="A small board where the grid finds no path and a full search finds four moves">
+<rect width="640" height="262" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">A board the grid cannot solve</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">From the engine's tests: units a and b are to change places; the grid is 2 cells</text>
+<text x="104.0" y="62.0" class="note" text-anchor="middle">Start</text>
+<rect x="24" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="64" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="64" y="150" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="104" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="104" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="104" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="144" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="144" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="144" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="105" y="71" width="78" height="78" class="floor"/>
+<rect x="107" y="73" width="74" height="74" rx="3" class="blk" stroke="var(--series-1)"/>
+<text x="144.0" y="114.0" class="note" text-anchor="middle">block</text>
+<rect x="28" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
+<text x="44.0" y="214.0" class="pl" text-anchor="middle">a</text>
+<rect x="68" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
+<text x="84.0" y="214.0" class="pl" text-anchor="middle">b</text>
+<text x="312.0" y="62.0" class="note" text-anchor="middle">After two moves of the full search</text>
+<rect x="232" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="272" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="272" y="150" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="312" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="312" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="312" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="352" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="352" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="352" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="313" y="71" width="78" height="78" class="floor"/>
+<rect x="315" y="73" width="74" height="74" rx="3" class="blk" stroke="var(--series-1)"/>
+<text x="352.0" y="114.0" class="note" text-anchor="middle">block</text>
+<rect x="276" y="154" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
+<text x="292.0" y="174.0" class="pl" text-anchor="middle">a</text>
+<rect x="356" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
+<text x="372.0" y="214.0" class="pl" text-anchor="middle">b</text>
+<rect x="270" y="148" width="44" height="44" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="4 3"/>
+<text x="520.0" y="62.0" class="note" text-anchor="middle">Goal, after four</text>
+<rect x="440" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="480" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="480" y="150" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="520" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="520" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="520" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="560" y="190" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="560" y="110" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="560" y="70" width="40" height="40" class="floor" stroke="var(--axis)"/>
+<rect x="521" y="71" width="78" height="78" class="floor"/>
+<rect x="523" y="73" width="74" height="74" rx="3" class="blk" stroke="var(--series-1)"/>
+<text x="560.0" y="114.0" class="note" text-anchor="middle">block</text>
+<rect x="484" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
+<text x="500.0" y="214.0" class="pl" text-anchor="middle">a</text>
+<rect x="444" y="194" width="32" height="32" rx="3" class="sml" stroke="var(--series-2)"/>
+<text x="460.0" y="214.0" class="pl" text-anchor="middle">b</text>
+<text x="232.0" y="246.0" class="csub" text-anchor="start">a waits in the pocket: one cell up, which is not a stop on the 2-cell grid</text>
+</svg><figcaption>Figure 3. A board where optimized paths reports no solution and a full search finds four moves. This is why "no solution (optimized)" always comes with the offer of a full search.</figcaption></figure>
+
+<h3>4.5 What the Heart boards show so far</h3>
+<p>An earlier version of the "Abe 1 to 6 Heart" file had five shorter problems, short enough for the full search to finish. Optimized paths found the same number of moves on all five.</p>
+<div class="tw"><table class="num">
+<tr><th>Problem</th><th>Fewest moves, full search</th><th>Moves, optimized</th><th>Arrangements, optimized</th></tr>
+<tr><td>Mid 0 to Mid 1</td><td>14</td><td>14</td><td>82,456</td></tr>
+<tr><td>Mid 1 to Mid 2</td><td>14</td><td>14</td><td>177,100</td></tr>
+<tr><td>Mid to End</td><td>16</td><td>16</td><td>215,063</td></tr>
+<tr><td>Start to Mid 0</td><td>31</td><td>31</td><td>3,115,279</td></tr>
+<tr><td>Start to End</td><td>40</td><td>40</td><td>6,861,036</td></tr>
+</table></div>
+<p>The file's three current problems come out at 50, 56 and 47 moves. No full search of them has finished, so those numbers are upper limits. The one-ended search of release 1.8.1 found the same 56 and 47 (it did not finish the 50). But both searches rest on the same grid, so their agreement checks the search and not the grid.</p>
+<p>Putting it together:</p>
+<div class="tw"><table class="cmp">
+<tr><th>Claim about an <i>(optimized)</i> result</th><th>Standing</th></tr>
+<tr><td>The moves shown solve the puzzle</td><td>Certain</td></tr>
+<tr><td>No shorter solution rests only on the grid</td><td>Certain</td></tr>
+<tr><td>No shorter solution exists at all, on a board of whole-cell pieces without nested slides</td><td>Certain: proved above, confirmed on Klotski at two scales</td></tr>
+<tr><td>No shorter solution exists at all, on a board with small pieces in holes</td><td>Not proved. Held on 5 of 5 problems checked (14 to 40 moves); unchecked for 47, 50 and 56</td></tr>
+<tr><td>"No solution" means there is none</td><td>No. Figure 3 is a board where it is wrong</td></tr>
+</table></div>
+<p>Five agreements out of five is encouraging, and all five are on the same board with the same pieces as the longer problems. It is still a small sample, and a longer solution has more moves in which a part-way stop could pay off. We do not think a number can honestly be put on it. The only way to turn an <i>(optimized)</i> count into a proved minimum is to run the full search, and the next section shows what that costs.</p>
+
+<h2 id="s5">5. How it differs from the normal Solve</h2>
+
+<p>The normal Solve, which the question before a solve calls <b>Full Search</b>, and optimized paths are the same search. Both go level by level, on every core, from both ends where the puzzle allows, writing to disk what outgrows memory, and both can be paused and continued. The one difference is the set of places a piece may rest. Everything else follows from that.</p>
+<div class="tw"><table class="cmp">
+<tr><th></th><th>Normal Solve (Full Search)</th><th>Optimized paths</th></tr>
+<tr><td>A piece may rest</td><td>At every position it fits</td><td>Only at its stops on the grid</td></tr>
+<tr><td>Works on</td><td>Every sliding puzzle</td><td>Boards that fit a grid of blocks, with starts placed</td></tr>
+<tr><td>The moves found</td><td>The fewest there are: proved</td><td>The fewest on the grid: an upper limit on the fewest there are</td></tr>
+<tr><td>"No solution"</td><td>Proved</td><td>Proves nothing; a full search may find one</td></tr>
+<tr><td>Stops, Figure 1 board</td><td>2,511</td><td>240</td></tr>
+<tr><td>Key for one arrangement, Figure 1 board</td><td>128 bits</td><td>64 bits</td></tr>
+<tr><td>Result shown as</td><td><i>47 moves</i></td><td><i>47 moves (optimized)</i></td></tr>
+</table></div>
+
+<h3>5.1 Why the normal Solve takes so much longer</h3>
+<p><b>Every part-way position is an arrangement.</b> When a block slides into an empty cell of the grid in Figure 1, optimized paths records one new arrangement. The full search records six: the block one cell in, two cells in, and so on. Each of the six is expanded in turn, and from each of them every other piece gets to make its own moves, part-way ones included. Two blocks each half-way into a cell, with a small piece at any of fifteen positions along a row, are all different arrangements that the search has to visit, sort and store. Almost none of them is on a shortest solution.</p>
+<p><b>The effect multiplies across the pieces.</b> The table in section 2 shows about ten times fewer stops for each piece. An arrangement is a stop for every piece at once, so the cut in arrangements is far larger than ten. Figure 4 measures it on Problem 3, the same search run both ways from both ends. One move from the start the full search has 36 arrangements and optimized paths 6. After five moves it is 36,655 against 434. After fourteen it is 29.5 million against 142,316: 207 times as many, with the ratio still rising at every level.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 340" width="640" height="340" class="chart" role="img" aria-label="Level sizes of a full search and of optimized paths on the same problem">
+<rect width="640" height="340" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">The same problem, level by level: every stop against the grid's stops</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">"Abe 1 to 6 Heart", Problem 3, the start end of a search from both ends; the scale is logarithmic</text>
+<line x1="96" y1="286.0" x2="612" y2="286.0" class="axis"/>
+<text x="90.0" y="290.0" class="tick" text-anchor="end">1</text>
+<line x1="96" y1="256.5" x2="612" y2="256.5" class="grid"/>
+<line x1="96" y1="227.0" x2="612" y2="227.0" class="grid"/>
+<text x="90.0" y="231.0" class="tick" text-anchor="end">100</text>
+<line x1="96" y1="197.5" x2="612" y2="197.5" class="grid"/>
+<line x1="96" y1="168.0" x2="612" y2="168.0" class="grid"/>
+<text x="90.0" y="172.0" class="tick" text-anchor="end">10 thousand</text>
+<line x1="96" y1="138.5" x2="612" y2="138.5" class="grid"/>
+<line x1="96" y1="109.0" x2="612" y2="109.0" class="grid"/>
+<text x="90.0" y="113.0" class="tick" text-anchor="end">1 million</text>
+<line x1="96" y1="79.5" x2="612" y2="79.5" class="grid"/>
+<line x1="96" y1="50.0" x2="612" y2="50.0" class="grid"/>
+<text x="90.0" y="54.0" class="tick" text-anchor="end">100 million</text>
+<text x="96.0" y="301.0" class="tick" text-anchor="middle">0</text>
+<text x="139.0" y="301.0" class="tick" text-anchor="middle">2</text>
+<text x="182.0" y="301.0" class="tick" text-anchor="middle">4</text>
+<text x="225.0" y="301.0" class="tick" text-anchor="middle">6</text>
+<text x="268.0" y="301.0" class="tick" text-anchor="middle">8</text>
+<text x="311.0" y="301.0" class="tick" text-anchor="middle">10</text>
+<text x="354.0" y="301.0" class="tick" text-anchor="middle">12</text>
+<text x="397.0" y="301.0" class="tick" text-anchor="middle">14</text>
+<text x="440.0" y="301.0" class="tick" text-anchor="middle">16</text>
+<text x="483.0" y="301.0" class="tick" text-anchor="middle">18</text>
+<text x="526.0" y="301.0" class="tick" text-anchor="middle">20</text>
+<text x="569.0" y="301.0" class="tick" text-anchor="middle">22</text>
+<text x="612.0" y="301.0" class="tick" text-anchor="middle">24</text>
+<text x="354.0" y="318.0" class="axlabel" text-anchor="middle">moves from the start</text>
+<text x="14.0" y="168.0" class="axlabel" text-anchor="middle" transform="rotate(-90 14 168.0)">arrangements in the level</text>
+<polyline points="96.0,286.0 117.5,263.0 139.0,243.8 160.5,229.2 182.0,218.4 203.5,208.2 225.0,196.6 246.5,187.2 268.0,178.0 289.5,169.5 311.0,161.4 332.5,153.6 354.0,146.4 375.5,139.7 397.0,134.0 418.5,128.8 440.0,124.2 461.5,120.0 483.0,116.1 504.5,112.3 526.0,108.6 547.5,105.0 569.0,101.5 590.5,98.1" fill="none" stroke="var(--series-1)" stroke-width="2"/>
+<circle cx="96.0" cy="286.0" r="2.6" fill="var(--series-1)"/>
+<circle cx="117.5" cy="263.0" r="2.6" fill="var(--series-1)"/>
+<circle cx="139.0" cy="243.8" r="2.6" fill="var(--series-1)"/>
+<circle cx="160.5" cy="229.2" r="2.6" fill="var(--series-1)"/>
+<circle cx="182.0" cy="218.4" r="2.6" fill="var(--series-1)"/>
+<circle cx="203.5" cy="208.2" r="2.6" fill="var(--series-1)"/>
+<circle cx="225.0" cy="196.6" r="2.6" fill="var(--series-1)"/>
+<circle cx="246.5" cy="187.2" r="2.6" fill="var(--series-1)"/>
+<circle cx="268.0" cy="178.0" r="2.6" fill="var(--series-1)"/>
+<circle cx="289.5" cy="169.5" r="2.6" fill="var(--series-1)"/>
+<circle cx="311.0" cy="161.4" r="2.6" fill="var(--series-1)"/>
+<circle cx="332.5" cy="153.6" r="2.6" fill="var(--series-1)"/>
+<circle cx="354.0" cy="146.4" r="2.6" fill="var(--series-1)"/>
+<circle cx="375.5" cy="139.7" r="2.6" fill="var(--series-1)"/>
+<circle cx="397.0" cy="134.0" r="2.6" fill="var(--series-1)"/>
+<circle cx="418.5" cy="128.8" r="2.6" fill="var(--series-1)"/>
+<circle cx="440.0" cy="124.2" r="2.6" fill="var(--series-1)"/>
+<circle cx="461.5" cy="120.0" r="2.6" fill="var(--series-1)"/>
+<circle cx="483.0" cy="116.1" r="2.6" fill="var(--series-1)"/>
+<circle cx="504.5" cy="112.3" r="2.6" fill="var(--series-1)"/>
+<circle cx="526.0" cy="108.6" r="2.6" fill="var(--series-1)"/>
+<circle cx="547.5" cy="105.0" r="2.6" fill="var(--series-1)"/>
+<circle cx="569.0" cy="101.5" r="2.6" fill="var(--series-1)"/>
+<circle cx="590.5" cy="98.1" r="2.6" fill="var(--series-1)"/>
+<polyline points="96.0,286.0 117.5,240.1 139.0,205.5 160.5,178.9 182.0,163.0 203.5,151.4 225.0,137.6 246.5,125.9 268.0,115.0 289.5,104.9 311.0,95.9 332.5,87.7 354.0,79.9 375.5,72.5 397.0,65.6" fill="none" stroke="var(--series-2)" stroke-width="2"/>
+<circle cx="96.0" cy="286.0" r="2.6" fill="var(--series-2)"/>
+<circle cx="117.5" cy="240.1" r="2.6" fill="var(--series-2)"/>
+<circle cx="139.0" cy="205.5" r="2.6" fill="var(--series-2)"/>
+<circle cx="160.5" cy="178.9" r="2.6" fill="var(--series-2)"/>
+<circle cx="182.0" cy="163.0" r="2.6" fill="var(--series-2)"/>
+<circle cx="203.5" cy="151.4" r="2.6" fill="var(--series-2)"/>
+<circle cx="225.0" cy="137.6" r="2.6" fill="var(--series-2)"/>
+<circle cx="246.5" cy="125.9" r="2.6" fill="var(--series-2)"/>
+<circle cx="268.0" cy="115.0" r="2.6" fill="var(--series-2)"/>
+<circle cx="289.5" cy="104.9" r="2.6" fill="var(--series-2)"/>
+<circle cx="311.0" cy="95.9" r="2.6" fill="var(--series-2)"/>
+<circle cx="332.5" cy="87.7" r="2.6" fill="var(--series-2)"/>
+<circle cx="354.0" cy="79.9" r="2.6" fill="var(--series-2)"/>
+<circle cx="375.5" cy="72.5" r="2.6" fill="var(--series-2)"/>
+<circle cx="397.0" cy="65.6" r="2.6" fill="var(--series-2)"/>
+<text x="407.0" y="59.6" class="note" text-anchor="start">Full search (every stop):</text>
+<text x="407.0" y="73.6" class="note" text-anchor="start">level 14 holds 29.5 million;</text>
+<text x="407.0" y="87.6" class="note" text-anchor="start">the run was stopped here</text>
+<text x="594.5" y="132.1" class="note" text-anchor="end">Optimized paths:</text>
+<text x="594.5" y="146.1" class="note" text-anchor="end">level 23 holds 2.3 million</text>
+<text x="594.5" y="160.1" class="note" text-anchor="end">and the search is over</text>
+<line x1="397.0" y1="71.6" x2="397.0" y2="128.0" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="391.0" y="103.8" class="note" text-anchor="end">207 times</text>
+</svg><figcaption>Figure 4. The size of each level from the start end of Problem 3. The full search was stopped after 150 seconds, 14 moves deep from each end and 134 million arrangements in; optimized paths finished the whole problem in 18.4 million.</figcaption></figure>
+<p><b>The levels also grow faster.</b> At level 14 each level of the full search was 1.71 times the one before; for optimized paths the figure was 1.57, falling to 1.30 by the end. A higher growth rate compounds: it is why the ratio in Figure 4 keeps widening instead of settling.</p>
+<p><b>Each arrangement costs more.</b> The full search needs a 128-bit key for this board where the grid needs 64, so the same number of arrangements takes more memory and more disk. More arrangements at more bytes each means the search leaves memory sooner, and a search working from disk is slower again.</p>
+<p><b>Large boards fall off the fast search.</b> The level search can hold keys of up to 128 bits. A full search of a board the size of "Abe 1 to 8 Heart" needs about 170, so it drops to the original search: one core, memory only, about 11,000 arrangements a second where the level search does millions.</p>
+
+<h3>5.2 What it comes to</h3>
+<p>The one like-for-like pair measured to the end is the 40-move problem of the earlier file, before the search ran from both ends:</p>
+<div class="tw"><table class="num">
+<tr><th>"Start to End", 40 moves</th><th>Time</th><th>Arrangements</th></tr>
+<tr><td>Normal Solve (full search)</td><td>8,852 s</td><td>5.09 billion</td></tr>
+<tr><td>Optimized paths</td><td>2.3 s</td><td>6.9 million</td></tr>
+<tr><td>Ratio</td><td>3,800&times;</td><td>740&times;</td></tr>
+</table></div>
+<p>For the 47-move Problem 3 there is no finished full search to compare with. The run in Figure 4 gives a rough idea of what one would take. It was 28 of the 47 moves deep after 134 million arrangements, with about ten more levels to build at each end. If its levels kept growing at 1.71 it would reach about 30 billion arrangements; if the growth eased the way the optimized search's did, about 5 billion. Either way that is hundreds to more than a thousand times the 18.4 million that optimized paths needed: hours of search and tens to hundreds of gigabytes of disk, against a few seconds. This is an estimate from the first 150 seconds, not a measurement.</p>
+
+<h2 id="s6">6. Which to use</h2>
+<ul>
+<li><b>To find a solution, or to see whether a design works:</b> optimized paths. On a board of blocks it answers in seconds what a full search answers in hours or not at all.</li>
+<li><b>On a board where every piece is made of whole cells:</b> optimized paths gives the true fewest moves (section 4.3).</li>
+<li><b>To claim a record or publish "the fewest moves" for a board with small pieces:</b> say "at most", or run <b>Full Search</b> if the problem is short enough to finish. The Performance Analysis box under the solutions list forecasts how long each further move of a running search will take, which shows early whether a full search is within reach.</li>
+<li><b>When optimized paths says "no solution":</b> do not believe it until a full search agrees.</li>
+</ul>
+
+<h2 id="refs">Sources</h2>
+<ul class="refs">
+<li>ShapeLogic sources: <span class="mono">core/shapelogic/solve/sliding_search.cpp</span> (<span class="mono">slideGridFor</span>, <span class="mono">stopGridFor</span>, <span class="mono">StopGrid</span>); decision records 0029 (optimized paths), 0031 (loose stops), 0032 (compact keys) and 0033 (both ends).</li>
+<li>The stop counts are the engine's own (<span class="mono">sliding.gridAdvice</span>), the ones the Solver shows before a solve.</li>
+<li>Figure 4: <span class="mono">shapelogic_cli -d --nested-slides --slide-trace</span> on Problem 3 of "Abe 1 to 6 Heart", with and without <span class="mono">--optimized-paths</span>; the full search was stopped after 150 seconds. The counts do not depend on the machine.</li>
+<li>The Klotski boards were built at each scale through the engine and solved with <span class="mono">shapelogic_cli -d</span>, with and without <span class="mono">--optimized-paths</span>. The start is the classic one, with the large block to be brought to the bottom centre.</li>
+<li>The five shorter Heart problems, the 40-move timings and the test counts: decision records 0029, 0031 and 0033. Times are single runs of the release build on a MacBook Air M4.</li>
+<li>Figure 3: the board of the contract test <span class="mono">sliding_grid_advice</span> in <span class="mono">tests/contract/test_engine.py</span>.</li>
+</ul>
+<p><a href="/research/">&larr; Back to Research</a></p>
+</main>
+</body></html>

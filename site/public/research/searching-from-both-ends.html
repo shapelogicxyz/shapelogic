@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Searching from Both Ends</title>
+<meta name="description" content="How ShapeLogic's Sliding Puzzle Solver and Panex Solver search from the start and from the goal at once: what a level is, how the two ends find each other, which levels are dropped to save memory, and how the path is rebuilt once the ends meet.">
+<style>
+
+:root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface-1:#1a1a19; --page:#111110; --ink:#f0efec; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --wash:#1f2a38; --rule:#2c2c2a; --accent:#3987e5; }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0 auto; max-width: 860px; padding: 32px 16px 64px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.5; color: var(--ink); background: var(--page); }
+h1 { font-size: 30px; line-height: 1.15; margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 36px 0 10px; padding-top: 10px; border-top: 1px solid var(--rule); break-after: avoid; }
+h3 { font-size: 16px; margin: 22px 0 6px; break-after: avoid; }
+p { margin: 0 0 10px; }
+.sub { color: var(--ink-2); font-size: 17px; margin-bottom: 4px; }
+.meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+.box { background: var(--wash); border-radius: 8px; padding: 14px 18px; margin: 14px 0 18px; break-inside: avoid; }
+.box h3 { margin-top: 0; }
+ul, ol { margin: 0 0 10px; padding-left: 22px; }
+li { margin-bottom: 4px; }
+figure { margin: 18px 0 20px; break-inside: avoid; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+.row { display: flex; gap: 12px; }
+.row figure { flex: 1; margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 10px 0 16px; break-inside: avoid; }
+th, td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--axis); }
+table.num td { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.num td:first-child, table.num th:first-child { text-align: left; }
+table.num th { text-align: right; }
+table.small { font-size: 11px; } table.small th, table.small td { padding: 3px 5px; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+.formula { font-family: "Times New Roman", Times, serif; font-size: 17px; text-align: center; margin: 12px 0; }
+.tick, .legend, .note, .csub, .axlabel, .vlabel, .boxtext { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
+.tick { font-size: 11px; fill: var(--muted); } .axlabel { font-size: 11.5px; fill: var(--muted); }
+.legend, .note, .boxtext { font-size: 11.5px; fill: var(--ink-2); } .vlabel { font-size: 11px; fill: var(--ink-2); }
+.ctitle { font-size: 13.5px; font-weight: 600; fill: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.csub { font-size: 11px; fill: var(--muted); }
+.onfill { font-size: 10px; fill: #ffffff; font-family: system-ui, sans-serif; }
+.grid { stroke: var(--grid); stroke-width: 1; } .axis { stroke: var(--axis); stroke-width: 1; }
+.refs li { font-size: 13px; margin-bottom: 4px; }
+a { color: var(--accent); }
+.toc { columns: 2; font-size: 13.5px; } .toc li { margin-bottom: 2px; }
+@media (max-width: 700px) { .row { display: block; } .row figure { margin: 18px 0; } }
+@page { size: A4; margin: 17mm 15mm 18mm 15mm; @bottom-right { content: counter(page) ' / ' counter(pages); font: 8.5pt system-ui, sans-serif; color: #898781; } }
+@media print {
+  .refs li { font-size: 8.6pt; margin-bottom: 2pt; }
+  html, body { background: #fff; } body { max-width: none; padding: 0; font-size: 10.5pt; line-height: 1.42; }
+  :root { color-scheme: light; --surface-1:#fcfcfb; --page:#ffffff; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --wash:#eef4fc; --rule:#e1e0d9; --accent:#2a78d6; }
+  h1 { font-size: 24pt; } h2 { font-size: 15pt; margin-top: 22pt; } h3 { font-size: 11.5pt; }
+  table { font-size: 8.8pt; } table.small { font-size: 7.6pt; } figcaption { font-size: 9pt; } .meta { font-size: 9pt; } .sub { font-size: 12.5pt; }
+  .row { display: flex; } .pb { break-before: page; } a { color: inherit; text-decoration: none; }
+  .toc { columns: 2; }
+}
+
+
+@media screen {
+:root { --surface-1:#f3f6fb; --page:#ffffff; --ink:#0f1b2d; --ink-2:#55627a; --muted:#55627a; --grid:#dde4ef; --axis:#c5cfdf; --wash:#f3f6fb; --rule:#dde4ef; --accent:#1a73e8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; } }
+:root[data-theme="dark"] { --surface-1:#162033; --page:#0d1420; --ink:#e8eef8; --ink-2:#9aa8c0; --muted:#9aa8c0; --grid:#25324a; --axis:#34445f; --wash:#162033; --rule:#25324a; --accent:#5b9dff; }
+html { background: var(--page); }
+body { max-width: none; margin: 0; padding: 0; font-size: 17px; line-height: 1.6; background: var(--page); color: var(--ink); }
+main { max-width: 1060px; margin: 0 auto; padding: 48px 16px 64px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 0 0 16px; }
+.sub { font-size: 19px; }
+a { color: var(--accent); }
+.banner { background: #fff; border-bottom: 1px solid var(--rule); margin: 0; width: auto; }
+.crumb { margin: 0 0 12px; font-size: 14px; }
+}
+.banner a, .banner img { display: block; } .banner img { width: 100%; max-width: 1000px; height: auto; margin: 0 auto; }
+.crumb a { color: var(--accent); }
+@media print { .banner, .crumb { display: none; } }
+
+.tw { overflow-x: auto; margin: 10px 0 16px; } .tw table { margin: 0; min-width: 540px; }
+table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
+.steps li { margin-bottom: 7px; }
+.lead { font-size: 1.05em; }
+.blk { fill: var(--series-1); fill-opacity: 0.26; } .sml { fill: var(--series-2); fill-opacity: 0.78; }
+.floor { fill: var(--page); } .edge { stroke: var(--ink-2); stroke-width: 1.1; fill: none; }
+.cellline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+.unitline { stroke: var(--grid); stroke-width: 0.6; }
+.pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
+
+</style></head><body>
+<header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
+<main>
+<nav class="crumb"><a href="/">ShapeLogic</a> › <a href="/research/">Research</a></nav>
+<h1>Searching from both ends: how the Sliding and Panex solvers meet in the middle</h1>
+<p class="sub">What the level search keeps, how its two ends find each other, which levels it drops to save memory, and how it rebuilds the path once the ends have met</p>
+<p class="meta">16 November 2026 · Sources: <span class="mono">core/shapelogic/solve/sliding_search.cpp</span>, <span class="mono">panex_search.cpp</span> and <span class="mono">slide_levels.h</span>; level traces from <span class="mono">shapelogic_cli --slide-trace</span> (release 1.8.4, MacBook Air M4, 32 GB)</p>
+
+<div class="box"><h3>Summary</h3>
+<ul>
+<li><b>Both solvers find the fewest moves by building levels.</b> Level 1 is every position one move from the start, level 2 every position two moves away, and so on. A position is an arrangement of the pieces in a sliding puzzle and a stacking of the pieces in Panex; this page says arrangement for both.</li>
+<li><b>From both ends the levels only have to go half as deep.</b> On Problem 3 of "Abe 1 to 6 Heart" (47 moves) the two ends held 18.4 million arrangements when they met. The same search from the start alone held 123 million by level 33, with 14 moves still to go and each level 1.23 times the one before.</li>
+<li><b>The ends have met when a new level shares an arrangement with the other end's newest level.</b> Levels are sorted lists of numbers, so the test is one walk along two sorted lists, made while the new level is written. Only the other end's newest level has to be checked, and the first meeting always gives a path with the fewest moves.</li>
+<li><b>Each end needs only its two newest levels to build the next.</b> The older levels are kept for one purpose, rebuilding the path. They move to disk when memory is short, and where the rules of the puzzle allow it every second one is deleted when the disk fills, then every fourth, and so on.</li>
+<li><b>Once the ends meet, the path is traced from the meeting arrangement back to the start and on to the goal</b>, one level at a time. Where levels were deleted, a small search out from the arrangement at hand fills the gap.</li>
+<li><b>Panex has a shortcut.</b> When the goal is the mirror image of the start, as in every tower swap, only one search runs, and it meets its own mirror image.</li>
+</ul></div>
+
+<ol class="toc">
+<li><a href="#s1">Fewest moves is a shortest path</a></li>
+<li><a href="#s2">Why two ends beat one</a></li>
+<li><a href="#s3">What a level is made of</a></li>
+<li><a href="#s4">Building the next level</a></li>
+<li><a href="#s5">When the goal end starts, and which end grows</a></li>
+<li><a href="#s6">How the ends know they have met</a></li>
+<li><a href="#s7">What is kept and what is dropped</a></li>
+<li><a href="#s8">Working back to the start and to the goal</a></li>
+<li><a href="#s9">Measurements and limits</a></li>
+</ol>
+
+<h2 id="s1">1. Fewest moves is a shortest path</h2>
+
+<p>A sliding puzzle and a Panex puzzle ask the same question: what is the smallest number of moves that turns the start into the goal? Think of every arrangement the puzzle can be in as a dot, and draw a line between two dots when one move turns one into the other. The question is then the shortest route from the start dot to the goal dot.</p>
+<p>The dependable way to find a shortest route is to search <b>breadth first</b>: find everything one move from the start, then everything two moves away, then three, never skipping ahead. Each of these sets is a <b>level</b>. The first level that contains the goal gives the answer, and because no level was skipped, no shorter route can exist. If a level comes out empty before the goal turns up, every reachable arrangement has been seen and the puzzle has no solution.</p>
+<p>The cost is the size of the levels. In most puzzles each level is larger than the one before by a fairly steady factor, so the levels near the end of a long solution are enormous. Everything on this page is about paying less of that cost.</p>
+<p>ShapeLogic has two searches of this kind. The <b>Sliding Puzzle Solver</b> counts one move as one piece sliding anywhere it can reach while the others stay put. The <b>Panex Solver</b> counts one move as one piece transferred from one column to another; the Stacking Solver uses the same search whenever its puzzle fits. They were written separately and differ in detail, but the plan is the same, and the differences are called out as they come up.</p>
+
+<h2 id="s2">2. Why two ends beat one</h2>
+
+<p>Suppose every level is twice the size of the one before and the solution is 40 moves long. A search from the start builds levels 1 to 40, and the last of them alone holds about a trillion arrangements. Now search from the goal as well. Each end only has to go 20 levels deep before the two meet, and a level 20 holds about a million. Two searches of a million are nothing beside one of a trillion. In general, where one search does work that grows like <i>b</i><sup><i>d</i></sup> for a growth factor <i>b</i> and a solution of <i>d</i> moves, two searches do about 2&nbsp;&times;&nbsp;<i>b</i><sup><i>d</i>/2</sup>: roughly the square root.</p>
+<p>Figure 1 shows this on a real solve. The puzzle is Problem 3 of "Abe 1 to 6 Heart", a board of blocks with small pieces riding in their holes, solved in 47 moves. The blue and orange areas are the levels the two ends built before they met: 9.2 million arrangements each. The dashed line is the same search made from the start alone. Its first 23 levels are the blue area exactly, and then it keeps climbing. When the run was stopped at level 33 it held 123 million arrangements and each level was still 1.23 times the last; at that rate the levels it still needed would have brought it to around two billion.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 356" width="640" height="356" class="chart" role="img" aria-label="Arrangements in each level, both ends against the start alone">
+<rect width="640" height="356" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">Arrangements in each level: both ends against the start alone</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">"Abe 1 to 6 Heart", Problem 3 (47 moves), optimized paths, every stop told apart</text>
+<line x1="62" y1="300.0" x2="622" y2="300.0" class="axis"/>
+<text x="56.0" y="304.0" class="tick" text-anchor="end">0</text>
+<line x1="62" y1="254.1" x2="622" y2="254.1" class="grid"/>
+<text x="56.0" y="258.1" class="tick" text-anchor="end">5 M</text>
+<line x1="62" y1="208.1" x2="622" y2="208.1" class="grid"/>
+<text x="56.0" y="212.1" class="tick" text-anchor="end">10 M</text>
+<line x1="62" y1="162.2" x2="622" y2="162.2" class="grid"/>
+<text x="56.0" y="166.2" class="tick" text-anchor="end">15 M</text>
+<line x1="62" y1="116.3" x2="622" y2="116.3" class="grid"/>
+<text x="56.0" y="120.3" class="tick" text-anchor="end">20 M</text>
+<line x1="62" y1="70.4" x2="622" y2="70.4" class="grid"/>
+<text x="56.0" y="74.4" class="tick" text-anchor="end">25 M</text>
+<text x="62.0" y="315.0" class="tick" text-anchor="middle">0</text>
+<line x1="62.0" y1="300" x2="62.0" y2="304" class="axis"/>
+<text x="121.6" y="315.0" class="tick" text-anchor="middle">5</text>
+<line x1="121.6" y1="300" x2="121.6" y2="304" class="axis"/>
+<text x="181.1" y="315.0" class="tick" text-anchor="middle">10</text>
+<line x1="181.1" y1="300" x2="181.1" y2="304" class="axis"/>
+<text x="240.7" y="315.0" class="tick" text-anchor="middle">15</text>
+<line x1="240.7" y1="300" x2="240.7" y2="304" class="axis"/>
+<text x="300.3" y="315.0" class="tick" text-anchor="middle">20</text>
+<line x1="300.3" y1="300" x2="300.3" y2="304" class="axis"/>
+<text x="359.9" y="315.0" class="tick" text-anchor="middle">25</text>
+<line x1="359.9" y1="300" x2="359.9" y2="304" class="axis"/>
+<text x="419.4" y="315.0" class="tick" text-anchor="middle">30</text>
+<line x1="419.4" y1="300" x2="419.4" y2="304" class="axis"/>
+<text x="479.0" y="315.0" class="tick" text-anchor="middle">35</text>
+<line x1="479.0" y1="300" x2="479.0" y2="304" class="axis"/>
+<text x="538.6" y="315.0" class="tick" text-anchor="middle">40</text>
+<line x1="538.6" y1="300" x2="538.6" y2="304" class="axis"/>
+<text x="598.2" y="315.0" class="tick" text-anchor="middle">45</text>
+<line x1="598.2" y1="300" x2="598.2" y2="304" class="axis"/>
+<text x="622.0" y="315.0" class="tick" text-anchor="middle">47</text>
+<line x1="622.0" y1="300" x2="622.0" y2="304" class="axis"/>
+<text x="342.0" y="332.0" class="axlabel" text-anchor="middle">moves from the start</text>
+<polyline points="62.0,300.0 73.9,300.0 85.8,300.0 97.7,300.0 109.7,300.0 121.6,300.0 133.5,300.0 145.4,300.0 157.3,300.0 169.2,299.9 181.1,299.8 193.1,299.7 205.0,299.5 216.9,299.2 228.8,298.7 240.7,298.0 252.6,297.2 264.6,296.1 276.5,294.7 288.4,292.9 300.3,290.5 312.2,287.4 324.1,283.5 336.0,278.4 348.0,272.0 359.9,263.9 371.8,253.7 383.7,240.6 395.6,223.9 407.5,202.9 419.4,177.5 431.4,146.7 443.3,109.0 455.2,64.2" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 3"/>
+<circle cx="455.2" cy="64.2" r="3.5" fill="var(--muted)"/>
+<text x="424.2" y="74.0" class="note" text-anchor="end">From the start alone:</text>
+<text x="424.2" y="88.0" class="note" text-anchor="end">level 33 holds 25.7 million,</text>
+<text x="424.2" y="102.0" class="note" text-anchor="end">123 million so far, and each level</text>
+<text x="424.2" y="116.0" class="note" text-anchor="end">is still 1.23 times the one before</text>
+<text x="424.2" y="130.0" class="note" text-anchor="end">(run stopped here)</text>
+<path d="M62.0,300.0 L62.0,300.0 L73.9,300.0 L85.8,300.0 L97.7,300.0 L109.7,300.0 L121.6,300.0 L133.5,300.0 L145.4,300.0 L157.3,300.0 L169.2,299.9 L181.1,299.8 L193.1,299.7 L205.0,299.5 L216.9,299.2 L228.8,298.7 L240.7,298.0 L252.6,297.2 L264.6,296.1 L276.5,294.7 L288.4,292.9 L300.3,290.5 L312.2,287.4 L324.1,283.5 L336.0,278.4 L336.0,300.0 Z" fill="var(--series-1)" fill-opacity="0.45" stroke="var(--series-1)" stroke-width="1.5"/>
+<path d="M622.0,300.0 L622.0,300.0 L610.1,300.0 L598.2,300.0 L586.3,300.0 L574.3,300.0 L562.4,300.0 L550.5,300.0 L538.6,300.0 L526.7,300.0 L514.8,299.9 L502.9,299.8 L490.9,299.7 L479.0,299.5 L467.1,299.2 L455.2,298.7 L443.3,298.0 L431.4,297.2 L419.4,296.1 L407.5,294.7 L395.6,292.9 L383.7,290.5 L371.8,287.4 L359.9,283.4 L348.0,278.4 L348.0,300.0 Z" fill="var(--series-2)" fill-opacity="0.45" stroke="var(--series-2)" stroke-width="1.5"/>
+<line x1="342.0" y1="224.7" x2="342.0" y2="300" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="342.0" y="193.5" class="note" text-anchor="middle">The ends meet:</text>
+<text x="342.0" y="207.5" class="note" text-anchor="middle">24 + 23 = 47 moves</text>
+<text x="193.1" y="248.6" class="note" text-anchor="middle">Start end</text>
+<text x="193.1" y="262.6" class="note" text-anchor="middle">9.2 million</text>
+<text x="520.7" y="248.6" class="note" text-anchor="middle">Goal end</text>
+<text x="520.7" y="262.6" class="note" text-anchor="middle">9.2 million</text>
+</svg><figcaption>Figure 1. The size of every level in two searches of the same problem. The area under a curve is the work done. From both ends the search stops where the two areas touch; from the start alone it has to carry on to the right-hand edge.</figcaption></figure>
+<p>The saving depends on the levels growing. A puzzle whose levels stay narrow gains little from a second end, which is why the sliding search does not always start one (section 5).</p>
+
+<h2 id="s3">3. What a level is made of</h2>
+
+<p><b>An arrangement is one number.</b> The sliding search gives every piece a field of bits that holds the number of its position on the board, and packs the fields into a key of 64 bits, or 128 when 64 are too few. Two identical pieces that have changed places give the same key, so they are searched as one arrangement. The Panex search writes the three columns out piece by piece, five bits a piece, into a 128-bit key.</p>
+<p><b>A level is a sorted list of keys with no repeats.</b> Sorting is what makes everything else on this page cheap. Two sorted lists can be compared, merged or subtracted from one another in a single pass from front to back, without looking anything up.</p>
+<p>The two searches store the list differently:</p>
+<ul>
+<li><b>Sliding.</b> A level is written once, in rising order, in blocks of up to 128 keys. A block stores the gaps between neighbouring keys rather than the keys, and the arrangements of one level are close together, so most keys take a few bytes instead of 8 or 16. In the solve of Figure 1 the search held 18.4 million arrangements in about 100 MB. The same format serves in memory and in a file, so a level can live in either place and the search reads it the same way.</li>
+<li><b>Panex.</b> A level is a plain array of 16-byte keys in memory. The search also folds each stacking together with its twin, the stacking with the board mirrored and the two towers' pieces exchanged, which halves every level of a tower swap.</li>
+</ul>
+
+<h2 id="s4">4. Building the next level</h2>
+
+<p>Figure 2 shows one step. It takes the newest level of one end and produces the level after it.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 330" width="640" height="330" class="chart" role="img" aria-label="One step of the two-ended level search">
+<rect width="640" height="330" fill="var(--surface-1)"/>
+<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker></defs>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">One step of the search, repeated until the two ends meet</text>
+<rect x="12" y="40" width="140" height="72" rx="6" fill="var(--wash)" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="82.0" y="66.0" class="boxtext" text-anchor="middle">the newest level</text>
+<text x="82.0" y="80.0" class="boxtext" text-anchor="middle">of the narrower end</text>
+<text x="82.0" y="94.0" class="boxtext" text-anchor="middle">(sorted keys)</text>
+<rect x="170" y="40" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="240.0" y="59.0" class="boxtext" text-anchor="middle">every core takes</text>
+<text x="240.0" y="73.0" class="boxtext" text-anchor="middle">blocks of it and works</text>
+<text x="240.0" y="87.0" class="boxtext" text-anchor="middle">out the moves of each</text>
+<text x="240.0" y="101.0" class="boxtext" text-anchor="middle">arrangement</text>
+<rect x="328" y="40" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="398.0" y="59.0" class="boxtext" text-anchor="middle">what the moves reach</text>
+<text x="398.0" y="73.0" class="boxtext" text-anchor="middle">is sorted into runs;</text>
+<text x="398.0" y="87.0" class="boxtext" text-anchor="middle">the runs are merged,</text>
+<text x="398.0" y="101.0" class="boxtext" text-anchor="middle">one key range a core</text>
+<rect x="486" y="40" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="556.0" y="59.0" class="boxtext" text-anchor="middle">the merge drops</text>
+<text x="556.0" y="73.0" class="boxtext" text-anchor="middle">duplicates and what is</text>
+<text x="556.0" y="87.0" class="boxtext" text-anchor="middle">in this end's newest</text>
+<text x="556.0" y="101.0" class="boxtext" text-anchor="middle">two levels</text>
+<line x1="152" y1="76.0" x2="168" y2="76.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="310" y1="76.0" x2="326" y2="76.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="468" y1="76.0" x2="484" y2="76.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<line x1="556.0" y1="112" x2="556.0" y2="144" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="486" y="146" width="140" height="72" rx="6" fill="var(--wash)" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="556.0" y="165.0" class="boxtext" text-anchor="middle">the next level, sorted;</text>
+<text x="556.0" y="179.0" class="boxtext" text-anchor="middle">as it is written it is</text>
+<text x="556.0" y="193.0" class="boxtext" text-anchor="middle">walked against the other</text>
+<text x="556.0" y="207.0" class="boxtext" text-anchor="middle">end's newest level</text>
+<line x1="486" y1="182.0" x2="470" y2="182.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="328" y="146" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="398.0" y="179.0" class="boxtext" text-anchor="middle">a key in both:</text>
+<text x="398.0" y="193.0" class="boxtext" text-anchor="middle">the ends have met</text>
+<line x1="328" y1="182.0" x2="312" y2="182.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="170" y="146" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="240.0" y="165.0" class="boxtext" text-anchor="middle">trace the path back</text>
+<text x="240.0" y="179.0" class="boxtext" text-anchor="middle">to the start and on</text>
+<text x="240.0" y="193.0" class="boxtext" text-anchor="middle">to the goal</text>
+<text x="240.0" y="207.0" class="boxtext" text-anchor="middle">(section 8)</text>
+<line x1="556.0" y1="218" x2="556.0" y2="248" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="486" y="250" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="556.0" y="276.0" class="boxtext" text-anchor="middle">no key in both: the</text>
+<text x="556.0" y="290.0" class="boxtext" text-anchor="middle">next level becomes</text>
+<text x="556.0" y="304.0" class="boxtext" text-anchor="middle">the newest of its end</text>
+<line x1="486" y1="286.0" x2="470" y2="286.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="328" y="250" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="398.0" y="269.0" class="boxtext" text-anchor="middle">the level that left the</text>
+<text x="398.0" y="283.0" class="boxtext" text-anchor="middle">newest two is kept for</text>
+<text x="398.0" y="297.0" class="boxtext" text-anchor="middle">the path, on disk if</text>
+<text x="398.0" y="311.0" class="boxtext" text-anchor="middle">need be, or dropped</text>
+<line x1="328" y1="286.0" x2="312" y2="286.0" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="170" y="250" width="140" height="72" rx="6" fill="none" stroke="var(--axis)" stroke-width="1.5"/>
+<text x="240.0" y="276.0" class="boxtext" text-anchor="middle">choose the end whose</text>
+<text x="240.0" y="290.0" class="boxtext" text-anchor="middle">newest level is</text>
+<text x="240.0" y="304.0" class="boxtext" text-anchor="middle">smaller, and repeat</text>
+<text x="12.0" y="162.0" class="csub" text-anchor="start">Each end needs only its</text>
+<text x="12.0" y="176.0" class="csub" text-anchor="start">two newest levels to</text>
+<text x="12.0" y="190.0" class="csub" text-anchor="start">build the next one.</text>
+<text x="12.0" y="266.0" class="csub" text-anchor="start">The goal end is the same</text>
+<text x="12.0" y="280.0" class="csub" text-anchor="start">search, started from</text>
+<text x="12.0" y="294.0" class="csub" text-anchor="start">the goal arrangement.</text>
+</svg><figcaption>Figure 2. One step of the search. The meeting test (section 6) is part of writing the new level, not a separate pass.</figcaption></figure>
+<ol class="steps">
+<li><b>Expand.</b> Every core takes blocks of the newest level. For each arrangement in a block it works out every move and writes down the key of each arrangement a move leads to.</li>
+<li><b>Sort.</b> Each core sorts what it has gathered, 65,536 keys at a time, and merges those pieces into longer sorted runs as they fill its share of the memory.</li>
+<li><b>Merge and subtract.</b> The runs are merged into one sorted stream, each core taking one range of keys. A key that appears twice is written once. A key that is already in this end's newest level, or in the level before it, is dropped. What is left is the next level.</li>
+</ol>
+<p><b>Why two levels are enough.</b> A search like this normally needs a list of everything it has ever seen, so that it does not walk in circles. Here it does not, as long as every move can be undone. Take an arrangement in level <i>d</i> and make a move. If the result had first been seen in some much older level, then undoing that move would lead from the older level straight to our arrangement, which would then belong at most one level after it and not in level <i>d</i>. So the result can only be in level <i>d</i>&nbsp;&minus;&nbsp;1, <i>d</i> or <i>d</i>&nbsp;+&nbsp;1, and checking the two newest levels catches every repeat. This is the heart of the memory saving: the search has to hold a frontier two levels thick, not everything behind it.</p>
+<p><b>The exception: moves that cannot be undone.</b> With <b>Allow Nested Slides</b> a piece can carry the pieces nested in it, and a piece that carries others can close round a piece it passes. That move cannot be made backwards the way it came. An arrangement reached by such a one-way move could be in any older level, so the sliding search treats those arrangements separately: it looks each one up in all of the end's older levels, which it keeps merged into a few large sorted sets for the purpose. One-way moves are rare, so this costs little. In the solve of Figure 1, level 23 of the start end had 2.3 million arrangements; 17,546 were reached by one-way moves, and all but 1,207 of those turned out to be old. Without the lookup the search would have gone over them again, level after level.</p>
+
+<h2 id="s5">5. When the goal end starts, and which end grows</h2>
+
+<p><b>The goal has to be one arrangement.</b> A search from the goal needs a single place to start. In a sliding puzzle that means every piece has a goal position. (Copies of a piece that each have a goal count as one arrangement when the goals hold them in exactly one way.) If any piece may end anywhere, there are many goal arrangements, and the search runs from the start alone, testing everything it reaches against the goal as it goes.</p>
+<p><b>Sliding, without nested slides.</b> The search begins from the start alone and brings in the goal end once a level holds a million arrangements. Smaller puzzles finish before a second end would pay for itself. Starting late loses nothing: the one-ended search has been checking for the goal all along, so the goal cannot be nearer than the levels already built.</p>
+<p><b>Sliding, with nested slides.</b> The goal end starts with the first level. It has to make the moves backwards, and for a one-way move that takes some care: for each piece that holds others, the search tries every part of what it holds as the group that might have arrived together, and keeps the arrangements from which the forward move really leads here. This is available when nesting is whole (not <b>Allow Partially Nested</b>) and no piece could ever hold more than six others; otherwise the search stays at the start.</p>
+<p><b>Panex.</b> Both ends start at once.</p>
+<p><b>Which end grows.</b> Before each step the search compares the two ends' newest levels and expands the smaller one. The ends therefore meet where the work is least, which is not always the middle. In Figure 1 they met at 24 moves from the start and 23 from the goal. On a puzzle that is cramped near the goal and open near the start, the goal end would go much deeper than the start end.</p>
+
+<h2 id="s6">6. How the ends know they have met</h2>
+
+<p>It is natural to picture the search holding everything both ends have found and comparing the two piles all the time. It does something much cheaper that comes to the same thing.</p>
+<p><b>The test.</b> While a new level is being written, its keys come out in rising order. The other end's newest level is already a sorted list. The search walks the two lists together, as in Figure 3: it moves forward in whichever list has the smaller key, and if the two keys are ever equal, that arrangement is in both ends and the search is over. Each list is read once. For the sliding search this walk is one more stream in the merge that writes the level, so it adds almost nothing to the step.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 214" width="640" height="214" class="chart" role="img" aria-label="The meeting test as a walk along two sorted lists">
+<rect width="640" height="214" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">The meeting test: two sorted lists walked together</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">The keys here are made up; real ones are 64 or 128 bits</text>
+<text x="12.0" y="73.0" class="note" text-anchor="start">The start end's new level,</text>
+<text x="12.0" y="87.0" class="note" text-anchor="start">in rising order</text>
+<rect x="184" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="208.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1042</text>
+<rect x="239" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="263.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1187</text>
+<rect x="294" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="318.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1310</text>
+<rect x="349" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.85" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="373.5" y="79.0" class="onfill" text-anchor="middle" style="font-size:11.5px">1604</text>
+<rect x="404" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="428.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1873</text>
+<rect x="459" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="483.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2046</text>
+<rect x="514" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="538.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2331</text>
+<rect x="569" y="62" width="49" height="26" rx="4" fill="var(--series-1)" fill-opacity="0.22" stroke="var(--series-1)" stroke-width="1.2"/>
+<text x="593.5" y="79.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2590</text>
+<text x="12.0" y="151.0" class="note" text-anchor="start">The goal end's newest</text>
+<text x="12.0" y="165.0" class="note" text-anchor="start">level, in rising order</text>
+<rect x="184" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
+<text x="208.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">973</text>
+<rect x="239" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
+<text x="263.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1255</text>
+<rect x="294" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.85" stroke="var(--series-2)" stroke-width="1.2"/>
+<text x="318.5" y="157.0" class="onfill" text-anchor="middle" style="font-size:11.5px">1604</text>
+<rect x="349" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
+<text x="373.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1719</text>
+<rect x="404" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
+<text x="428.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2224</text>
+<rect x="459" y="140" width="49" height="26" rx="4" fill="var(--series-2)" fill-opacity="0.22" stroke="var(--series-2)" stroke-width="1.2"/>
+<text x="483.5" y="157.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2408</text>
+<line x1="208.5" y1="88" x2="263.5" y2="140" stroke="var(--ink)" stroke-width="0.8" stroke-opacity="0.35"/>
+<line x1="263.5" y1="88" x2="263.5" y2="140" stroke="var(--ink)" stroke-width="0.8" stroke-opacity="0.35"/>
+<line x1="318.5" y1="88" x2="318.5" y2="140" stroke="var(--ink)" stroke-width="0.8" stroke-opacity="0.35"/>
+<line x1="373.5" y1="88" x2="318.5" y2="140" stroke="var(--ink)" stroke-width="2" stroke-opacity="1"/>
+<text x="404.0" y="108.0" class="note" text-anchor="start">the same key in both lists:</text>
+<text x="404.0" y="122.0" class="note" text-anchor="start">the ends have met</text>
+<text x="184.0" y="190.0" class="csub" text-anchor="start">Each list is read once, front to back. Neither end is ever searched</text>
+<text x="184.0" y="204.0" class="csub" text-anchor="start">for a key: the walk only moves forward in both lists.</text>
+</svg><figcaption>Figure 3. The meeting test. Both lists are sorted, so one pass finds a key they share.</figcaption></figure>
+<p><b>Why the other end's newest level is enough.</b> Suppose a new arrangement of the start end were sitting in one of the goal end's older levels, say <i>j</i> moves from the goal. The arrangement it was made from is one move away from it, so that one is at most <i>j</i>&nbsp;+&nbsp;1 moves from the goal and lies in a level the goal end already has. But that arrangement belongs to an earlier level of the start end, so the two ends would have shared it already, and the search would have stopped then. The first shared arrangement can only ever be in the other end's newest level, and that is the only one compared.</p>
+<p><b>Why the first meeting is a shortest path.</b> Say the true answer is <i>L</i> moves, and follow one shortest path. While the two ends' depths add up to less than <i>L</i> they cannot share anything, because a shared arrangement would give a path shorter than <i>L</i>. At the step where the depths first add up to <i>L</i>, the level just built contains the arrangement of that shortest path at exactly that distance, and the same arrangement is in the other end's newest level. So the ends meet at that step and not later, and the path through the meeting arrangement has <i>L</i> moves. The Solver's "moves deep" during a solve is this sum of the two depths.</p>
+<p><b>Panex and the mirror.</b> In a tower swap the goal is the start seen in a mirror. Whatever the search from the start finds at depth <i>d</i>, a search from the goal would find the mirror image of it at the same depth. So the Panex Solver runs only the search from the start. After each level it makes the mirror image of that level, sorts it, and walks the level against it. A shared stacking is one that is <i>d</i> moves from the start and whose mirror image is too, which puts the stacking itself <i>d</i> moves from the goal: a path of 2<i>d</i> moves. It also walks each new level against the mirror of the level before, which catches paths of odd length, 2<i>d</i>&nbsp;&minus;&nbsp;1. The level-10 swap takes 31,537 moves, so its search met its mirror at depth 15,769, one search doing the work of two.</p>
+
+<h2 id="s7">7. What is kept and what is dropped</h2>
+
+<p>The step in Figure 2 reads two levels of one end and one of the other. Everything older is dead weight as far as the search itself goes. It is kept for a different reason: when the ends meet, the search knows one arrangement on the path and how far it is from each end, and nothing else. The older levels are what the path is rebuilt from (section 8). Because they are only needed at the very end, they can be stored in the cheapest way available, and some can be thrown away.</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300" class="chart" role="img" aria-label="What one end keeps of its levels">
+<rect width="640" height="300" fill="var(--surface-1)"/>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">What one end keeps of its levels as the search grows</text>
+<text x="12.0" y="35.0" class="csub" text-anchor="start">An end 16 moves deep; level 0 is the start (or the goal)</text>
+<text x="12.0" y="65.0" class="note" text-anchor="start">While the levels fit</text>
+<text x="12.0" y="78.0" class="note" text-anchor="start">in memory</text>
+<rect x="188" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="200.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">0</text>
+<rect x="214" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="226.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1</text>
+<rect x="240" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="252.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2</text>
+<rect x="266" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="278.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">3</text>
+<rect x="292" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="304.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">4</text>
+<rect x="318" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="330.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">5</text>
+<rect x="344" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="356.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">6</text>
+<rect x="370" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="382.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">7</text>
+<rect x="396" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="408.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">8</text>
+<rect x="422" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="434.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">9</text>
+<rect x="448" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="460.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">10</text>
+<rect x="474" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="486.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">11</text>
+<rect x="500" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="512.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">12</text>
+<rect x="526" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="538.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">13</text>
+<rect x="552" y="56" width="24" height="22" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="564.0" y="71.0" class="tick" text-anchor="middle" style="fill:var(--ink)">14</text>
+<rect x="578" y="56" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="590.0" y="71.0" class="onfill" text-anchor="middle">15</text>
+<rect x="604" y="56" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="616.0" y="71.0" class="onfill" text-anchor="middle">16</text>
+<text x="12.0" y="111.0" class="note" text-anchor="start">Memory short: older</text>
+<text x="12.0" y="124.0" class="note" text-anchor="start">levels move to disk</text>
+<rect x="188" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="200.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">0</text>
+<rect x="214" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="226.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">1</text>
+<rect x="240" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="252.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2</text>
+<rect x="266" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="278.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">3</text>
+<rect x="292" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="304.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">4</text>
+<rect x="318" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="330.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">5</text>
+<rect x="344" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="356.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">6</text>
+<rect x="370" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="382.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">7</text>
+<rect x="396" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="408.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">8</text>
+<rect x="422" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="434.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">9</text>
+<rect x="448" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="460.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">10</text>
+<rect x="474" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="486.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">11</text>
+<rect x="500" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="512.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">12</text>
+<rect x="526" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="538.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">13</text>
+<rect x="552" y="102" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="564.0" y="117.0" class="tick" text-anchor="middle" style="fill:var(--ink)">14</text>
+<rect x="578" y="102" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="590.0" y="117.0" class="onfill" text-anchor="middle">15</text>
+<rect x="604" y="102" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="616.0" y="117.0" class="onfill" text-anchor="middle">16</text>
+<text x="12.0" y="157.0" class="note" text-anchor="start">Disk budget reached:</text>
+<text x="12.0" y="170.0" class="note" text-anchor="start">every 2nd level stays</text>
+<rect x="188" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="200.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">0</text>
+<rect x="214" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="240" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="252.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">2</text>
+<rect x="266" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="292" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="304.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">4</text>
+<rect x="318" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="344" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="356.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">6</text>
+<rect x="370" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="396" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="408.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">8</text>
+<rect x="422" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="448" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="460.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">10</text>
+<rect x="474" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="500" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="512.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">12</text>
+<rect x="526" y="148" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="552" y="148" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="564.0" y="163.0" class="tick" text-anchor="middle" style="fill:var(--ink)">14</text>
+<rect x="578" y="148" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="590.0" y="163.0" class="onfill" text-anchor="middle">15</text>
+<rect x="604" y="148" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="616.0" y="163.0" class="onfill" text-anchor="middle">16</text>
+<text x="12.0" y="203.0" class="note" text-anchor="start">Reached again:</text>
+<text x="12.0" y="216.0" class="note" text-anchor="start">every 4th level stays</text>
+<rect x="188" y="194" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="200.0" y="209.0" class="tick" text-anchor="middle" style="fill:var(--ink)">0</text>
+<rect x="214" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="240" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="266" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="292" y="194" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="304.0" y="209.0" class="tick" text-anchor="middle" style="fill:var(--ink)">4</text>
+<rect x="318" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="344" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="370" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="396" y="194" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="408.0" y="209.0" class="tick" text-anchor="middle" style="fill:var(--ink)">8</text>
+<rect x="422" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="448" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="474" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="500" y="194" width="24" height="22" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="512.0" y="209.0" class="tick" text-anchor="middle" style="fill:var(--ink)">12</text>
+<rect x="526" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="552" y="194" width="24" height="22" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<rect x="578" y="194" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="590.0" y="209.0" class="onfill" text-anchor="middle">15</text>
+<rect x="604" y="194" width="24" height="22" rx="3" fill="var(--series-1)" stroke="var(--series-1)"/>
+<text x="616.0" y="209.0" class="onfill" text-anchor="middle">16</text>
+<rect x="12" y="246" width="16" height="13" rx="3" fill="var(--series-1)" fill-opacity="1" stroke="var(--series-1)"/>
+<text x="34.0" y="257.0" class="csub" text-anchor="start">newest two: needed to build the next level</text>
+<rect x="330" y="246" width="16" height="13" rx="3" fill="var(--series-1)" fill-opacity="0.25" stroke="var(--series-1)"/>
+<text x="352.0" y="257.0" class="csub" text-anchor="start">older, in memory: kept only to rebuild the path</text>
+<rect x="12" y="268" width="16" height="13" rx="3" fill="var(--series-3)" fill-opacity="0.28" stroke="var(--series-3)"/>
+<text x="34.0" y="279.0" class="csub" text-anchor="start">older, in a file: the same, at no cost in memory</text>
+<rect x="330" y="268" width="16" height="13" rx="3" fill="none" stroke="var(--axis)" stroke-dasharray="2 3"/>
+<text x="352.0" y="279.0" class="csub" text-anchor="start">deleted: searched again when the path is rebuilt</text>
+</svg><figcaption>Figure 4. The levels of one end at four stages of a growing search. Deleting levels applies to Panex and to sliding puzzles without nested slides.</figcaption></figure>
+
+<h3>7.1 Sliding puzzles</h3>
+<ul>
+<li><b>Memory first.</b> Every level, run and merged set is either in memory or in a file in the search's own folder, and the search reads both alike. A small search never touches the disk.</li>
+<li><b>Then disk.</b> At the end of each step, if the sets in memory take more than half the memory the search may use, the largest ones that are not in use, the older levels, are written to files until they fit again. The two newest levels of each end stay where they are. A level in a file costs no memory at all: even its index is left on disk until someone reads it.</li>
+<li><b>Then every other level.</b> By default the levels may take half the free disk space, up to 200 GB. When the kept levels leave too little room for the next step, every second one is deleted, so that levels 0, 2, 4, &hellip; remain. If that happens again, levels 0, 4, 8, &hellip; remain, and so on. Since the levels grow, the newest few are most of the bytes; thinning the old ones keeps the search going for several more levels each time.</li>
+<li><b>Not with nested slides.</b> The one-way lookups of section 4 need every older level, so none can be deleted. The older levels are kept whole, and a long search is limited by the disk. If the budget fills, the search saves itself and pauses, and carries on from there once space has been freed or the budget raised.</li>
+<li><b>Sharing.</b> The app's Search memory setting is one budget for all the searches running at once. When a second solve starts, each search's share shrinks, and the first search simply sends its older levels to disk sooner. It is never restarted.</li>
+</ul>
+
+<h3>7.2 Panex</h3>
+<ul>
+<li><b>The frontier stays in memory.</b> The two newest levels of each end, and the mirror level, are arrays in memory. If a level would not fit, the search saves itself and stops.</li>
+<li><b>Older levels in memory, then on disk.</b> The older levels are kept in memory while they take less than a quarter of the budget. Past that they are all written to the search's folder and freed, and from then on each new level is written to disk while the next one is being worked out.</li>
+<li><b>Then every other level.</b> As in the sliding search: when the files outgrow the disk budget, every second one is deleted, and the interval doubles each time it happens again.</li>
+<li><b>With no folder at all</b> the old levels are simply dropped once they stop fitting. When the ends meet, the search knows the meeting stacking, and it solves the two halves, start to meeting and meeting to goal, as two new and much smaller searches, halving again as often as it has to.</li>
+</ul>
+<p>How much this saves shows best on the largest solve so far. The level-10 Panex swap visited about 860 billion stackings; kept as a list, that would be 13.8 TB. Its widest level held about 130 million keys, 2 GB. The search ran in the memory of a laptop because it only ever held the frontier.</p>
+
+<div class="tw"><table class="cmp">
+<tr><th></th><th>Sliding Puzzle Solver</th><th>Panex Solver</th></tr>
+<tr><td>A key</td><td>64 or 128 bits, a field for each piece</td><td>128 bits, five bits for each piece</td></tr>
+<tr><td>A level</td><td>Sorted, stored as gaps; in memory or in a file</td><td>Sorted array of 16-byte keys in memory</td></tr>
+<tr><td>Goal end starts</td><td>At a level of a million arrangements; with nested slides, at once</td><td>At once; not at all for a mirrored goal</td></tr>
+<tr><td>Meeting test</td><td>New level walked against the other end's newest, inside the merge</td><td>New level walked against the other end's newest, or against its own mirror image</td></tr>
+<tr><td>Repeats</td><td>Two newest levels; one-way moves looked up in all older levels</td><td>Two newest levels (every transfer can be undone)</td></tr>
+<tr><td>Older levels</td><td>To disk when memory is half full; thinned when the disk fills (never with nested slides)</td><td>To disk past a quarter of the memory; thinned when the disk fills</td></tr>
+<tr><td>Halves the levels by</td><td>Treating identical pieces as one</td><td>Folding each stacking with its twin</td></tr>
+</table></div>
+
+<h2 id="s8">8. Working back to the start and to the goal</h2>
+
+<p>When the ends meet, the search has one arrangement, <i>m</i>, and two numbers: <i>m</i> is, say, 24 moves from the start and 23 from the goal. The path is rebuilt in two halves (Figure 5).</p>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 404" width="640" height="404" class="chart" role="img" aria-label="Tracing the path back from the meeting arrangement, and across deleted levels">
+<rect width="640" height="404" fill="var(--surface-1)"/>
+<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker></defs>
+<text x="12.0" y="20.0" class="ctitle" text-anchor="start">Working back from the meeting arrangement</text>
+<rect x="36" y="90.0" width="8" height="12" rx="3" fill="var(--series-1)" fill-opacity="0.3" stroke="var(--series-1)"/>
+<rect x="106" y="80.5" width="8" height="31" rx="3" fill="var(--series-1)" fill-opacity="0.3" stroke="var(--series-1)"/>
+<rect x="176" y="71.0" width="8" height="50" rx="3" fill="var(--series-1)" fill-opacity="0.3" stroke="var(--series-1)"/>
+<rect x="246" y="61.5" width="8" height="69" rx="3" fill="var(--series-1)" fill-opacity="0.3" stroke="var(--series-1)"/>
+<rect x="311" y="52" width="8" height="88" rx="3" fill="var(--series-1)" fill-opacity="0.3" stroke="var(--series-1)"/>
+<rect x="321" y="52" width="8" height="88" rx="3" fill="var(--series-2)" fill-opacity="0.3" stroke="var(--series-2)"/>
+<rect x="386" y="61.5" width="8" height="69" rx="3" fill="var(--series-2)" fill-opacity="0.3" stroke="var(--series-2)"/>
+<rect x="456" y="71.0" width="8" height="50" rx="3" fill="var(--series-2)" fill-opacity="0.3" stroke="var(--series-2)"/>
+<rect x="526" y="80.5" width="8" height="31" rx="3" fill="var(--series-2)" fill-opacity="0.3" stroke="var(--series-2)"/>
+<rect x="596" y="90.0" width="8" height="12" rx="3" fill="var(--series-2)" fill-opacity="0.3" stroke="var(--series-2)"/>
+<line x1="40" y1="96" x2="110" y2="88" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="110" y1="88" x2="180" y2="108" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="180" y1="108" x2="250" y2="80" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="250" y1="80" x2="320" y2="102" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="320" y1="102" x2="390" y2="78" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="390" y1="78" x2="460" y2="106" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="460" y1="106" x2="530" y2="90" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="530" y1="90" x2="600" y2="96" stroke="var(--ink)" stroke-width="1.6"/>
+<circle cx="40" cy="96" r="5" fill="var(--ink)"/>
+<circle cx="110" cy="88" r="3" fill="var(--ink)"/>
+<circle cx="180" cy="108" r="3" fill="var(--ink)"/>
+<circle cx="250" cy="80" r="3" fill="var(--ink)"/>
+<circle cx="320" cy="102" r="5" fill="var(--ink)"/>
+<circle cx="390" cy="78" r="3" fill="var(--ink)"/>
+<circle cx="460" cy="106" r="3" fill="var(--ink)"/>
+<circle cx="530" cy="90" r="3" fill="var(--ink)"/>
+<circle cx="600" cy="96" r="5" fill="var(--ink)"/>
+<text x="40.0" y="122.0" class="note" text-anchor="middle">start</text>
+<text x="600.0" y="122.0" class="note" text-anchor="middle">goal</text>
+<text x="320.0" y="44.0" class="note" text-anchor="middle">the meeting arrangement, in a level of each end</text>
+<line x1="298" y1="158" x2="80" y2="158" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="190.0" y="176.0" class="note" text-anchor="middle">1. back to the start, a level at a time</text>
+<line x1="342" y1="158" x2="560" y2="158" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="450.0" y="176.0" class="note" text-anchor="middle">2. on to the goal, a level at a time</text>
+<line x1="12" y1="196" x2="628" y2="196" class="grid"/>
+<text x="12.0" y="216.0" class="ctitle" text-anchor="start">Across a gap of deleted levels</text>
+<rect x="144" y="234" width="12" height="132" rx="4" fill="var(--series-3)" fill-opacity="0.3" stroke="var(--series-3)"/>
+<text x="136.0" y="280.0" class="note" text-anchor="end">level c,</text>
+<text x="136.0" y="294.0" class="note" text-anchor="end">kept</text>
+<text x="136.0" y="308.0" class="note" text-anchor="end">on disk</text>
+<line x1="242.5" y1="254" x2="242.5" y2="352" stroke="var(--axis)" stroke-dasharray="2 4"/>
+<text x="242.5" y="390.0" class="csub" text-anchor="middle">c + 1 (deleted)</text>
+<line x1="335.0" y1="254" x2="335.0" y2="352" stroke="var(--axis)" stroke-dasharray="2 4"/>
+<text x="335.0" y="390.0" class="csub" text-anchor="middle">c + 2 (deleted)</text>
+<line x1="427.5" y1="254" x2="427.5" y2="352" stroke="var(--axis)" stroke-dasharray="2 4"/>
+<text x="427.5" y="390.0" class="csub" text-anchor="middle">c + 3 (deleted)</text>
+<text x="150.0" y="390.0" class="csub" text-anchor="middle">c</text>
+<text x="520.0" y="390.0" class="csub" text-anchor="middle">c + 4</text>
+<path d="M520,300 L156,254 L156,346 Z" fill="var(--series-2)" fill-opacity="0.2" stroke="var(--series-2)" stroke-width="1.2"/>
+<line x1="156" y1="314" x2="242.5" y2="302" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="242.5" y1="302" x2="335.0" y2="310" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="335.0" y1="310" x2="427.5" y2="296" stroke="var(--ink)" stroke-width="1.6"/>
+<line x1="427.5" y1="296" x2="520" y2="300" stroke="var(--ink)" stroke-width="1.6"/>
+<circle cx="242.5" cy="302" r="3" fill="var(--ink)"/>
+<circle cx="335.0" cy="310" r="3" fill="var(--ink)"/>
+<circle cx="427.5" cy="296" r="3" fill="var(--ink)"/>
+<circle cx="520" cy="300" r="5" fill="var(--ink)"/>
+<circle cx="156" cy="314" r="5" fill="var(--series-3)" stroke="var(--ink)"/>
+<text x="532.0" y="290.0" class="note" text-anchor="start">the arrangement</text>
+<text x="532.0" y="304.0" class="note" text-anchor="start">at hand, in</text>
+<text x="532.0" y="318.0" class="note" text-anchor="start">level c + 4</text>
+<text x="362.8" y="228.0" class="csub" text-anchor="middle">a small search out from it, four levels:</text>
+<text x="362.8" y="240.0" class="csub" text-anchor="middle">every arrangement within four moves</text>
+<text x="166.0" y="362.0" class="csub" text-anchor="start">the first of them that level c holds</text>
+</svg><figcaption>Figure 5. Above: the path is rebuilt outwards from the meeting arrangement, through the kept levels of each end. Below: where levels were deleted, a small search out from the arrangement at hand reaches the nearest kept level.</figcaption></figure>
+<p><b>One step back.</b> To go from an arrangement in level <i>d</i> to one in level <i>d</i>&nbsp;&minus;&nbsp;1, the search works out the arrangement's moves, as it would to expand it, and looks the results up in level <i>d</i>&nbsp;&minus;&nbsp;1. At least one of them is there, because that is how the arrangement got into level <i>d</i>. It takes the first one found, in the fixed order the moves are tried, so the same search always returns the same path. Then it repeats from there, down to level 0. This costs one small lookup for each move of the solution.</p>
+<p><b>The goal half</b> is the same walk through the goal end's levels, from <i>m</i> to the goal. With nested slides the goal end's levels were built by making moves backwards, so here the forward moves of each arrangement are looked up in the level one nearer the goal. The two halves are then joined at <i>m</i>.</p>
+<p><b>Across a gap.</b> If the levels were thinned, the level just below may be gone. The search then finds the nearest kept level below, say four levels down, and runs a small search of its own out from the arrangement at hand: four levels, built exactly as in section 4. The last of them is walked against the kept level, as in the meeting test, and the first arrangement they share is the next fixed point of the path. The search steps back through its four small levels to connect the two, throws them away and carries on from the new point. These small searches start from a single arrangement and go only as deep as the gap, so they are tiny beside the search that made the levels. This is the trade that thinning makes: disk space saved during the search, for a little searching again at the end.</p>
+<p><b>Panex</b> works the same way, with two differences. It always uses the small search between saved levels once its levels are on disk, and the saved level is read from its file as a stream rather than loaded. And for a mirrored goal there is no goal end to walk through: the second half of the path is traced through the start's levels in the mirror, and each stacking is turned back as it is written into the path. As soon as the ends meet, the Panex search notes the meeting stacking in its saved state, so stopping it while it traces loses none of the search.</p>
+<p>Every path a search returns is checked in the tests move by move: each step has to be a legal move from the arrangement before.</p>
+
+<h2 id="s9">9. Measurements and limits</h2>
+
+<p>The sliding search went from one end to two for nested slides in release 1.8.2. The table compares the release before with the current search on the four problems of "Abe 1 to 6 Heart", a board of blocks with nested slides, solved with optimized paths (the <a href="/research/optimized-paths.html">companion page</a> explains those). Times are single runs of the release build on a MacBook Air M4 with ten threads.</p>
+<div class="tw"><table class="num">
+<tr><th>Problem</th><th>Moves</th><th>From the start alone</th><th>From both ends</th><th>Arrangements, both ends</th><th>Peak memory</th></tr>
+<tr><td>Problem 1</td><td>50</td><td>not solved</td><td>8.9 s</td><td>28,444,092</td><td>489 MB</td></tr>
+<tr><td>Problem 1 modified</td><td>50</td><td>1,565 s</td><td>5.1 s</td><td>16,973,771</td><td>270 MB</td></tr>
+<tr><td>Problem 2</td><td>56</td><td>9,172 s</td><td>19.2 s</td><td>55,003,437</td><td>991 MB</td></tr>
+<tr><td>Problem 3</td><td>47</td><td>2,825 s</td><td>6.1 s</td><td>18,412,361</td><td>364 MB</td></tr>
+</table></div>
+<p>Run on the same build with only the second end switched off, Problem 3 took 321 s, 399 million arrangements, 6.6 GB of memory and 2.1 GB of disk. From both ends it took 6.1 s, 18.4 million arrangements and 364 MB, and never touched the disk. Both found 47 moves. (That one-ended run used a saving that only a search from the start can use: it counts the several places a small piece can rest inside one cell of the board as one. That is why its total is below the two billion that Figure 1 points to, where every stop is counted at both ends.)</p>
+<p>The two ways of searching were also compared on 5,669 generated boards, 4,117 of which have a solution: the outcome and the number of moves were the same on every one.</p>
+
+<h3>Where the search still runs from one end</h3>
+<ul>
+<li>A sliding puzzle in which a piece may end anywhere, or a piece that is not a copy has several goal positions. The goal is then not one arrangement.</li>
+<li>Nested slides with <b>Allow Partially Nested</b>, or with a piece that could hold more than six others. The moves cannot yet be made backwards there.</li>
+<li>A sliding puzzle without nested slides whose levels never reach a million arrangements. It does not need a second end.</li>
+</ul>
+
+<h3>What limits a search from both ends</h3>
+<ul>
+<li><b>Sliding, nested slides:</b> the disk. Every level of both ends is kept, at about 13 bytes an arrangement on the largest board tried.</li>
+<li><b>Sliding, no nested slides:</b> the disk as well, but much later, since old levels are thinned.</li>
+<li><b>Panex:</b> memory. The newest levels have to fit, and the level-11 swap would need about 16 GB for one level.</li>
+</ul>
+
+<h2 id="refs">Sources</h2>
+<ul class="refs">
+<li>ShapeLogic sources: <span class="mono">core/shapelogic/solve/sliding_search.{h,cpp}</span> (<span class="mono">LevelSearch</span>, <span class="mono">runMerge</span>, <span class="mono">SetStore</span>), <span class="mono">slide_levels.h</span> (the sorted sets), <span class="mono">panex_search.cpp</span> (<span class="mono">meetSearch</span>, <span class="mono">traceStored</span>, <span class="mono">Store</span>); decision records 0028 (shared search memory), 0032 (compact keys) and 0033 (nested slides from both ends).</li>
+<li>Figure 1 and the level counts in the text: <span class="mono">shapelogic_cli -d --nested-slides --optimized-paths --slide-trace</span> on Problem 3 of "Abe 1 to 6 Heart", once as it is and once with <span class="mono">--slide-one-end --slide-stops-apart</span>, the second stopped after 150 seconds. Level counts do not depend on the machine or on how busy it is.</li>
+<li>The table in section 9 and the 321 s comparison: decision record 0033. The Panex figures: the <a href="/research/panex-solver-white-paper.html">Panex Solver White Paper</a>, which also covers the Panex search in more detail.</li>
+<li>I. Pohl, "Bi-directional Search", Machine Intelligence 6 (1971), pp. 127&ndash;140: the idea of searching from both ends and growing the smaller frontier.</li>
+</ul>
+<p><a href="/research/">&larr; Back to Research</a></p>
+</main>
+</body></html>
