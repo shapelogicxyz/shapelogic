@@ -61,6 +61,43 @@ import '../styles/landing.css';
 
       <section class="blog" aria-labelledby="news-heading">
         <h2 class="blog-heading" id="news-heading">News</h2>
+        <article class="post" aria-labelledby="post-v1-9">
+          <p class="post-meta">
+            <time datetime="2026-11-17">17 November 2026</time> · Release
+          </p>
+          <h3 id="post-v1-9">ShapeLogic v1.9: a log of what happened, and bigger sliding boards</h3>
+          <p>
+            Version 1.9 keeps a log of what ShapeLogic did and what went wrong, and runs bigger
+            sliding boards on the fast search.
+          </p>
+          <ul>
+            <li>
+              <strong>A log of what happened.</strong>
+              <strong>View &#9656; Log File Manager&hellip;</strong> shows files opened and saved,
+              solves started, paused and ended, and the errors, newest first. Its
+              <strong>Pretty</strong> view is a table with the level in colour and the event in a
+              column of its own, the search highlights each match, and
+              <strong>Export&hellip;</strong> saves it to send with a report of a problem.
+            </li>
+            <li>
+              <strong>Bigger sliding boards on the fast search.</strong> Boards that stopped at the
+              slower search's memory limit now run on the fast one, with every core, the disk and the
+              <strong>Performance Analysis</strong>.
+            </li>
+            <li>
+              <strong>A clean start after a damaged search.</strong> A saved sliding search that can't
+              be read back is dropped whole, instead of leaving a part that made the solve find a
+              longer path.
+            </li>
+          </ul>
+          <p>
+            Read more in <a href="/docs/getting-started/#the-log-file">Getting started</a>. Many small
+            bug fixes and improvements.
+          </p>
+          <p>
+            <a href="https://github.com/shapelogicxyz/shapelogic/releases/latest">Release notes and downloads on GitHub</a>
+          </p>
+        </article>
         <article class="post" aria-labelledby="post-v1-8">
           <p class="post-meta">
             <time datetime="2026-11-12">12 November 2026</time> · Release
