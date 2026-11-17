@@ -38,6 +38,7 @@ import { basename, dirname, extname, join } from 'node:path';
 import {
   isCacheAction,
   isCacheLink,
+  isLogQuery,
   isExportKind,
   isFileKind,
   isMenuState,
@@ -48,11 +49,13 @@ import type {
   CliToolResult,
   FileKind,
   HelpLink,
+  LogExportResult,
   MenuState,
   OpenKind,
   StoredState,
   UpdateResult,
 } from '../engine/app-bridge.ts';
+import type { AppLog } from './app-log.ts';
 import type { CacheFolderManager } from './cache-folder.ts';
 import { deleteItem, listItems } from './cache-files.ts';
 import type { CacheLinks } from './cache-files.ts';
@@ -65,6 +68,12 @@ import { HELP_URLS, SYSTEM_URLS } from './security.ts';
 import type { StateStore } from './state-store.ts';
 import { checkForUpdate, parseVersion } from './updates.ts';
 import type { FetchFn } from './updates.ts';
+
+/** A date for an exported log's name: 2026-11-16. */
+function logStamp(d: Date): string {
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return `${String(d.getFullYear())}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 /** Opens a help page in the system's browser. */
 export function openHelp(link: HelpLink): void {
@@ -152,6 +161,10 @@ export interface AppIpcHost {
   cache: CacheFolderManager<WebContents>;
   /** The search folders' links to their puzzles (the cache manager's names). */
   cacheLinks: CacheLinks;
+  /** The app's log (View ▸ Log File Manager…). */
+  log: AppLog;
+  /** The settings were stored again (a window changed one): Debug logging follows them. */
+  prefsChanged(prefs: Record<string, unknown>): void;
   /** The app's window of a renderer, or null (not ours: not answered). */
   window(sender: WebContents): BrowserWindow | null;
   setMenu(sender: WebContents, state: MenuState): void;
@@ -377,6 +390,7 @@ export function installAppIpc(h: AppIpcHost): void {
     ) {
       h.store.set(key, value as Record<string, unknown>);
       if (key === 'prefs') {
+        h.prefsChanged(value as Record<string, unknown>);
         // the settings are the app's: every window shows them (a layout is the window's own)
         for (const c of h.others(e.sender)) {
           c.send('bt:prefs', value);
@@ -524,6 +538,52 @@ export function installAppIpc(h: AppIpcHost): void {
         return typeof arg === 'string'
           ? deleteItem(arg, folders, h.rescue.all(), h.cacheLinks, () => h.cache.solving())
           : { ok: false, error: 'unknown item' };
+      default:
+        return null;
+    }
+  });
+
+  // the log manager: a page, Clear, and Export to the file this process's
+  // own save dialog gives (the renderer never names a path)
+  ipcMain.handle('bt:log', async (e, op: unknown, arg: unknown) => {
+    const win = ours(e);
+    if (win === null) {
+      return null;
+    }
+    switch (op) {
+      case 'page':
+        return isLogQuery(arg) ? h.log.page(arg) : null;
+      case 'clear':
+        await h.log.clear();
+        return null;
+      case 'export': {
+        const r = await dialog.showSaveDialog(win, {
+          title: 'Export Log',
+          defaultPath: join(
+            lastDir() ?? defaultDir(),
+            `shapelogic-log-${logStamp(new Date())}.txt`,
+          ),
+          filters: [
+            { name: 'Text Files', extensions: ['txt', 'log'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+          properties: ['showOverwriteConfirmation', 'createDirectory'],
+        });
+        if (r.canceled || r.filePath === '') {
+          return { ok: false, cancelled: true } satisfies LogExportResult;
+        }
+        const path = extname(r.filePath) === '' ? `${r.filePath}.txt` : r.filePath;
+        try {
+          await h.log.exportTo(path);
+          h.store.setLastDir(dirname(path));
+          return { ok: true, path } satisfies LogExportResult;
+        } catch (err) {
+          return {
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          } satisfies LogExportResult;
+        }
+      }
       default:
         return null;
     }

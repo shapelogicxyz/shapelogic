@@ -561,7 +561,10 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     expect(pausedAt).toBeGreaterThan(0);
     await expect(page.locator('#slvActivity')).toHaveText('Search paused');
     await expect(page.locator('#slvDetails')).toContainText(/^Scanned .+ search steps\./);
+    // Continue stands in Solve's place while the solve is under way (starting over is Abort, then Solve)
     await expect(page.locator('#slvRun [data-r="continue"]')).toBeEnabled();
+    await expect(page.locator('#slvRun [data-r="continue"]')).toHaveText('Continue');
+    await expect(page.locator('#slvRun [data-r="start"]')).toHaveCount(0);
     await expect(page.locator('#slvRun [data-r="abort"]')).toBeEnabled();
     await expect(page.locator('#slvRun [data-r="pause"]')).toBeDisabled();
 
@@ -593,6 +596,8 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     await runEnded(page, 'idle');
     await expect(page.locator('#slvRun [data-r="abort"]')).toHaveCount(0);
     await expect(page.locator('#slvRun [data-r="reset"]')).toBeDisabled();
+    await expect(page.locator('#slvRun [data-r="continue"]')).toHaveCount(0);
+    await expect(page.locator('#slvRun [data-r="start"]')).toHaveText('Solve');
     await expect(page.locator('#slvCount')).toHaveText('0');
     const gone = await engineCall<{ saved: number; state: string }>(page, 'problem.get', {
       problem: box.problem,

@@ -104,8 +104,11 @@ does (`nameSpace`, `tableProbe`) and looks for their folders, searching
 nothing. `pendingFromStartAlone` asks it of a paused problem's pending
 starts, the engine's `sliding.resumeAdvice` of a problem and the options
 Continue would send. Where it is true the Solver's Continue asks first:
-Solve Again (the default) or Continue, the second only reasonable for a
-search that has run long and is likely near its end. A search paused in
+Cancel (the default, saying that Abort, then Solve, searches again from
+both ends) or Continue, the second only reasonable for a search that has
+run long and is likely near its end. (It first offered Solve Again in
+place of Cancel; since Continue took Solve's place while a solve is under
+way, starting over is always Abort, then Solve.) A search paused in
 this build is saved from both ends and carried on so (6 Heart's Problem 3
 paused after 5 s and carried on: 14.1 s in all against 13.3 s unbroken,
 the same 16,058,861 arrangements), so pausing costs nothing and Pause asks

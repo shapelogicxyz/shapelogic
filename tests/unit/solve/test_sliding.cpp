@@ -3678,6 +3678,286 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on",
   std::filesystem::remove_all(dir);
 }
 
+// The Solver's run of a long search with nested slides from both ends: its
+// levels on disk, saved now and then as it goes (autosave), at save points
+// (the crash journal's) and when paused in the middle of a level, stopped
+// when it fills its disk budget and carried on with a larger one, again
+// and again. Every run carries the saved search on, never deeper than the
+// path, and the path is the one a search with no stops finds.
+TEST_CASE("sliding: a search from both ends with nested slides is carried on past its disk budget",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidebudget");
+  std::filesystem::remove_all(dir);
+  const GridBoard g = settledBoard(37);
+
+  // levels in memory up to `memory` bytes; autosaved after every level or,
+  // with `autosave` off, at the stops alone
+  auto carriedOn = [&](std::uint64_t memory, bool autosave) {
+    INFO("memory " << memory << ", autosave " << autosave);
+    auto runSearch = [&] {
+      SlideSearch s = nestedSearch(3);
+      s.threads = 2;
+      s.workDir = dir.string();
+      s.memoryLevelBytes = memory;
+      s.autosave = autosave;
+      s.autosaveFloorSeconds = 0;
+      return s;
+    };
+    bool fromGoal = false;
+    SlideSearch straight = runSearch();
+    const std::optional<Separation> whole = searched(g, straight, fromGoal);
+    REQUIRE(whole.has_value());
+    REQUIRE(fromGoal);
+    const unsigned int moves = whole->getMoves();
+    REQUIRE(moves >= 14);
+    CHECK(std::filesystem::is_empty(dir));
+    if (straight.diskBytes == 0) {
+      return;  // all of it in memory: no disk budget to reach
+    }
+
+    const std::uint64_t step = std::max<std::uint64_t>(straight.diskBytes / 16, 1);
+    std::uint64_t budget = step;
+    std::uint64_t depth = 0;
+    unsigned int diskStops = 0;
+    bool pointNext = false;
+    std::optional<Separation> path;
+    for (unsigned int runs = 1;; runs++) {
+      INFO("run " << runs << ", disk budget " << budget << " of " << straight.diskBytes);
+      REQUIRE(runs < 200);
+      SlideSearch s = runSearch();
+      s.diskBudget = budget;
+      std::vector<LogLine> told;
+      s.onLog = [&told](LogLevel level, const std::string& text) {
+        // a debug log's lines aside (the debug log's own test has those)
+        if (level != LogLevel::Debug) {
+          told.push_back(LogLine{level, text});
+        }
+      };
+      // after a disk stop, the run carried on with room for more stops at
+      // a save point (the crash journal's) before the budget is reached
+      StopSource point;
+      if (pointNext) {
+        point.request(StopKind::Pause);
+        s.savePoint = point.token();
+      }
+      pointNext = false;
+      // every third run paused in the middle of a level (Pause, File ▸ Save)
+      StopSource pause;
+      std::atomic<std::uint64_t> progress{0};
+      std::atomic<bool> done{false};
+      std::thread watcher;
+      if (runs % 3 == 0) {
+        s.stop = pause.token();
+        s.progress = &progress;
+        const std::uint64_t after = std::max<std::uint64_t>(straight.visited / 40, 1);
+        watcher = std::thread([&, after] {
+          while (!done.load()) {
+            if (progress.load() >= after) {
+              pause.request(StopKind::Pause);
+              return;
+            }
+            std::this_thread::yield();
+          }
+        });
+      }
+      path = searched(g, s, fromGoal);
+      done.store(true);
+      if (watcher.joinable()) {
+        watcher.join();
+      }
+      if (runs > 1) {
+        CHECK(s.resumed);
+        // the log tells how deep each end was carried on from
+        REQUIRE_FALSE(told.empty());
+        CHECK(told.front().level == LogLevel::Info);
+        CHECK(told.front().text.starts_with("Carried on the saved search in "));
+      }
+      // both ends together never deeper than the path
+      CHECK(s.depth <= moves);
+      CHECK(s.depth >= depth);
+      depth = s.depth;
+      if (path.has_value()) {
+        CHECK(s.outcome == SlideOutcome::Found);
+        CHECK(s.visited == straight.visited);
+        break;
+      }
+      REQUIRE(s.saved);
+      if (s.outcome == SlideOutcome::Disk) {
+        CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+          return l.level == LogLevel::Warning && l.text.find("The search is saved") != std::string::npos;
+        }));
+        diskStops++;
+        budget += 2 * step;
+        pointNext = true;
+      } else {
+        REQUIRE(s.outcome == SlideOutcome::Stopped);
+      }
+    }
+    CHECK(diskStops >= 3);
+    CHECK(path->getMoves() == moves);
+    checkGridPath(g, *path);
+    CHECK(std::filesystem::is_empty(dir));
+  };
+  for (const std::uint64_t memory : {1ULL, 512ULL}) {
+    carriedOn(memory, true);
+    carriedOn(memory, false);
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// A saved search that cannot be carried on (a file of one of its levels
+// damaged or gone) is searched afresh: nothing of the save is left in the
+// new search, which finds the path a search with no stops finds.
+TEST_CASE("sliding: a saved search with a damaged level is searched afresh",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidedamaged");
+  std::filesystem::remove_all(dir);
+  auto runSearch = [&] {
+    SlideSearch s = nestedSearch(3);
+    s.threads = 2;
+    s.workDir = dir.string();
+    s.memoryLevelBytes = 1;
+    return s;
+  };
+  const GridBoard g = settledBoard(37);
+  bool fromGoal = false;
+  SlideSearch straight = runSearch();
+  const std::optional<Separation> whole = searched(g, straight, fromGoal);
+  REQUIRE(whole.has_value());
+  REQUIRE(fromGoal);
+  const unsigned int moves = whole->getMoves();
+  REQUIRE(moves >= 14);
+
+  // stopped 10 moves deep (both ends together), saved
+  auto stopped = [&] {
+    StopSource stop;
+    SlideSearch first = runSearch();
+    first.stop = stop.token();
+    first.onDepth = [&](std::uint64_t at) {
+      if (at >= 10) {
+        stop.request(StopKind::Pause);
+      }
+    };
+    CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Stopped);
+    REQUIRE(first.saved);
+  };
+  auto levelFiles = [&] {
+    std::vector<std::filesystem::path> files;
+    for (const auto& folder : std::filesystem::directory_iterator(dir)) {
+      for (const auto& e : std::filesystem::directory_iterator(folder.path())) {
+        if (e.path().extension() == ".keys") {
+          files.push_back(e.path());
+        }
+      }
+    }
+    std::sort(files.begin(), files.end());
+    return files;
+  };
+
+  stopped();
+  const std::size_t count = levelFiles().size();
+  REQUIRE(count >= 10);
+  // every other file: the ends' newest levels, their kept levels and the
+  // visited sets are among them
+  unsigned int afresh = 0;
+  unsigned int damaged = 0;
+  for (std::size_t i = 0; i < count; i += 2) {
+    damaged++;
+    stopped();
+    const std::vector<std::filesystem::path> files = levelFiles();
+    REQUIRE(files.size() == count);
+    INFO("damaged " << files[i].filename().string());
+    std::filesystem::resize_file(files[i], std::filesystem::file_size(files[i]) / 2);
+    SlideSearch on = runSearch();
+    std::vector<LogLine> told;
+    on.onLog = [&told](LogLevel level, const std::string& text) {
+      // a debug log's lines aside (what state.bin names comes first)
+      if (level != LogLevel::Debug) {
+        told.push_back(LogLine{level, text});
+      }
+    };
+    const std::optional<Separation> path = searched(g, on, fromGoal);
+    CHECK(path.has_value());
+    // the log tells which file, and that the search starts again
+    REQUIRE_FALSE(told.empty());
+    CHECK(told.front().level == LogLevel::Error);
+    CHECK(told.front().text.find(files[i].filename().string()) != std::string::npos);
+    CHECK(told.front().text.find("starts again from the beginning") != std::string::npos);
+    if (path.has_value()) {
+      CHECK(path->getMoves() == moves);
+      checkGridPath(g, *path);
+    }
+    CHECK(on.depth <= moves);
+    if (!on.resumed) {
+      afresh++;
+      CHECK(on.visited == straight.visited);
+    }
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  CHECK(afresh == damaged);
+  std::filesystem::remove_all(dir);
+}
+
+// A debug log (the app's Settings ▸ General): a line for each level done,
+// how deep both ends are and the disk; each save, with the files the state
+// names; the saved search read back, what its state.bin names.
+TEST_CASE("sliding: the debug log tells each level, each save and the search read back",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidedebuglog");
+  std::filesystem::remove_all(dir);
+  auto runSearch = [&](std::vector<LogLine>& told) {
+    SlideSearch s = nestedSearch(3);
+    s.threads = 2;
+    s.workDir = dir.string();
+    s.memoryLevelBytes = 1;
+    s.onLog = [&told](LogLevel level, const std::string& text) {
+      told.push_back(LogLine{level, text});
+    };
+    return s;
+  };
+  auto debugWith = [](const std::vector<LogLine>& told, const std::string& text) {
+    return static_cast<std::size_t>(std::count_if(told.begin(), told.end(), [&](const LogLine& l) {
+      return l.level == LogLevel::Debug && l.text.find(text) != std::string::npos;
+    }));
+  };
+  const GridBoard g = settledBoard(37);
+  std::vector<LogLine> firstTold;
+  StopSource stop;
+  SlideSearch first = runSearch(firstTold);
+  first.stop = stop.token();
+  std::uint64_t levels = 0;
+  first.onDepth = [&](std::uint64_t at) {
+    levels = at;
+    if (at >= 10) {
+      stop.request(StopKind::Pause);
+    }
+  };
+  CHECK_FALSE(findSlidePath(g.puz, g.pr(), *g.start, first).has_value());
+  REQUIRE(first.saved);
+  // a line for each level done: both ends' depths, the disk against its budget
+  CHECK(debugWith(firstTold, " moves deep (the ") == levels);
+  CHECK(debugWith(firstTold, "in all): the level has ") == levels);
+  CHECK(debugWith(firstTold, "The disk the search may take in ") == 1);
+  // the save, with the files its state names
+  CHECK(debugWith(firstTold, "Saved the search's state in ") >= 1);
+  CHECK(debugWith(firstTold, ".keys") >= 1);
+
+  std::vector<LogLine> told;
+  bool fromGoal = false;
+  SlideSearch on = runSearch(told);
+  CHECK(searched(g, on, fromGoal).has_value());
+  CHECK(on.resumed);
+  REQUIRE_FALSE(told.empty());
+  // what state.bin names, before the search is carried on
+  CHECK(told.front().level == LogLevel::Debug);
+  CHECK(told.front().text.find("Reading the saved search in ") != std::string::npos);
+  CHECK(told.front().text.find("the start end ") != std::string::npos);
+  CHECK(told.front().text.find(" arrangements visited, interval ") != std::string::npos);
+  CHECK(debugWith(told, " moves deep (the ") >= 1);
+  std::filesystem::remove_all(dir);
+}
+
 // What the Solver asks before Continue (decision 0033): a search saved with
 // the stops of a cell as one goes on from the start alone, and where a new
 // search would go from both ends that is worth saying.

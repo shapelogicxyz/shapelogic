@@ -45,6 +45,7 @@ import { currentProblem, definition, problemGet, pzSettled } from './puzzle.ts';
 import type { Problem } from './puzzle.ts';
 import {
   btJson,
+  confirm,
   enginePoses,
   expectPosesAt,
   pageIds,
@@ -1365,7 +1366,7 @@ test('optimized paths: asked about before a solve, the full search offered when 
   }
 });
 
-test('a search paused in v1.8.1: Continue asks whether to solve again from both ends', async () => {
+test('a search paused in v1.8.1: Continue asks first, Abort then Solve searches from both ends', async () => {
   test.setTimeout(120_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -1405,7 +1406,8 @@ test('a search paused in v1.8.1: Continue asks whether to solve again from both 
       await ask
         .locator('[data-x]')
         .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.x)),
-    ).toEqual(['continue', 'start']);
+    ).toEqual(['cancel', 'continue']);
+    await expect(ask).toContainText('press Cancel, then Abort and Solve');
     // dismissed: still paused, the saved search kept
     await page.keyboard.press('Escape');
     await expect(ask).toHaveCount(0);
@@ -1414,16 +1416,29 @@ test('a search paused in v1.8.1: Continue asks whether to solve again from both 
     expect(existsSync(saved)).toBe(true);
     expect(calls()).not.toContain('solve.continue');
     expect(calls()).not.toContain('solve.start');
-
-    // Solve Again: a new search on the grid, the saved one thrown away
+    // cancelled: the same
     await runButton(page, 'continue');
-    await page.click('#fromStartAlone [data-x="start"]');
+    await page.click('#fromStartAlone [data-x="cancel"]');
+    await expect(ask).toHaveCount(0);
+    await solverSettled(page);
+    expect(existsSync(saved)).toBe(true);
+    expect(calls()).not.toContain('solve.continue');
+
+    // Abort, then Solve: a new search on the grid, the saved one thrown away
+    await runButton(page, 'abort');
+    await confirm(page, /^Abort the solve\?$/, true);
+    await solverSettled(page);
+    // unsolved again: no solution count (the folder stays until Solve replaces it)
+    expect(await found(p)).toMatchObject({ solutions: null });
+    await runButton(page, 'start');
+    await page.click('#optimizedPaths [data-x="optimized"]');
     await runEnded(page, 'finished');
     await expect(page.locator(`#slvProbs .row[data-id="${p}"] .st`)).toHaveText(
       '3 moves (optimized)',
     );
     expect(await found(p)).toMatchObject({ slideGrid: 3, solutions: 1 });
     expect(existsSync(saved)).toBe(false);
+    expect(calls()).toContain('solve.abort');
     expect(calls()).toContain('solve.start');
     expect(calls()).not.toContain('solve.continue');
 
@@ -1464,7 +1479,7 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     await expect(perf.locator('b').first()).toHaveText('Performance Analysis');
     await expect(perf.locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
     await expect(perf).toContainText(/Searched \d+ moves deep/);
-    await expect(perf.locator('th').nth(2)).toHaveText('From now');
+    await expect(perf.locator('th').nth(2)).toHaveText('Remaining');
     // the rows and the depth read together (the panel follows each progress)
     const shown = await perf.evaluate((el) => ({
       text: el.textContent,

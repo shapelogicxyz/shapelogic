@@ -503,6 +503,7 @@ describe('the IPC handlers', () => {
   const claimed: [number, string][] = [];
   let newWindows = 0;
   const toOthers: [string, unknown][] = [];
+  const prefsStored: unknown[] = [];
   // the update check: GitHub's latest release, and what Skip This Version stored
   let latestTag = 'v1.4';
   let skipped: string | undefined;
@@ -563,6 +564,7 @@ describe('the IPC handlers', () => {
       closeTaken: () => undefined,
       closeWindow: () => undefined,
       cancelQuit: () => undefined,
+      prefsChanged: (prefs: unknown) => prefsStored.push(prefs),
     } as unknown as Parameters<typeof installAppIpc>[0]);
   });
 
@@ -735,6 +737,8 @@ describe('the IPC handlers', () => {
     save?.({ sender: ours }, 'layout', { focus: '3d' });
     save?.({ sender: foreign }, 'prefs', { theme: 'Light' });
     expect(toOthers).toEqual([['bt:prefs', { theme: 'Dark' }]]);
+    // and the main process hears them (Debug logging follows them)
+    expect(prefsStored.at(-1)).toEqual({ theme: 'Dark' });
   });
 
   it('open only the help links, by name', () => {

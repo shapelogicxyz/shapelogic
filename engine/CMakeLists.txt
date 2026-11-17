@@ -1,6 +1,7 @@
 # btengine: the engine's protocol and methods (decision 0012), a library so
 # that the unit tests drive it in process; shapelogic_engine: the program.
 add_library(btengine STATIC
+  app_log.cpp
   convert.cpp
   engine.cpp
   events.cpp

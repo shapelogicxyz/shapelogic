@@ -38,7 +38,7 @@ import {
 } from '../../../src/renderer/view3d/mesh.ts';
 import { layerSlab } from '../../../src/renderer/view3d/overlays.ts';
 import { describePick, pickOf } from '../../../src/renderer/view3d/picking.ts';
-import { NAME_CHARS, pieceText } from '../../../src/renderer/view3d/solution.ts';
+import { pieceText } from '../../../src/renderer/view3d/solution.ts';
 
 /** A frame of polygons given as corner lists, emitted as the engine's fans. */
 function frame(
@@ -406,20 +406,34 @@ describe('camera.ts', () => {
 
 describe('the text drawn on a solution piece', () => {
   const p = { label: 'S2', name: 'My long label' };
+  const show = (label: boolean, name: boolean, chars = 8) => ({ label, name, chars });
   it('says the label, the name cut to its first characters, or both', () => {
-    expect(NAME_CHARS).toBe(8);
-    expect(pieceText(p, { label: true, name: false })).toBe('S2');
-    expect(pieceText(p, { label: false, name: true })).toBe('My long');
-    expect(pieceText({ label: 'S2', name: 'Corner12' }, { label: true, name: true })).toBe(
-      'S2 - Corner12',
+    expect(DEFAULTS.labelChars).toBe(8);
+    expect(pieceText(p, show(true, false))).toBe('S2');
+    expect(pieceText(p, show(false, true))).toBe('My long');
+    expect(pieceText({ label: 'S2', name: 'Corner12' }, show(true, true))).toBe('S2 - Corner12');
+    expect(pieceText(p, show(false, false))).toBe('');
+  });
+  it('cuts the name to the characters set', () => {
+    expect(pieceText(p, show(false, true, 1))).toBe('M');
+    expect(pieceText(p, show(false, true, 13))).toBe('My long label');
+    expect(pieceText({ name: 'abcdefghijklmnopq' }, show(false, true, 14))).toBe('abcdefghijklmn');
+  });
+  it('with no limit draws the whole name, a line every 14 characters', () => {
+    const name = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    expect(pieceText({ name }, show(false, true, 0))).toBe(
+      'abcdefghijklmn\nopqrstuvwxyz01\n23456789',
     );
-    expect(pieceText(p, { label: false, name: false })).toBe('');
+    expect(pieceText({ label: 'S2', name: 'My long label' }, show(true, true, 0))).toBe(
+      'S2 - My long label',
+    );
+    expect(pieceText({ name: 'A very long piece name' }, show(false, true, 0))).toBe(
+      'A very long pi\nece name',
+    );
   });
   it('falls back to what there is, and keeps an emoji whole', () => {
-    expect(pieceText({ label: 'S3', name: '' }, { label: true, name: true })).toBe('S3');
-    expect(pieceText({ label: 'S3' }, { label: false, name: true })).toBe('');
-    expect(pieceText({ name: '🧩🧩🧩🧩🧩🧩🧩🧩🧩' }, { label: false, name: true })).toBe(
-      '🧩🧩🧩🧩🧩🧩🧩🧩',
-    );
+    expect(pieceText({ label: 'S3', name: '' }, show(true, true))).toBe('S3');
+    expect(pieceText({ label: 'S3' }, show(false, true))).toBe('');
+    expect(pieceText({ name: '🧩🧩🧩🧩🧩🧩🧩🧩🧩' }, show(false, true))).toBe('🧩🧩🧩🧩🧩🧩🧩🧩');
   });
 });

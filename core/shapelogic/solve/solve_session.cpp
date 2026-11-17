@@ -1189,6 +1189,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.pool = slidePool_.get();
       search.memoryShare = o.memoryShare.get();
       search.stopProgress = &slideStop_;
+      search.onLog = [this](LogLevel level, const std::string& text) { addLog(level, text); };
       slideStop_.saving.store(false, std::memory_order_relaxed);
       slideSearching_.fetch_add(1, std::memory_order_relaxed);
       // The search reads the problem's definition and the shapes, which
@@ -1206,6 +1207,15 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       // the deepest a search went (the run's end read the counter after it
       // was cleared, so a sliding problem kept none)
       const std::uint64_t reached = searchDepth_.exchange(0, std::memory_order_relaxed);
+      if (path) {
+        addLog(LogLevel::Info, "A start layout slides to the goal in " +
+                                   std::to_string(path->getMoves()) + " moves (" +
+                                   withCommas(search.visited) + " arrangements visited).");
+      } else if (search.outcome == sliding::SlideOutcome::NoPath) {
+        addLog(LogLevel::Info, "A start layout does not slide to the goal: all " +
+                                   withCommas(search.visited) +
+                                   " arrangements it reaches were searched.");
+      }
 
       const std::lock_guard<std::mutex> lock(resultsMutex_);
       levelTiming_ = false;
@@ -1784,6 +1794,23 @@ float SolveSession::averageDisassemblySeconds() const {
 std::optional<SolveFailure> SolveSession::failure() const {
   const std::lock_guard<std::mutex> lock(failureMutex_);
   return failure_;
+}
+
+void SolveSession::addLog(LogLevel level, std::string text) {
+  const std::lock_guard<std::mutex> lock(logMutex_);
+  // a caller that never takes them keeps the newest few thousand
+  constexpr std::size_t kMaxLogLines = 4096;
+  if (log_.size() >= kMaxLogLines) {
+    log_.erase(log_.begin());
+  }
+  log_.push_back(LogLine{level, std::move(text)});
+}
+
+std::vector<LogLine> SolveSession::takeLog() {
+  const std::lock_guard<std::mutex> lock(logMutex_);
+  std::vector<LogLine> lines;
+  lines.swap(log_);
+  return lines;
 }
 
 std::string SolveSession::note() const {

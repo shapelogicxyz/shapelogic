@@ -293,6 +293,12 @@ class SolveSession {
   /// since the last call. Any thread.
   [[nodiscard]] std::optional<SearchSnapshot> takeSample() { return sample_.take(); }
 
+  /// The lines for the application's log since the last call, oldest
+  /// first: what the slide searches told of carrying a saved search on,
+  /// starting one again, stopping short of the end, and how each start
+  /// layout's search ended. Any thread.
+  [[nodiscard]] std::vector<LogLine> takeLog();
+
   /// Keeps the saved solutions sorted by Problem::sortSolutions(method) as
   /// they come (a sort chosen while solving stays applied); -1 is off. Any
   /// thread.
@@ -485,6 +491,10 @@ class SolveSession {
   std::atomic<int> assemblyLoad_{0};
 
   /// The first exception of a run's threads.
+  /// The lines for the log (takeLog), written by the search threads.
+  mutable std::mutex logMutex_;
+  std::vector<LogLine> log_;
+  void addLog(LogLevel level, std::string text);
   mutable std::mutex failureMutex_;
   std::optional<SolveFailure> failure_;
   std::exception_ptr workerError_;

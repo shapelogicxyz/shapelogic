@@ -188,6 +188,10 @@ export class Toolbar {
       : '';
     const solved = prefs.pieceLabels;
     const named = prefs.pieceNames;
+    const cut =
+      prefs.labelChars === 0
+        ? 'all of it'
+        : `its first ${String(prefs.labelChars)} ${prefs.labelChars === 1 ? 'character' : 'characters'}`;
     const labels =
       tab === 'puzzle'
         ? `<hr><div class="ph">Labels</div>
@@ -195,7 +199,7 @@ export class Toolbar {
         : tab === 'solver'
           ? `<hr><div class="ph">Labels</div>
 <button data-k="solvedNames" data-keep="1" title="Draw each piece’s name, as “S2”, on it in the 3D view, always facing you" role="menuitemcheckbox" aria-checked="${solved}">${ck(solved)}Show Piece Names</button>
-<button data-k="solvedLabels" data-keep="1" title="Draw the label you gave each shape in the Shapes tab on its pieces in the 3D view (its first 8 characters); with Show Piece Names, as “S2 - label”" role="menuitemcheckbox" aria-checked="${named}">${ck(named)}Show Piece Labels</button>`
+<button data-k="solvedLabels" data-keep="1" title="Draw the label you gave each shape in the Shapes tab on its pieces in the 3D view (${cut}; Settings ▸ 3D view sets how many); with Show Piece Names, as “S2 - label”" role="menuitemcheckbox" aria-checked="${named}">${ck(named)}Show Piece Labels</button>`
           : '';
     return `${show}<div class="ph">Projection</div>
 <button data-k="persp" data-keep="1" title="Far things look smaller, as a camera sees them" role="menuitemradio" aria-checked="${d.persp}">${ck(d.persp)}Perspective</button>

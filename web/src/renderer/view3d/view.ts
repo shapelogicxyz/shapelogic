@@ -363,7 +363,8 @@ export class View3D {
       if (
         changed.includes('lights') ||
         changed.includes('pieceLabels') ||
-        changed.includes('pieceNames')
+        changed.includes('pieceNames') ||
+        changed.includes('labelChars')
       ) {
         this.lookChanged();
       }
@@ -957,7 +958,11 @@ export class View3D {
         xray: this.display.xray,
         palette: snap0?.colours.map((c) => c.rgb) ?? [],
       });
-      this.solution.setLabels({ label: prefs.pieceLabels, name: prefs.pieceNames });
+      this.solution.setLabels({
+        label: prefs.pieceLabels,
+        name: prefs.pieceNames,
+        chars: prefs.labelChars,
+      });
       this.renderTag();
     }
     if (puzzle && !stacking) {

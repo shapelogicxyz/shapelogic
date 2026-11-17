@@ -79,6 +79,10 @@ export function demoApp(version: string): DemoApp {
     cacheItems: () => Promise.resolve(null),
     deleteCacheItem: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     linkCacheFolders: nothing,
+    // the demo keeps no log
+    logPage: () => Promise.resolve(null),
+    clearLog: () => Promise.resolve(),
+    exportLog: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     closeWindow: nothing,
     closeTaken: nothing,
     closeCancelled: nothing,

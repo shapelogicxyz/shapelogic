@@ -151,6 +151,41 @@ ShapeLogic records which puzzle a search belongs to when the search is
 saved. Searches saved by an earlier version, or by a puzzle never opened
 since, show "puzzle not known" until you open that puzzle again.
 
+### The log file
+
+ShapeLogic keeps a log of what it did and what went wrong: the files it
+opened and saved (or could not, and why), each solve started (with its
+options and the solver settings), paused, continued and aborted, how each
+run ended, a sliding search running out of disk space, a saved search
+carried on (and how far it had got) or one that could not be and was
+started again, and every error. It helps to understand a problem
+afterwards, and to report one.
+
+**View ▸ Log File Manager…** shows it, the newest line on top, 100 lines at
+a time: **Load more messages…** shows the next 100. **Errors and warnings**
+hides everything but the errors and warnings (a full disk, say), and the
+search box keeps only the lines with what you type in them, as you type.
+**Export…** saves all of the log as a plain text file, to attach to a
+report; **Clear All Log Data…** deletes it.
+
+The log is `shapelogic.log` in a `logs` folder in ShapeLogic's data folder.
+When it reaches 20 MB it is compressed to `shapelogic.log.1.gz` and a new
+log is started; the compressed log before it is deleted, so there is only
+ever one. **Export…** includes the compressed log.
+
+**Settings ▸ General ▸ Debug logging** adds detailed lines, marked DEBUG,
+for finding the cause of a problem. For a sliding solve they cover:
+
+- each level the search finishes: how deep both ends are, the arrangements
+  visited, and the disk used against its allowance and the space free;
+- each time the search saves itself, and the files it names;
+- what a saved search holds when it is carried on.
+
+When you turn it on, the log also records this computer's system, cores,
+memory and free disk space. While it is on, the log may grow to 100 MB
+before it is compressed. Turning it off keeps the newest 100 lines in the
+log and the 20 MB before them, compressed, and deletes the rest.
+
 ## Several windows
 
 **File ▸ New Window** (`Shift+Ctrl+N`, `Shift+⌘N` on a Mac) opens another

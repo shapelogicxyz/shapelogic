@@ -506,18 +506,15 @@ test('a Panex search paused, the app restarted, the search carried on from where
     rmSync(join(userData, '__rescue.xmpuzzle'), { force: true });
     rmSync(join(userData, '__rescue.json'), { force: true });
 
-    // a new start on the same data: Solve asks, Continue carries the search on
+    // a new start on the same data: Continue stands in Solve's place and
+    // carries the search on, asking nothing
     a = await launch({ userData });
     page = a.page;
     await openPath(page, file);
     await toSolver(page);
     await expect(page.locator('#slvActivity')).toHaveText('Search paused and saved');
-    await page.click('#slvRun [data-r="start"]');
-    await expect(page.locator('#savedSearch')).toContainText('This problem has a saved search');
-    await expect(page.locator('#savedSearch')).toContainText(
-      'Continue it, or start over and discard it?',
-    );
-    await page.click('#savedSearch [data-x="continue"]');
+    await expect(page.locator('#slvRun [data-r="start"]')).toHaveCount(0);
+    await runButton(page, 'continue');
     await runEnded(page, 'finished', 200_000);
     const problem = await shownProblem(page);
     const row = await engineCall<{ rows: { moves: number | null }[] }>(page, 'solution.page', {
@@ -659,7 +656,8 @@ test('rod sets: new, copy, label, order, delete; frozen while solving; Abort of 
     await page.click('.cfm-scrim [data-x="1"]');
     await solverSettled(page);
     await expect(page.locator('#slvActivity')).toHaveText('Ready to Solve');
-    await expect(page.locator('#slvRun [data-r="continue"]')).toBeDisabled();
+    await expect(page.locator('#slvRun [data-r="continue"]')).toHaveCount(0);
+    await expect(page.locator('#slvRun [data-r="start"]')).toBeEnabled();
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

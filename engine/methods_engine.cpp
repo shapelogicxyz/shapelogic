@@ -17,6 +17,13 @@ namespace bt::engine {
 
 namespace {
 
+/// The names of Settings::log.
+const Names<LogSetting>& logSettingNames() {
+  static const Names<LogSetting> n = {
+      {"off", LogSetting::Off}, {"info", LogSetting::Info}, {"debug", LogSetting::Debug}};
+  return n;
+}
+
 // The protocol this engine speaks (engine.hello, engine.info).
 constexpr int kProtocol = 1;
 
@@ -98,7 +105,8 @@ Json settingsJson(const State& s) {
               {"slideDiskGB", s.settings.slideDiskGB},
               {"panexFolder", s.settings.panexFolder},
               {"panexDiskGB", s.settings.panexDiskGB},
-              {"searchMemoryGB", s.settings.searchMemoryGB}};
+              {"searchMemoryGB", s.settings.searchMemoryGB},
+              {"log", nameOf(logSettingNames(), s.settings.log)}};
 }
 
 Reply settingsGet(State& s, Params& p) {
@@ -119,6 +127,7 @@ Reply settingsSet(State& s, Params& p) {
   const std::optional<double> searchMemoryGB =
       p.has("searchMemoryGB") ? std::optional<double>(p.number("searchMemoryGB", 0, 1e6))
                               : std::nullopt;
+  const std::optional<LogSetting> log = p.optChoice("log", logSettingNames());
   BTE_CHECK(p.finish());
   if (depth) {
     s.settings.undoDepth = static_cast<unsigned int>(*depth);
@@ -141,6 +150,9 @@ Reply settingsSet(State& s, Params& p) {
   }
   if (panexDiskGB) {
     s.settings.panexDiskGB = *panexDiskGB;
+  }
+  if (log) {
+    s.settings.log = *log;
   }
   if (searchMemoryGB) {
     s.settings.searchMemoryGB = *searchMemoryGB;

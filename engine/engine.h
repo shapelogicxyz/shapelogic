@@ -31,6 +31,13 @@
 
 namespace bt::engine {
 
+/// How much of the application's log the engine writes (Settings::log).
+enum class LogSetting : std::uint8_t {
+  Off,    ///< none of it
+  Info,   ///< every level but Debug
+  Debug,  ///< every level
+};
+
 /// The engine's settings, kept across documents.
 struct Settings {
   unsigned int undoDepth = 25;
@@ -57,6 +64,11 @@ struct Settings {
   /// each gets an equal part of it (decision 0028). It takes the place of
   /// a solve's highMemory, which the original's Enable High Memory box set.
   double searchMemoryGB = 0;
+  /// Write the lines for the application's log on the log stream
+  /// (app_log.h): the app's log file takes them. Off, only what went
+  /// wrong in a notification or an analysis is written; Debug adds the
+  /// searches' step by step lines (LogLevel::Debug).
+  LogSetting log = LogSetting::Off;
 
   /// searchMemoryGB in bytes, the automatic amount for 0.
   [[nodiscard]] std::uint64_t searchMemoryBytes() const;

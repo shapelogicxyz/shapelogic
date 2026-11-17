@@ -2,6 +2,8 @@
 // The dispatcher and the run loop of shapelogic_engine (decision 0012).
 #include "engine.h"
 
+#include "app_log.h"
+
 #include "shapelogic/base/assert.h"
 #include "shapelogic/base/system.h"
 
@@ -249,6 +251,7 @@ void Engine::handleLine(std::string_view line) {
     }
     state_.inNotification = false;
   }
+  logCall(state_, request->method, request->params != nullptr ? *request->params : Json(), reply);
 
   if (request->notification) {
     if (!reply) {

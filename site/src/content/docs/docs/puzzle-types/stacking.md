@@ -72,5 +72,5 @@ type follows the board: the **Panex Solver** for Panex-style columns, the
 replays it, each move a lift, a move across and a drop.
 
 Big Panex puzzles can take a long time. The Panex search saves itself as it
-runs, and **Pause** keeps its progress, and **Continue** carries on later. If a problem has a saved search, **Solve** asks
-whether to continue it or start over.
+runs, and **Pause** keeps its progress, and **Continue** carries on later. While a problem has a saved search, **Continue**
+stands in place of **Solve**; to start over, press **Abort**, then **Solve**.

@@ -1061,6 +1061,19 @@ schema in `api/`, documented in the generated `docs/API.md`.
   file's bytes as a frame of one u8 array; the client writes them),
   `export.solutionPieces`; `shape.mesh` and `playback.mesh` take the
   `stl` style).
+- `app_log.cpp`: the lines for the app's log (the `log` setting, `off`,
+  `info` or `debug`; off, only what went wrong in a notification or an
+  analysis is written; DEBUG lines, the sliding search's step by step
+  ones from `SlideSearch::onLog`, only with `debug`), on the
+  log stream as `shapelogic_engine: LEVEL: text`: after each call (from
+  `Engine::handleLine`) a file opened, saved or not and why, a solve
+  started or continued with its options and the settings it runs with,
+  paused, aborted, the settings changed, and every call that failed; from
+  the poll, each problem's run ending (its state, its note, a folder that
+  could not be used, a failure) and what its slide searches told
+  (`SolveSession::takeLog`: `SlideSearch::onLog`'s lines, a saved search
+  carried on and how deep, one that could not be and why, a stop at the
+  disk budget, and how each start layout's search ended).
 - `events.cpp`: `document.changed` after a request that changed the
   document (with the change's `notice` when it has one), and the poll of the background work: first `Document::poll()`
   takes in what has ended (a run's end, an analysis's results; the
@@ -1284,6 +1297,21 @@ What exists after stage 8:
   folder; an item deleted by its id, found by listing again, a search's
   refused while a solve runs; the renderer's dialog is
   `renderer/shell/cache-files.ts`),
+  `app-log.ts` (Electron-free: the app's log, `logs/shapelogic.log` in
+  the app's data directory, one line each, `time LEVEL [source] text`;
+  each window's engine runs with the `log` setting and its stderr is split
+  into lines (`EngineLines`, `teeStderr`) and given their level
+  (`parseEngineLine`: `shapelogic_engine: LEVEL: text`, a line without one
+  an error); the main process adds the start and an engine that stopped;
+  past 20 MB (100 MB with Settings ▸ General ▸ Debug logging, which the
+  main process takes from the stored settings and sends to every engine
+  as `log: debug`) the file is renamed and compressed to
+  `shapelogic.log.1.gz`, replacing the one before; Debug logging turned
+  off keeps the newest 100 lines and the 20 MB before them, compressed; View ▸ Log File Manager… asks `bt:log` for a
+  page of the current file newest first, filtered by level and text, and
+  Export writes both files as plain text to the file the main process's
+  save dialog gives; the renderer's dialog is
+  `renderer/shell/log-files.ts`),
   `state-store.ts` (`StateStore`: `state.json` in the app's
   data directory: the renderer's settings and layouts, the recent files,
   the window's bounds, the cache folder chosen; read once, written a moment after a change to a

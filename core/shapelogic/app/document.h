@@ -592,6 +592,9 @@ class Document {
   /// a live preview. Nothing when the problem has no solve.
   void requestSolveSample(Id problem);
   [[nodiscard]] std::optional<SearchSnapshot> takeSolveSample(Id problem);
+  /// The lines the problem's solve has for the application's log since the
+  /// last call (SolveSession::takeLog); none without a solve.
+  [[nodiscard]] std::vector<LogLine> takeSolveLog(Id problem);
   /// What a sliding or stacking solve's last run said (SolveSession::note:
   /// once through, or a stacking search that paused and saved itself);
   /// empty otherwise.

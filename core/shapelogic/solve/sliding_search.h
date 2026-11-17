@@ -29,6 +29,7 @@
 /// SHAPELOGIC_SLIDE_DIR and SHAPELOGIC_SLIDE_DISK_GB (workDir, diskBudget,
 /// which the CLI and the engine set).
 
+#include "shapelogic/base/log_line.h"
 #include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
 #include "shapelogic/model/disassembly.h"
@@ -248,6 +249,15 @@ struct SlideSearch {
   bool plainKeys = false;
   /// Told each level the level search finishes; empty for none.
   SlideLevelTrace onLevel;
+  /// The level search's lines for the application's log, on the search's
+  /// thread: a saved search carried on (how deep each end is), one that
+  /// could not be and why (it is searched afresh), and a stop short of the
+  /// end (the disk budget reached, saved or not); and, at LogLevel::Debug
+  /// for a debug log, each level done (both ends' depths, the disk against
+  /// its budget and the space free), the levels thinned out, each save and
+  /// the files it names, and what a saved search's state names when it is
+  /// read back. Empty for none.
+  std::function<void(LogLevel, const std::string&)> onLog;
   /// The level search: told how many moves deep it is (both ends
   /// together) as it begins (a search carried on: the depth it goes on
   /// from, whose moves the caller may not have times for) and each time it is a move deeper, on the search's thread, so

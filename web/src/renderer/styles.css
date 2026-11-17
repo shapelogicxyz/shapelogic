@@ -1045,6 +1045,22 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .cf-dl code{font:calc(12px + var(--fs)) ui-monospace,Menlo,monospace}
 .cf-files{max-height:132px;overflow:auto;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.5;user-select:text}
 .cf-files>div{padding-left:2em;text-indent:-2em;overflow-wrap:anywhere}
+/* View ▸ Log File Manager… (log-files.ts) */
+.lf-bar{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+.lf-bar .lf-search{flex:1;min-width:0}
+.lf-filter{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+.cfm .lf-sum{margin:0 2px 8px;font-size:calc(11.5px + var(--fs));min-height:1.2em;overflow-wrap:anywhere}
+.lf-sum code{font:calc(11px + var(--fs)) ui-monospace,Menlo,monospace}
+.cfm .cb p.lf-err{color:var(--danger);margin:0 0 8px}
+.lf-list{height:420px;overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--bg);padding:4px 0;font:calc(11.5px + var(--fs)) ui-monospace,Menlo,monospace;line-height:1.45;user-select:text}
+.lf-list:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lf-row{padding:1px 10px 1px calc(10px + 2em);text-indent:-2em;white-space:pre-wrap;overflow-wrap:anywhere}
+.lf-row.lf-debug{color:var(--muted)}
+.lf-row.lf-warn{background:color-mix(in srgb,var(--warn,#c80) 12%,transparent)}
+.lf-row.lf-error{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.lf-empty{padding:18px 12px;color:var(--muted);text-align:center;font-family:inherit}
+.cfm .lf-more{margin:8px auto 0;display:block}
+.cfm .lf-more[hidden]{display:none}
 /* the bulk range dialog: Min above Max, each as wide as the card */
 #pzBulk .rngs{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}#pzBulk .step.sz input.v{flex:1;min-width:0;width:100%}
 /* the update dialog: Details on the left, the release notes it opens in a box that scrolls */

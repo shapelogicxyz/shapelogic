@@ -16,7 +16,7 @@
 // three.js over the engine's meshes (mesh.ts, material.ts), as the other
 // scenes'. A sliding puzzle's tray has its walls drawn around its floor
 // (walls.ts). A piece's label (S1, S1.2), its name from the Shapes tab
-// (cut to NAME_CHARS), or both ("S1 - name") can be drawn on it: a sprite,
+// (cut to the setting's characters, or all of it in lines), or both ("S1 - name") can be drawn on it: a sprite,
 // facing the eye however the view turns, a white box with black text of a
 // fixed size on the screen, over everything, at the middle of the cell
 // nearest the piece's middle (on the piece even when it is hollow).
@@ -29,6 +29,7 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 
 import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
+import { LABEL_CHARS_MAX } from '../shell/prefs.ts';
 import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
 import type { FaceUniforms } from './material.ts';
 import { hasChecker } from './mesh.ts';
@@ -56,21 +57,35 @@ export interface ScenePiece {
 export interface LabelShow {
   label: boolean;
   name: boolean;
+  /** The characters of the name drawn, the rest cut off; 0 all of it, a line every LABEL_CHARS_MAX. */
+  chars: number;
 }
 
-/** The characters of a name drawn on a piece; the rest is cut off. */
-export const NAME_CHARS = 8;
-
-/** The text drawn on a piece: "S2", "name" (its first NAME_CHARS characters), "S2 - name", or '' for none. */
+/**
+ * The text drawn on a piece: "S2", "name" (its first `show.chars`
+ * characters), "S2 - name", or '' for none; with `chars` 0 the whole name,
+ * a line ("\n") every LABEL_CHARS_MAX characters.
+ */
 export function pieceText(p: { label?: string; name?: string }, show: LabelShow): string {
   const label = show.label ? (p.label ?? '') : '';
   // by code point, so that an emoji is not split
-  const name = show.name
-    ? Array.from(p.name ?? '')
-        .slice(0, NAME_CHARS)
+  const chars = Array.from(p.name ?? '');
+  let name = '';
+  if (show.name && show.chars > 0) {
+    name = chars.slice(0, show.chars).join('').trim();
+  } else if (show.name) {
+    const lines: string[] = [];
+    for (let i = 0; i < chars.length; i += LABEL_CHARS_MAX) {
+      const line = chars
+        .slice(i, i + LABEL_CHARS_MAX)
         .join('')
-        .trim()
-    : '';
+        .trim();
+      if (line !== '') {
+        lines.push(line);
+      }
+    }
+    name = lines.join('\n');
+  }
   return label !== '' && name !== '' ? `${label} - ${name}` : label !== '' ? label : name;
 }
 
@@ -138,7 +153,7 @@ export class SolutionScene {
     palette: [],
   };
   private poses: ScenePose[] = [];
-  private labels: LabelShow = { label: false, name: false };
+  private labels: LabelShow = { label: false, name: false, chars: 8 };
   /** Pixels per mesh unit at the scene's plane (the labels' size). */
   private pixelsPerUnit = 1;
   /** Null: this scene draws no labels (the board's and the trays'). */

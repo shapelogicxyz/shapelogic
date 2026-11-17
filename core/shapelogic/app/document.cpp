@@ -989,6 +989,11 @@ std::optional<SearchSnapshot> Document::takeSolveSample(Id problem) {
   return it->second->takeSample();
 }
 
+std::vector<LogLine> Document::takeSolveLog(Id problem) {
+  const auto it = sessions_.find(problem);
+  return it == sessions_.end() ? std::vector<LogLine>{} : it->second->takeLog();
+}
+
 std::optional<SolveFailure> Document::solveFailure(Id problem) const {
   const auto it = sessions_.find(problem);
   return it == sessions_.end() ? std::nullopt : it->second->failure();

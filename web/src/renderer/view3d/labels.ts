@@ -9,15 +9,18 @@
 
 import { CanvasTexture, Sprite, SpriteMaterial } from 'three';
 
-/** A label's height on the screen, in CSS pixels. */
+/** A one-line label's height on the screen, in CSS pixels. */
 const LABEL_PX = 20;
+/** What each further line adds to a label's height, in CSS pixels. */
+const LINE_PX = 16;
 /** The texels of a label per CSS pixel: sharp at the image export's 2x and on a Retina screen. */
 const LABEL_RATIO = 4;
 
 /**
  * A label's sprite: black text on a white box with a thin dark edge,
- * drawn over everything; its `aspect` (width over height) and its height
- * on the screen (`pixels`) in `userData`. Null where there is no 2D canvas.
+ * drawn over everything, a line for each line of `text` ("\n"), centred;
+ * its `aspect` (width over height) and its height on the screen
+ * (`pixels`) in `userData`. Null where there is no 2D canvas.
  */
 export function labelSprite(text: string): Sprite | null {
   const r = LABEL_RATIO;
@@ -28,8 +31,11 @@ export function labelSprite(text: string): Sprite | null {
   }
   const font = `700 ${String(13 * r)}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
   g.font = font;
-  const h = LABEL_PX * r;
-  const w = Math.max(h, Math.ceil(g.measureText(text).width) + 12 * r);
+  const lines = text.split('\n');
+  const px = LABEL_PX + (lines.length - 1) * LINE_PX;
+  const h = px * r;
+  const widest = Math.max(...lines.map((l) => g.measureText(l).width));
+  const w = Math.max(LABEL_PX * r, Math.ceil(widest) + 12 * r);
   c.width = w;
   c.height = h;
   // the canvas's state went with its resize
@@ -45,7 +51,9 @@ export function labelSprite(text: string): Sprite | null {
   g.fillStyle = '#000000';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(text, w / 2, h / 2 + r / 2);
+  lines.forEach((l, i) => {
+    g.fillText(l, w / 2, (LABEL_PX / 2 + i * LINE_PX) * r + r / 2);
+  });
   const m = new SpriteMaterial({
     map: new CanvasTexture(c),
     depthTest: false,
@@ -55,6 +63,6 @@ export function labelSprite(text: string): Sprite | null {
   const s = new Sprite(m);
   s.renderOrder = 10;
   s.userData.aspect = w / h;
-  s.userData.pixels = LABEL_PX;
+  s.userData.pixels = px;
   return s;
 }

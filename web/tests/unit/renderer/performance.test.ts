@@ -46,7 +46,7 @@ describe('the Performance Analysis', () => {
       '<tr data-depth="40"><td>40</td><td>9 min 37 s</td><td>25 min</td></tr>',
     );
     expect(html).toContain('<td>over 1,000 years</td>');
-    expect(html).toContain('>From now</th>');
+    expect(html).toContain('>Remaining</th>');
     // paused: the time counts from when it is continued
     expect(performanceHtml(forecast({}), true)).toContain('>Once continued</th>');
   });

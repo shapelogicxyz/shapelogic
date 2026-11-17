@@ -7,10 +7,11 @@
 // (assemblies, or assemblies and their disassembly, with Just Levels and
 // Check Rotations), the search options (stored with the problem, the
 // original's rules greying out what does not apply; Keep at most and Keep
-// every n-th are not stored, as in the original), the run: Solve, Pause,
-// Continue, Abort while a solve runs or is paused, else Reset (the
-// original's setAbortLabel), the progress bar and the
-// counters, a failure; Prepare in the explorers' section, and Sort by. From
+// every n-th are not stored, as in the original), the run: Solve
+// (Continue in its place while a solve runs, is paused or has a saved
+// search; starting over is Abort, then Solve), Pause, Abort while a solve
+// runs or is paused, else Reset (the original's setAbortLabel), the
+// progress bar and the counters, a failure; Prepare in the explorers' section, and Sort by. From
 // docs/mockup/index.html: `renderSolver` (the left card's sections, their
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
@@ -25,8 +26,8 @@
 // (mainwindow.cpp's Solve tooltip). A stacking puzzle (section 9.3): Find
 // Solutions with Just Levels, Just count and the one solver of its board (syncSolverTypeMenu, mainwindow_help.cpp), no
 // Prepare, Solve and Continue greyed without a board or with invalid
-// stacks ("Fix the puzzle on the Puzzle tab first"), Continue on for a
-// saved search ("Carry on …").
+// stacks ("Fix the puzzle on the Puzzle tab first"), Continue in Solve's
+// place for a saved search ("Carry on …").
 
 import { isActive } from '../state/solves.ts';
 import { byId, esc, markSelected, setHtml } from '../shell/dom.ts';
@@ -415,17 +416,11 @@ export class RunCard {
     const aborting = ws.abortMode;
     const btn = (k: string, label: string, on: boolean, tip: string, pri = false): string =>
       `<button data-r="${k}" class="${pri ? 'pri' : ''}" ${on ? '' : 'disabled'} title="${tip}">${label}</button>`;
-    setHtml(
-      byId('slvRun'),
-      btn(
-        'start',
-        'Solve',
-        canStart,
-        why === null ? 'Run the search from the start, removing old results' : esc(fix),
-        true,
-      ) +
-        btn('pause', 'Pause', canPause, 'Pause the search where it can be continued') +
-        btn(
+    // Solve becomes Continue while the problem has a solve in progress
+    // (running, paused or a saved search: when Abort stands for Reset);
+    // starting over is Abort, then Solve
+    const first = aborting
+      ? btn(
           'continue',
           'Continue',
           canCont,
@@ -433,8 +428,20 @@ export class RunCard {
             ? esc(fix)
             : saved !== null
               ? esc(`Carry on ${saved.description}`)
-              : 'Resume a paused search',
-        ) +
+              : 'Resume the paused search (to start over, Abort, then Solve)',
+          true,
+        )
+      : btn(
+          'start',
+          'Solve',
+          canStart,
+          why === null ? 'Run the search from the start, removing old results' : esc(fix),
+          true,
+        );
+    setHtml(
+      byId('slvRun'),
+      first +
+        btn('pause', 'Pause', canPause, 'Pause the search where it can be continued') +
         (aborting
           ? btn(
               'abort',

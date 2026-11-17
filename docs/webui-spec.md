@@ -62,6 +62,8 @@ Searchable, four pages, "Restore all defaults", changes apply immediately.
 | | Top bar theme | Colorful / Boring (Colorful): the axis colours behind the name, fading into the bar, and the tabs coloured Shapes green, Puzzle blue, Solver red; or the plain bar, a small square of the three colours beside the name |
 | | Undo history depth | 25, 50, 100, 200, 500 (25) |
 | | Show tooltips | on |
+| | Check for updates at startup | on |
+| | Debug logging | off: the log file's DEBUG lines (the engines' `log` setting `debug`, the main process's app-log.ts): each sliding level done, each save of a search and the files it names, a saved search read back; the log compressed past 100 MB instead of 20 MB; turned off, the compressed log goes, the newest 100 lines stay and the 20 MB before them are compressed |
 | | Cache folder | the main process's (main/cache-folder.ts), not a setting of the page: the folders in use (sliding searches, stacking searches), Choose Folder… (a folder dialog; a `ShapeLogic` folder made in the folder chosen, with `sliding` and `panex` in it, and a file written in each at once: a folder that cannot be written is refused and the folders in use stay) and Use Default (`sliding` and `panex` in the system's application data folder for ShapeLogic: `~/Library/Application Support/ShapeLogic`, `%LOCALAPPDATA%\ShapeLogic`, `$XDG_DATA_HOME/shapelogic` or `~/.local/share/shapelogic`; what the earlier defaults, the system cache folder's `sliding` and Electron's data directory's `panex`, hold moved there at the start); data found in the folders in use is described, then moved there or deleted (Move Data, Delete and Start Clean, Cancel); refused while a solve runs in any window; Reset section and Restore all defaults leave it |
 | Grid editor | Grid plane | XY / XZ / YZ (XY) |
 | | New shape size | Normal Burrs and Sliding, each X, Y, Z: 1-100 each, in the size steppers' units (4, 4, 4; Sliding 6, 6, 1); on a sliding puzzle + New Piece takes the last piece's size and + New Board the last board's, the setting only for the first |
@@ -221,8 +223,9 @@ it all).
   lower level are dropped); Keep at most this many solutions; Don't keep the
   disassemblies; Sort found solutions by.
 - **Run**: Solve problem (from the start), **Prepare** (build the search
-  structures without solving), **Continue** (resume a stopped search),
-  **Pause**; progress bar with percentage; activity, assemblies, solutions,
+  structures without solving), **Continue** (resume a stopped search: in
+  Solve's place while a solve runs, is paused or has a saved search;
+  starting over is Abort, then Solve), **Pause**; progress bar with percentage; activity, assemblies, solutions,
   time used.
 - **Step-by-step explorer** (advanced): **Placements** browses the assembly
   search tree, **Movements** browses the disassembly search, **Step**
@@ -461,16 +464,16 @@ where the problem's counts are.
   keeps a grid (`slideGrid`), whatever the switch says now, and asks first
   when the saved search would go on from the start alone where a new one
   would go from both ends (decision 0033, `sliding.resumeAdvice`: a search
-  with nested slides on a grid paused in v1.8.1 or earlier): **Solve
-  Again** (the default; a new search from both ends, the saved one thrown
-  away), **Continue** (the saved search to its end), Escape leaves the
-  solve paused; Just count, Keep every n-th and the limit stay.
+  with nested slides on a grid paused in v1.8.1 or earlier): **Cancel**
+  (the default) or Escape leaves the solve paused, and the question says
+  that Abort, then Solve, searches again from both ends; **Continue**
+  carries the saved search on to its end; Just count, Keep every n-th and the limit stay.
 - **Performance Analysis** (decision 0030): while a sliding solve is under
   way or paused and no solution is listed, a second dashed box under the
   empty solutions card: how deep the search is, how long the last move took
   and the move under way has run, the growth of the moves' times, and every
-  fifth move to 100 with that move's time and the time until it ("From
-  now", or "Once continued" when paused), from `solve.progress`'s
+  fifth move to 100 with that move's time and the time until it (columns Move,
+  Time and "Remaining", or "Once continued" when paused), from `solve.progress`'s
   `slideForecast` (a paused problem's from `problem.get`); it scrolls when
   taller than the card, and goes when the solve is through. A paused
   sliding solve's empty card says "Search paused" and to press Continue. Keep mirror, Keep rotated, the thorough rotation check,
@@ -647,11 +650,11 @@ disc lies flat, the rods stand up).
   has nothing to build). Solve and Continue are off while the problem
   has no board ("Choose a rod set with Set Start/Goal Rods") or its
   stacks are invalid ("Fix the puzzle on the Puzzle tab first: <reason>"
-  as their tooltip). **Solve with a saved search** asks first: "This
-  problem has <a saved search …>. Continue it, or start over and discard
-  it?" with Cancel, Continue and Start Over (`solve.status.savedSearch`).
-  **Continue** is on whenever a saved search exists (its tooltip "Carry
-  on <a saved search …>"), and the Activity line then says "Search
+  as their tooltip). **Continue** stands in Solve's place whenever a
+  saved search exists (`solve.status.savedSearch`; its tooltip "Carry on
+  <a saved search …>"), so Solve never meets one and asks nothing (the
+  original's cb_BtnStart asked Continue or Start Over): starting over is
+  Abort, then Solve, and the Activity line then says "Search
   paused and saved". **Abort** is on for a saved search too and asks as
   for any solve. While the search runs the Activity line names the
   solver ("Search active with the Panex Solver") and the Details line

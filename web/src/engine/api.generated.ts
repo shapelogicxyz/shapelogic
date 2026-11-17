@@ -11,6 +11,9 @@
 
 // ---- engine.json: Engine and settings ----
 
+/** How much of the application's log the engine writes (Settings.log). */
+export type LogSetting = 'off' | 'info' | 'debug';
+
 export interface Settings {
   /**
    * Undo steps kept (default 25).
@@ -70,6 +73,20 @@ export interface Settings {
    * @minimum 0
    */
   searchMemoryGB: number;
+  /**
+   * Write a line on the engine's log stream (stderr) for each thing that helps to understand
+   * afterwards what happened, for the app's log file: a file opened or saved, or not and why; a
+   * solve started (with its options and these settings), paused, continued, aborted, and how its
+   * runs ended; the settings changed; what the sliding searches told (a saved search carried on
+   * and how deep, one that could not be and why, a stop at the disk budget); every call that
+   * failed. Each line is `shapelogic_engine: LEVEL: text`, LEVEL one of DEBUG, INFO, WARN, ERROR.
+   * `off` (the default) writes only what went wrong in a notification or an analysis; `info` every
+   * line but DEBUG; `debug` also the sliding searches' step by step lines (each level done: its
+   * width, the arrangements visited, the disk used against its budget and the space free; each
+   * save of the search's state and what it names; a saved search read back, file by file; the
+   * levels thinned out to make room).
+   */
+  log: LogSetting;
 }
 
 // ---- explore.json: Explorers ----
@@ -1868,6 +1885,7 @@ export interface Methods {
        * @maximum 1000000
        */
       searchMemoryGB?: number;
+      log?: LogSetting;
     };
     result: Settings;
     errors: never;

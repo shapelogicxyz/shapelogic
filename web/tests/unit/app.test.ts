@@ -483,8 +483,8 @@ describe('the menus', () => {
     };
     const names = (items: MenuItemConstructorOptions[]): string[] =>
       items.slice(-4).map((i) => i.role ?? i.id ?? i.type ?? '');
-    expect(names(viewOf(true))).toEqual(['separator', 'reload', 'cacheFiles', 'toggleDevTools']);
-    expect(names(viewOf(false)).slice(-2)).toEqual(['separator', 'cacheFiles']);
+    expect(names(viewOf(true))).toEqual(['reload', 'cacheFiles', 'logFiles', 'toggleDevTools']);
+    expect(names(viewOf(false)).slice(-3)).toEqual(['separator', 'cacheFiles', 'logFiles']);
     const { template, sent } = build(NO_STATE, 'win32');
     const item = commandItems(template).get('cacheFiles');
     expect(item?.label).toBe('Manage Cache and Autosave Files…');
@@ -493,6 +493,13 @@ describe('the menus', () => {
     (item?.click as () => void)();
     expect(sent).toEqual([{ cmd: 'cacheFiles' }]);
     expect(isAppCommand({ cmd: 'cacheFiles' })).toBe(true);
+    // the Log File Manager below it, also without a document
+    const log = commandItems(template).get('logFiles');
+    expect(log?.label).toBe('Log File Manager…');
+    expect(log?.enabled).toBe(true);
+    (log?.click as () => void)();
+    expect(sent).toEqual([{ cmd: 'cacheFiles' }, { cmd: 'logFiles' }]);
+    expect(isAppCommand({ cmd: 'logFiles' })).toBe(true);
   });
 
   it('lists the recent files by name and folder, or says there are none', () => {
@@ -559,6 +566,11 @@ describe('the stored settings read back', () => {
     // a new shape's size: whole, 1 to NEW_SIZE_MAX
     expect(validPrefs({ newX: 0, newY: 7, newZ: NEW_SIZE_MAX + 1 })).toEqual({ newY: 7 });
     expect(validPrefs({ slideX: 2.5, slideY: 8, slideZ: 0 })).toEqual({ slideY: 8 });
+    // the label length: 1 to 14, or 0 for unlimited
+    expect(validPrefs({ labelChars: 0 })).toEqual({ labelChars: 0 });
+    expect(validPrefs({ labelChars: 14 })).toEqual({ labelChars: 14 });
+    expect(validPrefs({ labelChars: 15 })).toEqual({});
+    expect(validPrefs({ labelChars: 3.5 })).toEqual({});
     // the side cards: Static or Variable, widths whole, SIDE_MIN to SIDE_MAX
     expect(validPrefs({ sidebar: 'Variable' })).toEqual({ sidebar: 'Variable' });
     expect(validPrefs({ sidebar: 'Wide' })).toEqual({});

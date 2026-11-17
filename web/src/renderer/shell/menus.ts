@@ -84,6 +84,8 @@ export interface MenuHandlers {
   statusWindow(): void;
   /** View ▸ Manage Cache and Autosave Files…. */
   cacheFiles(): void;
+  /** View ▸ Log File Manager…. */
+  logFiles(): void;
   about(): void;
   /** ShapeLogic ▸ Install Command Line Tool… (Help ▸ Command Line Tool… elsewhere). */
   cliTool(): void;
@@ -261,6 +263,9 @@ export class Menus {
         break;
       case 'cacheFiles':
         this.h.cacheFiles();
+        break;
+      case 'logFiles':
+        this.h.logFiles();
         break;
       case 'about':
         this.h.about();

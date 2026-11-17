@@ -7,6 +7,8 @@
 #include "convert.h"
 #include "engine.h"
 
+#include "app_log.h"
+
 #include <algorithm>
 #include <optional>
 
@@ -26,11 +28,35 @@ void pollSolve(State& s, app::Id id, unsigned int index, State::Watch& w,
   const bool changed = state != w.state || w.launched;
   const bool ended = changed && !isActive(state);
   w.launched = false;
+  // the solve's lines for the app's log (taken even with the log off, so
+  // that they do not pile up)
+  if (std::vector<LogLine> lines = d.takeSolveLog(id); !lines.empty() && s.settings.log != LogSetting::Off) {
+    const std::string title = problemTitle(s, id);
+    for (const LogLine& line : lines) {
+      logLine(s, line.level, title + ": " + line.text);
+    }
+  }
+  if (changed && s.settings.log != LogSetting::Off && !isActive(state) && state != SolveState::Idle) {
+    logLine(s, state == SolveState::Error ? LogLevel::Error : LogLevel::Info,
+            problemTitle(s, id) + ": the solve is " + std::string(solveStateName(state)) + ".");
+    const std::string note = d.solveNote(id);
+    if (!note.empty()) {
+      const bool cut = note.find("not searched completely") != std::string::npos;
+      logLine(s, cut ? LogLevel::Warning : LogLevel::Info, problemTitle(s, id) + ": " + note);
+    }
+    if (const std::optional<FolderFailure> f = d.solveFolderFailure(id)) {
+      logLine(s, LogLevel::Error, problemTitle(s, id) + ": the search folder " + f->folder +
+                                      " could not be used: " + f->reason);
+    }
+  }
   if (changed) {
     s.out.notify("solve.state", Json{{"problem", problemName(id)}, {"state", solveStateName(state)}});
     if (state == SolveState::Error) {
       if (const std::optional<SolveFailure> f = d.solveFailure(id)) {
         s.out.notify("solve.error", Json{{"problem", problemName(id)}, {"failure", failureJson(*f)}});
+        logLine(s, LogLevel::Error,
+                problemTitle(s, id) + ": the solve failed: " + f->message +
+                    (f->file.empty() ? std::string() : " (" + f->file + ":" + std::to_string(f->line) + ")"));
       }
     }
   }

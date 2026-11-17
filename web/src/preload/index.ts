@@ -20,6 +20,8 @@ import type {
   CacheItem,
   CacheResult,
   CliToolResult,
+  LogExportResult,
+  LogPage,
   RescueInfo,
   StoredState,
   UpdateResult,
@@ -247,6 +249,20 @@ const btApp: BtApp = {
   },
   linkCacheFolders(link) {
     ipcRenderer.send('bt:cache-link', link);
+  },
+  logPage(query) {
+    return ipcRenderer.invoke('bt:log', 'page', query) as Promise<LogPage | null>;
+  },
+  async clearLog() {
+    await ipcRenderer.invoke('bt:log', 'clear');
+  },
+  async exportLog() {
+    return (
+      ((await ipcRenderer.invoke('bt:log', 'export')) as LogExportResult | null) ?? {
+        ok: false,
+        error: 'not a ShapeLogic window',
+      }
+    );
   },
   closeWindow() {
     ipcRenderer.send('bt:close', 'close');

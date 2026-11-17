@@ -244,16 +244,15 @@ symmetry and color ones:
   **Pause** saves the search of the start under way, and **Continue**
   carries it on. A search that fills its disk space is saved the same way,
   and the solve pauses: raise **Sliding disk space** or free some disk,
-  then press **Continue**. **Solve** and **Abort** throw saved searches
-  away.
+  then press **Continue**. **Abort** throws saved searches away.
   A search with **Allow Nested Slides** and optimized paths that was paused
   in version 1.8.1 or earlier was saved from the start alone, and can only
-  be carried on that way. **Continue** then asks first: **Solve Again**
-  throws the saved search away and searches from both ends, which is far
-  faster (a solve of hours can take seconds); **Continue** carries the
-  saved search on to its end, which is only reasonable when it has already
-  run for a long time and is likely very close to its end. Closing the
-  question leaves the solve paused. A search paused in this version is
+  be carried on that way. **Continue** then asks first: **Continue**
+  carries the saved search on to its end, which is only reasonable when it
+  has already run for a long time and is likely very close to its end;
+  **Cancel** (or closing the question) leaves the solve paused. To search
+  from both ends instead, which is far faster (a solve of hours can take
+  seconds), press **Abort**, then **Solve**. A search paused in this version is
   saved with both ends and carried on at full speed, with no question.
 
 While a sliding solve runs, or is paused, and no solution has been found
@@ -348,8 +347,8 @@ Closing the question leaves the solve paused; **Continue** tries again.
 | Button | What it does |
 |---|---|
 | **Solve** | Runs the search from the start. Old results of this problem are removed. |
+| **Continue** | Shown in place of Solve while the solve runs or is paused, a paused solve opened from a file and a saved search included. Carries on the paused search. To start over instead, press **Abort**, then **Solve**. |
 | **Pause** | Stops the search where it can be carried on. Save the puzzle to keep the paused search in the file. |
-| **Continue** | Carries on a paused search. |
 | **Abort** | Shown while the solve runs or is paused, a paused solve opened from a file included. Stops at once and throws away everything kept of this problem's solve: its results, the paused state and any saved search. This can't be undone. |
 | **Reset** | Shown in place of Abort once the solve is over. Throws away this problem's results, so it is unsolved again; **Undo** brings them back. |
 

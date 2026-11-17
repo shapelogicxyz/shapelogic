@@ -295,6 +295,7 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
       // under Reload in development, where Reload and the developer tools are
       ...(h.dev ? [{ role: 'reload' as const }] : []),
       item('cacheFiles', 'Manage Cache and Autosave Files…', { cmd: 'cacheFiles' }),
+      item('logFiles', 'Log File Manager…', { cmd: 'logFiles' }),
       ...(h.dev ? [{ role: 'toggleDevTools' as const }] : []),
     ],
   };

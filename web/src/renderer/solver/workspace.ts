@@ -17,9 +17,9 @@
 // button greys out, as the original's); the frozen document says "pause
 // the solve first". A stacking puzzle (docs/webui-spec.md, section 9.3):
 // its options and its one solver by the board, Solve and Continue off
-// without a board or with invalid stacks, Solve asking about a saved
-// search first (Continue, Start Over: mainwindow_solve.cpp's cb_BtnStart),
-// Continue and Abort for a saved search (solve.status.savedSearch, the
+// without a board or with invalid stacks, Continue in Solve's place and
+// Abort for a saved search (not the original's cb_BtnStart question,
+// Continue or Start Over: starting over is Abort, then Solve) (solve.status.savedSearch, the
 // original's abortable), the Panex or stacking search on the Activity
 // line, the board (stacking.board) for the player. From docs/mockup/index.html:
 // `renderSolver`, `svSelect`, `svManage`, `svTag`, `svStatus`, `svKey`
@@ -1202,38 +1202,6 @@ export class SolverWorkspace {
     if (problem === null || this.calling || this.running || this.analysing) {
       return;
     }
-    // Solve starts afresh: a saved stacking search would be lost, so ask (cb_BtnStart)
-    const saved = this.savedSearch;
-    if (kind === 'start' && this.stacking && saved !== null) {
-      const k = await askChoice(
-        'savedSearch',
-        'A saved search',
-        `This problem has ${saved.description}.\n\nContinue it, or start over and discard it?`,
-        [
-          { key: 'cancel', label: 'Cancel' },
-          {
-            key: 'continue',
-            label: 'Continue',
-            kind: 'pri',
-            default: true,
-            tip: 'Carry on the saved search',
-          },
-          {
-            key: 'over',
-            label: 'Start Over',
-            kind: 'danger',
-            tip: 'Throw the saved search away and solve from the start',
-          },
-        ],
-      );
-      if (k === 'continue') {
-        await this.run('continue');
-        return;
-      }
-      if (k !== 'over' || problem !== this.current || this.busyNow()) {
-        return;
-      }
-    }
     let options = this.optionsNow();
     if (this.sliding && kind !== 'prepare' && options.sliding?.optimizedPaths !== true) {
       if (kind === 'continue') {
@@ -1255,11 +1223,10 @@ export class SolverWorkspace {
       }
     }
     if (this.sliding && kind === 'continue') {
-      const how = await this.askFromStartAlone(problem, options);
-      if (how === null || problem !== this.current || this.busyNow()) {
+      const go = await this.askFromStartAlone(problem, options);
+      if (!go || problem !== this.current || this.busyNow()) {
         return;
       }
-      kind = how;
     }
     if (kind !== 'continue') {
       // the run drops the solutions: nothing of them is read (or played) from now on
@@ -1273,45 +1240,45 @@ export class SolverWorkspace {
   /**
    * Continue on a sliding puzzle whose paused search an earlier version
    * saved from the start alone, where a new search would go from both ends
-   * (decision 0033, sliding.resumeAdvice): whether to solve again with the
-   * far faster search or carry the saved one on. 'continue' without a
-   * question for every other paused search; null when the question was
-   * dismissed (the solve stays paused).
+   * (decision 0033, sliding.resumeAdvice): whether to carry the saved one
+   * on, the question saying that Abort, then Solve, uses the far faster
+   * search. True without a question for every other paused search; false
+   * when the question was cancelled or dismissed (the solve stays paused).
    */
   private async askFromStartAlone(
     problem: string,
     options: ReturnType<typeof solveOptions>,
-  ): Promise<'start' | 'continue' | null> {
+  ): Promise<boolean> {
     let advice;
     try {
       advice = await this.store.engine.call('sliding.resumeAdvice', { problem, options });
     } catch (e) {
       reportError(e, 'The saved search could not be looked at');
-      return 'continue';
+      return true;
     }
     if (!advice.fromStartAlone) {
-      return 'continue';
+      return true;
     }
     const k = await askChoice(
       'fromStartAlone',
-      'Solve Again with the Faster Search?',
-      'This solve was paused in an earlier version, which searched from the start only. This version searches from the start and from the goal until the two meet, which is far faster: a solve of hours can take seconds.\n\nThe saved search can only be carried on as it began, from the start alone. Solving again throws it away and begins a new search from both ends.\n\nCarrying on is only reasonable when the search has already run for a long time and is likely very close to its end.',
+      'Carry On the Slower Search?',
+      'This solve was paused in an earlier version, which searched from the start only. This version searches from the start and from the goal until the two meet, which is far faster: a solve of hours can take seconds.\n\nThe saved search can only be carried on as it began, from the start alone. To use the faster search instead, press Cancel, then Abort and Solve: Abort throws the saved search away, and Solve begins a new search from both ends.\n\nCarrying on is only reasonable when the search has already run for a long time and is likely very close to its end.',
       [
+        {
+          key: 'cancel',
+          label: 'Cancel',
+          kind: 'pri',
+          default: true,
+          tip: 'Leave the solve paused (Abort, then Solve, searches again from both ends)',
+        },
         {
           key: 'continue',
           label: 'Continue',
           tip: 'Carry on the saved search to its end, from the start alone',
         },
-        {
-          key: 'start',
-          label: 'Solve Again',
-          kind: 'pri',
-          default: true,
-          tip: 'Throw the saved search away and solve from the start, searching from both ends',
-        },
       ],
     );
-    return k === 'start' || k === 'continue' ? k : null;
+    return k === 'continue';
   }
 
   /**
@@ -1553,7 +1520,7 @@ export class SolverWorkspace {
     }
     askConfirm(
       'Abort the solve?',
-      'Stop the solve of this problem if it is running and throw away all of it: its solutions, the paused state and any saved search. This cannot be undone.',
+      'Stop the solve of this problem if it is running and throw away all of it: its solutions, the paused state and any saved search. This cannot be undone. Solve then starts it again from the beginning.',
       'Abort',
       () => {
         void this.doAbort(problem);

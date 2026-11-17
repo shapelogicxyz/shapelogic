@@ -80,19 +80,36 @@ def engine_info_and_settings(e):
     panex = s.pop("panexFolder")
     check(panex == "" or panex.endswith("panex"), f"the Panex folder {panex!r}")
     check(s == {"undoDepth": 25, "threads": 0, "solver": "classic", "slideDiskGB": 0,
-                "panexDiskGB": 0, "searchMemoryGB": 0}, f"default settings {s}")
+                "panexDiskGB": 0, "searchMemoryGB": 0, "log": "off"}, f"default settings {s}")
     check(info["memoryBytes"] >= 0, f"the machine's memory {info['memoryBytes']}")
     s = e.call("settings.set", {"undoDepth": 2, "solver": "crowell", "slideFolder": "", "slideDiskGB": 1.5,
-                                "panexFolder": "", "panexDiskGB": 2, "searchMemoryGB": 3})
+                                "panexFolder": "", "panexDiskGB": 2, "searchMemoryGB": 3, "log": "info"})
     check(s == {"undoDepth": 2, "threads": 0, "solver": "crowell", "slideFolder": "", "slideDiskGB": 1.5,
-                "panexFolder": "", "panexDiskGB": 2, "searchMemoryGB": 3}, f"settings after set {s}")
+                "panexFolder": "", "panexDiskGB": 2, "searchMemoryGB": 3, "log": "info"},
+          f"settings after set {s}")
+    # with the log on, a file that cannot be opened is told on stderr, one line
+    e.fails("document.open", {"path": "/no/such/puzzle.xmpuzzle"}, "io_error")
+    e.call("settings.get")
+    # stderr is read on a thread of its own: the line may come a little later
+    for _ in range(200):
+        told = [line for line in e.stderr if line.startswith("shapelogic_engine: ERROR: Could not open")]
+        if told:
+            break
+        time.sleep(0.01)
+    check(len(told) == 1 and "/no/such/puzzle.xmpuzzle" in told[0], f"the log's line {e.stderr}")
+    check(any(line.startswith("shapelogic_engine: INFO: Settings changed: ") for line in e.stderr),
+          f"the settings are logged {e.stderr}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")
     e.fails("settings.set", {"slideDiskGB": -1}, "invalid_params")
     e.fails("settings.set", {"panexDiskGB": -1}, "invalid_params")
     e.fails("settings.set", {"searchMemoryGB": -1}, "invalid_params")
+    e.fails("settings.set", {"log": 1}, "invalid_params")
+    e.fails("settings.set", {"log": True}, "invalid_params")
+    e.fails("settings.set", {"log": "verbose"}, "invalid_params")
+    check(e.call("settings.set", {"log": "debug"})["log"] == "debug", "the debug log")
     e.call("settings.set", {"slideFolder": folder, "slideDiskGB": 0, "panexFolder": panex,
-                            "panexDiskGB": 0, "searchMemoryGB": 0})
+                            "panexDiskGB": 0, "searchMemoryGB": 0, "log": "off"})
 
     # the undo depth reaches the document: three steps, two kept
     e.call("document.new", {"grid": "bricks"})

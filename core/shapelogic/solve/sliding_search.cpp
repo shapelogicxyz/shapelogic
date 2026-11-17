@@ -3474,6 +3474,84 @@ struct SavedSearch {
   std::vector<std::string> goalVisitedSets;
 };
 
+// Bytes for the log: "512.0 MB", "62.31 GB".
+std::string bytesText(std::uint64_t bytes) {
+  char t[32];
+  if (bytes >= 1000000000ULL) {
+    std::snprintf(t, sizeof(t), "%.2f GB", static_cast<double>(bytes) / 1e9);
+  } else {
+    std::snprintf(t, sizeof(t), "%.1f MB", static_cast<double>(bytes) / 1e6);
+  }
+  return t;
+}
+
+// Seconds for the log: "12.3 s".
+std::string secondsText(std::chrono::steady_clock::duration d) {
+  char t[32];
+  std::snprintf(t, sizeof(t), "%.1f s", std::chrono::duration<double>(d).count());
+  return t;
+}
+
+// What a saved state names, for the log's debug lines: each end's depth
+// and the files of its levels, the visited sets, the counts.
+std::string savedText(const SavedSearch& st) {
+  std::string t;
+  for (int i = 0; i < 2; i++) {
+    const SavedSide& s = st.side[i];
+    if (i == 1 && !st.bidirectional) {
+      t.append("; no goal end");
+      continue;
+    }
+    t.append(i == 0 ? "the start end " : "; the goal end ")
+        .append(std::to_string(s.depth))
+        .append(" moves deep (newest level ")
+        .append(s.cur.empty() ? "none" : s.cur)
+        .append(", the one before ")
+        .append(s.prev.empty() ? "none" : s.prev)
+        .append("; kept levels");
+    if (s.stored.empty()) {
+      t.append(" none");
+    }
+    for (const auto& [level, name] : s.stored) {
+      t.append(" ").append(std::to_string(level)).append("=").append(name);
+    }
+    t.append(")");
+  }
+  for (int i = 0; i < 2; i++) {
+    const std::vector<std::string>& sets = i == 0 ? st.visitedSets : st.goalVisitedSets;
+    if (i == 1 && sets.empty()) {
+      continue;
+    }
+    t.append(i == 0 ? "; visited sets" : "; the goal end's visited sets");
+    if (sets.empty()) {
+      t.append(" none");
+    }
+    for (const std::string& name : sets) {
+      t.append(" ").append(name);
+    }
+  }
+  t.append("; ")
+      .append(std::to_string(st.visited))
+      .append(" arrangements visited, interval ")
+      .append(std::to_string(st.interval))
+      .append(", next file number ")
+      .append(std::to_string(st.fileNumber));
+  return t;
+}
+
+// The files in a folder and their bytes, for the log.
+std::string folderText(const std::filesystem::path& dir) {
+  std::error_code ec;
+  std::uint64_t files = 0;
+  std::uint64_t bytes = 0;
+  for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+    files++;
+    const std::uintmax_t n = e.file_size(ec);
+    bytes += ec ? 0 : n;
+  }
+  return std::to_string(files) + (files == 1 ? " file, " : " files, ") + bytesText(bytes);
+}
+
 template <class T>
 void put(std::ofstream& out, const T& v) {
   out.write(reinterpret_cast<const char*>(&v), sizeof(T));
@@ -3717,6 +3795,27 @@ class LevelSearch {
       });
       pinned_.clear();
     }
+    const std::string where = folder_.dir.empty() ? std::string() : " in " + folder_.dir.string();
+    const std::string deep =
+        std::to_string(fwd_.depth) + (bidirectional_ ? " + " + std::to_string(bwd_.depth) : "") +
+        " moves deep, " + std::to_string(visited_.load()) + " arrangements visited";
+    if (end == SlideOutcome::Disk) {
+      tellLog(save && search_.saved ? LogLevel::Warning : LogLevel::Error,
+              search_.error + (search_.saved ? " The search is saved" + where + ", " + deep + "."
+                                             : " The search could not be saved."));
+    } else if (end == SlideOutcome::Memory) {
+      tellLog(LogLevel::Warning, "The search reached its memory limit, " + deep +
+                                     (search_.error.empty() ? "." : ": " + search_.error));
+    } else if (stopped) {
+      if (search_.stop.kind() == StopKind::Abort) {
+        tellLog(LogLevel::Info, "The search was aborted, " + deep + ".");
+      } else if (search_.saved) {
+        tellLog(LogLevel::Info, "The search stopped and is saved" + where + ", " + deep + ".");
+      } else if (!folder_.dir.empty()) {
+        tellLog(LogLevel::Error, "The search stopped, and could not be saved" + where + ", " +
+                                     deep + (store_.error.empty() ? "." : ": " + store_.error));
+      }
+    }
   }
 
  private:
@@ -3750,12 +3849,38 @@ class LevelSearch {
   // The search's beginning: the saved search carried on, or the start.
   bool start() {
     if (search_.resume && folder_.exists()) {
+      const unsigned int interval = interval_;
+      const unsigned int fileNumber = store_.fileNumber;
       if (resume()) {
         search_.resumed = true;
+        tellLog(LogLevel::Info,
+                "Carried on the saved search in " + folder_.dir.string() + ": the start end " +
+                    std::to_string(fwd_.depth) + " moves deep" +
+                    (bidirectional_ ? ", the goal end " + std::to_string(bwd_.depth) : "") +
+                    ", " + std::to_string(visited_.load()) + " arrangements visited.");
         return true;
       }
+      tellLog(LogLevel::Error, "The saved search in " + folder_.place().string() +
+                                   " could not be carried on: " + resumeWhy_ +
+                                   ". It is deleted, and the search starts again from the "
+                                   "beginning.");
+      // Nothing of a save that could not be carried on stays: resume may
+      // have taken up part of it (an end's depth and levels, the visited
+      // sets) before it failed, and the new search would go on from those,
+      // deeper than it is, over sets whose files the wipe deletes.
+      fwd_ = Side{};
+      bwd_ = Side{};
+      bidirectional_ = false;
+      interval_ = interval;
+      visited_ = 0;
+      search_.oneWayRepeats = 0;
+      store_.fileNumber = fileNumber;
       folder_.wipe();
     } else if (folder_.exists()) {
+      tellLog(LogLevel::Info, "The search folder " + folder_.place().string() + " (" +
+                                  folderText(folder_.place()) +
+                                  ") held an earlier search, which this one does not carry on: "
+                                  "it is deleted, and the search begins at the start.");
       folder_.wipe();
     }
     fwd_.cur = single(s_.startCanon);
@@ -3769,17 +3894,32 @@ class LevelSearch {
   }
 
   // Takes up the saved search in the folder; false when it is not this
-  // search's or is damaged.
+  // search's or is damaged, with why in resumeWhy_ (for the log).
   bool resume() {
+    auto fail = [this](std::string why) {
+      resumeWhy_ = std::move(why);
+      return false;
+    };
     SavedSearch st;
-    if (!readState(folder_.place(), st, true) || st.searchKey != searchKey_ ||
-        st.problemKey != problemKey_ || st.nested != s_.nested) {
-      return false;
+    if (!readState(folder_.place(), st, true)) {
+      return fail("its state.bin is missing or damaged");
     }
+    if (st.searchKey != searchKey_ || st.problemKey != problemKey_) {
+      return fail("it is the saved search of another problem or start");
+    }
+    if (st.nested != s_.nested) {
+      return fail(st.nested ? "it was saved with nested slides, and this search has none"
+                            : "it was saved without nested slides, and this search has them");
+    }
+    tellLog(LogLevel::Debug, "Reading the saved search in " + folder_.place().string() + " (" +
+                                 folderText(folder_.place()) + "): its state.bin names " +
+                                 savedText(st) + ".");
     if (!folder_.open()) {
-      return false;
+      return fail("its folder could not be opened");
     }
     std::map<std::string, SetPtr<Key>> opened;
+    // why a set could not be opened: the file gone, or not a whole set
+    std::string setWhy;
     auto openSet = [&](const std::string& name, SetPtr<Key>& into) {
       if (name.empty()) {
         into.reset();
@@ -3793,6 +3933,10 @@ class LevelSearch {
       auto set = std::make_shared<Set>();
       if (!set->open(folder_.dir / name)) {
         set->keepFile();
+        std::error_code ec;
+        const std::uintmax_t bytes = std::filesystem::file_size(folder_.dir / name, ec);
+        setWhy = ec ? name + " is missing"
+                    : name + " is not a whole level file (" + std::to_string(bytes) + " bytes)";
         return false;
       }
       store_.adopt(set);
@@ -3804,14 +3948,20 @@ class LevelSearch {
     for (int i = 0; i < 2; i++) {
       Side& side = *sides[i];
       const SavedSide& saved = st.side[i];
+      const std::string end = i == 0 ? "the start end" : "the goal end";
       side.depth = saved.depth;
+      const std::string deep = " (" + std::to_string(saved.depth) + " moves deep)";
       if (!openSet(saved.prev, side.prev) || !openSet(saved.cur, side.cur)) {
-        return false;
+        std::string why = setWhy;
+        why.append(", one of the two newest levels of ").append(end).append(deep);
+        return fail(std::move(why));
       }
       for (const auto& [level, name] : saved.stored) {
         SetPtr<Key> set;
         if (!openSet(name, set)) {
-          return false;
+          std::string why = setWhy;
+          why.append(", level ").append(std::to_string(level)).append(" of ").append(end).append(deep);
+          return fail(std::move(why));
         }
         side.stored.emplace_back(level, set);
       }
@@ -3820,18 +3970,19 @@ class LevelSearch {
       for (const std::string& name : i == 0 ? st.visitedSets : st.goalVisitedSets) {
         SetPtr<Key> set;
         if (!openSet(name, set)) {
-          return false;
+          return fail(setWhy + ", one of the sets of what " +
+                      (i == 0 ? "the start end" : "the goal end") + " has visited");
         }
         sides[i]->visited.push_back(set);
       }
     }
     if (!fwd_.cur || (st.bidirectional && !bwd_.cur)) {
-      return false;
+      return fail("it names no newest level for one of its ends");
     }
     bidirectional_ = st.bidirectional;
     // a goal end needs the goal, and with nested slides the moves backwards
     if (bidirectional_ && (!goal_ || (s_.nested && !s_.backMoves))) {
-      return false;
+      return fail("it was searched from both ends, which this search cannot be");
     }
     interval_ = st.interval;
     visited_ = st.visited;
@@ -3839,11 +3990,22 @@ class LevelSearch {
     store_.fileNumber = st.fileNumber;
     // files the state does not name are leftovers of the stopped run
     std::error_code ec;
+    std::string leftovers;
+    unsigned int removed = 0;
     for (const auto& e : std::filesystem::directory_iterator(folder_.dir, ec)) {
       const std::string name = e.path().filename().string();
       if (name != "state.bin" && opened.find(name) == opened.end()) {
+        if (++removed <= 8) {
+          leftovers.append(" ").append(name);
+        }
         std::filesystem::remove(e.path(), ec);
       }
+    }
+    if (removed > 0) {
+      tellLog(LogLevel::Debug,
+              "Removed " + std::to_string(removed) + " file" + (removed == 1 ? "" : "s") +
+                  " of the stopped run that state.bin does not name:" + leftovers +
+                  (removed > 8 ? " …" : "") + ".");
     }
     for (const Side* side : sides) {
       for (const SetPtr<Key>& set : side->visited) {
@@ -3851,7 +4013,7 @@ class LevelSearch {
       }
     }
     if (!restoreVisited(fwd_) || !restoreVisited(bwd_)) {
-      return false;
+      return fail("its visited sets could not be read back");
     }
     // chosen once the saved sets are open, so that they count as its own
     setDiskBudget();
@@ -3919,6 +4081,7 @@ class LevelSearch {
     if (!folder_.open()) {
       return false;
     }
+    const auto began = std::chrono::steady_clock::now();
     if (told != nullptr) {
       // what is still in memory, each set once
       std::uint64_t total = 0;
@@ -3979,8 +4142,12 @@ class LevelSearch {
       st.goalVisitedSets.push_back(nameOf(set));
     }
     if (!writeState(folder_.dir, st)) {
+      tellLog(LogLevel::Debug, "The search's state could not be written in " + folder_.dir.string() + ".");
       return false;
     }
+    tellLog(LogLevel::Debug, "Saved the search's state in " + folder_.dir.string() + " (" +
+                                 secondsText(std::chrono::steady_clock::now() - began) + ", " +
+                                 folderText(folder_.dir) + "): " + savedText(st) + ".");
     // The files the state names stay until the next save replaces them,
     // whatever the search does with the sets meanwhile.
     pinned_.clear();
@@ -3999,8 +4166,17 @@ class LevelSearch {
     if (!diskChosen_ && !folder_.dir.empty()) {
       // the files there already (a saved search carried on) are the
       // search's own: they count as free space it may take again
-      disk_ = diskBudgetFor(folder_.dir, search_.diskBudget, store_.used().second);
+      const std::uint64_t own = store_.used().second;
+      disk_ = diskBudgetFor(folder_.dir, search_.diskBudget, own);
       diskChosen_ = true;
+      const std::string reason = diskBudgetReason(disk_);
+      tellLog(LogLevel::Debug,
+              "The disk the search may take in " + folder_.dir.string() + ": " +
+                  bytesText(disk_.bytes) + (reason.empty() ? "" : " (" + reason + ")") +
+                  (search_.diskBudget == 0 ? ", none asked for"
+                                           : ", " + bytesText(search_.diskBudget) + " asked for") +
+                  "; free there " + (disk_.free ? bytesText(*disk_.free) : "unknown") +
+                  ", counting its own files " + bytesText(own) + ".");
     }
   }
 
@@ -4010,6 +4186,13 @@ class LevelSearch {
     const std::uint64_t now = visited_.exchange(before);
     if (search_.progress != nullptr) {
       search_.progress->fetch_sub(now - before, std::memory_order_relaxed);
+    }
+  }
+
+  // A line for the application's log (SlideSearch::onLog).
+  void tellLog(LogLevel level, const std::string& text) const {
+    if (search_.onLog) {
+      search_.onLog(level, text);
     }
   }
 
@@ -4507,6 +4690,7 @@ class LevelSearch {
       std::uint64_t oneWayNew = 0;
       // a level cut short is expanded again when the search is carried on
       const std::uint64_t visitedBefore = visited_.load();
+      const auto levelBegan = std::chrono::steady_clock::now();
       const StepEnd end = step(side, bidirectional_ ? other.cur : nullptr, !bidirectional_, true,
                                extra, next, met, oneWayReached, oneWayNew);
       if (end == StepEnd::Failed) {
@@ -4553,16 +4737,59 @@ class LevelSearch {
       if (!folder_.dir.empty()) {
         setDiskBudget();
       }
+      unsigned int thinned = 0;
       if (diskChosen_ && !s_.nested) {
         const std::uint64_t level = next->bytes();
         while (interval_ < (1U << 30) && storedDiskBytes() + 5 * level > disk_.bytes &&
                storedDiskBytes() > level) {
           thin();
           releaseFreeMemory();
+          thinned++;
         }
         used = store_.used();
       }
+      const std::optional<std::uint64_t> freeNow =
+          folder_.dir.empty() ? std::nullopt : availableDiskBytes(folder_.dir);
+      {
+        const Side& otherEnd = &side == &fwd_ ? bwd_ : fwd_;
+        std::size_t kept = 0;
+        std::size_t visitedSets = 0;
+        for (const Side* s : {&fwd_, &bwd_}) {
+          kept += s->stored.size();
+          visitedSets += s->visited.size();
+        }
+        char line[512];
+        std::snprintf(
+            line, sizeof(line),
+            "The %s end is %u moves deep (the %s end %u, %llu in all): the level has %zu "
+            "arrangements, %llu visited in all; one-way %llu reached, %llu new; %zu levels kept "
+            "(every %u), %zu visited sets; ",
+            &side == &fwd_ ? "start" : "goal", side.depth, &side == &fwd_ ? "goal" : "start",
+            otherEnd.depth, static_cast<unsigned long long>(depthNow()), next->size(),
+            static_cast<unsigned long long>(visited_.load()),
+            static_cast<unsigned long long>(oneWayReached),
+            static_cast<unsigned long long>(oneWayNew), kept, interval_, visitedSets);
+        tellLog(LogLevel::Debug,
+                std::string(line) + "disk " + bytesText(used.second) +
+                    (diskChosen_ ? " of " + bytesText(disk_.bytes) : std::string()) + ", free " +
+                    (freeNow ? bytesText(*freeNow) : std::string("unknown")) + ", memory " +
+                    bytesText(used.first) + "; the level took " +
+                    secondsText(std::chrono::steady_clock::now() - levelBegan) + ".");
+      }
+      if (thinned > 0) {
+        tellLog(LogLevel::Debug,
+                "The levels kept for tracing back were thinned out " + std::to_string(thinned) +
+                    (thinned == 1 ? " time" : " times") +
+                    " to leave room on the disk for the next level: every " +
+                    std::to_string(interval_) + "th level is kept now, " +
+                    bytesText(storedDiskBytes()) + " of them.");
+      }
       if (diskChosen_ && used.second > disk_.bytes) {
+        tellLog(LogLevel::Debug, "The search takes " + bytesText(used.second) +
+                                     " on the disk, more than the " + bytesText(disk_.bytes) +
+                                     " it may (the levels kept for tracing back " +
+                                     bytesText(storedDiskBytes()) + ", the newest level " +
+                                     bytesText(next->bytes()) + ").");
         char gb[32];
         std::snprintf(gb, sizeof(gb), "%.1f GB", static_cast<double>(disk_.bytes) / 1e9);
         const std::string reason = diskBudgetReason(disk_);
@@ -4579,6 +4806,12 @@ class LevelSearch {
         const std::optional<std::uint64_t> free = availableDiskBytes(folder_.dir);
         const std::uint64_t need = search_.diskReserve + used.first + 5 * next->bytes();
         if (free && *free < need) {
+          tellLog(LogLevel::Debug,
+                  "The disk has " + bytesText(*free) + " free, less than the " + bytesText(need) +
+                      " the search needs to save itself and write the next level (a reserve of " +
+                      bytesText(search_.diskReserve) + ", " + bytesText(used.first) +
+                      " in memory, and five times the newest level's " + bytesText(next->bytes()) +
+                      ").");
           char gb[32];
           std::snprintf(gb, sizeof(gb), "%.1f GB", static_cast<double>(*free) / 1e9);
           search_.diskHeldToFree = true;
@@ -4603,6 +4836,9 @@ class LevelSearch {
         }
         bwd_.stored.emplace_back(0, bwd_.cur);
         bidirectional_ = true;
+        tellLog(LogLevel::Debug, "The search goes on from the goal too: the start end's level " +
+                                     std::to_string(fwd_.depth) + " has " +
+                                     std::to_string(fwd_.cur->size()) + " arrangements.");
       }
 
       if (search_.onLevel) {
@@ -4924,6 +5160,8 @@ class LevelSearch {
   std::atomic<std::uint64_t> visited_{0};
   // The sets the last save named (see saveState).
   std::vector<SetPtr<Key>> pinned_;
+  // Why the saved search could not be carried on (resume), for the log.
+  std::string resumeWhy_;
   DiskBudget disk_;
   bool diskChosen_ = false;
 };

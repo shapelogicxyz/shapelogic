@@ -31,7 +31,16 @@ import { ic } from './icons.ts';
 import { keyGroups } from './keys.ts';
 import { closePop } from './popover.ts';
 import type { KeyRow } from './keys.ts';
-import { DEFAULTS, LIMIT_MAX, NEW_SIZE_MAX, prefs, setPrefs, SIDE_MAX, SIDE_MIN } from './prefs.ts';
+import {
+  DEFAULTS,
+  LABEL_CHARS_MAX,
+  LIMIT_MAX,
+  NEW_SIZE_MAX,
+  prefs,
+  setPrefs,
+  SIDE_MAX,
+  SIDE_MIN,
+} from './prefs.ts';
 import type { Prefs } from './prefs.ts';
 import { flash, reportError } from './status.ts';
 import { KEEP_AT_MOST, KEEP_EACH, LABEL, LIVE_PREVIEW, TIP } from '../solver/option-text.ts';
@@ -267,6 +276,12 @@ const SET: readonly Page[] = [
         type: 'sw',
       },
       {
+        k: 'debugLog',
+        t: 'Debug logging',
+        d: 'Adds detailed lines to the log file (View ▸ Log File Manager…) to help find the cause of a problem. For sliding solves, each level the search finishes: how deep both ends are, the arrangements visited, the disk used against its allowance and the space free; each save of the search and the files it names; and what a saved search holds when it is carried on. With it on, the log may grow to 100 MB before it is compressed (20 MB with it off). Turning it off keeps the newest 100 lines in the log and the 20 MB before them, compressed; the rest of the log is deleted.',
+        type: 'sw',
+      },
+      {
         t: 'Cache folder',
         d: 'Where the solver keeps its cache data, which can take a lot of disk space: the files a sliding search writes once it outgrows its memory, and the saved searches of sliding and stacking puzzles that Continue carries on, in a sliding and a panex folder. By default it is ShapeLogic’s folder in your system’s application data folder. Choose Folder… makes a ShapeLogic folder in the folder you choose to hold it, and checks at once that it can write there. If the cache folder in use holds data, you are asked whether to move it to the new folder or delete it and start clean. It can’t be changed while a solve runs. Use Default goes back to the default folder; Reset section and Restore all defaults leave the cache folder as it is.',
         type: 'cache',
@@ -357,6 +372,15 @@ const SET: readonly Page[] = [
         t: 'Fade out removed pieces',
         d: 'During a disassembly animation, pieces that have been removed fade away instead of vanishing at once.',
         type: 'sw',
+      },
+      {
+        k: 'labelChars',
+        t: 'Piece label length',
+        d: `How many characters of each shape’s label the Solver’s Show Piece Labels (Display ▸ Labels) draws on its pieces; the rest is cut off. Unlimited draws the whole label, on a new line every ${String(LABEL_CHARS_MAX)} characters.`,
+        type: 'steps',
+        steps: () => [...Array.from({ length: LABEL_CHARS_MAX }, (_, i) => i + 1), 0],
+        label: (v) =>
+          v === 0 ? 'Unlimited' : `${String(v)} ${v === 1 ? 'character' : 'characters'}`,
       },
     ],
   },

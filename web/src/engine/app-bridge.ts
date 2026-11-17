@@ -48,6 +48,8 @@ export type AppCommand =
   | { cmd: 'statusWindow' }
   /** View ▸ Manage Cache and Autosave Files…: the dialog listing what solves, pauses, the journal and crashes left. */
   | { cmd: 'cacheFiles' }
+  /** View ▸ Log File Manager…: the app's log, newest first, with its filters, Export and Clear. */
+  | { cmd: 'logFiles' }
   | { cmd: 'colourView'; on: boolean }
   | { cmd: 'style'; style: MeshStyle }
   | { cmd: 'focus3d' }
@@ -227,6 +229,73 @@ export function isCacheLink(v: unknown): v is CacheLink {
 /** The answer to deleting a cache item: the items now there, or why not. */
 export type CacheDeleteResult = { ok: true; items: CacheItem[] } | { ok: false; error: string };
 
+/** How much a line of the app's log matters (main/app-log.ts); DEBUG only while Debug logging is on. */
+export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+/** One line of the app's log, as the file has it (its time, level and source in it). */
+export interface LogEntry {
+  line: string;
+  level: LogLevel;
+}
+
+/** What the Log File Manager asks for: a page of the lines that match, newest first. */
+export interface LogQuery {
+  /** The matches skipped (the lines already shown). */
+  offset: number;
+  /** The lines wanted (default 100, at most 1000). */
+  limit?: number;
+  /** Only the errors and warnings. */
+  errorsOnly: boolean;
+  /** Only the lines with this text in them, any case ('' every line). */
+  search: string;
+}
+
+/** Whether a value is a log query (the main process checks what the renderer sends). */
+export function isLogQuery(v: unknown): v is LogQuery {
+  if (typeof v !== 'object' || v === null) {
+    return false;
+  }
+  const q = v as Record<string, unknown>;
+  return (
+    typeof q.offset === 'number' &&
+    Number.isInteger(q.offset) &&
+    q.offset >= 0 &&
+    (q.limit === undefined || (typeof q.limit === 'number' && Number.isInteger(q.limit))) &&
+    typeof q.errorsOnly === 'boolean' &&
+    typeof q.search === 'string' &&
+    q.search.length <= 1000
+  );
+}
+
+/** A page of the app's log (the current file), newest first. */
+export interface LogPage {
+  entries: LogEntry[];
+  /** The matches skipped before the first entry. */
+  offset: number;
+  /** The lines that match, in all. */
+  matches: number;
+  /** The lines of the current file, in all. */
+  lines: number;
+  /** More matches after these (Load more messages…). */
+  more: boolean;
+  /** The current file's size in bytes. */
+  bytes: number;
+  /** There is an older, compressed file too (Export includes it). */
+  archived: boolean;
+  /** The current file's full path. */
+  file: string;
+  /** Debug logging is on (Settings ▸ General): the file grows to a larger size. */
+  debug: boolean;
+  /** The size in bytes past which the file is compressed and a new one begun. */
+  limit: number;
+  /** Why the log could not be written or read lately; null when all is well. */
+  error: string | null;
+}
+
+/** The answer to exporting the log: where it went, or why not. */
+export type LogExportResult =
+  { ok: true; path: string } | { ok: false; cancelled: true } | { ok: false; error: string };
+
 /** The links of the Help menu (the main process holds the addresses). */
 export type HelpLink = 'tutorial' | 'guide' | 'author';
 
@@ -396,6 +465,12 @@ export interface BtApp {
   deleteCacheItem(id: string): Promise<CacheDeleteResult>;
   /** These search folders belong to this puzzle and problem: the cache manager names them so. */
   linkCacheFolders(link: CacheLink): void;
+  /** A page of the app's log, newest first; null where there is none (the demo). */
+  logPage(query: LogQuery): Promise<LogPage | null>;
+  /** Deletes the app's log (the current file and the compressed one). */
+  clearLog(): Promise<void>;
+  /** The save dialog for the log, then all of it written there as plain text. */
+  exportLog(): Promise<LogExportResult>;
   /** Closes the window: the renderer answered a `close` command (nothing to save, or saved or given up). */
   closeWindow(): void;
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */
@@ -429,6 +504,7 @@ const COMMANDS: ReadonlySet<string> = new Set<AppCommandName>([
   'settings',
   'statusWindow',
   'cacheFiles',
+  'logFiles',
   'colourView',
   'style',
   'focus3d',

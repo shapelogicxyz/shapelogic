@@ -30,6 +30,7 @@ import { dialogOpen, installDialogs, tell } from './dialog.ts';
 import { Files } from './files.ts';
 import { Imports } from './imports.ts';
 import { openCacheFiles } from './cache-files.ts';
+import { openLogFiles } from './log-files.ts';
 import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
 import { Menus } from './menus.ts';
@@ -302,6 +303,9 @@ export function startApp(saved: StoredState = {}): {
     },
     cacheFiles: () => {
       void openCacheFiles(app);
+    },
+    logFiles: () => {
+      void openLogFiles(app);
     },
     about: () => {
       openAbout(store, app.version);

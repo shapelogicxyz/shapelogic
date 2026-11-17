@@ -71,6 +71,17 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { AppCommand, MenuState } from '../engine/app-bridge.ts';
 import { NodeTransport } from '../engine/node-transport.ts';
 import { installAppIpc, openHelp } from './app-ipc.ts';
+import {
+  AppLog,
+  EngineLines,
+  LOG_DEBUG_MAX_BYTES,
+  LOG_KEEP_ARCHIVE_BYTES,
+  LOG_KEEP_LINES,
+  LOG_MAX_BYTES,
+  machineText,
+  parseEngineLine,
+  teeStderr,
+} from './app-log.ts';
 import { appDataDir, CacheFolderManager, systemCacheDir } from './cache-folder.ts';
 import { CacheLinks, sweepOther } from './cache-files.ts';
 import { cliLink, findCli } from './cli-tool.ts';
@@ -142,6 +153,46 @@ const windows = new Map<number, WindowState>();
 /** Each window's engine host: a change of the cache folder reaches them all. */
 const hosts = new Map<number, EngineHost>();
 let store: StateStore;
+/** The app's log (app-log.ts), made at the start. */
+let appLog: AppLog;
+/** Debug logging (Settings ▸ General), as the settings last stored say. */
+let logDebug = false;
+/** The log's changes of size, one after another. */
+let logDebugDone: Promise<void> = Promise.resolve();
+
+const mb = (bytes: number): string => `${String(Math.round(bytes / 1e6))} MB`;
+
+/**
+ * Debug logging turned on or off (a window stored the settings): the log
+ * takes its size, and every engine running its level of lines; one
+ * started later is set up with it.
+ */
+function setLogDebug(on: boolean): void {
+  if (on === logDebug) {
+    return;
+  }
+  logDebug = on;
+  logDebugDone = logDebugDone
+    .then(() => appLog.setDebug(on))
+    .then(() => {
+      if (on) {
+        appLog.info(
+          'app',
+          `Debug logging turned on: the log may grow to ${mb(LOG_DEBUG_MAX_BYTES)} before it is compressed. ${machineText([cache.folders.slide, cache.folders.panex])}`,
+        );
+      } else {
+        appLog.info(
+          'app',
+          `Debug logging turned off: the log kept its newest ${String(LOG_KEEP_LINES)} lines and the ${mb(LOG_KEEP_ARCHIVE_BYTES)} before them, compressed; it grows to ${mb(LOG_MAX_BYTES)} before it is compressed.`,
+        );
+      }
+    });
+  for (const h of hosts.values()) {
+    if (h.status.state === 'running') {
+      h.call('settings.set', { log: on ? 'debug' : 'info' }).catch(() => undefined);
+    }
+  }
+}
 let cache: CacheFolderManager<WebContents>;
 let rescue: RescueSlots<number>;
 /**
@@ -344,6 +395,8 @@ function createWindow(first?: AppCommand): void {
   windows.set(id, w);
   // its rescue copy's slot, kept while it lives (a reload, an engine restarted)
   rescue.of(id);
+  // the log names a window's lines by its number
+  const source = `window ${String(id)}`;
   const engine = findEngine({
     packaged: app.isPackaged,
     resources: process.resourcesPath,
@@ -359,18 +412,46 @@ function createWindow(first?: AppCommand): void {
             : 'no shapelogic_engine: build one (just build) or set BT_ENGINE',
         );
       }
-      // one version for the app and the engine (CMakeLists.txt's)
-      return NodeTransport.start(engine, { expectVersion: VERSION });
+      // one version for the app and the engine (CMakeLists.txt's); its
+      // stderr is the log's too, line by line
+      const lines = new EngineLines((line) => {
+        const told = parseEngineLine(line);
+        if (told !== null) {
+          appLog.write(told.level, source, told.text);
+        }
+      });
+      return NodeTransport.start(engine, { expectVersion: VERSION }).then((t) =>
+        teeStderr(t, (chunk) => {
+          lines.push(chunk);
+        }),
+      );
     },
     // the searches' folders (the cache folder), before the page may call
     // the engine
     setup: async (client) => {
       await cache.start();
       const f = cache.folders;
-      await client.call('settings.set', { slideFolder: f.slide, panexFolder: f.panex });
+      // the engine's lines for the log (app-log.ts)
+      await client.call('settings.set', {
+        slideFolder: f.slide,
+        panexFolder: f.panex,
+        log: logDebug ? 'debug' : 'info',
+      });
     },
   });
   hosts.set(id, host);
+  host.onStatus((status) => {
+    if (status.state === 'exited') {
+      appLog.error(
+        source,
+        `The engine stopped (exit code ${String(status.code)}, signal ${String(status.signal)}); it is started again.`,
+      );
+    } else if (status.state === 'failed') {
+      appLog.error(source, `The engine could not be started: ${status.reason}`);
+    } else if (status.restarts > 0) {
+      appLog.info(source, `The engine was started again (restart ${String(status.restarts)}).`);
+    }
+  });
   const serve = (): ReturnType<typeof serveEngine> =>
     serveEngine(
       host,
@@ -680,6 +761,12 @@ void app.whenReady().then(async () => {
     app.dock?.setIcon(dockIcon);
   }
   store = new StateStore(app.getPath('userData'));
+  logDebug = store.prefs?.debugLog === true;
+  appLog = new AppLog(join(app.getPath('userData'), 'logs'), { debug: logDebug });
+  appLog.info(
+    'app',
+    `ShapeLogic ${VERSION} started (${process.platform} ${process.arch}${app.isPackaged ? '' : ', development'}${logDebug ? ', debug logging on' : ''}); the log is ${appLog.file}`,
+  );
   rescue = new RescueSlots<number>(app.getPath('userData'));
   cache = new CacheFolderManager<WebContents>({
     defaults: cacheDefaults(),
@@ -715,7 +802,15 @@ void app.whenReady().then(async () => {
   // the stray files of the search folders a week old go, unasked
   void cache
     .start()
-    .then(() => sweepOther(cache.folders))
+    .then(() => {
+      if (logDebug) {
+        appLog.info(
+          'app',
+          `Debug logging is on: the log may grow to ${mb(LOG_DEBUG_MAX_BYTES)} before it is compressed. ${machineText([cache.folders.slide, cache.folders.panex])}`,
+        );
+      }
+      return sweepOther(cache.folders);
+    })
     .catch(() => undefined);
   pendingOpen.push(...argFiles());
   // the page and its files, from the renderer's directory and nowhere else
@@ -754,6 +849,10 @@ void app.whenReady().then(async () => {
     cliLink: cliLink(process.platform),
     cache,
     cacheLinks: new CacheLinks(app.getPath('userData')),
+    log: appLog,
+    prefsChanged: (prefs) => {
+      setLogDebug(prefs.debugLog === true);
+    },
     window: (sender) => windows.get(sender.id)?.win ?? null,
     setMenu: (sender, state) => {
       const w = windows.get(sender.id);

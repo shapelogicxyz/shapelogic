@@ -94,7 +94,7 @@ export function performanceHtml(f: SlideForecast, paused: boolean): string {
     return `<b>Performance Analysis</b>${done}${notKept}${running}${why}`;
   }
   const growth = `Each move takes about ${f.growth.toFixed(2)}× as long as the one before, from the last moves; worked out again as each move ends.`;
-  const from = paused ? 'Once continued' : 'From now';
+  const from = paused ? 'Once continued' : 'Remaining';
   const rows = f.estimates
     .map(
       (e) =>
@@ -103,6 +103,6 @@ export function performanceHtml(f: SlideForecast, paused: boolean): string {
     .join('');
   return (
     `<b>Performance Analysis</b>${done}${notKept}${running} ${growth}` +
-    `<table class="slv-perf-t"><thead><tr><th title="How many moves deep">Moves deep</th><th title="How long that one move will take">That move</th><th title="How long until the search is that deep">${from}</th></tr></thead><tbody>${rows}</tbody></table>`
+    `<table class="slv-perf-t"><thead><tr><th title="How many moves deep">Move</th><th title="How long that one move will take">Time</th><th title="How long until the search is that deep">${from}</th></tr></thead><tbody>${rows}</tbody></table>`
   );
 }

@@ -29,6 +29,8 @@ export interface Prefs {
   tips: boolean;
   /** Ask GitHub for a newer release at startup (shell/updates.ts). */
   updates: boolean;
+  /** The log file's debug lines, and its larger size (the main process's app-log.ts). */
+  debugLog: boolean;
   cube: boolean;
   rev: boolean;
   /** Free Spin: the arc-ball, no limits; Top Up: the drag that keeps the vertical axis up. */
@@ -54,8 +56,10 @@ export interface Prefs {
   fade: boolean;
   /** The Solver's 3D view: each piece's label (S2) drawn on it (Display ▸ Show Piece Names). */
   pieceLabels: boolean;
-  /** The Solver's 3D view: each piece's name from the Shapes tab drawn on it, cut to 8 characters (Display ▸ Show Piece Labels). */
+  /** The Solver's 3D view: each piece's name from the Shapes tab drawn on it, cut to labelChars characters (Display ▸ Show Piece Labels). */
   pieceNames: boolean;
+  /** The characters of a name Show Piece Labels draws, 1 to LABEL_CHARS_MAX; 0 all of it, a line every LABEL_CHARS_MAX. */
+  labelChars: number;
   /** The Solver's Piece display: labels only (Compact), not "S2 - name" (Full). */
   pieceCompact: boolean;
   /** The Solver's 3D view: while a run searches, the arrangements it is looking at (the run card's Live preview). */
@@ -108,6 +112,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   undo: 25,
   tips: true,
   updates: true,
+  debugLog: false,
   cube: true,
   rev: false,
   rot: 'Free Spin',
@@ -126,6 +131,7 @@ export const DEFAULTS: Readonly<Prefs> = {
   fade: true,
   pieceLabels: false,
   pieceNames: false,
+  labelChars: 8,
   pieceCompact: false,
   livePreview: true,
   threads: 0,
@@ -202,6 +208,9 @@ export const NEW_SIZE_MAX = 100;
 /** The new shape size settings, each 1 to NEW_SIZE_MAX. */
 const NEW_SIZE: readonly (keyof Prefs)[] = ['newX', 'newY', 'newZ', 'slideX', 'slideY', 'slideZ'];
 
+/** The most characters of a name Show Piece Labels draws cut, and the line length when it draws all (labelChars 0). */
+export const LABEL_CHARS_MAX = 14;
+
 /** The narrowest and widest side card the settings take, in pixels. */
 export const SIDE_MIN = 200;
 export const SIDE_MAX = 600;
@@ -228,11 +237,13 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
             ? typeof v === 'number' && Number.isInteger(v) && v >= SIDE_MIN && v <= SIDE_MAX
             : k === 'boardColourLight' || k === 'boardColourDark'
               ? typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
-              : k === 'optKeepEach'
-                ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= LIMIT_MAX
-                : typeof DEFAULTS[k] === 'number'
-                  ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
-                  : typeof v === typeof DEFAULTS[k];
+              : k === 'labelChars'
+                ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= LABEL_CHARS_MAX
+                : k === 'optKeepEach'
+                  ? typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= LIMIT_MAX
+                  : typeof DEFAULTS[k] === 'number'
+                    ? typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100_000
+                    : typeof v === typeof DEFAULTS[k];
     if (ok) {
       out[k] = v;
     }
