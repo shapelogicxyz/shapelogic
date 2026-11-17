@@ -61,17 +61,42 @@ test('the log tells what was opened and what could not be, newest first, filtere
 
   await openWith(page, 'damaged.xmpuzzle');
   const dlg = page.locator('#logFiles');
+  // Pretty first: a table, the level in its colour, the event apart
+  await expect(dlg.locator('.lf-view [data-v="pretty"]')).toHaveClass(/\bon\b/);
+  await expect(dlg.locator('.lf-table th')).toHaveText([
+    'Date',
+    'Time',
+    'Level',
+    'Source',
+    'Event',
+    'Message',
+  ]);
+  await expect(dlg.locator('.lf-row.lf-error .lf-lv-error').first()).toHaveText('ERROR');
+  await expect(dlg.locator('.lf-row .lf-time').first()).toHaveText(/^\d\d:\d\d$/);
+  // every line has its event
+  const events = await dlg.locator(`${ROWS} .lf-ev`).allTextContents();
+  expect(events.length).toBeGreaterThan(2);
+  expect(events.every((e) => /^[A-Z]/.test(e))).toBe(true);
+  expect(events).toContain('File Opened');
+  expect(events).toContain('App Started');
+  // Raw: the lines as the file has them
+  await dlg.locator('.lf-view [data-v="raw"]').click();
+  await expect(dlg.locator('.lf-table')).toHaveCount(0);
   const lines = await dlg.locator(ROWS).allTextContents();
   // newest on top: the failed open above the open before it, the start last
-  const failed = lines.findIndex((l) => l.includes('ERROR') && l.includes('damaged.xmpuzzle'));
-  const opened = lines.findIndex(
-    (l) => l.includes('INFO') && l.includes(`Opened "${resolve(FIXTURES, 'BallRoom.xmpuzzle')}"`),
+  const failed = lines.findIndex(
+    (l) =>
+      l.includes('ERROR') && l.includes('File Open Failed: ') && l.includes('damaged.xmpuzzle'),
   );
-  const started = lines.findIndex((l) => l.includes('[app] ShapeLogic') && l.includes('started'));
+  const opened = lines.findIndex(
+    (l) =>
+      l.includes('INFO') && l.includes(`File Opened: "${resolve(FIXTURES, 'BallRoom.xmpuzzle')}"`),
+  );
+  const started = lines.findIndex((l) => l.includes('[app] App Started: ShapeLogic'));
   expect(failed).toBeGreaterThanOrEqual(0);
   expect(opened).toBeGreaterThan(failed);
   expect(started).toBeGreaterThan(opened);
-  await expect(dlg.locator('.lf-row.lf-error').first()).toContainText('Could not open');
+  await expect(dlg.locator('.lf-row.lf-error').first()).toContainText('File Open Failed');
 
   // Errors and warnings: those alone
   await dlg.locator('.lf-errors').check();
@@ -90,6 +115,14 @@ test('the log tells what was opened and what could not be, newest first, filtere
   expect(
     (await dlg.locator(ROWS).allTextContents()).every((l) => l.toLowerCase().includes('ballr')),
   ).toBe(true);
+  // the text marked in each line, in both views
+  await expect(dlg.locator(`${ROWS} mark`).first()).toHaveText('BallR');
+  await dlg.locator('.lf-view [data-v="pretty"]').click();
+  await expect(dlg.locator(`.lf-table ${ROWS} mark`).first()).toHaveText('BallR');
+  await dlg.locator('.lf-view [data-v="raw"]').click();
+  // the click took the focus: back to the end of the search's text
+  await search.focus();
+  await search.press('End');
   await search.pressSequentially('zzz');
   await expect(dlg.locator('.lf-empty')).toContainText('No line has “ballrzzz” in it.');
   for (let i = 0; i < 3; i++) {
@@ -106,7 +139,7 @@ test('the log tells what was opened and what could not be, newest first, filtere
   await expect(page.locator('#stText')).toContainText('Log exported');
   const text = readFileSync(`${out}.txt`, 'utf8');
   expect(text).toContain('damaged.xmpuzzle');
-  expect(text).toContain('started');
+  expect(text).toContain('App Started');
 
   // Clear: asked first, then the log is empty
   await dlg.locator('[data-x="clear"]').click();
@@ -129,15 +162,15 @@ test('Settings ▸ General ▸ Debug logging is told in the log, and the log tri
   a = await launch({ userData });
   const page = a.page;
   await switchDebug(page);
-  await openWith(page, 'Debug logging turned on');
+  await openWith(page, 'Debug Logging On');
   const dlg = page.locator('#logFiles');
   await expect(dlg.locator('.lf-sum')).toContainText('debug logging on');
   await dlg.locator('[data-x="close"]').click();
   await switchDebug(page);
-  await openWith(page, 'Debug logging turned off');
+  await openWith(page, 'Debug Logging Off');
   await expect(dlg.locator('.lf-sum')).not.toContainText('debug logging on');
   // the start, both changes: a short log is kept whole
-  await expect(dlg.locator(ROWS).last()).toContainText('started');
+  await expect(dlg.locator(ROWS).last()).toContainText('App Started');
 });
 
 test('a long log comes a hundred lines at a time', async () => {
@@ -150,7 +183,7 @@ test('a long log comes a hundred lines at a time', async () => {
   writeFileSync(join(userData, 'logs', 'shapelogic.log'), old);
   a = await launch({ userData });
   const page = a.page;
-  await openWith(page, 'started');
+  await openWith(page, 'App Started');
   const dlg = page.locator('#logFiles');
   await expect(dlg.locator(ROWS)).toHaveCount(100);
   const more = dlg.locator('.lf-more');

@@ -39,10 +39,13 @@ afterEach(() => {
 const query = { offset: 0, errorsOnly: false, search: '' };
 
 describe('the log lines', () => {
-  it('have the local time, the level, the source and one line of text', () => {
+  it('have the local time, the level, the source, the event and one line of text', () => {
     expect(logTime(at)).toBe('2026-11-16 14:39:55.007');
-    expect(formatLogLine(at, 'WARN', 'window 2', 'disk\nfull\r\n')).toBe(
-      '2026-11-16 14:39:55.007 WARN  [window 2] disk full\n',
+    expect(formatLogLine(at, 'WARN', 'window 2', 'Disk Full', 'disk\nfull\r\n')).toBe(
+      '2026-11-16 14:39:55.007 WARN  [window 2] Disk Full: disk full\n',
+    );
+    expect(formatLogLine(at, 'INFO', 'app', 'Debug Logging Off', '')).toBe(
+      '2026-11-16 14:39:55.007 INFO  [app] Debug Logging Off\n',
     );
     expect(levelOf('2026-11-16 14:39:55.007 ERROR [app] x')).toBe('ERROR');
     expect(levelOf('2026-11-16 14:39:55.007 WARN  [app] x')).toBe('WARN');
@@ -50,26 +53,39 @@ describe('the log lines', () => {
     expect(levelOf('not a line of the log')).toBe('INFO');
   });
 
-  it('take the engine level, and a line without one as an error', () => {
-    expect(parseEngineLine('shapelogic_engine: INFO: Opened "a.xmpuzzle"')).toEqual({
+  it('take the engine level and event, and a line without a level as an error', () => {
+    expect(parseEngineLine('shapelogic_engine: INFO: File Opened: "a: b.xmpuzzle"')).toEqual({
       level: 'INFO',
-      text: 'Opened "a.xmpuzzle"',
+      event: 'File Opened',
+      text: '"a: b.xmpuzzle"',
     });
-    expect(parseEngineLine('shapelogic_engine: ERROR: Could not open x\n')).toEqual({
+    expect(
+      parseEngineLine('shapelogic_engine: ERROR: File Open Failed: x (io_error): y\n'),
+    ).toEqual({
       level: 'ERROR',
-      text: 'Could not open x',
+      event: 'File Open Failed',
+      text: 'x (io_error): y',
     });
-    expect(parseEngineLine('shapelogic_engine: DEBUG: The start end is 4 moves deep')).toEqual({
+    expect(parseEngineLine('shapelogic_engine: INFO: Solve Paused')).toEqual({
+      level: 'INFO',
+      event: 'Solve Paused',
+      text: '',
+    });
+    // a line whose start is not an event's name
+    expect(parseEngineLine('shapelogic_engine: DEBUG: the start end is 4 moves deep')).toEqual({
       level: 'DEBUG',
-      text: 'The start end is 4 moves deep',
-    });
-    expect(parseEngineLine('shapelogic_engine: the analysis of p3 failed: y')).toEqual({
-      level: 'ERROR',
-      text: 'the analysis of p3 failed: y',
+      event: 'Engine',
+      text: 'the start end is 4 moves deep',
     });
     expect(parseEngineLine('libc++abi: terminating')).toEqual({
       level: 'ERROR',
+      event: 'Engine Error',
       text: 'libc++abi: terminating',
+    });
+    expect(parseEngineLine('shapelogic_engine: assertion failed')).toEqual({
+      level: 'ERROR',
+      event: 'Engine Error',
+      text: 'assertion failed',
     });
     expect(parseEngineLine('  ')).toBeNull();
   });
@@ -110,13 +126,15 @@ describe('the log lines', () => {
 describe('the log file', () => {
   it('is written a line at a time and read newest first', () => {
     const log = new AppLog(dir, { now: () => at });
-    log.info('app', 'started');
-    log.error('window 1', 'Could not open "a.xmpuzzle"');
-    log.warn('window 1', 'the disk budget');
+    log.info('app', 'App Started', 'ShapeLogic');
+    log.error('window 1', 'File Open Failed', '"a.xmpuzzle"');
+    log.warn('window 1', 'Search Note', 'the disk budget');
     expect(readFileSync(log.file, 'utf8').split('\n')).toHaveLength(4);
     const page = log.page(query);
     expect(page.entries.map((e) => e.level)).toEqual(['WARN', 'ERROR', 'INFO']);
-    expect(page.entries[2]?.line).toBe('2026-11-16 14:39:55.007 INFO  [app] started');
+    expect(page.entries[2]?.line).toBe(
+      '2026-11-16 14:39:55.007 INFO  [app] App Started: ShapeLogic',
+    );
     expect(page).toMatchObject({ matches: 3, lines: 3, more: false, archived: false, error: null });
     expect(page.file).toBe(log.file);
     expect(page.bytes).toBe(readFileSync(log.file).length);
@@ -125,7 +143,7 @@ describe('the log file', () => {
   it('gives pages of a hundred lines, then the next, by the lines shown', () => {
     const log = new AppLog(dir);
     for (let i = 0; i < 250; i++) {
-      log.info('app', `line ${String(i)}`);
+      log.info('app', 'Test Line', `line ${String(i)}`);
     }
     const first = log.page(query);
     expect(first.entries).toHaveLength(100);
@@ -138,18 +156,22 @@ describe('the log file', () => {
     expect(last.entries.at(-1)?.line).toMatch(/line 0$/);
     expect(last.more).toBe(false);
     // what is written since is read without reading the file again
-    log.info('app', 'line 250');
+    log.info('app', 'Test Line', 'line 250');
     expect(log.page(query).entries[0]?.line).toMatch(/line 250$/);
   });
 
   it('keeps the errors and warnings only, and the lines with the text, any case', () => {
     const log = new AppLog(dir);
-    log.info('window 1', 'Opened "Heart.xmpuzzle"');
-    log.error('window 1', 'The saved search could not be carried on: 000004.keys is missing');
-    log.info('window 1', 'Saved "Heart.xmpuzzle"');
-    log.warn('window 1', 'The search reached its disk budget: the search is saved');
-    log.write('DEBUG', 'window 1', 'The start end is 84 moves deep');
-    log.error('window 2', 'Could not open "gone.xmpuzzle"');
+    log.info('window 1', 'File Opened', '"Heart.xmpuzzle"');
+    log.error(
+      'window 1',
+      'Search Note',
+      'The saved search could not be carried on: 000004.keys is missing',
+    );
+    log.info('window 1', 'File Saved', '"Heart.xmpuzzle"');
+    log.warn('window 1', 'Search Note', 'The search reached its disk budget: the search is saved');
+    log.write('DEBUG', 'window 1', 'Search Note', 'The start end is 84 moves deep');
+    log.error('window 2', 'File Open Failed', '"gone.xmpuzzle"');
     expect(log.page({ ...query, errorsOnly: true }).entries.map((e) => e.level)).toEqual([
       'ERROR',
       'WARN',
@@ -166,7 +188,7 @@ describe('the log file', () => {
     const log = new AppLog(dir, { maxBytes: 2000 });
     const line = 'x'.repeat(150);
     const write = async (i: number): Promise<void> => {
-      log.info('app', `line ${String(i)} ${line}`);
+      log.info('app', 'Test Line', `line ${String(i)} ${line}`);
       // as the app writes: a line now and then, each compression through
       // before the next is due
       await log.settled();
@@ -198,7 +220,7 @@ describe('the log file', () => {
   it('loses no line written while the file before is compressed', async () => {
     const log = new AppLog(dir, { maxBytes: 2000 });
     for (let i = 0; i < 30; i++) {
-      log.info('app', `line ${String(i)} ${'x'.repeat(150)}`);
+      log.info('app', 'Test Line', `line ${String(i)} ${'x'.repeat(150)}`);
     }
     await log.settled();
     const all = await log.text();
@@ -209,7 +231,7 @@ describe('the log file', () => {
     const log = new AppLog(dir, { maxBytes: 2000, debugMaxBytes: 8000, debug: true });
     expect(log.page(query)).toMatchObject({ debug: true, limit: 8000 });
     for (let i = 0; i < 30; i++) {
-      log.info('app', `line ${String(i)} ${'x'.repeat(150)}`);
+      log.info('app', 'Test Line', `line ${String(i)} ${'x'.repeat(150)}`);
       await log.settled();
     }
     // 30 lines of about 200 bytes: past 2000, not past 8000
@@ -227,13 +249,13 @@ describe('the log file', () => {
     });
     // an older compressed log, from before
     for (let i = 0; i < 200; i++) {
-      log.info('app', `old ${String(i)} ${'o'.repeat(120)}`);
+      log.info('app', 'Test Line', `old ${String(i)} ${'o'.repeat(120)}`);
       await log.settled();
     }
     expect(existsSync(log.archive)).toBe(true);
     await log.setDebug(true);
     for (let i = 0; i < 600; i++) {
-      log.write('DEBUG', 'window 1', `line ${String(i)} ${'d'.repeat(60)}`);
+      log.write('DEBUG', 'window 1', 'Test Line', `line ${String(i)} ${'d'.repeat(60)}`);
     }
     await log.setDebug(false);
     await log.settled();
@@ -252,7 +274,7 @@ describe('the log file', () => {
     expect(archived).not.toContain(' old ');
     expect(readdirSync(dir).sort()).toEqual(['shapelogic.log', 'shapelogic.log.1.gz']);
     // and it is written on at the smaller size
-    log.info('app', 'after');
+    log.info('app', 'Test Line', 'after');
     expect(log.page(query).entries[0]?.line).toMatch(/after$/);
     expect(log.page(query).limit).toBe(20_000);
   });
@@ -260,7 +282,7 @@ describe('the log file', () => {
   it('keeps a short log whole when Debug logging is turned off', async () => {
     const log = new AppLog(dir, { debug: true });
     for (let i = 0; i < 40; i++) {
-      log.write('DEBUG', 'app', `line ${String(i)}`);
+      log.write('DEBUG', 'app', 'Test Line', `line ${String(i)}`);
     }
     await log.setDebug(false);
     await log.settled();
@@ -279,7 +301,7 @@ describe('the log file', () => {
   it('exports both files as plain text, the older first, and clears both', async () => {
     const log = new AppLog(dir, { maxBytes: 600 });
     for (let i = 0; i < 12; i++) {
-      log.info('app', `line ${String(i)} ${'y'.repeat(60)}`);
+      log.info('app', 'Test Line', `line ${String(i)} ${'y'.repeat(60)}`);
     }
     await log.settled();
     const out = join(dir, 'export.txt');
@@ -294,7 +316,7 @@ describe('the log file', () => {
     expect(existsSync(log.archive)).toBe(false);
     expect(log.page(query)).toMatchObject({ entries: [], lines: 0, archived: false });
     // and it is written again
-    log.info('app', 'after');
+    log.info('app', 'Test Line', 'after');
     expect(log.page(query).entries).toHaveLength(1);
   });
 });

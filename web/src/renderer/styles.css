@@ -1059,6 +1059,22 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .lf-row.lf-warn{background:color-mix(in srgb,var(--warn,#c80) 12%,transparent)}
 .lf-row.lf-error{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
 .lf-empty{padding:18px 12px;color:var(--muted);text-align:center;font-family:inherit}
+#logFiles .cfm.wide{width:min(1180px,calc(100% - 48px))}
+#logFiles .lf-list{height:min(520px,calc(100vh - 320px));min-height:240px}
+.cfm-head{display:flex;align-items:flex-start;gap:12px;margin:0 0 6px}.cfm-head h3{flex:1;min-width:0;margin:3px 0 0}
+.lf-list mark{background:color-mix(in srgb,#f5c400 55%,transparent);color:inherit;border-radius:2px}
+.lf-list.pretty{padding:0}
+.lf-table{width:100%;border-collapse:collapse}
+.lf-table th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);text-align:left;font:600 calc(11px + var(--fs)) system-ui,sans-serif;letter-spacing:.3px;padding:5px 8px;border-bottom:1px solid var(--line2)}
+.lf-table td{padding:2px 8px;vertical-align:top;border-bottom:1px solid var(--line)}
+.lf-table tr.lf-row{padding:0;text-indent:0}
+.lf-table .lf-date,.lf-table .lf-time,.lf-table .lf-lv,.lf-table .lf-src{white-space:nowrap;color:var(--muted)}
+.lf-table .lf-ev{white-space:nowrap;font-weight:600}
+.lf-table .lf-msg{width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.lf-table .lf-lv span{font-weight:700}
+.lf-lv-info{color:var(--ay)}.lf-lv-warn{color:#e8820c}.lf-lv-error{color:var(--danger)}.lf-lv-debug{color:var(--muted)}
+.lf-table tr.lf-debug td{color:var(--muted)}
+.lf-table tr.lf-error .lf-msg{color:var(--danger)}
 .cfm .lf-more{margin:8px auto 0;display:block}
 .cfm .lf-more[hidden]{display:none}
 /* the bulk range dialog: Min above Max, each as wide as the card */

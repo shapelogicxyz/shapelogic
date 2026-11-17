@@ -59,11 +59,11 @@ bool logs(const State& s, LogLevel level) {
          (s.settings.log == LogSetting::Info && level != LogLevel::Debug);
 }
 
-void logLine(State& s, LogLevel level, std::string_view text) {
+void logLine(State& s, LogLevel level, std::string_view event, std::string_view text) {
   if (!logs(s, level)) {
     return;
   }
-  std::string line(text);
+  std::string line = std::string(event) + ": " + std::string(text);
   // one line each: the app reads them line by line
   for (char& c : line) {
     if (c == '\n' || c == '\r') {
@@ -92,57 +92,56 @@ void logCall(State& s, std::string_view method, const Json& params, const Reply&
   const std::string what(method);
   if (!reply) {
     const RpcError& e = reply.error();
-    std::string text = what + " failed (" + e.errc + "): " + e.message;
+    const LogLevel level = errorWhenFailed(method) ? LogLevel::Error : LogLevel::Warning;
     if (method == "document.open" || method == "document.save") {
-      text = (method == "document.open" ? "Could not open " : "Could not save ") +
-             fileOf(s, params) + " (" + e.errc + "): " + e.message;
-    } else if (const std::string problem = problemOf(s, params); !problem.empty()) {
+      logLine(s, level, method == "document.open" ? "File Open Failed" : "File Save Failed",
+              fileOf(s, params) + " (" + e.errc + "): " + e.message);
+      return;
+    }
+    std::string text = what + " (" + e.errc + "): " + e.message;
+    if (const std::string problem = problemOf(s, params); !problem.empty()) {
       text += " [" + problem + "]";
     }
-    logLine(s, errorWhenFailed(method) ? LogLevel::Error : LogLevel::Warning, text);
+    logLine(s, level, "Request Failed", text);
     return;
   }
   const Json given = params.is_object() && params.contains("options") ? params["options"] : Json();
   if (method == "document.open") {
-    logLine(s, LogLevel::Info, "Opened " + fileOf(s, params));
+    logLine(s, LogLevel::Info, "File Opened", fileOf(s, params));
   } else if (method == "document.openBytes") {
     const std::string path = stringParam(params, "path");
-    logLine(s, LogLevel::Info,
-            "Opened a puzzle from its bytes (a crash recovery copy, or a file read by the "
-            "app)" +
+    logLine(s, LogLevel::Info, "File Opened",
+            "from its bytes (a crash recovery copy, or a file read by the app)" +
                 (path.empty() ? std::string() : ", as \"" + path + "\""));
   } else if (method == "document.new") {
-    logLine(s, LogLevel::Info, "New puzzle on the " + stringParam(params, "grid") + " grid");
+    logLine(s, LogLevel::Info, "Puzzle Created", "on the " + stringParam(params, "grid") + " grid");
   } else if (method == "document.import") {
-    logLine(s, LogLevel::Info, "Imported \"" + stringParam(params, "path") + "\"");
+    logLine(s, LogLevel::Info, "File Imported", "\"" + stringParam(params, "path") + "\"");
   } else if (method == "document.save") {
-    logLine(s, LogLevel::Info, "Saved " + fileOf(s, params));
+    logLine(s, LogLevel::Info, "File Saved", fileOf(s, params));
   } else if (method == "solve.start" || method == "solve.continue" || method == "solve.prepare") {
-    const char* verb = method == "solve.start"      ? "Solve started"
-                       : method == "solve.continue" ? "Solve continued"
-                                                    : "Solve prepared";
-    logLine(s, LogLevel::Info,
-            std::string(verb) + ": " + problemOf(s, params) + " of " + fileOf(s, Json()) +
-                ", options " + (given.is_null() ? std::string("{}") : given.dump()) + "; " +
-                settingsText(s));
+    const char* event = method == "solve.start"      ? "Solve Started"
+                        : method == "solve.continue" ? "Solve Continued"
+                                                     : "Solve Prepared";
+    logLine(s, LogLevel::Info, event,
+            problemOf(s, params) + " of " + fileOf(s, Json()) + ", options " +
+                (given.is_null() ? std::string("{}") : given.dump()) + "; " + settingsText(s));
   } else if (method == "solve.pause") {
-    logLine(s, LogLevel::Info, "Pause asked for: " + problemOf(s, params));
+    logLine(s, LogLevel::Info, "Pause Requested", problemOf(s, params));
   } else if (method == "solve.savePoint") {
-    logLine(s, LogLevel::Info,
-            "Pause at a save point asked for (the crash recovery copy, or File > Save): " +
-                problemOf(s, params));
+    logLine(s, LogLevel::Info, "Save Point Requested",
+            problemOf(s, params) + " (the crash recovery copy, or File > Save)");
   } else if (method == "solve.abort") {
-    logLine(s, LogLevel::Info, "Solve aborted: " + problemOf(s, params));
+    logLine(s, LogLevel::Info, "Solve Aborted", problemOf(s, params));
   } else if (method == "solve.reset") {
-    logLine(s, LogLevel::Info, "Solve results thrown away: " + problemOf(s, params));
+    logLine(s, LogLevel::Info, "Results Removed", problemOf(s, params));
   } else if (method == "solve.importPaused") {
-    logLine(s, LogLevel::Info,
-            "Opened the paused solve \"" + stringParam(params, "path") + "\"");
+    logLine(s, LogLevel::Info, "Paused Solve Opened", "\"" + stringParam(params, "path") + "\"");
   } else if (method == "solve.exportPaused") {
-    logLine(s, LogLevel::Info, "Saved the paused solve of " + problemOf(s, params) + " as \"" +
-                                   stringParam(params, "path") + "\"");
+    logLine(s, LogLevel::Info, "Paused Solve Saved",
+            problemOf(s, params) + " as \"" + stringParam(params, "path") + "\"");
   } else if (method == "settings.set") {
-    logLine(s, LogLevel::Info, "Settings changed: " + params.dump());
+    logLine(s, LogLevel::Info, "Settings Changed", params.dump());
   }
 }
 

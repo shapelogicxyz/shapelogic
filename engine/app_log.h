@@ -8,8 +8,11 @@
 /// why; a solve started (its options), paused, continued, aborted, and how
 /// its runs ended; the settings changed; what the slide searches told
 /// (SolveSession::takeLog); and every call that failed. Each line is
-/// `shapelogic_engine: LEVEL: text`, LEVEL one of DEBUG, INFO, WARN, ERROR,
-/// on one line; the app adds the time and writes it to its log file. A
+/// `shapelogic_engine: LEVEL: Event: text`, LEVEL one of DEBUG, INFO,
+/// WARN, ERROR, and Event what happened in a few capitalised words
+/// (`File Opened`, `Solve Paused`), on one line; the app adds the time and
+/// writes it to its log file, where its log manager shows the event in a
+/// column of its own. A
 /// debug log (Settings::log Debug) also has the searches' DEBUG lines.
 
 #include "engine.h"
@@ -26,8 +29,10 @@ namespace bt::engine {
 /// only in a debug log).
 [[nodiscard]] bool logs(const State& s, LogLevel level);
 
-/// Writes a line when the log takes its level (Settings::log).
-void logLine(State& s, LogLevel level, std::string_view text);
+/// Writes a line when the log takes its level (Settings::log): `event`
+/// is what happened in a few capitalised words, letters and spaces only
+/// (`Solve Started`), `text` the rest.
+void logLine(State& s, LogLevel level, std::string_view event, std::string_view text);
 
 /// A problem as the log names it: its id and its name, `p2 "Board 1"`.
 [[nodiscard]] std::string problemTitle(const State& s, app::Id problem);

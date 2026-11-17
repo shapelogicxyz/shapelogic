@@ -79,7 +79,8 @@ export interface Settings {
    * solve started (with its options and these settings), paused, continued, aborted, and how its
    * runs ended; the settings changed; what the sliding searches told (a saved search carried on
    * and how deep, one that could not be and why, a stop at the disk budget); every call that
-   * failed. Each line is `shapelogic_engine: LEVEL: text`, LEVEL one of DEBUG, INFO, WARN, ERROR.
+   * failed. Each line is `shapelogic_engine: LEVEL: Event: text`, LEVEL one of DEBUG, INFO, WARN,
+   * ERROR, and Event what happened in a few capitalised words (`File Opened`, `Solve Paused`).
    * `off` (the default) writes only what went wrong in a notification or an analysis; `info` every
    * line but DEBUG; `debug` also the sliding searches' step by step lines (each level done: its
    * width, the arrangements visited, the disk used against its budget and the space free; each

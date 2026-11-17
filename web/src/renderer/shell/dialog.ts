@@ -49,6 +49,8 @@ export interface DialogOptions {
   buttons: readonly DialogButton[];
   /** A wider card that scrolls (the keyboard shortcuts, the convert dialog). */
   wide?: boolean;
+  /** HTML at the right of the title (the log's Pretty and Raw), already escaped. */
+  head?: string;
   /**
    * A button was pressed: return false to keep the dialog open (a field
    * that is not right yet). Esc and a click beside the card answer null.
@@ -109,7 +111,7 @@ export function openDialog(options: DialogOptions): Promise<string | null> {
     const el = document.createElement('div');
     el.className = 'cfm-scrim dlg-scrim';
     el.id = options.id;
-    el.innerHTML = `<div class="cfm${options.wide === true ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(options.title)}"><h3>${esc(options.title)}</h3><div class="cb">${options.body}</div><div class="bt">${options.buttons.map((b) => `<button class="btn${b.kind === undefined ? '' : ` ${b.kind}`}" data-x="${esc(b.key)}" title="${esc(tipOf(b))}">${esc(b.label)}</button>`).join('')}</div></div>`;
+    el.innerHTML = `<div class="cfm${options.wide === true ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(options.title)}">${options.head === undefined ? `<h3>${esc(options.title)}</h3>` : `<div class="cfm-head"><h3>${esc(options.title)}</h3>${options.head}</div>`}<div class="cb">${options.body}</div><div class="bt">${options.buttons.map((b) => `<button class="btn${b.kind === undefined ? '' : ` ${b.kind}`}" data-x="${esc(b.key)}" title="${esc(tipOf(b))}">${esc(b.label)}</button>`).join('')}</div></div>`;
     byId('stage').appendChild(el);
     const o: Open = {
       el,

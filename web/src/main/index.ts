@@ -178,12 +178,14 @@ function setLogDebug(on: boolean): void {
       if (on) {
         appLog.info(
           'app',
-          `Debug logging turned on: the log may grow to ${mb(LOG_DEBUG_MAX_BYTES)} before it is compressed. ${machineText([cache.folders.slide, cache.folders.panex])}`,
+          'Debug Logging On',
+          `the log may grow to ${mb(LOG_DEBUG_MAX_BYTES)} before it is compressed. ${machineText([cache.folders.slide, cache.folders.panex])}`,
         );
       } else {
         appLog.info(
           'app',
-          `Debug logging turned off: the log kept its newest ${String(LOG_KEEP_LINES)} lines and the ${mb(LOG_KEEP_ARCHIVE_BYTES)} before them, compressed; it grows to ${mb(LOG_MAX_BYTES)} before it is compressed.`,
+          'Debug Logging Off',
+          `the log kept its newest ${String(LOG_KEEP_LINES)} lines and the ${mb(LOG_KEEP_ARCHIVE_BYTES)} before them, compressed; it grows to ${mb(LOG_MAX_BYTES)} before it is compressed.`,
         );
       }
     });
@@ -417,7 +419,7 @@ function createWindow(first?: AppCommand): void {
       const lines = new EngineLines((line) => {
         const told = parseEngineLine(line);
         if (told !== null) {
-          appLog.write(told.level, source, told.text);
+          appLog.write(told.level, source, told.event, told.text);
         }
       });
       return NodeTransport.start(engine, { expectVersion: VERSION }).then((t) =>
@@ -444,12 +446,13 @@ function createWindow(first?: AppCommand): void {
     if (status.state === 'exited') {
       appLog.error(
         source,
-        `The engine stopped (exit code ${String(status.code)}, signal ${String(status.signal)}); it is started again.`,
+        'Engine Stopped',
+        `exit code ${String(status.code)}, signal ${String(status.signal)}; it is started again`,
       );
     } else if (status.state === 'failed') {
-      appLog.error(source, `The engine could not be started: ${status.reason}`);
+      appLog.error(source, 'Engine Start Failed', status.reason);
     } else if (status.restarts > 0) {
-      appLog.info(source, `The engine was started again (restart ${String(status.restarts)}).`);
+      appLog.info(source, 'Engine Restarted', `restart ${String(status.restarts)}`);
     }
   });
   const serve = (): ReturnType<typeof serveEngine> =>
@@ -765,7 +768,8 @@ void app.whenReady().then(async () => {
   appLog = new AppLog(join(app.getPath('userData'), 'logs'), { debug: logDebug });
   appLog.info(
     'app',
-    `ShapeLogic ${VERSION} started (${process.platform} ${process.arch}${app.isPackaged ? '' : ', development'}${logDebug ? ', debug logging on' : ''}); the log is ${appLog.file}`,
+    'App Started',
+    `ShapeLogic ${VERSION} (${process.platform} ${process.arch}${app.isPackaged ? '' : ', development'}${logDebug ? ', debug logging on' : ''}); the log is ${appLog.file}`,
   );
   rescue = new RescueSlots<number>(app.getPath('userData'));
   cache = new CacheFolderManager<WebContents>({
@@ -806,7 +810,8 @@ void app.whenReady().then(async () => {
       if (logDebug) {
         appLog.info(
           'app',
-          `Debug logging is on: the log may grow to ${mb(LOG_DEBUG_MAX_BYTES)} before it is compressed. ${machineText([cache.folders.slide, cache.folders.panex])}`,
+          'Debug Logging On',
+          `the log may grow to ${mb(LOG_DEBUG_MAX_BYTES)} before it is compressed. ${machineText([cache.folders.slide, cache.folders.panex])}`,
         );
       }
       return sweepOther(cache.folders);

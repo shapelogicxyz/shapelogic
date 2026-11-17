@@ -255,7 +255,8 @@ void Engine::handleLine(std::string_view line) {
 
   if (request->notification) {
     if (!reply) {
-      log_ << "shapelogic_engine: " << request->method << ": " << reply.error().message << '\n';
+      log_ << "shapelogic_engine: ERROR: Notification Failed: " << request->method << ": "
+           << reply.error().message << '\n';
     }
   } else if (reply) {
     Json m = Json::object();

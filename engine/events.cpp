@@ -33,20 +33,24 @@ void pollSolve(State& s, app::Id id, unsigned int index, State::Watch& w,
   if (std::vector<LogLine> lines = d.takeSolveLog(id); !lines.empty() && s.settings.log != LogSetting::Off) {
     const std::string title = problemTitle(s, id);
     for (const LogLine& line : lines) {
-      logLine(s, line.level, title + ": " + line.text);
+      logLine(s, line.level, "Search Note", title + ": " + line.text);
     }
   }
   if (changed && s.settings.log != LogSetting::Off && !isActive(state) && state != SolveState::Idle) {
-    logLine(s, state == SolveState::Error ? LogLevel::Error : LogLevel::Info,
+    const char* event = state == SolveState::Paused     ? "Solve Paused"
+                        : state == SolveState::Finished ? "Solve Finished"
+                                                        : "Solve Failed";
+    logLine(s, state == SolveState::Error ? LogLevel::Error : LogLevel::Info, event,
             problemTitle(s, id) + ": the solve is " + std::string(solveStateName(state)) + ".");
     const std::string note = d.solveNote(id);
     if (!note.empty()) {
       const bool cut = note.find("not searched completely") != std::string::npos;
-      logLine(s, cut ? LogLevel::Warning : LogLevel::Info, problemTitle(s, id) + ": " + note);
+      logLine(s, cut ? LogLevel::Warning : LogLevel::Info, cut ? "Search Incomplete" : "Solve Note",
+              problemTitle(s, id) + ": " + note);
     }
     if (const std::optional<FolderFailure> f = d.solveFolderFailure(id)) {
-      logLine(s, LogLevel::Error, problemTitle(s, id) + ": the search folder " + f->folder +
-                                      " could not be used: " + f->reason);
+      logLine(s, LogLevel::Error, "Search Folder Failed",
+              problemTitle(s, id) + ": the search folder " + f->folder + " could not be used: " + f->reason);
     }
   }
   if (changed) {
@@ -54,8 +58,8 @@ void pollSolve(State& s, app::Id id, unsigned int index, State::Watch& w,
     if (state == SolveState::Error) {
       if (const std::optional<SolveFailure> f = d.solveFailure(id)) {
         s.out.notify("solve.error", Json{{"problem", problemName(id)}, {"failure", failureJson(*f)}});
-        logLine(s, LogLevel::Error,
-                problemTitle(s, id) + ": the solve failed: " + f->message +
+        logLine(s, LogLevel::Error, "Solve Failed",
+                problemTitle(s, id) + ": " + f->message +
                     (f->file.empty() ? std::string() : " (" + f->file + ":" + std::to_string(f->line) + ")"));
       }
     }
@@ -137,7 +141,9 @@ void pollAnalysis(State& s, app::Id id, State::Watch& w,
     return;
   }
   if (a->failure) {
-    s.log << "shapelogic_engine: the analysis of " << problemName(id) << " failed: " << *a->failure << '\n';
+    // told even with the log off (as before the log had levels)
+    s.log << "shapelogic_engine: ERROR: Analysis Failed: " << problemTitle(s, id) << ": " << *a->failure
+          << '\n';
   }
   s.out.notify("solution.analyseEnded", analyseEvent(id, *a));
   w.analysing = false;

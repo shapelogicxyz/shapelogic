@@ -8,12 +8,15 @@
 // ended; what the sliding searches told (a saved search carried on and how
 // deep, one that could not be and why, a stop at the disk budget); every
 // call that failed. Their lines come on stderr (`shapelogic_engine: LEVEL:
-// text`) and are split here (`EngineLines`); a line the engine wrote
-// without a level (an assertion, a crash) is an error. The main process
-// adds its own: the start, an engine that stopped.
+// Event: text`) and are split here (`EngineLines`); a line the engine
+// wrote without a level (an assertion, a crash) is an error, its event
+// `Engine Error`. The main process adds its own: the start, an engine that
+// stopped.
 //
-// Each line is `YYYY-MM-DD HH:MM:SS.mmm LEVEL [source] text`, local time,
-// on one line. The file is `shapelogic.log` in the app's data folder; once
+// Each line is `YYYY-MM-DD HH:MM:SS.mmm LEVEL [source] Event: text`, local
+// time, on one line: the event what happened in a few capitalised words
+// (`File Opened`, `Solve Paused`), which the manager's Pretty view shows in
+// a column of its own. The file is `shapelogic.log` in the app's data folder; once
 // it would pass 20 MB (100 MB while Debug logging is on, Settings ▸
 // General: the engines' DEBUG lines then too) it is renamed
 // `shapelogic.log.1` and compressed to `shapelogic.log.1.gz` (replacing the
@@ -77,11 +80,20 @@ export function logTime(d: Date): string {
   );
 }
 
-/** One line of the log: its time, level, where it came from, and the text on one line. */
-export function formatLogLine(time: Date, level: LogLevel, source: string, text: string): string {
+/** One line of the log: its time, level, where it came from, the event, and the text on one line. */
+export function formatLogLine(
+  time: Date,
+  level: LogLevel,
+  source: string,
+  event: string,
+  text: string,
+): string {
   const flat = text.replace(/[\r\n]+/g, ' ').trimEnd();
-  return `${logTime(time)} ${level.padEnd(5)} [${source}] ${flat}\n`;
+  return `${logTime(time)} ${level.padEnd(5)} [${source}] ${event}${flat === '' ? '' : `: ${flat}`}\n`;
 }
+
+/** An event's name as the log writes it: capitalised words, letters, digits and spaces. */
+export const EVENT_NAME = /^[A-Z][A-Za-z0-9]*(?: [A-Za-z0-9]+)*$/;
 
 const LINE = /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3} (DEBUG|INFO|WARN|ERROR) /;
 
@@ -93,22 +105,38 @@ export function levelOf(line: string): LogLevel {
 
 const ENGINE = /^shapelogic_engine: (DEBUG|INFO|WARN|ERROR): (.*)$/;
 
+/** A line of the engine's, as the log takes it. */
+export interface EngineLine {
+  level: LogLevel;
+  /** What happened (`Solve Started`); `Engine` for a line that names none. */
+  event: string;
+  text: string;
+}
+
 /**
- * A line the engine wrote on stderr, as the log takes it: its level and
- * text; a line without a level is an error (it says what went wrong: a
- * refused notification, a failed analysis, an assertion); none for an
- * empty line.
+ * A line the engine wrote on stderr, as the log takes it: its level, event
+ * and text; a line without a level is an error, `Engine Error` (it says
+ * what went wrong: an assertion, a crash); none for an empty line.
  */
-export function parseEngineLine(line: string): { level: LogLevel; text: string } | null {
+export function parseEngineLine(line: string): EngineLine | null {
   const t = line.trimEnd();
   if (t === '') {
     return null;
   }
   const m = ENGINE.exec(t);
-  if (m !== null) {
-    return { level: m[1] as LogLevel, text: m[2] ?? '' };
+  if (m === null) {
+    return {
+      level: 'ERROR',
+      event: 'Engine Error',
+      text: t.startsWith('shapelogic_engine: ') ? t.slice(19) : t,
+    };
   }
-  return { level: 'ERROR', text: t.startsWith('shapelogic_engine: ') ? t.slice(19) : t };
+  const rest = m[2] ?? '';
+  const colon = rest.indexOf(': ');
+  const event = colon < 0 ? rest : rest.slice(0, colon);
+  return EVENT_NAME.test(event)
+    ? { level: m[1] as LogLevel, event, text: colon < 0 ? '' : rest.slice(colon + 2) }
+    : { level: m[1] as LogLevel, event: 'Engine', text: rest };
 }
 
 /** Splits the engine's stderr chunks into lines (a line may span chunks). */
@@ -319,21 +347,25 @@ export class AppLog {
     return this.failure;
   }
 
-  info(source: string, text: string): void {
-    this.write('INFO', source, text);
+  info(source: string, event: string, text: string): void {
+    this.write('INFO', source, event, text);
   }
 
-  warn(source: string, text: string): void {
-    this.write('WARN', source, text);
+  warn(source: string, event: string, text: string): void {
+    this.write('WARN', source, event, text);
   }
 
-  error(source: string, text: string): void {
-    this.write('ERROR', source, text);
+  error(source: string, event: string, text: string): void {
+    this.write('ERROR', source, event, text);
   }
 
-  /** Appends a line; once the file would pass the limit, it is compressed and a new one begun. */
-  write(level: LogLevel, source: string, text: string): void {
-    const line = formatLogLine(this.now(), level, source, text);
+  /**
+   * Appends a line, `event` what happened in a few capitalised words
+   * (EVENT_NAME); once the file would pass the limit, it is compressed and
+   * a new one begun.
+   */
+  write(level: LogLevel, source: string, event: string, text: string): void {
+    const line = formatLogLine(this.now(), level, source, event, text);
     const size = Buffer.byteLength(line);
     if (this.bytes > 0 && this.bytes + size > this.limit) {
       this.rotate();

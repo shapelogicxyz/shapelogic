@@ -92,12 +92,12 @@ def engine_info_and_settings(e):
     e.call("settings.get")
     # stderr is read on a thread of its own: the line may come a little later
     for _ in range(200):
-        told = [line for line in e.stderr if line.startswith("shapelogic_engine: ERROR: Could not open")]
+        told = [line for line in e.stderr if line.startswith("shapelogic_engine: ERROR: File Open Failed: ")]
         if told:
             break
         time.sleep(0.01)
     check(len(told) == 1 and "/no/such/puzzle.xmpuzzle" in told[0], f"the log's line {e.stderr}")
-    check(any(line.startswith("shapelogic_engine: INFO: Settings changed: ") for line in e.stderr),
+    check(any(line.startswith("shapelogic_engine: INFO: Settings Changed: ") for line in e.stderr),
           f"the settings are logged {e.stderr}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")

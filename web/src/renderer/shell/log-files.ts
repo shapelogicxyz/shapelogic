@@ -4,7 +4,11 @@
 // log file (main/app-log.ts), newest line on top, a hundred lines at a
 // time with Load more messages… for the next hundred. Errors and warnings
 // shows those alone; the search box keeps the lines with its text in them, any
-// case, as each letter is typed or deleted. Export… writes all of the log
+// case, as each letter is typed or deleted, the text marked where it is in
+// each line. Pretty (at the top right) shows the lines as a table: the
+// date, the time to the minute, the level in its colour, the source, the
+// event (`Solve continued`) and the rest; Raw shows them as the file has
+// them. Export… writes all of the log
 // (the older, compressed file's lines too) to a plain text file the save
 // dialog gives; Clear All Log Data… deletes both files, after asking;
 // Refresh reads the file again. The main process reads the file: the
@@ -14,16 +18,16 @@ import type { BtApp, LogEntry, LogPage, LogQuery } from '../../engine/app-bridge
 import { sizeText } from './cache-files.ts';
 import { askChoice, openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
+import { rowHtml, tableHtml } from './log-rows.ts';
+import type { LogView } from './log-rows.ts';
 import { flash, reportError } from './status.ts';
 
 const ID = 'logFiles';
 /** The lines a page holds (the main process's LOG_PAGE_LINES). */
 export const PAGE_LINES = 100;
 
-/** A line of the log as its row shows it, marked by its level. */
-export function rowHtml(entry: LogEntry): string {
-  return `<div class="lf-row lf-${entry.level.toLowerCase()}">${esc(entry.line)}</div>`;
-}
+/** The view the dialog opens in: the last one picked while the app runs. */
+let lastView: LogView = 'pretty';
 
 /** What the list says when no line matches. */
 export function emptyHtml(query: LogQuery, lines: number): string {
@@ -53,6 +57,11 @@ class LogFilesView {
   private readonly app: BtApp;
   private readonly el: HTMLElement;
   private query: LogQuery = { offset: 0, errorsOnly: false, search: '' };
+  private view: LogView = lastView;
+  /** The lines the list shows, kept to draw them again in the other view. */
+  private entries: LogEntry[] = [];
+  /** The page the list shows them from (its counts, for the empty list). */
+  private page: LogPage | null = null;
   private shown = 0;
   /** Each read's number: a reply to an older one (a letter typed since) is dropped. */
   private asked = 0;
@@ -74,6 +83,50 @@ class LogFilesView {
     this.part('.lf-more').addEventListener('click', () => {
       void this.load(true);
     });
+    for (const b of this.el.querySelectorAll<HTMLButtonElement>('.lf-view button')) {
+      b.addEventListener('click', () => {
+        this.setView(b.dataset.v === 'raw' ? 'raw' : 'pretty');
+      });
+    }
+    this.markView();
+  }
+
+  /** Pretty or Raw: the lines shown drawn again in it, the scroll kept. */
+  setView(view: LogView): void {
+    if (view === this.view) {
+      return;
+    }
+    this.view = view;
+    lastView = view;
+    this.markView();
+    const list = this.part('.lf-list');
+    const top = list.scrollTop;
+    this.draw();
+    list.scrollTop = top;
+  }
+
+  private markView(): void {
+    for (const b of this.el.querySelectorAll<HTMLButtonElement>('.lf-view button')) {
+      const on = b.dataset.v === this.view;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+    this.part('.lf-list').classList.toggle('pretty', this.view === 'pretty');
+  }
+
+  private rows(entries: readonly LogEntry[]): string {
+    return entries.map((e) => rowHtml(e, this.view, this.query.search)).join('');
+  }
+
+  /** The list drawn from the lines it shows, in the view picked. */
+  private draw(): void {
+    const list = this.part('.lf-list');
+    if (this.entries.length === 0) {
+      list.innerHTML = emptyHtml(this.query, this.page?.lines ?? 0);
+    } else {
+      const rows = this.rows(this.entries);
+      list.innerHTML = this.view === 'pretty' ? tableHtml(rows) : rows;
+    }
   }
 
   private part<T extends HTMLElement = HTMLElement>(sel: string): T {
@@ -116,15 +169,19 @@ class LogFilesView {
   /** Shows a page: in place of the list, or below it (`more`). */
   show(page: LogPage, more: boolean): void {
     const list = this.part('.lf-list');
-    const rows = page.entries.map(rowHtml).join('');
-    if (more) {
-      list.insertAdjacentHTML('beforeend', rows);
-      this.shown += page.entries.length;
+    this.page = page;
+    if (more && this.entries.length > 0) {
+      this.entries.push(...page.entries);
+      const body = this.view === 'pretty' ? list.querySelector('tbody') : list;
+      body?.insertAdjacentHTML('beforeend', this.rows(page.entries));
     } else {
-      list.innerHTML = page.entries.length === 0 ? emptyHtml(this.query, page.lines) : rows;
-      list.scrollTop = 0;
-      this.shown = page.entries.length;
+      this.entries = [...page.entries];
+      this.draw();
+      if (!more) {
+        list.scrollTop = 0;
+      }
     }
+    this.shown = this.entries.length;
     this.part('.lf-sum').innerHTML = summaryHtml(page, this.query, this.shown);
     this.part('.lf-more').hidden = !page.more;
     this.error(page.error === null ? null : `The log could not be written: ${page.error}`);
@@ -198,6 +255,11 @@ export async function openLogFiles(app: BtApp): Promise<void> {
     id: ID,
     title: 'Log file',
     wide: true,
+    head:
+      `<div class="seg lf-view" role="group" aria-label="How the log is shown">` +
+      `<button type="button" data-v="pretty" title="The log as a table: date, time, level, source, event and message">Pretty</button>` +
+      `<button type="button" data-v="raw" title="The log's lines as the file has them">Raw</button>` +
+      `</div>`,
     body:
       `<p>What ShapeLogic did and what went wrong, newest first: files opened and saved, solves started, paused, continued and aborted, and the errors. Export it to send it with a report of a problem.</p>` +
       `<div class="lf-bar">` +

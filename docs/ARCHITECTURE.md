@@ -1071,7 +1071,8 @@ schema in `api/`, documented in the generated `docs/API.md`.
   `info` or `debug`; off, only what went wrong in a notification or an
   analysis is written; DEBUG lines, the sliding search's step by step
   ones from `SlideSearch::onLog`, only with `debug`), on the
-  log stream as `shapelogic_engine: LEVEL: text`: after each call (from
+  log stream as `shapelogic_engine: LEVEL: Event: text` (the event a few
+  capitalised words, `File Opened`, `Solve Paused`): after each call (from
   `Engine::handleLine`) a file opened, saved or not and why, a solve
   started or continued with its options and the settings it runs with,
   paused, aborted, the settings changed, and every call that failed; from
@@ -1304,10 +1305,10 @@ What exists after stage 8:
   refused while a solve runs; the renderer's dialog is
   `renderer/shell/cache-files.ts`),
   `app-log.ts` (Electron-free: the app's log, `logs/shapelogic.log` in
-  the app's data directory, one line each, `time LEVEL [source] text`;
+  the app's data directory, one line each, `time LEVEL [source] Event: text`;
   each window's engine runs with the `log` setting and its stderr is split
   into lines (`EngineLines`, `teeStderr`) and given their level
-  (`parseEngineLine`: `shapelogic_engine: LEVEL: text`, a line without one
+  (`parseEngineLine`: `shapelogic_engine: LEVEL: Event: text`, a line without one
   an error); the main process adds the start and an engine that stopped;
   past 20 MB (100 MB with Settings ▸ General ▸ Debug logging, which the
   main process takes from the stored settings and sends to every engine
