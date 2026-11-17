@@ -191,9 +191,14 @@ void usage(HelpKind kind) {
         "                   inside a grid cell told apart instead of searched as one\n"
         "  --slide-plain-keys  with --optimized-paths: every position of a piece\n"
         "                   numbered in the search's keys, not only its stops\n"
+        "  --slide-packing auto|always|never  how the search's keys keep the copies\n"
+        "                   of a piece: as one number where a code for each does not\n"
+        "                   fit 128 bits (auto), wherever there are copies, or never\n"
+        "  --slide-key-bits N  the narrowest key the search tries: 64, 128, 192, 256\n"
+        "                   or 512 bits\n"
         "  --slide-one-end  a new search goes from the start alone, not from the\n"
         "                   start and the goal\n"
-        "  --slide-trace    each level of the search on stderr\n"
+        "  --slide-trace    the search's key and each of its levels on stderr\n"
         "  --slide-grid N   --optimized-paths on a grid of N cells, whether or not the\n"
         "                   board fits it (its answers are those of a restricted search)\n",
         stdout);
@@ -374,6 +379,28 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       o.slideStopsApart = true;
     } else if (a == "--slide-plain-keys") {
       o.slidePlainKeys = true;
+    } else if (a == "--slide-packing") {
+      const std::string_view how = hasValue ? std::string_view(argv[i + 1]) : std::string_view();
+      if (how == "auto") {
+        o.slidePacking = bt::sliding::SlidePacking::Auto;
+      } else if (how == "always") {
+        o.slidePacking = bt::sliding::SlidePacking::Always;
+      } else if (how == "never") {
+        o.slidePacking = bt::sliding::SlidePacking::Never;
+      } else {
+        std::fprintf(stderr, "shapelogic_cli: %s requires auto, always or never\n", argv[i]);
+        return kExitUsage;
+      }
+      i++;
+    } else if (a == "--slide-key-bits") {
+      unsigned int bits = 0;
+      if (!hasValue || !parseCount(argv[i + 1], &bits) ||
+          (bits != 64 && bits != 128 && bits != 192 && bits != 256 && bits != 512)) {
+        std::fprintf(stderr, "shapelogic_cli: %s requires 64, 128, 192, 256 or 512\n", argv[i]);
+        return kExitUsage;
+      }
+      o.slideKeyBits = bits;
+      i++;
     } else if (a == "--slide-one-end") {
       o.slideOneEnd = true;
     } else if (a == "--slide-grid") {

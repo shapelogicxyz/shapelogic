@@ -86,10 +86,15 @@ struct Options {
   bool slideStopsApart = false;
   /// --slide-plain-keys: with a grid, every position numbered in the keys
   bool slidePlainKeys = false;
+  /// --slide-packing auto|always|never: how the search's keys keep the
+  /// copies of a piece (bt::sliding::SlidePacking)
+  bt::sliding::SlidePacking slidePacking = bt::sliding::SlidePacking::Auto;
+  /// --slide-key-bits N: the narrowest key the search tries (0: the narrowest)
+  unsigned int slideKeyBits = 0;
   /// --slide-one-end: a new search goes from the start alone
   bool slideOneEnd = false;
   int slideGrid = 0;         ///< --slide-grid N: stops held to a grid of N cells (optimized paths)
-  bool slideTrace = false;   ///< --slide-trace: each level of the search on stderr
+  bool slideTrace = false;   ///< --slide-trace: the search's key and each level on stderr
   // the Panex search's (SHAPELOGIC_NO_TOWER_RULE, SHAPELOGIC_PANEX_LOG)
   bool noTowerRule = false;  ///< --no-tower-rule: the classic tower searched too
   bool panexLog = false;     ///< --panex-log: each level of a Panex search on stderr

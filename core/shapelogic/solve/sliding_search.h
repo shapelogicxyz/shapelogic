@@ -106,6 +106,18 @@ struct SlideStopProgress {
   std::atomic<std::uint64_t> totalBytes{0};
 };
 
+/// How the level search keeps the copies of a piece in its keys
+/// (SlideSearch::packing).
+enum class SlidePacking : std::uint8_t {
+  /// A code for each copy where that fits a key of 128 bits; else the
+  /// copies of a piece as one number.
+  Auto,
+  /// The copies of a piece as one number wherever a piece has copies.
+  Always,
+  /// A code for each copy, in every key.
+  Never,
+};
+
 /// The settings of one slide search, and how it went.
 struct SlideSearch {
   /// Arrangements' worth of memory the search may fill (memoryStates each)
@@ -220,11 +232,22 @@ struct SlideSearch {
   unsigned int keepEvery = 1;
 
   /// A/B switches: the original search over text keys (the fallback for
-  /// trays the position tables cannot pack into 128 bits; it finds a path
-  /// as short, on one thread, with no levels on disk); like pieces told
-  /// apart instead of searched as one.
+  /// trays the position tables cannot pack into the widest key, 512 bits;
+  /// it finds a path as short, on one thread, with no levels on disk);
+  /// like pieces told apart instead of searched as one.
   bool legacy = false;
   bool likePiecesApart = false;
+  /// A/B switch: how the copies of a piece are kept in a key. The level
+  /// search's key holds a code for each piece, in 64 bits or in 128; a
+  /// board that needs more keeps the copies of each piece as one number
+  /// (which of the piece's places they hold, not a place each: four copies
+  /// with 64 places each take 20 bits, not 24), and then goes to wider
+  /// keys, of 192, 256 and 512 bits. The same search either way, level for
+  /// level. Loose stops (see grid) are never kept so.
+  SlidePacking packing = SlidePacking::Auto;
+  /// A/B switch: the narrowest key the level search tries, in bits (64,
+  /// 128, 192, 256 or 512); 0 for the narrowest there is.
+  unsigned int minKeyBits = 0;
   /// Optimized paths: with a size above 1, a piece may stop only where its
   /// place, x and y modulo the size, is one of its grid offsets: an offset
   /// at which a piece of the same cells starts or fills a goal, or lies
@@ -244,8 +267,8 @@ struct SlideSearch {
   bool gridStopsApart = false;
   /// A/B switch: with a grid, an arrangement numbers every position of a
   /// piece, as it does without one, instead of only the positions the grid
-  /// lets it stop at. The same search in more bits: a board that fits the
-  /// key only with the stops numbered goes to the search over text keys.
+  /// lets it stop at. The same search in more bits: a board that fits a
+  /// key of 128 bits only with the stops numbered takes a wider one.
   bool plainKeys = false;
   /// Told each level the level search finishes; empty for none.
   SlideLevelTrace onLevel;
@@ -285,6 +308,13 @@ struct SlideSearch {
   /// as one (see grid). Then `visited` counts arrangements that may each
   /// stand for several.
   bool looseStops = false;
+  /// Out, for the level search: the bits of the key it ran in (64, 128,
+  /// 192, 256 or 512; 0 when the search over text keys ran), how many of
+  /// them the arrangements take, and whether the copies of a piece were
+  /// kept as one number (see packing).
+  unsigned int keyWidth = 0;
+  unsigned int keyBits = 0;
+  bool packedKeys = false;
   /// Out, for the level search with nested slides: arrangements reached by a
   /// move that cannot be made backwards that had been reached two or more
   /// moves earlier, so had to be looked for on disk.
@@ -332,6 +362,8 @@ struct SlidingOptions {
   bool likePiecesApart = false;
   bool gridStopsApart = false;
   bool plainKeys = false;
+  SlidePacking packing = SlidePacking::Auto;
+  unsigned int minKeyBits = 0;
   bool oneEnd = false;
   /// Hold the stops to the grid slideGridFor finds for the problem, when
   /// it finds one (the Solver's Automatically use optimized paths): a

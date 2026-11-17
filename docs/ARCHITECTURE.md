@@ -530,12 +530,18 @@ one).
   starts as drawn (`sliding::partTransforms` limits the assembler's
   orientations; with `anyOrientation`, a piece with no start or goal may
   take any quarter turn, with `mirroredOrientations` mirrored too) and never
-  turns; positions keyed in 64 or 128 bits (the original's
-  text keys with `legacy`; puzzles of more than 64 pieces with nested
-  slides use those, where the original overran its tables), a number for
+  turns; positions keyed in 64 or 128 bits, a number for
   each position a piece fits the empty tray at, or with a grid for each
   of its stops only (decision 0032; the A/B `plainKeys`); copies of
-  like pieces searched as one. There is no limit on the arrangements
+  like pieces searched as one. A board that needs more than 128 bits keeps
+  the copies of each piece as one number (which of the piece's places they
+  hold: `SlideSpace::Pack`, the combinatorial number system) and then goes
+  to keys of 192, 256 and 512 bits (`slide_key.h`'s `BigKey`, an integer of
+  64-bit words the level search and its key sets take as they take a
+  built-in one; decision 0037; the A/B `packing` and `minKeyBits`; out:
+  `keyWidth`, `keyBits`, `packedKeys`). Past 512 bits, with `legacy`, and
+  for puzzles of more than 64 pieces with nested slides (where the original
+  overran its tables), the original's text keys. There is no limit on the arrangements
   visited (the original's Fast and Deep solvers, which stopped at 250,000
   and 1,000,000, and its queue search are not kept): `SlideSearch` holds
   the memory budget (`memoryStates`, high memory), the stop token, the

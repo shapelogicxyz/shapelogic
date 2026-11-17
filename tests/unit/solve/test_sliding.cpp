@@ -2898,10 +2898,10 @@ TEST_CASE("sliding: a grid's keys number only the stops", "[sliding][parallel]")
   CHECK(loose > 10);
 }
 
-// A board whose pieces fit the empty tray in more places than a key can
-// number is searched level by level all the same when a grid leaves few
-// enough stops; with every position numbered it goes to the search over
-// text keys, which finds a path as short.
+// A board whose pieces fit the empty tray in more places than a key of 128
+// bits can number is searched in one all the same when a grid leaves few
+// enough stops; with every position numbered it goes to a wider key
+// (decision 0037), which finds a path as short.
 TEST_CASE("sliding: a board too big for its positions is searched by its stops", "[sliding]") {
   // 19 blocks at 130 places each and three units: 176 bits, or 113
   const GridBoard g = blockBoard(5, 4, {6, 10, 18});
@@ -2939,17 +2939,22 @@ TEST_CASE("sliding: a board too big for its positions is searched by its stops",
   CHECK_FALSE(ends.looseStops);
   checkGridPath(g, *met);
 
-  // every position numbered: no key holds it, so the level search is not run
+  CHECK(stops.keyWidth == 128);
+  CHECK(ends.keyWidth == 128);
+
+  // every position numbered: 176 bits, the key of 192
   SlideSearch plain;
   plain.nested = true;
   plain.grid = 3;
   plain.plainKeys = true;
-  LevelSizes none;
-  none.watch(plain);
+  LevelSizes wide;
+  wide.watch(plain);
   const std::optional<Separation> old = findSlidePath(g.puz, g.pr(), *g.start, plain);
   REQUIRE(old.has_value());
   CHECK(old->getMoves() == 7);
-  CHECK(none.lines.empty());
+  CHECK_FALSE(wide.lines.empty());
+  CHECK(plain.keyWidth == 192);
+  CHECK(plain.keyBits == 176);
   checkGridPath(g, *old);
 }
 
@@ -3949,11 +3954,16 @@ TEST_CASE("sliding: the debug log tells each level, each save and the search rea
   CHECK(searched(g, on, fromGoal).has_value());
   CHECK(on.resumed);
   REQUIRE_FALSE(told.empty());
-  // what state.bin names, before the search is carried on
-  CHECK(told.front().level == LogLevel::Debug);
-  CHECK(told.front().text.find("Reading the saved search in ") != std::string::npos);
-  CHECK(told.front().text.find("the start end ") != std::string::npos);
-  CHECK(told.front().text.find(" arrangements visited, interval ") != std::string::npos);
+  // the key the search runs in; then what state.bin names, before the
+  // search is carried on
+  REQUIRE(told.size() >= 2);
+  CHECK(told[0].level == LogLevel::Debug);
+  CHECK(told[0].text.find("The search's arrangements take ") != std::string::npos);
+  CHECK(told[0].text.find(" bits of a 64-bit key") != std::string::npos);
+  CHECK(told[1].level == LogLevel::Debug);
+  CHECK(told[1].text.find("Reading the saved search in ") != std::string::npos);
+  CHECK(told[1].text.find("the start end ") != std::string::npos);
+  CHECK(told[1].text.find(" arrangements visited, interval ") != std::string::npos);
   CHECK(debugWith(told, " moves deep (the ") >= 1);
   std::filesystem::remove_all(dir);
 }
@@ -4082,4 +4092,494 @@ TEST_CASE("sliding: a search saved from the start alone is told where both ends 
   CHECK_FALSE(alone(many, gridSearch()));
   discard(many);
   std::filesystem::remove_all(dir);
+}
+
+namespace {
+
+// A W x H board with two cells to spare (searched without a grid, and
+// without nested slides): a bar, top left, and a copy of a unit piece on
+// every other cell but the last two of the bottom row. The bar is to go to
+// the bottom right; with `goals` the units are to end over the cells they
+// lie on now, whichever on which, so the goal is one arrangement.
+GridBoard crowdedBoard(int W, int H, bool goals) {
+  std::vector<BoardCells> shapes = {{{0, 0}, {1, 0}}};
+  std::vector<GridBoard::Place> places = {{0, 0, W - 2, H - 1, false}};
+  for (int y = 0; y < H; y++) {
+    for (int x = 0; x < W; x++) {
+      if ((y == 0 && x < 2) || (y == H - 1 && x >= W - 2)) {
+        continue;
+      }
+      shapes.push_back({{0, 0}});
+      places.push_back({x, y, goals ? x : -1, goals ? y : -1, false});
+    }
+  }
+  return gridBoardOf(W, H, shapes, places, true);
+}
+
+// A search as `like`, its copies kept as `packing` says, in a key of
+// `bits` or wider.
+SlideSearch keyed(const SlideSearch& like, SlidePacking packing, unsigned int bits = 0) {
+  SlideSearch s = like;
+  s.packing = packing;
+  s.minKeyBits = bits;
+  return s;
+}
+
+// What two searches of a board that differ only in their keys came to: the
+// same levels and the same fewest moves. False when one ran out of memory
+// (a wider key, and the threads' own buffers, fill it a level sooner or
+// later: then the levels both finished are the same).
+bool sameSearch(const SlideSearch& a, const LevelSizes& aLevels,
+                const std::optional<Separation>& aPath, const SlideSearch& b,
+                const LevelSizes& bLevels, const std::optional<Separation>& bPath) {
+  CHECK(a.looseStops == b.looseStops);
+  if (a.outcome == SlideOutcome::Memory || b.outcome == SlideOutcome::Memory) {
+    const std::size_t both = std::min(aLevels.lines.size(), bLevels.lines.size());
+    CHECK(std::vector<std::string>(aLevels.lines.begin(),
+                                   aLevels.lines.begin() + static_cast<std::ptrdiff_t>(both)) ==
+          std::vector<std::string>(bLevels.lines.begin(),
+                                   bLevels.lines.begin() + static_cast<std::ptrdiff_t>(both)));
+    return false;
+  }
+  CHECK(a.outcome == b.outcome);
+  CHECK(aLevels.lines == bLevels.lines);
+  CHECK(aPath.has_value() == bPath.has_value());
+  if (aPath && bPath) {
+    CHECK(aPath->getMoves() == bPath->getMoves());
+  }
+  if (a.threads == 1 && b.threads == 1 &&
+      (a.packedKeys == b.packedKeys || a.outcome == SlideOutcome::NoPath)) {
+    // several threads end the last level where they happen to be, and so
+    // do keys in another order, which packed keys are
+    CHECK(a.visited == b.visited);
+  }
+  return true;
+}
+
+// What boards searched with a code for each copy and with packed keys came
+// to.
+struct PackedTally {
+  int packedRuns = 0;
+  int fromGoalRuns = 0;
+  int found = 0;
+};
+
+// The board searched with a code for each copy and with the copies of a
+// piece as one number, from both ends where it can be and from the start
+// alone, on one thread and on three: the same levels and the same fewest
+// moves, and the packed path is one of the board. On a grid the stops are
+// apart: loose stops are never packed.
+void comparePacking(const GridBoard& g, int grid, bool nested, bool partial, PackedTally& t) {
+  for (int kind = 0; kind < 4; kind++) {
+    INFO("kind " << kind);
+    SlideSearch plain;
+    plain.nested = nested;
+    plain.partialNested = nested && partial;
+    plain.grid = grid;
+    plain.gridStopsApart = true;
+    plain.oneEnd = kind % 2 == 1;
+    plain.threads = kind >= 2 ? 3 : 1;
+    plain.maxMemoryStates = 6000;
+    if (!nested) {
+      plain.meetFrom = 1;
+    }
+    SlideSearch packed = keyed(plain, SlidePacking::Always);
+    LevelSizes plainLevels;
+    LevelSizes packedLevels;
+    plainLevels.watch(plain);
+    packedLevels.watch(packed);
+    const std::optional<Separation> a = findSlidePath(g.puz, g.pr(), *g.start, plain);
+    const std::optional<Separation> c = findSlidePath(g.puz, g.pr(), *g.start, packed);
+    CHECK_FALSE(plain.packedKeys);
+    CHECK(plainLevels.fromGoal() == packedLevels.fromGoal());
+    t.packedRuns += packed.packedKeys ? 1 : 0;
+    t.fromGoalRuns += packed.packedKeys && packedLevels.fromGoal() ? 1 : 0;
+    if (!sameSearch(plain, plainLevels, a, packed, packedLevels, c)) {
+      continue;
+    }
+    if (c) {
+      checkGridPath(g, *c, grid != 0);
+      t.found++;
+    }
+  }
+}
+
+}  // namespace
+
+// A key holds a code for each piece, in 64 bits or 128. A board that needs
+// more keeps the copies of each piece as one number, which of the piece's
+// places they hold (decision 0037), and so stays on the level search; with
+// a code for each copy it takes the next key up, 192 bits. The same search
+// in every key, and the search over text keys agrees.
+TEST_CASE("sliding: a board too big for a code a piece keeps its copies as one number",
+          "[sliding][parallel]") {
+  // a bar with 25 places and 26 units with 30: 135 bits, or 58 with the
+  // units as two numbers (16 of them, then 10)
+  const GridBoard g = crowdedBoard(6, 5, false);
+  SlideSearch packed;
+  packed.threads = 1;
+  LevelSizes packedLevels;
+  packedLevels.watch(packed);
+  const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, packed);
+  REQUIRE(path.has_value());
+  CHECK(packed.keyWidth == 128);
+  CHECK(packed.keyBits == 58);
+  CHECK(packed.packedKeys);
+  CHECK_FALSE(packedLevels.lines.empty());
+  CHECK_FALSE(packedLevels.fromGoal());
+  CHECK(packed.memoryStates == memoryStates(3 * 16, false));
+  checkGridPath(g, *path, false);
+
+  SlideSearch each = keyed(packed, SlidePacking::Never);
+  LevelSizes eachLevels;
+  eachLevels.watch(each);
+  const std::optional<Separation> same = findSlidePath(g.puz, g.pr(), *g.start, each);
+  REQUIRE(same.has_value());
+  CHECK(each.keyWidth == 192);
+  CHECK(each.keyBits == 135);
+  CHECK_FALSE(each.packedKeys);
+  CHECK(each.memoryStates == memoryStates(3 * 24, false));
+  CHECK(sameSearch(packed, packedLevels, path, each, eachLevels, same));
+  checkGridPath(g, *same, false);
+
+  // the search over text keys, which such a board went to before, tells
+  // the copies apart: it agrees on a board small enough for it
+  const GridBoard few = crowdedBoard(3, 3, false);
+  SlideSearch fewPacked;
+  fewPacked.packing = SlidePacking::Always;
+  const std::optional<Separation> fewPath = findSlidePath(few.puz, few.pr(), *few.start, fewPacked);
+  REQUIRE(fewPath.has_value());
+  CHECK(fewPacked.packedKeys);
+  SlideSearch old;
+  old.legacy = true;
+  LevelSizes none;
+  none.watch(old);
+  const std::optional<Separation> text = findSlidePath(few.puz, few.pr(), *few.start, old);
+  REQUIRE(text.has_value());
+  CHECK(text->getMoves() == fewPath->getMoves());
+  CHECK(old.keyWidth == 0);
+  CHECK(none.lines.empty());
+
+  // the wider keys, packed, on several threads
+  for (const unsigned int bits : {192U, 256U, 512U}) {
+    INFO("bits " << bits);
+    SlideSearch wide = keyed(packed, SlidePacking::Auto, bits);
+    wide.threads = 3;
+    LevelSizes wideLevels;
+    wideLevels.watch(wide);
+    const std::optional<Separation> far = findSlidePath(g.puz, g.pr(), *g.start, wide);
+    REQUIRE(far.has_value());
+    CHECK(wide.keyWidth == bits);
+    CHECK(wide.keyBits == 58);
+    CHECK(wide.packedKeys);
+    CHECK(sameSearch(packed, packedLevels, path, wide, wideLevels, far));
+    checkGridPath(g, *far, false);
+  }
+
+  // every unit with a goal: one arrangement, searched from both ends
+  const GridBoard ends = crowdedBoard(6, 5, true);
+  SlideSearch one;
+  one.oneEnd = true;
+  const std::optional<Separation> there = findSlidePath(ends.puz, ends.pr(), *ends.start, one);
+  REQUIRE(there.has_value());
+  CHECK(one.packedKeys);
+  checkGridPath(ends, *there, false);
+  for (const SlidePacking packing : {SlidePacking::Auto, SlidePacking::Never}) {
+    SlideSearch both;
+    both.packing = packing;
+    both.meetFrom = 1;
+    both.threads = 2;
+    bool fromGoal = false;
+    const std::optional<Separation> met = searched(ends, both, fromGoal);
+    REQUIRE(met.has_value());
+    CHECK(fromGoal);
+    CHECK(both.packedKeys == (packing == SlidePacking::Auto));
+    CHECK(both.keyWidth == (packing == SlidePacking::Auto ? 128U : 192U));
+    CHECK(met->getMoves() == there->getMoves());
+    checkGridPath(ends, *met, false);
+  }
+}
+
+// Packed keys are the same search as a code for each copy, level for level:
+// with and without nested slides, from one end and from both, on one thread
+// and on several, and each path is one the pieces can make.
+TEST_CASE("sliding: copies of a piece kept as one number give the same search",
+          "[sliding][parallel]") {
+
+  // without nested slides: Klotski's four upright pieces and four units
+  for (const unsigned int threads : {1U, 3U}) {
+    INFO("klotski, threads " << threads);
+    const SlideFixture f = slideFixture(4, 5, kKlotski);
+    SlideSearch plain;
+    plain.threads = threads;
+    SlideSearch packed = keyed(plain, SlidePacking::Always);
+    LevelSizes plainLevels;
+    LevelSizes packedLevels;
+    plainLevels.watch(plain);
+    packedLevels.watch(packed);
+    const std::optional<Separation> a = findSlidePath(f.puz, f.pr(), *f.start, plain);
+    const std::optional<Separation> b = findSlidePath(f.puz, f.pr(), *f.start, packed);
+    REQUIRE(a.has_value());
+    REQUIRE(b.has_value());
+    CHECK(b->getMoves() == 81);
+    CHECK_FALSE(plain.packedKeys);
+    CHECK(packed.packedKeys);
+    CHECK(packed.keyWidth == 64);
+    CHECK(packed.keyBits < plain.keyBits);
+    CHECK(sameSearch(plain, plainLevels, a, packed, packedLevels, b));
+    CHECK(oneMoverPerStep(*b));
+    for (unsigned int step = 0; step < b->getMoves(); step++) {
+      CHECK(slideRoute(f.puz, f.pr(), *b, step, nullptr).size() >= 2);
+    }
+    for (std::size_t i = 0; i < kKlotski.size(); i++) {
+      const auto pc = static_cast<unsigned int>(i);
+      CHECK(b->getState(0).getX(pc) == kKlotski[i].x);
+      CHECK(b->getState(0).getY(pc) == kKlotski[i].y);
+    }
+    CHECK(b->getState(81).getX(0) == 1);
+    CHECK(b->getState(81).getY(0) == 3);
+  }
+
+  // boards with nested slides, on a grid of 3 (the stops apart: loose stops
+  // are never packed) and with every position a stop
+  struct Board {
+    GridBoard g;
+    int grid;
+    bool nested;
+  };
+  std::vector<Board> boards;
+  boards.push_back({cupsAndUnits(true), 3, true});
+  boards.push_back({cupsAndUnits(false, 2), 3, true});
+  boards.push_back({blockBoard(3, 2, {1, 3}), 3, true});
+  boards.push_back({blockBoard(3, 2, {1, 3}, true), 3, true});
+  boards.push_back({blockBoard(3, 3, {0, 4, 7}, true), 3, true});
+  boards.push_back({swappedBlocks(), 3, true});
+  boards.push_back({fullCup(2), 0, true});
+  boards.push_back({fullCup(4), 0, true});
+  boards.push_back({barAmongUnits(), 0, false});
+  boards.push_back({crowdedBoard(4, 4, true), 0, false});
+  for (std::uint64_t seed = 0; seed < 12; seed++) {
+    boards.push_back({gridBoard(seed), 3, true});
+  }
+  PackedTally t;
+  for (std::size_t b = 0; b < boards.size(); b++) {
+    INFO("board " << b);
+    comparePacking(boards[b].g, boards[b].grid, boards[b].nested, b % 5 == 4, t);
+  }
+  // the boards are worth the comparison
+  CHECK(t.packedRuns > 30);
+  CHECK(t.fromGoalRuns > 5);
+  CHECK(t.found > 40);
+}
+
+// Hidden: many more boards searched with a code for each copy and packed.
+TEST_CASE("sliding: fuzz, copies of a piece kept as one number give the same search",
+          "[.fuzz][sliding]") {
+  PackedTally t;
+  for (std::uint64_t seed = 1000; seed < 1600; seed++) {
+    INFO("seed " << seed);
+    const GridBoard g = gridBoard(seed);
+    comparePacking(g, 3, true, seed % 4 == 0, t);
+    // its goal made one arrangement, for the search from both ends
+    SlideSearch one = nestedSearch(3);
+    one.oneEnd = true;
+    one.maxMemoryStates = 30000;
+    const std::optional<Separation> path = findSlidePath(g.puz, g.pr(), *g.start, one);
+    if (path && path->getMoves() >= 2) {
+      // with its whole blocks the copies of one piece and its units of
+      // another, each copy with a goal
+      const GridBoard settled = endAsGoal(g, *path);
+      comparePacking(gridBoardOf(settled.W, settled.H, settled.shapes, settled.places, true), 3,
+                     true, false, t);
+    }
+  }
+  WARN("packed fuzz: " << t.packedRuns << " packed runs, " << t.fromGoalRuns
+                       << " from both ends, " << t.found << " paths checked");
+  CHECK(t.packedRuns > 500);
+  CHECK(t.fromGoalRuns > 100);
+}
+
+// The keys wider than 128 bits give the same search as the narrow ones,
+// with a code for each copy and packed, with loose stops and without.
+TEST_CASE("sliding: the wider keys give the same search", "[sliding][parallel]") {
+  std::vector<GridBoard> boards;
+  boards.push_back(cupsAndUnits(true));
+  boards.push_back(blockBoard(3, 2, {1, 3}, true));
+  boards.push_back(fullCup(3));
+  for (std::uint64_t seed = 0; seed < 5; seed++) {
+    boards.push_back(gridBoard(seed));
+  }
+  int loose = 0;
+  int found = 0;
+  for (std::size_t b = 0; b < boards.size(); b++) {
+    const GridBoard& g = boards[b];
+    // nested slides with loose stops, with the stops apart on several
+    // threads, and the grid without nested slides
+    for (int kind = 0; kind < 3; kind++) {
+      SlideSearch narrow;
+      narrow.nested = kind < 2;
+      narrow.grid = b == 2 ? 0 : 3;
+      narrow.gridStopsApart = kind == 1;
+      narrow.threads = kind == 1 ? 3 : 1;
+      narrow.maxMemoryStates = 6000;
+      LevelSizes narrowLevels;
+      narrowLevels.watch(narrow);
+      const std::optional<Separation> a = findSlidePath(g.puz, g.pr(), *g.start, narrow);
+      CHECK(narrow.keyWidth == 64);
+      loose += narrow.looseStops ? 1 : 0;
+      const std::pair<unsigned int, SlidePacking> keys[] = {
+          {128, SlidePacking::Always},
+          {192, SlidePacking::Never},
+          {256, SlidePacking::Auto},
+          {512, SlidePacking::Never},
+      };
+      for (const auto& [bits, packing] : keys) {
+        INFO("board " << b << " kind " << kind << " bits " << bits);
+        SlideSearch wide = keyed(narrow, packing, bits);
+        LevelSizes wideLevels;
+        wideLevels.watch(wide);
+        const std::optional<Separation> c = findSlidePath(g.puz, g.pr(), *g.start, wide);
+        CHECK(wide.keyWidth == bits);
+        CHECK(wide.keyBits <= narrow.keyBits);
+        if (packing == SlidePacking::Never || wide.looseStops) {
+          CHECK_FALSE(wide.packedKeys);
+          CHECK(wide.keyBits == narrow.keyBits);
+        }
+        if (sameSearch(narrow, narrowLevels, a, wide, wideLevels, c) && c) {
+          checkGridPath(g, *c, narrow.grid != 0);
+          found++;
+        }
+      }
+    }
+  }
+  CHECK(loose > 4);
+  CHECK(found > 20);
+
+  // Klotski in the widest key, a code for each piece
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  SlideSearch widest;
+  widest.minKeyBits = 512;
+  widest.packing = SlidePacking::Never;
+  widest.threads = 2;
+  const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, widest);
+  REQUIRE(path.has_value());
+  CHECK(path->getMoves() == 81);
+  CHECK(widest.keyWidth == 512);
+  CHECK(oneMoverPerStep(*path));
+}
+
+// The moves made backwards (decision 0033) are the moves with packed keys
+// too, where a key does not say which copy a group carries.
+TEST_CASE("sliding: the moves made backwards are the moves with packed keys", "[sliding]") {
+  int checked = 0;
+  std::uint64_t oneWay = 0;
+  const auto both = [&](const Puzzle& puz, const Problem& pr, const Assembly& start, int grid,
+                        std::uint64_t limit) {
+    const SlideBackCheck plain = checkSlideMovesBack(puz, pr, start, nestedSearch(grid), limit);
+    const SlideBackCheck packed = checkSlideMovesBack(
+        puz, pr, start, keyed(nestedSearch(grid), SlidePacking::Always), limit);
+    CHECK(packed.checked == plain.checked);
+    if (!packed.checked) {
+      return;
+    }
+    checked++;
+    oneWay += packed.oneWay;
+    CHECK(packed.arrangements == plain.arrangements);
+    CHECK(packed.moves == plain.moves);
+    CHECK(packed.oneWay == plain.oneWay);
+    CHECK(packed.missing == 0);
+    CHECK(packed.extra == 0);
+    CHECK(packed.wronglyTwoWay == 0);
+  };
+  const OneWay w = oneWayPuzzle();
+  both(w.puz, w.pr(), *w.start, 0, 100000);
+  for (const int units : {2, 3, 4}) {
+    const GridBoard cup = fullCup(units);
+    both(cup.puz, cup.pr(), *cup.start, 0, 100000);
+  }
+  const GridBoard blocks = blockBoard(3, 2, {1, 3}, true);
+  both(blocks.puz, blocks.pr(), *blocks.start, 3, 100000);
+  const GridBoard cups = cupsAndUnits(false, 2);
+  both(cups.puz, cups.pr(), *cups.start, 3, 100000);
+  // (a cup that could hold too many pieces has no moves backwards)
+  CHECK(checked >= 4);
+  for (std::uint64_t seed = 0; seed < 30; seed++) {
+    INFO("seed " << seed);
+    const GridBoard g = gridBoard(seed);
+    both(g.puz, g.pr(), *g.start, 3, 20000);
+  }
+  CHECK(checked > 15);
+  CHECK(oneWay > 0);
+}
+
+// A search with packed keys, or in a key wider than 128 bits, is saved and
+// carried on as any other; a search with other keys does not take it up.
+TEST_CASE("sliding: a stopped search with packed or wide keys is saved and carried on",
+          "[sliding][resume][parallel]") {
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  const std::pair<SlidePacking, unsigned int> forms[] = {
+      {SlidePacking::Always, 0},
+      {SlidePacking::Never, 256},
+      {SlidePacking::Auto, 192},
+  };
+  for (const auto& [packing, bits] : forms) {
+    INFO("bits " << bits);
+    const std::filesystem::path dir = scratchDir("slidekeys");
+    std::filesystem::remove_all(dir);
+    SlideSearch form;
+    form.packing = packing;
+    form.minKeyBits = bits;
+    form.threads = 2;
+
+    SlideSearch straight = form;
+    const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+    REQUIRE(whole.has_value());
+    CHECK(straight.packedKeys == (packing != SlidePacking::Never));
+
+    // stopped once it has visited a few thousand arrangements
+    StopSource stop;
+    std::atomic<std::uint64_t> progress{0};
+    SlideSearch first = form;
+    first.workDir = dir.string();
+    first.progress = &progress;
+    first.stop = stop.token();
+    std::atomic<bool> done{false};
+    std::thread watcher([&] {
+      while (!done.load()) {
+        if (progress.load() >= 4000) {
+          stop.request(StopKind::Pause);
+          return;
+        }
+        std::this_thread::yield();
+      }
+    });
+    CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+    done.store(true);
+    watcher.join();
+    REQUIRE(first.outcome == SlideOutcome::Stopped);
+    CHECK(first.saved);
+    CHECK(first.visited < straight.visited);
+
+    // a search with a code for each piece in the narrow key is another search
+    SlideSearch other;
+    other.workDir = dir.string();
+    REQUIRE(findSlidePath(f.puz, f.pr(), *f.start, other).has_value());
+    CHECK_FALSE(other.resumed);
+    CHECK(savedFolders(f.puz, f.pr(), dir.string()).size() == 1);
+
+    SlideSearch second = form;
+    second.threads = 3;
+    second.workDir = dir.string();
+    const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+    REQUIRE(rest.has_value());
+    CHECK(second.resumed);
+    CHECK(second.outcome == SlideOutcome::Found);
+    CHECK(rest->getMoves() == 81);
+    CHECK(placesAlong(*rest) == placesAlong(*whole));
+    CHECK(second.visited == straight.visited);
+    CHECK(second.keyWidth == straight.keyWidth);
+    CHECK(second.packedKeys == straight.packedKeys);
+    CHECK(std::filesystem::is_empty(dir));
+    std::filesystem::remove_all(dir);
+  }
 }

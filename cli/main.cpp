@@ -342,6 +342,8 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.likePiecesApart = o.slideApart;
   s.gridStopsApart = o.slideStopsApart;
   s.plainKeys = o.slidePlainKeys;
+  s.packing = o.slidePacking;
+  s.minKeyBits = o.slideKeyBits;
   s.oneEnd = o.slideOneEnd;
   s.optimizedPaths = o.optimizedPaths;
   s.grid = o.slideGrid;
@@ -354,10 +356,24 @@ bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool, int
   bt::sliding::SlideSearch search = bt::sliding::slideSearchFor(slidingOptions(o));
   search.pool = pool;
   search.grid = grid;
-  if (o.slideTrace) {
-    search.onLevel = [](const std::string& line) { std::fprintf(stderr, "%s\n", line.c_str()); };
-  }
   return search;
+}
+
+// --slide-trace: each level of `search` on stderr as it is done, and before
+// the first the key the level search runs in. `search` is the one searched
+// (the lines read what the search says of its key).
+void traceSlide(const Options& o, bt::sliding::SlideSearch& search) {
+  if (!o.slideTrace) {
+    return;
+  }
+  search.onLevel = [&search, told = false](const std::string& line) mutable {
+    if (!told) {
+      told = true;
+      std::fprintf(stderr, "key: %u of %u bits%s\n", search.keyBits, search.keyWidth,
+                   search.packedKeys ? ", the copies of a piece as one number" : "");
+    }
+    std::fprintf(stderr, "%s\n", line.c_str());
+  };
 }
 
 // --progress: calls `line` once a second on a thread of its own until it
@@ -856,6 +872,7 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
           seenAssemblies.store(assemblies, std::memory_order_relaxed);
           if (o.disassemble && sliding) {
             bt::sliding::SlideSearch search = slideSearch(o, slidePool.get(), slideGrid);
+            traceSlide(o, search);
             const std::optional<bt::Separation> path =
                 bt::sliding::findSlidePath(puzzle, problem, assembly, search);
             if (search.outcome == bt::sliding::SlideOutcome::Memory ||
@@ -1000,6 +1017,7 @@ int retakeSliding(const Options& o, const bt::Puzzle& puzzle) {
       const bt::Assembly& assembly = problem.getSavedSolution(sol).getAssembly();
       bt::sliding::SlideSearch search =
           slideSearch(o, &pool, bt::sliding::searchGrid(puzzle, problem, slidingOptions(o)));
+      traceSlide(o, search);
       const std::optional<bt::Separation> path =
           bt::sliding::findSlidePath(puzzle, problem, assembly, search);
       if (!path) {

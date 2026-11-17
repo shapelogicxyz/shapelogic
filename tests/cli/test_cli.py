@@ -184,6 +184,22 @@ def test_sliding() -> None:
     check("stops apart", len(answers[0]) > 3 and answers[0] == answers[1], str(answers[1][-3:]))
     check("plain keys", answers[0] == answers[2], str(answers[2][-3:]))
     check("one end", answers[0] == answers[3], str(answers[3][-3:]))
+    # the copies of a piece kept as one number in the search's keys, and the
+    # keys wider than 128 bits, benchmark switches: the same answer
+    for extra, key in ((["--slide-packing", "always"], " of 64 bits, the copies of a piece as one number"),
+                       (["--slide-packing", "never", "--slide-key-bits", "192"], " of 192 bits\n"),
+                       (["--slide-key-bits", "512"], " of 512 bits, the copies of a piece as one number"),
+                       ([], " of 64 bits\n")):
+        r = run("-d", "--slide-trace", *extra, slider)
+        check("slider " + " ".join(extra), r.returncode == 0 and "level: 81" in r.stdout and
+              r.stderr.count("key: ") == 1 and key in r.stderr and "start level 1: " in r.stderr,
+              r.stdout[-300:] + r.stderr[:200])
+    r = run("-d", "--slide-key-bits", "100", slider)
+    check("a key of 100 bits is refused", r.returncode != 0 and "requires 64, 128, 192, 256 or 512" in r.stderr,
+          r.stderr)
+    r = run("-d", "--slide-packing", "some", slider)
+    check("a packing unknown is refused", r.returncode != 0 and "requires auto, always or never" in r.stderr,
+          r.stderr)
     # --save solves it as the GUI did; -a and -x read the solved file
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "solved.xmpuzzle"

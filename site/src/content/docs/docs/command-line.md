@@ -934,12 +934,14 @@ don't need them to solve puzzles.
 
 | Switch | Effect |
 |---|---|
-| `--slide-legacy` | The original search over text keys. |
+| `--slide-legacy` | The original search over text keys: one thread, in memory only. Without this switch only a board too big for a 512-bit key goes to it. |
 | `--slide-apart` | Treat identical pieces as different, instead of searching them as one. |
 | `--slide-stops-apart` | With `--optimized-paths` and `--nested-slides`: search each place a small piece can stop inside a grid cell on its own, instead of all of them as one. |
-| `--slide-plain-keys` | With `--optimized-paths`: number every position of a piece in the search's keys, as a full search does, instead of only the places it can stop. The same search in more memory; a large board may then fall back to the original search. |
+| `--slide-plain-keys` | With `--optimized-paths`: number every position of a piece in the search's keys, as a full search does, instead of only the places it can stop. The same search in more memory; a large board may then need a wider key. |
+| `--slide-packing auto\|always\|never` | How the search's keys hold identical pieces. A key has a number for each piece's place, in 64 or 128 bits. `auto` (the default): a board that needs more keeps the identical pieces together as one number, which takes fewer bits, and then goes to wider keys. `always`: keep them together whenever a board has identical pieces. `never`: a number for each piece, in as wide a key as that takes. The same search each way. |
+| `--slide-key-bits N` | The narrowest key the search tries: `64`, `128`, `192`, `256` or `512` bits. A wider key costs more memory for each arrangement. |
 | `--slide-one-end` | Search from the start only, instead of from the start and the goal until they meet. The same number of moves, usually after far more arrangements. A saved search that already runs from both ends is carried on as it is. |
-| `--slide-trace` | Print each level of the search to stderr. |
+| `--slide-trace` | Print the search's key (how many bits its arrangements take, and of how wide a key) and each of its levels to stderr. |
 | `--slide-grid N` | `--optimized-paths` on a grid of `N` cells, whether or not the board fits it. Its answers are a restricted search's. |
 
 **Stacking puzzles:**

@@ -19,6 +19,7 @@
 #include "shapelogic/model/sliding.h"
 #include "shapelogic/solve/disasm_to_moves.h"
 #include "shapelogic/solve/search_sample.h"
+#include "shapelogic/solve/slide_key.h"
 #include "shapelogic/solve/slide_levels.h"
 
 #include <algorithm>
@@ -37,6 +38,7 @@
 #include <set>
 #include <sstream>
 #include <tuple>
+#include <type_traits>
 
 #if defined(__APPLE__)
 #include <malloc/malloc.h>
@@ -750,7 +752,8 @@ std::vector<unsigned int> nestedGroup(const std::vector<Cell3List>& cells,
 
 // The original slide search: an arrangement is a text key, and each move
 // works out the free cells afresh. Kept for trays the position tables
-// cannot pack into 128 bits, and for A/B runs (SlideSearch::legacy).
+// cannot pack into the widest key (eachKey), and for A/B runs
+// (SlideSearch::legacy). It tells the copies of a piece apart.
 void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
                   const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
                   const GoalCheck& goals, const StopGrid& stops, SlideSearch& search,
@@ -910,7 +913,8 @@ void legacySearch(const Voxel& tray, const std::vector<Cell3List>& cells,
 }
 
 #ifdef __SIZEOF_INT128__
-// The key of a search whose arrangements do not fit 64 bits.
+// The key of a search whose arrangements do not fit 64 bits. Those that do
+// not fit 128 take a BigKey (slide_key.h; eachKey has the order).
 __extension__ using WideKey = unsigned __int128;
 #endif
 
@@ -958,7 +962,10 @@ struct PosTable {
   // SlideSearch::plainKeys, every position's code is its own number.
   std::vector<int> code;
   std::vector<int> row;
-  // Where the code sits in a packed arrangement.
+  // The bits the codes take, and where the code sits in a packed
+  // arrangement (SlideSpace::layout). A copy kept with the others as one
+  // number (SlideSpace::Pack) has no field of its own.
+  unsigned int width = 0;
   unsigned int shift = 0;
   std::uint64_t bits = 0;
 
@@ -1046,17 +1053,30 @@ void buildLoose(PosTable& t, const Cell3List& cells, const Cell3List& outline,
   }
 }
 
+// The bits that number `count` values, at least one.
+unsigned int bitsFor(std::uint64_t count) {
+  unsigned int width = 1;
+  while (width < 64 && (std::uint64_t{1} << width) < count) {
+    width++;
+  }
+  return width;
+}
+
+// The low `width` bits set.
+std::uint64_t maskFor(unsigned int width) {
+  return width >= 64 ? ~std::uint64_t{0} : (std::uint64_t{1} << width) - 1;
+}
+
 // Builds the position tables. False when they cannot hold this search: a
-// piece with no cells or nowhere to go, a start off the floor, or more
-// codes than keyBits bits can number; and (unlike the original, which
-// overran its fixed arrays there) more than 64 pieces with nested slides.
-// With `loose`, the pieces get their loose stops (buildLoose); with
-// `plainKeys`, every position a code (PosTable::code).
+// piece with no cells or nowhere to go, or a start off the floor; and
+// (unlike the original, which overran its fixed arrays there) more than 64
+// pieces with nested slides. Whether the codes fit a key is the layout's to
+// say (SlideSpace::layout). With `loose`, the pieces get their loose stops
+// (buildLoose); with `plainKeys`, every position a code (PosTable::code).
 bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
                  const std::vector<Cell3List>& outlines, bool nested, const SlideState& initial,
-                 const GoalCheck& goals, unsigned int keyBits, bool vertical,
-                 const StopGrid& stops, bool loose, bool plainKeys, std::size_t& words,
-                 std::vector<PosTable>& tables) {
+                 const GoalCheck& goals, bool vertical, const StopGrid& stops, bool loose,
+                 bool plainKeys, std::size_t& words, std::vector<PosTable>& tables) {
   const int W = asInt(tray.getX());
   const int H = asInt(tray.getY());
   const int D = asInt(tray.getZ());
@@ -1066,7 +1086,6 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
     return false;
   }
   tables.assign(n, PosTable());
-  unsigned int used = 0;
 
   // the corner of the floor, which the grid's cells are counted from
   int floorX = W;
@@ -1185,16 +1204,7 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
         t.row.push_back(asInt(k));
       }
     }
-    unsigned int width = 1;
-    while (width < 64 && (std::uint64_t{1} << width) < t.row.size()) {
-      width++;
-    }
-    if (used + width > keyBits) {
-      return false;
-    }
-    t.shift = used;
-    t.bits = width == 64 ? ~std::uint64_t{0} : (std::uint64_t{1} << width) - 1;
-    used += width;
+    t.width = bitsFor(t.row.size());
   }
   return true;
 }
@@ -1207,9 +1217,16 @@ constexpr std::uint64_t kLevelStateKeys = 3;
 
 // The arrangements of one slide search over position tables. An arrangement
 // is one code per piece, that of its position (PosTable::code), packed into
-// a Key (64 bits, or 128 for trays that need more). posOf and with turn the
-// codes to positions and back: everything else works on positions. Read
-// only once built, so every thread of a search shares one.
+// a Key: 64 bits, 128 for trays that need more, or a BigKey for those that
+// need more still. positions and encode turn a key to the pieces' positions
+// and back (posOf, lift and put for one piece): everything else works on
+// positions. Read only once built, so every thread of a search shares one.
+//
+// Packed keys (decision 0037): the copies of a piece, which the search does
+// not tell apart, are kept as one number that says which codes they hold
+// (Pack), not as a code each. A key is then the same whichever copy sits
+// where (canon has nothing to do), and takes fewer bits: four copies with
+// 64 places each take 20 bits, not 24.
 template <class Key>
 struct SlideSpace {
   // Pieces of an arrangement that covers looks at: with more that could be
@@ -1247,18 +1264,55 @@ struct SlideSpace {
   // The goal, for the pieces whose copies count together (GoalCheck::counts).
   const GoalCheck* goals = nullptr;
 
-  // False when the tables cannot hold this search. With looseStops the
-  // pieces get their loose stops (buildLoose); with plainKeys every
-  // position has a code.
+  // A run of copies of a piece kept in a key as one number (packed keys).
+  // Copies never share a position, so the codes they hold are one of the
+  // ways of choosing so many of the piece's codes, and the number is that
+  // way's place among them all (the combinatorial number system): the sum
+  // of C(c, j) over the codes c, the j-th smallest of them counted from 1.
+  struct Pack {
+    // The copies, in the order the rising codes go to them.
+    std::vector<unsigned int> pieces;
+    unsigned int shift = 0;
+    std::uint64_t bits = 0;
+    // choose[j * span + c] is C(c, j + 1), for the codes c and one more.
+    std::vector<std::uint64_t> choose;
+    std::size_t span = 0;
+    // Whether a copy has a place that does not fill its goal.
+    bool hasGoal = false;
+  };
+  // The most copies a pack holds: a group of more is kept as several, the
+  // lowest codes in the first.
+  static constexpr std::size_t kMaxPack = 16;
+  // Whether the copies are packed (layout). Never with loose stops.
+  bool packed = false;
+  std::vector<Pack> packs;
+  // The packs of each group of `copies`, in the order of its pieces.
+  std::vector<std::vector<unsigned int>> groupPacks;
+  // The group of `copies` a piece is packed with; -1 for a piece with a
+  // field of its own, which is every piece when the keys are not packed.
+  std::vector<int> packGroup;
+  // A packed piece's pack, and its place among the pack's pieces.
+  std::vector<unsigned int> packOf;
+  std::vector<unsigned int> packAt;
+  // The pieces with a field of their own.
+  std::vector<unsigned int> singles;
+  // The bits of a key the arrangements take.
+  unsigned int keyBits = 0;
+  // The start: each piece's position.
+  std::vector<int> startRows;
+
+  // False when the tables cannot hold this search, or the arrangements do
+  // not fit the key. With looseStops the pieces get their loose stops
+  // (buildLoose); with plainKeys every position has a code; with pack the
+  // copies of a piece are packed (never with loose stops).
   bool build(const Voxel& tray, const std::vector<Cell3List>& cells,
              const std::vector<Cell3List>& outlines, bool nest, const SlideState& init,
              const GoalCheck& goalCheck, bool likePiecesApart, bool verticalMoves,
-             const StopGrid& stopGrid, bool looseStops, bool plainKeys) {
+             const StopGrid& stopGrid, bool looseStops, bool plainKeys, bool pack) {
     goals = &goalCheck;
     vertical = verticalMoves;
     stops = stopGrid;
-    if (!buildTables(tray, cells, outlines, nest, init, goalCheck,
-                     static_cast<unsigned int>(8 * sizeof(Key)), vertical, stops, looseStops,
+    if (!buildTables(tray, cells, outlines, nest, init, goalCheck, vertical, stops, looseStops,
                      plainKeys, words, t)) {
       return false;
     }
@@ -1271,13 +1325,6 @@ struct SlideSpace {
     trayW = asInt(tray.getX());
     trayH = asInt(tray.getY());
     trayD = asInt(tray.getZ());
-
-    // a piece's start is one of its stops (stopGridFor)
-    startKey = 0;
-    for (unsigned int i = 0; i < n; i++) {
-      const Place& p = init.places[i];
-      startKey |= field(i, t[i].at(p.x, p.y, p.z));
-    }
 
     // Pieces that are copies of one another (same cells, same places, same
     // goal) can swap places without changing the puzzle. Each such group
@@ -1307,25 +1354,294 @@ struct SlideSpace {
         }
       }
     }
+    if (!layout(pack && !loose)) {
+      return false;
+    }
+
+    // a piece's start is one of its stops (stopGridFor)
+    startRows.resize(n);
+    for (unsigned int i = 0; i < n; i++) {
+      const Place& p = init.places[i];
+      startRows[i] = t[i].at(p.x, p.y, p.z);
+    }
+    startKey = encode(startRows.data());
     startCanon = canon(startKey);
     return true;
   }
 
-  [[nodiscard]] int posOf(Key key, unsigned int i) const {
-    return t[i].row[static_cast<std::size_t>((key >> t[i].shift) & t[i].bits)];
+  // Gives the pieces their places in a key, in the pieces' order: a field
+  // each, or with `pack` the copies of a piece as one number (Pack). False
+  // when they take more bits than the key has.
+  bool layout(bool pack) {
+    const auto room = static_cast<unsigned int>(8 * sizeof(Key));
+    packed = pack && !copies.empty();
+    packs.clear();
+    groupPacks.assign(copies.size(), {});
+    packGroup.assign(n, -1);
+    packOf.assign(n, 0);
+    packAt.assign(n, 0);
+    singles.clear();
+    if (packed) {
+      for (std::size_t g = 0; g < copies.size(); g++) {
+        for (const unsigned int i : copies[g]) {
+          packGroup[i] = asInt(g);
+        }
+      }
+    }
+    unsigned int used = 0;
+    const auto take = [&](unsigned int width, unsigned int& shift, std::uint64_t& bits) {
+      if (width > room - used) {
+        return false;
+      }
+      shift = used;
+      bits = maskFor(width);
+      used += width;
+      return true;
+    };
+    for (unsigned int i = 0; i < n; i++) {
+      const int g = packGroup[i];
+      if (g < 0) {
+        if (!take(t[i].width, t[i].shift, t[i].bits)) {
+          return false;
+        }
+        singles.push_back(i);
+        continue;
+      }
+      const std::vector<unsigned int>& group = copies[idx(g)];
+      if (group[0] != i) {
+        continue;
+      }
+      // C(c, j) for the codes c and one more, a row for each j from 1 up to
+      // the copies a pack takes: as many as are numbered in 63 bits
+      const std::size_t codes = t[i].row.size();
+      const std::size_t span = codes + 1;
+      const std::uint64_t limit = std::uint64_t{1} << 63;
+      std::vector<std::uint64_t> choose(span);
+      for (std::size_t c = 0; c < span; c++) {
+        choose[c] = c;
+      }
+      std::size_t most = 1;
+      while (most < std::min(kMaxPack, group.size())) {
+        std::vector<std::uint64_t> row(span, 0);
+        const std::uint64_t* above = &choose[(most - 1) * span];
+        bool fits = true;
+        for (std::size_t c = 1; c < span && fits; c++) {
+          fits = above[c - 1] <= limit - row[c - 1];
+          row[c] = row[c - 1] + above[c - 1];
+        }
+        if (!fits) {
+          break;
+        }
+        choose.insert(choose.end(), row.begin(), row.end());
+        most++;
+      }
+      const bool hasGoal = std::any_of(t[i].atGoal.begin(), t[i].atGoal.end(),
+                                       [](char at) { return at == 0; });
+      for (std::size_t from = 0; from < group.size(); from += most) {
+        const std::size_t size = std::min(most, group.size() - from);
+        Pack pk;
+        pk.pieces.assign(group.begin() + static_cast<std::ptrdiff_t>(from),
+                         group.begin() + static_cast<std::ptrdiff_t>(from + size));
+        pk.span = span;
+        pk.choose.assign(choose.begin(),
+                         choose.begin() + static_cast<std::ptrdiff_t>(size * span));
+        pk.hasGoal = hasGoal;
+        // the ways of choosing `size` of the codes
+        if (!take(bitsFor(choose[(size - 1) * span + codes]), pk.shift, pk.bits)) {
+          return false;
+        }
+        for (std::size_t j = 0; j < size; j++) {
+          packOf[pk.pieces[j]] = static_cast<unsigned int>(packs.size());
+          packAt[pk.pieces[j]] = static_cast<unsigned int>(j);
+        }
+        groupPacks[idx(g)].push_back(static_cast<unsigned int>(packs.size()));
+        packs.push_back(std::move(pk));
+      }
+    }
+    keyBits = used;
+    return true;
+  }
+
+  // The number of a pack whose copies hold codes[], rising.
+  [[nodiscard]] static std::uint64_t rank(const Pack& pk, const int* codes) {
+    std::uint64_t r = 0;
+    for (std::size_t j = 0; j < pk.pieces.size(); j++) {
+      BT_ASSERT(j == 0 || codes[j] > codes[j - 1]);
+      r += pk.choose[j * pk.span + idx(codes[j])];
+    }
+    return r;
+  }
+
+  // The codes a pack's copies hold when its number is r, rising, into
+  // codes[]: from the greatest, each the greatest code that adds no more
+  // than is left of the number.
+  static void unrank(const Pack& pk, std::uint64_t r, int* codes) {
+    std::size_t below = pk.span - 1;
+    for (std::size_t j = pk.pieces.size(); j-- > 0;) {
+      if (below == 0) {
+        // no key the search makes: one read from a damaged file
+        codes[j] = 0;
+        continue;
+      }
+      const std::uint64_t* row = &pk.choose[j * pk.span];
+      const std::uint64_t* at = std::upper_bound(row, row + below, r) - 1;
+      below = static_cast<std::size_t>(at - row);
+      codes[j] = static_cast<int>(below);
+      r -= *at;
+    }
+  }
+
+  // The position of every piece of key, into rows[n]. With packed keys the
+  // copies of a piece come in the order of their positions.
+  void positions(const Key& key, int* rows) const {
+    for (const unsigned int i : singles) {
+      rows[i] = t[i].row[keyField(key, t[i].shift, t[i].bits)];
+    }
+    std::array<int, kMaxPack> codes{};
+    for (const Pack& pk : packs) {
+      unrank(pk, keyField(key, pk.shift, pk.bits), codes.data());
+      for (std::size_t j = 0; j < pk.pieces.size(); j++) {
+        const unsigned int i = pk.pieces[j];
+        rows[i] = t[i].row[idx(codes[j])];
+      }
+    }
+  }
+
+  [[nodiscard]] int posOf(const Key& key, unsigned int i) const {
+    if (packGroup[i] < 0) {
+      return t[i].row[keyField(key, t[i].shift, t[i].bits)];
+    }
+    const Pack& pk = packs[packOf[i]];
+    std::array<int, kMaxPack> codes{};
+    unrank(pk, keyField(key, pk.shift, pk.bits), codes.data());
+    return t[i].row[idx(codes[packAt[i]])];
+  }
+
+  // The key of the arrangement with the pieces at rows[n], each a position
+  // its piece may stop at. Not packed, every piece is where rows has it
+  // (the key is not canon'd); packed, the copies of a piece are one number
+  // whichever of them sits where.
+  [[nodiscard]] Key encode(const int* rows) const {
+    Key key = 0;
+    for (const unsigned int i : singles) {
+      key |= own(i, rows[i]);
+    }
+    std::array<int, 64> few{};
+    std::vector<int> many;
+    for (std::size_t g = 0; g < groupPacks.size(); g++) {
+      if (groupPacks[g].empty()) {
+        continue;
+      }
+      const std::vector<unsigned int>& group = copies[g];
+      int* codes = few.data();
+      if (group.size() > few.size()) {
+        many.resize(group.size());
+        codes = many.data();
+      }
+      for (std::size_t k = 0; k < group.size(); k++) {
+        codes[k] = t[group[k]].code[idx(rows[group[k]])];
+        BT_ASSERT(codes[k] >= 0);
+      }
+      std::sort(codes, codes + group.size());
+      const int* from = codes;
+      for (const unsigned int at : groupPacks[g]) {
+        const Pack& pk = packs[at];
+        key |= keyAt<Key>(rank(pk, from), pk.shift);
+        from += pk.pieces.size();
+      }
+    }
+    return key;
+  }
+
+  // key without piece i, to put it down elsewhere (put). Packed, the piece
+  // goes with its copies: key without their number, and the codes the
+  // others hold, rising, into rest. rows[n] is key's positions.
+  [[nodiscard]] Key lift(const Key& key, const int* rows, unsigned int i,
+                         std::vector<int>& rest) const {
+    const int g = packGroup[i];
+    if (g < 0) {
+      return keyClear(key, t[i].shift, t[i].bits);
+    }
+    rest.clear();
+    for (const unsigned int m : copies[idx(g)]) {
+      if (m == i) {
+        continue;
+      }
+      // nearly rising already: the copies' positions come in order
+      const int code = t[m].code[idx(rows[m])];
+      std::size_t at = rest.size();
+      rest.push_back(code);
+      for (; at > 0 && rest[at - 1] > code; at--) {
+        rest[at] = rest[at - 1];
+      }
+      rest[at] = code;
+    }
+    Key clear = key;
+    for (const unsigned int at : groupPacks[idx(g)]) {
+      clear = keyClear(clear, packs[at].shift, packs[at].bits);
+    }
+    return clear;
+  }
+
+  // lift's key with piece i put down at position p, one it may stop at.
+  [[nodiscard]] Key put(const Key& clear, const std::vector<int>& rest, unsigned int i,
+                        int p) const {
+    const int g = packGroup[i];
+    if (g < 0) {
+      return clear | own(i, p);
+    }
+    const int code = t[i].code[idx(p)];
+    BT_ASSERT(code >= 0);
+    // the copies' numbers with the code in its place among the others
+    Key key = clear;
+    std::size_t next = 0;
+    bool placed = false;
+    for (const unsigned int at : groupPacks[idx(g)]) {
+      const Pack& pk = packs[at];
+      std::uint64_t r = 0;
+      for (std::size_t j = 0; j < pk.pieces.size(); j++) {
+        int c = code;
+        if (placed || (next < rest.size() && rest[next] < code)) {
+          c = rest[next++];
+        } else {
+          placed = true;
+        }
+        r += pk.choose[j * pk.span + idx(c)];
+      }
+      key |= keyAt<Key>(r, pk.shift);
+    }
+    return key;
   }
 
   // Piece i's part of a key with the piece at position p, one it may stop
-  // at: the others have no code.
-  [[nodiscard]] Key field(unsigned int i, int p) const {
+  // at: the others have no code. For a piece with a field of its own.
+  [[nodiscard]] Key own(unsigned int i, int p) const {
     const int code = t[i].code[idx(p)];
     BT_ASSERT(code >= 0);
-    return static_cast<Key>(code) << t[i].shift;
+    return keyAt<Key>(static_cast<std::uint64_t>(code), t[i].shift);
   }
 
-  // key with piece i at position p.
-  [[nodiscard]] Key with(Key key, unsigned int i, int p) const {
-    return (key & ~(static_cast<Key>(t[i].bits) << t[i].shift)) | field(i, p);
+  // The same, for the searches whose keys are not packed (those with loose
+  // stops work on the fields themselves).
+  [[nodiscard]] Key field(unsigned int i, int p) const {
+    BT_ASSERT(!packed);
+    return own(i, p);
+  }
+
+  // key with piece i at position p. Not for packed keys.
+  [[nodiscard]] Key with(const Key& key, unsigned int i, int p) const {
+    return keyClear(key, t[i].shift, t[i].bits) | field(i, p);
+  }
+
+  // The arrangement with the pieces at rows[n].
+  [[nodiscard]] SlideState stateOf(const int* rows) const {
+    SlideState st = initial;
+    for (unsigned int i = 0; i < n; i++) {
+      st.places[i].x = t[i].px[idx(rows[i])];
+      st.places[i].y = t[i].py[idx(rows[i])];
+      st.places[i].z = t[i].pz[idx(rows[i])];
+    }
+    return st;
   }
 
   // The arrangements key stands for: each loose piece at every stop of its
@@ -1423,35 +1739,33 @@ struct SlideSpace {
   }
 
   // A loose piece is shown at the first stop of its class.
-  [[nodiscard]] SlideState decode(Key key) const {
-    SlideState st = initial;
-    for (unsigned int i = 0; i < n; i++) {
-      const int p = posOf(key, i);
-      st.places[i].x = t[i].px[idx(p)];
-      st.places[i].y = t[i].py[idx(p)];
-      st.places[i].z = t[i].pz[idx(p)];
-    }
-    return st;
+  [[nodiscard]] SlideState decode(const Key& key) const {
+    std::vector<int> rows(n);
+    positions(key, rows.data());
+    return stateOf(rows.data());
   }
 
   // The arrangement standing for key and every one that differs from it
   // only by which copy sits where. Copies share their codes, which rise
-  // with the positions, so the codes are sorted as they are.
+  // with the positions, so the codes are sorted as they are. A packed key
+  // is that arrangement already.
   [[nodiscard]] Key canon(Key key) const {
+    if (packed) {
+      return key;
+    }
     for (const std::vector<unsigned int>& g : copies) {
       // a move changes one position, so this is nearly sorted already
       for (std::size_t a = 1; a < g.size(); a++) {
         for (std::size_t b = a; b > 0; b--) {
           const PosTable& lo = t[g[b - 1]];
           const PosTable& hi = t[g[b]];
-          const Key pl = (key >> lo.shift) & lo.bits;
-          const Key ph = (key >> hi.shift) & hi.bits;
+          const std::uint64_t pl = keyField(key, lo.shift, lo.bits);
+          const std::uint64_t ph = keyField(key, hi.shift, hi.bits);
           if (pl <= ph) {
             break;
           }
-          key = (key & ~(static_cast<Key>(lo.bits) << lo.shift) &
-                 ~(static_cast<Key>(hi.bits) << hi.shift)) |
-                (ph << lo.shift) | (pl << hi.shift);
+          key = keyClear(keyClear(key, lo.shift, lo.bits), hi.shift, hi.bits) |
+                keyAt<Key>(ph, lo.shift) | keyAt<Key>(pl, hi.shift);
         }
       }
     }
@@ -1482,7 +1796,7 @@ struct SlideSpace {
         groups.push_back({i});
       }
     }
-    Key g = 0;
+    std::vector<int> goalRows(n, 0);
     std::vector<std::uint64_t> covered(words, 0);
     for (const std::vector<unsigned int>& group : groups) {
       const PosTable& tp = t[group[0]];
@@ -1510,10 +1824,10 @@ struct SlideSpace {
           }
           covered[w] |= m[w];
         }
-        g |= field(group[k], only[k]);
+        goalRows[group[k]] = only[k];
       }
     }
-    return canon(g);
+    return canon(encode(goalRows.data()));
   }
 
   // singleGoal: the ways `left` more copies take rows from `from` on, none
@@ -1551,15 +1865,40 @@ struct SlideSpace {
     }
   }
 
-  [[nodiscard]] bool isGoal(Key key) const {
+  [[nodiscard]] bool isGoal(const Key& key) const {
     if (goals != nullptr && goals->counts()) {
-      return goals->reached([&](std::size_t i) {
-        return t[i].atGoal[idx(posOf(key, static_cast<unsigned int>(i)))];
-      });
+      if (!packed) {
+        return goals->reached([&](std::size_t i) {
+          return t[i].atGoal[idx(posOf(key, static_cast<unsigned int>(i)))];
+        });
+      }
+      // every copy's position worked out once
+      std::array<int, 64> few{};
+      std::vector<int> many;
+      int* rows = few.data();
+      if (n > few.size()) {
+        many.resize(n);
+        rows = many.data();
+      }
+      positions(key, rows);
+      return goals->reached([&](std::size_t i) { return t[i].atGoal[idx(rows[i])]; });
     }
-    for (unsigned int i = 0; i < n; i++) {
-      if (t[i].atGoal[idx(posOf(key, i))] == 0) {
+    for (const unsigned int i : singles) {
+      if (t[i].atGoal[idx(t[i].row[keyField(key, t[i].shift, t[i].bits)])] == 0) {
         return false;
+      }
+    }
+    std::array<int, kMaxPack> codes{};
+    for (const Pack& pk : packs) {
+      if (!pk.hasGoal) {
+        continue;
+      }
+      unrank(pk, keyField(key, pk.shift, pk.bits), codes.data());
+      for (std::size_t j = 0; j < pk.pieces.size(); j++) {
+        const PosTable& tp = t[pk.pieces[j]];
+        if (tp.atGoal[idx(tp.row[idx(codes[j])])] == 0) {
+          return false;
+        }
       }
     }
     return true;
@@ -1576,6 +1915,7 @@ class SlideMover {
         occupied_(space.words),
         others_(space.words),
         pos_(space.n),
+        next_(space.n),
         seen_(space.n),
         shiftSeen_(space.nested ? idx((2 * space.trayW + 1) * (2 * space.trayH + 1) *
                                       (2 * space.trayD + 1))
@@ -1595,12 +1935,42 @@ class SlideMover {
   // move alone only.
   template <class F>
   bool expand(const Key cur, F&& emit, bool solosOnly = false) {
+    s_.positions(cur, pos_.data());
+    return expandAt(cur, emit, solosOnly);
+  }
+
+  // expand from the arrangement with the pieces at rows[n], every piece
+  // where rows has it: with emitted, the moves of pieces that keep their
+  // own places, which a packed key does not tell.
+  template <class F>
+  bool expandFrom(const int* rows, F&& emit) {
+    std::copy(rows, rows + s_.n, pos_.begin());
+    return expandAt(s_.encode(rows), emit, false);
+  }
+
+  // While emit runs: where every piece is in the arrangement being told,
+  // each piece of the one expanded keeping its own place, into rows[n].
+  void emitted(const Key& key, int* rows) const {
+    if (!s_.packed) {
+      s_.positions(key, rows);
+      return;
+    }
+    if (groupMove_) {
+      std::copy(next_.begin(), next_.end(), rows);
+      return;
+    }
+    std::copy(pos_.begin(), pos_.end(), rows);
+    rows[movedPiece_] = movedRow_;
+  }
+
+  // expand, with cur's positions in pos_ already.
+  template <class F>
+  bool expandAt(const Key cur, F& emit, bool solosOnly) {
     const std::vector<PosTable>& t = s_.t;
     const std::size_t words = s_.words;
     const unsigned int n = s_.n;
     std::fill(occupied_.begin(), occupied_.end(), 0);
     for (unsigned int i = 0; i < n; i++) {
-      pos_[i] = s_.posOf(cur, i);
       const std::uint64_t* m = &t[i].mask[idx(pos_[i]) * words];
       for (std::size_t w = 0; w < words; w++) {
         occupied_[w] |= m[w];
@@ -1622,7 +1992,9 @@ class SlideMover {
       }
       seen_[pi][idx(pos_[pi])] = epoch_;
       fill_.assign(1, pos_[pi]);
-      const Key clear = cur & ~(static_cast<Key>(tp.bits) << tp.shift);
+      const Key clear = s_.lift(cur, pos_.data(), pi, rest_);
+      movedPiece_ = pi;
+      groupMove_ = false;
       for (std::size_t head = 0; head < fill_.size(); head++) {
         for (std::size_t d = 0; d < kDirs; d++) {
           const int nb = tp.next[idx(fill_[head])][d];
@@ -1635,7 +2007,8 @@ class SlideMover {
           if (tp.rest[idx(nb)] == 0) {
             continue;
           }
-          if (emit(clear | s_.field(pi, nb), false)) {
+          movedRow_ = nb;
+          if (emit(s_.put(clear, rest_, pi, nb), false)) {
             return true;
           }
         }
@@ -1752,12 +2125,18 @@ class SlideMover {
   // nested in the mover at next, so that the move can be made backwards. A
   // group can close round a piece it passes, and then would take it along.
   bool undoable(Key next) {
-    for (unsigned int i = 0; i < s_.n; i++) {
-      backPos_[i] = s_.posOf(next, i);
+    // a packed key does not say which copy sits where: the flood's own
+    // positions do (floodShifts)
+    const int* at = next_.data();
+    if (!s_.packed) {
+      for (unsigned int i = 0; i < s_.n; i++) {
+        backPos_[i] = s_.posOf(next, i);
+      }
+      at = backPos_.data();
     }
     std::array<unsigned int, 64> group{};
     unsigned int members = 0;
-    return groupAt(backPos_.data(), lastOuter_, group.data(), members, lastWide_) == lastGroup_;
+    return groupAt(at, lastOuter_, group.data(), members, lastWide_) == lastGroup_;
   }
 
   // The moves as the level search takes them: emit(next, oneWay), where
@@ -1797,8 +2176,8 @@ class SlideMover {
     const unsigned int n = s_.n;
     std::fill(occupied_.begin(), occupied_.end(), 0);
     looseList_.clear();
+    s_.positions(cur, pos_.data());
     for (unsigned int i = 0; i < n; i++) {
-      pos_[i] = s_.posOf(cur, i);
       const std::size_t at = idx(pos_[i]);
       const bool loose = at >= t[i].real;
       const std::uint64_t* m =
@@ -1855,7 +2234,7 @@ class SlideMover {
       // a loose piece moves from any of its stops: they are one move apart
       // (checked below), so from the first
       const int start = moverLoose ? tp.members[at - tp.real][0] : pos_[pi];
-      const Key clear = cur & ~(static_cast<Key>(tp.bits) << tp.shift);
+      const Key clear = keyClear(cur, tp.shift, tp.bits);
       const std::uint64_t touched = fillFrom(pi, start, others_.data(), soft);
       if (touched == 0) {
         if (moverLoose && !reachedAll(pi, asInt(at - tp.real))) {
@@ -2273,6 +2652,13 @@ class SlideMover {
   bool floodShifts(const Key cur, const unsigned int* group, unsigned int members, F&& each) {
     const std::vector<PosTable>& t = s_.t;
     const std::size_t words = s_.words;
+    const bool packed = s_.packed;
+    groupMove_ = true;
+    if (packed) {
+      // the arrangement at each shift is told from the positions: the
+      // group's own change below, the others stay
+      next_.assign(pos_.begin(), pos_.end());
+    }
     // Whether the group fits at shift d, and whether every piece of it
     // may stop there: then key is the group's arrangement (a place
     // where a piece may not stop has no code to put in one).
@@ -2286,11 +2672,18 @@ class SlideMover {
         if (p < 0 || overlaps(&t[m].mask[idx(p) * words], others_.data(), words)) {
           return false;
         }
+        moved_[g] = p;
         if (t[m].rest[idx(p)] == 0) {
           rests = false;
-        } else if (rests) {
+        } else if (rests && !packed) {
           key = s_.with(key, m, p);
         }
+      }
+      if (rests && packed) {
+        for (unsigned int g = 0; g < members; g++) {
+          next_[group[g]] = moved_[g];
+        }
+        key = s_.encode(next_.data());
       }
       return true;
     };
@@ -2506,6 +2899,17 @@ class SlideMover {
   std::vector<std::uint64_t> occupied_;
   std::vector<std::uint64_t> others_;
   std::vector<int> pos_;
+  // The move being told, for emitted and (packed keys) undoable: a piece
+  // alone to a position, or a group, whose arrangement is next_ (packed
+  // keys only: pos_ with the group's pieces at the shift being told, where
+  // moved_ has them).
+  unsigned int movedPiece_ = 0;
+  int movedRow_ = 0;
+  bool groupMove_ = false;
+  std::vector<int> next_;
+  std::array<int, 64> moved_{};
+  // The codes of the copies a lifted piece is packed with (SlideSpace::lift).
+  std::vector<int> rest_;
   std::array<int, 64> backPos_{};
   // Positions this flood fill has reached: seen_[i][p] == epoch_.
   std::vector<std::vector<unsigned int>> seen_;
@@ -2657,22 +3061,26 @@ void chainToPath(const SlideSpace<Key>& s, const std::vector<Key>& kept,
     placeChain(s, mover, kept, placed);
   }
   const std::vector<Key>& chain = s.loose ? placed : kept;
-  Key real = s.startKey;
-  path.push_back(s.decode(real));
+  // where every piece really is: a key kept by the search does not say
+  // which copy sits where
+  std::vector<int> real = s.startRows;
+  std::vector<int> next(s.n);
+  path.push_back(s.stateOf(real.data()));
   for (std::size_t i = 1; i < chain.size(); i++) {
-    Key next = chain[i];
-    if (!s.copies.empty()) {
-      const bool reached = mover.expand(real, [&](Key key, bool) {
+    if (s.copies.empty()) {
+      s.positions(chain[i], next.data());
+    } else {
+      const bool reached = mover.expandFrom(real.data(), [&](Key key, bool) {
         if (s.canon(key) != chain[i]) {
           return false;
         }
-        next = key;
+        mover.emitted(key, next.data());
         return true;
       });
       BT_ASSERT(reached);
     }
     real = next;
-    path.push_back(s.decode(real));
+    path.push_back(s.stateOf(real.data()));
   }
 }
 
@@ -5166,10 +5574,12 @@ class LevelSearch {
   bool diskChosen_ = false;
 };
 
-// Mixed into the name of a search with loose stops, and of one whose keys
-// hold codes for the stops only (tableSearch).
+// Mixed into the name of a search with loose stops, of one whose keys hold
+// codes for the stops only, and of one whose keys keep the copies of a
+// piece as one number (tableSearch).
 constexpr unsigned int kLooseFormat = 0x4c53;
 constexpr unsigned int kCompactFormat = 0x434b;
+constexpr unsigned int kPackedFormat = 0x504b;
 
 // The most pieces nested in one piece at once for which the moves are made
 // backwards (SlideMover::movesBack tries every part of what a piece holds,
@@ -5199,42 +5609,61 @@ struct NamedSpace {
   std::uint64_t name = 0;
 };
 
-// Builds the tables of a search and names it. `loose` and `plainKeys`
-// choose the tables (SlideSpace::build); with `bothEnds` only a search that
-// can go from the goal as well is made (nested slides: see findSlidePath).
+// Which tables a search is made with (SlideSpace::build): the stops of a
+// grid cell as one, a code for every position, the copies of a piece as one
+// number (eachKey says when); and whether only a search that can go from
+// the goal as well will do (nested slides: see findSlidePath).
+struct TableForm {
+  bool loose = false;
+  bool plainKeys = false;
+  bool pack = false;
+  bool bothEnds = false;
+};
+
+// What a search works on, as nameSpace and its callers pass it about.
+struct SlideBoard {
+  const Puzzle& puzzle;
+  const Problem& problem;
+  const Voxel& tray;
+  const std::vector<Cell3List>& cells;
+  const std::vector<Cell3List>& outlines;
+  bool nested;
+  const SlideState& initial;
+  const GoalCheck& goals;
+  const StopGrid& stops;
+};
+
+// Builds the tables of a search and names it. `form` chooses the tables.
 // Nothing when they are made, else why not (NoFit or NotThis).
 template <class Key>
-std::optional<Tabled> nameSpace(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
-                                const std::vector<Cell3List>& cells,
-                                const std::vector<Cell3List>& outlines, bool nested,
-                                const SlideState& initial, const GoalCheck& goals,
-                                const StopGrid& stops, bool loose, bool plainKeys, bool bothEnds,
+std::optional<Tabled> nameSpace(const SlideBoard& b, const TableForm& form,
                                 const SlideSearch& search, NamedSpace<Key>& out) {
   SlideSpace<Key>& space = out.space;
-  if (!space.build(tray, cells, outlines, nested, initial, goals, search.likePiecesApart,
-                   search.verticalMoves, stops, loose, plainKeys)) {
+  if (!space.build(b.tray, b.cells, b.outlines, b.nested, b.initial, b.goals,
+                   search.likePiecesApart, search.verticalMoves, b.stops, form.loose,
+                   form.plainKeys, form.pack)) {
     return Tabled::NoFit;
   }
-  space.partial = nested && search.partialNested;
-  space.backMoves = canMoveBack(space, cells, outlines);
-  if (bothEnds && !(space.backMoves && space.singleGoal())) {
+  space.partial = b.nested && search.partialNested;
+  space.backMoves = canMoveBack(space, b.cells, b.outlines);
+  if (form.bothEnds && !(space.backMoves && space.singleGoal())) {
     return Tabled::NotThis;
   }
 
   // Names the search: the problem, the start and everything the search
   // depends on, so a saved search is carried on only by its own.
-  out.problemKey = problemKeyOf(puzzle, problem);
+  out.problemKey = problemKeyOf(b.puzzle, b.problem);
   Fingerprint f;
   f.mix(out.problemKey);
   f.mix(static_cast<unsigned int>(sizeof(Key)));
-  f.mix(nested);
+  f.mix(b.nested);
   f.mix(space.partial);
   f.mix(space.vertical);
   // without a grid what the coarse step of 1 mixed, so the searches saved
   // before the grid are carried on
-  f.mix(stops.size > 1 ? stops.size : 1);
-  if (stops.size > 1) {
-    for (const std::vector<std::array<int, 2>>& v : stops.offsets) {
+  f.mix(b.stops.size > 1 ? b.stops.size : 1);
+  if (b.stops.size > 1) {
+    for (const std::vector<std::array<int, 2>>& v : b.stops.offsets) {
       f.mix(static_cast<unsigned int>(v.size()));
       for (const std::array<int, 2>& o : v) {
         f.mix(o[0]);
@@ -5246,12 +5675,12 @@ std::optional<Tabled> nameSpace(const Puzzle& puzzle, const Problem& problem, co
   f.mix(space.n);
   f.mix(space.startKey);
   for (unsigned int i = 0; i < space.n; i++) {
-    for (const Cell3& c : cells[i]) {
+    for (const Cell3& c : b.cells[i]) {
       f.mix(c.x);
       f.mix(c.y);
       f.mix(c.z);
     }
-    const Place& p = initial.places[i];
+    const Place& p = b.initial.places[i];
     f.mix(p.x);
     f.mix(p.y);
     f.mix(p.z);
@@ -5268,25 +5697,22 @@ std::optional<Tabled> nameSpace(const Puzzle& puzzle, const Problem& problem, co
   if (space.compact) {
     f.mix(kCompactFormat);
   }
+  if (space.packed) {
+    f.mix(kPackedFormat);
+  }
   out.name = f.value();
   return std::nullopt;
 }
 
 // The slide search over position tables: a move is a flood fill over the
 // piece's own positions against a bit mask of the cells the others cover.
-// It goes level by level (LevelSearch). `loose`, `plainKeys` and `bothEnds`
-// choose the search (nameSpace). With `savedOnly` only a saved search is
-// carried on.
+// It goes level by level (LevelSearch). `form` chooses the search
+// (nameSpace). With `savedOnly` only a saved search is carried on.
 template <class Key>
-Tabled tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
-                   const std::vector<Cell3List>& cells, const std::vector<Cell3List>& outlines,
-                   bool nested, const SlideState& initial, const GoalCheck& goals,
-                   const StopGrid& stops, bool loose, bool plainKeys, bool savedOnly,
-                   bool bothEnds, SlideSearch& search, std::vector<SlideState>& path) {
+Tabled tableSearch(const SlideBoard& b, const TableForm& form, bool savedOnly,
+                   SlideSearch& search, std::vector<SlideState>& path) {
   NamedSpace<Key> named;
-  if (const std::optional<Tabled> no =
-          nameSpace(puzzle, problem, tray, cells, outlines, nested, initial, goals, stops, loose,
-                    plainKeys, bothEnds, search, named)) {
+  if (const std::optional<Tabled> no = nameSpace(b, form, search, named)) {
     return *no;
   }
   const SlideSpace<Key>& space = named.space;
@@ -5294,6 +5720,15 @@ Tabled tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tr
     return Tabled::NoFit;
   }
   search.looseStops = space.loose;
+  search.keyWidth = static_cast<unsigned int>(8 * sizeof(Key));
+  search.keyBits = space.keyBits;
+  search.packedKeys = space.packed;
+  if (search.onLog) {
+    search.onLog(LogLevel::Debug,
+                 "The search's arrangements take " + std::to_string(space.keyBits) +
+                     " bits of a " + std::to_string(search.keyWidth) + "-bit key" +
+                     (space.packed ? ", the copies of a piece kept as one number." : "."));
+  }
 
   std::vector<Key> chain;
   LevelSearch<Key> level(space, search, named.problemKey, named.name);
@@ -5308,21 +5743,51 @@ Tabled tableSearch(const Puzzle& puzzle, const Problem& problem, const Voxel& tr
 // Searched where it would search (with `savedOnly`, carry a saved search
 // on).
 template <class Key>
-Tabled tableProbe(const Puzzle& puzzle, const Problem& problem, const Voxel& tray,
-                  const std::vector<Cell3List>& cells, const std::vector<Cell3List>& outlines,
-                  bool nested, const SlideState& initial, const GoalCheck& goals,
-                  const StopGrid& stops, bool loose, bool plainKeys, bool savedOnly, bool bothEnds,
+Tabled tableProbe(const SlideBoard& b, const TableForm& form, bool savedOnly,
                   const SlideSearch& search) {
   NamedSpace<Key> named;
-  if (const std::optional<Tabled> no =
-          nameSpace(puzzle, problem, tray, cells, outlines, nested, initial, goals, stops, loose,
-                    plainKeys, bothEnds, search, named)) {
+  if (const std::optional<Tabled> no = nameSpace(b, form, search, named)) {
     return *no;
   }
   if (savedOnly && !SearchFolder(search.workDir, named.name).exists()) {
     return Tabled::NoFit;
   }
   return Tabled::Searched;
+}
+
+// Tries a search in each key that might hold it, the narrowest first, until
+// one does more than not fit: attempt(a tag of the key type, pack), which
+// tableSearch or tableProbe answers. What the last one tried said.
+//
+// A code for each piece in 64 bits, then in 128, as ever: those searches
+// are bit for bit what they were. Then the copies of a piece as one number
+// (packed keys, SlideSpace::Pack) in 128 bits, and in the wider keys, 192,
+// 256 and 512 bits, where a key costs more to sort and to keep. Loose stops
+// are never packed, so with them the wider keys hold a code for each piece.
+// SlideSearch::packing and minKeyBits are the A/B switches.
+template <class F>
+Tabled eachKey(const SlideSearch& search, bool loose, F&& attempt) {
+  const bool mayPack = !loose && search.packing != SlidePacking::Never;
+  const bool always = mayPack && search.packing == SlidePacking::Always;
+  Tabled done = Tabled::NoFit;
+  const auto tryKey = [&](auto key, unsigned int bits, bool pack) {
+    if (done == Tabled::NoFit && bits >= search.minKeyBits) {
+      done = attempt(key, pack);
+    }
+  };
+  tryKey(std::type_identity<std::uint64_t>{}, 64, always);
+#ifdef __SIZEOF_INT128__
+  tryKey(std::type_identity<WideKey>{}, 128, always);
+  if (mayPack && !always) {
+    tryKey(std::type_identity<WideKey>{}, 128, true);
+  }
+#else
+  tryKey(std::type_identity<BigKey<2>>{}, 128, mayPack);
+#endif
+  tryKey(std::type_identity<BigKey<3>>{}, 192, mayPack);
+  tryKey(std::type_identity<BigKey<4>>{}, 256, mayPack);
+  tryKey(std::type_identity<BigKey<8>>{}, 512, mayPack);
+  return done;
 }
 
 // What a search of a problem from a start works on. Filled in place and
@@ -5513,6 +5978,8 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   s.likePiecesApart = options.likePiecesApart;
   s.gridStopsApart = options.gridStopsApart;
   s.plainKeys = options.plainKeys;
+  s.packing = options.packing;
+  s.minKeyBits = options.minKeyBits;
   s.oneEnd = options.oneEnd;
   s.verticalMoves = options.verticalMoves;
   s.grid = options.grid > 1 ? options.grid : 0;
@@ -5671,6 +6138,9 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   const bool nested = search.nested || search.partialNested;
   search.outcome = SlideOutcome::NoPath;
   search.visited = 0;
+  search.keyWidth = 0;
+  search.keyBits = 0;
+  search.packedKeys = false;
   if (!problem.resultValid()) {
     return std::nullopt;
   }
@@ -5711,19 +6181,13 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
   std::vector<SlideState> path;
   bool searched = false;
   if (!search.legacy) {
-    // The tables in the narrow key, then in the wide one.
+    // The tables in the narrowest key that holds them (eachKey).
+    const SlideBoard board{puzzle, problem, tray, cells, outlines, nested, initial, goals, stops};
     auto table = [&](bool loose, bool plainKeys, bool savedOnly, bool bothEnds) {
-      Tabled done =
-          tableSearch<std::uint64_t>(puzzle, problem, tray, cells, outlines, nested, initial,
-                                     goals, stops, loose, plainKeys, savedOnly, bothEnds, search,
-                                     path);
-#ifdef __SIZEOF_INT128__
-      if (done == Tabled::NoFit) {
-        done = tableSearch<WideKey>(puzzle, problem, tray, cells, outlines, nested, initial, goals,
-                                    stops, loose, plainKeys, savedOnly, bothEnds, search, path);
-      }
-#endif
-      return done == Tabled::Searched;
+      return eachKey(search, loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
+               return tableSearch<Key>(board, TableForm{loose, plainKeys, pack, bothEnds},
+                                       savedOnly, search, path);
+             }) == Tabled::Searched;
     };
     // Loose stops only with nested slides: one-way moves, which the loose
     // arrangements make more of, are looked for in the levels kept, and only
@@ -5801,20 +6265,16 @@ bool savedFromStartAlone(const Puzzle& puzzle, const Problem& problem, const Ass
   }
   setup.shapes(tray, nested, search.grid);
 
-  // the tables in the narrow key, then in the wide one, as findSlidePath
-  // tries them
+  // the tables in each key, as findSlidePath tries them
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
+  const GoalCheck& goals = *setup.goals;
+  const SlideBoard board{puzzle, problem,       tray,  setup.cells, setup.outlines,
+                         nested, setup.initial, goals, setup.stops};
   auto would = [&](bool loose, bool plainKeys, bool savedOnly, bool bothEnds) {
-    Tabled done = tableProbe<std::uint64_t>(puzzle, problem, tray, setup.cells, setup.outlines,
-                                            nested, setup.initial, *setup.goals, setup.stops,
-                                            loose, plainKeys, savedOnly, bothEnds, search);
-#ifdef __SIZEOF_INT128__
-    if (done == Tabled::NoFit) {
-      done = tableProbe<WideKey>(puzzle, problem, tray, setup.cells, setup.outlines, nested,
-                                 setup.initial, *setup.goals, setup.stops, loose, plainKeys,
-                                 savedOnly, bothEnds, search);
-    }
-#endif
-    return done == Tabled::Searched;
+    return eachKey(search, loose, [&]<class Key>(std::type_identity<Key>, bool pack) {
+             return tableProbe<Key>(board, TableForm{loose, plainKeys, pack, bothEnds},
+                                    savedOnly, search);
+           }) == Tabled::Searched;
   };
   // a search saved with loose stops is one from the start alone: those
   // arrangements have no moves backwards
@@ -5855,7 +6315,7 @@ SlideBackCheck checkSlideMovesBack(const Puzzle& puzzle, const Problem& problem,
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access): a setup that was placed has its goals
   if (!space.build(tray, setup.cells, setup.outlines, nested, setup.initial, *setup.goals,
                    search.likePiecesApart, search.verticalMoves, setup.stops, false,
-                   search.plainKeys)) {
+                   search.plainKeys, search.packing == SlidePacking::Always)) {
     return out;
   }
   space.partial = nested && search.partialNested;

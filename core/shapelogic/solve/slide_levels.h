@@ -47,8 +47,10 @@ namespace bt::sliding::levels {
 /// Keys a block holds at most: few enough that one key looked up decodes
 /// little, many enough that the index is small beside the keys.
 inline constexpr unsigned int kBlockKeys = 128;
-/// The longest varint of a 128-bit gap.
-inline constexpr unsigned int kMaxVarint = 19;
+/// The longest varint of a gap between two keys: 7 bits a byte (19 bytes
+/// for a 128-bit key).
+template <class Key>
+inline constexpr unsigned int kMaxVarint = (8 * sizeof(Key) + 6) / 7;
 /// Ends a file whose index follows its blocks.
 inline constexpr char kSetMagic[8] = {'B', 'T', 'S', 'L', 'K', 'E', 'Y', '2'};
 
@@ -181,7 +183,7 @@ class KeySet {
     if (inBlock_ == 0) {
       firsts_.push_back(k);
     } else {
-      std::uint8_t v[kMaxVarint];
+      std::uint8_t v[kMaxVarint<Key>];
       const unsigned int n = putVarint(v, static_cast<Key>(k - last_));
       buf_.insert(buf_.end(), v, v + n);
     }
@@ -558,7 +560,7 @@ class KeySet {
     if (inBlock_ == 0) {
       return true;
     }
-    std::uint8_t hdr[kMaxVarint];
+    std::uint8_t hdr[kMaxVarint<unsigned int>];
     const unsigned int n = putVarint(hdr, inBlock_);
     if (out_) {
       if (std::fwrite(hdr, 1, n, out_.get()) != n ||
