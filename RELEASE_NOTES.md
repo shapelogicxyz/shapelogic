@@ -4,6 +4,16 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
+## [ShapeLogic v1.9](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.9) (17 November 2026)
+
+### What's new
+
+- **A log of what happened.** **View ▸ Log File Manager…** shows the app's log, newest first: files opened and saved, solves started, paused, continued and aborted, how they ended, and the errors. **Pretty** shows it as a table, with the date, the time, the level (green, orange or red), the source and the event in columns of their own; **Raw** shows the lines as they are in the file. Search it as you type, each match highlighted, or show only the errors and warnings. **Export…** saves all of it as a text file to send with a report of a problem, and **Clear All Log Data…** deletes it. **Settings ▸ General ▸ Debug logging** adds the sliding search's step by step lines.
+- **Bigger sliding boards on the fast search.** The fast sliding search now keeps the copies of a piece together and takes wider keys, so boards that stopped at the memory limit of the slower search now run on the fast one, with every core, the disk, both ends and the **Performance Analysis**. The command line tool has `--slide-packing` and `--slide-key-bits`.
+- **A saved sliding search that can't be carried on starts cleanly.** When a paused sliding search cannot be read back (a damaged or missing file), nothing of it is kept. Before, part of it could stay, and the solve found a longer path than the shortest.
+
+Many small bug fixes and improvements.
+
 ## [ShapeLogic v1.8.4](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.8.4) (15 November 2026)
 
 ### What's new in v1.8

@@ -162,9 +162,15 @@ started again, and every error. It helps to understand a problem
 afterwards, and to report one.
 
 **View ▸ Log File Manager…** shows it, the newest line on top, 100 lines at
-a time: **Load more messages…** shows the next 100. **Errors and warnings**
-hides everything but the errors and warnings (a full disk, say), and the
-search box keeps only the lines with what you type in them, as you type.
+a time: **Load more messages…** shows the next 100. **Pretty**, at the top
+right, shows the log as a table: the date, the time to the minute (point at
+it for the seconds), the level (INFO in green, WARN in orange, ERROR in
+red), where the line came from (the app or a window), the event (*File
+Opened*, *Solve Paused*) and the rest of the message. **Raw** shows the
+lines as they are in the file. **Errors and warnings** hides everything but
+the errors and warnings (a full disk, say), and the search box keeps only
+the lines with what you type in them, as you type, with each match
+highlighted.
 **Export…** saves all of the log as a plain text file, to attach to a
 report; **Clear All Log Data…** deletes it.
 
