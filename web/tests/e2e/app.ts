@@ -335,7 +335,17 @@ export async function shapes(page: Page): Promise<{ id: string; label: string }[
 
 /** Shows a shape and waits until its mesh is drawn in the current style. */
 export async function selectShape(page: Page, id: string): Promise<void> {
-  await page.click(`:is(#boardList, #shapeList) .row[data-id="${id}"] .chip`);
+  const row = page.locator(`:is(#boardList, #shapeList) .row[data-id="${id}"]`);
+  // a click whose row is drawn again between its press and its release
+  // reaches the list, not the row (a loaded machine running the e2e apps
+  // side by side): clicked again until the row is chosen (a second click on
+  // a chosen row does nothing)
+  await expect(async () => {
+    if (!(await row.evaluate((r) => r.classList.contains('sel')))) {
+      await row.locator('.chip').click();
+    }
+    await expect(row).toHaveClass(/\bsel\b/, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', new RegExp(`^${id}:`));
   await settle(page);
 }

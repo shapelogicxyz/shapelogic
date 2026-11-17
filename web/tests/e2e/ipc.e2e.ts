@@ -131,8 +131,10 @@ test('a reload gets a bridge of its own: the old page’s replies do not reach i
   });
   await page.reload();
   await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
-  // the new page's first calls (engine.info, settings.set, document.get) got their own replies
-  await expect(page.locator('#shapeList .row')).toHaveCount(ids.length);
+  // the new page's first calls (engine.info, settings.set, document.get) got their own replies;
+  // they wait behind the 300 meshes (about 11 s on a quiet machine, more beside the other
+  // e2e apps), so this waits longer than the usual 15 s
+  await expect(page.locator('#shapeList .row')).toHaveCount(ids.length, { timeout: 60_000 });
   await expect(page.locator('#fname')).toHaveText('DraculasDentalDesaster.xmpuzzle');
   await expect(page.locator('#vp')).toHaveAttribute('data-shown', /^s\d+:drawing$/);
   expect(errors).toEqual([]);
