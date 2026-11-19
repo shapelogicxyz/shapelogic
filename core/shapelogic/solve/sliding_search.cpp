@@ -6631,8 +6631,16 @@ PlayStart playStart(const Puzzle& puzzle, const Problem& problem) {
   }
   const std::vector<LayoutPiece> list = layoutPieces(problem);
   for (std::size_t i = 0; i < list.size(); i++) {
-    out.pieces.push_back(
-        {list[i].shapeId, (*at)[i], layoutCells(*b.pieces[i], TrayCell{0, 0, 0})});
+    // the lowest corner in the shape's own grid: its cells are from the hotspot
+    const Voxel& v = *b.pieces[i];
+    Cell3 low = b.cells[i].front();
+    for (const Cell3& c : b.cells[i]) {
+      low = {std::min(low.x, c.x), std::min(low.y, c.y), std::min(low.z, c.z)};
+    }
+    out.pieces.push_back({list[i].shapeId,
+                          (*at)[i],
+                          layoutCells(v, TrayCell{0, 0, 0}),
+                          TrayCell{low.x + v.getHx(), low.y + v.getHy(), low.z + v.getHz()}});
   }
   const GoalCheck goals(puzzle, problem, b.pieces);
   out.hasGoal = b.hasGoal;

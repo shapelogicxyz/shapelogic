@@ -82,7 +82,7 @@ describe('the keyboard map', () => {
         seen.set(k, action);
       }
     }
-    expect(seen.size).toBe(43);
+    expect(seen.size).toBe(44);
   });
 
   it('matches Ctrl or Cmd, by key or by physical key, Shift free', () => {
@@ -188,6 +188,7 @@ describe('the keyboard map', () => {
         'Shapes (shapes list)',
         'Puzzle',
         'Solver (focus on the solutions list, solution slider or move seekbar)',
+        'Play (a sliding puzzle played by hand)',
         'Explorers (Solver; focus in the explorer below the 3D view)',
         'Dialogs and menus',
       ],

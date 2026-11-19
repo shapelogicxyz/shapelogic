@@ -19,6 +19,10 @@ puzzle itself is not changed.
 An item is greyed out when there is nothing for it to export, for example
 **Solution Animation** before a solution is chosen.
 
+The moves of a sliding puzzle played by hand are exported from the
+[Play tab](/docs/play-tab/) itself (**Export moves…**, a `.slmoves` file),
+not from this menu.
+
 ## Puzzlecad (OpenSCAD)…
 
 Writes pieces as a file for **Puzzlecad**, the OpenSCAD library for

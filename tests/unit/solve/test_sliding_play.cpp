@@ -212,6 +212,13 @@ TEST_CASE("sliding play: a game starts where the starts put the pieces", "[slidi
       covered++;
     }
     CHECK(layoutCells(puz.getShape(p.shapeId), p.at).size() == p.cells.size());
+    // the corner in the shape's own grid: its cells there are the piece's
+    const Voxel& shape = puz.getShape(p.shapeId);
+    for (const TrayCell& c : p.cells) {
+      CHECK(shape.getState(static_cast<unsigned int>(p.origin[0] + c[0]),
+                           static_cast<unsigned int>(p.origin[1] + c[1]),
+                           static_cast<unsigned int>(p.origin[2] + c[2])) != kEmpty);
+    }
   }
   std::size_t marked = 0;
   for (unsigned int i = 0; i < tray.getXYZ(); i++) {

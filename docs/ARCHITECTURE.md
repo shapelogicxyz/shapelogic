@@ -615,6 +615,18 @@ one).
   through corridors (its corners) and the player's driver following it;
   `finalPlacementKey`: two solutions that end alike are one (the shorter
   kept, in its place).
+- `sliding_play.h` (decision 0039, this program's own): a sliding puzzle
+  played by hand, asked one position at a time with no game kept:
+  `playStart` (the pieces where the starts put them, or why the problem
+  cannot be played), `playReach` (where one move can take a piece, alone
+  and with what is nested in it, and which stops give the goal),
+  `playReplay` (a list of moves made, each with its route, to the first
+  that cannot be). Defined at the end of `sliding_search.cpp` over the
+  search's own `reachableShifts`, `fewestTurns`, `nestedGroup` and
+  `GoalCheck`. A position is a layout of model's `sliding.h`
+  (`layoutPieces`, `startLayout`, `layoutRefusal`, `layoutMarks`,
+  `setLayout`): for each piece the lowest corner of its cells on the
+  board, which no hotspot moves.
 - In `SolveSession`, a sliding problem runs as the solve thread ran it:
   the assembler (Classic; mirrors and rotations kept, the pieces held to
   their start marks, decision 0021) finds the start layouts and each is searched
@@ -880,7 +892,8 @@ original GUI (`mainwindow.cpp`'s callbacks, `shapehistory.cpp`,
   rules for edits while solving are decision 0011; they hold while an
   analysis runs too (`solving()` covers both). Sliding puzzles (decision
   0014; `document_sliding.cpp`): `addStartGoal`, `placeStamp` (the
-  editor's click), `clearStampAt`, `cloneStamps`, each on one problem's
+  editor's click), `clearStampAt`, `cloneStamps`, `setSlideLayout` (a
+  position as the starts or the goals, decision 0039), each on one problem's
   starts and goals (decision 0027; an edit of a board keeps, in every
   problem on it, the stamps whose cells survive and removes the others
   with a notice); `slideFromStartAlone` (whether a paused problem's saved
@@ -1033,7 +1046,8 @@ schema in `api/`, documented in the generated `docs/API.md`.
   explorer names the grid's directions by label and by step, `vectors`:
   a prism's x step is 2), sliding puzzles (`sliding.*`: the start/goal
   editor's actions and reads; `sliding.resumeAdvice`, what Continue
-  would carry on; a sliding solve's options in
+  would carry on; `sliding.playStart`, `playReach`, `playReplay` and
+  `setLayout`, a puzzle played by hand, decision 0039; a sliding solve's options in
   `SolveOptions.sliding`, its note in `solve.status`; `Settings`'
   `slideFolder` and `slideDiskGB`, the original's SHAPELOGIC_SLIDE_DIR and
   SHAPELOGIC_SLIDE_DISK_GB, go into every sliding solve's options),
@@ -1526,6 +1540,8 @@ What exists after stage 8:
     piece's picture fetched once per hash with `shape.imageData` and
     decoded once, as a data URL for the 2D grid and a bitmap for the 3D
     views; the map from its pixels to the cells, and Crop's part),
+    `layout.ts` (`setWorkspaceShown`: the Play workspace is in the rail
+    only while a sliding puzzle is open, decision 0039),
     `dom.ts` (with `setHtml`, which leaves a list's elements alone when a
     re-render would draw the same, so a double-click whose first click
     re-rendered still lands, and `markSelected`). `keys.ts` has the
@@ -2082,6 +2098,18 @@ Continue and the search carried on to its 2,189 transfers; the rod sets'
 commands, the rules' dependencies, frozen while solving, Abort of a
 saved search; reference screenshots of the board, the rod set and the
 player).
+
+The Play workspace (`renderer/play/`, decision 0039; shown only for a
+sliding puzzle): `workspace.ts` (the card, the banner, Undo and Redo, the
+playback, Save position as Start or Goal, the moves file; it reads
+`sliding.playStart` after every change of the document and keeps a game
+for each problem), `board.ts` (the SVG board: whole pieces that are
+dragged over the stops `sliding.playReach` gave and drawn along the
+routes `sliding.playReplay` gave), and the DOM-free `game.ts` (the moves,
+the place in them, the merge of a piece moved again), `follow.ts` (the
+drag's steps, a route's points) and `moves-file.ts` (`.slmoves`: written,
+read, matched to a board and start). Tests: `tests/unit/renderer/play.test.ts`,
+`tests/e2e/play.e2e.ts`.
 
 ## Testing against the original
 

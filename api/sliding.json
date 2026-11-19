@@ -267,9 +267,10 @@
               "properties": {
                 "piece": {"$ref": "types.json#/$defs/ShapeId"},
                 "at": {"$ref": "types.json#/$defs/Cell", "description": "Where it starts: the lowest corner of its cells."},
-                "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}, "description": "The cells it fills, from that corner (none negative)."}
+                "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}, "description": "The cells it fills, from that corner (none negative)."},
+                "origin": {"$ref": "types.json#/$defs/Cell", "description": "That corner in the shape's own grid: a cell [x, y, z] of 'cells' is the shape's cell origin + [x, y, z]. It places the shape's picture (ShapeImage.box, in the grid's cells) on the piece."}
               },
-              "required": ["piece", "at", "cells"],
+              "required": ["piece", "at", "cells", "origin"],
               "additionalProperties": false
             }
           },

@@ -47,6 +47,9 @@ struct PlayPiece {
   unsigned int shapeId = 0;     ///< its shape
   TrayCell at{};                ///< where it starts: the lowest corner of its cells
   std::vector<TrayCell> cells;  ///< the cells it fills, from that corner
+  /// That corner in the shape's own grid: what places the shape's picture,
+  /// whose box is in the grid's cells, on the piece.
+  TrayCell origin{};
 };
 
 /// How a game of a problem starts.

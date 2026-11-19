@@ -178,7 +178,9 @@ Chrome (`--headed` shows it).
   `editor-state.ts`, `glyphs.ts`), `puzzle/` (the Puzzle workspace),
   `solver/` (the Solver workspace: `workspace.ts`, `run-card.ts`,
   `solutions-card.ts`, `player.ts`, `poses.ts`, `pager.ts`, `settings.ts`,
-  `autosave.ts`).
+  `autosave.ts`), `play/` (the Play workspace, a sliding puzzle played by
+  hand: `workspace.ts`, `board.ts`, `game.ts`, `follow.ts`,
+  `moves-file.ts`).
 - `tools/`: `gen-api.ts` (the types), `sessions.ts` and
   `record-sessions.ts` (the recorded sessions), `dist.ts` (the packaged
   app), `project-version.ts` (the project's version, from the git tag).

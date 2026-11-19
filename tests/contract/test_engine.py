@@ -1441,8 +1441,9 @@ def sliding_play(e):
           all(c["state"] == "fixed" for c in start["board"]["cells"]), f"the floor {start['board']}")
     check(start["goals"] == [{"piece": one, "cells": [[2, 1, 0]]}], f"the goals {start['goals']}")
     pieces = {x["piece"]: x for x in start["pieces"]}
-    check(len(start["pieces"]) == 2 and pieces[one] == {"piece": one, "at": [0, 1, 0], "cells": [[0, 0, 0]]}
-          and pieces[two] == {"piece": two, "at": [0, 0, 0], "cells": [[0, 0, 0], [1, 0, 0]]},
+    check(len(start["pieces"]) == 2 and
+          pieces[one] == {"piece": one, "at": [0, 1, 0], "cells": [[0, 0, 0]], "origin": [0, 0, 0]} and
+          pieces[two] == {"piece": two, "at": [0, 0, 0], "cells": [[0, 0, 0], [1, 0, 0]], "origin": [0, 0, 0]},
           f"the pieces {start['pieces']}")
     places = [x["at"] for x in start["pieces"]]
     i_one = [x["piece"] for x in start["pieces"]].index(one)

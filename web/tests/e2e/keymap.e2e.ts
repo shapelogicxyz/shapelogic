@@ -31,6 +31,7 @@ import {
   settle,
 } from './app.ts';
 import type { App } from './app.ts';
+import { drag, expectGame, STAGE, toPlay } from './play.ts';
 import { confirm, runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -63,6 +64,8 @@ const MOUSE: Readonly<Record<string, string>> = {
   'Solver|@Double-click a row': 'solver.e2e.ts',
   'Solver|@Click a column header': 'solver.e2e.ts: sorted every way',
   'Solver|@Orbit or click in the 3D view': 'solver.e2e.ts',
+  'Play|@Drag a piece': 'play.e2e.ts: drags, the count, Solved!, undo and redo',
+  'Play|Shift+@Drag a piece': 'play.e2e.ts: with nested slides a piece carries what is nested',
   'Explorers|@Alt-drag a piece in the 3D view': 'explore.e2e.ts: an Alt-drag’s matching move',
 };
 
@@ -100,9 +103,24 @@ async function settled(page: Page): Promise<void> {
 /** Opens a fixture (again, if something else or a changed copy is open) in a workspace. */
 async function use(
   c: Ctx,
-  state: 'bermuda' | 'six' | 'bermuda-solved' | 'bermuda-prepared',
+  state: 'bermuda' | 'six' | 'bermuda-solved' | 'bermuda-prepared' | 'play',
 ): Promise<void> {
   const { page } = c;
+  if (state === 'play') {
+    // the 81-move sliding puzzle in the Play workspace, two moves made
+    if (c.state !== state) {
+      await openFixture(page, 'test_sliding_solver.xmpuzzle');
+      c.state = state;
+      await toPlay(page);
+      await drag(page, '1,1,0', [[0, -1]]);
+      await drag(page, '2,1,0', [[0, -1]]);
+    }
+    await expect(stage(page)).toHaveAttribute('data-tab', 'play');
+    await page.locator('#playBoard').focus();
+    await page.keyboard.press('Shift+ArrowRight');
+    await expectGame(page, 2, 2, false);
+    return;
+  }
   if (c.state !== state || (await page.getAttribute('#stage', 'data-dirty')) === '1') {
     await openFixture(page, state === 'six' ? 'SolidSixPieceBurrs.xmpuzzle' : 'Bermuda.xmpuzzle');
     c.state = state;
@@ -134,16 +152,27 @@ async function drawerClosed(page: Page): Promise<void> {
 
 /** The scenarios, by row id. */
 const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
-  'Everywhere|Ctrl+1 / Ctrl+2 / Ctrl+3': async (c) => {
+  'Everywhere|Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4': async (c) => {
     await use(c, 'bermuda');
     for (const [k, t] of [
       ['2', 'puzzle'],
       ['3', 'solver'],
+      // Play is for a sliding puzzle: no tab here, and the key does nothing
+      ['4', 'solver'],
       ['1', 'entities'],
     ] as const) {
       await c.page.keyboard.press(`Control+${k}`);
       await expect(stage(c.page)).toHaveAttribute('data-tab', t);
     }
+    await expect(c.page.locator('.rbtn[data-tab=play]')).toHaveCount(0);
+    // a sliding puzzle has the tab, and the key opens it
+    await openFixture(c.page, 'test_sliding_solver.xmpuzzle');
+    c.state = '';
+    await c.page.keyboard.press('Control+4');
+    await expect(stage(c.page)).toHaveAttribute('data-tab', 'play');
+    await expect(c.page.locator(STAGE)).toHaveAttribute('data-game', '1');
+    await c.page.keyboard.press('Control+1');
+    await expect(stage(c.page)).toHaveAttribute('data-tab', 'entities');
   },
   'Everywhere|F1': async (c) => {
     await c.page.keyboard.press('F1');
@@ -560,6 +589,63 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.p),
     ).toBe(first);
     await page.click('#slvShowAll');
+  },
+
+  'Play|Ctrl+Z / Shift+Ctrl+Z': async (c) => {
+    await use(c, 'play');
+    const { page } = c;
+    const revision = await page.getAttribute('#stage', 'data-revision');
+    await page.keyboard.press('Control+z');
+    await expectGame(page, 2, 1, false);
+    await page.keyboard.press('Control+z');
+    await expectGame(page, 2, 0, false);
+    await page.keyboard.press('Control+Shift+z');
+    await expectGame(page, 2, 1, false);
+    // the game's moves, not the document's steps
+    await expect(stage(page)).toHaveAttribute('data-revision', revision ?? '');
+  },
+  'Play|← / →': async (c) => {
+    await use(c, 'play');
+    const { page } = c;
+    await page.keyboard.press('ArrowLeft');
+    await expectGame(page, 2, 1, false);
+    await page.keyboard.press('ArrowRight');
+    await expectGame(page, 2, 2, false);
+  },
+  'Play|Shift+← / Shift+→': async (c) => {
+    await use(c, 'play');
+    const { page } = c;
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expectGame(page, 2, 0, false);
+    await expect(page.locator('.pl-piece[data-at="1,1,0"]')).toHaveCount(1);
+    await page.keyboard.press('Shift+ArrowRight');
+    await expectGame(page, 2, 2, false);
+    await expect(page.locator('.pl-piece[data-at="1,0,0"]')).toHaveCount(1);
+  },
+  'Play|Space': async (c) => {
+    await use(c, 'play');
+    const { page } = c;
+    // at the end: Space plays the moves again from the Start
+    await page.keyboard.press(' ');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-playing', 'false');
+    await expectGame(page, 2, 2, false);
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expectGame(page, 2, 0, false);
+    await page.keyboard.press(' ');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-playing', 'true');
+    // and pauses
+    await page.keyboard.press(' ');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-playing', 'false');
+  },
+  'Play|Esc': async (c) => {
+    await use(c, 'play');
+    const { page } = c;
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expectGame(page, 2, 0, false);
+    await page.keyboard.press(' ');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-playing', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.locator(STAGE)).toHaveAttribute('data-playing', 'false');
   },
 
   'Explorers|↑ / ↓ · ← / →': async (c) => {

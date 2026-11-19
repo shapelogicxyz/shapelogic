@@ -7,7 +7,9 @@
 // own layout), `renderRail` (Entities, Puzzle, Solver), and the collapse
 // buttons and rails of the cards (`[data-collapse]`, `.crail`). The
 // layouts are kept across sessions (stage 6: persist.ts). The 2D
-// editor's focus (`f2d`) comes with the editor in stage 2.
+// editor's focus (`f2d`) comes with the editor in stage 2. The Play
+// workspace (decision 0039) is in the rail only while a sliding puzzle is
+// open (`setWorkspaceShown`).
 
 import { $$, byId } from './dom.ts';
 import { addEscapeStep, ESC_ORDER } from './escape.ts';
@@ -15,7 +17,7 @@ import { ic } from './icons.ts';
 import type { IconName } from './icons.ts';
 
 /** A workspace of the rail. */
-export type Workspace = 'entities' | 'puzzle' | 'solver';
+export type Workspace = 'entities' | 'puzzle' | 'solver' | 'play';
 
 /** The layout of the workspace shown. */
 export const layout = { lc: false, rc: false, focus: '' as '' | '2d' | '3d' };
@@ -30,7 +32,37 @@ const RAIL: readonly [Workspace, string, IconName, string][] = [
   ['entities', 'Shapes', 'cube', 'Shapes — create and edit shapes'],
   ['puzzle', 'Puzzle', 'puzzle', 'Puzzle — choose the result, the pieces and the rules'],
   ['solver', 'Solver', 'play', 'Solver — run and browse solutions'],
+  ['play', 'Play', 'hand', 'Play — slide the pieces yourself'],
 ];
+
+// the workspaces left out of the rail: Play, until a sliding puzzle is open
+const hidden = new Set<Workspace>(['play']);
+
+/** Whether a workspace is in the rail. */
+export function workspaceShown(w: Workspace): boolean {
+  return !hidden.has(w);
+}
+
+/**
+ * Puts a workspace in the rail or takes it out (Play: only a sliding
+ * puzzle is played). One taken out while it is shown gives way to Shapes.
+ */
+export function setWorkspaceShown(w: Workspace, shown: boolean): void {
+  if (shown === !hidden.has(w)) {
+    return;
+  }
+  if (shown) {
+    hidden.delete(w);
+  } else {
+    hidden.add(w);
+  }
+  if (!shown && tab === w) {
+    setTab('entities');
+  } else {
+    renderRail();
+    applyLayout();
+  }
+}
 
 /** Listens to layout and workspace changes. */
 export function onLayout(listener: () => void): () => void {
@@ -70,14 +102,19 @@ export function applyLayout(): void {
 }
 
 function renderRail(): void {
-  byId('appRail').innerHTML = RAIL.map(
-    ([id, n, icon, title]) =>
-      `<button class="rbtn ${tab === id ? 'on' : ''}" data-tab="${id}" title="${title}" aria-pressed="${tab === id}">${ic(icon, 22)}<span>${n}</span></button>`,
-  ).join('');
+  byId('appRail').innerHTML = RAIL.filter(([id]) => !hidden.has(id))
+    .map(
+      ([id, n, icon, title]) =>
+        `<button class="rbtn ${tab === id ? 'on' : ''}" data-tab="${id}" title="${title}" aria-pressed="${tab === id}">${ic(icon, 22)}<span>${n}</span></button>`,
+    )
+    .join('');
 }
 
 /** Shows a workspace, with the layout it had. */
 export function setTab(t: Workspace): void {
+  if (hidden.has(t)) {
+    return;
+  }
   remembered[tab] = { lc: layout.lc, rc: layout.rc };
   tab = t;
   byId('stage').dataset.tab = t;
@@ -110,7 +147,7 @@ export function layoutState(): Record<string, unknown> {
   return { tab, cards: { ...remembered, [tab]: { lc: layout.lc, rc: layout.rc } } };
 }
 
-const WORKSPACES: readonly Workspace[] = ['entities', 'puzzle', 'solver'];
+const WORKSPACES: readonly Workspace[] = ['entities', 'puzzle', 'solver', 'play'];
 
 /** Takes back the layouts a session kept (what is not well formed is left out). */
 export function restoreLayout(saved: Record<string, unknown>): void {
@@ -127,7 +164,8 @@ export function restoreLayout(saved: Record<string, unknown>): void {
     }
   }
   const t = saved.tab;
-  const shown = WORKSPACES.find((w) => w === t) ?? tab;
+  // a workspace out of the rail (Play, before any puzzle is open) is not gone back to
+  const shown = WORKSPACES.find((w) => w === t && !hidden.has(w)) ?? tab;
   // setTab keeps the layout of the workspace it leaves: the one restored for it
   const keep = remembered[tab];
   if (keep !== undefined) {
@@ -160,6 +198,7 @@ export function installLayout(): void {
   const rails: [string, 'L' | 'R', string, string][] = [
     ['#leftP', 'L', 'Puzzle problems', 'Problems'],
     ['#leftS', 'L', 'Solver', 'Solver'],
+    ['#leftPl', 'L', 'Play', 'Play'],
     ['#rightP', 'R', 'Selected piece', 'Selected piece'],
     ['#rightS', 'R', 'Solutions', 'Solutions'],
   ];

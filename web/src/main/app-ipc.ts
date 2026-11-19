@@ -114,6 +114,12 @@ export const KINDS: Readonly<
     filter: { name: 'glTF Binary', extensions: ['glb'] },
     title: 'Export Solution Animation',
   },
+  // the moves of a sliding puzzle played by hand (decision 0039)
+  moves: {
+    ext: '.slmoves',
+    filter: { name: 'ShapeLogic Moves', extensions: ['slmoves'] },
+    title: 'Export Moves',
+  },
   // deferred part 6: mainwindow_file.cpp's choosers
   ps3d: {
     ext: '.puz',

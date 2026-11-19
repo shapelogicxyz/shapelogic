@@ -3348,6 +3348,12 @@ export interface Methods {
         at: Cell;
         /** The cells it fills, from that corner (none negative). */
         cells: Cell[];
+        /**
+         * That corner in the shape's own grid: a cell [x, y, z] of 'cells' is the shape's cell
+         * origin + [x, y, z]. It places the shape's picture (ShapeImage.box, in the grid's cells)
+         * on the piece.
+         */
+        origin: Cell;
       })[];
       /**
        * Each goal stamped, a whole piece, with its board cells (goals that are not whole pieces

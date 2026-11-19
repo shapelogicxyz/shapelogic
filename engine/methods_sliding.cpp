@@ -363,7 +363,8 @@ Reply slidingPlayStart(State& s, Params& p) {
     }
     pieces.push_back(Json{{"piece", shapeId(s, piece.shapeId)},
                           {"at", tripleJson(piece.at)},
-                          {"cells", std::move(cells)}});
+                          {"cells", std::move(cells)},
+                          {"origin", tripleJson(piece.origin)}});
   }
   return Json{{"error", start.error.empty() ? Json(nullptr) : Json(start.error)},
               {"board", std::move(board)},

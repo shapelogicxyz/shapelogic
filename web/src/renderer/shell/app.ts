@@ -15,6 +15,7 @@ import { Exports } from '../export/exports.ts';
 import type { AnimationSource } from '../export/exports.ts';
 import { StatusWindow } from '../entities/status-window.ts';
 import { entitiesStatus, EntitiesWorkspace } from '../entities/workspace.ts';
+import { PlayWorkspace } from '../play/workspace.ts';
 import { PuzzleWorkspace } from '../puzzle/workspace.ts';
 import { CacheLinker } from '../solver/cache-links.ts';
 import { openToShapes } from '../solver/to-shapes.ts';
@@ -75,7 +76,12 @@ function animationSource(solver: SolverWorkspace): AnimationSource | null {
   };
 }
 
-function statusLine(store: Store, puzzle: PuzzleWorkspace, solver: SolverWorkspace): string {
+function statusLine(
+  store: Store,
+  puzzle: PuzzleWorkspace,
+  solver: SolverWorkspace,
+  play: PlayWorkspace,
+): string {
   const s = store.status;
   if (s === null) {
     return 'Starting the engine…';
@@ -93,7 +99,9 @@ function statusLine(store: Store, puzzle: PuzzleWorkspace, solver: SolverWorkspa
     ? puzzle.statusLine()
     : tab === 'solver'
       ? solver.statusLine()
-      : entitiesStatus(store);
+      : tab === 'play'
+        ? play.statusLine()
+        : entitiesStatus(store);
 }
 
 // the grid of the document in the voxel editor's header (the mockup's
@@ -119,6 +127,7 @@ export function startApp(saved: StoredState = {}): {
   entities: EntitiesWorkspace;
   puzzle: PuzzleWorkspace;
   solver: SolverWorkspace;
+  play: PlayWorkspace;
 } {
   const app = window.btApp;
   if (saved.prefs !== undefined) {
@@ -238,6 +247,12 @@ export function startApp(saved: StoredState = {}): {
       setTab('entities');
     },
   });
+  // a sliding puzzle played by hand (decision 0039)
+  const play = new PlayWorkspace(store, edits, app, {
+    get name() {
+      return files.name;
+    },
+  });
   solver.exportStl = (problem, row) => {
     void exports.solutionStl(problem, row);
   };
@@ -327,13 +342,14 @@ export function startApp(saved: StoredState = {}): {
               !isActive(solver.stateOf(p.id)),
           };
     },
+    playHistory: () => play.history(),
   });
   // the Solver's problem and its solve change the menus too: look now and then
   window.setInterval(() => {
     menus.update();
   }, 1000);
 
-  setStatusProvider(() => statusLine(store, puzzle, solver));
+  setStatusProvider(() => statusLine(store, puzzle, solver, play));
   store.subscribe((c) => {
     if (c.kind === 'status' || c.kind === 'document' || c.kind === 'selection') {
       updateStatus(c.kind === 'status');
@@ -377,6 +393,11 @@ export function startApp(saved: StoredState = {}): {
     setTab('solver');
     return true;
   });
+  // only while a sliding puzzle is open: the tab is in the rail then
+  onKey('workspace.play', () => {
+    setTab('play');
+    return true;
+  });
   onKey('settings', () => {
     openSettings();
     return true;
@@ -400,5 +421,5 @@ export function startApp(saved: StoredState = {}): {
   onKey('escape', stepBack);
   installKeyboard();
   autoCheck(app);
-  return { store, view, entities, puzzle, solver };
+  return { store, view, entities, puzzle, solver, play };
 }

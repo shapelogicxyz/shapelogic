@@ -28,7 +28,8 @@ original GUI decides (section 7).
   About. (Section 7 lists what the menus must offer.)
 - **Workspace rail:** Entities (`Ctrl+1`), Puzzle (`Ctrl+2`), Solver (`Ctrl+3`);
   centred in the top bar (the default) or a rail down the left side (Main
-  tab bar location).
+  tab bar location). While a sliding puzzle is open a fourth, **Play**
+  (`Ctrl+4`), follows Solver (section 8.5, decision 0039).
 - **Body:** each workspace has a left card, the **3D view** in the centre and
   a right card. Cards collapse to narrow rails (`Ctrl+[`, `Ctrl+]`); the 3D
   view can take focus (its Focus button, View ▸ Toggle 3D). Layout is remembered per workspace.
@@ -248,7 +249,7 @@ it all).
 
 | Where | Keys | Action |
 |---|---|---|
-| Everywhere | Ctrl+1 / 2 / 3 | Entities / Puzzle / Solver |
+| Everywhere | Ctrl+1 / 2 / 3 / 4 | Entities / Puzzle / Solver / Play (a sliding puzzle) |
 | | F1 | keyboard shortcuts |
 | | Ctrl+N / Ctrl+O, Ctrl+S / Shift+Ctrl+S, Ctrl+W | new, open; save, save as; close the window (the File menu, stage 6) |
 | | Shift+Ctrl+N | File ▸ New Window (decision 0036) |
@@ -275,6 +276,10 @@ it all).
 | | ↑ / ↓, Home / End, PgUp / PgDn | previous / next, first / last, 8 back / forward |
 | | Del | remove the selected solution (asks) |
 | | double-click row, click header | select and play, sort (again to reverse) |
+| Play | drag a piece, Shift+drag | slide it, anywhere it can reach one move; carry what is nested first |
+| | Ctrl+Z / Shift+Ctrl+Z | undo / redo a move of the game |
+| | ← / →, Shift+← / Shift+→ | one move back / forward, to the Start / the last move |
+| | Space, Esc | play / pause the moves, pause |
 | Dialogs | Esc, Enter, Space | close, commit, toggle |
 
 ## 7. Gaps: needed but not in the mockup
@@ -524,6 +529,45 @@ where the problem's counts are.
   order); a new sliding puzzle starts empty (add pieces with + New Piece,
   then a board with + New Board, then on the Puzzle workspace a problem
   with + New and the board with Change…).
+
+### 8.5 Play workspace (decision 0039)
+This program's own: the original has no way to play a puzzle.
+- **The tab** is in the rail, after Solver, only while a sliding puzzle is
+  open; with another puzzle `Ctrl+4` does nothing, and a Play tab shown
+  when another puzzle is opened gives way to Shapes.
+- **Left card "Play":** the problems (the Solver's list), with the pieces'
+  count and "play to the Goal" or "no Goal: free play"; **Game** (the
+  moves made, Restart, asked first); **Position** (Save position as Start,
+  Save position as Goal: `sliding.setLayout`, every piece, asked first
+  when the problem has solutions or a paused solve; refused while a solve
+  runs); **Moves file** (Export moves…, Import moves…, `.slmoves`).
+- **Centre:** the board over the 3D view, drawn from `sliding.playStart`
+  (the floor in the board's chequer, corridors dashed, each goal tinted
+  under the pieces and outlined over them, each piece with its name and
+  picture); **Undo** and **Redo** right beside the board; the banner
+  "Solved! — n moves" when the problem has goals and the position shown
+  is the goal ("The Start is the Goal already" at move 0); a Z layer strip
+  on a deeper board; the playback bar below (to the Start, back, play or
+  pause, forward, to the last move, a seekbar, "Move i of n").
+- **A drag:** the press asks `sliding.playReach` once; the piece follows
+  the pointer over the stops, a step at a time, and a release somewhere
+  new is a move. The same pieces dragged again go on with their move;
+  back where the move began, the move is gone. With nested slides stored
+  for the problem the piece moves alone when it can step that way, else
+  with what is nested in it; Shift carries first. Pieces stay in their
+  layer.
+- **Undo, Redo, playback:** one place in the game's moves; a step is
+  drawn along its route (`sliding.playReplay`). `Ctrl+Z` and
+  `Shift+Ctrl+Z` are the game's here, and Edit names them Undo Move and
+  Redo Move.
+- **A problem that cannot be played** (no board, a piece without a start
+  for every copy): the engine's reason and Go to Puzzle.
+- **The moves file** is taken for the same board and start only, and when
+  every move can be made; otherwise a message box says what is wrong
+  ("Move 12 of 37 cannot be made here: …").
+- The game is kept for each problem while the document is open, not in
+  the puzzle's file; after a change of the document a game of the same
+  start is checked again and goes on.
 
 ## 9. Stacking and Panex puzzles (deferred part 4)
 

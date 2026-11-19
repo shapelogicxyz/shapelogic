@@ -19,6 +19,9 @@ The File ▸ Import menu has three items:
 | **Puzzlecad (OpenSCAD)…** | a Puzzlecad OpenSCAD file (`.scad`) | a brick puzzle with one problem |
 | **Paused Solver State…** | a ShapeLogic paused solve (`.slsolve`) | the puzzle, ready to carry on its solve |
 
+A moves file of a sliding puzzle played by hand (`.slmoves`) is read on
+the [Play tab](/docs/play-tab/) (**Import moves…**), not from this menu.
+
 ## BurrTools puzzles: use File ▸ Open
 
 BurrTools puzzle files (`.xmpuzzle`) need no import: open them with **File ▸

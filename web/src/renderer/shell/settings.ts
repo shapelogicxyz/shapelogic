@@ -238,7 +238,7 @@ const SET: readonly Page[] = [
       {
         k: 'tabsAt',
         t: 'Main tab bar location',
-        d: 'Where the Shapes, Puzzle and Solver tabs are: Top centers them in the top bar, beside the puzzle’s name; Left keeps them in a rail down the left side of the window.',
+        d: 'Where the Shapes, Puzzle, Solver and Play tabs are: Top centers them in the top bar, beside the puzzle’s name; Left keeps them in a rail down the left side of the window.',
         type: 'seg',
         opts: ['Top', 'Left'],
       },

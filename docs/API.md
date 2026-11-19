@@ -1557,6 +1557,7 @@ Result:
 | `pieces.piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
 | `pieces.at` | [Cell](#cell) | required | Where it starts: the lowest corner of its cells. |
 | `pieces.cells` | [Cell](#cell)[] | required | The cells it fills, from that corner (none negative). |
+| `pieces.origin` | [Cell](#cell) | required | That corner in the shape's own grid: a cell [x, y, z] of 'cells' is the shape's cell origin + [x, y, z]. It places the shape's picture (ShapeImage.box, in the grid's cells) on the piece. |
 
 `goals`:
 

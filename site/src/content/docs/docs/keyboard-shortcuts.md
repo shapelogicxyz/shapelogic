@@ -34,6 +34,7 @@ instead, or change the desktop's window-moving key in its settings.
 | Action | Windows and Linux | macOS |
 |---|---|---|
 | Switch to Shapes / Puzzle / Solver | `Ctrl+1` / `Ctrl+2` / `Ctrl+3` | `⌘1` / `⌘2` / `⌘3` |
+| Switch to Play (a sliding puzzle) | `Ctrl+4` | `⌘4` |
 | Keyboard shortcuts (this list) | `F1` | `F1` |
 | Settings | `Ctrl+,` | `⌘,` |
 | Collapse or expand the left / right card | `Ctrl+[` / `Ctrl+]` | `⌘[` / `⌘]` |
@@ -131,6 +132,20 @@ the Solutions card. See [Solver Tab Options](/docs/solver-tab/).
 | Select a solution and play it | Double-click its row | Double-click its row |
 | Sort the list; again to reverse | Click a column header | Click a column header |
 | Piece chip: cycle solid, wireframe, hidden / move between chips | `Space` or `Enter` / `←` `→` | `Space` or `Return` / `←` `→` |
+
+## Play tab
+
+For a sliding puzzle played by hand. See [Play Tab](/docs/play-tab/).
+
+| Action | Windows and Linux | macOS |
+|---|---|---|
+| Slide a piece: anywhere it can reach is one move | Drag it | Drag it |
+| Nested slides: carry what is nested in the piece first | `Shift`+drag | `Shift`+drag |
+| Undo / redo a move | `Ctrl+Z` / `Shift+Ctrl+Z` | `⌘Z` / `Shift+⌘Z` |
+| One move back / forward | `←` / `→` | `←` / `→` |
+| Back to the Start / to the last move | `Shift+←` / `Shift+→` | `Shift+←` / `Shift+→` |
+| Play / pause the moves | `Space` | `Space` |
+| Pause the playback | `Esc` | `Esc` |
 
 ## Explorers
 

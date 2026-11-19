@@ -151,3 +151,12 @@ fewest moves. The **Solutions** list shows the number of moves, and the
 The search options include nested slides and partially nested slides, which
 let a piece carry another inside it. **Solve** and **Prepare** stay off while
 the start and goal are invalid, with the reason in the button's tooltip.
+
+## Play: slide the pieces yourself
+
+A sliding puzzle has a **Play** tab to the right of Solver. Pick a problem
+and drag its pieces over the board: moves are counted as the Solver counts
+them, the board says **Solved!** at the Goal, and your moves can be undone,
+played back, exported for someone else and imported again. The position on
+the board can also be saved as the problem's Start or Goal. See
+[Play Tab](/docs/play-tab/).

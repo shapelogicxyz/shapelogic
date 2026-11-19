@@ -316,7 +316,7 @@ export type FileKind = OpenKind | ExportKind;
 export type OpenKind = 'puzzle' | 'paused' | 'ps3d' | 'scad';
 
 /** The kinds of file an export writes (through `writeExport`). */
-export type ExportKind = 'image' | 'vector' | 'stl' | 'glb' | 'scad';
+export type ExportKind = 'image' | 'vector' | 'stl' | 'glb' | 'scad' | 'moves';
 
 /** The kinds of file, for the checks. */
 export const FILE_KINDS: readonly FileKind[] = [
@@ -328,6 +328,7 @@ export const FILE_KINDS: readonly FileKind[] = [
   'stl',
   'glb',
   'scad',
+  'moves',
 ];
 
 /** Whether a value is a kind of file. */
@@ -337,7 +338,9 @@ export function isFileKind(v: unknown): v is FileKind {
 
 /** Whether a kind of file is an export's. */
 export function isExportKind(v: unknown): v is ExportKind {
-  return v === 'image' || v === 'vector' || v === 'stl' || v === 'glb' || v === 'scad';
+  return (
+    v === 'image' || v === 'vector' || v === 'stl' || v === 'glb' || v === 'scad' || v === 'moves'
+  );
 }
 
 /** Whether a kind of file is one the open dialog asks for. */

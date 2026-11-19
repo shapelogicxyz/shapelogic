@@ -15,7 +15,8 @@ window.
 The tabs in the middle of the top bar switch between **Shapes**, **Puzzle**
 and **Solver** (`Ctrl+1`, `Ctrl+2`, `Ctrl+3`; `⌘` on a Mac). A puzzle moves through
 them in that order: you draw the pieces, say which pieces make up the puzzle,
-then solve it.
+then solve it. A sliding puzzle has a fourth tab, **Play** (`Ctrl+4`), where
+you slide the pieces yourself: see [Play Tab](/docs/play-tab/).
 
 ## Shapes: draw the pieces
 

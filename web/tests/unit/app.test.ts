@@ -527,6 +527,9 @@ describe('the bridge’s checks', () => {
     expect(isMenuState({ ...NO_STATE, animation: 1 })).toBe(false);
     expect(isAppCommand({ cmd: 'exportGlb' })).toBe(true);
     expect(isFileKind('glb')).toBe(true);
+    // the moves of a sliding puzzle played by hand are an export (decision 0039)
+    expect(isFileKind('moves')).toBe(true);
+    expect(isExportKind('moves')).toBe(true);
     expect(isFileKind('exe')).toBe(false);
     expect(isExportKind('puzzle')).toBe(false);
     expect(isRescueInfo({ path: null, name: 'x', revision: 1, time: 2 })).toBe(true);
@@ -704,7 +707,14 @@ describe('an export’s file, written as the core writes a puzzle', () => {
   });
 
   it('lets a window write only a path its dialog gave for an export, once, with the kind’s extension', () => {
-    const ext = { image: '.png', vector: '.svg', stl: '.stl', glb: '.glb', scad: '.scad' } as const;
+    const ext = {
+      image: '.png',
+      vector: '.svg',
+      stl: '.stl',
+      glb: '.glb',
+      scad: '.scad',
+      moves: '.slmoves',
+    } as const;
     const grants = new ExportGrants<object>((k) => ext[k]);
     const a = {};
     const b = {};

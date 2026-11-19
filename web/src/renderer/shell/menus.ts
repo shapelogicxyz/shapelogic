@@ -17,7 +17,7 @@ import type { View3D } from '../view3d/view.ts';
 import { runAction } from './keyboard.ts';
 import { accelerator } from './keys.ts';
 import type { KeyAction } from './keys.ts';
-import { layout, onLayout } from './layout.ts';
+import { layout, onLayout, tab } from './layout.ts';
 import { onPrefs, prefs, setPrefs } from './prefs.ts';
 
 /** The menu commands that are actions of the keyboard table. */
@@ -93,6 +93,8 @@ export interface MenuHandlers {
   checkUpdates(): void;
   /** The Solver's problem: a paused solve, saved solutions. */
   solverProblem(): { paused: boolean } | null;
+  /** The Play workspace's Undo and Redo, as Edit names them there (null: nothing to undo or redo). */
+  playHistory(): { undo: string | null; redo: string | null };
 }
 
 export class Menus {
@@ -165,12 +167,24 @@ export class Menus {
   state(): MenuState {
     const snap = this.store.running ? this.store.snapshot : null;
     const p = this.h.solverProblem();
+    // on the Play tab Undo and Redo are the game's moves (decision 0039)
+    const game = tab === 'play' ? this.h.playHistory() : null;
     return {
       document: snap !== null,
       dirty: snap?.dirty ?? false,
       path: snap?.path ?? null,
-      undo: snap?.solving === false && snap.canUndo ? this.labels.undo : null,
-      redo: snap?.solving === false && snap.canRedo ? this.labels.redo : null,
+      undo:
+        game !== null
+          ? game.undo
+          : snap?.solving === false && snap.canUndo
+            ? this.labels.undo
+            : null,
+      redo:
+        game !== null
+          ? game.redo
+          : snap?.solving === false && snap.canRedo
+            ? this.labels.redo
+            : null,
       solving: snap?.solving ?? false,
       paused: p?.paused ?? false,
       solutions: snap?.problems.some((x) => x.saved > 0) ?? false,

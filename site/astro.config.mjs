@@ -77,6 +77,7 @@ export default defineConfig({
             { label: 'Shapes Tab Options', slug: 'docs/shapes-tab' },
             { label: 'Puzzle Tab Options', slug: 'docs/puzzle-tab' },
             { label: 'Solver Tab Options', slug: 'docs/solver-tab' },
+            { label: 'Play Tab', slug: 'docs/play-tab' },
             { label: 'Keyboard Shortcuts', slug: 'docs/keyboard-shortcuts' },
             { label: 'Imports', slug: 'docs/imports' },
             { label: 'Exports', slug: 'docs/exports' },

@@ -75,13 +75,15 @@ test('Ctrl+, opens the settings, F1 the shortcuts, Esc closes; Tab stays in the 
     'Shapes',
     'Puzzle',
     'Solver',
+    'Play',
     'Explorers',
     'Dialogs and menus',
   ]) {
     await expect(page.locator('#helpKeys .kbgrp', { hasText: g }).first()).toBeVisible();
   }
+  // the document's undo and redo, and the Play workspace's of a game's moves
   await page.keyboard.type('redo');
-  await expect(page.locator('#helpKeys .kbrow')).toHaveCount(1);
+  await expect(page.locator('#helpKeys .kbrow')).toHaveCount(2);
   await page.keyboard.press('Escape');
   await expect(page.locator('#helpKeys')).toHaveCount(0);
   // the settings dialog's page prints the same table

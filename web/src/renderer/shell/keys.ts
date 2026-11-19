@@ -22,6 +22,7 @@ export type KeyAction =
   | 'workspace.entities'
   | 'workspace.puzzle'
   | 'workspace.solver'
+  | 'workspace.play'
   | 'help.keys'
   | 'settings'
   | 'card.left'
@@ -111,12 +112,13 @@ const mod = (key: string, code?: string): Chord =>
 export const KEY_MAP: readonly KeyRow[] = [
   {
     group: 'Everywhere',
-    keys: 'Ctrl+1 / Ctrl+2 / Ctrl+3',
-    does: 'Switch to Shapes / Puzzle / Solver',
+    keys: 'Ctrl+1 / Ctrl+2 / Ctrl+3 / Ctrl+4',
+    does: 'Switch to Shapes / Puzzle / Solver / Play (a sliding puzzle)',
     chords: [
       { chord: mod('1', 'Digit1'), action: 'workspace.entities' },
       { chord: mod('2', 'Digit2'), action: 'workspace.puzzle' },
       { chord: mod('3', 'Digit3'), action: 'workspace.solver' },
+      { chord: mod('4', 'Digit4'), action: 'workspace.play' },
     ],
   },
   {
@@ -401,6 +403,24 @@ export const KEY_MAP: readonly KeyRow[] = [
     keys: '@Orbit or click in the 3D view',
     does: 'Keyboard focus stays in the Solutions card',
   },
+
+  // the Play workspace's keys (decision 0039): the actions of the rows above, as they act there
+  {
+    group: 'Play',
+    sub: 'a sliding puzzle played by hand',
+    keys: '@Drag a piece',
+    does: 'Slide it: anywhere it can reach, round corners too, is one move',
+  },
+  {
+    group: 'Play',
+    keys: 'Shift+@Drag a piece',
+    does: 'Nested slides: carry what is nested in the piece before moving it alone',
+  },
+  { group: 'Play', keys: 'Ctrl+Z / Shift+Ctrl+Z', does: 'Undo / redo a move of the game' },
+  { group: 'Play', keys: '← / →', does: 'One move back / forward' },
+  { group: 'Play', keys: 'Shift+← / Shift+→', does: 'Back to the Start / to the last move' },
+  { group: 'Play', keys: 'Space', does: 'Play / pause the moves' },
+  { group: 'Play', keys: 'Esc', does: 'Pause the playback' },
 
   // the explorers' keys: the actions of the rows above, while the explorer's drawer has the focus
   {
