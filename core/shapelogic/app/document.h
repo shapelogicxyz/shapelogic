@@ -471,6 +471,14 @@ class Document {
   /// Takes every start (goal false) or every goal of `problem` off the
   /// tray (sliding.clear); false when that side had none.
   Result<bool> clearStamps(Id tray, bool goal, Id problem = 0);
+  /// Makes a position of `problem`'s pieces its starts (goal false) or its
+  /// goals (sliding.setLayout), replacing what that side had: `at` places
+  /// each piece of sliding::layoutPieces by the lowest corner of its cells.
+  /// Refused (InvalidArgument) with the reason when it is no position of
+  /// the pieces on the problem's board, or a goal would be on a corridor
+  /// (sliding::layoutRefusal). False, with no undo step, when that side is
+  /// the position already.
+  Result<bool> setSlideLayout(Id problem, bool goal, const std::vector<sliding::TrayCell>& at);
 
   // ---- stacking puzzles (decision 0015) ---------------------------------------
   //

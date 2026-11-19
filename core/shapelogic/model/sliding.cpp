@@ -795,6 +795,176 @@ std::string copyStamps(const Puzzle& puzzle, Problem& problem, bool toGoal) {
   return std::string();
 }
 
+std::vector<LayoutPiece> layoutPieces(const Problem& problem) {
+  std::vector<LayoutPiece> out;
+  for (unsigned int part = 0; part < problem.getNumberOfParts(); part++) {
+    for (unsigned int j = 0; j < problem.getPartMaximum(part); j++) {
+      out.push_back({part, problem.getShapeIdOfPart(part)});
+    }
+  }
+  return out;
+}
+
+namespace {
+
+// The least x, y and z of the cells; (0, 0, 0) of none.
+TrayCell lowestCorner(const std::vector<TrayCell>& cells) {
+  if (cells.empty()) {
+    return {0, 0, 0};
+  }
+  TrayCell low = cells.front();
+  for (const TrayCell& c : cells) {
+    for (std::size_t a = 0; a < 3; a++) {
+      low[a] = std::min(low[a], c[a]);
+    }
+  }
+  return low;
+}
+
+}  // namespace
+
+std::vector<TrayCell> layoutCells(const Voxel& piece, const TrayCell& at) {
+  std::vector<TrayCell> cells = pieceCells(piece);
+  const TrayCell low = lowestCorner(cells);
+  for (TrayCell& c : cells) {
+    for (std::size_t a = 0; a < 3; a++) {
+      c[a] += at[a] - low[a];
+    }
+  }
+  return cells;
+}
+
+std::optional<std::vector<TrayCell>> startLayout(const Puzzle& puzzle, const Problem& problem,
+                                                 std::string* why) {
+  const auto refuse = [why](std::string text) -> std::optional<std::vector<TrayCell>> {
+    if (why != nullptr) {
+      *why = std::move(text);
+    }
+    return std::nullopt;
+  };
+  if (!usesStartMarks(puzzle, problem)) {
+    return refuse("The problem has no board: choose a start/goal shape as its result.");
+  }
+  const std::vector<LayoutPiece> pieces = layoutPieces(problem);
+  if (pieces.empty()) {
+    return refuse("The problem has no pieces.");
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  const SlideMarks& marks = problem.slideMarks();
+  // each shape's starts, and how many of them the pieces before took
+  std::map<unsigned int, std::vector<std::vector<TrayCell>>> starts;
+  std::map<unsigned int, std::size_t> taken;
+  std::vector<TrayCell> at;
+  at.reserve(pieces.size());
+  for (const LayoutPiece& p : pieces) {
+    const std::string name = shapeLabel(puzzle, p.shapeId);
+    auto found = starts.find(p.shapeId);
+    if (found == starts.end()) {
+      std::optional<std::vector<std::vector<TrayCell>>> copies =
+          p.shapeId < kMaxMark
+              ? stampCopies(tray, marks, puzzle.getShape(p.shapeId), p.shapeId, false)
+              : std::vector<std::vector<TrayCell>>();
+      if (!copies) {
+        return refuse("The start of " + name + " is not the whole piece. Place it again.");
+      }
+      found = starts.emplace(p.shapeId, std::move(*copies)).first;
+    }
+    std::size_t& next = taken[p.shapeId];
+    if (next >= found->second.size()) {
+      const std::size_t have = found->second.size();
+      if (have == 0) {
+        return refuse(name + " has no start.");
+      }
+      return refuse(name + " has " + std::to_string(have) + (have == 1 ? " start" : " starts") +
+                    " for its " + std::to_string(problem.getShapeMaximum(p.shapeId)) + " copies.");
+    }
+    at.push_back(lowestCorner(found->second[next++]));
+  }
+  // a start left over is of a copy, or of a piece, the problem does not have
+  for (std::size_t i = 0; i < marks.size(false); i++) {
+    const unsigned int m = marks.start(i);
+    if (m == 0) {
+      continue;
+    }
+    const auto found = starts.find(m - 1);
+    if (found == starts.end() || taken[m - 1] < found->second.size()) {
+      const std::string name =
+          m - 1 < puzzle.getNumberOfShapes() ? shapeLabel(puzzle, m - 1) : "a piece";
+      return refuse("There are more starts of " + name + " than the problem has copies of it.");
+    }
+  }
+  return at;
+}
+
+std::string layoutRefusal(const Puzzle& puzzle, const Problem& problem, bool goal,
+                          std::span<const TrayCell> at) {
+  if (!usesStartMarks(puzzle, problem)) {
+    return "Choose a start/goal shape.";
+  }
+  const std::vector<LayoutPiece> pieces = layoutPieces(problem);
+  if (at.size() != pieces.size()) {
+    return "The position places " + std::to_string(at.size()) +
+           (at.size() == 1 ? " piece" : " pieces") + "; the problem has " +
+           std::to_string(pieces.size()) + ".";
+  }
+  const Voxel& tray = problem.resultShape(puzzle);
+  std::set<TrayCell> filled;
+  for (std::size_t i = 0; i < pieces.size(); i++) {
+    const unsigned int shape = pieces[i].shapeId;
+    if (shape >= kMaxMark) {
+      return "Only the first 255 shapes can have a start or goal.";
+    }
+    const std::string name = shapeLabel(puzzle, shape);
+    const std::vector<TrayCell> cells = layoutCells(puzzle.getShape(shape), at[i]);
+    if (cells.empty()) {
+      return name + " has no cells.";
+    }
+    for (const TrayCell& c : cells) {
+      if (!inTray(tray, c[0], c[1], c[2])) {
+        return name + " does not fit there: part of it would be off the floor.";
+      }
+      const int state = tray.getState(asUnsigned(c[0]), asUnsigned(c[1]), asUnsigned(c[2]));
+      if (state == Voxel::kEmpty) {
+        return name + " does not fit there: part of it would be off the floor.";
+      }
+      if (goal && state == Voxel::kVariable) {
+        return "A goal cannot be on a variable cell: " + name + " is on one.";
+      }
+      if (!filled.insert(c).second) {
+        return name + " would cover another piece.";
+      }
+    }
+  }
+  return std::string();
+}
+
+SlideMarks layoutMarks(const Puzzle& puzzle, const Problem& problem, bool goal,
+                       std::span<const TrayCell> at) {
+  BT_ASSERT_MSG(layoutRefusal(puzzle, problem, goal, at).empty(), "a layout that is refused");
+  const Voxel& tray = problem.resultShape(puzzle);
+  SlideMarks marks = problem.slideMarks();
+  for (std::size_t i = marks.size(goal); i-- > 0;) {
+    marks.set(i, goal, 0);
+  }
+  const std::vector<LayoutPiece> pieces = layoutPieces(problem);
+  for (std::size_t i = 0; i < pieces.size(); i++) {
+    for (const TrayCell& c : layoutCells(puzzle.getShape(pieces[i].shapeId), at[i])) {
+      marks.set(tray.getIndex(asUnsigned(c[0]), asUnsigned(c[1]), asUnsigned(c[2])), goal,
+                pieces[i].shapeId + 1);
+    }
+  }
+  return marks;
+}
+
+std::string setLayout(const Puzzle& puzzle, Problem& problem, bool goal,
+                      std::span<const TrayCell> at) {
+  if (std::string why = layoutRefusal(puzzle, problem, goal, at); !why.empty()) {
+    return why;
+  }
+  problem.editSlideMarks() = layoutMarks(puzzle, problem, goal, at);
+  return std::string();
+}
+
 unsigned int stampAt(const Voxel* tray, const SlideMarks* marks, int x, int y, int z, bool goal) {
   if (tray == nullptr || marks == nullptr || !inTray(*tray, x, y, z)) {
     return static_cast<unsigned int>(-1);

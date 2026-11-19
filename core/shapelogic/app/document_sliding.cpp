@@ -12,10 +12,12 @@
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/document_internal.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/model/slide_marks.h"
 #include "shapelogic/model/sliding.h"
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bt::app {
@@ -364,6 +366,38 @@ Result<bool> Document::clearStamps(Id tray, bool goal, Id problem) {
   for (std::size_t i = marks.size(goal); i-- > 0;) {
     marks.set(i, goal, 0);
   }
+  syncSliding();
+  problemChanged(*p);
+  g.commit(kChangeAll);
+  return true;
+}
+
+Result<bool> Document::setSlideLayout(Id problem, bool goal,
+                                      const std::vector<sliding::TrayCell>& at) {
+  if (!sliding::isSliding(*puzzle_)) {
+    return fail(Errc::Unsupported, "only sliding puzzles have starts and goals");
+  }
+  if (Result<void> r = checkNotSolving(); !r) {
+    return std::unexpected(r.error());
+  }
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  // refused before the step opens, so a refusal leaves no undo step
+  if (const std::string why =
+          sliding::layoutRefusal(*puzzle_, puzzle_->getProblem(*p), goal, at);
+      !why.empty()) {
+    return fail(Errc::InvalidArgument, why);
+  }
+  // the position it has already: the problem keeps what it had found
+  SlideMarks marks = sliding::layoutMarks(*puzzle_, puzzle_->getProblem(*p), goal, at);
+  if (marks == puzzle_->getProblem(*p).slideMarks()) {
+    return false;
+  }
+  StepGuard g(*this, goal ? "Set goal position" : "Set start position");
+  touchWhole();
+  puzzle_->getProblem(*p).editSlideMarks() = std::move(marks);
   syncSliding();
   problemChanged(*p);
   g.commit(kChangeAll);

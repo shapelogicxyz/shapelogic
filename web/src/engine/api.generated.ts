@@ -180,6 +180,43 @@ export interface CellsChanged {
 // ---- sliding.json: Sliding puzzles ----
 
 /**
+ * A position of a problem's pieces: for each piece of sliding.playStart's list, the lowest corner
+ * of its cells on the board.
+ * @maxItems 65536
+ */
+export type PlayPlaces = Cell[];
+
+/**
+ * A shift [dx, dy, dz] in cells.
+ * @minItems 3
+ * @maxItems 3
+ */
+export type SlideShift = [number, number, number];
+
+/** One move of a game played by hand. */
+export interface PlayMove {
+  /**
+   * The pieces that move as one, by their places in sliding.playStart's list.
+   * @minItems 1
+   */
+  movers: number[];
+  by: SlideShift;
+}
+
+/**
+ * The rules of a game that the problem does not fix, each off when left out: SlidingOptions' of
+ * the same names. The engine does not read the problem's stored solver settings for them.
+ */
+export interface PlayRules {
+  /** A piece may carry what is nested in its outline. */
+  nestedSlides?: boolean;
+  /** And what is partly nested in it; implies nestedSlides. */
+  partialNested?: boolean;
+  /** On a board more than one layer deep, a piece may also move up and down. */
+  verticalMoves?: boolean;
+}
+
+/**
  * A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0).
  * @minItems 2
  * @maxItems 3
@@ -3274,6 +3311,160 @@ export interface Methods {
     errors: 'not_found' | 'unsupported' | 'invalid_argument';
   };
   /**
+   * How a game of a problem played by hand starts (decision 0039): its board, its pieces where its
+   * starts put them, and its goals. The pieces are in the order a solve numbers them (the
+   * problem's parts in order, copy by copy; the copies of a piece in the order sliding.tray lists
+   * their starts), and the play calls name a piece by its place in this list. A piece is placed by
+   * the lowest corner of its cells on the board (the least x, y and z of a cell it fills), which
+   * does not change when the piece is redrawn in its grid or a solve moves its hotspot; a position
+   * is such a cell for each piece. A problem that cannot be played is no error of the call:
+   * 'error' says why (its result is no board, it has no pieces, a start is not a whole piece, a
+   * piece has starts for fewer or more than its copies) and there are no pieces. Changes nothing.
+   * (sliding.json)
+   */
+  'sliding.playStart': {
+    params: {
+      problem: ProblemId;
+    };
+    result: {
+      /** Why the problem cannot be played; null when it can. */
+      error: string | null;
+      /** The problem's board (its result, a start/goal shape); null when its result is none. */
+      board: {
+        shape: ShapeId;
+        size: Size;
+        /**
+         * The floor: every cell that is no wall; a variable cell is a corridor, which a piece may
+         * cross and rest on, but no position with a piece on one is solved.
+         */
+        cells: ({
+          at: Cell;
+          state: CellState;
+        })[];
+      } | null;
+      pieces: ({
+        piece: ShapeId;
+        /** Where it starts: the lowest corner of its cells. */
+        at: Cell;
+        /** The cells it fills, from that corner (none negative). */
+        cells: Cell[];
+      })[];
+      /**
+       * Each goal stamped, a whole piece, with its board cells (goals that are not whole pieces
+       * are left out).
+       */
+      goals: ({
+        piece: ShapeId;
+        cells: Cell[];
+      })[];
+      /** The problem has goals; without any, no position is solved. */
+      hasGoal: boolean;
+      /** The start is the goal already. */
+      solved: boolean;
+    };
+    errors: 'not_found' | 'unsupported';
+  };
+  /**
+   * Where one move can take a piece of a position, by the slide search's rules: one move is the
+   * piece going anywhere it can reach while the others stay put, round corners included, in its
+   * layer unless 'rules' allows vertical moves. The groups are those the search moves: the piece
+   * alone; with nested slides also the piece with what is nested in its outline (when anything
+   * is); with partial nesting also the wider group (when it is wider). Each stop says whether the
+   * position it gives is the goal, as the search judges it (any copy of a piece on any of its
+   * goals, a piece without a goal anywhere, no piece resting on a variable cell; never when the
+   * problem has no goals). The stops of a group are joined by single steps to the place it is at:
+   * a drag follows them. Refused (invalid_argument) with the reason when 'places' is no position
+   * of the problem's pieces on its board (another number of places, a piece off the floor, two on
+   * one cell) or there is no such piece. Changes nothing.
+   * (sliding.json)
+   */
+  'sliding.playReach': {
+    params: {
+      problem: ProblemId;
+      places: PlayPlaces;
+      /**
+       * The piece, by its place in sliding.playStart's list.
+       * @minimum 0
+       */
+      piece: number;
+      rules?: PlayRules;
+    };
+    result: {
+      /** @minItems 1 */
+      groups: ({
+        /**
+         * The piece first, then what it carries.
+         * @minItems 1
+         */
+        movers: number[];
+        /**
+         * Every shift the group can reach in one move, nearest first; none when it cannot move.
+         */
+        stops: ({
+          by: SlideShift;
+          solved: boolean;
+        })[];
+      })[];
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
+   * Makes a list of moves one after another from a position, and tells each one's route: what
+   * checks moves read from a file, plays moves back, and checks them again after the problem
+   * changed. A move is the pieces that move as one (a group sliding.playReach gives for one of
+   * them, in any order) and their shift, which must be one they can reach. Each step has the
+   * corner points of the move's route as shifts from where the pieces were, start and end
+   * included, with the fewest straight runs (as a solution's moves are drawn), and whether the
+   * position after it is the goal. It stops at the first move that cannot be made: 'illegal' is
+   * its place in the list and 'why' the reason, and 'steps' has the moves before it. With no moves
+   * it tells whether the position is the goal. Refused (invalid_argument) with the reason when
+   * 'places' is no position of the problem's pieces. Changes nothing.
+   * (sliding.json)
+   */
+  'sliding.playReplay': {
+    params: {
+      problem: ProblemId;
+      places: PlayPlaces;
+      /** @maxItems 100000 */
+      moves: PlayMove[];
+      rules?: PlayRules;
+    };
+    result: {
+      /** The position the moves start from is the goal. */
+      solved: boolean;
+      steps: ({
+        /** @minItems 2 */
+        route: SlideShift[];
+        solved: boolean;
+      })[];
+      /** The first move that cannot be made (from 0); null when all were. */
+      illegal: number | null;
+      why: string | null;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
+   * Makes a position a problem's starts (goal false) or its goals, replacing what that side had:
+   * every piece marked where the position puts it (the Play workspace's Save position as Start and
+   * as Goal). Refused (invalid_argument) with the reason when 'places' is no position of the
+   * problem's pieces on its board, or a goal would be on a variable cell. 'changed' is false, and
+   * nothing changes, when that side is the position already; otherwise the problem loses what it
+   * had found. One undo step.
+   * (sliding.json)
+   */
+  'sliding.setLayout': {
+    params: {
+      problem: ProblemId;
+      goal: boolean;
+      places: PlayPlaces;
+    };
+    result: {
+      changed: boolean;
+      revision: Revision;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
    * A slice of the saved solutions, sorted: list (the stored order), assembly (found order),
    * level, moves or pieces (the original's sort buttons); descending sorts by the swapped
    * comparison, so ties keep their order.
@@ -4149,8 +4340,12 @@ export const METHOD_NAMES = [
   'sliding.clone',
   'sliding.gridAdvice',
   'sliding.place',
+  'sliding.playReach',
+  'sliding.playReplay',
+  'sliding.playStart',
   'sliding.preview',
   'sliding.resumeAdvice',
+  'sliding.setLayout',
   'sliding.tray',
   'solution.analyse',
   'solution.analyseStatus',

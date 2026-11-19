@@ -1412,6 +1412,136 @@ def sliding_start_goal_shapes(e):
 
 
 @test
+def sliding_play(e):
+    # a 3x2 board: a domino along the bottom left, a unit above its left
+    # cell whose goal is the top right corner
+    e.call("document.new", {"grid": "sliding"})
+    one = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+    e.call("shape.setCells", {"shape": one, "tool": "fixed", "cells": [[0, 0, 0]]})
+    two = e.call("shape.create", {"size": [2, 1, 1]})["shape"]
+    e.call("shape.setCells", {"shape": two, "tool": "fixed", "cells": [[0, 0, 0], [1, 0, 0]]})
+    tray = e.call("sliding.addStartGoal", {"size": [3, 2]})["shape"]
+    p = e.call("problem.create")["problem"]
+    # no board yet: not played, and no error of the call
+    start = e.call("sliding.playStart", {"problem": p})
+    check(start["error"] and start["board"] is None and start["pieces"] == [] and start["goals"] == []
+          and not start["hasGoal"] and not start["solved"], f"no board {start}")
+    e.call("problem.setResult", {"problem": p, "shape": tray})
+    check("no pieces" in e.call("sliding.playStart", {"problem": p})["error"], "no pieces yet")
+    e.call("sliding.place", {"tray": tray, "problem": p, "piece": two, "at": [0, 0], "goal": False})
+    e.call("sliding.place", {"tray": tray, "problem": p, "piece": one, "at": [2, 1], "goal": True})
+    check("no start" in e.call("sliding.playStart", {"problem": p})["error"], "the unit has no start")
+    e.call("sliding.place", {"tray": tray, "problem": p, "piece": one, "at": [0, 1], "goal": False})
+
+    start = e.call("sliding.playStart", {"problem": p})
+    check(start["error"] is None and start["hasGoal"] and not start["solved"], f"played {start}")
+    check(start["board"]["shape"] == tray and start["board"]["size"] == [3, 2, 1], f"the board {start['board']}")
+    check(sorted(tuple(c["at"]) for c in start["board"]["cells"]) ==
+          sorted((x, y, 0) for x in range(3) for y in range(2)) and
+          all(c["state"] == "fixed" for c in start["board"]["cells"]), f"the floor {start['board']}")
+    check(start["goals"] == [{"piece": one, "cells": [[2, 1, 0]]}], f"the goals {start['goals']}")
+    pieces = {x["piece"]: x for x in start["pieces"]}
+    check(len(start["pieces"]) == 2 and pieces[one] == {"piece": one, "at": [0, 1, 0], "cells": [[0, 0, 0]]}
+          and pieces[two] == {"piece": two, "at": [0, 0, 0], "cells": [[0, 0, 0], [1, 0, 0]]},
+          f"the pieces {start['pieces']}")
+    places = [x["at"] for x in start["pieces"]]
+    i_one = [x["piece"] for x in start["pieces"]].index(one)
+    i_two = 1 - i_one
+
+    # one move takes the unit along the top row or round the corner; only its goal solves
+    reach = e.call("sliding.playReach", {"problem": p, "places": places, "piece": i_one})
+    check(len(reach["groups"]) == 1 and reach["groups"][0]["movers"] == [i_one], f"alone {reach}")
+    stops = {tuple(s["by"]): s["solved"] for s in reach["groups"][0]["stops"]}
+    check(stops == {(1, 0, 0): False, (2, 0, 0): True, (2, -1, 0): False}, f"the unit's stops {stops}")
+    reach = e.call("sliding.playReach", {"problem": p, "places": places, "piece": i_two,
+                                         "rules": {"nestedSlides": True, "partialNested": True,
+                                                   "verticalMoves": True}})
+    # the domino goes right, and from there up beside the unit
+    check([tuple(s["by"]) for g in reach["groups"] for s in g["stops"]] == [(1, 0, 0), (1, 1, 0)],
+          f"the domino's stops {reach}")
+
+    # moves made one after another, each with its route
+    replay = e.call("sliding.playReplay", {"problem": p, "places": places, "moves": [
+        {"movers": [i_one], "by": [2, -1, 0]}, {"movers": [i_one], "by": [0, 1, 0]}]})
+    check(not replay["solved"] and replay["illegal"] is None and replay["why"] is None, f"made {replay}")
+    check([st["solved"] for st in replay["steps"]] == [False, True], f"solved at the end {replay}")
+    check(replay["steps"][0]["route"] == [[0, 0, 0], [2, 0, 0], [2, -1, 0]] and
+          replay["steps"][1]["route"] == [[0, 0, 0], [0, 1, 0]], f"the routes {replay['steps']}")
+    # the first that cannot be made, and the moves before it
+    replay = e.call("sliding.playReplay", {"problem": p, "places": places, "rules": {}, "moves": [
+        {"movers": [i_one], "by": [1, 0, 0]}, {"movers": [i_two], "by": [0, 1, 0]},
+        {"movers": [i_one], "by": [1, 0, 0]}]})
+    check(len(replay["steps"]) == 1 and replay["illegal"] == 1 and "cannot get there" in replay["why"],
+          f"stopped {replay}")
+    replay = e.call("sliding.playReplay", {"problem": p, "places": places, "moves": [
+        {"movers": [i_one, i_two], "by": [1, 0, 0]}]})
+    check(replay["steps"] == [] and replay["illegal"] == 0 and "as one" in replay["why"], f"no group {replay}")
+    # no moves: whether the position is the goal
+    solved = [[2, 1, 0] if i == i_one else places[i] for i in range(2)]
+    replay = e.call("sliding.playReplay", {"problem": p, "places": solved, "moves": []})
+    check(replay == {"solved": True, "steps": [], "illegal": None, "why": None}, f"the goal {replay}")
+
+    # what is no position, and what is malformed
+    over = [[0, 0, 0], [0, 0, 0]]
+    for method, more in (("sliding.playReach", {"piece": 0}), ("sliding.playReplay", {"moves": []})):
+        e.fails(method, {"problem": p, "places": over, **more}, "invalid_argument")
+        e.fails(method, {"problem": p, "places": places[:1], **more}, "invalid_argument")
+        e.fails(method, {"problem": p, "places": [[0, 0], [0, 1]], **more}, "invalid_params")
+        e.fails(method, {"problem": p, "places": places, "rules": {"fast": True}, **more}, "invalid_params")
+        e.fails(method, {"problem": p, "places": places, "rules": {"nestedSlides": 1}, **more},
+                "invalid_params")
+        e.fails(method, {"problem": "p999", "places": places, **more}, "not_found")
+    e.fails("sliding.playReach", {"problem": p, "places": places, "piece": 2}, "invalid_argument")
+    e.fails("sliding.playReach", {"problem": p, "places": places, "piece": -1}, "invalid_params")
+    e.fails("sliding.playReplay", {"problem": p, "places": places, "moves": [{"movers": [], "by": [1, 0, 0]}]},
+            "invalid_params")
+    e.fails("sliding.playReplay", {"problem": p, "places": places, "moves": [{"movers": [0], "by": [1, 0]}]},
+            "invalid_params")
+    e.fails("sliding.playReplay", {"problem": p, "places": places,
+                                   "moves": [{"movers": [0], "by": [1, 0, 0], "to": [1, 0, 0]}]},
+            "invalid_params")
+    e.fails("sliding.playStart", {"problem": "p999"}, "not_found")
+
+    # the position as the problem's start, then as its goal
+    moved = [[1, 1, 0] if i == i_one else places[i] for i in range(2)]
+    check(e.call("sliding.setLayout", {"problem": p, "goal": False, "places": places})["changed"] is False,
+          "the start it has")
+    made = e.call("sliding.setLayout", {"problem": p, "goal": False, "places": moved})
+    check(made["changed"] is True, f"a new start {made}")
+    ch = changed_event(e, made["revision"])
+    check("problems" in ch["what"], f"the event {ch}")
+    check(e.call("edit.history")["undo"][-1] == "Set start position", "one undo step")
+    check([x["at"] for x in e.call("sliding.playStart", {"problem": p})["pieces"]] == moved, "starts there")
+    made = e.call("sliding.setLayout", {"problem": p, "goal": True, "places": moved})
+    check(made["changed"] is True, f"a new goal {made}")
+    start = e.call("sliding.playStart", {"problem": p})
+    check(start["solved"] and len(start["goals"]) == 2, f"the start is the goal {start}")
+    t = e.call("sliding.tray", {"tray": tray, "problem": p})
+    check(t["goals"] == t["starts"] and t["starts"][4] == one, f"the marks {t}")
+    e.fails("sliding.setLayout", {"problem": p, "goal": False, "places": over}, "invalid_argument")
+    e.fails("sliding.setLayout", {"problem": p, "goal": True, "places": [[3, 0, 0], [0, 1, 0]]},
+            "invalid_argument")
+    e.fails("sliding.setLayout", {"problem": "p999", "goal": False, "places": moved}, "not_found")
+    e.fails("sliding.setLayout", {"problem": p, "goal": False, "places": "here"}, "invalid_params")
+    # a goal cannot be on a corridor
+    e.call("shape.setCells", {"shape": tray, "tool": "variable", "cells": [[2, 1, 0]]})
+    corridor = [[2, 1, 0] if i == i_one else places[i] for i in range(2)]
+    e.fails("sliding.setLayout", {"problem": p, "goal": True, "places": corridor}, "invalid_argument")
+    check(e.call("sliding.setLayout", {"problem": p, "goal": False, "places": corridor})["changed"],
+          "a start on a corridor")
+    cells = {tuple(c["at"]): c["state"] for c in e.call("sliding.playStart", {"problem": p})["board"]["cells"]}
+    check(cells[(2, 1, 0)] == "variable" and cells[(0, 0, 0)] == "fixed", f"the corridor {cells}")
+
+    # other grids are not played
+    e.call("document.new", {"grid": "bricks"})
+    q = e.call("problem.create")["problem"]
+    e.fails("sliding.playStart", {"problem": q}, "unsupported")
+    e.fails("sliding.playReach", {"problem": q, "places": [], "piece": 0}, "unsupported")
+    e.fails("sliding.playReplay", {"problem": q, "places": [], "moves": []}, "unsupported")
+    e.fails("sliding.setLayout", {"problem": q, "goal": False, "places": []}, "unsupported")
+
+
+@test
 def stacking_rod_sets_discs_and_stacks(e):
     """Hanoi built from a new stacking document through stacking.*, equal to
     the fixture; then the rod sets, the discs and the stacks edited, undone,

@@ -1323,7 +1323,7 @@ Errors: `not_found`, `invalid_state`
 
 ## Sliding puzzles
 
-A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.
+A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). A problem with a start for every piece can also be played by hand (decision 0039): sliding.playStart, sliding.playReach and sliding.playReplay answer what a position allows by the search's rules and keep no game, and sliding.setLayout makes a position the problem's starts or goals. Refused (unsupported) on other grids.
 
 ### `sliding.addStartGoal`
 
@@ -1528,6 +1528,150 @@ Result:
 | `fromStartAlone` | boolean | required | True when a start the paused solve keeps for its next run has a search saved in slideFolder that goes on from the start alone, and a new search of it would go from both ends. False otherwise: nothing paused or saved, a search saved from both ends, a problem that is searched from the start alone anyway (a piece that may end anywhere, partly nested pieces), other options (no nested slides, no grid), and while the problem's run is active. |
 
 Errors: `not_found`, `unsupported`, `invalid_argument`
+
+### `sliding.playStart`
+
+How a game of a problem played by hand starts (decision 0039): its board, its pieces where its starts put them, and its goals. The pieces are in the order a solve numbers them (the problem's parts in order, copy by copy; the copies of a piece in the order sliding.tray lists their starts), and the play calls name a piece by its place in this list. A piece is placed by the lowest corner of its cells on the board (the least x, y and z of a cell it fills), which does not change when the piece is redrawn in its grid or a solve moves its hotspot; a position is such a cell for each piece. A problem that cannot be played is no error of the call: 'error' says why (its result is no board, it has no pieces, a start is not a whole piece, a piece has starts for fewer or more than its copies) and there are no pieces. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `error` | string or null | required | Why the problem cannot be played; null when it can. |
+| `board` | object or null | required | The problem's board (its result, a start/goal shape); null when its result is none. |
+| `pieces` | object[] | required |  |
+| `goals` | object[] | required | Each goal stamped, a whole piece, with its board cells (goals that are not whole pieces are left out). |
+| `hasGoal` | boolean | required | The problem has goals; without any, no position is solved. |
+| `solved` | boolean | required | The start is the goal already. |
+
+`pieces`:
+
+| name | type | | description |
+|---|---|---|---|
+| `pieces.piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `pieces.at` | [Cell](#cell) | required | Where it starts: the lowest corner of its cells. |
+| `pieces.cells` | [Cell](#cell)[] | required | The cells it fills, from that corner (none negative). |
+
+`goals`:
+
+| name | type | | description |
+|---|---|---|---|
+| `goals.piece` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `goals.cells` | [Cell](#cell)[] | required |  |
+
+Errors: `not_found`, `unsupported`
+
+### `sliding.playReach`
+
+Where one move can take a piece of a position, by the slide search's rules: one move is the piece going anywhere it can reach while the others stay put, round corners included, in its layer unless 'rules' allows vertical moves. The groups are those the search moves: the piece alone; with nested slides also the piece with what is nested in its outline (when anything is); with partial nesting also the wider group (when it is wider). Each stop says whether the position it gives is the goal, as the search judges it (any copy of a piece on any of its goals, a piece without a goal anywhere, no piece resting on a variable cell; never when the problem has no goals). The stops of a group are joined by single steps to the place it is at: a drag follows them. Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces on its board (another number of places, a piece off the floor, two on one cell) or there is no such piece. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `places` | PlayPlaces | required | A position of a problem's pieces: for each piece of sliding.playStart's list, the lowest corner of its cells on the board. |
+| `piece` | integer | required | The piece, by its place in sliding.playStart's list. |
+| `rules` | PlayRules |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `groups` | object[] | required |  |
+
+`groups`:
+
+| name | type | | description |
+|---|---|---|---|
+| `groups.movers` | integer[] | required | The piece first, then what it carries. |
+| `groups.stops` | object[] | required | Every shift the group can reach in one move, nearest first; none when it cannot move. |
+
+`groups.stops`:
+
+| name | type | | description |
+|---|---|---|---|
+| `groups.stops.by` | SlideShift | required | A shift [dx, dy, dz] in cells. |
+| `groups.stops.solved` | boolean | required |  |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
+### `sliding.playReplay`
+
+Makes a list of moves one after another from a position, and tells each one's route: what checks moves read from a file, plays moves back, and checks them again after the problem changed. A move is the pieces that move as one (a group sliding.playReach gives for one of them, in any order) and their shift, which must be one they can reach. Each step has the corner points of the move's route as shifts from where the pieces were, start and end included, with the fewest straight runs (as a solution's moves are drawn), and whether the position after it is the goal. It stops at the first move that cannot be made: 'illegal' is its place in the list and 'why' the reason, and 'steps' has the moves before it. With no moves it tells whether the position is the goal. Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `places` | PlayPlaces | required | A position of a problem's pieces: for each piece of sliding.playStart's list, the lowest corner of its cells on the board. |
+| `moves` | PlayMove[] | required |  |
+| `rules` | PlayRules |  |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `solved` | boolean | required | The position the moves start from is the goal. |
+| `steps` | object[] | required |  |
+| `illegal` | integer or null | required | The first move that cannot be made (from 0); null when all were. |
+| `why` | string or null | required |  |
+
+`steps`:
+
+| name | type | | description |
+|---|---|---|---|
+| `steps.route` | SlideShift[] | required |  |
+| `steps.solved` | boolean | required |  |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
+### `sliding.setLayout`
+
+Makes a position a problem's starts (goal false) or its goals, replacing what that side had: every piece marked where the position puts it (the Play workspace's Save position as Start and as Goal). Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces on its board, or a goal would be on a variable cell. 'changed' is false, and nothing changes, when that side is the position already; otherwise the problem loses what it had found. One undo step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `goal` | boolean | required |  |
+| `places` | PlayPlaces | required | A position of a problem's pieces: for each piece of sliding.playStart's list, the lowest corner of its cells on the board. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `changed` | boolean | required |  |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
+#### PlayMove
+
+One move of a game played by hand.
+
+| name | type | | description |
+|---|---|---|---|
+| `movers` | integer[] | required | The pieces that move as one, by their places in sliding.playStart's list. |
+| `by` | SlideShift | required | A shift [dx, dy, dz] in cells. |
+
+#### PlayRules
+
+The rules of a game that the problem does not fix, each off when left out: SlidingOptions' of the same names. The engine does not read the problem's stored solver settings for them.
+
+| name | type | | description |
+|---|---|---|---|
+| `nestedSlides` | boolean |  | A piece may carry what is nested in its outline. |
+| `partialNested` | boolean |  | And what is partly nested in it; implies nestedSlides. |
+| `verticalMoves` | boolean |  | On a board more than one layer deep, a piece may also move up and down. |
 
 ## Stacking puzzles
 

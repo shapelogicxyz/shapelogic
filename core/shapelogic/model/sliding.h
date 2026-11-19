@@ -44,6 +44,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -201,6 +202,53 @@ bool clearStamp(SlideMarks* marks, unsigned int shapeId, bool goal);
 /// goal onto its starts, replacing what that side had. Empty on success,
 /// else why not (copyStampsRefusal), and nothing changes.
 std::string copyStamps(const Puzzle& puzzle, Problem& problem, bool toGoal);
+
+/// One piece of a problem: a copy of one of its parts.
+struct LayoutPiece {
+  unsigned int part = 0;     ///< the problem's part
+  unsigned int shapeId = 0;  ///< the part's shape
+};
+
+/// The problem's pieces in the order a solve numbers them: its parts in
+/// order, copy by copy (each part's maximum). A layout gives a place for
+/// each: the lowest corner of the piece's cells on the board (the least x,
+/// y and z of a cell it fills), which does not depend on where the piece is
+/// drawn in its own grid or on its hotspot.
+[[nodiscard]] std::vector<LayoutPiece> layoutPieces(const Problem& problem);
+
+/// The board cells a piece as drawn fills with the lowest corner of its
+/// cells at `at`; none for a piece without cells.
+[[nodiscard]] std::vector<TrayCell> layoutCells(const Voxel& piece, const TrayCell& at);
+
+/// The layout the problem's starts give: where each piece of layoutPieces
+/// starts (the copies of a part in stampCopies' order). None, with *why
+/// when it is given, for a problem whose starts place no whole layout: its
+/// result is no start/goal shape, it has no pieces, a start is not a whole
+/// piece, or a piece has starts for fewer (or more) than its copies.
+[[nodiscard]] std::optional<std::vector<TrayCell>> startLayout(const Puzzle& puzzle,
+                                                               const Problem& problem,
+                                                               std::string* why = nullptr);
+
+/// Why `at`, a place for each piece of layoutPieces, is no layout of the
+/// problem's pieces on its board, or with `goal` none that can be its
+/// goals; empty when it is one. Refused: a result that is no start/goal
+/// shape, another number of places than pieces, a piece off the floor,
+/// two pieces on one cell, a piece past the 255th shape (it can have no
+/// marks), and for goals a piece on a variable cell.
+[[nodiscard]] std::string layoutRefusal(const Puzzle& puzzle, const Problem& problem, bool goal,
+                                        std::span<const TrayCell> at);
+
+/// The problem's marks with its starts (goal false) or its goals replaced
+/// by the layout `at`: every piece marked where the layout puts it. The
+/// layout must be one layoutRefusal does not refuse.
+[[nodiscard]] SlideMarks layoutMarks(const Puzzle& puzzle, const Problem& problem, bool goal,
+                                     std::span<const TrayCell> at);
+
+/// Makes the layout `at` the problem's starts (goal false) or its goals,
+/// replacing what that side had. Empty on success, else why not
+/// (layoutRefusal), and nothing changes.
+std::string setLayout(const Puzzle& puzzle, Problem& problem, bool goal,
+                      std::span<const TrayCell> at);
 
 /// The piece whose start or goal covers (x, y, z), or ~0u.
 [[nodiscard]] unsigned int stampAt(const Voxel* tray, const SlideMarks* marks, int x, int y, int z,

@@ -9,6 +9,7 @@
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
+#include "shapelogic/base/solve_state.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/sliding.h"
@@ -18,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -235,6 +237,100 @@ TEST_CASE("sliding document: the starts are cloned to the goals, and back", "[ap
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.cloneStamps(tray, true); });
   refused(d, Errc::InvalidArgument, [=](Document& x) { return x.cloneStamps(a, true); });
   roundTrip(d, [=](Document& x) { return x.cloneStamps(tray, false); });
+}
+
+TEST_CASE("sliding document: a position becomes the problem's starts or goals",
+          "[app][sliding]") {
+  // a unit to bring from the left of a row of three to its right
+  Document d(GridKind::Sliding);
+  const Id tray = board(d, {3, 1, 1});
+  const Id a = piece(d, 1, 1, {{0, 0, 0}});
+  REQUIRE(d.placeStamp(tray, a, 0, 0, 0, false).value());
+  REQUIRE(d.placeStamp(tray, a, 2, 0, 0, true).value());
+  const Id p = d.problemIds()[0];
+  const unsigned int ma = index(d, a) + 1;
+  SolveOptions o;
+  o.disassemble = true;
+  REQUIRE(d.solveStart(p, o).has_value());
+  REQUIRE(d.solveWait(p).has_value());
+  (void)d.poll();
+  REQUIRE(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 1);
+  CHECK(sliding::startLayout(d.puzzle(), d.puzzle().getProblem(0)).value() ==
+        std::vector<sliding::TrayCell>{{0, 0, 0}});
+
+  // the position it has already: nothing changes, the solution stays
+  const std::uint64_t rev = d.revision();
+  const std::size_t steps = d.history().undo.size();
+  CHECK_FALSE(d.setSlideLayout(p, false, {{0, 0, 0}}).value());
+  CHECK_FALSE(d.setSlideLayout(p, true, {{2, 0, 0}}).value());
+  CHECK(d.revision() == rev);
+  CHECK(d.history().undo.size() == steps);
+  CHECK(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 1);
+
+  // another start: one step, and what the problem had found is gone
+  CHECK(roundTrip(d, [=](Document& x) { return x.setSlideLayout(p, false, {{1, 0, 0}}); }).value());
+  CHECK(d.history().undo.back() == "Set start position");
+  const Voxel& v = d.puzzle().getShape(index(d, tray));
+  CHECK(markOn(d, v, 0, 0, 0, false) == 0);
+  CHECK(markOn(d, v, 1, 0, 0, false) == ma);
+  CHECK(markOn(d, v, 2, 0, 0, true) == ma);
+  CHECK(d.puzzle().getProblem(0).getNumberOfSavedSolutions() == 0);
+
+  // another goal: the start stays
+  CHECK(roundTrip(d, [=](Document& x) { return x.setSlideLayout(p, true, {{0, 0, 0}}); }).value());
+  CHECK(d.history().undo.back() == "Set goal position");
+  CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 0, 0, 0, true) == ma);
+  CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 2, 0, 0, true) == 0);
+  CHECK(markOn(d, d.puzzle().getShape(index(d, tray)), 1, 0, 0, false) == ma);
+
+  // no position of the pieces: refused, nothing changed
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return x.setSlideLayout(p, false, {{3, 0, 0}}); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setSlideLayout(p, false, {}); });
+  refused(d, Errc::InvalidArgument, [=](Document& x) {
+    return x.setSlideLayout(p, true, {{0, 0, 0}, {1, 0, 0}});
+  });
+  refused(d, Errc::NotFound, [=](Document& x) { return x.setSlideLayout(p + 999, false, {}); });
+  // a goal cannot be on a corridor; a start can
+  REQUIRE(d.editCells(tray, CellTool::Variable, 0, 0, {{2, 0, 0}}).has_value());
+  refused(d, Errc::InvalidArgument,
+          [=](Document& x) { return x.setSlideLayout(p, true, {{2, 0, 0}}); });
+  CHECK(roundTrip(d, [=](Document& x) { return x.setSlideLayout(p, false, {{2, 0, 0}}); }).value());
+
+  // a problem with no board, and another grid
+  const Id q = d.createProblem().value();
+  refused(d, Errc::InvalidArgument, [=](Document& x) { return x.setSlideLayout(q, false, {}); });
+  Document bricks(GridKind::Bricks);
+  const Id bp = bricks.createProblem().value();
+  refused(bricks, Errc::Unsupported,
+          [=](Document& x) { return x.setSlideLayout(bp, false, {}); });
+}
+
+TEST_CASE("sliding document: a position is not saved while the problem is solving",
+          "[app][sliding]") {
+  // a long search: the fifteen puzzle with two tiles swapped
+  Document d = test::openFixture("sliding/slide_swapped_fifteen.xmpuzzle");
+  const Id p = d.problemIds().front();
+  const std::vector<sliding::TrayCell> at =
+      sliding::startLayout(d.puzzle(), d.puzzle().getProblem(0)).value();
+  std::vector<sliding::TrayCell> moved = at;
+  std::swap(moved.front(), moved.back());
+  SolveOptions o;
+  o.disassemble = true;
+  REQUIRE(d.solveStart(p, o).has_value());
+  // checked while holding the problem's lock, so the run cannot end
+  d.readProblem(0, [&](const Problem&) {
+    REQUIRE(isActive(d.solveState(p)));
+    const std::uint64_t rev = d.revision();
+    for (const bool goal : {false, true}) {
+      const Result<bool> r = d.setSlideLayout(p, goal, moved);
+      REQUIRE_FALSE(r.has_value());
+      CHECK(r.error().code == Errc::InvalidState);
+    }
+    CHECK(d.revision() == rev);
+  });
+  REQUIRE(d.solveAbort(p).has_value());
+  CHECK(d.setSlideLayout(p, false, moved).value());
 }
 
 TEST_CASE("sliding document: one side's board is cleared", "[app][sliding]") {

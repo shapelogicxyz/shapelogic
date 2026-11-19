@@ -56,6 +56,7 @@ add_executable(bt_tests
   unit/solve/test_slide_key.cpp
   unit/solve/test_slide_routes.cpp
   unit/solve/test_sliding.cpp
+  unit/solve/test_sliding_play.cpp
   unit/solve/test_slide_forecast.cpp
   unit/solve/test_sliding_session.cpp
   unit/solve/test_solve_session.cpp

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "sliding.json",
   "title": "Sliding puzzles",
-  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). Refused (unsupported) on other grids.",
+  "description": "A sliding puzzle's start/goal shapes and the starts and goals stamped on them (decision 0014; the original's Start/Goal tab). A start/goal shape is a tray: its empty cells are walls, its variable cells corridors a piece may cross but not stop on (both edited with shape.setCells); each piece may have a start and a goal on it for each copy the problem has, the whole piece at a time; any copy may end on any of its goals, and the copies without a start start anywhere, those without a goal end anywhere. Trays and pieces may be more than one layer deep: a stamp marks every cell of its piece, and on a tray of several layers a piece may also move up and down as it slides when the solve allows it (SlidingOptions.verticalMoves). The start/goal shapes (boards, labelled B1, B2, ...) stay above the pieces in the list and are numbered 1, 2, ... by place, renumbered when one is deleted or moved. The problems are the user's (problem.create), each with a board chosen as its result (problem.setResult; the original gave each board a problem of its own); several may share a board, each with starts and goals of its own (they are the problem's, not the board's: the sliding.* calls take the problem, and without one mean the board's first; a board no problem uses has none, and the calls that change them are refused, invalid_argument). An edit of a board (shape.setCells, shape.resize, shape.task) takes the starts and goals of its problems along with its cells: one whose cells are all still floor stays, where they now are, one that lost a cell is removed whole, with a notice; a problem given another board (problem.setResult) keeps those that fit it at the same cells. A problem on a board keeps the pieces it has stamped as parts and its colour locks follow them; no board is a piece of any problem; the shape commands keep the stamps in step (shape.delete, shape.move, shape.duplicate, shape.rename, and an edit that changes a piece's shape takes its stamps off). A problem with a start for every piece can also be played by hand (decision 0039): sliding.playStart, sliding.playReach and sliding.playReplay answer what a position allows by the search's rules and keep no game, and sliding.setLayout makes a position the problem's starts or goals. Refused (unsupported) on other grids.",
   "methods": {
     "sliding.addStartGoal": {
       "summary": "Adds a start/goal shape (the original's New Start/Goal) of 'size' cells (default 6 by 6 by 1, the original took the selected shape's; a size [x, y] is one layer), all floor, numbered after the others. No problem is made for it: a problem chooses it as its result (problem.setResult).",
@@ -222,10 +222,207 @@
         "additionalProperties": false
       },
       "errors": ["not_found", "unsupported", "invalid_argument"]
+    },
+    "sliding.playStart": {
+      "summary": "How a game of a problem played by hand starts (decision 0039): its board, its pieces where its starts put them, and its goals. The pieces are in the order a solve numbers them (the problem's parts in order, copy by copy; the copies of a piece in the order sliding.tray lists their starts), and the play calls name a piece by its place in this list. A piece is placed by the lowest corner of its cells on the board (the least x, y and z of a cell it fills), which does not change when the piece is redrawn in its grid or a solve moves its hotspot; a position is such a cell for each piece. A problem that cannot be played is no error of the call: 'error' says why (its result is no board, it has no pieces, a start is not a whole piece, a piece has starts for fewer or more than its copies) and there are no pieces. Changes nothing.",
+      "params": {
+        "type": "object",
+        "properties": {"problem": {"$ref": "types.json#/$defs/ProblemId"}},
+        "required": ["problem"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "error": {"type": ["string", "null"], "description": "Why the problem cannot be played; null when it can."},
+          "board": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "shape": {"$ref": "types.json#/$defs/ShapeId"},
+                  "size": {"$ref": "types.json#/$defs/Size"},
+                  "cells": {
+                    "type": "array",
+                    "description": "The floor: every cell that is no wall; a variable cell is a corridor, which a piece may cross and rest on, but no position with a piece on one is solved.",
+                    "items": {
+                      "type": "object",
+                      "properties": {"at": {"$ref": "types.json#/$defs/Cell"}, "state": {"$ref": "types.json#/$defs/CellState"}},
+                      "required": ["at", "state"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["shape", "size", "cells"],
+                "additionalProperties": false
+              },
+              {"type": "null"}
+            ],
+            "description": "The problem's board (its result, a start/goal shape); null when its result is none."
+          },
+          "pieces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "piece": {"$ref": "types.json#/$defs/ShapeId"},
+                "at": {"$ref": "types.json#/$defs/Cell", "description": "Where it starts: the lowest corner of its cells."},
+                "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}, "description": "The cells it fills, from that corner (none negative)."}
+              },
+              "required": ["piece", "at", "cells"],
+              "additionalProperties": false
+            }
+          },
+          "goals": {
+            "type": "array",
+            "description": "Each goal stamped, a whole piece, with its board cells (goals that are not whole pieces are left out).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "piece": {"$ref": "types.json#/$defs/ShapeId"},
+                "cells": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}}
+              },
+              "required": ["piece", "cells"],
+              "additionalProperties": false
+            }
+          },
+          "hasGoal": {"type": "boolean", "description": "The problem has goals; without any, no position is solved."},
+          "solved": {"type": "boolean", "description": "The start is the goal already."}
+        },
+        "required": ["error", "board", "pieces", "goals", "hasGoal", "solved"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported"]
+    },
+    "sliding.playReach": {
+      "summary": "Where one move can take a piece of a position, by the slide search's rules: one move is the piece going anywhere it can reach while the others stay put, round corners included, in its layer unless 'rules' allows vertical moves. The groups are those the search moves: the piece alone; with nested slides also the piece with what is nested in its outline (when anything is); with partial nesting also the wider group (when it is wider). Each stop says whether the position it gives is the goal, as the search judges it (any copy of a piece on any of its goals, a piece without a goal anywhere, no piece resting on a variable cell; never when the problem has no goals). The stops of a group are joined by single steps to the place it is at: a drag follows them. Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces on its board (another number of places, a piece off the floor, two on one cell) or there is no such piece. Changes nothing.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "places": {"$ref": "#/$defs/PlayPlaces"},
+          "piece": {"type": "integer", "minimum": 0, "description": "The piece, by its place in sliding.playStart's list."},
+          "rules": {"$ref": "#/$defs/PlayRules"}
+        },
+        "required": ["problem", "places", "piece"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "movers": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 1, "description": "The piece first, then what it carries."},
+                "stops": {
+                  "type": "array",
+                  "description": "Every shift the group can reach in one move, nearest first; none when it cannot move.",
+                  "items": {
+                    "type": "object",
+                    "properties": {"by": {"$ref": "#/$defs/SlideShift"}, "solved": {"type": "boolean"}},
+                    "required": ["by", "solved"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["movers", "stops"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["groups"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument"]
+    },
+    "sliding.playReplay": {
+      "summary": "Makes a list of moves one after another from a position, and tells each one's route: what checks moves read from a file, plays moves back, and checks them again after the problem changed. A move is the pieces that move as one (a group sliding.playReach gives for one of them, in any order) and their shift, which must be one they can reach. Each step has the corner points of the move's route as shifts from where the pieces were, start and end included, with the fewest straight runs (as a solution's moves are drawn), and whether the position after it is the goal. It stops at the first move that cannot be made: 'illegal' is its place in the list and 'why' the reason, and 'steps' has the moves before it. With no moves it tells whether the position is the goal. Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces. Changes nothing.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "places": {"$ref": "#/$defs/PlayPlaces"},
+          "moves": {"type": "array", "items": {"$ref": "#/$defs/PlayMove"}, "maxItems": 100000},
+          "rules": {"$ref": "#/$defs/PlayRules"}
+        },
+        "required": ["problem", "places", "moves"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "solved": {"type": "boolean", "description": "The position the moves start from is the goal."},
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "route": {"type": "array", "items": {"$ref": "#/$defs/SlideShift"}, "minItems": 2},
+                "solved": {"type": "boolean"}
+              },
+              "required": ["route", "solved"],
+              "additionalProperties": false
+            }
+          },
+          "illegal": {"type": ["integer", "null"], "description": "The first move that cannot be made (from 0); null when all were."},
+          "why": {"type": ["string", "null"]}
+        },
+        "required": ["solved", "steps", "illegal", "why"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument"]
+    },
+    "sliding.setLayout": {
+      "summary": "Makes a position a problem's starts (goal false) or its goals, replacing what that side had: every piece marked where the position puts it (the Play workspace's Save position as Start and as Goal). Refused (invalid_argument) with the reason when 'places' is no position of the problem's pieces on its board, or a goal would be on a variable cell. 'changed' is false, and nothing changes, when that side is the position already; otherwise the problem loses what it had found. One undo step.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "problem": {"$ref": "types.json#/$defs/ProblemId"},
+          "goal": {"type": "boolean"},
+          "places": {"$ref": "#/$defs/PlayPlaces"}
+        },
+        "required": ["problem", "goal", "places"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "changed": {"type": "boolean"},
+          "revision": {"$ref": "types.json#/$defs/Revision"}
+        },
+        "required": ["changed", "revision"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found", "unsupported", "invalid_argument", "invalid_state"]
     }
   },
   "events": {},
   "$defs": {
+    "PlayPlaces": {"type": "array", "items": {"$ref": "types.json#/$defs/Cell"}, "maxItems": 65536, "description": "A position of a problem's pieces: for each piece of sliding.playStart's list, the lowest corner of its cells on the board."},
+    "SlideShift": {"type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3, "description": "A shift [dx, dy, dz] in cells."},
+    "PlayMove": {
+      "type": "object",
+      "properties": {
+        "movers": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 1, "description": "The pieces that move as one, by their places in sliding.playStart's list."},
+        "by": {"$ref": "#/$defs/SlideShift"}
+      },
+      "required": ["movers", "by"],
+      "additionalProperties": false,
+      "description": "One move of a game played by hand."
+    },
+    "PlayRules": {
+      "type": "object",
+      "properties": {
+        "nestedSlides": {"type": "boolean", "description": "A piece may carry what is nested in its outline."},
+        "partialNested": {"type": "boolean", "description": "And what is partly nested in it; implies nestedSlides."},
+        "verticalMoves": {"type": "boolean", "description": "On a board more than one layer deep, a piece may also move up and down."}
+      },
+      "additionalProperties": false,
+      "description": "The rules of a game that the problem does not fix, each off when left out: SlidingOptions' of the same names. The engine does not read the problem's stored solver settings for them."
+    },
     "TrayCell": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 3, "description": "A cell [x, y, z] of a start/goal shape, y up; [x, y] is on its first layer (z = 0)."},
     "TraySize": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 1024}, "minItems": 2, "maxItems": 3, "description": "A size [x, y, z] in cells; [x, y] is one layer."}
   }
