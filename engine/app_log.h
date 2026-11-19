@@ -34,7 +34,9 @@ namespace bt::engine {
 /// (`Solve Started`), `text` the rest.
 void logLine(State& s, LogLevel level, std::string_view event, std::string_view text);
 
-/// A problem as the log names it: its id and its name, `p2 "Board 1"`.
+/// A problem as the log names it: its label and its name, `P2 "Board 1"`
+/// (the label alone for a problem without a name; the id, `p7`, for one
+/// the document no longer has).
 [[nodiscard]] std::string problemTitle(const State& s, app::Id problem);
 
 /// The line of a call, when it is one the log tells or it failed.

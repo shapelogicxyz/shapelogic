@@ -47,6 +47,70 @@ def changed_event(e, revision):
     return e.wait_event("document.changed", lambda p: p["revision"] == revision, timeout=10)
 
 
+# ---- shape pictures (decision 0038) ----------------------------------------------------------
+
+def png_header(w, h):
+    """The start of a PNG file of w by h pixels: as much as the engine reads."""
+    return b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", w, h) + b"\x08\x02\0\0\0"
+
+
+@test
+def shape_images(e):
+    e.call("document.new", {"grid": "sliding"})
+    s = e.call("shape.create", {"size": [3, 2, 1]})["shape"]
+    e.call("shape.setCells", {"shape": s, "tool": "fixed",
+                              "cells": [[0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0]]})
+    png = png_header(60, 40)
+    r = e.call("shape.setImage", {"shape": s, "data": base64.b64encode(png).decode(),
+                                  "fit": "crop", "src": [0, 0, 60, 40]})
+    changed_event(e, r["revision"])
+    snap = e.call("document.get")
+    im = snap["shapes"][0]["image"]
+    check(im is not None and im["box"] == [0, 0, 3, 2] and im["turn"] == 0, f"the picture {im}")
+    check(im["width"] == 60 and im["height"] == 40 and im["fit"] == "crop", f"its size {im}")
+    data = e.call("shape.imageData", {"image": im["image"]})
+    check(base64.b64decode(data["data"]) == png and data["hash"] == im["hash"], "the bytes back")
+    check(data["type"] == "image/png", f"the type {data['type']}")
+
+    # it turns with the shape
+    e.call("shape.task", {"shape": s, "task": "rotate10"})
+    turned = e.call("document.get")["shapes"][0]["image"]
+    check(turned["box"] == [0, 0, 2, 3] and turned["turn"] != 0, f"turned {turned}")
+
+    # another shape shows the same picture by its number
+    t = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+    e.call("shape.setCells", {"shape": t, "tool": "fixed", "cells": [[0, 0, 0]]})
+    e.call("shape.setImage", {"shape": t, "image": im["image"], "fit": "stretch", "src": [10, 0, 40, 40]})
+    check(e.call("document.get")["shapes"][1]["image"]["image"] == im["image"], "shared")
+
+    # the file keeps it
+    saved = e.call("document.saveBytes")["data"]
+    again = e.call("document.openBytes", {"data": saved})
+    check(again["shapes"][0]["image"] == turned, f"after a save {again['shapes'][0]['image']}")
+
+    e.call("shape.clearImage", {"shape": t})
+    check(e.call("document.get")["shapes"][1]["image"] is None, "cleared")
+    r = e.call("edit.undo")
+    check(e.call("document.get")["shapes"][1]["image"] is not None, "undone")
+
+    e.fails("shape.setImage", {"shape": s, "data": base64.b64encode(b"not a picture").decode(),
+                               "fit": "crop", "src": [0, 0, 1, 1]}, "invalid_argument")
+    e.fails("shape.setImage", {"shape": s, "data": "@@@", "fit": "crop", "src": [0, 0, 1, 1]},
+            "invalid_params")
+    e.fails("shape.setImage", {"shape": s, "image": 9, "fit": "crop", "src": [0, 0, 1, 1]},
+            "not_found")
+    e.fails("shape.setImage", {"shape": s, "image": im["image"], "fit": "crop", "src": [0, 0, 61, 40]},
+            "invalid_argument")
+    e.fails("shape.imageData", {"image": 9}, "not_found")
+
+    e.call("document.new", {"grid": "bricks"})
+    c = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
+    e.call("shape.setCells", {"shape": c, "tool": "fixed", "cells": [[0, 0, 0]]})
+    e.fails("shape.setImage", {"shape": c, "data": base64.b64encode(png).decode(),
+                               "fit": "crop", "src": [0, 0, 60, 40]}, "invalid_argument")
+    check(e.call("document.get")["shapes"][0]["image"] is None, "none on cubes")
+
+
 # ---- engine and settings -------------------------------------------------------------------
 
 @test
@@ -99,6 +163,17 @@ def engine_info_and_settings(e):
     check(len(told) == 1 and "/no/such/puzzle.xmpuzzle" in told[0], f"the log's line {e.stderr}")
     check(any(line.startswith("shapelogic_engine: INFO: Settings Changed: ") for line in e.stderr),
           f"the settings are logged {e.stderr}")
+    # a solve started: the problem by its label, the solver, and the threads
+    # automatic stands for
+    p, _, _ = domino_box(e, 2, 2, 1)
+    start = len(e.events)
+    e.call("solve.start", {"problem": p, "options": {"disassemble": True}})
+    check(wait_state(e, p, ("finished", "error"), start) == "finished", "the small box solved")
+    e.drain()
+    told = [line for line in e.stderr if line.startswith("shapelogic_engine: INFO: Solve Started: P1 of ")]
+    check(len(told) == 1 and told[0].rstrip().endswith(
+        f"; solver: Fast (Crowell); threads {info['hardwareThreads']} (automatic: every hardware thread)"),
+        f"the solve's line {told}")
     e.fails("settings.set", {"threads": 1000}, "invalid_params")
     e.fails("settings.set", {"solver": "fortran"}, "invalid_params")
     e.fails("settings.set", {"slideDiskGB": -1}, "invalid_params")

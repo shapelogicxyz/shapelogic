@@ -337,6 +337,84 @@ Result<void> Document::setShapeColour(Id shape, std::optional<std::uint32_t> rgb
   return {};
 }
 
+Result<unsigned int> Document::setShapeImage(Id shape, const ImageChoice& choice) {
+  if (Result<void> r = checkNotSolving(); !r) {
+    return std::unexpected(r.error());
+  }
+  const Result<unsigned int> s = shapeIndex(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  if (!sliding::isSliding(*puzzle_)) {
+    return fail(Errc::InvalidArgument, "only the shapes of a sliding puzzle show pictures");
+  }
+  const Voxel& v = puzzle_->getShape(*s);
+  if (sliding::isStartGoalShape(&v)) {
+    return fail(Errc::InvalidArgument, "a board shows no picture: only pieces do");
+  }
+  if (v.countState(Voxel::kEmpty) == v.getXYZ()) {
+    return fail(Errc::InvalidArgument, "the shape has no cells to show a picture on");
+  }
+  if (choice.bytes.has_value() == choice.id.has_value()) {
+    return fail(Errc::InvalidArgument, "give either the picture's bytes or its id");
+  }
+  // the picture's size, to check the part shown against
+  std::optional<ImageInfo> info;
+  if (choice.bytes) {
+    info = sniffImage(*choice.bytes);
+    if (!info) {
+      return fail(Errc::InvalidArgument,
+                  "the picture is not a PNG or JPEG file of at most 8192 pixels a side");
+    }
+  } else if (const PuzzleImage* im = puzzle_->findImage(static_cast<int>(*choice.id))) {
+    info = ImageInfo{im->type, im->width, im->height};
+  } else {
+    return fail(Errc::NotFound, "the puzzle has no picture " + std::to_string(*choice.id));
+  }
+  const std::array<int, 4>& src = choice.src;
+  if (src[0] < 0 || src[1] < 0 || src[2] <= 0 || src[3] <= 0 ||
+      static_cast<long long>(src[0]) + src[2] > info->width ||
+      static_cast<long long>(src[1]) + src[3] > info->height) {
+    return fail(Errc::InvalidArgument, "the part shown must lie inside the picture");
+  }
+
+  StepGuard g(*this, "Shape image");
+  const unsigned int id = choice.bytes ? puzzle_->addImage(*info, *choice.bytes) : *choice.id;
+  ShapeImage image;
+  image.id = static_cast<int>(id);
+  image.fit = choice.fit;
+  image.src = src;
+  image.box = {static_cast<int>(v.boundX1()), static_cast<int>(v.boundY1()),
+               static_cast<int>(v.boundX2() - v.boundX1() + 1),
+               static_cast<int>(v.boundY2() - v.boundY1() + 1)};
+  if (v.getImage() != image) {
+    touchShape(*s);
+    puzzle_->getShape(*s).setImage(image);
+    lastChange_.shapes = {shape};
+  }
+  g.commit(kChangeShapes);
+  return id;
+}
+
+Result<void> Document::clearShapeImage(Id shape) {
+  if (Result<void> r = checkNotSolving(); !r) {
+    return r;
+  }
+  const Result<unsigned int> s = shapeIndex(shape);
+  if (!s) {
+    return std::unexpected(s.error());
+  }
+  if (!puzzle_->getShape(*s).getImage().present()) {
+    return {};
+  }
+  StepGuard g(*this, "Remove image");
+  touchShape(*s);
+  puzzle_->getShape(*s).setImage(ShapeImage{});
+  lastChange_.shapes = {shape};
+  g.commit(kChangeShapes);
+  return {};
+}
+
 Result<unsigned int> Document::editCells(Id shape, CellTool tool, Id colour,
                                          std::uint8_t symmetry,
                                          const std::vector<CellEdit>& cells) {

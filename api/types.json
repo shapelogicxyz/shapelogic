@@ -67,7 +67,7 @@
     },
     "MeshFrame": {
       "type": "object",
-      "description": "A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); and edgeLines (f32, two points per line, flat style only).",
+      "description": "A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty for a shape without a picture, decision 0038).",
       "properties": {
         "frame": {"$ref": "#/$defs/Frame"},
         "triangles": {"type": "integer", "minimum": 0},
@@ -159,9 +159,28 @@
         "colour": {"oneOf": [{"$ref": "#/$defs/Rgb"}, {"type": "null"}], "description": "The shape's own colour, or null for the default one."},
         "startGoal": {"type": ["integer", "null"], "minimum": 0, "description": "A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape."},
         "disc": {"type": ["integer", "null"], "minimum": 1, "description": "A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape."},
-        "discColour": {"oneOf": [{"$ref": "#/$defs/ColourId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."}
+        "discColour": {"oneOf": [{"$ref": "#/$defs/ColourId"}, {"type": "null"}], "description": "A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape."},
+        "image": {"oneOf": [{"$ref": "#/$defs/ShapeImage"}, {"type": "null"}], "description": "The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none."}
       },
-      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal", "disc", "discColour"],
+      "required": ["id", "label", "name", "size", "fixed", "variable", "weight", "colour", "startGoal", "disc", "discColour", "image"],
+      "additionalProperties": false
+    },
+    "ImageFit": {"enum": ["crop", "stretch"], "description": "How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it."},
+    "PixelRect": {"type": "array", "items": {"type": "integer", "minimum": 0}, "minItems": 4, "maxItems": 4, "description": "[x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner."},
+    "ShapeImage": {
+      "type": "object",
+      "description": "A shape's picture (decision 0038). Seen from above, the part 'src' is laid over the cell rectangle 'box', turned by 'turn': q = M(turn) (u - 1/2, 1/2 - v), point = box corner + (q + 1/2) box size, for (u, v) in [0, 1] across src (u right, v down the picture). M(turn) is (turn mod 4) quarter turns counter-clockwise after a mirror in x when turn >= 4; turn 0 has the picture's top at the high-y side.",
+      "properties": {
+        "image": {"type": "integer", "minimum": 0, "description": "The puzzle's picture (shape.imageData)."},
+        "hash": {"type": "string", "description": "Of the picture's file: the same hash, the same picture."},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "fit": {"$ref": "#/$defs/ImageFit"},
+        "src": {"$ref": "#/$defs/PixelRect"},
+        "box": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4, "description": "[x, y, width, height] in cells of the shape's own grid; it may reach outside the grid after a nudge."},
+        "turn": {"type": "integer", "minimum": 0, "maximum": 7}
+      },
+      "required": ["image", "hash", "width", "height", "fit", "src", "box", "turn"],
       "additionalProperties": false
     },
     "Colour": {

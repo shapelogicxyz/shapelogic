@@ -40,6 +40,9 @@ import type { Mods } from './tools.ts';
 import type { Box, Cell, EditorState, PlaneMap } from './editor-state.ts';
 import type { LayerGeometry } from './layer-geometry.ts';
 import type { CellValue } from './shape-cells.ts';
+import { compose } from '../shell/picture-math.ts';
+import type { Affine } from '../shell/picture-math.ts';
+import type { PieceImage } from '../shell/piece-images.ts';
 import type { StampOutline, TrayName } from './tray.ts';
 
 /** What the grid shows. */
@@ -63,6 +66,12 @@ export interface GridInput {
     own?: Rgb3 | null;
     names?: readonly TrayName[];
   } | null;
+  /**
+   * A sliding piece's picture (decision 0038): drawn on its filled cells, the
+   * map from its pixels to the grid's cells (y up) and the part of it shown
+   * ([x, y, width, height] in pixels); null for none.
+   */
+  image?: { picture: PieceImage; toCells: Affine; src: readonly number[] } | null;
   /** The layer hinted at under this one: its drawing and its cells (null: none). */
   hint?: { geo: LayerGeometry; cells: ReadonlyMap<string, CellValue> } | null;
 }
@@ -232,7 +241,7 @@ export class Grid2D {
     );
     this.ox = (aw - ex * this.sc) / 2;
     this.oy = (ah - ey * this.sc) / 2;
-    let b = '<g class="hint" pointer-events="none"></g>';
+    let b = '<defs class="pdefs"></defs><g class="hint" pointer-events="none"></g>';
     input.geo.cells.forEach((c, i) => {
       b += this.shapeOf(c, ey, `class="cell sp" data-i="${i}" data-at="${c.at.join(',')}"`);
     });
@@ -342,6 +351,7 @@ export class Grid2D {
       hg.setAttribute('fill-opacity', HINT_OPACITY.toFixed(3));
       hg.innerHTML = hinted;
     }
+    const picture = this.paintPicture(input);
     let marks = '';
     input.geo.cells.forEach((c, i) => {
       const el = this.cellEls[i];
@@ -366,6 +376,8 @@ export class Grid2D {
         const mark = tray.marks.get(key(c.at));
         const base = mark ?? tray.own ?? boardColour();
         col = hex(odd ? dark(base) : light(base));
+      } else if (picture !== null && v !== undefined) {
+        col = picture;
       }
       el.setAttribute('fill', col);
       el.setAttribute('fill-opacity', vr ? '0.5' : v === undefined && hinted !== '' ? '0' : '1');
@@ -386,6 +398,41 @@ export class Grid2D {
       this.svg.dataset.cells = String(input.cells.size);
     }
     this.paintNames(input);
+  }
+
+  // the piece's picture as a pattern over the whole drawing, the shape's
+  // colour where the picture does not reach: the fill of its filled cells,
+  // or null when it has none (the XY plane only, the one a sliding puzzle
+  // is drawn in)
+  private paintPicture(input: GridInput): string | null {
+    const defs = this.svg?.querySelector('.pdefs');
+    const im = input.image ?? null;
+    if (defs == null) {
+      return null;
+    }
+    if (im === null || input.tray != null || input.plane.ca !== 'X' || input.plane.ra !== 'Y') {
+      defs.innerHTML = '';
+      return null;
+    }
+    const { width: ex, height: ey } = input.geo;
+    const { flipped, rowsFlipped } = input.plane;
+    // grid cells to pixels: X(x) and Y(y), each axis maybe flipped
+    const toScreen: Affine = [
+      flipped ? -this.sc : this.sc,
+      0,
+      0,
+      rowsFlipped ? this.sc : -this.sc,
+      this.ox + (flipped ? ex * this.sc : 0),
+      this.oy + (rowsFlipped ? 0 : ey * this.sc),
+    ];
+    const t = compose(toScreen, im.toCells)
+      .map((n) => n.toFixed(4))
+      .join(' ');
+    const [sx = 0, sy = 0, sw = 0, sh = 0] = im.src;
+    const w = this.svg?.getAttribute('width') ?? '0';
+    const h = this.svg?.getAttribute('height') ?? '0';
+    defs.innerHTML = `<clipPath id="pimgClip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}"/></clipPath><pattern id="pimg" patternUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${input.shapeColour}"/><g transform="matrix(${t})"><image href="${im.picture.dataUrl}" width="${im.picture.width}" height="${im.picture.height}" preserveAspectRatio="none" clip-path="url(#pimgClip)"/></g></pattern>`;
+    return 'url(#pimg)';
   }
 
   // each copy's name at the bottom centre of its cells in this layer: the

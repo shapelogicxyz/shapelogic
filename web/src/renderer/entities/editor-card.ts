@@ -14,9 +14,10 @@
 // `renderLayers`, `renderSelbar`, `renderInsp`'s size steppers and the
 // applyAll switch, `renderColors` and their handlers. The engine changes
 // the shape; the card shows the editor's state and the engine's answers.
-// On a sliding puzzle (docs/webui-spec.md, section 8.1) there is no
-// constraint colour, so no Paint (a cell's colour is a start mark: the
-// palette keeps only the shape's own colour, as on a stacking one), the shapes are
+// On a sliding puzzle (docs/webui-spec.md, section 8.1) the palette has
+// the restriction colours as on the cube grid; a piece (not a board) may
+// also show an image, chosen with the button beside the pencil (decision
+// 0038). The shapes are
 // edited in the XY plane, layer by layer, and a board (a start/goal shape)
 // is drawn with the ordinary tools, which say what its cells are (floor,
 // corridor, wall); its starts and goals are placed on the Puzzle
@@ -59,6 +60,10 @@ export interface CardHost {
   editColour(id: string, rgb: string): void;
   /** The shape's own color, which Default draws in (shape.setColour; null: back to the default one). */
   setShapeColour(shape: string, rgb: string | null): void;
+  /** The Apply image dialog for the shape shown (a sliding puzzle's piece, decision 0038). */
+  editImage(): void;
+  /** Takes the shape's image off (shape.clearImage). */
+  clearImage(shape: string): void;
   deleteColour(id: string): void;
 }
 
@@ -122,6 +127,17 @@ export class EditorCard {
   // none where the puzzle type has no constraint colours
   private get colours(): Colour[] {
     return this.ownOnly ? [] : (this.host.store.snapshot?.colours ?? []);
+  }
+
+  /** Whether the shape shown may take an image: a sliding puzzle's piece, with Default (its own colour) chosen. */
+  private get imageable(): boolean {
+    const s = this.shape;
+    return (
+      this.host.store.snapshot?.grid === 'sliding' &&
+      s !== null &&
+      !isTray(s) &&
+      this.host.state.colour === null
+    );
   }
 
   /** Whether the puzzle type has no constraint colours (stacking): the palette is the shape's own. */
@@ -306,6 +322,9 @@ export class EditorCard {
         ? ''
         : `<button class="ib" id="cAdd" title="Add color">${ic('plus', 22)}</button>`) +
       `<button class="ib" id="cEdit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">${ic('edit', 22)}</button>` +
+      (this.imageable
+        ? `<button class="ib ${s?.image == null ? '' : 'on'}" id="cImage" title="${s?.image == null ? 'Apply an image from this computer to the piece’s cells' : 'Change or remove the piece’s image'}" aria-pressed="${String(s?.image != null)}">${ic('image', 22)}</button>`
+        : '') +
       (this.ownOnly
         ? ''
         : `<button class="ib" id="cRm" ${def ? 'disabled' : ''} title="${def ? 'Choose a restriction color to remove it from the puzzle' : 'Remove this restriction color from the puzzle'}">${ic('trash', 22)}</button>`) +
@@ -367,7 +386,10 @@ export class EditorCard {
 
   private colourMenu(): string {
     const def = this.host.state.colour === null;
-    return `<button data-k="edit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove this restriction color from the puzzle">Remove color</button>`;
+    const img = this.imageable
+      ? `<button data-k="img" title="Apply an image from this computer to the piece’s cells">${this.shape?.image == null ? 'Apply image…' : 'Change image…'}</button><button data-k="rmimg" ${this.shape?.image == null ? 'disabled' : ''} title="Take the image off this piece">Remove image</button>`
+      : '';
+    return `<button data-k="edit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove this restriction color from the puzzle">Remove color</button>${img}`;
   }
 
   private colourAction(k: string): void {
@@ -375,6 +397,16 @@ export class EditorCard {
     if (id === null) {
       // Default is the shape's own color: edit that
       const s = this.shape;
+      if (k === 'img') {
+        this.host.editImage();
+        return;
+      }
+      if (k === 'rmimg') {
+        if (s !== null) {
+          this.host.clearImage(s.id);
+        }
+        return;
+      }
       if (k !== 'edit') {
         return;
       }
@@ -522,6 +554,8 @@ export class EditorCard {
         this.host.addColour();
       } else if (t.closest('#cEdit') !== null) {
         this.colourAction('edit');
+      } else if (t.closest('#cImage') !== null) {
+        this.host.editImage();
       } else if (t.closest('#cRm') !== null) {
         this.colourAction('rm');
       } else if (t.closest('#cPaint') !== null) {

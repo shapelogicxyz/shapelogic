@@ -11,6 +11,7 @@
 
 #include "shapelogic/io/puzzle_file.h"
 
+#include "shapelogic/base/base64.h"
 #include "shapelogic/base/int_cast.h"
 #include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/xml_document.h"
@@ -40,6 +41,7 @@ struct PuzzleFileAccess {
   static std::vector<std::uint32_t>& colors(Puzzle& p) { return p.colors_; }
   static void setGridType(Puzzle& p, GridType gt) { p.gt_ = gt; }
   static const std::vector<std::uint32_t>& colors(const Puzzle& p) { return p.colors_; }
+  static std::vector<PuzzleImage>& images(Puzzle& p) { return p.images_; }
 };
 
 struct ProblemFileAccess {
@@ -206,6 +208,86 @@ void readMarkList(const std::string& attr, unsigned int cells, Set set) {
   }
 }
 
+/// Exactly four space-separated integers, the last two positive; nothing
+/// when the text is anything else.
+std::optional<std::array<int, 4>> fourInts(const std::string& text) {
+  std::array<int, 4> out{};
+  const char* p = text.c_str();
+  for (int& v : out) {
+    char* end = nullptr;
+    const long n = std::strtol(p, &end, 10);
+    if (end == p || n < -0x10000 || n > 0x10000) {
+      return std::nullopt;
+    }
+    v = static_cast<int>(n);
+    p = end;
+  }
+  while (*p == ' ') {
+    p++;
+  }
+  if (*p != '\0' || out[2] <= 0 || out[3] <= 0) {
+    return std::nullopt;
+  }
+  return out;
+}
+
+/// The picture of a shape (decision 0038): image, imageFit, imageSrc,
+/// imageBox, imageTurn. A picture with a bad attribute is dropped; the
+/// reader checks the image id once it has the <images> (readPuzzleElement).
+ShapeImage readShapeImage(const XmlElement& e) {
+  ShapeImage im;
+  const std::string* id = e.findAttribute("image");
+  if (id == nullptr) {
+    return im;
+  }
+  const std::optional<std::array<int, 4>> src = fourInts(e.attribute("imageSrc"));
+  const std::optional<std::array<int, 4>> box = fourInts(e.attribute("imageBox"));
+  const int turn = atoiOf(e.attribute("imageTurn"));
+  const std::string fit = e.attribute("imageFit");
+  if (id->empty() || atoiOf(*id) < 0 || !src || !box || src->at(0) < 0 || src->at(1) < 0 ||
+      turn < 0 || turn > 7) {
+    return im;
+  }
+  im.id = atoiOf(*id);
+  im.fit = fit == "stretch" ? ImageFit::Stretch : ImageFit::Crop;
+  im.src = *src;
+  im.box = *box;
+  im.turn = asUnsigned(turn);
+  return im;
+}
+
+/// The <images> of a puzzle: each <image> with its id, type and the file in
+/// base64. A picture whose bytes are not a PNG or JPEG of the stated type,
+/// or whose id comes twice, is left out (the shapes showing it lose it).
+void readImages(const XmlElement& e, std::vector<PuzzleImage>& images) {
+  for (const XmlElement& c : e.children) {
+    if (c.name != "image") {
+      continue;
+    }
+    const std::string idText = c.attribute("id");
+    const int id = atoiOf(idText);
+    if (idText.empty() || id < 0) {
+      continue;
+    }
+    if (std::any_of(images.begin(), images.end(),
+                    [id](const PuzzleImage& im) { return static_cast<int>(im.id) == id; })) {
+      continue;
+    }
+    std::optional<std::string> bytes = base64Decode(c.text);
+    if (!bytes) {
+      continue;
+    }
+    const std::optional<ImageInfo> info = sniffImage(*bytes);
+    if (!info || info->type != c.attribute("type")) {
+      continue;
+    }
+    std::string hash = imageHash(*bytes);
+    images.push_back(PuzzleImage{asUnsigned(id), info->type, info->width, info->height,
+                                 std::make_shared<const std::string>(std::move(*bytes)),
+                                 std::move(hash)});
+  }
+}
+
 std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
   auto required = [&e](const char* name) {
     const std::string* v = e.findAttribute(name);
@@ -310,11 +392,14 @@ std::unique_ptr<Voxel> readVoxel(const XmlElement& e, GridType gt) {
     v->setDiskSize(asUnsigned(atoiOf(disk)));
   }
 
+  v->setImage(readShapeImage(e));
+
   std::vector<std::pair<std::string, std::string>> extra;
   for (const XmlAttribute& a : e.attributes) {
-    static constexpr std::string_view kKnown[] = {"x",     "y",    "z",      "type",  "hx",
-                                                  "hy",    "hz",   "name",   "start", "goal",
-                                                  "weight", "color", "diskSize"};
+    static constexpr std::string_view kKnown[] = {
+        "x",     "y",        "z",     "type",     "hx",       "hy",       "hz",
+        "name",  "start",    "goal",  "weight",   "color",    "diskSize", "image",
+        "imageFit", "imageSrc", "imageBox", "imageTurn"};
     if (std::find(std::begin(kKnown), std::end(kKnown), a.name) == std::end(kKnown)) {
       extra.emplace_back(a.name, a.value);
     }
@@ -1030,6 +1115,7 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
 enum PuzzleSlot : unsigned int {
   kSlotGridType = 0,
   kSlotColors,
+  kSlotImages,
   kSlotShapes,
   kSlotRodSets,
   kSlotProblems,
@@ -1082,6 +1168,9 @@ Puzzle readPuzzleElement(const XmlElement& root) {
               (asUnsigned(atoiOf(col.attribute("blue"))) & 0xFF) << 16);
         }
       }
+    } else if (c.name == "images") {
+      keep.known(kSlotImages);
+      readImages(c, A::images(puzzle));
     } else if (c.name == "shapes") {
       keep.known(kSlotShapes);
       // without a grid type, the grid is cubes
@@ -1110,6 +1199,14 @@ Puzzle readPuzzleElement(const XmlElement& root) {
       puzzle.setComment(c.text);
     } else {
       keep.unknown(c);
+    }
+  }
+
+  // a shape showing a picture the file does not have loses it
+  for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
+    Voxel& v = puzzle.getShape(s);
+    if (v.getImage().present() && puzzle.findImage(v.getImage().id) == nullptr) {
+      v.setImage(ShapeImage{});
     }
   }
 
@@ -1189,6 +1286,19 @@ void writeVoxel(XmlWriter& xml, const Voxel& v) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     std::snprintf(c.data(), c.size(), "#%06X", asUnsigned(v.getShapeColor()) & 0xFFFFFF);
     xml.newAttrib("color", c.data());
+  }
+
+  // the picture (decision 0038); the original passes over it
+  if (const ShapeImage& im = v.getImage(); im.present()) {
+    auto four = [](const std::array<int, 4>& a) {
+      return std::to_string(a[0]) + ' ' + std::to_string(a[1]) + ' ' + std::to_string(a[2]) + ' ' +
+             std::to_string(a[3]);
+    };
+    xml.newAttrib("image", im.id);
+    xml.newAttrib("imageFit", im.fit == ImageFit::Stretch ? "stretch" : "crop");
+    xml.newAttrib("imageSrc", four(im.src));
+    xml.newAttrib("imageBox", four(im.box));
+    xml.newAttrib("imageTurn", im.turn);
   }
 
   // room for other formats one day
@@ -1716,6 +1826,25 @@ std::string writePuzzle(const Puzzle& puzzle) {
     xml.endTag("color");
   }
   xml.endTag("colors");
+
+  // the pictures some shape shows; none, no element (decision 0038)
+  writeKept(xml, kept, kSlotImages);
+  if (std::any_of(puzzle.images().begin(), puzzle.images().end(),
+                  [&puzzle](const PuzzleImage& im) { return puzzle.imageUsed(im.id); })) {
+    xml.newTag("images");
+    for (const PuzzleImage& im : puzzle.images()) {
+      if (puzzle.imageUsed(im.id)) {
+        xml.newTag("image");
+        xml.newAttrib("id", im.id);
+        xml.newAttrib("type", im.type);
+        xml.newAttrib("width", im.width);
+        xml.newAttrib("height", im.height);
+        xml.addContent(base64Encode(*im.bytes));
+        xml.endTag("image");
+      }
+    }
+    xml.endTag("images");
+  }
 
   writeKept(xml, kept, kSlotShapes);
   xml.newTag("shapes");

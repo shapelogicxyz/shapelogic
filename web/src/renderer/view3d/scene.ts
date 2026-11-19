@@ -20,7 +20,8 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 
 import type { MeshStyle } from '../../engine/api.generated.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
-import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
+import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
+import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
 import { hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -37,6 +38,8 @@ export interface ShapeLook {
   lit: boolean;
   xray: boolean;
   piece: Rgb3;
+  /** A sliding piece's picture on its faces looking up (null: none). */
+  picture?: PiecePicture | null;
   /** The constraint colours, `#rrggbb`, colour n at n − 1. */
   palette: readonly string[];
   /** The editor's layer: cells of other layers dimmed along this axis; null: none dimmed. */
@@ -116,6 +119,7 @@ export class ShapeScene {
   setLook(look: ShapeLook): void {
     const u = this.uniforms;
     setPiece(u, look.piece);
+    setPicture(u, look.picture ?? null);
     setPalette(u, look.palette);
     u.uColourView.value = look.colourView ? 1 : 0;
     u.uLit.value = look.lit ? 1 : 0;

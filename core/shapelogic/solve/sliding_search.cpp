@@ -5704,6 +5704,28 @@ std::optional<Tabled> nameSpace(const SlideBoard& b, const TableForm& form,
   return std::nullopt;
 }
 
+// The line for the application's log that names the search a start
+// layout runs: the key its arrangements fit (eachKey) and the form of its
+// tables.
+std::string keyNote(unsigned int width, unsigned int bits, bool packed, const TableForm& form) {
+  std::string text = "The slide search runs in " + std::to_string(width) +
+                     "-bit keys (its arrangements take " + std::to_string(bits) + " bits" +
+                     (packed ? ", the copies of a piece kept as one number" : "") + ")";
+  if (width == 64) {
+    text += ": the narrowest key, an arrangement in one machine word";
+  } else {
+    text += ": an arrangement in " + std::to_string(width / 64) +
+            " machine words, so it costs more to sort and to keep than in a narrower key, "
+            "and fewer arrangements fit in the search memory";
+  }
+  if (form.bothEnds) {
+    text += "; searched from the start and the goal at once";
+  } else if (form.loose) {
+    text += "; the stops inside a grid cell searched as one";
+  }
+  return text + ".";
+}
+
 // The slide search over position tables: a move is a flood fill over the
 // piece's own positions against a bit mask of the cells the others cover.
 // It goes level by level (LevelSearch). `form` chooses the search
@@ -5724,10 +5746,7 @@ Tabled tableSearch(const SlideBoard& b, const TableForm& form, bool savedOnly,
   search.keyBits = space.keyBits;
   search.packedKeys = space.packed;
   if (search.onLog) {
-    search.onLog(LogLevel::Debug,
-                 "The search's arrangements take " + std::to_string(space.keyBits) +
-                     " bits of a " + std::to_string(search.keyWidth) + "-bit key" +
-                     (space.packed ? ", the copies of a piece kept as one number." : "."));
+    search.onLog(LogLevel::Info, keyNote(search.keyWidth, space.keyBits, space.packed, form));
   }
 
   std::vector<Key> chain;
@@ -6224,6 +6243,15 @@ std::optional<Separation> findSlidePath(const Puzzle& puzzle, const Problem& pro
     }
   }
   if (!searched) {
+    if (search.onLog) {
+      search.onLog(LogLevel::Info,
+                   search.legacy
+                       ? "The slide search runs over text keys, as asked (the original's "
+                         "search): every arrangement kept in memory, the slowest search."
+                       : "The slide search runs over text keys (the original's search): its "
+                         "arrangements fit no key up to 512 bits. Every arrangement is kept "
+                         "in memory, and it is the slowest search.");
+    }
     legacySearch(tray, cells, outlines, nested, initial, goals, stops, search, path);
   }
 

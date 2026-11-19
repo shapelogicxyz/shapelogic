@@ -95,6 +95,12 @@ template <class E>
 
 /// The options of a solve: the request's (null: none) over the settings.
 [[nodiscard]] RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j);
+/// Sets the stacking solver a request (`given`, its options) did not name:
+/// the one the original's menu offered for the problem's board
+/// (syncSolverTypeMenu), the Panex Solver for Panex columns, else the
+/// Stacking Solver. The problem is the document's.
+void defaultStackingSolver(const State& s, app::Id problem, const Json& given,
+                           SolveOptions& options);
 [[nodiscard]] Json progressJson(const SolveProgress& p);
 /// A slide search's forecast (sliding::slideForecast) from its moves'
 /// times; null when there are none.

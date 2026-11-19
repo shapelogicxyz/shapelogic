@@ -9,6 +9,7 @@
 
 #include "shapelogic/base/assert.h"
 #include "shapelogic/grid/grid_type.h"
+#include "shapelogic/grid/shape_image.h"
 #include "shapelogic/grid/symmetries.h"
 #include "shapelogic/grid/types.h"
 
@@ -409,6 +410,11 @@ class Voxel {
   [[nodiscard]] int getShapeColor() const { return shapeColor_; }
   void setShapeColor(int c) { shapeColor_ = c; }
 
+  /// The picture on the shape's top faces (sliding puzzles, decision 0038);
+  /// its id is -1 when there is none. It follows the cells when they move.
+  [[nodiscard]] const ShapeImage& getImage() const { return image_; }
+  void setImage(const ShapeImage& image) { image_ = image; }
+
   /// Attributes of the shape's file element that this version does not know
   /// (name, value), written back unchanged (decision 0006).
   [[nodiscard]] const std::vector<std::pair<std::string, std::string>>& getExtraAttributes() const {
@@ -452,6 +458,9 @@ class Voxel {
   int hx_ = 0;
   int hy_ = 0;
   int hz_ = 0;
+
+  /// The picture, moved by the grid classes with the cells.
+  ShapeImage image_;
 
   /// Start and goal marks per cell; each empty when the shape has none.
   std::vector<unsigned char> startPiece_;

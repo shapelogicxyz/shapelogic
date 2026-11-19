@@ -117,6 +117,51 @@
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_state"]
     },
+    "shape.setImage": {
+      "summary": "Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The picture then turns, flips and moves with the cells. Refused (invalid_argument) on other grids, for a board (a start/goal shape), a shape without cells, bytes that are not such a picture, or a part outside it.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "shape": {"$ref": "types.json#/$defs/ShapeId"},
+          "data": {"type": "string", "description": "The image file, base64. Give this or 'image'."},
+          "image": {"type": "integer", "minimum": 0, "description": "A picture the puzzle has (ShapeImage.image). Give this or 'data'."},
+          "fit": {"$ref": "types.json#/$defs/ImageFit"},
+          "src": {"$ref": "types.json#/$defs/PixelRect", "description": "The part of the picture shown, in its pixels."}
+        },
+        "required": ["shape", "fit", "src"],
+        "additionalProperties": false
+      },
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_argument", "invalid_state"]
+    },
+    "shape.clearImage": {
+      "summary": "Takes the shape's picture off (nothing changes when it has none).",
+      "params": {"$ref": "#/$defs/ShapeParam"},
+      "result": {"$ref": "types.json#/$defs/Changed"},
+      "errors": ["not_found", "invalid_state"]
+    },
+    "shape.imageData": {
+      "summary": "A picture of the puzzle: its file, which the client decodes and keeps by its hash (the snapshot carries only the number and hash).",
+      "params": {
+        "type": "object",
+        "properties": {"image": {"type": "integer", "minimum": 0}},
+        "required": ["image"],
+        "additionalProperties": false
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "type": {"enum": ["image/png", "image/jpeg"]},
+          "width": {"type": "integer", "minimum": 1},
+          "height": {"type": "integer", "minimum": 1},
+          "hash": {"type": "string"},
+          "data": {"type": "string", "description": "The file, base64."}
+        },
+        "required": ["type", "width", "height", "hash", "data"],
+        "additionalProperties": false
+      },
+      "errors": ["not_found"]
+    },
     "shape.setCells": {
       "summary": "Applies a tool to cells, each with the mirror and span options (the grid editor); cells outside the space or not cells of the grid are left out. Several calls inside edit.begin / edit.end are one undo step. Refused (invalid_argument) on a stacking puzzle, whose shapes are discs (stacking.setDiscSize).",
       "params": {

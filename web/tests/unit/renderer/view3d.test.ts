@@ -86,6 +86,7 @@ function frame(
     colour: new Uint8Array(colour),
     polygon: new Uint32Array(polygon),
     edgeLines: new Float32Array([0, 0, 0, 1, 0, 0]),
+    imageUv: new Float32Array(0),
   };
 }
 

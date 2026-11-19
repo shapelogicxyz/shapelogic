@@ -196,6 +196,24 @@ Json discColour(const State& s, const Voxel& v) {
   return nullptr;
 }
 
+// The shape's picture (decision 0038), without its bytes: the snapshot is
+// sent whole on every change, the bytes once through shape.imageData.
+Json shapeImage(const Puzzle& puzzle, const Voxel& v) {
+  const ShapeImage& im = v.getImage();
+  const PuzzleImage* file = im.present() ? puzzle.findImage(im.id) : nullptr;
+  if (file == nullptr) {
+    return nullptr;
+  }
+  return Json{{"image", file->id},
+              {"hash", file->hash},
+              {"width", file->width},
+              {"height", file->height},
+              {"fit", im.fit == ImageFit::Stretch ? "stretch" : "crop"},
+              {"src", im.src},
+              {"box", im.box},
+              {"turn", im.turn}};
+}
+
 Json optionalCount(bool known, std::uint64_t value) {
   return known ? Json(value) : Json(nullptr);
 }
@@ -242,6 +260,7 @@ Json shapeSummary(const State& s, unsigned int index) {
   const bool disc = stacking::isStacking(s.document().puzzle()) && v.getDiskSize() > 0;
   j["disc"] = disc ? Json(v.getDiskSize()) : Json(nullptr);
   j["discColour"] = disc ? discColour(s, v) : Json(nullptr);
+  j["image"] = shapeImage(s.document().puzzle(), v);
   return j;
 }
 
@@ -467,6 +486,7 @@ Json meshReply(State& s, const mesh::DrawMesh& m) {
   f.add("colour", m.colour);
   f.add("polygon", m.polygon);
   f.add("edgeLines", m.edgeLines);
+  f.add("imageUv", m.imageUv);
   Json j = Json::object();
   j["frame"] = s.sendFrame(f);
   j["triangles"] = m.triangleCount();
@@ -628,6 +648,25 @@ RpcResult<SolveOptions> solveOptionsFrom(const State& s, const Json& j) {
     return std::unexpected(e);
   }
   return o;
+}
+
+void defaultStackingSolver(const State& s, app::Id problem, const Json& given,
+                           SolveOptions& options) {
+  const Json* named = nullptr;
+  if (given.is_object() && given.contains("stacking") && given["stacking"].is_object() &&
+      given["stacking"].contains("solver")) {
+    named = &given["stacking"]["solver"];
+  }
+  const app::Document& d = s.document();
+  if (named != nullptr || !stacking::isStacking(d.puzzle())) {
+    return;
+  }
+  const unsigned int index = d.problemIndex(problem).value();
+  d.readProblem(index, [&d, &options](const Problem& pr) {
+    if (pr.rodSetValid(d.puzzle()) && d.puzzle().getRodSet(pr.getRodSetId()).panexColumns) {
+      options.stacking.solver = stacking::StackingSolver::Panex;
+    }
+  });
 }
 
 Json takeApartJson(const DisassemblyProgress& d) {

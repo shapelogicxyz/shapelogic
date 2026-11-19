@@ -172,6 +172,8 @@ export interface MeshArrays {
   polygon: Uint32Array;
   /** Two xyz points per line (the flat style; empty otherwise). */
   edgeLines: Float32Array;
+  /** Two per vertex: its place in the shape's picture, -1 off the faces looking up; empty without a picture (decision 0038). */
+  imageUv: Float32Array;
 }
 
 /** The arrays of a mesh reply (shape.mesh, playback.mesh); throws FrameError when they do not fit. */
@@ -192,6 +194,11 @@ export function meshArrays(mesh: {
     colour: typed(f, 'colour', Uint8Array, t),
     polygon: typed(f, 'polygon', Uint32Array, t),
     edgeLines: typed(f, 'edgeLines', Float32Array, (n) => n % 6 === 0),
+    // a frame from before pictures (a recording) has none
+    imageUv:
+      f.arrays.imageUv === undefined
+        ? new Float32Array(0)
+        : typed(f, 'imageUv', Float32Array, (n) => n === 0 || n === 2 * mesh.vertices),
   };
   for (const i of out.indices) {
     if (i >= mesh.vertices) {

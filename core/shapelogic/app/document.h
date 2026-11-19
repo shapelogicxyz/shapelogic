@@ -328,6 +328,21 @@ class Document {
   Result<void> setShapeWeight(Id shape, int weight);
   /// The shape's own colour, 0xRRGGBB, or none for the default one.
   Result<void> setShapeColour(Id shape, std::optional<std::uint32_t> rgb);
+  /// A picture for a shape (shape.setImage, decision 0038): new image bytes
+  /// (PNG or JPEG) or the id of one the puzzle has, how it was fitted, and
+  /// the part of it shown, in pixels.
+  struct ImageChoice {
+    std::optional<std::string> bytes;
+    std::optional<unsigned int> id;
+    ImageFit fit = ImageFit::Crop;
+    std::array<int, 4> src{0, 0, 1, 1};
+  };
+  /// Lays a picture over the shape's bounding box, upright, on a sliding
+  /// puzzle (InvalidArgument elsewhere, for an empty shape, bytes that are
+  /// not a picture, or a part outside it). Returns the picture's id.
+  Result<unsigned int> setShapeImage(Id shape, const ImageChoice& choice);
+  /// Takes the shape's picture off (nothing when it has none).
+  Result<void> clearShapeImage(Id shape);
   /// Applies a cell tool to cells (shape.setCells); `colour` is a colour
   /// id, or 0 for none. Returns the number of cells changed (0 changes
   /// leave no undo step).

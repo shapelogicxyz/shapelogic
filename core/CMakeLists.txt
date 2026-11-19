@@ -13,6 +13,7 @@ add_library(btcore STATIC
   shapelogic/app/queries.cpp
   shapelogic/app/shape_tools.cpp
   shapelogic/base/assert.cpp
+  shapelogic/base/base64.cpp
   shapelogic/base/error.cpp
   shapelogic/base/file_lock.cpp
   shapelogic/base/solve_state.cpp
@@ -67,6 +68,7 @@ add_library(btcore STATIC
   shapelogic/model/grid_convert.cpp
   shapelogic/model/problem.cpp
   shapelogic/model/puzzle.cpp
+  shapelogic/model/puzzle_image.cpp
   shapelogic/model/sliding.cpp
   shapelogic/model/solution.cpp
   shapelogic/model/stacking.cpp

@@ -7,6 +7,7 @@
 /// arrays that a reply describes. Also base64, for bytes inside JSON.
 
 #include "rpc.h"
+#include "shapelogic/base/base64.h"
 
 #include <bit>
 #include <cstdint>
@@ -72,10 +73,5 @@ class FrameBuilder {
   std::string bytes_;
   Json arrays_ = Json::object();
 };
-
-/// Standard base64 with padding.
-[[nodiscard]] std::string base64Encode(std::string_view bytes);
-/// Decodes standard base64 (padding optional); empty on bad input.
-[[nodiscard]] std::optional<std::string> base64Decode(std::string_view text);
 
 }  // namespace bt::engine

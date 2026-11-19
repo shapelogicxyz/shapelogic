@@ -10,6 +10,7 @@ add_executable(bt_tests
   unit/app/test_document_solving.cpp
   unit/app/test_layer_geometry.cpp
   unit/app/test_playback_explorers.cpp
+  unit/app/test_shape_images.cpp
   unit/app/test_stl_export.cpp
   unit/app/test_tools_queries.cpp
   unit/base/test_save_cadence.cpp

@@ -287,6 +287,12 @@ solve).
   `XmlParseError`, which never leaves the module). `xml_document.h`: the
   tree built from it, and writing a tree back.
 - `xml_writer.h`: `XmlWriter`, the original's output layout.
+- Pictures on sliding pieces (decision 0038): `<images>` at puzzle level,
+  each `<image>` a PNG or JPEG in base64 (`base/base64.h`), and the
+  attributes `image`, `imageFit`, `imageSrc`, `imageBox` and `imageTurn` on
+  a `<voxel>`; the model's side is `model/puzzle_image.h` (the table, kept
+  by the `Puzzle`) and `grid/shape_image.h` (a shape's picture, moved with
+  its cells).
 - `gzip_file.h`: whole-file reading and writing through zlib (level 9),
   and the same in memory (`gzipCompress`, `gunzipIfCompressed`).
 - `paused_solve.h`: the paused solve file (`.slsolve`, the original's
@@ -1516,6 +1522,10 @@ What exists after stage 8:
     pictures and data-URL mouse cursors),
     `piece-colours.ts` (the original's `pieceColor` table and jitter,
     `ROD_CHIP`),
+    `piece-images.ts` and `picture-math.ts` (decision 0038: a sliding
+    piece's picture fetched once per hash with `shape.imageData` and
+    decoded once, as a data URL for the 2D grid and a bitmap for the 3D
+    views; the map from its pixels to the cells, and Crop's part),
     `dom.ts` (with `setHtml`, which leaves a list's elements alone when a
     re-render would draw the same, so a double-click whose first click
     re-rendered still lands, and `markSelected`). `keys.ts` has the
@@ -1623,10 +1633,13 @@ What exists after stage 8:
     `editor-card.ts` (the tool strip, mirror and span, the planes and the
     box tool, the layer strip with its marks, the selection bar, the size
     steppers in `sizeUnit` blocks rounded up as the original's, the
-    palette), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
+    palette, a sliding piece's image button), `image-dialog.ts` (Apply
+    image, decision 0038: the file shrunk to 2048 pixels, Crop or Stretch,
+    the preview), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
     a layer drawing; the cursor outlined by its edges towards cells not
     under it; a drag collects every cell the pointer passes over, the right
-    button erases; the box selection), `layer-geometry.ts` (`grid.geometry`
+    button erases; the box selection; a piece's picture as a pattern on its
+    filled cells), `layer-geometry.ts` (`grid.geometry`
     by grid, size and layer; the cube's XZ and YZ planes as the client's
     squares), `shape-cells.ts` (`ShapeCells`: the shape's cells, the XY
     layer by `shape.get {layer}` and the whole shape, reloaded once the

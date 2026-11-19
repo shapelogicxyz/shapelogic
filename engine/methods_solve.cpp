@@ -3,35 +3,11 @@
 #include "convert.h"
 #include "engine.h"
 
-#include "shapelogic/model/stacking.h"
-
 #include <optional>
 
 namespace bt::engine {
 
 namespace {
-
-// The stacking solver a request did not name: the one the original's menu
-// offered for the problem's board (syncSolverTypeMenu), the Panex Solver
-// for Panex columns, else the Stacking Solver.
-void defaultStackingSolver(const State& s, app::Id problem, const Json& given,
-                           SolveOptions& options) {
-  const Json* named = nullptr;
-  if (given.is_object() && given.contains("stacking") && given["stacking"].is_object() &&
-      given["stacking"].contains("solver")) {
-    named = &given["stacking"]["solver"];
-  }
-  const app::Document& d = s.document();
-  if (named != nullptr || !stacking::isStacking(d.puzzle())) {
-    return;
-  }
-  const unsigned int index = d.problemIndex(problem).value();
-  d.readProblem(index, [&d, &options](const Problem& pr) {
-    if (pr.rodSetValid(d.puzzle()) && d.puzzle().getRodSet(pr.getRodSetId()).panexColumns) {
-      options.stacking.solver = stacking::StackingSolver::Panex;
-    }
-  });
-}
 
 enum class Launch : std::uint8_t { Start, Prepare, Continue };
 

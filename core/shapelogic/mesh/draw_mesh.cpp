@@ -102,11 +102,42 @@ DrawMesh toDrawMesh(const Polyhedron& poly, bool edgeLines) {
   return m;
 }
 
+namespace {
+
+// The picture coordinates of the vertices on faces looking up (the mesh is
+// in cell units: cell (x, y) covers [x, x + 1] x [y, y + 1]): the inverse of
+// ShapeImage's map, q = ((p - box corner) / box size - 1/2), (s - 1/2,
+// 1/2 - t) = M^T q.
+std::vector<float> imageUv(const ShapeImage& im, const DrawMesh& m) {
+  const std::array<int, 4> r = ShapeImage::matrix(im.turn);
+  const std::size_t n = m.vertexCount();
+  std::vector<float> uv(2 * n, -1.0F);
+  for (std::size_t i = 0; i < n; i++) {
+    if (m.normals[3 * i + 2] < 0.5F) {
+      continue;
+    }
+    const auto x = static_cast<double>(m.positions[3 * i]);
+    const auto y = static_cast<double>(m.positions[3 * i + 1]);
+    const double qx = (x - im.box[0]) / im.box[2] - 0.5;
+    const double qy = (y - im.box[1]) / im.box[3] - 0.5;
+    const double px = r[0] * qx + r[2] * qy;
+    const double py = r[1] * qx + r[3] * qy;
+    uv[2 * i] = static_cast<float>(px + 0.5);
+    uv[2 * i + 1] = static_cast<float>(0.5 - py);
+  }
+  return uv;
+}
+
+}  // namespace
+
 DrawMesh shapeDrawMesh(const Voxel& v, MeshStyle style) {
   DrawMesh m = toDrawMesh(shapeMesh(v, style), style == MeshStyle::Flat);
   m.hotspot[0] = v.getHx();
   m.hotspot[1] = v.getHy();
   m.hotspot[2] = v.getHz();
+  if (v.getImage().present()) {
+    m.imageUv = imageUv(v.getImage(), m);
+  }
   return m;
 }
 

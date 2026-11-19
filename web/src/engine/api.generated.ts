@@ -76,16 +76,19 @@ export interface Settings {
   /**
    * Write a line on the engine's log stream (stderr) for each thing that helps to understand
    * afterwards what happened, for the app's log file: a file opened or saved, or not and why; a
-   * solve started (with its options and these settings), paused, continued, aborted, and how its
-   * runs ended; the settings changed; what the sliding searches told (a saved search carried on
-   * and how deep, one that could not be and why, a stop at the disk budget); every call that
-   * failed. Each line is `shapelogic_engine: LEVEL: Event: text`, LEVEL one of DEBUG, INFO, WARN,
-   * ERROR, and Event what happened in a few capitalised words (`File Opened`, `Solve Paused`).
-   * `off` (the default) writes only what went wrong in a notification or an analysis; `info` every
-   * line but DEBUG; `debug` also the sliding searches' step by step lines (each level done: its
-   * width, the arrangements visited, the disk used against its budget and the space free; each
-   * save of the search's state and what it names; a saved search read back, file by file; the
-   * levels thinned out to make room).
+   * solve started (the problem by its label and name, `P5 "Board 1"`; its options; the solver it
+   * runs; the threads it runs with and, for a sliding or stacking solve, the search memory and
+   * disk, automatic ones as the amounts they come to), paused, continued, aborted, and how its
+   * runs ended; the settings changed; what the sliding searches told (the key each start layout's
+   * search runs in and what that means for its speed, a saved search carried on and how deep, one
+   * that could not be and why, a stop at the disk budget); every call that failed. Each line is
+   * `shapelogic_engine: LEVEL: Event: text`, LEVEL one of DEBUG, INFO, WARN, ERROR, and Event what
+   * happened in a few capitalised words (`File Opened`, `Solve Paused`). `off` (the default)
+   * writes only what went wrong in a notification or an analysis; `info` every line but DEBUG;
+   * `debug` also the sliding searches' step by step lines (each level done: its width, the
+   * arrangements visited, the disk used against its budget and the space free; each save of the
+   * search's state and what it names; a saved search read back, file by file; the levels thinned
+   * out to make room).
    */
   log: LogSetting;
 }
@@ -551,8 +554,10 @@ export interface Frame {
  * triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its
  * side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable
  * mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8,
- * colour number, 0 none; padded), polygon (u32); and edgeLines (f32, two points per line, flat
- * style only).
+ * colour number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style
+ * only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's
+ * picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty
+ * for a shape without a picture, decision 0038).
  */
 export interface MeshFrame {
   frame: Frame;
@@ -725,6 +730,56 @@ export interface ShapeSummary {
    * shape.
    */
   discColour: ColourId | null;
+  /** The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. */
+  image: ShapeImage | null;
+}
+
+/**
+ * How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions,
+ * or squashed to it.
+ */
+export type ImageFit = 'crop' | 'stretch';
+
+/**
+ * [x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner.
+ * @minItems 4
+ * @maxItems 4
+ */
+export type PixelRect = [number, number, number, number];
+
+/**
+ * A shape's picture (decision 0038). Seen from above, the part 'src' is laid over the cell
+ * rectangle 'box', turned by 'turn': q = M(turn) (u - 1/2, 1/2 - v), point = box corner + (q +
+ * 1/2) box size, for (u, v) in [0, 1] across src (u right, v down the picture). M(turn) is (turn
+ * mod 4) quarter turns counter-clockwise after a mirror in x when turn >= 4; turn 0 has the
+ * picture's top at the high-y side.
+ */
+export interface ShapeImage {
+  /**
+   * The puzzle's picture (shape.imageData).
+   * @minimum 0
+   */
+  image: number;
+  /** Of the picture's file: the same hash, the same picture. */
+  hash: string;
+  /** @minimum 1 */
+  width: number;
+  /** @minimum 1 */
+  height: number;
+  fit: ImageFit;
+  src: PixelRect;
+  /**
+   * [x, y, width, height] in cells of the shape's own grid; it may reach outside the grid after a
+   * nudge.
+   * @minItems 4
+   * @maxItems 4
+   */
+  box: [number, number, number, number];
+  /**
+   * @minimum 0
+   * @maximum 7
+   */
+  turn: number;
 }
 
 export interface Colour {
@@ -2706,6 +2761,62 @@ export interface Methods {
     errors: 'not_found' | 'invalid_state';
   };
   /**
+   * Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038):
+   * new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its
+   * number. The picture then turns, flips and moves with the cells. Refused (invalid_argument) on
+   * other grids, for a board (a start/goal shape), a shape without cells, bytes that are not such
+   * a picture, or a part outside it.
+   * (shape.json)
+   */
+  'shape.setImage': {
+    params: {
+      shape: ShapeId;
+      /** The image file, base64. Give this or 'image'. */
+      data?: string;
+      /**
+       * A picture the puzzle has (ShapeImage.image). Give this or 'data'.
+       * @minimum 0
+       */
+      image?: number;
+      fit: ImageFit;
+      /** The part of the picture shown, in its pixels. */
+      src: PixelRect;
+    };
+    result: Changed;
+    errors: 'not_found' | 'invalid_argument' | 'invalid_state';
+  };
+  /**
+   * Takes the shape's picture off (nothing changes when it has none).
+   * (shape.json)
+   */
+  'shape.clearImage': {
+    params: ShapeParam;
+    result: Changed;
+    errors: 'not_found' | 'invalid_state';
+  };
+  /**
+   * A picture of the puzzle: its file, which the client decodes and keeps by its hash (the
+   * snapshot carries only the number and hash).
+   * (shape.json)
+   */
+  'shape.imageData': {
+    params: {
+      /** @minimum 0 */
+      image: number;
+    };
+    result: {
+      type: 'image/png' | 'image/jpeg';
+      /** @minimum 1 */
+      width: number;
+      /** @minimum 1 */
+      height: number;
+      hash: string;
+      /** The file, base64. */
+      data: string;
+    };
+    errors: 'not_found';
+  };
+  /**
    * Applies a tool to cells, each with the mirror and span options (the grid editor); cells
    * outside the space or not cells of the grid are left out. Several calls inside edit.begin /
    * edit.end are one undo step. Refused (invalid_argument) on a stacking puzzle, whose shapes are
@@ -4011,10 +4122,12 @@ export const METHOD_NAMES = [
   'problem.setSolverSettings',
   'settings.get',
   'settings.set',
+  'shape.clearImage',
   'shape.create',
   'shape.delete',
   'shape.duplicate',
   'shape.get',
+  'shape.imageData',
   'shape.info',
   'shape.list',
   'shape.mesh',
@@ -4024,6 +4137,7 @@ export const METHOD_NAMES = [
   'shape.setBox',
   'shape.setCells',
   'shape.setColour',
+  'shape.setImage',
   'shape.setWeight',
   'shape.table',
   'shape.task',

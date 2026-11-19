@@ -43,6 +43,11 @@ struct DrawMesh {
   /// Line segments (two points, x, y, z each) where two faces meet at an
   /// angle: the edge lines of the "edges" style. Only for closed meshes.
   std::vector<float> edgeLines;
+  /// Per vertex, two each: where the vertex lies in the shape's picture
+  /// (decision 0038), as fractions (s, t) across the part shown, s to the
+  /// right and t down the picture; (-1, -1) for a vertex that is not on a
+  /// face looking up (+Z). Empty when the shape has no picture.
+  std::vector<float> imageUv;
   /// The bounding box of the positions (all 0 when empty).
   float lo[3] = {0, 0, 0};
   float hi[3] = {0, 0, 0};

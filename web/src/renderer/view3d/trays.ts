@@ -21,6 +21,7 @@ import { buildMesh } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
 import type { MeshCache } from './meshcache.ts';
 import { SolutionScene } from './solution.ts';
+import type { PiecePicture } from '../shell/picture-math.ts';
 import type { ScenePiece, ScenePose, SolutionLook } from './solution.ts';
 
 /** The board and where the copies stand on it, on START and on GOAL. */
@@ -69,6 +70,16 @@ export class TrayView {
   get extent(): [number, number, number] | null {
     const s = this.size;
     return s === null ? null : [2 * s[0] + TRAY_GAP, s[1], s[2] + 1];
+  }
+
+  /** A piece's picture by its shape (the view's; null: none, or not decoded yet). */
+  setPictureOf(of: (shape: string) => PiecePicture | null): void {
+    this.scene.pictureOf = of;
+  }
+
+  /** Applies the pictures again (one was decoded). */
+  applyPictures(): void {
+    this.scene.applyPictures();
   }
 
   /** Shows a board's trays (null: none). */

@@ -97,7 +97,7 @@ export function buildMesh(
   style: MeshStyle,
   source: MeshSource | null = null,
 ): BuiltMesh {
-  const { positions, normals, indices, voxel, flags, colour } = arrays;
+  const { positions, normals, indices, voxel, flags, colour, imageUv } = arrays;
   const total = flags.length;
 
   // the triangles drawn: the wire-frame style keeps only its faces
@@ -115,6 +115,9 @@ export function buildMesh(
   const aFlags = new Float32Array(count * 3);
   const aColour = new Float32Array(count * 3);
   const aCell = new Float32Array(count * 9);
+  // the picture's place per vertex (decision 0038); -1: none
+  const aUv = new Float32Array(count * 6).fill(-1);
+  const hasUv = imageUv.length > 0;
   const sx = size[0];
   const sy = size[1];
   for (let k = 0; k < count; k++) {
@@ -140,6 +143,10 @@ export function buildMesh(
       aCell[o] = cx;
       aCell[o + 1] = cy;
       aCell[o + 2] = cz;
+      if (hasUv) {
+        aUv[6 * k + 2 * j] = imageUv[2 * v] ?? -1;
+        aUv[6 * k + 2 * j + 1] = imageUv[2 * v + 1] ?? -1;
+      }
     }
   }
   const faces = new BufferGeometry();
@@ -148,6 +155,7 @@ export function buildMesh(
   faces.setAttribute('aFlags', new BufferAttribute(aFlags, 1));
   faces.setAttribute('aColour', new BufferAttribute(aColour, 1));
   faces.setAttribute('aCell', new BufferAttribute(aCell, 3));
+  faces.setAttribute('aUv', new BufferAttribute(aUv, 2));
   faces.computeBoundingBox();
   faces.computeBoundingSphere();
   faces.userData.style = style;

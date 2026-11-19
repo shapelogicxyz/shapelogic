@@ -18,7 +18,7 @@
 // set chosen alone (stacking.rodSetLayout; the original's
 // `showSelectedRods`).
 
-import type { CellTool } from '../../engine/api.generated.ts';
+import type { CellTool, ShapeSummary } from '../../engine/api.generated.ts';
 import { EngineError } from '../../engine/errors.ts';
 import type { Edits } from '../state/edits.ts';
 import type { Store } from '../state/store.ts';
@@ -30,7 +30,9 @@ import { onKey } from '../shell/keyboard.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { editorVisible, layout, onLayout, tab } from '../shell/layout.ts';
 import { hex, isTray, shapeColour } from '../shell/piece-colours.ts';
-import { reportError, setCursor } from '../shell/status.ts';
+import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
+import { pictureToCells } from '../shell/picture-math.ts';
+import { flash, reportError, setCursor } from '../shell/status.ts';
 import { onTheme } from '../shell/theme.ts';
 import type { View3D } from '../view3d/view.ts';
 import type { Plane } from '../view3d/overlays.ts';
@@ -39,6 +41,7 @@ import { EditorCard, nextColour } from './editor-card.ts';
 import { axesOf, EditorState, expand, planeMap, TOOLS } from './editor-state.ts';
 import type { Cell, PlaneMap } from './editor-state.ts';
 import { Grid2D } from './grid2d.ts';
+import { openImageDialog } from './image-dialog.ts';
 import type { GridInput } from './grid2d.ts';
 import { modsOf } from './tools.ts';
 import type { Mods } from './tools.ts';
@@ -151,6 +154,11 @@ export class EntitiesWorkspace {
         void this.mutate('Edit color', () => store.engine.call('colour.edit', { colour: id, rgb })),
       setShapeColour: (shape, rgb) =>
         void this.mutate('Color', () => store.engine.call('shape.setColour', { shape, rgb })),
+      editImage: () => {
+        this.editImage();
+      },
+      clearImage: (shape) =>
+        void this.mutate('Remove image', () => store.engine.call('shape.clearImage', { shape })),
       deleteColour: (id) => void this.deleteColour(id),
     });
     this.grid = new Grid2D(byId('garea'), {
@@ -205,6 +213,10 @@ export class EntitiesWorkspace {
       } else if (c.kind === 'settings') {
         this.loadTasks();
       }
+    });
+    // a piece's picture decoded: the grid draws it
+    onPieceImage(() => {
+      this.showGrid();
     });
     this.cells.subscribe(() => {
       this.showGrid();
@@ -379,6 +391,45 @@ export class EntitiesWorkspace {
     );
   }
 
+  // the Apply image dialog for the piece shown (decision 0038)
+  private editImage(): void {
+    const shape = this.store.shape;
+    if (shape === null || this.refuse()) {
+      return;
+    }
+    const cells = [...this.cells.all.values()].map((v) => v.at);
+    if (cells.length === 0) {
+      flash('Draw the piece’s cells first: the image shows only on them');
+      return;
+    }
+    const picture = pieceImage(this.store.engine, shape.image);
+    openImageDialog({
+      label: shape.label,
+      cells,
+      colour: hex(shapeColour(shape.colour, this.store.indexOf(shape.id))),
+      current: shape.image !== null && picture !== null ? { image: shape.image, picture } : null,
+      apply: (a) =>
+        this.mutate('Image', () =>
+          this.store.engine.call('shape.setImage', { shape: shape.id, ...a }),
+        ).then((r) => r !== null),
+      remove: () =>
+        void this.mutate('Remove image', () =>
+          this.store.engine.call('shape.clearImage', { shape: shape.id }),
+        ),
+    });
+  }
+
+  // a sliding piece's picture for the grid, once decoded (null: none yet)
+  private pictureOf(shape: { image: ShapeSummary['image'] }): GridInput['image'] {
+    if (this.store.snapshot?.grid !== 'sliding' || shape.image === null) {
+      return null;
+    }
+    const picture = pieceImage(this.store.engine, shape.image);
+    return picture === null
+      ? null
+      : { picture, toCells: pictureToCells(shape.image), src: shape.image.src };
+  }
+
   // the grid of the layer shown: its drawing and the hinted layer's (asked
   // of the engine once per size and layer) and the engine's cells of them
   private showGrid(): void {
@@ -423,6 +474,7 @@ export class EntitiesWorkspace {
                   shape.colour == null ? null : shapeColour(shape.colour, store.indexOf(shape.id)),
               }
             : null,
+        image: this.pictureOf(shape),
         hint:
           hintGeo === null || hintLayer === null
             ? null

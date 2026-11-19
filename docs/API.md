@@ -194,7 +194,7 @@ Announces a binary frame: exactly 'bytes' raw bytes follow this line at once; th
 | `panexFolder` | string | required | Where a stacking solve's Panex search saves itself, in a folder per puzzle (the original's SHAPELOGIC_PANEX_DIR): a paused stacking solve is its saved search there, which solve.continue carries on (also after the engine or the document ended), solve.start and solve.abort throw away, solve.status describes, and the paused solve's export and import carry. Empty saves nothing (a search that outgrows its memory then finds its path by solving halves again). Default: the user's cache folder's panex folder. |
 | `panexDiskGB` | number | required | The disk a saved search's levels may take, in GB (SHAPELOGIC_PANEX_DISK_GB); 0, the default: half the free space, at most 200 GB. The fuller it gets, the fewer levels are kept and the longer finding the path at the end takes. More than the disk has room for is held to its free space but a reserve, as slideDiskGB is. |
 | `searchMemoryGB` | number | required | The memory the sliding and stacking searches running at once share, in GB; 0, the default: half the machine's memory (engine.info's memoryBytes), at least 2 GB. Each search running gets an equal part, which shrinks when another starts and grows when one ends; a sliding search moves older levels to its files to keep to it, a stacking search stops at it (decision 0028). A change reaches the searches already running. It decides every solve's memory: a solve's highMemory plays no part, and a note of a search that ran out of memory or disk names Settings ▸ Solver. |
-| `log` | LogSetting | required | Write a line on the engine's log stream (stderr) for each thing that helps to understand afterwards what happened, for the app's log file: a file opened or saved, or not and why; a solve started (with its options and these settings), paused, continued, aborted, and how its runs ended; the settings changed; what the sliding searches told (a saved search carried on and how deep, one that could not be and why, a stop at the disk budget); every call that failed. Each line is `shapelogic_engine: LEVEL: Event: text`, LEVEL one of DEBUG, INFO, WARN, ERROR, and Event what happened in a few capitalised words (`File Opened`, `Solve Paused`). `off` (the default) writes only what went wrong in a notification or an analysis; `info` every line but DEBUG; `debug` also the sliding searches' step by step lines (each level done: its width, the arrangements visited, the disk used against its budget and the space free; each save of the search's state and what it names; a saved search read back, file by file; the levels thinned out to make room). |
+| `log` | LogSetting | required | Write a line on the engine's log stream (stderr) for each thing that helps to understand afterwards what happened, for the app's log file: a file opened or saved, or not and why; a solve started (the problem by its label and name, `P5 "Board 1"`; its options; the solver it runs; the threads it runs with and, for a sliding or stacking solve, the search memory and disk, automatic ones as the amounts they come to), paused, continued, aborted, and how its runs ended; the settings changed; what the sliding searches told (the key each start layout's search runs in and what that means for its speed, a saved search carried on and how deep, one that could not be and why, a stop at the disk budget); every call that failed. Each line is `shapelogic_engine: LEVEL: Event: text`, LEVEL one of DEBUG, INFO, WARN, ERROR, and Event what happened in a few capitalised words (`File Opened`, `Solve Paused`). `off` (the default) writes only what went wrong in a notification or an analysis; `info` every line but DEBUG; `debug` also the sliding searches' step by step lines (each level done: its width, the arrangements visited, the disk used against its budget and the space free; each save of the search's state and what it names; a saved search read back, file by file; the levels thinned out to make room). |
 
 ## Document and history
 
@@ -578,6 +578,60 @@ Params:
 Result: [Changed](#changed)
 
 Errors: `not_found`, `invalid_state`
+
+### `shape.setImage`
+
+Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The picture then turns, flips and moves with the cells. Refused (invalid_argument) on other grids, for a board (a start/goal shape), a shape without cells, bytes that are not such a picture, or a part outside it.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `data` | string |  | The image file, base64. Give this or 'image'. |
+| `image` | integer |  | A picture the puzzle has (ShapeImage.image). Give this or 'data'. |
+| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it. |
+| `src` | [PixelRect](#pixelrect) | required | The part of the picture shown, in its pixels. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_argument`, `invalid_state`
+
+### `shape.clearImage`
+
+Takes the shape's picture off (nothing changes when it has none).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+
+Result: [Changed](#changed)
+
+Errors: `not_found`, `invalid_state`
+
+### `shape.imageData`
+
+A picture of the puzzle: its file, which the client decodes and keeps by its hash (the snapshot carries only the number and hash).
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `image` | integer | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `type` | `"image/png"` \| `"image/jpeg"` | required |  |
+| `width` | integer | required |  |
+| `height` | integer | required |  |
+| `hash` | string | required |  |
+| `data` | string | required | The file, base64. |
+
+Errors: `not_found`
 
 ### `shape.setCells`
 
@@ -2878,7 +2932,7 @@ A binary frame sent before the reply (decision 0012): its number, its size, and 
 
 ### MeshFrame
 
-A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); and edgeLines (f32, two points per line, flat style only).
+A drawing mesh: arrays positions and normals (f32, xyz per vertex), indices (u32, three per triangle), and per triangle voxel (u32, the cell index x + X*(y + Y*z)), voxelFace (i32, its side, -1 for bevels and gaps), flags (u32, FaceFlag bits: 1 light checker colour, 2 variable mark, 4 the variable marker face, 8 wire frame, 16 bevel, 32 gap, 128 inside), colour (u8, colour number, 0 none; padded), polygon (u32); edgeLines (f32, two points per line, flat style only); and imageUv (f32, two per vertex: where a vertex on a face looking up lies in the shape's picture, as fractions (s, t) across its part shown, s right and t down; -1, -1 elsewhere; empty for a shape without a picture, decision 0038).
 
 | name | type | | description |
 |---|---|---|---|
@@ -2964,6 +3018,34 @@ Where the rods and the discs of a stacking stand (the original's layoutBoard), i
 | `startGoal` | integer or null | required | A sliding puzzle's start/goal shape: its number n (sliding.json); null for any other shape. |
 | `disc` | integer or null | required | A stacking puzzle's disc: its size, the radius, which the size rule compares (stacking.setDiscSize); null for any other shape. |
 | `discColour` | [ColourId](#colourid) or null | required | A stacking puzzle's disc: the palette colour of its first coloured cell, which the 3D view draws the disc in (the original's diskTint); null for a disc without one, or for any other shape. |
+| `image` | [ShapeImage](#shapeimage) or null | required | The picture on the shape's top faces (sliding puzzles, shape.setImage); null for none. |
+
+### ImageFit
+
+How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it.
+
+`"crop"` \| `"stretch"`
+
+### PixelRect
+
+[x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner.
+
+integer[]
+
+### ShapeImage
+
+A shape's picture (decision 0038). Seen from above, the part 'src' is laid over the cell rectangle 'box', turned by 'turn': q = M(turn) (u - 1/2, 1/2 - v), point = box corner + (q + 1/2) box size, for (u, v) in [0, 1] across src (u right, v down the picture). M(turn) is (turn mod 4) quarter turns counter-clockwise after a mirror in x when turn >= 4; turn 0 has the picture's top at the high-y side.
+
+| name | type | | description |
+|---|---|---|---|
+| `image` | integer | required | The puzzle's picture (shape.imageData). |
+| `hash` | string | required | Of the picture's file: the same hash, the same picture. |
+| `width` | integer | required |  |
+| `height` | integer | required |  |
+| `fit` | [ImageFit](#imagefit) | required | How a picture was fitted to the shape when it was applied: cut to the rectangle's proportions, or squashed to it. |
+| `src` | [PixelRect](#pixelrect) | required | [x, y, width, height] in a picture's pixels, x to the right and y down from its top left corner. |
+| `box` | integer[] | required | [x, y, width, height] in cells of the shape's own grid; it may reach outside the grid after a nudge. |
+| `turn` | integer | required |  |
 
 ### Colour
 

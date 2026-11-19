@@ -4,6 +4,7 @@
 
 #include "shapelogic/model/puzzle.h"
 
+#include <algorithm>
 #include <utility>
 
 namespace bt {
@@ -34,6 +35,41 @@ void Puzzle::removeShape(unsigned int idx) {
   }
 
   shapes_.erase(shapes_.begin() + idx);
+}
+
+unsigned int Puzzle::addImage(const ImageInfo& info, std::string bytes) {
+  for (const PuzzleImage& im : images_) {
+    if (im.type == info.type && *im.bytes == bytes) {
+      return im.id;
+    }
+  }
+  unsigned int id = 0;
+  for (const PuzzleImage& im : images_) {
+    id = std::max(id, im.id + 1);
+  }
+  std::string hash = imageHash(bytes);
+  images_.push_back(PuzzleImage{id, info.type, info.width, info.height,
+                                std::make_shared<const std::string>(std::move(bytes)),
+                                std::move(hash)});
+  return id;
+}
+
+const PuzzleImage* Puzzle::findImage(int id) const {
+  for (const PuzzleImage& im : images_) {
+    if (static_cast<int>(im.id) == id) {
+      return &im;
+    }
+  }
+  return nullptr;
+}
+
+bool Puzzle::imageUsed(unsigned int id) const {
+  for (const ClonePtr<Voxel>& v : shapes_) {
+    if (v->getImage().id == static_cast<int>(id)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::unique_ptr<Voxel> Puzzle::replaceShape(unsigned int idx, std::unique_ptr<Voxel> v) {

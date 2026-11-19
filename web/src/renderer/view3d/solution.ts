@@ -21,7 +21,7 @@
 // fixed size on the screen, over everything, at the middle of the cell
 // nearest the piece's middle (on the piece even when it is hollow).
 
-import { Box3, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
+import { Box3, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3, Vector4 } from 'three';
 import type { BufferGeometry, Raycaster, Sprite } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -30,7 +30,8 @@ import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js
 import type { BoardLayout, MeshStyle } from '../../engine/api.generated.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { LABEL_CHARS_MAX } from '../shell/prefs.ts';
-import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
+import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
+import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
 import { hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -187,6 +188,16 @@ export class SolutionScene {
     return this.walls === null ? 0 : (this.walls.geometry.attributes.instanceStart?.count ?? 0);
   }
 
+  /** A sliding piece's picture by its shape, set by the view (null: none, or not decoded yet). */
+  pictureOf: (shape: string) => PiecePicture | null = () => null;
+
+  /** Applies the pictures again (one was decoded, or the document changed). */
+  applyPictures(): void {
+    for (const d of this.draws) {
+      setPicture(d.uniforms, d.piece.mode === 'wire' ? null : this.pictureOf(d.piece.shape));
+    }
+  }
+
   /** Shows a model (null: nothing); the meshes belong to the caller. */
   set(model: SolutionModel | null): void {
     this.clear();
@@ -199,8 +210,13 @@ export class SolutionScene {
         uPiece: { value: new Vector3(1, 1, 1) },
         uChecker: { value: 1 },
         uAlpha: { value: 1 },
+        // a picture of its own
+        uImage: { value: null },
+        uImageOn: { value: 0 },
+        uImageSrc: { value: new Vector4(0, 0, 1, 1) },
       };
       setPiece(uniforms, piece.colour);
+      setPicture(uniforms, piece.mode === 'wire' ? null : this.pictureOf(piece.shape));
       const group = new Group();
       const d: PieceDraw = {
         piece,

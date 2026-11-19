@@ -11,6 +11,7 @@
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
+#include "shapelogic/model/puzzle_image.h"
 #include "shapelogic/model/stacking_types.h"
 #include "shapelogic/model/xml_element.h"
 
@@ -134,6 +135,19 @@ class Puzzle {
     return rodSets_[idx];
   }
 
+  // ---- pictures (decision 0038) ------------------------------------------------
+
+  /// Adds a picture (bytes checked by sniffImage()); returns its id, that of
+  /// an equal picture already here when there is one. Pictures stay while
+  /// the puzzle is open, used or not (undo steps may refer to them); the
+  /// file keeps only those a shape shows.
+  unsigned int addImage(const ImageInfo& info, std::string bytes);
+  /// The picture with id `id`, or null.
+  [[nodiscard]] const PuzzleImage* findImage(int id) const;
+  [[nodiscard]] const std::vector<PuzzleImage>& images() const { return images_; }
+  /// True when some shape shows picture `id`.
+  [[nodiscard]] bool imageUsed(unsigned int id) const;
+
   // ---- comment ----------------------------------------------------------------
 
   [[nodiscard]] const std::string& getComment() const { return comment_; }
@@ -158,6 +172,7 @@ class Puzzle {
   std::vector<stacking::RodSet> rodSets_;
   /// red in the lowest byte, then green, then blue
   std::vector<std::uint32_t> colors_;
+  std::vector<PuzzleImage> images_;
   std::string comment_;
   bool commentPopup_ = false;
   PreservedXml preserved_;

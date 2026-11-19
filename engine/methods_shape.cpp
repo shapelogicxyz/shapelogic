@@ -10,6 +10,7 @@
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
 
+#include <algorithm>
 #include <limits>
 #include <string>
 
@@ -144,6 +145,57 @@ Reply shapeSetColour(State& s, Params& p) {
   BTE_CHECK(p.finish());
   BTE_CHECK(s.document().setShapeColour(shape, colour));
   return s.changed();
+}
+
+Reply shapeSetImage(State& s, Params& p) {
+  const app::Id shape = p.id("shape", IdKind::Shape);
+  app::Document::ImageChoice choice;
+  if (const std::optional<std::string> data = p.optString("data")) {
+    choice.bytes = base64Decode(*data);
+    if (!choice.bytes) {
+      p.fail("'data' is not base64");
+    }
+  }
+  if (const std::optional<std::int64_t> id = p.maybeInteger("image", 0, 0x7FFFFFFF)) {
+    choice.id = static_cast<unsigned int>(*id);
+  }
+  choice.fit = p.choice<ImageFit>("fit", {{"crop", ImageFit::Crop}, {"stretch", ImageFit::Stretch}});
+  const Json& src = p.value("src");
+  if (!src.is_array() || src.size() != 4 ||
+      !std::all_of(src.begin(), src.end(), [](const Json& n) {
+        return n.is_number_integer() && n.get<std::int64_t>() >= 0 &&
+               n.get<std::int64_t>() <= 0x7FFFFFFF;
+      })) {
+    p.fail("'src' must be [x, y, width, height] in pixels");
+  } else {
+    for (std::size_t k = 0; k < 4; k++) {
+      choice.src.at(k) = static_cast<int>(src[k].get<std::int64_t>());
+    }
+  }
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().setShapeImage(shape, choice));
+  return s.changed();
+}
+
+Reply shapeClearImage(State& s, Params& p) {
+  const app::Id shape = p.id("shape", IdKind::Shape);
+  BTE_CHECK(p.finish());
+  BTE_CHECK(s.document().clearShapeImage(shape));
+  return s.changed();
+}
+
+Reply shapeImageData(State& s, Params& p) {
+  const auto id = static_cast<int>(p.integer("image", 0, 0x7FFFFFFF));
+  BTE_CHECK(p.finish());
+  const PuzzleImage* im = s.document().puzzle().findImage(id);
+  if (im == nullptr) {
+    return coreError(Errc::NotFound, "the puzzle has no picture " + std::to_string(id));
+  }
+  return Json{{"type", im->type},
+              {"width", im->width},
+              {"height", im->height},
+              {"hash", im->hash},
+              {"data", base64Encode(*im->bytes)}};
 }
 
 // The mirror and span axes as the editor's bits.
@@ -374,6 +426,9 @@ void addShapeMethods(MethodTable& t) {
   t["shape.rename"] = shapeRename;
   t["shape.setWeight"] = shapeSetWeight;
   t["shape.setColour"] = shapeSetColour;
+  t["shape.setImage"] = shapeSetImage;
+  t["shape.clearImage"] = shapeClearImage;
+  t["shape.imageData"] = shapeImageData;
   t["shape.setCells"] = shapeSetCells;
   t["shape.setBox"] = shapeSetBox;
   t["shape.resize"] = shapeResize;

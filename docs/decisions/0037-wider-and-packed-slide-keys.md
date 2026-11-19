@@ -141,5 +141,25 @@ Boards that fit 64 or 128 bits, against the build before, two runs each:
   built for three more keys). A wide key's shifts and gaps work on every
   word; the fields are read from one or two. With loose stops a board past
   128 bits is not packed. Packing in the 64-bit key before going to 128
-  (`packing` `Always` does it) might be worth it for the memory, and is not
-  measured.
+  (`packing` `Always` does it) was measured and not taken: it saves a
+  little memory and loses a little time (below).
+
+## Addendum: packed in 64 bits before a code each in 128 (2026-11-17)
+"Abe-ClimbPro Series", problem "Climb Pro 15 (p1)": 74 bits with a code
+for each piece, so a 128-bit key; packed, exactly 64. Release build,
+MacBook Air M4, `--slide-packing auto` against `always`, one solve at a
+time with a minute's rest before each (back-to-back runs on the fanless
+Air throttle and scatter the times).
+
+| | A code each, 128-bit key | Packed, 64-bit key |
+|---|---|---|
+| Level 70 from the start (4,667,419 arrangements) | 7.4 s, 7.4 s, 7.6 s | 7.7 s, 7.7 s, 8.7 s |
+| Level 80 from the start (10,561,043) | 21.5 s, 21.5 s, 21.8 s | 22.0 s, 22.1 s, 26.0 s |
+| Memory at level 82 | 710 MB | 668 MB |
+
+The levels are the same size, level for level. The narrower key saves 6%
+of the memory, not half: the key is not most of what a level holds. The
+time it saves goes on reading and writing the packs (an `unrank` with a
+binary search for each copy, a `rank` for each move of a copy), so the
+search is about 2% slower. `eachKey` keeps its order: a code each in 128
+bits before packed keys.

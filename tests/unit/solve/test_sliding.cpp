@@ -3733,8 +3733,9 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
       s.diskBudget = budget;
       std::vector<LogLine> told;
       s.onLog = [&told](LogLevel level, const std::string& text) {
-        // a debug log's lines aside (the debug log's own test has those)
-        if (level != LogLevel::Debug) {
+        // a debug log's lines aside (the debug log's own test has those),
+        // and the key the search runs in, told before each run
+        if (level != LogLevel::Debug && !text.starts_with("The slide search runs ")) {
           told.push_back(LogLine{level, text});
         }
       };
@@ -3877,8 +3878,9 @@ TEST_CASE("sliding: a saved search with a damaged level is searched afresh",
     SlideSearch on = runSearch();
     std::vector<LogLine> told;
     on.onLog = [&told](LogLevel level, const std::string& text) {
-      // a debug log's lines aside (what state.bin names comes first)
-      if (level != LogLevel::Debug) {
+      // a debug log's lines aside (what state.bin names comes first), and
+      // the key the search runs in, told before it
+      if (level != LogLevel::Debug && !text.starts_with("The slide search runs ")) {
         told.push_back(LogLine{level, text});
       }
     };
@@ -3957,9 +3959,9 @@ TEST_CASE("sliding: the debug log tells each level, each save and the search rea
   // the key the search runs in; then what state.bin names, before the
   // search is carried on
   REQUIRE(told.size() >= 2);
-  CHECK(told[0].level == LogLevel::Debug);
-  CHECK(told[0].text.find("The search's arrangements take ") != std::string::npos);
-  CHECK(told[0].text.find(" bits of a 64-bit key") != std::string::npos);
+  CHECK(told[0].level == LogLevel::Info);
+  CHECK(told[0].text.starts_with("The slide search runs in 64-bit keys (its arrangements take "));
+  CHECK(told[0].text.find("the narrowest key") != std::string::npos);
   CHECK(told[1].level == LogLevel::Debug);
   CHECK(told[1].text.find("Reading the saved search in ") != std::string::npos);
   CHECK(told[1].text.find("the start end ") != std::string::npos);

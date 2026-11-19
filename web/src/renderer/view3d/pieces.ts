@@ -17,7 +17,16 @@
 // engine's meshes, as the 3D view's (mesh.ts, material.ts), not the
 // mockup's projected cubes.
 
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, Quaternion, Vector2, Vector3 } from 'three';
+import {
+  DoubleSide,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Quaternion,
+  Vector2,
+  Vector3,
+  Vector4,
+} from 'three';
 import type { Camera as Camera3 } from 'three';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
@@ -28,7 +37,8 @@ import { arrange, label, PITCH_X, RESULT_SIZE } from '../puzzle/layout.ts';
 import type { SceneItem } from '../puzzle/layout.ts';
 import { esc } from '../shell/dom.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
-import { faceMaterial, faceUniforms, setPalette, setPiece } from './material.ts';
+import { faceMaterial, faceUniforms, setPalette, setPicture, setPiece } from './material.ts';
+import type { PiecePicture } from '../shell/picture-math.ts';
 import type { FaceUniforms } from './material.ts';
 import { hasChecker } from './mesh.ts';
 import type { BuiltMesh } from './mesh.ts';
@@ -55,6 +65,8 @@ export interface PiecesLook {
   palette: readonly string[];
   /** A shape's piece colour. */
   colourOf(shape: string): Rgb3;
+  /** A sliding piece's picture (null: none, or not decoded yet). */
+  pictureOf?(shape: string): PiecePicture | null;
 }
 
 /** A shape's mesh with its centre and size (from the frame's lo and hi). */
@@ -281,6 +293,7 @@ export class PiecesScene {
     u.uChecker.value = hasChecker(look.style) ? 1 : 0;
     for (const [shape, d] of this.shapes) {
       setPiece(d.uniforms, look.colourOf(shape));
+      setPicture(d.uniforms, look.pictureOf?.(shape) ?? null);
     }
   }
 
@@ -537,7 +550,13 @@ export class PiecesScene {
       return have;
     }
     // the shared uniforms (palette, light, view) with a colour of its own
-    const uniforms: FaceUniforms = { ...this.shared, uPiece: { value: new Vector3(1, 1, 1) } };
+    const uniforms: FaceUniforms = {
+      ...this.shared,
+      uPiece: { value: new Vector3(1, 1, 1) },
+      uImage: { value: null },
+      uImageOn: { value: 0 },
+      uImageSrc: { value: new Vector4(0, 0, 1, 1) },
+    };
     const normal = faceMaterial(uniforms, 'normal');
     const faded = faceMaterial({ ...uniforms, uAlpha: { value: FADED } }, 'normal');
     faded.transparent = true;

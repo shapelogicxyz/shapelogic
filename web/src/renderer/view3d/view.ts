@@ -30,6 +30,8 @@ import { byId, css, esc } from '../shell/dom.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { editorVisible, onLayout, tab, toggleFocus3d } from '../shell/layout.ts';
 import { chipColour, contrast, hex, ROD_CHIP, viewColour } from '../shell/piece-colours.ts';
+import { onPieceImage, piecePicture } from '../shell/piece-images.ts';
+import type { PiecePicture } from '../shell/picture-math.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { reportError, setCursor } from '../shell/status.ts';
 import { isDarkTheme, onTheme } from '../shell/theme.ts';
@@ -347,6 +349,12 @@ export class View3D {
         case 'settings':
           break;
       }
+    });
+    // a sliding piece's picture (decision 0038), wherever the piece is drawn
+    this.solution.pictureOf = (shape) => this.pictureOf(shape);
+    this.trays.setPictureOf((shape) => this.pictureOf(shape));
+    onPieceImage(() => {
+      this.lookChanged();
     });
     onLayout(() => {
       this.toolbar.renderFocus();
@@ -911,6 +919,15 @@ export class View3D {
     this.renderer.request();
   }
 
+  /** A shape's picture once decoded, on a sliding puzzle (null: none, or not yet). */
+  private pictureOf(shape: string): PiecePicture | null {
+    const snap = this.store.snapshot;
+    if (snap?.grid !== 'sliding') {
+      return null;
+    }
+    return piecePicture(this.store.engine, snap.shapes[this.store.indexOf(shape)]);
+  }
+
   private piecesLook(): Parameters<PiecesScene['setLook']>[0] {
     const snap = this.store.snapshot;
     return {
@@ -922,11 +939,15 @@ export class View3D {
         const i = this.store.indexOf(shape);
         return viewColour(snap?.shapes[i], i);
       },
+      pictureOf: (shape) => this.pictureOf(shape),
     };
   }
 
   // the look and the overlays from the options, the store and the settings
   private lookChanged(): void {
+    // the pictures may have been decoded or changed since the scenes were set
+    this.solution.applyPictures();
+    this.trays.applyPictures();
     const puzzle = this.puzzleMode;
     const solver = this.solverMode;
     const stacking = this.stacking;
@@ -988,6 +1009,7 @@ export class View3D {
       lit: prefs.lights,
       xray: this.display.xray,
       piece: viewColour(shape ?? undefined, index),
+      picture: shape === null ? null : this.pictureOf(shape.id),
       palette: snap?.colours.map((c) => c.rgb) ?? [],
       dim: this.display.dim && ed ? { axis: layerAxis(this.plane), layer: this.layer } : null,
     });

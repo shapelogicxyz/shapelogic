@@ -367,6 +367,17 @@ where the problem's counts are.
   tiles (`EDIT_LIGHT`/`EDIT_DARK`). The original's Tray edit switch and
   Start/Goal tab are not here: the starts and goals are placed on the
   Puzzle workspace (8.2).
+- **Images on pieces (decision 0038):** beside the pencil in the Shape
+  color area, a piece (not a board) has an **image** button while its own
+  color (Default) is chosen; it is lit when the piece has an image. It
+  opens **Apply image**: Choose image… (PNG, JPEG or WebP; shrunk to 2048
+  pixels), **Crop** (the middle part at the piece's proportions) or
+  **Stretch**, a preview of the piece's cells with the picture, and
+  Remove image when it has one. The picture covers the piece's bounding
+  box, shows only on its filled cells (in the 2D grid and on the faces
+  looking up in every 3D view) and turns, flips and moves with the
+  piece. The color menu (right click) has Apply image… / Change image…
+  and Remove image too.
 - **3D view of a tray:** the tray as any shape.
 
 ### 8.2 Puzzle workspace

@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "app_log.h"
 
+#include "convert.h"
+
+#include "shapelogic/app/queries.h"
+#include "shapelogic/base/system.h"
+#include "shapelogic/base/thread_pool.h"
 #include "shapelogic/model/problem.h"
 
+#include <algorithm>
+#include <cmath>
 #include <optional>
 #include <string>
 
@@ -34,15 +41,55 @@ std::string problemOf(const State& s, const Json& params) {
   return id ? problemTitle(s, *id) : text;
 }
 
-// What a solve runs with besides its options: the engine's settings.
-std::string settingsText(const State& s) {
-  return "threads " + std::to_string(s.settings.threads) + ", search memory " +
-         std::to_string(s.settings.searchMemoryGB) + " GB, sliding disk " +
-         std::to_string(s.settings.slideDiskGB) + " GB in \"" + s.settings.slideFolder +
-         "\", stacking disk " + std::to_string(s.settings.panexDiskGB) + " GB in \"" +
-         s.settings.panexFolder + "\" (0: automatic)";
+// A size in whole GB, as the settings' sliders give it.
+std::string gbText(double gb) { return std::to_string(std::llround(gb)) + " GB"; }
+
+// The disk a sliding or stacking search may take in its folder (0 GB:
+// automatic, diskBudgetFor), or what it does without a folder.
+std::string diskText(const char* what, double gb, const std::string& folder,
+                     const char* noFolder) {
+  if (folder.empty()) {
+    return std::string(what) + " " + noFolder;
+  }
+  const std::string size =
+      gb > 0 ? gbText(gb)
+             : "automatic (half the free space, at most " +
+                   gbText(static_cast<double>(kAutoDiskBudgetMax) / 1e9) + ")";
+  return std::string(what) + " disk " + size + " in \"" + folder + "\"";
 }
 
+// Which solver a solve runs, and what it runs with: the threads, and for
+// the searches that keep arrangements, their memory and disk (the
+// engine's settings, "automatic" spelled out).
+std::string solverText(const State& s, const SolveOptions& o) {
+  const unsigned int threads = o.threads > 0 ? std::min(o.threads, kMaxThreads) : 0;
+  const std::string threadText =
+      threads > 0 ? "threads " + std::to_string(threads)
+                  : "threads " + std::to_string(hardwareThreads()) +
+                        " (automatic: every hardware thread)";
+  const std::string memory =
+      "search memory " + gbText(static_cast<double>(s.settings.searchMemoryBytes()) / 1e9) +
+      (s.settings.searchMemoryGB > 0 ? "" : " (automatic: half the machine's memory)");
+  switch (app::problemKind(s.document().puzzle())) {
+    case app::ProblemKind::Sliding:
+      return "solver: the slide search, in the narrowest key that holds a start layout's "
+             "arrangements (64, 128, 192, 256 or 512 bits, else text keys; a Search Note "
+             "names it for each start); " +
+             threadText + ", " + memory + ", " +
+             diskText("sliding", s.settings.slideDiskGB, s.settings.slideFolder,
+                      "levels kept in memory (no folder)");
+    case app::ProblemKind::Stacking:
+      return std::string("solver: the ") +
+             (o.stacking.solver == stacking::StackingSolver::Panex ? "Panex Solver"
+                                                                   : "Stacking Solver") +
+             "; " + threadText + ", " + memory + ", " +
+             diskText("stacking", s.settings.panexDiskGB, s.settings.panexFolder,
+                      "search not saved (no folder)");
+    case app::ProblemKind::Brick:
+      break;
+  }
+  return "solver: " + std::string(solverTypeLabel(o.solver)) + "; " + threadText;
+}
 // The file a document call names, or the document's own.
 std::string fileOf(const State& s, const Json& params) {
   std::string path = stringParam(params, "path");
@@ -75,12 +122,17 @@ void logLine(State& s, LogLevel level, std::string_view event, std::string_view 
 }
 
 std::string problemTitle(const State& s, app::Id problem) {
-  std::string title = formatId(IdKind::Problem, problem);
+  // the label the puzzle shows (P1, P2…), not the engine's id: the log is
+  // read beside the puzzle
   const app::Document& d = s.document();
-  if (const Result<unsigned int> index = d.problemIndex(problem)) {
-    const std::string name =
-        d.readProblem(*index, [](const Problem& pr) { return pr.getName(); });
-    title += " \"" + (name.empty() ? app::Document::problemLabel(*index) : name) + "\"";
+  const Result<unsigned int> index = d.problemIndex(problem);
+  if (!index) {
+    return formatId(IdKind::Problem, problem);
+  }
+  std::string title = app::Document::problemLabel(*index);
+  const std::string name = d.readProblem(*index, [](const Problem& pr) { return pr.getName(); });
+  if (!name.empty()) {
+    title += " \"" + name + "\"";
   }
   return title;
 }
@@ -123,9 +175,18 @@ void logCall(State& s, std::string_view method, const Json& params, const Reply&
     const char* event = method == "solve.start"      ? "Solve Started"
                         : method == "solve.continue" ? "Solve Continued"
                                                      : "Solve Prepared";
+    // the options as the solve read them: they parsed, as the call
+    // succeeded
+    RpcResult<SolveOptions> options = solveOptionsFrom(s, given);
+    const std::string problem = stringParam(params, "problem");
+    const std::optional<std::uint64_t> id = parseId(IdKind::Problem, problem);
+    if (options && id && s.document().problemIndex(*id)) {
+      defaultStackingSolver(s, *id, given, *options);
+    }
     logLine(s, LogLevel::Info, event,
             problemOf(s, params) + " of " + fileOf(s, Json()) + ", options " +
-                (given.is_null() ? std::string("{}") : given.dump()) + "; " + settingsText(s));
+                (given.is_null() ? std::string("{}") : given.dump()) +
+                (options ? "; " + solverText(s, *options) : std::string()));
   } else if (method == "solve.pause") {
     logLine(s, LogLevel::Info, "Pause Requested", problemOf(s, params));
   } else if (method == "solve.savePoint") {
