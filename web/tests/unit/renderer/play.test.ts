@@ -8,10 +8,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  aim,
   alongRoute,
   follow,
   groupFor,
   routeLength,
+  slide,
   stopsIn,
 } from '../../../src/renderer/play/follow.ts';
 import {
@@ -25,6 +27,7 @@ import {
   withMoves,
 } from '../../../src/renderer/play/game.ts';
 import type { Cell, Move } from '../../../src/renderer/play/game.ts';
+import { loops, roundedOutline } from '../../../src/renderer/play/outline.ts';
 import {
   boardOf,
   matchStart,
@@ -130,6 +133,68 @@ describe('a game played by hand', () => {
   });
 });
 
+describe('the outline of a piece or a floor', () => {
+  it('goes round the cells clockwise, by their corners only', () => {
+    // an L: two cells in a row and one below the first (y down)
+    expect(
+      loops([
+        [0, 0],
+        [1, 0],
+        [0, 1],
+      ]),
+    ).toEqual([
+      [
+        [0, 0],
+        [2, 0],
+        [2, 1],
+        [1, 1],
+        [1, 2],
+        [0, 2],
+      ],
+    ]);
+  });
+
+  it('keeps cells that touch at a corner in loops of their own', () => {
+    const two = loops([
+      [0, 0],
+      [1, 1],
+    ]);
+    expect(two).toHaveLength(2);
+    expect(two.map((l) => l.length)).toEqual([4, 4]);
+  });
+
+  it('goes round a hole the other way', () => {
+    const ring: [number, number][] = [];
+    for (let x = 0; x < 3; x++) {
+      for (let y = 0; y < 3; y++) {
+        if (x !== 1 || y !== 1) {
+          ring.push([x, y]);
+        }
+      }
+    }
+    const all = loops(ring);
+    expect(all).toHaveLength(2);
+    const area = (l: [number, number][]): number =>
+      l.reduce((a, p, i) => {
+        const q = l[(i + 1) % l.length] ?? p;
+        return a + p[0] * q[1] - q[0] * p[1];
+      }, 0) / 2;
+    // clockwise on the screen is a positive area with y down
+    expect(all.map(area).sort((a, b) => a - b)).toEqual([-1, 9]);
+  });
+
+  it('draws each side inset by the way it faces, its corners rounded', () => {
+    const d = roundedOutline([[0, 0]], {
+      scale: 10,
+      at: [0, 0],
+      inset: (into) => (into[0] < 0 || into[1] < 0 ? 3 : 1),
+      radius: 2,
+    });
+    // the square from (1, 1) to (7, 7), each corner an arc of radius 2
+    expect(d).toBe('M1 3A2 2 0 0 1 3 1L5 1A2 2 0 0 1 7 3L7 5A2 2 0 0 1 5 7L3 7A2 2 0 0 1 1 5Z');
+  });
+});
+
 describe('a dragged piece', () => {
   // an L of places: along the row y = 0 to x = 2, then up the column x = 2
   const stops = stopsIn([
@@ -170,6 +235,26 @@ describe('a dragged piece', () => {
     expect(groupFor([alone, carrying], [1, 0], [1, 0])).toBe(1);
     expect(groupFor([alone, carrying], [0, 1], [-1, 0])).toBe(-1);
     expect(groupFor([alone, carrying], [0, 1], [0, 0])).toBe(-1);
+  });
+
+  it('moves with the pointer between stops, towards the next one only', () => {
+    // a little way along the row: drawn that far
+    expect(slide([0, 0], [0.1, 0], stops)).toEqual([0.1, 0]);
+    // never more than half a cell: past that the next stop is the nearest
+    expect(slide([0, 0], [0.8, 0], stops)).toEqual([0.5, 0]);
+    // nothing to the left or above the start: it stays
+    expect(slide([0, 0], [-0.3, 0], stops)).toEqual([0, 0]);
+    expect(slide([0, 0], [0.05, 0.3], stops)).toEqual([0.05, 0]);
+    // one axis at a time: the one the pointer went further along
+    expect(slide([2, 1], [2.125, 1.25], stops)).toEqual([0, 0.25]);
+    expect(slide([2, 0], [1.625, 0.25], stops)).toEqual([-0.375, 0]);
+  });
+
+  it('chooses which way it goes from the pointer’s first movement', () => {
+    expect(aim([0.004, 0])).toBeNull();
+    expect(aim([0.1, -0.03])).toEqual([1, 0]);
+    expect(aim([-0.02, -0.2])).toEqual([0, -1]);
+    expect(aim([1.4, 0.6])).toEqual([1, 1]);
   });
 
   it('is drawn along a move’s route at an even pace', () => {

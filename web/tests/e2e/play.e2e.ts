@@ -94,6 +94,56 @@ test('a sliding puzzle is played by hand: drags, the count, Solved!, undo and re
     await expect(page.locator('#plSolved')).toBeHidden();
     await expect(page.locator('#plUndo')).toBeDisabled();
     await expect(page.locator('#plRedo')).toBeDisabled();
+    await expect(page.locator('#plReset')).toBeDisabled();
+    await expect(page.locator('#plReset')).toHaveText('Reset');
+    // Hide Goal Shadows leaves the goal's tint off the floor, Hide Goal Lines its outlines; Show brings each back
+    await expect(page.locator('#plShades')).toHaveText('Hide Goal Shadows');
+    await expect(page.locator('#plLines')).toHaveText('Hide Goal Lines');
+    await expect(page.locator('.pl-goal')).toBeVisible();
+    await expect(page.locator('.pl-mark')).toHaveCount(2);
+    await page.click('#plShades');
+    await expect(page.locator('#plShades')).toHaveText('Show Goal Shadows');
+    await expect(page.locator('.pl-goal')).toBeHidden();
+    await expect(page.locator('.pl-mark').first()).toBeVisible();
+    await page.click('#plLines');
+    await expect(page.locator('#plLines')).toHaveText('Show Goal Lines');
+    await expect(page.locator('.pl-mark').first()).toBeHidden();
+    await page.click('#plShades');
+    await expect(page.locator('#plShades')).toHaveText('Hide Goal Shadows');
+    await expect(page.locator('.pl-goal')).toBeVisible();
+    await expect(page.locator('.pl-mark').first()).toBeHidden();
+    await page.click('#plLines');
+    await expect(page.locator('#plLines')).toHaveText('Hide Goal Lines');
+    await expect(page.locator('.pl-mark').first()).toBeVisible();
+    // Hide Grid leaves the lines between the floor's cells off; Show Grid brings them back
+    await expect(page.locator('#plGrid')).toHaveText('Hide Grid');
+    await expect(page.locator('.pl-grid').first()).toBeVisible();
+    await page.click('#plGrid');
+    await expect(page.locator('#plGrid')).toHaveText('Show Grid');
+    await expect(page.locator('.pl-grid').first()).toBeHidden();
+    await page.click('#plGrid');
+    await expect(page.locator('#plGrid')).toHaveText('Hide Grid');
+    await expect(page.locator('.pl-grid').first()).toBeVisible();
+    // Hide Piece Labels leaves the pieces' names off; Show Piece Labels brings them back (these pieces have none)
+    await expect(page.locator('#plLabels')).toHaveText('Hide Piece Labels');
+    await page.click('#plLabels');
+    await expect(page.locator('#plLabels')).toHaveText('Show Piece Labels');
+    await expect(page.locator('#playBoard')).toHaveClass(/nolabels/);
+    await page.click('#plLabels');
+    await expect(page.locator('#plLabels')).toHaveText('Hide Piece Labels');
+    await expect(page.locator('#playBoard')).not.toHaveClass(/nolabels/);
+    // Simple Pieces draws flat square pieces and tray; 3D Pieces brings the sides back
+    await expect(page.locator('#plSimple')).toHaveText('Simple Pieces');
+    await page.click('#plSimple');
+    await expect(page.locator('#plSimple')).toHaveText('3D Pieces');
+    await expect(page.locator('#playBoard')).toHaveClass(/simple/);
+    await expect(page.locator('.pl-piece')).toHaveCount(2);
+    await expect(page.locator('.pl-piece use')).toHaveCount(0);
+    await page.click('#plSimple');
+    await expect(page.locator('#plSimple')).toHaveText('Simple Pieces');
+    await expect(page.locator('#playBoard')).not.toHaveClass(/simple/);
+    // the moves made, beside the board
+    await expect(page.locator('#plMoves')).toHaveText('0Moves');
     // the 3D view is out of sight under the board, and the Shapes cards are gone
     await expect(page.locator('#left')).toBeHidden();
     await expect(page.locator('#leftPl')).toBeVisible();
@@ -111,6 +161,7 @@ test('a sliding puzzle is played by hand: drags, the count, Solved!, undo and re
     await expectGame(page, 1, 1, false);
     await expect(page.locator('.pl-piece[data-at="2,0,0"]')).toHaveCount(1);
     await expect(page.locator('#plCount')).toHaveText('1 move');
+    await expect(page.locator('#plMoves')).toHaveText('1Move');
 
     // dragged again straight away, it goes on with its move: still one, and at its goal
     await drag(page, '2,0,0', [[0, 1]]);
@@ -125,6 +176,12 @@ test('a sliding puzzle is played by hand: drags, the count, Solved!, undo and re
     await expect(page.locator('.pl-piece[data-at="0,1,0"]')).toHaveCount(1);
     await expect(page.locator('#plSolved')).toBeHidden();
     await expect(page.locator('#plUndo')).toBeDisabled();
+    await page.click('#plRedo');
+    await expectGame(page, 1, 1, true);
+    // Reset puts the pieces back at the Start and keeps the move for Redo
+    await page.click('#plReset');
+    await expectGame(page, 1, 0, false);
+    await expect(page.locator('#plReset')).toBeDisabled();
     await page.click('#plRedo');
     await expectGame(page, 1, 1, true);
     // the keys are the game's here: the document is left alone

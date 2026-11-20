@@ -5,8 +5,10 @@
 // one move can take the piece to (sliding.playReach: shifts joined by
 // single steps to where it is); the drag walks them a step at a time
 // towards the pointer, so the piece slides along what is in its way and
-// never jumps over it, however fast the pointer went. And the points of a
-// move's route for the playback.
+// never jumps over it, however fast the pointer went; between stops it is
+// drawn part of the way to the next, so it moves with the pointer from the
+// first pixel and settles on the nearest stop when let go. And the points
+// of a move's route for the playback.
 
 /** Whether the piece can be at a shift (x, y) from where the drag began. */
 export type Has = (x: number, y: number) => boolean;
@@ -44,6 +46,52 @@ export function follow(
     }
   }
   return [x, y];
+}
+
+/**
+ * How far past the stop `at` the pieces are drawn towards the pointer at
+ * `pointer` (both in cells from where the drag began, the pointer not in
+ * whole ones): along one axis, up to half a cell, and only towards a stop
+ * next to it, so a piece moves with the pointer however little it goes
+ * and never into what is in its way. Let go, the piece settles on `at`,
+ * the stop nearest the pointer.
+ */
+export function slide(
+  at: readonly [number, number],
+  pointer: readonly [number, number],
+  has: Has,
+): [number, number] {
+  const half = (v: number): number => Math.max(-0.5, Math.min(0.5, v));
+  const rx = half(pointer[0] - at[0]);
+  const ry = half(pointer[1] - at[1]);
+  const xOk = rx !== 0 && has(at[0] + Math.sign(rx), at[1]);
+  const yOk = ry !== 0 && has(at[0], at[1] + Math.sign(ry));
+  if (xOk && (!yOk || Math.abs(rx) >= Math.abs(ry))) {
+    return [rx, 0];
+  }
+  return yOk ? [0, ry] : [0, 0];
+}
+
+/** Below this part of a cell the pointer has not gone anywhere yet. */
+const STILL = 0.02;
+
+/**
+ * Which way the pointer at `pointer` (in cells, not whole ones) has gone
+ * from where the drag began, as a target for groupFor: the nearest cell,
+ * or one step along the axis it went further on while that is still the
+ * cell it began in; null while it has hardly moved.
+ */
+export function aim(pointer: readonly [number, number]): [number, number] | null {
+  const x = Math.round(pointer[0]);
+  const y = Math.round(pointer[1]);
+  if (x !== 0 || y !== 0) {
+    return [x, y];
+  }
+  const [px, py] = pointer;
+  if (Math.max(Math.abs(px), Math.abs(py)) < STILL) {
+    return null;
+  }
+  return Math.abs(px) >= Math.abs(py) ? [Math.sign(px), 0] : [0, Math.sign(py)];
 }
 
 /** The stops of a group as a test: the place the drag began at, and each shift in its layer. */

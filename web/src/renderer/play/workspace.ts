@@ -39,6 +39,7 @@ import { copyColour, fromHex, shapeColour } from '../shell/piece-colours.ts';
 import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
 import { onPrefs } from '../shell/prefs.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
+import { onTheme } from '../shell/theme.ts';
 import { readOptions } from '../solver/settings.ts';
 import { PlayBoard } from './board.ts';
 import type { BoardModel, ReachGroup } from './board.ts';
@@ -90,6 +91,16 @@ export class PlayWorkspace {
   private generation = -1;
   private layer = 0;
   private loads = 0;
+  /** The goal's tint left off the board's floor (Hide Goal Shadows), for every problem played. */
+  private shadesHidden = false;
+  /** The goal's outlines left off the board (Hide Goal Lines), for every problem played. */
+  private linesHidden = false;
+  /** The grid's lines left off the tray's floor (Hide Grid), for every problem played. */
+  private gridHidden = false;
+  /** The pieces' names left off them (Hide Piece Labels), for every problem played. */
+  private labelsHidden = false;
+  /** Simple Pieces: flat square pieces and tray, for every problem played. */
+  private simplePieces = false;
   /** The document changed while the tab was out of sight. */
   private stale = true;
   /** The routes of a game's moves (sliding.playReplay), by its list of moves. */
@@ -112,8 +123,13 @@ export class PlayWorkspace {
         this.moved(move, solved);
       },
     });
+    byId('plReset').innerHTML = `${ic('reset', 22)}<span>Reset</span>`;
     byId('plUndo').innerHTML = `${ic('ccw', 22)}<span>Undo</span>`;
     byId('plRedo').innerHTML = `${ic('cw', 22)}<span>Redo</span>`;
+    this.showGoalButtons();
+    this.showGridButton();
+    this.showLabelsButton();
+    this.showSimpleButton();
     this.listen();
     store.subscribe((c) => {
       if (c.kind === 'document') {
@@ -135,6 +151,10 @@ export class PlayWorkspace {
       if (changed.includes('boardColourLight') || changed.includes('boardColourDark')) {
         this.showBoard();
       }
+    });
+    // the tray's colour follows the theme
+    onTheme(() => {
+      this.showBoard();
     });
     // a piece's picture, decoded: drawn now
     onPieceImage(() => {
@@ -524,6 +544,63 @@ export class PlayWorkspace {
     return true;
   }
 
+  // the goal's tint and outlines shown on the board or hidden, and the buttons that say which they will do
+  private showGoalButtons(): void {
+    const board = byId('playBoard');
+    const shades = this.shadesHidden;
+    board.classList.toggle('noshades', shades);
+    const s = byId('plShades');
+    s.innerHTML = `${ic(shades ? 'shade' : 'shadeOff', 22)}<span>${shades ? 'Show Goal Shadows' : 'Hide Goal Shadows'}</span>`;
+    s.title = shades
+      ? 'Show Goal Shadows: tint the goal’s cells on the tray’s floor again'
+      : 'Hide Goal Shadows: leave the goal’s tint off the tray’s floor';
+    s.setAttribute('aria-pressed', String(shades));
+    const lines = this.linesHidden;
+    board.classList.toggle('nolines', lines);
+    const l = byId('plLines');
+    l.innerHTML = `${ic(lines ? 'outline' : 'outlineOff', 22)}<span>${lines ? 'Show Goal Lines' : 'Hide Goal Lines'}</span>`;
+    l.title = lines
+      ? 'Show Goal Lines: outline where each piece must end again'
+      : 'Hide Goal Lines: leave the outlines of where the pieces must end off the board';
+    l.setAttribute('aria-pressed', String(lines));
+  }
+
+  // the pieces and tray simple (flat and square) or not, and the button that says which it will do
+  private showSimpleButton(): void {
+    const on = this.simplePieces;
+    this.board.setSimple(on);
+    const b = byId('plSimple');
+    b.innerHTML = `${ic(on ? 'cube' : 'square', 22)}<span>${on ? '3D Pieces' : 'Simple Pieces'}</span>`;
+    b.title = on
+      ? '3D Pieces: rounded pieces with their sides showing, in a tray with walls'
+      : 'Simple Pieces: flat, square pieces in plain colours, in a flat square tray';
+    b.setAttribute('aria-pressed', String(on));
+  }
+
+  // the pieces' names shown or hidden, and the button that says which it will do
+  private showLabelsButton(): void {
+    const hidden = this.labelsHidden;
+    byId('playBoard').classList.toggle('nolabels', hidden);
+    const b = byId('plLabels');
+    b.innerHTML = `${ic(hidden ? 'tag' : 'tagOff', 22)}<span>${hidden ? 'Show Piece Labels' : 'Hide Piece Labels'}</span>`;
+    b.title = hidden
+      ? 'Show Piece Labels: write each piece’s name on it again'
+      : 'Hide Piece Labels: leave the pieces’ names off them';
+    b.setAttribute('aria-pressed', String(hidden));
+  }
+
+  // the floor's grid shown or hidden, and the button that says which it will do
+  private showGridButton(): void {
+    const hidden = this.gridHidden;
+    byId('playBoard').classList.toggle('nogrid', hidden);
+    const b = byId('plGrid');
+    b.innerHTML = `${ic(hidden ? 'grid' : 'gridOff', 22)}<span>${hidden ? 'Show Grid' : 'Hide Grid'}</span>`;
+    b.title = hidden
+      ? 'Show Grid: draw the lines between the cells on the tray’s floor again'
+      : 'Hide Grid: leave the lines between the cells off the tray’s floor';
+    b.setAttribute('aria-pressed', String(hidden));
+  }
+
   // the game begins again: its moves are gone
   private restart(): void {
     const g = this.game;
@@ -744,8 +821,16 @@ export class PlayWorkspace {
     const dis = (id: string, off: boolean): void => {
       byId<HTMLButtonElement>(id).disabled = off;
     };
+    dis('plReset', g === null || at === 0);
     dis('plUndo', g === null || at === 0);
     dis('plRedo', g === null || at >= n);
+    dis('plShades', g === null);
+    dis('plLines', g === null);
+    dis('plGrid', g === null);
+    dis('plLabels', g === null);
+    dis('plSimple', g === null);
+    // the moves made, beside the board
+    byId('plMoves').innerHTML = `<b>${String(at)}</b><span>${at === 1 ? 'Move' : 'Moves'}</span>`;
     dis('plRestart', g === null || n === 0);
     dis('plSaveStart', g === null);
     dis('plSaveGoal', g === null);
@@ -851,6 +936,30 @@ export class PlayWorkspace {
     });
     byId('plRedo').addEventListener('click', () => {
       this.redo();
+    });
+    byId('plReset').addEventListener('click', () => {
+      this.pause();
+      this.seekTo(0);
+    });
+    byId('plShades').addEventListener('click', () => {
+      this.shadesHidden = !this.shadesHidden;
+      this.showGoalButtons();
+    });
+    byId('plLines').addEventListener('click', () => {
+      this.linesHidden = !this.linesHidden;
+      this.showGoalButtons();
+    });
+    byId('plGrid').addEventListener('click', () => {
+      this.gridHidden = !this.gridHidden;
+      this.showGridButton();
+    });
+    byId('plLabels').addEventListener('click', () => {
+      this.labelsHidden = !this.labelsHidden;
+      this.showLabelsButton();
+    });
+    byId('plSimple').addEventListener('click', () => {
+      this.simplePieces = !this.simplePieces;
+      this.showSimpleButton();
     });
     byId('plRestart').addEventListener('click', () => {
       this.restart();

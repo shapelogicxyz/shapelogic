@@ -9,13 +9,27 @@ Solver find the answer. The tab appears in the top bar, to the right of
 Solver, while a sliding puzzle is open.
 
 The problem list and the buttons are on the left; the board is in the
-middle, with **Undo** and **Redo** beside it and the playback bar below.
+middle. Beside it are the number of moves made, **Reset**, **Undo**,
+**Redo**, **Hide Goal Shadows**, **Hide Goal Lines**, **Hide Grid**,
+**Hide Piece Labels** and **Simple Pieces**, and the playback bar is below.
 
 ## Problem
 
 Click a problem to play it. Its pieces appear on the board where its
-**Start** puts them, and its **Goal** is drawn as a dashed outline that
-stays visible when pieces stand on it.
+**Start** puts them. Its **Goal** tints the cells of the tray's floor where
+each piece must end, and outlines them in the piece's colour; the outlines
+stay visible when pieces stand on them.
+
+**Hide Goal Shadows** takes the goal's tint off the floor, and **Hide Goal
+Lines** takes its outlines off the board; hide both to play without seeing
+where the pieces should go. Each button then reads **Show Goal Shadows** or
+**Show Goal Lines**, which brings them back. **Hide Grid** does the same for
+the lines between the cells on the tray's floor (**Show Grid** brings them
+back), and **Hide Piece Labels** for the names written on the pieces
+(**Show Piece Labels**). **Simple Pieces** draws the pieces flat and square in plain colours,
+in a flat tray with square corners; **3D Pieces** brings back the rounded
+pieces with their sides showing. Each choice holds for every problem you
+play until you change it.
 
 A problem can be played once every piece has a start. If a piece has none,
 the tab says which one and offers **Go to Puzzle**, where the Start and
@@ -28,7 +42,9 @@ nothing is ever solved.
 
 Drag a piece with the mouse. It follows the pointer through the free
 cells and stops against the walls and the other pieces; it never jumps
-over anything. Let go to make the move.
+over anything. It moves with the pointer from the first pixel, so it can
+sit between cells while you drag; let go and it settles into the nearest
+cell it can reach, which makes the move.
 
 Moves are counted the way the Solver counts them:
 
@@ -58,6 +74,8 @@ hand, even if the problem allows vertical moves.
 
 ## Undo, Redo and playback
 
+**Reset** puts the pieces back at the Start, as ⏮ does: the moves are
+kept, so **Redo** makes them again, until you make a new move.
 **Undo** takes the last move back and **Redo** makes it again
 (`Ctrl+Z` and `Shift+Ctrl+Z`). On this tab these keys act on your moves,
 not on edits to the puzzle. Making a new move after an Undo drops the

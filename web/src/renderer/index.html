@@ -361,7 +361,6 @@
                 <span class="sp"></span>
                 <div class="pl-layers" id="plLayers"></div>
               </div>
-              <div class="pl-solved" id="plSolved" role="status" hidden></div>
               <div class="pl-mid" id="plMid">
                 <div
                   class="pl-board"
@@ -370,6 +369,14 @@
                   aria-label="Board: drag a piece to slide it"
                 ></div>
                 <div class="pl-side">
+                  <!-- over Undo, out of the column's flow: the board keeps its size and the buttons their place -->
+                  <div class="pl-solved" id="plSolved" role="status" hidden></div>
+                  <div class="pl-big pl-moves" id="plMoves" role="status"></div>
+                  <button
+                    class="pl-big"
+                    id="plReset"
+                    title="Reset: the pieces back at the Start (Redo makes the moves again)  (Shift+←)"
+                  ></button>
                   <button
                     class="pl-big"
                     id="plUndo"
@@ -380,6 +387,11 @@
                     id="plRedo"
                     title="Redo: make the move taken back again  (Shift+Ctrl+Z)"
                   ></button>
+                  <button class="pl-big" id="plShades" aria-pressed="false"></button>
+                  <button class="pl-big" id="plLines" aria-pressed="false"></button>
+                  <button class="pl-big" id="plGrid" aria-pressed="false"></button>
+                  <button class="pl-big" id="plLabels" aria-pressed="false"></button>
+                  <button class="pl-big" id="plSimple" aria-pressed="false"></button>
                 </div>
               </div>
               <div class="pl-empty" id="plEmpty" hidden></div>

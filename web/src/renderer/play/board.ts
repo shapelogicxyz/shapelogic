@@ -18,9 +18,12 @@ import { compose, pictureToCells } from '../shell/picture-math.ts';
 import type { Affine } from '../shell/picture-math.ts';
 import { boardColour, contrast, dark, hex, light } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
-import { alongRoute, follow, groupFor, routeLength, stopsIn } from './follow.ts';
+import { isDarkTheme } from '../shell/theme.ts';
+import { aim, alongRoute, follow, groupFor, routeLength, slide, stopsIn } from './follow.ts';
 import type { Has } from './follow.ts';
 import type { Cell, Move } from './game.ts';
+import { roundedOutline } from './outline.ts';
+import type { Square } from './outline.ts';
 
 /** A piece as the board draws it. */
 export interface BoardPiece {
@@ -59,9 +62,55 @@ export interface BoardHost {
   moved(move: Move, solved: boolean): void;
 }
 
-const MARGIN = 10;
 const CELL_MIN = 14;
 const CELL_MAX = 120;
+
+/** The tray's measures at a cell size, in pixels. */
+interface TrayLook {
+  /** Its rim's width. */
+  rim: number;
+  /** How far its sides drop to the lower right. */
+  depth: number;
+  /** Where the cells begin, from the drawing's top left corner. */
+  at: number;
+}
+
+// with `flat`, Simple Pieces: no sides
+function trayLook(sc: number, flat: boolean): TrayLook {
+  const rim = Math.max(8, Math.min(30, Math.round(sc * 0.28)));
+  const depth = flat ? 0 : Math.max(3, Math.min(14, Math.round(sc * 0.11)));
+  // room for the outer line
+  return { rim, depth, at: rim + 2 };
+}
+
+/** A tile's measures at a cell size, in pixels. */
+interface TileLook {
+  /** The gap round a tile, on each side. */
+  gap: number;
+  /** How far its sides drop to the lower right (and the tray's inner walls). */
+  lift: number;
+  /** Its corners' radius. */
+  radius: number;
+}
+
+// with `flat`, Simple Pieces: square tiles with no sides
+function tileLook(sc: number, flat: boolean): TileLook {
+  if (flat) {
+    return { gap: Math.max(1, Math.round(sc * 0.02)), lift: 0, radius: 0 };
+  }
+  return {
+    gap: Math.max(1, Math.round(sc * 0.03)),
+    lift: Math.max(2, Math.min(8, Math.round(sc * 0.07))),
+    radius: Math.max(2, Math.round(sc * 0.13)),
+  };
+}
+
+/** A colour darkened, for the sides. */
+function shade(c: Rgb3, f: number): Rgb3 {
+  return [c[0] * f, c[1] * f, c[2] * f];
+}
+
+const fmt = (v: number): string => String(Math.round(v * 100) / 100);
 
 interface Drag {
   token: number;
@@ -71,12 +120,15 @@ interface Drag {
   y0: number;
   /** Shift held: carry what is nested before moving alone. */
   carry: boolean;
-  /** The pointer's cells, kept until the engine's answer came. */
+  /** Where the pointer went, in cells, kept until the engine's answer came. */
   waiting: [number, number][];
   groups: ReachGroup[] | null;
   has: Has[];
   chosen: number;
+  /** The stop the pieces are at or nearest to. */
   shift: [number, number];
+  /** How far past it they are drawn, towards the pointer (under half a cell). */
+  slide: [number, number];
   ended: boolean;
 }
 
@@ -89,13 +141,19 @@ export class PlayBoard {
   private places: Cell[] = [];
   private layer = 0;
   private sc = 0;
+  /** Where the cells begin in the drawing, in pixels. */
+  private at = 0;
   private groups: SVGGElement[] = [];
+  /** The pieces' names, each in its own group, by piece. */
+  private labels: SVGGElement[] = [];
   private drag: Drag | null = null;
   private tokens = 0;
   private raf = 0;
   private endAnimation: (() => void) | null = null;
   /** The root changed size while a piece was dragged or a move drawn: drawn again after. */
   private resized = false;
+  /** Simple Pieces is on. */
+  private simple = false;
 
   constructor(root: HTMLElement, frame: HTMLElement, host: BoardHost) {
     this.root = root;
@@ -107,6 +165,8 @@ export class PlayBoard {
         this.resized = true;
       } else if (this.cellSize() !== this.sc) {
         this.draw();
+      } else {
+        this.inset();
       }
     }).observe(frame);
     root.addEventListener('pointerdown', (e) => {
@@ -121,6 +181,17 @@ export class PlayBoard {
     root.addEventListener('pointercancel', (e) => {
       this.up(e, true);
     });
+  }
+
+  /** Simple Pieces: flat square pieces and a flat square tray. */
+  setSimple(on: boolean): void {
+    this.root.classList.toggle('simple', on);
+    if (on !== this.simple) {
+      this.simple = on;
+      this.stop();
+      this.cancelDrag();
+      this.draw();
+    }
   }
 
   /** A piece is being dragged, or a move is being drawn. */
@@ -224,33 +295,72 @@ export class PlayBoard {
     if (m === null) {
       return 0;
     }
-    // the frame's room, less its padding and what else is in it (the buttons beside the board)
-    const frame = this.frame;
-    const style = getComputedStyle(frame);
-    const px = (v: string): number => Number.parseFloat(v) || 0;
-    let w = frame.clientWidth - px(style.paddingLeft) - px(style.paddingRight);
-    const h = frame.clientHeight - px(style.paddingTop) - px(style.paddingBottom);
-    for (const e of frame.children) {
-      if (e !== this.root && e instanceof HTMLElement) {
-        w -= e.offsetWidth + px(style.columnGap);
+    const { w, h } = this.room();
+    // the largest cells the board fits at, with its tray round them
+    const [X, Y] = m.size;
+    let sc = Math.min(CELL_MAX, Math.floor(Math.min(w / X, h / Y)));
+    for (; sc > CELL_MIN; sc--) {
+      const t = trayLook(sc, this.simple);
+      const room = 2 * t.at + t.depth;
+      if (X * sc + room <= w && Y * sc + room <= h) {
+        break;
       }
     }
-    return Math.max(
-      CELL_MIN,
-      Math.min(
-        CELL_MAX,
-        Math.floor(Math.min((w - 2 * MARGIN) / m.size[0], (h - 2 * MARGIN) / m.size[1])),
-      ),
-    );
+    return Math.max(CELL_MIN, sc);
+  }
+
+  // the board's room. Its distance to the card's outer edge below (what
+  // the playback bar takes) is kept, and the board is as far from the
+  // card's edge above and on the left, and the buttons beside it as far
+  // from its edge on the right; `left` is the margin that puts it there
+  private room(): { w: number; h: number; left: number } {
+    const frame = this.frame;
+    const card = frame.closest<HTMLElement>('.card') ?? frame;
+    const style = getComputedStyle(frame);
+    const px = (v: string): number => Number.parseFloat(v) || 0;
+    const f = frame.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const floor = f.bottom - px(style.paddingBottom);
+    const d = Math.max(0, c.bottom - floor);
+    const top = Math.max(f.top + px(style.paddingTop), c.top + d);
+    const left = Math.max(f.left + px(style.paddingLeft), c.left + d);
+    let right = Math.min(f.right - px(style.paddingRight), c.right - d);
+    for (const e of frame.children) {
+      if (e !== this.root && e instanceof HTMLElement) {
+        right -= e.offsetWidth + px(style.columnGap);
+      }
+    }
+    return { w: right - left, h: floor - top, left: left - f.left - px(style.paddingLeft) };
+  }
+
+  // the board at its distance from the card's left, and at the foot of its
+  // room (in the middle of it when the width is what limits the board)
+  private inset(): void {
+    const svg = this.root.firstElementChild;
+    if (!(svg instanceof SVGSVGElement)) {
+      this.root.style.marginLeft = '';
+      this.root.style.marginBottom = '';
+      return;
+    }
+    const r = this.room();
+    const bh = svg.height.baseVal.value;
+    this.root.style.marginLeft = `${String(Math.floor(Math.max(0, r.left)))}px`;
+    this.root.style.marginBottom = `${String(Math.floor(Math.max(0, (r.h - bh) / 2)))}px`;
   }
 
   // a piece's group at its place plus a shift, in cells
   private put(g: SVGGElement, at: Cell, shift: readonly [number, number]): void {
     const Y = this.model?.size[1] ?? 0;
-    const x = MARGIN + (at[0] + shift[0]) * this.sc;
-    const y = MARGIN + (Y - at[1] - shift[1]) * this.sc;
+    const x = this.at + (at[0] + shift[0]) * this.sc;
+    const y = this.at + (Y - at[1] - shift[1]) * this.sc;
     g.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
     g.dataset.at = at.join(',');
+    // its name, over the goals' outlines, goes with it
+    const label = this.labels[Number(g.dataset.i)];
+    if (label !== undefined) {
+      label.style.transform = g.style.transform;
+      label.classList.toggle('drag', g.classList.contains('drag'));
+    }
   }
 
   // the whole drawing, at the size the root has room for
@@ -259,6 +369,9 @@ export class PlayBoard {
     const root = this.root;
     if (m === null) {
       root.innerHTML = '';
+      root.style.marginLeft = '';
+      root.style.marginBottom = '';
+      this.labels = [];
       this.groups = [];
       this.sc = 0;
       delete root.dataset.places;
@@ -268,88 +381,184 @@ export class PlayBoard {
     const sc = this.cellSize();
     this.sc = sc;
     this.resized = false;
+    const look = trayLook(sc, this.simple);
+    const at = look.at;
+    this.at = at;
     const z = this.layer;
+    // the tray in one colour: the chequer's lighter one in the Dark theme
+    // (a light grey board there), its darker one in the Light theme
     const base = m.colour ?? boardColour();
+    const trayColour = isDarkTheme() ? light(base) : dark(base);
+    const lightTray = 3 * trayColour[0] + 6 * trayColour[1] + trayColour[2] > 5;
+    const tray = this.traySvg(X * sc, Y * sc, look, trayColour);
     let floor = '';
+    let grid = '';
+    const floorAt = new Set(
+      m.floor.filter((c) => c.at[2] === z).map((c) => `${String(c.at[0])},${String(c.at[1])}`),
+    );
+    const onFloor = (x: number, y: number): boolean => floorAt.has(`${String(x)},${String(y)}`);
+    const squares: Square[] = [];
     for (const c of m.floor) {
       if (c.at[2] !== z) {
         continue;
       }
-      const odd = ((c.at[0] + c.at[1] + c.at[2]) & 1) === 1;
-      const x = MARGIN + c.at[0] * sc;
-      const y = MARGIN + (Y - 1 - c.at[1]) * sc;
-      floor += `<rect class="pl-cell${c.variable ? ' var' : ''}" data-at="${c.at.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(odd ? dark(base) : light(base))}"/>`;
+      const x = at + c.at[0] * sc;
+      const y = at + (Y - 1 - c.at[1]) * sc;
+      squares.push([c.at[0], Y - 1 - c.at[1]]);
+      // the grid: a line between two cells of the floor, none round its edge
+      if (onFloor(c.at[0] + 1, c.at[1])) {
+        grid += `M${String(x + sc)} ${String(y)}v${String(sc)}`;
+      }
+      if (onFloor(c.at[0], c.at[1] - 1)) {
+        grid += `M${String(x)} ${String(y + sc)}h${String(sc)}`;
+      }
+      floor += `<rect class="pl-cell${c.variable ? ' var' : ''}" data-at="${c.at.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(trayColour)}"/>`;
     }
-    // each goal: its cells tinted in the piece's colour under the pieces,
-    // and its outline over them, so a goal shows whatever stands on it
+    // the floor sunk into the rim, its corners those of a tile with the
+    // gap round it; its inner walls show on its upper and left edges,
+    // dropping as the tiles' sides do, and its bottom is the rest
+    const tile = tileLook(sc, this.simple);
+    const floorRadius = tile.radius + tile.gap;
+    const outlineOf = (cells: readonly Square[], inset: number, radius: number): string =>
+      roundedOutline(cells, { scale: sc, at: [at, at], inset: () => inset, radius });
+    const hollow = outlineOf(squares, 0, floorRadius);
+    const wall = tile.lift;
+    const fall = Math.max(1.5, sc * 0.03);
+    // each goal: its cells tinted in the piece's colour on the bottom,
+    // under the pieces, and its outline over them, so a goal shows
+    // whatever stands on it; its corners round as a tile's
     let goals = '';
+    let goalClips = '';
     let marks = '';
-    const inset = Math.max(3, Math.round(sc * 0.07));
-    for (const g of m.goals) {
+    // the outline: the top face of a piece standing on the goal, drawn
+    // inside it by half the line's width so it never lies on the sides
+    const line = 1.5;
+    const markStyle = {
+      scale: sc,
+      at: [at, at] as [number, number],
+      inset: (into: readonly [number, number]): number =>
+        (into[0] < 0 || into[1] < 0 ? tile.gap + tile.lift : tile.gap) + line,
+      radius: Math.max(1, tile.radius - line),
+    };
+    m.goals.forEach((g, k) => {
       const cells = g.cells.filter((c) => c[2] === z);
-      const has = new Set(cells.map((c) => `${String(c[0])},${String(c[1])}`));
-      let outline = '';
+      if (cells.length === 0) {
+        return;
+      }
+      const own = cells.map((c): Square => [c[0], Y - 1 - c[1]]);
+      const id = `pl-goal${String(k)}`;
+      goalClips += `<clipPath id="${id}"><path d="${outlineOf(own, 0, floorRadius)}"/></clipPath>`;
+      let rects = '';
       for (const c of cells) {
-        const x = MARGIN + c[0] * sc;
-        const y = MARGIN + (Y - 1 - c[1]) * sc;
-        goals += `<rect class="pl-goal" data-at="${c.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(g.colour)}"/>`;
-        // an edge where the goal ends, drawn a little inside it
-        const edge = (dx: number, dy: number): boolean =>
-          !has.has(`${String(c[0] + dx)},${String(c[1] + dy)}`);
-        const l = x + (edge(-1, 0) ? inset : 0);
-        const r = x + sc - (edge(1, 0) ? inset : 0);
-        const t = y + (edge(0, 1) ? inset : 0);
-        const b = y + sc - (edge(0, -1) ? inset : 0);
-        if (edge(-1, 0)) {
-          outline += `M${String(l)} ${String(t)}V${String(b)}`;
-        }
-        if (edge(1, 0)) {
-          outline += `M${String(r)} ${String(t)}V${String(b)}`;
-        }
-        if (edge(0, 1)) {
-          outline += `M${String(l)} ${String(t)}H${String(r)}`;
-        }
-        if (edge(0, -1)) {
-          outline += `M${String(l)} ${String(b)}H${String(r)}`;
-        }
+        const x = at + c[0] * sc;
+        const y = at + (Y - 1 - c[1]) * sc;
+        rects += `<rect class="pl-goal" data-at="${c.join(',')}" x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}" fill="${hex(g.colour)}"/>`;
       }
-      if (outline !== '') {
-        marks += `<path class="pl-mark under" d="${outline}"/><path class="pl-mark" d="${outline}"/>`;
-      }
-    }
-    const pieces = m.pieces.map((p, i) => this.pieceSvg(p, i)).join('');
-    const w = X * sc + 2 * MARGIN;
-    const h = Y * sc + 2 * MARGIN;
-    root.innerHTML = `<svg class="pl-svg" width="${String(w)}" height="${String(h)}" viewBox="0 0 ${String(w)} ${String(h)}" data-cell="${String(sc)}"><g class="pl-floor">${floor}</g><g class="pl-goals">${goals}</g><g class="pl-pieces">${pieces}</g><g class="pl-marks">${marks}</g></svg>`;
+      goals += `<g clip-path="url(#${id})">${rects}</g>`;
+      // a solid line in the piece's colour, edged dark so it shows over other pieces
+      const outline = roundedOutline(own, markStyle);
+      marks += `<path class="pl-mark under" d="${outline}"/><path class="pl-mark" d="${outline}" stroke="${hex(g.colour)}"/>`;
+    });
+    const drawn = m.pieces.map((p, i) => this.pieceSvg(p, i));
+    const pieces = drawn.map((d) => d.body).join('');
+    const labels = drawn.map((d) => d.label).join('');
+    const w = X * sc + 2 * at + look.depth;
+    const h = Y * sc + 2 * at + look.depth;
+    const defs =
+      // a fine grain of light and dark specks
+      `<filter id="pl-grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="7" stitchTiles="stitch" result="n"/>` +
+      `<feColorMatrix in="n" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 2.6 0 -1.25" result="w"/>` +
+      `<feColorMatrix in="n" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.6 0 0 1.25" result="k"/>` +
+      `<feMerge><feMergeNode in="w"/><feMergeNode in="k"/></feMerge></filter>` +
+      `<filter id="pl-soft"><feGaussianBlur stdDeviation="${fmt(fall * 0.9)}"/></filter>` +
+      `<linearGradient id="pl-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".08"/></linearGradient>` +
+      `<clipPath id="pl-hollow"><path d="${hollow}"/></clipPath>` +
+      `<clipPath id="pl-bottom"><path d="${hollow}" transform="translate(${String(wall)} ${String(wall)})"/></clipPath>` +
+      // the walls: the floor less its bottom
+      `<mask id="pl-walls" maskUnits="userSpaceOnUse" x="0" y="0" width="${String(w)}" height="${String(h)}"><path d="${hollow}" fill="#fff"/><path d="${hollow}" transform="translate(${String(wall)} ${String(wall)})" fill="#000"/></mask>` +
+      goalClips;
+    const gridColour = lightTray ? 'rgba(0,0,0,.16)' : 'rgba(255,255,255,.1)';
+    root.innerHTML =
+      `<svg class="pl-svg" width="${String(w)}" height="${String(h)}" viewBox="0 0 ${String(w)} ${String(h)}" data-cell="${String(sc)}" style="--pl-grid:${gridColour}"><defs>${defs}</defs>` +
+      tray.under +
+      // the floor's bottom with its grid, and the bottom's edge: the foot of
+      // the walls, its corners rounded as the floor's are
+      `<g class="pl-floor" clip-path="url(#pl-hollow)"><g clip-path="url(#pl-bottom)">${floor}<path class="pl-grid" d="${grid}"/></g>` +
+      `<path class="pl-grid" d="${hollow}" transform="translate(${String(wall)} ${String(wall)})"/></g>${tray.over}` +
+      `<g class="pl-goals" clip-path="url(#pl-hollow)"><g clip-path="url(#pl-bottom)">${goals}</g></g>` +
+      // the walls: the band between the floor's edge and its bottom, and
+      // their shadow a little way onto the bottom
+      (wall > 0
+        ? `<g class="pl-sunk" clip-path="url(#pl-hollow)"><path class="pl-shadow" d="${hollow}" transform="translate(${fmt(wall + fall / 2)} ${fmt(wall + fall / 2)})" stroke-width="${fmt(2 * fall)}" filter="url(#pl-soft)"/>` +
+          `<path class="pl-wall" d="${hollow}" mask="url(#pl-walls)"/></g>`
+        : '') +
+      `<path class="pl-hollow" d="${hollow}"/>` +
+      `<g class="pl-pieces">${pieces}</g><g class="pl-marks">${marks}</g><g class="pl-labels">${labels}</g></svg>`;
     this.groups = [...root.querySelectorAll<SVGGElement>('.pl-piece')];
+    this.labels = [...root.querySelectorAll<SVGGElement>('.pl-label')];
     this.place(this.places);
+    this.inset();
   }
 
-  // one piece: its cells of the layer shown (filled, or its picture), its outline and its name
-  private pieceSvg(p: BoardPiece, i: number): string {
+  // the tray round cells w x h pixels: what goes under the floor (its
+  // sides, its body) and over it (its grain, its outer lines)
+  private traySvg(
+    w: number,
+    h: number,
+    look: TrayLook,
+    colour: Rgb3,
+  ): { under: string; over: string } {
+    const { rim, depth, at } = look;
+    const x = at - rim;
+    const y = at - rim;
+    const ow = w + 2 * rim;
+    const oh = h + 2 * rim;
+    // square corners for Simple Pieces
+    const r = this.simple ? 0 : Math.round(rim * 1.3 + this.sc * 0.06);
+    const rect = (dx: number, inflate: number, extra: string): string =>
+      `<rect x="${fmt(x + dx - inflate)}" y="${fmt(y + dx - inflate)}" width="${fmt(ow + 2 * inflate)}" height="${fmt(oh + 2 * inflate)}" rx="${fmt(r === 0 ? 0 : Math.max(0, r + inflate))}"${extra}/>`;
+    // the sides: the tray drawn again a pixel further down and right each
+    // time, the lowest with its outline
+    let sides = depth > 0 ? rect(depth, 0, ' class="pl-trayfoot"') : '';
+    for (let k = depth - 1; k >= 1; k--) {
+      sides += rect(k, 0, '');
+    }
+    const under = `<g class="pl-tray"><g fill="${hex(shade(colour, 0.6))}">${sides}</g>${rect(0, 0, ` fill="${hex(colour)}"`)}</g>`;
+    const over =
+      `<g class="pl-grain" clip-path="url(#pl-trayclip)"><clipPath id="pl-trayclip">${rect(0, 0, '')}</clipPath>${rect(0, 0, ' filter="url(#pl-grain)"')}</g>` +
+      rect(0, -1, ' class="pl-trayedge"') +
+      rect(0, 0.5, ' class="pl-trayline"');
+    return { under, over };
+  }
+
+  // one piece: a tile over its cells of the layer shown (filled, or its
+  // picture) with its sides dropping to the lower right, and its name
+  private pieceSvg(p: BoardPiece, i: number): { body: string; label: string } {
     const sc = this.sc;
     const at = this.places[i] ?? [0, 0, 0];
     const cells = p.cells.filter((c) => at[2] + c[2] === this.layer);
-    const has = new Set(cells.map((c) => `${String(c[0])},${String(c[1])}`));
-    const fill = hex(p.colour);
-    let rects = '';
-    let outline = '';
-    for (const c of cells) {
-      const x = c[0] * sc;
-      const y = -(c[1] + 1) * sc;
-      rects += `<rect x="${String(x)}" y="${String(y)}" width="${String(sc)}" height="${String(sc)}"/>`;
-      // an edge where the piece ends
-      const side = (dx: number, dy: number, d: string): void => {
-        if (!has.has(`${String(c[0] + dx)},${String(c[1] + dy)}`)) {
-          outline += d;
-        }
-      };
-      side(-1, 0, `M${String(x)} ${String(y)}v${String(sc)}`);
-      side(1, 0, `M${String(x + sc)} ${String(y)}v${String(sc)}`);
-      side(0, 1, `M${String(x)} ${String(y)}h${String(sc)}`);
-      side(0, -1, `M${String(x)} ${String(y + sc)}h${String(sc)}`);
-    }
     const id = `plc${String(i)}`;
+    // a small gap between tiles; the top face sits up and left of the
+    // cells by its sides' depth
+    const { gap, lift, radius } = tileLook(sc, this.simple);
+    const top = roundedOutline(
+      cells.map((c): Square => [c[0], -(c[1] + 1)]),
+      {
+        scale: sc,
+        at: [0, 0],
+        inset: (into) => (into[0] < 0 || into[1] < 0 ? gap + lift : gap),
+        radius,
+      },
+    );
+    // where the pointer takes the piece: its cells whole, gaps and all
+    let hit = '';
+    for (const c of cells) {
+      hit += `<rect x="${String(c[0] * sc)}" y="${String(-(c[1] + 1) * sc)}" width="${String(sc)}" height="${String(sc)}"/>`;
+    }
+    let sides = '';
+    for (let k = lift; k >= 1; k--) {
+      sides += `<use href="#${id}t" x="${String(k)}" y="${String(k)}"/>`;
+    }
     let picture = '';
     if (p.picture !== null && cells.length > 0) {
       // the picture's pixels to the shape's cells, then to this group's
@@ -359,23 +568,31 @@ export class PlayBoard {
         .map((n) => n.toFixed(4))
         .join(' ');
       const [sx, sy, sw, sh] = p.picture.image.src;
-      picture = `<clipPath id="${id}s"><rect x="${String(sx)}" y="${String(sy)}" width="${String(sw)}" height="${String(sh)}"/></clipPath><g transform="matrix(${t})"><image href="${p.picture.dataUrl}" width="${String(p.picture.width)}" height="${String(p.picture.height)}" preserveAspectRatio="none" clip-path="url(#${id}s)"/></g>`;
+      picture = `<g clip-path="url(#${id})"><clipPath id="${id}s"><rect x="${String(sx)}" y="${String(sy)}" width="${String(sw)}" height="${String(sh)}"/></clipPath><g transform="matrix(${t})"><image href="${p.picture.dataUrl}" width="${String(p.picture.width)}" height="${String(p.picture.height)}" preserveAspectRatio="none" clip-path="url(#${id}s)"/></g></g>`;
     }
     let name = '';
     if (p.name !== '' && cells.length > 0) {
-      // at the bottom centre of its lowest cells, as the 2D grids write it
+      // at the bottom centre of its lowest cells' top face, as the 2D grids write it
       const low = Math.min(...cells.map((c) => c[1]));
       const row = cells.filter((c) => c[1] === low).map((c) => c[0]);
-      const x = ((Math.min(...row) + Math.max(...row) + 1) / 2) * sc;
+      const x = ((Math.min(...row) + Math.max(...row) + 1) / 2) * sc - lift / 2;
       const size = Math.max(9, Math.min(15, Math.round(sc * 0.26)));
-      name = `<text class="pl-name" x="${x.toFixed(1)}" y="${String(-low * sc - Math.round(sc * 0.12))}" font-size="${String(size)}" fill="${contrast(p.colour)}">${esc(p.name)}</text>`;
+      // clear of the goal's outline along the top face's lower edge
+      name = `<text class="pl-name" x="${x.toFixed(1)}" y="${String(-low * sc - lift - gap - Math.round(sc * 0.13))}" font-size="${String(size)}" fill="${contrast(p.colour)}">${esc(p.name)}</text>`;
     }
-    return `<g class="pl-piece" data-i="${String(i)}"><clipPath id="${id}">${rects}</clipPath><g clip-path="url(#${id})"><g fill="${fill}">${rects}</g>${picture}</g><path class="pl-edge" d="${outline}"/>${name}</g>`;
+    return {
+      body:
+        `<g class="pl-piece" data-i="${String(i)}"><defs><path id="${id}t" d="${top}"/><clipPath id="${id}"><path d="${top}"/></clipPath></defs>` +
+        `<g class="pl-hit">${hit}</g><g class="pl-body"><g fill="${hex(shade(p.colour, 0.62))}">${sides}</g>` +
+        `<path d="${top}" fill="${hex(p.colour)}"/>${picture}<path class="pl-face" d="${top}"/></g></g>`,
+      // its name in a layer of its own over the goals' outlines, moved with it
+      label: `<g class="pl-label" data-i="${String(i)}">${name}</g>`,
+    };
   }
 
-  // the pointer's cell from where the drag began
-  private cellOf(d: Drag, e: PointerEvent): [number, number] {
-    return [Math.round((e.clientX - d.x0) / this.sc), Math.round((d.y0 - e.clientY) / this.sc)];
+  // where the pointer is from where the drag began, in cells (not whole ones)
+  private pointerAt(d: Drag, e: PointerEvent): [number, number] {
+    return [(e.clientX - d.x0) / this.sc, (d.y0 - e.clientY) / this.sc];
   }
 
   private down(e: PointerEvent): void {
@@ -402,12 +619,15 @@ export class PlayBoard {
       has: [],
       chosen: -1,
       shift: [0, 0],
+      slide: [0, 0],
       ended: false,
     };
     this.drag = d;
     g.classList.add('drag');
-    // drawn last: over the pieces it passes
+    // drawn last: over the pieces it passes, and its name over theirs
     g.parentNode?.appendChild(g);
+    const label = this.labels[piece];
+    label?.parentNode?.appendChild(label);
     this.root.dataset.drag = String(piece);
     void this.host.reach(piece).then(
       (groups) => {
@@ -442,7 +662,7 @@ export class PlayBoard {
     if (d?.pointer !== e.pointerId || d.ended) {
       return;
     }
-    const target = this.cellOf(d, e);
+    const target = this.pointerAt(d, e);
     if (d.groups === null) {
       d.waiting.push(target);
     } else {
@@ -459,7 +679,7 @@ export class PlayBoard {
       this.cancelDrag();
       return;
     }
-    const target = this.cellOf(d, e);
+    const target = this.pointerAt(d, e);
     d.ended = true;
     if (d.groups === null) {
       d.waiting.push(target);
@@ -469,34 +689,43 @@ export class PlayBoard {
     }
   }
 
-  // the pieces follow the pointer to its cell, as far as they can go
-  private step(d: Drag, target: [number, number]): void {
+  // the pieces follow the pointer, as far as they can go: to the stop
+  // nearest it, and from there part of the way to the next towards it
+  private step(d: Drag, pointer: [number, number]): void {
     const groups = d.groups ?? [];
-    if (d.chosen < 0) {
-      // which pieces move is settled by the first step: the piece alone
-      // when it can go that way, else with what it carries (Shift: the
-      // other way round)
-      const order = groups.map((_, i) => i);
-      d.chosen = groupFor(d.has, d.carry ? order.reverse() : order, target);
+    // twice at most: a group back where it began lets the pointer choose again
+    for (let pass = 0; pass < 2; pass++) {
       if (d.chosen < 0) {
+        // which pieces move is settled by the way the pointer first goes:
+        // the piece alone when it can go that way, else with what it
+        // carries (Shift: the other way round)
+        const toward = aim(pointer);
+        const order = groups.map((_, i) => i);
+        d.chosen =
+          toward === null ? -1 : groupFor(d.has, d.carry ? order.reverse() : order, toward);
+        if (d.chosen < 0) {
+          return;
+        }
+      }
+      const has = d.has[d.chosen];
+      const movers = groups[d.chosen]?.movers ?? [];
+      if (has === undefined) {
         return;
       }
-    }
-    const has = d.has[d.chosen];
-    const movers = groups[d.chosen]?.movers ?? [];
-    if (has === undefined) {
-      return;
-    }
-    d.shift = follow(d.shift, target, has);
-    for (const m of movers) {
-      const g = this.groups[m];
-      if (g !== undefined) {
-        g.classList.add('drag');
-        this.put(g, this.places[m] ?? [0, 0, 0], d.shift);
+      d.shift = follow(d.shift, [Math.round(pointer[0]), Math.round(pointer[1])], has);
+      d.slide = slide(d.shift, pointer, has);
+      const by: [number, number] = [d.shift[0] + d.slide[0], d.shift[1] + d.slide[1]];
+      for (const m of movers) {
+        const g = this.groups[m];
+        if (g !== undefined) {
+          g.classList.add('drag');
+          this.put(g, this.places[m] ?? [0, 0, 0], by);
+        }
       }
-    }
-    if (d.shift[0] === 0 && d.shift[1] === 0) {
-      // back where it began: the next step chooses again
+      if (by[0] !== 0 || by[1] !== 0) {
+        return;
+      }
+      // back where it began: the pointer chooses again
       for (const m of movers) {
         if (m !== d.piece) {
           this.groups[m]?.classList.remove('drag');

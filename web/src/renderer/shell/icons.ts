@@ -10,6 +10,8 @@ export const ICONS = {
   trash:
     '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
   tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
+  tagOff:
+    '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.2"/><path d="M2 2l20 20"/>',
   grip: '<circle cx="9" cy="6" r="1.2" fill="currentColor"/><circle cx="15" cy="6" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/><circle cx="9" cy="18" r="1.2" fill="currentColor"/><circle cx="15" cy="18" r="1.2" fill="currentColor"/>',
   chevD: '<path d="M6 9l6 6 6-6"/>',
   chevU: '<path d="M6 15l6-6 6 6"/>',
@@ -27,6 +29,19 @@ export const ICONS = {
   fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   cube: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  grid: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/>',
+  gridOff:
+    '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/><path d="M2 2l20 20"/>',
+  square: '<rect x="5" y="5" width="14" height="14"/>',
+  shade: '<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" fill-opacity=".35"/>',
+  shadeOff:
+    '<rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" fill-opacity=".35"/><path d="M3 3l18 18"/>',
+  outline: '<rect x="5" y="5" width="14" height="14" rx="3" stroke-width="2.5"/>',
+  outlineOff:
+    '<rect x="5" y="5" width="14" height="14" rx="3" stroke-width="2.5"/><path d="M3 3l18 18"/>',
+  reset: '<path d="M6 5v14M19 5l-9 7 9 7z"/>',
+  eyeOff:
+    '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/>',
   focus: '<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>',
   unfocus: '<path d="M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7"/>',
   panelL: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
