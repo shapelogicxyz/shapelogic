@@ -15,7 +15,16 @@
 // no solution.
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
@@ -1536,30 +1545,43 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
     await solverSettled(page);
     await runButton(page, 'start');
-    // under the empty card, once the moves take measurable time: every
-    // fifth move to come, eleven rows
+    // under the empty card, once the moves take measurable time: the move
+    // searched, the move under way, then every fifth move to come
     const perf = page.locator('#slvSel #slvPerf');
     await expect(perf.locator('b').first()).toHaveText('Performance Analysis');
     await expect(perf.locator('tbody tr').first()).toBeVisible({ timeout: 30_000 });
-    await expect(perf).toContainText(/Searched \d+ moves deep/);
+    await expect(perf).toContainText(
+      /^Performance AnalysisEach move takes about \d+\.\d\d× as long as the one before\./,
+    );
     await expect(perf.locator('th').nth(2)).toHaveText('Remaining');
-    // the rows and the depth read together (the panel follows each progress)
-    const shown = await perf.evaluate((el) => ({
-      text: el.textContent,
-      depths: [...el.querySelectorAll<HTMLElement>('tbody tr')].map((r) => Number(r.dataset.depth)),
-    }));
-    const depths = shown.depths;
-    const deep = Number(/Searched (\d+) moves deep/.exec(shown.text)?.[1]);
-    expect(depths[0]).toBe((Math.floor(deep / 5) + 1) * 5);
-    expect(depths).toHaveLength(11);
-    expect(depths.at(-1)).toBe((depths[0] ?? 0) + 50);
+    // the rows read together (the panel follows each progress)
+    const shown = await perf.evaluate((el) =>
+      [...el.querySelectorAll<HTMLElement>('tbody tr')].map((r) => ({
+        cls: r.className,
+        depth: Number(r.dataset.depth),
+        cells: [...r.querySelectorAll('td')].map((td) => td.textContent),
+      })),
+    );
+    const [done, now, ...ahead] = shown;
+    const deep = done?.depth ?? 0;
+    expect(done?.cls).toBe('slv-perf-done');
+    expect(done?.cells[2]).toBe('Complete');
+    expect(now?.cls).toMatch(/^slv-perf-now/);
+    expect(now?.depth).toBe(deep + 1);
+    const depths = ahead.map((r) => r.depth);
+    expect(depths[0]).toBe((Math.floor((deep + 1) / 5) + 1) * 5);
+    expect(depths.at(-1)).toBe((Math.floor(deep / 5) + 11) * 5);
     expect(depths.every((d, i) => i === 0 || d === (depths[i - 1] ?? 0) + 5)).toBe(true);
+    // the move under way counts on between progress reports
+    const nowRow = perf.locator('tr.slv-perf-now');
+    const ran = await nowRow.locator('td').nth(1).textContent();
+    await expect(nowRow.locator('td').nth(1)).not.toHaveText(ran ?? '', { timeout: 5_000 });
     // the card that scrolls is kept as the panel follows: its scroll stays
     await page.locator('#slvSel > .slv-nav').evaluate((el) => {
       el.dataset.kept = '1';
     });
     // worked out again as the search goes deeper
-    await expect(perf).not.toContainText(`Searched ${String(deep)} moves deep`, {
+    await expect(perf.locator('tr.slv-perf-done')).not.toHaveAttribute('data-depth', String(deep), {
       timeout: 30_000,
     });
     await expect(page.locator('#slvSel > .slv-nav')).toHaveAttribute('data-kept', '1');
@@ -1608,6 +1630,263 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     await expect(perf).toHaveCount(0);
     const bad = readCallLog(log).filter((c) => c.errc !== null && c.errc !== 'superseded');
     expect(bad).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// The page again (View ▸ Reload in development): the engine and its runs go on.
+async function reloadToSolver(page: Page): Promise<void> {
+  await page.reload();
+  await expect(page.locator('#stage')).toHaveAttribute('data-engine', 'running');
+  await page.keyboard.press('Control+3');
+  await expect(page.locator('#stage')).toHaveAttribute('data-tab', 'solver');
+}
+
+test('a reload of the page while a sliding search runs: the new page takes the run up, and the journal carries it on with the options it was started with', async () => {
+  test.setTimeout(240_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log, autosave: 1 });
+  const page = a.page;
+  try {
+    // the fifteen with two tiles swapped: one start, searched far longer than the test
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    // a limit of the page's own (no stored option of the problem): the card
+    // of the page that follows shows the default again
+    await page.click('#slvOptHead');
+    const limit = page.locator('#slvOpts input[data-sti="keepAtMost"]');
+    await limit.fill('7');
+    await limit.press('Tab');
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^[1-9]/, {
+      timeout: 30_000,
+    });
+    const sp = await shownProblem(page);
+    const { slideFolder } = await engineCall<{ slideFolder: string }>(page, 'settings.get');
+    // the searches saved in the cache folder: one, while the run is carried
+    // on as the search it is
+    const searches = (): string[] =>
+      existsSync(slideFolder)
+        ? readdirSync(slideFolder).filter(
+            (n) => n.startsWith('slide-') && statSync(join(slideFolder, n)).isDirectory(),
+          )
+        : [];
+    expect(searches()).toHaveLength(1);
+    interface Kept {
+      keepAtMost?: number;
+      sliding?: { nestedSlides?: boolean; partialNested?: boolean };
+    }
+    const keptText = (): Promise<string | null> =>
+      page.evaluate(() => sessionStorage.getItem('solver.runOptions'));
+    const kept = await keptText();
+    expect((JSON.parse(kept ?? '{}') as Record<string, Kept>)[sp]?.keepAtMost).toBe(7);
+    const depth = async (): Promise<number> =>
+      (
+        await engineCall<{ progress: { slideForecast: { depth: number } | null } }>(
+          page,
+          'solve.status',
+          { problem: sp },
+        )
+      ).progress.slideForecast?.depth ?? 0;
+    const before = await depth();
+
+    await reloadToSolver(page);
+    // taken up: shown running, Pause offered and Continue not, the pictures of the search drawn
+    await expect(page.locator('#leftS')).toHaveAttribute('data-problem', sp);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
+    await expect(page.locator('#leftS [data-r="pause"]')).toBeEnabled();
+    await expect(page.locator('#leftS [data-r="continue"]')).toBeDisabled();
+    await expect(page.locator('#slvActivity')).toHaveText(/^Search active/);
+    await expect(page.locator('#vp')).toHaveAttribute('data-solution-layer', 'preview', {
+      timeout: 20_000,
+    });
+    // the options kept, though the card shows the default limit again
+    expect(await keptText()).toBe(kept);
+    await expect(limit).toHaveValue('100');
+    // the journal of the new page: saves, and the search carried on is the same search
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^([2-9]|\d\d+)$/, {
+      timeout: 60_000,
+    });
+    expect(searches()).toHaveLength(1);
+    await expect.poll(depth, { timeout: 30_000 }).toBeGreaterThanOrEqual(before);
+    expect(readCallLog(log).filter(counted)).toEqual([]);
+
+    // the options kept are what a run is carried on with: kept with the
+    // nested slides the other way, the journal's continue is another search,
+    // saved beside the first
+    await page.evaluate((id) => {
+      const all = JSON.parse(sessionStorage.getItem('solver.runOptions') ?? '{}') as Record<
+        string,
+        { sliding: { nestedSlides: boolean; partialNested: boolean } }
+      >;
+      const o = all[id];
+      if (o !== undefined) {
+        o.sliding.nestedSlides = !o.sliding.nestedSlides;
+        o.sliding.partialNested = false;
+      }
+      sessionStorage.setItem('solver.runOptions', JSON.stringify(all));
+    }, sp);
+    await reloadToSolver(page);
+    await expect.poll(() => searches().length, { timeout: 60_000 }).toBe(2);
+
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    // (a Pause that meets the run paused for one of the journal's saves, a
+    // second apart here, is refused and the save leaves the solve paused)
+    expect(
+      readCallLog(log).filter(
+        (c) => counted(c) && !(c.method === 'solve.pause' && c.errc === 'invalid_state'),
+      ),
+    ).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a save point the page before a reload asked for: the new page saves at once, and carries on a solve it finds paused there', async () => {
+  test.setTimeout(240_000);
+  const { dir, log } = tmpLog();
+  // the journal's own saves are a minute apart: none of them falls in the test
+  const a = await launch({ callLog: log });
+  const page = a.page;
+  try {
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling');
+    await expect(page.locator('#slvDetails')).toContainText(/moves deep/, { timeout: 20_000 });
+    const sp = await shownProblem(page);
+    const continues = (): number =>
+      readCallLog(log).filter((c) => c.method === 'solve.continue').length;
+    expect(continues()).toBe(0);
+
+    // a page that comes to a run under way saves at once, not a minute in:
+    // a save point the page before asked for is asked for again, and the
+    // pause is this page's to carry on
+    // (the rescue copy itself may be left for the next save: nothing is
+    // written before the page has looked for a copy the last session left)
+    await reloadToSolver(page);
+    await expect
+      .poll(() => readCallLog(log).filter((c) => c.method === 'solve.savePoint').length, {
+        timeout: 15_000,
+      })
+      .toBe(1);
+    await expect.poll(continues, { timeout: 60_000 }).toBe(1);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
+      timeout: 15_000,
+    });
+
+    // a save point nobody waits at (the page before went between the pause
+    // and the continue): the run pauses there, and this page, which did not
+    // ask, leaves it
+    const status = (): Promise<{ state: string; progress: { atSavePoint: boolean } }> =>
+      engineCall(page, 'solve.status', { problem: sp });
+    await engineCall(page, 'solve.savePoint', { problem: sp });
+    await expect
+      .poll(async () => (await status()).progress.atSavePoint, { timeout: 60_000 })
+      .toBe(true);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'paused');
+    await page.waitForTimeout(1500);
+    expect(await status()).toMatchObject({ state: 'paused', progress: { atSavePoint: true } });
+    expect(continues()).toBe(1);
+    // the page that follows carries it on
+    await reloadToSolver(page);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
+      timeout: 30_000,
+    });
+    expect(continues()).toBe(2);
+    await expect(page.locator('#leftS [data-r="pause"]')).toBeEnabled();
+
+    // the user's Pause is no save point: the page that follows leaves it paused
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    await reloadToSolver(page);
+    await solverSettled(page);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'paused');
+    await page.waitForTimeout(1500);
+    expect(await status()).toMatchObject({ state: 'paused', progress: { atSavePoint: false } });
+    expect(continues()).toBe(2);
+    expect(readCallLog(log).filter(counted)).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a reload with no options kept: the run of a problem that is not the one shown is carried on with the options its problem stores', async () => {
+  test.setTimeout(240_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log, autosave: 1 });
+  const page = a.page;
+  try {
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    const sp = await shownProblem(page);
+    // a problem before it in the list: the one the page that follows shows
+    const first = (await engineCall<{ problem: string }>(page, 'problem.create')).problem;
+    await engineCall(page, 'problem.move', { problem: first, toIndex: 0 });
+    await solverSettled(page);
+    await page.click(`#slvProbs .row[data-id="${sp}"]`);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-problem', sp);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    // nested slides the other way than the default: stored with the problem
+    await page.click('#slvOptHead');
+    const nested = page.locator('#slvOpts [data-o="nestedSlides"]');
+    const was = await nested.getAttribute('aria-checked');
+    await nested.click();
+    await expect(nested).toHaveAttribute('aria-checked', was === 'true' ? 'false' : 'true');
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^[1-9]/, {
+      timeout: 30_000,
+    });
+    const { slideFolder } = await engineCall<{ slideFolder: string }>(page, 'settings.get');
+    const searches = (): string[] =>
+      existsSync(slideFolder)
+        ? readdirSync(slideFolder).filter(
+            (n) => n.startsWith('slide-') && statSync(join(slideFolder, n)).isDirectory(),
+          )
+        : [];
+    expect(searches()).toHaveLength(1);
+
+    // nothing kept (as after a page of a version that kept none)
+    await page.evaluate(() => {
+      sessionStorage.removeItem('solver.runOptions');
+    });
+    await reloadToSolver(page);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-problem', first);
+    // the journal carries the run on, save after save: the same search
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^([3-9]|\d\d+)$/, {
+      timeout: 60_000,
+    });
+    expect(searches()).toHaveLength(1);
+    // with what its problem stores, kept from now on
+    const kept = JSON.parse(
+      (await page.evaluate(() => sessionStorage.getItem('solver.runOptions'))) ?? '{}',
+    ) as Record<string, { sliding?: { nestedSlides?: boolean } }>;
+    expect(kept[sp]?.sliding?.nestedSlides).toBe(was !== 'true');
+
+    await page.click(`#slvProbs .row[data-id="${sp}"]`);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-problem', sp);
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    expect(searches()).toHaveLength(1);
+    expect(
+      readCallLog(log).filter(
+        (c) => counted(c) && !(c.method === 'solve.pause' && c.errc === 'invalid_state'),
+      ),
+    ).toEqual([]);
   } finally {
     await a.close();
     rmSync(dir, { recursive: true, force: true });

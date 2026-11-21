@@ -288,27 +288,35 @@ export class RunCard {
     const def = normalize(defaultsOf(ws.family), null, ws.family, ws.canDisassemble).options;
     const defLim = defaultLimits();
     const brick = !ws.sliding && !ws.stacking;
+    // their titles, in the order the card lists them
+    const box = (k: BoxName, on: boolean): string | null =>
+      on && o[k] !== def[k] ? LABEL[k] : null;
     const changed = [
-      o.justCount !== def.justCount,
-      !ws.sliding && o.justLevels !== def.justLevels,
-      brick && o.keepMirrors !== def.keepMirrors,
-      brick && o.keepRotations !== def.keepRotations,
-      brick && o.deepSymmetry !== def.deepSymmetry,
-      brick && o.strictColors !== def.strictColors,
-      brick && o.solver !== def.solver,
-      brick && o.keepAssemblies !== def.keepAssemblies,
-      ws.sliding && o.nestedSlides !== def.nestedSlides,
-      ws.sliding && o.partialNested !== def.partialNested,
-      ws.sliding && o.verticalMoves !== def.verticalMoves,
-      ws.sliding && o.anyOrientation !== def.anyOrientation,
-      ws.sliding && o.mirroredOrientations !== def.mirroredOrientations,
-      ws.sliding && o.optimizedPaths !== def.optimizedPaths,
-      lim.keepEach !== defLim.keepEach,
-      lim.keepAtMost !== defLim.keepAtMost,
-    ].filter(Boolean).length;
+      box('justCount', true),
+      box('justLevels', !ws.sliding),
+      box('keepMirrors', brick),
+      box('keepRotations', brick),
+      box('deepSymmetry', brick),
+      box('strictColors', brick),
+      brick && o.solver !== def.solver ? 'Solver type' : null,
+      box('keepAssemblies', brick),
+      box('nestedSlides', ws.sliding),
+      box('partialNested', ws.sliding),
+      box('verticalMoves', ws.sliding),
+      box('anyOrientation', ws.sliding),
+      box('mirroredOrientations', ws.sliding),
+      box('optimizedPaths', ws.sliding),
+      lim.keepEach !== defLim.keepEach ? KEEP_EACH.label : null,
+      lim.keepAtMost !== defLim.keepAtMost ? KEEP_AT_MOST.label : null,
+    ].filter((t) => t !== null);
+    // folded: how many, and which, under the card's sentence
+    const folded =
+      !ws.optOpen && changed.length > 0
+        ? `<span class="chg">${String(changed.length)} changed</span><span class="chl">${changed.map((t) => `<span>${esc(t)}</span>`).join('')}</span>`
+        : '';
     setHtml(
       byId('slvOptHead'),
-      `<span class="gi">${ic('gear', 16)}</span><div><b>Search Options${!ws.optOpen && changed > 0 ? `<span class="mute" style="font-weight:400"> · ${String(changed)} changed</span>` : ''}</b><span class="d">Additional options for searching and filtering results</span></div><span class="sp"></span><span id="slvOptTog" style="${ws.optOpen ? '' : 'transform:rotate(-90deg)'}">${ic('chevD', 16)}</span>`,
+      `<span class="gi">${ic('gear', 16)}</span><div><b>Search Options</b><span class="d">Additional options for searching and filtering results</span>${folded}</div><span class="sp"></span><span id="slvOptTog" style="${ws.optOpen ? '' : 'transform:rotate(-90deg)'}">${ic('chevD', 16)}</span>`,
     );
     const opts = byId('slvOpts');
     opts.style.display = ws.optOpen ? '' : 'none';

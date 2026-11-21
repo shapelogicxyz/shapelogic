@@ -58,6 +58,23 @@
 // of disk) is the user's to see: it is left as it is, and its note is told
 // (`carriesOn` is false of it). The problems' stored `autosave` (the
 // original's box) is not looked at.
+//
+// A reload of the page (View ▸ Reload in development, the dev server's
+// when a source file is saved) leaves the engine and its runs going, and
+// the page that asked a run for a save point may be gone before the run
+// gets there: a sliding search works on to the end of its level, which can
+// take hours, then pauses for a save nobody makes, and stands still. So a
+// page that came to solves it did not start takes what the page before
+// left (`handover`), until a save of its own has asked each of them: a run
+// under way is asked for a save point at once, not a minute in (the pause
+// is then this page's own to carry on), and a solve that pauses at a save
+// point meanwhile, or was found paused at one, is carried on (`pickUp`).
+// The options to carry a run on with are the ones it was started with,
+// kept across the reload (run-options.ts): with others a sliding search
+// begins again at the first move. A solve the user paused is paused by the
+// pause, not at a save point, and stays so; one the user paused in the
+// moment a save had it at its save point is carried on by the page that
+// follows a reload, which cannot tell it from a save left unfinished.
 
 import type { SolveOptions } from '../../engine/api.generated.ts';
 import { isActive } from '../state/solves.ts';
@@ -97,6 +114,19 @@ export class Autosave {
   private saving = false;
   /** The solves the user paused while the save under way waited: not carried on. */
   private readonly held = new Set<string>();
+  /**
+   * The page before this one (a reload) may have left a save unfinished: a
+   * save point asked for, its pause not carried on. From the page's start
+   * until the engine holds no solve, running or paused, that this page
+   * neither started nor asked for a pause itself (`asked`).
+   */
+  private handover = true;
+  /** The solves a save of this page has asked to pause: their pauses are its own. */
+  private readonly asked = new Set<string>();
+  /** The page's first look at the engine's solves is still to come. */
+  private arrived = false;
+  /** The paused solves looked at in the handover (`pickUp`), once each. */
+  private readonly picked = new Set<string>();
   /** The solves the save under way pauses, to carry them on, and how each was asked. */
   private readonly pausing = new Map<string, 'pause' | 'savePoint'>();
   /** The save under way asked sliding searches for a save point: they work on until it. */
@@ -129,6 +159,9 @@ export class Autosave {
   }
 
   private tick(): void {
+    if (this.handover) {
+      this.takeOver();
+    }
     const active = this.activeRuns();
     const now = Date.now();
     if (active.length === 0) {
@@ -154,6 +187,99 @@ export class Autosave {
       return;
     }
     void this.journal(mark);
+  }
+
+  // The handover from the page before this one (a reload). Runs under way
+  // that this page did not start: their journal is due at once, so that a
+  // save point that page asked for and left is asked for again, and its
+  // pause is this page's to carry on. A solve paused meanwhile (the save
+  // point came before this page's save had begun) or found paused: carried
+  // on when it is paused at a save point. Over when the engine holds no
+  // solve, running or paused, but those this page started or has asked for
+  // a pause itself.
+  private takeOver(): void {
+    const snap = this.store.snapshot;
+    if (snap === null) {
+      return;
+    }
+    // a run this page started or carried on is `launched` until it ends
+    const found = this.activeRuns().filter(
+      (p) => !this.asked.has(p) && this.solves.peek(p)?.launched !== true,
+    );
+    if (!this.arrived) {
+      this.arrived = true;
+      if (found.length > 0) {
+        this.since = Date.now() - this.wait;
+      }
+    }
+    const paused = snap.problems
+      .map((p) => p.id)
+      .filter((p) => !this.asked.has(p) && this.stateOf(p) === 'paused');
+    for (const p of paused) {
+      if (!this.picked.has(p)) {
+        this.picked.add(p);
+        void this.pickUp(p);
+      }
+    }
+    if (found.length === 0 && paused.length === 0) {
+      this.handover = false;
+    }
+  }
+
+  // read through a call: the flag changes across the awaits of pickUp()
+  private savingNow(): boolean {
+    return this.saving;
+  }
+
+  // The state of a problem's solve: the events', else the snapshot's.
+  private stateOf(problem: string): string {
+    const r = this.solves.peek(problem);
+    return r?.told === true
+      ? r.state
+      : (this.store.snapshot?.problems.find((p) => p.id === problem)?.solve ?? 'idle');
+  }
+
+  // Carries on a solve paused at a save point that no save of this page
+  // asked for: the page before asked, and went before it carried the solve
+  // on. Not one paused for anything else (the user's Pause, a slide search
+  // out of disk: `atSavePoint` is false). The run's end is waited for
+  // first (its revision, then the snapshot that shows it), as a save does.
+  private async pickUp(problem: string): Promise<void> {
+    const e = this.store.engine;
+    const gen = this.store.generation;
+    const atSavePoint = async (): Promise<boolean> => {
+      const st = await e.call('solve.status', { problem });
+      return st.state === 'paused' && st.progress.atSavePoint;
+    };
+    try {
+      if (!(await atSavePoint())) {
+        return;
+      }
+      await this.store.whenRevision(await this.solves.whenEnded(problem));
+      if (this.store.generation !== gen || this.asked.has(problem)) {
+        return;
+      }
+      if (this.savingNow()) {
+        // a save under way (the user's): looked at again after it
+        this.picked.delete(problem);
+        return;
+      }
+      // still there: not carried on or thrown away meanwhile
+      if (this.solves.peek(problem)?.launched === true || !(await atSavePoint())) {
+        return;
+      }
+      if (this.savingNow() || this.store.generation !== gen) {
+        this.picked.delete(problem);
+        return;
+      }
+      const options = this.optionsOf(problem);
+      await e.call('solve.continue', { problem, options });
+      this.solves.launch(problem, options.solver ?? null);
+      this.continued(problem);
+      flash('The solve was paused for a save — it carries on');
+    } catch (x) {
+      reportError(x, 'Continue');
+    }
   }
 
   // How far the solves under way are: what their last progress told.
@@ -306,6 +432,8 @@ export class Autosave {
         try {
           await e.call(pause ? 'solve.pause' : 'solve.savePoint', { problem: p });
           paused.push(p);
+          // from here on its pauses are of this page's asking (`takeOver`)
+          this.asked.add(p);
         } catch {
           // the run ended meanwhile: nothing to pause
           this.pausing.delete(p);

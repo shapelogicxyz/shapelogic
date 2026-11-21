@@ -9,7 +9,8 @@
 // configFromMap, writeState, stateFor, drawnPegHeight). noteShapeRemoved,
 // noteShapeSwap and trimStacks are Problem's (bt/model/problem.cpp); the
 // file part is bt/io/puzzle_file.cpp; findStackPath is
-// bt/solve/stack_search.cpp.
+// bt/solve/stack_search.cpp. The end of the file is new: a puzzle played
+// by hand (bt/model/stacking_play.h).
 #include "shapelogic/model/stacking.h"
 
 #include "shapelogic/base/assert.h"
@@ -18,13 +19,16 @@
 #include "shapelogic/grid/voxel.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle.h"
+#include "shapelogic/model/stacking_play.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <map>
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace bt::stacking {
 
@@ -960,6 +964,313 @@ unsigned int boardSpan(const Puzzle& puzzle, const Problem& problem) {
   const auto span =
       static_cast<unsigned int>(*std::max_element(lay.rodX.begin(), lay.rodX.end()) + lay.spacing);
   return std::max(span, 4U);
+}
+
+// ---- a puzzle played by hand (bt/model/stacking_play.h) ---------------------------
+//
+// Not ported: the original has no play. The rules are moveAllowed's, the
+// validity of a position checkStack's, the heights discHeights'.
+
+namespace {
+
+std::string capitalised(std::string text) {
+  if (!text.empty()) {
+    text[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(text[0])));
+  }
+  return text;
+}
+
+// Why the problem has no board and discs to play on (setupError's sentences
+// for what the start and the goal share); empty when it has.
+std::string playRefusal(const Puzzle& puzzle, const Problem& problem) {
+  if (!isStacking(puzzle)) {
+    return "This problem is not a stacking puzzle.";
+  }
+  if (!problem.rodSetValid(puzzle)) {
+    return "Choose a rod set with Set Start/Goal Rods.";
+  }
+  if (puzzle.getRodSet(problem.getRodSetId()).rodCount < 1) {
+    return "The rod set needs at least one rod.";
+  }
+  if (discsOf(puzzle, problem).empty()) {
+    return "Add the discs that move on the rods.";
+  }
+  for (unsigned int p = 0; p < problem.getNumberOfParts(); p++) {
+    if (problem.getPartMinimum(p) != problem.getPartMaximum(p)) {
+      return "S" + std::to_string(problem.getShapeIdOfPart(p) + 1) +
+             " has a min/max range, but stacking uses a fixed count of each disc.";
+    }
+  }
+  return "";
+}
+
+// Why a stack map is no position of all the problem's discs under the
+// board's rules, `which` being what it is called ("start", "position");
+// empty when it is one. setupError asks the same of the start and the goal
+// together; a game needs it of one stacking alone.
+std::string sideRefusal(const Puzzle& puzzle, const Problem& problem, const RodSet& board,
+                        const std::vector<Disc>& pieces, const StackMap& map,
+                        const std::string& which) {
+  const std::size_t rods = totalRods(board);
+  for (std::size_t r = rods; r < map.rods.size(); r++) {
+    if (!map.rods[r].empty()) {
+      return "The " + which + " has discs on rod " + std::to_string(r + 1) +
+             ", but the rod set only has " + std::to_string(board.rodCount) +
+             (board.rodCount == 1 ? " rod." : " rods.");
+    }
+  }
+  if (map.rods.size() < rods) {
+    return "The " + which + " does not match the number of rods.";
+  }
+  const std::string the = "the " + which;
+  for (std::size_t r = 0; r < rods; r++) {
+    std::string bad = checkStack(puzzle, problem, board, pieces, map.rods[r],
+                                 static_cast<unsigned int>(r), the.c_str());
+    if (!bad.empty()) {
+      return bad;
+    }
+  }
+  std::vector<int> seen(pieces.size(), 0);
+  for (std::size_t r = 0; r < rods; r++) {
+    for (const DiskRef& ref : map.rods[r]) {
+      const int idx = findPiece(pieces, ref);
+      if (idx < 0) {
+        return "The " + which + " names a disc that is not in the problem.";
+      }
+      seen[static_cast<std::size_t>(idx)]++;
+    }
+  }
+  for (std::size_t i = 0; i < pieces.size(); i++) {
+    const DiskRef ref{pieces[i].shapeId, pieces[i].instance};
+    if (seen[i] > 1) {
+      return diskLabel(puzzle, problem, ref) + " is on the " + which + " more than once.";
+    }
+    if (seen[i] == 0) {
+      return diskLabel(puzzle, problem, ref) + " is not on the " + which + ".";
+    }
+  }
+  return "";
+}
+
+// A stack map's first `rods` rods in the searches' numbers (a map
+// sideRefusal takes).
+Stacking stackingOf(const std::vector<Disc>& pieces, const StackMap& map, std::size_t rods) {
+  Stacking out(rods);
+  for (std::size_t r = 0; r < rods && r < map.rods.size(); r++) {
+    for (const DiskRef& ref : map.rods[r]) {
+      const int idx = findPiece(pieces, ref);
+      if (idx >= 0) {
+        out[r].push_back(static_cast<unsigned int>(idx));
+      }
+    }
+  }
+  return out;
+}
+
+Heights heightsOf(const RodSet& board, const std::vector<Disc>& pieces, const Stacking& stacks) {
+  Heights out;
+  out.reserve(stacks.size());
+  for (std::size_t r = 0; r < stacks.size(); r++) {
+    out.push_back(discHeights(board, pieces, stacks[r], static_cast<unsigned int>(r)));
+  }
+  return out;
+}
+
+// The goal a game is played to: the goal's stacking when the problem is
+// ready to solve, as the searches take it (searchInput).
+std::optional<Stacking> playGoal(const Puzzle& puzzle, const Problem& problem,
+                                 const std::vector<Disc>& pieces) {
+  if (!setupError(puzzle, problem).empty()) {
+    return std::nullopt;
+  }
+  return configFromMap(puzzle, problem, true, pieces);
+}
+
+}  // namespace
+
+PlayStart playStart(const Puzzle& puzzle, const Problem& problem) {
+  PlayStart out;
+  out.error = playRefusal(puzzle, problem);
+  if (!out.error.empty()) {
+    return out;
+  }
+  const RodSet& board = puzzle.getRodSet(problem.getRodSetId());
+  out.discs = discsOf(puzzle, problem);
+  out.error = sideRefusal(puzzle, problem, board, out.discs, problem.startStacks(), "start");
+  if (!out.error.empty()) {
+    return out;
+  }
+  out.stacks = stackingOf(out.discs, problem.startStacks(), totalRods(board));
+  out.heights = heightsOf(board, out.discs, out.stacks);
+  if (std::optional<Stacking> goal = playGoal(puzzle, problem, out.discs)) {
+    out.hasGoal = true;
+    out.goal = std::move(*goal);
+    out.goalHeights = heightsOf(board, out.discs, out.goal);
+    out.solved = out.stacks == out.goal;
+    return out;
+  }
+  // a goal with discs on it that cannot be played to: say why
+  const std::vector<std::vector<DiskRef>>& rods = problem.goalStacks().rods;
+  if (std::any_of(rods.begin(), rods.end(),
+                  [](const std::vector<DiskRef>& r) { return !r.empty(); })) {
+    out.goalError = setupError(puzzle, problem);
+  }
+  return out;
+}
+
+std::string positionRefusal(const Puzzle& puzzle, const Problem& problem,
+                            const Stacking& stacks) {
+  if (std::string why = playRefusal(puzzle, problem); !why.empty()) {
+    return why;
+  }
+  const RodSet& board = puzzle.getRodSet(problem.getRodSetId());
+  const std::vector<Disc> pieces = discsOf(puzzle, problem);
+  if (stacks.size() != totalRods(board)) {
+    return "The position does not match the number of rods.";
+  }
+  for (const std::vector<unsigned int>& rod : stacks) {
+    for (const unsigned int d : rod) {
+      if (d >= pieces.size()) {
+        return "The position names a disc that is not in the problem.";
+      }
+    }
+  }
+  return sideRefusal(puzzle, problem, board, pieces, positionMap(puzzle, problem, stacks),
+                     "position");
+}
+
+Heights restingHeights(const Puzzle& puzzle, const Problem& problem, const Stacking& stacks) {
+  if (!problem.rodSetValid(puzzle)) {
+    return Heights(stacks.size());
+  }
+  return heightsOf(puzzle.getRodSet(problem.getRodSetId()), discsOf(puzzle, problem), stacks);
+}
+
+std::string moveRefusal(const RodSet& board, const std::vector<Disc>& discs, const Stacking& cfg,
+                        unsigned int from, unsigned int to) {
+  if (from >= cfg.size() || to >= cfg.size()) {
+    return "That rod is not on this board.";
+  }
+  if (from == to) {
+    return "A disc moves from one rod to another.";
+  }
+  if (cfg[from].empty()) {
+    return capitalised(rodName(board, from)) + " is empty.";
+  }
+  if (moveAllowed(board, discs, cfg, from, to)) {
+    return "";
+  }
+  // refused: the rule that refuses it, in moveAllowed's order
+  const auto n = static_cast<unsigned int>(discs.size());
+  if (cfg[to].size() >= rodCapacity(board, to, n)) {
+    return capitalised(rodName(board, to)) + " is full.";
+  }
+  const unsigned int mover = cfg[from].back();
+  const int a = rodPosition(board, from);
+  const int b = rodPosition(board, to);
+  if (board.panexColumns) {
+    const int lo = std::min(a, b);
+    const int hi = std::max(a, b);
+    std::vector<unsigned int> depth;
+    for (std::size_t r = 0; r < cfg.size() && !viaOutsideChannel(board, from, to); r++) {
+      const auto rod = static_cast<unsigned int>(r);
+      const int p = rodPosition(board, rod);
+      if (rod == from || rod == to || p <= lo || p >= hi || isPocket(board, rod)) {
+        continue;
+      }
+      depth.clear();
+      for (const unsigned int d : cfg[r]) {
+        depth.push_back(depthOf(board, discs[d], n));
+      }
+      if (panexRaised(depth)) {
+        return "The disc raised on " + rodName(board, rod) + " is in the way.";
+      }
+    }
+    if (!isPocket(board, to)) {
+      depth.clear();
+      for (const unsigned int d : cfg[to]) {
+        depth.push_back(depthOf(board, discs[d], n));
+      }
+      depth.push_back(depthOf(board, discs[mover], n));
+      if (panexTooDeep(depth) >= 0) {
+        return "A disc on " + rodName(board, to) +
+               " would be pushed deeper than its size allows.";
+      }
+    }
+  } else if (board.sizeMatters && !cfg[to].empty() &&
+             discs[mover].size > discs[cfg[to].back()].size) {
+    return "A larger disc cannot sit on a smaller one.";
+  }
+  if (board.distanceMatters && !board.canMoveOver && a - b != 1 && b - a != 1) {
+    return "A disc can only move to a neighbouring rod.";
+  }
+  return "The rules do not allow that transfer.";
+}
+
+Result<std::vector<PlayTransfer>> playMoves(const Puzzle& puzzle, const Problem& problem,
+                                            const Stacking& stacks) {
+  if (std::string why = positionRefusal(puzzle, problem, stacks); !why.empty()) {
+    return fail(Errc::InvalidArgument, std::move(why));
+  }
+  const RodSet& board = puzzle.getRodSet(problem.getRodSetId());
+  const std::vector<Disc> pieces = discsOf(puzzle, problem);
+  const std::optional<Stacking> goal = playGoal(puzzle, problem, pieces);
+  const auto rods = static_cast<unsigned int>(stacks.size());
+  std::vector<PlayTransfer> out;
+  Stacking cfg = stacks;
+  for (unsigned int from = 0; from < rods; from++) {
+    for (unsigned int to = 0; to < rods; to++) {
+      if (!moveAllowed(board, pieces, cfg, from, to)) {
+        continue;
+      }
+      cfg[to].push_back(cfg[from].back());
+      cfg[from].pop_back();
+      out.push_back(PlayTransfer{from, to, discHeights(board, pieces, cfg[to], to).back(),
+                                 goal.has_value() && cfg == *goal});
+      cfg[from].push_back(cfg[to].back());
+      cfg[to].pop_back();
+    }
+  }
+  return out;
+}
+
+Result<PlayReplay> playReplay(const Puzzle& puzzle, const Problem& problem,
+                              const Stacking& stacks, const std::vector<PlayMove>& moves) {
+  if (std::string why = positionRefusal(puzzle, problem, stacks); !why.empty()) {
+    return fail(Errc::InvalidArgument, std::move(why));
+  }
+  const RodSet& board = puzzle.getRodSet(problem.getRodSetId());
+  const std::vector<Disc> pieces = discsOf(puzzle, problem);
+  const std::optional<Stacking> goal = playGoal(puzzle, problem, pieces);
+  PlayReplay out;
+  Stacking cfg = stacks;
+  out.solved = goal.has_value() && cfg == *goal;
+  for (const PlayMove& m : moves) {
+    out.error = moveRefusal(board, pieces, cfg, m.from, m.to);
+    if (!out.error.empty()) {
+      break;
+    }
+    const unsigned int disc = cfg[m.from].back();
+    cfg[m.to].push_back(disc);
+    cfg[m.from].pop_back();
+    out.steps.push_back(PlayStep{disc, discHeights(board, pieces, cfg[m.to], m.to).back(),
+                                 goal.has_value() && cfg == *goal});
+  }
+  return out;
+}
+
+StackMap positionMap(const Puzzle& puzzle, const Problem& problem, const Stacking& stacks) {
+  const std::vector<Disc> pieces = discsOf(puzzle, problem);
+  StackMap map;
+  map.rods.resize(stacks.size());
+  for (std::size_t r = 0; r < stacks.size(); r++) {
+    for (const unsigned int d : stacks[r]) {
+      if (d < pieces.size()) {
+        map.rods[r].push_back(DiskRef{pieces[d].shapeId, pieces[d].instance});
+      }
+    }
+  }
+  return map;
 }
 
 }  // namespace bt::stacking

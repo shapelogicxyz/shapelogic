@@ -320,6 +320,32 @@ export interface Rod {
   capacity: number;
 }
 
+/**
+ * A position of a game: each rod of the board (the pocket column last), its discs bottom to top by
+ * their numbers (stacking.playStart's discs).
+ * @maxItems 64
+ */
+export type PlayStacks = number[][];
+
+/**
+ * A stacking with where its discs rest: each rod's discs bottom to top, each with its number and
+ * the height it rests at (on a plain rod its place from the bottom; in a Panex column where its
+ * size lets it fall to, the bridge being the column's height).
+ */
+export type PlayResting = (({
+  /** @minimum 0 */
+  disc: number;
+  z: number;
+})[])[];
+
+/** One transfer: the top disc of rod 'from' onto rod 'to'. */
+export interface PlayTransfer {
+  /** @minimum 0 */
+  from: number;
+  /** @minimum 0 */
+  to: number;
+}
+
 // ---- types.json: Shared definitions ----
 
 /**
@@ -4131,6 +4157,139 @@ export interface Methods {
     result: BoardLayout;
     errors: 'not_found';
   };
+  /**
+   * How a problem's game starts when it is played by hand (the Play workspace): its rods, its
+   * discs numbered as a solve numbers them (the problem's pieces: parts, then copies), the start's
+   * stacking with where each disc rests, and the goal's. A problem is played once its start is a
+   * position of all its discs under the board's rules: otherwise 'error' says why ('S2 is not on
+   * the start.', a rule broken, no rod set) and 'stacks' is empty. The goal is played to only when
+   * the problem is ready to solve (stacking.board's error is null); otherwise 'goal' is null and
+   * the game counts moves without an end, 'goalError' saying why when the goal's rods hold discs.
+   * Changes nothing.
+   * (stacking.json)
+   */
+  'stacking.playStart': {
+    params: {
+      problem: ProblemId;
+    };
+    result: {
+      /** Why the problem cannot be played; null when it can. */
+      error: string | null;
+      /** The board's rods in the stack map's order; empty without a rod set. */
+      rods: Rod[];
+      /**
+       * The rods are Panex columns (the pocket is a plain rod): a disc may rest above the ones
+       * below it, and one disc more than a column's height may wait raised into the bridge.
+       */
+      panex: boolean;
+      /** The problem's discs; a disc's number is its place here. */
+      discs: ({
+        shape: ShapeId;
+        /**
+         * Which copy of the shape (from 0).
+         * @minimum 0
+         */
+        instance: number;
+        /** @minimum 1 */
+        size: number;
+      })[];
+      /** The start's stacking. */
+      stacks: PlayResting;
+      /** The goal's stacking; null when there is no goal to play to. */
+      goal: PlayResting | null;
+      /**
+       * Why the goal the problem has is not played to (stacking.board's error); null with a goal,
+       * and when the goal's rods are empty.
+       */
+      goalError: string | null;
+      /** The start is the goal already. */
+      solved: boolean;
+    };
+    errors: 'not_found' | 'unsupported';
+  };
+  /**
+   * Every transfer a position allows: the top disc of one rod onto another, under the board's
+   * rules (the Stacking Solver's move rule: the rods' heights, the size rule, the distance rule, a
+   * Panex column's depths and the discs raised into its bridge, the outside channel), rod by rod
+   * as the solver tries them. Each has where the disc comes to rest and whether the position it
+   * gives is the goal (never without a goal). Refused (invalid_argument) with the reason when
+   * 'stacks' is no position of the problem's discs. Changes nothing.
+   * (stacking.json)
+   */
+  'stacking.playMoves': {
+    params: {
+      problem: ProblemId;
+      stacks: PlayStacks;
+    };
+    result: {
+      moves: ({
+        /** @minimum 0 */
+        from: number;
+        /** @minimum 0 */
+        to: number;
+        /** The height the disc comes to rest at on 'to'. */
+        z: number;
+        solved: boolean;
+      })[];
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
+   * Makes a list of transfers one after another from a position: what checks moves read from a
+   * file, and checks a game again after the problem changed. Each step has the disc that moved,
+   * where it came to rest and whether the position after it is the goal. It stops at the first
+   * transfer the rules refuse: 'illegal' is its place in the list and 'why' the reason ('Rod 2 is
+   * empty.', 'A larger disc cannot sit on a smaller one.'), and 'steps' has the transfers before
+   * it. With no moves it tells whether the position is the goal. Refused (invalid_argument) with
+   * the reason when 'stacks' is no position of the problem's discs. Changes nothing.
+   * (stacking.json)
+   */
+  'stacking.playReplay': {
+    params: {
+      problem: ProblemId;
+      stacks: PlayStacks;
+      /** @maxItems 100000 */
+      moves: PlayTransfer[];
+    };
+    result: {
+      /** The position the moves start from is the goal. */
+      solved: boolean;
+      steps: ({
+        /**
+         * The disc that moved, by its number.
+         * @minimum 0
+         */
+        disc: number;
+        /** The height it came to rest at. */
+        z: number;
+        solved: boolean;
+      })[];
+      /** The first transfer that cannot be made (from 0); null when all were. */
+      illegal: number | null;
+      why: string | null;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument';
+  };
+  /**
+   * Makes a position a problem's start (goal false) or its goal, replacing what that side had (the
+   * Play workspace's Save position as Start and as Goal). Refused (invalid_argument) with the
+   * reason when 'stacks' is no position of all the problem's discs under the board's rules.
+   * 'changed' is false, and nothing changes, when that side is the position already; otherwise the
+   * problem loses its solutions. Refused while the problem is solved. One undo step.
+   * (stacking.json)
+   */
+  'stacking.setStacks': {
+    params: {
+      problem: ProblemId;
+      goal: boolean;
+      stacks: PlayStacks;
+    };
+    result: {
+      changed: boolean;
+      revision: Revision;
+    };
+    errors: 'not_found' | 'unsupported' | 'invalid_argument' | 'invalid_state';
+  };
 }
 
 /** Every event (notification) the engine sends. */
@@ -4391,12 +4550,16 @@ export const METHOD_NAMES = [
   'stacking.moveRodSet',
   'stacking.placeAll',
   'stacking.placeDisc',
+  'stacking.playMoves',
+  'stacking.playReplay',
+  'stacking.playStart',
   'stacking.removeDisc',
   'stacking.renameRodSet',
   'stacking.rodSetLayout',
   'stacking.setDiscSize',
   'stacking.setProblemRodSet',
   'stacking.setRules',
+  'stacking.setStacks',
 ] as const satisfies readonly (keyof Methods)[];
 
 /** The events of the schema. */

@@ -1692,6 +1692,143 @@ def stacking_rod_sets_discs_and_stacks(e):
     check(e.call("document.get")["rodSets"] == [], "no rod sets on bricks")
 
 
+@test
+def stacking_play(e):
+    """A stacking problem played by hand: how its game starts, the transfers
+    a position allows, a list of transfers made and where it stops, a
+    position saved as the start and as the goal, and a Panex board's
+    heights."""
+    e.call("document.new", {"grid": "stacking"})
+    p = e.call("problem.create")["problem"]
+    # no board yet: not played, and no error of the call
+    start = e.call("stacking.playStart", {"problem": p})
+    check(start["error"] == "Choose a rod set with Set Start/Goal Rods." and start["rods"] == []
+          and start["discs"] == [] and start["stacks"] == [] and start["goal"] is None
+          and start["goalError"] is None and not start["solved"] and not start["panex"], f"no board {start}")
+
+    snap = e.call("document.open", {"path": str(FIXTURES / "test_stacking_hanoi.xmpuzzle")})
+    p = snap["problems"][0]["id"]
+    discs = [x["id"] for x in snap["shapes"]]
+    start = e.call("stacking.playStart", {"problem": p})
+    check(start["error"] is None and not start["solved"] and not start["panex"]
+          and start["goalError"] is None, f"played {start}")
+    check([r["name"] for r in start["rods"]] == ["rod 1", "rod 2", "rod 3"]
+          and [r["capacity"] for r in start["rods"]] == [3, 3, 3], f"the rods {start['rods']}")
+    check(start["discs"] == [{"shape": d, "instance": 0, "size": n} for d, n in zip(discs, (3, 2, 1))],
+          f"the discs {start['discs']}")
+    tower = [{"disc": 0, "z": 0}, {"disc": 1, "z": 1}, {"disc": 2, "z": 2}]
+    check(start["stacks"] == [tower, [], []] and start["goal"] == [[], [], tower],
+          f"the start and the goal {start}")
+    stacks = [[x["disc"] for x in rod] for rod in start["stacks"]]
+
+    # the smallest disc goes to either empty rod
+    moves = e.call("stacking.playMoves", {"problem": p, "stacks": stacks})["moves"]
+    check(moves == [{"from": 0, "to": 1, "z": 0, "solved": False},
+                    {"from": 0, "to": 2, "z": 0, "solved": False}], f"the first moves {moves}")
+    moves = e.call("stacking.playMoves", {"problem": p, "stacks": [[2], [], [0, 1]]})["moves"]
+    check({"from": 0, "to": 2, "z": 2, "solved": True} in moves
+          and sum(m["solved"] for m in moves) == 1, f"the last move solves {moves}")
+
+    # the seven transfers; a transfer the rules refuse stops the list
+    seven = [(0, 2), (0, 1), (2, 1), (0, 2), (1, 0), (1, 2), (0, 2)]
+    replay = e.call("stacking.playReplay", {"problem": p, "stacks": stacks,
+                                            "moves": [{"from": a, "to": b} for a, b in seven]})
+    check(replay["illegal"] is None and replay["why"] is None and not replay["solved"]
+          and [x["disc"] for x in replay["steps"]] == [2, 1, 2, 0, 2, 1, 2]
+          and [x["z"] for x in replay["steps"]] == [0, 0, 1, 0, 0, 1, 2]
+          and [x["solved"] for x in replay["steps"]] == [False] * 6 + [True], f"the game {replay}")
+    replay = e.call("stacking.playReplay", {"problem": p, "stacks": stacks,
+                                            "moves": [{"from": 0, "to": 2}, {"from": 0, "to": 2}]})
+    check(replay["illegal"] == 1 and replay["why"] == "A larger disc cannot sit on a smaller one."
+          and len(replay["steps"]) == 1, f"refused {replay}")
+    replay = e.call("stacking.playReplay", {"problem": p, "stacks": stacks, "moves": [{"from": 1, "to": 9}]})
+    check(replay["illegal"] == 0 and replay["why"] == "That rod is not on this board.", f"no such rod {replay}")
+    check(e.call("stacking.playReplay", {"problem": p, "stacks": [[], [], [0, 1, 2]], "moves": []})["solved"],
+          "the goal is told with no moves")
+
+    # what is no position, and what is no request
+    for method, more in (("stacking.playMoves", {}), ("stacking.playReplay", {"moves": []})):
+        bad = e.fails(method, {"problem": p, "stacks": [[0, 1], [], []], **more}, "invalid_argument")
+        check("S3 is not on the position" in str(bad), f"{method}: a disc missing, told {bad}")
+        e.fails(method, {"problem": p, "stacks": [[1, 0, 2], [], []], **more}, "invalid_argument")
+        e.fails(method, {"problem": p, "stacks": [[0, 1, 2], []], **more}, "invalid_argument")
+        e.fails(method, {"problem": p, "stacks": [[0, 1, -1], [], []], **more}, "invalid_params")
+        e.fails(method, {"problem": p, "stacks": "here", **more}, "invalid_params")
+        e.fails(method, {"problem": "p999", "stacks": stacks, **more}, "not_found")
+    e.fails("stacking.playReplay", {"problem": p, "stacks": stacks, "moves": [{"from": 0}]}, "invalid_params")
+    e.fails("stacking.playReplay", {"problem": p, "stacks": stacks, "moves": [{"from": 0, "to": 1, "by": 2}]},
+            "invalid_params")
+    e.fails("stacking.playStart", {"problem": "p999"}, "not_found")
+
+    # a position saved as the start: nothing when it is the start already,
+    # else one undo step
+    check(e.call("stacking.setStacks", {"problem": p, "goal": False, "stacks": stacks})["changed"] is False,
+          "the start it has changes nothing")
+    made = e.call("stacking.setStacks", {"problem": p, "goal": False, "stacks": [[0], [1], [2]]})
+    check(made["changed"] is True, f"the start set {made}")
+    ev = changed_event(e, made["revision"])
+    check("problems" in ev["what"] and ev["problems"] == [p], f"the start's change {ev}")
+    check(e.call("stacking.playStart", {"problem": p})["stacks"] ==
+          [[{"disc": 0, "z": 0}], [{"disc": 1, "z": 0}], [{"disc": 2, "z": 0}]], "starts there")
+    check(e.call("edit.history")["undo"][-1] == "Set start position", "the step's name")
+    e.call("edit.undo")
+    check(e.call("stacking.playStart", {"problem": p})["stacks"] == [tower, [], []], "undone")
+    made = e.call("stacking.setStacks", {"problem": p, "goal": True, "stacks": [[], [0, 1, 2], []]})
+    check(made["changed"] is True, f"the goal set {made}")
+    start = e.call("stacking.playStart", {"problem": p})
+    check(start["goal"] == [[], tower, []] and start["stacks"] == [tower, [], []], f"the goal there {start}")
+    bad = e.fails("stacking.setStacks", {"problem": p, "goal": False, "stacks": [[0, 1], [], []]},
+                  "invalid_argument")
+    check("S3 is not on the position" in str(bad), f"a disc missing, told {bad}")
+    e.fails("stacking.setStacks", {"problem": p, "goal": True, "stacks": [[2, 1, 0], [], []]}, "invalid_argument")
+    e.fails("stacking.setStacks", {"problem": "p999", "goal": False, "stacks": stacks}, "not_found")
+    e.fails("stacking.setStacks", {"problem": p, "goal": False, "stacks": "here"}, "invalid_params")
+
+    # a goal with a disc missing is not played to, and says why; a start
+    # with one missing is not played
+    e.call("stacking.clear", {"problem": p, "goal": True})
+    start = e.call("stacking.playStart", {"problem": p})
+    check(start["error"] is None and start["goal"] is None and start["goalError"] is None,
+          f"an empty goal: free play {start}")
+    e.call("stacking.placeDisc", {"problem": p, "shape": discs[0], "rod": 2, "goal": True})
+    start = e.call("stacking.playStart", {"problem": p})
+    check(start["error"] is None and start["goal"] is None and
+          start["goalError"] == e.call("stacking.board", {"problem": p, "goal": True})["error"],
+          f"half a goal {start}")
+    e.call("stacking.clear", {"problem": p, "goal": False})
+    start = e.call("stacking.playStart", {"problem": p})
+    check(start["error"] == "S1 is not on the start." and start["stacks"] == [] and len(start["discs"]) == 3
+          and len(start["rods"]) == 3, f"an empty start {start}")
+
+    # a Panex board: a disc rests where its size lets it fall to, one disc
+    # more than a column's height waits raised into the bridge
+    with tempfile.TemporaryDirectory() as tmp:
+        puzzle = pathlib.Path(tmp) / "swap3.xmpuzzle"
+        puzzle.write_text(panex_swap(3))
+        p = e.call("document.open", {"path": str(puzzle)})["problems"][0]["id"]
+        start = e.call("stacking.playStart", {"problem": p})
+        check(start["error"] is None and start["panex"] and [r["capacity"] for r in start["rods"]] == [4, 4, 4],
+              f"the swap {start}")
+        check([x["z"] for x in start["stacks"][0]] == [0, 1, 2], f"the tower's heights {start['stacks']}")
+        stacks = [[x["disc"] for x in rod] for rod in start["stacks"]]
+        moves = e.call("stacking.playMoves", {"problem": p, "stacks": stacks})["moves"]
+        # the size 1 discs: onto the empty middle column they fall to one below the bridge
+        check({"from": 0, "to": 1, "z": 2, "solved": False} in moves, f"the swap's first moves {moves}")
+        raised = [m for m in moves if m["to"] == 2]
+        check(raised == [{"from": 0, "to": 2, "z": 3, "solved": False}], f"raised into the bridge {moves}")
+        replay = e.call("stacking.playReplay", {"problem": p, "stacks": stacks,
+                                                "moves": [{"from": 2, "to": 1}, {"from": 2, "to": 1},
+                                                          {"from": 0, "to": 2}]})
+        check(replay["illegal"] == 2 and "raised on rod 2" in replay["why"], f"blocked by the raised disc {replay}")
+
+    e.call("document.new", {"grid": "bricks"})
+    q = e.call("problem.create")["problem"]
+    e.fails("stacking.playStart", {"problem": q}, "unsupported")
+    e.fails("stacking.playMoves", {"problem": q, "stacks": []}, "unsupported")
+    e.fails("stacking.playReplay", {"problem": q, "stacks": [], "moves": []}, "unsupported")
+    e.fails("stacking.setStacks", {"problem": q, "goal": False, "stacks": []}, "unsupported")
+
+
 def panex_swap(n):
     """A Panex swap of two towers of n discs as plain XML: the corpus's
     stack_panex_swap_<n> (made by the original's code) for any n."""

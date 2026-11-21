@@ -90,7 +90,7 @@ test('every control shown has a tooltip', async () => {
       await row.click();
     }
     await check(`${f} solver`);
-    // the Play workspace: a sliding puzzle has it
+    // the Play workspace: a sliding and a stacking puzzle have it
     if (await page.locator('.rbtn[data-tab=play]').isVisible()) {
       await page.keyboard.press('Control+4');
       await expect(page.locator('#playStage')).toHaveAttribute('data-game', '1');

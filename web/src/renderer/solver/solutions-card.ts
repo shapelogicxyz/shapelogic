@@ -23,7 +23,8 @@ import { hex } from '../shell/piece-colours.ts';
 import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { isActive } from '../state/solves.ts';
 import type { SortKey } from './pager.ts';
-import { performanceHtml } from './performance.ts';
+import type { SlideForecast } from '../../engine/api.generated.ts';
+import { liveCells, performanceHtml } from './performance.ts';
 import type { FileExport, RemoveWhich, SolverWorkspace } from './workspace.ts';
 
 /** The sort buttons (the mockup's SVSORT; `assembly` is its search order). */
@@ -87,6 +88,12 @@ export class SolutionsCard {
   private maxSteps = 1;
   private menuOpen = false;
   private rowHeight = 28;
+  /**
+   * The running solve's forecast last drawn and when it came: the move
+   * under way's Time and Remaining count on from it each second.
+   */
+  private perfLive: { f: SlideForecast; at: number } | null = null;
+  private perfTimer: number | null = null;
 
   constructor(ws: SolverWorkspace) {
     this.ws = ws;
@@ -215,7 +222,52 @@ export class SolutionsCard {
     if (f === null) {
       return '';
     }
-    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active)}</div>`;
+    let elapsed = 0;
+    if (live !== null) {
+      // a new progress report: counted from now; drawn again: from when it came
+      if (this.perfLive?.f !== live) {
+        this.perfLive = { f: live, at: performance.now() };
+      }
+      elapsed = performance.now() - this.perfLive.at;
+      this.perfTimer ??= window.setInterval(() => {
+        this.tickPerformance();
+      }, 1000);
+    }
+    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active, elapsed)}</div>`;
+  }
+
+  /**
+   * Each second while a sliding solve runs: the move under way's Time and
+   * Remaining counted on; stopped once the panel shows no running solve.
+   */
+  private tickPerformance(): void {
+    const live = this.perfLive;
+    const row = document.querySelector<HTMLElement>('#slvPerf tr.slv-perf-now');
+    const ws = this.ws;
+    const id = ws.current;
+    const running =
+      id !== null &&
+      isActive(ws.stateOf(id)) &&
+      ws.solves.peek(id)?.progress?.slideForecast === live?.f;
+    if (live === null || row === null || !running) {
+      if (this.perfTimer !== null) {
+        window.clearInterval(this.perfTimer);
+      }
+      this.perfTimer = null;
+      this.perfLive = null;
+      return;
+    }
+    const [time, left] = liveCells(live.f, performance.now() - live.at);
+    const cells = row.querySelectorAll('td');
+    const tc = cells[1];
+    const lc = cells[2];
+    if (tc !== undefined) {
+      tc.textContent = time;
+    }
+    if (lc !== undefined) {
+      lc.textContent = left;
+    }
+    row.classList.toggle('over', left.startsWith('−'));
   }
 
   private whyEmpty(): string {

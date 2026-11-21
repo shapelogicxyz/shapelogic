@@ -266,6 +266,17 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   and what the searches read and make (`discsOf`, `moveAllowed`,
   `searchInput`, `pathSeparation`: three frames a transfer, lift, cross
   and drop; `logicalMoves`, `startAssembly`, `boardSpan`).
+- `stacking_play.h` (decision 0042, this program's own): a stacking puzzle
+  played by hand, asked one position at a time with no game kept:
+  `playStart` (the start's and the goal's stackings with where each disc
+  rests, or why the problem cannot be played; the start is judged alone,
+  the goal played to only when `setupError` is empty), `playMoves` (every
+  transfer a position allows and which give the goal), `playReplay` (a
+  list of transfers made, to the first the rules refuse, with the reason),
+  `positionRefusal` and `positionMap` (a position checked and turned into
+  a stack map, for `Document::setStacks`). Defined at the end of
+  `stacking.cpp` over `moveAllowed`, `checkStack` and `discHeights`;
+  `moveRefusal` words what `moveAllowed` refuses.
 
 - `grid_convert.h` (deferred part 6; `converter.cpp`): `convertGrid`, a
   cube-grid puzzle on the rhombic (5x5x5 cells a cube) or tetra-octa
@@ -1102,7 +1113,8 @@ schema in `api/`, documented in the generated `docs/API.md`.
   SHAPELOGIC_SLIDE_DISK_GB, go into every sliding solve's options),
   stacking puzzles (`stacking.*`, deferred part 3b: the rod sets, discs
   and stacks commands and the reads of the board, `stacking.board` and
-  `stacking.rodSetLayout`; rod sets in the snapshot, a problem's board
+  `stacking.rodSetLayout`; `stacking.playStart`, `playMoves`, `playReplay`
+  and `setStacks`, a puzzle played by hand, decision 0042; rod sets in the snapshot, a problem's board
   and stacks in its summary and detail, a shape's disc size; a stacking
   solve's options in `SolveOptions.stacking`, the solver defaulting to the
   one the original's menu offered for the board; `Settings`'
@@ -1521,7 +1533,9 @@ What exists after stage 8:
     `document.changed` after its last `solve.state` (a run started here
     and over between two polls too: `launch`; an abort's own change ends
     nothing, a paused solve aborted ends no run; a state told again is no
-    run), `whenEnded`, the progress, the failure, the last
+    run; a run the snapshot shows under way and no event told of, the
+    engine's when the page was reloaded, is taken as seen: `adopt`),
+    `whenEnded`, the progress, the failure, the last
     `solutionsAdded`, the last `solve.preview` of a run under way (gone
     with its last state), an analysis, the solver a run used (`pausedBt2`);
     cleared when another document comes (its last idle and analyseEnded
@@ -1602,7 +1616,10 @@ What exists after stage 8:
     decoded once, as a data URL for the 2D grid and a bitmap for the 3D
     views; the map from its pixels to the cells, and Crop's part),
     `layout.ts` (`setWorkspaceShown`: the Play workspace is in the rail
-    only while a sliding puzzle is open, decision 0039),
+    only while a sliding or a stacking puzzle is open, decisions 0039 and
+    0042),
+    `html.ts` (`esc`, apart from the DOM helpers for the modules the unit
+    tests run without a DOM),
     `dom.ts` (with `setHtml`, which leaves a list's elements alone when a
     re-render would draw the same, so a double-click whose first click
     re-rendered still lands, and `markSelected`). `keys.ts` has the
@@ -1828,7 +1845,15 @@ What exists after stage 8:
     none of it once another document replaced the one it
     paused; a sliding search works on to its level's end meanwhile, shown
     searching (`worksOn`), and only the time from its end counts as the
-    save's cost (decision 0034); `saveAtSavePoint(path)` is
+    save's cost (decision 0034); a page that comes to solves it did not
+    start (a reload of the page in development: the engine and its runs
+    go on) asks them for a save point at once and carries on one it
+    finds, or sees, paused at a save point the page before asked for
+    (`takeOver`, `pickUp`), with the options the solve was started with,
+    kept in the page's session storage across the reload
+    (`run-options.ts`; the problem's stored options, and optimized paths
+    by its grid, where nothing was kept): carried on with others, a
+    sliding search is another search and begins again; `saveAtSavePoint(path)` is
     also File ▸ Save's path while a solve runs, the save the store's: it
     pauses a sliding or stacking search, and joins or follows a journal
     save under way),
@@ -2163,17 +2188,34 @@ commands, the rules' dependencies, frozen while solving, Abort of a
 saved search; reference screenshots of the board, the rod set and the
 player).
 
-The Play workspace (`renderer/play/`, decision 0039; shown only for a
-sliding puzzle): `workspace.ts` (the card, the banner, Undo and Redo, the
-playback, Save position as Start or Goal, the moves file; it reads
-`sliding.playStart` after every change of the document and keeps a game
-for each problem), `board.ts` (the SVG board: whole pieces that are
+The Play workspace (`renderer/play/`, decisions 0039 and 0042; shown only
+for a sliding or a stacking puzzle): `workspace.ts` keeps what every game
+shares (the card, the banner, Reset, Undo and Redo, the playback, Save
+position as Start or Goal, the moves file's dialogs, the keys; it has the
+puzzle's kind read the start after every change of the document and
+keeps a game for each problem), over a kind of puzzle (`kind.ts`'s
+`PlayKind`: the start read from the engine, the board, a move made and
+drawn again, the kind's own buttons beside the board, a position saved,
+the moves as a file's text). A sliding puzzle's kind is `sliding.ts`
+(`sliding.playStart`, the layer strip, the goal, grid, label and simple
+pieces buttons) with `board.ts` (the SVG board: whole pieces that are
 dragged over the stops `sliding.playReach` gave and drawn along the
-routes `sliding.playReplay` gave), and the DOM-free `game.ts` (the moves,
-the place in them, the merge of a piece moved again), `follow.ts` (the
-drag's steps, a route's points) and `moves-file.ts` (`.slmoves`: written,
-read, matched to a board and start). Tests: `tests/unit/renderer/play.test.ts`,
-`tests/e2e/play.e2e.ts`.
+routes `sliding.playReplay` gave), the DOM-free `game.ts` (`GameOf`: the
+moves and the place in them, for any kind; a sliding game's merge of a
+piece moved again), `follow.ts` (the drag's steps, a route's points) and
+`moves-file.ts` (`.slmoves`: written, read, matched to a board and
+start). A stacking puzzle's kind is `stacking.ts` (`stacking.playStart`,
+the goal's small picture, Hide Goal and Hide Disc Labels) with
+`stack-board.ts` (the SVG board: the rods from the front, a top disc
+dragged or clicked onto a rod `stacking.playMoves` allows, a transfer
+drawn up, across and down), the DOM-free `stack-look.ts` (the drawing's
+measures and markup, `stackLook` and `stackSvg`, which also draw the
+goal's picture), `stack-game.ts` (the transfers, each with the
+height the engine gave its disc; a disc put straight back takes its move
+off) and `stack-moves-file.ts` (`.slmoves` of `kind: "stacking"`, matched
+to the rods and the start). `room.ts` places either board in the frame
+they share. Tests: `tests/unit/renderer/play.test.ts` and
+`stack-play.test.ts`, `tests/e2e/play.e2e.ts` and `stack-play.e2e.ts`.
 
 ## Testing against the original
 

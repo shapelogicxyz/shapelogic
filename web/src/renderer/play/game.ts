@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// A game of a sliding puzzle played by hand (decision 0039), apart from the
-// page so the unit tests run it without a DOM or an engine: the start, the
-// moves made and the place in them the board shows. The engine says what a
-// move may be and whether a position is the goal (sliding.playReach,
+// A game of a puzzle played by hand (decisions 0039 and 0042), apart from
+// the page so the unit tests run it without a DOM or an engine: the start,
+// the moves made and the place in them the board shows. The engine says
+// what a move may be and whether a position is the goal (sliding.playReach,
 // sliding.playReplay); this file only keeps what was done. A game is a
 // value: every change gives a new one.
 //
-// The moves are counted as the solver counts them: one piece going
-// anywhere it can reach is one move, so a piece dragged again straight
-// after its own move goes on with that move (`canMerge`), and one put back
-// where the move began takes the move off.
+// What a start and a move are depends on the puzzle (`GameOf`): here are
+// what every game shares and a sliding puzzle's game; a stacking puzzle's
+// is stack-game.ts.
+//
+// A sliding puzzle's moves are counted as the solver counts them: one
+// piece going anywhere it can reach is one move, so a piece dragged again
+// straight after its own move goes on with that move (`canMerge`), and one
+// put back where the move began takes the move off.
 
 /** A cell [x, y, z] of the board, or a shift in cells. */
 export type Cell = [number, number, number];
@@ -21,21 +25,27 @@ export interface Move {
   by: Cell;
 }
 
-/** A game. */
-export interface Game {
+/** A game whose start is an S and whose moves are Ms. */
+export interface GameOf<S, M> {
   /** What the start is of (the pieces and where they start): a game of another start is another game. */
   key: string;
-  /** Where each piece starts: the lowest corner of its cells. */
-  start: Cell[];
+  /** The position the game starts from. */
+  start: S;
   /** The start is the goal already. */
   startSolved: boolean;
   /** The moves made, those taken back with Undo included (Redo makes them again). */
-  moves: Move[];
+  moves: M[];
   /** After each move: the position is the goal. */
   solved: boolean[];
   /** How many of the moves the board shows made: 0 is the start. */
   at: number;
 }
+
+/** A game of any puzzle: what the Play workspace goes through without knowing its moves. */
+export type AnyGame = GameOf<unknown, unknown>;
+
+/** A sliding puzzle's game: its start is where each piece starts, the lowest corner of its cells. */
+export type Game = GameOf<Cell[], Move>;
 
 /** A game at its start. */
 export function newGame(key: string, start: readonly Cell[], startSolved: boolean): Game {
@@ -79,7 +89,7 @@ export function placesAt(g: Game, at: number = g.at): Cell[] {
 }
 
 /** Whether the position after `at` moves is the goal. */
-export function solvedAt(g: Game, at: number = g.at): boolean {
+export function solvedAt(g: AnyGame, at: number = g.at): boolean {
   return at <= 0 ? g.startSolved : (g.solved[at - 1] ?? false);
 }
 
@@ -108,8 +118,13 @@ export function made(g: Game, move: Move, solved: boolean): Game {
 }
 
 /** The game showing the position after `at` moves (held to the moves there are). */
-export function seek(g: Game, at: number): Game {
+export function seek<G extends AnyGame>(g: G, at: number): G {
   return { ...g, at: Math.max(0, Math.min(g.moves.length, Math.round(at))) };
+}
+
+/** The game at its start again, its moves thrown away. */
+export function restarted<G extends AnyGame>(g: G): G {
+  return { ...g, moves: [], solved: [], at: 0 };
 }
 
 /** The game with its moves replaced (moves read from a file, or checked again), shown from `at`. */

@@ -27,7 +27,7 @@ import {
   settle,
   style,
 } from '../e2e/app.ts';
-import { drag, STAGE, toPlay } from '../e2e/play.ts';
+import { carry, drag, expectStacks, STACK, STAGE, toPlay, toStackPlay } from '../e2e/play.ts';
 import { runButton, runEnded, toSolver } from '../e2e/solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -370,6 +370,34 @@ test('the Play tab', async () => {
     await crop(page, '#playBoard', 'play-simple');
     await page.click('#plSimple');
     await expect(page.locator('#plSimple')).toHaveAttribute('aria-pressed', 'false');
+  } finally {
+    await app.close();
+  }
+});
+
+test('the Play tab on a stacking puzzle', async () => {
+  const app = await launch({ scale: 2 });
+  const { page } = app;
+  try {
+    // the Tower of Hanoi the guide's Stacking page follows, two transfers made
+    await openNested(page, 'stacking/stack_hanoi_3.xmpuzzle');
+    await toStackPlay(page);
+    await carry(page, 0, 2);
+    await carry(page, 0, 1);
+    await expect(page.locator(STAGE)).toHaveAttribute('data-moves', '2');
+    await page.mouse.move(0, 0);
+    // the discs have come to rest
+    await page.waitForTimeout(400);
+    await shot(page, 'play-stacking');
+    // a Panex board: a small disc on the middle column, the next raised into the bridge over it
+    await openNested(page, 'stacking/stack_panex_swap_4.xmpuzzle');
+    await toStackPlay(page);
+    await carry(page, 2, 1);
+    await carry(page, 2, 1);
+    await expectStacks(page, '0,1,2,3|7,6|4,5');
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(400);
+    await crop(page, STACK, 'play-panex');
   } finally {
     await app.close();
   }

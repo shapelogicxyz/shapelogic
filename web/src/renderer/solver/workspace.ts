@@ -60,6 +60,7 @@ import { LABEL } from './option-text.ts';
 import { Player } from './player.ts';
 import { noteIsTrouble } from './problem-note.ts';
 import { RunCard } from './run-card.ts';
+import { readRunOptions, sessionStore, writeRunOptions } from './run-options.ts';
 import {
   defaultLimits,
   DEFAULT_OPTIONS,
@@ -158,9 +159,18 @@ export class SolverWorkspace {
   private analysisRun: AnalysisRun | null = null;
   /** The options of the runs this client started, by problem (autosave carries them on). */
   private readonly launched = new Map<string, ReturnType<typeof solveOptions>>();
+  /**
+   * The options of the solves the page before this one started (a reload of
+   * the page: run-options.ts), for the solves still under way or paused in
+   * the engine when this page came; a solve this page starts or carries on
+   * is `launched`'s from then on.
+   */
+  private readonly carried = readRunOptions(sessionStore());
   /** Waiting for a document.changed of a problem's solutions. */
   private changeWaiters: { problem: string; done: () => void }[] = [];
   private generation = -1;
+  /** The document's generation `carried` is of; null before the first document came. */
+  private carriedFor: number | null = null;
   private loads = 0;
   private waiting: { revision: number; done: () => void }[] = [];
   /** The problem the engine sends live preview pictures of (solve.preview), in a document's generation. */
@@ -792,6 +802,29 @@ export class SolverWorkspace {
   private documentChanged(): void {
     const store = this.store;
     const snap = store.snapshot;
+    if (snap !== null && this.carriedFor !== store.generation) {
+      if (this.carriedFor === null) {
+        // the document the page came to: the page before's solves that the
+        // engine still holds (running, or paused in memory) keep their options
+        for (const id of [...this.carried.keys()]) {
+          const solve = snap.problems.find((q) => q.id === id)?.solve;
+          if (solve === undefined || !(isActive(solve) || solve === 'paused')) {
+            this.carried.delete(id);
+          }
+        }
+        // one of them whose options nothing kept: what its problem stores
+        for (const q of snap.problems) {
+          if ((isActive(q.solve) || q.solve === 'paused') && !this.carried.has(q.id)) {
+            void this.recallOptions(q.id, store.generation);
+          }
+        }
+      } else {
+        // another document (or engine): its problems' ids are new
+        this.carried.clear();
+      }
+      this.carriedFor = store.generation;
+      this.keepRunOptions();
+    }
     if (store.generation !== this.generation) {
       this.generation = store.generation;
       this.current = null;
@@ -804,6 +837,7 @@ export class SolverWorkspace {
       this.inseparables.clear();
       this.analysisRun = null;
       this.launched.clear();
+      this.keepRunOptions();
       this.changeWaiters = [];
       this.player.close();
       this.preview.clear();
@@ -1250,12 +1284,70 @@ export class SolverWorkspace {
     this.render();
   }
 
-  /** The options a run of a problem was started with (the problem shown's as shown otherwise). */
+  /**
+   * The options a solve of a problem was last started or carried on with:
+   * by this page, or by the page before it (a reload); undefined when
+   * neither did.
+   */
+  private startedWith(problem: string): ReturnType<typeof solveOptions> | undefined {
+    return this.launched.get(problem) ?? this.carried.get(problem);
+  }
+
+  // A solve the engine held when the page came and whose options nothing
+  // kept (no session storage, or the page before was of a version without
+  // run-options.ts): the options its problem stores, which are what the
+  // card showed when the solve was started (the card is frozen while a
+  // solve runs), with the limits the Solver starts with, and optimized
+  // paths when the problem keeps a grid (the question at Solve stores no
+  // option). The problem shown's are not enough: the solve may be another
+  // problem's.
+  private async recallOptions(problem: string, generation: number): Promise<void> {
+    try {
+      const d = await this.store.engine.call('problem.get', { problem });
+      if (this.store.generation !== generation || this.startedWith(problem) !== undefined) {
+        return;
+      }
+      const snap = this.store.snapshot;
+      const rods = snap?.rodSets.find((r) => r.id === d.rodSet);
+      const stored = solveOptions(
+        readOptions(d.solverSettings, undefined, this.family, this.canDisassemble),
+        this.limits,
+        this.family,
+        stackingSolverOf(rods?.panexColumns ?? false),
+      );
+      const kept = snap?.problems.find((q) => q.id === problem)?.slideGrid ?? 0;
+      this.carried.set(
+        problem,
+        this.sliding && kept > 0 ? withOptimizedPaths(stored, true) : stored,
+      );
+      this.keepRunOptions();
+    } catch {
+      // the problem or the engine is gone: launchOptions' own guess stands in
+    }
+  }
+
+  // Keeps the solves' options for the page that follows a reload (run-options.ts).
+  private keepRunOptions(): void {
+    writeRunOptions(sessionStore(), new Map([...this.carried, ...this.launched]));
+  }
+
+  /**
+   * The options a run of a problem was started with. Of a run neither this
+   * page nor the one before it started, and whose problem's stored options
+   * have not come yet (`recallOptions`), the problem shown's as shown, with
+   * optimized paths when the problem keeps a grid: the run was started with
+   * them (the question at Solve stores no option), and carried on without
+   * them it would be another search, which finds nothing saved and begins
+   * again at the first move.
+   */
   launchOptions(problem: string): ReturnType<typeof solveOptions> {
-    return (
-      this.launched.get(problem) ??
-      this.optionsNow(problem === this.current ? this.options : defaultsOf(this.family))
-    );
+    const started = this.startedWith(problem);
+    if (started !== undefined) {
+      return started;
+    }
+    const now = this.optionsNow(problem === this.current ? this.options : defaultsOf(this.family));
+    const kept = this.store.snapshot?.problems.find((q) => q.id === problem)?.slideGrid ?? 0;
+    return this.sliding && kept > 0 ? withOptimizedPaths(now, true) : now;
   }
 
   // ---- the run ----
@@ -1273,7 +1365,7 @@ export class SolverWorkspace {
         // started it, or (a file opened with the solve paused) by the grid
         // the problem keeps
         const kept = this.store.snapshot?.problems.find((q) => q.id === problem)?.slideGrid ?? 0;
-        if (this.launched.get(problem)?.sliding?.optimizedPaths ?? kept > 0) {
+        if (this.startedWith(problem)?.sliding?.optimizedPaths ?? kept > 0) {
           options = withOptimizedPaths(options, true);
         }
       } else {
@@ -1402,6 +1494,8 @@ export class SolverWorkspace {
           // before the run's events (decision 0012: the reply first)
           this.solves.launch(problem, solver);
           this.launched.set(problem, options);
+          this.carried.delete(problem);
+          this.keepRunOptions();
           if (this.family !== 'brick') {
             void this.tellNote(problem);
           }

@@ -6,7 +6,9 @@
 // only by a problem with the same board and the same start, whatever its
 // pieces are called or in what order they are listed. Apart from the page
 // so the unit tests run it without a DOM. The engine checks the moves
-// themselves (sliding.playReplay).
+// themselves (sliding.playReplay). This is a sliding puzzle's file; a
+// stacking puzzle's has the same format name, a `kind` and a version of
+// its own (stack-moves-file.ts).
 
 import type { Cell, Move } from './game.ts';
 
@@ -73,13 +75,15 @@ export function serialise(file: Omit<MovesFile, 'format' | 'version'>): string {
   return `${JSON.stringify(whole)}\n`;
 }
 
-const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
+/** Whether a value read from a file is a whole number. */
+export const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
 
 function cellOf(v: unknown): Cell | null {
   return Array.isArray(v) && v.length === 3 && v.every(isInt) ? (v as Cell) : null;
 }
 
-function record(v: unknown): Record<string, unknown> | null {
+/** A value read from a file as an object, or null when it is none. */
+export function record(v: unknown): Record<string, unknown> | null {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
     ? (v as Record<string, unknown>)
     : null;
@@ -100,6 +104,9 @@ export function parse(text: string): MovesFile | string {
   }
   if (!isInt(f.version) || f.version < 1) {
     return notOne;
+  }
+  if (f.kind === 'stacking') {
+    return 'These moves are for a stacking puzzle.';
   }
   if (f.version > MOVES_VERSION) {
     return 'These moves were written by a newer version of ShapeLogic.';

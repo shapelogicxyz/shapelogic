@@ -21,7 +21,7 @@ Prism and Cairo Prism.
 - [Shapes Tab](/docs/shapes-tab/), [Puzzle Tab](/docs/puzzle-tab/)
   and [Solver Tab](/docs/solver-tab/): every button and option of the
   three workspaces.
-- [Play Tab](/docs/play-tab/): playing a sliding puzzle by hand.
+- [Play Tab](/docs/play-tab/): playing a sliding or a stacking puzzle by hand.
 - [Keyboard Shortcuts](/docs/keyboard-shortcuts/) for Windows, Linux and
   macOS.
 - [Imports](/docs/imports/) and [Exports](/docs/exports/): other programs'

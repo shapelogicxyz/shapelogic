@@ -163,13 +163,18 @@ export function startApp(saved: StoredState = {}): {
   };
   const solves = new Solves(engine);
   // another document (or engine): its problems' ids are new; the old
-  // document's last idle and analyseEnded come after this
+  // document's last idle and analyseEnded come after this. A run already
+  // under way (the page reloaded) is taken from the snapshot.
   let generation = store.generation;
   store.subscribe((c) => {
-    if (c.kind === 'document' && store.generation !== generation) {
+    if (c.kind !== 'document') {
+      return;
+    }
+    if (store.generation !== generation) {
       generation = store.generation;
       solves.clear();
     }
+    solves.adopt(store.snapshot?.problems ?? []);
   });
 
   installTheme();
@@ -254,7 +259,7 @@ export function startApp(saved: StoredState = {}): {
       setTab('entities');
     },
   });
-  // a sliding puzzle played by hand (decision 0039)
+  // a sliding or a stacking puzzle played by hand (decisions 0039 and 0042)
   const play = new PlayWorkspace(store, edits, app, {
     get name() {
       return files.name;

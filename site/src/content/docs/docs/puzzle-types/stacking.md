@@ -74,3 +74,13 @@ replays it, each move a lift, a move across and a drop.
 Big Panex puzzles can take a long time. The Panex search saves itself as it
 runs, and **Pause** keeps its progress, and **Continue** carries on later. While a problem has a saved search, **Continue**
 stands in place of **Solve**; to start over, press **Abort**, then **Solve**.
+
+## Play: move the discs yourself
+
+A stacking puzzle has a **Play** tab to the right of Solver. Pick a problem
+and move its discs from rod to rod, by dragging or by clicking a disc and
+then a rod: every transfer is one move, as the Solver counts them, the
+board says **Solved!** at the Goal, and your moves can be undone, played
+back, exported for someone else and imported again. The position on the
+board can also be saved as the problem's Start or Goal. See
+[Play Tab](/docs/play-tab/#stacking-puzzles).

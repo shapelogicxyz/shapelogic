@@ -32,10 +32,10 @@ const RAIL: readonly [Workspace, string, IconName, string][] = [
   ['entities', 'Shapes', 'cube', 'Shapes — create and edit shapes'],
   ['puzzle', 'Puzzle', 'puzzle', 'Puzzle — choose the result, the pieces and the rules'],
   ['solver', 'Solver', 'play', 'Solver — run and browse solutions'],
-  ['play', 'Play', 'hand', 'Play — slide the pieces yourself'],
+  ['play', 'Play', 'hand', 'Play — move the pieces yourself'],
 ];
 
-// the workspaces left out of the rail: Play, until a sliding puzzle is open
+// the workspaces left out of the rail: Play, until a sliding or a stacking puzzle is open
 const hidden = new Set<Workspace>(['play']);
 
 /** Whether a workspace is in the rail. */
@@ -44,8 +44,9 @@ export function workspaceShown(w: Workspace): boolean {
 }
 
 /**
- * Puts a workspace in the rail or takes it out (Play: only a sliding
- * puzzle is played). One taken out while it is shown gives way to Shapes.
+ * Puts a workspace in the rail or takes it out (Play: only a sliding or a
+ * stacking puzzle is played). One taken out while it is shown gives way to
+ * Shapes.
  */
 export function setWorkspaceShown(w: Workspace, shown: boolean): void {
   if (shown === !hidden.has(w)) {

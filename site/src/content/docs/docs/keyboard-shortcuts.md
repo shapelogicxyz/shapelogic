@@ -34,7 +34,7 @@ instead, or change the desktop's window-moving key in its settings.
 | Action | Windows and Linux | macOS |
 |---|---|---|
 | Switch to Shapes / Puzzle / Solver | `Ctrl+1` / `Ctrl+2` / `Ctrl+3` | `⌘1` / `⌘2` / `⌘3` |
-| Switch to Play (a sliding puzzle) | `Ctrl+4` | `⌘4` |
+| Switch to Play (a sliding or stacking puzzle) | `Ctrl+4` | `⌘4` |
 | Keyboard shortcuts (this list) | `F1` | `F1` |
 | Settings | `Ctrl+,` | `⌘,` |
 | Collapse or expand the left / right card | `Ctrl+[` / `Ctrl+]` | `⌘[` / `⌘]` |
@@ -135,12 +135,13 @@ the Solutions card. See [Solver Tab](/docs/solver-tab/).
 
 ## Play tab
 
-For a sliding puzzle played by hand. See [Play Tab](/docs/play-tab/).
+For a sliding or a stacking puzzle played by hand. See [Play Tab](/docs/play-tab/).
 
 | Action | Windows and Linux | macOS |
 |---|---|---|
 | Slide a piece: anywhere it can reach is one move | Drag it | Drag it |
 | Nested slides: carry what is nested in the piece first | `Shift`+drag | `Shift`+drag |
+| Stacking: put a top disc on another rod; every transfer is one move | Drag it, or click it and then the rod | Drag it, or click it and then the rod |
 | Undo / redo a move | `Ctrl+Z` / `Shift+Ctrl+Z` | `⌘Z` / `Shift+⌘Z` |
 | One move back / forward | `←` / `→` | `←` / `→` |
 | Back to the Start / to the last move | `Shift+←` / `Shift+→` | `Shift+←` / `Shift+→` |

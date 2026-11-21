@@ -114,7 +114,7 @@ export const KINDS: Readonly<
     filter: { name: 'glTF Binary', extensions: ['glb'] },
     title: 'Export Solution Animation',
   },
-  // the moves of a sliding puzzle played by hand (decision 0039)
+  // the moves of a sliding or a stacking puzzle played by hand (decisions 0039 and 0042)
   moves: {
     ext: '.slmoves',
     filter: { name: 'ShapeLogic Moves', extensions: ['slmoves'] },

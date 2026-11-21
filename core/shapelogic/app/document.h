@@ -539,6 +539,15 @@ class Document {
   /// (+1) or below (-1) it (cb_ProbShapeExchange); returns its new place.
   Result<unsigned int> moveDisc(Id problem, bool goal, unsigned int rod, unsigned int index,
                                 int delta);
+  /// Makes a position of `problem`'s discs its start (goal false) or its
+  /// goal (stacking.setStacks), replacing what that side had: `stacks` has
+  /// each rod's discs bottom to top, numbered as stacking::discsOf numbers
+  /// them. Refused (InvalidArgument) with the reason when it is no position
+  /// of all the discs under the board's rules (stacking::positionRefusal).
+  /// The problem loses its solutions. False, with no undo step, when that
+  /// side is the position already.
+  Result<bool> setStacks(Id problem, bool goal,
+                         const std::vector<std::vector<unsigned int>>& stacks);
   /// The saved search of a stacking problem in `workDir`, which Continue
   /// carries on and Solve would throw away; none while the problem's run
   /// is active (the GUI asked only when nothing ran) or an identical

@@ -24,6 +24,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -560,6 +562,74 @@ TEST_CASE("stacking document: Hanoi built through the commands, its stacks edite
   const std::size_t steps = d.history().undo.size();
   REQUIRE(d.clearStacks(p, true).has_value());
   CHECK(d.history().undo.size() == steps);
+}
+
+// A position saved as a problem's start or goal (the Play workspace's Save
+// position as Start and as Goal): one undo step that takes the solutions
+// with it, nothing at all when that side is the position already, and
+// refused with the reason when it is no position of the discs.
+TEST_CASE("stacking document: a position becomes the start or the goal", "[app][stacking]") {
+  const Scratch work;
+  Document d = openFixture("test_stacking_hanoi.xmpuzzle");
+  const Id p = d.problemIds()[0];
+  REQUIRE(d.solveStart(p, findSolutions(work.path)).has_value());
+  REQUIRE(d.solveWait(p).has_value());
+  const Problem& pr = d.puzzle().getProblem(0);
+  REQUIRE(pr.getNumberOfSavedSolutions() == 1);
+  using Stacks = std::vector<std::vector<unsigned int>>;
+
+  // the start it has: nothing changes, nothing is lost
+  const std::size_t steps = d.history().undo.size();
+  const std::uint64_t rev = d.revision();
+  CHECK_FALSE(d.setStacks(p, false, Stacks{{0, 1, 2}, {}, {}}).value());
+  CHECK(d.history().undo.size() == steps);
+  CHECK(d.revision() == rev);
+  CHECK(pr.getNumberOfSavedSolutions() == 1);
+  CHECK_FALSE(d.setStacks(p, true, Stacks{{}, {}, {0, 1, 2}}).value());
+
+  // a position two moves on: the start, in one step, the solution gone
+  CHECK(test::roundTrip(d, [p](Document& x) {
+          return x.setStacks(p, false, Stacks{{0}, {1}, {2}});
+        }).value());
+  CHECK(d.history().undo.size() == steps + 1);
+  CHECK(d.history().undo.back() == "Set start position");
+  CHECK(pr.getNumberOfSavedSolutions() == 0);
+  REQUIRE(pr.startStacks().rods.size() == 3);
+  CHECK(pr.startStacks().rods[1] == std::vector<stacking::DiskRef>{stacking::DiskRef{1, 0}});
+  CHECK(pr.startStacks().rods[2] == std::vector<stacking::DiskRef>{stacking::DiskRef{2, 0}});
+  CHECK(stacking::setupError(d.puzzle(), pr).empty());
+  // undone: the old start and its solution are back
+  REQUIRE(d.undo().has_value());
+  CHECK(pr.getNumberOfSavedSolutions() == 1);
+  CHECK(pr.startStacks().rods[0].size() == 3);
+
+  // the goal: the same command with the other side
+  CHECK(test::roundTrip(d, [p](Document& x) {
+          return x.setStacks(p, true, Stacks{{}, {0, 1, 2}, {}});
+        }).value());
+  CHECK(d.history().undo.back() == "Set goal position");
+  CHECK(pr.goalStacks().rods[1].size() == 3);
+  CHECK(pr.goalStacks().rods[2].empty());
+  CHECK(pr.startStacks().rods[0].size() == 3);
+
+  // no position of the discs: refused with the reason, no step left
+  const auto why = [&d, p](const Stacks& stacks) {
+    test::refused(d, Errc::InvalidArgument,
+                  [p, &stacks](Document& x) { return x.setStacks(p, false, stacks); });
+    return d.setStacks(p, false, stacks).error().message;
+  };
+  CHECK(why(Stacks{{0, 1}, {}, {}}) == "S3 is not on the position.");
+  CHECK(why(Stacks{{0, 1, 2}, {}}) == "The position does not match the number of rods.");
+  CHECK(why(Stacks{{1, 0, 2}, {}, {}}).find("sits on the smaller") != std::string::npos);
+  CHECK(why(Stacks{{0, 1, 2}, {7}, {}}) == "The position names a disc that is not in the problem.");
+  test::refused(d, Errc::NotFound,
+                [](Document& x) { return x.setStacks(999, false, Stacks{{0, 1, 2}, {}, {}}); });
+
+  // only a stacking puzzle has stacks
+  Document cubes(GridKind::Bricks);
+  const Id q = cubes.createProblem().value();
+  test::refused(cubes, Errc::Unsupported,
+                [q](Document& x) { return x.setStacks(q, false, Stacks{}); });
 }
 
 // Which edits drop a problem's solutions follows each callback: new rules

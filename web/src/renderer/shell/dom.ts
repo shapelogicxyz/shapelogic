@@ -27,23 +27,7 @@ export function css(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** Text made safe for a template string of HTML. */
-export function esc(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      default:
-        return '&#39;';
-    }
-  });
-}
+export { esc } from './html.ts';
 
 /** Whether keyboard input goes to a text field (keys then belong to it). */
 export function isTyping(target: EventTarget | null): boolean {

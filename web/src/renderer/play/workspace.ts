@@ -1,29 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The Play workspace (decision 0039): a sliding problem played by hand.
-// The left card has the problems, the count of moves, Restart, Save
-// position as Start and as Goal, and the moves file's Export and Import;
-// the centre has the board (board.ts) with Undo and Redo beside it, the
-// "Solved!" banner, a layer strip for a deeper board and the playback bar.
-// The tab is shown only while a sliding puzzle is open.
+// The Play workspace (decisions 0039 and 0042): a sliding or a stacking
+// problem played by hand. The left card has the problems, the count of
+// moves, Restart, Save position as Start and as Goal, and the moves file's
+// Export and Import; the centre has the board with Reset, Undo and Redo
+// beside it, the "Solved!" banner and the playback bar. The tab is shown
+// only while a puzzle of a kind that is played is open.
 //
-// The engine is asked what a position allows and keeps no game
-// (sliding.playStart, playReach, playReplay); the game is this page's
-// (game.ts): the start, the moves and the place in them shown, kept for
-// each problem while the document is open and not saved in the puzzle's
-// file (the moves file is how a game is kept). After every change of the
-// document the start is read again: a game of the same start is checked
-// move by move and goes on, any other starts anew. Ctrl+Z and Shift+Ctrl+Z
-// are the game's here, never the document's. A position saved as the
-// Start or the Goal is a change of the document (sliding.setLayout), one
-// undo step there, refused while a solve runs.
+// What a board, a start and a move are is the kind's (kind.ts: sliding.ts
+// for a sliding puzzle, stacking.ts for a stacking one); this file keeps
+// what every game shares. The engine is asked what a position allows and
+// keeps no game; the game is this page's (game.ts): the start, the moves
+// and the place in them shown, kept for each problem while the document is
+// open and not saved in the puzzle's file (the moves file is how a game is
+// kept). After every change of the document the start is read again: a
+// game of the same start is checked move by move and goes on, any other
+// starts anew. Ctrl+Z and Shift+Ctrl+Z are the game's here, never the
+// document's. A position saved as the Start or the Goal is a change of the
+// document, one undo step there, refused while a solve runs.
 
-import type {
-  Methods,
-  ProblemDetail,
-  ProblemSummary,
-  ShapeSummary,
-} from '../../engine/api.generated.ts';
+import type { ProblemSummary } from '../../engine/api.generated.ts';
 import type { BtApp } from '../../engine/app-bridge.ts';
 import type { Edits } from '../state/edits.ts';
 import type { Store } from '../state/store.ts';
@@ -35,21 +31,12 @@ import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { ic } from '../shell/icons.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onLayout, setTab, setWorkspaceShown, tab } from '../shell/layout.ts';
-import { copyColour, fromHex, shapeColour } from '../shell/piece-colours.ts';
-import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
-import { onPrefs } from '../shell/prefs.ts';
 import { flash, reportError, updateStatus } from '../shell/status.ts';
-import { onTheme } from '../shell/theme.ts';
-import { readOptions } from '../solver/settings.ts';
-import { PlayBoard } from './board.ts';
-import type { BoardModel, ReachGroup } from './board.ts';
-import { made, movesText, newGame, placesAt, seek, solvedAt, withMoves } from './game.ts';
-import type { Cell, Game, Move } from './game.ts';
-import { boardOf, matchStart, parse, remap, serialise } from './moves-file.ts';
-
-type PlayStart = Methods['sliding.playStart']['result'];
-type Step = Methods['sliding.playReplay']['result']['steps'][number];
-type Rules = NonNullable<Methods['sliding.playReach']['params']['rules']>;
+import { movesText, restarted, seek, solvedAt } from './game.ts';
+import type { AnyGame } from './game.ts';
+import type { PlayKind } from './kind.ts';
+import { SlidingPlay } from './sliding.ts';
+import { StackingPlay } from './stacking.ts';
 
 /** The playback's glyphs (the Solver player's, solver/solutions-card.ts). */
 const TG = {
@@ -72,8 +59,6 @@ export interface PlayHost {
   readonly name: string;
 }
 
-const cell = (c: readonly number[]): Cell => [c[0] ?? 0, c[1] ?? 0, c[2] ?? 0];
-
 export class PlayWorkspace {
   /** The problem played, or null. */
   current: string | null = null;
@@ -81,30 +66,16 @@ export class PlayWorkspace {
   private readonly edits: Edits;
   private readonly app: BtApp;
   private readonly host: PlayHost;
-  private readonly board: PlayBoard;
-  /** How the problem's game starts, as last read (null: not read yet). */
-  private start: PlayStart | null = null;
-  private detail: ProblemDetail | null = null;
-  private game: Game | null = null;
+  /** The kinds of puzzle played, and the one of the puzzle open (null: it is not played). */
+  private readonly kinds: readonly PlayKind[];
+  private kind: PlayKind | null = null;
+  private game: AnyGame | null = null;
   /** Each problem's game, while the document is open. */
-  private readonly games = new Map<string, Game>();
+  private readonly games = new Map<string, AnyGame>();
   private generation = -1;
-  private layer = 0;
   private loads = 0;
-  /** The goal's tint left off the board's floor (Hide Goal Shadows), for every problem played. */
-  private shadesHidden = false;
-  /** The goal's outlines left off the board (Hide Goal Lines), for every problem played. */
-  private linesHidden = false;
-  /** The grid's lines left off the tray's floor (Hide Grid), for every problem played. */
-  private gridHidden = false;
-  /** The pieces' names left off them (Hide Piece Labels), for every problem played. */
-  private labelsHidden = false;
-  /** Simple Pieces: flat square pieces and tray, for every problem played. */
-  private simplePieces = false;
   /** The document changed while the tab was out of sight. */
   private stale = true;
-  /** The routes of a game's moves (sliding.playReplay), by its list of moves. */
-  private routes: { moves: readonly Move[]; steps: Step[] } | null = null;
   private playing = false;
   /** Counts the seeks: one under way gives up when another began. */
   private seeks = 0;
@@ -117,19 +88,26 @@ export class PlayWorkspace {
     this.edits = edits;
     this.app = app;
     this.host = host;
-    this.board = new PlayBoard(byId('playBoard'), byId('plMid'), {
-      reach: (piece) => this.reach(piece),
-      moved: (move, solved) => {
-        this.moved(move, solved);
+    const mine = {
+      problem: () => this.current,
+      game: () => this.game,
+      moved: (next: AnyGame) => {
+        this.moved(next);
       },
-    });
+      pause: () => {
+        this.pause();
+      },
+      render: () => {
+        this.render();
+      },
+    };
+    this.kinds = [new SlidingPlay(store, mine), new StackingPlay(store, mine)];
+    for (const k of this.kinds) {
+      k.mount(false);
+    }
     byId('plReset').innerHTML = `${ic('reset', 22)}<span>Reset</span>`;
     byId('plUndo').innerHTML = `${ic('ccw', 22)}<span>Undo</span>`;
     byId('plRedo').innerHTML = `${ic('cw', 22)}<span>Redo</span>`;
-    this.showGoalButtons();
-    this.showGridButton();
-    this.showLabelsButton();
-    this.showSimpleButton();
     this.listen();
     store.subscribe((c) => {
       if (c.kind === 'document') {
@@ -145,21 +123,6 @@ export class PlayWorkspace {
       } else {
         // out of sight: the playback stops
         this.pause();
-      }
-    });
-    onPrefs((changed) => {
-      if (changed.includes('boardColourLight') || changed.includes('boardColourDark')) {
-        this.showBoard();
-      }
-    });
-    // the tray's colour follows the theme
-    onTheme(() => {
-      this.showBoard();
-    });
-    // a piece's picture, decoded: drawn now
-    onPieceImage(() => {
-      if (tab === 'play') {
-        this.showBoard();
       }
     });
     this.installKeys();
@@ -180,38 +143,31 @@ export class PlayWorkspace {
     };
   }
 
-  private get sliding(): boolean {
-    return this.store.snapshot?.grid === 'sliding';
-  }
-
-  /** The rules the game is played by: the problem's stored Solver options. */
-  private get rules(): Rules {
-    const o = readOptions(this.detail?.solverSettings ?? {}, undefined, 'sliding');
-    // a piece stays in its layer: vertical moves are not played by hand yet
-    return { nestedSlides: o.nestedSlides, partialNested: o.partialNested, verticalMoves: false };
-  }
-
-  // the document is another, or changed: the tab's place in the rail, the problem, the start
+  // the document is another, or changed: the tab's place in the rail, the kind, the problem, the start
   private documentChanged(): void {
     const snap = this.store.snapshot;
-    setWorkspaceShown('play', this.sliding);
+    const kind = this.kinds.find((k) => k.grid === snap?.grid) ?? null;
+    if (kind !== this.kind) {
+      this.pause();
+      this.kind?.mount(false);
+      this.kind = kind;
+      kind?.mount(true);
+      this.dress();
+    }
+    setWorkspaceShown('play', kind !== null);
     if (this.store.generation !== this.generation) {
       this.generation = this.store.generation;
       this.games.clear();
       this.current = null;
-      this.start = null;
-      this.detail = null;
       this.game = null;
-      this.routes = null;
-      this.layer = 0;
+      kind?.clear();
       this.pause();
     }
     const problems = snap?.problems ?? [];
     if (!problems.some((p) => p.id === this.current)) {
       this.current = problems[0]?.id ?? null;
-      this.start = null;
-      this.detail = null;
       this.game = null;
+      kind?.clear();
     }
     if (tab === 'play') {
       this.load();
@@ -221,6 +177,22 @@ export class PlayWorkspace {
     }
   }
 
+  // the words that follow the kind of puzzle: what moves on its board
+  private dress(): void {
+    const kind = this.kind;
+    if (kind === null) {
+      return;
+    }
+    const one = kind.noun.one;
+    byId('plSaveStart').title =
+      `Make the position shown this problem’s Start: every ${one} starts where it is now`;
+    byId('plSaveGoal').title =
+      `Make the position shown this problem’s Goal: every ${one} must end where it is now`;
+    byId('plSaveNote').textContent = kind.saveNote;
+    byId('plReset').title =
+      `Reset: the ${kind.noun.many} back at the Start (Redo makes the moves again)  (Shift+←)`;
+  }
+
   /** Plays another problem. */
   selectProblem(id: string): void {
     if (id === this.current) {
@@ -228,10 +200,8 @@ export class PlayWorkspace {
     }
     this.pause();
     this.current = id;
-    this.start = null;
-    this.detail = null;
+    this.kind?.clear();
     this.game = this.games.get(id) ?? null;
-    this.layer = 0;
     this.load();
     this.render();
   }
@@ -241,63 +211,30 @@ export class PlayWorkspace {
     this.stale = false;
     const store = this.store;
     const problem = this.current;
+    const kind = this.kind;
     const n = ++this.loads;
     const stage = byId('playStage');
-    if (problem === null || !this.sliding || !store.running) {
-      this.start = null;
-      this.detail = null;
+    if (problem === null || kind === null || !store.running) {
+      kind?.clear();
       this.game = null;
       stage.dataset.loaded = String(n);
-      this.showBoard();
+      kind?.show(null);
       return;
     }
     const revision = store.snapshot?.revision ?? 0;
-    void Promise.all([
-      store.engine.call('sliding.playStart', { problem }),
-      store.engine.call('problem.get', { problem }),
-    ])
-      .then(async ([start, detail]) => {
-        if (n !== this.loads) {
+    kind
+      .load(problem, this.games.get(problem), () => n === this.loads)
+      .then((loaded) => {
+        if (loaded === null || n !== this.loads) {
           return;
         }
-        this.start = start;
-        this.detail = detail;
-        let game: Game | null = null;
-        if (start.error === null) {
-          const key = JSON.stringify(start.pieces);
-          const places = start.pieces.map((p) => cell(p.at));
-          const had = this.games.get(problem);
-          game = newGame(key, places, start.solved);
-          if (had?.key === key && had.moves.length > 0) {
-            // the same start: its moves are made again, as the problem is now
-            const replay = await store.engine.call('sliding.playReplay', {
-              problem,
-              places,
-              moves: had.moves,
-              rules: this.rules,
-            });
-            if (n !== this.loads) {
-              return;
-            }
-            if (replay.illegal === null) {
-              game = withMoves(
-                game,
-                had.moves,
-                replay.steps.map((s) => s.solved),
-                had.at,
-                replay.solved,
-              );
-              this.routes = { moves: game.moves, steps: replay.steps };
-            } else {
-              flash('The puzzle changed: the game starts again', 4000);
-            }
-          }
+        if (loaded.dropped) {
+          flash('The puzzle changed: the game starts again', 4000);
         }
-        this.setGame(game);
-        this.layer = Math.max(0, Math.min(this.layer, (start.board?.size[2] ?? 1) - 1));
+        this.setGame(loaded.game);
         stage.dataset.revision = String(revision);
         stage.dataset.loaded = String(n);
-        this.showBoard();
+        kind.show(this.game);
         this.render();
       })
       .catch((e: unknown) => {
@@ -308,7 +245,7 @@ export class PlayWorkspace {
       });
   }
 
-  private setGame(game: Game | null): void {
+  private setGame(game: AnyGame | null): void {
     this.game = game;
     if (this.current !== null) {
       if (game === null) {
@@ -317,165 +254,62 @@ export class PlayWorkspace {
         this.games.set(this.current, game);
       }
     }
-    if (game === null || this.routes?.moves !== game.moves) {
-      this.routes = null;
-    }
   }
 
-  // the board's drawing: the floor, the goals and the pieces as the snapshot shows them
-  private model(): BoardModel | null {
-    const start = this.start;
-    const snap = this.store.snapshot;
-    if (start?.board == null || start.error !== null || snap === null) {
-      return null;
-    }
-    const shapes = snap.shapes;
-    const indexOf = (id: string): number => shapes.findIndex((s) => s.id === id);
-    const boardShape = start.board.shape;
-    const tray = shapes.find((s) => s.id === boardShape);
-    const copies = new Map<string, number>();
-    return {
-      size: cell(start.board.size),
-      colour: tray?.colour == null ? null : fromHex(tray.colour),
-      floor: start.board.cells.map((c) => ({ at: cell(c.at), variable: c.state === 'variable' })),
-      goals: start.goals.map((g) => {
-        const i = indexOf(g.piece);
-        return {
-          colour: shapeColour(shapes[i]?.colour ?? null, Math.max(0, i)),
-          cells: g.cells.map(cell),
-        };
-      }),
-      pieces: start.pieces.map((p) => {
-        const i = indexOf(p.piece);
-        const s: ShapeSummary | undefined = shapes[i];
-        const sub = copies.get(p.piece) ?? 0;
-        copies.set(p.piece, sub + 1);
-        const image = s?.image ?? null;
-        const picture = pieceImage(this.store.engine, image);
-        return {
-          cells: p.cells.map(cell),
-          origin: cell(p.origin),
-          colour: copyColour(s, Math.max(0, i), sub, snap.colours),
-          name: s?.name ?? '',
-          picture:
-            image === null || picture === null
-              ? null
-              : { image, dataUrl: picture.dataUrl, width: picture.width, height: picture.height },
-        };
-      }),
-    };
-  }
-
-  private showBoard(): void {
-    const g = this.game;
-    this.board.show(g === null ? null : this.model(), g === null ? [] : placesAt(g), this.layer);
-  }
-
-  // the engine's answer to a drag begun: where one move can take the piece
-  private async reach(piece: number): Promise<ReachGroup[] | null> {
-    const g = this.game;
-    const problem = this.current;
-    if (g === null || problem === null) {
-      return null;
-    }
-    this.pause();
-    try {
-      const r = await this.store.engine.call('sliding.playReach', {
-        problem,
-        places: placesAt(g),
-        piece,
-        rules: this.rules,
-      });
-      return this.game === g ? r.groups : null;
-    } catch (e) {
-      reportError(e, 'Move the piece');
-      return null;
-    }
-  }
-
-  // a drag ended somewhere new
-  private moved(move: Move, solved: boolean): void {
-    const g = this.game;
-    if (g === null) {
+  // a move made on the board
+  private moved(next: AnyGame): void {
+    if (this.game === null || this.kind === null) {
       return;
     }
-    const next = made(g, move, solved);
     this.setGame(next);
-    this.board.place(placesAt(next));
+    this.kind.place(next);
     this.render();
-  }
-
-  // the routes of the game's moves, read once for each list of moves
-  private async routesOf(g: Game): Promise<Step[] | null> {
-    if (this.routes?.moves === g.moves) {
-      return this.routes.steps;
-    }
-    const problem = this.current;
-    if (problem === null) {
-      return null;
-    }
-    try {
-      const r = await this.store.engine.call('sliding.playReplay', {
-        problem,
-        places: g.start,
-        moves: g.moves,
-        rules: this.rules,
-      });
-      if (r.illegal !== null) {
-        return null;
-      }
-      this.routes = { moves: g.moves, steps: r.steps };
-      return r.steps;
-    } catch (e) {
-      reportError(e, 'Read the moves');
-      return null;
-    }
   }
 
   /** Shows the position after `at` moves at once. */
   seekTo(at: number): void {
     const g = this.game;
-    if (g === null) {
+    const kind = this.kind;
+    if (g === null || kind === null) {
       return;
     }
     this.seeks++;
-    this.board.stop();
+    kind.stop();
     const next = seek(g, at);
     this.setGame(next);
-    this.board.place(placesAt(next));
+    kind.place(next);
     this.render();
   }
 
   /**
-   * One move forward (Redo) or back (Undo), drawn along its route; false
+   * One move forward (Redo) or back (Undo), drawn as it is made; false
    * when there is none that way or the step was overtaken.
    */
   private async step(dir: 1 | -1, drawn = true): Promise<boolean> {
     const g = this.game;
-    if (g === null || this.board.busy) {
+    const kind = this.kind;
+    if (g === null || kind === null || kind.busy) {
       // a piece is being dragged
       return false;
     }
     const index = dir === 1 ? g.at : g.at - 1;
-    const move = g.moves[index];
-    if (move === undefined) {
+    if (g.moves[index] === undefined) {
       return false;
     }
     const n = ++this.seeks;
-    const steps = await this.routesOf(g);
+    await kind.routes(g);
     if (n !== this.seeks || this.game !== g) {
       return false;
     }
-    const route = steps?.[index]?.route;
-    if (route !== undefined && drawn) {
-      const whole = await this.board.animate(move.movers, route, dir === -1);
+    if (drawn) {
+      const whole = await kind.animate(g, index, dir === -1);
       if (!whole || n !== this.seeks || this.game !== g) {
         return false;
       }
     }
     const next = seek(g, g.at + dir);
     this.setGame(next);
-    this.board.place(placesAt(next));
+    kind.place(next);
     this.render();
     return true;
   }
@@ -544,79 +378,23 @@ export class PlayWorkspace {
     return true;
   }
 
-  // the goal's tint and outlines shown on the board or hidden, and the buttons that say which they will do
-  private showGoalButtons(): void {
-    const board = byId('playBoard');
-    const shades = this.shadesHidden;
-    board.classList.toggle('noshades', shades);
-    const s = byId('plShades');
-    s.innerHTML = `${ic(shades ? 'shade' : 'shadeOff', 22)}<span>${shades ? 'Show Goal Shadows' : 'Hide Goal Shadows'}</span>`;
-    s.title = shades
-      ? 'Show Goal Shadows: tint the goal’s cells on the tray’s floor again'
-      : 'Hide Goal Shadows: leave the goal’s tint off the tray’s floor';
-    s.setAttribute('aria-pressed', String(shades));
-    const lines = this.linesHidden;
-    board.classList.toggle('nolines', lines);
-    const l = byId('plLines');
-    l.innerHTML = `${ic(lines ? 'outline' : 'outlineOff', 22)}<span>${lines ? 'Show Goal Lines' : 'Hide Goal Lines'}</span>`;
-    l.title = lines
-      ? 'Show Goal Lines: outline where each piece must end again'
-      : 'Hide Goal Lines: leave the outlines of where the pieces must end off the board';
-    l.setAttribute('aria-pressed', String(lines));
-  }
-
-  // the pieces and tray simple (flat and square) or not, and the button that says which it will do
-  private showSimpleButton(): void {
-    const on = this.simplePieces;
-    this.board.setSimple(on);
-    const b = byId('plSimple');
-    b.innerHTML = `${ic(on ? 'cube' : 'square', 22)}<span>${on ? '3D Pieces' : 'Simple Pieces'}</span>`;
-    b.title = on
-      ? '3D Pieces: rounded pieces with their sides showing, in a tray with walls'
-      : 'Simple Pieces: flat, square pieces in plain colours, in a flat square tray';
-    b.setAttribute('aria-pressed', String(on));
-  }
-
-  // the pieces' names shown or hidden, and the button that says which it will do
-  private showLabelsButton(): void {
-    const hidden = this.labelsHidden;
-    byId('playBoard').classList.toggle('nolabels', hidden);
-    const b = byId('plLabels');
-    b.innerHTML = `${ic(hidden ? 'tag' : 'tagOff', 22)}<span>${hidden ? 'Show Piece Labels' : 'Hide Piece Labels'}</span>`;
-    b.title = hidden
-      ? 'Show Piece Labels: write each piece’s name on it again'
-      : 'Hide Piece Labels: leave the pieces’ names off them';
-    b.setAttribute('aria-pressed', String(hidden));
-  }
-
-  // the floor's grid shown or hidden, and the button that says which it will do
-  private showGridButton(): void {
-    const hidden = this.gridHidden;
-    byId('playBoard').classList.toggle('nogrid', hidden);
-    const b = byId('plGrid');
-    b.innerHTML = `${ic(hidden ? 'grid' : 'gridOff', 22)}<span>${hidden ? 'Show Grid' : 'Hide Grid'}</span>`;
-    b.title = hidden
-      ? 'Show Grid: draw the lines between the cells on the tray’s floor again'
-      : 'Hide Grid: leave the lines between the cells off the tray’s floor';
-    b.setAttribute('aria-pressed', String(hidden));
-  }
-
   // the game begins again: its moves are gone
   private restart(): void {
     const g = this.game;
-    if (g === null || g.moves.length === 0) {
+    const kind = this.kind;
+    if (g === null || kind === null || g.moves.length === 0) {
       return;
     }
     askConfirm(
       'Restart the game?',
-      `The ${movesText(g.moves.length)} made are thrown away and the pieces go back to the Start.`,
+      `The ${movesText(g.moves.length)} made are thrown away and the ${kind.noun.many} go back to the Start.`,
       'Restart',
       () => {
         this.pause();
         this.seeks++;
-        this.board.stop();
-        this.setGame(newGame(g.key, g.start, g.startSolved));
-        this.showBoard();
+        kind.stop();
+        this.setGame(restarted(g));
+        kind.show(this.game);
         this.render();
       },
     );
@@ -626,17 +404,15 @@ export class PlayWorkspace {
   private save(goal: boolean): void {
     const g = this.game;
     const p = this.problem;
-    if (g === null || p === null || this.edits.refuse()) {
+    const kind = this.kind;
+    if (g === null || p === null || kind === null || this.edits.refuse()) {
       return;
     }
     this.pause();
     const side = goal ? 'Goal' : 'Start';
-    const places = placesAt(g);
     const run = (): void => {
       void this.edits
-        .mutate(`Save the position as the ${side}`, () =>
-          this.store.engine.call('sliding.setLayout', { problem: p.id, goal, places }),
-        )
+        .mutate(`Save the position as the ${side}`, () => kind.save(p.id, goal, g))
         .then((r) => {
           if (r !== null) {
             flash(
@@ -665,9 +441,9 @@ export class PlayWorkspace {
   // the moves as a file
   private async exportMoves(): Promise<void> {
     const g = this.game;
-    const start = this.start;
     const p = this.problem;
-    if (g === null || start?.board == null || p === null) {
+    const kind = this.kind;
+    if (g === null || p === null || kind === null) {
       return;
     }
     if (g.moves.length === 0) {
@@ -679,18 +455,9 @@ export class PlayWorkspace {
     if (path === null) {
       return;
     }
-    const rules = this.rules;
-    const text = serialise({
+    const text = kind.exportText(g, {
       puzzle: this.host.name,
       problem: p.name === '' ? p.label : `${p.label} ${p.name}`,
-      board: boardOf(start.board),
-      rules: {
-        nestedSlides: rules.nestedSlides === true,
-        partialNested: rules.partialNested === true,
-        verticalMoves: false,
-      },
-      pieces: start.pieces.map((x) => ({ cells: x.cells.map(cell), at: cell(x.at) })),
-      moves: g.moves,
     });
     try {
       await this.app.writeExport(path, new TextEncoder().encode(text));
@@ -704,62 +471,36 @@ export class PlayWorkspace {
 
   // a moves file chosen: taken when it is of this board and start and every move can be made
   private async importMoves(text: string): Promise<void> {
-    const start = this.start;
     const problem = this.current;
-    if (start?.board == null || start.error !== null || problem === null) {
+    const kind = this.kind;
+    if (problem === null || kind === null || !kind.ready || kind.error !== null) {
       return;
     }
-    const file = parse(text);
-    if (typeof file === 'string') {
-      tell(file);
-      return;
-    }
-    const map = matchStart(file, start.board, start.pieces);
-    if (typeof map === 'string') {
-      tell(map);
-      return;
-    }
-    const moves = remap(file.moves, map);
-    const places = start.pieces.map((p) => cell(p.at));
     try {
-      const replay = await this.store.engine.call('sliding.playReplay', {
-        problem,
-        places,
-        moves,
-        rules: this.rules,
-      });
-      if (problem !== this.current || start !== this.start) {
+      const game = await kind.importMoves(text, problem);
+      if (game === null || problem !== this.current || kind !== this.kind) {
         return;
       }
-      if (replay.illegal !== null) {
-        tell(
-          `Move ${String(replay.illegal + 1)} of ${String(moves.length)} cannot be made here: ${replay.why ?? ''}`,
-        );
+      if (typeof game === 'string') {
+        tell(game);
         return;
       }
       const take = (): void => {
         this.pause();
         this.seeks++;
-        this.board.stop();
-        const game = withMoves(
-          newGame(JSON.stringify(start.pieces), places, replay.solved),
-          moves,
-          replay.steps.map((s) => s.solved),
-          0,
-        );
-        this.routes = { moves: game.moves, steps: replay.steps };
+        kind.stop();
         this.setGame(game);
-        this.showBoard();
+        kind.show(this.game);
         this.render();
         const stage = byId('playStage');
         stage.dataset.imported = String(Number(stage.dataset.imported ?? '0') + 1);
-        flash(`${movesText(moves.length)} imported: press Play to watch them`, 4000);
+        flash(`${movesText(game.moves.length)} imported: press Play to watch them`, 4000);
       };
       const had = this.game?.moves.length ?? 0;
       if (had > 0) {
         askConfirm(
           'Replace your moves?',
-          `The ${movesText(had)} made here are replaced by the file’s ${movesText(moves.length)}.`,
+          `The ${movesText(had)} made here are replaced by the file’s ${movesText(game.moves.length)}.`,
           'Replace',
           take,
         );
@@ -791,32 +532,26 @@ export class PlayWorkspace {
     markSelected(list, '.row', 'id', this.current);
 
     const g = this.game;
-    const start = this.start;
+    const kind = this.kind;
     const p = this.problem;
     const n = g?.moves.length ?? 0;
     const at = g?.at ?? 0;
-    const solved = g !== null && start?.hasGoal === true && solvedAt(g);
-    const depth = start?.board?.size[2] ?? 1;
-    const stored = readOptions(this.detail?.solverSettings ?? {}, undefined, 'sliding');
+    const ready = kind?.ready === true;
+    const error = kind?.error ?? null;
+    const solved = g !== null && kind?.hasGoal === true && solvedAt(g);
+    const count = kind?.count ?? 0;
 
     byId('plProbMeta').textContent =
-      p === null
+      p === null || kind === null || !ready
         ? ''
-        : start === null
-          ? ''
-          : start.error !== null
-            ? 'Cannot be played yet'
-            : `${String(start.pieces.length)} ${start.pieces.length === 1 ? 'piece' : 'pieces'} · ${start.hasGoal ? 'play to the Goal' : 'no Goal: free play'}`;
+        : error !== null
+          ? 'Cannot be played yet'
+          : `${String(count)} ${count === 1 ? kind.noun.one : kind.noun.many} · ${kind.hasGoal ? 'play to the Goal' : 'no Goal: free play'}`;
     byId('plCount').innerHTML =
       g === null
         ? '<span class="mute">—</span>'
         : `<b>${String(at)}</b> ${at === 1 ? 'move' : 'moves'}${at < n ? `<span class="mute"> of ${String(n)}</span>` : ''}`;
-    byId('plNote').textContent =
-      depth > 1 && stored.verticalMoves
-        ? 'This problem allows vertical moves; by hand a piece stays in its layer for now.'
-        : stored.nestedSlides
-          ? 'Nested slides: a piece carries what is nested in it when it cannot move alone (Shift-drag to carry first).'
-          : '';
+    byId('plNote').textContent = g === null || kind === null ? '' : kind.note();
 
     const dis = (id: string, off: boolean): void => {
       byId<HTMLButtonElement>(id).disabled = off;
@@ -824,11 +559,6 @@ export class PlayWorkspace {
     dis('plReset', g === null || at === 0);
     dis('plUndo', g === null || at === 0);
     dis('plRedo', g === null || at >= n);
-    dis('plShades', g === null);
-    dis('plLines', g === null);
-    dis('plGrid', g === null);
-    dis('plLabels', g === null);
-    dis('plSimple', g === null);
     // the moves made, beside the board
     byId('plMoves').innerHTML = `<b>${String(at)}</b><span>${at === 1 ? 'Move' : 'Moves'}</span>`;
     dis('plRestart', g === null || n === 0);
@@ -836,6 +566,7 @@ export class PlayWorkspace {
     dis('plSaveGoal', g === null);
     dis('plExport', g === null || n === 0);
     dis('plImport', g === null);
+    kind?.renderOwn(g);
 
     // the banner: the goal reached by playing, or a start that is the goal
     const banner = byId('plSolved');
@@ -854,30 +585,22 @@ export class PlayWorkspace {
         ? ''
         : `<span class="chip" style="${problemChipStyle(Math.max(0, index))}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>`;
 
-    // the layers of a deeper board
-    setHtml(
-      byId('plLayers'),
-      g === null || depth <= 1
-        ? ''
-        : `<span class="lh">Z layer</span>${Array.from({ length: depth }, (_, l) => `<button class="lchip ${l === this.layer ? 'on' : ''}" data-l="${String(l)}" title="Layer ${String(l + 1)}">${String(l + 1)}</button>`).join('')}`,
-    );
-
     // nothing to play: why, and where to go
     const empty = byId('plEmpty');
     const why =
-      snap === null
+      snap === null || kind === null
         ? ''
         : problems.length === 0
-          ? 'No problems yet: make one on the Puzzle tab, with a board as its result.'
-          : start === null
+          ? kind.noProblems
+          : !ready
             ? ''
-            : (start.error ?? '');
+            : (error ?? '');
     empty.hidden = g !== null || why === '';
     setHtml(
       empty,
-      why === ''
+      why === '' || kind === null
         ? ''
-        : `<div class="pl-why">${esc(why)}</div><div class="mute">A problem is played from its Start: place every piece on the Start board first.</div><button class="btn pri" data-go="puzzle" title="Open the Puzzle tab, where the Start and Goal are placed">Go to Puzzle</button>`,
+        : `<div class="pl-why">${esc(why)}</div><div class="mute">${esc(kind.needs)}</div><button class="btn pri" data-go="puzzle" title="Open the Puzzle tab, where the Start and Goal are placed">Go to Puzzle</button>`,
     );
     byId('plMid').hidden = g === null;
 
@@ -909,18 +632,19 @@ export class PlayWorkspace {
   statusLine(): string {
     const snap = this.store.snapshot;
     const p = this.problem;
+    const kind = this.kind;
     if (snap !== null && snap.problems.length === 0) {
       return 'No problems — make one in the <b>Puzzle</b> workspace';
     }
-    if (p === null || this.start === null) {
+    if (p === null || kind?.ready !== true) {
       return '';
     }
     const g = this.game;
     if (g === null) {
-      return `<b>${esc(p.label)}</b> cannot be played: ${esc(this.start.error ?? '')}`;
+      return `<b>${esc(p.label)}</b> cannot be played: ${esc(kind.error ?? '')}`;
     }
-    const solved = this.start.hasGoal && solvedAt(g) && g.at > 0;
-    return `Playing <b>${esc(p.label)}</b>${p.name === '' ? '' : ` ${esc(p.name)}`} · ${movesText(g.at)}${g.at < g.moves.length ? ` of ${String(g.moves.length)}` : ''}${solved ? ' · <b>Solved!</b>' : ''} · drag a piece to slide it`;
+    const solved = kind.hasGoal && solvedAt(g) && g.at > 0;
+    return `Playing <b>${esc(p.label)}</b>${p.name === '' ? '' : ` ${esc(p.name)}`} · ${movesText(g.at)}${g.at < g.moves.length ? ` of ${String(g.moves.length)}` : ''}${solved ? ' · <b>Solved!</b>' : ''} · ${kind.hint}`;
   }
 
   // the buttons, the lists and the file chooser
@@ -940,26 +664,6 @@ export class PlayWorkspace {
     byId('plReset').addEventListener('click', () => {
       this.pause();
       this.seekTo(0);
-    });
-    byId('plShades').addEventListener('click', () => {
-      this.shadesHidden = !this.shadesHidden;
-      this.showGoalButtons();
-    });
-    byId('plLines').addEventListener('click', () => {
-      this.linesHidden = !this.linesHidden;
-      this.showGoalButtons();
-    });
-    byId('plGrid').addEventListener('click', () => {
-      this.gridHidden = !this.gridHidden;
-      this.showGridButton();
-    });
-    byId('plLabels').addEventListener('click', () => {
-      this.labelsHidden = !this.labelsHidden;
-      this.showLabelsButton();
-    });
-    byId('plSimple').addEventListener('click', () => {
-      this.simplePieces = !this.simplePieces;
-      this.showSimpleButton();
     });
     byId('plRestart').addEventListener('click', () => {
       this.restart();
@@ -1019,14 +723,6 @@ export class PlayWorkspace {
     byId<HTMLInputElement>('plSeek').addEventListener('input', (e) => {
       this.pause();
       this.seekTo(Number((e.target as HTMLInputElement).value));
-    });
-    byId('plLayers').addEventListener('click', (e) => {
-      const b = (e.target as Element).closest<HTMLElement>('.lchip');
-      if (b !== null) {
-        this.layer = Number(b.dataset.l);
-        this.showBoard();
-        this.render();
-      }
     });
     byId('plEmpty').addEventListener('click', (e) => {
       if ((e.target as Element).closest('[data-go]') !== null) {

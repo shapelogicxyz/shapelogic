@@ -24,6 +24,8 @@ import type { Has } from './follow.ts';
 import type { Cell, Move } from './game.ts';
 import { roundedOutline } from './outline.ts';
 import type { Square } from './outline.ts';
+import { boardRoom, insetBoard } from './room.ts';
+import type { BoardRoom } from './room.ts';
 
 /** A piece as the board draws it. */
 export interface BoardPiece {
@@ -309,43 +311,14 @@ export class PlayBoard {
     return Math.max(CELL_MIN, sc);
   }
 
-  // the board's room. Its distance to the card's outer edge below (what
-  // the playback bar takes) is kept, and the board is as far from the
-  // card's edge above and on the left, and the buttons beside it as far
-  // from its edge on the right; `left` is the margin that puts it there
-  private room(): { w: number; h: number; left: number } {
-    const frame = this.frame;
-    const card = frame.closest<HTMLElement>('.card') ?? frame;
-    const style = getComputedStyle(frame);
-    const px = (v: string): number => Number.parseFloat(v) || 0;
-    const f = frame.getBoundingClientRect();
-    const c = card.getBoundingClientRect();
-    const floor = f.bottom - px(style.paddingBottom);
-    const d = Math.max(0, c.bottom - floor);
-    const top = Math.max(f.top + px(style.paddingTop), c.top + d);
-    const left = Math.max(f.left + px(style.paddingLeft), c.left + d);
-    let right = Math.min(f.right - px(style.paddingRight), c.right - d);
-    for (const e of frame.children) {
-      if (e !== this.root && e instanceof HTMLElement) {
-        right -= e.offsetWidth + px(style.columnGap);
-      }
-    }
-    return { w: right - left, h: floor - top, left: left - f.left - px(style.paddingLeft) };
+  // the board's room in its frame (room.ts)
+  private room(): BoardRoom {
+    return boardRoom(this.frame, this.root);
   }
 
-  // the board at its distance from the card's left, and at the foot of its
-  // room (in the middle of it when the width is what limits the board)
+  // the board at its distance from the card's left, and at the foot of its room
   private inset(): void {
-    const svg = this.root.firstElementChild;
-    if (!(svg instanceof SVGSVGElement)) {
-      this.root.style.marginLeft = '';
-      this.root.style.marginBottom = '';
-      return;
-    }
-    const r = this.room();
-    const bh = svg.height.baseVal.value;
-    this.root.style.marginLeft = `${String(Math.floor(Math.max(0, r.left)))}px`;
-    this.root.style.marginBottom = `${String(Math.floor(Math.max(0, (r.h - bh) / 2)))}px`;
+    insetBoard(this.frame, this.root);
   }
 
   // a piece's group at its place plus a shift, in cells

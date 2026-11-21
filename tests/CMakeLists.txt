@@ -62,6 +62,7 @@ add_executable(bt_tests
   unit/solve/test_solve_session.cpp
   unit/solve/test_split_tasks.cpp
   unit/solve/test_stacking.cpp
+  unit/solve/test_stacking_play.cpp
   unit/solve/test_stacking_session.cpp
   unit/solve/test_take_apart_pool.cpp)
 

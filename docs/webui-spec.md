@@ -28,8 +28,9 @@ original GUI decides (section 7).
   About. (Section 7 lists what the menus must offer.)
 - **Workspace rail:** Entities (`Ctrl+1`), Puzzle (`Ctrl+2`), Solver (`Ctrl+3`);
   centred in the top bar (the default) or a rail down the left side (Main
-  tab bar location). While a sliding puzzle is open a fourth, **Play**
-  (`Ctrl+4`), follows Solver (section 8.5, decision 0039).
+  tab bar location). While a sliding or a stacking puzzle is open a
+  fourth, **Play** (`Ctrl+4`), follows Solver (sections 8.5 and 9.5,
+  decisions 0039 and 0042).
 - **Body:** each workspace has a left card, the **3D view** in the centre and
   a right card. Cards collapse to narrow rails (`Ctrl+[`, `Ctrl+]`); the 3D
   view can take focus (its Focus button, View ▸ Toggle 3D). Layout is remembered per workspace.
@@ -534,9 +535,10 @@ where the problem's counts are.
 
 ### 8.5 Play workspace (decision 0039)
 This program's own: the original has no way to play a puzzle.
-- **The tab** is in the rail, after Solver, only while a sliding puzzle is
-  open; with another puzzle `Ctrl+4` does nothing, and a Play tab shown
-  when another puzzle is opened gives way to Shapes.
+- **The tab** is in the rail, after Solver, only while a sliding puzzle
+  (or a stacking one, section 9.5) is open; with another puzzle `Ctrl+4`
+  does nothing, and a Play tab shown when another puzzle is opened gives
+  way to Shapes.
 - **Left card "Play":** the problems (the Solver's list), with the pieces'
   count and "play to the Goal" or "no Goal: free play"; **Game** (the
   moves made, Restart, asked first); **Position** (Save position as Start,
@@ -743,6 +745,38 @@ disc lies flat, the rods stand up).
   `settings.set` that names a folder. A search paused in the app carries
   on in the app (also after a restart); the `.slsolve` export carries it
   to `bt` or the original.
+
+### 9.5 Play workspace (decision 0042)
+This program's own, as section 8.5 is; what is not said here is as there
+(the left card, the banner, Reset, Undo and Redo, the playback bar, the
+keys, a game kept for each problem while the document is open).
+- **Left card "Play":** the discs' count and "play to the Goal" or "no
+  Goal: free play"; the note under the moves says why a goal that holds
+  discs is not played to, or on a Panex board how its columns work;
+  **Position** saves with `stacking.setStacks`, every disc where it is.
+- **Centre:** the rods from the front, drawn from `stacking.playStart`:
+  the pegs on a base, each disc a bar as wide as its size, with its name
+  or, without one, its size; a Panex column with the steps a disc of each
+  size rests on behind it, and the bridge across the top. Beside the
+  board, under Redo: the **Goal** as a small picture of the same board,
+  **Hide Goal** and **Hide Disc Labels**.
+- **A move:** a press anywhere in a rod's column takes its top disc and
+  asks `stacking.playMoves` once for the position. Dragged, the disc
+  follows the pointer and goes onto the rod it is let go over; clicked, it
+  lifts and goes onto the rod clicked next (its own rod: put down). The
+  rods it may go to are marked. A transfer the rules refuse puts the disc
+  back and tells the rule in the status bar ("A larger disc cannot sit on
+  a smaller one."). Every transfer is one move; a disc put straight back
+  on the rod it came from takes its move off.
+- **Undo, Redo, playback:** a step is drawn as a solution's transfer is:
+  the disc up over the rods, across and down.
+- **A problem that cannot be played** (no rod set, no discs, a disc not on
+  the start, a start that breaks the board's rules): the engine's reason
+  and Go to Puzzle. A problem whose goal is empty is played without one.
+- **The moves file** (`.slmoves`, `kind: "stacking"`) is taken for the
+  same rods and the same start only, and when every transfer can be made;
+  a sliding puzzle's file is told what it is for, as a stacking one is on
+  a sliding puzzle.
 
 ## 10. The STL export and the STL-like style (deferred part 5)
 

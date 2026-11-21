@@ -18,6 +18,7 @@
 #include "shapelogic/io/paused_solve.h"
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/stacking.h"
+#include "shapelogic/model/stacking_play.h"
 #include "shapelogic/solve/panex_search.h"
 
 #include <algorithm>
@@ -552,6 +553,31 @@ Result<void> Document::clearStacks(Id problem, bool goal) {
   lastChange_.problems = {problem};
   g.commit(kChangeProblems | kChangeSolutions);
   return {};
+}
+
+Result<bool> Document::setStacks(Id problem, bool goal,
+                                 const std::vector<std::vector<unsigned int>>& stacks) {
+  const Result<unsigned int> p = stackingProblem(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  // refused before the step opens, so a refusal leaves no undo step
+  const Problem& pr = puzzle_->getProblem(*p);
+  if (std::string why = stacking::positionRefusal(*puzzle_, pr, stacks); !why.empty()) {
+    return fail(Errc::InvalidArgument, std::move(why));
+  }
+  // the position it has already: the problem keeps what it had found
+  stacking::StackMap map = stacking::positionMap(*puzzle_, pr, stacks);
+  if (map == mapOf(pr, goal)) {
+    return false;
+  }
+  StepGuard g(*this, goal ? "Set goal position" : "Set start position");
+  problemChanged(*p);
+  Problem& edited = puzzle_->getProblem(*p);
+  (goal ? edited.editGoal() : edited.editStart()) = std::move(map);
+  lastChange_.problems = {problem};
+  g.commit(kChangeProblems | kChangeSolutions);
+  return true;
 }
 
 Result<unsigned int> Document::moveDisc(Id problem, bool goal, unsigned int rod,

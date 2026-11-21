@@ -1676,7 +1676,7 @@ The rules of a game that the problem does not fix, each off when left out: Slidi
 
 ## Stacking puzzles
 
-A stacking puzzle's rod sets, discs and stacks (decision 0015; the original's Rods panel, disc list and the stacking branches of its Problems tab). Its shapes are discs: shape.create makes one of size 1, stacking.setDiscSize sizes it; the cell editor and the tool tabs are refused, as the original hid them. A puzzle has one rod set at least; a problem stands on one (its rodSet) and holds the discs of each rod at its start and its goal (problem.get's stacks); its pieces are the discs on them, so the Problems tab's brick commands (problem.setResult, the counts and ranges, problem.movePart, the groups) are refused and these are used instead. Each command is one undo step; a rod set is not changed while anything is solved, a problem's stacks not while it is. Refused (unsupported) on other grids.
+A stacking puzzle's rod sets, discs and stacks (decision 0015; the original's Rods panel, disc list and the stacking branches of its Problems tab). Its shapes are discs: shape.create makes one of size 1, stacking.setDiscSize sizes it; the cell editor and the tool tabs are refused, as the original hid them. A puzzle has one rod set at least; a problem stands on one (its rodSet) and holds the discs of each rod at its start and its goal (problem.get's stacks); its pieces are the discs on them, so the Problems tab's brick commands (problem.setResult, the counts and ranges, problem.movePart, the groups) are refused and these are used instead. Each command is one undo step; a rod set is not changed while anything is solved, a problem's stacks not while it is. Refused (unsupported) on other grids. The play calls (stacking.playStart, playMoves, playReplay and setStacks, decision 0042) let a problem be played by hand: the engine keeps no game, each call is asked of one position (PlayStacks), and the rules are the Stacking Solver's.
 
 ### `stacking.addRodSet`
 
@@ -1935,6 +1935,119 @@ Result: [BoardLayout](#boardlayout)
 
 Errors: `not_found`
 
+### `stacking.playStart`
+
+How a problem's game starts when it is played by hand (the Play workspace): its rods, its discs numbered as a solve numbers them (the problem's pieces: parts, then copies), the start's stacking with where each disc rests, and the goal's. A problem is played once its start is a position of all its discs under the board's rules: otherwise 'error' says why ('S2 is not on the start.', a rule broken, no rod set) and 'stacks' is empty. The goal is played to only when the problem is ready to solve (stacking.board's error is null); otherwise 'goal' is null and the game counts moves without an end, 'goalError' saying why when the goal's rods hold discs. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `error` | string or null | required | Why the problem cannot be played; null when it can. |
+| `rods` | Rod[] | required | The board's rods in the stack map's order; empty without a rod set. |
+| `panex` | boolean | required | The rods are Panex columns (the pocket is a plain rod): a disc may rest above the ones below it, and one disc more than a column's height may wait raised into the bridge. |
+| `discs` | object[] | required | The problem's discs; a disc's number is its place here. |
+| `stacks` | PlayResting | required | The start's stacking. |
+| `goal` | PlayResting or null | required | The goal's stacking; null when there is no goal to play to. |
+| `goalError` | string or null | required | Why the goal the problem has is not played to (stacking.board's error); null with a goal, and when the goal's rods are empty. |
+| `solved` | boolean | required | The start is the goal already. |
+
+`discs`:
+
+| name | type | | description |
+|---|---|---|---|
+| `discs.shape` | [ShapeId](#shapeid) | required | A shape, stable while the document is open. |
+| `discs.instance` | integer | required | Which copy of the shape (from 0). |
+| `discs.size` | integer | required |  |
+
+Errors: `not_found`, `unsupported`
+
+### `stacking.playMoves`
+
+Every transfer a position allows: the top disc of one rod onto another, under the board's rules (the Stacking Solver's move rule: the rods' heights, the size rule, the distance rule, a Panex column's depths and the discs raised into its bridge, the outside channel), rod by rod as the solver tries them. Each has where the disc comes to rest and whether the position it gives is the goal (never without a goal). Refused (invalid_argument) with the reason when 'stacks' is no position of the problem's discs. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `stacks` | PlayStacks | required | A position of a game: each rod of the board (the pocket column last), its discs bottom to top by their numbers (stacking.playStart's discs). |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `moves` | object[] | required |  |
+
+`moves`:
+
+| name | type | | description |
+|---|---|---|---|
+| `moves.from` | integer | required |  |
+| `moves.to` | integer | required |  |
+| `moves.z` | integer | required | The height the disc comes to rest at on 'to'. |
+| `moves.solved` | boolean | required |  |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
+### `stacking.playReplay`
+
+Makes a list of transfers one after another from a position: what checks moves read from a file, and checks a game again after the problem changed. Each step has the disc that moved, where it came to rest and whether the position after it is the goal. It stops at the first transfer the rules refuse: 'illegal' is its place in the list and 'why' the reason ('Rod 2 is empty.', 'A larger disc cannot sit on a smaller one.'), and 'steps' has the transfers before it. With no moves it tells whether the position is the goal. Refused (invalid_argument) with the reason when 'stacks' is no position of the problem's discs. Changes nothing.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `stacks` | PlayStacks | required | A position of a game: each rod of the board (the pocket column last), its discs bottom to top by their numbers (stacking.playStart's discs). |
+| `moves` | PlayTransfer[] | required |  |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `solved` | boolean | required | The position the moves start from is the goal. |
+| `steps` | object[] | required |  |
+| `illegal` | integer or null | required | The first transfer that cannot be made (from 0); null when all were. |
+| `why` | string or null | required |  |
+
+`steps`:
+
+| name | type | | description |
+|---|---|---|---|
+| `steps.disc` | integer | required | The disc that moved, by its number. |
+| `steps.z` | integer | required | The height it came to rest at. |
+| `steps.solved` | boolean | required |  |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`
+
+### `stacking.setStacks`
+
+Makes a position a problem's start (goal false) or its goal, replacing what that side had (the Play workspace's Save position as Start and as Goal). Refused (invalid_argument) with the reason when 'stacks' is no position of all the problem's discs under the board's rules. 'changed' is false, and nothing changes, when that side is the position already; otherwise the problem loses its solutions. Refused while the problem is solved. One undo step.
+
+Params:
+
+| name | type | | description |
+|---|---|---|---|
+| `problem` | [ProblemId](#problemid) | required | A problem; also names its solve and its analysis. |
+| `goal` | boolean | required |  |
+| `stacks` | PlayStacks | required | A position of a game: each rod of the board (the pocket column last), its discs bottom to top by their numbers (stacking.playStart's discs). |
+
+Result:
+
+| name | type | | description |
+|---|---|---|---|
+| `changed` | boolean | required |  |
+| `revision` | [Revision](#revision) | required | The document's revision; every change increments it. |
+
+Errors: `not_found`, `unsupported`, `invalid_argument`, `invalid_state`
+
 #### Rules
 
 A rod set's rules to change (RodSet's fields; absent ones stay).
@@ -1959,6 +2072,15 @@ A rod set's rules to change (RodSet's fields; absent ones stay).
 | `pocket` | boolean | required |  |
 | `position` | integer | required | Where it stands along the board: rod r at r, the pocket at -1. |
 | `capacity` | integer | required | The discs it holds: a Panex column one more than its height. |
+
+#### PlayTransfer
+
+One transfer: the top disc of rod 'from' onto rod 'to'.
+
+| name | type | | description |
+|---|---|---|---|
+| `from` | integer | required |  |
+| `to` | integer | required |  |
 
 ## Solving
 

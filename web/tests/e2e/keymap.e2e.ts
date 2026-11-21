@@ -66,6 +66,7 @@ const MOUSE: Readonly<Record<string, string>> = {
   'Solver|@Orbit or click in the 3D view': 'solver.e2e.ts',
   'Play|@Drag a piece': 'play.e2e.ts: drags, the count, Solved!, undo and redo',
   'Play|Shift+@Drag a piece': 'play.e2e.ts: with nested slides a piece carries what is nested',
+  'Play|@Drag a top disc': 'stack-play.e2e.ts: drags and clicks, the count, Solved!, undo and redo',
   'Explorers|@Alt-drag a piece in the 3D view': 'explore.e2e.ts: an Alt-drag’s matching move',
 };
 
@@ -154,7 +155,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
     for (const [k, t] of [
       ['2', 'puzzle'],
       ['3', 'solver'],
-      // Play is for a sliding puzzle: no tab here, and the key does nothing
+      // Play is for a sliding or a stacking puzzle: no tab here, and the key does nothing
       ['4', 'solver'],
       ['1', 'entities'],
     ] as const) {

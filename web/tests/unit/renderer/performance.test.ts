@@ -6,7 +6,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SlideForecast } from '../../../src/engine/api.generated.ts';
-import { durationText, performanceHtml } from '../../../src/renderer/solver/performance.ts';
+import {
+  counterText,
+  durationText,
+  liveCells,
+  performanceHtml,
+} from '../../../src/renderer/solver/performance.ts';
 
 const forecast = (f: Partial<SlideForecast>): SlideForecast => ({
   depth: 36,
@@ -36,12 +41,32 @@ describe('the Performance Analysis', () => {
     expect(durationText(31_557_600_000_000)).toBe('over 1,000 years');
   });
 
-  it('lists every fifth move to come with that move’s time and the time until it', () => {
+  it('counts whole seconds, and below zero with a minus', () => {
+    expect(counterText(0)).toBe('0 s');
+    expect(counterText(400)).toBe('0 s');
+    expect(counterText(-400)).toBe('0 s');
+    expect(counterText(1_600)).toBe('2 s');
+    expect(counterText(252_000)).toBe('4 min 12 s');
+    expect(counterText(-75_000)).toBe('−1 min 15 s');
+  });
+
+  it('shows the move searched, the move under way and every fifth move to come', () => {
     const html = performanceHtml(forecast({ runningMs: 252_000 }), false);
     expect(html.startsWith('<b>Performance Analysis</b>')).toBe(true);
-    expect(html).toContain('Searched 36 moves deep; move 36 took 3 min 10 s.');
-    expect(html).toContain('Move 37 has run 4 min 12 s.');
-    expect(html).toContain('about 1.32× as long as the one before');
+    expect(html).toContain(
+      '<b>Performance Analysis</b>Each move takes about 1.32× as long as the one before.<table',
+    );
+    expect(html).not.toContain('Searched');
+    expect(html).not.toContain('has run');
+    // the last move: its time, complete
+    expect(html).toContain(
+      '<tbody><tr class="slv-perf-done" data-depth="36"><td>36</td><td>3 min 10 s</td><td>Complete</td></tr>',
+    );
+    // the move under way: run so far, and the last move's time × the growth less that
+    // (190 s × 1.32 = 250.8 s, 252 s run)
+    expect(html).toContain(
+      '<tr class="slv-perf-now over" data-depth="37"><td>37</td><td>4 min 12 s</td><td>−1 s</td></tr>',
+    );
     expect(html).toContain(
       '<tr data-depth="40"><td>40</td><td>9 min 37 s</td><td>25 min</td></tr>',
     );
@@ -49,6 +74,34 @@ describe('the Performance Analysis', () => {
     expect(html).toContain('>Remaining</th>');
     // paused: the time counts from when it is continued
     expect(performanceHtml(forecast({}), true)).toContain('>Once continued</th>');
+  });
+
+  it('counts the move under way on from when the forecast came', () => {
+    const f = forecast({ runningMs: 10_000 });
+    // 250.8 s due: 240.8 s left, 60 s on 180.8 s
+    expect(liveCells(f, 0)).toEqual(['10 s', '4 min 1 s']);
+    expect(liveCells(f, 60_000)).toEqual(['1 min 10 s', '3 min 1 s']);
+    expect(liveCells(f, 300_000)).toEqual(['5 min 10 s', '−59 s']);
+    const html = performanceHtml(f, false, 60_000);
+    expect(html).toContain(
+      '<tr class="slv-perf-now" data-depth="37"><td>37</td><td>1 min 10 s</td><td>3 min 1 s</td></tr>',
+    );
+  });
+
+  it('leaves out the fifth move that is the move under way', () => {
+    const html = performanceHtml(
+      forecast({
+        depth: 39,
+        levelMs: Array.from({ length: 39 }, () => 190_000),
+        estimates: [
+          { depth: 40, levelMs: 250_800, fromNowMs: 250_800 },
+          { depth: 45, levelMs: 1_000_000, fromNowMs: 3_000_000 },
+        ],
+      }),
+      false,
+    );
+    const depths = [...html.matchAll(/data-depth="(\d+)"/g)].map((m) => Number(m[1]));
+    expect(depths).toEqual([39, 40, 45]);
   });
 
   it('says when there is too little to go on', () => {

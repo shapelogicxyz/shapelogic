@@ -1,6 +1,8 @@
 # 0039: A sliding puzzle played by hand
 
-**Status:** accepted; `core/shapelogic/solve/sliding_play.h` (`playStart`,
+**Status:** accepted (decision 0042 plays stacking puzzles in the same
+workspace: `workspace.ts` now keeps what both share, and the sliding
+puzzle's part of it is `sliding.ts`); `core/shapelogic/solve/sliding_play.h` (`playStart`,
 `playReach`, `playReplay`, `PlayRules`; defined at the end of
 `sliding_search.cpp`), `core/shapelogic/model/sliding.h` (`layoutPieces`,
 `layoutCells`, `startLayout`, `layoutRefusal`, `layoutMarks`, `setLayout`),

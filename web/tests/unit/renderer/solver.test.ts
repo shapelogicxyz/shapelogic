@@ -483,6 +483,29 @@ describe('the solve records', () => {
     expect(s.running).toBe(false);
   });
 
+  it('take a run already under way from the snapshot (the page reloaded)', async () => {
+    const bus = eventBus();
+    const s = new Solves(bus);
+    s.adopt([
+      { id: 'p1', solve: 'assembling' },
+      { id: 'p2', solve: 'paused' },
+    ]);
+    expect(s.get('p1')).toMatchObject({ state: 'assembling', told: true, phase: 'active' });
+    expect(s.peek('p2')).toBeUndefined();
+    expect(s.running).toBe(true);
+    // its pictures are kept now
+    bus.emit('solve.preview', { problem: 'p1', source: 'search', placements: [] });
+    expect(s.get('p1').preview).not.toBeNull();
+    // what an event told is fresher than a snapshot read before it
+    bus.emit('solve.state', { problem: 'p1', state: 'paused' });
+    s.adopt([{ id: 'p1', solve: 'assembling' }]);
+    expect(s.get('p1')).toMatchObject({ state: 'paused', phase: 'ending' });
+    bus.emit('document.changed', { revision: 7, what: [], shapes: [], problems: ['p1'] });
+    await settle();
+    expect(s.get('p1')).toMatchObject({ phase: 'none', endRevision: 7 });
+    expect(s.running).toBe(false);
+  });
+
   it('take a state told again for no run (a replaced document’s last idle)', () => {
     const bus = eventBus();
     const s = new Solves(bus);

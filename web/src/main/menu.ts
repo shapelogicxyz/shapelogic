@@ -292,8 +292,9 @@ export function menuTemplate(s: MenuState, h: MenuHost): MenuItemConstructorOpti
         style: 'uniform',
       }),
       SEP,
-      // under Reload in development, where Reload and the developer tools are
-      ...(h.dev ? [{ role: 'reload' as const }] : []),
+      // under Reload in development, where Reload and the developer tools are;
+      // the engine and its solves go on, and the new page takes them up
+      ...(h.dev ? [{ role: 'reload' as const, label: 'Reload UI and Reattach to Solver' }] : []),
       item('cacheFiles', 'Manage Cache and Autosave Files…', { cmd: 'cacheFiles' }),
       item('logFiles', 'Log File Manager…', { cmd: 'logFiles' }),
       ...(h.dev ? [{ role: 'toggleDevTools' as const }] : []),

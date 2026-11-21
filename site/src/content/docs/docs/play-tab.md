@@ -1,17 +1,24 @@
 ---
 title: Play Tab
-description: "Play a sliding puzzle by hand on the Play tab: drag the pieces, count moves the way the solver does, undo and redo, play your moves back, export and import them, and save the board as a problem's Start or Goal."
+description: "Play a sliding or a stacking puzzle by hand on the Play tab: drag the pieces or the discs, count moves the way the solver does, undo and redo, play your moves back, export and import them, and save the board as a problem's Start or Goal."
 ---
 
-The **Play** tab (`Ctrl+4`, `⌘4` on a Mac) lets you slide the pieces of a
-[sliding puzzle](/docs/puzzle-types/sliding/) yourself instead of having the
-Solver find the answer. The tab appears in the top bar, to the right of
-Solver, while a sliding puzzle is open.
+The **Play** tab (`Ctrl+4`, `⌘4` on a Mac) lets you move the pieces of a
+[sliding puzzle](/docs/puzzle-types/sliding/) or the discs of a
+[stacking puzzle](/docs/puzzle-types/stacking/) yourself instead of having
+the Solver find the answer. The tab appears in the top bar, to the right
+of Solver, while a sliding or a stacking puzzle is open.
 
 The problem list and the buttons are on the left; the board is in the
-middle. Beside it are the number of moves made, **Reset**, **Undo**,
-**Redo**, **Hide Goal Shadows**, **Hide Goal Lines**, **Hide Grid**,
-**Hide Piece Labels** and **Simple Pieces**, and the playback bar is below.
+middle. Beside it are the number of moves made, **Reset**, **Undo** and
+**Redo**, then the buttons of the kind of puzzle, and the playback bar is
+below. For a sliding puzzle those buttons are **Hide Goal Shadows**,
+**Hide Goal Lines**, **Hide Grid**, **Hide Piece Labels** and **Simple
+Pieces**; a stacking puzzle has a picture of the Goal, **Hide Goal** and
+**Hide Disc Labels** ([Stacking puzzles](#stacking-puzzles) below).
+
+Most of this page describes a sliding puzzle. Undo, Redo, the playback,
+saving a position and the moves file work the same way for both.
 
 ![The Play tab with a Klotski puzzle after two moves: the problem and the buttons on the left, the board in the middle, the move count and the board's buttons beside it, and the playback bar below.](../../../assets/screens/guide/play-tab.png)
 
@@ -44,7 +51,7 @@ Goal are placed.
 A problem without a Goal can still be played: the moves are counted, and
 nothing is ever solved.
 
-## Moving the pieces
+## Moving the pieces of a sliding puzzle
 
 Drag a piece with the mouse. It follows the pointer through the free
 cells and stops against the walls and the other pieces; it never jumps
@@ -78,6 +85,47 @@ A board with several layers is shown one layer at a time; pick the layer
 at the top right of the board. Pieces stay in their layer when played by
 hand, even if the problem allows vertical moves.
 
+## Stacking puzzles
+
+![The Play tab with a three-disc Tower of Hanoi after two moves: the rods in the middle with a disc on each, the Goal's picture and the buttons beside them.](../../../assets/screens/guide/play-stacking.png)
+
+The board shows the rods from the front. Each disc is a bar as wide as its
+size, with its name on it or, when it has none, its size. The **Goal**
+picture beside the board shows where the discs must end; **Hide Goal**
+takes it away so you can play without it, and **Hide Disc Labels** takes
+the names and sizes off the discs.
+
+Only the top disc of a rod moves. To move it, either:
+
+- **drag** it to another rod and let go, or
+- **click** its rod (the disc lifts), then click the rod it should go to.
+  Click its own rod again to put it down.
+
+You can press anywhere in a rod's column; you don't have to hit the disc.
+While you hold a disc, the rods it may go to are highlighted. If the rules
+don't allow a move, the disc goes back and the status bar says why, for
+example *A larger disc cannot sit on a smaller one.*
+
+Every transfer is **one move**, the way the Solver counts them, so your
+total can be compared with the fewest moves the Solver finds. Putting a
+disc straight back on the rod it came from takes the move off.
+
+A problem can be played once every disc is on a rod of its **Start** and
+the Start follows the rod set's rules. If not, the tab says what is wrong
+and offers **Go to Puzzle**. A problem whose Goal is empty can still be
+played; if the Goal has discs but isn't complete, the note under the move
+count says why it isn't used.
+
+### Panex boards
+
+![A Panex board on the Play tab: two towers on the outer columns, a small disc on the middle column and the next disc raised into the bridge above it.](../../../assets/screens/guide/play-panex.png)
+
+On a rod set with **Panex Style Columns**, each column has steps behind
+it: a disc rests on the step that matches its size, or on the disc below
+it. The band across the top is the bridge. One disc more than a column
+holds can wait there, raised, and while it does it blocks every move that
+would pass over it.
+
 ## Undo, Redo and playback
 
 **Reset** puts the pieces back at the Start, as ⏮ does: the moves are
@@ -110,7 +158,8 @@ that position.
 
 **Save position as Goal** makes it the problem's Goal: every piece must
 end where it is now. To leave some pieces free, take their goals off on
-the [Puzzle tab](/docs/puzzle-tab/).
+the [Puzzle tab](/docs/puzzle-tab/). (A stacking puzzle's Goal always
+places every disc.)
 
 Either one replaces what the problem had, and removes the solutions the
 Solver found for it; ShapeLogic asks first when there is something to
@@ -124,8 +173,12 @@ with the same puzzle can open it with **Import moves…** to watch or
 continue your game.
 
 A moves file is taken only by a problem with the same board and the same
-Start. If one of its moves can't be made, ShapeLogic says which move and
-why, and nothing changes. After an import the board is at the Start:
+Start; for a stacking puzzle that means the same rods and the same discs
+on each rod. If one of its moves can't be made, ShapeLogic says which move
+and why, and nothing changes. After an import the board is at the Start:
 press **Play** to watch the moves.
+
+A sliding puzzle's moves file can't be read by a stacking puzzle, or the
+other way round; ShapeLogic says which kind the file is for.
 
 Your moves are not saved in the puzzle file. Export them to keep them.

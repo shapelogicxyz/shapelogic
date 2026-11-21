@@ -27,6 +27,9 @@
 //   store already shows the new document (whose ids may be the same); the
 //   records are cleared then (`clear`), so a last idle met by no record is
 //   no run, and an analyseEnded without an analysis under way is ignored.
+// - A run no event has told of, under way in the snapshot, is taken as
+//   seen (`adopt`): a reload of the page meets the engine's runs already
+//   going, and their state is told again only when it changes.
 // - solve.solutionsAdded is kept as told (`added`); whether the list must
 //   be paged again is the pager's business (its solutionsVersion).
 
@@ -198,6 +201,20 @@ export class Solves {
       r.solver = solver;
     }
     this.emit({ problem, kind: 'launch' });
+  }
+
+  /**
+   * The snapshot's solve states: a run under way of a problem no event has
+   * told the state of is taken as one told (after a reload of the page, the
+   * engine's runs go on, and their next solve.state comes only when the
+   * state changes); what an event told is fresher than the snapshot.
+   */
+  adopt(problems: readonly { id: string; solve: SolveState }[]): void {
+    for (const p of problems) {
+      if (isActive(p.solve) && this.records.get(p.id)?.told !== true) {
+        this.state(p.id, p.solve);
+      }
+    }
   }
 
   /** This client started an analysis (its call was answered: total assemblies). */
