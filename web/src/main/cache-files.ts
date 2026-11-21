@@ -11,15 +11,22 @@
 // (`cache-links.json`, by folder name, so a move of the cache folder
 // keeps them). The folders of one problem's starts are one item; a folder
 // without its `state.bin` is a search that never saved (a crash, or one
-// running); anything else in the two folders is one item each. Each
+// running). What else ShapeLogic leaves there is named too: a sliding
+// search of version 1.5 or earlier (`search-<key>`, never saved), and a
+// paused solve's import that stopped part way (`<folder>.import`). The
+// solves' lock files are not listed (decision 0035: a solve removes those
+// nobody holds; only the system knows which are held), nor the files the
+// system's file browser writes. Anything else in the two folders is one
+// item each. Each
 // rescue copy (one per window, rescue.ts) and its record are one item,
 // named from the record.
 //
 // An item is deleted by its id, which the renderer has from the list:
 // the folders are listed again and the item found by it, so a path the
 // renderer names is never deleted. A search's item is refused while a
-// solve runs (its search writes the folders). At each start the other
-// files not changed in a week are deleted, unasked (`sweepOther`). Free of
+// solve runs (its search writes the folders). At each start the files
+// that are no search ShapeLogic can carry on, not changed in a week, are
+// deleted, unasked (`sweepOther`); the lock files are left. Free of
 // Electron (the folders are given), so the unit tests run it in a
 // temporary directory.
 
@@ -38,6 +45,28 @@ const SEARCH_NAME: Readonly<Record<'sliding' | 'stacking', RegExp>> = {
   sliding: /^slide-[0-9a-f]{16}$/,
   stacking: /^[0-9a-f]{16}$/,
 };
+
+/** A sliding search's folder of version 1.5 and earlier, which never saved its search. */
+const OLDER_SLIDE_NAME = /^search-[0-9a-f]{16}$/;
+
+/** The folder a paused solve's import unpacks into first (io/paused_solve.cpp), by kind. */
+const IMPORT_NAME: Readonly<Record<'sliding' | 'stacking', RegExp>> = {
+  sliding: /^(slide-[0-9a-f]{16})\.import$/,
+  stacking: /^([0-9a-f]{16})\.import$/,
+};
+
+/** A solve's lock file (decision 0035), by kind: never listed or swept. */
+const LOCK_NAME: Readonly<Record<'sliding' | 'stacking', RegExp>> = {
+  sliding: /^solve-[0-9a-f]{16}\.lock$/,
+  stacking: /^[0-9a-f]{16}\.lock$/,
+};
+
+/** The files a system's file browser leaves in a folder it showed. */
+const SYSTEM_NAME = /^(\.DS_Store|Thumbs\.db|desktop\.ini)$/i;
+
+/** Whether a name in a search folder is left out of the list and the sweep. */
+const unlisted = (name: string, kind: 'sliding' | 'stacking'): boolean =>
+  LOCK_NAME[kind].test(name) || SYSTEM_NAME.test(name);
 
 /** What a window told of a search folder. */
 export interface LinkRecord {
@@ -228,6 +257,8 @@ interface Group {
   /** Saved (a search with its state.bin; always for the rescue copy). */
   saved: boolean;
   link: LinkRecord | null;
+  /** A search's leftover ShapeLogic knows: an older version's search, an import cut short. */
+  leftover?: 'older' | 'import';
 }
 
 const baseName = (path: string): string => path.split(/[\\/]/).pop() ?? path;
@@ -250,6 +281,20 @@ function named(g: Group): { title: string; about: string } {
   const puzzle = puzzleTitle(g.link);
   const of = puzzle === null ? ' (puzzle not known)' : ` of ${puzzle}`;
   const problem = g.link !== null && g.link.problem !== '' ? `, ${g.link.problem}` : '';
+  if (g.leftover === 'older') {
+    return {
+      title: 'Unfinished sliding search from version 1.5 or earlier',
+      about:
+        'The files a sliding search of ShapeLogic 1.5 or earlier wrote while it ran, left when the app or the computer stopped during the solve. Those versions never saved a sliding search, so it cannot be carried on. Nothing uses it; deleting it is safe, and ShapeLogic deletes it by itself at a start once nothing has changed it for a week.',
+    };
+  }
+  if (g.leftover === 'import') {
+    const kind = g.kind === 'stacking' ? 'stacking' : 'sliding';
+    return {
+      title: `Unfinished import of a paused ${kind} solve${of}${problem}`,
+      about: `A paused solve being imported (File ▸ Import ▸ Paused Solver State) is unpacked here first and put in place once the whole file is read; this one was left when the import stopped part way (the app or the computer stopped). The saved search it was to replace, if any, is as it was. Nothing uses it; deleting it is safe, and ShapeLogic deletes it by itself at a start once nothing has changed it for a week.`,
+    };
+  }
   switch (g.kind) {
     case 'rescue':
       return {
@@ -262,7 +307,7 @@ function named(g: Group): { title: string; about: string } {
       return {
         title: `Other files in the ${where === 'panex' ? 'stacking' : 'sliding'} search folder`,
         about:
-          'Files that are not a search ShapeLogic can carry on: left by an older version, or half written when the app stopped. Nothing uses them; deleting them is safe.',
+          'Files that are not a search ShapeLogic can carry on, and that no version of ShapeLogic writes there: put there by hand or by another program. Nothing uses them; deleting them is safe, and ShapeLogic deletes them by itself at a start once nothing has changed them for a week.',
       };
     }
     default: {
@@ -307,8 +352,22 @@ async function searchGroups(
   const other: string[] = [];
   for (const name of names) {
     const p = join(dir, name);
+    if (unlisted(name, kind)) {
+      continue;
+    }
     if (!(await isSearch(p, kind))) {
-      other.push(p);
+      const isDir = (await lstat(p).catch(() => null))?.isDirectory() === true;
+      const imported = isDir ? IMPORT_NAME[kind].exec(name) : null;
+      if (imported?.[1] !== undefined) {
+        // the search it was to replace keeps its link, there or not
+        present.add(`${kind}/${imported[1]}`);
+        const link = (await links.get(kind, imported[1])) ?? null;
+        groups.push({ kind, roots: [p], saved: false, link, leftover: 'import' });
+      } else if (isDir && kind === 'sliding' && OLDER_SLIDE_NAME.test(name)) {
+        groups.push({ kind, roots: [p], saved: false, link: null, leftover: 'older' });
+      } else {
+        other.push(p);
+      }
       continue;
     }
     present.add(`${kind}/${name}`);
@@ -468,10 +527,13 @@ export async function deleteItem(
 export const OTHER_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Deletes the other files of the search folders (not a search ShapeLogic
- * can carry on) that nothing changed for `maxAge`: each file or folder by
- * the newest change under it. Run at the start, before any solve; nothing
- * is told, and what cannot be deleted is left for the next start.
+ * Deletes what the search folders hold that is no search ShapeLogic can
+ * carry on (an older version's search, an import cut short, other files)
+ * and that nothing changed for `maxAge`: each file or folder by the newest
+ * change under it. The lock files are left: a solve of the command line
+ * may hold one, and only the system knows (a solve removes those nobody
+ * holds). Run at the start, before any solve; nothing is told, and what
+ * cannot be deleted is left for the next start.
  */
 export async function sweepOther(
   f: CacheFolders,
@@ -487,7 +549,7 @@ export async function sweepOther(
     }
     for (const name of await readdir(dir).catch(() => [])) {
       const p = join(dir, name);
-      if (await isSearch(p, kind)) {
+      if (unlisted(name, kind) || (await isSearch(p, kind))) {
         continue;
       }
       const w = await walkAll([p]);

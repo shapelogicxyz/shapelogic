@@ -149,7 +149,7 @@ fewest moves. The **Solutions** list shows the number of moves, and the
 **player** replays them, each piece following its route around corners.
 
 The search options include nested slides and partially nested slides, which
-let a piece carry another inside it. **Solve** and **Prepare** stay off while
+let a piece carry another inside it. **Solve** stays off while
 the start and goal are invalid, with the reason in the button's tooltip.
 
 ## Play: slide the pieces yourself

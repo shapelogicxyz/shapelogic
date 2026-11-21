@@ -684,7 +684,9 @@ one).
   (`FileLock` in base/file_lock.h on `sliding::solveLockPath`, a stacking
   solve on `panex::solveLockPath`), and a second solve of the same problem,
   in this program or another, is refused with `IoError` before anything
-  is dropped (decision 0035); `note()` is the original's summary (starts the memory or disk cut,
+  is dropped (decision 0035); taking it removes the lock files in that
+  folder that nobody holds, left by solves that crashed
+  (`removeStaleLocks`); `note()` is the original's summary (starts the memory or disk cut,
   everything searched, or with optimized paths that a full search may find
   what they missed) and the progress has stage `Other` with `searched`
   and `searchDepth`. A run with optimized paths works out its grid as it
@@ -1771,7 +1773,7 @@ What exists after stage 8:
     `workspace.ts` (`SolverWorkspace`: the problem shown read after every
     change (`problem.get`, `problem.kind` once), `#leftS[data-problem]`,
     `[data-revision]`, `[data-state]`, `[data-phase]`, `[data-end]`; its
-    solve the record's; the options; Solve, Prepare and Continue (the
+    solve the record's; the options; Solve and Continue (the
     record told of the run at the reply, the selection dropped first),
     Pause, Abort (asked; only while a run is under way or paused in
     memory); the selection, shown only while the Solver is shown and only
@@ -1881,7 +1883,8 @@ What exists after stage 8:
     direction's `vectors` step as it looks on the screen), Step back,
     Prune tree; the position chosen drawn with the solution's
     orientations); the Advanced buttons (Placements and Step need a
-    prepared or paused solve, Movements a solution with its moves); the
+    result shape and pieces, whatever the solve's state, Movements a
+    solution with its moves); the
     handles closed with the drawer, a change of problem or another
     document (whose handles the engine dropped); the pieces drawn by
     `placedAt` in the view's explorer layer; `#sdrawer[data-mode]`,
@@ -1976,10 +1979,9 @@ What exists after stage 8:
     every stacking view; the Solver's stacking options (`settings.ts`'s
     `Family`, `DEFAULT_STACKING` with Find Solutions, `normalize`'s
     stacking rules, `stackingSolverOf` the board's one solver,
-    `SolveOptions.stacking`, `stackingDetails`), no Prepare, Solve and
-    Continue greyed without a board or with invalid stacks, Solve's
-    question about a saved search (Continue, Start Over), Continue and
-    Abort for a saved search (`solve.status.savedSearch`, read with the
+    `SolveOptions.stacking`, `stackingDetails`), Solve and
+    Continue greyed without a board or with invalid stacks, Continue in
+    Solve's place and Abort for a saved search (`solve.status.savedSearch`, read with the
     problem), the note in a message box at a run's end; the player's
     assembled view placed by the discs' centres around the board's middle
     (`Player.frame`); no 20-minute save point on a stacking puzzle and a
@@ -2046,7 +2048,7 @@ with `bt --json`'s counts, played, stepped, jumped, the poses at every
 whole step the engine's, the list sorted every way and paged, its keys,
 every Remove variant with its confirmation, Analyse with the assemblies
 that do not come apart marked and a stop that keeps what was done,
-pause, continue, a save at a save point, abort, Prepare then Continue,
+pause, continue, a save at a save point, abort, a solve then Reset,
 an error run with its failure, two problems at once, a sliding puzzle solved with `bt
 --json`'s counts and played along its routes, a stacking one solved as bt; the
 explorers on Bermuda: every piece's placements counted and drawn where

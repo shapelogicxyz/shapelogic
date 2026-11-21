@@ -152,6 +152,15 @@ ShapeLogic records which puzzle a search belongs to when the search is
 saved. Searches saved by an earlier version, or by a puzzle never opened
 since, show "puzzle not known" until you open that puzzle again.
 
+Some items can't be carried on: a search that never saved because the app
+or the computer stopped during the solve ("Unfinished sliding search"), one
+of those left by ShapeLogic 1.5 or earlier ("Unfinished sliding search from
+version 1.5 or earlier"), and an import of a paused solve that stopped part
+way. Anything else in the search folders is "Other files". ShapeLogic
+deletes the leftovers of older versions, the cut-short imports and the
+other files by itself at a start once nothing has changed them for a week.
+A saved search is never deleted by its age.
+
 When ShapeLogic starts and finds items here (apart from a crash recovery
 copy, which it offers to reopen first), it lists them with their sizes.
 **Manage Files…** opens this window, **Delete All…** deletes them all after

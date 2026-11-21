@@ -149,7 +149,6 @@ test('a puzzle file whose names hold markup shows them as text everywhere', asyn
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'movements');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^mx/);
     await nothingInjected(page, 'the movement explorer');
-    await runButton(page, 'prepare');
     await expect(page.locator('#slvAdv [data-x="placements"]')).toBeEnabled();
     await page.click('#slvAdv [data-x="placements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'placements');

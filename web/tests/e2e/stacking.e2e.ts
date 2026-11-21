@@ -396,9 +396,8 @@ test('solved by the Stacking and the Panex Solver as bt; played in transfers on 
     ] as const) {
       await openPath(page, file);
       await toSolver(page);
-      // Find Solutions checked at first; no Prepare; the board's one solver
+      // Find Solutions checked at first; the board's one solver
       await expect(page.locator('#slvMode [data-m="dis"]')).toHaveClass(/on/);
-      await expect(page.locator('#slvRun [data-r="prepare"]')).toHaveCount(0);
       if (!(await page.locator('#slvOpts').isVisible())) {
         await page.click('#slvOptHead');
       }

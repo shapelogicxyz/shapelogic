@@ -434,9 +434,6 @@ afterwards by clicking its column headers.
 These advanced tools let you look inside a search. They open a drawer below
 the 3D view; `Esc` closes it.
 
-- **Prepare** builds the search (every place each piece can go) and pauses
-  before the first step, so **Placements** and **Step** have a search to
-  show. It removes old results.
 - **Placements** browses every position each piece can take in the result.
   Pick a piece, then step or drag through its placements.
 - **Movements** browses the disassembly search of the solution shown:

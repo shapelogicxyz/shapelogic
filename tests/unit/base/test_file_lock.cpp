@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <fstream>
 #include <random>
 #include <string>
 #include <system_error>
@@ -96,4 +97,36 @@ TEST_CASE("file lock: a file that cannot be made is no lock", "[base][lock]") {
   FileLock lock;
   CHECK(lock.tryAcquire(dir.path / "no-such-folder" / "solve.lock") == FileLock::Outcome::Failed);
   CHECK_FALSE(lock.held());
+}
+
+TEST_CASE("file lock: the lock files nobody holds are removed, the held one is kept",
+          "[base][lock]") {
+  const Scratch dir;
+  // what a solve that crashed leaves on macOS and Linux: the file alone
+  const std::filesystem::path stale = dir.path / "solve-00000000000000aa.lock";
+  { std::ofstream(stale).put('\n'); }
+  const std::filesystem::path held = dir.path / "00000000000000bb.lock";
+  FileLock holder;
+  REQUIRE(holder.tryAcquire(held) == FileLock::Outcome::Held);
+  // neither a lock file nor in this folder: left alone
+  const std::filesystem::path other = dir.path / "notes.txt";
+  { std::ofstream(other).put('\n'); }
+  const std::filesystem::path inner = dir.path / "slide-00000000000000cc" / "old.lock";
+  std::filesystem::create_directories(inner.parent_path());
+  { std::ofstream(inner).put('\n'); }
+
+  CHECK(bt::removeStaleLocks(dir.path) == 1);
+  CHECK_FALSE(std::filesystem::exists(stale));
+  CHECK(std::filesystem::exists(held));
+  CHECK(holder.held());
+  CHECK(std::filesystem::exists(other));
+  CHECK(std::filesystem::exists(inner));
+
+  // still the holder's: another is refused
+  FileLock second;
+  CHECK(second.tryAcquire(held) == FileLock::Outcome::Busy);
+  holder.release();
+  CHECK(bt::removeStaleLocks(dir.path) == 0);
+  // a folder that is not there: nothing
+  CHECK(bt::removeStaleLocks(dir.path / "missing") == 0);
 }

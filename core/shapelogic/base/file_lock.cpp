@@ -2,7 +2,9 @@
 // Kept apart so the system headers it needs reach no other source file.
 #include "shapelogic/base/file_lock.h"
 
+#include <system_error>
 #include <utility>
+#include <vector>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -112,5 +114,26 @@ void FileLock::release() noexcept {
 }
 
 #endif
+
+unsigned int removeStaleLocks(const std::filesystem::path& dir) {
+  // listed first: the folder is not changed while it is read
+  std::vector<std::filesystem::path> locks;
+  std::error_code ec;
+  for (const auto& e : std::filesystem::directory_iterator(dir, ec)) {
+    std::error_code fileError;
+    if (e.path().extension() == ".lock" && e.is_regular_file(fileError)) {
+      locks.push_back(e.path());
+    }
+  }
+  unsigned int removed = 0;
+  for (const auto& path : locks) {
+    FileLock stale;
+    if (stale.tryAcquire(path) == FileLock::Outcome::Held) {
+      stale.release();
+      removed++;
+    }
+  }
+  return removed;
+}
 
 }  // namespace bt

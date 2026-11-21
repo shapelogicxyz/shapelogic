@@ -115,7 +115,7 @@ async function expectPose(page: Page, piece: number, want: V3): Promise<void> {
     .toBe(true);
 }
 
-test('Bermuda prepared: every placement listed and drawn, the assembler stepped, the debug panel', async () => {
+test('Bermuda: every placement listed and drawn, the assembler stepped, the debug panel', async () => {
   test.setTimeout(240_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log });
@@ -124,15 +124,16 @@ test('Bermuda prepared: every placement listed and drawn, the assembler stepped,
     await openFixture(page, 'Bermuda.xmpuzzle');
     await toSolver(page);
     const p = await shownProblem(page);
-    // closed until the solve is prepared or paused
-    await expect(page.locator('#slvAdv [data-x="placements"]')).toBeDisabled();
-    await expect(page.locator('#slvAdv [data-x="step"]')).toBeDisabled();
-    await runButton(page, 'prepare');
-    await runEnded(page, 'paused');
+    // open with no solve: the explorers build assemblers of their own
+    await expect(page.locator('#slvAdv [data-x="placements"]')).toBeEnabled();
+    await expect(page.locator('#slvAdv [data-x="step"]')).toBeEnabled();
+    await runButton(page, 'start');
+    await runEnded(page, 'finished');
+    await expect(page.locator('#slvAdv [data-x="placements"]')).toBeEnabled();
 
     // the debug statistics: the panel's numbers are solve.status's
     await page.click('#slvStats');
-    await expect(page.locator('#statsWin')).toHaveAttribute('data-state', 'paused');
+    await expect(page.locator('#statsWin')).toHaveAttribute('data-state', 'finished');
     await expect(page.locator('#statsWin')).toHaveAttribute('data-stats', /elapsedMs/);
     const status = await engineCall<{ stats: SolveStats }>(page, 'solve.status', { problem: p });
     // the panel holds the figures of a stopped run as the original's did
@@ -321,8 +322,8 @@ test('Bermuda solved: the movement tree as the contract session grows it', async
       problem: p,
       solution: sol,
     });
-    // Placements and Step wait for a prepared or paused solve; Movements has a solution with its moves
-    await expect(page.locator('#slvAdv [data-x="placements"]')).toBeDisabled();
+    // Placements open on a solved problem too; Movements has a solution with its moves
+    await expect(page.locator('#slvAdv [data-x="placements"]')).toBeEnabled();
     await page.click('#slvAdv [data-x="movements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'movements');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-handle', /^mx/);

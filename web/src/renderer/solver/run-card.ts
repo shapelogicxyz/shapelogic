@@ -11,7 +11,8 @@
 // (Continue in its place while a solve runs, is paused or has a saved
 // search; starting over is Abort, then Solve), Pause, Abort while a solve
 // runs or is paused, else Reset (the original's setAbortLabel), the
-// progress bar and the counters, a failure; Prepare in the explorers' section, and Sort by. From
+// progress bar and the counters, a failure, and Sort by (no Prepare: the
+// explorers build assemblers of their own). From
 // docs/mockup/index.html: `renderSolver` (the left card's sections, their
 // wording and tooltips, `SVTIP`, `SVOPTSORT`) and its handlers in `svWire`;
 // the run's buttons and the option names are the original's
@@ -24,8 +25,8 @@
 // mainwindow_help.cpp's solver help), "Find Solutions" for the second
 // mode, and Solve greyed while its start/goal shape is not valid
 // (mainwindow.cpp's Solve tooltip). A stacking puzzle (section 9.3): Find
-// Solutions with Just Levels, Just count and the one solver of its board (syncSolverTypeMenu, mainwindow_help.cpp), no
-// Prepare, Solve and Continue greyed without a board or with invalid
+// Solutions with Just Levels, Just count and the one solver of its board (syncSolverTypeMenu, mainwindow_help.cpp),
+// Solve and Continue greyed without a board or with invalid
 // stacks ("Fix the puzzle on the Puzzle tab first"), Continue in Solve's
 // place for a saved search ("Carry on …").
 
@@ -456,18 +457,6 @@ export class RunCard {
               'Throw away this problem’s solve: its solutions and what its search went through (Undo brings them back)',
             )),
     );
-    // Prepare sits with the explorers it serves; a stacking search has nothing to prepare
-    setHtml(
-      byId('slvPrep'),
-      ws.stacking
-        ? ''
-        : btn(
-            'prepare',
-            'Prepare',
-            canStart,
-            'Build the search (the placements of every piece) and pause before the first step, so Placements and Step have a search to show; this removes old results',
-          ),
-    );
     const c = ws.counts();
     const pct = Math.max(0, Math.min(1, c.overall)) * 100;
     byId('slvBar').style.width = `${pct.toFixed(1)}%`;
@@ -560,9 +549,6 @@ export class RunCard {
         return;
       }
       switch (b.dataset.r) {
-        case 'prepare':
-          void ws.run('prepare');
-          break;
         case 'start':
           void ws.run('start');
           break;
@@ -581,7 +567,6 @@ export class RunCard {
       }
     };
     byId('slvRun').addEventListener('click', runClicked);
-    byId('slvPrep').addEventListener('click', runClicked);
     byId('slvSortBy').addEventListener('change', (e) => {
       const t = e.target as HTMLSelectElement;
       if (t.dataset.o === 'sortBy') {

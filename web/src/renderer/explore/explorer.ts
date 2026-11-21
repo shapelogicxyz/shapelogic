@@ -19,8 +19,9 @@
 // Pieces are drawn as the Solver's assembled view draws them: the shape's
 // mesh in the placement's transformation at its cell minus that mesh's
 // hotspot (extent.ts's placedAt), in the view's explorer layer over the
-// player's solution. Placements and Step need a prepared or paused solve
-// (the mockup's rule), Movements a solution with its moves; the handles
+// player's solution. Placements and Step need a result shape and pieces
+// (not the mockup's prepared or paused solve: they build assemblers of
+// their own), Movements a solution with its moves; the handles
 // are closed when the drawer closes, the problem shown changes or another
 // document comes (whose handles the engine dropped already). From
 // docs/mockup/index.html: `renderSolverDrawer` and `#sdrawer`, `svPrepare`
@@ -82,8 +83,12 @@ export interface ExplorerHost {
   options(): SolveOptions;
   /** The solution selected. */
   solution(): SolutionRow | null;
-  /** Whether the problem's solve is prepared or paused (Placements and Step). */
-  assemblyReady(): boolean;
+  /**
+   * Whether the problem shown can be assembled (a result shape and pieces):
+   * Placements and Step build assemblers of their own, so the problem's
+   * solve may be in any state (the original's needed it prepared).
+   */
+  assemblable(): boolean;
   /** The explorer opened, closed or moved on: the cards, the tag. */
   changed(): void;
 }
@@ -220,7 +225,7 @@ export class Explorer {
     // a grid without an assembler (stacking) has no placements to browse or step
     const store = this.host.store;
     const grid = store.info?.grids.find((g) => g.grid === store.snapshot?.grid);
-    return grid?.assemble !== false && this.host.assemblyReady();
+    return grid?.assemble !== false && this.host.assemblable();
   }
 
   /** The Advanced section's buttons (the mockup's #slvAdv). */
@@ -232,10 +237,10 @@ export class Explorer {
       b(
         'placements',
         'Placements',
-        'Browse the placements of each piece (needs a prepared or paused solve)',
+        'Browse the placements of each piece (needs a result shape and pieces)',
       ) +
         b('movements', 'Movements', 'Browse the disassembly search of the selected solution') +
-        b('step', 'Step', 'Advance the assembler by one step (needs a prepared or paused solve)'),
+        b('step', 'Step', 'Advance the assembler by one step (needs a result shape and pieces)'),
     );
   }
 
@@ -375,7 +380,7 @@ export class Explorer {
     }
   }
 
-  // an assembly explorer of the problem with the options shown (Prepare in the original)
+  // an assembly explorer of the problem with the options shown (the original's Prepare built the solve's)
   private async openAssembly(): Promise<string | null> {
     const problem = this.problem;
     if (problem === null) {

@@ -49,4 +49,12 @@ class FileLock {
   std::filesystem::path path_;
 };
 
+/// Removes the lock files in `dir` (its `*.lock` files, not those of its
+/// subfolders) that nobody holds, and returns how many went. A holder that
+/// ends without letting go (a crash) leaves its file behind on macOS and
+/// Linux; the lock is the system's, so the file alone holds nothing, but
+/// it stays until the same lock is taken again. Each is taken and let go,
+/// which removes it, so a lock someone holds is never touched.
+unsigned int removeStaleLocks(const std::filesystem::path& dir);
+
 }  // namespace bt

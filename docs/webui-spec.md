@@ -223,10 +223,12 @@ it all).
   solutions; Thorough rotation check; Drop below level (solutions with a
   lower level are dropped); Keep at most this many solutions; Don't keep the
   disassemblies; Sort found solutions by.
-- **Run**: Solve problem (from the start), **Prepare** (build the search
-  structures without solving), **Continue** (resume a stopped search: in
-  Solve's place while a solve runs, is paused or has a saved search;
-  starting over is Abort, then Solve), **Pause**; progress bar with percentage; activity, assemblies, solutions,
+- **Run**: Solve problem (from the start), **Continue** (resume a
+  stopped search: in Solve's place while a solve runs, is paused or has a
+  saved search; starting over is Abort, then Solve), **Pause**; no
+  **Prepare** (the original's built the search and paused, which its
+  placement browser and Step needed; here they build assemblers of their
+  own); progress bar with percentage; activity, assemblies, solutions,
   time used.
 - **Step-by-step explorer** (advanced): **Placements** browses the assembly
   search tree, **Movements** browses the disassembly search, **Step**
@@ -498,7 +500,7 @@ where the problem's counts are.
   stored with the problem under the file's names (`nestedSlides`,
   `partialNested`, `anyOrientation`, `mirroredOrientations`, `optimizedPaths`, `highMemory`; a stored `solverType`, the original's
   fast, deep or full, is kept as it was and not written).
-- **Run:** Solve and Prepare are off while the tray's starts and goals
+- **Run:** Solve is off while the tray's starts and goals
   are invalid, with "Fix the start and goal on the Puzzle tab first:
   <reason>" as their tooltip (and the engine refuses with the original's
   message, shown as the failure). During the search the Activity line
@@ -701,8 +703,7 @@ disc lies flat, the rods stand up).
   original's PAR_PANEX_NO_AUTOSAVE is never set). Keep
   mirror, Keep rotated, the thorough check, Strict colours and the sort
   are not shown.
-- **Run:** Solve, Continue, Pause, Abort; no Prepare (a stacking search
-  has nothing to build). Solve and Continue are off while the problem
+- **Run:** Solve, Continue, Pause, Abort. Solve and Continue are off while the problem
   has no board ("Choose a rod set with Set Start/Goal Rods") or its
   stacks are invalid ("Fix the puzzle on the Puzzle tab first: <reason>"
   as their tooltip). **Continue** stands in Solve's place whenever a
@@ -925,7 +926,7 @@ the grids a puzzle converts to are `engine.info`'s `convertsTo`.
 | Problems, result, counts, ranges, groups | `problem_c`, `groupseditor.cpp`, `bulkrangewindow.cpp` |
 | Colour rules | `problem_c` colour constraints, `constraintsgroup.cpp` |
 | Fit summary | `mainwindow.cpp` status line (problem info) |
-| Solve, Prepare, Continue, Pause, Abort, progress | `solvethread.cpp`, `mainwindow_solve.cpp` |
+| Solve, Continue, Pause, Abort, progress | `solvethread.cpp`, `mainwindow_solve.cpp` |
 | Search options | `solveThread_c::PAR_*` flags, `mainwindow_layout.cpp` checkboxes |
 | Placements / Movements / Step | `placementbrowser.cpp`, `movementbrowser.cpp`, assembler single-step |
 | Solutions list, sort, remove | `problem_c` solutions, `mainwindow.cpp` sort/delete callbacks |

@@ -313,6 +313,8 @@ bool lockSearches(bt::FileLock& lock, const std::string& path) {
     std::fprintf(stderr, "shapelogic_cli: %s\n", std::string(bt::kSolvedElsewhere).c_str());
     return false;
   }
+  // what solves that crashed left
+  (void)bt::removeStaleLocks(std::filesystem::path(path).parent_path());
   return true;
 }
 

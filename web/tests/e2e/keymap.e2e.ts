@@ -75,7 +75,7 @@ interface Ctx {
   a: App;
   page: Page;
   dir: string;
-  /** What is open: a fixture and how far it got (solved, prepared). */
+  /** What is open: a fixture and how far it got (solved, or shown in the Solver). */
   state: string;
 }
 
@@ -103,7 +103,7 @@ async function settled(page: Page): Promise<void> {
 /** Opens a fixture (again, if something else or a changed copy is open) in a workspace. */
 async function use(
   c: Ctx,
-  state: 'bermuda' | 'six' | 'bermuda-solved' | 'bermuda-prepared' | 'play',
+  state: 'bermuda' | 'six' | 'bermuda-solved' | 'bermuda-solver' | 'play',
 ): Promise<void> {
   const { page } = c;
   if (state === 'play') {
@@ -124,16 +124,13 @@ async function use(
   if (c.state !== state || (await page.getAttribute('#stage', 'data-dirty')) === '1') {
     await openFixture(page, state === 'six' ? 'SolidSixPieceBurrs.xmpuzzle' : 'Bermuda.xmpuzzle');
     c.state = state;
-    if (state === 'bermuda-solved' || state === 'bermuda-prepared') {
+    if (state === 'bermuda-solved' || state === 'bermuda-solver') {
       await toSolver(page);
       if (state === 'bermuda-solved') {
         await page.click('#slvMode [data-m="dis"]');
         await solverSettled(page);
         await runButton(page, 'start');
         await runEnded(page, 'finished');
-      } else {
-        await runButton(page, 'prepare');
-        await runEnded(page, 'paused');
       }
     }
   }
@@ -649,7 +646,7 @@ const SCENARIOS: Readonly<Record<string, (c: Ctx) => Promise<void>>> = {
   },
 
   'Explorers|↑ / ↓ · ← / →': async (c) => {
-    await use(c, 'bermuda-prepared');
+    await use(c, 'bermuda-solver');
     const { page } = c;
     await page.click('#slvAdv [data-x="placements"]');
     await expect(page.locator('#sdrawer')).toHaveAttribute('data-mode', 'placements');

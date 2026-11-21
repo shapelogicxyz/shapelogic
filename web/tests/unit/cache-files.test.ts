@@ -3,7 +3,8 @@
 // The cache manager (src/main/cache-files.ts): the search folders and the
 // rescue copy as items named after the puzzle a window linked them to,
 // the saved searches of one problem's starts as one item, unfinished
-// searches and stray files apart, deleting by id (refused for a search
+// searches, what earlier versions and a cut-short import leave, and stray
+// files apart, no lock file listed, deleting by id (refused for a search
 // while a solve runs), the links kept by folder name, and the start's
 // sweep of stray files a week old, in a temporary directory.
 
@@ -126,6 +127,39 @@ describe('the cache items', () => {
       'Unfinished sliding search (puzzle not known)',
     ]);
     expect(items.every((i) => i.kind === 'other' || i.kind === 'sliding')).toBe(true);
+  });
+
+  it('names what earlier versions and a cut-short import leave, and lists no lock file', async () => {
+    const links = new CacheLinks(dir);
+    // a sliding search of 1.5 or earlier, left by a crash: never saved
+    const older = search(f.slide, 'search-0123456789abcdef', 10, false);
+    // imports cut short: one of a linked search, one of a stacking search
+    search(f.slide, `${S1}.import`, 5);
+    await links.record(
+      { folders: [join(f.slide, S1)], path: '/p/Climb.xmpuzzle', name: 'Climb', problem: 'Main' },
+      f,
+    );
+    search(f.panex, `${P1}.import`, 5);
+    // the lock files solves that crashed left, and the file browser's own
+    writeFileSync(join(f.slide, 'solve-0123456789abcdef.lock'), '');
+    writeFileSync(join(f.panex, `${P1}.lock`), '');
+    writeFileSync(join(f.slide, '.DS_Store'), 'x');
+    await listItems(f, rescue, links);
+    // listed again: the import keeps its search's link
+    const items = await listItems(f, rescue, links);
+    expect(items.map((i) => i.title).sort()).toEqual([
+      'Unfinished import of a paused sliding solve of Climb.xmpuzzle, Main',
+      'Unfinished import of a paused stacking solve (puzzle not known)',
+      'Unfinished sliding search from version 1.5 or earlier',
+    ]);
+    const o = items.find((i) => i.title.includes('version 1.5'));
+    expect(o?.kind).toBe('sliding');
+    expect(o?.files).toEqual([join(older, 'f1.lvl')]);
+    expect(items.every((i) => i.kind !== 'other')).toBe(true);
+    // deleted as any item is
+    const r = await deleteItem(o?.id ?? '', f, rescue, links, never);
+    expect(r.ok).toBe(true);
+    expect(existsSync(older)).toBe(false);
   });
 
   it('names the rescue copy from its record', async () => {
@@ -253,6 +287,27 @@ describe('the start’s sweep of other files', () => {
     await sweepOther(f, now + OTHER_MAX_AGE + 1000);
     expect(existsSync(stray) || existsSync(join(f.slide, 'fresh.tmp'))).toBe(false);
     expect(existsSync(old) && existsSync(saved)).toBe(true);
+  });
+
+  it('deletes an older version’s search and a cut-short import a week old, never a lock file', async () => {
+    const now = Date.now();
+    const older = search(f.slide, 'search-0123456789abcdef', 10, false);
+    const imported = search(f.panex, `${P1}.import`, 5);
+    const lock = join(f.slide, 'solve-0123456789abcdef.lock');
+    writeFileSync(lock, '');
+    for (const p of [
+      join(older, 'f1.lvl'),
+      older,
+      join(imported, 'f1.lvl'),
+      join(imported, 'state.bin'),
+      imported,
+      lock,
+    ]) {
+      age(p, now, 30);
+    }
+    await sweepOther(f, now);
+    expect(existsSync(older) || existsSync(imported)).toBe(false);
+    expect(existsSync(lock)).toBe(true);
   });
 
   it('does nothing without the folders', async () => {

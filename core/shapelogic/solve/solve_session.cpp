@@ -1877,8 +1877,12 @@ FileLock::Outcome SolveSession::lockSearches(FileLock& lock) const {
   }
   std::error_code ec;
   std::filesystem::create_directories(folder, ec);
-  return lock.tryAcquire(path) == FileLock::Outcome::Busy ? FileLock::Outcome::Busy
-                                                          : FileLock::Outcome::Held;
+  if (lock.tryAcquire(path) == FileLock::Outcome::Busy) {
+    return FileLock::Outcome::Busy;
+  }
+  // what solves that crashed left (the cache manager does not list them)
+  (void)removeStaleLocks(folder);
+  return FileLock::Outcome::Held;
 }
 
 void SolveSession::leave(SolveState state) {

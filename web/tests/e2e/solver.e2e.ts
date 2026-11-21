@@ -9,7 +9,7 @@
 // with its confirmation; Analyse with the assemblies that do not come
 // apart marked, and with progress and a stop that keeps what was done;
 // pause, continue and abort on a box of dominoes, a save at a save point
-// then carrying on (the autosave), Prepare then Continue, the error run of
+// then carrying on (the autosave), a solve then Reset, the error run of
 // the contract suite shown with its failure; two problems solved at once;
 // a sliding puzzle solved as bt solves it and played along its routes, a
 // stacking one too (stacking.e2e.ts plays it in transfers); the pieces'
@@ -514,7 +514,7 @@ test('Analyse: what does not come apart is marked, the rest removed; a stop keep
   }
 });
 
-test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare then Continue; an error shown', async () => {
+test('a box of dominoes: pause, continue, a save at a save point, abort; a solve then Reset; an error shown', async () => {
   test.setTimeout(180_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log, autosave: 2 });
@@ -604,15 +604,12 @@ test('a box of dominoes: pause, continue, a save at a save point, abort; Prepare
     });
     expect(gone).toMatchObject({ saved: 0, state: 'unsolved' });
 
-    // Prepare then Continue, on a smaller box
+    // a solve to its end, on a smaller box
     const small = await dominoBox(page, 2, 4, 3);
     await page.click(`#slvProbs .row[data-id="${small.problem}"]`);
     await solverSettled(page);
     expect(await shownProblem(page)).toBe(small.problem);
-    await runButton(page, 'prepare');
-    await runEnded(page, 'paused');
-    await expect(page.locator('#slvActivity')).not.toHaveText('');
-    await runButton(page, 'continue');
+    await runButton(page, 'start');
     await runEnded(page, 'finished');
     expect(Number(await attr(page, '#leftS', 'data-assemblies'))).toBeGreaterThan(0);
     await expect(page.locator('#slvRun [data-r="abort"]')).toHaveCount(0);
@@ -761,7 +758,6 @@ test('two problems solved at once; sliding and stacking solved', async () => {
     // a stacking puzzle solves as bt solves it (the Stacking Solver, its board's)
     await openFixture(page, 'test_stacking_hanoi.xmpuzzle');
     await toSolver(page);
-    await expect(page.locator('#slvRun [data-r="prepare"]')).toHaveCount(0);
     await expect(page.locator('#emptyMsg')).toHaveText('Run the solver to see solutions here');
     await runButton(page, 'start');
     await runEnded(page, 'finished');

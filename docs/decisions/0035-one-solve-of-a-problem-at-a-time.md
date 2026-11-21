@@ -38,6 +38,14 @@ holder removes it before letting go, and a lock taken on a file that was
 just removed does not count (the file must still be the one its path
 names).
 
+A holder that ends without letting go (a crash) leaves its file on macOS
+and Linux, holding nothing. A solve that takes its lock removes the others
+in the folder that nobody holds (`removeStaleLocks`: each is taken and let
+go, so a held one is never touched), in the app and the command line. The
+cache manager does not list lock files and its weekly sweep leaves them:
+only the system knows which are held, and a solve of the command line may
+hold one for longer than a week.
+
 **A second solve is refused, before anything is dropped.**
 `SolveSession::start`, `prepare` and `resume` take the lock first and
 answer `IoError` ("another solve of this problem is under way…") when

@@ -135,7 +135,7 @@ export class SolverWorkspace {
   /** The solution selected: its place in the sorted list and its id. */
   sel = -1;
   selId: string | null = null;
-  /** A run call under way (Solve, Prepare, Continue, Pause, Abort). */
+  /** A run call under way (Solve, Continue, Pause, Abort). */
   calling = false;
   /** The snapshot revision the cards show, or -1 while loading. */
   shown = -1;
@@ -224,7 +224,8 @@ export class SolverWorkspace {
       options: () => this.optionsNow(),
       solution: () =>
         this.selId !== null && this.player.row?.id === this.selId ? this.player.row : null,
-      assemblyReady: () => this.current !== null && this.stateOf(this.current) === 'paused',
+      assemblable: () =>
+        this.detail !== null && this.detail.result !== null && this.detail.pieces > 0,
       changed: () => {
         this.explorer.renderButtons();
         this.renderTag();
@@ -1197,14 +1198,14 @@ export class SolverWorkspace {
 
   // ---- the run ----
 
-  /** Solve, Prepare or Continue: the run is the record's once the call is answered. */
-  async run(kind: 'start' | 'prepare' | 'continue'): Promise<void> {
+  /** Solve or Continue: the run is the record's once the call is answered. */
+  async run(kind: 'start' | 'continue'): Promise<void> {
     const problem = this.current;
     if (problem === null || this.calling || this.running || this.analysing) {
       return;
     }
     let options = this.optionsNow();
-    if (this.sliding && kind !== 'prepare' && options.sliding?.optimizedPaths !== true) {
+    if (this.sliding && options.sliding?.optimizedPaths !== true) {
       if (kind === 'continue') {
         // a run that used optimized paths goes on with them: as this session
         // started it, or (a file opened with the solve paused) by the grid
@@ -1323,15 +1324,14 @@ export class SolverWorkspace {
     return k === null || k === 'cancel' ? null : k === 'optimized';
   }
 
-  /** The call of Solve, Prepare or Continue for a problem, shown or not. */
+  /** The call of Solve or Continue for a problem, shown or not. */
   private async launchRun(
     problem: string,
-    kind: 'start' | 'prepare' | 'continue',
+    kind: 'start' | 'continue',
     options: ReturnType<typeof solveOptions>,
   ): Promise<void> {
     const solver: Solver = options.solver ?? 'classic';
-    const method =
-      kind === 'start' ? 'solve.start' : kind === 'prepare' ? 'solve.prepare' : 'solve.continue';
+    const method = kind === 'start' ? 'solve.start' : 'solve.continue';
     this.calling = true;
     this.runCard.render();
     try {
@@ -1347,7 +1347,7 @@ export class SolverWorkspace {
         }),
       );
     } catch (e) {
-      reportError(e, kind === 'start' ? 'Solve' : kind === 'prepare' ? 'Prepare' : 'Continue');
+      reportError(e, kind === 'start' ? 'Solve' : 'Continue');
     } finally {
       this.calling = false;
       this.render();

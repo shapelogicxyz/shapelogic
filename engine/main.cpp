@@ -35,6 +35,12 @@ int main(int argc, char** argv) {
   (void)_setmode(_fileno(stdin), _O_BINARY);
 #endif
   std::ios::sync_with_stdio(false);
+  // std::cin is tied to std::cout: each read would flush std::cout first.
+  // The reader thread reads std::cin while the main thread writes std::cout,
+  // and two flushes of one unsynchronised buffer at once can write a reply
+  // twice (seen on Linux when the tests run side by side). Only the main
+  // thread flushes std::cout.
+  std::cin.tie(nullptr);
   // a slide search reads many level files at once
   (void)bt::raiseOpenFileLimit(4096);
   {
