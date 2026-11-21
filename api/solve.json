@@ -17,7 +17,7 @@
       "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported", "io_error"]
     },
     "solve.continue": {
-      "summary": "Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start. Refused (io_error) while another solve of the same problem holds its search folders, as solve.start is.",
+      "summary": "Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start. Without options, a solve paused in memory (solve.pause, a save point) goes on with the options of its last run, so the one who carries it on need not have kept them (the autosave; a page that was reloaded); any other solve gets the defaults, as solve.start does. Refused (invalid_argument) when the options name another search than the one a sliding solve paused in memory has saved (the nested slides, the vertical moves, the orientations, the optimized paths), which would search from the first move with the saved search left behind: carry it on with its own options, or solve.abort and solve.start. Refused (io_error) while another solve of the same problem holds its search folders, as solve.start is.",
       "params": {"$ref": "#/$defs/Launch"},
       "result": {"$ref": "types.json#/$defs/Changed"},
       "errors": ["not_found", "invalid_argument", "invalid_state", "unsupported", "io_error"]

@@ -135,6 +135,36 @@ Result<void> SolveSession::setOptions(const SolveOptions& options) {
   return {};
 }
 
+std::string SolveSession::resumeRefusal(const SolveOptions& options) const {
+  if (!sliding_ || stacking_ || state_.load() != SolveState::Paused) {
+    return "";
+  }
+  const sliding::SlidingOptions& was = runOptions_.sliding;
+  const sliding::SlidingOptions& now = options.sliding;
+  std::string differ;
+  const auto tell = [&differ](bool same, std::string_view name) {
+    if (!same) {
+      differ.append(differ.empty() ? "" : ", ").append(name);
+    }
+  };
+  tell(was.nested == now.nested, "nested slides");
+  tell((was.nested && was.partialNested) == (now.nested && now.partialNested),
+       "partially nested slides");
+  tell(was.verticalMoves == now.verticalMoves, "vertical moves");
+  tell(was.anyOrientation == now.anyOrientation, "any orientation for unplaced pieces");
+  tell((was.anyOrientation && was.mirroredOrientations) ==
+           (now.anyOrientation && now.mirroredOrientations),
+       "mirrored orientations");
+  tell(slideGrid_ == sliding::searchGrid(puzzle_, problem_, now), "optimized paths");
+  // nothing saved: a search with other options leaves nothing behind
+  if (differ.empty() || sliding::savedFolders(puzzle_, problem_, was.workDir).empty()) {
+    return "";
+  }
+  return "the paused search was made with other search options (" + differ +
+         "): set them as they were to carry it on; to search with these instead, Abort, then "
+         "Solve";
+}
+
 Result<void> SolveSession::start() { return launch(Mode::Start); }
 
 Result<void> SolveSession::prepare() { return launch(Mode::Prepare); }
@@ -1212,6 +1242,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.savePoint = assemblyToken();
       search.progress = &slideProgress_;
       search.depthProgress = &searchDepth_;
+      search.pickingUpSince = &slidePickingUpSince_;
       search.sample = &sample_;
       search.pool = slidePool_.get();
       search.memoryShare = o.memoryShare.get();
@@ -1971,6 +2002,12 @@ SolveProgress SolveSession::progress() const {
   slideOpen += slideSearching_.load(std::memory_order_relaxed);
   p.searched = slideProgress_.load(std::memory_order_relaxed);
   p.searchDepth = std::max(deepest, searchDepth_.load(std::memory_order_relaxed));
+  if (const std::int64_t since = slidePickingUpSince_.load(std::memory_order_relaxed);
+      isActive(st) && since != 0) {
+    p.slidePickingUp = true;
+    p.slidePickingUpMs =
+        static_cast<std::uint64_t>(std::max<std::int64_t>(sliding::slideClockMs() - since, 0));
+  }
   p.searchTraced = searchTraced_.load(std::memory_order_relaxed);
   p.disasmCompleted = completed_.load(std::memory_order_relaxed);
   p.disasmPending = pending_.load(std::memory_order_relaxed);

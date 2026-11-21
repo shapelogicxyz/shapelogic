@@ -2118,7 +2118,7 @@ Errors: `not_found`, `invalid_argument`, `invalid_state`, `unsupported`, `io_err
 
 ### `solve.continue`
 
-Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start. Refused (io_error) while another solve of the same problem holds its search folders, as solve.start is.
+Carries on a paused solve, one saved in the file, a stacking problem's saved search, or an unsolved problem from the start. Without options, a solve paused in memory (solve.pause, a save point) goes on with the options of its last run, so the one who carries it on need not have kept them (the autosave; a page that was reloaded); any other solve gets the defaults, as solve.start does. Refused (invalid_argument) when the options name another search than the one a sliding solve paused in memory has saved (the nested slides, the vertical moves, the orientations, the optimized paths), which would search from the first move with the saved search left behind: carry it on with its own options, or solve.abort and solve.start. Refused (io_error) while another solve of the same problem holds its search folders, as solve.start is.
 
 Params:
 
@@ -3584,6 +3584,8 @@ One take-apart under way.
 | `slideStop` | object or null | required |  |
 | `atSavePoint` | boolean | required | Stage paused: the run paused at the save point asked for (solve.savePoint) and for no other reason, so the one who asked saves and carries it on (solve.continue). False when it paused for anything else meanwhile (solve.pause, a slide search that ran out of disk), which is the user's to see, and in every other stage. |
 | `slideForecast` | [SlideForecast](#slideforecast) or null | required | A sliding solve: the forecast from the times of the moves the slide search under way (or paused) has searched, and how long the move it is on has run. Null before a move is timed, and on other grids. |
+| `slidePickingUp` | boolean | required | A sliding solve's run is taking up the search it saved (after solve.continue: its level files opened, the arrangements visited read back, the level that waited to go among them put there) and searches no move yet, so the forecast's move has not begun to run and no solve.preview comes. Mostly a few seconds; in the later moves of a deep search now and then many minutes. False otherwise. |
+| `slidePickingUpMs` | integer | required | With slidePickingUp: how long the run has been taking its saved search up, in milliseconds. 0 otherwise. |
 
 ### SlideForecast
 

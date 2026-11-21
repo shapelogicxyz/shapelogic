@@ -209,7 +209,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -237,7 +239,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 56,
+     "elapsedMs": 55,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
@@ -262,7 +264,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },

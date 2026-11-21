@@ -3,8 +3,9 @@
 // The demo's window.btApp: what Electron's main process gives the app,
 // for a page on the website. There are no menus, dialogs or files: the
 // settings start from the defaults and are not kept, nothing is written,
-// and Help opens the site's guide.
+// Help opens the site's guide, and the Play tab's goal window is a popup.
 
+import { goalPage, goalWindowSize } from '../engine/app-bridge.ts';
 import type { AppCommand, BtApp, CliToolResult } from '../engine/app-bridge.ts';
 
 /** The demo's app, with a way to send it a command as the menus would. */
@@ -20,6 +21,9 @@ const nothing = (): void => undefined;
 export function demoApp(version: string): DemoApp {
   const handlers = new Set<(command: AppCommand) => void>();
   const refused: CliToolResult = { ok: false, error: NOT_HERE };
+  /** The goal's popup, once opened, and its page's URL. */
+  let goalPopup: Window | null = null;
+  let goalUrl: string | null = null;
   return {
     platform: /Mac|iPhone|iPad/.test(navigator.userAgent) ? 'darwin' : 'linux',
     version,
@@ -69,6 +73,25 @@ export function demoApp(version: string): DemoApp {
               ? '/docs/getting-started/'
               : '/docs/';
       window.open(page, '_blank', 'noopener');
+    },
+    goalWindow(picture, raise) {
+      // a popup of the page's own, its page a blob: URL of this origin
+      if (!raise && (goalPopup === null || goalPopup.closed)) {
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([goalPage(picture)], { type: 'text/html' }));
+      if (goalUrl !== null) {
+        URL.revokeObjectURL(goalUrl);
+      }
+      goalUrl = url;
+      if (raise) {
+        const size = goalWindowSize(picture);
+        const features = `popup,width=${String(size.width)},height=${String(size.height)}`;
+        goalPopup = window.open(url, 'shapelogic-goal', features);
+        goalPopup?.focus();
+      } else {
+        goalPopup?.location.replace(url);
+      }
     },
     // the site is always the latest: no update to look for
     checkForUpdates: () => Promise.resolve(null),

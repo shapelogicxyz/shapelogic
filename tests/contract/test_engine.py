@@ -1258,6 +1258,76 @@ def sliding_continue_starts_over(e):
 
 
 @test
+def sliding_continue_as_it_ran(e):
+    # a search paused in memory with its levels saved: solve.continue without
+    # options carries it on as it ran, and options that name another search
+    # (it would begin at the first move, the saved one left behind) are refused
+    was = e.call("settings.get")["slideFolder"]
+    with tempfile.TemporaryDirectory() as tmp:
+        folders = lambda: sorted(n for n in os.listdir(tmp)
+                                 if n.startswith("slide-") and os.path.isdir(os.path.join(tmp, n)))
+        try:
+            e.call("settings.set", {"slideFolder": tmp})
+            snap = e.call("document.open",
+                          {"path": str(FIXTURES / "sliding" / "slide_swapped_fifteen.xmpuzzle")})
+            p = snap["problems"][0]["id"]
+            # nested slides are not the default: the defaults name another search
+            ran = {"disassemble": True, "sliding": {"nestedSlides": True}}
+            searching = lambda x: (x["problem"] == p and x["progress"]["stage"] == "search"
+                                   and x["progress"]["searched"] > 0)
+
+            def to_save_point(start):
+                e.wait_event("solve.progress", searching, timeout=600, start=start)
+                e.call("solve.savePoint", {"problem": p})
+                check(wait_state(e, p, ["paused", "finished", "error"], start) == "paused",
+                      "paused at the save point")
+                progress = e.call("solve.status", {"problem": p})["progress"]
+                check(progress["atSavePoint"] and progress["slidePickingUp"] is False and
+                      progress["slidePickingUpMs"] == 0,
+                      f"at the save point {progress}")
+
+            start = len(e.events)
+            e.call("solve.start", {"problem": p, "options": ran})
+            to_save_point(start)
+            one = folders()
+            check(len(one) == 1, f"its search saved {one}")
+            deep = e.call("problem.get", {"problem": p})["searchDepth"]
+            check(deep > 0, "some moves deep")
+
+            # other search options: refused, and nothing is touched
+            for other in ({"disassemble": True},
+                          {"disassemble": True, "sliding": {"nestedSlides": True, "verticalMoves": True}}):
+                err = e.fails("solve.continue", {"problem": p, "options": other}, "invalid_argument")
+                check("the paused search was made with other search options" in str(err) and
+                      "Abort, then Solve" in str(err), f"told why {err}")
+            check(e.call("solve.status", {"problem": p})["state"] == "paused", "still paused")
+            check(folders() == one, "the saved search as it was")
+
+            # without options: as it ran, the same search a level further
+            start = len(e.events)
+            e.call("solve.continue", {"problem": p})
+            to_save_point(start)
+            check(folders() == one, f"the same search carried on {folders()}")
+            check(e.call("problem.get", {"problem": p})["searchDepth"] > deep, "deeper")
+
+            # its own options again, with what names no search changed: taken
+            start = len(e.events)
+            e.call("solve.continue", {"problem": p, "options": {**ran, "keepAtMost": 5}})
+            to_save_point(start)
+            check(folders() == one, "the same search with another limit")
+
+            e.call("solve.abort", {"problem": p})
+            check(folders() == [], "thrown away with the solve")
+            # nothing paused in memory: without options the defaults, as solve.start has them
+            start = len(e.events)
+            e.call("solve.continue", {"problem": p})
+            e.wait_event("solve.state", lambda x: x["problem"] == p, timeout=600, start=start)
+            e.call("solve.abort", {"problem": p})
+        finally:
+            e.call("settings.set", {"slideFolder": was})
+
+
+@test
 def sliding_start_goal_shapes(e):
     e.call("document.new", {"grid": "sliding"})
     # two pieces: one cell, and two cells side by side

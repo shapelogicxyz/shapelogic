@@ -24,11 +24,11 @@
     "state:p3:assembling:active",
     "progress:p3:assembling:active",
     "added:p3:assembling:active",
-    "added:5680:3:1",
+    "added:8058:3:1",
     "state:p3:paused:ending",
     "progress:p3:paused:ending",
     "added:p3:paused:ending",
-    "added:5682:5682:0",
+    "added:8064:8062:1",
     "changed:10:p3",
     "ended:p3:paused:none"
    ]
@@ -40,7 +40,7 @@
    "revision": 12
   },
   {
-   "version": 5683,
+   "version": 8065,
    "trace": [
     "changed:11:p3",
     "launch:p3:paused:none",
@@ -48,7 +48,7 @@
     "state:p3:assembling:active",
     "progress:p3:assembling:active",
     "added:p3:assembling:active",
-    "added:5683:5683:0"
+    "added:8065:8065:0"
    ]
   },
   {
@@ -61,7 +61,7 @@
     "state:p3:idle:ending",
     "progress:p3:idle:ending",
     "added:p3:idle:ending",
-    "added:5686:5683:1",
+    "added:8070:8066:1",
     "changed:14:p3",
     "ended:p3:idle:none"
    ]
@@ -80,7 +80,7 @@
     "state:p3:paused:ending",
     "progress:p3:paused:ending",
     "added:p3:paused:ending",
-    "added:6382:5683:0",
+    "added:9006:8066:0",
     "changed:16:p3",
     "ended:p3:paused:none"
    ]
@@ -95,7 +95,7 @@
     "state:p3:idle:none",
     "progress:p3:idle:none",
     "added:p3:idle:none",
-    "added:6383:5683:0"
+    "added:9007:8066:0"
    ]
   },
   {
@@ -117,11 +117,11 @@
     "state:p3:preparing:active",
     "progress:p3:preparing:active",
     "added:p3:preparing:active",
-    "added:3:5683:0",
+    "added:3:8066:0",
     "state:p3:finished:ending",
     "progress:p3:finished:ending",
     "added:p3:finished:ending",
-    "added:2859:5683:0",
+    "added:2859:8066:0",
     "changed:27:p3",
     "ended:p3:finished:none"
    ]
@@ -298,7 +298,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -326,24 +328,24 @@
     "state": "assembling",
     "progress": {
      "stage": "assemble",
-     "elapsedMs": 285,
-     "usedMs": 285,
+     "elapsedMs": 274,
+     "usedMs": 274,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.0017146776663139462,
-     "iterations": 19307,
+     "assemblyFraction": 0.002057613106444478,
+     "iterations": 26585,
      "assemblerThreads": 1,
-     "assemblies": 2905,
-     "solutions": 2840,
+     "assemblies": 4094,
+     "solutions": 4030,
      "disassembly": true,
-     "disasmCompleted": 2840,
-     "disasmPending": 66,
+     "disasmCompleted": 4030,
+     "disasmPending": 65,
      "disasmWorkers": 1,
-     "overall": 0.001695664948783815,
+     "overall": 0.002041529631242156,
      "overallKnown": true,
      "levelFraction": 0,
-     "secondsLeft": 165.34479751651318,
-     "activity": "assemble, disassemble 2840 done 66 waiting, level 0: 0/1, split 11/19",
+     "secondsLeft": 132.8900040306059,
+     "activity": "assemble, disassemble 4030 done 65 waiting",
      "searched": 0,
      "searchDepth": 0,
      "searchTraced": 0,
@@ -351,7 +353,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -360,9 +364,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 5680,
-    "assemblies": 2905,
-    "solutions": 2841
+    "solutionsVersion": 8058,
+    "assemblies": 4095,
+    "solutions": 4030
    }
   },
   {
@@ -379,20 +383,20 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 342,
-     "usedMs": 285,
+     "elapsedMs": 330,
+     "usedMs": 275,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.0018406324088573456,
-     "iterations": 19312,
+     "assemblyFraction": 0.002492434810847044,
+     "iterations": 26601,
      "assemblerThreads": 1,
-     "assemblies": 2908,
-     "solutions": 2842,
+     "assemblies": 4098,
+     "solutions": 4033,
      "disassembly": true,
-     "disasmCompleted": 2842,
+     "disasmCompleted": 4033,
      "disasmPending": 0,
      "disasmWorkers": 1,
-     "overall": 0.0018197824247181416,
+     "overall": 0.0024727166164666414,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
@@ -404,7 +408,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -413,9 +419,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 5682,
-    "assemblies": 2908,
-    "solutions": 2842
+    "solutionsVersion": 8064,
+    "assemblies": 4098,
+    "solutions": 4033
    }
   },
   {
@@ -474,19 +480,19 @@
     "progress": {
      "stage": "assemble",
      "elapsedMs": 0,
-     "usedMs": 285,
+     "usedMs": 275,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.0018406324088573456,
-     "iterations": 19312,
+     "assemblyFraction": 0.002492434810847044,
+     "iterations": 26601,
      "assemblerThreads": 1,
-     "assemblies": 2908,
-     "solutions": 2842,
+     "assemblies": 4098,
+     "solutions": 4033,
      "disassembly": true,
      "disasmCompleted": 0,
      "disasmPending": 0,
      "disasmWorkers": 1,
-     "overall": 0.0009203162044286728,
+     "overall": 0.001246217405423522,
      "overallKnown": false,
      "levelFraction": 0,
      "secondsLeft": null,
@@ -498,7 +504,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -507,9 +515,9 @@
    "params": {
     "problem": "p3",
     "saved": 4,
-    "solutionsVersion": 5683,
-    "assemblies": 2908,
-    "solutions": 2842
+    "solutionsVersion": 8065,
+    "assemblies": 4098,
+    "solutions": 4033
    }
   },
   {
@@ -544,13 +552,13 @@
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.5004605650901794,
+     "assemblyFraction": 0.5006762146949768,
      "iterations": 0,
      "assemblerThreads": 1,
      "assemblies": 0,
      "solutions": 0,
      "disassembly": true,
-     "disasmCompleted": 1,
+     "disasmCompleted": 2,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0,
@@ -565,7 +573,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -574,7 +584,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 5686,
+    "solutionsVersion": 8070,
     "assemblies": 0,
     "solutions": 0
    }
@@ -635,20 +645,20 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 117,
-     "usedMs": 57,
+     "elapsedMs": 110,
+     "usedMs": 55,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.0000972444613580592,
-     "iterations": 2296,
+     "assemblyFraction": 0.0001286008337046951,
+     "iterations": 3235,
      "assemblerThreads": 1,
-     "assemblies": 415,
-     "solutions": 350,
+     "assemblies": 536,
+     "solutions": 470,
      "disassembly": true,
-     "disasmCompleted": 350,
+     "disasmCompleted": 470,
      "disasmPending": 0,
      "disasmWorkers": 1,
-     "overall": 0.5000486373901367,
+     "overall": 0.00012068414071109146,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
@@ -660,7 +670,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -669,9 +681,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 6382,
-    "assemblies": 415,
-    "solutions": 350
+    "solutionsVersion": 9006,
+    "assemblies": 536,
+    "solutions": 470
    }
   },
   {
@@ -716,17 +728,17 @@
     "state": "idle",
     "progress": {
      "stage": "idle",
-     "elapsedMs": 118,
+     "elapsedMs": 110,
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.0000972444613580592,
+     "assemblyFraction": 0.0001286008337046951,
      "iterations": 0,
      "assemblerThreads": 1,
      "assemblies": 0,
      "solutions": 0,
      "disassembly": true,
-     "disasmCompleted": 350,
+     "disasmCompleted": 470,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0,
@@ -741,7 +753,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -750,7 +764,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 6383,
+    "solutionsVersion": 9007,
     "assemblies": 0,
     "solutions": 0
    }
@@ -901,7 +915,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -929,7 +945,7 @@
     "state": "finished",
     "progress": {
      "stage": "done",
-     "elapsedMs": 56,
+     "elapsedMs": 55,
      "usedMs": 19,
      "piece": 0,
      "pieces": 0,
@@ -954,7 +970,9 @@
      "stopKind": null,
      "slideStop": null,
      "atSavePoint": false,
-     "slideForecast": null
+     "slideForecast": null,
+     "slidePickingUp": false,
+     "slidePickingUpMs": 0
     }
    }
   },
@@ -994,8 +1012,8 @@
    "params": {
     "problem": "p3",
     "total": 2856,
-    "done": 0,
-    "separated": 0,
+    "done": 1,
+    "separated": 1,
     "stopped": true,
     "failure": null
    }

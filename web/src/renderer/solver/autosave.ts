@@ -69,14 +69,14 @@
 // under way is asked for a save point at once, not a minute in (the pause
 // is then this page's own to carry on), and a solve that pauses at a save
 // point meanwhile, or was found paused at one, is carried on (`pickUp`).
-// The options to carry a run on with are the ones it was started with,
-// kept across the reload (run-options.ts): with others a sliding search
-// begins again at the first move. A solve the user paused is paused by the
+// A run is carried on without options: the engine carries a solve paused
+// in memory on as it ran (solve.continue), so no page has to have kept
+// what it was started with; with other options a sliding search would be
+// another search. A solve the user paused is paused by the
 // pause, not at a save point, and stays so; one the user paused in the
 // moment a save had it at its save point is carried on by the page that
 // follows a reload, which cannot tell it from a save left unfinished.
 
-import type { SolveOptions } from '../../engine/api.generated.ts';
 import { isActive } from '../state/solves.ts';
 import type { Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
@@ -95,7 +95,6 @@ export class Autosave {
   saves = 0;
   private readonly store: Store;
   private readonly solves: Solves;
-  private readonly optionsOf: (problem: string) => SolveOptions;
   private readonly floor = floor();
   /** The wait before the next save, from `since` (cadence.ts). */
   private wait = this.floor;
@@ -143,12 +142,10 @@ export class Autosave {
   constructor(
     store: Store,
     solves: Solves,
-    optionsOf: (problem: string) => SolveOptions,
     continued: (problem: string) => void = () => undefined,
   ) {
     this.store = store;
     this.solves = solves;
-    this.optionsOf = optionsOf;
     this.continued = continued;
     window.setInterval(
       () => {
@@ -272,9 +269,9 @@ export class Autosave {
         this.picked.delete(problem);
         return;
       }
-      const options = this.optionsOf(problem);
-      await e.call('solve.continue', { problem, options });
-      this.solves.launch(problem, options.solver ?? null);
+      // as it ran: the engine keeps a paused solve's options
+      await e.call('solve.continue', { problem });
+      this.solves.launch(problem, null);
       this.continued(problem);
       flash('The solve was paused for a save — it carries on');
     } catch (x) {
@@ -486,10 +483,10 @@ export class Autosave {
         if (this.store.generation !== gen || this.held.has(p) || !this.pausedForSave(p)) {
           continue;
         }
-        const options = this.optionsOf(p);
         try {
-          await e.call('solve.continue', { problem: p, options });
-          this.solves.launch(p, options.solver ?? null);
+          // as it ran: the engine keeps a paused solve's options
+          await e.call('solve.continue', { problem: p });
+          this.solves.launch(p, null);
           this.continued(p);
         } catch (x) {
           reportError(x, 'Continue');

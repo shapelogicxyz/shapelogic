@@ -194,6 +194,9 @@ const btApp: BtApp = {
   openHelp(link) {
     ipcRenderer.send('bt:help', link);
   },
+  goalWindow(picture, raise) {
+    ipcRenderer.send('bt:goal-window', picture, raise);
+  },
   checkForUpdates(auto) {
     return ipcRenderer.invoke('bt:check-updates', auto) as Promise<UpdateResult | null>;
   },

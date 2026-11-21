@@ -13,8 +13,9 @@ The problem list and the buttons are on the left; the board is in the
 middle. Beside it are the number of moves made, **Reset**, **Undo** and
 **Redo**, then the buttons of the kind of puzzle, and the playback bar is
 below. For a sliding puzzle those buttons are **Hide Goal Shadows**,
-**Hide Goal Lines**, **Hide Grid**, **Hide Piece Labels** and **Simple
-Pieces**; a stacking puzzle has a picture of the Goal, **Hide Goal** and
+**Hide Goal Lines**, **Show Goal Image**, **Hide Grid**, **Hide Piece
+Labels** and **Simple Pieces**; a stacking puzzle has a picture of the
+Goal, **Hide Goal** and
 **Hide Disc Labels** ([Stacking puzzles](#stacking-puzzles) below).
 
 Most of this page describes a sliding puzzle. Undo, Redo, the playback,
@@ -39,6 +40,13 @@ back), and **Hide Piece Labels** for the names written on the pieces
 in a flat tray with square corners; **3D Pieces** brings back the rounded
 pieces with their sides showing. Each choice holds for every problem you
 play until you change it.
+
+**Show Goal Image** opens a picture of the goal in a window of its own:
+the board with each piece that has a goal standing on it (pieces without
+one are left out). Drag the window anywhere and size it as you like; the
+picture grows and shrinks with it, and it stays above the app's window
+while you play. It follows the problem you play, and closes with the app's
+window. Click the button again to bring it forward.
 
 ![The buttons beside the board: the number of moves, Reset, Undo, Redo, Hide Goal Shadows, Hide Goal Lines, Hide Grid, Hide Piece Labels and Simple Pieces.](../../../assets/screens/guide/play-side.png)
 
@@ -90,10 +98,15 @@ hand, even if the problem allows vertical moves.
 ![The Play tab with a three-disc Tower of Hanoi after two moves: the rods in the middle with a disc on each, the Goal's picture and the buttons beside them.](../../../assets/screens/guide/play-stacking.png)
 
 The board shows the rods from the front. Each disc is a bar as wide as its
-size, with its name on it or, when it has none, its size. The **Goal**
-picture beside the board shows where the discs must end; **Hide Goal**
-takes it away so you can play without it, and **Hide Disc Labels** takes
-the names and sizes off the discs.
+size, with its name on it or, when it has none, its size. A name too long
+for its disc is cut to the first letter of each word ("Right 1" shows as
+"R 1"), and left off when even that doesn't fit. The **Goal**
+picture beside the board shows where the discs must end; click it to open
+the Goal larger in a window of its own, which you can drag anywhere and
+size as you like (the small icon at its top right says so; see **Show Goal
+Image** above). **Hide Goal** takes the picture away so you can play
+without it, and **Hide Disc Labels** takes the names and sizes off the
+discs.
 
 Only the top disc of a rod moves. To move it, either:
 
@@ -125,6 +138,10 @@ it: a disc rests on the step that matches its size, or on the disc below
 it. The band across the top is the bridge. One disc more than a column
 holds can wait there, raised, and while it does it blocks every move that
 would pass over it.
+
+With **Extra outside channel** on, a loop over the bridge joins the first
+and last columns: a move between those two goes round the outside, so a
+raised disc in between doesn't block it.
 
 ## Undo, Redo and playback
 

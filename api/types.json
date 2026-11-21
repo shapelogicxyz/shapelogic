@@ -497,9 +497,11 @@
         "slideForecast": {
           "oneOf": [{"$ref": "#/$defs/SlideForecast"}, {"type": "null"}],
           "description": "A sliding solve: the forecast from the times of the moves the slide search under way (or paused) has searched, and how long the move it is on has run. Null before a move is timed, and on other grids."
-        }
+        },
+        "slidePickingUp": {"type": "boolean", "description": "A sliding solve's run is taking up the search it saved (after solve.continue: its level files opened, the arrangements visited read back, the level that waited to go among them put there) and searches no move yet, so the forecast's move has not begun to run and no solve.preview comes. Mostly a few seconds; in the later moves of a deep search now and then many minutes. False otherwise."},
+        "slidePickingUpMs": {"type": "integer", "minimum": 0, "description": "With slidePickingUp: how long the run has been taking its saved search up, in milliseconds. 0 otherwise."}
       },
-      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch", "stopKind", "slideStop", "atSavePoint", "slideForecast"],
+      "required": ["stage", "elapsedMs", "usedMs", "piece", "pieces", "assemblyFraction", "iterations", "assemblerThreads", "assemblies", "solutions", "disassembly", "disasmCompleted", "disasmPending", "disasmWorkers", "overall", "overallKnown", "levelFraction", "secondsLeft", "activity", "searched", "searchDepth", "searchTraced", "panexSearch", "stopKind", "slideStop", "atSavePoint", "slideForecast", "slidePickingUp", "slidePickingUpMs"],
       "additionalProperties": false
     },
     "SlideForecast": {

@@ -43,6 +43,7 @@ import {
   isFileKind,
   isMenuState,
   isOpenKind,
+  isGoalPicture,
   isRescueInfo,
 } from '../engine/app-bridge.ts';
 import type {
@@ -60,6 +61,7 @@ import type { CacheFolderManager } from './cache-folder.ts';
 import { deleteItem, listItems } from './cache-files.ts';
 import type { CacheLinks } from './cache-files.ts';
 import { ExportGrants, FolderGrants, isPieceFileName, writeFileSafely } from './export-file.ts';
+import { GoalWindows } from './goal-window.ts';
 import { cliInfo, installCli, macPrivileged, uninstallCli } from './cli-tool.ts';
 import type { PathGrants } from './path-grants.ts';
 import type { PathOwners } from './path-owners.ts';
@@ -467,6 +469,15 @@ export function installAppIpc(h: AppIpcHost): void {
   ipcMain.on('bt:dropped', (e, path: unknown) => {
     if (ours(e) !== null && typeof path === 'string' && path !== '') {
       h.paths.grant(e.sender, path);
+    }
+  });
+
+  // the Play tab's goal picture in its own window (goal-window.ts)
+  const goals = new GoalWindows();
+  ipcMain.on('bt:goal-window', (e, picture: unknown, raise: unknown) => {
+    const win = ours(e);
+    if (win !== null && isGoalPicture(picture)) {
+      goals.show(win, picture, raise === true);
     }
   });
 

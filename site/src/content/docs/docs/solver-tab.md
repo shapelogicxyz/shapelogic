@@ -46,7 +46,7 @@ levels.
 
 Click **Search options** to open or close the list. When it is closed, the
 header says how many options differ from the defaults (for example
-**· 2 changed**).
+**2 changed**) and lists them by name.
 
 ![The search options for a brick puzzle, with their descriptions.](../../../assets/screens/guide/solver-options.png)
 
@@ -263,8 +263,12 @@ symmetry and color ones:
 While a sliding solve runs, or is paused, and no solution has been found
 yet, a **Performance Analysis** box sits under the empty solutions list. It
 times each move deep the search goes and shows how much longer each move
-takes than the one before, worked out from the last few moves. From that it
-estimates every fifth move ahead, eleven rows from the next multiple of
+takes than the one before, worked out from the last few moves. Its table
+starts with the move last searched (how long it took, and **Complete**) and
+the move being searched now: its **Time** counts up, and its **Remaining**
+counts down to when the move should end. A move that takes longer than
+estimated counts on below zero, in red. Below those it
+estimates every fifth move ahead, from the next multiple of
 five (58 moves deep shows 60 to 110): how long that move will take, and how
 long until the search gets there. The estimates are
 worked out again each time a move ends, so they settle as the search goes
@@ -274,6 +278,20 @@ puzzle is opened again. Its times count from when you press **Continue**.
 A solve paused by an older version, which kept no times, shows its moves
 without times. Its estimates start once two more moves have been timed
 after **Continue**. The box goes once the solve is through.
+
+After **Continue**, and each time the search is saved for crash recovery,
+the search first reads the moves it saved back in. That usually takes only
+a few seconds, but in the later moves of a big solve it can occasionally
+take 2 to 10 minutes or more. Until it is done the box, the empty list and
+the view say **Picking up the saved search…** with a timer that counts the
+seconds, and no move is timed.
+
+A paused search is carried on as the search it is. If you change **Allow
+Nested Slides**, **Allow Partially Nested**, **Allow Vertical Moves**, the
+orientation options or optimized paths while it is paused, **Continue**
+tells you which options differ and leaves the solve paused: set them back
+to carry it on, or press **Abort**, then **Solve**, to search with the new
+options from the first move.
 
 ### Options for stacking puzzles
 

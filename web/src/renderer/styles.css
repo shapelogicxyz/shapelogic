@@ -195,7 +195,7 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .vtag{position:absolute;left:14px;top:84px;display:flex;align-items:center;gap:8px;z-index:2;color:var(--muted);font-size:calc(12px + var(--fs))}
 #stage.f2d .vtag{display:none}
 .hint{position:absolute;left:14px;bottom:12px;color:var(--muted);font-size:calc(12px + var(--fs));z-index:2}
-.empty{position:absolute;inset:0;display:none;place-items:center;color:var(--muted);pointer-events:none}
+.empty{position:absolute;inset:0;display:none;place-items:center;color:var(--muted);pointer-events:none;white-space:pre-line;text-align:center;padding:0 24px;line-height:1.5;font-variant-numeric:tabular-nums}
 
 /* voxel editor */
 .tools{display:flex;align-items:center;gap:2px;padding:6px 10px;border-bottom:1px solid var(--line);flex:none;flex-wrap:nowrap}
@@ -1153,6 +1153,8 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .rodrow .chip{min-width:34px}
 .rodrow .mute{font-size:calc(11.5px + var(--fs));flex:none}
 .rodf{display:flex;flex-direction:column;gap:6px;padding:10px 12px;flex:none}
+/* every line as tall as one with a number box, so the lines space evenly */
+.rodf>*{min-height:calc(26px + var(--fh))}
 .rodline{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .rodck{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:calc(12.5px + var(--fs))}
 .rodck input{margin:0;flex:none}
@@ -1374,6 +1376,7 @@ button.pl-big:hover:not(:disabled){border-color:var(--accent);color:var(--accent
 .sk-peg,.sk-base{fill:#8c8c94}
 .sk-step{fill:var(--text);fill-opacity:.07}
 .sk-bridge{fill:var(--text);fill-opacity:.05;stroke:var(--line2);stroke-width:1;stroke-dasharray:5 4}
+.sk-channel{fill:none;stroke:var(--text);stroke-opacity:.22;stroke-linecap:round}
 .sk-disc{transition:transform .14s ease-out}
 .sk-disc.drag,.pl-board[data-anim] .sk-disc{transition:none}
 .sk-bar{stroke:rgba(0,0,0,.4);stroke-width:1}
@@ -1387,8 +1390,13 @@ button.pl-big:hover:not(:disabled){border-color:var(--accent);color:var(--accent
 .sk-glow{fill:transparent;pointer-events:none;transition:fill .12s}
 .sk-glow.ok{fill:var(--accentSoft)}
 .pl-board[data-drag] .sk-col{cursor:grabbing}
-.sk-goal{box-sizing:border-box;width:calc(200px + 10 * var(--fs));padding:8px 10px 10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow)}
+.sk-goal{position:relative;display:block;box-sizing:border-box;width:calc(200px + 10 * var(--fs));padding:8px 10px 10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);color:var(--text);font:inherit;text-align:left;cursor:pointer}
 .sk-goal[hidden]{display:none}
-.sk-goal .cap{color:var(--muted);font-weight:600;font-size:calc(12px + var(--fs));margin-bottom:4px}
+.sk-goal:hover{border-color:var(--accent)}
+.sk-goal .cap{display:block;color:var(--muted);font-weight:600;font-size:calc(12px + var(--fs));margin-bottom:4px}
+.sk-goal:hover .cap,.sk-goal:hover .pop{color:var(--accent)}
+.sk-goal .pop{position:absolute;top:7px;right:8px;display:flex;color:var(--muted)}
 .sk-goal .pic{display:grid;place-items:center}
+/* a board drawn out of sight for the goal's window (goal-picture.ts) */
+.goal-room{position:fixed;left:-20000px;top:0;pointer-events:none}
 #plNote:empty{display:none}

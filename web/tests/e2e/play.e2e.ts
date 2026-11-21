@@ -381,3 +381,31 @@ test('with nested slides a piece carries what is nested in it, or moves alone', 
     await a.close();
   }
 });
+
+test('Show Goal Image opens the board with each piece on its goal in a window of its own', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await build(page);
+    await toPlay(page);
+    await expect(page.locator('#plGoalWin')).toHaveText('Show Goal Image');
+    await expect(page.locator('#plGoalWin')).toBeEnabled();
+    const opened = a.app.waitForEvent('window');
+    await page.click('#plGoalWin');
+    const goal = await opened;
+    await expect(goal).toHaveTitle(/^Goal: P1/);
+    await expect(goal.locator('img')).toBeVisible();
+    // the drawing, an image: only the piece with a goal, standing on it, its styles written in
+    const src = (await goal.locator('img').getAttribute('src')) ?? '';
+    const svg = Buffer.from(src.replace(/^data:image\/svg\+xml;base64,/, ''), 'base64').toString();
+    expect(svg).toMatch(/^<svg /);
+    const pieces = [...svg.matchAll(/<g data-i="\d+"[^>]*data-at="([^"]+)"/g)].map((m) => m[1]);
+    expect(pieces).toEqual(['2,1,0']);
+    expect(svg).not.toContain('class=');
+    expect(svg).not.toContain('<script');
+    // the window goes with the app's: the menus still act on the app window
+    expect(a.app.windows()).toHaveLength(2);
+  } finally {
+    await a.close();
+  }
+});

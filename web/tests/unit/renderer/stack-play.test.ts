@@ -11,7 +11,9 @@ import { restarted, seek, solvedAt } from '../../../src/renderer/play/game.ts';
 import { MOVES_FORMAT, parse } from '../../../src/renderer/play/moves-file.ts';
 import {
   discAt,
+  fittedLabel,
   levelY,
+  LIFT,
   rodAt,
   rodColumn,
   rodX,
@@ -226,6 +228,7 @@ describe('a stacking board’s drawing', () => {
       capacity: 3,
     })),
     panex: false,
+    channel: false,
     discs: [3, 2, 1].map((size) => ({ size, colour, label: String(size) })),
   };
 
@@ -249,6 +252,22 @@ describe('a stacking board’s drawing', () => {
     const [x, y] = discAt(hanoi, look, 3, 1, 2);
     expect(x + (7 * look.u) / 2).toBeCloseTo(xs[1] ?? 0);
     expect(y).toBeCloseTo(levelY(look, 2));
+  });
+
+  it('shortens a label too wide for its disc to its words’ first letters', () => {
+    expect(fittedLabel('Right 1', 7)).toBe('Right 1');
+    expect(fittedLabel('Right 1', 6)).toBe('R 1');
+    expect(fittedLabel('Left 12', 4)).toBe('L 12');
+    expect(fittedLabel('Big red disc', 5)).toBe('B r d');
+    expect(fittedLabel('Right 1', 2)).toBe('');
+    // on a narrow board the smallest disc has room for the short form only
+    const named: StackModel = {
+      ...hanoi,
+      discs: hanoi.discs.map((d) => ({ ...d, label: d.size === 1 ? 'Right 1' : 'Left 12' })),
+    };
+    const svg = stackSvg(named, TOWER, stackLook(named, 400, 300));
+    expect(svg).toContain('>R 1</text>');
+    expect(svg).toContain('>Left 12</text>');
   });
 
   it('fits a small room, as the goal’s picture does', () => {
@@ -283,6 +302,7 @@ describe('a stacking board’s drawing', () => {
         { name: 'the pocket column', pocket: true, position: -1, capacity: 1 },
       ],
       panex: true,
+      channel: false,
       discs: [3, 2, 1].map((size) => ({ size, colour, label: '' })),
     };
     expect(rodColumn(panex, 2)).toBe(0);
@@ -295,8 +315,34 @@ describe('a stacking board’s drawing', () => {
     // three levels of steps under the bridge for each of the two columns, none for the pocket
     expect(svg.match(/class="sk-step"/g)).toHaveLength(6);
     expect(svg.match(/class="sk-bridge"/g)).toHaveLength(1);
+    expect(svg).not.toContain('sk-channel');
     expect(svg).toContain('<title>The pocket column</title>');
     // a disc without a label has no text
     expect(svg).not.toContain('sk-name');
+  });
+
+  it('draws the outside channel over the bridge, above where a moving disc crosses', () => {
+    const rods = [0, 1, 2].map((position) => ({
+      name: `rod ${String(position + 1)}`,
+      pocket: false,
+      position,
+      capacity: 4,
+    }));
+    const panex: StackModel = {
+      rods,
+      panex: true,
+      channel: true,
+      discs: [3, 2, 1].map((size) => ({ size, colour, label: '' })),
+    };
+    const look = stackLook(panex, 800, 500);
+    const svg = stackSvg(panex, [[{ disc: 0, z: 0 }], [], []], look);
+    expect(svg.match(/class="sk-channel"/g)).toHaveLength(1);
+    // its top is higher than a moving disc's (the lowest y the board gives one)
+    const d = /class="sk-channel" d="M[\d.]+ [\d.]+V[\d.]+Q[\d.]+ ([\d.]+) /.exec(svg);
+    expect(Number(d?.[1])).toBeLessThan(levelY(look, look.levels - 1 + LIFT));
+    // the goal's small picture has no room for it
+    expect(stackSvg(panex, [[], [], []], stackLook(panex, 178, 132, true), true)).not.toContain(
+      'sk-channel',
+    );
   });
 });

@@ -6,8 +6,9 @@
 // drawing's measures in a room, where rods, levels and discs are in it,
 // and its SVG markup. The pegs stand on a base; a Panex column has the
 // steps a disc of each size may rest on behind it and the bridge across
-// the top, where a raised disc waits. The same markup, small, is the
-// goal's picture beside the board.
+// the top, where a raised disc waits, and with the outside channel a loop
+// over the bridge that joins the first and last columns. The same markup,
+// small, is the goal's picture beside the board.
 
 import { esc } from '../shell/html.ts';
 import { contrast, hex } from '../shell/piece-colours.ts';
@@ -38,6 +39,8 @@ export interface StackModel {
   rods: StackRod[];
   /** The rods are Panex columns (the pocket is a plain rod). */
   panex: boolean;
+  /** A channel outside the bridge joins the first and last columns. */
+  channel: boolean;
   discs: StackDisc[];
 }
 
@@ -131,6 +134,18 @@ export function rodAt(m: StackModel, look: StackLook, x: number): number {
   return best;
 }
 
+/**
+ * What of a disc's label fits in `room` characters: the label, or with
+ * each word cut to its first letter ("Right 1" as "R 1"), or nothing.
+ */
+export function fittedLabel(label: string, room: number): string {
+  if (label.length <= room) {
+    return label;
+  }
+  const short = label.replace(/\p{L}+/gu, (word) => word.charAt(0));
+  return short.length <= room ? short : '';
+}
+
 // a disc's bar, its top left at the origin of its group, the group at `at` on `rod` at height `z`
 function discSvg(
   d: StackDisc,
@@ -147,8 +162,9 @@ function discSvg(
   const r = Math.min(h / 2, small ? 3 : 9);
   let label = '';
   const size = Math.min(15, Math.floor(h * 0.62));
-  if (!small && d.label !== '' && size >= 7 && w >= size * 0.62 * d.label.length + 6) {
-    label = `<text class="sk-name" x="${fmt(w / 2)}" y="${fmt(gap + h / 2)}" font-size="${String(size)}" fill="${contrast(d.colour)}">${esc(d.label)}</text>`;
+  const text = small || size < 7 ? '' : fittedLabel(d.label, (w - 6) / (size * 0.62));
+  if (text !== '') {
+    label = `<text class="sk-name" x="${fmt(w / 2)}" y="${fmt(gap + h / 2)}" font-size="${String(size)}" fill="${contrast(d.colour)}">${esc(text)}</text>`;
   }
   return `<g class="sk-disc" data-i="${String(i)}" data-rod="${String(rod)}" data-z="${String(z)}" style="transform:translate(${at[0].toFixed(2)}px,${at[1].toFixed(2)}px)"><rect class="sk-bar" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}" fill="${hex(d.colour)}"/>${small ? '' : `<rect class="sk-sheen" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}"/>`}${label}</g>`;
 }
@@ -166,8 +182,9 @@ export function discAt(
 
 /**
  * The drawing of a board with its discs at `stacks`: the base, the pegs, a
- * Panex board's steps and bridge, the discs, and (not on a `small` one) a
- * strip over each rod's column that takes the pointer.
+ * Panex board's steps, bridge and outside channel (not on a `small` one,
+ * which has no room above the rods), the discs, and (not on a `small` one)
+ * a strip over each rod's column that takes the pointer.
  */
 export function stackSvg(m: StackModel, stacks: Stacks, look: StackLook, small = false): string {
   const { u, v, span } = look;
@@ -208,9 +225,22 @@ export function stackSvg(m: StackModel, stacks: Stacks, look: StackLook, small =
     const half = ((2 * m1 + 1) * u) / 2 + Math.min(u, 6);
     const x0 = Math.min(...panexXs) - half;
     const x1 = Math.max(...panexXs) + half;
+    const bridgeY = levelY(look, high);
     back =
-      `<rect class="sk-bridge" x="${fmt(x0)}" y="${fmt(levelY(look, high))}" width="${fmt(x1 - x0)}" height="${fmt(v)}" rx="${fmt(Math.min(v / 2, 8))}"/>` +
+      `<rect class="sk-bridge" x="${fmt(x0)}" y="${fmt(bridgeY)}" width="${fmt(x1 - x0)}" height="${fmt(v)}" rx="${fmt(Math.min(v / 2, 8))}"/>` +
       back;
+    if (m.channel && !small) {
+      // the outside channel: a loop from the bridge's ends up over the room
+      // a moving disc crosses in (LIFT), so a disc goes round a raised one
+      const w = Math.max(3, Math.min(10, v * 0.28));
+      const top = look.pad + w / 2;
+      const r = Math.min(v * 0.6, bridgeY - top);
+      const xa = x0 + w;
+      const xb = x1 - w;
+      back =
+        `<path class="sk-channel" d="M${fmt(xa)} ${fmt(bridgeY)}V${fmt(top + r)}Q${fmt(xa)} ${fmt(top)} ${fmt(xa + r)} ${fmt(top)}H${fmt(xb - r)}Q${fmt(xb)} ${fmt(top)} ${fmt(xb)} ${fmt(top + r)}V${fmt(bridgeY)}" stroke-width="${fmt(w)}"/>` +
+        back;
+    }
   }
   const lo = Math.min(...xs) - (span * u) / 2 + u * 0.4;
   const hi = Math.max(...xs) + (span * u) / 2 - u * 0.4;

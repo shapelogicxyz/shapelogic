@@ -5,7 +5,8 @@
 // moves made on it, a move drawn again along its route, the layer strip of
 // a deeper board, the buttons beside the board that show or hide the
 // goal's tint and outlines, the grid and the pieces' names and draw the
-// pieces simple, a position saved as the problem's Start or Goal
+// pieces simple, one that opens a picture of the goal in a window of its
+// own (goal-picture.ts), a position saved as the problem's Start or Goal
 // (sliding.setLayout), and the moves as a file's text (moves-file.ts).
 //
 // The engine is asked what a position allows and keeps no game
@@ -29,6 +30,8 @@ import type { BoardModel, ReachGroup } from './board.ts';
 import { made, newGame, placesAt, withMoves } from './game.ts';
 import type { AnyGame, Cell, Game, Move } from './game.ts';
 import type { Loaded, PlayKind, PlayKindHost } from './kind.ts';
+import { goalPicture } from './goal-picture.ts';
+import { goalPlaces, goalTitle } from './goal-places.ts';
 import { boardOf, matchStart, parse, remap, serialise } from './moves-file.ts';
 
 type PlayStart = Methods['sliding.playStart']['result'];
@@ -44,6 +47,7 @@ const mine = (g: AnyGame): Game => g as Game;
 const OWN =
   '<button class="pl-big" id="plShades" aria-pressed="false"></button>' +
   '<button class="pl-big" id="plLines" aria-pressed="false"></button>' +
+  `<button class="pl-big" id="plGoalWin" title="Show Goal Image: the board with every piece on its goal, in a window of its own to move and size as you like">${ic('image', 22)}<span>Show Goal Image</span></button>` +
   '<button class="pl-big" id="plGrid" aria-pressed="false"></button>' +
   '<button class="pl-big" id="plLabels" aria-pressed="false"></button>' +
   '<button class="pl-big" id="plSimple" aria-pressed="false"></button>';
@@ -75,6 +79,8 @@ export class SlidingPlay implements PlayKind {
   private labelsHidden = false;
   /** Simple Pieces: flat square pieces and tray, for every problem played. */
   private simplePieces = false;
+  /** The goal's window was opened: the goal is sent to it as it changes. */
+  private goalWindow = false;
   /** The routes of a game's moves (sliding.playReplay), by its list of moves. */
   private routed: { moves: readonly Move[]; steps: Step[] } | null = null;
 
@@ -283,6 +289,46 @@ export class SlidingPlay implements PlayKind {
       game === null ? [] : placesAt(mine(game)),
       this.layer,
     );
+    this.sendGoal(false);
+  }
+
+  // the board with each piece on its goal, to the goal's window: `raise`
+  // opens the window; else only an open one is drawn again
+  private sendGoal(raise: boolean): void {
+    const start = this.start;
+    const g = this.host.game();
+    const svg = byId('playBoard').querySelector('svg');
+    if (!this.goalWindow || start === null || !start.hasGoal || g === null || svg === null) {
+      return;
+    }
+    const sc = Number(svg.dataset.cell);
+    const places = placesAt(mine(g));
+    const onGoal = goalPlaces(start);
+    const p = this.store.snapshot?.problems.find((q) => q.id === this.host.problem());
+    const picture = goalPicture(goalTitle(p), svg, {
+      // the goals' tint and outlines lie under the pieces: left out
+      drop: ['.pl-goals', '.pl-marks', '.pl-hit'],
+      edit: (copy) => {
+        // each piece moved from where it is to its goal; a piece with none left out
+        for (const e of copy.querySelectorAll<SVGGElement>('.pl-piece, .pl-label')) {
+          const i = Number(e.dataset.i);
+          const to = onGoal.get(i);
+          const at = places[i];
+          const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(e.style.transform);
+          if (to === undefined || at === undefined || m === null) {
+            e.remove();
+            continue;
+          }
+          const x = Number(m[1]) + (to[0] - at[0]) * sc;
+          const y = Number(m[2]) - (to[1] - at[1]) * sc;
+          e.style.transform = `translate(${x.toFixed(2)}px,${y.toFixed(2)}px)`;
+          if (e.dataset.at !== undefined) {
+            e.dataset.at = to.join(',');
+          }
+        }
+      },
+    });
+    window.btApp.goalWindow(picture, raise);
   }
 
   place(game: AnyGame): void {
@@ -351,6 +397,7 @@ export class SlidingPlay implements PlayKind {
     for (const id of ['plShades', 'plLines', 'plGrid', 'plLabels', 'plSimple']) {
       byId<HTMLButtonElement>(id).disabled = game === null;
     }
+    byId<HTMLButtonElement>('plGoalWin').disabled = game === null || this.start?.hasGoal !== true;
     // the layers of a deeper board
     const depth = this.start?.board?.size[2] ?? 1;
     setHtml(
@@ -364,6 +411,10 @@ export class SlidingPlay implements PlayKind {
   // one of the buttons beside the board
   private toggle(id: string): void {
     switch (id) {
+      case 'plGoalWin':
+        this.goalWindow = true;
+        this.sendGoal(true);
+        return;
       case 'plShades':
         this.shadesHidden = !this.shadesHidden;
         this.showGoalButtons();
@@ -385,7 +436,10 @@ export class SlidingPlay implements PlayKind {
         this.showSimpleButton();
         break;
       default:
+        return;
     }
+    // the goal's window drawn as the board now is
+    this.sendGoal(false);
   }
 
   // the goal's tint and outlines shown on the board or hidden, and the buttons that say which they will do

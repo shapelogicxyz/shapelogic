@@ -740,6 +740,8 @@ Json progressJson(const SolveProgress& g) {
                                    : Json(nullptr);
   j["atSavePoint"] = g.atSavePoint;
   j["slideForecast"] = slideForecastJson(g.slideLevelMs, g.slideLevelRunningMs);
+  j["slidePickingUp"] = g.slidePickingUp;
+  j["slidePickingUpMs"] = g.slidePickingUpMs;
   return j;
 }
 

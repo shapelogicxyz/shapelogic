@@ -24,7 +24,7 @@ import { onPrefs, prefs, setPrefs } from '../shell/prefs.ts';
 import { isActive } from '../state/solves.ts';
 import type { SortKey } from './pager.ts';
 import type { SlideForecast } from '../../engine/api.generated.ts';
-import { liveCells, performanceHtml } from './performance.ts';
+import { liveCells, performanceHtml, PICKING_UP_NOTE, pickingUpText } from './performance.ts';
 import type { FileExport, RemoveWhich, SolverWorkspace } from './workspace.ts';
 
 /** The sort buttons (the mockup's SVSORT; `assembly` is its search order). */
@@ -223,7 +223,9 @@ export class SolutionsCard {
       return '';
     }
     let elapsed = 0;
-    if (live !== null) {
+    // the saved search taken up: no move runs yet, nothing to count on
+    const picking = ws.pickingUpMs;
+    if (live !== null && picking === null) {
       // a new progress report: counted from now; drawn again: from when it came
       if (this.perfLive?.f !== live) {
         this.perfLive = { f: live, at: performance.now() };
@@ -233,7 +235,7 @@ export class SolutionsCard {
         this.tickPerformance();
       }, 1000);
     }
-    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active, elapsed)}</div>`;
+    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active, elapsed, picking)}</div>`;
   }
 
   /**
@@ -242,7 +244,7 @@ export class SolutionsCard {
    */
   private tickPerformance(): void {
     const live = this.perfLive;
-    const row = document.querySelector<HTMLElement>('#slvPerf tr.slv-perf-now');
+    const row = document.querySelector<HTMLElement>('#slvPerf tr.slv-perf-now:not(.picking)');
     const ws = this.ws;
     const id = ws.current;
     const running =
@@ -278,6 +280,10 @@ export class SolutionsCard {
       return '<b>Reading the solutions…</b>';
     }
     if (s === 'preparing' || s === 'assembling' || s === 'draining') {
+      const picking = ws.pickingUpMs;
+      if (picking !== null) {
+        return `<b>${pickingUpText(picking)}</b>The search reads the moves it saved back in, then goes on with the next move. ${PICKING_UP_NOTE}`;
+      }
       return '<b>Searching…</b>Solutions appear here as they are found.';
     }
     // a sliding solve paused, in memory or kept in the file: Continue goes on,

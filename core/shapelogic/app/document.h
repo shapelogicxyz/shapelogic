@@ -597,8 +597,16 @@ class Document {
   Result<void> solveStart(Id problem, const SolveOptions& options);
   /// Prepares the search and pauses (solve.prepare).
   Result<void> solvePrepare(Id problem, const SolveOptions& options);
-  /// Carries a solve on (solve.continue), with these options.
+  /// Carries a solve on (solve.continue), with these options. Refused
+  /// (InvalidArgument) when they name another search than the one a
+  /// sliding solve paused in memory has saved
+  /// (SolveSession::resumeRefusal): it would search from the first move.
   Result<void> solveResume(Id problem, const SolveOptions& options);
+  /// The options of the last run of a problem's solve paused in memory:
+  /// what solve.continue without options carries it on with. None when
+  /// the problem has no solve paused in memory (never run here, running,
+  /// finished, or paused only in the file).
+  [[nodiscard]] std::optional<SolveOptions> pausedOptions(Id problem) const;
   /// Asks the run to pause; does not wait.
   Result<void> solvePause(Id problem);
   /// Asks the run to pause at a save point (autosave).

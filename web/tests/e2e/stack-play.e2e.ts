@@ -282,3 +282,29 @@ test('a Panex board is played: a disc rests where its size allows, and a raised 
     await a.close();
   }
 });
+
+test('the Goal picture opens the goal, drawn large, in a window of its own', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await openFixture(page, HANOI);
+    await toStackPlay(page);
+    await expect(page.locator('#plGoalPic .pop svg')).toBeVisible();
+    const opened = a.app.waitForEvent('window');
+    await page.click('#plGoalPic');
+    const goal = await opened;
+    await expect(goal).toHaveTitle(/^Goal: P1/);
+    await expect(goal.locator('img')).toBeVisible();
+    // the drawing, an image: the three discs on rod 3, without the strips that take the pointer
+    const src = (await goal.locator('img').getAttribute('src')) ?? '';
+    const svg = Buffer.from(src.replace(/^data:image\/svg\+xml;base64,/, ''), 'base64').toString();
+    expect(svg.match(/data-rod="2" data-z="/g)).toHaveLength(3);
+    expect(svg).not.toContain('<title>');
+    expect(svg).not.toContain('class=');
+    // a second click brings the same window forward, no new one
+    await page.click('#plGoalPic');
+    await expect.poll(() => a.app.windows().length).toBe(2);
+  } finally {
+    await a.close();
+  }
+});

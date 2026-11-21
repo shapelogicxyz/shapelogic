@@ -165,7 +165,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
     id,
     title: `Apply image to ${o.label}`,
     body: `<div class="form imgdlg">
-<div class="imgdlg-pick"><button class="btn" data-f="choose" title="Choose a PNG, JPEG or WebP picture on this computer">Choose image…</button><span data-f="name">${o.current === null ? 'No image chosen' : 'The piece’s image'}</span><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp" hidden></div>
+<div class="imgdlg-pick"><button class="btn" data-f="choose" title="Choose a PNG, JPEG, WebP or GIF picture on this computer">Choose image…</button><span data-f="name">${o.current === null ? 'No image chosen' : 'The piece’s image'}</span><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
 <fieldset><legend>Fit</legend>
 <label title="Cut the picture to the piece’s proportions, keeping its middle: nothing is squashed"><input type="radio" name="imgFit" value="crop" ${fit === 'crop' ? 'checked' : ''}> Crop</label>
 <label title="Squash the whole picture to the piece’s rectangle"><input type="radio" name="imgFit" value="stretch" ${fit === 'stretch' ? 'checked' : ''}> Stretch</label>

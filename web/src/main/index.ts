@@ -254,8 +254,10 @@ function send(w: WindowState, command: AppCommand): void {
 
 /** The focused window (the menus act on it), else the first not destroyed. */
 function current(): WindowState | undefined {
+  // a goal window (goal-window.ts) stands for the app window it belongs to
   const focused = BrowserWindow.getFocusedWindow();
-  const w = focused === null ? undefined : windows.get(focused.webContents.id);
+  const owner = focused?.getParentWindow() ?? focused;
+  const w = owner == null ? undefined : windows.get(owner.webContents.id);
   if (w !== undefined) {
     return w;
   }

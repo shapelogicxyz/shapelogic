@@ -18,7 +18,16 @@ Reply launch(State& s, Params& p, Launch how) {
   BTE_TRY(SolveOptions options, solveOptionsFrom(s, given));
   app::Document& d = s.document();
   BTE_CHECK(d.problemIndex(problem));
-  defaultStackingSolver(s, problem, given, options);
+  // solve.continue without options: a solve paused in memory goes on as it
+  // ran (the caller need not have kept its options: the autosave, a page
+  // reloaded); any other is carried on with the defaults, as it is started
+  const std::optional<SolveOptions> asItRan =
+      how == Launch::Continue && given.is_null() ? d.pausedOptions(problem) : std::nullopt;
+  if (asItRan) {
+    options = *asItRan;
+  } else {
+    defaultStackingSolver(s, problem, given, options);
+  }
   BTE_CHECK(how == Launch::Start     ? d.solveStart(problem, options)
             : how == Launch::Prepare ? d.solvePrepare(problem, options)
                                      : d.solveResume(problem, options));

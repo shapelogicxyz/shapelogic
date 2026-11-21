@@ -212,6 +212,15 @@ class SolveSession {
   [[nodiscard]] const SolveOptions& options() const { return options_; }
   /// Sets the options of the next run; not while a run is active.
   Result<void> setOptions(const SolveOptions& options);
+  /// Why resume() with these options would not carry the paused solve on:
+  /// a sliding solve paused here whose searches are saved, and options
+  /// that name another search than its last run's (the nested slides, the
+  /// vertical moves, the orientations, the optimized paths' grid). Such a
+  /// run would find nothing saved under its own name and search from the
+  /// first move, with the saved search left where it is. Empty when the
+  /// options carry it on, when nothing is saved, and for any other solve.
+  /// The owner asks before setOptions(); not while a run is active.
+  [[nodiscard]] std::string resumeRefusal(const SolveOptions& options) const;
 
   /// Solves from the start: drops what the problem holds of earlier
   /// solving (Solve in the original). Not while a run is active.
@@ -516,6 +525,9 @@ class SolveSession {
   std::unique_ptr<ThreadPool> slidePool_;
   std::atomic<std::uint64_t> slideProgress_{0};
   std::atomic<std::uint64_t> searchDepth_{0};
+  /// Since when a slide search of the run has been taking up its saved
+  /// search (SlideSearch::pickingUpSince); 0 while none does.
+  std::atomic<std::int64_t> slidePickingUpSince_{0};
   /// A stacking run's search reports here too: the stackings it has found
   /// (slideProgress_), how deep both ends are (searchDepth_), and the moves
   /// traced back once they met.

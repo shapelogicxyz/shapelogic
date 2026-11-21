@@ -77,6 +77,11 @@ struct SolveProgress {
   /// Performance Analysis forecasts from (bt/solve/slide_forecast.h).
   std::vector<std::uint64_t> slideLevelMs;
   std::uint64_t slideLevelRunningMs = 0;
+  /// A sliding solve: the slide search of this run is taking up its saved
+  /// search (SlideSearch::pickingUpSince) and searches no move yet, and
+  /// for how long it has.
+  bool slidePickingUp = false;
+  std::uint64_t slidePickingUpMs = 0;
   bool panexSearch = false;
   /// Stage Stopping: the stop is a pause (the solve is kept, to be
   /// continued), not an abort.

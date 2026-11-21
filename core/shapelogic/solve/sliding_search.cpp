@@ -4351,14 +4351,24 @@ class LevelSearch {
     if (search_.resume && folder_.exists()) {
       const unsigned int interval = interval_;
       const unsigned int fileNumber = store_.fileNumber;
+      const auto began = std::chrono::steady_clock::now();
+      restoreVisitedTime_ = {};
       const Resumed resumed = resume();
+      if (search_.pickingUpSince != nullptr) {
+        search_.pickingUpSince->store(0, std::memory_order_relaxed);
+      }
       if (resumed == Resumed::Yes) {
         search_.resumed = true;
+        // how long it took, and how much of that the visited sets: what a
+        // save point followed by a continue costs a deep search (the level
+        // that waited would have gone into them in the run that stopped)
         tellLog(LogLevel::Info,
                 "Carried on the saved search in " + folder_.dir.string() + ": the start end " +
                     std::to_string(fwd_.depth) + " moves deep" +
                     (bidirectional_ ? ", the goal end " + std::to_string(bwd_.depth) : "") +
-                    ", " + std::to_string(visited_.load()) + " arrangements visited.");
+                    ", " + std::to_string(visited_.load()) + " arrangements visited. Taken up in " +
+                    secondsText(std::chrono::steady_clock::now() - began) + ", of which " +
+                    secondsText(restoreVisitedTime_) + " for the visited sets.");
         return true;
       }
       // Nothing of what resume took up stays: an end's depth and levels,
@@ -4444,6 +4454,10 @@ class LevelSearch {
     tellLog(LogLevel::Debug, "Reading the saved search in " + folder_.place().string() + " (" +
                                  folderText(folder_.place()) + "): its state.bin names " +
                                  savedText(st) + ".");
+    // this search's own: taken up from here (start() says when it is)
+    if (search_.pickingUpSince != nullptr) {
+      search_.pickingUpSince->store(slideClockMs(), std::memory_order_relaxed);
+    }
     if (!folder_.open()) {
       return fail("its folder could not be opened");
     }
@@ -4554,17 +4568,22 @@ class LevelSearch {
     if (!convertOlder(opened)) {
       return fail(resumeWhy_);
     }
+    const auto visitedFrom = std::chrono::steady_clock::now();
     for (const Side* side : sides) {
       for (const SetPtr<Key>& set : side->visited) {
         (void)set->reload();
       }
     }
-    if (!restoreVisited(fwd_) || !restoreVisited(bwd_)) {
+    const bool restored = restoreVisited(fwd_) && restoreVisited(bwd_);
+    restoreVisitedTime_ = std::chrono::steady_clock::now() - visitedFrom;
+    if (!restored) {
       // a level that waited to go into them is written there
       return fail(store_.failure == SlideOutcome::Disk
                       ? "its visited sets could not be written (the disk may be full)"
                       : "its visited sets could not be read back");
     }
+    tellLog(LogLevel::Debug, "The visited sets of the saved search were read back in " +
+                                 secondsText(restoreVisitedTime_) + ".");
     // chosen once the saved sets are open, so that they count as its own
     setDiskBudget();
     // what the state names stays whole until the first save of this run
@@ -5962,6 +5981,8 @@ class LevelSearch {
   SlideSearch& search_;
   std::uint64_t problemKey_;
   std::uint64_t searchKey_;
+  /// How long resume() took over the visited sets (restoreVisited), for the log.
+  std::chrono::steady_clock::duration restoreVisitedTime_{};
   SearchFolder folder_;
   SetStore<Key> store_;
   std::unique_ptr<ThreadPool> ownPool_;
@@ -6296,6 +6317,13 @@ struct SlideSetup {
 };
 
 }  // namespace
+
+std::int64_t slideClockMs() {
+  const std::int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::steady_clock::now().time_since_epoch())
+                              .count();
+  return ms == 0 ? 1 : ms;
+}
 
 std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& problem,
                                       const std::string& workDir) {

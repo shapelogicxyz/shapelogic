@@ -786,6 +786,67 @@ TEST_CASE("sliding: the orientations each part may take", "[sliding]") {
 // With a work folder, a start's search that a pause cuts short is saved
 // there and carried on by the next run, and nothing is left behind once
 // the solve is through.
+// A paused sliding solve whose searches are saved is carried on as the
+// search it is: options that name another search (they would find nothing
+// saved under their name, search from the first move and leave the saved
+// search where it is) are told before the run, for the owner to refuse.
+TEST_CASE("sliding session: a paused search is not carried on as another search",
+          "[sliding][session][resume][parallel]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_other_search";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 8000000;
+  SolveOptions nested = o;
+  nested.sliding.nested = true;
+  Puzzle p = swapped(4);
+  SolveSession s(p, p.getProblem(0), o);
+  // nothing run yet: nothing to carry on
+  CHECK(s.resumeRefusal(nested).empty());
+  REQUIRE(s.start().has_value());
+  untilSearching(s);
+  untilDeeper(s, 2);
+  // not while it runs either
+  CHECK(s.resumeRefusal(nested).empty());
+  s.pauseAtSavePoint();
+  s.wait();
+  REQUIRE(s.state() == SolveState::Paused);
+  REQUIRE_FALSE(std::filesystem::is_empty(dir));
+
+  // its own options, and others that name the same search
+  CHECK(s.resumeRefusal(o).empty());
+  SolveOptions same = o;
+  same.solutionLimit = 3;
+  same.threads = 1;
+  same.justCount = true;
+  same.sliding.memoryBytes = 4000000;
+  // (these two play a part only with the options they hang on)
+  same.sliding.partialNested = true;
+  same.sliding.mirroredOrientations = true;
+  CHECK(s.resumeRefusal(same).empty());
+
+  // another search: each option that names it is told
+  const std::string why = s.resumeRefusal(nested);
+  CHECK(why.find("(nested slides)") != std::string::npos);
+  CHECK(why.find("Abort, then Solve") != std::string::npos);
+  SolveOptions other = nested;
+  other.sliding.partialNested = true;
+  other.sliding.verticalMoves = true;
+  other.sliding.anyOrientation = true;
+  other.sliding.mirroredOrientations = true;
+  other.sliding.grid = 2;
+  CHECK(s.resumeRefusal(other).find(
+            "(nested slides, partially nested slides, vertical moves, any orientation for "
+            "unplaced pieces, mirrored orientations, optimized paths)") != std::string::npos);
+
+  // the saved search gone (deleted from the cache): nothing is left behind
+  std::filesystem::remove_all(dir);
+  CHECK(s.resumeRefusal(nested).empty());
+  s.abort();
+  std::filesystem::remove_all(dir);
+}
+
 TEST_CASE("sliding session: a paused search is carried on from its folder",
           "[sliding][session][resume]") {
   const std::filesystem::path dir =

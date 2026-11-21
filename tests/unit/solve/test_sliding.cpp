@@ -3716,6 +3716,7 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
     std::uint64_t depth = 0;
     unsigned int diskStops = 0;
     bool pointNext = false;
+    bool sawPicking = false;
     std::optional<Separation> path;
     for (unsigned int runs = 1;; runs++) {
       INFO("run " << runs << ", disk budget " << budget << " of " << straight.diskBytes);
@@ -3723,7 +3724,21 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
       SlideSearch s = runSearch();
       s.diskBudget = budget;
       std::vector<LogLine> told;
-      s.onLog = [&told](LogLevel level, const std::string& text) {
+      // taking the saved search up is told while it lasts (pickingUpSince): on
+      // from its state read (still on when the visited sets are back), off
+      // before the search says it was carried on
+      std::atomic<std::int64_t> picking{0};
+      s.pickingUpSince = &picking;
+      s.onLog = [&](LogLevel level, const std::string& text) {
+        if (text.starts_with("The visited sets of the saved search were read back in ")) {
+          // since a moment ago, by the clock its time is told on
+          CHECK(picking.load() != 0);
+          CHECK(picking.load() <= slideClockMs());
+          sawPicking = true;
+        }
+        if (text.starts_with("Carried on the saved search in ")) {
+          CHECK(picking.load() == 0);
+        }
         // a debug log's lines aside (the debug log's own test has those),
         // and the key the search runs in, told before each run
         if (level != LogLevel::Debug && !text.starts_with("The slide search runs ")) {
@@ -3768,7 +3783,11 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
         REQUIRE_FALSE(told.empty());
         CHECK(told.front().level == LogLevel::Info);
         CHECK(told.front().text.starts_with("Carried on the saved search in "));
+        // and what taking it up cost
+        CHECK(told.front().text.find(" Taken up in ") != std::string::npos);
+        CHECK(told.front().text.ends_with(" s for the visited sets."));
       }
+      CHECK(picking.load() == 0);
       // both ends together never deeper than the path
       CHECK(s.depth <= moves);
       CHECK(s.depth >= depth);
@@ -3791,6 +3810,7 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
       }
     }
     CHECK(diskStops >= 3);
+    CHECK(sawPicking);
     CHECK(path->getMoves() == moves);
     checkGridPath(g, *path);
     CHECK(std::filesystem::is_empty(dir));

@@ -1423,6 +1423,12 @@ What exists after stage 8:
   window, slot n as `__rescue-n.*`, slot 0 the earlier one copy's names; a
   new window takes the lowest free slot holding a copy, so a copy left by a
   crash is offered in one window only),
+  `goal-window.ts` (`GoalWindows`: the Play tab's goal picture in a
+  window of its own, one per app window, its child: no preload, its page a
+  data: URL, `app-bridge.ts`'s `goalPage`, whose one image is the drawing,
+  under a CSP of `img-src data:` and inline style only; it navigates and
+  opens nothing; `bt:goal-window` takes only an `isGoalPicture`; the menus
+  act on its app window),
   `path-owners.ts` (Electron-free, decision 0036: `PathOwners`, the file
   each window holds, by realpath without case on macOS and Windows; the
   first to hold a file owns it, another holds it read-only (told by
@@ -1849,11 +1855,12 @@ What exists after stage 8:
     start (a reload of the page in development: the engine and its runs
     go on) asks them for a save point at once and carries on one it
     finds, or sees, paused at a save point the page before asked for
-    (`takeOver`, `pickUp`), with the options the solve was started with,
-    kept in the page's session storage across the reload
-    (`run-options.ts`; the problem's stored options, and optimized paths
-    by its grid, where nothing was kept): carried on with others, a
-    sliding search is another search and begins again; `saveAtSavePoint(path)` is
+    (`takeOver`, `pickUp`); a run is carried on without options, which
+    the engine takes as "as it ran" (decision 0043: `solve.continue`
+    carries a solve paused in memory on with the options of its last
+    run, and refuses options that name another sliding search than the
+    one saved, which would begin again at the first move), so no page
+    has to have kept them; `saveAtSavePoint(path)` is
     also File ▸ Save's path while a solve runs, the save the store's: it
     pauses a sliding or stacking search, and joins or follows a journal
     save under way),

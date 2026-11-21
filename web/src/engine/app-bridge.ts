@@ -6,7 +6,8 @@
 // stored settings and layouts, the recent files, the rescue copy, the
 // help links, the window's close, the windows (New Window, a file held
 // read-only, the settings another window changed), from stage 7 the exports' files, and
-// the cache manager's items (View ▸ Manage Cache and Autosave Files).
+// the cache manager's items (View ▸ Manage Cache and Autosave Files),
+// and the Play tab's goal picture in a window of its own.
 // The preload exposes it as `window.btApp`; the renderer never sees a path
 // it did not get from a dialog, a drop, the recent files or the rescue
 // copy's record, and the main process writes an export only to a path its
@@ -378,6 +379,79 @@ export interface StoredState {
   layout?: Record<string, unknown>;
 }
 
+/**
+ * The Play tab's goal picture, for its window of its own: an SVG drawing
+ * with its styles written into it (no stylesheet, no script, nothing
+ * fetched), its size, the window's title and its background colour.
+ */
+export interface GoalPicture {
+  title: string;
+  svg: string;
+  /** The drawing's size in pixels: the window's first size keeps its shape. */
+  width: number;
+  height: number;
+  /** A CSS colour: `#rrggbb` or `rgb(…)`. */
+  background: string;
+}
+
+/** The largest goal drawing taken, in characters (pieces' pictures are in it). */
+export const GOAL_SVG_MAX = 32 * 1024 * 1024;
+
+/** True for a goal picture the goal window takes (it comes from the page: checked). */
+export function isGoalPicture(v: unknown): v is GoalPicture {
+  if (typeof v !== 'object' || v === null) {
+    return false;
+  }
+  const p = v as Record<string, unknown>;
+  const size = (n: unknown): boolean => typeof n === 'number' && n >= 1 && n <= 100_000;
+  return (
+    typeof p.title === 'string' &&
+    p.title.length <= 300 &&
+    typeof p.svg === 'string' &&
+    p.svg.startsWith('<svg') &&
+    p.svg.length <= GOAL_SVG_MAX &&
+    size(p.width) &&
+    size(p.height) &&
+    typeof p.background === 'string' &&
+    /^(#[0-9a-f]{6}|rgba?\([0-9., ]+\))$/i.test(p.background)
+  );
+}
+
+/**
+ * The goal window's page: the drawing as an image (so nothing in it can
+ * run or fetch) that fills the window, kept in shape, under a policy that
+ * allows only that image and the page's own style.
+ */
+export function goalPage(p: GoalPicture): string {
+  const esc = (t: string): string =>
+    t.replace(
+      /[&<>"]/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c,
+    );
+  const bytes = new TextEncoder().encode(p.svg);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return (
+    '<!doctype html><html><head><meta charset="utf-8">' +
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">` +
+    `<title>${esc(p.title)}</title>` +
+    `<style>html,body{margin:0;height:100%;overflow:hidden;background:${p.background}}img{display:block;box-sizing:border-box;width:100%;height:100%;padding:12px;object-fit:contain;user-select:none;-webkit-user-drag:none}</style>` +
+    `</head><body><img alt="${esc(p.title)}" src="data:image/svg+xml;base64,${btoa(bin)}"></body></html>`
+  );
+}
+
+/** The goal window's first content size: the drawing's shape, at most `max` pixels across or down. */
+export function goalWindowSize(p: GoalPicture, max = 640): { width: number; height: number } {
+  const pad = 24;
+  const k = Math.min(1, (max - pad) / Math.max(p.width, p.height));
+  return {
+    width: Math.max(220, Math.round(p.width * k + pad)),
+    height: Math.max(160, Math.round(p.height * k + pad)),
+  };
+}
+
 /** What the preload exposes as `window.btApp`. */
 export interface BtApp {
   /** The platform (`process.platform`): the menus' keys differ on macOS. */
@@ -447,6 +521,12 @@ export interface BtApp {
   onPrefs(handler: (prefs: Record<string, unknown>) => void): () => void;
   /** Opens a help page in the system's browser. */
   openHelp(link: HelpLink): void;
+  /**
+   * The Play tab's goal picture in a window of its own, which the user
+   * moves and sizes, above this window and closed with it. `raise`: open
+   * it (or bring it forward); else only a window open already shows it.
+   */
+  goalWindow(picture: GoalPicture, raise: boolean): void;
   /**
    * Asks GitHub for the latest release. `auto` (the check at startup)
    * resolves null unless there is a newer release to show: not when the app

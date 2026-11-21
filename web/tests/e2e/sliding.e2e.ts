@@ -1644,7 +1644,7 @@ async function reloadToSolver(page: Page): Promise<void> {
   await expect(page.locator('#stage')).toHaveAttribute('data-tab', 'solver');
 }
 
-test('a reload of the page while a sliding search runs: the new page takes the run up, and the journal carries it on with the options it was started with', async () => {
+test('a reload of the page while a sliding search runs: the new page takes the run up, the journal carries it on as it ran, and Continue with other search options is refused', async () => {
   test.setTimeout(240_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log, autosave: 1 });
@@ -1677,14 +1677,6 @@ test('a reload of the page while a sliding search runs: the new page takes the r
           )
         : [];
     expect(searches()).toHaveLength(1);
-    interface Kept {
-      keepAtMost?: number;
-      sliding?: { nestedSlides?: boolean; partialNested?: boolean };
-    }
-    const keptText = (): Promise<string | null> =>
-      page.evaluate(() => sessionStorage.getItem('solver.runOptions'));
-    const kept = await keptText();
-    expect((JSON.parse(kept ?? '{}') as Record<string, Kept>)[sp]?.keepAtMost).toBe(7);
     const depth = async (): Promise<number> =>
       (
         await engineCall<{ progress: { slideForecast: { depth: number } | null } }>(
@@ -1705,10 +1697,10 @@ test('a reload of the page while a sliding search runs: the new page takes the r
     await expect(page.locator('#vp')).toHaveAttribute('data-solution-layer', 'preview', {
       timeout: 20_000,
     });
-    // the options kept, though the card shows the default limit again
-    expect(await keptText()).toBe(kept);
+    // the card shows the default limit again: the page kept nothing of the run
     await expect(limit).toHaveValue('100');
-    // the journal of the new page: saves, and the search carried on is the same search
+    // the journal of the new page: saves, and the search carried on (without
+    // options: the engine carries it on as it ran) is the same search
     await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^([2-9]|\d\d+)$/, {
       timeout: 60_000,
     });
@@ -1716,31 +1708,53 @@ test('a reload of the page while a sliding search runs: the new page takes the r
     await expect.poll(depth, { timeout: 30_000 }).toBeGreaterThanOrEqual(before);
     expect(readCallLog(log).filter(counted)).toEqual([]);
 
-    // the options kept are what a run is carried on with: kept with the
-    // nested slides the other way, the journal's continue is another search,
-    // saved beside the first
-    await page.evaluate((id) => {
-      const all = JSON.parse(sessionStorage.getItem('solver.runOptions') ?? '{}') as Record<
-        string,
-        { sliding: { nestedSlides: boolean; partialNested: boolean } }
-      >;
-      const o = all[id];
-      if (o !== undefined) {
-        o.sliding.nestedSlides = !o.sliding.nestedSlides;
-        o.sliding.partialNested = false;
-      }
-      sessionStorage.setItem('solver.runOptions', JSON.stringify(all));
-    }, sp);
-    await reloadToSolver(page);
-    await expect.poll(() => searches().length, { timeout: 60_000 }).toBe(2);
+    // paused, and its search options changed: Continue would be another
+    // search, from the first move. Refused, said in a message that stays,
+    // and the saved search is as it was
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+    if (!(await limit.isVisible())) {
+      await page.click('#slvOptHead');
+    }
+    const nested = page.locator('#slvOpts [data-o="nestedSlides"]');
+    const was = (await nested.getAttribute('aria-checked')) ?? '';
+    await nested.click();
+    await expect(nested).toHaveAttribute('aria-checked', was === 'true' ? 'false' : 'true');
+    await solverSettled(page);
+    await runButton(page, 'continue');
+    const notice = page.locator('#notice');
+    await expect(notice).toContainText(
+      'The paused search was made with other search options (nested slides): set them as they were to carry it on; to search with these instead, Abort, then Solve.',
+    );
+    await page.click('#notice [data-x="ok"]');
+    await expect(notice).toHaveCount(0);
+    await solverSettled(page);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'paused');
+    expect(searches()).toHaveLength(1);
+    // set back: carried on, the same search
+    await nested.click();
+    await expect(nested).toHaveAttribute('aria-checked', was);
+    await solverSettled(page);
+    await runButton(page, 'continue');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
+      timeout: 15_000,
+    });
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^[1-9]/, {
+      timeout: 60_000,
+    });
+    expect(searches()).toHaveLength(1);
 
     await runButton(page, 'pause');
     await runEnded(page, 'paused');
     // (a Pause that meets the run paused for one of the journal's saves, a
-    // second apart here, is refused and the save leaves the solve paused)
+    // second apart here, is refused and the save leaves the solve paused;
+    // the Continue refused above is the test's own)
     expect(
       readCallLog(log).filter(
-        (c) => counted(c) && !(c.method === 'solve.pause' && c.errc === 'invalid_state'),
+        (c) =>
+          counted(c) &&
+          !(c.method === 'solve.pause' && c.errc === 'invalid_state') &&
+          !(c.method === 'solve.continue' && c.errc === 'invalid_argument'),
       ),
     ).toEqual([]);
   } finally {
@@ -1822,7 +1836,7 @@ test('a save point the page before a reload asked for: the new page saves at onc
   }
 });
 
-test('a reload with no options kept: the run of a problem that is not the one shown is carried on with the options its problem stores', async () => {
+test('a reload while the run of a problem that is not the one shown goes on: the journal carries it on as it ran, whatever the card shows', async () => {
   test.setTimeout(240_000);
   const { dir, log } = tmpLog();
   const a = await launch({ callLog: log, autosave: 1 });
@@ -1860,22 +1874,15 @@ test('a reload with no options kept: the run of a problem that is not the one sh
         : [];
     expect(searches()).toHaveLength(1);
 
-    // nothing kept (as after a page of a version that kept none)
-    await page.evaluate(() => {
-      sessionStorage.removeItem('solver.runOptions');
-    });
     await reloadToSolver(page);
     await expect(page.locator('#leftS')).toHaveAttribute('data-problem', first);
-    // the journal carries the run on, save after save: the same search
+    // the journal carries the run on, save after save: the same search (the
+    // problem shown is another, and the page sends no options: the engine
+    // carries a paused solve on with those of its last run)
     await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', /^([3-9]|\d\d+)$/, {
       timeout: 60_000,
     });
     expect(searches()).toHaveLength(1);
-    // with what its problem stores, kept from now on
-    const kept = JSON.parse(
-      (await page.evaluate(() => sessionStorage.getItem('solver.runOptions'))) ?? '{}',
-    ) as Record<string, { sliding?: { nestedSlides?: boolean } }>;
-    expect(kept[sp]?.sliding?.nestedSlides).toBe(was !== 'true');
 
     await page.click(`#slvProbs .row[data-id="${sp}"]`);
     await expect(page.locator('#leftS')).toHaveAttribute('data-problem', sp);

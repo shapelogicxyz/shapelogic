@@ -3,7 +3,8 @@
 // A stacking puzzle in the Play workspace (decision 0042; the workspace's
 // kind.ts): its start read from the engine, its board (stack-board.ts) and
 // the transfers made on it, a transfer drawn again, the goal's small
-// picture (stack-look.ts) and the buttons beside the board that hide it and the discs'
+// picture (stack-look.ts), a button that opens it larger in a window of its
+// own (goal-picture.ts), and the buttons beside the board that hide it and the discs'
 // labels, a position saved as the problem's Start or Goal
 // (stacking.setStacks), and the transfers as a file's text
 // (stack-moves-file.ts).
@@ -25,6 +26,8 @@ import { StackBoard } from './stack-board.ts';
 import type { Allowed } from './stack-board.ts';
 import { discNumbers, newStackGame, stacksAt, transferred, withTransfers } from './stack-game.ts';
 import type { StackGame, Stacks, Transfer } from './stack-game.ts';
+import { goalPicture } from './goal-picture.ts';
+import { goalTitle } from './goal-places.ts';
 import { stackLook, stackSvg } from './stack-look.ts';
 import type { StackModel } from './stack-look.ts';
 import { parseStack, serialiseStack, stackMismatch } from './stack-moves-file.ts';
@@ -38,12 +41,14 @@ const mine = (g: AnyGame): StackGame => g as StackGame;
 
 /** The goal's picture and the buttons beside the board that are a stacking puzzle's own. */
 const OWN =
-  '<div class="sk-goal" id="plGoalPic" hidden><div class="cap">Goal</div><div class="pic" id="plGoalSvg"></div></div>' +
+  `<button class="sk-goal" id="plGoalPic" hidden title="Open the Goal in a window of its own, to move and size as you like"><span class="cap">Goal</span><span class="pop">${ic('popout', 15)}</span><span class="pic" id="plGoalSvg"></span></button>` +
   '<button class="pl-big" id="plGoalShow" aria-pressed="false"></button>' +
   '<button class="pl-big" id="plDiscLabels" aria-pressed="false"></button>';
 
 /** The room the goal's picture is drawn in, in pixels. */
 const GOAL_ROOM = { w: 178, h: 132 };
+/** The room the goal's window's picture is drawn in, in pixels. */
+const WINDOW_ROOM = { w: 900, h: 600 };
 
 // what a game's start is of: the rods, the discs and where they start
 function keyOf(start: PlayStart): string {
@@ -70,10 +75,14 @@ export class StackingPlay implements PlayKind {
   private mounted = false;
   /** How the problem's game starts, as last read (null: not read yet). */
   private start: PlayStart | null = null;
+  /** The problem that start is of. */
+  private problem: string | null = null;
   /** The goal's picture left off (Hide Goal), for every problem played. */
   private goalHidden = false;
   /** The discs' labels left off them (Hide Disc Labels), for every problem played. */
   private labelsHidden = false;
+  /** The goal's window was opened: the goal is sent to it as it changes. */
+  private goalWindow = false;
   /** The transfers a position allows, as last asked: of this game at this place. */
   private asked: { game: AnyGame; moves: Promise<Allowed[]> } | null = null;
 
@@ -99,6 +108,10 @@ export class StackingPlay implements PlayKind {
         return;
       }
       switch ((e.target as Element).closest('button')?.id) {
+        case 'plGoalPic':
+          this.goalWindow = true;
+          this.sendGoal(true);
+          return;
         case 'plGoalShow':
           this.goalHidden = !this.goalHidden;
           break;
@@ -110,6 +123,7 @@ export class StackingPlay implements PlayKind {
       }
       this.showButtons();
       this.host.render();
+      this.sendGoal(false);
     });
   }
 
@@ -127,6 +141,7 @@ export class StackingPlay implements PlayKind {
 
   clear(): void {
     this.start = null;
+    this.problem = null;
     this.asked = null;
   }
 
@@ -161,6 +176,7 @@ export class StackingPlay implements PlayKind {
       return null;
     }
     this.start = start;
+    this.problem = problem;
     this.asked = null;
     let game: StackGame | null = null;
     let dropped = false;
@@ -203,9 +219,21 @@ export class StackingPlay implements PlayKind {
     if (start.goalError !== null) {
       return `The Goal is not played to yet: ${start.goalError}`;
     }
-    return start.panex
-      ? 'Panex columns: a disc rests no deeper than its size allows. One disc more than a column’s height may wait raised in the bridge, where it blocks the moves that pass over it.'
-      : '';
+    if (!start.panex) {
+      return '';
+    }
+    const panex =
+      'Panex columns: a disc rests no deeper than its size allows. One disc more than a column’s height may wait raised in the bridge, where it blocks the moves that pass over it.';
+    return this.channel()
+      ? `${panex} The outside channel joins the first and last columns: a move between them goes round, past a raised disc.`
+      : panex;
+  }
+
+  // the problem's rod set has the outside channel (the engine's hasOutsideChannel)
+  private channel(): boolean {
+    const snap = this.store.snapshot;
+    const rodSet = snap?.problems.find((p) => p.id === this.problem)?.rodSet ?? null;
+    return snap?.rodSets.find((r) => r.id === rodSet)?.outsideChannel === true;
   }
 
   // the board's drawing: the rods and the discs as the snapshot shows them
@@ -219,6 +247,7 @@ export class StackingPlay implements PlayKind {
     return {
       rods: start.rods,
       panex: start.panex,
+      channel: this.channel(),
       discs: start.discs.map((d) => {
         const i = shapes.findIndex((s) => s.id === d.shape);
         const s = shapes[i];
@@ -321,7 +350,7 @@ export class StackingPlay implements PlayKind {
     byId('plGoalPic').hidden = game === null || !this.hasGoal || this.goalHidden;
   }
 
-  // the goal's stacking as a small picture beside the board
+  // the goal's stacking as a small picture beside the board, and in its window
   private drawGoal(): void {
     const model = this.model();
     const goal: Stacks | null = this.start?.goal ?? null;
@@ -329,6 +358,49 @@ export class StackingPlay implements PlayKind {
       model === null || goal === null
         ? ''
         : stackSvg(model, goal, stackLook(model, GOAL_ROOM.w, GOAL_ROOM.h, true), true);
+    this.sendGoal(false);
+  }
+
+  // the goal drawn large, as the board draws it, to its window: `raise`
+  // opens the window; else only an open one is drawn again
+  private sendGoal(raise: boolean): void {
+    const model = this.model();
+    const goal: Stacks | null = this.start?.goal ?? null;
+    if (!this.goalWindow || model === null || goal === null) {
+      return;
+    }
+    // drawn in the page, out of sight, so the stylesheet styles it
+    const room = document.createElement('div');
+    room.className = `pl-board goal-room${this.labelsHidden ? ' nolabels' : ''}`;
+    room.innerHTML = stackSvg(model, goal, stackLook(model, WINDOW_ROOM.w, WINDOW_ROOM.h));
+    document.body.append(room);
+    const svg = room.querySelector('svg');
+    if (svg !== null) {
+      // cropped to what is drawn: no room above the rods for a moving disc
+      const parts = [
+        ...svg.querySelectorAll<SVGGraphicsElement>('.sk-back > :not(.sk-glow), .sk-disc'),
+      ];
+      const boxes = parts.map((e) => e.getBBox());
+      if (boxes.length > 0) {
+        const pad = 12;
+        const x0 = Math.min(...boxes.map((b) => b.x)) - pad;
+        const y0 = Math.min(...boxes.map((b) => b.y)) - pad;
+        const x1 = Math.max(...boxes.map((b) => b.x + b.width)) + pad;
+        const y1 = Math.max(...boxes.map((b) => b.y + b.height)) + pad;
+        svg.setAttribute(
+          'viewBox',
+          `${String(x0)} ${String(y0)} ${String(x1 - x0)} ${String(y1 - y0)}`,
+        );
+        svg.setAttribute('width', String(Math.round(x1 - x0)));
+        svg.setAttribute('height', String(Math.round(y1 - y0)));
+      }
+      const p = this.store.snapshot?.problems.find((q) => q.id === this.problem);
+      window.btApp.goalWindow(
+        goalPicture(goalTitle(p), svg, { drop: ['.sk-cols', '.sk-glow'] }),
+        raise,
+      );
+    }
+    room.remove();
   }
 
   // the goal's picture and the discs' labels shown or hidden, and the buttons that say which they will do

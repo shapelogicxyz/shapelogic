@@ -89,10 +89,20 @@ describe('the window', () => {
   });
 
   it('is made in one place, with those options, and nothing in src turns them off', () => {
-    // the app's windows, and the hidden one that checks WebGL2 at start-up (gpu-check.ts)
-    expect(occurrences(/new BrowserWindow\(/g)).toEqual(['src/main/index.ts', 'src/main/index.ts']);
+    // the app's windows, the hidden one that checks WebGL2 at start-up
+    // (gpu-check.ts), and the Play tab's goal window (goal-window.ts)
+    expect(occurrences(/new BrowserWindow\(/g)).toEqual([
+      'src/main/goal-window.ts',
+      'src/main/index.ts',
+      'src/main/index.ts',
+    ]);
     const index = SRC.find((s) => s.file === 'src/main/index.ts')?.text ?? '';
     expect(index.match(/new BrowserWindow\(\{\s*\.\.\.windowOptions\(/g)).toHaveLength(2);
+    // the goal window: the same options, no preload, its page opening and going nowhere
+    const goal = SRC.find((s) => s.file === 'src/main/goal-window.ts')?.text ?? '';
+    expect(goal).toMatch(/new BrowserWindow\(\{\s*\.\.\.windowOptions\(null,/);
+    expect(goal).toContain("contents.on('will-navigate'");
+    expect(goal).toContain("setWindowOpenHandler(() => ({ action: 'deny' }))");
     for (const bad of [
       /nodeIntegration\w*:\s*true/g,
       /contextIsolation:\s*false/g,
@@ -114,10 +124,12 @@ describe('the window', () => {
   });
 
   it('loads its own page on the app’s scheme, and another only from a dev server, never when packaged', () => {
-    // the three loadURLs: the app's own page, the dev server's, which only
-    // an unpackaged app takes, and the WebGL2 check's blank page; nothing is
+    // the loadURLs: the app's own page, the dev server's, which only an
+    // unpackaged app takes, the WebGL2 check's blank page, and the goal
+    // window's data: page (engine/app-bridge.ts's goalPage); nothing is
     // loaded from file:
     expect(occurrences(/\.loadURL\(/g)).toEqual([
+      'src/main/goal-window.ts',
       'src/main/index.ts',
       'src/main/index.ts',
       'src/main/index.ts',
@@ -127,6 +139,8 @@ describe('the window', () => {
     expect(index).toContain("win.loadURL(appUrl('index.html', query))");
     expect(index).toContain('const devUrl = env.rendererUrl;');
     expect(index).toContain(".loadURL('about:blank')");
+    const goal = SRC.find((s) => s.file === 'src/main/goal-window.ts')?.text ?? '';
+    expect(goal).toContain('win.loadURL(`data:text/html;base64,${Buffer.from(goalPage(picture))');
     expect(occurrences(/process\.env\.ELECTRON_RENDERER_URL/g)).toEqual([]);
     // the scheme is registered before the app is ready and served from the renderer's directory only
     expect(index).toMatch(

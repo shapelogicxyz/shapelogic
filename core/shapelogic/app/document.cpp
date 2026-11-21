@@ -732,6 +732,14 @@ Result<void> Document::solveResume(Id problem, const SolveOptions& options) {
   return solveLaunch(problem, options, LaunchMode::Resume);
 }
 
+std::optional<SolveOptions> Document::pausedOptions(Id problem) const {
+  const auto it = sessions_.find(problem);
+  if (it == sessions_.end() || it->second->state() != SolveState::Paused) {
+    return std::nullopt;
+  }
+  return it->second->options();
+}
+
 Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, LaunchMode mode) {
   const Result<unsigned int> p = problemIndex(problem);
   if (!p) {
@@ -742,6 +750,16 @@ Result<void> Document::solveLaunch(Id problem, const SolveOptions& options, Laun
   }
   if (grouping_) {
     return fail(Errc::InvalidState, "a group of edits is open");
+  }
+  // a sliding solve paused here is carried on as the search it is, or not
+  // at all: with other search options it would begin again unasked
+  if (mode == LaunchMode::Resume) {
+    if (const auto it = sessions_.find(problem); it != sessions_.end()) {
+      const std::string why = it->second->resumeRefusal(options);
+      if (!why.empty()) {
+        return fail(Errc::InvalidArgument, why);
+      }
+    }
   }
   // A stacking solve runs on the saved search it shares with identical
   // problems: not while one of theirs runs on it (Solve would throw it

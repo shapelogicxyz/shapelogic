@@ -11,6 +11,8 @@ import {
   durationText,
   liveCells,
   performanceHtml,
+  PICKING_UP_NOTE,
+  pickingUpText,
 } from '../../../src/renderer/solver/performance.ts';
 
 const forecast = (f: Partial<SlideForecast>): SlideForecast => ({
@@ -86,6 +88,35 @@ describe('the Performance Analysis', () => {
     expect(html).toContain(
       '<tr class="slv-perf-now" data-depth="37"><td>37</td><td>1 min 10 s</td><td>3 min 1 s</td></tr>',
     );
+  });
+
+  it('says the saved search is being taken up, and for how long, instead of a move that does not run yet', () => {
+    // after a Continue: the run reads its saved search back in, no move's
+    // clock runs; 47 s into it, by the engine's count
+    const html = performanceHtml(forecast({ runningMs: 0 }), false, 0, 47_200);
+    expect(html).toContain(
+      '<tr class="slv-perf-now picking" data-depth="37"><td>37</td><td colspan="2">Picking up the saved search… 47 s</td></tr>',
+    );
+    // the move searched and the moves to come stay
+    expect(html).toContain('<tr class="slv-perf-done" data-depth="36">');
+    expect(html).toContain('<tr data-depth="40">');
+    // counted in seconds, however long it takes
+    expect(pickingUpText(0)).toBe('Picking up the saved search… 0 s');
+    expect(pickingUpText(806_200)).toBe('Picking up the saved search… 13 min 26 s');
+    expect(PICKING_UP_NOTE).toBe(
+      'This usually takes only a few seconds. In the later moves of a big solve it can occasionally take 2 to 10 minutes or more.',
+    );
+    // before there are estimates: said in the text
+    const early = performanceHtml(
+      forecast({ depth: 3, levelMs: [0, 1, 4], growth: null, estimates: [] }),
+      false,
+      0,
+      3_000,
+    );
+    expect(early).toContain(
+      'Searched 3 moves deep; move 3 took under a second. Picking up the saved search… 3 s',
+    );
+    expect(early).not.toContain('<table');
   });
 
   it('leaves out the fifth move that is the move under way', () => {

@@ -175,6 +175,13 @@ struct SlideSearch {
   /// When set, the level search keeps it up to date with the moves it has
   /// searched to (both ends together).
   std::atomic<std::uint64_t>* depthProgress = nullptr;
+  /// When set, tells while the level search takes up its saved search (its
+  /// state read, its level files opened, the visited sets read back and the
+  /// level that waited to go into them put there) and searches no move
+  /// yet, which a deep search does for seconds or for many minutes: the
+  /// steady clock's milliseconds (slideClockMs) when that began, 0 while
+  /// it does not.
+  std::atomic<std::int64_t>* pickingUpSince = nullptr;
   /// When set, counts the levels searched out while the path is traced back
   /// across thinned levels.
   std::atomic<std::uint64_t>* traced = nullptr;
@@ -438,6 +445,9 @@ struct SlideGrid {
   std::uint64_t stops = 0;
   std::uint64_t gridStops = 0;
 };
+
+/// The steady clock in milliseconds, never 0 (SlideSearch::pickingUpSince).
+[[nodiscard]] std::int64_t slideClockMs();
 
 /// The grid for optimized paths: the largest size above 1 that divides the
 /// board's floor (its bounding box) in x and y, for which at least one

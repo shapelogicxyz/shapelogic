@@ -378,7 +378,7 @@ where the problem's counts are.
 - **Images on pieces (decision 0038):** beside the pencil in the Shape
   color area, a piece (not a board) has an **image** button while its own
   color (Default) is chosen; it is lit when the piece has an image. It
-  opens **Apply image**: Choose image… (PNG, JPEG or WebP; shrunk to 2048
+  opens **Apply image**: Choose image… (PNG, JPEG, WebP or GIF; shrunk to 2048
   pixels), **Crop** (the middle part at the piece's proportions) or
   **Stretch**, a preview of the piece's cells with the picture, and
   Remove image when it has one. The picture covers the piece's bounding
@@ -489,12 +489,29 @@ where the problem's counts are.
   carries the saved search on to its end; Just count, Keep every n-th and the limit stay.
 - **Performance Analysis** (decision 0030): while a sliding solve is under
   way or paused and no solution is listed, a second dashed box under the
-  empty solutions card: how deep the search is, how long the last move took
-  and the move under way has run, the growth of the moves' times, and every
-  fifth move to 100 with that move's time and the time until it (columns Move,
-  Time and "Remaining", or "Once continued" when paused), from `solve.progress`'s
+  empty solutions card: the growth of the moves' times ("Each move takes
+  about 1.05× as long as the one before."), then a table (columns Move,
+  Time and "Remaining", or "Once continued" when paused): the move last
+  searched with its time and "Complete"; the move under way, its Time
+  counting up each second and its Remaining counting down from the last
+  move's time times the growth, below zero (a minus, in the danger colour)
+  once it runs past the estimate; then every fifth move past it, eleven
+  from the first multiple of five (the move under way not listed twice),
+  with that move's time and the time until it. From `solve.progress`'s
   `slideForecast` (a paused problem's from `problem.get`); it scrolls when
-  taller than the card, and goes when the solve is through. A paused
+  taller than the card, and goes when the solve is through. While a run
+  takes its saved search up after a Continue (`slidePickingUp`: mostly a
+  few seconds, in the later moves of a deep search now and then many
+  minutes, before the move's clock starts and before any picture of the
+  search comes), the row of the move under way, the empty card and the
+  view say "Picking up the saved search… 47 s": how long it has taken so
+  far (`slidePickingUpMs`), counted on each second so that the program is
+  seen to be at work; the view and the card add "This usually takes only
+  a few seconds. In the later moves of a big solve it can occasionally
+  take 2 to 10 minutes or more." A Continue the
+  engine refuses because its search options name another search than the
+  paused one's (decision 0043) is told in a message box, with what
+  differs. A paused
   sliding solve's empty card says "Search paused" and to press Continue. Keep mirror, Keep rotated, the thorough rotation check,
   Strict colours and the sort are not shown (a sliding solve keeps every
   start and matches colours strictly; a path found goes last). They are
@@ -756,10 +773,30 @@ keys, a game kept for each problem while the document is open).
   **Position** saves with `stacking.setStacks`, every disc where it is.
 - **Centre:** the rods from the front, drawn from `stacking.playStart`:
   the pegs on a base, each disc a bar as wide as its size, with its name
-  or, without one, its size; a Panex column with the steps a disc of each
-  size rests on behind it, and the bridge across the top. Beside the
+  or, without one, its size (too wide for the disc: each word's first
+  letter, "R 1" for "Right 1"; still too wide: none); a Panex column
+  with the steps a disc of each size rests on behind it, and the bridge
+  across the top; with the
+  outside channel (the problem's rod set's `outsideChannel` in the
+  snapshot), a loop over the bridge from the first column to the last,
+  above where a moving disc crosses, not on the Goal's picture. Beside the
   board, under Redo: the **Goal** as a small picture of the same board,
-  **Hide Goal** and **Hide Disc Labels**.
+  a button with a pop-out icon (two windows) at its top right that opens
+  the goal's window (below), **Hide Goal** and **Hide Disc Labels**.
+- **The goal's window** (`BtApp.goalWindow`, `main/goal-window.ts`): a
+  sliding puzzle's **Show Goal Image** (under Hide Goal Lines, an image
+  icon) or a stacking puzzle's Goal picture opens the goal in a window of
+  its own, one per app window, above it and closed with it, moved and
+  sized freely; a click again brings it forward. Sliding: the board as
+  drawn, each piece with a goal moved onto it (`goalPlaces`: the first
+  copy of its shape whose cells the goal is), the others, the goals' tint
+  and outlines left out. Stacking: the goal drawn at board size, cropped
+  to the drawing. The drawing is made standalone (`play/goal-picture.ts`:
+  the stylesheet's values written into each element, so the theme and the
+  hidden labels carry over) and shown as an image under a CSP that allows
+  nothing else; it is drawn again as the problem, the game's start or a
+  button's choice changes while the window is open. The demo opens a
+  popup instead.
 - **A move:** a press anywhere in a rod's column takes its top disc and
   asks `stacking.playMoves` once for the position. Dragged, the disc
   follows the pointer and goes onto the rod it is let go over; clicked, it

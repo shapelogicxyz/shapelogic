@@ -7,7 +7,10 @@
 // it has left, counted on by the card each second, below zero once it runs
 // past the estimate) and how long the moves to come will take, every fifth
 // move past it (58 moves deep: 60 to 110; 59 deep: 65 to 110, move 60 being
-// the one under way; the engine's SlideForecast: solve.progress while the
+// the one under way; while the search takes its saved search up after a
+// Continue, for a few seconds or, deep in a big solve, for many minutes
+// before the move's clock starts, the row says so instead, with how long
+// it has; the engine's SlideForecast: solve.progress while the
 // run is on, the problem's detail once it is paused; it is worked out again
 // as each move ends). It goes when the solve is through and the solution
 // shows.
@@ -103,13 +106,32 @@ export function liveCells(f: SlideForecast, elapsedMs: number): [string, string]
   return [counterText(run), next === null ? '—' : counterText(next - run)];
 }
 
+/** What stands for the move under way while the run takes its saved search up (SolveProgress.slidePickingUp). */
+export const PICKING_UP = 'Picking up the saved search…';
+
+/** What is said beside it: how long that may take. */
+export const PICKING_UP_NOTE =
+  'This usually takes only a few seconds. In the later moves of a big solve it can occasionally take 2 to 10 minutes or more.';
+
+/** "Picking up the saved search… 47 s": with how long it has taken so far, counted in seconds. */
+export function pickingUpText(ms: number): string {
+  return `${PICKING_UP} ${counterText(ms)}`;
+}
+
 /**
  * The panel's contents (its heading included): the growth, and the table:
  * the move last searched, the move under way and every fifth move to come;
  * `paused` says the times from now count from when the solve is continued,
- * `elapsedMs` how long since the forecast came (while it runs).
+ * `elapsedMs` how long since the forecast came (while it runs),
+ * `pickingUpMs` for how long the run has been taking its saved search up,
+ * searching no move yet (null: it is not).
  */
-export function performanceHtml(f: SlideForecast, paused: boolean, elapsedMs = 0): string {
+export function performanceHtml(
+  f: SlideForecast,
+  paused: boolean,
+  elapsedMs = 0,
+  pickingUpMs: number | null = null,
+): string {
   // the moves searched before the times were kept (a paused solve opened
   // from a file without them): no time, and no part in the estimates
   const firstTimed = f.levelMs.findIndex((ms) => ms !== null);
@@ -130,7 +152,7 @@ export function performanceHtml(f: SlideForecast, paused: boolean, elapsedMs = 0
       untimed > 0
         ? ' Estimates start once two moves in a row have been timed.'
         : ' Estimates appear once a few moves in a row have taken measurable time.';
-    return `<b>Performance Analysis</b>${done}${notKept}${running}${why}`;
+    return `<b>Performance Analysis</b>${done}${notKept}${running}${pickingUpMs === null ? '' : ` ${pickingUpText(pickingUpMs)}`}${why}`;
   }
   const growth = `Each move takes about ${f.growth.toFixed(2)}× as long as the one before.`;
   const from = paused ? 'Once continued' : 'Remaining';
@@ -141,7 +163,10 @@ export function performanceHtml(f: SlideForecast, paused: boolean, elapsedMs = 0
       ? row('slv-perf-done', f.depth, durationText(last), 'Complete')
       : '';
   const [time, left] = liveCells(f, elapsedMs);
-  const now = row(`slv-perf-now${left.startsWith('−') ? ' over' : ''}`, f.depth + 1, time, left);
+  const now =
+    pickingUpMs !== null
+      ? `<tr class="slv-perf-now picking" data-depth="${String(f.depth + 1)}"><td>${String(f.depth + 1)}</td><td colspan="2">${pickingUpText(pickingUpMs)}</td></tr>`
+      : row(`slv-perf-now${left.startsWith('−') ? ' over' : ''}`, f.depth + 1, time, left);
   // the move under way is on its own row: not again among every fifth
   const rows = f.estimates
     .filter((e) => e.depth > f.depth + 1)

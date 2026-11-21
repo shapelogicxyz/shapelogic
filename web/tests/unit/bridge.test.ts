@@ -102,6 +102,7 @@ describe('the proxy', () => {
       panexFolder: '/home/user/Library/Caches/ShapeLogic/panex',
       panexDiskGB: 0,
       searchMemoryGB: 0,
+      log: 'off',
     });
     const snap = await proxy.call('document.open', { path: 'tests/data/puzzles/Bermuda.xmpuzzle' });
     const shape = snap.shapes[0]?.id ?? '';

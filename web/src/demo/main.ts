@@ -237,6 +237,8 @@ function progressAt(
       slideStop: null,
       atSavePoint: false,
       slideForecast: null,
+      slidePickingUp: false,
+      slidePickingUpMs: 0,
     },
   };
 }
