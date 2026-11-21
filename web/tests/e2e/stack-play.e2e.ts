@@ -301,6 +301,12 @@ test('the Goal picture opens the goal, drawn large, in a window of its own', asy
     expect(svg.match(/data-rod="2" data-z="/g)).toHaveLength(3);
     expect(svg).not.toContain('<title>');
     expect(svg).not.toContain('class=');
+    // GOAL above it, and the drawing cropped to what is drawn: the discs,
+    // placed by their transforms, do not pull the crop up past the board
+    await expect(goal.locator('h1')).toHaveText('GOAL');
+    const view = /viewBox="([-\d.]+) ([-\d.]+) /.exec(svg);
+    expect(Number(view?.[1])).toBeGreaterThan(0);
+    expect(Number(view?.[2])).toBeGreaterThan(0);
     // a second click brings the same window forward, no new one
     await page.click('#plGoalPic');
     await expect.poll(() => a.app.windows().length).toBe(2);

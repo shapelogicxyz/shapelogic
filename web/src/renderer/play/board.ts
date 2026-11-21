@@ -46,6 +46,8 @@ export interface BoardModel {
   /** The board's own colour, or null for the theme's. */
   colour: Rgb3 | null;
   floor: { at: Cell; variable: boolean }[];
+  /** The board's picture on its floor, under the goals and the pieces, once decoded. */
+  picture?: BoardPiece['picture'];
   goals: { colour: Rgb3; cells: Cell[] }[];
   pieces: BoardPiece[];
 }
@@ -456,7 +458,7 @@ export class PlayBoard {
       tray.under +
       // the floor's bottom with its grid, and the bottom's edge: the foot of
       // the walls, its corners rounded as the floor's are
-      `<g class="pl-floor" clip-path="url(#pl-hollow)"><g clip-path="url(#pl-bottom)">${floor}<path class="pl-grid" d="${grid}"/></g>` +
+      `<g class="pl-floor" clip-path="url(#pl-hollow)"><g clip-path="url(#pl-bottom)">${floor}${this.floorPicture(m, at, sc)}<path class="pl-grid" d="${grid}"/></g>` +
       `<path class="pl-grid" d="${hollow}" transform="translate(${String(wall)} ${String(wall)})"/></g>${tray.over}` +
       `<g class="pl-goals" clip-path="url(#pl-hollow)"><g clip-path="url(#pl-bottom)">${goals}</g></g>` +
       // the walls: the band between the floor's edge and its bottom, and
@@ -506,6 +508,22 @@ export class PlayBoard {
 
   // one piece: a tile over its cells of the layer shown (filled, or its
   // picture) with its sides dropping to the lower right, and its name
+  // the board's picture over its floor, '' for none: its pixels to the
+  // board's cells, then to the drawing (y down, the floor's corner at `at`);
+  // the floor's bottom clips it, so it shows on no wall
+  private floorPicture(m: BoardModel, at: number, sc: number): string {
+    const p = m.picture ?? null;
+    if (p === null) {
+      return '';
+    }
+    const toBoard: Affine = [sc, 0, 0, -sc, at, at + m.size[1] * sc];
+    const t = compose(toBoard, pictureToCells(p.image))
+      .map((n) => n.toFixed(4))
+      .join(' ');
+    const [sx, sy, sw, sh] = p.image.src;
+    return `<g class="pl-picture" pointer-events="none"><clipPath id="pl-floorpic"><rect x="${String(sx)}" y="${String(sy)}" width="${String(sw)}" height="${String(sh)}"/></clipPath><g transform="matrix(${t})"><image href="${p.dataUrl}" width="${String(p.width)}" height="${String(p.height)}" preserveAspectRatio="none" clip-path="url(#pl-floorpic)"/></g></g>`;
+  }
+
   private pieceSvg(p: BoardPiece, i: number): { body: string; label: string } {
     const sc = this.sc;
     const at = this.places[i] ?? [0, 0, 0];

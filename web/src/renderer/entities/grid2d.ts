@@ -67,7 +67,7 @@ export interface GridInput {
     names?: readonly TrayName[];
   } | null;
   /**
-   * A sliding piece's picture (decision 0038): drawn on its filled cells, the
+   * A sliding piece's or board's picture (decision 0038): drawn on its filled cells, the
    * map from its pixels to the grid's cells (y up) and the part of it shown
    * ([x, y, width, height] in pixels); null for none.
    */
@@ -118,8 +118,13 @@ const M = 44;
 
 type P2 = [number, number];
 
+/** Numbers the grids, so each picture pattern's id is the page's only one. */
+let grids = 0;
+
 export class Grid2D {
   private readonly area: HTMLElement;
+  /** This grid's picture pattern id: several grids are on the page at once. */
+  private readonly patternId = `pimg${String(++grids)}`;
   private readonly host: GridHost;
   /** The space round the grid, in pixels. */
   private readonly margin: number;
@@ -370,10 +375,11 @@ export class Grid2D {
         );
       }
       const tray = input.tray;
-      if (tray != null && v !== undefined) {
-        // the tray's chequer, a marked cell in its piece's (grideditor.cpp)
+      const mark = tray?.marks.get(key(c.at));
+      if (tray != null && v !== undefined && (mark !== undefined || picture === null)) {
+        // the tray's chequer, a marked cell in its piece's (grideditor.cpp);
+        // a board with a picture shows it on the cells no piece stands on
         const odd = ((c.at[0] + c.at[1] + c.at[2]) & 1) === 1;
-        const mark = tray.marks.get(key(c.at));
         const base = mark ?? tray.own ?? boardColour();
         col = hex(odd ? dark(base) : light(base));
       } else if (picture !== null && v !== undefined) {
@@ -400,7 +406,7 @@ export class Grid2D {
     this.paintNames(input);
   }
 
-  // the piece's picture as a pattern over the whole drawing, the shape's
+  // the piece's or board's picture as a pattern over the whole drawing, the shape's
   // colour where the picture does not reach: the fill of its filled cells,
   // or null when it has none (the XY plane only, the one a sliding puzzle
   // is drawn in)
@@ -410,7 +416,7 @@ export class Grid2D {
     if (defs == null) {
       return null;
     }
-    if (im === null || input.tray != null || input.plane.ca !== 'X' || input.plane.ra !== 'Y') {
+    if (im === null || input.plane.ca !== 'X' || input.plane.ra !== 'Y') {
       defs.innerHTML = '';
       return null;
     }
@@ -431,8 +437,8 @@ export class Grid2D {
     const [sx = 0, sy = 0, sw = 0, sh = 0] = im.src;
     const w = this.svg?.getAttribute('width') ?? '0';
     const h = this.svg?.getAttribute('height') ?? '0';
-    defs.innerHTML = `<clipPath id="pimgClip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}"/></clipPath><pattern id="pimg" patternUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${input.shapeColour}"/><g transform="matrix(${t})"><image href="${im.picture.dataUrl}" width="${im.picture.width}" height="${im.picture.height}" preserveAspectRatio="none" clip-path="url(#pimgClip)"/></g></pattern>`;
-    return 'url(#pimg)';
+    defs.innerHTML = `<clipPath id="${this.patternId}Clip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}"/></clipPath><pattern id="${this.patternId}" patternUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${input.shapeColour}"/><g transform="matrix(${t})"><image href="${im.picture.dataUrl}" width="${im.picture.width}" height="${im.picture.height}" preserveAspectRatio="none" clip-path="url(#${this.patternId}Clip)"/></g></pattern>`;
+    return `url(#${this.patternId})`;
   }
 
   // each copy's name at the bottom centre of its cells in this layer: the

@@ -392,6 +392,8 @@ export interface GoalPicture {
   height: number;
   /** A CSS colour: `#rrggbb` or `rgb(…)`. */
   background: string;
+  /** The dark theme is in use: the GOAL caption above the drawing is white, else black. */
+  dark: boolean;
 }
 
 /** The largest goal drawing taken, in characters (pieces' pictures are in it). */
@@ -413,14 +415,19 @@ export function isGoalPicture(v: unknown): v is GoalPicture {
     size(p.width) &&
     size(p.height) &&
     typeof p.background === 'string' &&
-    /^(#[0-9a-f]{6}|rgba?\([0-9., ]+\))$/i.test(p.background)
+    /^(#[0-9a-f]{6}|rgba?\([0-9., ]+\))$/i.test(p.background) &&
+    typeof p.dark === 'boolean'
   );
 }
 
+/** The height of the goal window's GOAL caption above the drawing, in pixels. */
+const GOAL_CAPTION = 30;
+
 /**
- * The goal window's page: the drawing as an image (so nothing in it can
- * run or fetch) that fills the window, kept in shape, under a policy that
- * allows only that image and the page's own style.
+ * The goal window's page: GOAL in bold above the drawing, which is an
+ * image (so nothing in it can run or fetch) that fills the rest of the
+ * window, kept in shape, under a policy that allows only that image and
+ * the page's own style.
  */
 export function goalPage(p: GoalPicture): string {
   const esc = (t: string): string =>
@@ -433,22 +440,26 @@ export function goalPage(p: GoalPicture): string {
   for (let i = 0; i < bytes.length; i += 0x8000) {
     bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   }
+  const ink = p.dark ? '#ffffff' : '#000000';
   return (
     '<!doctype html><html><head><meta charset="utf-8">' +
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">` +
     `<title>${esc(p.title)}</title>` +
-    `<style>html,body{margin:0;height:100%;overflow:hidden;background:${p.background}}img{display:block;box-sizing:border-box;width:100%;height:100%;padding:12px;object-fit:contain;user-select:none;-webkit-user-drag:none}</style>` +
-    `</head><body><img alt="${esc(p.title)}" src="data:image/svg+xml;base64,${btoa(bin)}"></body></html>`
+    `<style>html,body{margin:0;height:100%;overflow:hidden;background:${p.background}}` +
+    `body{display:flex;flex-direction:column}` +
+    `h1{flex:none;box-sizing:border-box;height:${String(GOAL_CAPTION)}px;margin:0;padding:12px 12px 0;font:bold 18px/18px system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.08em;text-align:center;color:${ink};user-select:none}` +
+    `img{display:block;flex:1 1 auto;min-height:0;box-sizing:border-box;width:100%;padding:12px;object-fit:contain;user-select:none;-webkit-user-drag:none}</style>` +
+    `</head><body><h1>GOAL</h1><img alt="${esc(p.title)}" src="data:image/svg+xml;base64,${btoa(bin)}"></body></html>`
   );
 }
 
-/** The goal window's first content size: the drawing's shape, at most `max` pixels across or down. */
+/** The goal window's first content size: the drawing's shape under its caption, at most `max` pixels across or down. */
 export function goalWindowSize(p: GoalPicture, max = 640): { width: number; height: number } {
   const pad = 24;
-  const k = Math.min(1, (max - pad) / Math.max(p.width, p.height));
+  const k = Math.min(1, (max - pad) / p.width, (max - pad - GOAL_CAPTION) / p.height);
   return {
     width: Math.max(220, Math.round(p.width * k + pad)),
-    height: Math.max(160, Math.round(p.height * k + pad)),
+    height: Math.max(160, Math.round(p.height * k + pad + GOAL_CAPTION)),
   };
 }
 

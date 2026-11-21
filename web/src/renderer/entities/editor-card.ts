@@ -129,15 +129,18 @@ export class EditorCard {
     return this.ownOnly ? [] : (this.host.store.snapshot?.colours ?? []);
   }
 
-  /** Whether the shape shown may take an image: a sliding puzzle's piece, with Default (its own colour) chosen. */
+  /** Whether the shape shown may take an image: a sliding puzzle's piece or board, with Default (its own colour) chosen. */
   private get imageable(): boolean {
-    const s = this.shape;
     return (
       this.host.store.snapshot?.grid === 'sliding' &&
-      s !== null &&
-      !isTray(s) &&
+      this.shape !== null &&
       this.host.state.colour === null
     );
+  }
+
+  /** "piece" or "board", for the image button's tips. */
+  private get imageNoun(): string {
+    return isTray(this.shape) ? 'board' : 'piece';
   }
 
   /** Whether the puzzle type has no constraint colours (stacking): the palette is the shape's own. */
@@ -323,7 +326,7 @@ export class EditorCard {
         : `<button class="ib" id="cAdd" title="Add color">${ic('plus', 22)}</button>`) +
       `<button class="ib" id="cEdit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">${ic('edit', 22)}</button>` +
       (this.imageable
-        ? `<button class="ib ${s?.image == null ? '' : 'on'}" id="cImage" title="${s?.image == null ? 'Apply an image from this computer to the piece’s cells' : 'Change or remove the piece’s image'}" aria-pressed="${String(s?.image != null)}">${ic('image', 22)}</button>`
+        ? `<button class="ib ${s?.image == null ? '' : 'on'}" id="cImage" title="${s?.image == null ? `Apply an image from this computer to the ${this.imageNoun}’s cells` : `Change or remove the ${this.imageNoun}’s image`}" aria-pressed="${String(s?.image != null)}">${ic('image', 22)}</button>`
         : '') +
       (this.ownOnly
         ? ''
@@ -387,7 +390,7 @@ export class EditorCard {
   private colourMenu(): string {
     const def = this.host.state.colour === null;
     const img = this.imageable
-      ? `<button data-k="img" title="Apply an image from this computer to the piece’s cells">${this.shape?.image == null ? 'Apply image…' : 'Change image…'}</button><button data-k="rmimg" ${this.shape?.image == null ? 'disabled' : ''} title="Take the image off this piece">Remove image</button>`
+      ? `<button data-k="img" title="Apply an image from this computer to the ${this.imageNoun}’s cells">${this.shape?.image == null ? 'Apply image…' : 'Change image…'}</button><button data-k="rmimg" ${this.shape?.image == null ? 'disabled' : ''} title="Take the image off this ${this.imageNoun}">Remove image</button>`
       : '';
     return `<button data-k="edit" title="${def ? 'Change this shape’s own color' : 'Change this restriction color'}">Edit color…</button><button data-k="rm" ${def ? 'disabled' : ''} title="Remove this restriction color from the puzzle">Remove color</button>${img}`;
   }

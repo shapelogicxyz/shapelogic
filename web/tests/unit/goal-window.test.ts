@@ -16,6 +16,7 @@ const picture: GoalPicture = {
   width: 400,
   height: 200,
   background: '#1a1d24',
+  dark: true,
 };
 
 describe('the goal window', () => {
@@ -27,6 +28,7 @@ describe('the goal window', () => {
     expect(isGoalPicture({ ...picture, background: 'red;}body{display:none' })).toBe(false);
     expect(isGoalPicture({ ...picture, background: 'url(x)' })).toBe(false);
     expect(isGoalPicture({ ...picture, width: 0 })).toBe(false);
+    expect(isGoalPicture({ ...picture, dark: undefined })).toBe(false);
     expect(isGoalPicture({ ...picture, height: Number.NaN })).toBe(false);
     expect(isGoalPicture({ ...picture, title: 'x'.repeat(301) })).toBe(false);
   });
@@ -48,15 +50,26 @@ describe('the goal window', () => {
     expect(page).toContain('background:#1a1d24');
   });
 
-  it('opens in the drawing’s shape, at most 640 pixels across', () => {
-    expect(goalWindowSize(picture)).toEqual({ width: 424, height: 224 });
+  it('writes GOAL in bold above the drawing, white in the dark theme and black in the light', () => {
+    const dark = goalPage(picture);
+    expect(dark).toContain('<body><h1>GOAL</h1><img');
+    expect(dark).toMatch(/h1\{[^}]*font:bold [^}]*color:#ffffff/);
+    expect(goalPage({ ...picture, dark: false })).toMatch(/h1\{[^}]*color:#000000/);
+  });
+
+  it('opens in the drawing’s shape under its caption, at most 640 pixels across or down', () => {
+    expect(goalWindowSize(picture)).toEqual({ width: 424, height: 254 });
     expect(goalWindowSize({ ...picture, width: 1200, height: 600 })).toEqual({
       width: 640,
-      height: 332,
+      height: 362,
     });
     expect(goalWindowSize({ ...picture, width: 100, height: 300 })).toEqual({
       width: 220,
-      height: 324,
+      height: 354,
+    });
+    expect(goalWindowSize({ ...picture, width: 300, height: 1200 })).toEqual({
+      width: 220,
+      height: 640,
     });
   });
 

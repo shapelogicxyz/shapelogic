@@ -348,10 +348,9 @@ Result<unsigned int> Document::setShapeImage(Id shape, const ImageChoice& choice
   if (!sliding::isSliding(*puzzle_)) {
     return fail(Errc::InvalidArgument, "only the shapes of a sliding puzzle show pictures");
   }
+  // a board takes one too: it lies on the tray's floor (its filled and
+  // variable cells), under the pieces
   const Voxel& v = puzzle_->getShape(*s);
-  if (sliding::isStartGoalShape(&v)) {
-    return fail(Errc::InvalidArgument, "a board shows no picture: only pieces do");
-  }
   if (v.countState(Voxel::kEmpty) == v.getXYZ()) {
     return fail(Errc::InvalidArgument, "the shape has no cells to show a picture on");
   }

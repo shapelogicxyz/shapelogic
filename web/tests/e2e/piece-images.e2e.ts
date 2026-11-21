@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Images on a sliding puzzle's pieces (decision 0038): the image button
-// beside the pencil in the Shape color area, the Apply image dialog's file,
-// Crop and Stretch, the picture drawn on the filled cells only, turned with
-// the piece, kept by the file, and removed again.
+// Images on a sliding puzzle's pieces and boards (decision 0038): the
+// image button beside the pencil in the Shape color area, the Apply image
+// dialog's file, Crop and Stretch, the picture drawn on the filled cells
+// only, turned with the piece, kept by the file, and removed again; a
+// board's on its floor in the Shapes grid, the Start grid and Play.
 
 import { crc32, deflateSync } from 'node:zlib';
 
@@ -12,6 +13,7 @@ import type { Page } from '@playwright/test';
 
 import { BUILT, ENGINE, engineCall, launch, newDocument, SHAPE_ROWS, shapes } from './app.ts';
 import { clickCell, settled } from './editor.ts';
+import { toPlay } from './play.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
 
@@ -63,14 +65,14 @@ async function imageOf(page: Page, shape: string): Promise<Image | null> {
   return snap.shapes.find((s) => s.id === shape)?.image ?? null;
 }
 
-const PATTERNED = '#garea .cell[fill="url(#pimg)"]';
+const PATTERNED = '#garea .cell[fill^="url(#pimg"]';
 
 test('a piece’s image: applied cropped or stretched, drawn on its cells, turned, saved, removed', async () => {
   const a = await launch();
   const page = a.page;
   try {
     await newDocument(page, 'sliding');
-    // the image button is for pieces: none before there is one
+    // no shape, no image button
     await expect(page.locator('#cImage')).toHaveCount(0);
     await page.click('#btnNew');
     await expect(page.locator(SHAPE_ROWS)).toHaveCount(1);
@@ -140,6 +142,65 @@ test('a piece’s image: applied cropped or stretched, drawn on its cells, turne
     expect(await imageOf(page, piece)).toBeNull();
     await expect(page.locator(PATTERNED)).toHaveCount(0);
     await expect(page.locator('#cImage')).not.toHaveClass(/\bon\b/);
+  } finally {
+    await a.close();
+  }
+});
+
+test('a board’s image: on its floor in the Shapes grid, the Start grid and the Play tab', async () => {
+  const a = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'sliding');
+    await page.click('#btnNewBoard');
+    await settled(page);
+    const snap = await engineCall<{ shapes: { id: string; startGoal: number | null }[] }>(
+      page,
+      'document.get',
+    );
+    const tray = snap.shapes.find((s) => s.startGoal !== null)?.id ?? '';
+    // a new board is 6 by 6, every cell floor
+    await expect(page.locator('#cImage')).toHaveAttribute('title', /board’s cells/);
+    await page.click('#cImage');
+    const dlg = page.locator('#imageDlg');
+    await expect(dlg).toBeVisible();
+    await expect(dlg.locator('.imgdlg-note')).toContainText('under the pieces');
+    await dlg.locator('[data-f="file"]').setInputFiles({
+      name: 'red.png',
+      mimeType: 'image/png',
+      buffer: png(6, 6),
+    });
+    await dlg.locator('[data-x="apply"]').click();
+    await expect(dlg).toHaveCount(0);
+    await settled(page);
+    expect(await imageOf(page, tray)).toMatchObject({ src: [0, 0, 6, 6], box: [0, 0, 6, 6] });
+    await expect(page.locator(PATTERNED)).toHaveCount(36);
+
+    // a unit piece on the board, its start at the corner, its goal at the far one
+    const { shape: one } = await engineCall<{ shape: string }>(page, 'shape.create', {
+      size: [1, 1, 1],
+    });
+    await engineCall(page, 'shape.setCells', { shape: one, tool: 'fixed', cells: [[0, 0, 0]] });
+    const { problem } = await engineCall<{ problem: string }>(page, 'problem.create');
+    await engineCall(page, 'problem.setResult', { problem, shape: tray });
+    await engineCall(page, 'sliding.place', { tray, problem, piece: one, at: [0, 0], goal: false });
+    const last = await engineCall<{ revision: number }>(page, 'sliding.place', {
+      tray,
+      problem,
+      piece: one,
+      at: [5, 5],
+      goal: true,
+    });
+    await expect(page.locator('#stage')).toHaveAttribute('data-revision', String(last.revision));
+
+    // the Start grid: the picture on every cell but the one the piece's start marks
+    await page.keyboard.press('Control+2');
+    await expect(page.locator('#sgStartGrid .cell[fill^="url(#pimg"]')).toHaveCount(35);
+
+    // Play: the picture on the floor, under the piece
+    await toPlay(page);
+    await expect(page.locator('.pl-floor .pl-picture image')).toHaveCount(1);
+    await expect(page.locator('.pl-piece')).toHaveCount(1);
   } finally {
     await a.close();
   }

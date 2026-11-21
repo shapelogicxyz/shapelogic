@@ -78,7 +78,10 @@ checks that each filled cell shows the same point of the picture.
 
 **Applying.** `shape.setImage` lays a picture (new bytes, or an id the
 puzzle has) over the shape's bounding box, upright. Only a sliding
-puzzle's pieces take one (not a board, not an empty shape). The app
+puzzle's shapes take one, not an empty shape. A board (a start/goal
+shape) takes one too (added 2026-11-21): its box is its floor's (the
+filled and variable cells; the walls are empty cells), and the picture
+lies on the floor under the pieces. The app
 shrinks a picture to 2048 pixels and saves it as a PNG or JPEG before it
 sends it, since base64 makes it a third bigger and gzip barely shrinks
 picture files. The dialog works out `src`: Stretch takes the whole picture,
@@ -111,3 +114,8 @@ view's restriction colours), lit as the faces are.
   action, and pictures in the SVG and GLB exports, are left for later.
 - A picture is drawn with the 3D view's light, so it looks darker on faces
   turned away from it, as the piece colours do.
+- A board's picture shows in the Shapes and Puzzle tabs' 2D grids (under
+  the start and goal marks, which keep their chequer), the Puzzle tab's
+  3D trays and the Play tab's floor (under the goals' 30% tint and the
+  pieces). The Solver's 3D view draws a sliding board as wall lines only,
+  with no floor, so it shows none there.

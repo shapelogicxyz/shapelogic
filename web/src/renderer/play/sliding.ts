@@ -251,10 +251,21 @@ export class SlidingPlay implements PlayKind {
     const boardShape = start.board.shape;
     const tray = shapes.find((s) => s.id === boardShape);
     const copies = new Map<string, number>();
+    const trayImage = tray?.image ?? null;
+    const trayPicture = pieceImage(this.store.engine, trayImage);
     return {
       size: cell(start.board.size),
       colour: tray?.colour == null ? null : fromHex(tray.colour),
       floor: start.board.cells.map((c) => ({ at: cell(c.at), variable: c.state === 'variable' })),
+      picture:
+        trayImage === null || trayPicture === null
+          ? null
+          : {
+              image: trayImage,
+              dataUrl: trayPicture.dataUrl,
+              width: trayPicture.width,
+              height: trayPicture.height,
+            },
       goals: start.goals.map((g) => {
         const i = indexOf(g.piece);
         return {

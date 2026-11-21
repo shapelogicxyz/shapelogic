@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The Apply image dialog (decision 0038): a picture from the computer for
-// a sliding puzzle's piece, laid over the piece's bounding box, upright,
+// a sliding puzzle's piece or board, laid over its bounding box, upright,
 // and drawn only on its filled cells. Crop cuts the picture to the box's
 // proportions, centred; Stretch squashes the whole picture into it. The
 // preview draws the piece's cells with the picture as it will look. A
@@ -34,6 +34,8 @@ export interface ImageApply {
 export interface ImageDialogOptions {
   /** The piece's name, for the title. */
   label: string;
+  /** A board's picture (on its floor, under the pieces) rather than a piece's. */
+  board?: boolean;
   /** The piece's filled cells, [x, y, z]; only x and y count. */
   cells: readonly (readonly number[])[];
   /** The colour of the piece's cells where the picture does not reach. */
@@ -145,12 +147,13 @@ export function drawPreview(
   }
 }
 
-/** Opens the dialog for a piece. */
+/** Opens the dialog for a piece or a board. */
 export function openImageDialog(o: ImageDialogOptions): void {
   const box = cellBox(o.cells);
   if (box === null) {
     return;
   }
+  const n = o.board === true ? 'board' : 'piece';
   const [, , bw, bh] = box;
   // the picture shown: the piece's own until another is chosen
   let chosen: { data: string; picture: PieceImage } | null = null;
@@ -165,13 +168,13 @@ export function openImageDialog(o: ImageDialogOptions): void {
     id,
     title: `Apply image to ${o.label}`,
     body: `<div class="form imgdlg">
-<div class="imgdlg-pick"><button class="btn" data-f="choose" title="Choose a PNG, JPEG, WebP or GIF picture on this computer">Choose image…</button><span data-f="name">${o.current === null ? 'No image chosen' : 'The piece’s image'}</span><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
+<div class="imgdlg-pick"><button class="btn" data-f="choose" title="Choose a PNG, JPEG, WebP or GIF picture on this computer">Choose image…</button><span data-f="name">${o.current === null ? 'No image chosen' : `The ${n}’s image`}</span><input type="file" data-f="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
 <fieldset><legend>Fit</legend>
-<label title="Cut the picture to the piece’s proportions, keeping its middle: nothing is squashed"><input type="radio" name="imgFit" value="crop" ${fit === 'crop' ? 'checked' : ''}> Crop</label>
-<label title="Squash the whole picture to the piece’s rectangle"><input type="radio" name="imgFit" value="stretch" ${fit === 'stretch' ? 'checked' : ''}> Stretch</label>
+<label title="Cut the picture to the ${n}’s proportions, keeping its middle: nothing is squashed"><input type="radio" name="imgFit" value="crop" ${fit === 'crop' ? 'checked' : ''}> Crop</label>
+<label title="Squash the whole picture to the ${n}’s rectangle"><input type="radio" name="imgFit" value="stretch" ${fit === 'stretch' ? 'checked' : ''}> Stretch</label>
 </fieldset>
 <canvas class="imgdlg-preview" data-f="preview" style="width:${String(PREVIEW_W)}px;height:${String(PREVIEW_H)}px" aria-label="Preview"></canvas>
-<p class="imgdlg-note">The image covers the piece’s ${esc(`${String(bw)} × ${String(bh)}`)} rectangle and shows only on its cells. It turns and moves with the piece.</p>
+<p class="imgdlg-note">The image covers the ${n}’s ${esc(`${String(bw)} × ${String(bh)}`)} rectangle and shows only on its cells${o.board === true ? ', under the pieces. It turns with the board.' : '. It turns and moves with the piece.'}</p>
 <div class="scad-err" data-f="err"></div></div>`,
     buttons: [
       ...(o.current === null
@@ -181,7 +184,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
               key: 'remove',
               label: 'Remove image',
               kind: 'danger' as const,
-              tip: 'Take the image off this piece',
+              tip: `Take the image off this ${n}`,
             },
           ]),
       { key: 'cancel', label: 'Cancel' },
@@ -190,7 +193,7 @@ export function openImageDialog(o: ImageDialogOptions): void {
         label: 'Apply',
         kind: 'pri',
         default: true,
-        tip: 'Put the image on the piece',
+        tip: `Put the image on the ${n}`,
       },
     ],
     onAnswer: (k, el) => {

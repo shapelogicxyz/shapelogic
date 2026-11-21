@@ -2838,11 +2838,11 @@ export interface Methods {
     errors: 'not_found' | 'invalid_state';
   };
   /**
-   * Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038):
-   * new image bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its
-   * number. The picture then turns, flips and moves with the cells. Refused (invalid_argument) on
-   * other grids, for a board (a start/goal shape), a shape without cells, bytes that are not such
-   * a picture, or a part outside it.
+   * Lays a picture over the shape's bounding box, upright, on a sliding puzzle (decision 0038): on
+   * a piece, or on a board (a start/goal shape), whose floor shows it under the pieces; new image
+   * bytes (a PNG or JPEG, at most 8192 pixels a side) or one the puzzle has, by its number. The
+   * picture then turns, flips and moves with the cells. Refused (invalid_argument) on other grids,
+   * for a shape without cells, bytes that are not such a picture, or a part outside it.
    * (shape.json)
    */
   'shape.setImage': {

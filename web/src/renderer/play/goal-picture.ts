@@ -8,6 +8,7 @@
 // The window shows it as an image: nothing in it runs or is fetched.
 
 import type { GoalPicture } from '../../engine/app-bridge.ts';
+import { isDarkTheme } from '../shell/theme.ts';
 
 /** The properties a board's drawing takes from the stylesheet. */
 const PROPS = [
@@ -108,5 +109,6 @@ export function goalPicture(title: string, svg: SVGSVGElement, how: PictureEdit 
     width: Math.max(1, Math.round(box.width || svg.width.baseVal.value)),
     height: Math.max(1, Math.round(box.height || svg.height.baseVal.value)),
     background: pageBackground(),
+    dark: isDarkTheme(),
   };
 }

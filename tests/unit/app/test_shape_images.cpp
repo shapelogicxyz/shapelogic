@@ -14,6 +14,7 @@
 #include "shapelogic/mesh/draw_mesh.h"
 #include "shapelogic/mesh/voxel_mesh.h"
 #include "shapelogic/model/puzzle_image.h"
+#include "shapelogic/model/sliding.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -184,11 +185,6 @@ TEST_CASE("shape images: what the command refuses", "[app][sliding]") {
     return doc.setShapeImage(s, {std::nullopt, 7U, ImageFit::Crop, {0, 0, 1, 1}});
   });
 
-  const Id tray = d.addStartGoal(std::array<unsigned int, 3>{2, 2, 1}).value();
-  refused(d, Errc::InvalidArgument, [&](Document& doc) {
-    return doc.setShapeImage(tray, {png, std::nullopt, ImageFit::Crop, {0, 0, 20, 10}});
-  });
-
   Document cubes(GridKind::Bricks);
   const Id c = cubes.createShape(std::array<unsigned int, 3>{1, 1, 1}).value();
   REQUIRE(cubes.editCells(c, CellTool::Fixed, 0, 0, {{0, 0, 0}}).has_value());
@@ -348,4 +344,41 @@ TEST_CASE("shape images: the mesh's faces looking up carry the picture's coordin
   std::sort(turned.begin(), turned.end());
   turned.erase(std::unique(turned.begin(), turned.end()), turned.end());
   CHECK(turned == upright);
+}
+
+TEST_CASE("shape images: a board takes a picture on its floor, kept by the file",
+          "[app][sliding][io][mesh]") {
+  Document d(GridKind::Sliding);
+  const Id tray = d.addStartGoal(std::array<unsigned int, 3>{3, 2, 1}).value();
+  const std::string png = pngHeader(30, 20, 'b');
+  roundTrip(d, [&](Document& doc) {
+    return doc.setShapeImage(tray, {png, std::nullopt, ImageFit::Stretch, {0, 0, 30, 20}});
+  });
+  // the box is the board's floor: every cell of a new board
+  CHECK(shapeOf(d, tray).getImage().box == std::array<int, 4>{0, 0, 3, 2});
+
+  // the floor's tops carry the picture, the corners at (0, 0) and (1, 1)
+  const mesh::DrawMesh m = d.shapeMesh(tray, mesh::MeshStyle::Flat).value();
+  REQUIRE(m.imageUv.size() == 2 * m.vertexCount());
+  float lo = 2.0F;
+  float hi = -1.0F;
+  for (std::size_t i = 0; i < m.vertexCount(); i++) {
+    if (m.normals[3 * i + 2] >= 0.5F) {
+      lo = std::min({lo, m.imageUv[2 * i], m.imageUv[2 * i + 1]});
+      hi = std::max({hi, m.imageUv[2 * i], m.imageUv[2 * i + 1]});
+    }
+  }
+  CHECK(std::abs(lo) < 1e-5F);
+  CHECK(std::abs(hi - 1.0F) < 1e-5F);
+
+  Result<Puzzle> back = io::parsePuzzle(io::writePuzzle(d.puzzle()));
+  REQUIRE(back.has_value());
+  const Voxel& b = back->getShape(d.shapeIndex(tray).value());
+  CHECK(sliding::isStartGoalShape(&b));
+  CHECK(b.getImage() == shapeOf(d, tray).getImage());
+  REQUIRE(back->findImage(b.getImage().id) != nullptr);
+  CHECK(*back->findImage(b.getImage().id)->bytes == png);
+
+  roundTrip(d, [&](Document& doc) { return doc.clearShapeImage(tray); });
+  CHECK_FALSE(shapeOf(d, tray).getImage().present());
 }

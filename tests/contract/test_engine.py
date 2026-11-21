@@ -103,6 +103,14 @@ def shape_images(e):
             "invalid_argument")
     e.fails("shape.imageData", {"image": 9}, "not_found")
 
+    # a board takes one too, over its floor
+    tray = e.call("sliding.addStartGoal", {"size": [4, 3]})["shape"]
+    e.call("shape.setImage", {"shape": tray, "image": im["image"], "fit": "stretch",
+                              "src": [0, 0, 60, 40]})
+    board = next(x for x in e.call("document.get")["shapes"] if x["id"] == tray)
+    check(board["startGoal"] is not None and board["image"]["box"] == [0, 0, 4, 3],
+          f"the board's picture {board['image']}")
+
     e.call("document.new", {"grid": "bricks"})
     c = e.call("shape.create", {"size": [1, 1, 1]})["shape"]
     e.call("shape.setCells", {"shape": c, "tool": "fixed", "cells": [[0, 0, 0]]})

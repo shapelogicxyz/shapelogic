@@ -20,6 +20,7 @@ import { byId } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
 import { copyColour } from '../shell/piece-colours.ts';
 import { flash, reportError } from '../shell/status.ts';
+import { onTheme } from '../shell/theme.ts';
 import type { AnyGame } from './game.ts';
 import type { Loaded, PlayKind, PlayKindHost } from './kind.ts';
 import { StackBoard } from './stack-board.ts';
@@ -102,6 +103,10 @@ export class StackingPlay implements PlayKind {
       refused: (from, to) => {
         void this.tellWhy(from, to);
       },
+    });
+    // an open goal window takes the theme's colours (its GOAL caption, its background)
+    onTheme(() => {
+      this.sendGoal(false);
     });
     byId('plOwn').addEventListener('click', (e) => {
       if (!this.mounted) {
@@ -380,7 +385,20 @@ export class StackingPlay implements PlayKind {
       const parts = [
         ...svg.querySelectorAll<SVGGraphicsElement>('.sk-back > :not(.sk-glow), .sk-disc'),
       ];
-      const boxes = parts.map((e) => e.getBBox());
+      // measured where they are drawn: getBBox leaves out an element's own
+      // transform, and a disc stands where its style's translate puts it
+      const at = svg.getBoundingClientRect();
+      const view = svg.viewBox.baseVal;
+      const k = at.width > 0 ? view.width / at.width : 1;
+      const boxes = parts.map((e) => {
+        const r = e.getBoundingClientRect();
+        return {
+          x: view.x + (r.left - at.left) * k,
+          y: view.y + (r.top - at.top) * k,
+          width: r.width * k,
+          height: r.height * k,
+        };
+      });
       if (boxes.length > 0) {
         const pad = 12;
         const x0 = Math.min(...boxes.map((b) => b.x)) - pad;

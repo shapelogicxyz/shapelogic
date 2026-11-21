@@ -29,7 +29,7 @@ import type { GroupState } from '../shell/history.ts';
 import { onKey } from '../shell/keyboard.ts';
 import { onPrefs, prefs } from '../shell/prefs.ts';
 import { editorVisible, layout, onLayout, tab } from '../shell/layout.ts';
-import { hex, isTray, shapeColour } from '../shell/piece-colours.ts';
+import { chipColour, hex, isTray, shapeColour } from '../shell/piece-colours.ts';
 import { onPieceImage, pieceImage } from '../shell/piece-images.ts';
 import { pictureToCells } from '../shell/picture-math.ts';
 import { flash, reportError, setCursor } from '../shell/status.ts';
@@ -391,7 +391,7 @@ export class EntitiesWorkspace {
     );
   }
 
-  // the Apply image dialog for the piece shown (decision 0038)
+  // the Apply image dialog for the piece or board shown (decision 0038)
   private editImage(): void {
     const shape = this.store.shape;
     if (shape === null || this.refuse()) {
@@ -399,14 +399,17 @@ export class EntitiesWorkspace {
     }
     const cells = [...this.cells.all.values()].map((v) => v.at);
     if (cells.length === 0) {
-      flash('Draw the piece’s cells first: the image shows only on them');
+      flash(
+        `Draw the ${isTray(shape) ? 'board' : 'piece'}’s cells first: the image shows only on them`,
+      );
       return;
     }
     const picture = pieceImage(this.store.engine, shape.image);
     openImageDialog({
       label: shape.label,
+      board: isTray(shape),
       cells,
-      colour: hex(shapeColour(shape.colour, this.store.indexOf(shape.id))),
+      colour: hex(chipColour(shape, this.store.indexOf(shape.id))),
       current: shape.image !== null && picture !== null ? { image: shape.image, picture } : null,
       apply: (a) =>
         this.mutate('Image', () =>
@@ -419,7 +422,7 @@ export class EntitiesWorkspace {
     });
   }
 
-  // a sliding piece's picture for the grid, once decoded (null: none yet)
+  // a sliding piece's or board's picture for the grid, once decoded (null: none yet)
   private pictureOf(shape: { image: ShapeSummary['image'] }): GridInput['image'] {
     if (this.store.snapshot?.grid !== 'sliding' || shape.image === null) {
       return null;

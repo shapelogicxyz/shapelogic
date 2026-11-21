@@ -1618,7 +1618,7 @@ What exists after stage 8:
     `piece-colours.ts` (the original's `pieceColor` table and jitter,
     `ROD_CHIP`),
     `piece-images.ts` and `picture-math.ts` (decision 0038: a sliding
-    piece's picture fetched once per hash with `shape.imageData` and
+    piece's or board's picture fetched once per hash with `shape.imageData` and
     decoded once, as a data URL for the 2D grid and a bitmap for the 3D
     views; the map from its pixels to the cells, and Crop's part),
     `layout.ts` (`setWorkspaceShown`: the Play workspace is in the rail
@@ -1733,13 +1733,13 @@ What exists after stage 8:
     `editor-card.ts` (the tool strip, mirror and span, the planes and the
     box tool, the layer strip with its marks, the selection bar, the size
     steppers in `sizeUnit` blocks rounded up as the original's, the
-    palette, a sliding piece's image button), `image-dialog.ts` (Apply
+    palette, a sliding piece's or board's image button), `image-dialog.ts` (Apply
     image, decision 0038: the file shrunk to 2048 pixels, Crop or Stretch,
     the preview), `grid2d.ts` (`Grid2D`: one SVG renderer for every grid over
     a layer drawing; the cursor outlined by its edges towards cells not
     under it; a drag collects every cell the pointer passes over, the right
-    button erases; the box selection; a piece's picture as a pattern on its
-    filled cells), `layer-geometry.ts` (`grid.geometry`
+    button erases; the box selection; a piece's or board's picture as a pattern on its
+    filled cells, its id the grid's own), `layer-geometry.ts` (`grid.geometry`
     by grid, size and layer; the cube's XZ and YZ planes as the client's
     squares), `shape-cells.ts` (`ShapeCells`: the shape's cells, the XY
     layer by `shape.get {layer}` and the whole shape, reloaded once the
@@ -2207,7 +2207,8 @@ the moves as a file's text). A sliding puzzle's kind is `sliding.ts`
 (`sliding.playStart`, the layer strip, the goal, grid, label and simple
 pieces buttons) with `board.ts` (the SVG board: whole pieces that are
 dragged over the stops `sliding.playReach` gave and drawn along the
-routes `sliding.playReplay` gave), the DOM-free `game.ts` (`GameOf`: the
+routes `sliding.playReplay` gave; the board's picture on the floor),
+the DOM-free `game.ts` (`GameOf`: the
 moves and the place in them, for any kind; a sliding game's merge of a
 piece moved again), `follow.ts` (the drag's steps, a route's points) and
 `moves-file.ts` (`.slmoves`: written, read, matched to a board and
