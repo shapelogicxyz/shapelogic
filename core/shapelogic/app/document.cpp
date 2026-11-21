@@ -1046,6 +1046,22 @@ Result<bool> Document::slideFromStartAlone(Id problem,
   return sliding::pendingFromStartAlone(*puzzle_, puzzle_->getProblem(*p), options);
 }
 
+Result<bool> Document::continueStartsOver(Id problem, const std::string& slideDir) const {
+  const Result<unsigned int> p = problemIndex(problem);
+  if (!p) {
+    return std::unexpected(p.error());
+  }
+  // a run writes the starts it keeps and its search's files
+  if (!sliding::isSliding(*puzzle_) || isActive(solveState(problem))) {
+    return false;
+  }
+  const auto it = sessions_.find(problem);
+  if (it != sessions_.end() && it->second->slideSavedUnread()) {
+    return false;
+  }
+  return sliding::pausedWithNothingSaved(*puzzle_, puzzle_->getProblem(*p), slideDir);
+}
+
 Result<std::vector<std::string>> Document::searchFolders(Id problem, const std::string& slideDir,
                                                          const std::string& panexDir) const {
   const Result<unsigned int> p = problemIndex(problem);

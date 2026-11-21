@@ -276,6 +276,13 @@ class SolveSession {
   /// thread.
   [[nodiscard]] std::optional<FolderFailure> folderFailure() const;
 
+  /// Whether the last run of a sliding solve paused on a start whose saved
+  /// search could not be read back (it is kept, decision 0041): Continue
+  /// tries it again. Any thread.
+  [[nodiscard]] bool slideSavedUnread() const {
+    return slideSavedUnread_.load(std::memory_order_acquire);
+  }
+
   /// Where the solve stands. Any thread; the overall figure never goes
   /// back during a run, whoever asks.
   [[nodiscard]] SolveProgress progress() const;
@@ -537,8 +544,9 @@ class SolveSession {
   /// A search that filled its disk budget was saved to be carried on.
   bool slideDiskSaved_ = false;
   /// The search did not run: its start's saved search could not be read
-  /// back and is kept as it is (SlideSearch::savedUnread).
-  bool slideSavedUnread_ = false;
+  /// back and is kept as it is (SlideSearch::savedUnread). Atomic for
+  /// slideSavedUnread().
+  std::atomic<bool> slideSavedUnread_{false};
   /// The run carries saved searches on (Continue). A solve begun anew has
   /// thrown the problem's saved searches away, and throws away what is
   /// left in a start's folder too: one whose state could not be read is in

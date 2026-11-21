@@ -87,6 +87,7 @@ Reply solveStatus(State& s, Params& p) {
   const std::optional<FolderFailure> folder = d.solveFolderFailure(problem);
   BTE_TRY(const std::optional<app::SavedSearchInfo> saved,
           d.savedSearch(problem, s.settings.panexFolder));
+  BTE_TRY(const bool startsOver, d.continueStartsOver(problem, s.settings.slideFolder));
   Json savedJson = nullptr;
   if (saved) {
     savedJson = Json{{"description", saved->description},
@@ -100,7 +101,8 @@ Reply solveStatus(State& s, Params& p) {
               {"note", note.empty() ? Json(nullptr) : Json(note)},
               {"folderFailure", folder ? Json{{"folder", folder->folder}, {"reason", folder->reason}}
                                        : Json(nullptr)},
-              {"savedSearch", std::move(savedJson)}};
+              {"savedSearch", std::move(savedJson)},
+              {"continueStartsOver", startsOver}};
 }
 
 // The live preview: while it is on and a run is active, the poll sends

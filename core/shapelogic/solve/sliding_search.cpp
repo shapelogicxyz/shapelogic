@@ -6318,6 +6318,13 @@ std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& probl
   return out;
 }
 
+bool pausedWithNothingSaved(const Puzzle& puzzle, const Problem& problem,
+                            const std::string& workDir) {
+  return problem.getSolveState() == ProblemState::Solving && !problem.getPending().empty() &&
+         problem.getNumAssemblies() == 0 && problem.getNumSolutions() == 0 &&
+         savedFolders(puzzle, problem, workDir).empty();
+}
+
 std::string solveLockPath(const Puzzle& puzzle, const Problem& problem,
                           const std::string& workDir) {
   if (workDir.empty() || !problem.resultValid()) {

@@ -13,6 +13,8 @@ middle. Beside it are the number of moves made, **Reset**, **Undo**,
 **Redo**, **Hide Goal Shadows**, **Hide Goal Lines**, **Hide Grid**,
 **Hide Piece Labels** and **Simple Pieces**, and the playback bar is below.
 
+![The Play tab with a Klotski puzzle after two moves: the problem and the buttons on the left, the board in the middle, the move count and the board's buttons beside it, and the playback bar below.](../../../assets/screens/guide/play-tab.png)
+
 ## Problem
 
 Click a problem to play it. Its pieces appear on the board where its
@@ -30,6 +32,10 @@ back), and **Hide Piece Labels** for the names written on the pieces
 in a flat tray with square corners; **3D Pieces** brings back the rounded
 pieces with their sides showing. Each choice holds for every problem you
 play until you change it.
+
+![The buttons beside the board: the number of moves, Reset, Undo, Redo, Hide Goal Shadows, Hide Goal Lines, Hide Grid, Hide Piece Labels and Simple Pieces.](../../../assets/screens/guide/play-side.png)
+
+![The same board with Simple Pieces on: flat, square pieces in plain colours in a flat tray.](../../../assets/screens/guide/play-simple.png)
 
 A problem can be played once every piece has a start. If a piece has none,
 the tab says which one and offers **Go to Puzzle**, where the Start and
@@ -83,6 +89,8 @@ moves that were undone.
 
 The bar under the board plays your moves back:
 
+![The playback bar: back to the Start, one move back, Play, one move forward, to the last move, the slider and the move shown.](../../../assets/screens/guide/play-bar.png)
+
 | Button | Does |
 |---|---|
 | ⏮ / ⏭ | Back to the Start / to the last move (`Shift+←` / `Shift+→`) |
@@ -93,6 +101,8 @@ The bar under the board plays your moves back:
 **Restart** throws the moves away and puts the pieces back at the Start.
 
 ## Save position as Start or Goal
+
+![The left of the Play tab: the problem, the move count and Restart, Save position as Start or Goal, and Export or Import moves.](../../../assets/screens/guide/play-left.png)
 
 **Save position as Start** makes the position on the board the problem's
 Start: every piece starts where it is now. The game then begins again from

@@ -228,8 +228,12 @@ export class SolutionsCard {
     if (s === 'preparing' || s === 'assembling' || s === 'draining') {
       return '<b>Searching…</b>Solutions appear here as they are found.';
     }
-    // a sliding solve paused, in memory or kept in the file: Continue goes on
+    // a sliding solve paused, in memory or kept in the file: Continue goes on,
+    // unless its saved search is gone
     if (ws.sliding && (s === 'paused' || (s === 'idle' && p?.state === 'solving'))) {
+      if (ws.continueStartsOver) {
+        return '<b>Search paused, its saved search gone</b>Press <b style="display:inline">Solve</b> to search again from the beginning; solutions appear here as they are found.';
+      }
       return '<b>Search paused</b>Press <b style="display:inline">Continue</b> to carry the search on; solutions appear here as they are found.';
     }
     if (p?.state === 'solved' && (p.assemblies ?? 0) === 0) {

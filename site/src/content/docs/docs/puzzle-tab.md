@@ -1,5 +1,5 @@
 ---
-title: Puzzle Tab Options
+title: Puzzle Tab
 description: "Every part of the Puzzle tab: problems, all pieces, the result, the pieces in the puzzle with their counts and ranges, groups, the fit check, the selected piece and the color rules."
 ---
 

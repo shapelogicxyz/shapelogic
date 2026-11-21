@@ -518,6 +518,15 @@ struct SlideBackCheck {
 [[nodiscard]] std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& problem,
                                                     const std::string& workDir);
 
+/// Whether Continue would search all over again what Solve would: a paused
+/// solve (the problem left solving) whose starts all wait for their search
+/// (Problem::getPending), none of them searched to its end (no assembly
+/// counted), and none of whose searches is saved in workDir (deleted, or
+/// saved in another folder). What the assembly search went through to find
+/// the starts is not counted: on a sliding board it takes moments.
+[[nodiscard]] bool pausedWithNothingSaved(const Puzzle& puzzle, const Problem& problem,
+                                          const std::string& workDir);
+
 /// Deletes the saved searches of this problem's starts in workDir, if there
 /// are any (a solve that starts afresh).
 void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::string& workDir);

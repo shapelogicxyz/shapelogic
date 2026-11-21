@@ -74,9 +74,9 @@ export default defineConfig({
           label: 'Using ShapeLogic',
           items: [
             { label: '3D Model Viewer', slug: 'docs/viewer' },
-            { label: 'Shapes Tab Options', slug: 'docs/shapes-tab' },
-            { label: 'Puzzle Tab Options', slug: 'docs/puzzle-tab' },
-            { label: 'Solver Tab Options', slug: 'docs/solver-tab' },
+            { label: 'Shapes Tab', slug: 'docs/shapes-tab' },
+            { label: 'Puzzle Tab', slug: 'docs/puzzle-tab' },
+            { label: 'Solver Tab', slug: 'docs/solver-tab' },
             { label: 'Play Tab', slug: 'docs/play-tab' },
             { label: 'Keyboard Shortcuts', slug: 'docs/keyboard-shortcuts' },
             { label: 'Imports', slug: 'docs/imports' },

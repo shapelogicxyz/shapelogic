@@ -38,6 +38,7 @@ import type { Edits } from '../state/edits.ts';
 import { isActive } from '../state/solves.ts';
 import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
+import { CACHE_DELETED } from '../shell/cache-events.ts';
 import { askConfirm } from '../shell/confirm.ts';
 import { askChoice, tell, VIEW_LOGS } from '../shell/dialog.ts';
 import { byId, esc } from '../shell/dom.ts';
@@ -232,6 +233,15 @@ export class SolverWorkspace {
       },
     });
     this.stats = new StatsPanel(store, solves, () => this.current);
+    // a paused sliding solve's saved search deleted, in this window or in
+    // another (read again as this one comes to the front): Continue may
+    // have become Solve
+    window.addEventListener(CACHE_DELETED, () => {
+      this.readSavedState();
+    });
+    window.addEventListener('focus', () => {
+      this.readSavedState();
+    });
     byId('slvStats').addEventListener('click', () => {
       this.stats.open();
     });
@@ -433,6 +443,14 @@ export class SolverWorkspace {
   /** A stacking problem's saved search, as the last read found it (null: none). */
   savedSearch: SavedSearch | null = null;
 
+  /**
+   * A paused sliding solve that Continue would search all over again, as
+   * Solve would (solve.status.continueStartsOver: its saved search was
+   * deleted from the cache, say), as the last read found it: the run card
+   * offers Solve.
+   */
+  continueStartsOver = false;
+
   /** The one solver of a stacking problem's board (syncSolverTypeMenu). */
   get stackingSolver(): 'stacking' | 'panex' {
     const id = this.detail?.rodSet ?? null;
@@ -493,6 +511,7 @@ export class SolverWorkspace {
     this.kind = null;
     this.board = null;
     this.savedSearch = null;
+    this.continueStartsOver = false;
     this.preview.clear();
     byId('leftS').dataset.revision = '';
     this.newPager(true);
@@ -701,7 +720,7 @@ export class SolverWorkspace {
       case 'solved':
         return 'Search finished';
       case 'solving':
-        return 'Search paused';
+        return this.continueStartsOver ? 'Search paused, its saved search gone' : 'Search paused';
       default: {
         // what Solve's tooltip says when it is greyed (run-card.ts)
         const board = this.stacking ? p.rodSet !== null : p.result !== null;
@@ -780,6 +799,7 @@ export class SolverWorkspace {
       this.kind = null;
       this.board = null;
       this.savedSearch = null;
+      this.continueStartsOver = false;
       this.kinds.clear();
       this.inseparables.clear();
       this.analysisRun = null;
@@ -798,11 +818,50 @@ export class SolverWorkspace {
         this.kind = null;
         this.board = null;
         this.savedSearch = null;
+        this.continueStartsOver = false;
         this.newPager(true);
       }
     }
     this.load();
     this.render();
+  }
+
+  /**
+   * Reads again only what the cache folder holds of the solve shown
+   * (solve.status: savedSearch, continueStartsOver), when its files may
+   * have been deleted; the run card is drawn again when that changed.
+   */
+  private readSavedState(): void {
+    const id = this.current;
+    const grid = this.store.snapshot?.grid;
+    if (id === null || !this.store.running || (grid !== 'sliding' && grid !== 'stacking')) {
+      return;
+    }
+    this.store.engine
+      .call('solve.status', { problem: id }, { coalesce: 'solver:saved-state' })
+      .then(
+        (st) => {
+          if (id !== this.current) {
+            return;
+          }
+          const changed =
+            st.continueStartsOver !== this.continueStartsOver ||
+            JSON.stringify(st.savedSearch) !== JSON.stringify(this.savedSearch);
+          this.savedSearch = st.savedSearch;
+          this.continueStartsOver = st.continueStartsOver;
+          if (changed) {
+            this.render();
+          }
+        },
+        (err: unknown) => {
+          if (
+            !(err instanceof EngineError) ||
+            (err.errc !== 'superseded' && err.errc !== 'not_found' && err.errc !== 'disconnected')
+          ) {
+            reportError(err, 'The solve’s state could not be read');
+          }
+        },
+      );
   }
 
   /** Reads the problem shown again (problem.get; its kind once); the newest load wins. */
@@ -826,8 +885,10 @@ export class SolverWorkspace {
         ? result
         : null;
     // a stacking problem's board (its validity, its centre for the player)
-    // and its saved search
+    // and its saved search; whether a sliding problem's Continue would
+    // start over
     const stacking = snap.grid === 'stacking';
+    const status = stacking || snap.grid === 'sliding';
     Promise.all([
       store.engine.call('problem.get', { problem: id }, { coalesce: 'solver:problem.get' }),
       this.kindOf(id),
@@ -845,7 +906,7 @@ export class SolverWorkspace {
             { coalesce: 'solver:stacking.board' },
           )
         : Promise.resolve(null),
-      stacking
+      status
         ? store.engine.call('solve.status', { problem: id }, { coalesce: 'solver:solve.status' })
         : Promise.resolve(null),
     ]).then(
@@ -859,6 +920,7 @@ export class SolverWorkspace {
             this.player.restyle();
           }
           this.savedSearch = st?.savedSearch ?? null;
+          this.continueStartsOver = st?.continueStartsOver ?? false;
           this.loaded(n, revision, d, k);
         }
       },

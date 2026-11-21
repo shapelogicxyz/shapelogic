@@ -27,7 +27,7 @@ current mode.
 
 On the Shapes tab the top line of the hint lists the quick drawing clicks
 (`Shift`, `Alt` or `⌘`, `Ctrl`). These are explained in
-[Shapes Tab Options](/docs/shapes-tab/#drawing-in-the-3d-view).
+[Shapes Tab](/docs/shapes-tab/#drawing-in-the-3d-view).
 
 ## The toolbar
 

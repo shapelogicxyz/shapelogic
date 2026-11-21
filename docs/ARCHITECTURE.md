@@ -632,7 +632,10 @@ one).
   `convertOlder` writes each again in compressed chunks under its own name
   (`appendOlder`; `convertedFiles`, `unconvertedFiles`), so the state stays
   true if that is cut short; `discardSaved` drops a problem's saved
-  searches (a solve that starts afresh, an abort); nothing deletes a
+  searches (a solve that starts afresh, an abort); `pausedWithNothingSaved`
+  tells a paused solve that Continue would search all over again (its
+  starts waiting, none searched to its end, none of their searches saved:
+  `Document::continueStartsOver`, `solve.status.continueStartsOver`); nothing deletes a
   saved search by its age (decision 0041). Optimized paths (decision
   0029): with `grid` a piece stops only at its offsets on that grid (those
   where a piece of its cells starts or fills a goal, or fits in another's
@@ -1945,7 +1948,10 @@ What exists after stage 8:
     keeps a grid, asking first where the saved search would go on from
     the start alone (`askFromStartAlone`: `sliding.resumeAdvice`, then
     `#fromStartAlone` with Solve Again, the default, and Continue;
-    decision 0033), Movements and Analyse not offered on a grid
+    decision 0033), Solve in Continue's place when Continue would search
+    all over again (`solve.status.continueStartsOver`, read with the
+    problem, again after a cache deletion, `shell/cache-events.ts`, and
+    as the window comes to the front), Movements and Analyse not offered on a grid
     without a take-apart; the notices (`Store.onNotice`:
     `document.changed.notice` and an opened file's `Snapshot.notice`) in
     message boxes (`dialog.ts`'s `tell`, one at a time); File ▸ New's

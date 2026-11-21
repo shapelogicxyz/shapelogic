@@ -18,9 +18,10 @@ Prism and Cairo Prism.
 
 - [3D Model Viewer](/docs/viewer/): moving around the 3D view, the Display
   menu's styles, and the view cube.
-- [Shapes Tab Options](/docs/shapes-tab/), [Puzzle Tab Options](/docs/puzzle-tab/)
-  and [Solver Tab Options](/docs/solver-tab/): every button and option of the
+- [Shapes Tab](/docs/shapes-tab/), [Puzzle Tab](/docs/puzzle-tab/)
+  and [Solver Tab](/docs/solver-tab/): every button and option of the
   three workspaces.
+- [Play Tab](/docs/play-tab/): playing a sliding puzzle by hand.
 - [Keyboard Shortcuts](/docs/keyboard-shortcuts/) for Windows, Linux and
   macOS.
 - [Imports](/docs/imports/) and [Exports](/docs/exports/): other programs'

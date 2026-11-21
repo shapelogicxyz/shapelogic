@@ -11,6 +11,7 @@
 // renderer deletes an item by its id; the main process finds its files.
 
 import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
+import { cacheDeleted } from './cache-events.ts';
 import { itemMeta, sizeText, when } from './cache-text.ts';
 import { askChoice, openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
@@ -201,6 +202,7 @@ class CacheFilesView {
     });
     try {
       const r = await this.app.deleteCacheItem(item.id);
+      cacheDeleted();
       if (r.ok) {
         this.show(r.items);
         flash(`Deleted: ${item.title} (${sizeText(item.bytes)} freed)`, 5000);

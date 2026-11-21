@@ -1460,6 +1460,69 @@ test('a search paused in v1.8.1: Continue asks first, Abort then Solve searches 
   }
 });
 
+test('a paused search whose saved search is deleted: Continue becomes Solve', async () => {
+  test.setTimeout(120_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log });
+  const page = a.page;
+  try {
+    // the board paused by v1.8.1 (its one start waiting), with and without
+    // its saved search in this app's cache folder
+    const paused = resolve(FIXTURES, '../slide_paused_by_v1.8.1');
+    const name = 'slide-cafc026be534476e';
+    const { slideFolder } = await engineCall<{ slideFolder: string }>(page, 'settings.get');
+    const saved = join(slideFolder, name);
+    const open = async (keep: boolean): Promise<string> => {
+      rmSync(saved, { recursive: true, force: true });
+      if (keep) {
+        mkdirSync(slideFolder, { recursive: true });
+        cpSync(join(paused, name), saved, { recursive: true });
+      }
+      await openFixture(page, '../slide_paused_by_v1.8.1/cup_and_blocks.xmpuzzle');
+      await toSolver(page);
+      await solverSettled(page);
+      return shownProblem(page);
+    };
+    const run = page.locator('#leftS #slvRun');
+    const startsOver = async (): Promise<void> => {
+      await expect(run.locator('[data-r="start"]')).toHaveText('Solve');
+      await expect(run.locator('[data-r="continue"]')).toHaveCount(0);
+      // the paused state is still the solve's: Abort throws it away
+      await expect(run.locator('[data-r="abort"]')).toBeEnabled();
+      await expect(page.locator('#slvActivity')).toHaveText('Search paused, its saved search gone');
+    };
+
+    // the saved search there: Continue carries it on
+    let p = await open(true);
+    await expect(run.locator('[data-r="continue"]')).toHaveText('Continue');
+    await expect(run.locator('[data-r="start"]')).toHaveCount(0);
+    await expect(page.locator('#slvActivity')).toHaveText('Search paused');
+
+    // deleted (as the cache's Delete does, which tells the window): Solve
+    rmSync(saved, { recursive: true, force: true });
+    await page.evaluate(() => window.dispatchEvent(new Event('bt:cache-deleted')));
+    await startsOver();
+
+    // a file opened with its saved search gone shows Solve at once, and
+    // Solve searches from the beginning to the end
+    p = await open(false);
+    await startsOver();
+    await runButton(page, 'start');
+    await page.click('#optimizedPaths [data-x="optimized"]');
+    await runEnded(page, 'finished');
+    await expect(page.locator(`#slvProbs .row[data-id="${p}"] .st`)).toHaveText(
+      '3 moves (optimized)',
+    );
+    const calls = readCallLog(log).map((c) => c.method);
+    expect(calls).toContain('solve.start');
+    expect(calls).not.toContain('solve.continue');
+    expect(readCallLog(log).filter(counted)).toEqual([]);
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('Performance Analysis: the moves’ times and the estimates while a sliding solve runs and is paused', async () => {
   test.setTimeout(120_000);
   const { dir, log } = tmpLog();

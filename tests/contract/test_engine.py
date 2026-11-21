@@ -1224,6 +1224,40 @@ def sliding_resume_advice(e):
 
 
 @test
+def sliding_continue_starts_over(e):
+    # the board v1.8.1 paused, its one start waiting: Continue carries its saved
+    # search on while the folder holds it, and would search all over again once
+    # the folder is gone (deleted from the cache), as Solve would
+    paused = ROOT / "tests" / "data" / "slide_paused_by_v1.8.1"
+    name = "slide-cafc026be534476e"
+    was = e.call("settings.get")["slideFolder"]
+    try:
+        for kept in (True, False):
+            with tempfile.TemporaryDirectory() as tmp:
+                if kept:
+                    shutil.copytree(paused / name, pathlib.Path(tmp) / name)
+                e.call("settings.set", {"slideFolder": tmp})
+                snap = e.call("document.open", {"path": str(paused / "cup_and_blocks.xmpuzzle")})
+                p = snap["problems"][0]["id"]
+                check(e.call("problem.get", {"problem": p})["state"] == "solving", "left solving")
+                st = e.call("solve.status", {"problem": p})
+                check(st["continueStartsOver"] is (not kept),
+                      f"the saved search {'kept' if kept else 'gone'}: {st['continueStartsOver']}")
+                if not kept:
+                    # Continue searches the start from the beginning, to its end
+                    start = len(e.events)
+                    e.call("solve.continue", {"problem": p, "options": {"disassemble": True}})
+                    check(wait_state(e, p, ["finished", "error"], start) == "finished", "solved")
+                    check(e.call("solve.status", {"problem": p})["continueStartsOver"] is False,
+                          "nothing paused any more")
+        e.call("document.new", {"grid": "bricks"})
+        q = e.call("problem.create")["problem"]
+        check(e.call("solve.status", {"problem": q})["continueStartsOver"] is False, "another grid")
+    finally:
+        e.call("settings.set", {"slideFolder": was})
+
+
+@test
 def sliding_start_goal_shapes(e):
     e.call("document.new", {"grid": "sliding"})
     # two pieces: one cell, and two cells side by side

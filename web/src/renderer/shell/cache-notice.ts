@@ -12,6 +12,7 @@
 
 import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
 import { noticeHtml, noticeItems, totalText } from './cache-text.ts';
+import { cacheDeleted } from './cache-events.ts';
 import { askChoice, closeDialog, openDialog } from './dialog.ts';
 import { flash, reportError } from './status.ts';
 
@@ -77,6 +78,7 @@ export async function noticeCacheAtStart(app: BtApp, manage: () => void): Promis
         return;
       }
       const failed = await deleteAll(app, items);
+      cacheDeleted();
       if (failed.length === 0) {
         closeDialog(ID);
         flash(

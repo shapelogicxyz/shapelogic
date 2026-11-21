@@ -3770,6 +3770,15 @@ export interface Methods {
          */
         levelBytes: number;
       } | null;
+      /**
+       * True when solve.continue would search a sliding problem all over again, as solve.start
+       * would: its solve is paused (in memory, or left solving by a file) with its starts waiting,
+       * none of them searched to its end, and no search of them saved in slideFolder (deleted from
+       * the cache, say, or saved in another folder); the Solver then offers Solve. False
+       * otherwise: while the problem's run is active, after a run that found a start's saved
+       * search unreadable (solve.continue tries it again), and on other grids.
+       */
+      continueStartsOver: boolean;
     };
     errors: 'not_found';
   };

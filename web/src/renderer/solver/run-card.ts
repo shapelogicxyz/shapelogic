@@ -417,28 +417,36 @@ export class RunCard {
     const aborting = ws.abortMode;
     const btn = (k: string, label: string, on: boolean, tip: string, pri = false): string =>
       `<button data-r="${k}" class="${pri ? 'pri' : ''}" ${on ? '' : 'disabled'} title="${tip}">${label}</button>`;
+    // a paused sliding solve whose saved search is gone (deleted from the
+    // cache): Continue would search from the beginning, as Solve does
+    const startsOver = ws.continueStartsOver && !isActive(s);
     // Solve becomes Continue while the problem has a solve in progress
     // (running, paused or a saved search: when Abort stands for Reset);
     // starting over is Abort, then Solve
-    const first = aborting
-      ? btn(
-          'continue',
-          'Continue',
-          canCont,
-          why !== null
-            ? esc(fix)
-            : saved !== null
-              ? esc(`Carry on ${saved.description}`)
-              : 'Resume the paused search (to start over, Abort, then Solve)',
-          true,
-        )
-      : btn(
-          'start',
-          'Solve',
-          canStart,
-          why === null ? 'Run the search from the start, removing old results' : esc(fix),
-          true,
-        );
+    const first =
+      aborting && !startsOver
+        ? btn(
+            'continue',
+            'Continue',
+            canCont,
+            why !== null
+              ? esc(fix)
+              : saved !== null
+                ? esc(`Carry on ${saved.description}`)
+                : 'Resume the paused search (to start over, Abort, then Solve)',
+            true,
+          )
+        : btn(
+            'start',
+            'Solve',
+            canStart,
+            why !== null
+              ? esc(fix)
+              : startsOver
+                ? 'The paused search’s saved files are gone, so it starts again from the beginning: run the search from the start, removing old results'
+                : 'Run the search from the start, removing old results',
+            true,
+          );
     setHtml(
       byId('slvRun'),
       first +

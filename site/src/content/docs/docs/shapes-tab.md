@@ -1,5 +1,5 @@
 ---
-title: Shapes Tab Options
+title: Shapes Tab
 description: "Every part of the Shapes tab: the shapes list, the voxel editor's tools, mirror, span, planes and layers, grid size and drawing colors, and the Edit shape tools (Transform, Fit & scale, Repair & surface)."
 ---
 

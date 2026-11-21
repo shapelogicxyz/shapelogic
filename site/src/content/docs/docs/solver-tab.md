@@ -1,5 +1,5 @@
 ---
-title: Solver Tab Options
+title: Solver Tab
 description: "Every option of the Solver tab: Assemble Only, Assemble and Disassemble, Check Rotations, and the search options Just Count, Just Levels, Keep Mirror Solutions, Keep Rotated Solutions, Deep Symmetry Check, Strict Color Restrictions, Solver type, Keep every n-th, Limit, Autosave, Allow any orientation for unplaced pieces, Include mirrored orientations, Allow Nested Slides, Allow Partially Nested, Allow Vertical Moves and Automatically use optimized paths; the memory and disk space a sliding or stacking search may take; Sort by, the step-by-step explorer and the solutions list."
 ---
 

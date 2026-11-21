@@ -436,7 +436,7 @@ Result<void> SolveSession::launch(Mode mode) {
   slideDiskError_.clear();
   slideDiskHeldToFree_ = false;
   slideDiskSaved_ = false;
-  slideSavedUnread_ = false;
+  slideSavedUnread_.store(false, std::memory_order_release);
   slideResume_ = mode == Mode::Resume;
   slideDiskHalted_ = false;
   slideSavePointCut_ = false;
@@ -1266,7 +1266,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
           slideDiskError_ = search.error;
           slideDiskHeldToFree_ = search.diskHeldToFree;
           slideDiskSaved_ = search.saved;
-          slideSavedUnread_ = search.savedUnread;
+          slideSavedUnread_.store(search.savedUnread, std::memory_order_release);
         }
         // Out of disk: the run pauses with this start pending, so Continue
         // carries its search on once there is more room (the starts after
@@ -1372,7 +1372,7 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
              " arrangements";
     }
     msg += ". There may be solutions the solver did not find.";
-    if (slideSavedUnread_) {
+    if (slideSavedUnread_.load(std::memory_order_acquire)) {
       msg += " Continue tries to carry the saved search on again; Solve throws it away and "
              "searches from the beginning.";
     } else if (!o.settingsPlace.empty() && !slideDiskError_.empty()) {

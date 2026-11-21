@@ -7,7 +7,9 @@
   mockup's (stage 2: the shapes list and inspector, the voxel editor) and
   so are the Puzzle cards (stage 3: problems, result, pieces, library, fit;
   selected piece, groups, colour rules); their contents are rendered from
-  the engine's data; so are the Solver's (stage 4). The mockup's menu
+  the engine's data; so are the Solver's (stage 4). The Play card and the
+  board over the viewport (#leftPl, #playStage) are this program's own
+  (decision 0039: a sliding puzzle played by hand). The mockup's menu
   placeholders are Electron's menus (stage 6: src/main/menu.ts).
 -->
 <html lang="en">
@@ -19,8 +21,8 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-1rRtHFQS.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-Chxb90uq.css">
+    <script type="module" crossorigin src="/demo/assets/index-DL1z1D5l.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-D8etsg8d.css">
   </head>
   <body>
     <div id="wrap">
@@ -257,13 +259,11 @@
                   >
                 </div>
                 <div class="slv-adv">
-                  <div id="slvPrep" style="display: contents"></div>
                   <div id="slvAdv" style="display: contents"></div>
                 </div>
                 <div class="advnote">
-                  Prepare builds the search and pauses before it starts; Placements browses the
-                  assembly search; Movements browses the disassembly search; Step advances the
-                  assembler one step.
+                  Placements browses the assembly search; Movements browses the disassembly search;
+                  Step advances the assembler one step.
                 </div>
                 <button
                   class="btn sm slv-dbg"
@@ -276,7 +276,139 @@
             </div>
           </section>
 
+          <section class="card ply" id="leftPl">
+            <div class="ch">
+              Play<span class="sp"></span
+              ><button class="ib" data-collapse="L" title="Collapse sidebar"></button>
+            </div>
+            <div class="slv-sec slv-probsec">
+              <div class="slv-lab">Problem</div>
+              <div
+                class="slv-problems"
+                id="plProbs"
+                role="listbox"
+                aria-label="Problems"
+                title="Select the problem to play"
+              ></div>
+              <div class="slv-pmeta" id="plProbMeta"></div>
+            </div>
+            <div class="pz-scroll">
+              <div class="slv-sec">
+                <div class="slv-lab">Game</div>
+                <div class="pl-count" id="plCount"></div>
+                <div class="pl-btns">
+                  <button
+                    class="btn"
+                    id="plRestart"
+                    title="Start the game again: the moves made are thrown away"
+                  >
+                    Restart
+                  </button>
+                </div>
+                <div class="advnote" id="plNote"></div>
+              </div>
+              <div class="slv-sec">
+                <div class="slv-lab">Position</div>
+                <div class="pl-btns">
+                  <button
+                    class="btn"
+                    id="plSaveStart"
+                    title="Make the position shown this problem’s Start: every piece starts where it is now"
+                  >
+                    Save position as Start
+                  </button>
+                  <button
+                    class="btn"
+                    id="plSaveGoal"
+                    title="Make the position shown this problem’s Goal: every piece must end where it is now"
+                  >
+                    Save position as Goal
+                  </button>
+                </div>
+                <div class="advnote">
+                  The position on the board replaces the problem’s Start or Goal. Goals that are not
+                  wanted are taken off on the Puzzle tab.
+                </div>
+              </div>
+              <div class="slv-sec">
+                <div class="slv-lab">Moves file</div>
+                <div class="pl-btns">
+                  <button
+                    class="btn"
+                    id="plExport"
+                    title="Write the moves made to a file that someone with this puzzle can import"
+                  >
+                    Export moves…
+                  </button>
+                  <button
+                    class="btn"
+                    id="plImport"
+                    title="Read moves from a file made with Export moves, to play them back"
+                  >
+                    Import moves…
+                  </button>
+                  <input type="file" id="plFile" accept=".slmoves,application/json" hidden />
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section class="card" id="center">
+            <div class="playstage" id="playStage">
+              <div class="pl-top">
+                <div class="pl-tag" id="plTag"></div>
+                <span class="sp"></span>
+                <div class="pl-layers" id="plLayers"></div>
+              </div>
+              <div class="pl-mid" id="plMid">
+                <div
+                  class="pl-board"
+                  id="playBoard"
+                  tabindex="-1"
+                  aria-label="Board: drag a piece to slide it"
+                ></div>
+                <div class="pl-side">
+                  <!-- over Undo, out of the column's flow: the board keeps its size and the buttons their place -->
+                  <div class="pl-solved" id="plSolved" role="status" hidden></div>
+                  <div class="pl-big pl-moves" id="plMoves" role="status"></div>
+                  <button
+                    class="pl-big"
+                    id="plReset"
+                    title="Reset: the pieces back at the Start (Redo makes the moves again)  (Shift+←)"
+                  ></button>
+                  <button
+                    class="pl-big"
+                    id="plUndo"
+                    title="Undo: take the last move back  (Ctrl+Z)"
+                  ></button>
+                  <button
+                    class="pl-big"
+                    id="plRedo"
+                    title="Redo: make the move taken back again  (Shift+Ctrl+Z)"
+                  ></button>
+                  <button class="pl-big" id="plShades" aria-pressed="false"></button>
+                  <button class="pl-big" id="plLines" aria-pressed="false"></button>
+                  <button class="pl-big" id="plGrid" aria-pressed="false"></button>
+                  <button class="pl-big" id="plLabels" aria-pressed="false"></button>
+                  <button class="pl-big" id="plSimple" aria-pressed="false"></button>
+                </div>
+              </div>
+              <div class="pl-empty" id="plEmpty" hidden></div>
+              <div class="pl-bar" id="plBar" hidden>
+                <div class="pl-transport" id="plTransport"></div>
+                <input
+                  type="range"
+                  id="plSeek"
+                  min="0"
+                  max="0"
+                  value="0"
+                  step="1"
+                  title="The moves made: drag to any of them"
+                  aria-label="Move"
+                />
+                <span class="pl-pos" id="plPos"></span>
+              </div>
+            </div>
             <div class="vp" id="vp">
               <canvas id="cv"></canvas>
               <canvas id="vcube" title=""></canvas>

@@ -2086,6 +2086,7 @@ Result:
 | `note` | string or null | required | What a sliding or stacking solve's last run said when it was through, or a stacking search when it paused: whether a missing solution is proven, the search gave up at a limit, or where it was saved (the original's solver note, shown in a message box); null otherwise. |
 | `folderFailure` | object or null | required |  |
 | `savedSearch` | object or null | required | Null while the problem's run is active, when there is none, and on other grids. |
+| `continueStartsOver` | boolean | required | True when solve.continue would search a sliding problem all over again, as solve.start would: its solve is paused (in memory, or left solving by a file) with its starts waiting, none of them searched to its end, and no search of them saved in slideFolder (deleted from the cache, say, or saved in another folder); the Solver then offers Solve. False otherwise: while the problem's run is active, after a run that found a start's saved search unreadable (solve.continue tries it again), and on other grids. |
 
 Errors: `not_found`
 

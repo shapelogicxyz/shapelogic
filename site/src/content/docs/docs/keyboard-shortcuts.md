@@ -70,7 +70,7 @@ These work in every tab. See [3D Model Viewer](/docs/viewer/).
 
 ## Shapes tab
 
-See [Shapes Tab Options](/docs/shapes-tab/).
+See [Shapes Tab](/docs/shapes-tab/).
 
 ### Drawing
 
@@ -102,7 +102,7 @@ These work while the shapes list has the keyboard focus (click in it first).
 
 ## Puzzle tab
 
-See [Puzzle Tab Options](/docs/puzzle-tab/).
+See [Puzzle Tab](/docs/puzzle-tab/).
 
 | Action | Windows and Linux | macOS |
 |---|---|---|
@@ -117,7 +117,7 @@ See [Puzzle Tab Options](/docs/puzzle-tab/).
 
 These work while the solutions list, the solution slider or the move bar has
 the keyboard focus. Orbiting or clicking in the 3D view keeps the focus in
-the Solutions card. See [Solver Tab Options](/docs/solver-tab/).
+the Solutions card. See [Solver Tab](/docs/solver-tab/).
 
 | Action | Windows and Linux | macOS |
 |---|---|---|

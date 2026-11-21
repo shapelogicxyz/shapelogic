@@ -562,6 +562,14 @@ class Document {
   [[nodiscard]] Result<bool> slideFromStartAlone(Id problem,
                                                  const sliding::SlidingOptions& options) const;
 
+  /// Whether Continue would search a sliding problem all over again, as
+  /// Solve would (sliding::pausedWithNothingSaved): paused with its starts
+  /// waiting, none searched to its end, and no search of them saved in
+  /// slideDir (the cache's saved search deleted, say). False while the
+  /// problem's run is active, after a run that found its start's saved
+  /// search unreadable (Continue tries it again), and on the other grids.
+  [[nodiscard]] Result<bool> continueStartsOver(Id problem, const std::string& slideDir) const;
+
   // ---- queries ----------------------------------------------------------------
 
   [[nodiscard]] Result<FitStats> fit(Id problem) const;

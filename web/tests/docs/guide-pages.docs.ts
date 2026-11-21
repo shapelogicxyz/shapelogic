@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The screenshots of the user guide's reference pages (the 3D Model Viewer,
-// the Shapes, Puzzle and Solver tab options, color restrictions, piece
+// the Shapes, Puzzle, Solver and Play tabs, color restrictions, piece
 // rotations, imports and exports, keyboard shortcuts, solve notation):
 // whole-window shots and crops of single cards, toolbars and menus, so a
 // page can show the button it talks about. Written to
@@ -9,22 +9,25 @@
 // other guide screenshots (`just docs-screenshots`) when the UI changes.
 
 import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 import {
   BUILT,
+  command,
   display,
   ENGINE,
   launch,
   menu,
   openFixture,
+  FIXTURES,
   ROOT,
   settle,
   style,
 } from '../e2e/app.ts';
+import { drag, STAGE, toPlay } from '../e2e/play.ts';
 import { runButton, runEnded, toSolver } from '../e2e/solver.ts';
 
 test.skip(ENGINE === null || !BUILT, 'needs the release engine and `npm run build`');
@@ -291,6 +294,82 @@ test('the exports, the keys and the rotations', async () => {
     await crop(page, '#slvSel', 'rotations-list');
     await page.click('#slvViewSeg [data-v="slider"]');
     await cropContent(page, '#slvSel', 'rotations-slider');
+  } finally {
+    await app.close();
+  }
+});
+
+/** Opens a fixture in a folder of tests/data/puzzles (openFixture takes top-level names only). */
+async function openNested(page: Page, name: string): Promise<void> {
+  const before = await page.locator('#stage').getAttribute('data-generation');
+  await command(page, { cmd: 'openPath', path: resolve(FIXTURES, name) });
+  await expect(page.locator('#stage')).not.toHaveAttribute('data-generation', before ?? '');
+  await expect(page.locator('#fname')).toHaveText(basename(name));
+  await settle(page);
+}
+
+/** The cells the pieces on the Play board stand at. */
+async function pieceCells(page: Page): Promise<string[]> {
+  return page
+    .locator('.pl-piece')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-at') ?? ''));
+}
+
+/**
+ * Makes one move with the first piece that can slide a cell, leaving the
+ * pieces at `skip` alone; returns the cell the moved piece now stands at.
+ */
+async function oneMove(page: Page, skip: string[]): Promise<string> {
+  const stage = page.locator(STAGE);
+  for (const at of await pieceCells(page)) {
+    if (skip.includes(at)) {
+      continue;
+    }
+    for (const step of [
+      [0, 1],
+      [0, -1],
+      [1, 0],
+      [-1, 0],
+    ] as [number, number][]) {
+      const moves = Number(await stage.getAttribute('data-moves'));
+      const before = await pieceCells(page);
+      await drag(page, at, [step]);
+      await page.waitForTimeout(300);
+      if (Number(await stage.getAttribute('data-moves')) === moves + 1) {
+        const now = await pieceCells(page);
+        const moved = now.find((c) => !before.includes(c));
+        if (moved === undefined) {
+          throw new Error('a move was counted but no piece moved');
+        }
+        return moved;
+      }
+    }
+  }
+  throw new Error('no piece can move');
+}
+
+test('the Play tab', async () => {
+  const app = await launch({ scale: 2 });
+  const { page } = app;
+  try {
+    await openNested(page, 'sliding/slide_klotski.xmpuzzle');
+    await toPlay(page);
+    // two moves made, so the count and the playback bar have something to show
+    const first = await oneMove(page, []);
+    await oneMove(page, [first]);
+    await expect(page.locator(STAGE)).toHaveAttribute('data-moves', '2');
+    await page.mouse.move(0, 0);
+    await shot(page, 'play-tab');
+    await cropContent(page, '#leftPl', 'play-left');
+    await crop(page, '#plMid .pl-side', 'play-side');
+    await crop(page, '#plBar', 'play-bar');
+    // the board drawn flat
+    await page.click('#plSimple');
+    await expect(page.locator('#plSimple')).toHaveAttribute('aria-pressed', 'true');
+    await page.mouse.move(0, 0);
+    await crop(page, '#playBoard', 'play-simple');
+    await page.click('#plSimple');
+    await expect(page.locator('#plSimple')).toHaveAttribute('aria-pressed', 'false');
   } finally {
     await app.close();
   }
