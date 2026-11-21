@@ -17,4 +17,6 @@ AUTHORS credits the original authors and the front-end designer.
 - Third-party dependencies must be GPLv3-compatible (Catch2: BSL-1.0, zlib:
   zlib licence, nlohmann/json: MIT, all fine; Manifold, the STL meshes'
   boolean library since deferred part 5: Apache-2.0, compatible with
-  GPLv3, as the original's build used it).
+  GPLv3, as the original's build used it; zstd, the slide search's level
+  files since decision 0040: BSD-3-Clause, or GPLv2 at the user's choice,
+  taken under the BSD licence).

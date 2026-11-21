@@ -4,8 +4,9 @@
 // source, one line each), the engine's stderr split into lines and given
 // their level, the file compressed once it would pass its size with only
 // one compressed file kept, the manager's pages newest first with the
-// errors-only and search filters, Export of both files as plain text, and
-// Clear, in a temporary directory.
+// errors-only and search filters, Export of both files as plain text (or
+// of the newest lines alone) with the sizes it offers, and Clear, in a
+// temporary directory.
 
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,8 +20,10 @@ import {
   EngineLines,
   formatLogLine,
   levelOf,
+  lineCount,
   logTime,
   parseEngineLine,
+  tailOf,
   teeStderr,
 } from '../../src/main/app-log.ts';
 import type { Transport } from '../../src/engine/transport.ts';
@@ -318,5 +321,54 @@ describe('the log file', () => {
     // and it is written again
     log.info('app', 'Test Line', 'after');
     expect(log.page(query).entries).toHaveLength(1);
+  });
+});
+
+describe('Export of the newest lines', () => {
+  it('counts the lines and cuts the newest from a text, a last line without its newline too', () => {
+    const b = (t: string): Buffer => Buffer.from(t, 'utf8');
+    expect(lineCount(b(''))).toBe(0);
+    expect(lineCount(b('a\n'))).toBe(1);
+    expect(lineCount(b('a\nb'))).toBe(2);
+    expect(lineCount(b('a\nb\nc\n'))).toBe(3);
+    expect(tailOf(b('a\nb\nc\n'), 2).toString()).toBe('b\nc\n');
+    expect(tailOf(b('a\nb\nc'), 2).toString()).toBe('b\nc');
+    expect(tailOf(b('a\nb\nc\n'), 3).toString()).toBe('a\nb\nc\n');
+    expect(tailOf(b('a\nb\nc\n'), 10).toString()).toBe('a\nb\nc\n');
+    expect(tailOf(b('a\nb\nc\n'), 0).toString()).toBe('');
+    expect(tailOf(b(''), 5).toString()).toBe('');
+  });
+
+  it('offers all of the log, the compressed file too, and its last lines, with their sizes', async () => {
+    const log = new AppLog(dir, { maxBytes: 3000 });
+    for (let i = 0; i < 150; i++) {
+      log.info('app', 'Test Line', `line ${String(i)} ${'z'.repeat(20)}`);
+    }
+    await log.settled();
+    expect(existsSync(log.archive)).toBe(true);
+    const all = await log.text();
+    const sizes = await log.exportSizes();
+    expect(sizes).toEqual({
+      lines: 150,
+      bytes: all.length,
+      tailLines: 100,
+      tailBytes: tailOf(all, 100).length,
+    });
+    const out = join(dir, 'last.txt');
+    await log.exportTo(out, 100);
+    const text = readFileSync(out, 'utf8');
+    const numbers = [...text.matchAll(/line (\d+)/g)].map((m) => Number(m[1]));
+    expect(numbers).toEqual(Array.from({ length: 100 }, (_, i) => i + 50));
+    expect(Buffer.byteLength(text)).toBe(sizes.tailBytes);
+  });
+
+  it('offers the whole of a short log as its last lines', async () => {
+    const log = new AppLog(dir);
+    log.info('app', 'Test Line', 'one');
+    log.info('app', 'Test Line', 'two');
+    const sizes = await log.exportSizes();
+    expect(sizes.lines).toBe(2);
+    expect(sizes.tailLines).toBe(2);
+    expect(sizes.tailBytes).toBe(sizes.bytes);
   });
 });

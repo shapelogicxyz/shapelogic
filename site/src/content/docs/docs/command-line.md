@@ -494,8 +494,16 @@ disk, so free disk space is what limits it:
   space, less 2 GB or a twentieth of it, so the disk never fills up. On a Mac
   the free space includes what macOS frees when it is needed, as Finder
   counts it.
-- As the disk fills, it keeps fewer of the older moves (without nested
-  slides), and works out the missing ones again when it traces the path back.
+- The files are compressed, which makes them about a third smaller. A
+  search saved by version 1.9 or earlier, whose files were not compressed,
+  is carried on too: its files are written again compressed first, once.
+- A saved search that cannot be read back (a file missing or damaged, a
+  drive that is not there) is kept. Nothing is searched, the output says
+  which file and why, and the same command tries again; `--restart` throws
+  the saved search away and starts over.
+- It keeps fewer of the older moves (without nested slides) once they take
+  half its disk space, or leave too little room for the next move, and
+  works out the missing ones again when it traces the path back.
 - When the goal is a single arrangement (every piece has a goal position),
   it also searches back from the goal until the two ends meet: with
   `--nested-slides` from the first move, otherwise once the search grows
@@ -503,8 +511,10 @@ disk, so free disk space is what limits it:
   and no piece that could hold more than six others; otherwise the search
   goes from the start alone.
 
-However much disk it may take, it stops while at least 100 MB, plus the
-room to save its search, is still free on the disk.
+However much disk it may take, it stops while the disk still has room to
+save the search and to work out the next move. Working out a move takes
+several times the disk the move itself ends up taking; the search measures
+how much as it runs.
 
 If a start's search fills its disk space, the search is saved and the run
 stops there. The tool says so after the summary:
@@ -515,7 +525,15 @@ the search stopped there and is saved: free some disk space or raise SHAPELOGIC_
 ```
 
 Running the same command again carries the saved search on; `--restart`
-throws it away. Saved searches nobody carries on for 30 days are deleted.
+throws it away. A saved search is never deleted by its age: it stays
+until it is carried on to the end, thrown away with `--restart`, or
+deleted by hand.
+
+If a file can't be written all the same (another program filled the disk,
+or the drive went away), the search is not lost. It is saved as it stood
+after the last complete move, or failing that as it was last saved while it
+ran, and the tool says *Could not write the search's files in …. The disk
+may be full*. Free some disk space and run the same command again.
 
 When every reachable arrangement was searched and none reaches the goal, the
 tool says so:
@@ -657,6 +675,10 @@ stops before the end, the tool says:
 stopped; it is saved: run the same command again to carry on, or add --restart to start over
 ```
 
+A saved search that cannot be read back (its files damaged, or written by a
+later version) is kept. Nothing is searched, the tool says why, and the same
+command tries again; `--restart` throws the saved search away.
+
 Each saved search has its own folder, named from a fingerprint of the puzzle
 and problem, so several can be saved at once.
 
@@ -699,6 +721,9 @@ problem: the one `-o n` names, 0 by default.
 | `moves` | number or `null` | Only with `-R`: the best solution's slides. |
 | `rotations` | number or `null` | Only with `-R`: the best solution's turns. |
 | `solvetime` | number | Seconds the solve took. |
+| `cut` | number | Only when a sliding search stopped before its end: how many start layouts were not searched completely. Then `"solutions": 0` proves nothing. |
+| `reason` | string | Only with `cut`: why the search stopped (its disk space filled, a file that could not be written, its memory limit). |
+| `saved` | boolean | Only with `cut`: the search was saved, and the same command carries it on. |
 
 - **The best solution** is the one with the highest level, then the most total
   moves. Among equals, the first found is kept. For sliding and stacking
@@ -941,7 +966,8 @@ don't need them to solve puzzles.
 | `--slide-packing auto\|always\|never` | How the search's keys hold identical pieces. A key has a number for each piece's place, in 64 or 128 bits. `auto` (the default): a board that needs more keeps the identical pieces together as one number, which takes fewer bits, and then goes to wider keys. `always`: keep them together whenever a board has identical pieces. `never`: a number for each piece, in as wide a key as that takes. The same search each way. |
 | `--slide-key-bits N` | The narrowest key the search tries: `64`, `128`, `192`, `256` or `512` bits. A wider key costs more memory for each arrangement. |
 | `--slide-one-end` | Search from the start only, instead of from the start and the goal until they meet. The same number of moves, usually after far more arrangements. A saved search that already runs from both ends is carried on as it is. |
-| `--slide-trace` | Print the search's key (how many bits its arrangements take, and of how wide a key) and each of its levels to stderr. |
+| `--slide-compress N` | The zstd level the search's files are compressed with, `1` to `19`; `0` writes them uncompressed. The default is `9`. The same search at every level; a saved search is carried on whatever it was written with. |
+| `--slide-trace` | Print to stderr the search's key (how many bits its arrangements take, and of how wide a key), each of its levels, and its log lines: a saved search carried on, each save, the disk it has room for, and why it stopped early. |
 | `--slide-grid N` | `--optimized-paths` on a grid of `N` cells, whether or not the board fits it. Its answers are a restricted search's. |
 
 **Stacking puzzles:**

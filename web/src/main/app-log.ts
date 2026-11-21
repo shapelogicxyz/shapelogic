@@ -26,7 +26,8 @@
 // are compressed in its place; the rest is deleted. The limits are not
 // strict: a line written while a file is compressed goes to the new one. The manager reads the current file newest
 // first, a page at a time, filtered by level and text; Export writes all
-// of it (the compressed file's lines first) as plain text, and Clear
+// of it (the compressed file's lines first), or only its newest 100 lines,
+// as plain text, and Clear
 // deletes both files. Free of Electron (the unit tests use a temporary
 // folder).
 
@@ -51,7 +52,13 @@ import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
 import { createGzip, gunzip } from 'node:zlib';
 
-import type { LogEntry, LogLevel, LogPage, LogQuery } from '../engine/app-bridge.ts';
+import type {
+  LogEntry,
+  LogExportSizes,
+  LogLevel,
+  LogPage,
+  LogQuery,
+} from '../engine/app-bridge.ts';
 import type { Transport } from '../engine/transport.ts';
 import { writeFileSafely } from './export-file.ts';
 
@@ -67,6 +74,8 @@ export const LOG_KEEP_ARCHIVE_BYTES = 20_000_000;
 export const LOG_NAME = 'shapelogic.log';
 /** The lines a page of the manager holds. */
 export const LOG_PAGE_LINES = 100;
+/** The newest lines Export… offers on their own (Last 100 lines). */
+export const LOG_EXPORT_TAIL = 100;
 
 const gunzipAsync = promisify(gunzip);
 
@@ -517,10 +526,55 @@ export class AppLog {
     return Buffer.concat(parts);
   }
 
-  /** Writes all of the log to `path` as plain text (export-file.ts's safe write). */
-  async exportTo(path: string): Promise<void> {
-    await writeFileSafely(path, await this.text());
+  /**
+   * What Export… offers (Last 100 lines, All lines): the lines and bytes of
+   * all of the log, the compressed file's too, and of its newest `tail` lines.
+   */
+  async exportSizes(tail = LOG_EXPORT_TAIL): Promise<LogExportSizes> {
+    const all = await this.text();
+    const last = tailOf(all, tail);
+    return {
+      lines: lineCount(all),
+      bytes: all.length,
+      tailLines: lineCount(last),
+      tailBytes: last.length,
+    };
   }
+
+  /**
+   * Writes the log to `path` as plain text (export-file.ts's safe write):
+   * all of it, or only its newest `lines` lines.
+   */
+  async exportTo(path: string, lines?: number): Promise<void> {
+    const all = await this.text();
+    await writeFileSafely(path, lines === undefined ? all : tailOf(all, lines));
+  }
+}
+
+/** The lines of a text: its newlines, and one more for a last line without one. */
+export function lineCount(text: Buffer): number {
+  let n = 0;
+  for (let i = text.indexOf(10); i >= 0; i = text.indexOf(10, i + 1)) {
+    n++;
+  }
+  return text.length > 0 && text[text.length - 1] !== 10 ? n + 1 : n;
+}
+
+/** The newest `lines` lines of a text (all of it when it has no more). */
+export function tailOf(text: Buffer, lines: number): Buffer {
+  if (lines <= 0) {
+    return text.subarray(text.length);
+  }
+  // the newline that ends the last line is not one between lines
+  let at = text.length > 0 && text[text.length - 1] === 10 ? text.length - 1 : text.length;
+  for (let n = 0; n < lines; n++) {
+    const nl = at > 0 ? text.lastIndexOf(10, at - 1) : -1;
+    if (nl < 0) {
+      return text;
+    }
+    at = nl;
+  }
+  return text.subarray(at + 1);
 }
 
 /**

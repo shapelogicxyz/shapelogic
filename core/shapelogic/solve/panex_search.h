@@ -112,7 +112,8 @@ struct PanexSearch {
   /// here when one is asked for (a live preview).
   SearchSample* sample = nullptr;
   /// Carry on this problem's saved search, if there is one; otherwise start
-  /// afresh.
+  /// afresh. A saved search that cannot be read back is left as it is and
+  /// nothing is searched (savedUnread; decision 0041).
   bool resume = false;
   /// Where searches are saved: a folder per puzzle in here. Empty: nothing
   /// is saved (the search still solves, by halves once its levels outgrow
@@ -159,6 +160,12 @@ struct PanexSearch {
   /// The search was saved when it stopped: a search with `resume` carries
   /// it on.
   bool saved = false;
+  /// There is a saved search of this problem that could not be carried on
+  /// (its state could not be read, is damaged, or is a later version's).
+  /// Nothing was searched and the saved search stays as it is, to be tried
+  /// again or thrown away (discardSaved, or a search without `resume`);
+  /// the outcome is Error and error says why.
+  bool savedUnread = false;
   /// Disk the saved levels take, and how many levels apart they are.
   std::uint64_t diskBytes = 0;
   unsigned int levelInterval = 1;

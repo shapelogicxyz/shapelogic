@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <optional>
 #include <random>
 #include <string>
@@ -204,6 +205,36 @@ TEST_CASE("stacking document: a paused Panex solve exported and imported carries
   // a stacking file whose search has no place (no work folder) is refused,
   // as the original refused it
   CHECK(Document::importPaused(file, {}, "").error().code == Errc::ParseError);
+
+  // An import that fails part of the way (a file cut short) leaves the
+  // saved search that was in the folder as it was, and nothing beside it
+  // (decision 0041).
+  {
+    const std::filesystem::path whole = work.path / "whole.slsolve";
+    REQUIRE(d.exportPaused(p, whole, {here.string(), true}).has_value());
+    REQUIRE(Document::importPaused(whole, {}, there.string()).has_value());
+    const Problem& pr = d.puzzle().getProblem(0);
+    const std::filesystem::path folder = panex::searchFolder(d.puzzle(), pr, there.string());
+    auto listing = [&] {
+      std::map<std::string, std::uintmax_t> files;
+      for (const auto& e : std::filesystem::directory_iterator(folder)) {
+        files[e.path().filename().string()] = e.file_size();
+      }
+      return files;
+    };
+    const std::map<std::string, std::uintmax_t> before = listing();
+    REQUIRE(before.contains("state.bin"));
+    REQUIRE(before.contains("f0.lvl"));
+    const std::filesystem::path cut = work.path / "cut.slsolve";
+    std::filesystem::copy_file(whole, cut);
+    std::filesystem::resize_file(cut, std::filesystem::file_size(cut) - 100);
+    CHECK_FALSE(Document::importPaused(cut, {}, there.string()).has_value());
+    CHECK(listing() == before);
+    CHECK(panex::savedSearch(d.puzzle(), pr, there.string()) == saved);
+    std::filesystem::path beside = folder;
+    beside += ".import";
+    CHECK_FALSE(std::filesystem::exists(beside));
+  }
 
   // Abort of an imported search, which no session holds (the GUI's Abort
   // was offered for a saved search): the search and the results go

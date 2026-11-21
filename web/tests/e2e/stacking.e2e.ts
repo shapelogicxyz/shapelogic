@@ -506,10 +506,18 @@ test('a Panex search paused, the app restarted, the search carried on from where
     rmSync(join(userData, '__rescue.xmpuzzle'), { force: true });
     rmSync(join(userData, '__rescue.json'), { force: true });
 
-    // a new start on the same data: Continue stands in Solve's place and
-    // carries the search on, asking nothing
+    // a new start on the same data: the saved search is named in the
+    // notice of the cache files (Ignore leaves it), then Continue stands in
+    // Solve's place and carries the search on, asking nothing
     a = await launch({ userData });
     page = a.page;
+    const notice = page.locator('#cacheAtStart');
+    await expect(notice).toContainText('Paused stacking solve');
+    await expect(notice).toContainText(
+      'Tip: These files can be managed using View ▸ Manage Cache and Autosave Files',
+    );
+    await notice.locator('[data-x="ignore"]').click();
+    await expect(notice).toBeHidden();
     await openPath(page, file);
     await toSolver(page);
     await expect(page.locator('#slvActivity')).toHaveText('Search paused and saved');

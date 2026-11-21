@@ -348,8 +348,9 @@ positions continue in both programs).
   `AssemblerError` with the original's messages. `SearchOptions` carries the
   threads and pool and the A/B switches (`vectorSearch`, `kernels`,
   `vectorMemoryBudget`, `rowRotationCheck`, `splitTasks`, `splitDepth`). The problem hooks: `beginSolving(problem,
-  assembler)` starts or restores a solve with the original's failure rule (a
-  position that cannot be restored drops all solutions and the position),
+  assembler)` starts or restores a solve; a position that cannot be
+  restored is an error and the problem keeps it and what was found, where
+  the original dropped both (decision 0041: Solve starts over),
   `storePosition()` writes a paused one back, `canStartSolving()`.
   `warmShapeCaches()` before threads.
 - `search_run.h`: the run layer. `SearchRun` (one `assemble()` call: its own
@@ -559,7 +560,19 @@ one).
   sorted, delta-coded `KeySet` (`slide_levels.h`), in memory while the
   budget allows and a file in the work folder otherwise (`SetStore`
   decides, and evicts idle sets), so memory stays flat and the disk is the
-  limit; the Memory outcome is for a search with nowhere to write. The
+  limit; the Memory outcome is for a search with nowhere to write. A
+  file's blocks stand in chunks compressed one by one with zstd (decision
+  0040; `base/compress.h`, the only code that sees the library), each with
+  a checksum: a third off a level's file, a block still read by itself
+  through the table of chunks in the file's index. The levels are
+  written by the merge at `SlideSearch::compression` (9; the A/B
+  `--slide-compress`); the runs of a level being made, read once and
+  deleted, and what one thread writes while the search waits (a level
+  leaving memory, a save) at the fastest;
+  a search with nested slides, which looks keys up a few at a time, takes
+  small chunks (`kLookupChunkBytes`). A merge lets its inputs go as it
+  has merged them, stage by stage, so a level's runs and the stages of
+  their merge are not all on the disk at once. The
   threads write what a level's moves reach as sorted runs, and a merge
   (`runMerge`, a range of keys a thread) less the two newest levels writes
   the next level. When the goal is one arrangement the search goes on
@@ -584,19 +597,43 @@ one).
   Continue asks before it offers to solve again). `checkSlideMovesBack` is the tests' proof of the backward
   moves: over every arrangement a board comes to, they are exactly the
   moves. The older levels are kept for tracing
-  the path back; without nested slides every other one goes when they
-  near the disk budget (`levelInterval`), the gaps searched out from the
-  arrangement being traced when the path is found. The search also stops
-  (Disk) while the disk keeps `diskReserve` (`kSlideSaveReserve`, 100 MB)
-  free beyond what a save writes (its sets in memory) and five times the
-  newest level, so that it can always save itself; the budget is chosen
-  once the folder is open, a carried-on search's files counting as its
-  own free space. A search stopped by its token, and one that stopped on
-  disk (unless a write had failed), is saved in its folder (`slide-<fingerprint>/state.bin` naming its sets)
-  and a search of the same start carries it on (`resume`, `resumed`,
-  `saved`; `autosave`, by `base/save_cadence.h`'s rule); `discardSaved` drops a problem's saved
-  searches (a solve that starts afresh, an abort), `sweepSaved` the ones
-  untouched for a month (each sliding run). Optimized paths (decision
+  the path back; without nested slides every other one goes once they
+  take half the disk budget, or leave too little of it or of the disk for
+  the next level to be made in (`levelInterval`), the gaps searched out
+  from the arrangement being traced when the path is found. Making a
+  level takes several times the disk the level comes to (its runs, and
+  the stages of their merge): the search measures it, the most the
+  finished files took while a level was made for each byte of the level
+  (`SetStore::takePeakDisk`, `noteWork`; `levelWorkRatio`), and takes the
+  next level to need the greatest of its last few, with a margin
+  (`nextLevelNeed`; five times the level until one has been measured).
+  The search stops (Disk) while the disk keeps `diskReserve`
+  (`kSlideSaveReserve`, 100 MB) free beyond what a save writes (its sets
+  in memory) and that need, so that it can always save itself; the budget
+  is chosen once the folder is open, a carried-on search's files counting
+  as its own free space. A search stopped by its token, and one that
+  stopped on disk, is saved in its folder
+  (`slide-<fingerprint>/state.bin` naming its sets) and a search of the
+  same start carries it on (`resume`, `resumed`, `saved`; `autosave`, by
+  `base/save_cadence.h`'s rule). So is a search that could not write a
+  file (decision 0040): by the time it ends the files of the level it was
+  making are gone, so it is saved at its last whole level; failing that
+  it is left as its last save while it ran has it, whose files stay until
+  the next save names others (`pin`, also after a search is carried on,
+  and saved again at once when levels are thinned out, so that their
+  files go). A saved search that cannot be carried on (a file that could
+  not be read, is not whole or is gone; decision 0041) is never deleted
+  for it: the search ends Disk with `savedUnread` and why, the solve
+  pauses with the start waiting, Continue tries again and Solve (whose
+  searches run with `resume` off) throws it away; only a folder with no
+  state, which was never a saved search, is cleared. A search saved by a
+  version up to 1.9, whose level files are not compressed (`BTSLKEY2`), is
+  carried on: `KeySet` reads such a file as it is (`older`), and
+  `convertOlder` writes each again in compressed chunks under its own name
+  (`appendOlder`; `convertedFiles`, `unconvertedFiles`), so the state stays
+  true if that is cut short; `discardSaved` drops a problem's saved
+  searches (a solve that starts afresh, an abort); nothing deletes a
+  saved search by its age (decision 0041). Optimized paths (decision
   0029): with `grid` a piece stops only at its offsets on that grid (those
   where a piece of its cells starts or fills a goal, or fits in another's
   hole), a restriction; `slideGridFor` finds the grid a board of blocks
@@ -632,8 +669,12 @@ one).
   their start marks, decision 0021) finds the start layouts and each is searched
   in its callback on the session's slide pool; a stopped search puts its
   start back as pending, not counted, and so does one that ran out of disk
-  and was saved, which also ends the run (the callback answers false), so
-  the solve pauses and Continue carries it on; at a save point the level
+  or could not write a file, saved or not, which also ends the run (the
+  callback answers false), so the solve pauses, not at a save point, and
+  Continue carries the search on, or searches the start again when nothing
+  could be saved (decision 0040); the starts a search gave up on for good
+  (the memory limit) stay counted when a paused solve is carried on, so
+  its last run does not say that everything was searched; at a save point the level
   search stops at the end of the level it is on, saved, its start pending
   (`SlideSearch::savePoint`: no level is cut short, and each run ends a
   level further, decision 0034), a search with no folder or over text keys
@@ -676,7 +717,10 @@ byte alike).
   between them, or each half solved again when there is no folder; the
   classic tower answered by its recursion; a stop (or the memory) saves
   the search in its folder (`BTPANEX4`, the original's bytes), and
-  `resume` carries it on; `unsupported`, `savedSearch`, `savedMs`,
+  `resume` carries it on; a state there that cannot be read is kept, the
+  search ending Error with `savedUnread` (decision 0041), and the solve
+  pauses, as it does after any error that leaves a saved search;
+  `unsupported`, `savedSearch`, `savedMs`,
   `searchFolder`, `discardSaved`. Its steps run on a `ThreadPool` (slices
   taken from a counter, the newest level written by the next level's first
   job, the pool a core larger than the levels' threads for it, as the
@@ -1323,7 +1367,12 @@ What exists after stage 8:
   without `state.bin` an unfinished search, anything else one item per
   folder; an item deleted by its id, found by listing again, a search's
   refused while a solve runs; the renderer's dialog is
-  `renderer/shell/cache-files.ts`),
+  `renderer/shell/cache-files.ts`; at the start, once a run, `bt:cache-files`
+  `start` lists the items for the first window that asks, and
+  `renderer/shell/cache-notice.ts` names those that are not rescue copies,
+  once the rescue copy's offer is answered, with Manage Files…, Delete
+  All… and Ignore; its words, and the manager's, are the DOM-free
+  `renderer/shell/cache-text.ts`),
   `app-log.ts` (Electron-free: the app's log, `logs/shapelogic.log` in
   the app's data directory, one line each, `time LEVEL [source] Event: text`;
   each window's engine runs with the `log` setting and its stderr is split
@@ -1335,10 +1384,17 @@ What exists after stage 8:
   as `log: debug`) the file is renamed and compressed to
   `shapelogic.log.1.gz`, replacing the one before; Debug logging turned
   off keeps the newest 100 lines and the 20 MB before them, compressed; View ▸ Log File Manager… asks `bt:log` for a
-  page of the current file newest first, filtered by level and text, and
-  Export writes both files as plain text to the file the main process's
-  save dialog gives; the renderer's dialog is
-  `renderer/shell/log-files.ts`),
+  page of the current file newest first, filtered by level and text;
+  Export… offers the newest 100 lines or all of the log (`bt:log` `sizes`:
+  the lines and bytes of each, both files counted) and writes the one
+  picked as plain text to the file the main process's save dialog gives;
+  the renderer's dialog is `renderer/shell/log-files.ts`, its Export
+  choices and its line about reporting a problem (GitHub Issues, HelpLink
+  `issues`, and the address) the DOM-free `renderer/shell/log-export.ts`;
+  the warnings' and errors' dialogs (the rescue copy's offers, a solver
+  note of a limit or an error, a cache folder that cannot be written) have
+  `renderer/shell/dialog.ts`'s VIEW_LOGS, which opens the manager over
+  them, left out where the app keeps no log, BtApp's `keepsLog`),
   `state-store.ts` (`StateStore`: `state.json` in the app's
   data directory: the renderer's settings and layouts, the recent files,
   the window's bounds, the cache folder chosen; read once, written a moment after a change to a
@@ -2215,7 +2271,9 @@ subprocess), `cli` (`bt` as a subprocess) and, when the module is built,
 Presets in `CMakePresets.json`; strict warnings are errors in `dev` and
 `release` (and `release-x64`, `release-arm64`: macOS's release for one
 architecture, the packaged app's engine for the other kind of Mac). zlib comes from the system, or is built from a pinned release
-(`cmake/Dependencies.cmake`); nlohmann/json 3.12.0 (pinned, the engine only),
+(`cmake/Dependencies.cmake`); zstd 1.5.7 (pinned, always built from it as a
+static library, one thread a call: the slide search's level files, decision
+0040); nlohmann/json 3.12.0 (pinned, the engine only),
 pybind11 3.0.0 (pinned, the Python module only), Manifold 3.5.2 (pinned, the core's STL meshes; built optimised and without
 its cross sections or parallel backend, as the original builds it; left
 uninstrumented under ASan, decision 0016) and Catch2 are fetched.

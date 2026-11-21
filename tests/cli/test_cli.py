@@ -194,6 +194,18 @@ def test_sliding() -> None:
         check("slider " + " ".join(extra), r.returncode == 0 and "level: 81" in r.stdout and
               r.stderr.count("key: ") == 1 and key in r.stderr and "start level 1: " in r.stderr,
               r.stdout[-300:] + r.stderr[:200])
+    # the search's log lines come with the trace
+    r = run("-d", "--slide-trace", slider)
+    check("slider trace has the log", r.returncode == 0 and "INFO: The slide search runs in " in r.stderr,
+          r.stderr[:300])
+    # the compression of the level files, a benchmark switch: the same answer
+    for level in ("0", "19"):
+        r = run("-d", "--slide-compress", level, slider)
+        check("slider --slide-compress " + level, r.returncode == 0 and "level: 81" in r.stdout,
+              r.stdout[-300:] + r.stderr[:200])
+    r = run("-d", "--slide-compress", "20", slider)
+    check("a compression of 20 is refused", r.returncode != 0 and "requires a number from 0 to 19" in r.stderr,
+          r.stderr)
     r = run("-d", "--slide-key-bits", "100", slider)
     check("a key of 100 bits is refused", r.returncode != 0 and "requires 64, 128, 192, 256 or 512" in r.stderr,
           r.stderr)

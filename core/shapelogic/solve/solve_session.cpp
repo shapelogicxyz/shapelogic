@@ -421,12 +421,23 @@ Result<void> SolveSession::launch(Mode mode) {
     slideProgress_.store(sliding_ ? problem_.getSearched() : 0, std::memory_order_relaxed);
   }
   searchDepth_.store(0, std::memory_order_relaxed);
-  slideStartsCut_ = 0;
-  slideMemoryCut_ = false;
-  slideMemoryStates_ = 0;
+  // The starts not searched completely are the solve's, not the run's: a
+  // solve carried on after a pause (the crash recovery copy's save point
+  // pauses and carries on by itself) still has them, and its last run
+  // must not say that every arrangement was searched. Only a start that
+  // waits to be searched again (a search out of disk) is taken off.
+  if (mode != Mode::Resume) {
+    slideStartsCut_ = 0;
+    slideMemoryCut_ = false;
+    slideMemoryStates_ = 0;
+  } else if (slideDiskHalted_ && slideStartsCut_ > 0) {
+    slideStartsCut_--;
+  }
   slideDiskError_.clear();
   slideDiskHeldToFree_ = false;
   slideDiskSaved_ = false;
+  slideSavedUnread_ = false;
+  slideResume_ = mode == Mode::Resume;
   slideDiskHalted_ = false;
   slideSavePointCut_ = false;
   atSavePoint_.store(false, std::memory_order_relaxed);
@@ -650,8 +661,9 @@ bool SolveSession::prepareSearch(const Plan& plan) {
   }
 
   // Start the solve, or go to the position the problem holds. One that
-  // cannot be restored has dropped everything the problem held: the solve
-  // ends in Error, and the next starts from scratch.
+  // cannot be restored ends the solve in Error, and the problem keeps what
+  // it held (decision 0041): Continue fails the same way, Solve starts
+  // from scratch.
   AssemblerError restored = AssemblerError::None;
   {
     const std::lock_guard<std::mutex> lock(resultsMutex_);
@@ -743,8 +755,6 @@ void SolveSession::assembleAndTakeApart(const Plan& plan) {
   // search spreads its levels over the solve's threads (solveThreadBudget)
   if (o.disassemble && sliding_) {
     slidePool_ = std::make_unique<ThreadPool>(budget);
-    // saved searches of starts nobody searched again for a month go
-    (void)sliding::sweepSaved(o.sliding.workDir);
   }
 
   beginPhase(Phase::Assemble);
@@ -954,8 +964,27 @@ void SolveSession::runStacking(const Plan& plan) {
     }
     path = panex::solve(puzzle_, problem_, search);
     stopped = search.outcome == panex::Outcome::Stopped;
+    // A search that ended in an error with a saved search still in its
+    // folder is not through: one that could not be read back (it is kept,
+    // decision 0041), or the last one saved before a write failed. The run
+    // pauses, as when it is stopped, so the problem is not kept as solved
+    // without a solution, and Continue tries the saved search again.
+    if (search.outcome == panex::Outcome::Error &&
+        (search.savedUnread ||
+         !panex::savedSearch(puzzle_, problem_, o.stacking.workDir).empty())) {
+      stopped = true;
+    }
     if (path) {
       // no note
+    } else if (search.outcome == panex::Outcome::Error) {
+      note = search.error;
+      if (search.savedUnread) {
+        note += " Continue tries to carry the saved search on again; Solve throws it away and "
+                "searches from the beginning.";
+      } else if (stopped) {
+        note += " The search is still saved as it last was: Continue carries it on; Solve "
+                "throws it away and searches from the beginning.";
+      }
     } else if (stopped && search.saved) {
       note = "Paused " + withCommas(search.depthReached) +
              " moves deep. The search is saved: press Continue to carry on, even after quitting "
@@ -977,8 +1006,6 @@ void SolveSession::runStacking(const Plan& plan) {
                                    " press Continue to carry on."
                              : (search.highMemory ? "" : " Try Enable High Memory.");
       }
-    } else if (search.outcome == panex::Outcome::Error) {
-      note = search.error;
     } else {
       note = "Every reachable stacking was searched: this puzzle has no solution.";
     }
@@ -1189,6 +1216,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.pool = slidePool_.get();
       search.memoryShare = o.memoryShare.get();
       search.stopProgress = &slideStop_;
+      search.resume = slideResume_;
       search.onLog = [this](LogLevel level, const std::string& text) { addLog(level, text); };
       slideStop_.saving.store(false, std::memory_order_relaxed);
       slideSearching_.fetch_add(1, std::memory_order_relaxed);
@@ -1238,12 +1266,19 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
           slideDiskError_ = search.error;
           slideDiskHeldToFree_ = search.diskHeldToFree;
           slideDiskSaved_ = search.saved;
+          slideSavedUnread_ = search.savedUnread;
         }
-        // Out of disk but saved: the run pauses with this start pending,
-        // so Continue carries its search on once there is more room (the
-        // starts after it would only fill the disk with searches of their
-        // own).
-        if (search.outcome == sliding::SlideOutcome::Disk && search.saved) {
+        // Out of disk: the run pauses with this start pending, so Continue
+        // carries its search on once there is more room (the starts after
+        // it would only fill the disk with searches of their own). So does
+        // a search that could not be saved: Continue searches its start
+        // again from the beginning. And so does a start whose saved search
+        // could not be read back: it is kept, and Continue tries it again
+        // (the drive is back, or a version that reads it runs), where Solve
+        // throws it away. Counted and passed over, the solve
+        // would go on to its end and be kept as solved, with a start that
+        // was never searched to its end.
+        if (search.outcome == sliding::SlideOutcome::Disk) {
           slideDiskHalted_ = true;
           problem_.addPending(PendingAssembly{std::move(assembly), false, 0, 0});
           return false;
@@ -1337,13 +1372,16 @@ std::string SolveSession::slidingSummary(const SolveOptions& o) const {
              " arrangements";
     }
     msg += ". There may be solutions the solver did not find.";
-    if (!o.settingsPlace.empty() && !slideDiskError_.empty()) {
+    if (slideSavedUnread_) {
+      msg += " Continue tries to carry the saved search on again; Solve throws it away and "
+             "searches from the beginning.";
+    } else if (!o.settingsPlace.empty() && !slideDiskError_.empty()) {
       msg += slideDiskHeldToFree_
                  ? " Free some disk space to let it go further."
                  : " " + o.settingsPlace + " can give it more Sliding disk space.";
-      if (slideDiskSaved_) {
-        msg += " The search is saved: press Continue to carry it on.";
-      }
+      msg += slideDiskSaved_ ? " The search is saved: press Continue to carry it on."
+                             : " The search could not be saved: Continue searches this start "
+                               "again from the beginning.";
     } else if (!o.settingsPlace.empty() && slideMemoryCut_) {
       msg += memoryShared_ ? " " + sharedMemoryWords(o)
                            : " " + o.settingsPlace + " can give it more Search memory.";

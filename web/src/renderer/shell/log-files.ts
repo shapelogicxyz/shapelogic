@@ -8,16 +8,26 @@
 // each line. Pretty (at the top right) shows the lines as a table: the
 // date, the time to the minute, the level in its colour, the source, the
 // event (`Solve continued`) and the rest; Raw shows them as the file has
-// them. Export… writes all of the log
-// (the older, compressed file's lines too) to a plain text file the save
-// dialog gives; Clear All Log Data… deletes both files, after asking;
-// Refresh reads the file again. The main process reads the file: the
-// renderer asks for a page by its filters and how many lines it shows.
+// them. Export… offers the last 100 lines or all of the log (the older,
+// compressed file's lines too), each with its size, and writes the one
+// picked to a plain text file the save dialog gives; Clear All Log Data…
+// deletes both files, after asking; Refresh reads the file again. At the
+// bottom left, where to report a problem: GitHub Issues (opened in the
+// browser) or an email. The main process reads the file: the renderer asks
+// for a page by its filters and how many lines it shows.
 
-import type { BtApp, LogEntry, LogPage, LogQuery } from '../../engine/app-bridge.ts';
-import { sizeText } from './cache-files.ts';
+import type {
+  BtApp,
+  LogEntry,
+  LogExportSizes,
+  LogPage,
+  LogQuery,
+} from '../../engine/app-bridge.ts';
+import { sizeText } from './cache-text.ts';
 import { askChoice, openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
+import { addEscapeStep, ESC_ORDER } from './escape.ts';
+import { exportChoices, REPORT_HTML } from './log-export.ts';
 import { rowHtml, tableHtml } from './log-rows.ts';
 import type { LogView } from './log-rows.ts';
 import { flash, reportError } from './status.ts';
@@ -28,6 +38,16 @@ export const PAGE_LINES = 100;
 
 /** The view the dialog opens in: the last one picked while the app runs. */
 let lastView: LogView = 'pretty';
+
+/** Export…'s choices open, to be closed by Esc (before the dialog under them). */
+let closeChoices: (() => void) | null = null;
+addEscapeStep(ESC_ORDER.dialog - 3, () => {
+  if (closeChoices === null) {
+    return false;
+  }
+  closeChoices();
+  return true;
+});
 
 /** What the list says when no line matches. */
 export function emptyHtml(query: LogQuery, lines: number): string {
@@ -66,6 +86,8 @@ class LogFilesView {
   /** Each read's number: a reply to an older one (a letter typed since) is dropped. */
   private asked = 0;
   private busy = false;
+  /** Export…'s sizes are being read (its choices not shown yet). */
+  private choosing = false;
 
   constructor(app: BtApp, el: HTMLElement) {
     this.app = app;
@@ -187,14 +209,100 @@ class LogFilesView {
     this.error(page.error === null ? null : `The log could not be written: ${page.error}`);
   }
 
-  /** Export…: all of the log to a file the save dialog gives. */
-  async exportAll(): Promise<void> {
+  /** Export…: its choices, the last lines or all of the log, in a menu over the button. */
+  async chooseExport(): Promise<void> {
+    if (this.busy) {
+      return;
+    }
+    if (closeChoices !== null) {
+      // a second press closes them
+      closeChoices();
+      return;
+    }
+    if (this.choosing) {
+      return;
+    }
+    this.choosing = true;
+    let sizes: LogExportSizes | null;
+    try {
+      sizes = await this.app.logExportSizes();
+    } catch (e) {
+      this.error(`The log could not be read: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    } finally {
+      this.choosing = false;
+    }
+    if (sizes === null || !this.el.isConnected) {
+      return;
+    }
+    const button = this.part('[data-x="export"]');
+    const card = this.part('.cfm');
+    const menu = document.createElement('div');
+    menu.className = 'lf-pop';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Export the log');
+    menu.innerHTML = exportChoices(sizes)
+      .map(
+        (c) =>
+          `<button type="button" role="menuitem" data-lines="${c.lines === undefined ? '' : String(c.lines)}">${esc(c.label)}</button>`,
+      )
+      .join('');
+    card.appendChild(menu);
+    // above the button, its left edge with the button's
+    const b = button.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    menu.style.left = `${String(Math.max(8, Math.min(b.left - c.left, c.width - menu.offsetWidth - 8)))}px`;
+    menu.style.bottom = `${String(c.bottom - b.top + 6)}px`;
+    const items = [...menu.querySelectorAll<HTMLButtonElement>('button')];
+    items[0]?.focus();
+    const outside = (e: PointerEvent): void => {
+      if (!menu.contains(e.target as Node) && e.target !== button) {
+        close(false);
+      }
+    };
+    const close = (refocus: boolean): void => {
+      menu.remove();
+      this.el.removeEventListener('pointerdown', outside, true);
+      closeChoices = null;
+      if (refocus) {
+        button.focus();
+      }
+    };
+    closeChoices = () => {
+      close(true);
+    };
+    this.el.addEventListener('pointerdown', outside, true);
+    menu.addEventListener('keydown', (e) => {
+      const at = items.indexOf(document.activeElement as HTMLButtonElement);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const n = items.length;
+        items[(at + (e.key === 'ArrowDown' ? 1 : n - 1)) % n]?.focus();
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        close(true);
+      }
+    });
+    menu.addEventListener('click', (e) => {
+      const item = (e.target as Element).closest<HTMLElement>('[data-lines]');
+      if (item === null) {
+        return;
+      }
+      const lines = item.dataset.lines === '' ? undefined : Number(item.dataset.lines);
+      close(true);
+      void this.exportLines(lines);
+    });
+  }
+
+  /** Writes the log, all of it or its newest `lines` lines, to a file the save dialog gives. */
+  async exportLines(lines: number | undefined): Promise<void> {
     if (this.busy) {
       return;
     }
     this.busy = true;
     try {
-      const r = await this.app.exportLog();
+      const r = await this.app.exportLog(lines);
       if (r.ok) {
         flash(`Log exported to ${r.path}`, 5000);
       } else if (!('cancelled' in r)) {
@@ -261,7 +369,7 @@ export async function openLogFiles(app: BtApp): Promise<void> {
       `<button type="button" data-v="raw" title="The log's lines as the file has them">Raw</button>` +
       `</div>`,
     body:
-      `<p>What ShapeLogic did and what went wrong, newest first: files opened and saved, solves started, paused, continued and aborted, and the errors. Export it to send it with a report of a problem.</p>` +
+      `<p class="lf-intro">What ShapeLogic did and what went wrong, newest first: files opened and saved, solves started, paused, continued and aborted, and the errors.</p>` +
       `<div class="lf-bar">` +
       `<input type="search" class="lf-search" placeholder="Search the log" aria-label="Search the log" spellcheck="false" autocomplete="off" data-focus>` +
       `<label class="lf-filter"><input type="checkbox" class="lf-errors"> Errors and warnings</label>` +
@@ -272,17 +380,25 @@ export async function openLogFiles(app: BtApp): Promise<void> {
       `<button class="btn sm lf-more" hidden>Load more messages…</button>`,
     buttons: [
       { key: 'clear', label: 'Clear All Log Data…', kind: 'danger', tip: 'Delete the log files' },
-      { key: 'export', label: 'Export…', tip: 'Save all of the log as a text file' },
+      {
+        key: 'export',
+        label: 'Export…',
+        tip: 'Save the last 100 lines or all of the log as a text file',
+      },
       { key: 'refresh', label: 'Refresh', tip: 'Read the log again' },
       { key: 'close', label: 'Close', kind: 'pri', default: true },
     ],
+    foot: REPORT_HTML,
     onAnswer: (key) => {
+      if (key !== 'export') {
+        closeChoices?.();
+      }
       if (key === 'refresh') {
         void view?.load(false);
         return false;
       }
       if (key === 'export') {
-        void view?.exportAll();
+        void view?.chooseExport();
         return false;
       }
       if (key === 'clear') {
@@ -296,6 +412,11 @@ export async function openLogFiles(app: BtApp): Promise<void> {
   if (el !== null) {
     view = new LogFilesView(app, el);
     view.show(first, false);
+    el.querySelector('.lf-issues')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      app.openHelp('issues');
+    });
   }
   await shown;
+  closeChoices?.();
 }

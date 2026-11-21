@@ -21,13 +21,18 @@ std::string_view errorMessage(AssemblerError e) noexcept {
       return "Pieces contain too few units";
     case AssemblerError::CannotPlace:
       return "A piece cannot be placed in the target shape";
+    // The problem keeps what the paused solve held (decision 0041): the
+    // original's words, and what is left to do.
     case AssemblerError::CannotRestoreVersion:
-      return "Impossible to restore saved state: internal format changed";
+      return "Impossible to restore saved state: internal format changed. What the solve found "
+             "so far is kept; Solve starts the search again from the beginning";
     case AssemblerError::CannotRestoreSyntax:
-      return "Impossible to restore saved state: corrupt data";
+      return "Impossible to restore saved state: corrupt data. What the solve found so far is "
+             "kept; Solve starts the search again from the beginning";
     case AssemblerError::CannotRestoreInterrupted:
-            return "The saved search can not be continued (it was stopped while running on several "
-             "cores); it has been reset and must be started again";
+      return "The saved search can not be continued (it was stopped while running on several "
+             "cores). What it found so far is kept; Solve starts the search again from the "
+             "beginning";
     case AssemblerError::PuzzleUnhandable:
       return "Puzzle contains unhandable definitions";
   }
@@ -72,10 +77,11 @@ AssemblerError beginSolving(Problem& problem, Assembler& assembler) {
             : AssemblerError::CannotRestoreSyntax;
 
     if (err != AssemblerError::None) {
-      // The search can only be redone from the start. The partial results
-      // came from it, and keeping them would report them a second time.
-      problem.removeAllSolutions();
-      problem.setAssemblerState({}, {});
+      // The search can only be redone from the start, and that is the
+      // user's to choose (decision 0041): the position and the partial
+      // results stay, where the original dropped both here. A solve begun
+      // anew removes them before it searches, so nothing is reported a
+      // second time; a solve carried on comes here again.
       return err;
     }
 

@@ -5,6 +5,7 @@
 // switches are the search's options; its scratch folders are this
 // process's own), followed by new cases in test_sliding_session.cpp.
 #include "../model/model_test_helpers.h"
+#include "solve_session_test_access.h"
 
 #include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
@@ -29,11 +30,14 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -44,22 +48,9 @@
 #include <utility>
 #include <vector>
 
-namespace bt {
-
 // The seam of the original's "a shorter path keeps the solution number",
-// which called the solve thread's callback with starts of its choosing.
-struct SolveSessionTestAccess {
-  // The session as a run with `options` would have it, without a run.
-  static void prime(SolveSession& s, const SolveOptions& options) {
-    s.runOptions_ = options;
-    s.action_ = options.disassemble ? SolveSession::Action::SaveSolutions
-                                    : SolveSession::Action::SaveAssemblies;
-    s.runStop_ = StopSource();
-  }
-  static bool offer(SolveSession& s, Assembly a) { return s.onAssembly(std::move(a)); }
-};
-
-}  // namespace bt
+// which called the solve thread's callback with starts of its choosing, is
+// SolveSessionTestAccess (solve_session_test_access.h).
 
 using namespace bt;
 using namespace bt::sliding;
@@ -3812,12 +3803,19 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on pas
 }
 
 // A saved search that cannot be carried on (a file of one of its levels
-// damaged or gone) is searched afresh: nothing of the save is left in the
-// new search, which finds the path a search with no stops finds.
-TEST_CASE("sliding: a saved search with a damaged level is searched afresh",
+// damaged or gone) is kept as it is, every file of it, and nothing is
+// searched: a saved search is days of work, and what could not be read now
+// may be read later (decision 0041). With the file back the search is
+// carried on; a search that does not carry on throws the saved one away and
+// finds the path a search with no stops finds.
+TEST_CASE("sliding: a saved search with a damaged level is kept, and nothing is searched",
           "[sliding][resume][parallel]") {
   const std::filesystem::path dir = scratchDir("slidedamaged");
+  const std::filesystem::path spareDir = scratchDir("slidedamaged-spare");
   std::filesystem::remove_all(dir);
+  std::filesystem::remove_all(spareDir);
+  std::filesystem::create_directories(spareDir);
+  const std::filesystem::path spare = spareDir / "spare.keys";
   auto runSearch = [&] {
     SlideSearch s = nestedSearch(3);
     s.threads = 2;
@@ -3860,50 +3858,137 @@ TEST_CASE("sliding: a saved search with a damaged level is searched afresh",
     std::sort(files.begin(), files.end());
     return files;
   };
+  // every file of the saved search, with its size
+  auto listing = [&] {
+    std::map<std::string, std::uintmax_t> files;
+    for (const auto& folder : std::filesystem::directory_iterator(dir)) {
+      for (const auto& e : std::filesystem::directory_iterator(folder.path())) {
+        files[e.path().filename().string()] = e.file_size();
+      }
+    }
+    return files;
+  };
 
   stopped();
   const std::size_t count = levelFiles().size();
   REQUIRE(count >= 10);
   // every other file: the ends' newest levels, their kept levels and the
   // visited sets are among them
-  unsigned int afresh = 0;
-  unsigned int damaged = 0;
-  for (std::size_t i = 0; i < count; i += 2) {
-    damaged++;
+  unsigned int tried = 0;
+  for (std::size_t i = 0; i < count; i += 2, tried++) {
     stopped();
     const std::vector<std::filesystem::path> files = levelFiles();
     REQUIRE(files.size() == count);
-    INFO("damaged " << files[i].filename().string());
-    std::filesystem::resize_file(files[i], std::filesystem::file_size(files[i]) / 2);
-    SlideSearch on = runSearch();
-    std::vector<LogLine> told;
-    on.onLog = [&told](LogLevel level, const std::string& text) {
-      // a debug log's lines aside (what state.bin names comes first), and
-      // the key the search runs in, told before it
-      if (level != LogLevel::Debug && !text.starts_with("The slide search runs ")) {
-        told.push_back(LogLine{level, text});
-      }
-    };
-    const std::optional<Separation> path = searched(g, on, fromGoal);
-    CHECK(path.has_value());
-    // the log tells which file, and that the search starts again
-    REQUIRE_FALSE(told.empty());
-    CHECK(told.front().level == LogLevel::Error);
-    CHECK(told.front().text.find(files[i].filename().string()) != std::string::npos);
-    CHECK(told.front().text.find("starts again from the beginning") != std::string::npos);
-    if (path.has_value()) {
+    const std::string name = files[i].filename().string();
+    const bool gone = tried % 2 == 1;
+    INFO((gone ? "gone: " : "cut short: ") << name);
+    std::filesystem::copy_file(files[i], spare, std::filesystem::copy_options::overwrite_existing);
+    if (gone) {
+      std::filesystem::remove(files[i]);
+    } else {
+      std::filesystem::resize_file(files[i], std::filesystem::file_size(files[i]) / 2);
+    }
+    const std::map<std::string, std::uintmax_t> before = listing();
+    // twice: the second try finds what the first found, and leaves it too
+    for (int again = 0; again < 2; again++) {
+      SlideSearch on = runSearch();
+      std::vector<LogLine> told;
+      on.onLog = [&told](LogLevel level, const std::string& text) {
+        // a debug log's lines aside (what state.bin names comes first), and
+        // the key the search runs in, told before it
+        if (level != LogLevel::Debug && !text.starts_with("The slide search runs ")) {
+          told.push_back(LogLine{level, text});
+        }
+      };
+      const std::optional<Separation> path = searched(g, on, fromGoal);
+      CHECK_FALSE(path.has_value());
+      CHECK(on.outcome == SlideOutcome::Disk);
+      CHECK(on.savedUnread);
+      CHECK_FALSE(on.saved);
+      CHECK_FALSE(on.resumed);
+      CHECK_FALSE(on.diskHeldToFree);
+      // the error tells which file and what is wrong with it, and that
+      // the saved search is still there
+      CHECK(on.error.find("could not be carried on") != std::string::npos);
+      CHECK(on.error.find(name) != std::string::npos);
+      CHECK(on.error.find(gone ? "is missing" : "is not a whole level file") !=
+            std::string::npos);
+      CHECK(on.error.find("It is kept as it is.") != std::string::npos);
+      REQUIRE_FALSE(told.empty());
+      CHECK(told.front().level == LogLevel::Error);
+      CHECK(told.front().text == on.error);
+      CHECK(listing() == before);
+    }
+    if (tried % 4 < 2) {
+      // the file is back (a drive that had dropped out): carried on
+      std::filesystem::copy_file(spare, files[i],
+                                 std::filesystem::copy_options::overwrite_existing);
+      SlideSearch back = runSearch();
+      const std::optional<Separation> path = searched(g, back, fromGoal);
+      REQUIRE(path.has_value());
+      CHECK(back.resumed);
+      CHECK_FALSE(back.savedUnread);
       CHECK(path->getMoves() == moves);
       checkGridPath(g, *path);
-    }
-    CHECK(on.depth <= moves);
-    if (!on.resumed) {
-      afresh++;
-      CHECK(on.visited == straight.visited);
+    } else {
+      // a search that does not carry on throws the saved one away
+      SlideSearch fresh = runSearch();
+      fresh.resume = false;
+      const std::optional<Separation> path = searched(g, fresh, fromGoal);
+      REQUIRE(path.has_value());
+      CHECK_FALSE(fresh.resumed);
+      CHECK(path->getMoves() == moves);
+      checkGridPath(g, *path);
+      CHECK(fresh.visited == straight.visited);
     }
     CHECK(std::filesystem::is_empty(dir));
   }
-  CHECK(afresh == damaged);
+  CHECK(tried >= 5);
+
+  // A folder with files and no state is no saved search (a search that
+  // was killed before it ever saved): cleared, and searched from the start.
+  {
+    stopped();
+    const std::filesystem::path folder = levelFiles().front().parent_path();
+    std::filesystem::remove(folder / "state.bin");
+    SlideSearch on = runSearch();
+    std::vector<LogLine> told;
+    on.onLog = [&told](LogLevel level, const std::string& text) {
+      told.push_back(LogLine{level, text});
+    };
+    const std::optional<Separation> path = searched(g, on, fromGoal);
+    REQUIRE(path.has_value());
+    CHECK_FALSE(on.resumed);
+    CHECK_FALSE(on.savedUnread);
+    CHECK(path->getMoves() == moves);
+    CHECK(on.visited == straight.visited);
+    CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+      return l.level == LogLevel::Info &&
+             l.text.find("holds no saved search") != std::string::npos;
+    }));
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  // A state that is there and cannot be read is a saved search still.
+  {
+    stopped();
+    const std::filesystem::path folder = levelFiles().front().parent_path();
+    std::filesystem::resize_file(folder / "state.bin", 5);
+    const std::map<std::string, std::uintmax_t> before = listing();
+    SlideSearch on = runSearch();
+    CHECK_FALSE(searched(g, on, fromGoal).has_value());
+    CHECK(on.outcome == SlideOutcome::Disk);
+    CHECK(on.savedUnread);
+    CHECK(on.error.find("state.bin") != std::string::npos);
+    CHECK(listing() == before);
+    SlideSearch fresh = runSearch();
+    fresh.resume = false;
+    const std::optional<Separation> path = searched(g, fresh, fromGoal);
+    REQUIRE(path.has_value());
+    CHECK(path->getMoves() == moves);
+    CHECK(std::filesystem::is_empty(dir));
+  }
   std::filesystem::remove_all(dir);
+  std::filesystem::remove_all(spareDir);
 }
 
 // A debug log (the app's Settings ▸ General): a line for each level done,
@@ -4585,3 +4670,1098 @@ TEST_CASE("sliding: a stopped search with packed or wide keys is saved and carri
     std::filesystem::remove_all(dir);
   }
 }
+
+// ---------------------------------------------------------------------------
+// The levels' files compressed, and a search that cannot write one
+// (decision 0040).
+
+#ifdef __SIZEOF_INT128__
+namespace {
+
+// Sorted keys with the gaps of a level: a few sizes of gap over and over,
+// so that zstd has something to find, and now and then a leap.
+std::vector<Wide> levelLikeKeys(std::size_t count, std::uint64_t seed) {
+  std::vector<Wide> keys;
+  keys.reserve(count);
+  std::uint64_t x = seed;
+  auto rnd = [&x]() {
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    return x;
+  };
+  const std::uint64_t gaps[5] = {1, 1, 6, 320, 70001};
+  Wide k = (static_cast<Wide>(0x1234) << 80) | 77;
+  for (std::size_t i = 0; i < count; i++) {
+    k += gaps[rnd() % 5];
+    if (rnd() % 997 == 0) {
+      k += static_cast<Wide>(rnd()) << 40;
+    }
+    keys.push_back(k);
+  }
+  return keys;
+}
+
+}  // namespace
+
+// A file's chunks compressed at any level or not at all, large chunks and
+// small: the same keys back, read from end to end, from any key on and
+// looked up a few at a time; the file's size is what the set says it
+// takes, and smaller the better it is compressed.
+TEST_CASE("sliding: a key set's file is compressed in chunks", "[sliding]") {
+  const std::filesystem::path dir = scratchDir("keychunks");
+  std::filesystem::create_directories(dir);
+  const std::vector<Wide> keys = levelLikeKeys(60000, 88172645463325252ULL);
+  std::vector<Wide> in;
+  for (std::size_t i = 0; i < keys.size(); i++) {
+    if (i % 3 != 0) {
+      in.push_back(keys[i]);
+    }
+  }
+  std::uintmax_t plain = 0;
+  std::uintmax_t fast = 0;
+  std::uintmax_t well = 0;
+  for (const int compression : {0, 1, 9, 19}) {
+    for (const std::size_t chunk : {std::size_t{48}, std::size_t{4096}, levels::kChunkBytes}) {
+      INFO("compression " << compression << ", chunks of " << chunk);
+      levels::KeySet<Wide> set;
+      REQUIRE(set.create(dir / "keys", levels::FileOptions{compression, chunk, nullptr}));
+      REQUIRE(set.addAll(in.begin(), in.end()));
+      REQUIRE(set.finish());
+      CHECK(set.size() == in.size());
+      const std::uintmax_t size = std::filesystem::file_size(dir / "keys");
+      CHECK(set.bytes() == size);
+      CHECK(set.rawBytes() > 0);
+      if (chunk == levels::kChunkBytes) {
+        (compression == 0 ? plain : compression == 1 ? fast : well) = size;
+      }
+
+      std::vector<Wide> back;
+      REQUIRE(set.load(back));
+      CHECK(back == in);
+
+      // the index let go and read back: the same set
+      set.release();
+      CHECK_FALSE(set.indexed());
+      REQUIRE(set.reload());
+      CHECK(set.size() == in.size());
+      CHECK(set.bytes() == size);
+      CHECK(set.lastKey() == in.back());
+
+      // from a key in the middle on, one that is in the set and one that is not
+      for (const std::size_t from : {in.size() / 2, in.size() - 3}) {
+        levels::KeySet<Wide>::Cursor c(set, in[from] - 1);
+        Wide k = 0;
+        std::size_t at = from;
+        while (c.next(k)) {
+          REQUIRE(at < in.size());
+          REQUIRE(k == in[at]);
+          at++;
+        }
+        CHECK_FALSE(c.failed());
+        CHECK(at == in.size());
+      }
+
+      // a few keys looked up, far apart: those put in are found, the others not
+      std::vector<Wide> look;
+      std::vector<bool> isIn;
+      for (std::size_t i = 0; i < keys.size(); i += 131) {
+        look.push_back(keys[i]);
+        isIn.push_back(i % 3 != 0);
+      }
+      std::vector<char> found(look.size(), 0);
+      levels::KeySet<Wide>::Reader reader(set, std::size_t{1} << 12);
+      REQUIRE(set.find(look.data(), look.size(), found.data(), reader));
+      for (std::size_t i = 0; i < look.size(); i++) {
+        CHECK((found[i] != 0) == isIn[i]);
+      }
+    }
+  }
+  // gaps that repeat: a good part of the file goes, more at the higher level
+  CHECK(fast * 10 < plain * 8);
+  CHECK(well <= fast);
+  std::filesystem::remove_all(dir);
+}
+
+// Sets joined without decoding their keys, whatever each is kept in: a
+// file's chunks go into a file as they are (compressed at another level,
+// in chunks of another size, or not at all), blocks in memory are gathered
+// into chunks, and a file's chunks are decompressed into memory.
+TEST_CASE("sliding: key sets are joined whatever they are kept in", "[sliding]") {
+  const std::filesystem::path dir = scratchDir("keyjoin");
+  std::filesystem::create_directories(dir);
+  const std::vector<Wide> keys = levelLikeKeys(9000, 4242424242ULL);
+  // a few keys added first, then three parts
+  const std::size_t cuts[5] = {0, 200, 3000, 3001, keys.size()};
+  struct Kind {
+    bool file;
+    int compression;
+    std::size_t chunk;
+  };
+  const Kind kinds[4] = {{false, 0, 0}, {true, 0, 300}, {true, 1, 64}, {true, 9, levels::kChunkBytes}};
+  int name = 0;
+  for (const Kind& target : kinds) {
+    for (int mix = 0; mix < 4; mix++) {
+      INFO("target " << (target.file ? "file" : "memory") << " " << target.compression << ", mix "
+                     << mix);
+      std::vector<std::unique_ptr<levels::KeySet<Wide>>> parts;
+      for (int p = 1; p < 4; p++) {
+        const Kind& kind = kinds[(mix + p) % 4];
+        parts.push_back(std::make_unique<levels::KeySet<Wide>>());
+        REQUIRE(parts.back()->create(
+            kind.file ? dir / ("part" + std::to_string(name++)) : std::filesystem::path(),
+            levels::FileOptions{kind.compression, kind.chunk, nullptr}));
+        REQUIRE(parts.back()->addAll(keys.begin() + static_cast<std::ptrdiff_t>(cuts[p]),
+                                     keys.begin() + static_cast<std::ptrdiff_t>(cuts[p + 1])));
+        REQUIRE(parts.back()->finish());
+      }
+      levels::KeySet<Wide> joined;
+      REQUIRE(joined.create(
+          target.file ? dir / ("joined" + std::to_string(name++)) : std::filesystem::path(),
+          levels::FileOptions{target.compression, target.chunk, nullptr}));
+      REQUIRE(joined.addAll(keys.begin(), keys.begin() + static_cast<std::ptrdiff_t>(cuts[1])));
+      for (const std::unique_ptr<levels::KeySet<Wide>>& part : parts) {
+        REQUIRE(joined.appendSet(*part));
+      }
+      REQUIRE(joined.finish());
+      CHECK(joined.size() == keys.size());
+      CHECK(joined.lastKey() == keys.back());
+      std::vector<Wide> back;
+      REQUIRE(joined.load(back));
+      CHECK(back == keys);
+      if (target.file) {
+        CHECK(joined.bytes() == std::filesystem::file_size(joined.path()));
+        // read back from the file alone
+        levels::KeySet<Wide> again;
+        const std::filesystem::path kept = dir / "kept";
+        std::filesystem::copy_file(joined.path(), kept,
+                                   std::filesystem::copy_options::overwrite_existing);
+        REQUIRE(again.open(kept));
+        back.clear();
+        REQUIRE(again.load(back));
+        CHECK(back == keys);
+      }
+    }
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// A file cut short, one whose chunk is damaged, one of a later version and
+// one that is not there: none is read as keys, and each says what it is.
+TEST_CASE("sliding: a damaged key set file is told", "[sliding]") {
+  const std::filesystem::path dir = scratchDir("keydamage");
+  std::filesystem::create_directories(dir);
+  const std::vector<Wide> keys = levelLikeKeys(20000, 31337);
+  const std::filesystem::path whole = dir / "whole";
+  {
+    levels::KeySet<Wide> set;
+    REQUIRE(set.create(whole));
+    REQUIRE(set.addAll(keys.begin(), keys.end()));
+    REQUIRE(set.finish());
+    set.keepFile();
+  }
+  const std::uintmax_t size = std::filesystem::file_size(whole);
+  auto copyOf = [&](const char* name) {
+    const std::filesystem::path p = dir / name;
+    std::filesystem::copy_file(whole, p);
+    return p;
+  };
+  auto poke = [](const std::filesystem::path& p, std::uintmax_t at, const std::string& bytes) {
+    std::fstream f(p, std::ios::in | std::ios::out | std::ios::binary);
+    f.seekp(static_cast<std::streamoff>(at));
+    f.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    REQUIRE(f.good());
+  };
+  {
+    levels::KeySet<Wide> set;
+    REQUIRE(set.open(whole));
+    CHECK_FALSE(set.older());
+    CHECK(set.fault() == levels::SetFault::None);
+    std::vector<Wide> back;
+    REQUIRE(set.load(back));
+    CHECK(back == keys);
+    set.keepFile();
+  }
+  {
+    // cut short: no footer where one should be
+    const std::filesystem::path p = copyOf("short");
+    std::filesystem::resize_file(p, size - 1);
+    levels::KeySet<Wide> set;
+    CHECK_FALSE(set.open(p));
+    CHECK(set.fault() == levels::SetFault::Damaged);
+    // not opened, not deleted
+    CHECK(std::filesystem::file_size(p) == size - 1);
+  }
+  {
+    // a byte of a chunk changed: the index reads, the keys do not (each
+    // chunk carries a checksum)
+    const std::filesystem::path p = copyOf("chunk");
+    poke(p, 100, std::string(1, '\x5a'));
+    poke(p, 101, std::string(1, '\xa5'));
+    levels::KeySet<Wide> set;
+    REQUIRE(set.open(p));
+    std::vector<Wide> back;
+    CHECK_FALSE(set.load(back));
+    set.keepFile();
+  }
+  {
+    // the ending of a format after this one: told apart from a damaged file
+    const std::filesystem::path p = copyOf("later");
+    poke(p, size - 8, "BTSLKEY4");
+    levels::KeySet<Wide> set;
+    CHECK_FALSE(set.open(p));
+    CHECK(set.fault() == levels::SetFault::Newer);
+  }
+  {
+    // the ending of the format before on a file that is not one
+    const std::filesystem::path p = copyOf("notolder");
+    poke(p, size - 8, "BTSLKEY2");
+    levels::KeySet<Wide> set;
+    CHECK_FALSE(set.open(p));
+    CHECK(set.fault() == levels::SetFault::Damaged);
+  }
+  {
+    // no file: the system's reason is kept
+    levels::KeySet<Wide> set;
+    CHECK_FALSE(set.open(dir / "nothing"));
+    CHECK(set.fault() == levels::SetFault::Unread);
+    CHECK(set.faultError() == ENOENT);
+  }
+  std::filesystem::remove_all(dir);
+}
+
+namespace {
+
+// A key set's file as the versions up to 1.9 wrote it (BTSLKEY2): the
+// blocks as they are, the first keys, the offsets, three numbers, the last
+// key and the magic.
+template <class Key>
+void writeOlderSet(const std::filesystem::path& p, const std::vector<Key>& keys) {
+  std::ofstream out(p, std::ios::binary | std::ios::trunc);
+  std::vector<Key> firsts;
+  std::vector<std::uint64_t> offsets{0};
+  std::vector<std::uint8_t> block;
+  for (std::size_t i = 0; i < keys.size(); i += levels::kBlockKeys) {
+    const std::size_t n = std::min<std::size_t>(levels::kBlockKeys, keys.size() - i);
+    block.clear();
+    std::uint8_t head[levels::kMaxVarint<unsigned int>];
+    unsigned int len = levels::putVarint(head, static_cast<unsigned int>(n));
+    block.insert(block.end(), head, head + len);
+    for (std::size_t k = 1; k < n; k++) {
+      std::uint8_t gap[levels::kMaxVarint<Key>];
+      len = levels::putVarint(gap, static_cast<Key>(keys[i + k] - keys[i + k - 1]));
+      block.insert(block.end(), gap, gap + len);
+    }
+    out.write(reinterpret_cast<const char*>(block.data()),
+              static_cast<std::streamsize>(block.size()));
+    firsts.push_back(keys[i]);
+    offsets.push_back(offsets.back() + block.size());
+  }
+  out.write(reinterpret_cast<const char*>(firsts.data()),
+            static_cast<std::streamsize>(firsts.size() * sizeof(Key)));
+  out.write(reinterpret_cast<const char*>(offsets.data()),
+            static_cast<std::streamsize>(offsets.size() * sizeof(std::uint64_t)));
+  const std::uint64_t tail[3] = {keys.size(), firsts.size(), offsets.back()};
+  out.write(reinterpret_cast<const char*>(tail), sizeof(tail));
+  const Key last = keys.empty() ? Key{0} : keys.back();
+  out.write(reinterpret_cast<const char*>(&last), sizeof(Key));
+  out.write(levels::kOlderSetMagic, sizeof(levels::kOlderSetMagic));
+  REQUIRE(out.good());
+}
+
+// The last eight bytes of a file: a key set's say which version wrote it.
+std::string fileEnding(const std::filesystem::path& p) {
+  std::ifstream in(p, std::ios::binary);
+  in.seekg(-8, std::ios::end);
+  std::string ending(8, '\0');
+  in.read(ending.data(), 8);
+  return in.good() ? ending : std::string();
+}
+
+// A key set's file of this version written again as the versions up to 1.9
+// wrote theirs.
+template <class Key>
+void asOlderVersion(const std::filesystem::path& p) {
+  std::vector<Key> keys;
+  {
+    levels::KeySet<Key> set;
+    REQUIRE(set.open(p));
+    REQUIRE(set.load(keys));
+    set.keepFile();
+  }
+  writeOlderSet(p, keys);
+}
+
+// Every level file of the saved searches in `dir` written again as the
+// versions up to 1.9 wrote theirs (the search ran in keys of `keyWidth`
+// bits); how many there were.
+std::size_t asOlderVersion(const std::filesystem::path& dir, unsigned int keyWidth) {
+  std::size_t files = 0;
+  for (const auto& folder : std::filesystem::directory_iterator(dir)) {
+    for (const auto& e : std::filesystem::directory_iterator(folder.path())) {
+      if (e.path().extension() != ".keys") {
+        continue;
+      }
+      if (keyWidth == 64) {
+        asOlderVersion<std::uint64_t>(e.path());
+      } else {
+        REQUIRE(keyWidth == 128);
+        asOlderVersion<Wide>(e.path());
+      }
+      files++;
+    }
+  }
+  return files;
+}
+
+// The endings of the level files of the saved searches in `dir`.
+std::map<std::string, std::string> levelEndings(const std::filesystem::path& dir) {
+  std::map<std::string, std::string> endings;
+  for (const auto& folder : std::filesystem::directory_iterator(dir)) {
+    for (const auto& e : std::filesystem::directory_iterator(folder.path())) {
+      if (e.path().extension() == ".keys") {
+        endings[e.path().filename().string()] = fileEnding(e.path());
+      }
+    }
+  }
+  return endings;
+}
+
+}  // namespace
+
+// A file of the versions up to 1.9 (its blocks not compressed, no chunks)
+// is read as it is: every key, a key looked up, a cursor from the middle.
+// Appended to a file of this version it is written as that file is, in
+// compressed chunks, the same keys.
+TEST_CASE("sliding: a key set file of an earlier version is read, and written again",
+          "[sliding]") {
+  const std::filesystem::path dir = scratchDir("keyolder");
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  for (const std::size_t count : {std::size_t{0}, std::size_t{1}, std::size_t{128},
+                                  std::size_t{129}, std::size_t{200000}}) {
+    INFO(count << " keys");
+    const std::vector<Wide> keys = levelLikeKeys(count, 2463534242ULL + count);
+    const std::filesystem::path old = dir / "old.keys";
+    writeOlderSet(old, keys);
+    const std::uintmax_t oldSize = std::filesystem::file_size(old);
+    levels::KeySet<Wide> set;
+    REQUIRE(set.open(old));
+    CHECK(set.older());
+    CHECK(set.size() == keys.size());
+    CHECK(set.bytes() == oldSize);
+    CHECK(set.lastKey() == (keys.empty() ? Wide{0} : keys.back()));
+    std::vector<Wide> back;
+    REQUIRE(set.load(back));
+    CHECK(back == keys);
+    // the index let go and read back
+    set.release();
+    REQUIRE(set.reload());
+    CHECK(set.older());
+    if (count > 1000) {
+      // keys looked up, there and not there
+      std::vector<Wide> cand = {keys[3], keys[3] + 1, keys[count / 2], keys.back()};
+      std::sort(cand.begin(), cand.end());
+      std::vector<char> found(cand.size(), 0);
+      levels::KeySet<Wide>::Reader reader(set, std::size_t{1} << 12);
+      REQUIRE(set.find(cand.data(), cand.size(), found.data(), reader));
+      for (std::size_t i = 0; i < cand.size(); i++) {
+        CHECK((found[i] != 0) == std::binary_search(keys.begin(), keys.end(), cand[i]));
+      }
+      // a cursor from the middle on
+      levels::KeySet<Wide>::Cursor cursor(set, keys[count / 2]);
+      Wide k = 0;
+      for (std::size_t i = count / 2; i < count; i++) {
+        REQUIRE(cursor.next(k));
+        REQUIRE(k == keys[i]);
+      }
+      CHECK_FALSE(cursor.next(k));
+      CHECK_FALSE(cursor.failed());
+    }
+    // written again as this version writes: after keys of its own, too
+    for (const bool after : {false, true}) {
+      const std::filesystem::path fresh = dir / "fresh.keys";
+      levels::KeySet<Wide> made;
+      REQUIRE(made.create(fresh));
+      std::vector<Wide> want;
+      if (after && !keys.empty() && keys.front() > 5) {
+        want = {1, 2, 5};
+        REQUIRE(made.addAll(want.begin(), want.end()));
+      }
+      want.insert(want.end(), keys.begin(), keys.end());
+      std::uint64_t heard = 0;
+      REQUIRE(made.appendOlder(set, [&heard](std::uint64_t bytes) {
+        heard += bytes;
+        return true;
+      }));
+      REQUIRE(made.finish());
+      CHECK_FALSE(made.older());
+      CHECK(made.size() == want.size());
+      CHECK(fileEnding(fresh) == std::string(levels::kSetMagic, sizeof(levels::kSetMagic)));
+      if (count > 0) {
+        CHECK(heard > 0);
+      }
+      if (count > 1000) {
+        CHECK(made.bytes() < oldSize);
+      }
+      std::vector<Wide> again;
+      REQUIRE(made.load(again));
+      CHECK(again == want);
+      // and opened anew from its file
+      made.keepFile();
+      levels::KeySet<Wide> opened;
+      REQUIRE(opened.open(fresh));
+      CHECK_FALSE(opened.older());
+      REQUIRE(opened.load(again));
+      CHECK(again == want);
+    }
+    if (count > 1000) {
+      // the work ended from outside: nothing more is read
+      levels::KeySet<Wide> made;
+      REQUIRE(made.create(dir / "cut.keys"));
+      unsigned int steps = 0;
+      CHECK_FALSE(made.appendOlder(set, [&steps](std::uint64_t) { return ++steps < 2; }));
+      CHECK(steps == 2);
+      // a file cut short is not opened as an older set either
+      set.keepFile();
+      std::filesystem::resize_file(old, oldSize - 9);
+      levels::KeySet<Wide> cut;
+      CHECK_FALSE(cut.open(old));
+    } else {
+      set.keepFile();
+    }
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// A search saved by a version up to 1.9 (its level files not compressed)
+// is carried on by this one: every file of it is written again as this
+// version writes its files, under its own name, and the search goes on to
+// the path a search with no stops finds. With nested slides (the visited
+// sets) and without (the levels kept), from both ends and from one.
+TEST_CASE("sliding: a search saved by an earlier version is carried on, its files compressed",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slideolder");
+  std::filesystem::remove_all(dir);
+  const GridBoard g = settledBoard(37);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  struct Kind {
+    const char* name;
+    std::function<SlideSearch()> make;
+    std::function<std::optional<Separation>(SlideSearch&)> run;
+    std::uint64_t stopAt;
+  };
+  const std::vector<Kind> kinds = {
+      {"nested slides, both ends",
+       [&] {
+         SlideSearch s = nestedSearch(3);
+         s.threads = 2;
+         s.workDir = dir.string();
+         s.memoryLevelBytes = 1;
+         return s;
+       },
+       [&](SlideSearch& s) { return findSlidePath(g.puz, g.pr(), *g.start, s); }, 10},
+      {"the levels kept, one end",
+       [&] {
+         SlideSearch s;
+         s.oneEnd = true;
+         s.threads = 3;
+         s.workDir = dir.string();
+         s.memoryLevelBytes = 1;
+         return s;
+       },
+       [&](SlideSearch& s) { return findSlidePath(f.puz, f.pr(), *f.start, s); }, 40},
+      {"the levels kept, both ends",
+       [&] {
+         SlideSearch s;
+         s.threads = 3;
+         s.workDir = dir.string();
+         s.memoryLevelBytes = 1;
+         return s;
+       },
+       [&](SlideSearch& s) { return findSlidePath(f.puz, f.pr(), *f.start, s); }, 40},
+  };
+  const std::string older(levels::kOlderSetMagic, sizeof(levels::kOlderSetMagic));
+  const std::string current(levels::kSetMagic, sizeof(levels::kSetMagic));
+  for (const Kind& kind : kinds) {
+    INFO(kind.name);
+    SlideSearch straight = kind.make();
+    const std::optional<Separation> whole = kind.run(straight);
+    REQUIRE(whole.has_value());
+    REQUIRE(whole->getMoves() > kind.stopAt);
+    REQUIRE(std::filesystem::is_empty(dir));
+    // stopped part of the way, saved; then its files as an earlier
+    // version wrote them
+    auto savedByOlder = [&] {
+      StopSource stop;
+      SlideSearch first = kind.make();
+      first.stop = stop.token();
+      first.onDepth = [&](std::uint64_t at) {
+        if (at >= kind.stopAt) {
+          stop.request(StopKind::Pause);
+        }
+      };
+      CHECK_FALSE(kind.run(first).has_value());
+      REQUIRE(first.outcome == SlideOutcome::Stopped);
+      REQUIRE(first.saved);
+      const std::size_t files = asOlderVersion(dir, first.keyWidth);
+      for (const auto& [name, ending] : levelEndings(dir)) {
+        REQUIRE(ending == older);
+      }
+      return files;
+    };
+    // what the search stopped there and carried on comes to, its files as
+    // this version wrote them
+    std::uint64_t visited = 0;
+    {
+      StopSource stop;
+      SlideSearch first = kind.make();
+      first.stop = stop.token();
+      first.onDepth = [&](std::uint64_t at) {
+        if (at >= kind.stopAt) {
+          stop.request(StopKind::Pause);
+        }
+      };
+      CHECK_FALSE(kind.run(first).has_value());
+      REQUIRE(first.saved);
+      SlideSearch on = kind.make();
+      const std::optional<Separation> path = kind.run(on);
+      REQUIRE(path.has_value());
+      REQUIRE(on.resumed);
+      CHECK(on.convertedFiles == 0);
+      visited = on.visited;
+      REQUIRE(std::filesystem::is_empty(dir));
+    }
+
+    // carried on to the end
+    {
+      const std::size_t files = savedByOlder();
+      REQUIRE(files >= 3);
+      SlideSearch on = kind.make();
+      std::vector<LogLine> told;
+      on.onLog = [&told](LogLevel level, const std::string& text) {
+        told.push_back(LogLine{level, text});
+      };
+      const std::optional<Separation> path = kind.run(on);
+      REQUIRE(path.has_value());
+      CHECK(on.resumed);
+      CHECK(on.convertedFiles == files);
+      CHECK(on.unconvertedFiles == 0);
+      CHECK(placesAlong(*path) == placesAlong(*whole));
+      CHECK(on.visited == visited);
+      CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+        return l.level == LogLevel::Info &&
+               l.text.find("was written by an earlier version of the program") !=
+                   std::string::npos;
+      }));
+      CHECK(std::none_of(told.begin(), told.end(), [](const LogLine& l) {
+        return l.level == LogLevel::Warning || l.level == LogLevel::Error;
+      }));
+      CHECK(std::filesystem::is_empty(dir));
+    }
+
+    // carried on for one level and saved again: every file in the folder
+    // is this version's, under the names the state had
+    {
+      const std::size_t files = savedByOlder();
+      const std::map<std::string, std::string> before = levelEndings(dir);
+      StopSource point;
+      point.request(StopKind::Pause);
+      SlideSearch second = kind.make();
+      second.savePoint = point.token();
+      CHECK_FALSE(kind.run(second).has_value());
+      REQUIRE(second.outcome == SlideOutcome::Stopped);
+      REQUIRE(second.saved);
+      CHECK(second.resumed);
+      CHECK(second.convertedFiles == files);
+      const std::map<std::string, std::string> after = levelEndings(dir);
+      REQUIRE_FALSE(after.empty());
+      for (const auto& [name, ending] : after) {
+        INFO(name);
+        CHECK(ending == current);
+      }
+      SlideSearch on = kind.make();
+      const std::optional<Separation> path = kind.run(on);
+      REQUIRE(path.has_value());
+      CHECK(on.resumed);
+      CHECK(on.convertedFiles == 0);
+      CHECK(placesAlong(*path) == placesAlong(*whole));
+      CHECK(std::filesystem::is_empty(dir));
+    }
+
+    // stopped before the files are written again: they stay as they
+    // were, the search is saved as it was, and the next carry-on writes
+    // them (with nested slides a level that waited to go into the visited
+    // sets has gone in: a new file, this version's, for some of the old)
+    {
+      const std::size_t files = savedByOlder();
+      const std::map<std::string, std::string> before = levelEndings(dir);
+      StopSource stop;
+      stop.request(StopKind::Pause);
+      SlideSearch second = kind.make();
+      second.stop = stop.token();
+      CHECK_FALSE(kind.run(second).has_value());
+      REQUIRE(second.outcome == SlideOutcome::Stopped);
+      REQUIRE(second.saved);
+      CHECK(second.convertedFiles == 0);
+      CHECK(second.unconvertedFiles == files);
+      std::size_t left = 0;
+      for (const auto& [name, ending] : levelEndings(dir)) {
+        INFO(name);
+        if (before.contains(name)) {
+          CHECK(ending == older);
+          left++;
+        } else {
+          CHECK(ending == current);
+        }
+      }
+      REQUIRE(left > 0);
+      SlideSearch on = kind.make();
+      const std::optional<Separation> path = kind.run(on);
+      REQUIRE(path.has_value());
+      CHECK(on.resumed);
+      CHECK(on.convertedFiles == left);
+      CHECK(placesAlong(*path) == placesAlong(*whole));
+      CHECK(std::filesystem::is_empty(dir));
+    }
+
+    // no room to write them again (every write fails): they are read as
+    // they are, nothing of the saved search is lost, and the next carry-on
+    // with room writes them
+    {
+      const std::size_t files = savedByOlder();
+      SlideSearch second = kind.make();
+      second.failWriteAt = 1;
+      std::vector<LogLine> told;
+      second.onLog = [&told](LogLevel level, const std::string& text) {
+        told.push_back(LogLine{level, text});
+      };
+      CHECK_FALSE(kind.run(second).has_value());
+      CHECK(second.outcome == SlideOutcome::Disk);
+      // carried on and stopped at its first write; or, with nested slides,
+      // not carried on at all (a level waits to be written into the
+      // visited sets) and kept
+      CHECK(second.resumed != second.savedUnread);
+      CHECK(second.convertedFiles == 0);
+      if (second.resumed) {
+        CHECK(second.unconvertedFiles == files);
+      }
+      CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+        return l.level == LogLevel::Warning &&
+               l.text.find("The search reads them as they are") != std::string::npos;
+      }));
+      SlideSearch on = kind.make();
+      const std::optional<Separation> path = kind.run(on);
+      REQUIRE(path.has_value());
+      CHECK(on.resumed);
+      CHECK(on.convertedFiles > 0);
+      CHECK(on.unconvertedFiles == 0);
+      CHECK(placesAlong(*path) == placesAlong(*whole));
+      CHECK(std::filesystem::is_empty(dir));
+    }
+  }
+  std::filesystem::remove_all(dir);
+}
+#endif
+
+// The files of the levels compressed well, fast or not at all: the same
+// search, level for level, and a search saved with one is carried on with
+// another.
+TEST_CASE("sliding: the levels' files compressed or not, the same search",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidecompress");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  SlideSearch straight;
+  straight.oneEnd = true;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+  CHECK(straight.diskBytes == 0);
+
+  std::uint64_t plain = 0;
+  for (const int compression : {0, 1, 9}) {
+    INFO("compression " << compression);
+    SlideSearch s;
+    s.oneEnd = true;
+    s.threads = 3;
+    s.workDir = dir.string();
+    s.memoryLevelBytes = 1;
+    s.compression = compression;
+    const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, s);
+    REQUIRE(path.has_value());
+    CHECK(placesAlong(*path) == placesAlong(*whole));
+    CHECK(s.visited == straight.visited);
+    CHECK(s.diskBytes > 0);
+    if (compression == 0) {
+      plain = s.diskBytes;
+    } else {
+      CHECK(s.diskBytes < plain);
+    }
+    CHECK(std::filesystem::is_empty(dir));
+  }
+
+  // stopped between two levels with its files as they are, carried on
+  // with them compressed
+  StopSource point;
+  point.request(StopKind::Pause);
+  SlideSearch first;
+  first.oneEnd = true;
+  first.workDir = dir.string();
+  first.memoryLevelBytes = 1;
+  first.compression = 0;
+  first.savePoint = point.token();
+  CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+  REQUIRE(first.outcome == SlideOutcome::Stopped);
+  REQUIRE(first.saved);
+  SlideSearch second;
+  second.oneEnd = true;
+  second.workDir = dir.string();
+  second.memoryLevelBytes = 1;
+  const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+  REQUIRE(rest.has_value());
+  CHECK(second.resumed);
+  CHECK(placesAlong(*rest) == placesAlong(*whole));
+  CHECK(second.visited == straight.visited);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+// A write that fails while a level is made (a disk that fills) does not
+// cost the search: the files of the level being made go, there is room
+// again, and the search is saved at its last whole level for a search of
+// the same start to carry on, wherever in its work the write failed.
+TEST_CASE("sliding: a search that cannot write a file is saved at its last whole level",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidewrite");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  SlideSearch straight;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+
+  unsigned int failures = 0;
+  unsigned int finished = 0;
+  for (std::uint64_t at = 3000; finished == 0; at += at / 2) {
+    INFO("the write past " << at << " bytes fails");
+    REQUIRE(at < (std::uint64_t{1} << 40));
+    std::vector<LogLine> told;
+    SlideSearch first;
+    first.threads = 2;
+    first.workDir = dir.string();
+    first.memoryLevelBytes = 1;
+    first.failWriteAt = at;
+    first.failWriteOnce = true;
+    first.onLog = [&told](LogLevel level, const std::string& text) {
+      if (level != LogLevel::Debug) {
+        told.push_back(LogLine{level, text});
+      }
+    };
+    const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, first);
+    if (path.has_value()) {
+      // the search wrote less than that: nothing failed
+      CHECK(first.outcome == SlideOutcome::Found);
+      CHECK(first.visited == straight.visited);
+      finished++;
+    } else {
+      failures++;
+      REQUIRE(first.outcome == SlideOutcome::Disk);
+      REQUIRE(first.saved);
+      CHECK(first.diskHeldToFree);
+      CHECK(first.error.find("Could not write the search's files") != std::string::npos);
+      CHECK(first.visited < straight.visited);
+      CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+        return l.level == LogLevel::Warning &&
+               l.text.find("The search is saved") != std::string::npos;
+      }));
+      CHECK_FALSE(std::filesystem::is_empty(dir));
+
+      SlideSearch second;
+      second.threads = 3;
+      second.workDir = dir.string();
+      second.memoryLevelBytes = 1;
+      const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+      REQUIRE(rest.has_value());
+      CHECK(second.resumed);
+      CHECK(second.outcome == SlideOutcome::Found);
+      CHECK(rest->getMoves() == 81);
+      CHECK(placesAlong(*rest) == placesAlong(*whole));
+      CHECK(second.visited == straight.visited);
+    }
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  // the write failed at many places of the search's work before it got through
+  CHECK(failures >= 8);
+  std::filesystem::remove_all(dir);
+}
+
+// When the disk stays full, so that the search cannot save itself either,
+// it is left as it was last saved while it ran: the files that save named
+// are all still there. Without such a save there is nothing to keep.
+TEST_CASE("sliding: a search that cannot save itself is left as it was last saved",
+          "[sliding][resume][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidefull");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  SlideSearch straight;
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, straight);
+  REQUIRE(whole.has_value());
+
+  // its levels in memory, so that only its saves write, one after every
+  // level; the disk fills in the middle of one of them
+  {
+    std::vector<LogLine> told;
+    SlideSearch first;
+    first.threads = 2;
+    first.workDir = dir.string();
+    first.autosaveFloorSeconds = 0;
+    first.failWriteAt = 60000;
+    first.onLog = [&told](LogLevel level, const std::string& text) {
+      if (level != LogLevel::Debug) {
+        told.push_back(LogLine{level, text});
+      }
+    };
+    CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Disk);
+    REQUIRE(first.saved);
+    CHECK(first.diskHeldToFree);
+    CHECK(std::any_of(told.begin(), told.end(), [](const LogLine& l) {
+      return l.level == LogLevel::Warning &&
+             l.text.find("The search is saved") != std::string::npos &&
+             l.text.find("as it was last saved while it ran") != std::string::npos;
+    }));
+    CHECK_FALSE(std::filesystem::is_empty(dir));
+
+    SlideSearch second;
+    second.threads = 3;
+    second.workDir = dir.string();
+    const std::optional<Separation> rest = findSlidePath(f.puz, f.pr(), *f.start, second);
+    REQUIRE(rest.has_value());
+    CHECK(second.resumed);
+    CHECK(rest->getMoves() == 81);
+    CHECK(placesAlong(*rest) == placesAlong(*whole));
+    CHECK(second.visited == straight.visited);
+    CHECK(std::filesystem::is_empty(dir));
+  }
+
+  // the disk full from the first save on: no save to go back to, and the
+  // levels in memory cannot be written, so nothing is kept
+  {
+    SlideSearch first;
+    first.threads = 2;
+    first.workDir = dir.string();
+    first.autosaveFloorSeconds = 0;
+    first.failWriteAt = 1;
+    CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Disk);
+    CHECK_FALSE(first.saved);
+    CHECK(first.error.find("Could not write the search's files") != std::string::npos);
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  // and when not even the first file can be written
+  {
+    SlideSearch first;
+    first.workDir = dir.string();
+    first.memoryLevelBytes = 1;
+    first.failWriteAt = 1;
+    CHECK_FALSE(findSlidePath(f.puz, f.pr(), *f.start, first).has_value());
+    REQUIRE(first.outcome == SlideOutcome::Disk);
+    CHECK_FALSE(first.saved);
+    CHECK(std::filesystem::is_empty(dir));
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// What making a level took on the disk at its most is measured, for what
+// the next will take; and the levels kept for tracing the path back are
+// thinned once they take half the disk the search may use, the files of
+// those thinned out gone at once though the last save named them.
+TEST_CASE("sliding: the levels kept are thinned at half the disk budget",
+          "[sliding][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidethin");
+  std::filesystem::remove_all(dir);
+  const SlideFixture f = slideFixture(4, 5, kKlotski);
+  auto search = [&] {
+    SlideSearch s;
+    s.oneEnd = true;
+    s.threads = 2;
+    s.workDir = dir.string();
+    s.memoryLevelBytes = 1;
+    s.autosaveFloorSeconds = 0;
+    return s;
+  };
+  SlideSearch all = search();
+  all.measureLevelBytes = 1;
+  std::string levelLine;
+  all.onLog = [&levelLine](LogLevel level, const std::string& text) {
+    if (level == LogLevel::Debug && text.find("making it took") != std::string::npos) {
+      levelLine = text;
+    }
+  };
+  const std::optional<Separation> whole = findSlidePath(f.puz, f.pr(), *f.start, all);
+  REQUIRE(whole.has_value());
+  CHECK(all.levelInterval == 1);
+  // a level's runs and merges take more than the level
+  CHECK(all.levelWorkRatio > 1);
+  CHECK(levelLine.find("times a level's bytes") != std::string::npos);
+  // too small to measure unless told: the search goes by the fixed share
+  SlideSearch unmeasured = search();
+  REQUIRE(findSlidePath(f.puz, f.pr(), *f.start, unmeasured).has_value());
+  CHECK(unmeasured.levelWorkRatio == 0);
+
+  SlideSearch tight = search();
+  tight.diskBudget = all.diskBytes;
+  const std::optional<Separation> path = findSlidePath(f.puz, f.pr(), *f.start, tight);
+  REQUIRE(path.has_value());
+  CHECK(tight.outcome == SlideOutcome::Found);
+  CHECK(tight.levelInterval >= 2);
+  // as short a path; the levels searched again across the gaps count too
+  CHECK(path->getMoves() == whole->getMoves());
+  CHECK(tight.visited >= all.visited);
+  CHECK(tight.diskBytes < all.diskBytes);
+  CHECK(std::filesystem::is_empty(dir));
+  std::filesystem::remove_all(dir);
+}
+
+#ifdef __SIZEOF_INT128__
+// A set of more keys than 2^33, as a level of the largest searches has,
+// written as the threads of a merge write its parts and joined; and one
+// read of more than 2 GB (macOS reads no more than that at a time). About
+// 4 GB of disk, as much memory and a few minutes: hidden.
+TEST_CASE("sliding: a key set of more than 2^33 keys", "[.huge][sliding]") {
+  const std::filesystem::path dir = scratchDir("keyhuge");
+  std::filesystem::create_directories(dir);
+  using Set = levels::KeySet<Wide>;
+
+  {
+    // a file with nothing in it but a mark near its end, read in one call
+    const std::filesystem::path big = dir / "big";
+    const std::uint64_t size = 2600000000ULL;
+    const std::uint64_t markAt = size - 1000;
+    {
+      std::ofstream f(big, std::ios::binary);
+      f.seekp(static_cast<std::streamoff>(markAt));
+      f.write("mark", 4);
+      REQUIRE(f.good());
+    }
+    std::filesystem::resize_file(big, size);
+    levels::ReadFile f;
+    REQUIRE(f.open(big));
+    std::vector<char> all(size);
+    REQUIRE(f.readAt(0, all.data(), all.size()));
+    CHECK(std::string(all.data() + markAt, 4) == "mark");
+    CHECK(all[markAt - 1] == 0);
+    std::filesystem::remove(big);
+  }
+
+  const std::uint64_t half = (std::uint64_t{1} << 32) + 300000000ULL;
+  const std::uint64_t total = 2 * half;
+  REQUIRE(total > (std::uint64_t{1} << 33));
+  const Wide base = (static_cast<Wide>(1) << 100) + 5;
+  // gaps of 3 and 1 in turn
+  auto keyAt = [&](std::uint64_t i) { return base + static_cast<Wide>(2) * i + (i & 1); };
+
+  Set joined;
+  {
+    Set parts[2];
+    std::atomic<bool> ok{true};
+    std::vector<std::thread> writers;
+    for (int p = 0; p < 2; p++) {
+      writers.emplace_back([&, p] {
+        Set& set = parts[p];
+        bool good = set.create(dir / ("part" + std::to_string(p)),
+                               levels::FileOptions{p == 0 ? 1 : 9, levels::kChunkBytes, nullptr});
+        const std::uint64_t from = p == 0 ? 0 : half;
+        for (std::uint64_t i = from; good && i < from + half; i++) {
+          good = set.add(keyAt(i));
+        }
+        if (!good || !set.finish()) {
+          ok.store(false);
+        }
+      });
+    }
+    for (std::thread& t : writers) {
+      t.join();
+    }
+    REQUIRE(ok.load());
+    CHECK(parts[0].size() == half);
+    REQUIRE(joined.create(dir / "joined"));
+    REQUIRE(joined.appendSet(parts[0]));
+    REQUIRE(joined.appendSet(parts[1]));
+    REQUIRE(joined.finish());
+  }
+  CHECK(joined.size() == total);
+  CHECK(joined.lastKey() == keyAt(total - 1));
+  CHECK(joined.bytes() == std::filesystem::file_size(joined.path()));
+  joined.release();
+  REQUIRE(joined.reload());
+  CHECK(joined.size() == total);
+  CHECK(joined.lastKey() == keyAt(total - 1));
+  const std::size_t blocks = joined.blocks();
+  CHECK(blocks == 2 * ((half + levels::kBlockKeys - 1) / levels::kBlockKeys));
+
+  // from keys on either side of 2^32 and 2^33, of the join and of the end
+  for (const std::uint64_t from :
+       {std::uint64_t{0}, (std::uint64_t{1} << 32) - 70, half - 3, (std::uint64_t{1} << 33) - 70,
+        total - 500}) {
+    INFO("from key " << from);
+    Set::Cursor c(joined, keyAt(from));
+    Wide k = 0;
+    for (std::uint64_t i = from; i < std::min(total, from + 1000); i++) {
+      REQUIRE(c.next(k));
+      REQUIRE(k == keyAt(i));
+    }
+    CHECK_FALSE(c.failed());
+  }
+  {
+    // looked up: keys are found, the numbers between two keys are not
+    const std::uint64_t at[4] = {10, (std::uint64_t{1} << 32) + 10, (std::uint64_t{1} << 33) + 10,
+                                 total - 2};
+    std::vector<Wide> look;
+    for (const std::uint64_t i : at) {
+      look.push_back(keyAt(i));
+      look.push_back(keyAt(i) + 1);
+    }
+    std::vector<char> found(look.size(), 0);
+    Set::Reader reader(joined, std::size_t{1} << 12);
+    REQUIRE(joined.find(look.data(), look.size(), found.data(), reader));
+    for (std::size_t i = 0; i < look.size(); i++) {
+      CHECK((found[i] != 0) == (i % 2 == 0));
+    }
+  }
+
+  // every key, each thread a range of blocks: none missing, none wrong
+  const unsigned int threads = 8;
+  std::atomic<std::uint64_t> counted{0};
+  std::atomic<std::uint64_t> wrong{0};
+  std::vector<std::thread> readers;
+  for (unsigned int t = 0; t < threads; t++) {
+    readers.emplace_back([&, t] {
+      Set::Reader reader(joined);
+      std::vector<Wide> keys;
+      std::uint64_t n = 0;
+      std::uint64_t bad = 0;
+      for (std::size_t b = blocks * t / threads; b < blocks * (t + 1) / threads; b++) {
+        if (!reader.block(b, keys)) {
+          bad++;
+          continue;
+        }
+        // a key says which it is: twice its number, and one more when odd
+        std::uint64_t i = static_cast<std::uint64_t>((keys.front() - base) / 2);
+        for (const Wide k : keys) {
+          bad += k != keyAt(i++) ? 1 : 0;
+        }
+        n += keys.size();
+      }
+      counted.fetch_add(n);
+      wrong.fetch_add(bad);
+    });
+  }
+  for (std::thread& t : readers) {
+    t.join();
+  }
+  CHECK(counted.load() == total);
+  CHECK(wrong.load() == 0);
+  joined.remove();
+  std::filesystem::remove_all(dir);
+}
+#endif

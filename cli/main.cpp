@@ -345,6 +345,7 @@ bt::sliding::SlidingOptions slidingOptions(const Options& o) {
   s.packing = o.slidePacking;
   s.minKeyBits = o.slideKeyBits;
   s.oneEnd = o.slideOneEnd;
+  s.compression = o.slideCompress;
   s.optimizedPaths = o.optimizedPaths;
   s.grid = o.slideGrid;
   return s;
@@ -356,16 +357,25 @@ bt::sliding::SlideSearch slideSearch(const Options& o, bt::ThreadPool* pool, int
   bt::sliding::SlideSearch search = bt::sliding::slideSearchFor(slidingOptions(o));
   search.pool = pool;
   search.grid = grid;
+  // --restart: what is left in a start's folder goes too (a saved search
+  // whose state could not be read is in no list that discardSaved reads)
+  search.resume = !o.restart;
   return search;
 }
 
 // --slide-trace: each level of `search` on stderr as it is done, and before
-// the first the key the level search runs in. `search` is the one searched
-// (the lines read what the search says of its key).
+// the first the key the level search runs in; and the search's lines for
+// the application's log, the debug ones too (a search carried on, each
+// save, what the disk has room for, and why a search stopped short).
+// `search` is the one searched (the lines read what the search says of its
+// key).
 void traceSlide(const Options& o, bt::sliding::SlideSearch& search) {
   if (!o.slideTrace) {
     return;
   }
+  search.onLog = [](bt::LogLevel level, const std::string& text) {
+    std::fprintf(stderr, "%s: %s\n", std::string(bt::logLevelName(level)).c_str(), text.c_str());
+  };
   search.onLevel = [&search, told = false](const std::string& line) mutable {
     if (!told) {
       told = true;
@@ -496,7 +506,41 @@ struct JsonTotals {
   unsigned long solutions = 0;
   bt::cli::BestLevel best;
   double seconds = 0;
+  // Sliding: the starts whose search stopped at a limit, not at its end,
+  // why the last of them did, and whether a search was saved to carry on.
+  // A harness reading "solutions":0 must be able to tell it from a proof.
+  unsigned int slideCut = 0;
+  std::string slideReason;
+  bool slideSaved = false;
 };
+
+// Whether a solve ended because the position a paused solve held could not
+// be restored: the problem keeps it (decision 0041), and --restart starts
+// over.
+bool cannotRestore(bt::AssemblerError e) {
+  return e == bt::AssemblerError::CannotRestoreVersion ||
+         e == bt::AssemblerError::CannotRestoreSyntax ||
+         e == bt::AssemblerError::CannotRestoreInterrupted;
+}
+
+// A string for --json: quotes, backslashes (a Windows path) and control
+// characters escaped.
+std::string jsonText(const std::string& text) {
+  std::string out;
+  for (const char c : text) {
+    if (c == '"' || c == '\\') {
+      out.push_back('\\');
+      out.push_back(c);
+    } else if (static_cast<unsigned char>(c) < 0x20) {
+      char u[8];
+      std::snprintf(u, sizeof(u), "\\u%04x", static_cast<unsigned int>(static_cast<unsigned char>(c)));
+      out.append(u);
+    } else {
+      out.push_back(c);
+    }
+  }
+  return out;
+}
 
 // The stacking branch of burrTxt's solve: no assembler, one start (the
 // file's start stacks) searched to the goal with -d, by the Panex search
@@ -603,6 +647,10 @@ std::optional<int> solveStacking(const Options& o, const bt::Puzzle& puzzle,
                   "start over\n",
                   memory ? "the search outgrew its memory" : "stopped",
                   memory && !o.highMemory ? " (with --high-memory)" : "");
+    } else if (!path && px.savedUnread) {
+      std::printf("%s\nnothing was searched: run the same command again to try the saved "
+                  "search again, or add --restart to throw it away and start over\n",
+                  px.error.c_str());
     } else if (!path) {
       std::printf("%s\n", memory ? (std::string("the search outgrew its memory") +
                                     (o.highMemory ? "" : " (try --high-memory)"))
@@ -779,7 +827,6 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       }
       if (!slidePool) {
         slidePool = std::make_unique<bt::ThreadPool>(budget);
-        (void)bt::sliding::sweepSaved(so.workDir);
       }
     }
 
@@ -794,6 +841,8 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
     // a start's search ran out of disk and was saved: the run stops there,
     // and the same command carries it on
     bool slideSaved = false;
+    // the saved search could not be read back, and stays as it is
+    bool slideUnread = false;
     std::atomic<unsigned long> seenAssemblies{0};
 
     // What a take-apart found: counted and printed. From one thread at a
@@ -884,8 +933,10 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
             }
             if (search.outcome == bt::sliding::SlideOutcome::Disk) {
               slideDiskError = search.error;
-              if (search.saved) {
+              if (search.saved || search.savedUnread) {
+                // the search waits in its folder: no other start is searched
                 slideSaved = true;
+                slideUnread = search.savedUnread;
                 return false;
               }
             }
@@ -946,6 +997,13 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       jsonAssemblies += assemblies;
       jsonSolutions += solutions;
       jsonSeconds += seconds;
+      if (slideStartsCut > 0) {
+        json.slideCut += slideStartsCut;
+        json.slideReason = slideDiskError.empty()
+                               ? "The search reached its memory limit."
+                               : slideDiskError;
+        json.slideSaved = json.slideSaved || slideSaved;
+      }
     } else {
       std::printf("%lu assemblies and %lu solutions found with %llu iterations in %.3f seconds",
                   assemblies, solutions,
@@ -963,7 +1021,10 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
                   ? "the search limit was reached"
                   : slideDiskError.substr(0, slideDiskError.size() - 1).c_str(),
               slideMemoryCut && !o.highMemory ? " (try --high-memory)" : "");
-          if (slideSaved) {
+          if (slideUnread) {
+            std::printf("nothing was searched: run the same command again to try the saved "
+                        "search again, or add --restart to throw it away and start over\n");
+          } else if (slideSaved) {
             std::printf(
                 "the search stopped there and is saved: free some disk space or raise "
                 "SHAPELOGIC_SLIDE_DISK_GB, then run the same command again to carry it on, or "
@@ -996,6 +1057,11 @@ int solveMode(const Options& o, bt::Puzzle& puzzle) {
       if (o.rotations) {
         std::printf(",\"moves\":null,\"rotations\":null");
       }
+    }
+    // only when a search stopped short: burrTxt's object otherwise
+    if (json.slideCut > 0) {
+      std::printf(",\"cut\":%u,\"reason\":\"%s\",\"saved\":%s", json.slideCut,
+                  jsonText(json.slideReason).c_str(), json.slideSaved ? "true" : "false");
     }
     std::printf(",\"solvetime\":%.3f}\n", jsonSeconds);
   }
@@ -1142,6 +1208,9 @@ int saveStacking(const Options& o, bt::Puzzle& puzzle) {
       std::printf("error in solver\n");
       if (const auto f = session.failure()) {
         std::fprintf(stderr, "shapelogic_cli: %s\n", f->message.c_str());
+        if (cannotRestore(f->assembler)) {
+          std::fprintf(stderr, "shapelogic_cli: add --restart to solve it from the beginning\n");
+        }
       }
       exitCode = kExitError;
     } else if (!o.quiet) {
@@ -1256,6 +1325,9 @@ int saveMode(const Options& o, bt::Puzzle& puzzle) {
       std::printf("error in solver\n");
       if (const auto f = session.failure()) {
         std::fprintf(stderr, "shapelogic_cli: %s\n", f->message.c_str());
+        if (cannotRestore(f->assembler)) {
+          std::fprintf(stderr, "shapelogic_cli: add --restart to solve it from the beginning\n");
+        }
       }
       exitCode = kExitError;
     } else if (!o.quiet) {

@@ -84,7 +84,10 @@ enum class SlideOutcome : std::uint8_t {
   NoPath,   ///< every reachable arrangement was searched: there is no path
   Memory,   ///< stopped at its memory limit; a path may still exist
   Stopped,  ///< the stop token asked it to
-  Disk,     ///< the search filled the disk it may use, or could not write; see error
+  /// The search filled the disk it may use, could not write a file, or
+  /// could not read back the saved search it was to carry on
+  /// (SlideSearch::savedUnread); see error.
+  Disk,
 };
 
 /// One level of the search, done (SHAPELOGIC_SLIDE_TRACE in the
@@ -94,6 +97,9 @@ using SlideLevelTrace = std::function<void(const std::string&)>;
 /// The least free disk a slide search leaves for saving itself, besides
 /// what the save writes: 100 MB.
 inline constexpr std::uint64_t kSlideSaveReserve = 100000000ULL;
+/// The zstd level a slide search compresses its levels' files with
+/// (decision 0040): a third off the files for a few percent of the time.
+inline constexpr int kSlideCompression = 9;
 
 /// What a level search does once it has been asked to stop, for the
 /// solve's progress (read on other threads while the search writes it):
@@ -189,20 +195,48 @@ struct SlideSearch {
   /// Disk those levels may take, in bytes; 0 for half the free space, at
   /// most 200 GB. Either way it is held to what the disk has room for
   /// (diskBudgetFor in base/system.h). Without nested slides the levels
-  /// kept for tracing the path back are thinned as the disk fills (every
-  /// other one goes), so only the newest levels count against it.
+  /// kept for tracing the path back are thinned (every other one goes)
+  /// once they take half of it, or leave too little of it or of the disk
+  /// for the next level to be made in, so mostly the newest levels count
+  /// against it.
   std::uint64_t diskBudget = 0;
   /// Free disk the search leaves so that it can always save itself: it
   /// stops (Disk, saved) before the free space falls below this plus what
-  /// a save writes (its sets in memory) and what the next level may take.
+  /// a save writes (its sets in memory) and what making the next level may
+  /// take: the level's size times what the levels before it took at their
+  /// most, runs and all, for each byte they came to (decision 0040).
   /// The tests raise it to make a disk look full.
   std::uint64_t diskReserve = kSlideSaveReserve;
+  /// A/B switch: the zstd level the files of the levels are compressed
+  /// with as the merge writes them, every thread a part (1 to 19). What is
+  /// read once and deleted (the runs a level is made from) and what one
+  /// thread writes while the search waits (a level leaving memory, a save,
+  /// the merged visited sets of nested slides) always gets the fastest. 0
+  /// writes every file as it is. A saved search is carried on whatever it
+  /// was written with.
+  int compression = kSlideCompression;
+  /// For the tests, a disk that fills: the write that takes the search's
+  /// files past this many bytes fails, and every write after it; with
+  /// failWriteOnce only that one (the disk has room again once the files
+  /// of the level being made are gone). 0 for none.
+  std::uint64_t failWriteAt = 0;
+  bool failWriteOnce = false;
+  /// The smallest level, in bytes on the disk, whose making is measured
+  /// for what the next will take (the files of a smaller one are mostly
+  /// their indexes). The tests lower it for their small puzzles.
+  std::uint64_t measureLevelBytes = 1000000;
   /// Bytes the search's sets may take in memory before they go to files;
   /// 0 for the memory budget. A small search never touches the disk.
   std::uint64_t memoryLevelBytes = 0;
   /// Carry on this start's saved search in workDir, if there is one (a
   /// search stopped by its token is saved there, and so is one that filled
-  /// its disk budget or the disk). Off, a saved search is thrown away.
+  /// its disk budget or the disk, or could not write a file: that one from
+  /// its last whole level, or failing that as it was last saved while it
+  /// ran). One saved by a version before 1.10, whose files were not
+  /// compressed, is carried on too, its files written again as this version
+  /// writes them (decision 0041). A saved search that cannot be read back
+  /// is left as it is and nothing is searched (savedUnread). Off, a saved
+  /// search is thrown away.
   bool resume = true;
   /// Save the search as it runs, so that a crash loses little: a minute
   /// in, then as often as saving stays cheap (SaveCadence). Off, it is
@@ -304,6 +338,21 @@ struct SlideSearch {
   /// when it stopped (a search with `resume` carries it on).
   bool resumed = false;
   bool saved = false;
+  /// Out, for the level search: there is a saved search of this start that
+  /// could not be carried on (a file that could not be read, or is not
+  /// whole, or the state names a search this one is not). Nothing was
+  /// searched and the saved search stays as it is, to be tried again or
+  /// thrown away (resume off); the outcome is Disk and error says why.
+  bool savedUnread = false;
+  /// Out, for the level search: the files of a saved search of an earlier
+  /// version that were written again as this version writes them, and
+  /// those that could not be (they are read as they are).
+  unsigned int convertedFiles = 0;
+  unsigned int unconvertedFiles = 0;
+  /// Out, for the level search: the most disk the making of a level took,
+  /// besides what the search held before, for each byte the level came to
+  /// (0 when no level went to the disk).
+  double levelWorkRatio = 0;
   /// Out, for the level search: the stops inside a grid cell were searched
   /// as one (see grid). Then `visited` counts arrangements that may each
   /// stand for several.
@@ -321,8 +370,8 @@ struct SlideSearch {
   std::uint64_t oneWayRepeats = 0;
   /// Out: what went wrong, for Disk.
   std::string error;
-  /// Out, for Disk: the budget was held to the disk's free space, so a
-  /// larger one would not have helped.
+  /// Out, for Disk: the budget was held to the disk's free space, or a
+  /// file could not be written, so a larger budget would not have helped.
   bool diskHeldToFree = false;
 };
 
@@ -365,6 +414,10 @@ struct SlidingOptions {
   SlidePacking packing = SlidePacking::Auto;
   unsigned int minKeyBits = 0;
   bool oneEnd = false;
+  int compression = kSlideCompression;
+  /// For the tests: SlideSearch::failWriteAt and failWriteOnce.
+  std::uint64_t failWriteAt = 0;
+  bool failWriteOnce = false;
   /// Hold the stops to the grid slideGridFor finds for the problem, when
   /// it finds one (the Solver's Automatically use optimized paths): a
   /// smaller search, whose path may have more than the fewest moves.
@@ -477,11 +530,6 @@ void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::strin
 /// Empty without a work folder or a result.
 [[nodiscard]] std::string solveLockPath(const Puzzle& puzzle, const Problem& problem,
                                         const std::string& workDir);
-
-/// Deletes the saved searches in workDir that nothing has touched for
-/// `days` days (searches of starts never searched again); returns how
-/// many went.
-unsigned int sweepSaved(const std::string& workDir, unsigned int days = 30);
 
 /// The corner points, as shifts from the start, of the route the moving
 /// pieces take on step `step` of path, start and end included, with the

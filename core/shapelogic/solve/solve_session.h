@@ -194,8 +194,8 @@ struct SolveFailure {
 /// problem's pending list, the assembler's position is written into the
 /// problem (so that the puzzle can be saved), and the next run carries on
 /// in memory with the same assembler. A problem loaded with a position a
-/// run cannot carry on from ends in Error (CannotRestoreInterrupted) with its
-/// results dropped, and the next run starts from scratch.
+/// run cannot carry on from ends in Error (CannotRestoreInterrupted) and
+/// keeps what it held (decision 0041); a solve begun anew starts from scratch.
 class SolveSession {
  public:
   /// A session for `problem` of `puzzle`; nothing runs yet. If the problem
@@ -536,6 +536,14 @@ class SolveSession {
   bool slideDiskHeldToFree_ = false;
   /// A search that filled its disk budget was saved to be carried on.
   bool slideDiskSaved_ = false;
+  /// The search did not run: its start's saved search could not be read
+  /// back and is kept as it is (SlideSearch::savedUnread).
+  bool slideSavedUnread_ = false;
+  /// The run carries saved searches on (Continue). A solve begun anew has
+  /// thrown the problem's saved searches away, and throws away what is
+  /// left in a start's folder too: one whose state could not be read is in
+  /// nobody's list (discardSaved), and would stop every solve of its start.
+  bool slideResume_ = true;
   /// That search's start went back as pending and the run pauses: no more
   /// starts this run (written by the callback, read on the run's thread
   /// after the assembler returns).

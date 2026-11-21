@@ -5,6 +5,7 @@
 // orientations the pieces are placed in.
 #include "../model/model_test_helpers.h"
 #include "solve_test_helpers.h"
+#include "solve_session_test_access.h"
 
 #include "shapelogic/app/playback.h"
 #include "shapelogic/base/solve_state.h"
@@ -29,6 +30,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -888,6 +890,173 @@ TEST_CASE("sliding session: a search out of disk pauses for Continue",
   std::filesystem::remove_all(dir);
 }
 
+// A search that cannot write a file (a disk that fills while a level is
+// made) pauses the run as one that filled its disk budget does, its start
+// waiting: saved when it could be, and when not, to be searched again from
+// the beginning. Either way the solve is not carried to its end with that
+// start passed over, and it does not say it paused at a save point, which
+// would carry it on by itself.
+TEST_CASE("sliding session: a search that cannot write its files pauses for Continue",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_write";
+  std::filesystem::remove_all(dir);
+  SolveOptions o = findSolutions(2);
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 1;
+  o.settingsPlace = "Settings";
+  for (const bool saved : {false, true}) {
+    INFO((saved ? "saved" : "not saved"));
+    // not even the first file written; or one write failed with the
+    // search well under way, and room again after
+    o.sliding.failWriteAt = saved ? 200000 : 1;
+    o.sliding.failWriteOnce = saved;
+    Puzzle p = swapped(3);
+    {
+      SolveSession s(p, p.getProblem(0), o);
+      REQUIRE(s.start().has_value());
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+      // not a pause at a save point, which whoever asked would carry on
+      CHECK_FALSE(s.progress().atSavePoint);
+      CHECK(p.getProblem(0).getPending().size() == 1);
+      CHECK(p.getProblem(0).getNumAssemblies() == 0);
+      CHECK(s.note().find("1 start layout was not searched completely. Could not write the "
+                          "search's files in ") != std::string::npos);
+      CHECK(s.note().find("Free some disk space to let it go further.") != std::string::npos);
+      CHECK((s.note().find("The search is saved: press Continue to carry it on.") !=
+             std::string::npos) == saved);
+      CHECK((s.note().find("The search could not be saved: Continue searches this start again "
+                           "from the beginning.") != std::string::npos) == !saved);
+    }
+    // with room, Continue searches it to its end: no path, proven
+    o.sliding.failWriteAt = 0;
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.resume().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    CHECK(p.getProblem(0).getPending().empty());
+    CHECK(p.getProblem(0).getNumAssemblies() == 1);
+    CHECK(p.getProblem(0).getNumSolutions() == 0);
+    CHECK(s.note().find("Every reachable arrangement was searched") != std::string::npos);
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// A start whose saved search cannot be read back (a level file cut short,
+// or its state) is not searched afresh: the saved search is kept, the run
+// pauses with the start waiting, and says so. Continue tries it again;
+// Solve throws it away and searches from the beginning (decision 0041).
+TEST_CASE("sliding session: a saved search that cannot be read pauses the solve and is kept",
+          "[sliding][session][resume]") {
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_unread";
+  for (const bool state : {false, true}) {
+    INFO((state ? "the state cut short" : "a level file cut short"));
+    std::filesystem::remove_all(dir);
+    SolveOptions o = findSolutions(2);
+    o.sliding.workDir = dir.string();
+    o.sliding.memoryBytes = 1;
+    o.sliding.diskBudget = 1;
+    o.settingsPlace = "Settings";
+    Puzzle p = swapped(3);
+    {
+      SolveSession s(p, p.getProblem(0), o);
+      REQUIRE(s.start().has_value());
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+    }
+    const std::vector<std::string> saved = savedFolders(p, p.getProblem(0), dir.string());
+    REQUIRE(saved.size() == 1);
+    const std::filesystem::path folder = saved[0];
+    std::filesystem::path cut = folder / "state.bin";
+    if (!state) {
+      for (const auto& e : std::filesystem::directory_iterator(folder)) {
+        if (e.path().extension() == ".keys") {
+          cut = e.path();
+          break;
+        }
+      }
+      REQUIRE(cut.extension() == ".keys");
+    }
+    std::filesystem::resize_file(cut, std::filesystem::file_size(cut) / 2);
+    auto listing = [&] {
+      std::map<std::string, std::uintmax_t> files;
+      for (const auto& e : std::filesystem::directory_iterator(folder)) {
+        files[e.path().filename().string()] = e.file_size();
+      }
+      return files;
+    };
+    const std::map<std::string, std::uintmax_t> before = listing();
+    o.sliding.memoryBytes = 0;
+    o.sliding.diskBudget = 0;
+    SolveSession s(p, p.getProblem(0), o);
+    // Continue, twice: the saved search stays, the start waits
+    for (int again = 0; again < 2; again++) {
+      REQUIRE(s.resume().has_value());
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+      CHECK_FALSE(s.progress().atSavePoint);
+      CHECK(p.getProblem(0).getPending().size() == 1);
+      CHECK(p.getProblem(0).getNumAssemblies() == 0);
+      const std::string note = s.note();
+      INFO(note);
+      CHECK(note.starts_with("1 start layout was not searched completely. The saved search in "));
+      CHECK(note.find(" could not be carried on: ") != std::string::npos);
+      CHECK(note.find(cut.filename().string()) != std::string::npos);
+      CHECK(note.find("It is kept as it is.") != std::string::npos);
+      CHECK(note.find("Continue tries to carry the saved search on again; Solve throws it "
+                      "away and searches from the beginning.") != std::string::npos);
+      CHECK(note.find("Free some disk space") == std::string::npos);
+      CHECK(note.find("Every reachable arrangement") == std::string::npos);
+      CHECK(listing() == before);
+    }
+    // Solve: thrown away, searched to its end
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    CHECK(p.getProblem(0).getPending().empty());
+    CHECK(p.getProblem(0).getNumAssemblies() == 1);
+    CHECK(s.note().find("Every reachable arrangement was searched") != std::string::npos);
+    CHECK_FALSE(std::filesystem::exists(folder));
+  }
+  std::filesystem::remove_all(dir);
+}
+
+// The starts a search gave up on are the solve's, not the run's: a solve
+// paused at a save point and carried on (as the crash recovery copy does by
+// itself) still says so at its end, not "every reachable arrangement was
+// searched".
+TEST_CASE("sliding session: starts not searched completely stay counted over a pause",
+          "[sliding][session][resume]") {
+  const SolveOptions o = findSolutions(1);
+  for (unsigned int attempt = 0;; attempt++) {
+    REQUIRE(attempt < 200);
+    Puzzle p = manyStarts();
+    SolveSession s(p, p.getProblem(0), o);
+    REQUIRE(s.start().has_value());
+    untilSearching(s);
+    s.pauseAtSavePoint();
+    s.wait();
+    if (s.state() != SolveState::Paused) {
+      continue;  // through before the save point: again
+    }
+    // as if two of the starts searched so far had been given up on
+    SolveSessionTestAccess::gaveUpAtMemory(s, 2, 5);
+    REQUIRE(s.resume().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    CHECK(s.note().starts_with("2 start layouts were not searched completely: the search "
+                               "reached its memory limit of 5 arrangements."));
+    // a solve begun again counts afresh
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    CHECK(s.note().find("not searched completely") == std::string::npos);
+    break;
+  }
+}
+
 // A saved search the next run cannot carry on (its folder named for a
 // build or options that name the search differently) is started afresh;
 // once the problem is solved, the saved one goes too.
@@ -1296,6 +1465,19 @@ TEST_CASE("sliding session: a search paused in v1.8.1 is told, carried on or sol
     CHECK(pr.getSavedSolution(0).getDisassembly()->getMoves() == 3);
     CHECK(std::filesystem::is_empty(dir));
     CHECK_FALSE(pendingFromStartAlone(p, pr, o.sliding));
+    // Continue carried the saved search on, its level files (which that
+    // version did not compress) written again first (decision 0041); Solve
+    // carried nothing on
+    const std::vector<LogLine> log = s.takeLog();
+    const auto told = [&log](const char* words) {
+      return std::any_of(log.begin(), log.end(), [words](const LogLine& l) {
+        return l.text.find(words) != std::string::npos;
+      });
+    };
+    CHECK(told("was written by an earlier version of the program") == !again);
+    CHECK(told("Written again compressed: 2 files of the saved search") == !again);
+    CHECK(told("Carried on the saved search in ") == !again);
+    CHECK_FALSE(told("could not be carried on"));
   }
   std::filesystem::remove_all(dir);
 }

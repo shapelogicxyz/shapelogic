@@ -292,12 +292,24 @@ export interface LogPage {
   error: string | null;
 }
 
+/** What Export… offers: all of the log (the compressed file's lines too), or its newest lines. */
+export interface LogExportSizes {
+  /** The lines of all of the log. */
+  lines: number;
+  /** Its bytes, as plain text. */
+  bytes: number;
+  /** The newest lines offered on their own (at most 100: fewer in a shorter log). */
+  tailLines: number;
+  /** Their bytes. */
+  tailBytes: number;
+}
+
 /** The answer to exporting the log: where it went, or why not. */
 export type LogExportResult =
   { ok: true; path: string } | { ok: false; cancelled: true } | { ok: false; error: string };
 
 /** The links of the Help menu (the main process holds the addresses). */
-export type HelpLink = 'tutorial' | 'guide' | 'author';
+export type HelpLink = 'tutorial' | 'guide' | 'author' | 'issues';
 
 /**
  * What the update check found (main/updates.ts): the latest release
@@ -372,6 +384,8 @@ export interface BtApp {
   readonly platform: string;
   /** The app's version. */
   readonly version: string;
+  /** The app keeps a log (View ▸ Log File Manager…; not the demo): the warnings' View Logs opens it. */
+  readonly keepsLog: boolean;
   /** Listens to the menus' commands; returns the unsubscribe. */
   onCommand(handler: (command: AppCommand) => void): () => void;
   /** The menus show this. */
@@ -464,6 +478,11 @@ export interface BtApp {
   finishCacheFolder(action: CacheAction): Promise<CacheResult>;
   /** What the cache folder and the rescue copy hold, newest first; null where there is none (the demo). */
   cacheItems(): Promise<CacheItem[] | null>;
+  /**
+   * The same, for the notice at the start: the first window of a run to ask
+   * gets them, every other ask an empty list (null where there is none).
+   */
+  cacheItemsAtStart(): Promise<CacheItem[] | null>;
   /** Deletes a cache item's files (refused while a solve runs, for a search's). */
   deleteCacheItem(id: string): Promise<CacheDeleteResult>;
   /** These search folders belong to this puzzle and problem: the cache manager names them so. */
@@ -472,8 +491,13 @@ export interface BtApp {
   logPage(query: LogQuery): Promise<LogPage | null>;
   /** Deletes the app's log (the current file and the compressed one). */
   clearLog(): Promise<void>;
-  /** The save dialog for the log, then all of it written there as plain text. */
-  exportLog(): Promise<LogExportResult>;
+  /** What Export… offers: the lines and bytes of all of the log and of its newest lines; null where there is none (the demo). */
+  logExportSizes(): Promise<LogExportSizes | null>;
+  /**
+   * The save dialog for the log, then the log written there as plain text:
+   * all of it, or only its newest `lines` lines.
+   */
+  exportLog(lines?: number): Promise<LogExportResult>;
   /** Closes the window: the renderer answered a `close` command (nothing to save, or saved or given up). */
   closeWindow(): void;
   /** The `close` command was taken: the renderer asks (a close not taken soon is asked natively). */

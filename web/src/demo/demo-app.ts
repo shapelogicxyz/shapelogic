@@ -23,6 +23,8 @@ export function demoApp(version: string): DemoApp {
   return {
     platform: /Mac|iPhone|iPad/.test(navigator.userAgent) ? 'darwin' : 'linux',
     version,
+    // the demo keeps no log
+    keepsLog: false,
     command(command) {
       for (const h of [...handlers]) {
         h(command);
@@ -61,9 +63,11 @@ export function demoApp(version: string): DemoApp {
       const page =
         link === 'author'
           ? 'https://github.com/hypnoz/'
-          : link === 'tutorial'
-            ? '/docs/getting-started/'
-            : '/docs/';
+          : link === 'issues'
+            ? 'https://github.com/shapelogicxyz/shapelogic/issues'
+            : link === 'tutorial'
+              ? '/docs/getting-started/'
+              : '/docs/';
       window.open(page, '_blank', 'noopener');
     },
     // the site is always the latest: no update to look for
@@ -77,11 +81,13 @@ export function demoApp(version: string): DemoApp {
     chooseCacheFolder: () => Promise.resolve({ status: 'cancelled' }),
     finishCacheFolder: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     cacheItems: () => Promise.resolve(null),
+    cacheItemsAtStart: () => Promise.resolve(null),
     deleteCacheItem: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     linkCacheFolders: nothing,
     // the demo keeps no log
     logPage: () => Promise.resolve(null),
     clearLog: () => Promise.resolve(),
+    logExportSizes: () => Promise.resolve(null),
     exportLog: () => Promise.resolve({ ok: false, error: NOT_HERE }),
     closeWindow: nothing,
     closeTaken: nothing,

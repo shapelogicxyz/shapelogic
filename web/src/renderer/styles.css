@@ -585,6 +585,11 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .cfm-scrim{position:absolute;inset:0;background:rgba(15,20,30,.38);display:grid;place-items:center;z-index:80}
 .cfm{width:400px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;box-shadow:0 18px 50px rgba(15,20,30,.3)}
 .cfm h3{margin:0 0 6px;font-size:calc(15px + var(--fs))}.cfm p{margin:0 0 14px;color:var(--muted);line-height:1.5}.cfm .bt{display:flex;justify-content:flex-end;gap:8px}
+/* View Logs (dialog.ts: VIEW_LOGS) at the left of a warning's buttons; a dialog's line at the bottom left (`foot`) */
+.cfm .bt [data-x="viewLogs"]{margin-right:auto}
+.cfm .bt:has(.dlg-foot){flex-wrap:wrap;align-items:center}
+.cfm .bt .dlg-foot{flex:1 1 280px;margin-right:auto;min-width:0;font-size:calc(11.5px + var(--fs));color:var(--muted);line-height:1.45;user-select:text}
+.dlg-foot a{color:var(--accent)}
 .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .slv-sel{flex:1 1 200px;min-height:150px;display:flex;flex-direction:column;overflow:hidden}
 .slv-player{flex:none;border-top:1px solid var(--line);padding:10px 14px 12px}
@@ -1061,6 +1066,23 @@ html[data-density=minimal] :is(#pzLib,#pzUsed){--tilew:100px}
 .lf-empty{padding:18px 12px;color:var(--muted);text-align:center;font-family:inherit}
 #logFiles .cfm.wide{width:min(1180px,calc(100% - 48px))}
 #logFiles .lf-list{height:min(520px,calc(100vh - 320px));min-height:240px}
+.cfm .cb p.lf-intro{margin:0 0 18px}
+#logFiles .cfm{position:relative}
+.lf-mail{color:var(--text);white-space:nowrap}
+/* Export…'s choices, over its button */
+.lf-pop{position:absolute;z-index:2;display:flex;flex-direction:column;min-width:200px;padding:4px;background:var(--panel);border:1px solid var(--line2);border-radius:8px;box-shadow:0 10px 30px rgba(15,20,30,.25)}
+.lf-pop button{display:block;text-align:left;white-space:nowrap;padding:6px 12px;border:0;border-radius:6px;background:none;color:var(--text);font:inherit;cursor:pointer}
+.lf-pop button:hover,.lf-pop button:focus-visible{background:var(--accentSoft);outline:none}
+/* the notice of the cache files at the start (cache-notice.ts) */
+#cacheAtStart .cfm{width:min(560px,calc(100% - 48px))}
+#cacheAtStart .bt [data-x="manage"]{margin-right:auto}
+.cn-list{list-style:none;margin:0 0 12px;padding:2px;max-height:min(240px,40vh);overflow:auto;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
+.cn-list li{display:flex;flex-direction:column;gap:1px;padding:4px 10px}
+.cn-list li+li{border-top:1px solid var(--line)}
+.cn-t{font-size:calc(13px + var(--fs));font-weight:600;overflow-wrap:anywhere}
+.cn-m{font-size:calc(11.5px + var(--fs));color:var(--muted)}
+.cfm .cb p.cn-err{color:var(--danger);margin:0 0 10px}
+.cfm .cb p.cn-tip{margin:0 0 4px;font-size:calc(12px + var(--fs))}
 .cfm-head{display:flex;align-items:flex-start;gap:12px;margin:0 0 6px}.cfm-head h3{flex:1;min-width:0;margin:3px 0 0}
 .lf-list mark{background:color-mix(in srgb,#f5c400 55%,transparent);color:inherit;border-radius:2px}
 .lf-list.pretty{padding:0}

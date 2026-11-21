@@ -4,7 +4,11 @@
 // solve under way or paused, what a finished one found, the counts short.
 
 import { describe, expect, it } from 'vitest';
-import { compactCount, problemNote } from '../../../src/renderer/solver/problem-note.ts';
+import {
+  compactCount,
+  noteIsTrouble,
+  problemNote,
+} from '../../../src/renderer/solver/problem-note.ts';
 
 const solved = { state: 'solved' as const, assemblies: 12_200, solutions: 1 };
 
@@ -67,5 +71,27 @@ describe('the problems list notes', () => {
     // nothing before the read, nor for a problem not solved
     expect(problemNote('idle', solved, 'brick', null).kind).toBe('none');
     expect(problemNote('idle', { ...solved, state: 'unsolved' }, 'brick', asm).kind).toBe('none');
+  });
+});
+
+describe('the solver’s notes of a finished run', () => {
+  it('tell of trouble (View Logs) for a limit or an error, not for an end or a pause', () => {
+    for (const note of [
+      '1 start layout was not searched completely. The search stopped at its disk space. There may be solutions the solver did not find.',
+      'The search outgrew its memory after 1,234 stackings. It is saved.',
+      'The search reached its memory limit of 9 stackings. There may be a solution the solver did not find.',
+      'The search files could not be written: No space left on device.',
+    ]) {
+      expect(noteIsTrouble(note)).toBe(true);
+    }
+    for (const note of [
+      'Paused 12 moves deep. The search is saved: press Continue to carry on, even after quitting ShapeLogic.',
+      'Stopped before the search was complete.',
+      'Every reachable stacking was searched: this puzzle has no solution.',
+      'Every reachable arrangement was searched: this puzzle has no solution with the current settings.',
+      'Every arrangement optimized paths reach was searched: with the pieces stopping only on a 2-cell grid, none reaches the goal.',
+    ]) {
+      expect(noteIsTrouble(note)).toBe(false);
+    }
   });
 });

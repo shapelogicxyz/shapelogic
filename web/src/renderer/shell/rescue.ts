@@ -25,7 +25,7 @@
 
 import type { BtApp, RescueInfo } from '../../engine/app-bridge.ts';
 import type { Store } from '../state/store.ts';
-import { askChoice } from './dialog.ts';
+import { askChoice, VIEW_LOGS } from './dialog.ts';
 import { byId } from './dom.ts';
 import { flash, reportError } from './status.ts';
 
@@ -63,6 +63,14 @@ export class Rescue {
   private asking = 0;
   /** The window is closing: nothing more is written. */
   private closed = false;
+  private lookedDone: () => void = noop;
+  /**
+   * Resolves once the copy a last session left was looked at: offered and
+   * answered, or there was none (the notice of the cache files waits for it).
+   */
+  readonly startLooked = new Promise<void>((done) => {
+    this.lookedDone = done;
+  });
 
   /**
    * `quiet`: nothing is under way that the engine would refuse
@@ -83,6 +91,7 @@ export class Rescue {
         if (store.snapshot.dirty) {
           // a reload of the page: the engine's document is newer than any copy
           this.looked = true;
+          this.lookedDone();
           this.changed();
         } else {
           // the first document: a copy the last session left?
@@ -246,6 +255,7 @@ export class Rescue {
           ? `The engine stopped and was started again with an empty puzzle. The unsaved changes of ${what} were kept in a rescue copy (${ago(info.time)}).\nReopen it?`
           : `ShapeLogic did not close properly. The unsaved changes of ${what} were kept in a rescue copy (${ago(info.time)}).\nReopen it?`,
         [
+          VIEW_LOGS,
           { key: 'drop', label: 'Discard', kind: 'danger', tip: 'Throw the rescue copy away' },
           {
             key: 'open',
@@ -284,6 +294,9 @@ export class Rescue {
     } finally {
       this.asking--;
       this.looked = true;
+      if (!restarted) {
+        this.lookedDone();
+      }
       this.changed();
     }
   }

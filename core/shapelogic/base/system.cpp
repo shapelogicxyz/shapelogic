@@ -162,7 +162,9 @@ bool readFileAt(int fd, std::uint64_t offset, void* buf, std::size_t len) {
     }
     const std::size_t n = got;
 #else
-    const ssize_t r = ::pread(fd, out, len, static_cast<off_t>(offset));
+    // no more than 1 GB a call: macOS refuses a read of 2 GB or more
+    const ssize_t r = ::pread(fd, out, std::min<std::size_t>(len, std::size_t{1} << 30),
+                              static_cast<off_t>(offset));
     if (r <= 0) {
       return false;
     }

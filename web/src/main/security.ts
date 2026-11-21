@@ -35,6 +35,8 @@ export const HELP_URLS: Readonly<Record<HelpLink, string>> = {
   tutorial: 'https://shapelogic.xyz/docs/getting-started/',
   // the About page's link to the author's GitHub page
   author: 'https://github.com/hypnoz/',
+  // the Log File Manager's link for reporting a problem
+  issues: 'https://github.com/shapelogicxyz/shapelogic/issues',
 };
 
 /**

@@ -51,6 +51,8 @@ export interface DialogOptions {
   wide?: boolean;
   /** HTML at the right of the title (the log's Pretty and Raw), already escaped. */
   head?: string;
+  /** HTML at the left of the buttons, at the bottom (the log's line about reporting a problem), already escaped. */
+  foot?: string;
   /**
    * A button was pressed: return false to keep the dialog open (a field
    * that is not right yet). Esc and a click beside the card answer null.
@@ -69,6 +71,33 @@ interface Open {
 
 const stack: Open[] = [];
 
+/**
+ * The button of a warning or an error that opens View ▸ Log File Manager…
+ * over it; the dialog stays open, to be answered once the log is read.
+ * Left out where nothing opens the log (setLogViewer not called).
+ */
+export const VIEW_LOGS: DialogButton = {
+  key: 'viewLogs',
+  label: 'View Logs',
+  tip: 'Open the Log File Manager: what ShapeLogic did and what went wrong',
+};
+
+/** The words of a warning or an error with View Logs. */
+export const LOGS_HINT =
+  'The log files can help to understand the problem further, or to ask for help: View Logs shows them.';
+
+let logViewer: (() => void) | null = null;
+
+/** What View Logs opens (the app's Log File Manager). */
+export function setLogViewer(view: () => void): void {
+  logViewer = view;
+}
+
+/** Whether View Logs is shown (something opens the log). */
+export function logsViewable(): boolean {
+  return logViewer !== null;
+}
+
 /** Whether a dialog is open (the keyboard map waits). */
 export function dialogOpen(): boolean {
   return stack.length > 0;
@@ -82,6 +111,11 @@ export function topDialog(): HTMLElement | null {
 function close(o: Open, key: string | null): void {
   const i = stack.indexOf(o);
   if (i < 0) {
+    return;
+  }
+  if (key === VIEW_LOGS.key) {
+    // over the dialog, which stays open
+    logViewer?.();
     return;
   }
   if (o.options.onAnswer?.(key, o.el) === false) {
@@ -111,7 +145,9 @@ export function openDialog(options: DialogOptions): Promise<string | null> {
     const el = document.createElement('div');
     el.className = 'cfm-scrim dlg-scrim';
     el.id = options.id;
-    el.innerHTML = `<div class="cfm${options.wide === true ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(options.title)}">${options.head === undefined ? `<h3>${esc(options.title)}</h3>` : `<div class="cfm-head"><h3>${esc(options.title)}</h3>${options.head}</div>`}<div class="cb">${options.body}</div><div class="bt">${options.buttons.map((b) => `<button class="btn${b.kind === undefined ? '' : ` ${b.kind}`}" data-x="${esc(b.key)}" title="${esc(tipOf(b))}">${esc(b.label)}</button>`).join('')}</div></div>`;
+    const buttons = options.buttons.filter((b) => b.key !== VIEW_LOGS.key || logViewer !== null);
+    const foot = options.foot === undefined ? '' : `<div class="dlg-foot">${options.foot}</div>`;
+    el.innerHTML = `<div class="cfm${options.wide === true ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(options.title)}">${options.head === undefined ? `<h3>${esc(options.title)}</h3>` : `<div class="cfm-head"><h3>${esc(options.title)}</h3>${options.head}</div>`}<div class="cb">${options.body}</div><div class="bt">${foot}${buttons.map((b) => `<button class="btn${b.kind === undefined ? '' : ` ${b.kind}`}" data-x="${esc(b.key)}" title="${esc(tipOf(b))}">${esc(b.label)}</button>`).join('')}</div></div>`;
     byId('stage').appendChild(el);
     const o: Open = {
       el,
@@ -165,7 +201,19 @@ export function closeDialog(id: string): void {
   }
 }
 
-/** A question with buttons; resolves with the key of the one pressed, or null. */
+/** Text as a dialog's paragraph, its newlines kept; with View Logs among the buttons, its hint below. */
+function textHtml(text: string, buttons: readonly DialogButton[]): string {
+  const logs = logViewer !== null && buttons.some((b) => b.key === VIEW_LOGS.key);
+  return (
+    `<p>${esc(text).replace(/\n/g, '<br>')}</p>` +
+    (logs ? `<p class="dlg-logs">${esc(LOGS_HINT)}</p>` : '')
+  );
+}
+
+/**
+ * A question with buttons; resolves with the key of the one pressed, or
+ * null. With VIEW_LOGS among them, its hint is said below the text.
+ */
 export function askChoice(
   id: string,
   title: string,
@@ -176,7 +224,7 @@ export function askChoice(
   return openDialog({
     id,
     title,
-    body: `<p>${esc(text).replace(/\n/g, '<br>')}</p>`,
+    body: textHtml(text, buttons),
     buttons,
     modalOnly,
   });
@@ -202,29 +250,34 @@ function trapTab(root: HTMLElement, e: KeyboardEvent): void {
   }
 }
 
-const told: string[] = [];
+const told: { text: string; logs: boolean }[] = [];
 
 /**
- * A message box (the original's bt_message): the text and OK. Messages
- * come one at a time, in the order they were told.
+ * A message box (the original's bt_message): the text and OK; `logs`, a
+ * warning or an error, with View Logs too. Messages come one at a time, in
+ * the order they were told.
  */
-export function tell(text: string): void {
-  told.push(text);
+export function tell(text: string, logs = false): void {
+  told.push({ text, logs });
   if (told.length === 1) {
     showTold();
   }
 }
 
 function showTold(): void {
-  const text = told[0];
-  if (text === undefined) {
+  const t = told[0];
+  if (t === undefined) {
     return;
   }
+  const buttons: DialogButton[] = [
+    ...(t.logs ? [VIEW_LOGS] : []),
+    { key: 'ok', label: 'OK', kind: 'pri', default: true },
+  ];
   void openDialog({
     id: 'notice',
     title: 'ShapeLogic',
-    body: `<p>${esc(text)}</p>`,
-    buttons: [{ key: 'ok', label: 'OK', kind: 'pri', default: true }],
+    body: t.logs ? textHtml(t.text, buttons) : `<p>${esc(t.text)}</p>`,
+    buttons,
   }).then(() => {
     told.shift();
     showTold();

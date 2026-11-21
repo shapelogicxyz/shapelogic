@@ -471,7 +471,10 @@ export function installAppIpc(h: AppIpcHost): void {
   });
 
   ipcMain.on('bt:help', (e, link: unknown) => {
-    if (ours(e) !== null && (link === 'tutorial' || link === 'guide' || link === 'author')) {
+    if (
+      ours(e) !== null &&
+      (link === 'tutorial' || link === 'guide' || link === 'author' || link === 'issues')
+    ) {
       openHelp(link);
     }
   });
@@ -531,6 +534,7 @@ export function installAppIpc(h: AppIpcHost): void {
   });
 
   // the cache manager: the renderer names an item by its id, never a path
+  let startListed = false;
   ipcMain.handle('bt:cache-files', async (e, op: unknown, arg: unknown) => {
     if (ours(e) === null) {
       return null;
@@ -539,6 +543,13 @@ export function installAppIpc(h: AppIpcHost): void {
     const folders = h.cache.folders;
     switch (op) {
       case 'list':
+        return listItems(folders, h.rescue.all(), h.cacheLinks);
+      case 'start':
+        // the notice at the start: once a run, to the first window that asks
+        if (startListed) {
+          return [];
+        }
+        startListed = true;
         return listItems(folders, h.rescue.all(), h.cacheLinks);
       case 'delete':
         return typeof arg === 'string'
@@ -562,7 +573,16 @@ export function installAppIpc(h: AppIpcHost): void {
       case 'clear':
         await h.log.clear();
         return null;
+      case 'sizes':
+        return h.log.exportSizes();
       case 'export': {
+        // all of the log, or its newest lines
+        if (
+          arg !== undefined &&
+          (typeof arg !== 'number' || !Number.isInteger(arg) || arg < 1 || arg > 1_000_000)
+        ) {
+          return null;
+        }
         const r = await dialog.showSaveDialog(win, {
           title: 'Export Log',
           defaultPath: join(
@@ -580,7 +600,7 @@ export function installAppIpc(h: AppIpcHost): void {
         }
         const path = extname(r.filePath) === '' ? `${r.filePath}.txt` : r.filePath;
         try {
-          await h.log.exportTo(path);
+          await h.log.exportTo(path, arg);
           h.store.setLastDir(dirname(path));
           return { ok: true, path } satisfies LogExportResult;
         } catch (err) {

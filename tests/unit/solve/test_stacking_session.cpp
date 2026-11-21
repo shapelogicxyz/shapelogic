@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -306,41 +307,178 @@ TEST_CASE("stacking session: abort throws the saved search away", "[stacking][pa
 // A saved search's state is trusted no further than its file: a damaged or
 // crafted state.bin (one imported from a .slsolve) claimed a layer of 2^60
 // keys, which the search set out to make room for (an audit finding; a
-// claim of a few terabytes had the process killed). It is no saved search:
-// the search starts afresh.
-TEST_CASE("stacking session: a saved search that claims more than its file holds starts afresh",
+// claim of a few terabytes had the process killed). Such a state is not
+// carried on. Nor is the saved search thrown away for it, or for a state
+// cut short or of a later version (decision 0041): the search ends with
+// why, the folder as it was; the solve pauses, Continue tries again, and
+// Solve clears the folder and searches from the beginning.
+TEST_CASE("stacking session: a saved search that cannot be read is kept, not carried on",
           "[stacking]") {
+  struct Damage {
+    const char* name;
+    const char* why;
+    bool described;  // the header alone still describes the search
+  };
+  const Damage damages[] = {
+      {"a layer of 2^60 keys", "it names more stackings than the file holds", true},
+      {"cut short", "its state.bin is cut short", false},
+      {"a later version's", "was written by a later version of the program", false},
+  };
+  for (const Damage& d : damages) {
+    INFO(d.name);
+    Puzzle puz = panexSwap(4);
+    Problem& pr = puz.getProblem(0);
+    panex::discardSaved(puz, pr, workDir());
+    panex::PanexSearch first;
+    first.workDir = workDir();
+    first.threads = 1;
+    first.stopAtDepth = 20;
+    REQUIRE_FALSE(panex::solve(puz, pr, first).has_value());
+    REQUIRE(first.saved);
+    const std::filesystem::path folder = panex::searchFolder(puz, pr, workDir());
+    const std::filesystem::path state = folder / "state.bin";
+    if (d.name == std::string("cut short")) {
+      std::filesystem::resize_file(state, 40);
+    } else {
+      std::fstream f(state, std::ios::in | std::ios::out | std::ios::binary);
+      REQUIRE(f.good());
+      if (d.described) {
+        // the first layer's count, after the 72 bytes of the header
+        const std::uint64_t claim = std::uint64_t{1} << 60;
+        f.seekp(72);
+        f.write(reinterpret_cast<const char*>(&claim), sizeof(claim));
+      } else {
+        f.seekp(7);
+        f.put('5');
+      }
+      REQUIRE(f.good());
+    }
+    auto listing = [&] {
+      std::map<std::string, std::uintmax_t> files;
+      for (const auto& e : std::filesystem::directory_iterator(folder)) {
+        files[e.path().filename().string()] = e.file_size();
+      }
+      return files;
+    };
+    const std::map<std::string, std::uintmax_t> before = listing();
+    REQUIRE(before.size() >= 2);
+    CHECK(panex::savedSearch(puz, pr, workDir()).empty() == !d.described);
+
+    // not carried on, and not thrown away: twice
+    for (int again = 0; again < 2; again++) {
+      panex::PanexSearch on;
+      on.workDir = workDir();
+      on.threads = 1;
+      on.resume = true;
+      CHECK_FALSE(panex::solve(puz, pr, on).has_value());
+      CHECK(on.outcome == panex::Outcome::Error);
+      CHECK(on.savedUnread);
+      CHECK_FALSE(on.saved);
+      CHECK(on.found == 0);
+      CHECK(on.error.starts_with("The saved search in "));
+      CHECK(on.error.find(" could not be carried on: ") != std::string::npos);
+      CHECK(on.error.find(d.why) != std::string::npos);
+      CHECK(on.error.ends_with("It is kept as it is."));
+      CHECK(listing() == before);
+    }
+
+    // the solve: Continue pauses with the saved search kept, and says so
+    SolveSession s(puz, pr, findSolutions(1));
+    for (int again = 0; again < 2; again++) {
+      REQUIRE(s.resume().has_value());
+      s.wait();
+      REQUIRE(s.state() == SolveState::Paused);
+      const std::string note = s.note();
+      INFO(note);
+      CHECK(note.find(" could not be carried on: ") != std::string::npos);
+      CHECK(note.find(d.why) != std::string::npos);
+      CHECK(note.ends_with("Continue tries to carry the saved search on again; Solve throws "
+                           "it away and searches from the beginning."));
+      CHECK(pr.getNumSolutions() == 0);
+      CHECK(listing() == before);
+    }
+    // Solve throws it away and finds the path
+    REQUIRE(s.start().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Finished);
+    CHECK(s.note().empty());
+    CHECK(pr.getNumSolutions() == 1);
+    checkPath(puz, pr, 128);
+    CHECK_FALSE(std::filesystem::exists(folder));
+  }
+
+  // Levels in the folder and no state are no saved search (one that was
+  // killed before it saved itself): cleared, and searched from the start.
+  {
+    Puzzle puz = panexSwap(4);
+    Problem& pr = puz.getProblem(0);
+    panex::PanexSearch first;
+    first.workDir = workDir();
+    first.threads = 1;
+    first.stopAtDepth = 20;
+    REQUIRE_FALSE(panex::solve(puz, pr, first).has_value());
+    REQUIRE(first.saved);
+    std::filesystem::remove(std::filesystem::path(panex::searchFolder(puz, pr, workDir())) /
+                            "state.bin");
+    panex::PanexSearch on;
+    on.workDir = workDir();
+    on.threads = 1;
+    on.resume = true;
+    const std::optional<Separation> path = panex::solve(puz, pr, on);
+    REQUIRE(path.has_value());
+    CHECK(on.outcome == panex::Outcome::Found);
+    CHECK_FALSE(on.savedUnread);
+    CHECK(logicalMoves(*path) == 128);
+    CHECK(panex::savedSearch(puz, pr, workDir()).empty());
+  }
+}
+
+// A search that ends in an error with a saved search still in its folder
+// (here: a saved level damaged, so the path cannot be traced back) is not
+// through: the solve pauses, the problem is not kept as solved without a
+// solution, Continue tries again and Solve searches from the beginning.
+TEST_CASE("stacking session: an error with a saved search pauses the solve", "[stacking]") {
   Puzzle puz = panexSwap(4);
   Problem& pr = puz.getProblem(0);
+  panex::discardSaved(puz, pr, workDir());
   panex::PanexSearch first;
   first.workDir = workDir();
   first.threads = 1;
-  first.stopAtDepth = 20;
+  first.stopAtDepth = 60;
   REQUIRE_FALSE(panex::solve(puz, pr, first).has_value());
   REQUIRE(first.saved);
-  const std::filesystem::path state =
-      std::filesystem::path(panex::searchFolder(puz, pr, workDir())) / "state.bin";
-  {
-    // the first layer's count, after the 72 bytes of the header
-    std::fstream f(state, std::ios::in | std::ios::out | std::ios::binary);
-    REQUIRE(f.good());
-    const std::uint64_t claim = std::uint64_t{1} << 60;
-    f.seekp(72);
-    f.write(reinterpret_cast<const char*>(&claim), sizeof(claim));
-    REQUIRE(f.good());
+  const std::filesystem::path folder = panex::searchFolder(puz, pr, workDir());
+  unsigned int levels = 0;
+  for (const auto& e : std::filesystem::directory_iterator(folder)) {
+    if (e.path().extension() == ".lvl" && e.file_size() > 0) {
+      // the same size, nothing a search would find
+      const std::vector<char> nothing(e.file_size(), '\xff');
+      std::ofstream out(e.path(), std::ios::binary | std::ios::trunc);
+      out.write(nothing.data(), static_cast<std::streamsize>(nothing.size()));
+      REQUIRE(out.good());
+      levels++;
+    }
   }
-  // the header alone still describes it ...
-  CHECK_FALSE(panex::savedSearch(puz, pr, workDir()).empty());
-  // ... but it is not carried on
-  panex::PanexSearch again;
-  again.workDir = workDir();
-  again.threads = 1;
-  again.resume = true;
-  const std::optional<Separation> path = panex::solve(puz, pr, again);
-  REQUIRE(path.has_value());
-  CHECK(again.outcome == panex::Outcome::Found);
-  CHECK(logicalMoves(*path) == 128);
-  CHECK(panex::savedSearch(puz, pr, workDir()).empty());
+  REQUIRE(levels > 0);
+  SolveSession s(puz, pr, findSolutions(1));
+  for (int again = 0; again < 2; again++) {
+    REQUIRE(s.resume().has_value());
+    s.wait();
+    REQUIRE(s.state() == SolveState::Paused);
+    CHECK(s.note() ==
+          "The Panex Solver could not trace its path back. The search is still saved as it "
+          "last was: Continue carries it on; Solve throws it away and searches from the "
+          "beginning.");
+    CHECK(pr.getNumSolutions() == 0);
+    CHECK_FALSE(panex::savedSearch(puz, pr, workDir()).empty());
+  }
+  REQUIRE(s.start().has_value());
+  s.wait();
+  REQUIRE(s.state() == SolveState::Finished);
+  CHECK(s.note().empty());
+  CHECK(pr.getNumSolutions() == 1);
+  checkPath(puz, pr, 128);
+  CHECK_FALSE(std::filesystem::exists(folder));
 }
 
 TEST_CASE("stacking session: Solve starts afresh, Continue carries on", "[stacking]") {

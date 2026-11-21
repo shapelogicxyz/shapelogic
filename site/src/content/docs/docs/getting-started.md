@@ -152,6 +152,12 @@ ShapeLogic records which puzzle a search belongs to when the search is
 saved. Searches saved by an earlier version, or by a puzzle never opened
 since, show "puzzle not known" until you open that puzzle again.
 
+When ShapeLogic starts and finds items here (apart from a crash recovery
+copy, which it offers to reopen first), it lists them with their sizes.
+**Manage Files…** opens this window, **Delete All…** deletes them all after
+asking, and **Ignore** leaves them as they are; they are listed again at the
+next start.
+
 ### The log file
 
 ShapeLogic keeps a log of what it did and what went wrong: the files it
@@ -172,13 +178,22 @@ lines as they are in the file. **Errors and warnings** hides everything but
 the errors and warnings (a full disk, say), and the search box keeps only
 the lines with what you type in them, as you type, with each match
 highlighted.
-**Export…** saves all of the log as a plain text file, to attach to a
-report; **Clear All Log Data…** deletes it.
+**Export…** offers the last 100 lines or all of the log, each with its
+size, and saves the one you pick as a plain text file; **Clear All Log
+Data…** deletes it. To report a problem, copy or export the lines that
+matter and open an issue in
+[GitHub Issues](https://github.com/shapelogicxyz/shapelogic/issues), or send
+them by email to shapelogic.xyz@gmail.com.
+
+The messages about a problem (the engine stopping, ShapeLogic not closing
+properly, a search running out of disk space or memory, a cache folder that
+can't be written) have a **View Logs** button, which opens the Log File
+Manager over the message.
 
 The log is `shapelogic.log` in a `logs` folder in ShapeLogic's data folder.
 When it reaches 20 MB it is compressed to `shapelogic.log.1.gz` and a new
 log is started; the compressed log before it is deleted, so there is only
-ever one. **Export…** includes the compressed log.
+ever one. **Export…** of all of the log includes the compressed log.
 
 **Settings ▸ General ▸ Debug logging** adds detailed lines, marked DEBUG,
 for finding the cause of a problem. For a sliding solve they cover:

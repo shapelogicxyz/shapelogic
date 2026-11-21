@@ -5,8 +5,9 @@
 // stacking puzzle's fewest moves, or no solution, said to be optimized when
 // a sliding solve held its stops to a grid; the other puzzles' assemblies,
 // or disassemblies when the problem takes them apart), its
-// count as short as it goes (12k, 15m). Platform-free (no DOM), so the
-// unit tests drive it.
+// count as short as it goes (12k, 15m). And whether the solver's note of
+// a finished run (its message box) tells of trouble. Platform-free (no
+// DOM), so the unit tests drive it.
 
 import type { ProblemSummary, SolveState } from '../../engine/api.generated.ts';
 import { isActive } from '../state/solves.ts';
@@ -94,4 +95,14 @@ export function problemNote(
   return found.disassemble
     ? count(n, 'disassembly', 'disassemblies')
     : count(n, 'assembly', 'assemblies');
+}
+
+/**
+ * Whether a solver's note tells of a search cut short or gone wrong (a
+ * memory or disk limit, an error): its message box has View Logs. The
+ * others tell of its end (`Every reachable …`) or a pause (`Paused …`,
+ * `Stopped before …`).
+ */
+export function noteIsTrouble(note: string): boolean {
+  return !/^(?:Paused |Stopped before the search was complete|Every )/.test(note);
 }

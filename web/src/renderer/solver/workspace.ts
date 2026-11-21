@@ -39,7 +39,7 @@ import { isActive } from '../state/solves.ts';
 import type { SolveRecord, Solves } from '../state/solves.ts';
 import type { Store } from '../state/store.ts';
 import { askConfirm } from '../shell/confirm.ts';
-import { askChoice, tell } from '../shell/dialog.ts';
+import { askChoice, tell, VIEW_LOGS } from '../shell/dialog.ts';
 import { byId, esc } from '../shell/dom.ts';
 import { addEscapeStep, ESC_ORDER } from '../shell/escape.ts';
 import { onKey } from '../shell/keyboard.ts';
@@ -57,6 +57,7 @@ import { SolutionPager } from './pager.ts';
 import type { SortKey } from './pager.ts';
 import { LABEL } from './option-text.ts';
 import { Player } from './player.ts';
+import { noteIsTrouble } from './problem-note.ts';
 import { RunCard } from './run-card.ts';
 import {
   defaultLimits,
@@ -1141,7 +1142,7 @@ export class SolverWorkspace {
           return;
         }
       }
-      tell(st.note);
+      tell(st.note, noteIsTrouble(st.note));
     } catch (e) {
       if (!(e instanceof EngineError) || e.errc !== 'not_found') {
         reportError(e, 'The solver’s note could not be read');
@@ -1395,6 +1396,7 @@ export class SolverWorkspace {
           'Cache Folder Can’t Be Written',
           `The solve of ${name} is paused before its search began: the search can’t write its files in the cache folder.\n\n${f.folder}: ${f.reason}.\n\nChoose another cache folder, try again with the cache folder as it is (once its drive is back, say), or abort the solve.`,
           [
+            VIEW_LOGS,
             {
               key: 'abort',
               label: 'Abort Solve',

@@ -198,7 +198,10 @@ void usage(HelpKind kind) {
         "                   or 512 bits\n"
         "  --slide-one-end  a new search goes from the start alone, not from the\n"
         "                   start and the goal\n"
-        "  --slide-trace    the search's key and each of its levels on stderr\n"
+        "  --slide-compress N  the zstd level the search's level files are compressed\n"
+        "                   with, 1 to 19 (9 unless told); 0 writes them as they are\n"
+        "  --slide-trace    the search's key, each of its levels and its log lines on\n"
+        "                   stderr\n"
         "  --slide-grid N   --optimized-paths on a grid of N cells, whether or not the\n"
         "                   board fits it (its answers are those of a restricted search)\n",
         stdout);
@@ -403,6 +406,14 @@ std::optional<int> parseArgs(int argc, char** argv, Options& o) {
       i++;
     } else if (a == "--slide-one-end") {
       o.slideOneEnd = true;
+    } else if (a == "--slide-compress") {
+      unsigned int level = 0;
+      if (!hasValue || !parseCount(argv[i + 1], &level) || level > 19) {
+        std::fprintf(stderr, "shapelogic_cli: %s requires a number from 0 to 19\n", argv[i]);
+        return kExitUsage;
+      }
+      o.slideCompress = static_cast<int>(level);
+      i++;
     } else if (a == "--slide-grid") {
       unsigned int size = 0;
       if (!hasValue || !parseCount(argv[i + 1], &size) || size < 2 || size > 1024) {

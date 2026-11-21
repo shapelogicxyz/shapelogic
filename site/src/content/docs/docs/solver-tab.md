@@ -244,7 +244,12 @@ symmetry and color ones:
   **Pause** saves the search of the start under way, and **Continue**
   carries it on. A search that fills its disk space is saved the same way,
   and the solve pauses: raise **Sliding disk space** or free some disk,
-  then press **Continue**. **Abort** throws saved searches away.
+  then press **Continue**. A search that can't write a file (the disk
+  filled up, or the drive went away) is saved too, as it stood after its
+  last complete move, and the solve pauses: free some disk space, then
+  press **Continue**. If it could not be saved at all, **Continue**
+  searches that start again from the beginning.
+  **Abort** throws saved searches away.
   A search with **Allow Nested Slides** and optimized paths that was paused
   in version 1.8.1 or earlier was saved from the start alone, and can only
   be carried on that way. **Continue** then asks first: **Continue**
@@ -311,14 +316,34 @@ Solver** (`Ctrl+,` or `⌘,` on a Mac):
   **Enable High Memory** option.
 - **Sliding disk space**: the disk the **Sliding Puzzle Solver** may fill
   while it runs, and keep for a paused search. **Automatic** is half the
-  free space, at most 200 GB. As it fills, the solver keeps fewer of the
-  older moves and works out the missing ones again at the end. However
-  much you allow, it stops while at least 100 MB, plus the room to save
-  its search, is still free on the disk.
+  free space, at most 200 GB. Its files are compressed, which makes them
+  about a third smaller. Once the older moves take half of the space, or
+  leave too little room for the next move, the solver keeps fewer of them
+  and works out the missing ones again at the end. However much you
+  allow, it stops while the disk still has room to save the search and to
+  work out the next move, which takes several times the disk that move
+  ends up taking.
 - **Stacking disk space**: the disk the **Panex Solver** may take for the
   levels it saves. **Automatic** is half the free space, at most 200 GB.
   Less disk never stops the search, but finding the path at the end takes
   longer.
+
+A paused search that cannot be read back is never deleted for it, whichever
+solver it is. If a file of a sliding or stacking search is missing or
+damaged, or the drive it is on is not there, the solve stays paused and its
+message says which file and why. **Continue** tries again (reconnect the
+drive first, for example); **Solve** throws the saved search away and
+searches from the beginning. A paused brick solve is kept in the puzzle
+file: if its position cannot be restored (it was paused by another version,
+say), **Continue** reports that and the solutions found so far stay, and
+**Solve** starts the search again.
+
+A sliding search paused in version 1.9 or earlier can be carried on in this
+version. Those versions did not compress their files, so the first
+**Continue** writes them again compressed before the search goes on. That
+is done once; for a search of hundreds of GB it takes a while, and the
+[log file](/docs/getting-started/#the-log-file) says how far it is. After that
+the search can no longer be carried on in the earlier version.
 
 A disk space larger than the disk has free is held to the free space, less a
 little room for everything else, so a search never fills the disk. On a Mac,

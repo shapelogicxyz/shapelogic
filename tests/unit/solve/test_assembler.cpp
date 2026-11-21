@@ -512,10 +512,12 @@ TEST_CASE("Assembler 0: an exception in the search comes back to the caller",
   }
 }
 
-// The original's "a damaged saved position errors once, then solves from
-// the start", at the problem level: a position that cannot be restored
-// drops everything solving found, and the next solve starts clean.
-TEST_CASE("beginSolving: a position that cannot be restored starts over",
+// A position that cannot be restored is an error and nothing more: the
+// problem keeps the position and everything solving found (decision 0041;
+// the original dropped both, "a damaged saved position errors once, then
+// solves from the start"). Carried on, it errors again; begun anew, with
+// the partial results removed, it finds everything.
+TEST_CASE("beginSolving: a position that cannot be restored is kept with what was found",
           "[solve][assembler][resume]") {
   struct Case {
     const char* text;
@@ -551,18 +553,23 @@ TEST_CASE("beginSolving: a position that cannot be restored starts over",
     }
     REQUIRE(pr.getSolveState() == c.state);
 
-    {
+    // twice: carried on again, the same error, and still nothing lost
+    for (int again = 0; again < 2; again++) {
       Assembler0 a(p, pr);
       REQUIRE(a.createMatrix({}) == AssemblerError::None);
       CHECK(beginSolving(pr, a) == c.error);
+      CHECK(pr.getSolveState() == c.state);
+      CHECK(pr.getNumberOfSavedSolutions() == 1);
+      CHECK(pr.getAssemblerState() == c.text);
+      CHECK(pr.getAssemblerVersion() == c.version);
     }
-    CHECK(pr.getSolveState() == ProblemState::Unsolved);
-    CHECK(pr.getNumberOfSavedSolutions() == 0);
-    CHECK(pr.getAssemblerState().empty());
-    CHECK(pr.getAssemblerVersion().empty());
-    CHECK(canStartSolving(pr));
 
-    // the next solve starts from scratch and finds everything
+    // a solve begun anew drops what the problem held, starts from scratch
+    // and finds everything
+    pr.removeAllSolutions();
+    CHECK(pr.getSolveState() == ProblemState::Unsolved);
+    CHECK(pr.getAssemblerState().empty());
+    CHECK(canStartSolving(pr));
     Assembler0 a(p, pr);
     REQUIRE(a.createMatrix({}) == AssemblerError::None);
     REQUIRE(beginSolving(pr, a) == AssemblerError::None);

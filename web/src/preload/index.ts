@@ -21,6 +21,7 @@ import type {
   CacheResult,
   CliToolResult,
   LogExportResult,
+  LogExportSizes,
   LogPage,
   RescueInfo,
   StoredState,
@@ -81,6 +82,7 @@ ipcRenderer.on('bt:read-only', (_event: IpcRendererEvent, value: unknown) => {
 const btApp: BtApp = {
   platform: info?.platform ?? '',
   version: info?.version ?? '',
+  keepsLog: true,
   onCommand(handler: (command: AppCommand) => void): () => void {
     commandHandlers.add(handler);
     if (early !== null) {
@@ -239,6 +241,9 @@ const btApp: BtApp = {
   cacheItems() {
     return ipcRenderer.invoke('bt:cache-files', 'list') as Promise<CacheItem[] | null>;
   },
+  cacheItemsAtStart() {
+    return ipcRenderer.invoke('bt:cache-files', 'start') as Promise<CacheItem[] | null>;
+  },
   async deleteCacheItem(id) {
     return (
       ((await ipcRenderer.invoke('bt:cache-files', 'delete', id)) as CacheDeleteResult | null) ?? {
@@ -256,9 +261,12 @@ const btApp: BtApp = {
   async clearLog() {
     await ipcRenderer.invoke('bt:log', 'clear');
   },
-  async exportLog() {
+  logExportSizes() {
+    return ipcRenderer.invoke('bt:log', 'sizes') as Promise<LogExportSizes | null>;
+  },
+  async exportLog(lines) {
     return (
-      ((await ipcRenderer.invoke('bt:log', 'export')) as LogExportResult | null) ?? {
+      ((await ipcRenderer.invoke('bt:log', 'export', lines)) as LogExportResult | null) ?? {
         ok: false,
         error: 'not a ShapeLogic window',
       }

@@ -235,6 +235,23 @@ Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
   std::optional<Puzzle> puzzle;
   std::optional<unsigned int> problem;
   std::filesystem::path searchDir;
+  // The saved search is unpacked beside its folder and takes its place
+  // only once the whole file is read: an import that fails part of the
+  // way leaves a saved search that was there as it was (decision 0041).
+  std::filesystem::path unpackDir;
+  struct Unpacked {
+    std::filesystem::path* dir;
+    Unpacked(const Unpacked&) = delete;
+    Unpacked& operator=(const Unpacked&) = delete;
+    explicit Unpacked(std::filesystem::path* d) : dir(d) {}
+    ~Unpacked() {
+      if (!dir->empty()) {
+        std::error_code ec;
+        std::filesystem::remove_all(*dir, ec);
+      }
+    }
+  };
+  const Unpacked unpacked(&unpackDir);
   std::string name;
   std::uint64_t size = 0;
   while (readSectionHeader(in, name, size)) {
@@ -262,7 +279,8 @@ Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
       unsigned int n = 0;
       (void)std::from_chars(data.data(), data.data() + data.size(), n);
       problem = n;
-      // where a stacking problem's saved search goes: emptied first
+      // where a stacking problem's saved search goes, and where it is
+      // unpacked first
       if (searchFolder && puzzle && puzzle->getGridType().getType() == GridKind::Stacking &&
           n < puzzle->getNumberOfProblems()) {
         searchDir = searchFolder(*puzzle, n);
@@ -270,12 +288,17 @@ Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
           return incomplete();
         }
         std::error_code ec;
-        std::filesystem::remove_all(searchDir, ec);
-        std::filesystem::create_directories(searchDir, ec);
+        if (!unpackDir.empty()) {
+          std::filesystem::remove_all(unpackDir, ec);
+        }
+        unpackDir = searchDir;
+        unpackDir += ".import";
+        std::filesystem::remove_all(unpackDir, ec);
+        std::filesystem::create_directories(unpackDir, ec);
       }
-    } else if (name.starts_with("searchz/") && !searchDir.empty() &&
+    } else if (name.starts_with("searchz/") && !unpackDir.empty() &&
                isPlainFileName(std::string_view(name).substr(8))) {
-      if (!blockpack::unpack(in, size, searchDir / name.substr(8), threads)) {
+      if (!blockpack::unpack(in, size, unpackDir / name.substr(8), threads)) {
         return incomplete();
       }
     } else {
@@ -291,6 +314,17 @@ Result<PausedSolve> loadPausedSolve(const std::filesystem::path& path,
   }
   if (!puzzle || !problem || *problem >= puzzle->getNumberOfProblems()) {
     return incomplete();
+  }
+  if (!unpackDir.empty()) {
+    // the file is whole: what it held takes the place of what was there
+    // (nothing, when the file held no saved search)
+    std::error_code ec;
+    std::filesystem::remove_all(searchDir, ec);
+    std::filesystem::rename(unpackDir, searchDir, ec);
+    if (ec) {
+      return fail(Errc::IoError, "could not put the saved search in " + searchDir.string());
+    }
+    unpackDir.clear();
   }
   return PausedSolve{std::move(*puzzle), *problem};
 }

@@ -669,16 +669,35 @@ class Store {
   // A layer's count is checked against what the file holds before room is
   // made for it: a damaged or crafted file (one imported from a .slsolve,
   // say) could otherwise claim terabytes, which the original allocated and
-  // filled (an audit finding). Such a state is no saved search.
-  bool loadState(SavedState& st, std::uint64_t fingerprint, bool layers) const {
+  // filled (an audit finding). Such a state is not carried on. `why`,
+  // when set, hears what is wrong with a state that is not loaded.
+  bool loadState(SavedState& st, std::uint64_t fingerprint, bool layers,
+                 std::string* why = nullptr) const {
+    auto no = [why](const char* reason) {
+      if (why != nullptr) {
+        *why = reason;
+      }
+      return false;
+    };
     std::error_code sizeError;
     const std::uint64_t fileBytes = std::filesystem::file_size(dir / "state.bin", sizeError);
     std::ifstream in(dir / "state.bin", std::ios::binary);
+    if (!in) {
+      return no("its state.bin could not be read");
+    }
     std::array<char, kStateMagic.size()> magic{};
     in.read(magic.data(), magic.size());
     const bool inSeconds = magic == kStateMagicSeconds;
-    if (!in || !(inSeconds || magic == kStateMagic)) {
-      return false;
+    if (!in) {
+      return no("its state.bin is cut short");
+    }
+    if (!(inSeconds || magic == kStateMagic)) {
+      // the same name with a later number: a later version's
+      const bool later = std::equal(magic.begin(), magic.end() - 1, kStateMagic.begin()) &&
+                         magic.back() > kStateMagic.back();
+      return no(later ? "its state.bin was written by a later version of the program, which "
+                        "this one does not read"
+                      : "its state.bin is not a saved search's");
     }
     get(in, st.fingerprint);
     get(in, st.fwdDepth);
@@ -693,8 +712,14 @@ class Store {
     get(in, st.fromStart);
     get(in, st.fromGoal);
     get(in, st.meetAt);
-    if (!in || st.fingerprint != fingerprint || st.interval == 0) {
-      return false;
+    if (!in) {
+      return no("its state.bin is cut short");
+    }
+    if (st.fingerprint != fingerprint) {
+      return no("its state.bin is another search's");
+    }
+    if (st.interval == 0) {
+      return no("its state.bin is damaged");
     }
     if (!layers) {
       return true;
@@ -703,11 +728,11 @@ class Store {
       std::uint64_t n = 0;
       get(in, n);
       if (!in || sizeError) {
-        return false;
+        return no("its state.bin is cut short");
       }
       const auto at = static_cast<std::uint64_t>(in.tellg());
       if (at > fileBytes || n > (fileBytes - at) / sizeof(PKey)) {
-        return false;
+        return no("its state.bin is damaged: it names more stackings than the file holds");
       }
       l->resize(static_cast<std::size_t>(n));
       if (n != 0) {
@@ -715,7 +740,7 @@ class Store {
                 static_cast<std::streamsize>(n * sizeof(PKey)));
       }
       if (!in) {
-        return false;
+        return no("its state.bin is cut short");
       }
     }
     return true;
@@ -1767,6 +1792,7 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
   search.found = 0;
   search.peakMemory = 0;
   search.saved = false;
+  search.savedUnread = false;
   search.diskBytes = 0;
   search.depthReached = 0;
   if (search.traced != nullptr) {
@@ -1841,11 +1867,26 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
   if (!dir.empty() && store.open(dir, 1)) {
     // the levels already saved there count as room of the search's own
     store.budget = diskBudgetFor(dir, search.diskBudget, store.used).bytes;
-    if (search.resume && store.loadState(resumeState, fp, true)) {
+    std::error_code stateEc;
+    const bool state = std::filesystem::exists(dir / "state.bin", stateEc) || stateEc;
+    std::string why;
+    if (search.resume && state && store.loadState(resumeState, fp, true, &why)) {
       store.interval = resumeState.interval;
       searcher.resumeFrom = &resumeState;
       searcher.priorMs = resumeState.ms;
+    } else if (search.resume && state) {
+      // A saved search is days of work, and what cannot be read now may be
+      // read later (a drive that dropped out, a later version's file): it
+      // is never deleted for that (decision 0041). Nothing is searched,
+      // and the folder stays as it is.
+      search.outcome = Outcome::Error;
+      search.savedUnread = true;
+      search.error = "The saved search in " + dir.string() + " could not be carried on: " +
+                     why + ". It is kept as it is.";
+      return std::nullopt;
     } else {
+      // no saved search (levels of a search that never saved itself), or
+      // one this search is not to carry on
       store.wipe();
     }
     searcher.store = &store;

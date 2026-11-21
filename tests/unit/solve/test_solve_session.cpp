@@ -282,7 +282,10 @@ TEST_CASE("solve session: no solution limit keeps every solution", "[solve][sess
   CHECK(pr.getNumberOfSavedSolutions() == pr.getNumSolutions());
 }
 
-TEST_CASE("solve session: a damaged saved position errors once, then solves from the start",
+// A paused solve whose position cannot be read is not thrown away (decision
+// 0041): Continue ends in the error each time, the problem as it was, and
+// Solve searches from the start.
+TEST_CASE("solve session: a damaged saved position errors, is kept, and Solve starts over",
           "[solve][session][resume]") {
   std::string text;
   {
@@ -304,14 +307,18 @@ TEST_CASE("solve session: a damaged saved position errors once, then solves from
   Problem& pr = loaded->getProblem(0);
   REQUIRE(pr.getSolveState() == ProblemState::Solving);
   SolveSession s(*loaded, pr, {});
-  REQUIRE(s.resume().has_value());
-  s.wait();
-  CHECK(s.state() == SolveState::Error);
-  REQUIRE(s.failure().has_value());
-  CHECK(s.failure()->assembler == AssemblerError::CannotRestoreSyntax);
-  CHECK(pr.getSolveState() == ProblemState::Unsolved);
+  for (int again = 0; again < 2; again++) {
+    REQUIRE(s.resume().has_value());
+    s.wait();
+    CHECK(s.state() == SolveState::Error);
+    REQUIRE(s.failure().has_value());
+    CHECK(s.failure()->assembler == AssemblerError::CannotRestoreSyntax);
+    CHECK(s.failure()->message.find("What the solve found so far is kept") != std::string::npos);
+    CHECK(pr.getSolveState() == ProblemState::Solving);
+    CHECK(pr.getAssemblerState() == "x");
+  }
 
-  REQUIRE(s.resume().has_value());
+  REQUIRE(s.start().has_value());
   s.wait();
   CHECK(s.state() == SolveState::Finished);
   CHECK(pr.getNumAssemblies() == 12);

@@ -3,6 +3,7 @@
 #   zlib          stage 2 (.xmpuzzle files are gzip-compressed XML)
 #   nlohmann/json stage 7 (engine JSON-RPC)
 #   manifold      deferred part 5 (the STL meshes of the non-cube grids)
+#   zstd          decision 0040 (the slide search's level files)
 #   pybind11      deferred part 7 (the Python module, when it is built)
 include(FetchContent)
 
@@ -77,6 +78,28 @@ endif()
 if(EMSCRIPTEN)
   target_compile_options(manifold PUBLIC -include iosfwd)
 endif()
+
+# zstd: the slide search's level files are compressed with it (decision
+# 0040; core/shapelogic/base/compress.cpp is the only file that sees it).
+# Always the pinned release, as a static library: a zstd found on the
+# machine (Homebrew's, a distribution's) would be a shared library the
+# packaged app does not carry. One thread per call (the search has its
+# own), no dictionary builder, no programs, no old formats.
+FetchContent_Declare(zstd
+  URL https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz
+  URL_HASH SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+  SOURCE_SUBDIR build/cmake
+  SYSTEM
+  EXCLUDE_FROM_ALL)
+set(ZSTD_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_CONTRIB OFF CACHE BOOL "" FORCE)
+set(ZSTD_BUILD_DICTBUILDER OFF CACHE BOOL "" FORCE)
+set(ZSTD_LEGACY_SUPPORT OFF CACHE BOOL "" FORCE)
+set(ZSTD_MULTITHREAD_SUPPORT OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(zstd)
 
 # pybind11: the Python module (python/, deferred part 7), the original's
 # release (its subprojects/pybind11.wrap). Only when the module is built.

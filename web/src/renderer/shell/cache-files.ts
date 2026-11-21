@@ -11,40 +11,15 @@
 // renderer deletes an item by its id; the main process finds its files.
 
 import type { BtApp, CacheItem } from '../../engine/app-bridge.ts';
+import { itemMeta, sizeText, when } from './cache-text.ts';
 import { askChoice, openDialog } from './dialog.ts';
 import { esc } from './dom.ts';
 import { flash, reportError } from './status.ts';
 
 const ID = 'cacheFiles';
 
-/** A size in words: "1.2 GB". */
-export function sizeText(bytes: number): string {
-  const units = ['bytes', 'KB', 'MB', 'GB', 'TB'];
-  let v = bytes;
-  let u = 0;
-  while (v >= 1000 && u < units.length - 1) {
-    v /= 1000;
-    u++;
-  }
-  if (u === 0) {
-    return bytes === 1 ? '1 byte' : `${String(v)} bytes`;
-  }
-  return `${v < 10 ? v.toFixed(1) : String(Math.round(v))} ${units[u] ?? ''}`;
-}
-
-const when = (ms: number): string =>
-  new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
-/** What kind of thing an item is, as its row says it. */
-const KIND: Readonly<Record<CacheItem['kind'], string>> = {
-  sliding: 'Sliding solve',
-  stacking: 'Stacking solve',
-  rescue: 'Autosave',
-  other: 'Leftover files',
-};
-
 function rowHtml(item: CacheItem, selected: boolean): string {
-  return `<div class="cf-row" role="option" id="cf-${esc(item.id)}" data-id="${esc(item.id)}" aria-selected="${String(selected)}"><span class="cf-t">${esc(item.title)}</span><span class="cf-m">${esc(KIND[item.kind])} · ${esc(sizeText(item.bytes))} · ${esc(when(item.modified))}</span></div>`;
+  return `<div class="cf-row" role="option" id="cf-${esc(item.id)}" data-id="${esc(item.id)}" aria-selected="${String(selected)}"><span class="cf-t">${esc(item.title)}</span><span class="cf-m">${esc(itemMeta(item))}</span></div>`;
 }
 
 function listHtml(items: readonly CacheItem[], selected: string | null): string {

@@ -27,10 +27,11 @@ import { Store } from '../state/store.ts';
 import { View3D } from '../view3d/view.ts';
 import type { StoredState } from '../../engine/app-bridge.ts';
 import { installConfirm } from './confirm.ts';
-import { dialogOpen, installDialogs, tell } from './dialog.ts';
+import { dialogOpen, installDialogs, setLogViewer, tell } from './dialog.ts';
 import { Files } from './files.ts';
 import { Imports } from './imports.ts';
 import { openCacheFiles } from './cache-files.ts';
+import { noticeCacheAtStart } from './cache-notice.ts';
 import { openLogFiles } from './log-files.ts';
 import { openCliTool } from './cli-tool.ts';
 import { openAbout, openKeys, openNotes } from './help.ts';
@@ -193,6 +194,12 @@ export function startApp(saved: StoredState = {}): {
   const runsUnderWay = (): boolean =>
     solver.autosave.runsUnderWay() ||
     (store.snapshot?.problems.some((p) => isActive(p.solve)) ?? false);
+  if (app.keepsLog) {
+    // the warnings' and errors' View Logs (the rescue copy's offer is one)
+    setLogViewer(() => {
+      void openLogFiles(app);
+    });
+  }
   const rescue = new Rescue(
     store,
     app,
@@ -421,5 +428,11 @@ export function startApp(saved: StoredState = {}): {
   onKey('escape', stepBack);
   installKeyboard();
   autoCheck(app);
+  // what else the cache folder holds, once the rescue copy's offer is answered
+  void rescue.startLooked.then(() =>
+    noticeCacheAtStart(app, () => {
+      void openCacheFiles(app);
+    }),
+  );
   return { store, view, entities, puzzle, solver, play };
 }

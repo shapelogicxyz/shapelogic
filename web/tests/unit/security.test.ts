@@ -339,10 +339,13 @@ describe('the addresses opened outside the app', () => {
       const u = new URL(url);
       expect(u.protocol).toBe('https:');
       if (u.hostname === 'github.com') {
-        // the update dialog's Download: the project's releases; and the About
-        // page's link to the author's page, nothing else there
+        // the update dialog's Download: the project's releases; the Log File
+        // Manager's link to its issues; and the About page's link to the
+        // author's page, nothing else there
         expect(
-          u.pathname.startsWith('/shapelogicxyz/shapelogic/releases') || u.pathname === '/hypnoz/',
+          u.pathname.startsWith('/shapelogicxyz/shapelogic/releases') ||
+            u.pathname === '/shapelogicxyz/shapelogic/issues' ||
+            u.pathname === '/hypnoz/',
         ).toBe(true);
       } else {
         expect(u.hostname).toBe('shapelogic.xyz');

@@ -94,8 +94,10 @@ always `0 <iterations> (0 0)`. Restored, it starts the search again, while
 the problem keeps what was found, so every assembly found before the pause
 is reported twice. The new core writes the same text, but restores only a
 search that has not started (`0 0 (0 0)`); any other BT2 position is
-`CannotRestoreInterrupted`, so `beginSolving()` drops the partial results
-and the solve starts clean. Pausing and continuing in memory loses
+`CannotRestoreInterrupted`, so `beginSolving()` dropped the partial results
+and the solve started clean. (Since decision 0041 it keeps them and
+returns the error; a solve begun anew, which removes them first, starts
+clean.) Pausing and continuing in memory loses
 nothing (the parked branches).
 
 **Saved positions are checked before they are used.** The original

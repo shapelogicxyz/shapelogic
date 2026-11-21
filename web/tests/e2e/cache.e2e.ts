@@ -6,7 +6,9 @@
 // folder that cannot be written is refused and the folders in use stay; a
 // solve whose search cannot write the cache folder pauses and asks what to
 // do (decision 0028). View ▸ Manage Cache and Autosave Files… lists what
-// the folders hold, shows an item's details and deletes it.
+// the folders hold, shows an item's details and deletes it; at the start,
+// once a run, a notice names what they hold (not the crash recovery copy),
+// with Manage Files…, Delete All… and Ignore.
 // The folder dialog is answered in the main process; the default cache
 // folder is the test's data directory (BT_USER_DATA).
 
@@ -25,7 +27,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-import { appOf, ENGINE, BUILT, engineCall, launch, menu, openFixture } from './app.ts';
+import { appOf, ENGINE, BUILT, engineCall, launch, menu, nextWindow, openFixture } from './app.ts';
 import type { App } from './app.ts';
 import { runButton, runEnded, solverSettled, toSolver } from './solver.ts';
 
@@ -127,6 +129,8 @@ test('a solve whose cache folder cannot be written pauses and asks what to do', 
   const ask = page.locator('#cacheUnwritable');
   await expect(ask).toContainText(gone);
   await runEnded(page, 'paused');
+  // an error: View Logs is among its buttons
+  await expect(ask.locator('[data-x="viewLogs"]')).toHaveText('View Logs');
 
   // the drive is back: Try Again carries the solve on to its end
   rmSync(gone);
@@ -203,4 +207,68 @@ test('Manage Cache and Autosave Files lists what the folders hold, shows an item
   await expect(rows).toHaveCount(2);
   await dlg.locator('[data-x="close"]').click();
   await expect(dlg).toHaveCount(0);
+});
+
+test('the start names what the cache folder holds: Manage Files…, Delete All… and Ignore', async () => {
+  // a saved stacking search, a sliding search's files never saved, and a
+  // crash recovery copy (which its own offer is about: left out)
+  const userData = mkdtempSync(join(tmpdir(), 'bt-e2e-cachestart-'));
+  const saved = join(userData, 'panex', KEY);
+  mkdirSync(saved, { recursive: true });
+  writeFileSync(join(saved, 'state'), 'x'.repeat(1200));
+  const slide = join(userData, 'sliding', `slide-${KEY}`);
+  mkdirSync(slide, { recursive: true });
+  writeFileSync(join(slide, 'f1.lvl'), 'x'.repeat(800));
+  let b = await launch({ userData });
+  try {
+    // Ignore leaves them
+    let notice = b.page.locator('#cacheAtStart');
+    await expect(notice.locator('.cn-list li')).toHaveCount(2);
+    await expect(notice).toContainText('These 2 items were left in the cache folder');
+    await expect(notice.locator('.cn-tip')).toHaveText(
+      'Tip: These files can be managed using View ▸ Manage Cache and Autosave Files.',
+    );
+    await notice.locator('[data-x="ignore"]').click();
+    await expect(notice).toHaveCount(0);
+    expect(existsSync(saved)).toBe(true);
+    // once a run: a new window does not name them again
+    const w = await nextWindow(b.app, () => menu(b.page, 'newWindow'));
+    await w.waitForTimeout(500);
+    await expect(w.locator('#cacheAtStart')).toHaveCount(0);
+    await b.close();
+
+    // Manage Files… opens the manager
+    b = await launch({ userData });
+    notice = b.page.locator('#cacheAtStart');
+    await notice.locator('[data-x="manage"]').click();
+    await expect(notice).toHaveCount(0);
+    await expect(b.page.locator('#cacheFiles .cf-row')).toHaveCount(2);
+    await b.page.locator('#cacheFiles [data-x="close"]').click();
+    await b.close();
+
+    // Delete All… asks first; Cancel keeps them, Delete All deletes them
+    b = await launch({ userData });
+    notice = b.page.locator('#cacheAtStart');
+    await notice.locator('[data-x="deleteAll"]').click();
+    const ask = b.page.locator('#cacheAtStartDelete');
+    await expect(ask).toContainText('All 2 items (2.0 KB) will be deleted');
+    await ask.locator('[data-x="cancel"]').click();
+    await expect(notice).toBeVisible();
+    expect(existsSync(saved)).toBe(true);
+    await notice.locator('[data-x="deleteAll"]').click();
+    await ask.locator('[data-x="delete"]').click();
+    await expect(notice).toHaveCount(0);
+    await expect(b.page.locator('#stText')).toContainText('Deleted 2 items');
+    expect(existsSync(saved)).toBe(false);
+    expect(existsSync(slide)).toBe(false);
+    await b.close();
+
+    // nothing left: no notice
+    b = await launch({ userData });
+    await b.page.waitForTimeout(500);
+    await expect(b.page.locator('#cacheAtStart')).toHaveCount(0);
+  } finally {
+    await b.close();
+    rmSync(userData, { recursive: true, force: true });
+  }
 });

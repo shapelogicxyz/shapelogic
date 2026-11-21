@@ -26,12 +26,13 @@ mechanical and the algorithms keep their behaviour.
 
 Every dependency is fetched by CMake (`FetchContent`), pinned to an exact
 release and hash in `cmake/Dependencies.cmake`. A dependency is added in the
-stage that first needs it, and none of them is used in `core/` beyond zlib
-and Manifold.
+stage that first needs it, and none of them is used in `core/` beyond zlib,
+zstd and Manifold.
 
 | Library | Version | Used for | Used by |
 |---|---|---|---|
 | zlib | 1.3.1 | `.xmpuzzle` files are gzip-compressed XML | `core/io` |
+| zstd | 1.5.7 | the files a sliding search writes to disk are compressed | `core/base` (`compress.cpp`) |
 | nlohmann/json | 3.12.0 | the engine's JSON-RPC messages | `engine/` only |
 | Manifold | 3.5.2 | the STL meshes of the prism, rhombic and tetra-octa grids | `core/mesh` |
 | Catch2 | 3.16.0 | the unit tests | `tests/unit` |

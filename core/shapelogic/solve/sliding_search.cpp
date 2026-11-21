@@ -1215,6 +1215,11 @@ bool buildTables(const Voxel& tray, const std::vector<Cell3List>& cells,
 // memoryStates): its place in a level and its share of the pieces and
 // merges that make the next.
 constexpr std::uint64_t kLevelStateKeys = 3;
+// The disk the making of a level is taken to need, for each byte the level
+// before it came to, until the search has measured it on a level of its
+// own (LevelSearch::noteWork); and the margin a measured need is given.
+constexpr double kLevelWorkRatio = 5;
+constexpr double kLevelWorkMargin = 1.25;
 
 // The arrangements of one slide search over position tables. An arrangement
 // is one code per piece, that of its position (PosTable::code), packed into
@@ -3238,10 +3243,19 @@ class SetStore {
   // budget: the memory the sets and the threads' pieces may take together;
   // setCap: the memory the sets alone may take before they go to files (0:
   // the budget). With `share`, the budget is the search's share of it,
-  // read each time it is asked for (decision 0028).
+  // read each time it is asked for (decision 0028). `files` says how the
+  // sets kept are written; the runs of a level being made get the fastest
+  // compression there is, when the files are compressed at all.
   SetStore(SearchFolder& folder, std::uint64_t budget, std::uint64_t setCap,
-           const MemoryShare* share)
-      : folder_(folder), budget_(budget), setCap_(setCap), share_(share) {}
+           const MemoryShare* share, const levels::FileOptions& files)
+      : folder_(folder), budget_(budget), setCap_(setCap), share_(share), files_(files) {}
+
+  // The tests' full disk (SlideSearch::failWriteAt).
+  void failWritesAt(std::uint64_t bytes, bool once) {
+    gate_.failAt = bytes;
+    gate_.once = once;
+    files_.gate = bytes != 0 ? &gate_ : nullptr;
+  }
 
   // Bytes the live sets take in memory, and on disk.
   std::pair<std::uint64_t, std::uint64_t> used() {
@@ -3251,8 +3265,10 @@ class SetStore {
 
   // A new set for about `estimate` bytes of keys: in memory when the budget
   // allows, else in a file (always a file with `file`). Null when neither
-  // can be; failure says why.
-  SetPtr<Key> make(std::uint64_t estimate, bool file = false) {
+  // can be; failure says why. `kept` false for a set read once and deleted
+  // (a run, a stage of a merge) and for one a single thread writes while
+  // the search waits for it: its file is compressed fast, not well.
+  SetPtr<Key> make(std::uint64_t estimate, bool file = false, bool kept = true) {
     const std::lock_guard<std::mutex> lock(m_);
     const std::uint64_t mem = usedLocked().first;
     const std::uint64_t held = mem + pieces.load(std::memory_order_relaxed) + estimate;
@@ -3276,7 +3292,11 @@ class SetStore {
       p = folder_.dir / name;
     }
     auto set = std::make_shared<Set>();
-    if (!set->create(p)) {
+    levels::FileOptions options = files_;
+    if (!kept) {
+      options.compression = std::min(options.compression, levels::kRunCompression);
+    }
+    if (!set->create(p, options)) {
       ioFailed();
       return nullptr;
     }
@@ -3284,6 +3304,9 @@ class SetStore {
     live_.push_back({set, toMemory ? estimate : 0, 0});
     return set;
   }
+
+  // How the files of the sets kept are written.
+  [[nodiscard]] const levels::FileOptions& fileOptions() const { return files_; }
 
   // Takes in a set opened from a saved search.
   void adopt(const SetPtr<Key>& set) {
@@ -3304,20 +3327,40 @@ class SetStore {
   }
 
   // Takes note of a finished set's size again (after release or reload).
+  // The most the files took is kept (peakDisk): a set counts from here on,
+  // and the sets it was made from are still there.
   void refresh(const SetPtr<Key>& set) {
     const std::lock_guard<std::mutex> lock(m_);
+    bool grew = false;
     for (Entry& e : live_) {
       if (e.set.lock() == set) {
         e.memory = set->memoryBytes();
-        e.disk = set->inMemory() ? 0 : set->bytes();
-        return;
+        const std::uint64_t disk = set->inMemory() ? 0 : set->bytes();
+        grew = disk > e.disk;
+        e.disk = disk;
+        break;
       }
     }
+    if (grew) {
+      peakDisk_ = std::max(peakDisk_, usedLocked().second);
+    }
+  }
+
+  // The most the finished files took since the last call, and at least
+  // what they take now: what a level needed on the disk as it was made.
+  std::uint64_t takePeakDisk() {
+    const std::lock_guard<std::mutex> lock(m_);
+    const std::uint64_t now = usedLocked().second;
+    const std::uint64_t peak = std::max(peakDisk_, now);
+    peakDisk_ = now;
+    return peak;
   }
 
   // The set written to a file instead (a saved search keeps only files);
   // false when it cannot be. `written`, when set, counts its bytes as they
-  // go, by the share of its keys copied.
+  // go, by the share of its keys copied. One thread writes it while the
+  // search waits (a level leaving memory, a pause, a save), so its file is
+  // compressed fast, not well: of a long search little was ever in memory.
   bool toFile(SetPtr<Key>& set, std::atomic<std::uint64_t>* written = nullptr) {
     if (!set || !set->inMemory()) {
       return true;
@@ -3327,7 +3370,7 @@ class SetStore {
         static_cast<double>(bytes) / static_cast<double>(std::max<std::size_t>(set->size(), 1));
     std::uint64_t copied = 0;
     std::uint64_t told = 0;
-    SetPtr<Key> copy = make(bytes, true);
+    SetPtr<Key> copy = make(bytes, true, false);
     if (!copy) {
       return false;
     }
@@ -3409,9 +3452,12 @@ class SetStore {
   std::uint64_t budget_;
   std::uint64_t setCap_;
   const MemoryShare* share_;
+  levels::FileOptions files_;
+  levels::WriteGate gate_;
   std::mutex m_;
   std::mutex errorMutex_;
   std::vector<Entry> live_;
+  std::uint64_t peakDisk_ = 0;
 };
 
 // Sets merged into one sorted stream, written as parts: a merge of
@@ -3420,12 +3466,18 @@ class SetStore {
 // (the one-way arrangements found in the levels on disk). Each of the
 // threads merges a range of keys, cut where the inputs' block index says,
 // into a part of its own; the parts are sorted and disjoint, in order.
+// The inputs are let go as soon as they are merged (a run's file goes with
+// the last hold on it), so that a level's runs and the stages of its merge
+// are not all on the disk at once. `kept` when the parts are to stay (a
+// level of the search): their files are compressed well, not fast, by
+// every thread at once.
 template <class Key>
 struct Merge {
   std::vector<SetPtr<Key>> inputs;
   std::vector<SetPtr<Key>> subtract;
   SetPtr<Key> intersect;
   const std::vector<SetPtr<Key>>* filter = nullptr;
+  bool kept = false;
 
   std::vector<SetPtr<Key>> parts;
   std::optional<Key> met;
@@ -3456,6 +3508,10 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
         return false;
       }
       merged.insert(merged.end(), stage.parts.begin(), stage.parts.end());
+      // merged: the group's files go now, not with the whole stage
+      for (std::size_t j = i; j < end; j++) {
+        m.inputs[j].reset();
+      }
     }
     m.inputs = std::move(merged);
   }
@@ -3468,7 +3524,7 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
       return false;
     }
     total += s->size();
-    bytes += s->bytes();
+    bytes += s->rawBytes();
     blocks += s->blocks();
   }
   for (const SetPtr<Key>& s : m.subtract) {
@@ -3490,6 +3546,7 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
     }
   }
   if (total == 0) {
+    m.inputs.clear();
     return true;
   }
   const unsigned int parts = static_cast<unsigned int>(std::clamp<std::uint64_t>(
@@ -3569,7 +3626,7 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
       inter.start(*m.intersect, hasLo, lo);
     }
 
-    SetPtr<Key> set = store.make(estimate);
+    SetPtr<Key> set = store.make(estimate, false, m.kept);
     if (!set) {
       failed.store(true);
       return;
@@ -3684,11 +3741,14 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
     m.produced += produced[p];
     m.dropped += dropped[p];
   }
+  m.inputs.clear();
   return true;
 }
 
 // The parts of a merge joined into one set (the parts freed); an empty set
-// for none. Null when it cannot be made.
+// for none. Null when it cannot be made. A file's chunks are copied as
+// they are, compressed as the merge wrote them; parts in memory joined
+// into a file are written here, by this one thread, so compressed fast.
 template <class Key>
 SetPtr<Key> joinParts(std::vector<SetPtr<Key>>& parts, SetStore<Key>& store) {
   if (parts.size() == 1) {
@@ -3698,9 +3758,9 @@ SetPtr<Key> joinParts(std::vector<SetPtr<Key>>& parts, SetStore<Key>& store) {
   }
   std::uint64_t bytes = 0;
   for (const SetPtr<Key>& p : parts) {
-    bytes += p->bytes();
+    bytes += p->rawBytes();
   }
-  SetPtr<Key> joined = store.make(bytes);
+  SetPtr<Key> joined = store.make(bytes, false, false);
   if (!joined) {
     return nullptr;
   }
@@ -3783,7 +3843,7 @@ class RunBuilder {
     for (const std::vector<Key>& p : pieces_) {
       keys += p.size();
     }
-    SetPtr<Key> set = store_.make(keys * 4);
+    SetPtr<Key> set = store_.make(keys * 4, false, false);
     bool ok = set != nullptr;
     if (ok && pieces_.size() == 1) {
       ok = set->addAll(pieces_[0].begin(), pieces_[0].end());
@@ -4141,7 +4201,14 @@ class LevelSearch {
                    ? search.maxMemoryStates * kLevelStateKeys * sizeof(Key)
                    : memoryBudget(search.memoryBytes, search.highMemory),
                search.memoryLevelBytes,
-               search.maxMemoryStates != 0 ? nullptr : search.memoryShare) {}
+               search.maxMemoryStates != 0 ? nullptr : search.memoryShare,
+               // with nested slides keys are looked up in the levels one at
+               // a time: small chunks, so that one costs little
+               levels::FileOptions{std::clamp(search.compression, 0, kMaxCompression),
+                                   space.nested ? levels::kLookupChunkBytes : levels::kChunkBytes,
+                                   nullptr}) {
+    store_.failWritesAt(search.failWriteAt, search.failWriteOnce);
+  }
 
   // The search; chain gets the path's arrangements, start first, when the
   // goal is found. search_.outcome says how it ended.
@@ -4165,6 +4232,9 @@ class LevelSearch {
     search_.levelInterval = 1;
     search_.saved = false;
     search_.resumed = false;
+    search_.savedUnread = false;
+    search_.convertedFiles = 0;
+    search_.unconvertedFiles = 0;
     search_.outcome = SlideOutcome::NoPath;
     goal_ = s_.singleGoal();
     if (!s_.nested && search_.keepEvery > 1) {
@@ -4172,6 +4242,9 @@ class LevelSearch {
     }
 
     if (!start()) {
+      // not even its first file written: more room is what helps (not for
+      // a saved search that could not be read back)
+      search_.diskHeldToFree = search_.outcome == SlideOutcome::Disk && !search_.savedUnread;
       return;
     }
     const SlideOutcome end = loop(chain);
@@ -4183,16 +4256,27 @@ class LevelSearch {
     search_.levelInterval = interval_;
     search_.visited = visited_;
     search_.diskBytes = std::max(search_.diskBytes, store_.used().second);
+    search_.levelWorkRatio = workMeasured_ ? workRatio_ : 0;
     // A search that stopped short is saved for a search of the same start
-    // to carry on: when paused, and when it filled its disk budget or the
-    // disk (it stops with room left to save itself, so the user can raise
-    // the budget or free space and carry on); not after a write failed.
-    // An abort throws the search away: it is not written first.
+    // to carry on: when paused, when it filled its disk budget or the disk
+    // (it stops with room left to save itself, so the user can raise the
+    // budget or free space and carry on), and when a file could not be
+    // written. By then the files of the level it was making are gone, so
+    // there is room again for what a save writes: it is saved as it stands,
+    // at its last whole level. Failing that, the files its last save while
+    // it ran named are all still there (pinned_), and it is left as that
+    // save has it. An abort throws the search away: it is not written
+    // first.
     const bool stopped = end == SlideOutcome::Stopped;
+    const bool writeFailed = end == SlideOutcome::Disk && store_.failure == SlideOutcome::Disk;
     const bool save = (stopped && search_.stop.kind() != StopKind::Abort) ||
-                      (end == SlideOutcome::Disk && diskChosen_ &&
-                       store_.failure != SlideOutcome::Disk);
+                      (end == SlideOutcome::Disk && (diskChosen_ || !folder_.dir.empty()));
+    if (writeFailed) {
+      // more room on the disk is what helps, not a larger budget
+      search_.diskHeldToFree = true;
+    }
     folder_.keep = false;
+    bool asLastSaved = false;
     if (save && saveState(stopped ? search_.stopProgress : nullptr)) {
       search_.saved = true;
       folder_.keep = true;
@@ -4203,11 +4287,18 @@ class LevelSearch {
         }
       });
       pinned_.clear();
+    } else if (save && !pinned_.empty()) {
+      search_.saved = true;
+      asLastSaved = true;
+      folder_.keep = true;
+      for (SetPtr<Key>& set : pinned_) {
+        set->keepFile();
+      }
+      pinned_.clear();
     }
     const std::string where = folder_.dir.empty() ? std::string() : " in " + folder_.dir.string();
-    const std::string deep =
-        std::to_string(fwd_.depth) + (bidirectional_ ? " + " + std::to_string(bwd_.depth) : "") +
-        " moves deep, " + std::to_string(visited_.load()) + " arrangements visited";
+    const std::string deep = asLastSaved ? "as it was last saved while it ran, " + pinnedDeep_
+                                         : deepText();
     if (end == SlideOutcome::Disk) {
       tellLog(save && search_.saved ? LogLevel::Warning : LogLevel::Error,
               search_.error + (search_.saved ? " The search is saved" + where + ", " + deep + "."
@@ -4260,7 +4351,8 @@ class LevelSearch {
     if (search_.resume && folder_.exists()) {
       const unsigned int interval = interval_;
       const unsigned int fileNumber = store_.fileNumber;
-      if (resume()) {
+      const Resumed resumed = resume();
+      if (resumed == Resumed::Yes) {
         search_.resumed = true;
         tellLog(LogLevel::Info,
                 "Carried on the saved search in " + folder_.dir.string() + ": the start end " +
@@ -4269,14 +4361,8 @@ class LevelSearch {
                     ", " + std::to_string(visited_.load()) + " arrangements visited.");
         return true;
       }
-      tellLog(LogLevel::Error, "The saved search in " + folder_.place().string() +
-                                   " could not be carried on: " + resumeWhy_ +
-                                   ". It is deleted, and the search starts again from the "
-                                   "beginning.");
-      // Nothing of a save that could not be carried on stays: resume may
-      // have taken up part of it (an end's depth and levels, the visited
-      // sets) before it failed, and the new search would go on from those,
-      // deeper than it is, over sets whose files the wipe deletes.
+      // Nothing of what resume took up stays: an end's depth and levels,
+      // the visited sets (their files are kept: resume saw to that).
       fwd_ = Side{};
       bwd_ = Side{};
       bidirectional_ = false;
@@ -4284,6 +4370,24 @@ class LevelSearch {
       visited_ = 0;
       search_.oneWayRepeats = 0;
       store_.fileNumber = fileNumber;
+      if (resumed == Resumed::No) {
+        // A saved search is days of work, and what could not be read now
+        // may be read later (a drive that dropped out, a file this version
+        // does not know): it is never deleted for that. The search ends
+        // here, with why, and the saved search stays as it is.
+        folder_.keep = true;
+        search_.savedUnread = true;
+        search_.outcome = SlideOutcome::Disk;
+        search_.error = "The saved search in " + folder_.place().string() +
+                        " could not be carried on: " + resumeWhy_ + ". It is kept as it is.";
+        tellLog(LogLevel::Error, search_.error);
+        return false;
+      }
+      tellLog(LogLevel::Info, "The search folder " + folder_.place().string() + " (" +
+                                  folderText(folder_.place()) +
+                                  ") holds no saved search, only files of a search that was "
+                                  "never saved: they are deleted, and the search begins at the "
+                                  "start.");
       folder_.wipe();
     } else if (folder_.exists()) {
       tellLog(LogLevel::Info, "The search folder " + folder_.place().string() + " (" +
@@ -4302,16 +4406,33 @@ class LevelSearch {
     return true;
   }
 
-  // Takes up the saved search in the folder; false when it is not this
-  // search's or is damaged, with why in resumeWhy_ (for the log).
-  bool resume() {
-    auto fail = [this](std::string why) {
+  // What resume found in the folder.
+  enum class Resumed : std::uint8_t {
+    Yes,      // the saved search, taken up
+    Nothing,  // no saved search: files of a search that was never saved
+    No,       // a saved search that cannot be carried on; resumeWhy_ says why
+  };
+
+  // Takes up the saved search in the folder. One that cannot be carried on
+  // (not this search's, a file that could not be read or is not whole) is
+  // left as it was found, every file of it, with why in resumeWhy_.
+  Resumed resume() {
+    std::map<std::string, SetPtr<Key>> opened;
+    auto fail = [this, &opened](std::string why) {
       resumeWhy_ = std::move(why);
-      return false;
+      // the files stay: the sets must not delete them as they go
+      for (auto& [name, set] : opened) {
+        set->keepFile();
+      }
+      return Resumed::No;
     };
+    std::error_code stateEc;
+    if (!std::filesystem::exists(folder_.place() / "state.bin", stateEc) && !stateEc) {
+      return Resumed::Nothing;
+    }
     SavedSearch st;
     if (!readState(folder_.place(), st, true)) {
-      return fail("its state.bin is missing or damaged");
+      return fail("its state.bin could not be read or is damaged");
     }
     if (st.searchKey != searchKey_ || st.problemKey != problemKey_) {
       return fail("it is the saved search of another problem or start");
@@ -4326,8 +4447,7 @@ class LevelSearch {
     if (!folder_.open()) {
       return fail("its folder could not be opened");
     }
-    std::map<std::string, SetPtr<Key>> opened;
-    // why a set could not be opened: the file gone, or not a whole set
+    // why a set could not be opened: the file gone, not read, or not whole
     std::string setWhy;
     auto openSet = [&](const std::string& name, SetPtr<Key>& into) {
       if (name.empty()) {
@@ -4341,11 +4461,26 @@ class LevelSearch {
       }
       auto set = std::make_shared<Set>();
       if (!set->open(folder_.dir / name)) {
+        const levels::SetFault fault = set->fault();
+        const int error = set->faultError();
         set->keepFile();
         std::error_code ec;
-        const std::uintmax_t bytes = std::filesystem::file_size(folder_.dir / name, ec);
-        setWhy = ec ? name + " is missing"
-                    : name + " is not a whole level file (" + std::to_string(bytes) + " bytes)";
+        const bool there = std::filesystem::exists(folder_.dir / name, ec) && !ec;
+        const std::uintmax_t bytes = there ? std::filesystem::file_size(folder_.dir / name, ec) : 0;
+        const std::string size = " (" + std::to_string(ec ? 0 : bytes) + " bytes)";
+        if (!there) {
+          setWhy = name + " is missing";
+        } else if (fault == levels::SetFault::Newer) {
+          setWhy = name + " was written by a later version of the program, whose level files "
+                          "this one does not read";
+        } else if (fault == levels::SetFault::Unread) {
+          // the system's own words tell a drive that dropped out from a
+          // read it refused
+          setWhy = name + " could not be read" + size +
+                   (error != 0 ? ": " + std::generic_category().message(error) : "");
+        } else {
+          setWhy = name + " is not a whole level file" + size;
+        }
         return false;
       }
       store_.adopt(set);
@@ -4416,16 +4551,177 @@ class LevelSearch {
                   " of the stopped run that state.bin does not name:" + leftovers +
                   (removed > 8 ? " …" : "") + ".");
     }
+    if (!convertOlder(opened)) {
+      return fail(resumeWhy_);
+    }
     for (const Side* side : sides) {
       for (const SetPtr<Key>& set : side->visited) {
         (void)set->reload();
       }
     }
     if (!restoreVisited(fwd_) || !restoreVisited(bwd_)) {
-      return fail("its visited sets could not be read back");
+      // a level that waited to go into them is written there
+      return fail(store_.failure == SlideOutcome::Disk
+                      ? "its visited sets could not be written (the disk may be full)"
+                      : "its visited sets could not be read back");
     }
     // chosen once the saved sets are open, so that they count as its own
     setDiskBudget();
+    // what the state names stays whole until the first save of this run
+    // (a search that only saves when it stops lets its levels go as ever)
+    if (search_.autosave) {
+      pin();
+      // and the sets restoreVisited merged away, which the state names too
+      for (const auto& [name, set] : opened) {
+        if (std::ranges::find(pinned_, set) == pinned_.end()) {
+          pinned_.push_back(set);
+        }
+      }
+    }
+    return Resumed::Yes;
+  }
+
+  // The files of a search saved by an earlier version stand as they were
+  // written, not compressed. They are read so, but each is written again
+  // here as this version writes its files, under its own name, so that the
+  // state stays true at every moment and a carry-on cut short goes on with
+  // the files that are left: the smallest first, for the room each gives
+  // back, several at once. One that cannot be written again (a full disk)
+  // stays, read as it is. False only when a file written again could not be
+  // put in its place or opened (resumeWhy_ says which).
+  bool convertOlder(const std::map<std::string, SetPtr<Key>>& opened) {
+    std::vector<SetPtr<Key>> older;
+    std::uint64_t total = 0;
+    for (const auto& [name, set] : opened) {
+      if (set->older()) {
+        older.push_back(set);
+        total += set->bytes();
+      }
+    }
+    if (older.empty()) {
+      return true;
+    }
+    std::ranges::sort(older, [](const SetPtr<Key>& a, const SetPtr<Key>& b) {
+      return a->bytes() != b->bytes() ? a->bytes() < b->bytes() : a->path() < b->path();
+    });
+    const auto began = std::chrono::steady_clock::now();
+    tellLog(LogLevel::Info,
+            "The saved search in " + folder_.dir.string() +
+                " was written by an earlier version of the program, which did not compress "
+                "its files: " +
+                std::to_string(older.size()) + (older.size() == 1 ? " file" : " files") + ", " +
+                bytesText(total) +
+                ", are written again compressed before the search goes on. This is done "
+                "once.");
+    std::atomic<std::size_t> next{0};
+    std::atomic<std::uint64_t> read{0};
+    std::atomic<std::uint64_t> before{0};
+    std::atomic<std::uint64_t> after{0};
+    std::atomic<unsigned int> done{0};
+    std::atomic<unsigned int> left{0};
+    std::atomic<bool> full{false};
+    std::atomic<bool> broken{false};
+    std::mutex whyMutex;
+    std::string why;
+    pool_->run(threads_, [&](unsigned int th) {
+      auto told = std::chrono::steady_clock::now();
+      for (;;) {
+        const std::size_t i = next.fetch_add(1, std::memory_order_relaxed);
+        if (i >= older.size()) {
+          return;
+        }
+        const SetPtr<Key>& set = older[i];
+        if (full.load(std::memory_order_relaxed) || broken.load(std::memory_order_relaxed) ||
+            search_.stop.stopRequested()) {
+          left.fetch_add(1, std::memory_order_relaxed);
+          continue;
+        }
+        const std::filesystem::path path = set->path();
+        const std::uint64_t was = set->bytes();
+        std::filesystem::path fresh = path;
+        fresh += ".new";
+        std::uint64_t counted = 0;
+        Set made;
+        const bool written =
+            made.create(fresh, store_.fileOptions()) &&
+            made.appendOlder(*set,
+                             [&](std::uint64_t bytes) {
+                               counted += bytes;
+                               const std::uint64_t now =
+                                   read.fetch_add(bytes, std::memory_order_relaxed) + bytes;
+                               // one thread tells how far it is, now and then
+                               if (th == 0 && std::chrono::steady_clock::now() - told >
+                                                  std::chrono::seconds(30)) {
+                                 told = std::chrono::steady_clock::now();
+                                 tellLog(LogLevel::Info,
+                                         "Written again compressed: " + bytesText(now) + " of " +
+                                             bytesText(total) + " of the saved search's files.");
+                               }
+                               return !search_.stop.stopRequested() &&
+                                      !broken.load(std::memory_order_relaxed);
+                             }) &&
+            made.finish();
+        if (!written) {
+          // stopped, or the disk is full: the file stays as it was
+          made.remove();
+          read.fetch_sub(counted, std::memory_order_relaxed);
+          left.fetch_add(1, std::memory_order_relaxed);
+          if (!search_.stop.stopRequested()) {
+            full.store(true, std::memory_order_relaxed);
+          }
+          continue;
+        }
+        const std::uint64_t bytes = made.bytes();
+        // both files closed, then the new one under the old one's name
+        made.keepFile();
+        set->keepFile();
+        std::error_code ec;
+        std::filesystem::rename(fresh, path, ec);
+        const bool placed = !ec;
+        if (!placed) {
+          std::filesystem::remove(fresh, ec);
+        }
+        if (!set->open(path)) {
+          const std::lock_guard<std::mutex> lock(whyMutex);
+          why = path.filename().string() + " could not be opened after it was written again";
+          broken.store(true, std::memory_order_relaxed);
+          continue;
+        }
+        store_.refresh(set);
+        if (placed) {
+          before.fetch_add(was, std::memory_order_relaxed);
+          after.fetch_add(bytes, std::memory_order_relaxed);
+          done.fetch_add(1, std::memory_order_relaxed);
+        } else {
+          left.fetch_add(1, std::memory_order_relaxed);
+          full.store(true, std::memory_order_relaxed);
+        }
+      }
+    });
+    if (broken.load()) {
+      resumeWhy_ = why;
+      return false;
+    }
+    search_.convertedFiles = done.load();
+    search_.unconvertedFiles = left.load();
+    if (done.load() > 0) {
+      tellLog(LogLevel::Info,
+              "Written again compressed: " + std::to_string(done.load()) +
+                  (done.load() == 1 ? " file" : " files") + " of the saved search, " +
+                  bytesText(before.load()) + " before and " + bytesText(after.load()) +
+                  " now, in " + secondsText(std::chrono::steady_clock::now() - began) + ".");
+    }
+    if (left.load() > 0) {
+      tellLog(search_.stop.stopRequested() ? LogLevel::Info : LogLevel::Warning,
+              std::to_string(left.load()) + (left.load() == 1 ? " file" : " files") +
+                  " of the saved search " + (left.load() == 1 ? "stays" : "stay") +
+                  " as the earlier version wrote " + (left.load() == 1 ? "it" : "them") +
+                  (search_.stop.stopRequested()
+                       ? ": the search was stopped. The next carry-on goes on with them."
+                       : ": there was no room on the disk to write " +
+                             std::string(left.load() == 1 ? "it" : "them") +
+                             " again. The search reads them as they are."));
+    }
     return true;
   }
 
@@ -4557,15 +4853,21 @@ class LevelSearch {
     tellLog(LogLevel::Debug, "Saved the search's state in " + folder_.dir.string() + " (" +
                                  secondsText(std::chrono::steady_clock::now() - began) + ", " +
                                  folderText(folder_.dir) + "): " + savedText(st) + ".");
-    // The files the state names stay until the next save replaces them,
-    // whatever the search does with the sets meanwhile.
+    pin();
+    return true;
+  }
+
+  // The files state.bin names stay until the next save replaces them,
+  // whatever the search does with the sets meanwhile: a search that ends
+  // badly is left as that save has it (run).
+  void pin() {
     pinned_.clear();
     forEachLiveSet([&](SetPtr<Key>& set) {
       if (set) {
         pinned_.push_back(set);
       }
     });
-    return true;
+    pinnedDeep_ = deepText();
   }
 
   // The disk the levels may take, chosen when the folder is made, from the
@@ -4605,11 +4907,27 @@ class LevelSearch {
     }
   }
 
+  // How far the search is, for the log.
+  [[nodiscard]] std::string deepText() const {
+    return std::to_string(fwd_.depth) +
+           (bidirectional_ ? " + " + std::to_string(bwd_.depth) : "") + " moves deep, " +
+           std::to_string(visited_.load()) + " arrangements visited";
+  }
+
   // The outcome when a set could not be made.
   SlideOutcome failed() {
     search_.error = store_.error;
     const SlideOutcome why = store_.failure.load();
     return why == SlideOutcome::NoPath ? SlideOutcome::Memory : why;
+  }
+
+  // The outcome when the search could not save itself as it ran: a failed
+  // write, whatever kept the state from being written.
+  SlideOutcome saveFailed() {
+    if (store_.failure == SlideOutcome::NoPath) {
+      store_.ioFailed();
+    }
+    return failed();
   }
 
   // Expands `cur` on every thread, with the moves made backwards when
@@ -4765,6 +5083,8 @@ class LevelSearch {
     m.inputs = std::move(runs);
     m.subtract = {side.cur, side.prev};
     m.intersect = intersect;
+    // with loose stops the level is what dropCovered leaves of the parts
+    m.kept = !s_.loose;
     if (!runMerge(m, store_, *pool_, threads_)) {
       return StepEnd::Failed;
     }
@@ -4910,6 +5230,7 @@ class LevelSearch {
     Merge<Key> rest;
     rest.inputs = std::move(parts);
     rest.subtract = {gone};
+    rest.kept = true;
     if (!runMerge(rest, store_, *pool_, threads_)) {
       return false;
     }
@@ -4945,14 +5266,16 @@ class LevelSearch {
   bool insertVisited(const SetPtr<Key>& newest, std::vector<SetPtr<Key>>& sets) {
     sets.push_back(newest);
     while (sets.size() >= 2 && sets[sets.size() - 2]->size() <= 2 * sets.back()->size()) {
+      // the two stay in the list until their merge is whole: a search that
+      // fails here is saved with what it has (run)
       const SetPtr<Key> a = sets[sets.size() - 2];
       const SetPtr<Key> b = sets.back();
-      sets.resize(sets.size() - 2);
       if (!a->reload() || !b->reload()) {
         store_.ioFailed();
         return false;
       }
-      SetPtr<Key> m = store_.make(a->bytes() + b->bytes());
+      // one thread merges them while the others expand: compressed fast
+      SetPtr<Key> m = store_.make(a->rawBytes() + b->rawBytes(), false, false);
       if (!m) {
         return false;
       }
@@ -4980,6 +5303,7 @@ class LevelSearch {
         store_.ioFailed();
         return false;
       }
+      sets.resize(sets.size() - 2);
       sets.push_back(m);
     }
     // a level only kept for tracing the path needs no index till then
@@ -5016,6 +5340,44 @@ class LevelSearch {
       }
     }
     return bytes;
+  }
+
+  // Takes note of what the making of a level of `level` bytes on the disk
+  // took there at its most (`work`, the level itself among it): the
+  // greatest of the last few levels, for each byte of the level, is what
+  // the next is taken to need. A search from both ends alternates, and its
+  // ends differ; a level's runs are fewer the more of the level fits in
+  // memory: so not the last level alone.
+  void noteWork(std::uint64_t level, std::uint64_t work) {
+    if (level < search_.measureLevelBytes || level == 0) {
+      return;
+    }
+    workRatios_[workLevels_++ % workRatios_.size()] =
+        static_cast<double>(work) / static_cast<double>(level);
+    const std::size_t have = std::min<std::size_t>(workLevels_, workRatios_.size());
+    workRatio_ = *std::max_element(workRatios_.begin(),
+                                   workRatios_.begin() + static_cast<std::ptrdiff_t>(have));
+    workMeasured_ = true;
+  }
+
+  // The disk the level after `next` may take as it is made: nothing
+  // measured yet, kLevelWorkRatio times this level's bytes, as the search
+  // always took it to be; else the measured ratio with its margin, at
+  // least twice the level (the parts and their join), times the bytes the
+  // level to come is expected to have, growing as this one grew on the
+  // one before.
+  std::uint64_t nextLevelNeed(const Side& side, const Set& next) const {
+    const auto level = static_cast<double>(next.bytes());
+    if (!workMeasured_) {
+      return static_cast<std::uint64_t>(kLevelWorkRatio * level);
+    }
+    double growth = 1;
+    if (side.prev && side.prev->size() != 0) {
+      growth = std::clamp(
+          static_cast<double>(next.size()) / static_cast<double>(side.prev->size()), 1.0, 4.0);
+    }
+    return static_cast<std::uint64_t>(std::max(2.0, workRatio_ * kLevelWorkMargin) * growth *
+                                      level);
   }
 
   // In-memory sets no longer worked on are written to files while the
@@ -5100,6 +5462,9 @@ class LevelSearch {
       // a level cut short is expanded again when the search is carried on
       const std::uint64_t visitedBefore = visited_.load();
       const auto levelBegan = std::chrono::steady_clock::now();
+      // what the files take before the level, and at their most from here
+      (void)store_.takePeakDisk();
+      const std::uint64_t diskBefore = store_.used().second;
       const StepEnd end = step(side, bidirectional_ ? other.cur : nullptr, !bidirectional_, true,
                                extra, next, met, oneWayReached, oneWayNew);
       if (end == StepEnd::Failed) {
@@ -5111,7 +5476,12 @@ class LevelSearch {
         return SlideOutcome::Stopped;
       }
       if (end == StepEnd::Hit) {
-        return goalFound(chain) ? SlideOutcome::Found : failed();
+        if (goalFound(chain)) {
+          return SlideOutcome::Found;
+        }
+        // the path could not be read back: the level was not searched whole
+        uncount(visitedBefore);
+        return failed();
       }
       search_.oneWayRepeats += oneWayReached - oneWayNew;
       // prev <- cur <- next; the old prev leaves the newest two
@@ -5137,25 +5507,54 @@ class LevelSearch {
         return meetingFound(*met, chain) ? SlideOutcome::Found : failed();
       }
 
-      // The disk: when the levels kept for tracing back leave too little
-      // for the next level's runs, every other one goes (not with nested
-      // slides, which need them all); then what the search takes in all
-      // must fit the budget.
+      // The disk. Making a level takes far more than the level: its runs,
+      // with everything the moves reach many times over, and the stages of
+      // their merge. What this level took at its most, besides what the
+      // search held before it, for each byte it came to, says what the
+      // next will take (noteWork): that much must be free, in the budget
+      // and on the disk, before the next is begun. When it is not, or the
+      // levels kept for tracing back take half the budget, every other one
+      // of those goes (not with nested slides, which need them all); then
+      // what the search takes in all must fit the budget.
       std::pair<std::uint64_t, std::uint64_t> used = store_.used();
-      search_.diskBytes = std::max(search_.diskBytes, used.second);
+      const std::uint64_t peak = store_.takePeakDisk();
+      search_.diskBytes = std::max(search_.diskBytes, peak);
       if (!folder_.dir.empty()) {
         setDiskBudget();
       }
+      const std::uint64_t work = peak > diskBefore ? peak - diskBefore : 0;
+      if (!next->inMemory()) {
+        noteWork(next->bytes(), work);
+      }
+      const std::uint64_t need = nextLevelNeed(side, *next);
       unsigned int thinned = 0;
       if (diskChosen_ && !s_.nested) {
         const std::uint64_t level = next->bytes();
-        while (interval_ < (1U << 30) && storedDiskBytes() + 5 * level > disk_.bytes &&
-               storedDiskBytes() > level) {
+        const std::uint64_t storedBefore = storedDiskBytes();
+        const std::optional<std::uint64_t> freeBefore = availableDiskBytes(folder_.dir);
+        const auto tight = [&]() {
+          const std::uint64_t stored = storedDiskBytes();
+          if (stored > disk_.bytes / 2 || stored + need > disk_.bytes) {
+            return true;
+          }
+          // the disk itself, with what the thinning so far gives back
+          return freeBefore && *freeBefore + (storedBefore - stored) <
+                                   search_.diskReserve + used.first + need;
+        };
+        while (interval_ < (1U << 30) && storedDiskBytes() > level && tight()) {
           thin();
-          releaseFreeMemory();
           thinned++;
         }
-        used = store_.used();
+        if (thinned > 0) {
+          releaseFreeMemory();
+          // The levels thinned out are files the last save names, which
+          // stay until the next (pin): saved again now, so that the room
+          // they take is there for the level to come.
+          if (!pinned_.empty() && !saveState()) {
+            return saveFailed();
+          }
+          used = store_.used();
+        }
       }
       const std::optional<std::uint64_t> freeNow =
           folder_.dir.empty() ? std::nullopt : availableDiskBytes(folder_.dir);
@@ -5178,11 +5577,20 @@ class LevelSearch {
             static_cast<unsigned long long>(visited_.load()),
             static_cast<unsigned long long>(oneWayReached),
             static_cast<unsigned long long>(oneWayNew), kept, interval_, visitedSets);
+        char ratio[64];
+        std::snprintf(ratio, sizeof(ratio), "%.1f", workRatio_);
         tellLog(LogLevel::Debug,
                 std::string(line) + "disk " + bytesText(used.second) +
                     (diskChosen_ ? " of " + bytesText(disk_.bytes) : std::string()) + ", free " +
                     (freeNow ? bytesText(*freeNow) : std::string("unknown")) + ", memory " +
-                    bytesText(used.first) + "; the level took " +
+                    bytesText(used.first) + "; the level is " + bytesText(next->bytes()) +
+                    (next->inMemory() ? " in memory" : " on the disk") + ", and making it took " +
+                    bytesText(work) + " of the disk at its most; the next may take " +
+                    bytesText(need) + " (" +
+                    (workMeasured_ ? std::string(ratio) + " times a level's bytes at the most of "
+                                                          "the last levels, and a margin"
+                                   : "nothing measured yet") +
+                    "); the level took " +
                     secondsText(std::chrono::steady_clock::now() - levelBegan) + ".");
       }
       if (thinned > 0) {
@@ -5210,17 +5618,17 @@ class LevelSearch {
       }
       // The disk itself: other programs take from it too, so the search
       // stops while there is still room to save itself (its sets in memory
-      // written out) and to finish the next level's writes.
+      // written out) and to make the next level.
       if (diskChosen_) {
         const std::optional<std::uint64_t> free = availableDiskBytes(folder_.dir);
-        const std::uint64_t need = search_.diskReserve + used.first + 5 * next->bytes();
-        if (free && *free < need) {
+        const std::uint64_t want = search_.diskReserve + used.first + need;
+        if (free && *free < want) {
           tellLog(LogLevel::Debug,
-                  "The disk has " + bytesText(*free) + " free, less than the " + bytesText(need) +
-                      " the search needs to save itself and write the next level (a reserve of " +
+                  "The disk has " + bytesText(*free) + " free, less than the " + bytesText(want) +
+                      " the search needs to save itself and make the next level (a reserve of " +
                       bytesText(search_.diskReserve) + ", " + bytesText(used.first) +
-                      " in memory, and five times the newest level's " + bytesText(next->bytes()) +
-                      ").");
+                      " in memory, and " + bytesText(need) + " for the level to come, whose "
+                      "runs and merges take several times what the level comes to).");
           char gb[32];
           std::snprintf(gb, sizeof(gb), "%.1f GB", static_cast<double>(*free) / 1e9);
           search_.diskHeldToFree = true;
@@ -5255,12 +5663,13 @@ class LevelSearch {
         std::snprintf(
             line, sizeof(line),
             "%s level %u: %zu arrangements, one-way %llu, %llu new, %zu sets, interval %u, "
-            "disk %.1f MB, memory %.1f MB, %.1f s",
+            "disk %.1f MB, memory %.1f MB, %.1f s, made in %.1f MB",
             &side == &fwd_ ? "start" : "goal", side.depth, next->size(),
             static_cast<unsigned long long>(oneWayReached),
             static_cast<unsigned long long>(oneWayNew), side.visited.size(), interval_,
             static_cast<double>(used.second) / 1e6, static_cast<double>(used.first) / 1e6,
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count());
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count(),
+            static_cast<double>(work) / 1e6);
         search_.onLevel(line);
       }
       releaseFreeMemory();
@@ -5277,7 +5686,7 @@ class LevelSearch {
       if (search_.autosave && folder_.hasBase() && saves.due()) {
         const auto saveBegan = SaveCadence::Clock::now();
         if (!saveState()) {
-          return failed();
+          return saveFailed();
         }
         saves.saved(saveBegan);
       }
@@ -5567,8 +5976,16 @@ class LevelSearch {
   bool bidirectional_ = false;
   unsigned int interval_ = 1;
   std::atomic<std::uint64_t> visited_{0};
-  // The sets the last save named (see saveState).
+  // The sets the last save named (see pin), and how far the search was.
   std::vector<SetPtr<Key>> pinned_;
+  std::string pinnedDeep_;
+  // The most disk the making of a level took, besides what the search held
+  // before it, for each byte the level came to: the greatest of the last
+  // few levels that went to the disk (kLevelWorkRatio until one has).
+  double workRatio_ = kLevelWorkRatio;
+  std::array<double, 4> workRatios_{};
+  unsigned int workLevels_ = 0;
+  bool workMeasured_ = false;
   // Why the saved search could not be carried on (resume), for the log.
   std::string resumeWhy_;
   DiskBudget disk_;
@@ -5919,34 +6336,6 @@ void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::strin
   }
 }
 
-unsigned int sweepSaved(const std::string& workDir, unsigned int days) {
-  if (workDir.empty()) {
-    return 0;
-  }
-  unsigned int removed = 0;
-  std::error_code ec;
-  const auto now = std::filesystem::file_time_type::clock::now();
-  const auto age = std::chrono::hours(24) * days;
-  for (const auto& e : std::filesystem::directory_iterator(workDir, ec)) {
-    if (!e.is_directory(ec) || !e.path().filename().string().starts_with("slide-")) {
-      continue;
-    }
-    // the newest file in it says when the search last did anything
-    std::filesystem::file_time_type newest{};
-    for (const auto& f : std::filesystem::directory_iterator(e.path(), ec)) {
-      const auto t = f.last_write_time(ec);
-      if (!ec && t > newest) {
-        newest = t;
-      }
-    }
-    if (now - newest > age) {
-      std::filesystem::remove_all(e.path(), ec);
-      removed++;
-    }
-  }
-  return removed;
-}
-
 namespace {
 
 // The pieces of a path in problem order, each its part's shape turned as
@@ -6001,6 +6390,9 @@ SlideSearch slideSearchFor(const SlidingOptions& options) {
   s.packing = options.packing;
   s.minKeyBits = options.minKeyBits;
   s.oneEnd = options.oneEnd;
+  s.compression = options.compression;
+  s.failWriteAt = options.failWriteAt;
+  s.failWriteOnce = options.failWriteOnce;
   s.verticalMoves = options.verticalMoves;
   s.grid = options.grid > 1 ? options.grid : 0;
   return s;

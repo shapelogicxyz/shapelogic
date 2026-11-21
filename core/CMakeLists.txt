@@ -14,6 +14,7 @@ add_library(btcore STATIC
   shapelogic/app/shape_tools.cpp
   shapelogic/base/assert.cpp
   shapelogic/base/base64.cpp
+  shapelogic/base/compress.cpp
   shapelogic/base/error.cpp
   shapelogic/base/file_lock.cpp
   shapelogic/base/solve_state.cpp
@@ -107,7 +108,7 @@ add_library(btcore STATIC
 target_include_directories(btcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(btcore PUBLIC BT_VERSION_STRING="${PROJECT_VERSION}")
 target_compile_features(btcore PUBLIC cxx_std_23)
-target_link_libraries(btcore PRIVATE ZLIB::ZLIB manifold::manifold)
+target_link_libraries(btcore PRIVATE ZLIB::ZLIB manifold::manifold libzstd_static)
 if(APPLE)
   # the free disk as Finder counts it (base/system.cpp)
   target_link_libraries(btcore PRIVATE "-framework CoreFoundation")

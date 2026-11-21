@@ -4,10 +4,11 @@
 // the app's start, a file opened and one that could not be (the engine's
 // lines, its `log` setting) are in the log, newest on top; the errors and
 // warnings filter and the search box filter it as they change; a hundred
-// lines at a time with Load more messages…; Export… writes all of it as
-// plain text to the file the save dialog gives; Clear All Log Data…
-// deletes it after asking. The log is in the test's data directory
-// (BT_USER_DATA).
+// lines at a time with Load more messages…; Export… offers the last 100
+// lines (a longer log) and all of it, with their sizes, and writes the one
+// picked as plain text to the file the save dialog gives; Clear All Log
+// Data… deletes it after asking; the line at the bottom left links GitHub
+// Issues. The log is in the test's data directory (BT_USER_DATA).
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -132,10 +133,26 @@ test('the log tells what was opened and what could not be, newest first, filtere
   await search.fill('');
   await expect(dlg.locator(ROWS)).toHaveCount(lines.length);
 
-  // Export: all of it, as plain text, to the file the save dialog gives
+  // where to report a problem, at the bottom left
+  await expect(dlg.locator('.dlg-foot')).toHaveText(
+    'Copy or export relevant log lines to open an issue in GitHub Issues or as an email to shapelogic.xyz@gmail.com',
+  );
+  await expect(dlg.locator('.dlg-foot a')).toHaveText('GitHub Issues');
+
+  // Export: a short log offers all of it alone, with its size; Esc closes
+  // the choices, not the dialog
   const out = join(dir, 'exported');
   await answerDialogs(page, { save: out });
   await dlg.locator('[data-x="export"]').click();
+  const choices = dlg.locator('.lf-pop [role="menuitem"]');
+  await expect(choices).toHaveCount(1);
+  await expect(choices.first()).toHaveText(/^All \d+ lines \(.+\)$/);
+  await page.keyboard.press('Escape');
+  await expect(dlg.locator('.lf-pop')).toHaveCount(0);
+  await expect(dlg).toBeVisible();
+  // picked: all of it, as plain text, to the file the save dialog gives
+  await dlg.locator('[data-x="export"]').click();
+  await choices.first().click();
   await expect(page.locator('#stText')).toContainText('Log exported');
   const text = readFileSync(`${out}.txt`, 'utf8');
   expect(text).toContain('damaged.xmpuzzle');
@@ -195,4 +212,24 @@ test('a long log comes a hundred lines at a time', async () => {
   const all = await dlg.locator(ROWS).allTextContents();
   expect(all.at(-1)).toContain('earlier line 0');
   expect(all.length).toBeGreaterThan(250);
+
+  // Export… offers the last 100 lines and all of them; the last 100 written
+  const dir = mkdtempSync(join(tmpdir(), 'bt-e2e-logexport-'));
+  try {
+    const out = join(dir, 'last.txt');
+    await answerDialogs(page, { save: out });
+    await dlg.locator('[data-x="export"]').click();
+    const choices = dlg.locator('.lf-pop [role="menuitem"]');
+    await expect(choices).toHaveText([
+      /^Last 100 lines \(\d.* KB\)$/,
+      new RegExp(`^All ${String(all.length)} lines \\(\\d.* KB\\)$`),
+    ]);
+    await choices.first().click();
+    await expect(page.locator('#stText')).toContainText('Log exported');
+    const text = readFileSync(out, 'utf8');
+    expect(text.split('\n').filter((l) => l !== '')).toHaveLength(100);
+    expect(text).not.toContain('earlier line 0\n');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

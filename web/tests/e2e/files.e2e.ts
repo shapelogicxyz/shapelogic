@@ -412,6 +412,14 @@ test('a rescue copy left by a session that died is offered at the start', async 
     await expect(ask).toBeVisible();
     await expect(ask).toContainText('did not close properly');
     await expect(ask).toContainText('CubeInCage.xmpuzzle');
+    // View Logs: the Log File Manager over the question, which stays to be answered
+    await expect(ask).toContainText('The log files can help to understand the problem further');
+    await ask.locator('[data-x="viewLogs"]').click();
+    const logs = page.locator('#logFiles');
+    await expect(logs).toBeVisible();
+    await logs.locator('[data-x="close"]').click();
+    await expect(logs).toHaveCount(0);
+    await expect(ask).toBeVisible();
     await ask.locator('[data-x="open"]').click();
     await expect(page.locator('#fname')).toHaveText('CubeInCage.xmpuzzle●');
     const snap = await docOf(page);

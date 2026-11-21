@@ -259,10 +259,13 @@ void warmShapeCaches(const Puzzle& puzzle, const Problem& problem);
 /// on from the position the problem holds (problem_c::setAssembler).
 ///
 /// A position that cannot be restored (another version, damaged, a parallel
-/// search of older versions that was interrupted) drops everything solving
-/// had found, the position included: the problem is unsolved again and the
-/// next solve starts from scratch. Keeping the partial results would report
-/// them a second time. The error is returned so it can be shown once.
+/// search of older versions that was interrupted) is an error, and the
+/// problem keeps what it held: the position and everything solving had
+/// found (decision 0041; the original dropped both and started from scratch
+/// the next time). The search can only be redone from the start, which is
+/// for the user to choose: a solve begun anew removes the partial results
+/// first (Problem::removeAllSolutions), so none is reported a second time,
+/// and a solve carried on gets the same error again.
 AssemblerError beginSolving(Problem& problem, Assembler& assembler);
 
 /// Writes the assembler's position into the problem, so that saving the
