@@ -4,6 +4,18 @@ The changes in each ShapeLogic release, newest first. The installers for every
 release are on the [GitHub releases page](https://github.com/shapelogicxyz/shapelogic/releases),
 and [Install](https://shapelogic.xyz/docs/install/) says which file to download.
 
+## [ShapeLogic v2.0](https://github.com/shapelogicxyz/shapelogic/releases/tag/v2.0) (21 November 2026)
+
+### What's new
+
+- **Play: sliding and stacking puzzles by hand.** A new **Play** tab (`Ctrl+4`, `⌘4` on a Mac) appears beside Solver while a sliding or a stacking puzzle is open. Drag a sliding puzzle's pieces through the tray, or move a stacking puzzle's top discs from rod to rod by dragging or clicking, Panex boards included. Moves are counted the way the Solver counts them, so your total compares with the fewest it finds, and the board says **Solved!** when you reach the goal. Undo, Redo and Reset, a playback bar, moves exported to and imported from a `.slmoves` file, and the position saved as the problem's Start or Goal. **Show Goal Image** (the Goal picture on a stacking puzzle) opens the goal in a window of its own, to move and size as you like. Sliding pieces are drawn in 3D with rounded corners, or flat with **Simple Pieces**, and the goal's shadows and lines, the grid and the labels can each be hidden.
+- **Pictures on sliding pieces and trays.** Put a picture on a sliding piece or on the tray, as on a printed tile puzzle: the image button beside the pencil in the Shapes tab's color area takes a PNG, JPEG, WebP or GIF file, cropped or stretched to the shape, with a preview. A piece's picture turns, flips and moves with it; a tray's lies on its floor, under the pieces. Pictures show in the grids, the 3D views and the Play tab, and are saved in the puzzle file.
+- **A much more stable solver for huge searches.** Sliding searches that run into the disk are written compressed, so they take far less space, and a saved search with files of 2 GB or more now reads back (macOS refused to read such a file in one go, and the search was lost). A saved search is never deleted any more: when it can't be carried on, the solve pauses and says why, **Continue** tries again and **Solve** starts over. A search whose disk write fails is kept and reported as cut short, instead of "no solution". A paused solve carries on with the options it was started with, and while a continued search takes up its saved files the Solver says so, with the time; the **Performance Analysis** shows the move under way and the time it has left. Searches saved by v1.6 to v1.9 carry on, and are rewritten compressed as they go.
+- **Know what is on the disk.** At start, a notice lists what the cache folder holds (paused and unfinished searches, leftover files) with **Manage Files**, **Delete All** and **Ignore**. A paused sliding solve whose saved search was deleted offers **Solve** in place of **Continue**, and saved searches are no longer deleted after a month untouched.
+- **Log export.** **Export…** in the Log File Manager offers the last 100 lines or the whole log, and warnings and errors have a **View Logs** button.
+
+Many small bug fixes and improvements.
+
 ## [ShapeLogic v1.9](https://github.com/shapelogicxyz/shapelogic/releases/tag/v1.9) (17 November 2026)
 
 ### What's new

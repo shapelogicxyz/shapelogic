@@ -62,7 +62,7 @@ shape's color:
 
 The voxel editor draws the selected shape one layer at a time.
 
-![The voxel editor: tools at the top, then mirror and span, the planes, the layer strip and grid, the grid size and the drawing color.](../../../assets/screens/guide/voxel-editor.png)
+![The voxel editor: tools at the top, then the Span buttons, Mirror & Plane and the layer shown, the layer strip and grid, the grid size and the drawing color.](../../../assets/screens/guide/voxel-editor.png)
 
 The label beside the title (**Type: Brick** here) names the puzzle type, as
 **File ▸ New** lists it. The type is chosen once, when the puzzle is made, and
@@ -71,6 +71,11 @@ at the top right are **Focus 2D editor**, which enlarges the editor (`Esc`
 goes back), and **Collapse sidebar** (`Ctrl+]`). In the focus, the tools,
 mirror and span, the planes, the grid size and the color all move into a
 strip above the grid, and the grid takes all the room that is left.
+
+The grid shrinks to fit the editor instead of being cut off. When a shape is
+more than 18 cells wide or tall, a prompt under **Focus 2D editor** suggests
+the larger editor: **Go** opens it, **No** closes the prompt, which comes
+back only when you open a puzzle again.
 
 ### Tools
 
@@ -129,11 +134,12 @@ Mirror and span work together, and with the box selection below.
   plane a puzzle starts in is the **Grid plane** setting
   ([Settings ▸ Grid editor](#grid-editor-settings)).
 - **Select** in the tool strip turns on **box selection**. Drag a rectangle
-  in the grid, then click **Fill** to fill it with the chosen tool: fixed or
-  variable voxels in the drawing color, or, with Erase chosen, nothing (the
-  same as **Clear**). **Clear** always empties it. You can change the tool
-  while the box stays selected. Mirror and span apply. `Esc` cancels the
-  selection, and **Paint** (the same button) goes back to drawing.
+  in the grid; a strip under the grid then offers **Fill**, which fills it
+  with fixed or variable voxels (the chosen tool) in the drawing color, and
+  **Clear**, which empties it. With Erase chosen there is only **Clear**.
+  You can change the tool while the box stays selected. Mirror and span
+  apply. `Esc` or the **×** at the end of the strip cancels the selection,
+  and **Paint** (the same button) goes back to drawing.
 - **Layer 1 of 7** tells you which layer the grid shows.
 
 ![The layer strip: one button per layer, with a dot on layers that hold voxels.](../../../assets/screens/guide/editor-layers.png)

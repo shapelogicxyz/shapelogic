@@ -111,7 +111,8 @@ hand, even if the problem allows vertical moves.
 The board shows the rods from the front. Each disc is a bar as wide as its
 size, with its name on it or, when it has none, its size. A name too long
 for its disc is cut to the first letter of each word ("Right 1" shows as
-"R 1"), and left off when even that doesn't fit. The **Goal**
+"R 1"), then run together ("R1"), in smaller letters when even that is too
+wide. The **Goal**
 picture beside the board shows where the discs must end; click it to open
 the Goal larger in a window of its own, with **GOAL** above it, which you
 can drag anywhere and size as you like (the small icon at its top right
