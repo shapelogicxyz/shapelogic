@@ -84,6 +84,7 @@ import {
 import type { BoxName, Family, Limits, SearchOptions } from './settings.ts';
 import { SolutionsCard } from './solutions-card.ts';
 import { StatsPanel } from './stats-panel.ts';
+import { ic } from '../shell/icons.ts';
 
 export type ProblemKind = Methods['problem.kind']['result'];
 
@@ -241,6 +242,12 @@ export class SolverWorkspace {
     });
     window.addEventListener('focus', () => {
       this.readSavedState();
+    });
+    for (const c of document.querySelectorAll('.slv-fold .chev')) {
+      c.innerHTML = ic('chevD', 14);
+    }
+    byId('slvAdvHead').addEventListener('click', () => {
+      byId('slvAdvSec').classList.toggle('closed');
     });
     byId('slvStats').addEventListener('click', () => {
       this.stats.open();

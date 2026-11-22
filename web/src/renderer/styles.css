@@ -613,7 +613,7 @@ kbd{font:calc(11px + var(--fs))/1 ui-monospace,Menlo,Consolas,monospace;border:1
 .slv-player .lbl{min-width:96px;text-align:right;font-variant-numeric:tabular-nums;font-size:calc(12.5px + var(--fs));font-weight:600}
 .slv-player .msg{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:calc(12.5px + var(--fs));min-height:46px}.slv-player .msg span{flex:1}
 .slv-player select{height:calc(28px + var(--fh));border:1px solid var(--line2);border-radius:7px;background:var(--panel);color:var(--text);font:inherit;font-size:calc(12px + var(--fs))}
-.slv-player .ttl{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.slv-player .ttl{font-size:calc(11px + var(--fs));font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--text);margin-bottom:8px}
 .lhead{display:grid;grid-template-columns:44px 1fr 96px 40px 30px;gap:4px;padding:6px 10px 6px 12px;border-bottom:1px solid var(--line);flex:none;font-size:calc(11px + var(--fs));font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;align-items:center}
 .lhead button{border:0;background:transparent;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;text-align:left;padding:2px 0;border-radius:5px}
 .lhead button:hover:not(:disabled){color:var(--text)}.lhead button.on{color:var(--accent)}.lhead button:disabled{opacity:.4;cursor:default}
@@ -1429,3 +1429,12 @@ html[data-density=compact] .pseg .gbtn.mpx{width:auto;padding:2px 8px}
 html[data-density=minimal] .mrow .mpbtn{height:32px;padding:1px 6px}
 html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
 #stage.f2d:not(.stk) .edctl .gbtn.mpx{padding:2px 8px}
+
+/* Solver: collapsing Step-by-step explorer and the Debug statistics row */
+.slv-fold .slv-lab.click{width:100%;border:0;background:transparent;padding:0;font-family:inherit;color:var(--text);text-align:left;text-transform:none;letter-spacing:0;font-size:calc(13px + var(--fs));margin-bottom:0;height:calc(28px + var(--fh))}
+.slv-fold .slv-lab.click:hover{background:var(--panel2)}
+.slv-fold .chev{transition:transform .15s;color:var(--text);display:grid}
+.slv-fold.closed .slv-advbody{display:none}
+.slv-fold.closed #slvAdvHead .chev{transform:rotate(-90deg)}
+.slv-fold .slv-dbgrow .chev{transform:rotate(-90deg)}
+.slv-fold .slv-advbody{padding:4px 0 8px}

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Puzzle Solving: Breadth First and Graphs</title>
-<meta name="description" content="Why the moves of a puzzle make a graph and not a tree, what ShapeLogic's take-apart search keeps of each position, what it does with the moves that lead to positions it has already found, and what that saves on Pelikan Burr, a burr that needs 98 moves to open.">
+<title>Puzzle Solving: Disassembly using Breadth First and Graphs</title>
+<meta name="description" content="How ShapeLogic takes apart an assembly it has already found: why the moves of a puzzle make a graph and not a tree, what ShapeLogic's take-apart search keeps of each position, what it does with the moves that lead to positions it has already found, and what that saves on Pelikan Burr, a burr that needs 98 moves to open.">
 <style>
 
 
@@ -110,19 +110,25 @@ path.mv.k-side { stroke: var(--series-3); } path.mv.k-back { stroke: var(--serie
 .cf { stroke: var(--ink-2); stroke-width: 1.4; }
 .front { fill: var(--surface-1); stroke: var(--rule); }
 table.puz td:nth-child(2), table.puz th:nth-child(2) { text-align: left; }
+figure picture img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--rule); }
 details { margin: 6px 0 18px; } details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
 details .tw table { min-width: 620px; }
 </style></head><body>
 <header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
 <main>
 <nav class="crumb"><a href="/">ShapeLogic</a> › <a href="/research/">Research</a></nav>
-<h1>Breadth first and graphs: how the take-apart search handles positions it has already found</h1>
-<p class="sub">Why the moves of a puzzle make a graph and not a tree, what the search keeps of each position, what it does with the moves that lead back to positions it knows, and what that saves on a burr that needs 98 moves to open</p>
+<h1>Disassembly using breadth first and graphs: how the take-apart search handles positions it has already found</h1>
+<p class="sub">How a known assembly is taken apart: why its moves make a graph and not a tree, what the search keeps of each position, what it does with the moves that lead back to positions it knows, and what that saves on a burr that needs 98 moves to open</p>
 <p class="meta">21 November 2026 · Sources: <span class="mono">core/shapelogic/solve/disassembler.cpp</span>, <span class="mono">node_hash.cpp</span>, <span class="mono">disassembler_node.h</span> and <span class="mono">movement_analysator.cpp</span>; counts from a copy of the search with counters added, run on puzzles from ShapeLogic's test files (ShapeLogic 2.0, MacBook Air M4, 32 GB)</p>
+
+<div class="box"><h3>Where this page fits</h3>
+<p>The Solver works on a puzzle in two stages. First it finds the <b>assemblies</b>: every way the pieces can fill the shape, with no thought yet of whether they can be put there. That is an exact cover search, done with dancing links, and is described in <a href="/research/assemblies-dancing-links.html">Puzzle Solving: Assemblies using Dancing Links and Dancing Cells</a>. Then it takes each assembly apart, starting from the pieces in their finished places, to see whether the puzzle can really be put together and taken apart, and in how few moves.</p>
+<p>Everything on this page belongs to the second stage, the <b>disassembly</b>. Each search here starts from one assembly that is already known and only moves its pieces. Which assemblies exist is settled before it begins.</p>
+</div>
 
 <div class="box"><h3>Summary</h3>
 <ul>
-<li><b>The positions of a puzzle form a graph, not a tree.</b> Many different move sequences lead to the same position. In Pelikan Burr at least 5.7&nbsp;&times;&nbsp;10<sup>14</sup> different 98-move sequences reach the position where the puzzle first comes apart, and there are only 6,742 positions on the way.</li>
+<li><b>The positions of an assembly being taken apart form a graph, not a tree.</b> Many different move sequences lead to the same position. In Pelikan Burr at least 5.7&nbsp;&times;&nbsp;10<sup>14</sup> different 98-move sequences reach the position where the puzzle first comes apart, and there are only 6,742 positions on the way.</li>
 <li><b>The take-apart search keeps each position once, with one link back</b> to the position it was first reached from. Together the links make a tree inside the graph, and every way back along them is a shortest one.</li>
 <li><b>A move that leads to a position the search already has is dropped on the spot.</b> Nothing about it is recorded. In Pelikan Burr 92% of the 81,007 moves the search found were of this kind.</li>
 <li><b>Three levels are enough to recognise a known position:</b> the one being worked on, the one before and the one after. Every move the search follows can be made backwards, so nothing older can come round again.</li>
@@ -257,13 +263,15 @@ details .tw table { min-width: 620px; }
 </svg><figcaption>Figure 2. The three fronts while the search works on position P. Grey lines are the links back, one for each position. Of P's four moves, only the one to a new position adds anything. The others are recognised and dropped.</figcaption></figure>
 <p><b>Why three levels are enough.</b> A search like this usually keeps a list of everything it has ever seen, so that it never goes round in circles. This one needs only the three fronts, because every move it follows can be made backwards: a slide can slide back and a turn can turn back. Removing a piece is the one move that cannot be undone, and it ends the search, so it is never followed. Suppose a move from P, in level <i>d</i>, led to a position Q that was first found in some level <i>k</i> two or more levels earlier. Undoing the move would take Q to P in one move, which would put P in level <i>k</i>&nbsp;+&nbsp;1 at the latest, not in level <i>d</i>. So Q can only be in level <i>d</i>&nbsp;&minus;&nbsp;1, <i>d</i> or <i>d</i>&nbsp;+&nbsp;1, and the three fronts hold exactly those.</p>
 <p>When the current front is through, the old front is let go, the current front becomes the old one, the new front becomes the current one, and an empty set becomes the new front.</p>
+<p>Figure 3 runs the whole search on a small graph of positions. It shows every move tested against the three fronts, the one link each new position gets, the fronts moving on after each level, a dead end being freed together with the branch behind it (section 6), and at the end the moves read back along the links.</p>
+<figure><picture><source srcset="repeated-positions/fronts-dark.gif" media="(prefers-color-scheme: dark)"><img src="repeated-positions/fronts-light.gif" width="820" height="520" loading="lazy" alt="Animation: the take-apart search on a small graph of positions, with its three fronts, the moves sorted into back, sideways, found already and new, the links back, a dead end freed, and the path read back from the separated position"></picture><figcaption>Figure 3. The take-apart search on a small graph of positions, move by move (about 90 seconds, then it starts again). S is the assembled puzzle and in X the puzzle has come apart. The graph is made up to show every case; a real puzzle&rsquo;s levels hold hundreds of positions.</figcaption></figure>
 <p><b>Threads.</b> When a level holds many positions, the search shares them out over the processor's cores. Each thread lists what its positions' moves lead to, without changing anything shared. The lists are then put together in the order a search on one thread would have made them. So every position gets the same link, and the take-apart comes out the same, however many threads ran.</p>
 
 <h2 id="s4">4. What happens to the other moves</h2>
 
 <p>The short answer to "how does the search keep track of all the moves that end in positions it has already found?" is that it does not. Such a move is tested against the three fronts and dropped. The search never stores the lines of the graph, only which positions exist and the one link of each.</p>
 <p>That is enough because of the question the search asks: what is the fewest moves to a separation? The shortest-path tree answers it, and the dropped moves could not improve on it. A move back or sideways leads to a position that already has a way at least as short. A move to a position found already offers a second way of the same length, never a shorter one. Questions that need the dropped moves, such as how many shortest ways there are or which positions are dead ends, would mean recording more. Counting the ways for section 5 meant adding a number to every position.</p>
-<p>Figure 3 shows what becomes of the moves in Pelikan Burr, level by level. Of the 81,007 moves the search found, 25% led back, 47% sideways and 19% to positions found already. That last share includes the 3% where two moves of the same position led to the same place. Only 8% led anywhere new.</p>
+<p>Figure 4 shows what becomes of the moves in Pelikan Burr, level by level. Of the 81,007 moves the search found, 25% led back, 47% sideways and 19% to positions found already. That last share includes the 3% where two moves of the same position led to the same place. Only 8% led anywhere new.</p>
 <figure><svg viewBox="0 0 860 344" role="img" aria-label="Stacked bars: the moves found from each level of Pelikan Burr, by outcome" xmlns="http://www.w3.org/2000/svg">
 <text class="tick" x="50" y="308.0" text-anchor="end">0</text>
 <line class="grid" x1="58" y1="243.5" x2="760" y2="243.5"/>
@@ -835,7 +843,7 @@ details .tw table { min-width: 620px; }
 <text class="legend" x="431.6" y="18">Sideways, same distance</text>
 <rect class="k-back" x="600.8000000000001" y="9" width="10" height="10" rx="2"/>
 <text class="legend" x="616.8000000000001" y="18">Back, one move nearer the start</text>
-</svg><figcaption>Figure 3. Every move the search found from each level of Pelikan Burr, by where it led. Only the blue part adds positions. Level 97 is the last searched: the position that separates the puzzle turned up while it was being worked through, and the search stopped there. Hover over a bar for its numbers.</figcaption></figure>
+</svg><figcaption>Figure 4. Every move the search found from each level of Pelikan Burr, by where it led. Only the blue part adds positions. Level 97 is the last searched: the position that separates the puzzle turned up while it was being worked through, and the search stopped there. Hover over a bar for its numbers.</figcaption></figure>
 <details><summary>The numbers for each level</summary><div class="tw"><table class='num small'><tr><th>Level</th><th>Positions</th><th>Moves</th><th>Back</th><th>Sideways</th><th>Found already</th><th>New</th><th>Held</th><th>Shortest sequences</th></tr>
 <tr><td>0</td><td>1</td><td>10</td><td>0</td><td>0</td><td>0</td><td>10</td><td>11</td><td>1</td></tr>
 <tr><td>1</td><td>10</td><td>104</td><td>10</td><td>16</td><td>35</td><td>43</td><td>54</td><td>10</td></tr>
@@ -948,7 +956,7 @@ details .tw table { min-width: 620px; }
 
 <h2 id="s5">5. How many ways there are</h2>
 
-<p>The search drops the moves that lead to a position found already, so it never learns how many shortest ways lead anywhere. The copy of the search used for this page counted them. Each position carried a number: 1 for the start, and for every other position the sum of the numbers of all the positions one level nearer the start that have a move to it. Figure 4 sets these counts against the number of positions in each level.</p>
+<p>The search drops the moves that lead to a position found already, so it never learns how many shortest ways lead anywhere. The copy of the search used for this page counted them. Each position carried a number: 1 for the start, and for every other position the sum of the numbers of all the positions one level nearer the start that have a move to it. Figure 5 sets these counts against the number of positions in each level.</p>
 <figure><svg viewBox="0 0 860 344" role="img" aria-label="Log-scale lines: positions in each level, and shortest move sequences into it" xmlns="http://www.w3.org/2000/svg">
 <line class="grid" x1="58" y1="304.0" x2="720" y2="304.0"/>
 <text class="tick" x="50" y="308.0" text-anchor="end">1</text>
@@ -1086,14 +1094,14 @@ details .tw table { min-width: 620px; }
 <text class="legend" x="74" y="18">Positions in the level</text>
 <line class="s-b" x1="234.8" y1="14" x2="248.8" y2="14"/>
 <text class="legend" x="252.8" y="18">Shortest move sequences into the level</text>
-</svg><figcaption>Figure 4. Pelikan Burr, on a log scale. The positions in a level stay in the hundreds, while the number of different shortest move sequences into the level grows by about 1.5 times for every move. At level 84 a single position is left, and every shortest way passes through it.</figcaption></figure>
+</svg><figcaption>Figure 5. Pelikan Burr, on a log scale. The positions in a level stay in the hundreds, while the number of different shortest move sequences into the level grows by about 1.5 times for every move. At level 84 a single position is left, and every shortest way passes through it.</figcaption></figure>
 <p>By level 97 the 359 positions of the level are reached by 2.1&nbsp;&times;&nbsp;10<sup>18</sup> different shortest move sequences. The separating position is reached by at least 5.7&nbsp;&times;&nbsp;10<sup>14</sup> of them. That is a lower bound, because the search stopped as soon as it was found and did not see the other positions of level 97 that might also lead to it. A tree, even one that only kept shortest ways, would have to hold every one of those sequences. The graph holds 6,742 positions.</p>
 <p>The single position at level 84 is a bottleneck: the puzzle has to pass through exactly that arrangement, 84 moves in, on any shortest way out. There are 6.3&nbsp;&times;&nbsp;10<sup>11</sup> shortest ways to reach it, and the search keeps one.</p>
 
 <h2 id="s6">6. What the links keep in memory</h2>
 
 <p>Each position counts the references to it. A front holds a reference to each of its positions, and each position holds a reference to the one its link points to. When the old front is let go, a position in it survives only if some newer position's link leads back through it. Dead ends, positions from which nothing new was found, are freed. So are the branches behind them.</p>
-<p>Figure 5 compares the positions the search has found so far with the positions it holds at the same moment. Pelikan Burr's search found 6,742 positions. At most 1,524 were in memory at once, at level 93: the three fronts, plus 444 older positions that are kept only because a link runs through them. The rest had been freed along the way.</p>
+<p>Figure 6 compares the positions the search has found so far with the positions it holds at the same moment. Pelikan Burr's search found 6,742 positions. At most 1,524 were in memory at once, at level 93: the three fronts, plus 444 older positions that are kept only because a link runs through them. The rest had been freed along the way.</p>
 <figure><svg viewBox="0 0 860 314" role="img" aria-label="Lines: positions found so far, and positions held in memory at once" xmlns="http://www.w3.org/2000/svg">
 <text class="tick" x="50" y="278.0" text-anchor="end">0</text>
 <line class="grid" x1="58" y1="221.0" x2="720" y2="221.0"/>
@@ -1227,7 +1235,7 @@ details .tw table { min-width: 620px; }
 <text class="legend" x="252.8" y="18">Positions held in memory</text>
 <line class="s-c" x1="426.40000000000003" y1="14" x2="440.40000000000003" y2="14"/>
 <text class="legend" x="444.40000000000003" y="18">Held only as links back</text>
-</svg><figcaption>Figure 5. Pelikan Burr: the positions found so far, the positions held in memory at the end of each level, and how many of those are held only as links back from the fronts. Hover for the numbers.</figcaption></figure>
+</svg><figcaption>Figure 6. Pelikan Burr: the positions found so far, the positions held in memory at the end of each level, and how many of those are held only as links back from the fronts. Hover for the numbers.</figcaption></figure>
 <p>These numbers are small: the whole solve of Pelikan Burr, assemblies and take-apart, takes about 0.03 seconds. What matters is that memory follows the width of the fronts, not everything the search has seen. The same code takes apart puzzles whose levels are far wider, and it runs once for every assembly the Solver finds, sometimes thousands of times in one solve.</p>
 
 <h2 id="s7">7. After the first separation</h2>

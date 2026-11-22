@@ -87,6 +87,7 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 .unitline { stroke: var(--grid); stroke-width: 0.6; }
 .pl { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; fill: var(--ink); }
 
+figure picture img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--rule); }
 </style></head><body>
 <header class="banner"><a href="/"><img src="/assets/banner.png" alt="ShapeLogic home" width="2000" height="466"></a></header>
 <main>
@@ -582,6 +583,8 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 <p><b>Across a gap.</b> If the levels were thinned, the level just below may be gone. The search then finds the nearest kept level below, say four levels down, and runs a small search of its own out from the arrangement at hand: four levels, built exactly as in section 4. The last of them is walked against the kept level, as in the meeting test, and the first arrangement they share is the next fixed point of the path. The search steps back through its four small levels to connect the two, throws them away and carries on from the new point. These small searches start from a single arrangement and go only as deep as the gap, so they are tiny beside the search that made the levels. This is the trade that thinning makes: disk space saved during the search, for a little searching again at the end.</p>
 <p><b>Panex</b> works the same way, with two differences. It always uses the small search between saved levels once its levels are on disk, and the saved level is read from its file as a stream rather than loaded. And for a mirrored goal there is no goal end to walk through: the second half of the path is traced through the start's levels in the mirror, and each stacking is turned back as it is written into the path. As soon as the ends meet, the Panex search notes the meeting stacking in its saved state, so stopping it while it traces loses none of the search.</p>
 <p>Every path a search returns is checked in the tests move by move: each step has to be a legal move from the arrangement before.</p>
+<p>Figure 6 puts sections 4 to 8 together on a small board, where each square stands for an arrangement and a step to a neighbouring square for a move. Both ends start at once, as in the Panex Solver. Each step grows the narrower end, drops what is in that end&rsquo;s two newest levels, and walks the new level against the other end&rsquo;s newest one. Once they share a square, the path is rebuilt outwards from it, one level at a time.</p>
+<figure><picture><source srcset="searching-from-both-ends/two-ends-dark.gif" media="(prefers-color-scheme: dark)"><img src="searching-from-both-ends/two-ends-light.gif" width="820" height="590" loading="lazy" alt="Animation: a level search from both ends of a small board with a wall, growing the narrower end each step until the ends meet, then rebuilding the path outwards from the meeting square"></picture><figcaption>Figure 6. The two-ended search on a small board, step by step (about 80 seconds, then it starts again). The numbers are each square&rsquo;s level. The wall keeps the goal end&rsquo;s levels narrow, so the goal end grows more often and the ends meet nearer the start: where the work is least, not in the middle.</figcaption></figure>
 
 <h2 id="s9">9. Measurements and limits</h2>
 
