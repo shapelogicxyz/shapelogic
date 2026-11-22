@@ -1,5 +1,5 @@
 {
-  "version": "1.9.0",
+  "version": "2.0.0",
   "inputs": [
     "CMakeLists.txt",
     "CMakePresets.json",
@@ -13,5 +13,5 @@
     "site/public/examples/PelikanBurr.xmpuzzle"
   ],
   "hash": "786e24ee63886f421ced054a0e2e9de54557c7a7dac2825a0f3b1cdb50c2cf1c",
-  "built": "2026-11-22T02:06:46.508Z"
+  "built": "2026-11-22T02:35:35.898Z"
 }
