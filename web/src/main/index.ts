@@ -100,6 +100,7 @@ import {
   appFile,
   appUrl,
   permissionAllowed,
+  showWindow,
   switches,
   SYSTEM_URLS,
   windowOptions,
@@ -113,6 +114,11 @@ const VERSION = __BT_VERSION__;
 const WEB_DIR = fileURLToPath(new URL('../../', import.meta.url));
 app.setName(APP_NAME);
 const env = switches(app.isPackaged, process.env);
+if (env.background === true && process.platform === 'darwin') {
+  // the e2e tests' apps (BT_BACKGROUND): no Dock icon, no place in
+  // Cmd-Tab, and the app does not come to the front when it starts
+  app.setActivationPolicy('accessory');
+}
 if (env.userData !== undefined) {
   app.setPath('userData', resolve(env.userData));
 }
@@ -535,7 +541,7 @@ function createWindow(first?: AppCommand): void {
     setImmediate(updateMenu);
   });
   win.once('ready-to-show', () => {
-    win.show();
+    showWindow(win, env.background === true);
   });
   contents.on('did-finish-load', () => {
     // a reload: the page is told again that its file is read-only
@@ -857,6 +863,7 @@ void app.whenReady().then(async () => {
     cache,
     cacheLinks: new CacheLinks(app.getPath('userData')),
     log: appLog,
+    background: env.background === true,
     prefsChanged: (prefs) => {
       setLogDebug(prefs.debugLog === true);
     },

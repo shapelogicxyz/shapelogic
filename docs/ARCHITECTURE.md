@@ -1451,8 +1451,9 @@ What exists after stage 8:
   stood between markup in a puzzle's names and a script from disk, on its
   own scheme Chromium refuses every local file to the page itself);
   the environment's switches a run takes, `BT_USER_DATA` only when
-  packaged, `BT_ENGINE`, `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS` and
-  `ELECTRON_RENDERER_URL` in development too; `allowedRequest`, what the
+  packaged, `BT_ENGINE`, `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS`,
+  `BT_BACKGROUND` (windows kept hidden and no Dock icon, `showWindow`;
+  the e2e tests set it) and `ELECTRON_RENDERER_URL` in development too; `allowedRequest`, what the
   session lets through: the app's scheme naming a file inside the
   renderer's directory, `file:` URLs inside it (the scheme's handler reads
   them), `devtools:`, `data:`, `blob:`, the dev server's origin in

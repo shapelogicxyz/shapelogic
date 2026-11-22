@@ -133,6 +133,7 @@ flow.
 | `BT_ENGINE` | the engine binary the app in development and the engine tests use; otherwise `build/dev/engine/shapelogic_engine`, else the release one |
 | `BT_CALL_LOG` | a file every call the renderer makes is logged to, with how it ended; the e2e tests read it |
 | `BT_AUTOSAVE_SECONDS` | the least time between two rescue copies of a running solve (a minute without it), for the e2e tests |
+| `BT_BACKGROUND` | the app's windows stay hidden and it has no Dock icon, so nothing covers the app in front; the e2e tests set it (set it empty, `BT_BACKGROUND=`, to watch a run) |
 | `BT_USER_DATA` | moves the app's data directory (settings, recent files, the rescue copy); the only switch a packaged app takes |
 | `BT_PACKAGED_APP` | another executable for `just app-smoke` to test |
 | `SHAPELOGIC_VERSION` | the version to build (`v1.4` or `1.4.0`) instead of the newest git tag's; the Release workflow sets it from the tag |

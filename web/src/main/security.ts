@@ -17,7 +17,7 @@
 // script loaded from disk. On its own scheme 'self' is the page's origin,
 // the fuse is off, and the filter is the second check, not the only one.
 
-import type { BrowserWindowConstructorOptions, WebPreferences } from 'electron';
+import type { BrowserWindow, BrowserWindowConstructorOptions, WebPreferences } from 'electron';
 import { isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -126,6 +126,20 @@ export function windowOptions(
   };
 }
 
+/**
+ * Shows a window made hidden (windowOptions) when it is ready, in front
+ * with the focus; with `background` (BT_BACKGROUND) it stays hidden, so
+ * nothing covers the app the user is working in. A window never shown
+ * still draws (paintWhenInitiallyHidden), and Playwright drives the page
+ * and tells it it has the focus whatever the window's. (showInactive
+ * would leave the keyboard alone but put the window above every app.)
+ */
+export function showWindow(win: BrowserWindow, background: boolean): void {
+  if (!background) {
+    win.show();
+  }
+}
+
 /** The switches the environment may set, as this run of the app takes them. */
 export interface Switches {
   /** The engine to run (BT_ENGINE); development only. */
@@ -138,6 +152,11 @@ export interface Switches {
   autosave?: string;
   /** The dev server the renderer is loaded from (electron-vite's ELECTRON_RENDERER_URL); development only. */
   rendererUrl?: string;
+  /**
+   * Windows kept hidden and no Dock icon (BT_BACKGROUND, set by the e2e
+   * tests: the user goes on working in another app); development only.
+   */
+  background?: true;
 }
 
 /**
@@ -167,6 +186,7 @@ export function switches(
   const callLog = take('BT_CALL_LOG');
   const autosave = take('BT_AUTOSAVE_SECONDS');
   const rendererUrl = take('ELECTRON_RENDERER_URL');
+  const background = take('BT_BACKGROUND');
   if (engine !== undefined) {
     s.engine = engine;
   }
@@ -178,6 +198,9 @@ export function switches(
   }
   if (rendererUrl !== undefined) {
     s.rendererUrl = rendererUrl;
+  }
+  if (background !== undefined) {
+    s.background = true;
   }
   return s;
 }

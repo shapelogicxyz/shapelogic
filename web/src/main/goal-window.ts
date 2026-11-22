@@ -11,11 +11,17 @@ import { BrowserWindow } from 'electron';
 
 import { goalPage, goalWindowSize } from '../engine/app-bridge.ts';
 import type { GoalPicture } from '../engine/app-bridge.ts';
-import { windowOptions } from './security.ts';
+import { showWindow, windowOptions } from './security.ts';
 
 /** The goal windows, by their app window's web contents' id. */
 export class GoalWindows {
   private readonly open = new Map<number, BrowserWindow>();
+  /** Kept hidden (security.ts's BT_BACKGROUND). */
+  private readonly background: boolean;
+
+  constructor(background = false) {
+    this.background = background;
+  }
 
   /**
    * Shows `picture` in `owner`'s goal window: `raise` opens it, or brings
@@ -46,8 +52,10 @@ export class GoalWindows {
       if (win.isMinimized()) {
         win.restore();
       }
-      win.show();
-      win.focus();
+      showWindow(win, this.background);
+      if (!this.background) {
+        win.focus();
+      }
     }
   }
 
@@ -77,7 +85,7 @@ export class GoalWindows {
     });
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.once('ready-to-show', () => {
-      win.show();
+      showWindow(win, this.background);
     });
     return win;
   }

@@ -41,10 +41,13 @@ just app-e2e-timed # only the timed test (perf.e2e.ts), alone
 
 `just app-e2e -g picking` passes arguments to Playwright;
 `--update-snapshots` records the reference screenshots again (look at them
-first: `tests/e2e/__screenshots__`). The e2e tests open windows on the
-screen, several at a time: each test has an app, an engine and a data
-directory of its own, and `E2E_WORKERS` apps run at once (half the cores
-by default; `E2E_WORKERS=1` for one at a time). The test that times the
+first: `tests/e2e/__screenshots__`). The e2e tests run several apps at
+a time: each test has an app, an engine and a data directory of its own,
+and `E2E_WORKERS` apps run at once (half the cores by default;
+`E2E_WORKERS=1` for one at a time). Their windows stay hidden and they
+have no Dock icon (`BT_BACKGROUND`), so another app can be used
+meanwhile; `BT_BACKGROUND=` (empty) shows them on the screen, to watch a
+run. The test that times the
 app (`perf.e2e.ts`) is the `timed` project, run alone after the others.
 Both recipes clear `ELECTRON_RUN_AS_NODE`, which
 some editors' terminals set and which turns Electron into plain Node.
@@ -137,7 +140,7 @@ Chrome (`--headed` shows it).
 - The app in development (`src/main/engine-path.ts`) runs `BT_ENGINE`,
   else `build/dev/engine/shapelogic_engine`, else the release one. A packaged app
   runs the copy in its resources and nothing else: it ignores `BT_ENGINE`,
-  `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS` and electron-vite's
+  `BT_CALL_LOG`, `BT_AUTOSAVE_SECONDS`, `BT_BACKGROUND` and electron-vite's
   `ELECTRON_RENDERER_URL` (`src/main/security.ts`); only `BT_USER_DATA`
   is taken. Either way the engine must say the app's version.
 

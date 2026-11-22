@@ -97,15 +97,30 @@ export async function launch(
   }
   const userData = opts.userData ?? mkdtempSync(join(tmpdir(), 'bt-e2e-data-'));
   env.BT_USER_DATA = userData;
+  // the windows stay hidden and the app has no Dock icon, so nothing
+  // covers the app the user is working in (main/security.ts's showWindow);
+  // BT_BACKGROUND= (empty) in the shell shows them, to watch a run
+  if (process.env.BT_BACKGROUND === undefined) {
+    env.BT_BACKGROUND = '1';
+  }
   // the reference screenshots are taken in sRGB and at one device pixel a
   // CSS pixel whatever display the window lands on (Playwright's own
   // Chromium does the same): the layout's fractional edges round with the
   // scale, so a Retina display drew the sliding board a pixel taller
   const scale = [`--force-device-scale-factor=${String(opts.scale ?? 1)}`];
+  // a hidden window, or one behind the user's, keeps drawing and its
+  // timers keep their pace: Chromium would stop the frames of a window
+  // macOS reports covered and slow its timers
+  const unthrottled = [
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--disable-background-timer-throttling',
+  ];
   const app = await electron.launch({
     args: [
       '--force-color-profile=srgb',
       ...scale,
+      ...unthrottled,
       resolve(WEB, 'out/main/index.js'),
       ...(opts.args ?? []),
     ],

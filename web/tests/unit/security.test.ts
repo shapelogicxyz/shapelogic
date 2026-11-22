@@ -202,6 +202,7 @@ describe('the switches a packaged app takes', () => {
     BT_CALL_LOG: '/tmp/calls.log',
     BT_AUTOSAVE_SECONDS: '3',
     ELECTRON_RENDERER_URL: 'http://localhost:5173/',
+    BT_BACKGROUND: '1',
   };
 
   it('only BT_USER_DATA when packaged', () => {
@@ -216,12 +217,19 @@ describe('the switches a packaged app takes', () => {
       callLog: '/tmp/calls.log',
       autosave: '3',
       rendererUrl: 'http://localhost:5173/',
+      background: true,
     });
-    expect(switches(false, { BT_ENGINE: '', BT_CALL_LOG: '' })).toEqual({});
+    expect(switches(false, { BT_ENGINE: '', BT_CALL_LOG: '', BT_BACKGROUND: '' })).toEqual({});
   });
 
   it('are read through switches() only', () => {
-    for (const name of ['BT_ENGINE', 'BT_USER_DATA', 'BT_CALL_LOG', 'BT_AUTOSAVE_SECONDS']) {
+    for (const name of [
+      'BT_ENGINE',
+      'BT_USER_DATA',
+      'BT_CALL_LOG',
+      'BT_AUTOSAVE_SECONDS',
+      'BT_BACKGROUND',
+    ]) {
       expect(occurrences(new RegExp(`process\\.env\\.${name}\\b`, 'g')), name).toEqual([]);
     }
   });

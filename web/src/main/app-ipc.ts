@@ -183,6 +183,8 @@ export interface AppIpcHost {
   closeTaken(sender: WebContents): void;
   closeWindow(sender: WebContents): void;
   cancelQuit(sender: WebContents): void;
+  /** Whether windows are kept hidden (security.ts's BT_BACKGROUND). */
+  background: boolean;
 }
 
 /** Installs the handlers. */
@@ -473,7 +475,7 @@ export function installAppIpc(h: AppIpcHost): void {
   });
 
   // the Play tab's goal picture in its own window (goal-window.ts)
-  const goals = new GoalWindows();
+  const goals = new GoalWindows(h.background);
   ipcMain.on('bt:goal-window', (e, picture: unknown, raise: unknown) => {
     const win = ours(e);
     if (win !== null && isGoalPicture(picture)) {
