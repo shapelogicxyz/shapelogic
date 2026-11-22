@@ -1,0 +1,137 @@
+---
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Starlight's "On this page" list, with the current section taken at the
+// middle of the window instead of just under the header. Starlight's line
+// sits at the top, so the last sections of most pages, which never scroll
+// that far up, were never marked. Clicking an entry puts its heading where
+// it becomes current: the middle, for most of the page.
+import Default from '@astrojs/starlight/components/TableOfContents.astro';
+---
+
+<Default />
+
+<script>
+  // The current entry is the last heading at or above a line across the
+  // window. For most of the page the line is at the middle. Over the first
+  // half window of scrolling it comes down from the top, and over the last
+  // half window it goes on down to the bottom, so the first entry is marked
+  // at the top of the page and the last ones, which may never reach the
+  // middle, are marked by its end. (A page shorter than two windows sweeps
+  // the line from top to bottom over its whole scroll.)
+  type Toc = HTMLElement & { current: HTMLAnchorElement };
+
+  const view = () => document.documentElement.clientHeight;
+  const maxScroll = () => document.documentElement.scrollHeight - view();
+
+  /** The line's distance from the top of the window at scroll position s. */
+  function line(s: number): number {
+    const h = view();
+    const max = maxScroll();
+    if (max <= 0) return 0;
+    if (max < h) return (h * s) / max;
+    if (s < h / 2) return s;
+    if (s > max - h / 2) return h - (max - s);
+    return h / 2;
+  }
+
+  // Starlight's lists set `current` themselves from a band under the
+  // header (an IntersectionObserver). Only this script may set it now.
+  let driving = false;
+  function gate(name: string) {
+    return customElements.whenDefined(name).then((cls) => {
+      const d = Object.getOwnPropertyDescriptor(cls.prototype, 'current');
+      if (!d?.set) return;
+      const set = d.set;
+      Object.defineProperty(cls.prototype, 'current', {
+        ...d,
+        set(this: Toc, link: HTMLAnchorElement) {
+          if (driving) set.call(this, link);
+        },
+      });
+    });
+  }
+
+  const tocs = [...document.querySelectorAll<Toc>('starlight-toc, mobile-starlight-toc')];
+  const names = [...new Set(tocs.map((t) => t.localName))];
+
+  if (tocs.length) {
+    void Promise.all(names.map(gate)).then(() => {
+      const first = tocs[0];
+      const hashes = [...first.querySelectorAll('a')].map((a) => a.hash);
+      const headings = hashes.map((h) => document.getElementById(decodeURIComponent(h.slice(1))));
+
+      let shown = -1;
+      const update = () => {
+        const at = line(window.scrollY);
+        let idx = 0;
+        headings.forEach((hd, i) => {
+          if (hd && hd.getBoundingClientRect().top <= at) idx = i;
+        });
+        if (idx === shown) return;
+        shown = idx;
+        driving = true;
+        for (const toc of tocs) {
+          const link = [...toc.querySelectorAll('a')].find((a) => a.hash === hashes[idx]);
+          if (link) toc.current = link;
+        }
+        driving = false;
+      };
+
+      let queued = false;
+      const queue = () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+          queued = false;
+          update();
+        });
+      };
+      window.addEventListener('scroll', queue, { passive: true });
+      window.addEventListener('resize', queue);
+      new ResizeObserver(queue).observe(document.body);
+      update();
+
+      // A click on an entry: the browser's own jump to the heading (so the
+      // address, :target and focus behave as usual), stopped where the
+      // heading has just passed the line. The scroll padding is set aside
+      // for the jump so the margin alone decides where it stops.
+      const html = document.documentElement;
+      document.addEventListener(
+        'click',
+        (e) => {
+          const link =
+            e.target instanceof Element
+              ? e.target.closest<HTMLAnchorElement>('starlight-toc a, mobile-starlight-toc a')
+              : null;
+          if (!link?.hash) return;
+          const heading = document.getElementById(decodeURIComponent(link.hash.slice(1)));
+          if (!heading) return;
+          const top = heading.getBoundingClientRect().top + window.scrollY;
+          const max = maxScroll();
+          // the smallest scroll at which the heading is 2px above the line
+          let s = max;
+          if (hashes.indexOf(link.hash) <= 0) {
+            s = 0;
+          } else {
+            let lo = 0;
+            let hi = max;
+            while (lo < hi) {
+              const mid = Math.floor((lo + hi) / 2);
+              if (top - mid <= line(mid) - 2) hi = mid;
+              else lo = mid + 1;
+            }
+            s = lo;
+          }
+          heading.style.scrollMarginTop = `${Math.max(0, top - s)}px`;
+          // Some ways of following a link jump a little after the click, not
+          // at once, so the padding stays set aside for a moment.
+          html.style.scrollPaddingTop = '0px';
+          setTimeout(() => {
+            html.style.scrollPaddingTop = '';
+          }, 250);
+        },
+        true,
+      );
+    });
+  }
+</script>

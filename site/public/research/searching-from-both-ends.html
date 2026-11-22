@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Searching from Both Ends</title>
+<title>Puzzle Solving: Solving Faster with a Defined Solution</title>
 <meta name="description" content="How ShapeLogic's Sliding Puzzle Solver and Panex Solver search from the start and from the goal at once: what a level is, how the two ends find each other, which levels are dropped to save memory, and how the path is rebuilt once the ends meet.">
 <style>
 
@@ -614,7 +614,7 @@ table.cmp td:first-child { font-weight: 600; white-space: nowrap; }
 <ul class="refs">
 <li>ShapeLogic sources: <span class="mono">core/shapelogic/solve/sliding_search.{h,cpp}</span> (<span class="mono">LevelSearch</span>, <span class="mono">runMerge</span>, <span class="mono">SetStore</span>), <span class="mono">slide_levels.h</span> (the sorted sets), <span class="mono">panex_search.cpp</span> (<span class="mono">meetSearch</span>, <span class="mono">traceStored</span>, <span class="mono">Store</span>); decision records 0028 (shared search memory), 0032 (compact keys) and 0033 (nested slides from both ends).</li>
 <li>Figure 1 and the level counts in the text: <span class="mono">shapelogic_cli -d --nested-slides --optimized-paths --slide-trace</span> on Problem 3 of "Abe 1 to 6 Heart", once as it is and once with <span class="mono">--slide-one-end --slide-stops-apart</span>, the second stopped after 150 seconds. Level counts do not depend on the machine or on how busy it is.</li>
-<li>The table in section 9 and the 321 s comparison: decision record 0033. The Panex figures: the <a href="/research/panex-solver-white-paper.html">Panex Solver White Paper</a>, which also covers the Panex search in more detail.</li>
+<li>The table in section 9 and the 321 s comparison: decision record 0033. The Panex figures: <a href="/research/panex-solver-white-paper.html">Puzzle Solving: The Panex Stacking Puzzle</a>, which also covers the Panex search in more detail.</li>
 <li>I. Pohl, "Bi-directional Search", Machine Intelligence 6 (1971), pp. 127&ndash;140: the idea of searching from both ends and growing the smaller frontier.</li>
 </ul>
 <p><a href="/research/">&larr; Back to Research</a></p>

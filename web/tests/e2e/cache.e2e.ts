@@ -36,6 +36,16 @@ let dir: string;
 
 test.beforeEach(async () => {
   a = await launch();
+  // The start's look at the cache folder is over before a test puts files
+  // there: the main process lists it once a run, for whoever asks first,
+  // and the page asks some time after the engine runs. A test that wrote a
+  // saved search before that got the notice at the start over its window
+  // (a busy machine), and its click on Settings never landed.
+  await a.page.evaluate(() =>
+    (
+      window as unknown as { btApp: { cacheItemsAtStart(): Promise<unknown> } }
+    ).btApp.cacheItemsAtStart(),
+  );
   dir = mkdtempSync(join(tmpdir(), 'bt-e2e-cache-'));
 });
 

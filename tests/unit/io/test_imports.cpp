@@ -5,6 +5,7 @@
 // committed inputs of tests/data/imports/ and the cube-grid fixtures
 // against what the original made of them (tests/data/imports_by_original/,
 // `oracle.py record-imports`), through the document as the engine calls it.
+#include "../model/model_test_helpers.h"
 #include "shapelogic/app/document.h"
 #include "shapelogic/app/shape_tools.h"
 #include "shapelogic/grid/voxel.h"
@@ -49,10 +50,11 @@ std::string recordedXml(const std::filesystem::path& path) {
   return *xml;
 }
 
+// Without the problems' uids (decision 0044): new ones in every import.
 std::string savedXml(const Document& d) {
   Result<std::string> xml = d.saveBytes();
   REQUIRE(xml.has_value());
-  return *xml;
+  return test::withoutUids(*xml);
 }
 
 // The cube-grid fixtures (the ones the original converts and exports).

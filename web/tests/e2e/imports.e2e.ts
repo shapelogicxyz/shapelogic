@@ -52,10 +52,15 @@ function recordedXml(name: string): string {
   return gunzipSync(readFileSync(join(RECORDED, name))).toString('latin1');
 }
 
-/** The open document's XML, as the engine would save it. */
+/** A save without its problems' uids (decision 0044): the original writes none. */
+function withoutUids(xml: string): string {
+  return xml.replace(/ uid="[0-9a-f]{16}"/g, '');
+}
+
+/** The open document's XML, as the engine would save it (without uids). */
 async function savedXml(page: Page): Promise<string> {
   const r = await engineCall<{ data: string }>(page, 'document.saveBytes');
-  return Buffer.from(r.data, 'base64').toString('latin1');
+  return withoutUids(Buffer.from(r.data, 'base64').toString('latin1'));
 }
 
 /** Waits for another document than the one shown before. */
@@ -108,7 +113,9 @@ test('File ▸ Import: PuzzleSolver3D and Puzzlecad files as the original import
       await answerDialogs(page, { save: out });
       await menu(page, 'save');
       await expect(page.locator('#stage')).toHaveAttribute('data-dirty', '0');
-      expect(gunzipSync(readFileSync(out)).toString('latin1')).toBe(recordedXml(recording));
+      expect(withoutUids(gunzipSync(readFileSync(out)).toString('latin1'))).toBe(
+        recordedXml(recording),
+      );
       // the source is untouched
       expect(existsSync(join(INPUTS, file))).toBe(true);
     }
@@ -274,7 +281,7 @@ test('Edit ▸ Convert Brick Grid Type to Other converts as the original', async
     // the file is kept: Save writes the converted puzzle over it
     await menu(page, 'save');
     await expect(page.locator('#stage')).toHaveAttribute('data-dirty', '0');
-    expect(gunzipSync(readFileSync(copy)).toString('latin1')).toBe(
+    expect(withoutUids(gunzipSync(readFileSync(copy)).toString('latin1'))).toBe(
       recordedXml('CubeInCage.tetra-octa.xmpuzzle'),
     );
 

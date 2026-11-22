@@ -6,6 +6,7 @@
 # recordings of tests/data/imports_by_original/).
 import gzip
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -22,6 +23,12 @@ BY_ORIGINAL = os.path.join(DATA, "imports_by_original")
 
 def puzzle_path(*parts):
     return os.path.join(PUZZLES, *parts)
+
+
+def without_uids(xml):
+    """A saved file without its problems' uids (decision 0044): the
+    original's files have none."""
+    return re.sub(rb' uid="[0-9a-f]{16}"', b"", xml)
 
 
 def saved_xml(puzzle):
@@ -264,12 +271,12 @@ class TestStacking(unittest.TestCase):
 class TestImports(unittest.TestCase):
     def test_puzzlesolver3d(self):
         puzzle = shapelogic.import_puzzlesolver3d(os.path.join(DATA, "imports", "pieces.puz"))
-        self.assertEqual(saved_xml(puzzle), recorded_xml("pieces_puz.xmpuzzle"))
+        self.assertEqual(without_uids(saved_xml(puzzle)), recorded_xml("pieces_puz.xmpuzzle"))
 
     def test_puzzlecad(self):
         for name in ("cube", "plate"):
             puzzle = shapelogic.import_puzzlecad(os.path.join(DATA, "imports", name + ".scad"))
-            self.assertEqual(saved_xml(puzzle), recorded_xml(name + "_scad.xmpuzzle"))
+            self.assertEqual(without_uids(saved_xml(puzzle)), recorded_xml(name + "_scad.xmpuzzle"))
 
     def test_refused_imports(self):
         with self.assertRaises(RuntimeError):
@@ -305,7 +312,7 @@ class TestImports(unittest.TestCase):
         for grid in puzzle.convert_targets:
             converted = puzzle.convert_grid(grid)
             self.assertEqual(converted.grid, grid)
-            self.assertEqual(saved_xml(converted), recorded_xml(f"CubeInCage.{grid}.xmpuzzle"))
+            self.assertEqual(without_uids(saved_xml(converted)), recorded_xml(f"CubeInCage.{grid}.xmpuzzle"))
         # the puzzle itself stays as it was
         self.assertEqual(puzzle.grid, "bricks")
 

@@ -3131,12 +3131,18 @@ class Fingerprint {
   std::uint64_t h_ = 14695981039346656037ULL;
 };
 
-// Names a problem's saved searches: the tray with its start and goal
-// marks, and the pieces with their counts. Nothing of the start layout, so
-// that the searches of every start of the problem are found together.
+// Names a problem's saved searches: the problem's uid, the tray with its
+// start and goal marks, and the pieces with their counts. Nothing of the
+// start layout, so that the searches of every start of the problem are
+// found together. The uid (decision 0044) keeps apart the searches of two
+// problems alike in every cell; a problem without one (paused by a version
+// before uids) is named as those versions named it.
 std::uint64_t problemKeyOf(const Puzzle& puzzle, const Problem& problem) {
   Fingerprint f;
   f.mix(2U);  // the saved format
+  if (problem.getUid() != 0) {
+    f.mix(problem.getUid());
+  }
   const Voxel& tray = problem.resultShape(puzzle);
   f.mix(tray.getX());
   f.mix(tray.getY());

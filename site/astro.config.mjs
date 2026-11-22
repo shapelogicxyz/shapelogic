@@ -39,6 +39,8 @@ export default defineConfig({
       },
       favicon: '/favicon.jpg',
       customCss: ['./src/styles/docs.css'],
+      // the "On this page" list marks and scrolls to the middle of the window
+      components: { TableOfContents: './src/components/TableOfContents.astro' },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/shapelogicxyz/shapelogic' },
       ],

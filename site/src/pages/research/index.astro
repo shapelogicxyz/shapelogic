@@ -17,6 +17,9 @@ import '../../styles/landing.css';
     <link rel="icon" href="/assets/puzzle_icon.jpg" />
     <style>
       .banner img.logo-bar { width: auto; max-width: 100%; }
+      .post-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 16px; margin: 0 0 12px; }
+      .post-head h3 { margin: 0; flex: 1 1 20em; }
+      .post-date { color: var(--muted); font-size: 14px; white-space: nowrap; }
     </style>
   </head>
   <body>
@@ -33,59 +36,77 @@ import '../../styles/landing.css';
         reports what they show.
       </p>
 
-      <section class="blog" aria-labelledby="papers-heading">
-        <h2 class="blog-heading" id="papers-heading">Papers</h2>
+      <section class="blog" aria-labelledby="solving-heading">
+        <h2 class="blog-heading" id="solving-heading">Solving</h2>
+        <article class="post" aria-labelledby="paper-breadth-first">
+          <div class="post-head">
+            <h3 id="paper-breadth-first">
+              <a href="/research/repeated-positions.html">Puzzle Solving: Breadth First and Graphs</a>
+            </h3>
+            <time class="post-date" datetime="2026-11-21">21 November 2026</time>
+          </div>
+          <p>
+            Why the moves of a puzzle make a graph and not a tree, what the take-apart search keeps
+            of each position, what it does with the moves that lead back to positions it has
+            already found, and what that saves on Pelikan Burr, a burr that needs 98 moves to open.
+          </p>
+        </article>
         <article class="post" aria-labelledby="paper-both-ends">
-          <h3 id="paper-both-ends">
-            <a href="/research/searching-from-both-ends.html">Searching from Both Ends</a>
-          </h3>
+          <div class="post-head">
+            <h3 id="paper-both-ends">
+              <a href="/research/searching-from-both-ends.html">Puzzle Solving: Solving Faster with a Defined Solution</a>
+            </h3>
+            <time class="post-date" datetime="2026-11-16">16 November 2026</time>
+          </div>
           <p>
             How the Sliding Puzzle Solver and the Panex Solver search from the start and from the
             goal at once: how the two ends find each other, which levels are dropped to save
             memory, and how the path is rebuilt once they meet.
           </p>
-          <p>
-            <a href="/research/searching-from-both-ends.html">Read online</a>
-          </p>
         </article>
         <article class="post" aria-labelledby="paper-optimized">
-          <h3 id="paper-optimized">
-            <a href="/research/optimized-paths.html">Optimized Paths</a>
-          </h3>
+          <div class="post-head">
+            <h3 id="paper-optimized">
+              <a href="/research/optimized-paths.html">Puzzle Solving: Optimized Paths in Sliders</a>
+            </h3>
+            <time class="post-date" datetime="2026-11-16">16 November 2026</time>
+          </div>
           <p>
             How the optimized paths option holds a sliding search to the grid its blocks fit, how
             far its move counts can be trusted as the fewest possible, and why the normal full
             search takes so much longer.
           </p>
-          <p>
-            <a href="/research/optimized-paths.html">Read online</a>
-          </p>
-        </article>
-        <article class="post" aria-labelledby="paper-golden">
-          <h3 id="paper-golden">
-            <a href="/research/golden-rhombus-puzzles.html">Golden Rhombus Puzzles</a>
-          </h3>
-          <p>
-            The angles behind the rhombic triacontahedron, the 30 rhombic pyramids that assemble
-            into it, and the 30-stick weave that shows the pentagons and hexagons of a truncated
-            icosahedron, with the maths needed to cut every piece.
-          </p>
-          <p>
-            <a href="/research/golden-rhombus-puzzles.html">Read online</a>
-          </p>
         </article>
         <article class="post" aria-labelledby="paper-panex">
-          <h3 id="paper-panex">
-            <a href="/research/panex-solver-white-paper.html">Panex Solver White Paper</a>
-          </h3>
+          <div class="post-head">
+            <h3 id="paper-panex">
+              <a href="/research/panex-solver-white-paper.html">Puzzle Solving: The Panex Stacking Puzzle</a>
+            </h3>
+            <time class="post-date" datetime="2026-10-30">30 October 2026</time>
+          </div>
           <p>
             How ShapeLogic's Panex Solver finds shortest swaps, what eight solves (levels 3 to 10)
             show about the move counts, and where the solves could be made faster.
           </p>
           <p>
-            <a href="/research/panex-solver-white-paper.html">Read online</a>
-            ·
             <a href="/research/panex-solver-white-paper.pdf" download>Download PDF</a>
+          </p>
+        </article>
+      </section>
+
+      <section class="blog" aria-labelledby="shapes-heading">
+        <h2 class="blog-heading" id="shapes-heading">Shapes</h2>
+        <article class="post" aria-labelledby="paper-golden">
+          <div class="post-head">
+            <h3 id="paper-golden">
+              <a href="/research/golden-rhombus-puzzles.html">Golden Rhombus Puzzles</a>
+            </h3>
+            <time class="post-date" datetime="2026-10-30">30 October 2026</time>
+          </div>
+          <p>
+            The angles behind the rhombic triacontahedron, the 30 rhombic pyramids that assemble
+            into it, and the 30-stick weave that shows the pentagons and hexagons of a truncated
+            icosahedron, with the maths needed to cut every piece.
           </p>
         </article>
       </section>

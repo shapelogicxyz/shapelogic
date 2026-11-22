@@ -13,6 +13,7 @@ import concurrent.futures
 import gzip
 import os
 import pathlib
+import re
 import shutil
 import struct
 import sys
@@ -29,6 +30,12 @@ def read_puzzle_bytes(path):
     """A puzzle file's XML (gzip or plain)."""
     data = pathlib.Path(path).read_bytes()
     return gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
+
+
+def without_uids(xml):
+    """A saved file without its problems' uids (decision 0044): the
+    original's files, and the fixtures, have none."""
+    return re.sub(rb' uid="[0-9a-f]{16}"', b"", xml)
 TESTS = []
 
 
@@ -1070,8 +1077,8 @@ def sliding_solve_pause_continue_and_play(e):
 @test
 def one_solve_of_a_problem_at_a_time(e):
     """Decision 0035: a solve holds its problem's search folders till its run
-    ends; the problem in another engine with the same folder, and a copy of
-    it, are refused meanwhile."""
+    ends; the problem in another engine with the same folder is refused
+    meanwhile. A copy of it in the document has its own (decision 0044)."""
     with tempfile.TemporaryDirectory() as tmp:
         was = e.call("settings.get")["slideFolder"]
         e.call("settings.set", {"slideFolder": tmp})
@@ -1106,7 +1113,10 @@ def one_solve_of_a_problem_at_a_time(e):
             check(wait_state(e, p, ["paused", "finished", "error"], start) == "paused", "paused")
             other.call("solve.start", {"problem": q, "options": find})
             e.fails("solve.continue", {"problem": p, "options": find}, "io_error")
-            e.fails("solve.start", {"problem": copy, "options": find}, "io_error")
+            # the copy has a uid of its own, so searches of its own (decision
+            # 0044): no lock stands in its way
+            e.call("solve.start", {"problem": copy, "options": find})
+            changed_event(e, e.call("solve.abort", {"problem": copy})["revision"])
             changed_event(other, other.call("solve.abort", {"problem": q})["revision"])
             # the other's abort over, the copy solves
             e.call("solve.start", {"problem": copy, "options": find})
@@ -1691,8 +1701,8 @@ def stacking_rod_sets_discs_and_stacks(e):
     detail = e.call("problem.get", {"problem": p})
     check(detail["rodSet"] == board and detail["result"] is None, f"the problem's board {detail}")
     hanoi = FIXTURES / "test_stacking_hanoi.xmpuzzle"
-    check(base64.b64decode(e.call("document.saveBytes")["data"]) == read_puzzle_bytes(hanoi),
-          "Hanoi built through the commands is the fixture")
+    check(without_uids(base64.b64decode(e.call("document.saveBytes")["data"]))
+          == read_puzzle_bytes(hanoi), "Hanoi built through the commands is the fixture")
     check(detail["stacks"]["start"] == [[{"shape": d, "instance": 0} for d in discs], [], []],
           f"the start {detail['stacks']['start']}")
 
@@ -2217,11 +2227,12 @@ def imports_exports_conversions(e):
         snap = e.call("document.import", {"format": fmt, "path": str(IMPORTS / name)})
         check(snap["grid"] == "bricks" and snap["path"] is None and snap["dirty"], f"{name} imported {snap}")
         check(not snap["canUndo"], "nothing to undo")
-        saved = base64.b64decode(e.call("document.saveBytes")["data"])
+        saved = without_uids(base64.b64decode(e.call("document.saveBytes")["data"]))
         check(saved == recorded, f"{name} saves as the original's import")
         data = base64.b64encode((IMPORTS / name).read_bytes()).decode()
         e.call("document.import", {"format": fmt, "data": data})
-        check(base64.b64decode(e.call("document.saveBytes")["data"]) == recorded, f"{name} from its bytes")
+        check(without_uids(base64.b64decode(e.call("document.saveBytes")["data"])) == recorded,
+              f"{name} from its bytes")
         e.fails("document.save", {}, "invalid_argument")  # Save asks where
     e.fails("document.import", {"format": "puzzleSolver3D", "path": str(IMPORTS / "comma.puz")}, "parse_error")
     e.fails("document.import", {"format": "puzzlecad", "path": str(IMPORTS / "nopieces.scad")}, "parse_error")
@@ -2277,7 +2288,7 @@ def imports_exports_conversions(e):
             check(snap["grid"] == grid and snap["dirty"] and not snap["canUndo"], f"converted {snap}")
             check(snap["path"] == str(copy), "the path kept, as the original kept its file name")
             check([x["name"] for x in snap["shapes"]] == [x["name"] for x in before["shapes"]], "the names")
-            check(base64.b64decode(e.call("document.saveBytes")["data"])
+            check(without_uids(base64.b64decode(e.call("document.saveBytes")["data"]))
                   == read_puzzle_bytes(IMPORTED / f"CubeInCage.{name}.xmpuzzle"), f"{grid} as the original's")
         e.call("document.save")
         check(e.call("document.open", {"path": str(copy)})["grid"] == "tetraOcta", "saved over its file")

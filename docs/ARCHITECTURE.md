@@ -294,6 +294,9 @@ solve).
 - `puzzle_file.h`: `loadPuzzle` / `parsePuzzle` / `readPuzzle` and
   `savePuzzle` / `writePuzzle`. Errors are `Result` values (`ParseError`
   with the line, `IoError`).
+  Each problem's `uid` attribute (decision 0044) is read and written
+  there; a problem without one gets one made from its place and
+  definition (`giveUids`), except one paused by a version before uids.
 - `xml_pull_parser.h`: the original's parser (internal; throws
   `XmlParseError`, which never leaves the module). `xml_document.h`: the
   tree built from it, and writing a tree back.
@@ -624,7 +627,9 @@ one).
   is chosen once the folder is open, a carried-on search's files counting
   as its own free space. A search stopped by its token, and one that
   stopped on disk, is saved in its folder
-  (`slide-<fingerprint>/state.bin` naming its sets) and a search of the
+  (`slide-<fingerprint>/state.bin` naming its sets; the fingerprint
+  starts from `problemKeyOf`, which mixes in the problem's uid, decision
+  0044) and a search of the
   same start carries it on (`resume`, `resumed`, `saved`; `autosave`, by
   `base/save_cadence.h`'s rule). So is a search that could not write a
   file (decision 0040): by the time it ends the files of the level it was
@@ -1863,7 +1868,11 @@ What exists after stage 8:
     has to have kept them; `saveAtSavePoint(path)` is
     also File ▸ Save's path while a solve runs, the save the store's: it
     pauses a sliding or stacking search, and joins or follows a journal
-    save under way),
+    save under way: joins it from its first run asked until its runs have
+    ended, follows it after; a run counts as under way from the page's
+    own solve.start or solve.continue being answered (`launched`), not
+    only once its state is told, so the save that follows a journal's
+    solve.continue pauses that run first),
     `to-shapes.ts` and `to-shapes-form.ts` (stage 6: Edit ▸ Convert
     Assemblies to Pieces, the original's dialog over `solution.toShapes`:
     source, destination, range, filters with their defaults (millable and

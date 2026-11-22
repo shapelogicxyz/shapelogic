@@ -11,9 +11,18 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <regex>
 #include <string>
 
 namespace bt::test {
+
+/// A saved file without its problems' uid attributes (decision 0044): what
+/// the original wrote has none, and a file read without them gets new ones
+/// each time it is read.
+inline std::string withoutUids(const std::string& xml) {
+  static const std::regex uid(" uid=\"[0-9a-f]{16}\"");
+  return std::regex_replace(xml, uid, "");
+}
 
 /// A fixture puzzle from tests/data/puzzles (the tests run from the source
 /// root).

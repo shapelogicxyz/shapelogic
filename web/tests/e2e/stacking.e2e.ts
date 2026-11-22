@@ -107,10 +107,15 @@ async function openPath(page: Page, path: string): Promise<void> {
   await settled(page);
 }
 
-/** The document's file as the engine would save it now. */
+/**
+ * The document's file as the engine would save it now, without its
+ * problems' uids (decision 0044): the fixtures were written before them.
+ */
 async function savedText(page: Page): Promise<string> {
   const r = await engineCall<{ data: string }>(page, 'document.saveBytes');
-  return Buffer.from(r.data, 'base64').toString('utf8');
+  return Buffer.from(r.data, 'base64')
+    .toString('utf8')
+    .replace(/ uid="[0-9a-f]{16}"/g, '');
 }
 
 /** Waits until the Puzzle's cards show the engine's revision (the stacking's board read with it). */

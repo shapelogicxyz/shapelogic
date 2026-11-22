@@ -23,6 +23,7 @@ import gzip
 import json
 import os
 import random
+import re
 import sys
 import tempfile
 
@@ -155,7 +156,8 @@ def generated(n, seed, tmp):
         path = os.path.join(tmp, f"g{k}.xmpuzzle")
         puzzle.save(path)
         with gzip.open(path, "rb") as f:
-            emit(tag, "saved", f.read().decode("latin-1"))
+            # without the problems' uids (decision 0044), which the original has not
+            emit(tag, "saved", re.sub(r' uid="[0-9a-f]{16}"', "", f.read().decode("latin-1")))
         describe(tag, burrtools.load(path))
 
 

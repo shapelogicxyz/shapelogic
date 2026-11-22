@@ -11,6 +11,7 @@
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/grid/grid_type.h"
 #include "shapelogic/grid/voxel.h"
+#include "shapelogic/io/gzip_file.h"
 #include "shapelogic/io/puzzle_file.h"
 #include "shapelogic/model/assembly.h"
 #include "shapelogic/model/disassembly.h"
@@ -1543,6 +1544,71 @@ TEST_CASE("sliding session: a search paused in v1.8.1 is told, carried on or sol
   std::filesystem::remove_all(dir);
 }
 
+// The "1 to 8 Heart" puzzle (decision 0044): its first board was paused by
+// a version before uids, and its second is a copy of it in every cell,
+// never solved. The search was named from the problem's cells alone, so
+// the copy found it as its own, and the cache manager named the copy as
+// the paused one. Now only the problem the file says is paused keeps the
+// name without a uid; the copy has a uid, and searches of its own.
+TEST_CASE("sliding session: a copy of a problem paused before uids does not take its search",
+          "[sliding][session][resume]") {
+  const std::filesystem::path from = "tests/data/slide_paused_by_v1.8.1";
+  const std::filesystem::path dir =
+      std::filesystem::temp_directory_path() / "bt_test_slide_session_uid_copy";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir);
+  std::filesystem::copy(from / "slide-cafc026be534476e", dir / "slide-cafc026be534476e");
+  Result<std::string> xml = io::readMaybeGzipFile(from / "cup_and_blocks.xmpuzzle");
+  REQUIRE(xml.has_value());
+  // the paused problem, then a copy of its definition, unsolved
+  const std::size_t open = xml->find("  <problem ");
+  const std::size_t end = xml->find("  </problem>\n");
+  REQUIRE(open != std::string::npos);
+  REQUIRE(end != std::string::npos);
+  std::string copy = xml->substr(open, end + 13 - open);
+  copy.replace(copy.find("state=\"1\""), 9, "state=\"0\"");
+  copy.erase(copy.find("   <pending>"), copy.find("</pending>\n") + 11 - copy.find("   <pending>"));
+  xml->insert(end + 13, copy);
+  Result<Puzzle> loaded = io::parsePuzzle(*xml);
+  REQUIRE(loaded.has_value());
+  Puzzle& p = *loaded;
+  REQUIRE(p.getNumberOfProblems() == 2);
+  const Problem& paused = p.getProblem(0);
+  const Problem& twin = p.getProblem(1);
+  CHECK(paused.getSolveState() == ProblemState::Solving);
+  CHECK(twin.getSolveState() == ProblemState::Unsolved);
+  CHECK(paused.getUid() == 0);
+  CHECK(twin.getUid() != 0);
+
+  // the saved search is the paused problem's alone, and so is its lock
+  CHECK(savedFolders(p, paused, dir.string()).size() == 1);
+  CHECK(savedFolders(p, twin, dir.string()).empty());
+  CHECK(solveLockPath(p, paused, dir.string()) != solveLockPath(p, twin, dir.string()));
+
+  // saved and read again: the same uids, so the same searches
+  Result<Puzzle> again = io::parsePuzzle(io::writePuzzle(p));
+  REQUIRE(again.has_value());
+  CHECK(again->getProblem(0).getUid() == 0);
+  CHECK(again->getProblem(1).getUid() == twin.getUid());
+  CHECK(savedFolders(*again, again->getProblem(0), dir.string()).size() == 1);
+
+  // the copy solved and paused has a search of its own beside the first's
+  SolveOptions o = findSolutions(2);
+  o.sliding.nested = true;
+  o.sliding.optimizedPaths = true;
+  o.sliding.workDir = dir.string();
+  o.sliding.memoryBytes = 1;
+  o.sliding.diskBudget = 1;
+  SolveSession s(p, p.getProblem(1), o);
+  REQUIRE(s.start().has_value());
+  s.wait();
+  const std::vector<std::string> mine = savedFolders(p, twin, dir.string());
+  CHECK(mine.size() == 1);
+  CHECK(mine != savedFolders(p, paused, dir.string()));
+  CHECK(savedFolders(p, paused, dir.string()).size() == 1);
+  std::filesystem::remove_all(dir);
+}
+
 TEST_CASE("sliding session: optimized paths say a full search may find what they miss",
           "[sliding][session]") {
   Puzzle every = corridorSwap();
@@ -1708,10 +1774,14 @@ TEST_CASE("sliding session: a problem another solve works on is refused",
   const Problem& pr = p.getProblem(0);
   const std::string lockFile = solveLockPath(p, pr, dir.string());
   REQUIRE_FALSE(lockFile.empty());
-  // the same problem in another document is the same lock; no folder, no lock
+  // the same problem in another document (a copy of the file: the same
+  // uid) is the same lock; one made alike is not (decision 0044); no
+  // folder, no lock
   {
-    const Puzzle copy = cupAndBlocks();
+    const Puzzle copy = p;
     CHECK(solveLockPath(copy, copy.getProblem(0), dir.string()) == lockFile);
+    const Puzzle alike = cupAndBlocks();
+    CHECK(solveLockPath(alike, alike.getProblem(0), dir.string()) != lockFile);
     CHECK(solveLockPath(p, pr, "").empty());
   }
   auto savedSearches = [&] { return savedFolders(p, pr, dir.string()).size(); };

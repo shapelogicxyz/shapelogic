@@ -1238,6 +1238,64 @@ test('a save while a sliding search runs pauses it, saves and carries it on, the
   }
 });
 
+test('a save asked for as the journal’s save ends pauses the search it has just carried on', async () => {
+  test.setTimeout(120_000);
+  const { dir, log } = tmpLog();
+  const a = await launch({ callLog: log, autosave: 1 });
+  const page = a.page;
+  try {
+    await openFixture(page, 'sliding/slide_swapped_fifteen.xmpuzzle');
+    await toSolver(page);
+    await page.click('#slvMode [data-m="dis"]');
+    await expect(page.locator('#slvMode .mcard[data-m="dis"]')).toHaveClass(/on/);
+    await solverSettled(page);
+    await runButton(page, 'start');
+    await expect(page.locator('#leftS')).toHaveAttribute('data-autosaved', '1', {
+      timeout: 30_000,
+    });
+    const file = join(dir, 'fifteen.xmpuzzle');
+    await answerDialogs(page, { save: file });
+    await page.keyboard.press('Control+Shift+s');
+    await expect(page.locator('#savePoint')).toBeVisible();
+    // The question's Save pressed by the page itself the moment the journal
+    // counts its save: the journal is then carrying the search on, and the
+    // save that follows it finds a run the page has not been told of yet
+    // (it used to pause nothing, and the engine refused the save).
+    const from = readCallLog(log).length;
+    await page.evaluate(() => {
+      const left = document.querySelector('#leftS');
+      if (left === null) {
+        throw new Error('no #leftS');
+      }
+      const seen = new MutationObserver(() => {
+        seen.disconnect();
+        document.querySelector<HTMLElement>('#savePoint [data-x="save"]')?.click();
+      });
+      seen.observe(left, { attributes: true, attributeFilter: ['data-autosaved'] });
+    });
+    await expect(page.locator('#fname')).toHaveText(/^fifteen\.xmpuzzle/, { timeout: 60_000 });
+    expect(existsSync(file)).toBe(true);
+    // after the journal's solve.continue: the save's own pause, the save, the search carried on
+    const since = (): string[] =>
+      readCallLog(log)
+        .slice(from)
+        .map((c) => c.method)
+        .filter((m) => m === 'solve.pause' || m === 'solve.continue' || m === 'document.save');
+    await expect
+      .poll(() => since().join(' '))
+      .toMatch(/^solve\.continue solve\.pause document\.save solve\.continue/);
+    await expect(page.locator('#leftS')).toHaveAttribute('data-state', 'assembling', {
+      timeout: 30_000,
+    });
+    expect(readCallLog(log).filter(counted)).toEqual([]);
+    await runButton(page, 'pause');
+    await runEnded(page, 'paused');
+  } finally {
+    await a.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('optimized paths: asked about before a solve, the full search offered when they find none', async () => {
   test.setTimeout(120_000);
   const { dir, log } = tmpLog();

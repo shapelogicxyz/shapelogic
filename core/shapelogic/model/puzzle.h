@@ -90,13 +90,13 @@ class Puzzle {
 
   // ---- problems ---------------------------------------------------------------
 
-  /// Adds an empty problem; returns its index.
+  /// Adds an empty problem with a new uid; returns its index.
   unsigned int addProblem();
-  /// Adds a copy of a problem's definition (Problem::copyDefinition); shape
-  /// ids this puzzle does not have are dropped.
+  /// Adds a copy of a problem's definition (Problem::copyDefinition, a new
+  /// uid); shape ids this puzzle does not have are dropped.
   unsigned int addProblem(const Problem& prob);
-  /// Adds the problem as it is, solutions and all (a file's, or one an
-  /// undo brings back); returns its index.
+  /// Adds the problem as it is, solutions, uid and all (a file's, or one
+  /// an undo brings back); returns its index.
   unsigned int appendProblem(Problem prob);
   [[nodiscard]] unsigned int getNumberOfProblems() const {
     return static_cast<unsigned int>(problems_.size());

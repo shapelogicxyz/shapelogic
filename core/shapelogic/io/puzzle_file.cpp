@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
@@ -30,6 +31,7 @@
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -59,6 +61,7 @@ struct ProblemFileAccess {
   static std::string& assemblerState(Problem& p) { return p.assemblerState_; }
   static std::string& assemblerVersion(Problem& p) { return p.assemblerVersion_; }
   static unsigned int& maxHoles(Problem& p) { return p.maxHoles_; }
+  static std::uint64_t& uid(Problem& p) { return p.uid_; }
   static unsigned int resultRaw(const Problem& p) { return p.result_; }
 };
 
@@ -863,16 +866,76 @@ void readSlideMarks(const XmlElement& e, Problem& prob) {
   }
 }
 
+void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob);
+
+// Every problem a uid of its own (decision 0044), once the problems are as
+// the file means them. A problem the file gives none gets one made from
+// its place in the file and its definition, so that the same file opened
+// again, or in another window, names its problems' searches as before,
+// and two problems alike in every cell are told apart; so does a problem
+// whose uid an earlier one has (copied by hand in the file). A problem
+// paused by a version before uids keeps none, so its saved search, named
+// without one, is still its own; of such problems with the same
+// definition only the first does, as they shared one folder.
+void giveUids(Puzzle& puzzle) {
+  using A = ProblemFileAccess;
+  std::set<std::uint64_t> seen;
+  std::set<std::string> legacy;
+  for (unsigned int i = 0; i < puzzle.getNumberOfProblems(); i++) {
+    Problem& prob = puzzle.getProblem(i);
+    std::uint64_t uid = prob.getUid();
+    if (uid != 0 && seen.insert(uid).second) {
+      continue;
+    }
+    Problem def = prob.copyDefinition();
+    A::uid(def) = 0;
+    XmlWriter xml;
+    writeProblem(xml, puzzle, def);
+    const std::string text = xml.str();
+    if (uid == 0 && prob.getSolveState() == ProblemState::Solving &&
+        legacy.insert(text).second) {
+      continue;
+    }
+    // FNV-1a over the place, the definition and the uid it had
+    std::uint64_t h = 14695981039346656037ULL;
+    const auto mix = [&h](std::uint64_t v) {
+      for (int b = 0; b < 8; b++) {
+        h ^= (v >> (8 * b)) & 0xFF;
+        h *= 1099511628211ULL;
+      }
+    };
+    mix(i);
+    mix(uid);
+    for (const char ch : text) {
+      mix(static_cast<unsigned char>(ch));
+    }
+    while (h == 0 || seen.contains(h)) {
+      mix(h);
+    }
+    A::uid(prob) = h;
+    seen.insert(h);
+  }
+}
+
 Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
   using A = ProblemFileAccess;
   Problem prob;
   prob.setName(e.attribute("name"));
 
   Keeper keep(prob.preserved());
-  keep.attributes(e, {"name", "state", "assemblies", "solutions", "time", "timeMs", "searched",
-                      "searchDepth", "triedApart", "slideGrid", "slideLevelMs", "maxHoles"});
+  keep.attributes(e, {"name", "uid", "state", "assemblies", "solutions", "time", "timeMs",
+                      "searched", "searchDepth", "triedApart", "slideGrid", "slideLevelMs",
+                      "maxHoles"});
 
-  std::string str = e.attribute("maxHoles");
+  // 16 hex digits; anything else is no uid, which giveUids settles
+  std::string str = e.attribute("uid");
+  if (str.size() == 16 && std::ranges::all_of(str, [](char ch) {
+        return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
+      })) {
+    A::uid(prob) = std::stoull(str, nullptr, 16);
+  }
+
+  str = e.attribute("maxHoles");
   if (!str.empty()) {
     A::maxHoles(prob) = asUnsigned(atoiOf(str));
   }
@@ -1221,6 +1284,7 @@ Puzzle readPuzzleElement(const XmlElement& root) {
       sliding::convertLegacyStarts(puzzle);
     }
   }
+  giveUids(puzzle);
   if (problemMarks) {
     // the marks are the problems': a shape carries none
     for (unsigned int s = 0; s < puzzle.getNumberOfShapes(); s++) {
@@ -1621,6 +1685,11 @@ void writeProblem(XmlWriter& xml, const Puzzle& puzzle, const Problem& prob) {
 
   if (!prob.getName().empty()) {
     xml.newAttrib("name", prob.getName());
+  }
+  if (prob.getUid() != 0) {
+    char uid[17];
+    std::snprintf(uid, sizeof(uid), "%016llx", static_cast<unsigned long long>(prob.getUid()));
+    xml.newAttrib("uid", uid);
   }
 
   xml.newAttrib("state", static_cast<int>(prob.getSolveState()));

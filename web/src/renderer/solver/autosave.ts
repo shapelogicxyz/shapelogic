@@ -49,8 +49,11 @@
 // and the search stood still for good. Only the time from the run's end
 // counts as the save's cost. A save the user asks for (File ▸ Save) does
 // not wait for a level's end: it pauses the search, which is carried on
-// redoing the level cut short, once; asked for while the journal waits, it
-// takes the journal's place (`join`).
+// redoing the level cut short, once; asked for while the journal asks its
+// runs or waits for them, it takes the journal's place (`join`); asked for
+// later (the rescue copy being written, the runs being carried on), it
+// follows the journal's save, and pauses the runs that save has just
+// carried on (`activeRuns` counts a run from its call's answer).
 //
 // A run is carried on only when it paused for the save: at the save point
 // asked for (its last progress says `atSavePoint`), or by the pause asked
@@ -132,7 +135,7 @@ export class Autosave {
   private levelEnd = false;
   /** The save under way when it is the journal's (a save the user asks for joins or follows it). */
   private journalling: Promise<string | null> | null = null;
-  /** The save under way waits for its runs to end: a save the user asks for can still join it. */
+  /** The save under way asks its runs or waits for them to end: a save the user asks for can still join it. */
   private waiting = false;
   /** A save the user asked for while the journal's waited: made in its place. */
   private joined: { path: string | undefined; done: (saved: string | null) => void } | null = null;
@@ -359,7 +362,12 @@ export class Autosave {
     return this.activeRuns().length > 0;
   }
 
-  // the problems whose run is under way (an active state)
+  // The problems whose run is under way: an active state told, or a run
+  // this page started or carried on whose first state is still to come
+  // (`launched`: the engine answered the call, so the run is there). Without
+  // the second, a save that follows another's solve.continue at once (the
+  // user's, asked for as the journal's ended) saw no run, paused nothing,
+  // and the engine refused the document's bytes: "Pause the solve first".
   private activeRuns(): string[] {
     const snap = this.store.snapshot;
     if (snap === null) {
@@ -369,7 +377,7 @@ export class Autosave {
       .map((p) => p.id)
       .filter((id) => {
         const r = this.solves.peek(id);
-        return r?.phase === 'active' && isActive(r.state);
+        return r !== undefined && (r.launched || (r.phase === 'active' && isActive(r.state)));
       });
   }
 
@@ -424,10 +432,16 @@ export class Autosave {
       const pause = grid === 'stacking' || (grid === 'sliding' && !journal);
       const toLevelEnd = grid === 'sliding' && !pause;
       this.levelEnd = toLevelEnd;
+      // from the first run asked until the last has ended, a save the user
+      // asks for takes the journal's place (`join`): while a run is still
+      // being asked too, or that save would wait for a level's end
+      this.waiting = true;
       for (const p of runs) {
-        this.pausing.set(p, pause ? 'pause' : 'savePoint');
+        // joined meanwhile: the runs still to ask are paused as `join` pauses the others
+        const byPause = pause || this.joined !== null;
+        this.pausing.set(p, byPause ? 'pause' : 'savePoint');
         try {
-          await e.call(pause ? 'solve.pause' : 'solve.savePoint', { problem: p });
+          await e.call(byPause ? 'solve.pause' : 'solve.savePoint', { problem: p });
           paused.push(p);
           // from here on its pauses are of this page's asking (`takeOver`)
           this.asked.add(p);
@@ -437,7 +451,6 @@ export class Autosave {
         }
       }
       // each run's end (its revision), then the snapshot that shows it
-      this.waiting = true;
       let rev = 0;
       for (const p of paused) {
         rev = Math.max(rev, await this.solves.whenEnded(p));

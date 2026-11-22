@@ -4,6 +4,7 @@
 // files (BTSOLVE2, cb_ExportPaused / cb_ImportPaused) and the in-memory
 // gzip they need.
 #include "app_test_helpers.h"
+#include "../model/model_test_helpers.h"
 
 #include "shapelogic/app/document.h"
 #include "shapelogic/io/gzip_file.h"
@@ -92,7 +93,7 @@ void analysedAsTheOriginal(const std::string& name, bool rotations, SolverType s
     CHECK(d.lastChange().problems == std::vector<Id>{p});
     CHECK((d.lastChange().what & kChangeSolutions) != 0);
   }
-  CHECK(io::writePuzzle(d.puzzle()) ==
+  CHECK(test::withoutUids(io::writePuzzle(d.puzzle())) ==
         fileBytes("tests/data/analysed_by_original/" + recorded + ".xml"));
 }
 

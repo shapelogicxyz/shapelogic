@@ -89,7 +89,7 @@ TEST_CASE("puzzle file: every fixture is saved byte for byte as the original sav
     // file is converted as it loads, so its save is the new form, not
     // the original's bytes
     if (p.getGridType().getType() != GridKind::Sliding) {
-      CHECK(ours == theirs);
+      CHECK(test::withoutUids(ours) == theirs);
     }
 
     // and the save reads back to itself
@@ -116,8 +116,9 @@ TEST_CASE("puzzle file: the new grids' fixtures are saved byte for byte as they 
     const Puzzle p = test::loadFixture("new-grids/" + path.filename().string());
     grids.insert(p.getGridType().getType());
     CHECK(p.getNumberOfProblems() == 2);
-    CHECK(io::writePuzzle(p) == *written);
-    CHECK(io::writePuzzle(parse(*written)) == *written);
+    const std::string ours = io::writePuzzle(p);
+    CHECK(test::withoutUids(ours) == *written);
+    CHECK(io::writePuzzle(parse(ours)) == ours);
   }
   CHECK(grids == std::set<GridKind>{GridKind::Hexagonal, GridKind::Cairo});
 }
@@ -152,7 +153,7 @@ TEST_CASE("puzzle file: content the model does not know is kept in place", "[io]
   CHECK_THAT(out, ContainsSubstring("type=\"0\" bevel=\"0.5\">#</voxel>"));
   CHECK_THAT(out, ContainsSubstring(" </shapes>\n <later>\n  <deep a=\"&lt;\">text</deep>\n"
                                     " </later>\n <problems>"));
-  CHECK_THAT(out, ContainsSubstring("<problem state=\"0\" mood=\"good\">"));
+  CHECK_THAT(out, ContainsSubstring("\" state=\"0\" mood=\"good\">"));
   CHECK_THAT(out, ContainsSubstring("<result id=\"0\"/>\n   <newThing/>\n   <bitmap/>"));
   CHECK_THAT(out, ContainsSubstring("<comment>c</comment>\n <last/>\n</puzzle>"));
 
@@ -627,4 +628,86 @@ TEST_CASE("file: sliding start marks are read, written and converted from colour
   CHECK(again->getProblem(0).slideMarks() == k.getProblem(0).slideMarks());
   CHECK(again->colorNumber() == 0);
   CHECK(io::writePuzzle(k).find("<slideMarks start=") != std::string::npos);
+}
+
+// Decision 0044: a problem's uid names its saved searches, so it is kept
+// through saves, renames and moves, and no two problems of a file share one.
+TEST_CASE("puzzle file: every problem has a uid of its own, kept as it is saved",
+          "[io][file][uid]") {
+  const auto problems = [](const std::string& each, int n) {
+    std::string xml =
+        "<puzzle version=\"2\"><gridType type=\"0\"/><colors/>"
+        "<shapes><voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#</voxel></shapes><problems>";
+    for (int i = 0; i < n; i++) {
+      xml += each;
+    }
+    return xml + "</problems><comment/></puzzle>";
+  };
+  const std::string plain =
+      "<problem state=\"0\"><shapes><shape id=\"0\" count=\"1\"/></shapes>"
+      "<result id=\"0\"/><bitmap/></problem>";
+
+  // read without uids, two problems alike in every cell are told apart, and
+  // named the same each time the file is read
+  const Puzzle a = parse(problems(plain, 2));
+  CHECK(a.getProblem(0).getUid() != 0);
+  CHECK(a.getProblem(1).getUid() != 0);
+  CHECK(a.getProblem(0).getUid() != a.getProblem(1).getUid());
+  const Puzzle b = parse(problems(plain, 2));
+  CHECK(b.getProblem(0).getUid() == a.getProblem(0).getUid());
+  CHECK(b.getProblem(1).getUid() == a.getProblem(1).getUid());
+
+  // saved, renamed and moved, each keeps its own
+  Puzzle c = parse(io::writePuzzle(a));
+  CHECK(c.getProblem(0).getUid() == a.getProblem(0).getUid());
+  c.getProblem(0).setName("renamed");
+  c.exchangeProblems(0, 1);
+  const Puzzle d = parse(io::writePuzzle(c));
+  CHECK(d.getProblem(0).getUid() == a.getProblem(1).getUid());
+  CHECK(d.getProblem(1).getUid() == a.getProblem(0).getUid());
+  CHECK(d.getProblem(1).getName() == "renamed");
+  CHECK_THAT(io::writePuzzle(d), ContainsSubstring("<problem name=\"renamed\" uid=\""));
+
+  // a uid copied by hand in the file: the second problem gets another
+  const std::string same =
+      "<problem uid=\"00000000000000aa\" state=\"0\"><shapes><shape id=\"0\" count=\"1\"/>"
+      "</shapes><result id=\"0\"/><bitmap/></problem>";
+  const Puzzle e = parse(problems(same, 2));
+  CHECK(e.getProblem(0).getUid() == 0xaa);
+  CHECK(e.getProblem(1).getUid() != 0xaa);
+  CHECK(e.getProblem(1).getUid() != 0);
+
+  // a new problem and a copy of one have uids of their own
+  Puzzle f = parse(problems(plain, 1));
+  const unsigned int added = f.addProblem();
+  const unsigned int copied = f.addProblem(f.getProblem(0));
+  const std::set<std::uint64_t> uids{f.getProblem(0).getUid(), f.getProblem(added).getUid(),
+                                     f.getProblem(copied).getUid()};
+  CHECK(uids.size() == 3);
+  CHECK_FALSE(uids.contains(0));
+}
+
+// A problem left paused by a version before uids keeps none, so that its
+// saved search, named without one, is still found; an unpaused one, or a
+// second paused one alike in every cell (they shared the folder), gets one.
+TEST_CASE("puzzle file: a problem paused before uids keeps its saved search's name",
+          "[io][file][uid]") {
+  const std::string paused =
+      "<problem state=\"1\"><shapes><shape id=\"0\" count=\"1\"/></shapes>"
+      "<result id=\"0\"/><bitmap/></problem>";
+  const std::string solved =
+      "<problem state=\"2\"><shapes><shape id=\"0\" count=\"1\"/></shapes>"
+      "<result id=\"0\"/><bitmap/></problem>";
+  const Puzzle p = parse(
+      "<puzzle version=\"2\"><gridType type=\"0\"/><colors/>"
+      "<shapes><voxel x=\"1\" y=\"1\" z=\"1\" type=\"0\">#</voxel></shapes><problems>" +
+      solved + paused + paused + "</problems><comment/></puzzle>");
+  CHECK(p.getProblem(0).getUid() != 0);
+  CHECK(p.getProblem(1).getUid() == 0);
+  CHECK(p.getProblem(2).getUid() != 0);
+  // saved without one, and read again the same
+  const std::string out = io::writePuzzle(p);
+  const Puzzle again = parse(out);
+  CHECK(again.getProblem(1).getUid() == 0);
+  CHECK(io::writePuzzle(again) == out);
 }

@@ -6,6 +6,8 @@
 #include "shapelogic/model/puzzle.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <random>
 #include <utility>
 
 namespace bt {
@@ -44,6 +46,7 @@ Problem Problem::copyDefinition() const {
   // solutions, counts and the saved position are not copied, the problem is
   // unsolved; the name is left empty, the user gives a new one anyway
   Problem p;
+  p.renewUid();
   p.parts_ = parts_;
   p.result_ = result_;
   p.goal_ = goal_;
@@ -57,6 +60,18 @@ Problem Problem::copyDefinition() const {
   p.preserved_ = preserved_;
   return p;
 }
+
+std::uint64_t newProblemUid() {
+  // 64 random bits; never 0, which names a search saved before uids
+  std::random_device rd;
+  std::uint64_t uid = 0;
+  while (uid == 0) {
+    uid = (static_cast<std::uint64_t>(rd()) << 32) ^ rd();
+  }
+  return uid;
+}
+
+void Problem::renewUid() { uid_ = newProblemUid(); }
 
 // ---- result and goal ------------------------------------------------------------
 

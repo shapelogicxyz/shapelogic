@@ -160,7 +160,9 @@ Rgb Puzzle::getColor(unsigned int idx) const {
 }
 
 unsigned int Puzzle::addProblem() {
-  return appendProblem(Problem{});
+  Problem p;
+  p.renewUid();
+  return appendProblem(std::move(p));
 }
 
 unsigned int Puzzle::addProblem(const Problem& prob) {

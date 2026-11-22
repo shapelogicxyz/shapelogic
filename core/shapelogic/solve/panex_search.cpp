@@ -1619,9 +1619,10 @@ bool classicTower(const Rules& rules, PKey startKey, PKey goalKey,
   return true;
 }
 
-// Names a puzzle's saved search: the rules, the start and the goal (FNV-1a
-// over the bytes of each value, as the original mixed them).
-std::uint64_t fingerprintOf(const Rules& rules, PKey start, PKey goal) {
+// Names a puzzle's saved search: the rules, the start, the goal and the
+// problem's uid (FNV-1a over the bytes of each value, as the original mixed
+// them).
+std::uint64_t fingerprintOf(const Rules& rules, PKey start, PKey goal, std::uint64_t uid) {
   std::uint64_t h = 1469598103934665603ULL;
   auto mix = [&h](std::uint64_t v) {
     for (int i = 0; i < 8; i++) {
@@ -1651,6 +1652,12 @@ std::uint64_t fingerprintOf(const Rules& rules, PKey start, PKey goal) {
   mix(start.lo);
   mix(goal.hi);
   mix(goal.lo);
+  // The problem's uid (decision 0044), so that two problems alike in every
+  // disc have searches of their own; without one (a problem paused by a
+  // version before uids) the folder is the one those versions named.
+  if (uid != 0) {
+    mix(uid);
+  }
   return h;
 }
 
@@ -1718,7 +1725,7 @@ std::string searchFolder(const Puzzle& puzzle, const Problem& problem,
   if (!setup(puzzle, problem, rules, start, goal)) {
     return "";
   }
-  return folderFor(fingerprintOf(rules, start, goal), workDir).string();
+  return folderFor(fingerprintOf(rules, start, goal, problem.getUid()), workDir).string();
 }
 
 std::string savedSearch(const Puzzle& puzzle, const Problem& problem,
@@ -1729,7 +1736,7 @@ std::string savedSearch(const Puzzle& puzzle, const Problem& problem,
   if (!setup(puzzle, problem, rules, start, goal)) {
     return "";
   }
-  const std::uint64_t fp = fingerprintOf(rules, start, goal);
+  const std::uint64_t fp = fingerprintOf(rules, start, goal, problem.getUid());
   const std::filesystem::path dir = folderFor(fp, workDir);
   std::error_code ec;
   if (dir.empty() || !std::filesystem::exists(dir / "state.bin", ec)) {
@@ -1755,7 +1762,7 @@ std::uint64_t savedMs(const Puzzle& puzzle, const Problem& problem, const std::s
   if (!setup(puzzle, problem, rules, start, goal)) {
     return 0;
   }
-  const std::uint64_t fp = fingerprintOf(rules, start, goal);
+  const std::uint64_t fp = fingerprintOf(rules, start, goal, problem.getUid());
   Store store;
   store.dir = folderFor(fp, workDir);
   SavedState st;
@@ -1778,7 +1785,8 @@ void discardSaved(const Puzzle& puzzle, const Problem& problem, const std::strin
   if (!setup(puzzle, problem, rules, start, goal)) {
     return;
   }
-  const std::filesystem::path dir = folderFor(fingerprintOf(rules, start, goal), workDir);
+  const std::filesystem::path dir =
+      folderFor(fingerprintOf(rules, start, goal, problem.getUid()), workDir);
   std::error_code ec;
   if (!dir.empty()) {
     std::filesystem::remove_all(dir, ec);
@@ -1859,7 +1867,7 @@ std::optional<Separation> solve(const Puzzle& puzzle, const Problem& problem,
 
   // The folder for saving the search. Without one, it still solves: by
   // halves once the levels do not fit in memory, but it cannot be resumed.
-  const std::uint64_t fp = fingerprintOf(rules, startKey, goalKey);
+  const std::uint64_t fp = fingerprintOf(rules, startKey, goalKey, problem.getUid());
   searcher.fingerprint = fp;
   Store store;
   SavedState resumeState;

@@ -16,8 +16,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <set>
 #include <string>
 
 using namespace bt;
@@ -421,6 +423,34 @@ TEST_CASE("document: problems are made, copied, deleted, moved and named", "[app
   CHECK(d.puzzle().getProblem(2).getName() == "second");
   roundTrip(d, [p0](Document& x) { return x.deleteProblem(p0); });
   CHECK(d.problemIds() == std::vector<Id>{p2, p1});
+}
+
+// Decision 0044: each problem's uid is its own, and stays with it through
+// moves, renames, deletes and their undo, whatever its place in the list.
+TEST_CASE("document: a problem's uid stays with it", "[app][document][uid]") {
+  Document d = openFixture("PelikanBurr.xmpuzzle");
+  const Id p0 = firstProblem(d);
+  const Id p1 = d.duplicateProblem(p0).value();
+  const Id p2 = d.createProblem().value();
+  const auto uid = [&d](Id p) { return d.puzzle().getProblem(d.problemIndex(p).value()).getUid(); };
+  const std::uint64_t u0 = uid(p0);
+  const std::uint64_t u1 = uid(p1);
+  const std::uint64_t u2 = uid(p2);
+  CHECK(std::set<std::uint64_t>{u0, u1, u2}.size() == 3);
+  CHECK_FALSE(std::set<std::uint64_t>{u0, u1, u2}.contains(0));
+
+  REQUIRE(d.moveProblem(p0, 2).has_value());
+  REQUIRE(d.renameProblem(p0, "moved").has_value());
+  CHECK(uid(p0) == u0);
+  CHECK(uid(p1) == u1);
+  REQUIRE(d.deleteProblem(p1).has_value());
+  REQUIRE(d.undo().has_value());
+  CHECK(uid(p1) == u1);
+  REQUIRE(d.undo().has_value());
+  REQUIRE(d.undo().has_value());
+  CHECK(d.problemIds() == std::vector<Id>{p0, p1, p2});
+  CHECK(uid(p0) == u0);
+  CHECK(uid(p2) == u2);
 }
 
 TEST_CASE("document: the pieces of a problem", "[app][document]") {

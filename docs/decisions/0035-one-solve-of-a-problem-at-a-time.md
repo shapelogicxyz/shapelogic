@@ -63,6 +63,9 @@ names the board, the marks, the pieces and their counts, as the saved
 searches' does: a copy of the file, or a copy of the problem, would share
 the folders, so it shares the lock. (In one document a second sliding
 solve was refused already, while another reads the shapes.)
+(Since decision 0044 the key names the problem's uid too: a copy of the
+problem has folders and a lock of its own; a copy of the file still shares
+them.)
 
 **The engine's default folders follow `SHAPELOGIC_SLIDE_DIR` and
 `SHAPELOGIC_PANEX_DIR`**, as the CLI's do, before the user's cache folder.

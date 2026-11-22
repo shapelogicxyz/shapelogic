@@ -82,6 +82,9 @@ using SolutionLess = bool (*)(const Solution&, const Solution&);
 /// For a front end that shows the solutions sorted without sorting them.
 [[nodiscard]] SolutionLess solutionSortOrder(int by);
 
+/// A new problem uid (Problem::getUid): 64 random bits, never 0.
+[[nodiscard]] std::uint64_t newProblemUid();
+
 /// One problem of a puzzle. A value inside its Puzzle; operations that look
 /// at shapes or colours take that puzzle as a parameter.
 ///
@@ -93,8 +96,18 @@ class Problem {
   Problem() = default;
 
   /// A copy of the definition only: no name, no solutions, unsolved
-  /// (problem_c's copy constructor).
+  /// (problem_c's copy constructor), and a uid of its own.
   [[nodiscard]] Problem copyDefinition() const;
+
+  /// What names this problem for good (decision 0044): kept through
+  /// renames, moves, undo and saves, and part of the name of its saved
+  /// searches, so that two problems alike in every cell still have their
+  /// own. 0 only for a problem that a version before uids left paused
+  /// (its saved search is named without one); a default-made problem has
+  /// 0 too, until a puzzle adds it (Puzzle::addProblem gives it one).
+  [[nodiscard]] std::uint64_t getUid() const { return uid_; }
+  /// Gives the problem a new uid: its saved searches are no longer its own.
+  void renewUid();
 
   [[nodiscard]] const std::string& getName() const { return name_; }
   void setName(const std::string& nm) { name_ = nm; }
@@ -424,6 +437,8 @@ class Problem {
   void touchSolutions() { solutionsVersion_++; }
 
   std::string name_;
+  /// See getUid(); saved as the problem's uid attribute.
+  std::uint64_t uid_ = 0;
   std::vector<Part> parts_;
   unsigned int result_ = kNoShape;
   unsigned int goal_ = kNoShape;

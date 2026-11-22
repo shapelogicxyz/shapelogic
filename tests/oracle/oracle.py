@@ -1077,10 +1077,15 @@ def read_xml_bytes(path: Path) -> bytes:
     return gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
 
 
+def without_uids(xml: bytes) -> bytes:
+    """A save without its problems' uids (decision 0044): the original writes none."""
+    return re.sub(rb' uid="[0-9a-f]{16}"', b"", xml)
+
+
 def semantic(path: Path):
     """The XML tree of a puzzle file as nested tuples: names, attributes as a
-    sorted list, and text where it is not only whitespace (leaf elements
-    only, the format has no mixed content). Bytes are read as Latin-1 so that
+    sorted list (without a problem's uid), and text where it is not only
+    whitespace (leaf elements only, the format has no mixed content). Bytes are read as Latin-1 so that
     files with stray non-UTF-8 bytes compare too."""
     parser = ET.XMLParser(encoding="iso-8859-1")
     root = ET.fromstring(read_xml_bytes(path), parser=parser)
@@ -1090,7 +1095,12 @@ def semantic(path: Path):
         text = (e.text or "") if not children else ""
         if not text.strip():
             text = ""
-        return (e.tag, tuple(sorted(e.attrib.items())), text, tuple(children))
+        attrib = e.attrib
+        if e.tag == "problem":
+            # a problem's uid (decision 0044), which the original neither
+            # writes nor keeps
+            attrib = {k: v for k, v in attrib.items() if k != "uid"}
+        return (e.tag, tuple(sorted(attrib.items())), text, tuple(children))
 
     return walk(root)
 
@@ -1165,7 +1175,7 @@ def roundtrip_one(old_tool: Path, new_tool: Path, src: Path, out: Path, timeout:
     if err or semantic(old_of_new) != sem_old:
         return {"status": "MISMATCH", "detail": f"original reads the new save differently: {err or first_difference(semantic(old_of_new), sem_old)}"}
 
-    same_bytes = read_xml_bytes(old_out) == read_xml_bytes(new_out)
+    same_bytes = read_xml_bytes(old_out) == without_uids(read_xml_bytes(new_out))
     same_as_input = semantic(src) == sem_new
     return {"status": "ok", "bytes": same_bytes, "input": same_as_input,
             "detail": "" if same_as_input else "both saves differ from the input: " + first_difference(sem_new, semantic(src))}
@@ -1316,7 +1326,7 @@ def imports_one(old_tool: Path, new_tool: Path, job: tuple, out: Path, timeout: 
     if old[0] == "refused":
         return {"status": "both refuse", "detail": f"old: {old[1].decode()} | new: {new[1].decode()}"}
     if saves:
-        a, b = read_xml_bytes(out / "old.xmpuzzle"), read_xml_bytes(out / "new.xmpuzzle")
+        a, b = read_xml_bytes(out / "old.xmpuzzle"), without_uids(read_xml_bytes(out / "new.xmpuzzle"))
         if a != b:
             return {"status": "MISMATCH", "detail": "saves differ: " + first_difference(
                 semantic(out / "new.xmpuzzle"), semantic(out / "old.xmpuzzle"))}

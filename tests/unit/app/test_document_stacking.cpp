@@ -517,8 +517,8 @@ TEST_CASE("stacking document: Hanoi built through the commands, its stacks edite
   const Problem& pr = d.puzzle().getProblem(0);
   CHECK(pr.getShapeMaximum(0) == 1);
   CHECK(stacking::setupError(d.puzzle(), pr).empty());
-  CHECK(io::writePuzzle(d.puzzle()) ==
-        io::writePuzzle(test::loadFixture("test_stacking_hanoi.xmpuzzle")));
+  CHECK(test::withoutUids(io::writePuzzle(d.puzzle())) ==
+        test::withoutUids(io::writePuzzle(test::loadFixture("test_stacking_hanoi.xmpuzzle"))));
 
   // and it solves
   REQUIRE(d.solveStart(p, findSolutions(work.path)).has_value());
@@ -763,13 +763,12 @@ TEST_CASE("stacking document: a rod past the board's count is not on it", "[app]
   CHECK(d.puzzle().getProblem(0).startStacks().rods.size() == 3);
 }
 
-// A copy of a stacking problem has its rules and stacks, so its saved
-// search, as in the original, which never ran two solves at once. Here
-// two problems solve at once: the end of the copy's run removed the first
-// problem's paused search, whose note still said it was saved, and a
-// Solve or Abort of one threw the folder away under the other's run (an
-// audit finding). One run works on a shared search at a time.
-TEST_CASE("stacking document: identical problems share their saved search, one run at a time",
+// A copy of a stacking problem has its rules and stacks. Before problems
+// had uids (decision 0044) it had the first one's saved search too, as in
+// the original: the end of the copy's run removed the first problem's
+// paused search, and the cache manager named the copy's problem as the
+// paused one. Each problem's search is now its own.
+TEST_CASE("stacking document: identical problems have their own saved searches",
           "[app][stacking][parallel]") {
   const Scratch work;
   Document d = swapDocument(6, work.path);
@@ -777,42 +776,32 @@ TEST_CASE("stacking document: identical problems share their saved search, one r
   const Result<Id> copy = d.duplicateProblem(p1);
   REQUIRE(copy.has_value());
   const Id p2 = *copy;
+  CHECK(d.puzzle().getProblem(1).getUid() != d.puzzle().getProblem(0).getUid());
   SolveOptions o = findSolutions(work.path / "panex");
   o.threads = 1;
   const std::string& folder = o.stacking.workDir;
-  // refused, the problem being solved or its search in use
-  const auto busy = [](const auto& r) {
-    return !r.has_value() && r.error().code == Errc::InvalidState;
-  };
 
   REQUIRE(d.solveStart(p1, o).has_value());
-  // while the first runs, the copy neither starts, carries on nor aborts,
-  // and has no saved search to tell
-  CHECK(busy(d.solveStart(p2, o)));
-  CHECK(busy(d.solveResume(p2, o)));
-  CHECK(busy(d.solveAbort(p2, folder)));
-  CHECK_FALSE(d.savedSearch(p2, folder).value().has_value());
-  CHECK(d.solveState(p2) == SolveState::Idle);
+  // while the first runs, the copy starts a search of its own
+  REQUIRE(d.solveStart(p2, o).has_value());
+  for (const Id p : {p1, p2}) {
+    REQUIRE(d.solvePause(p).has_value());
+    REQUIRE(d.solveWait(p).has_value());
+    REQUIRE(d.solveState(p) == SolveState::Paused);
+    REQUIRE(d.savedSearch(p, folder).value().has_value());
+  }
+  const std::vector<std::string> f1 = d.searchFolders(p1, "", folder).value();
+  const std::vector<std::string> f2 = d.searchFolders(p2, "", folder).value();
+  REQUIRE(f1.size() == 1);
+  REQUIRE(f2.size() == 1);
+  CHECK(f1 != f2);
 
-  REQUIRE(d.solvePause(p1).has_value());
-  REQUIRE(d.solveWait(p1).has_value());
-  REQUIRE(d.solveState(p1) == SolveState::Paused);
-  const std::optional<SavedSearchInfo> saved = d.savedSearch(p1, folder).value();
-  REQUIRE(saved.has_value());
-  // paused, the search is the copy's too, which carries it on
-  const std::optional<SavedSearchInfo> shared = d.savedSearch(p2, folder).value();
-  REQUIRE(shared.has_value());
-  CHECK(shared->description == saved->description);
+  // an abort of one throws away its own search only, and the other carries on
+  REQUIRE(d.solveAbort(p1, folder).has_value());
+  CHECK_FALSE(d.savedSearch(p1, folder).value().has_value());
+  CHECK(d.savedSearch(p2, folder).value().has_value());
   REQUIRE(d.solveResume(p2, o).has_value());
-  // the first, paused, neither throws it away under that run nor runs on it
-  CHECK(busy(d.solveAbort(p1, folder)));
-  CHECK(busy(d.solveResume(p1, o)));
-  CHECK(busy(d.solveStart(p1, o)));
-
   REQUIRE(d.solvePause(p2).has_value());
   REQUIRE(d.solveWait(p2).has_value());
-  CHECK(d.savedSearch(p1, folder).value().has_value());
-  // nothing runs: an abort throws the shared search away
-  REQUIRE(d.solveAbort(p1, folder).has_value());
-  CHECK_FALSE(d.savedSearch(p2, folder).value().has_value());
+  CHECK(d.savedSearch(p2, folder).value().has_value());
 }
