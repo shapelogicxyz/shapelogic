@@ -3674,6 +3674,66 @@ TEST_CASE("sliding: a search from both ends with nested slides is carried on",
   std::filesystem::remove_all(dir);
 }
 
+// The parts of a move that visit no arrangement are told as they run
+// (SlideSearch::phase): the merges of each level whole by the time the
+// move is told (onDepth), the merge into the visited sets too, and nothing
+// once the search has ended; whatever is told while it runs has no more
+// done than its total.
+TEST_CASE("sliding: a search with nested slides tells the parts of a move that visit nothing",
+          "[sliding][parallel]") {
+  const std::filesystem::path dir = scratchDir("slidephase");
+  std::filesystem::remove_all(dir);
+  const GridBoard g = settledBoard(37);
+  SlideSearch s = nestedSearch(3);
+  s.threads = 2;
+  s.workDir = dir.string();
+  s.autosave = true;
+  s.autosaveFloorSeconds = 0;
+  SlidePhaseProgress phase;
+  s.phase = &phase;
+  std::uint64_t levels = 0;
+  std::uint64_t visitedWork = 0;
+  bool whole = true;
+  s.onDepth = [&](std::uint64_t depth) {
+    if (depth == 0) {
+      return;
+    }
+    levels++;
+    // the level just made: its merges done
+    whole = whole && phase.phase.load() == SlidePhase::Merging && phase.total.load() != 0 &&
+            phase.done.load() == phase.total.load() &&
+            phase.visitedDone.load() == phase.visitedTotal.load() && phase.since.load() != 0;
+    visitedWork = std::max(visitedWork, phase.visitedTotal.load());
+  };
+  std::atomic<bool> done{false};
+  std::atomic<bool> over{false};
+  std::thread watcher([&] {
+    while (!done.load()) {
+      const SlidePhase part = phase.phase.load(std::memory_order_acquire);
+      const bool visited = part == SlidePhase::Visited;
+      const std::uint64_t d = (visited ? phase.visitedDone : phase.done).load();
+      const std::uint64_t t = (visited ? phase.visitedTotal : phase.total).load();
+      if (part != SlidePhase::None && d > t) {
+        over.store(true);
+      }
+      std::this_thread::yield();
+    }
+  });
+  bool fromGoal = false;
+  const std::optional<Separation> path = searched(g, s, fromGoal);
+  done.store(true);
+  watcher.join();
+  REQUIRE(path.has_value());
+  CHECK(levels >= 10);
+  CHECK(whole);
+  // the levels went into the visited sets, counted
+  CHECK(visitedWork > 0);
+  CHECK_FALSE(over.load());
+  CHECK(phase.phase.load() == SlidePhase::None);
+  CHECK(phase.since.load() == 0);
+  std::filesystem::remove_all(dir);
+}
+
 // The Solver's run of a long search with nested slides from both ends: its
 // levels on disk, saved now and then as it goes (autosave), at save points
 // (the crash journal's) and when paused in the middle of a level, stopped

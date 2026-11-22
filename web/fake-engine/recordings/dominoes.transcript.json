@@ -22,13 +22,13 @@
    "state": "solving",
    "solve": "paused",
    "analysing": false,
-   "assemblies": 799,
-   "solutions": 733,
+   "assemblies": 801,
+   "solutions": 735,
    "saved": 5,
-   "timeMs": 55,
-   "searched": 6652,
+   "timeMs": 50,
+   "searched": 6702,
    "searchDepth": 0,
-   "triedApart": 733,
+   "triedApart": 735,
    "slideGrid": 0,
    "parts": [
     {
@@ -221,7 +221,8 @@
      "atSavePoint": false,
      "slideForecast": null,
      "slidePickingUp": false,
-     "slidePickingUpMs": 0
+     "slidePickingUpMs": 0,
+     "slidePhase": null
     }
    }
   },
@@ -256,20 +257,20 @@
     "state": "paused",
     "progress": {
      "stage": "paused",
-     "elapsedMs": 110,
-     "usedMs": 55,
+     "elapsedMs": 105,
+     "usedMs": 50,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.00035563684650696814,
-     "iterations": 6652,
+     "assemblyFraction": 0.0003589444968383759,
+     "iterations": 6702,
      "assemblerThreads": 1,
-     "assemblies": 799,
-     "solutions": 733,
+     "assemblies": 801,
+     "solutions": 735,
      "disassembly": true,
-     "disasmCompleted": 733,
+     "disasmCompleted": 735,
      "disasmPending": 0,
      "disasmWorkers": 1,
-     "overall": 0.000340953265549615,
+     "overall": 0.0003441613807808608,
      "overallKnown": true,
      "levelFraction": 0,
      "secondsLeft": null,
@@ -283,7 +284,8 @@
      "atSavePoint": false,
      "slideForecast": null,
      "slidePickingUp": false,
-     "slidePickingUpMs": 0
+     "slidePickingUpMs": 0,
+     "slidePhase": null
     }
    }
   },
@@ -292,9 +294,9 @@
    "params": {
     "problem": "p3",
     "saved": 5,
-    "solutionsVersion": 1464,
-    "assemblies": 799,
-    "solutions": 733
+    "solutionsVersion": 1468,
+    "assemblies": 801,
+    "solutions": 735
    }
   },
   {
@@ -364,13 +366,13 @@
      "usedMs": 0,
      "piece": 0,
      "pieces": 0,
-     "assemblyFraction": 0.5000889301300049,
+     "assemblyFraction": 0.5000897645950317,
      "iterations": 0,
      "assemblerThreads": 1,
      "assemblies": 0,
      "solutions": 0,
      "disassembly": true,
-     "disasmCompleted": 1,
+     "disasmCompleted": 0,
      "disasmPending": 0,
      "disasmWorkers": 1,
      "overall": 0,
@@ -387,7 +389,8 @@
      "atSavePoint": false,
      "slideForecast": null,
      "slidePickingUp": false,
-     "slidePickingUpMs": 0
+     "slidePickingUpMs": 0,
+     "slidePhase": null
     }
    }
   },
@@ -396,7 +399,7 @@
    "params": {
     "problem": "p3",
     "saved": 0,
-    "solutionsVersion": 1468,
+    "solutionsVersion": 1470,
     "assemblies": 0,
     "solutions": 0
    }

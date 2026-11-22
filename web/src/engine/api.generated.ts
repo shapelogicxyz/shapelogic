@@ -1375,6 +1375,27 @@ export interface SolveProgress {
    * @minimum 0
    */
   slidePickingUpMs: number;
+  /**
+   * A sliding solve: the part of the move under way that visits no arrangement, while one runs, so
+   * that searched stands still and no solve.preview comes meanwhile (deep in a big search, for
+   * many minutes at a move's end). part: visited (the move's arrangements all expanded, it waits
+   * for the older moves to go into the arrangements already seen, a merge on one thread, with
+   * nested slides), merging (what the move reached merged into the next move's level, less the
+   * levels before it, and written), writing (levels in memory written to the disk to leave room
+   * for the next) or saving (the search saved, so that a crash loses no more than this: autosave).
+   * done of total: arrangements for visited and merging, bytes for writing and saving; total is
+   * known as the part begins and may shrink as a merge's stages come out smaller than they went
+   * in. ms: how long the part has run. Null while the search expands a move, and on other grids.
+   */
+  slidePhase: {
+    part: 'visited' | 'merging' | 'writing' | 'saving';
+    /** @minimum 0 */
+    done: number;
+    /** @minimum 0 */
+    total: number;
+    /** @minimum 0 */
+    ms: number;
+  } | null;
 }
 
 /**

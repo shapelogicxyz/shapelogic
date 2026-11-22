@@ -1613,8 +1613,10 @@ test('Performance Analysis: the moves’ times and the estimates while a sliding
     );
     await expect(perf.locator('th').nth(2)).toHaveText('Remaining');
     // the rows read together (the panel follows each progress)
+    // (a line of the part of the move that visits nothing, when one runs, is
+    // not a move's row)
     const shown = await perf.evaluate((el) =>
-      [...el.querySelectorAll<HTMLElement>('tbody tr')].map((r) => ({
+      [...el.querySelectorAll<HTMLElement>('tbody tr:not(.slv-perf-phase)')].map((r) => ({
         cls: r.className,
         depth: Number(r.dataset.depth),
         cells: [...r.querySelectorAll('td')].map((td) => td.textContent),

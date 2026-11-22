@@ -235,7 +235,8 @@ export class SolutionsCard {
         this.tickPerformance();
       }, 1000);
     }
-    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active, elapsed, picking)}</div>`;
+    const phase = live !== null ? ws.slidePhase : null;
+    return `<div class="slv-empty slv-perf" id="slvPerf">${performanceHtml(f, !active, elapsed, picking, phase)}</div>`;
   }
 
   /**

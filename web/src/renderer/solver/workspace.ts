@@ -59,7 +59,8 @@ import { SolutionPager } from './pager.ts';
 import type { SortKey } from './pager.ts';
 import { LABEL } from './option-text.ts';
 import { Player } from './player.ts';
-import { PICKING_UP_NOTE, pickingUpText } from './performance.ts';
+import { phaseTag, phaseText, PICKING_UP_NOTE, pickingUpText } from './performance.ts';
+import type { SlidePhase } from './performance.ts';
 import { noteIsTrouble } from './problem-note.ts';
 import { RunCard } from './run-card.ts';
 import {
@@ -424,6 +425,20 @@ export class SolverWorkspace {
     return p.slidePickingUpMs + (performance.now() - this.pickSeen.at);
   }
 
+  /**
+   * The part of a move the run of the problem shown is in while its slide
+   * search visits no arrangement (SolveProgress.slidePhase: the merges
+   * between moves, an autosave), so that neither the counts nor the live
+   * preview move; null while it expands a move, or runs no slide search.
+   */
+  get slidePhase(): SlidePhase | null {
+    const id = this.current;
+    if (id === null || !isActive(this.stateOf(id))) {
+      return null;
+    }
+    return this.solves.peek(id)?.progress?.slidePhase ?? null;
+  }
+
   // Counts the taking up of the saved search on, each second, in the view,
   // the empty solutions card and the Performance Analysis.
   private followPickingUp(): void {
@@ -631,7 +646,11 @@ export class SolverWorkspace {
     const n = this.pager?.total ?? 0;
     const cur = this.player.row !== null && this.sel >= 0 && n > 0;
     const ex = this.explorer.tag();
-    const live = this.previewShown ? '<span class="mute">· Live preview</span>' : '';
+    // the picture stands still while the search visits nothing: why
+    const phase = this.slidePhase;
+    const live = this.previewShown
+      ? `<span class="mute">· Live preview${phase === null ? '' : ` (on hold: ${phaseTag(phase)})`}</span>`
+      : '';
     return `<span class="chip" style="${this.probChip()}">${esc(p.label)}</span><span class="nm">${esc(p.name) || 'Problem'}</span>${ex !== '' ? ex : cur ? `<span class="mute">· Solution ${String(this.sel + 1)} of ${String(n)}</span>` : live}`;
   }
 
@@ -653,7 +672,12 @@ export class SolverWorkspace {
     const state = this.current === null ? 'idle' : this.stateOf(this.current);
     if (isActive(state)) {
       const picking = this.pickingUpMs;
-      return picking === null ? 'Searching…' : `${pickingUpText(picking)}\n${PICKING_UP_NOTE}`;
+      if (picking !== null) {
+        return `${pickingUpText(picking)}\n${PICKING_UP_NOTE}`;
+      }
+      const phase = this.slidePhase;
+      const depth = this.record?.progress?.searchDepth ?? 0;
+      return phase === null ? 'Searching…' : `Searching…\n${phaseText(phase, depth + 1)}`;
     }
     const p = this.problem;
     if (p !== null && (p.assemblies ?? 0) > 0 && p.saved === 0 && this.options.disassemble) {
@@ -805,6 +829,14 @@ export class SolverWorkspace {
         const what = this.stacking
           ? stackingDetails(g.panexSearch, g.searched, g.searchDepth, g.searchTraced)
           : slidingDetails(g.searched, g.searchDepth);
+        // between moves: what the search does that visits nothing
+        const part =
+          this.sliding && g.slidePhase !== null ? phaseText(g.slidePhase, g.searchDepth + 1) : '';
+        if (part !== '') {
+          return stopping
+            ? `${what} ${part} ${stopDetails(g, this.family, this.savingFor(r))}`
+            : `${what} ${part}`;
+        }
         return stopping ? `${what} ${stopDetails(g, this.family, this.savingFor(r))}` : what;
       }
       // the engine's words for the stage (solveProgress_c::activity), and the search steps

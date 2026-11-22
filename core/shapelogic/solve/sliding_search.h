@@ -32,6 +32,7 @@
 #include "shapelogic/base/log_line.h"
 #include "shapelogic/base/memory_share.h"
 #include "shapelogic/base/stop.h"
+#include "shapelogic/solve/slide_phase.h"
 #include "shapelogic/model/disassembly.h"
 
 #include <array>
@@ -112,6 +113,33 @@ struct SlideStopProgress {
   std::atomic<std::uint64_t> totalBytes{0};
 };
 
+
+/// What the level search does between the expansions of its moves, for
+/// the solve's progress (read on other threads while the search writes
+/// it). `done` of `total` is arrangements for Visited and Merging, bytes
+/// for Writing and Saving: a part's total is known when it begins (a merge
+/// in stages counts its stages, and the total shrinks as a stage's output
+/// turns out to be smaller than its input). The merge into the visited
+/// sets runs beside the expansion and counts in `visitedDone` of
+/// `visitedTotal` throughout; Visited is told only once it is all that is
+/// left of the expansion.
+struct SlidePhaseProgress {
+  std::atomic<SlidePhase> phase{SlidePhase::None};
+  /// The steady clock's milliseconds (slideClockMs) when the part began; 0
+  /// with none.
+  std::atomic<std::int64_t> since{0};
+  std::atomic<std::uint64_t> done{0};
+  std::atomic<std::uint64_t> total{0};
+  std::atomic<std::uint64_t> visitedDone{0};
+  std::atomic<std::uint64_t> visitedTotal{0};
+
+  /// A part begun, `ofTotal` of it to do (the merges of a level add theirs
+  /// to `total` as they begin).
+  void begin(SlidePhase p, std::uint64_t ofTotal);
+  /// The part ended: nothing to tell.
+  void end();
+};
+
 /// How the level search keeps the copies of a piece in its keys
 /// (SlideSearch::packing).
 enum class SlidePacking : std::uint8_t {
@@ -182,6 +210,9 @@ struct SlideSearch {
   /// steady clock's milliseconds (slideClockMs) when that began, 0 while
   /// it does not.
   std::atomic<std::int64_t>* pickingUpSince = nullptr;
+  /// When set, the level search tells here which part of a move it is in
+  /// when it is not expanding one, and how far that part has got.
+  SlidePhaseProgress* phase = nullptr;
   /// When set, counts the levels searched out while the path is traced back
   /// across thinned levels.
   std::atomic<std::uint64_t>* traced = nullptr;

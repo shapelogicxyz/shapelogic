@@ -3484,6 +3484,11 @@ struct Merge {
   SetPtr<Key> intersect;
   const std::vector<SetPtr<Key>>* filter = nullptr;
   bool kept = false;
+  // When set, the keys taken from the inputs are counted in its done (the
+  // Solver's progress of the level being merged); unless `counted`, the
+  // inputs' keys are added to its total first.
+  SlidePhaseProgress* tell = nullptr;
+  bool counted = false;
 
   std::vector<SetPtr<Key>> parts;
   std::optional<Key> met;
@@ -3496,20 +3501,44 @@ struct Merge {
 constexpr std::size_t kMaxMergeInputs = 32;
 // Keys a merge thread looks up in the filter sets at a time.
 constexpr std::size_t kFilterBatch = std::size_t{1} << 16;
+// Keys a merge counts before it tells them (SlidePhaseProgress): often
+// enough for the Solver's percentage, seldom enough to cost nothing.
+constexpr std::uint64_t kTellEvery = std::uint64_t{1} << 16;
+
+// The keys of sets.
+template <class Key>
+std::uint64_t keysOf(const std::vector<SetPtr<Key>>& sets) {
+  std::uint64_t n = 0;
+  for (const SetPtr<Key>& s : sets) {
+    n += s ? s->size() : 0;
+  }
+  return n;
+}
 
 template <class Key>
 bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned int threads,
               unsigned int maxParts = 0) {
   using Set = levels::KeySet<Key>;
+  // What is told: the keys of the last pass (the inputs as they are, until
+  // stages make fewer of them), and those of every stage on the way
+  if (m.tell != nullptr && !m.counted) {
+    m.tell->total.fetch_add(keysOf(m.inputs), std::memory_order_relaxed);
+  }
   // Too many inputs: merged in groups into a few parts each first, so that
   // few files are open at once.
   while (m.inputs.size() > kMaxMergeInputs) {
+    const std::uint64_t before = keysOf(m.inputs);
+    if (m.tell != nullptr) {
+      m.tell->total.fetch_add(before, std::memory_order_relaxed);
+    }
     std::vector<SetPtr<Key>> merged;
     for (std::size_t i = 0; i < m.inputs.size(); i += kMaxMergeInputs) {
       Merge<Key> stage;
       const std::size_t end = std::min(i + kMaxMergeInputs, m.inputs.size());
       stage.inputs.assign(m.inputs.begin() + static_cast<std::ptrdiff_t>(i),
                           m.inputs.begin() + static_cast<std::ptrdiff_t>(end));
+      stage.tell = m.tell;
+      stage.counted = true;
       if (!runMerge(stage, store, pool, threads, kMaxMergeInputs / 4)) {
         return false;
       }
@@ -3520,6 +3549,11 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
       }
     }
     m.inputs = std::move(merged);
+    // the last pass takes what the stages left, fewer keys than they took
+    if (m.tell != nullptr) {
+      m.tell->total.fetch_sub(before - std::min(before, keysOf(m.inputs)),
+                              std::memory_order_relaxed);
+    }
   }
   std::uint64_t total = 0;
   std::uint64_t bytes = 0;
@@ -3677,9 +3711,15 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
     bool ok = true;
     bool haveLast = false;
     Key last = 0;
+    // the keys taken, told now and then
+    std::uint64_t taken = 0;
     while (ok && !heap.empty()) {
       const Item top = heap.top();
       heap.pop();
+      if (m.tell != nullptr && ++taken == kTellEvery) {
+        m.tell->done.fetch_add(taken, std::memory_order_relaxed);
+        taken = 0;
+      }
       const std::size_t i = top.second;
       if (ins[i].c->next(ins[i].k) && inRange(ins[i].k)) {
         heap.emplace(ins[i].k, i);
@@ -3714,6 +3754,9 @@ bool runMerge(Merge<Key>& m, SetStore<Key>& store, ThreadPool& pool, unsigned in
       }
     }
     ok = ok && flushBatch();
+    if (m.tell != nullptr) {
+      m.tell->done.fetch_add(taken, std::memory_order_relaxed);
+    }
     for (In& in : ins) {
       ok = ok && !in.c->failed();
     }
@@ -4254,6 +4297,9 @@ class LevelSearch {
       return;
     }
     const SlideOutcome end = loop(chain);
+    if (search_.phase != nullptr) {
+      search_.phase->end();
+    }
     search_.outcome = end;
     // a shared budget may have changed as the search ran: the limit it ended at
     search_.memoryStates =
@@ -4806,13 +4852,15 @@ class LevelSearch {
 
   // Writes the search's state to its folder, every set a file; false when
   // it cannot be.
-  // `told`, when set, hears what the save writes (a stopped search's).
-  bool saveState(SlideStopProgress* told = nullptr) {
+  // `told`, when set, hears what the save writes (a stopped search's);
+  // with `asPhase`, the search's phase does (an autosave between levels).
+  bool saveState(SlideStopProgress* told = nullptr, bool asPhase = false) {
     if (!folder_.open()) {
       return false;
     }
     const auto began = std::chrono::steady_clock::now();
-    if (told != nullptr) {
+    SlidePhaseProgress* phase = asPhase && told == nullptr ? search_.phase : nullptr;
+    if (told != nullptr || phase != nullptr) {
       // what is still in memory, each set once
       std::uint64_t total = 0;
       std::set<const Set*> seen;
@@ -4821,10 +4869,17 @@ class LevelSearch {
           total += set->bytes();
         }
       });
-      told->doneBytes.store(0, std::memory_order_relaxed);
-      told->totalBytes.store(total, std::memory_order_relaxed);
-      told->saving.store(true, std::memory_order_release);
+      if (told != nullptr) {
+        told->doneBytes.store(0, std::memory_order_relaxed);
+        told->totalBytes.store(total, std::memory_order_relaxed);
+        told->saving.store(true, std::memory_order_release);
+      } else {
+        phase->begin(SlidePhase::Saving, total);
+      }
     }
+    std::atomic<std::uint64_t>* counter = told != nullptr    ? &told->doneBytes
+                                          : phase != nullptr ? &phase->done
+                                                             : nullptr;
     bool ok = true;
     std::map<const Set*, SetPtr<Key>> written;
     forEachLiveSet([&](SetPtr<Key>& set) {
@@ -4838,7 +4893,7 @@ class LevelSearch {
         return;
       }
       const Set* was = set.get();
-      ok = store_.toFile(set, told != nullptr ? &told->doneBytes : nullptr);
+      ok = store_.toFile(set, counter);
       written.emplace(was, set);
     });
     if (!ok) {
@@ -4980,9 +5035,17 @@ class LevelSearch {
     std::atomic<bool> halt{false};
     std::atomic<bool> failed{false};
     const bool withExtra = static_cast<bool>(extra);
+    // With the merge into the visited sets beside it: once the other
+    // threads have expanded everything, the move waits for that merge,
+    // visiting nothing, which is told (Visited).
+    std::atomic<bool> extraRunning{withExtra};
+    std::atomic<unsigned int> expanding{threads_};
     pool_->run(threads_ + (withExtra ? 1 : 0), [&](unsigned int th) {
-      if (th == 0 && withExtra && !extra()) {
-        failed.store(true);
+      if (th == 0 && withExtra) {
+        if (!extra()) {
+          failed.store(true);
+        }
+        extraRunning.store(false);
       }
       RunBuilder<Key>& b = *back[th];
       RunBuilder<Key>& o = *oneWay[th];
@@ -5047,6 +5110,10 @@ class LevelSearch {
           failed.store(true);
         }
       }
+      if (withExtra && th != 0 && expanding.fetch_sub(1) == 1 && extraRunning.load() &&
+          search_.phase != nullptr && !hit.load() && !halt.load() && !failed.load()) {
+        search_.phase->begin(SlidePhase::Visited, 0);
+      }
     });
     e.hit = hit.load();
     e.halted = halt.load();
@@ -5088,6 +5155,14 @@ class LevelSearch {
     oneWayReached = 0;
     oneWayNew = 0;
     std::vector<SetPtr<Key>> runs = std::move(e.runs);
+    // Told from here to the level's end: the merges, which visit nothing.
+    // The last merge takes the runs and what the one-way merge leaves of
+    // its own, at most all of them.
+    SlidePhaseProgress* tell = search_.phase;
+    const std::uint64_t oneWayKeys = keysOf(e.oneWay);
+    if (tell != nullptr) {
+      tell->begin(SlidePhase::Merging, keysOf(runs) + oneWayKeys);
+    }
     if (!e.oneWay.empty()) {
       // The arrangements reached only by moves that cannot be made
       // backwards may be anywhere in the older levels.
@@ -5095,11 +5170,16 @@ class LevelSearch {
       one.inputs = std::move(e.oneWay);
       one.subtract = {side.cur, side.prev};
       one.filter = &side.visited;
+      one.tell = tell;
       if (!runMerge(one, store_, *pool_, threads_)) {
         return StepEnd::Failed;
       }
       oneWayReached = one.produced + one.dropped;
       oneWayNew = one.produced;
+      if (tell != nullptr) {
+        tell->total.fetch_sub(oneWayKeys - std::min(oneWayKeys, one.produced),
+                              std::memory_order_relaxed);
+      }
       for (SetPtr<Key>& p : one.parts) {
         runs.push_back(std::move(p));
       }
@@ -5108,6 +5188,8 @@ class LevelSearch {
     m.inputs = std::move(runs);
     m.subtract = {side.cur, side.prev};
     m.intersect = intersect;
+    m.tell = tell;
+    m.counted = true;
     // with loose stops the level is what dropCovered leaves of the parts
     m.kept = !s_.loose;
     if (!runMerge(m, store_, *pool_, threads_)) {
@@ -5245,6 +5327,7 @@ class LevelSearch {
     if (covered.inputs.empty()) {
       return true;
     }
+    covered.tell = search_.phase;
     if (!runMerge(covered, store_, *pool_, threads_)) {
       return false;
     }
@@ -5256,6 +5339,7 @@ class LevelSearch {
     rest.inputs = std::move(parts);
     rest.subtract = {gone};
     rest.kept = true;
+    rest.tell = search_.phase;
     if (!runMerge(rest, store_, *pool_, threads_)) {
       return false;
     }
@@ -5285,6 +5369,25 @@ class LevelSearch {
     }
   }
 
+  // The keys insertVisited goes through to put `newest` into `sets`: the
+  // merges it makes, each of two sets whose levels are disjoint.
+  static std::uint64_t visitedWork(const Set& newest, const std::vector<SetPtr<Key>>& sets) {
+    std::vector<std::uint64_t> sizes;
+    sizes.reserve(sets.size() + 1);
+    for (const SetPtr<Key>& set : sets) {
+      sizes.push_back(set->size());
+    }
+    sizes.push_back(newest.size());
+    std::uint64_t work = 0;
+    while (sizes.size() >= 2 && sizes[sizes.size() - 2] <= 2 * sizes.back()) {
+      const std::uint64_t merged = sizes[sizes.size() - 2] + sizes.back();
+      work += merged;
+      sizes.pop_back();
+      sizes.back() = merged;
+    }
+    return work;
+  }
+
   // Merges a level into an end's visited sets: the newest sets while one is
   // no more than twice the size of the one after it, so there are only a
   // few to look in (runs on one thread while the others expand).
@@ -5311,7 +5414,17 @@ class LevelSearch {
       bool ha = ca.next(ka);
       bool hb = cb.next(kb);
       bool ok = true;
+      // told as visitedWork counts it: the keys of both
+      std::atomic<std::uint64_t>* tell =
+          search_.phase != nullptr ? &search_.phase->visitedDone : nullptr;
+      const std::uint64_t work = a->size() + b->size();
+      std::uint64_t told = 0;
+      std::uint64_t added = 0;
       while (ok && (ha || hb)) {
+        if (tell != nullptr && (++added & (kTellEvery - 1)) == 0) {
+          tell->fetch_add(added - told, std::memory_order_relaxed);
+          told = added;
+        }
         if (!hb || (ha && ka < kb)) {
           ok = m->add(ka);
           ha = ca.next(ka);
@@ -5327,6 +5440,9 @@ class LevelSearch {
       if (!ok || ca.failed() || cb.failed() || !store_.finish(m)) {
         store_.ioFailed();
         return false;
+      }
+      if (tell != nullptr) {
+        tell->fetch_add(work - std::min(work, told), std::memory_order_relaxed);
       }
       sets.resize(sets.size() - 2);
       sets.push_back(m);
@@ -5405,10 +5521,42 @@ class LevelSearch {
                                       level);
   }
 
+  // The sets in memory not worked on, as evict would write them: their
+  // bytes, the largest first, until the sets take half the memory they may.
+  std::uint64_t evictBytes() {
+    std::vector<std::uint64_t> sizes;
+    std::set<const Set*> seen;
+    for (Side* side : {&fwd_, &bwd_}) {
+      for (auto& [level, set] : side->stored) {
+        if (set->inMemory() && set != side->cur && set != side->prev &&
+            seen.insert(set.get()).second) {
+          sizes.push_back(set->bytes());
+        }
+      }
+      for (SetPtr<Key>& set : side->visited) {
+        if (set->inMemory() && seen.insert(set.get()).second) {
+          sizes.push_back(set->bytes());
+        }
+      }
+    }
+    std::sort(sizes.begin(), sizes.end(), std::greater<>());
+    std::uint64_t used = store_.used().first;
+    std::uint64_t bytes = 0;
+    for (const std::uint64_t b : sizes) {
+      if (used <= store_.setCap() / 2) {
+        break;
+      }
+      bytes += b;
+      used -= std::min(used, b);
+    }
+    return bytes;
+  }
+
   // In-memory sets no longer worked on are written to files while the
   // sets take more than half the memory they may, so that the next level
   // has room (at a level's end, on one thread).
   bool evict() {
+    bool told = false;
     for (;;) {
       if (store_.used().first <= store_.setCap() / 2) {
         return true;
@@ -5416,6 +5564,11 @@ class LevelSearch {
       // nowhere to write: the sets stay where they are
       if (!folder_.open()) {
         return true;
+      }
+      // told once: the bytes over the half, as the largest sets go first
+      if (search_.phase != nullptr && !told) {
+        search_.phase->begin(SlidePhase::Writing, evictBytes());
+        told = true;
       }
       SetPtr<Key>* largest = nullptr;
       for (Side* side : {&fwd_, &bwd_}) {
@@ -5435,7 +5588,7 @@ class LevelSearch {
         return true;
       }
       const Set* was = largest->get();
-      if (!store_.toFile(*largest)) {
+      if (!store_.toFile(*largest, search_.phase != nullptr ? &search_.phase->done : nullptr)) {
         return false;
       }
       // the same set may stand in a stored list and in the visited sets
@@ -5462,6 +5615,10 @@ class LevelSearch {
       search_.onDepth(depthNow());
     }
     for (;;) {
+      // the move expanded next is told by the arrangements it visits
+      if (search_.phase != nullptr) {
+        search_.phase->end();
+      }
       if (search_.stop.stopRequested()) {
         return SlideOutcome::Stopped;
       }
@@ -5475,6 +5632,13 @@ class LevelSearch {
         SetPtr<Key> theirs;
         ours.swap(fwd_.pending);
         theirs.swap(bwd_.pending);
+        if (search_.phase != nullptr) {
+          search_.phase->visitedDone.store(0, std::memory_order_relaxed);
+          search_.phase->visitedTotal.store(
+              (ours ? visitedWork(*ours, fwd_.visited) : 0) +
+                  (theirs ? visitedWork(*theirs, bwd_.visited) : 0),
+              std::memory_order_relaxed);
+        }
         extra = [this, ours, theirs]() {
           return (!ours || insertVisited(ours, fwd_.visited)) &&
                  (!theirs || insertVisited(theirs, bwd_.visited));
@@ -5575,7 +5739,7 @@ class LevelSearch {
           // The levels thinned out are files the last save names, which
           // stay until the next (pin): saved again now, so that the room
           // they take is there for the level to come.
-          if (!pinned_.empty() && !saveState()) {
+          if (!pinned_.empty() && !saveState(nullptr, true)) {
             return saveFailed();
           }
           used = store_.used();
@@ -5710,7 +5874,7 @@ class LevelSearch {
       // An autosave, so a crash loses no more than this.
       if (search_.autosave && folder_.hasBase() && saves.due()) {
         const auto saveBegan = SaveCadence::Clock::now();
-        if (!saveState()) {
+        if (!saveState(nullptr, true)) {
           return saveFailed();
         }
         saves.saved(saveBegan);
@@ -6329,6 +6493,20 @@ std::int64_t slideClockMs() {
                               std::chrono::steady_clock::now().time_since_epoch())
                               .count();
   return ms == 0 ? 1 : ms;
+}
+
+void SlidePhaseProgress::begin(SlidePhase p, std::uint64_t ofTotal) {
+  done.store(0, std::memory_order_relaxed);
+  total.store(ofTotal, std::memory_order_relaxed);
+  since.store(slideClockMs(), std::memory_order_relaxed);
+  phase.store(p, std::memory_order_release);
+}
+
+void SlidePhaseProgress::end() {
+  phase.store(SlidePhase::None, std::memory_order_release);
+  since.store(0, std::memory_order_relaxed);
+  done.store(0, std::memory_order_relaxed);
+  total.store(0, std::memory_order_relaxed);
 }
 
 std::vector<std::string> savedFolders(const Puzzle& puzzle, const Problem& problem,

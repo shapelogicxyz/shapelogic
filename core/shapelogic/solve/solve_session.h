@@ -528,6 +528,9 @@ class SolveSession {
   /// Since when a slide search of the run has been taking up its saved
   /// search (SlideSearch::pickingUpSince); 0 while none does.
   std::atomic<std::int64_t> slidePickingUpSince_{0};
+  /// The part of a move the run's slide search is in while it visits no
+  /// arrangement (SlideSearch::phase).
+  sliding::SlidePhaseProgress slidePhase_;
   /// A stacking run's search reports here too: the stackings it has found
   /// (slideProgress_), how deep both ends are (searchDepth_), and the moves
   /// traced back once they met.

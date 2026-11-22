@@ -706,6 +706,36 @@ Json slideForecastJson(const std::vector<std::uint64_t>& levelMs, std::uint64_t 
               {"estimates", std::move(estimates)}};
 }
 
+namespace {
+
+// The part of a move the slide search is in that visits no arrangement:
+// null while it expands one (SolveProgress::slidePhase).
+Json slidePhaseJson(const SolveProgress& g) {
+  const char* part = nullptr;
+  switch (g.slidePhase) {
+    case sliding::SlidePhase::None:
+      return nullptr;
+    case sliding::SlidePhase::Visited:
+      part = "visited";
+      break;
+    case sliding::SlidePhase::Merging:
+      part = "merging";
+      break;
+    case sliding::SlidePhase::Writing:
+      part = "writing";
+      break;
+    case sliding::SlidePhase::Saving:
+      part = "saving";
+      break;
+  }
+  return Json{{"part", part},
+              {"done", g.slidePhaseDone},
+              {"total", g.slidePhaseTotal},
+              {"ms", g.slidePhaseMs}};
+}
+
+}  // namespace
+
 Json progressJson(const SolveProgress& g) {
   Json j = Json::object();
   j["stage"] = solveStageName(g.stage);
@@ -742,6 +772,7 @@ Json progressJson(const SolveProgress& g) {
   j["slideForecast"] = slideForecastJson(g.slideLevelMs, g.slideLevelRunningMs);
   j["slidePickingUp"] = g.slidePickingUp;
   j["slidePickingUpMs"] = g.slidePickingUpMs;
+  j["slidePhase"] = slidePhaseJson(g);
   return j;
 }
 

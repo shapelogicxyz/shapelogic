@@ -1243,6 +1243,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.progress = &slideProgress_;
       search.depthProgress = &searchDepth_;
       search.pickingUpSince = &slidePickingUpSince_;
+      search.phase = &slidePhase_;
       search.sample = &sample_;
       search.pool = slidePool_.get();
       search.memoryShare = o.memoryShare.get();
@@ -1250,6 +1251,7 @@ bool SolveSession::onSlidingAssembly(Assembly assembly) {
       search.resume = slideResume_;
       search.onLog = [this](LogLevel level, const std::string& text) { addLog(level, text); };
       slideStop_.saving.store(false, std::memory_order_relaxed);
+      slidePhase_.end();
       slideSearching_.fetch_add(1, std::memory_order_relaxed);
       // The search reads the problem's definition and the shapes, which
       // nothing changes while the run is active; the lock is for what the
@@ -2007,6 +2009,20 @@ SolveProgress SolveSession::progress() const {
     p.slidePickingUp = true;
     p.slidePickingUpMs =
         static_cast<std::uint64_t>(std::max<std::int64_t>(sliding::slideClockMs() - since, 0));
+  }
+  if (const sliding::SlidePhase part = slidePhase_.phase.load(std::memory_order_acquire);
+      isActive(st) && part != sliding::SlidePhase::None) {
+    const bool visited = part == sliding::SlidePhase::Visited;
+    p.slidePhase = part;
+    p.slidePhaseTotal = (visited ? slidePhase_.visitedTotal : slidePhase_.total)
+                            .load(std::memory_order_relaxed);
+    p.slidePhaseDone =
+        std::min((visited ? slidePhase_.visitedDone : slidePhase_.done).load(std::memory_order_relaxed),
+                 p.slidePhaseTotal);
+    if (const std::int64_t since = slidePhase_.since.load(std::memory_order_relaxed); since != 0) {
+      p.slidePhaseMs =
+          static_cast<std::uint64_t>(std::max<std::int64_t>(sliding::slideClockMs() - since, 0));
+    }
   }
   p.searchTraced = searchTraced_.load(std::memory_order_relaxed);
   p.disasmCompleted = completed_.load(std::memory_order_relaxed);

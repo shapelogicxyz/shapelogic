@@ -11,6 +11,9 @@ import {
   durationText,
   liveCells,
   performanceHtml,
+  PHASE_NOTE,
+  phaseTag,
+  phaseText,
   PICKING_UP_NOTE,
   pickingUpText,
 } from '../../../src/renderer/solver/performance.ts';
@@ -117,6 +120,40 @@ describe('the Performance Analysis', () => {
       'Searched 3 moves deep; move 3 took under a second. Picking up the saved search… 3 s',
     );
     expect(early).not.toContain('<table');
+  });
+
+  it('says which part of a move runs while the search visits nothing, and how far it has got', () => {
+    // move 37 searched, its arrangements being merged: 8 min past the estimate
+    const merging = { part: 'merging' as const, done: 43_000, total: 100_000, ms: 252_000 };
+    const html = performanceHtml(forecast({ runningMs: 1_000_000 }), false, 0, null, merging);
+    expect(html).toContain('<tr class="slv-perf-now over phased" data-depth="37">');
+    expect(html).toContain(
+      `<tr class="slv-perf-phase" title="${PHASE_NOTE}"><td></td><td colspan="2">Move 37 searched; merging what it reached into the next level, 43% (4 min 12 s).</td></tr>`,
+    );
+    // the moves to come stay, after it
+    expect(html.indexOf('slv-perf-phase')).toBeLessThan(html.indexOf('<tr data-depth="40">'));
+    // each part in its words; no percentage before a total is known
+    expect(phaseText({ part: 'visited', done: 0, total: 0, ms: 3_000 }, 202)).toBe(
+      'Move 202 searched; adding the earlier moves to the arrangements already seen (3 s).',
+    );
+    expect(phaseText({ part: 'writing', done: 5, total: 10, ms: 0 }, 202)).toBe(
+      'Move 202 done; writing levels to disk to make room for the next, 50% (0 s).',
+    );
+    expect(phaseText({ part: 'saving', done: 10, total: 10, ms: 61_000 }, 202)).toBe(
+      'Move 202 done; saving the search (autosave), 100% (1 min 1 s).',
+    );
+    expect(phaseTag(merging)).toBe('merging the level, 43%');
+    // without a part: the row as it was
+    expect(performanceHtml(forecast({}), false)).not.toContain('slv-perf-phase');
+    // before there are estimates: said in the text
+    const early = performanceHtml(
+      forecast({ depth: 3, levelMs: [0, 1, 4], growth: null, estimates: [] }),
+      false,
+      0,
+      null,
+      merging,
+    );
+    expect(early).toContain('Move 4 searched; merging what it reached into the next level, 43%');
   });
 
   it('leaves out the fifth move that is the move under way', () => {

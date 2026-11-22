@@ -1301,8 +1301,14 @@ def sliding_continue_as_it_ran(e):
                       "paused at the save point")
                 progress = e.call("solve.status", {"problem": p})["progress"]
                 check(progress["atSavePoint"] and progress["slidePickingUp"] is False and
-                      progress["slidePickingUpMs"] == 0,
+                      progress["slidePickingUpMs"] == 0 and progress["slidePhase"] is None,
                       f"at the save point {progress}")
+                # the parts of a move that visit nothing, as the run told them:
+                # never more done than their total
+                parts = [x["params"]["progress"]["slidePhase"] for x in e.events[start:]
+                         if x["method"] == "solve.progress" and x["params"]["problem"] == p]
+                check(all(ph is None or ph["done"] <= ph["total"] for ph in parts),
+                      f"the parts told {[ph for ph in parts if ph is not None]}")
 
             start = len(e.events)
             e.call("solve.start", {"problem": p, "options": ran})

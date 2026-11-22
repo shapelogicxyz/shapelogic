@@ -21,8 +21,8 @@
     />
     <link rel="icon" type="image/png" href="/demo/assets/favicon-neqYVYks.png" />
     <title>ShapeLogic demo</title>
-    <script type="module" crossorigin src="/demo/assets/index-ATtBv1rS.js"></script>
-    <link rel="stylesheet" crossorigin href="/demo/assets/index-5VWcQNBb.css">
+    <script type="module" crossorigin src="/demo/assets/index-Bf9B_Ly6.js"></script>
+    <link rel="stylesheet" crossorigin href="/demo/assets/index-CITRCJLE.css">
   </head>
   <body>
     <div id="wrap">
@@ -153,7 +153,7 @@
               title="Select the problem to edit"
             ></div>
             <div class="pzh" id="pzLibHead" style="cursor: pointer">
-              All pieces
+              <button class="ib" id="pzLibTog" title="Show / hide the list"></button>All pieces
               <span
                 class="chip"
                 id="pzLibCount"
@@ -165,7 +165,7 @@
                 id="pzLibHint"
                 style="font-size: calc(11px + var(--fs)); font-weight: 400"
                 >drag, double-click or + to add</span
-              ><button class="ib" id="pzLibTog" title="Show / hide the list"></button>
+              >
             </div>
             <div class="pz-lib" id="pzLib"></div>
             <div class="pzh" id="pzResultHead">Result</div>
@@ -191,8 +191,8 @@
             </div>
             <div class="pz-used" id="pzUsed"></div>
             <div class="pzh" id="pzGrpHead" style="cursor: pointer">
-              Groups &amp; weights<span class="sp"></span
-              ><button class="ib" id="pzGrpTog" title="Show / hide the groups"></button>
+              <button class="ib" id="pzGrpTog" title="Show / hide the groups"></button>Groups &amp;
+              weights
             </div>
             <div class="pz-grp closed" id="pzGrpBody">
               <button
@@ -249,29 +249,30 @@
                 <div class="slv-lab">Sort by</div>
                 <div id="slvSortBy"></div>
               </div>
-              <div class="slv-sec">
-                <div class="slv-lab">
-                  Step-by-step explorer<span class="sp"></span
-                  ><span
-                    class="dhelp"
-                    style="text-transform: none; letter-spacing: 0; font-weight: 400"
-                    >advanced</span
-                  >
-                </div>
-                <div class="slv-adv">
-                  <div id="slvAdv" style="display: contents"></div>
-                </div>
-                <ul class="advnote">
-                  <li>Placements browses the assembly search</li>
-                  <li>Movements browses the disassembly search</li>
-                  <li>Step advances the assembler one step</li>
-                </ul>
+              <div class="slv-sec slv-fold closed" id="slvAdvSec">
                 <button
-                  class="btn sm slv-dbg"
+                  class="slv-lab click"
+                  id="slvAdvHead"
+                  title="Show or hide the step-by-step explorer"
+                >
+                  <span class="chev"></span>Step-by-step explorer
+                </button>
+                <div class="slv-advbody">
+                  <div class="slv-adv">
+                    <div id="slvAdv" style="display: contents"></div>
+                  </div>
+                  <ul class="advnote">
+                    <li>Placements browses the assembly search</li>
+                    <li>Movements browses the disassembly search</li>
+                    <li>Step advances the assembler one step</li>
+                  </ul>
+                </div>
+                <button
+                  class="slv-lab click slv-dbgrow"
                   id="slvStats"
                   title="The statistics of this problem's solve, as it runs"
                 >
-                  Debug statistics…
+                  <span class="chev"></span>Debug statistics
                 </button>
               </div>
             </div>

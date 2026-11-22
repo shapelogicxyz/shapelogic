@@ -513,7 +513,17 @@ where the problem's counts are.
   far (`slidePickingUpMs`), counted on each second so that the program is
   seen to be at work; the view and the card add "This usually takes only
   a few seconds. In the later moves of a big solve it can occasionally
-  take 2 to 10 minutes or more." A Continue the
+  take 2 to 10 minutes or more." Between moves, while the search visits
+  no arrangement (`slidePhase`: the move's arrangements all expanded, it
+  waits for the earlier moves to go into the arrangements already seen,
+  merges what it reached into the next level, writes levels to disk to
+  make room, or autosaves; deep in a big solve for many minutes, with the
+  counts and the live preview standing still and Remaining below zero), a
+  line under the move's row says which, how far it has got and for how
+  long ("Move 202 searched; merging what it reached into the next level,
+  43% (4 min 12 s)."; its tooltip says why nothing else moves), the
+  Details line adds the same sentence, and the view's tag reads "Live
+  preview (on hold: merging the level, 43%)". A Continue the
   engine refuses because its search options name another search than the
   paused one's (decision 0043) is told in a message box, with what
   differs. A paused

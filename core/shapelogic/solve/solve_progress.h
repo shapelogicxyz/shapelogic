@@ -12,6 +12,7 @@
 
 #include "shapelogic/base/solve_state.h"
 #include "shapelogic/solve/disassembler.h"
+#include "shapelogic/solve/slide_phase.h"
 #include "shapelogic/solve/solver_type.h"
 
 #include <cstdint>
@@ -82,6 +83,15 @@ struct SolveProgress {
   /// for how long it has.
   bool slidePickingUp = false;
   std::uint64_t slidePickingUpMs = 0;
+  /// A sliding solve: the part of the move under way that visits no
+  /// arrangement, while one runs (SlidePhaseProgress: the visited count
+  /// and the live preview stand still meanwhile), how far it has got
+  /// (slidePhaseDone of slidePhaseTotal: arrangements, or bytes for
+  /// Writing and Saving) and for how long it has run. None otherwise.
+  sliding::SlidePhase slidePhase = sliding::SlidePhase::None;
+  std::uint64_t slidePhaseDone = 0;
+  std::uint64_t slidePhaseTotal = 0;
+  std::uint64_t slidePhaseMs = 0;
   bool panexSearch = false;
   /// Stage Stopping: the stop is a pause (the solve is kept, to be
   /// continued), not an abort.

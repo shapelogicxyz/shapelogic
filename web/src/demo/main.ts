@@ -413,6 +413,7 @@ function idleProgress(t: number, o: Original): SolveProgress {
     slideForecast: null,
     slidePickingUp: false,
     slidePickingUpMs: 0,
+    slidePhase: null,
   };
 }
 
