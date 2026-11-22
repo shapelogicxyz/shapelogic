@@ -3,13 +3,17 @@
 // The Entities workspace's right card around the grid: the tool strip
 // (Fixed, Variable or Erase, one always chosen; its last button switches
 // between drawing and the box selection, whose Fill puts the chosen tool
-// in the box: it reads Select while drawing, Paint while selecting), mirror and span, the planes, the layer
+// in the box: it reads Select while drawing, Paint while selecting), span,
+// then mirror and the planes behind the Mirror & Plane button (hidden
+// again by the < after the planes), the layer
 // strip (marks on the layers that hold cells; PgUp and PgDn), the box
-// selection's bar (Fill, Clear, deselect), the grid size steppers in the
+// selection's bar (Fill, Clear, deselect; a strip under the grid, beside
+// the layers, while selecting; Fill left out under Erase), the grid size steppers in the
 // grid's units with "Apply to all shapes", the palette (Default is the
 // shape's own colour; add, edit, remove, and the Paint tool's brush while a
 // constraint colour is chosen; the constraint colours on rows below, one row
-// shown at a time) and the collapsed card's rail.
+// shown at a time), the collapsed card's rail, and once a document the
+// prompt under the focus button when the grid is very large.
 // From docs/mockup/index.html: `renderTools`, `renderMod`, `renderPlane`,
 // `renderLayers`, `renderSelbar`, `renderInsp`'s size steppers and the
 // applyAll switch, `renderColors` and their handlers. The engine changes
@@ -27,7 +31,7 @@ import type { Colour, ShapeSummary } from '../../engine/api.generated.ts';
 import type { Store } from '../state/store.ts';
 import { byId, esc, forgetHtml, setHtml } from '../shell/dom.ts';
 import { ic } from '../shell/icons.ts';
-import { applyLayout, layout } from '../shell/layout.ts';
+import { applyLayout, layout, onLayout, tab } from '../shell/layout.ts';
 import { chipColour, contrast, fromHex, hex, isTray } from '../shell/piece-colours.ts';
 import type { Rgb3 } from '../shell/piece-colours.ts';
 import { flash } from '../shell/status.ts';
@@ -68,6 +72,9 @@ export interface CardHost {
 }
 
 /** The tools' tooltips on a board (its cells are floor, corridors and walls). */
+/** A shape wider or taller than this (in the grid's units) is offered the focus. */
+const BIG_GRID = 18;
+
 const WALL_TIP: Record<string, string> = {
   fixed: 'Floor: a cell pieces may stop on (fixed)',
   variable: 'Corridor: pieces may cross it but not stop on it (variable)',
@@ -113,6 +120,10 @@ export class EditorCard {
   /** The palette's colour row shown (one at a time; the arrows step through them). */
   private palRow = 0;
   /** The drawing colour and document the palette was last drawn for (a new choice shows its row). */
+  /** Whether the Mirror and Plane icons are shown (by default only Span's). */
+  private mpOpen = false;
+  /** The document generation the large-grid prompt was shown for (-1: none). */
+  private bigTipFor = -1;
   private palSeen: { colour: string | null; generation: number } | null = null;
 
   constructor(host: CardHost) {
@@ -210,42 +221,57 @@ export class EditorCard {
     const st = this.host.state;
     const grp = (
       k: 'mirror' | 'span',
-      label: string,
       tip: (a: string) => string,
       gf: (a: Axis, sz: number) => string,
     ): string =>
-      `<div class="mg"><div class="gl2">${label}</div><div class="grp" data-g="${k}">` +
+      `<div class="grp" data-g="${k}">` +
       (['x', 'y', 'z'] as const)
         .map((a) => {
           const on = st[k].has(a);
           return `<button class="gbtn ${on ? 'on' : ''}" data-a="${a}" title="${tip(a.toUpperCase())}" aria-pressed="${on}">${gf(a, 28)}<span class="ax-${a}">${a.toUpperCase()}</span></button>`;
         })
         .join('') +
-      '</div></div>';
-    byId('modRow').innerHTML =
-      grp(
-        'mirror',
-        'Mirror',
-        (a) => `Also place a mirrored voxel across the ${a} centre plane`,
-        (a, sz) => G.mirror(a, sz),
-      ) +
-      grp(
-        'span',
-        'Span',
-        (a) => `Fill the whole grid along ${a} on each click`,
-        (a, sz) => G.span(a, sz),
-      );
+      '</div>';
+    const mirror = grp(
+      'mirror',
+      (a) => `Mirror: also place a mirrored voxel across the ${a} centre plane`,
+      (a, sz) => G.mirror(a, sz),
+    );
+    const span = grp(
+      'span',
+      (a) => `Span: fill the whole grid along ${a} on each click`,
+      (a, sz) => G.span(a, sz),
+    );
+    // the layer label moves between the rows: kept out of the HTML replaced
+    const lbl = byId('layerLbl');
+    lbl.remove();
+    const row = byId('modRow');
+    row.classList.toggle('short', !this.mpOpen);
+    if (this.mpOpen) {
+      row.innerHTML = mirror + span;
+      byId('planeSub').append(lbl);
+    } else {
+      // Span alone, then the button that shows Mirror and the planes (marked while either is in use)
+      const used = st.mirror.size > 0 || st.plane !== 'XY';
+      row.innerHTML =
+        span +
+        `<div class="mpr"><button class="gbtn mpbtn ${used ? 'used' : ''}" data-mp="1" title="Show the Mirror and Plane icons${used ? ' (a mirror or another plane is in use)' : ''}" aria-expanded="false"><b>Mirror<br>&amp; Plane</b></button></div>`;
+      row.querySelector('.mpr')?.append(lbl);
+    }
+    byId('planeSub').classList.toggle('off', !this.mpOpen);
   }
 
   renderPlane(): void {
     const st = this.host.state;
     const all = this.host.allPlanes();
-    byId('planeSeg').innerHTML = (['XY', 'XZ', 'YZ'] as const)
-      .map((p) => {
-        const off = !all && p !== 'XY';
-        return `<button class="gbtn ${st.plane === p ? 'on' : ''}" data-p="${p}" ${off ? 'disabled' : ''} title="${off ? 'Only the XY layer plane on this grid (as the original’s grid editor)' : `Edit the ${p} plane`}" aria-pressed="${st.plane === p}">${G.plane(p, 30)}<span>${p}</span></button>`;
-      })
-      .join('');
+    byId('planeSeg').innerHTML =
+      (['XY', 'XZ', 'YZ'] as const)
+        .map((p) => {
+          const off = !all && p !== 'XY';
+          return `<button class="gbtn ${st.plane === p ? 'on' : ''}" data-p="${p}" ${off ? 'disabled' : ''} title="${off ? 'Only the XY layer plane on this grid (as the original’s grid editor)' : `Edit the ${p} plane`}" aria-pressed="${st.plane === p}">${G.plane(p, 30)}<span>${p}</span></button>`;
+        })
+        .join('') +
+      '<button class="gbtn mpx" data-mp="0" title="Hide Mirror and Plane icons" aria-expanded="true"><b>&lt;</b></button>';
   }
 
   renderLayers(): void {
@@ -258,27 +284,32 @@ export class EditorCard {
       return;
     }
     const has = this.host.layersWithCells();
-    let h = `<div class="lh" style="color:var(--a${p.la.toLowerCase()})">${p.la} layer</div>`;
+    // the label stays at the top; only the numbers scroll
+    let h = `<div class="lh" style="color:var(--a${p.la.toLowerCase()})">${p.la} layer</div><div class="lchips">`;
     for (let l = p.layers - 1; l >= 0; l--) {
       h += `<button class="lchip ${l === st.layer ? 'on' : ''} ${has.has(l) ? 'has' : ''}" data-l="${l}" title="Layer ${l + 1}">${l + 1}</button>`;
     }
-    el.innerHTML = h;
+    el.innerHTML = h + '</div>';
     byId('layerLbl').textContent = `Layer ${st.layer + 1} of ${p.layers}`;
     el.querySelector('.lchip.on')?.scrollIntoView({ block: 'nearest' });
   }
 
   renderSelbar(): void {
-    const n = Number(byId('garea').querySelector('svg')?.dataset.selected ?? '0');
     const st = this.host.state;
     const box = st.box;
+    const n =
+      box === null ? 0 : Number(byId('garea').querySelector('svg')?.dataset.selected ?? '0');
     const b = byId('selbar');
-    b.classList.toggle('show', box !== null);
-    const fillTip =
+    // a strip of its own while selecting, so it never covers the grid
+    b.classList.toggle('show', st.boxMode);
+    const off = n === 0 ? 'disabled' : '';
+    // under Erase, Fill is what Clear does: only Clear is offered
+    const fill =
       st.voxel === 'erase'
-        ? 'Erase the voxels of the box, as Clear does: the Erase tool is chosen (mirror and span apply)'
-        : `Fill the box with ${st.voxel} voxels in the drawing color (mirror and span apply)`;
-    b.innerHTML = `<span><b>${n}</b> cell${n === 1 ? '' : 's'} selected</span><span class="sep"></span>
-  <button class="btn sm" data-x="fill" title="${fillTip}">Fill</button><button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)">Clear</button><button class="ib" data-x="x" title="Deselect (Esc)">${ic('close', 14)}</button>`;
+        ? ''
+        : `<button class="btn sm" data-x="fill" title="Fill the box with ${st.voxel} voxels in the drawing color (mirror and span apply)" ${off}>Fill</button>`;
+    b.innerHTML = `<span><b>${n}</b> cell${n === 1 ? '' : 's'} selected</span><span class="sp"></span>
+  ${fill}<button class="btn sm" data-x="clear" title="Erase the voxels of the box (mirror and span apply)" ${off}>Clear</button><button class="ib" data-x="x" title="Deselect (Esc)" ${box === null ? 'disabled' : ''}>${ic('close', 14)}</button>`;
   }
 
   renderSize(): void {
@@ -305,6 +336,41 @@ export class EditorCard {
     const sw = byId('applyAll');
     sw.classList.toggle('on', st.applyAll);
     sw.setAttribute('aria-checked', String(st.applyAll));
+    this.renderBigTip();
+  }
+
+  /**
+   * The prompt under the focus button while the shape is wider or taller
+   * than BIG_GRID in the grid's units: once a document (a size taken below
+   * and back above it does not bring it again; opening a document does).
+   */
+  renderBigTip(): void {
+    const tip = byId('bigTip');
+    const s = this.shape;
+    const u = this.host.unit();
+    const big = s !== null && [0, 1].some((i) => Math.ceil((s.size[i] ?? 1) / u) > BIG_GRID);
+    // the small editor on screen (not the focus, a collapsed card, stacking or another workspace)
+    const room =
+      big &&
+      tab === 'entities' &&
+      layout.focus === '' &&
+      !layout.rc &&
+      !byId('stage').classList.contains('stk');
+    if (!tip.hidden) {
+      tip.hidden = !room;
+    } else if (room && this.bigTipFor !== this.host.store.generation) {
+      this.bigTipFor = this.host.store.generation;
+      tip.hidden = false;
+    }
+    if (!tip.hidden) {
+      // under the button, the arrow at its middle
+      const card = byId('right').getBoundingClientRect();
+      const b = byId('btnF2D').getBoundingClientRect();
+      const right = Math.max(8, card.right - b.right - 8);
+      tip.style.top = `${String(b.bottom - card.top + 8)}px`;
+      tip.style.right = `${String(right)}px`;
+      tip.style.setProperty('--ar', `${String(card.right - (b.left + b.right) / 2 - right - 6)}px`);
+    }
   }
 
   renderColours(): void {
@@ -455,6 +521,15 @@ export class EditorCard {
         this.host.changed();
       }
     });
+    // the Mirror & Plane button opens them, the < after the planes hides them again
+    byId('edCtl').addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('button[data-mp]');
+      if (b !== null) {
+        this.mpOpen = b.dataset.mp === '1';
+        this.renderMod();
+        this.renderPlane();
+      }
+    });
     byId('modRow').addEventListener('click', (e) => {
       const b = (e.target as Element).closest<HTMLElement>('button[data-a]');
       const k = b?.parentElement?.dataset.g;
@@ -482,8 +557,8 @@ export class EditorCard {
       }
     });
     byId('selbar').addEventListener('click', (e) => {
-      const b = (e.target as Element).closest<HTMLElement>('[data-x]');
-      if (b === null) {
+      const b = (e.target as Element).closest<HTMLButtonElement>('button[data-x]');
+      if (b === null || b.disabled) {
         return;
       }
       if (b.dataset.x === 'x') {
@@ -620,6 +695,21 @@ export class EditorCard {
     byId('btnF2D').addEventListener('click', () => {
       layout.focus = layout.focus === '2d' ? '' : '2d';
       applyLayout();
+    });
+    byId('bigTip').addEventListener('click', (e) => {
+      const b = (e.target as Element).closest<HTMLElement>('button[data-x]');
+      if (b === null) {
+        return;
+      }
+      byId('bigTip').hidden = true;
+      if (b.dataset.x === 'go') {
+        layout.focus = '2d';
+        applyLayout();
+      }
+    });
+    // the focus, a collapsed card or another workspace hides it (it counts as shown)
+    onLayout(() => {
+      this.renderBigTip();
     });
     byId('btnF2D').innerHTML = ic('focus');
   }

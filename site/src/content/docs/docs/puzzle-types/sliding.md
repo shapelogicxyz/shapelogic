@@ -65,6 +65,12 @@ pieces and the board with constraint colors to limit where a piece may
 start; a piece with a start mark must also fit the colors there. See
 [Color Restrictions](/docs/color-restrictions/#sliding-puzzles).
 
+A piece or a board can also show a picture, as on a printed tile puzzle:
+the image button in the color area applies a PNG, JPEG, WebP or GIF file,
+cropped or stretched to the shape. A board's picture lies on its floor,
+under the pieces. Pictures are only for looks: the solver ignores them. See
+[Pictures on sliding pieces and boards](/docs/shapes-tab/#pictures-on-sliding-pieces-and-boards).
+
 ## Trays with more than one layer
 
 Pieces and trays can have more than one layer: add layers with the **Z**

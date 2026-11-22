@@ -98,6 +98,12 @@ for erase.
 
 ### Mirror and Span
 
+The editor shows only the three Span buttons at first, so the grid gets more
+room. Press **Mirror & Plane** beside them to show the Mirror and plane
+buttons too, and **<** after the YZ plane button to hide them again. While
+they are hidden, a dot on **Mirror & Plane** says a mirror is on or a plane
+other than XY is shown.
+
 ![Mirror X, Y, Z and Span X, Y, Z.](../../../assets/screens/guide/editor-mirror-span.png)
 
 - **Mirror X / Y / Z**: every voxel you place or erase is also placed or
@@ -190,6 +196,38 @@ Restriction colors limit where a piece can go; see
 [Color Restrictions](/docs/color-restrictions/). Stacking puzzles have no
 restriction colors, so for them the area has only the shape's color and the
 pencil.
+
+### Pictures on sliding pieces and boards
+
+On a [sliding puzzle](/docs/puzzle-types/sliding/), a piece or a board can
+show a picture, the way a printed tile puzzle does. While the shape's own
+color is chosen, the color area has an **image** button beside the pencil;
+it is lit when the shape has a picture. Right-click the color area for the
+same choices as a menu: **Apply image…** (**Change image…** once there is
+one) and **Remove image**.
+
+The button opens **Apply image**:
+
+![The Apply image dialog: Choose image… with the file's name, Crop or Stretch, a preview of Klotski's big square piece with a sunset on it, and Cancel and Apply.](../../../assets/screens/guide/image-dialog.png)
+
+- **Choose image…** picks a PNG, JPEG, WebP or GIF file on your computer.
+  A larger picture is shrunk to 2048 pixels on its longer side, and the
+  puzzle file keeps it.
+- **Crop** cuts the picture to the shape's proportions, keeping its middle,
+  so nothing is squashed. **Stretch** squashes the whole picture into the
+  shape's rectangle.
+- The preview shows the shape's cells with the picture on them.
+- **Remove image** takes the picture off; it is there only when the shape
+  has one.
+
+The picture covers the shape's bounding rectangle, and shows only on its
+cells. It turns, flips and moves with the shape. A piece shows it in the
+grid, on the faces looking up in the 3D views, and on the
+[Play tab](/docs/play-tab/). A board's picture lies on its floor, under the
+pieces: in the grid, on the [Puzzle tab](/docs/puzzle-tab/)'s Start and Goal
+grids (on the cells no mark covers) and 3D trays, and on the Play tab's
+floor. The Solver draws a sliding board as lines only, so it shows no
+picture there.
 
 ## Grid editor settings
 

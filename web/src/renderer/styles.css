@@ -206,19 +206,32 @@ html[data-topbar=colorful] .rbtn.on::before{background:var(--tc)}
 .gbody{flex:1;min-height:0;display:flex;position:relative;background:var(--panel2)}
 .lstrip{width:auto;min-width:calc(54px + var(--fs));box-sizing:border-box;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;overflow:auto;background:var(--panel)}
 .lstrip .lh{white-space:nowrap;font-size:calc(11px + var(--fs));font-weight:700;letter-spacing:.4px;margin-bottom:2px}
+/* the editor's layers: the label stays, only the numbers scroll */
+#lstrip{overflow:hidden}
+#lstrip .lh{flex:none}
+#lstrip .lchips{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:center;gap:inherit;overflow-y:auto;scrollbar-width:none}
 .lchip{width:calc(36px + var(--fs));height:calc(28px + var(--fh));border-radius:7px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:600;color:var(--muted);flex:none}
 .lchip:hover{border-color:var(--accent);color:var(--text)}
 .lchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .lchip.has::after{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:currentColor;margin-left:4px;vertical-align:middle;opacity:.7}
-#garea{flex:1;min-width:0;display:grid;place-items:center;overflow:hidden}
+.gcol{flex:1;min-width:0;display:flex;flex-direction:column}
+#garea{flex:1;min-width:0;min-height:0;display:grid;place-items:center;overflow:hidden}
 .gwrap{display:grid;user-select:none}
 .rrul,.crul{display:flex;font-size:calc(11px + var(--fs));color:var(--muted)}
 .rrul{flex-direction:column;border-right:3px solid;padding-right:4px;margin-right:2px}
 .rrul span{display:flex;align-items:center;justify-content:flex-end}
 .crul{border-top:3px solid;padding-top:3px;margin-top:2px}
 .crul span{display:flex;justify-content:center}
-.selbar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:none;align-items:center;gap:4px;padding:5px 6px 5px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);z-index:3;white-space:nowrap}
+/* the box selection's strip: under the grid, beside the layers (they keep their height) */
+.selbar{flex:none;display:none;align-items:center;gap:4px;padding:5px 8px 5px 12px;background:var(--panel);border-top:1px solid var(--line);white-space:nowrap}
 .selbar.show{display:flex}
+.selbar .sp{flex:1}
+/* a grid too large for the card: the prompt under the focus button, its arrow at the button */
+.ftip{position:absolute;z-index:6;width:min(270px,calc(100% - 16px));box-sizing:border-box;padding:10px 12px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.ftip[hidden]{display:none}
+.ftip::before{content:"";position:absolute;top:-6px;right:var(--ar,12px);width:10px;height:10px;background:var(--panel);border-left:1px solid var(--line2);border-top:1px solid var(--line2);transform:rotate(45deg)}
+.ftip p{margin:0 0 10px;line-height:1.4}
+.ftipb{display:flex;justify-content:flex-end;gap:6px}
 .colfoot{flex:none;border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
 .colhead{display:flex;align-items:center;gap:12px}
 .colbtns{display:flex;align-items:center;gap:2px}
@@ -1400,3 +1413,19 @@ button.pl-big:hover:not(:disabled){border-color:var(--accent);color:var(--accent
 /* a board drawn out of sight for the goal's window (goal-picture.ts) */
 .goal-room{position:fixed;left:-20000px;top:0;pointer-events:none}
 #plNote:empty{display:none}
+/* the voxel editor's Span row: by default Span alone, then Mirror & Plane (which opens Mirror and the
+   planes) and the layer label; the < after the planes hides them again */
+.mrow .mpr{display:flex;align-items:center;gap:10px;min-width:0}
+.mrow .mpbtn{flex:none;height:54px;padding:2px 8px}
+.mpbtn b,.mpx b{font-weight:600;text-align:center}
+.mpbtn.used::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.llbl{white-space:nowrap}
+.subbar.off{display:none}
+.pseg .gbtn.mpx{width:31px}
+html:is([data-density=standard],[data-density=compact]) .mrow .mpbtn{height:44px}
+html:is([data-density=standard],[data-density=compact]) .pseg .gbtn.mpx{width:27px}
+html[data-density=compact] .mrow .mpbtn{height:30px;padding:1px 6px;border-radius:6px}
+html[data-density=compact] .pseg .gbtn.mpx{width:auto;padding:2px 8px}
+html[data-density=minimal] .mrow .mpbtn{height:32px;padding:1px 6px}
+html[data-density=minimal] .pseg .gbtn.mpx{width:22px}
+#stage.f2d:not(.stk) .edctl .gbtn.mpx{padding:2px 8px}

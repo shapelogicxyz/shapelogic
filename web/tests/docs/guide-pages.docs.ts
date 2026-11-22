@@ -10,6 +10,7 @@
 
 import { mkdirSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
+import { crc32, deflateSync } from 'node:zlib';
 
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -24,7 +25,9 @@ import {
   openFixture,
   FIXTURES,
   ROOT,
+  selectShape,
   settle,
+  shapes,
   style,
 } from '../e2e/app.ts';
 import { carry, drag, expectStacks, STACK, STAGE, toPlay, toStackPlay } from '../e2e/play.ts';
@@ -149,6 +152,8 @@ test('the 3D view and the Shapes tab', async () => {
     // the right card: the voxel editor
     await crop(page, '#right', 'voxel-editor');
     await crop(page, '#toolStrip', 'editor-tools');
+    // Mirror and the planes are behind the Mirror & Plane button
+    await page.click('#modRow [data-mp="1"]');
     await crop(page, '#modRow', 'editor-mirror-span');
     await crop(page, '#right .subbar', 'editor-planes');
     await cropContent(page, '#lstrip', 'editor-layers');
@@ -370,6 +375,91 @@ test('the Play tab', async () => {
     await crop(page, '#playBoard', 'play-simple');
     await page.click('#plSimple');
     await expect(page.locator('#plSimple')).toHaveAttribute('aria-pressed', 'false');
+    // the goal in its own window, GOAL above it
+    const opened = app.app.waitForEvent('window');
+    await page.click('#plGoalWin');
+    const goal = await opened;
+    await expect(goal.locator('h1')).toHaveText('GOAL');
+    await expect(goal.locator('img')).toBeVisible();
+    await goal.waitForTimeout(400);
+    await goal.screenshot({ path: resolve(OUT, 'play-goal-window.png') });
+  } finally {
+    await app.close();
+  }
+});
+
+/**
+ * A w x h PNG of a sunset: a sky going from blue to orange, a sun low in
+ * it and dark hills, so a picture on a piece reads as one in a screenshot.
+ */
+function sunset(w: number, h: number): Buffer {
+  const chunk = (name: string, data: Buffer): Buffer => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(name, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; // bits
+  ihdr[9] = 2; // RGB
+  const rows = Buffer.alloc(h * (w * 3 + 1));
+  const mix = (a: number, b: number, t: number): number => Math.round(a + (b - a) * t);
+  for (let y = 0; y < h; y++) {
+    const row = y * (w * 3 + 1);
+    for (let x = 0; x < w; x++) {
+      const t = y / h;
+      let c = [mix(42, 250, t), mix(58, 150, t), mix(140, 70, t)];
+      if (Math.hypot(x - w * 0.55, y - h * 0.62) < w * 0.17) {
+        c = [255, 222, 120];
+      }
+      const hill = h * (0.74 + 0.08 * Math.sin((x / w) * Math.PI * 2.2));
+      if (y > hill) {
+        c = [mix(60, 30, (y - hill) / h), mix(48, 26, (y - hill) / h), 70];
+      }
+      rows.set(c, row + 1 + x * 3);
+    }
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(rows)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+test('a picture on a sliding piece', async () => {
+  const app = await launch({ scale: 2 });
+  const { page } = app;
+  try {
+    await openNested(page, 'sliding/slide_klotski.xmpuzzle');
+    await page.keyboard.press('Control+1');
+    await expect(page.locator('#stage')).toHaveAttribute('data-tab', 'entities');
+    // the big square piece, S1: the first piece after the board
+    const big = (await shapes(page)).find((s) => s.label === 'S1')?.id ?? '';
+    await selectShape(page, big);
+    await page.click('#cImage');
+    const dlg = page.locator('#imageDlg');
+    await expect(dlg).toBeVisible();
+    await dlg.locator('[data-f="file"]').setInputFiles({
+      name: 'sunset.png',
+      mimeType: 'image/png',
+      buffer: sunset(320, 240),
+    });
+    await expect(dlg.locator('[data-f="name"]')).toContainText('sunset.png');
+    await page.mouse.move(0, 0);
+    await crop(page, '#imageDlg .cfm', 'image-dialog');
+    await dlg.locator('[data-x="apply"]').click();
+    await expect(dlg).toHaveCount(0);
+    await expect(page.locator('#cImage')).toHaveClass(/\bon\b/);
+    // the piece on the Play board, its picture on it
+    await toPlay(page);
+    await expect(page.locator('.pl-piece image')).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await crop(page, '#playBoard', 'play-picture');
   } finally {
     await app.close();
   }

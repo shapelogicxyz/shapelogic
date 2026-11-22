@@ -259,7 +259,9 @@ describe('a stacking board’s drawing', () => {
     expect(fittedLabel('Right 1', 6)).toBe('R 1');
     expect(fittedLabel('Left 12', 4)).toBe('L 12');
     expect(fittedLabel('Big red disc', 5)).toBe('B r d');
-    expect(fittedLabel('Right 1', 2)).toBe('');
+    expect(fittedLabel('Right 1', 2.9)).toBe('R1');
+    expect(fittedLabel('Right 1', 1)).toBe('R1');
+    expect(fittedLabel('Big red disc', 3)).toBe('Brd');
     // on a narrow board the smallest disc has room for the short form only
     const named: StackModel = {
       ...hanoi,

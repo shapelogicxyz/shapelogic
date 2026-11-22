@@ -41,14 +41,25 @@ in a flat tray with square corners; **3D Pieces** brings back the rounded
 pieces with their sides showing. Each choice holds for every problem you
 play until you change it.
 
-**Show Goal Image** opens a picture of the goal in a window of its own:
-the board with each piece that has a goal standing on it (pieces without
-one are left out). Drag the window anywhere and size it as you like; the
-picture grows and shrinks with it, and it stays above the app's window
-while you play. It follows the problem you play, and closes with the app's
+Pieces and boards that have a picture
+([Pictures on sliding pieces and boards](/docs/shapes-tab/#pictures-on-sliding-pieces-and-boards))
+show it here too: a piece's picture moves with the piece, and a board's
+lies on the tray's floor, under the goal's tint and the pieces. Simple
+Pieces keeps the pictures.
+
+![A Klotski board on the Play tab with a sunset picture on its big square piece.](../../../assets/screens/guide/play-picture.png)
+
+**Show Goal Image** opens a picture of the goal in a window of its own,
+with **GOAL** written above it: the board with each piece that has a goal
+standing on it (pieces without one are left out). Drag the window anywhere
+and size it as you like; the picture grows and shrinks with it, and it
+stays above the app's window while you play. It follows the problem you
+play, takes the app's light or dark theme, and closes with the app's
 window. Click the button again to bring it forward.
 
-![The buttons beside the board: the number of moves, Reset, Undo, Redo, Hide Goal Shadows, Hide Goal Lines, Hide Grid, Hide Piece Labels and Simple Pieces.](../../../assets/screens/guide/play-side.png)
+![The goal window of a Klotski puzzle: GOAL above the board, with the big square piece, the only one that has a goal, standing on it at the top.](../../../assets/screens/guide/play-goal-window.png)
+
+![The buttons beside the board: the number of moves, Reset, Undo, Redo, Hide Goal Shadows, Hide Goal Lines, Show Goal Image, Hide Grid, Hide Piece Labels and Simple Pieces.](../../../assets/screens/guide/play-side.png)
 
 ![The same board with Simple Pieces on: flat, square pieces in plain colours in a flat tray.](../../../assets/screens/guide/play-simple.png)
 
@@ -102,9 +113,9 @@ size, with its name on it or, when it has none, its size. A name too long
 for its disc is cut to the first letter of each word ("Right 1" shows as
 "R 1"), and left off when even that doesn't fit. The **Goal**
 picture beside the board shows where the discs must end; click it to open
-the Goal larger in a window of its own, which you can drag anywhere and
-size as you like (the small icon at its top right says so; see **Show Goal
-Image** above). **Hide Goal** takes the picture away so you can play
+the Goal larger in a window of its own, with **GOAL** above it, which you
+can drag anywhere and size as you like (the small icon at its top right
+says so; see **Show Goal Image** above). **Hide Goal** takes the picture away so you can play
 without it, and **Hide Disc Labels** takes the names and sizes off the
 discs.
 

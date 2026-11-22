@@ -796,11 +796,14 @@ keys, a game kept for each problem while the document is open).
   drawn, each piece with a goal moved onto it (`goalPlaces`: the first
   copy of its shape whose cells the goal is), the others, the goals' tint
   and outlines left out. Stacking: the goal drawn at board size, cropped
-  to the drawing. The drawing is made standalone (`play/goal-picture.ts`:
+  to the drawing (each part measured where it is drawn, the discs'
+  translate included). **GOAL** in bold above the drawing, white in the
+  dark theme and black in the light (the picture's `dark`); the window
+  opens 30 pixels taller for it. The drawing is made standalone (`play/goal-picture.ts`:
   the stylesheet's values written into each element, so the theme and the
   hidden labels carry over) and shown as an image under a CSP that allows
-  nothing else; it is drawn again as the problem, the game's start or a
-  button's choice changes while the window is open. The demo opens a
+  nothing else; it is drawn again as the problem, the game's start, a
+  button's choice or the theme changes while the window is open. The demo opens a
   popup instead.
 - **A move:** a press anywhere in a rod's column takes its top disc and
   asks `stacking.playMoves` once for the position. Dragged, the disc

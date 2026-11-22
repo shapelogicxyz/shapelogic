@@ -135,15 +135,17 @@ export function rodAt(m: StackModel, look: StackLook, x: number): number {
 }
 
 /**
- * What of a disc's label fits in `room` characters: the label, or with
- * each word cut to its first letter ("Right 1" as "R 1"), or nothing.
+ * What of a disc's label to show in `room` characters: the label, or with
+ * each word cut to its first letter ("Right 1" as "R 1"), or that without
+ * its spaces ("R1"), which is shown even when it does not fit (the caller
+ * shrinks its font).
  */
 export function fittedLabel(label: string, room: number): string {
   if (label.length <= room) {
     return label;
   }
   const short = label.replace(/\p{L}+/gu, (word) => word.charAt(0));
-  return short.length <= room ? short : '';
+  return short.length <= room ? short : short.replace(/\s+/gu, '');
 }
 
 // a disc's bar, its top left at the origin of its group, the group at `at` on `rod` at height `z`
@@ -161,9 +163,11 @@ function discSvg(
   const h = look.v - 2 * gap;
   const r = Math.min(h / 2, small ? 3 : 9);
   let label = '';
-  const size = Math.min(15, Math.floor(h * 0.62));
+  let size = Math.min(15, Math.floor(h * 0.62));
   const text = small || size < 7 ? '' : fittedLabel(d.label, (w - 6) / (size * 0.62));
   if (text !== '') {
+    // the short form ("R1") is always drawn: smaller where even it does not fit
+    size = Math.max(6, Math.min(size, Math.floor((w - 6) / (text.length * 0.62))));
     label = `<text class="sk-name" x="${fmt(w / 2)}" y="${fmt(gap + h / 2)}" font-size="${String(size)}" fill="${contrast(d.colour)}">${esc(text)}</text>`;
   }
   return `<g class="sk-disc" data-i="${String(i)}" data-rod="${String(rod)}" data-z="${String(z)}" style="transform:translate(${at[0].toFixed(2)}px,${at[1].toFixed(2)}px)"><rect class="sk-bar" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}" fill="${hex(d.colour)}"/>${small ? '' : `<rect class="sk-sheen" x="${fmt(gap)}" y="${fmt(gap)}" width="${fmt(w - 2 * gap)}" height="${fmt(h)}" rx="${fmt(r)}"/>`}${label}</g>`;

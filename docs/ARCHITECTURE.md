@@ -1425,7 +1425,7 @@ What exists after stage 8:
   crash is offered in one window only),
   `goal-window.ts` (`GoalWindows`: the Play tab's goal picture in a
   window of its own, one per app window, its child: no preload, its page a
-  data: URL, `app-bridge.ts`'s `goalPage`, whose one image is the drawing,
+  data: URL, `app-bridge.ts`'s `goalPage`: GOAL above its one image, the drawing,
   under a CSP of `img-src data:` and inline style only; it navigates and
   opens nothing; `bt:goal-window` takes only an `isGoalPicture`; the menus
   act on its app window),

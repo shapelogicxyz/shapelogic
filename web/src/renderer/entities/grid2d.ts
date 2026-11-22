@@ -233,9 +233,10 @@ export class Grid2D {
   // the SVG for a layer drawing at a size (spaceGridSvg's fit)
   private build(input: GridInput, aw: number, ah: number): void {
     const { width: ex, height: ey } = input.geo;
-    // a sliding board shrinks to fit its area instead of being cut off;
-    // the other grids keep 16 px a unit at least; in the focus there is no most
-    const least = input.grid === 'sliding' ? 2 : 16;
+    // every grid shrinks to fit its area instead of being cut off (a very
+    // large one is better edited in the focus: the card offers it); in the
+    // focus there is no most
+    const least = 2;
     const most = this.host.focused() ? Infinity : 110;
     this.sc = Math.max(
       least,

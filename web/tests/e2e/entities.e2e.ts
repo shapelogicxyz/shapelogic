@@ -141,6 +141,10 @@ async function clearShape(page: Page, shape: string): Promise<void> {
 }
 
 async function mods(page: Page, kind: 'mirror' | 'span', axis: string): Promise<void> {
+  // Mirror is behind the Mirror & Plane button
+  if (kind === 'mirror' && (await page.locator('#modRow [data-mp="1"]').count()) > 0) {
+    await page.click('#modRow [data-mp="1"]');
+  }
   await page.click(`#modRow [data-g="${kind}"] [data-a="${axis}"]`);
 }
 
@@ -268,6 +272,11 @@ for (const grid of GRIDS) {
       await page.click('#toolStrip [data-box]');
       // the button names the mode in use
       await expect(page.locator('#toolStrip [data-box]')).toHaveText('Select');
+      // the strip shows from the start: nothing selected, nothing to fill or clear
+      await expect(page.locator('#selbar')).toHaveClass(/\bshow\b/);
+      await expect(page.locator('#selbar b')).toHaveText('0');
+      await expect(page.locator('#selbar [data-x="fill"]')).toBeDisabled();
+      await expect(page.locator('#selbar [data-x="clear"]')).toBeDisabled();
       const corner0 = run[0] ?? A;
       const corner1 = run.at(-1) ?? A;
       await dragCells(page, [corner0, corner1]);
@@ -293,14 +302,18 @@ for (const grid of GRIDS) {
       await page.click('#selbar [data-x="fill"]');
       await settled(page);
       expect(cellsOf(await shapeGet(page, s1))).toEqual(varied);
-      // under Erase, Fill clears as Clear does
+      // under Erase, Fill would be Clear: only Clear is offered
       await page.click('#toolStrip [data-t="erase"]');
-      await page.click('#selbar [data-x="fill"]');
+      await expect(page.locator('#selbar [data-x="fill"]')).toHaveCount(0);
+      await page.click('#selbar [data-x="clear"]');
       await settled(page);
       expect((await shapeGet(page, s1)).cells).toEqual([]);
       await page.click('#toolStrip [data-t="fixed"]');
       await page.keyboard.press('Escape');
-      await expect(page.locator('#selbar')).not.toHaveClass(/\bshow\b/);
+      // still selecting: the strip stays, with nothing selected
+      await expect(page.locator('#selbar')).toHaveClass(/\bshow\b/);
+      await expect(page.locator('#selbar b')).toHaveText('0');
+      await expect(page.locator('#selbar [data-x="fill"]')).toBeDisabled();
       await expect(page.locator('#garea svg')).toHaveAttribute('data-selected', '0');
       // back to drawing clears a box still selected
       await dragCells(page, [corner0, corner1]);
@@ -766,6 +779,91 @@ test('3D edit mode adds on an empty layer, and a face’s right half changes or 
 
     await page.keyboard.press('e');
     await expect(page.locator('#editHint')).toBeHidden();
+  } finally {
+    await a.close();
+  }
+});
+
+test('a very large grid fits the card and is offered the focus once a document', async () => {
+  const a: App = await launch();
+  const page = a.page;
+  const size = async (axis: number, v: number): Promise<void> => {
+    const f = page.locator(`#sizeSteppers input[data-v="${String(axis)}"]`);
+    await f.fill(String(v));
+    await f.press('Enter');
+    await settled(page);
+    await expect(f).toHaveValue(String(v));
+  };
+  try {
+    await newDocument(page, 'bricks');
+    await newShape(page);
+    await size(2, 18);
+    await size(1, 18);
+    // 18 is not above the limit
+    await expect(page.locator('#bigTip')).toBeHidden();
+    await size(0, 28);
+    await expect(page.locator('#bigTip')).toBeVisible();
+    // the whole grid shows in the card: its last column is inside the grid area
+    const area = await page.locator('#garea').boundingBox();
+    const svg = await page.locator('#garea svg').boundingBox();
+    expect(area).not.toBeNull();
+    expect(svg?.width ?? Infinity).toBeLessThanOrEqual(area?.width ?? 0);
+    await page.click('#bigTip [data-x="no"]');
+    await expect(page.locator('#bigTip')).toBeHidden();
+    // once a document: below the limit and back above it does not bring it again
+    await size(0, 10);
+    await size(0, 28);
+    await expect(page.locator('#bigTip')).toBeHidden();
+    // the layers' label stays while the numbers scroll
+    await expect(page.locator('#lstrip .lh')).toBeInViewport();
+    await page.locator('#lstrip .lchips').evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await expect(page.locator('#lstrip .lh')).toBeInViewport();
+    // a new document offers it again; Go opens the focus
+    await newDocument(page, 'bricks');
+    await newShape(page);
+    await size(1, 19);
+    await expect(page.locator('#bigTip')).toBeVisible();
+    await page.click('#bigTip [data-x="go"]');
+    await expect(page.locator('#stage')).toHaveClass(/\bf2d\b/);
+    await expect(page.locator('#bigTip')).toBeHidden();
+  } finally {
+    await a.close();
+  }
+});
+
+test('Span alone by default; Mirror & Plane shows Mirror and the planes, < hides them', async () => {
+  const a: App = await launch();
+  const page = a.page;
+  try {
+    await newDocument(page, 'bricks');
+    await newShape(page);
+    const open = page.locator('#modRow [data-mp="1"]');
+    await expect(page.locator('#modRow [data-g="span"] .gbtn')).toHaveCount(3);
+    await expect(page.locator('#modRow [data-g="mirror"]')).toHaveCount(0);
+    await expect(page.locator('#planeSub')).toBeHidden();
+    await expect(page.locator('#modRow #layerLbl')).toHaveText(/^Layer 1 of /);
+    // the grid takes the room the rows gave up
+    const short = (await page.locator('#garea').boundingBox())?.height ?? 0;
+    await open.click();
+    await expect(page.locator('#modRow [data-g="mirror"] .gbtn')).toHaveCount(3);
+    await expect(page.locator('#planeSeg [data-p]')).toHaveCount(3);
+    await expect(page.locator('#planeSub #layerLbl')).toHaveText(/^Layer 1 of /);
+    await expect(page.locator('#planeSeg [data-mp="0"]')).toHaveAttribute(
+      'title',
+      'Hide Mirror and Plane icons',
+    );
+    expect((await page.locator('#garea').boundingBox())?.height ?? 0).toBeLessThan(short);
+    // a mirror in use marks the button while the icons are hidden
+    await page.click('#modRow [data-g="mirror"] [data-a="x"]');
+    await page.click('#planeSeg [data-mp="0"]');
+    await expect(page.locator('#modRow [data-g="mirror"]')).toHaveCount(0);
+    await expect(open).toHaveClass(/\bused\b/);
+    await open.click();
+    await page.click('#modRow [data-g="mirror"] [data-a="x"]');
+    await page.click('#planeSeg [data-mp="0"]');
+    await expect(open).not.toHaveClass(/\bused\b/);
   } finally {
     await a.close();
   }
