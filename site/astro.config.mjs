@@ -9,13 +9,15 @@ import starlightLinksValidator from 'starlight-links-validator';
 // fails the build check if they go missing.
 // public/demo/ is the app's demo (web/tools/record-demo.ts), a static page
 // of its own: the built site serves /demo/ from its index.html, the dev
-// server serves public files only by their full name, so it is told.
+// server serves public files only by their full name, so it is told. The
+// query is kept: the demo's address names its example (/demo/?type=sliding).
 const demoIndex = {
   name: 'demo-index',
   configureServer(server) {
     server.middlewares.use((req, _res, next) => {
-      if (req.url === '/demo' || req.url === '/demo/') {
-        req.url = '/demo/index.html';
+      const [path, query] = (req.url ?? '').split('?', 2);
+      if (path === '/demo' || path === '/demo/') {
+        req.url = `/demo/index.html${query === undefined ? '' : `?${query}`}`;
       }
       next();
     });

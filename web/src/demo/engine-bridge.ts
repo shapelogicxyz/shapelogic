@@ -26,7 +26,11 @@ const SEARCHES =
 export interface RunEvents {
   state(problem: string, state: SolveState): void;
   progress(problem: string, state: SolveState, progress: SolveProgress): void;
-  solutionsAdded(problem: string, added: { assemblies: number; solutions: number }): void;
+  /** `saved`: what the problem keeps (an assemble-only run keeps assemblies). */
+  solutionsAdded(
+    problem: string,
+    added: { assemblies: number; solutions: number; saved: number },
+  ): void;
 }
 
 /**
@@ -121,7 +125,6 @@ export class EngineBridge implements BtBridge {
           event: 'solve.solutionsAdded',
           params: {
             problem: p,
-            saved: added.solutions,
             solutionsVersion: this.solutionsVersion++,
             ...added,
           },

@@ -1,5 +1,5 @@
 ---
-title: Tetrahedra-octahedra puzzles
+title: Tetrahedra-Octahedra puzzles
 description: Puzzles made of tetrahedra and octahedra, which together fill space.
 ---
 

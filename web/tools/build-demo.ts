@@ -13,7 +13,9 @@
 //
 // --check then opens the built demo in Google Chrome (Playwright's `chrome`
 // channel) and drives it through its tabs, the solution's disassembly, a
-// played Solve and an edit, failing on an error of the page.
+// played Solve and an edit, then the theme list, every puzzle type's
+// example (each one's played Solve, the Play tab of Sliding and Stacking)
+// and a reload that keeps the type, failing on an error of the page.
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -42,7 +44,7 @@ export const DEMO_INPUTS = [
   'web/src',
   'web/demo.vite.config.ts',
   'web/package-lock.json',
-  'site/public/examples/PelikanBurr.xmpuzzle',
+  'site/public/examples/demo',
 ];
 
 /** A hash of the files under the inputs (tracked or not yet, never ignored), as they are in the working tree. */
@@ -80,6 +82,46 @@ const TYPES: Record<string, string> = {
   '.wasm': 'application/wasm',
   '.xmpuzzle': 'application/gzip',
 };
+
+/** Opens the `type` example from the list and plays its Solve (and Play, for Sliding and Stacking). */
+async function examplePlays(page: import('@playwright/test').Page, type: string): Promise<void> {
+  await page.selectOption('#demoType', type);
+  await page.waitForFunction(
+    (t) =>
+      window.location.search.includes(`type=${t}`) &&
+      !(document.getElementById('demoType') as HTMLSelectElement).disabled,
+    type,
+    { timeout: 30_000 },
+  );
+  await page.keyboard.press('Control+3');
+  await page.waitForSelector('#stage[data-tab="solver"][data-busy="0"]');
+  await page.waitForSelector('#slvList .lrow[data-i="0"]', { timeout: 15_000 });
+  await page.click('#leftS [data-r="start"]');
+  // a sliding board on a coarser grid asks first, as in the app
+  if (type === 'sliding') {
+    await page.getByRole('button', { name: 'Full Search' }).click();
+  }
+  await page.waitForFunction(
+    () => (document.getElementById('demoType') as HTMLSelectElement).disabled,
+    null,
+    { timeout: 5_000 },
+  );
+  await page.waitForFunction(
+    () => !(document.getElementById('demoType') as HTMLSelectElement).disabled,
+    null,
+    { timeout: 15_000 },
+  );
+  await page.waitForSelector('#slvList .lrow[data-i="0"]', { timeout: 15_000 });
+  if (type === 'sliding' || type === 'stacking') {
+    await page.keyboard.press('Control+4');
+    await page.waitForSelector('#stage[data-tab="play"][data-busy="0"]');
+    await page.waitForSelector(
+      type === 'sliding' ? '#playBoard:not([hidden]) > *' : '#stackBoard:not([hidden]) > *',
+      { timeout: 15_000 },
+    );
+    await page.screenshot({ path: resolve(WEB, `test-results/demo-${type}.png`) });
+  }
+}
 
 async function check(headed: boolean): Promise<void> {
   const { chromium } = await import('@playwright/test');
@@ -148,10 +190,38 @@ async function check(headed: boolean): Promise<void> {
     await page.waitForFunction((b) => document.getElementById('stText')?.textContent !== b, before);
     mkdirSync(resolve(WEB, 'test-results'), { recursive: true });
     await page.screenshot({ path: resolve(WEB, 'test-results/demo.png') });
+    // the theme list: the setting and the URL follow it
+    await page.selectOption('#demoTheme', 'Dark');
+    await page.waitForSelector('html[data-theme="dark"]');
+    await page.waitForFunction(() => window.location.search.includes('theme=dark'));
+    // every puzzle type's example: opened from the list, its Solve played
+    // to its saved solution; Sliding and Stacking are played in Play too
+    const types = await page.$$eval('#demoType option', (os) =>
+      os.map((o) => (o as HTMLOptionElement).value),
+    );
+    for (const type of types.slice(1)) {
+      console.log(`the ${type} example`);
+      await examplePlays(page, type).catch(async (e: unknown) => {
+        await page.screenshot({ path: resolve(WEB, `test-results/demo-${type}-failed.png`) });
+        const status = await page.locator('#stText').textContent();
+        throw new Error(`the ${type} example (status: ${status ?? ''}): ${String(e)}`);
+      });
+    }
+    // Reset (a reload) keeps the type and the theme
+    const last = types.at(-1) ?? '';
+    await page.reload();
+    await page.waitForFunction(
+      (t) => (document.getElementById('demoType') as HTMLSelectElement | null)?.value === t,
+      last,
+      { timeout: 60_000 },
+    );
+    await page.waitForSelector('html[data-theme="dark"]');
     if (errors.length > 0) {
       throw new Error(`the page reported errors:\n${errors.join('\n')}`);
     }
-    console.log('the demo opens its puzzle, takes an edit, plays the solution');
+    console.log(
+      'the demo opens its puzzle, takes an edit, plays the solution; every puzzle type opens and plays',
+    );
   } finally {
     await browser.close();
   }

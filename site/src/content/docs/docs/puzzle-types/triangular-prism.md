@@ -1,5 +1,5 @@
 ---
-title: Triangular prism puzzles
+title: Triangular Prism puzzles
 description: Puzzles made of prisms with a triangular base.
 ---
 

@@ -4,24 +4,32 @@
 // through tools/build-demo.ts): the app's renderer as it is, over the
 // engine compiled to WebAssembly (engine/wasm_main.cpp, wasm-transport.ts,
 // engine-bridge.ts) and the demo's app (demo-app.ts) in place of the
-// preload's window.bt and window.btApp. The demo puzzle is opened from the
-// site as a dropped file would be, with its problem set to check
-// disassembly. Nothing is kept: a reload starts again.
+// preload's window.bt and window.btApp. One example puzzle of each puzzle
+// type is on the site (site/public/examples/demo/<type>.xmpuzzle: a solved
+// first problem and only its shapes); the top bar's list chooses one, and
+// it is opened as a dropped file would be, its problem set to take apart
+// where the grid can (Spheres only assembles; Sliding and Stacking search
+// for their own paths). The page's URL keeps the choice and the theme
+// (`?type=sliding&theme=dark`), so Reset (a reload) starts that example
+// again. Nothing else is kept.
 //
 // Solve plays a run without a search (a search would hold the page's one
 // thread): the run's events go to the renderer for about three seconds,
-// then the saved solution is back. No method puts solutions into a
-// document, so the puzzle is opened again from its file with the pieces
-// and the problem as the file has them, the rest of the document as the
-// visitor left it (`restore`): a changed piece dropped the solutions, as
-// in the app, and comes back as it was; new shapes, problems and colours
-// stay. The demo problem is the file's first; another problem's Solve is
-// refused with the other searches (engine-bridge.ts).
+// shaped as the puzzle type's solver sends them, then the saved solution
+// is back. No method puts solutions into a document, so the puzzle is
+// opened again from its file with the pieces and the problem as the file
+// has them, the rest of the document as the visitor left it (`restore`):
+// a changed piece dropped the solutions, as in the app, and comes back as
+// it was; new shapes, problems and colours stay. The demo problem is the
+// file's first; another problem's Solve is refused with the other
+// searches (engine-bridge.ts).
 
-import type { SolveProgress } from '../engine/api.generated.ts';
+import type { Grid, SolveProgress, SolveState } from '../engine/api.generated.ts';
 import { EngineClient } from '../engine/client.ts';
 import { fromBase64 } from '../engine/recorder.ts';
 import { startApp } from '../renderer/shell/app.ts';
+import { gridInfo } from '../renderer/shell/new-grids.ts';
+import { onPrefs, prefs, setPrefs } from '../renderer/shell/prefs.ts';
 import type { Store } from '../renderer/state/store.ts';
 import { demoApp } from './demo-app.ts';
 import { EngineBridge } from './engine-bridge.ts';
@@ -29,12 +37,52 @@ import type { RunEvents } from './engine-bridge.ts';
 import createEngine from './engine/shapelogic_engine.js';
 import { WasmTransport } from './wasm-transport.ts';
 
-/** The puzzle the demo opens, on the site. */
-const PUZZLE_URL = '/examples/PelikanBurr.xmpuzzle';
-const PUZZLE_NAME = 'PelikanBurr.xmpuzzle';
+/** One puzzle type's example: its key in the URL and the file's name, its grid, the name it is opened under. */
+interface Example {
+  key: string;
+  grid: Grid;
+  name: string;
+}
+
+/** The example opened when the URL names none. */
+const DEFAULT_EXAMPLE: Example = { key: 'brick', grid: 'bricks', name: 'PelikanBurr.xmpuzzle' };
+
+/** The examples, in File ▸ New's order. */
+const EXAMPLES: readonly Example[] = [
+  DEFAULT_EXAMPLE,
+  { key: 'sliding', grid: 'sliding', name: 'Abe 1 to 6 Heart.xmpuzzle' },
+  { key: 'stacking', grid: 'stacking', name: 'Panex Swap 3.xmpuzzle' },
+  { key: 'prism', grid: 'prisms', name: 'Prisgon.xmpuzzle' },
+  { key: 'spheres', grid: 'spheres', name: 'BallRoom.xmpuzzle' },
+  { key: 'rhombic', grid: 'rhombic', name: 'DiagonalCube.xmpuzzle' },
+  { key: 'tetraocta', grid: 'tetraOcta', name: 'FourPieceTetrahedron.xmpuzzle' },
+  { key: 'hexagonal', grid: 'hexagonal', name: 'HoneycombSeven.xmpuzzle' },
+  { key: 'cairo', grid: 'cairo', name: 'PentagonSlab.xmpuzzle' },
+];
+
+/** Where an example's file is on the site. */
+const exampleUrl = (e: Example): string => `/examples/demo/${e.key}.xmpuzzle`;
+
 /** How long a played run takes, and how often it reports. */
 const RUN_MS = 3000;
 const TICK_MS = 100;
+
+/**
+ * What a run of the grid's solver does: assemble and take apart (the
+ * brick family on a grid with a take-apart), only assemble (Spheres),
+ * the sliding search, the stacking search.
+ */
+type RunKind = 'apart' | 'assemble' | 'sliding' | 'stacking';
+
+function runKind(grid: Grid): RunKind {
+  return grid === 'sliding'
+    ? 'sliding'
+    : grid === 'stacking'
+      ? 'stacking'
+      : grid === 'spheres'
+        ? 'assemble'
+        : 'apart';
+}
 
 function stageReady(): Promise<void> {
   const stage = document.getElementById('stage');
@@ -72,20 +120,67 @@ function until(test: () => boolean, ms: number): Promise<void> {
 
 const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
-// the top bar's way back to the start, and out to the site's front page
-function badge(): void {
-  const right = document.querySelector('.top .right');
-  if (right === null) {
-    return;
+// ---- the page's URL --------------------------------------------------------------------
+
+/** The example the URL names (`?type=`), else the first. */
+function exampleFromUrl(): Example {
+  const key = new URLSearchParams(window.location.search).get('type');
+  return EXAMPLES.find((e) => e.key === key) ?? DEFAULT_EXAMPLE;
+}
+
+/** The theme the URL names (`?theme=light|dark`), else none (the setting's default). */
+function themeFromUrl(): 'Light' | 'Dark' | null {
+  const t = new URLSearchParams(window.location.search).get('theme');
+  return t === 'light' ? 'Light' : t === 'dark' ? 'Dark' : null;
+}
+
+/** Puts the example and the theme chosen in the URL (in place: no step in the history). */
+function writeUrl(example: Example): void {
+  const q = new URLSearchParams(window.location.search);
+  q.set('type', example.key);
+  if (prefs.theme === 'Light' || prefs.theme === 'Dark') {
+    q.set('theme', prefs.theme.toLowerCase());
+  } else {
+    q.delete('theme');
   }
-  const chip =
-    'text-decoration:none;color:var(--accent);background:var(--accentSoft);font-weight:600;padding:2px 10px;margin-right:8px;font-size:calc(11px + var(--fs));cursor:pointer';
+  const url = `${window.location.pathname}?${q.toString()}${window.location.hash}`;
+  if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+    window.history.replaceState(window.history.state, '', url);
+  }
+}
+
+// ---- the top bar -----------------------------------------------------------------------
+
+const CHIP =
+  'text-decoration:none;color:var(--accent);background:var(--accentSoft);font-weight:600;padding:2px 10px;font-size:calc(11px + var(--fs));cursor:pointer';
+const SELECT =
+  'height:calc(26px + var(--fh));border:1px solid var(--line2);border-radius:7px;background:var(--panel);color:var(--text);font:inherit;font-size:calc(12px + var(--fs));padding:0 6px;cursor:pointer';
+
+/** The top bar's controls: the theme, Reset, Exit and the puzzle type (where the file's name was). */
+interface Bar {
+  type: HTMLSelectElement;
+  theme: HTMLSelectElement;
+}
+
+function topBar(current: Example): Bar | null {
+  const right = document.querySelector('.top .right');
+  const fname = document.getElementById('fname');
+  if (right === null) {
+    return null;
+  }
+  const theme = document.createElement('select');
+  theme.id = 'demoTheme';
+  theme.setAttribute('aria-label', 'Theme');
+  theme.title = 'Light or dark colors';
+  theme.style.cssText = SELECT;
+  theme.innerHTML =
+    '<option value="Light">Light Mode</option><option value="Dark">Dark Mode</option>';
   const reset = document.createElement('button');
   reset.className = 'chip';
   reset.id = 'demoReset';
   reset.textContent = 'Reset';
-  reset.title = 'Start the demo again (your changes are dropped)';
-  reset.style.cssText = `${chip};border:0;font:inherit;font-size:calc(11px + var(--fs));font-weight:600`;
+  reset.title = 'Start this example again (your changes are dropped)';
+  reset.style.cssText = `${CHIP};border:0;font:inherit;font-size:calc(11px + var(--fs));font-weight:600`;
   reset.addEventListener('click', () => {
     window.location.reload();
   });
@@ -96,8 +191,24 @@ function badge(): void {
   exit.target = '_top';
   exit.textContent = 'Exit';
   exit.title = 'Leave the demo for the ShapeLogic website (nothing is kept)';
-  exit.style.cssText = chip;
-  right.prepend(reset, exit);
+  exit.style.cssText = CHIP;
+  const type = document.createElement('select');
+  type.id = 'demoType';
+  type.setAttribute('aria-label', 'Puzzle type');
+  type.title = 'Open an example of another puzzle type (your changes are dropped)';
+  type.style.cssText = SELECT;
+  for (const e of EXAMPLES) {
+    const o = document.createElement('option');
+    o.value = e.key;
+    o.textContent = gridInfo[e.grid].name;
+    type.append(o);
+  }
+  type.value = current.key;
+  right.prepend(theme, reset, exit, type);
+  // the file's name and its unsaved-changes dot are not shown: the list says what is open
+  if (fname !== null) {
+    fname.hidden = true;
+  }
   // the brand at the top left does the same as Exit
   const brand = document.querySelector<HTMLElement>('.top .brand');
   if (brand !== null) {
@@ -107,6 +218,73 @@ function badge(): void {
       exit.click();
     });
   }
+  // the list gives way to the tabs as the file's name did (shell/topbar.ts's fitName)
+  const fit = (): void => {
+    fitType(type, theme, [reset, exit]);
+  };
+  const watch = new ResizeObserver(fit);
+  for (const id of ['stage', 'appRail', 'brand', 'btnSettings']) {
+    const el = document.getElementById(id);
+    if (el !== null) {
+      watch.observe(el);
+    }
+  }
+  return { type, theme };
+}
+
+/** The narrowest the type list gets (its text is cut short below its own width). */
+const TYPE_MIN_PX = 64;
+/** Below this room for the type list, the theme list says Light and Dark alone. */
+const TYPE_SHORT_PX = 130;
+
+/** The theme list's labels: in full, or short where the bar is narrow. */
+function themeLabels(theme: HTMLSelectElement, short: boolean): void {
+  for (const o of theme.options) {
+    const text = short ? o.value : `${o.value} Mode`;
+    if (o.textContent !== text) {
+      o.textContent = text;
+    }
+  }
+}
+
+/**
+ * Lets the type list use the bar's room left of its right end: up to the
+ * tabs when they are in the top bar, else the brand, less what is between
+ * (the theme list, `others`: Reset and Exit, and the gaps). Where that
+ * leaves the list short of its names, the theme list's labels are
+ * shortened first.
+ */
+function fitType(
+  type: HTMLSelectElement,
+  theme: HTMLSelectElement,
+  others: readonly HTMLElement[],
+): void {
+  const rail = document.getElementById('appRail');
+  const brand = document.getElementById('brand');
+  const atTop = document.documentElement.dataset.tabs === 'top';
+  const edge = atTop
+    ? (rail?.getBoundingClientRect().right ?? 0) + 16
+    : (brand?.getBoundingClientRect().right ?? 0) + 24;
+  const gap = 8;
+  const room = (): number =>
+    Math.round(
+      type.getBoundingClientRect().right -
+        edge -
+        [theme, ...others].reduce((w, el) => w + el.getBoundingClientRect().width + gap, 0),
+    );
+  themeLabels(theme, false);
+  if (room() < TYPE_SHORT_PX) {
+    themeLabels(theme, true);
+  }
+  type.style.maxWidth = `${String(Math.max(TYPE_MIN_PX, room()))}px`;
+}
+
+/** The colours in use (the System setting's are the operating system's). */
+function shownTheme(): 'Light' | 'Dark' {
+  if (prefs.theme === 'Light' || prefs.theme === 'Dark') {
+    return prefs.theme;
+  }
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
 }
 
 // ---- the puzzle's file -----------------------------------------------------------------
@@ -136,8 +314,10 @@ function parseXml(text: string): Document {
   return doc;
 }
 
-/** The demo puzzle as its file has it. */
+/** An example's puzzle as its file has it. */
 interface Original {
+  example: Example;
+  kind: RunKind;
   bytes: Uint8Array;
   xml: Document;
   /** How many shapes the file has (the problem's pieces and result are among them). */
@@ -145,19 +325,29 @@ interface Original {
   /** The first problem's counts, for the played run. */
   assemblies: number;
   solutions: number;
+  /** The solutions the file keeps (an assemble-only run keeps assemblies). */
+  saved: number;
   pieces: number;
+  /** A sliding or stacking search's positions and depth. */
+  searched: number;
+  searchDepth: number;
 }
 
-function readOriginal(bytes: Uint8Array, xml: Document): Original {
+function readOriginal(example: Example, bytes: Uint8Array, xml: Document): Original {
   const problem = xml.querySelector('puzzle > problems > problem');
   const n = (name: string): number => Number(problem?.getAttribute(name) ?? '0');
   return {
+    example,
+    kind: runKind(example.grid),
     bytes,
     xml,
     shapes: xml.querySelectorAll('puzzle > shapes > voxel').length,
     assemblies: n('assemblies'),
     solutions: n('solutions'),
+    saved: problem?.querySelectorAll(':scope > solutions > solution').length ?? 0,
     pieces: problem?.querySelectorAll('shapes > shape').length ?? 0,
+    searched: n('searched'),
+    searchDepth: n('searchDepth'),
   };
 }
 
@@ -191,54 +381,111 @@ function splice(current: Document, original: Original): string {
 
 // ---- the played run --------------------------------------------------------------------
 
-function progressAt(
-  t: number,
-  o: Original,
-): { state: 'preparing' | 'assembling'; p: SolveProgress } {
-  const prepare = 0.15;
-  const stage = t < prepare ? 'prepare' : t < 0.85 ? 'assemble' : 'disassemble';
-  const done = Math.min(o.assemblies, Math.floor(((t - prepare) / 0.7) * o.assemblies));
-  const found = Math.max(0, done);
-  const piece = Math.min(o.pieces, 1 + Math.floor((t / prepare) * o.pieces));
-  const row = `, level 2: ${String(Math.floor(t * 37) % 9)}/9, split 1/${String(o.pieces - 1)}`;
-  const activity =
-    stage === 'prepare'
-      ? `prepare piece ${String(piece)} of ${String(o.pieces)}`
-      : stage === 'assemble'
-        ? `assemble, disassemble ${String(Math.max(0, found - 1))} done 1 waiting${row}`
-        : `disassemble ${String(o.assemblies)} of ${String(o.assemblies)}${row}`;
+/** A progress report with nothing done yet, at `t` of the run. */
+function idleProgress(t: number, o: Original): SolveProgress {
   return {
-    state: stage === 'prepare' ? 'preparing' : 'assembling',
+    stage: 'prepare',
+    elapsedMs: Math.round(t * RUN_MS),
+    usedMs: Math.round(t * RUN_MS),
+    piece: 0,
+    pieces: 0,
+    assemblyFraction: 0,
+    iterations: 0,
+    assemblerThreads: 1,
+    assemblies: 0,
+    solutions: 0,
+    disassembly: false,
+    disasmCompleted: 0,
+    disasmPending: 0,
+    disasmWorkers: 0,
+    overall: Math.min(0.99, t),
+    overallKnown: true,
+    levelFraction: 0,
+    secondsLeft: Math.max(0, (1 - t) * RUN_MS) / 1000,
+    activity: '',
+    searched: 0,
+    searchDepth: 0,
+    searchTraced: 0,
+    panexSearch: o.kind === 'stacking',
+    stopKind: null,
+    slideStop: null,
+    atSavePoint: false,
+    slideForecast: null,
+    slidePickingUp: false,
+    slidePickingUpMs: 0,
+  };
+}
+
+/** The run's report at `t` (0 to 1), as the grid's solver sends it (core/shapelogic/solve/solve_progress.cpp's activity). */
+function progressAt(t: number, o: Original): { state: SolveState; p: SolveProgress } {
+  const prepare = 0.15;
+  const base = idleProgress(t, o);
+  const pieces = Math.max(1, o.pieces);
+  if (t < prepare) {
+    const piece = Math.min(pieces, 1 + Math.floor((t / prepare) * pieces));
+    return {
+      state: 'preparing',
+      p: {
+        ...base,
+        stage: 'prepare',
+        piece,
+        pieces,
+        assemblerThreads: o.kind === 'stacking' ? 0 : 1,
+        activity: `prepare piece ${String(piece)} of ${String(pieces)}`,
+      },
+    };
+  }
+  const f = Math.min(1, (t - prepare) / (1 - prepare));
+  if (o.kind === 'sliding' || o.kind === 'stacking') {
+    // one search from the start to the goal: positions and depth grow, the path is found at the end
+    return {
+      state: 'assembling',
+      p: {
+        ...base,
+        stage: 'search',
+        iterations: o.kind === 'sliding' ? 11 : 0,
+        assemblies: o.kind === 'sliding' ? o.assemblies : 0,
+        searched: Math.round(o.searched * f * f),
+        searchDepth: Math.round(o.searchDepth * f),
+      },
+    };
+  }
+  const assembling = Math.min(1, (t - prepare) / 0.7);
+  const found = Math.max(0, Math.min(o.assemblies, Math.floor(assembling * o.assemblies)));
+  const iterations = Math.round(t * 48_211);
+  if (o.kind === 'assemble') {
+    return {
+      state: 'assembling',
+      p: {
+        ...base,
+        stage: 'assemble',
+        assemblyFraction: assembling,
+        iterations,
+        assemblies: found,
+        activity: 'assemble',
+      },
+    };
+  }
+  const stage = t < 0.85 ? 'assemble' : 'disassemble';
+  const row = `, level 2: ${String(Math.floor(t * 37) % 9)}/9, split 1/${String(pieces - 1)}`;
+  return {
+    state: 'assembling',
     p: {
+      ...base,
       stage,
-      elapsedMs: Math.round(t * RUN_MS),
-      usedMs: Math.round(t * RUN_MS),
-      piece,
-      pieces: o.pieces,
-      assemblyFraction: stage === 'prepare' ? 0 : Math.min(1, (t - prepare) / 0.7),
-      iterations: Math.round(t * 48_211),
-      assemblerThreads: 1,
+      assemblyFraction: assembling,
+      iterations,
       assemblies: found,
       solutions: t > 0.6 ? o.solutions : 0,
       disassembly: true,
       disasmCompleted: Math.max(0, found - (stage === 'assemble' ? 1 : 0)),
       disasmPending: stage === 'assemble' && found > 0 ? 1 : 0,
       disasmWorkers: 1,
-      overall: Math.min(0.99, t),
-      overallKnown: true,
       levelFraction: (t * 7) % 1,
-      secondsLeft: Math.max(0, (1 - t) * RUN_MS) / 1000,
-      activity,
-      searched: 0,
-      searchDepth: 0,
-      searchTraced: 0,
-      panexSearch: false,
-      stopKind: null,
-      slideStop: null,
-      atSavePoint: false,
-      slideForecast: null,
-      slidePickingUp: false,
-      slidePickingUpMs: 0,
+      activity:
+        stage === 'assemble'
+          ? `assemble, disassemble ${String(Math.max(0, found - 1))} done 1 waiting${row}`
+          : `disassemble ${String(o.assemblies)} of ${String(o.assemblies)}${row}`,
     },
   };
 }
@@ -246,33 +493,55 @@ function progressAt(
 class Demo {
   private readonly store: Store;
   private readonly solver: ReturnType<typeof startApp>['solver'];
-  private readonly original: Original;
+  private original: Original | null = null;
   /** The ids of the file's shapes and its problem in the document now (another after each open). */
   private shapeIds: string[] = [];
   private problem: string | null = null;
   private playing = false;
+  /** Told when a played run starts and ends (the top bar's list waits for its end). */
+  onPlaying: (playing: boolean) => void = () => undefined;
 
-  constructor(app: ReturnType<typeof startApp>, original: Original) {
+  constructor(app: ReturnType<typeof startApp>) {
     this.store = app.store;
     this.solver = app.solver;
-    this.original = original;
   }
 
-  /** Opens the puzzle from `bytes` and shows its problem set to check disassembly. */
-  async open(bytes: Uint8Array): Promise<void> {
-    await this.store.openBytes(PUZZLE_NAME, bytes);
+  get busy(): boolean {
+    return this.playing;
+  }
+
+  /** Opens an example from its file on the site (the document there before is dropped). */
+  async load(example: Example): Promise<void> {
+    const r = await fetch(exampleUrl(example));
+    if (!r.ok) {
+      throw new Error(`the ${example.key} example: ${String(r.status)} ${r.statusText}`);
+    }
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    this.original = readOriginal(example, bytes, parseXml(await gunzip(bytes)));
+    await this.open(bytes);
+  }
+
+  /** Opens the example from `bytes` and shows its problem set as its grid's solver runs it. */
+  private async open(bytes: Uint8Array): Promise<void> {
+    const o = this.original;
+    if (o === null) {
+      return;
+    }
+    await this.store.openBytes(o.example.name, bytes);
     const snap = this.store.snapshot;
-    this.shapeIds = (snap?.shapes ?? []).slice(0, this.original.shapes).map((s) => s.id);
+    this.shapeIds = (snap?.shapes ?? []).slice(0, o.shapes).map((s) => s.id);
     const problem = snap?.problems[0]?.id ?? null;
     this.problem = problem;
     if (problem === null) {
       return;
     }
-    // the Solver shows Assemble and Disassemble (the file does not say)
+    // the Solver shows Assemble and Disassemble where the grid takes apart,
+    // Find Solutions for a sliding or stacking search, Assemble alone on
+    // Spheres (the file does not say)
     const settings = (await this.store.engine.call('problem.get', { problem })).solverSettings;
     const set = await this.store.engine.call('problem.setSolverSettings', {
       problem,
-      settings: { ...settings, disassemble: true },
+      settings: { ...settings, disassemble: o.kind !== 'assemble' },
     });
     await this.store.whenRevision(set.revision);
     this.solver.selectProblem(problem);
@@ -280,20 +549,22 @@ class Demo {
 
   /** The bridge's solve.start: the demo problem's run is played. */
   solve(problem: string, events: RunEvents): boolean {
-    if (problem !== this.problem || this.playing) {
+    if (problem !== this.problem || this.playing || this.original === null) {
       return false;
     }
+    const o = this.original;
     this.playing = true;
-    void this.play(problem, events).finally(() => {
+    this.onPlaying(true);
+    void this.play(problem, o, events).finally(() => {
       this.playing = false;
+      this.onPlaying(false);
     });
     return true;
   }
 
-  private async play(problem: string, events: RunEvents): Promise<void> {
-    const o = this.original;
+  private async play(problem: string, o: Original, events: RunEvents): Promise<void> {
     // the document as it is now, before the run is told (its edits stay)
-    const restored = this.restored();
+    const restored = this.restored(o);
     events.state(problem, 'preparing');
     const start = performance.now();
     for (let t = 0; t < 1; t = (performance.now() - start) / RUN_MS) {
@@ -301,19 +572,26 @@ class Demo {
       events.progress(problem, state, p);
       await sleep(TICK_MS);
     }
+    const last = progressAt(0.999, o).p;
     events.state(problem, 'finished');
     events.progress(problem, 'finished', {
-      ...progressAt(0.999, o).p,
+      ...last,
       stage: 'done',
       overall: 1,
       secondsLeft: 0,
       activity: 'finished',
       assemblies: o.assemblies,
       solutions: o.solutions,
-      disasmCompleted: o.assemblies,
+      disasmCompleted: last.disassembly ? o.assemblies : 0,
       disasmPending: 0,
+      searched: o.searched,
+      searchDepth: o.searchDepth,
     });
-    events.solutionsAdded(problem, { assemblies: o.assemblies, solutions: o.solutions });
+    events.solutionsAdded(problem, {
+      assemblies: o.assemblies,
+      solutions: o.solutions,
+      saved: o.saved,
+    });
     // the run ends with the document opened again (its document.changed
     // ends the run for the renderer): the file alone when the spliced
     // document is refused
@@ -330,22 +608,22 @@ class Demo {
 
   // the file's pieces and problem among the visitor's document; the file
   // alone when the pieces or the problem are not where the file has them
-  private async restored(): Promise<Uint8Array> {
+  private async restored(o: Original): Promise<Uint8Array> {
     const snap = this.store.snapshot;
     const same =
       snap !== null &&
       snap.problems[0]?.id === this.problem &&
       this.shapeIds.every((id, i) => snap.shapes[i]?.id === id);
     if (!same) {
-      return this.original.bytes;
+      return o.bytes;
     }
     try {
       const saved = await this.store.engine.call('document.saveBytes');
       const current = parseXml(await gunzip(fromBase64(saved.data)));
-      return await gzip(splice(current, this.original));
+      return await gzip(splice(current, o));
     } catch (e) {
       console.warn('demo: the document could not be kept, the file is opened again', e);
-      return this.original.bytes;
+      return o.bytes;
     }
   }
 }
@@ -358,18 +636,71 @@ async function main(): Promise<void> {
   const bridge = new EngineBridge(client, hello.version);
   Object.defineProperty(window, 'bt', { value: bridge });
   Object.defineProperty(window, 'btApp', { value: app });
-  badge();
-  const started = startApp();
+  let example = exampleFromUrl();
+  const bar = topBar(example);
+  const theme = themeFromUrl();
+  const started = startApp(theme === null ? {} : { prefs: { theme } });
   await stageReady();
-  const r = await fetch(PUZZLE_URL);
-  if (!r.ok) {
-    throw new Error(`the demo puzzle: ${String(r.status)} ${r.statusText}`);
-  }
-  const bytes = new Uint8Array(await r.arrayBuffer());
-  const demo = new Demo(started, readOriginal(bytes, parseXml(await gunzip(bytes))));
+  const demo = new Demo(started);
   bridge.revisionOf = () => started.store.snapshot?.revision ?? 0;
   bridge.solveHook = (problem, events) => demo.solve(problem, events);
-  await demo.open(bytes);
+  if (bar !== null) {
+    // the theme: shown as it is, the setting changed here or in Settings
+    const showTheme = (): void => {
+      bar.theme.value = shownTheme();
+    };
+    showTheme();
+    bar.theme.addEventListener('change', () => {
+      setPrefs({ theme: bar.theme.value === 'Dark' ? 'Dark' : 'Light' });
+    });
+    onPrefs((changed) => {
+      if (changed.includes('theme')) {
+        showTheme();
+        writeUrl(example);
+      }
+    });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', showTheme);
+    // the puzzle type: another example opened, one at a time, not while a run plays
+    let loading = false;
+    demo.onPlaying = (playing) => {
+      bar.type.disabled = playing || loading;
+    };
+    bar.type.addEventListener('change', () => {
+      const next = EXAMPLES.find((e) => e.key === bar.type.value);
+      if (next === undefined || next === example || demo.busy) {
+        bar.type.value = example.key;
+        return;
+      }
+      loading = true;
+      bar.type.disabled = true;
+      void demo
+        .load(next)
+        .then(() => {
+          example = next;
+          writeUrl(example);
+        })
+        .catch((e: unknown) => {
+          console.error('demo: the example could not be opened', e);
+          bar.type.value = example.key;
+        })
+        .finally(() => {
+          loading = false;
+          bar.type.disabled = demo.busy;
+        });
+    });
+  }
+  writeUrl(example);
+  // the list waits for the first example
+  if (bar !== null) {
+    bar.type.disabled = true;
+  }
+  try {
+    await demo.load(example);
+  } finally {
+    if (bar !== null) {
+      bar.type.disabled = demo.busy;
+    }
+  }
 }
 
 void main();

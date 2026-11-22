@@ -567,9 +567,18 @@ export class PlayBoard {
       const low = Math.min(...cells.map((c) => c[1]));
       const row = cells.filter((c) => c[1] === low).map((c) => c[0]);
       const x = ((Math.min(...row) + Math.max(...row) + 1) / 2) * sc - lift / 2;
-      const size = Math.max(9, Math.min(15, Math.round(sc * 0.26)));
-      // clear of the goal's outline along the top face's lower edge
-      name = `<text class="pl-name" x="${x.toFixed(1)}" y="${String(-low * sc - lift - gap - Math.round(sc * 0.13))}" font-size="${String(size)}" fill="${contrast(p.colour)}">${esc(p.name)}</text>`;
+      // up to half a cell high (15 at most, as a stacking disc's), narrowed
+      // to the row's width: on a board of many small cells a quarter cell
+      // left the names unreadable
+      const across = (Math.max(...row) - Math.min(...row) + 1) * sc - 2 * (gap + lift) - 6;
+      const size = Math.max(
+        9,
+        Math.min(15, Math.floor(sc * 0.5), Math.floor(across / (p.name.length * 0.62))),
+      );
+      // clear of the goal's outline along the top face's lower edge, the
+      // descenders (a quarter of the size) too
+      const above = Math.round(sc * 0.13 + size * 0.25);
+      name = `<text class="pl-name" x="${x.toFixed(1)}" y="${String(-low * sc - lift - gap - above)}" font-size="${String(size)}" fill="${contrast(p.colour)}">${esc(p.name)}</text>`;
     }
     return {
       body:

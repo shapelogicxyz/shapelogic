@@ -10,8 +10,8 @@
     "web/src",
     "web/demo.vite.config.ts",
     "web/package-lock.json",
-    "site/public/examples/PelikanBurr.xmpuzzle"
+    "site/public/examples/demo"
   ],
-  "hash": "717bcc0d57aba657f49aed30215991d0c217c41570d316d0a53292e4e1084c98",
-  "built": "2026-11-22T03:13:39.488Z"
+  "hash": "6e2e9813c709400847003953d19773a4bf70e5f9f1338e004b05b7a2fb74e37b",
+  "built": "2026-11-22T20:11:40.885Z"
 }
