@@ -284,6 +284,28 @@ Value types for a puzzle and what solving found. Ported from `puzzle.cpp`,
   copied (`copyDefinition`, with its name); `convertTargets` (what the
   original's dialog offered); a budget of cells (`kMaxConvertedCells`).
 
+- `tilted_tray.h` (decision 0045; new code, namespace `tilted`): the tray
+  of a Tilted Square puzzle, a square of straight unit squares, some of
+  them walls, with the cube grid turned inside it by atan2(down, over).
+  `tilted::Tray` is the settings (size, slope in lowest terms, allowance,
+  placement, the shift in use, walls; `valid()`); a `Puzzle` on the
+  Bricks grid may hold one (`Puzzle::tray`, `setTray`). `tilted::layout`
+  gives the board at the tray's shift: the box of every cell that reaches
+  into the tray, each cell whole, cut or outside, and the tray's corners
+  and wall squares in the box's frame. A cell is whole when every point of
+  it is within the allowance, in x and in y, of an open square; the walls
+  and the rim beside them are held as blocks (a wall square less the
+  strips and corners that face open squares) and tested by separating
+  axes. `tilted::bestShift` finds the shift with the most whole cells,
+  exactly: the count changes only on lines where a cell's corner meets an
+  edge of the tray or of a block, or a block's corner meets a cell's edge,
+  so it takes the best point of every such line (`bestOnLine`: each
+  cell's allowed stretch less the stretches the blocks forbid), within the
+  window that holds a copy of every shift; a placement symmetric about the
+  tray's center wins a tie. `canonicalShift` gives the one form of a shift
+  among those a whole grid step apart. The board's shape is not made here
+  (the document does that, stage B of docs/TILTED-SQUARE-PLAN.md).
+
 The model has no locks and no atomics (the original's problem had both for
 its solver thread). While a `SolveSession` runs, it alone writes its
 problem, under its own lock; others read through `readProblem()` (see
@@ -307,6 +329,14 @@ solve).
   a `<voxel>`; the model's side is `model/puzzle_image.h` (the table, kept
   by the `Puzzle`) and `grid/shape_image.h` (a shape's picture, moved with
   its cells).
+- The tilted tray (decision 0045): `<tray>` at puzzle level, after
+  `<gridType>`, with `size`, `over`, `down`, `allowance`, `placement`
+  (`best` or `custom`), `shiftX`, `shiftY` (written in as few digits as
+  read back to the same value) and, when there are walls, `walls` (a
+  character a square, row by row, `#` a wall). Written only when the
+  puzzle has a tray. One the reader cannot take (a setting missing or out
+  of range, a second one) is kept as the file has it; on another grid it
+  is dropped.
 - `gzip_file.h`: whole-file reading and writing through zlib (level 9),
   and the same in memory (`gzipCompress`, `gunzipIfCompressed`).
 - `paused_solve.h`: the paused solve file (`.slsolve`, the original's

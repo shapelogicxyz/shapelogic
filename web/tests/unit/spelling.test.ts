@@ -2,8 +2,7 @@
 //
 // Keeps the project in American spelling: fails on any British spelling in a file we write.
 // The BurrTools reference files, the read-only mockup, built output and licence text are left out.
-// To read a name an older version saved under its British spelling, build the word from parts
-// ('Col' + 'our'), as prefs.ts does.
+// A line that must keep a British spelling (a name an older version saved) ends with "british-ok".
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -128,6 +127,11 @@ function isBreak(text: string, at: number): boolean {
   return PREFIXES.some((p) => before.endsWith(p));
 }
 
+function lineAt(text: string, at: number): string {
+  const end = text.indexOf('\n', at);
+  return text.slice(text.lastIndexOf('\n', at) + 1, end < 0 ? text.length : end);
+}
+
 describe('spelling', () => {
   it('uses American spelling in every file we write', () => {
     const files = execFileSync(
@@ -154,7 +158,7 @@ describe('spelling', () => {
         continue;
       }
       for (const m of [...text.matchAll(rx)]) {
-        if (isBreak(text, m.index)) {
+        if (isBreak(text, m.index) && !lineAt(text, m.index).includes('british-ok')) {
           found.push(`${f}: ${m[0]}`);
         }
       }

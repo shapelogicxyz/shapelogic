@@ -255,3 +255,131 @@ TEST_CASE("puzzlesRoundtripEqual detects a different result", "[io][roundtrip]")
   REQUIRE_FALSE(puzzlesRoundtripEqual(build(0, true), build(1, true)));
   REQUIRE(puzzlesRoundtripEqual(build(1, true), build(1, true)));
 }
+
+// ---- the tilted tray (decision 0045) ---------------------------------------------
+
+namespace {
+
+/// An 8 by 8 tray at 1 down 2 over with an allowance, a custom shift whose
+/// digits do not end, and two walls.
+tilted::Tray sampleTray() {
+  tilted::Tray t;
+  t.size = 8;
+  t.over = 2;
+  t.down = 1;
+  t.allowance = 0.05;
+  t.placement = tilted::Tray::Placement::Custom;
+  t.shiftX = 1.0 / 3.0;
+  t.shiftY = -0.6026311234992852;
+  t.walls.assign(64, 0);
+  t.walls[0] = 1;
+  t.walls[63] = 1;
+  return t;
+}
+
+}  // namespace
+
+TEST_CASE("puzzle: a tilted tray survives a save and reload", "[io][roundtrip][tilted]") {
+  Puzzle original;
+  original.addShape(3, 3, 1);
+  original.setTray(sampleTray());
+
+  const std::string saved = io::writePuzzle(original);
+  CHECK(saved.find("<tray size=\"8\" over=\"2\" down=\"1\" allowance=\"0.05\" "
+                   "placement=\"custom\"") != std::string::npos);
+  // after the grid type, before the colors
+  CHECK(saved.find("<gridType") < saved.find("<tray"));
+  CHECK(saved.find("<tray") < saved.find("<colors"));
+
+  const Puzzle restored = reloaded(original);
+  REQUIRE(restored.tray().has_value());
+  // every setting, the shift to the last bit
+  CHECK(*restored.tray() == sampleTray());
+  // and the file is the same when written again
+  CHECK(io::writePuzzle(restored) == saved);
+
+  // the best placement and no walls: no walls attribute
+  tilted::Tray plain;
+  plain.size = 5;
+  plain.over = 1;
+  plain.down = 1;
+  original.setTray(plain);
+  const std::string plainSaved = io::writePuzzle(original);
+  CHECK(plainSaved.find("placement=\"best\"") != std::string::npos);
+  CHECK(plainSaved.find("walls=") == std::string::npos);
+  CHECK(*reloaded(original).tray() == plain);
+
+  // a puzzle without a tray writes no such element
+  original.setTray(std::nullopt);
+  CHECK(io::writePuzzle(original).find("<tray") == std::string::npos);
+  CHECK_FALSE(reloaded(original).tray().has_value());
+}
+
+TEST_CASE("puzzle: a tray the reader cannot take is kept as the file has it",
+          "[io][roundtrip][tilted]") {
+  const auto fileWith = [](const std::string& tray, const std::string& grid = "0") {
+    return "<?xml version=\"1.0\"?>\n<puzzle version=\"2\"><gridType type=\"" + grid + "\"/>" +
+           tray + "<colors/><shapes/><problems/><comment/></puzzle>";
+  };
+  const std::string good =
+      "<tray size=\"4\" over=\"3\" down=\"1\" allowance=\"0\" placement=\"best\" "
+      "shiftX=\"0.25\" shiftY=\"0.5\" walls=\"#______________#\"/>";
+  {
+    const Result<Puzzle> p = io::parsePuzzle(fileWith(good));
+    REQUIRE(p.has_value());
+    REQUIRE(p->tray().has_value());
+    CHECK(p->tray()->size == 4);
+    CHECK(p->tray()->over == 3);
+    CHECK(p->tray()->shiftX == 0.25);
+    CHECK(p->tray()->isWall(0, 0));
+    CHECK(p->tray()->isWall(3, 3));
+    CHECK_FALSE(p->tray()->isWall(1, 0));
+  }
+
+  // out of range, not in lowest terms, a setting missing, walls of the
+  // wrong length or with another character: no tray, and the element stays
+  const auto trayOf = [](const std::string& size, const std::string& over, const std::string& down,
+                         const std::string& allowance, const std::string& placement,
+                         const std::string& rest) {
+    return "<tray size=\"" + size + "\" over=\"" + over + "\" down=\"" + down + "\" allowance=\"" +
+           allowance + "\" placement=\"" + placement + "\" " + rest + "/>";
+  };
+  const std::string shifts = "shiftX=\"0\" shiftY=\"0\"";
+  const std::vector<std::string> bad = {
+      trayOf("400", "3", "1", "0", "best", shifts),
+      trayOf("4", "4", "2", "0", "best", shifts),
+      trayOf("4", "3", "1", "0.9", "best", shifts),
+      trayOf("4", "3", "1", "0", "best", "shiftX=\"nan\" shiftY=\"0\""),
+      trayOf("4", "3", "1", "0", "best", "shiftX=\"1e300\" shiftY=\"0\""),
+      trayOf("4", "3", "1", "0", "best", "shiftY=\"0\""),
+      trayOf("4", "3", "1", "0", "nearest", shifts),
+      trayOf("4x", "3", "1", "0", "best", shifts),
+      trayOf("4", "3", "1", "0", "best", shifts + " walls=\"###\""),
+      trayOf("2", "3", "1", "0", "best", shifts + " walls=\"#__x\""),
+  };
+  for (const std::string& tray : bad) {
+    INFO(tray);
+    const Result<Puzzle> p = io::parsePuzzle(fileWith(tray));
+    REQUIRE(p.has_value());
+    CHECK_FALSE(p->tray().has_value());
+    CHECK(io::writePuzzle(*p).find("<tray size=") != std::string::npos);
+  }
+
+  // a second tray is kept beside the first, which is the puzzle's
+  {
+    const Result<Puzzle> p = io::parsePuzzle(fileWith(good + bad[0]));
+    REQUIRE(p.has_value());
+    REQUIRE(p->tray().has_value());
+    CHECK(p->tray()->size == 4);
+    const std::string again = io::writePuzzle(*p);
+    CHECK(again.find("size=\"4\"") != std::string::npos);
+    CHECK(again.find("size=\"400\"") != std::string::npos);
+  }
+
+  // only a cube-grid puzzle has a tray
+  {
+    const Result<Puzzle> p = io::parsePuzzle(fileWith(good, "1"));
+    REQUIRE(p.has_value());
+    CHECK_FALSE(p->tray().has_value());
+  }
+}

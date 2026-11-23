@@ -44,6 +44,7 @@ struct PuzzleFileAccess {
   static void setGridType(Puzzle& p, GridType gt) { p.gt_ = gt; }
   static const std::vector<std::uint32_t>& colors(const Puzzle& p) { return p.colors_; }
   static std::vector<PuzzleImage>& images(Puzzle& p) { return p.images_; }
+  static std::optional<tilted::Tray>& tray(Puzzle& p) { return p.tray_; }
 };
 
 struct ProblemFileAccess {
@@ -1172,11 +1173,84 @@ Problem readProblem(const XmlElement& e, const Puzzle& puzzle) {
   return prob;
 }
 
+// ---- the tilted tray (decision 0045) ---------------------------------------------
+
+/// A number as the file holds it; nothing when the text is not one.
+std::optional<double> realOf(const std::string& str) {
+  if (str.empty()) {
+    return std::nullopt;
+  }
+  char* end = nullptr;
+  const double v = std::strtod(str.c_str(), &end);
+  if (end != str.c_str() + str.size() || !std::isfinite(v)) {
+    return std::nullopt;
+  }
+  return v;
+}
+
+/// A whole number from 0 to `most`; nothing when the attribute is missing
+/// or is not one.
+std::optional<unsigned int> wholeOf(const XmlElement& e, const char* name, unsigned int most) {
+  const std::string str = e.attribute(name);
+  char* end = nullptr;
+  const long v = std::strtol(str.c_str(), &end, 10);
+  if (str.empty() || end != str.c_str() + str.size() || v < 0 ||
+      static_cast<unsigned long>(v) > most) {
+    return std::nullopt;
+  }
+  return static_cast<unsigned int>(v);
+}
+
+/// <tray>: the tray of a Tilted Square puzzle. Nothing when a setting is
+/// missing or out of range (an edited file can hold anything); the element
+/// is then kept as the file has it.
+std::optional<tilted::Tray> readTray(const XmlElement& e) {
+  tilted::Tray t;
+  const std::optional<unsigned int> size = wholeOf(e, "size", tilted::Tray::kMaxSize);
+  const std::optional<unsigned int> over = wholeOf(e, "over", tilted::Tray::kMaxSlope);
+  const std::optional<unsigned int> down = wholeOf(e, "down", tilted::Tray::kMaxSlope);
+  const std::optional<double> allowance = realOf(e.attribute("allowance"));
+  const std::optional<double> shiftX = realOf(e.attribute("shiftX"));
+  const std::optional<double> shiftY = realOf(e.attribute("shiftY"));
+  const std::string placement = e.attribute("placement");
+  if (!size || !over || !down || !allowance || !shiftX || !shiftY ||
+      (placement != "best" && placement != "custom")) {
+    return std::nullopt;
+  }
+  t.size = *size;
+  t.over = *over;
+  t.down = *down;
+  t.allowance = *allowance;
+  t.placement = placement == "best" ? tilted::Tray::Placement::Best : tilted::Tray::Placement::Custom;
+  t.shiftX = *shiftX;
+  t.shiftY = *shiftY;
+  // the walls: a character a square, row by row, '#' a wall and '_' open
+  if (const std::string* walls = e.findAttribute("walls"); walls != nullptr) {
+    if (walls->size() != static_cast<std::size_t>(t.size) * t.size) {
+      return std::nullopt;
+    }
+    for (const char ch : *walls) {
+      if (ch != '#' && ch != '_') {
+        return std::nullopt;
+      }
+      t.walls.push_back(ch == '#' ? 1 : 0);
+    }
+    if (std::find(t.walls.begin(), t.walls.end(), 1) == t.walls.end()) {
+      t.walls.clear();
+    }
+  }
+  if (!t.valid()) {
+    return std::nullopt;
+  }
+  return t;
+}
+
 // ---- the puzzle -----------------------------------------------------------------
 
 // Writer positions of the known children of <puzzle>.
 enum PuzzleSlot : unsigned int {
   kSlotGridType = 0,
+  kSlotTray,
   kSlotColors,
   kSlotImages,
   kSlotShapes,
@@ -1221,6 +1295,15 @@ Puzzle readPuzzleElement(const XmlElement& root) {
       }
       A::setGridType(puzzle, readGridType(c));
       haveGrid = true;
+    } else if (c.name == "tray") {
+      // a second one, or one that cannot be read, is kept as it is
+      std::optional<tilted::Tray> tray = A::tray(puzzle) ? std::nullopt : readTray(c);
+      if (tray) {
+        keep.known(kSlotTray);
+        A::tray(puzzle) = std::move(tray);
+      } else {
+        keep.unknown(c);
+      }
     } else if (c.name == "colors") {
       keep.known(kSlotColors);
       for (const XmlElement& col : c.children) {
@@ -1273,6 +1356,10 @@ Puzzle readPuzzleElement(const XmlElement& root) {
     }
   }
 
+  // only a cube-grid puzzle has a tilted tray
+  if (puzzle.getGridType().getType() != GridKind::Bricks) {
+    A::tray(puzzle).reset();
+  }
   // a stacking puzzle has a board, even when its file has none
   if (puzzle.getGridType().getType() == GridKind::Stacking && puzzle.rodSetCount() == 0) {
     puzzle.addRodSet();
@@ -1645,6 +1732,39 @@ void writeSlideMarks(XmlWriter& xml, const Problem& prob) {
   xml.endTag("slideMarks");
 }
 
+/// A number written in as few digits as read back to the same value.
+std::string realText(double v) {
+  std::array<char, 40> buf{};
+  for (const int digits : {15, 16, 17}) {
+    std::snprintf(buf.data(), buf.size(), "%.*g", digits, v);
+    if (std::strtod(buf.data(), nullptr) == v) {
+      break;
+    }
+  }
+  return buf.data();
+}
+
+/// The puzzle's <tray> (decision 0045).
+void writeTray(XmlWriter& xml, const tilted::Tray& t) {
+  xml.newTag("tray");
+  xml.newAttrib("size", t.size);
+  xml.newAttrib("over", t.over);
+  xml.newAttrib("down", t.down);
+  xml.newAttrib("allowance", realText(t.allowance));
+  xml.newAttrib("placement", t.placement == tilted::Tray::Placement::Best ? "best" : "custom");
+  xml.newAttrib("shiftX", realText(t.shiftX));
+  xml.newAttrib("shiftY", realText(t.shiftY));
+  if (!t.walls.empty()) {
+    std::string walls;
+    walls.reserve(t.walls.size());
+    for (const std::uint8_t w : t.walls) {
+      walls.push_back(w != 0 ? '#' : '_');
+    }
+    xml.newAttrib("walls", walls);
+  }
+  xml.endTag("tray");
+}
+
 /// The puzzle's <rodSets> (stacking::saveRodSets): on a stacking puzzle, or
 /// when there are any.
 void writeRodSets(XmlWriter& xml, const Puzzle& puzzle) {
@@ -1884,6 +2004,13 @@ std::string writePuzzle(const Puzzle& puzzle) {
   xml.newTag("gridType");
   xml.newAttrib("type", static_cast<unsigned long>(puzzle.getGridType().getType()));
   xml.endTag("gridType");
+
+  // the tilted tray, when the puzzle has one (decision 0045); the original
+  // passes over the element
+  writeKept(xml, kept, kSlotTray);
+  if (puzzle.tray()) {
+    writeTray(xml, *puzzle.tray());
+  }
 
   writeKept(xml, kept, kSlotColors);
   xml.newTag("colors");

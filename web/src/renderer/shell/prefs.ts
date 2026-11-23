@@ -236,11 +236,9 @@ export function validPrefs(saved: Record<string, unknown>): Partial<Prefs> {
   const out: Partial<Record<keyof Prefs, unknown>> = {};
   for (const k of Object.keys(DEFAULTS) as (keyof Prefs)[]) {
     // Z Up was called Z Up + Y Away
-    // The board colors were first saved under the British spelling of Color in their names
-    const v =
-      k === 'zAxis' && saved[k] === 'Z Up + Y Away'
-        ? 'Z Up'
-        : (saved[k] ?? saved[k.replace('Color', 'Col' + 'our')]);
+    // The board colors were first saved as boardColourLight and boardColourDark // british-ok
+    const legacy = k.replace('Color', 'Colour'); // british-ok
+    const v = k === 'zAxis' && saved[k] === 'Z Up + Y Away' ? 'Z Up' : (saved[k] ?? saved[legacy]);
     const choices = CHOICES[k];
     const ok =
       choices !== undefined

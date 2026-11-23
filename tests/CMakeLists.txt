@@ -42,6 +42,7 @@ add_executable(bt_tests
   unit/mesh/test_uniform_mesh.cpp
   unit/model/test_model_dump.cpp
   unit/model/test_puzzle_model.cpp
+  unit/model/test_tilted_tray.cpp
   unit/solve/test_assembler.cpp
   unit/solve/test_assembler_1.cpp
   unit/solve/test_derived_disassembly.cpp

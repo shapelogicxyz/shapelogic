@@ -73,6 +73,7 @@ add_library(btcore STATIC
   shapelogic/model/sliding.cpp
   shapelogic/model/solution.cpp
   shapelogic/model/stacking.cpp
+  shapelogic/model/tilted_tray.cpp
   shapelogic/solve/assembler.cpp
   shapelogic/solve/assembler_0.cpp
   shapelogic/solve/assembler_1.cpp

@@ -13,10 +13,12 @@
 #include "shapelogic/model/problem.h"
 #include "shapelogic/model/puzzle_image.h"
 #include "shapelogic/model/stacking_types.h"
+#include "shapelogic/model/tilted_tray.h"
 #include "shapelogic/model/xml_element.h"
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -135,6 +137,16 @@ class Puzzle {
     return rodSets_[idx];
   }
 
+  // ---- the tilted tray (decision 0045) ----------------------------------------
+
+  /// The tray of a Tilted Square puzzle; none on any other puzzle. Only a
+  /// cube-grid (Bricks) puzzle has one.
+  [[nodiscard]] const std::optional<tilted::Tray>& tray() const { return tray_; }
+  /// Sets the tray (valid(), on the Bricks grid) or, with nullopt, takes it
+  /// away. The shapes are not touched: the board is made from the tray by
+  /// the document.
+  void setTray(std::optional<tilted::Tray> tray);
+
   // ---- pictures (decision 0038) ------------------------------------------------
 
   /// Adds a picture (bytes checked by sniffImage()); returns its id, that of
@@ -170,6 +182,8 @@ class Puzzle {
   std::vector<ClonePtr<Problem>> problems_;
   /// The boards of a stacking puzzle; empty on other grids.
   std::vector<stacking::RodSet> rodSets_;
+  /// The tray of a Tilted Square puzzle (decision 0045).
+  std::optional<tilted::Tray> tray_;
   /// red in the lowest byte, then green, then blue
   std::vector<std::uint32_t> colors_;
   std::vector<PuzzleImage> images_;

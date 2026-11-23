@@ -37,6 +37,11 @@ void Puzzle::removeShape(unsigned int idx) {
   shapes_.erase(shapes_.begin() + idx);
 }
 
+void Puzzle::setTray(std::optional<tilted::Tray> tray) {
+  BT_ASSERT(!tray || (tray->valid() && gt_.getType() == GridKind::Bricks));
+  tray_ = std::move(tray);
+}
+
 unsigned int Puzzle::addImage(const ImageInfo& info, std::string bytes) {
   for (const PuzzleImage& im : images_) {
     if (im.type == info.type && *im.bytes == bytes) {
